@@ -1,0 +1,27 @@
+import { NextResponse, type NextRequest } from 'next/server'
+import { updateSession } from '@/lib/supabase/middleware'
+
+const PUBLIC_PREFIXES = ['/login', '/signup', '/verify', '/auth']
+
+export async function middleware(request: NextRequest) {
+  const { user, response } = await updateSession(request)
+
+  const path = request.nextUrl.pathname
+  const isPublic = PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))
+
+  if (!user && !isPublic) {
+    const loginUrl = new URL('/login', request.url)
+    if (path !== '/') loginUrl.searchParams.set('redirect', path)
+    return NextResponse.redirect(loginUrl)
+  }
+
+  if (user && (path === '/login' || path === '/signup')) {
+    return NextResponse.redirect(new URL('/', request.url))
+  }
+
+  return response
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/webhooks|api/inngest).*)'],
+}

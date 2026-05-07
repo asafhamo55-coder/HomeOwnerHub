@@ -18,6 +18,82 @@ importers:
         specifier: ^5
         version: 5.9.3
 
+  apps/eviction:
+    dependencies:
+      '@homeownerhub/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
+      '@homeownerhub/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@homeownerhub/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@hookform/resolvers':
+        specifier: ^3.9.0
+        version: 3.10.0(react-hook-form@7.75.0(react@19.2.6))
+      '@stripe/stripe-js':
+        specifier: ^4.0.0
+        version: 4.10.0
+      '@supabase/ssr':
+        specifier: ^0.10.2
+        version: 0.10.2(@supabase/supabase-js@2.105.3)
+      '@supabase/supabase-js':
+        specifier: ^2.45.0
+        version: 2.105.3
+      date-fns:
+        specifier: ^4.0.0
+        version: 4.1.0
+      framer-motion:
+        specifier: ^11.0.0
+        version: 11.18.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      lucide-react:
+        specifier: ^0.460.0
+        version: 0.460.0(react@19.2.6)
+      next:
+        specifier: ^15.0.0
+        version: 15.5.16(@opentelemetry/api@1.9.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.6
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.6(react@19.2.6)
+      react-hook-form:
+        specifier: ^7.53.0
+        version: 7.75.0(react@19.2.6)
+      stripe:
+        specifier: ^17.0.0
+        version: 17.7.0
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
+    devDependencies:
+      '@tailwindcss/typography':
+        specifier: ^0.5.0
+        version: 0.5.19(tailwindcss@3.4.19(yaml@2.8.4))
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.14)
+      autoprefixer:
+        specifier: ^10.4.0
+        version: 10.5.0(postcss@8.5.14)
+      postcss:
+        specifier: ^8.4.0
+        version: 8.5.14
+      tailwindcss:
+        specifier: ^3.4.0
+        version: 3.4.19(yaml@2.8.4)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
   apps/hoa:
     dependencies:
       '@homeownerhub/ai':

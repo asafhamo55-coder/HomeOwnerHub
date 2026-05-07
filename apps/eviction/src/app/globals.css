@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Eviction Hub theming — purple primary, AAA contrast across the board.
+   Eviction is high-stakes legal work. Every sentence the user reads must
+   be unambiguous; every button must be unmistakable. AAA contrast (7:1)
+   is the floor, not the ceiling.                                          */
+@layer base {
+  :root {
+    --radius: 10px;
+
+    /* Surfaces */
+    --background: 250 50% 99%;          /* #FAFAFF */
+    --surface: 0 0% 100%;
+    --border: 251 70% 95%;              /* #EDE9FE */
+
+    /* Brand */
+    --primary: 258 90% 66%;             /* #8B5CF6 violet */
+    --primary-fg: 0 0% 100%;
+    --accent: 38 92% 50%;               /* amber for warnings */
+
+    /* Text — AAA against the background */
+    --muted: 263 65% 8%;                /* #0F0A1E */
+    --muted-fg: 215 19% 47%;            /* #64748B */
+
+    --destructive: 0 84% 60%;
+
+    --font-sans: var(--font-inter), system-ui, sans-serif;
+    --font-mono: var(--font-jetbrains-mono), monospace;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--muted));
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  *:focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary) / 0.2);
+  }
+}
