@@ -41,3 +41,22 @@ export type { EmptyStateProps } from './components/EmptyState'
 // AI-specific (mandatory gate before any AI artifact ships)
 export { BarBGate } from './components/BarBGate'
 export type { BarBGateProps } from './components/BarBGate'
+
+// Layout
+export {
+  AppShell,
+  AppShellSidebar,
+  AppShellMain,
+  AppShellHeader,
+  AppShellContent,
+} from './layouts/AppShell'
+
+// Sidebar primitives
+export {
+  SidebarBrand,
+  SidebarNav,
+  SidebarSection,
+  SidebarFooter,
+  NavItem,
+} from './components/Sidebar'
+export type { NavItemProps } from './components/Sidebar'
