@@ -773,6 +773,66 @@ export type Database = {
         }
         Relationships: []
       }
+      wizard_drafts: {
+        Row: {
+          completed: boolean
+          created_at: string
+          current_step: string
+          id: string
+          kind: string
+          notified_at: string | null
+          org_id: string
+          payload: Json
+          step_index: number
+          total_steps: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          current_step?: string
+          id?: string
+          kind: string
+          notified_at?: string | null
+          org_id: string
+          payload?: Json
+          step_index?: number
+          total_steps?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          current_step?: string
+          id?: string
+          kind?: string
+          notified_at?: string | null
+          org_id?: string
+          payload?: Json
+          step_index?: number
+          total_steps?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wizard_drafts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wizard_drafts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
