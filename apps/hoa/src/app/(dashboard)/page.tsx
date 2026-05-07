@@ -1,8 +1,13 @@
 import { Suspense } from 'react'
 import { Card, CardContent, Skeleton } from '@homeownerhub/ui'
 import { getCurrentOrg } from '@/lib/orgs'
-import { getDashboardStats, getLatestDigest } from '@/lib/dashboard/queries'
+import {
+  getComplianceHeatMap,
+  getDashboardStats,
+  getLatestDigest,
+} from '@/lib/dashboard/queries'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { ComplianceHeatMap } from '@/components/dashboard/ComplianceHeatMap'
 import { DailyDigestCard } from '@/components/dashboard/DailyDigestCard'
 import {
   DuesOverviewCard,
@@ -46,9 +51,10 @@ export default async function DashboardHome() {
 }
 
 async function DashboardContent({ orgId }: { orgId: string }) {
-  const [stats, digest] = await Promise.all([
+  const [stats, digest, heatMapCells] = await Promise.all([
     getDashboardStats(orgId),
     getLatestDigest(orgId),
+    getComplianceHeatMap(orgId),
   ])
 
   return (
@@ -66,6 +72,8 @@ async function DashboardContent({ orgId }: { orgId: string }) {
           propertiesBehind={stats.propertiesBehind}
         />
       </div>
+
+      <ComplianceHeatMap cells={heatMapCells} />
     </div>
   )
 }
