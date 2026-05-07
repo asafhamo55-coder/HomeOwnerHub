@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import {
@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ImagePlus,
   Loader2,
+  Save,
   Sparkles,
   X,
 } from 'lucide-react'
@@ -20,19 +21,21 @@ import {
   CardContent,
   Input,
   Textarea,
-  cn,
+  WizardStepper,
+  type WizardStep as StepperStep,
 } from '@homeownerhub/ui'
 import { createApprovedViolation } from '@/lib/violations'
+import {
+  saveDraft,
+  markDraftCompleted,
+  discardDraft,
+  type WizardDraft,
+} from '@/lib/drafts'
 
 interface WizardProperty {
   id: string
   address: string
   unit_number: string | null
-}
-
-interface WizardProps {
-  properties: WizardProperty[]
-  hasParsedCCR: boolean
 }
 
 interface AnalysisResult {
@@ -45,34 +48,136 @@ interface AnalysisResult {
   warnings: string[]
 }
 
-type WizardStep = 'capture' | 'analyzing' | 'review' | 'done'
+interface FieldSuggestion {
+  field: string
+  value: string
+  reasoning: string
+}
 
-export function Wizard({ properties, hasParsedCCR }: WizardProps) {
+type WizardStepId = 'capture' | 'analyzing' | 'review' | 'done'
+
+interface WizardProps {
+  properties: WizardProperty[]
+  hasParsedCCR: boolean
+  /** When set, the wizard hydrates its state from this draft and resumes. */
+  initialDraft?: WizardDraft | null
+}
+
+const STEPPER_STEPS: StepperStep[] = [
+  { id: 'capture', label: 'Report', description: 'Photo, notes, property' },
+  { id: 'review', label: 'Review & approve', description: 'Edit AI letter, send via BarBGate' },
+  { id: 'done', label: 'Recorded', description: 'Notice marked sent' },
+]
+
+function stepIndex(step: WizardStepId): number {
+  if (step === 'capture' || step === 'analyzing') return 0
+  if (step === 'review') return 1
+  return 2
+}
+
+interface DraftPayload {
+  propertyId?: string
+  notes?: string
+  curePeriod?: number
+  fineAmount?: number
+  photoStoragePath?: string | null
+  photoSignedUrl?: string | null
+  analysis?: AnalysisResult | null
+}
+
+export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) {
   const router = useRouter()
+  const initialPayload = (initialDraft?.payload ?? {}) as DraftPayload
 
-  const [step, setStep] = useState<WizardStep>('capture')
-  const [propertyId, setPropertyId] = useState(properties[0]?.id ?? '')
-  const [notes, setNotes] = useState('')
-  const [curePeriod, setCurePeriod] = useState(14)
-  const [fineAmount, setFineAmount] = useState(25)
+  const [step, setStep] = useState<WizardStepId>(() => {
+    const cs = (initialDraft?.current_step ?? 'capture') as WizardStepId
+    if (cs === 'review' && initialPayload.analysis) return 'review'
+    return 'capture'
+  })
+
+  const [draftId, setDraftId] = useState<string | null>(initialDraft?.id ?? null)
+  const [propertyId, setPropertyId] = useState(
+    initialPayload.propertyId ?? properties[0]?.id ?? '',
+  )
+  const [notes, setNotes] = useState(initialPayload.notes ?? '')
+  const [curePeriod, setCurePeriod] = useState(initialPayload.curePeriod ?? 14)
+  const [fineAmount, setFineAmount] = useState(initialPayload.fineAmount ?? 25)
 
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
-  const [photoStoragePath, setPhotoStoragePath] = useState<string | null>(null)
-  const [photoSignedUrl, setPhotoSignedUrl] = useState<string | null>(null)
+  const [photoStoragePath, setPhotoStoragePath] = useState<string | null>(
+    initialPayload.photoStoragePath ?? null,
+  )
+  const [photoSignedUrl, setPhotoSignedUrl] = useState<string | null>(
+    initialPayload.photoSignedUrl ?? null,
+  )
   const [photoUploading, setPhotoUploading] = useState(false)
   const [photoError, setPhotoError] = useState<string | null>(null)
 
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null)
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(
+    initialPayload.analysis ?? null,
+  )
   const [analyzeError, setAnalyzeError] = useState<string | null>(null)
 
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, startSubmitting] = useTransition()
   const [createdId, setCreatedId] = useState<string | null>(null)
 
+  // AI suggestions state
+  const [suggestions, setSuggestions] = useState<FieldSuggestion[]>([])
+  const [suggestionsError, setSuggestionsError] = useState<string | null>(null)
+  const [suggesting, startSuggesting] = useTransition()
+  const [aiAppliedFields, setAIAppliedFields] = useState<Set<string>>(new Set())
+
+  const [draftSaving, setDraftSaving] = useState(false)
+  const [draftSavedAt, setDraftSavedAt] = useState<Date | null>(
+    initialDraft?.updated_at ? new Date(initialDraft.updated_at) : null,
+  )
+
   const selectedProperty = properties.find((p) => p.id === propertyId)
 
-  // Eagerly upload the photo on file pick — saves time during analysis later.
+  // Autosave on key state transitions. We don't save on every keystroke —
+  // we save when there's a checkpoint worth resuming to.
+  const lastSavedRef = useRef<string>('')
+  async function persistDraft(currentStep: WizardStepId) {
+    const payload: DraftPayload = {
+      propertyId,
+      notes,
+      curePeriod,
+      fineAmount,
+      photoStoragePath,
+      photoSignedUrl,
+      analysis,
+    }
+    const serialized = JSON.stringify({ payload, currentStep })
+    if (serialized === lastSavedRef.current) return
+    lastSavedRef.current = serialized
+
+    setDraftSaving(true)
+    try {
+      const result = await saveDraft({
+        draftId: draftId ?? undefined,
+        kind: 'violation',
+        payload: payload as unknown as Record<string, unknown>,
+        currentStep,
+        stepIndex: stepIndex(currentStep),
+        totalSteps: STEPPER_STEPS.length,
+      })
+      if (result.ok) {
+        setDraftId(result.draftId)
+        setDraftSavedAt(new Date())
+      }
+    } finally {
+      setDraftSaving(false)
+    }
+  }
+
+  // Save when the step changes — covers capture -> review and into done.
+  useEffect(() => {
+    void persistDraft(step)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step])
+
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -94,6 +199,8 @@ export function Wizard({ properties, hasParsedCCR }: WizardProps) {
       }
       setPhotoStoragePath(body.storagePath)
       setPhotoSignedUrl(body.signedUrl)
+      // Save draft once the photo is uploaded — that's a meaningful checkpoint.
+      void persistDraft('capture')
     } catch (err) {
       setPhotoError(err instanceof Error ? err.message : 'Photo upload failed.')
     } finally {
@@ -108,6 +215,52 @@ export function Wizard({ properties, hasParsedCCR }: WizardProps) {
     setPhotoStoragePath(null)
     setPhotoSignedUrl(null)
     setPhotoError(null)
+  }
+
+  function handleSuggest() {
+    setSuggestionsError(null)
+    setSuggestions([])
+    startSuggesting(async () => {
+      const res = await fetch('/api/ai/suggest-fields', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'violation',
+          partialState: {
+            notes,
+            propertyAddress: selectedProperty?.address ?? '',
+            unitNumber: selectedProperty?.unit_number ?? null,
+            hasPhoto: Boolean(photoStoragePath),
+          },
+          fields: ['cure_period_days', 'fine_amount', 'severity', 'violation_type'],
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setSuggestionsError(body?.message ?? 'Could not generate suggestions.')
+        return
+      }
+      const body = (await res.json()) as { suggestions: FieldSuggestion[] }
+      const list = body.suggestions ?? []
+      setSuggestions(list)
+      const next = new Set(aiAppliedFields)
+      for (const s of list) {
+        if (s.field === 'cure_period_days') {
+          const n = parseInt(s.value, 10)
+          if (!Number.isNaN(n) && n >= 1 && n <= 180) {
+            setCurePeriod(n)
+            next.add('cure_period_days')
+          }
+        } else if (s.field === 'fine_amount') {
+          const n = parseFloat(s.value)
+          if (!Number.isNaN(n) && n >= 0 && n <= 1000) {
+            setFineAmount(n)
+            next.add('fine_amount')
+          }
+        }
+      }
+      setAIAppliedFields(next)
+    })
   }
 
   async function handleAnalyze() {
@@ -160,16 +313,60 @@ export function Wizard({ properties, hasParsedCCR }: WizardProps) {
         return
       }
       setCreatedId(result.violationId)
+      // Mark the draft completed so it falls off the dashboard's
+      // "unfinished workflows" widget.
+      if (draftId) await markDraftCompleted(draftId)
       setStep('done')
     })
   }
+
+  function reasoningFor(field: string): string | null {
+    return suggestions.find((s) => s.field === field)?.reasoning ?? null
+  }
+
+  // Stepper rendered above every step.
+  const stepperHeader = (
+    <div className="space-y-3 border-b border-border pb-4">
+      <WizardStepper
+        steps={STEPPER_STEPS}
+        currentIndex={stepIndex(step)}
+        vertical={false}
+      />
+      <div className="flex items-center justify-between text-xs text-muted-fg">
+        <span>
+          {draftSaving ? (
+            <span className="flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" /> Saving draft…
+            </span>
+          ) : draftSavedAt ? (
+            <span className="flex items-center gap-1">
+              <Save className="h-3 w-3" /> Draft saved
+            </span>
+          ) : null}
+        </span>
+        {draftId && step !== 'done' ? (
+          <button
+            type="button"
+            onClick={async () => {
+              if (!confirm('Discard this in-progress violation? This cannot be undone.')) return
+              await discardDraft(draftId)
+              router.push('/violations')
+            }}
+            className="text-muted-fg hover:text-destructive"
+          >
+            Discard draft
+          </button>
+        ) : null}
+      </div>
+    </div>
+  )
 
   // ── Step 1: Capture ────────────────────────────────────────────────
   if (step === 'capture') {
     const canAnalyze = Boolean(propertyId && photoSignedUrl && !photoUploading)
     return (
       <div className="space-y-5">
-        <StepIndicator step={1} total={3} title="Report" />
+        {stepperHeader}
 
         <div className="space-y-1.5">
           <label htmlFor="property" className="text-sm font-medium text-muted">
@@ -200,20 +397,28 @@ export function Wizard({ properties, hasParsedCCR }: WizardProps) {
           <label className="text-sm font-medium text-muted">
             Photo <span className="text-destructive">*</span>
           </label>
-          {photoPreview ? (
+          {photoPreview || photoStoragePath ? (
             <Card>
               <CardContent className="flex items-start gap-3 p-3">
                 <div className="relative h-32 w-32 flex-shrink-0 overflow-hidden rounded-lg bg-background">
-                  <Image
-                    src={photoPreview}
-                    alt="Violation photo preview"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
+                  {photoPreview ? (
+                    <Image
+                      src={photoPreview}
+                      alt="Violation photo preview"
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-xs text-muted-fg">
+                      Photo on file
+                    </div>
+                  )}
                 </div>
                 <div className="min-w-0 flex-1 text-sm">
-                  <p className="truncate font-medium text-muted">{photoFile?.name}</p>
+                  <p className="truncate font-medium text-muted">
+                    {photoFile?.name ?? 'Restored from draft'}
+                  </p>
                   {photoUploading ? (
                     <p className="mt-1 flex items-center gap-1 text-xs text-muted-fg">
                       <Loader2 className="h-3 w-3 animate-spin" /> Uploading…
@@ -263,11 +468,45 @@ export function Wizard({ properties, hasParsedCCR }: WizardProps) {
           />
         </div>
 
+        {/* AI suggestions block */}
+        <div className="rounded-lg border border-border bg-background/50 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="flex items-center gap-1.5 text-sm font-medium text-muted">
+                <Sparkles className="h-3.5 w-3.5 text-primary" /> AI suggestions
+              </p>
+              <p className="text-xs text-muted-fg">
+                Pick sensible defaults for cure period and fine from the notes + photo.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSuggest}
+              loading={suggesting}
+              disabled={!propertyId}
+            >
+              Suggest values
+            </Button>
+          </div>
+          {suggestionsError ? (
+            <p className="mt-2 text-xs text-amber-700">{suggestionsError}</p>
+          ) : null}
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <label htmlFor="cure" className="text-sm font-medium text-muted">
-              Cure period (days)
-            </label>
+          <FieldWithSuggestion
+            label="Cure period (days)"
+            htmlFor="cure"
+            isAI={aiAppliedFields.has('cure_period_days')}
+            reasoning={reasoningFor('cure_period_days')}
+            onClearAI={() => {
+              const next = new Set(aiAppliedFields)
+              next.delete('cure_period_days')
+              setAIAppliedFields(next)
+            }}
+          >
             <Input
               id="cure"
               type="number"
@@ -275,13 +514,27 @@ export function Wizard({ properties, hasParsedCCR }: WizardProps) {
               min={1}
               max={180}
               value={curePeriod}
-              onChange={(e) => setCurePeriod(Number(e.target.value) || 14)}
+              onChange={(e) => {
+                setCurePeriod(Number(e.target.value) || 14)
+                if (aiAppliedFields.has('cure_period_days')) {
+                  const next = new Set(aiAppliedFields)
+                  next.delete('cure_period_days')
+                  setAIAppliedFields(next)
+                }
+              }}
             />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="fine" className="text-sm font-medium text-muted">
-              Daily fine if uncured ($)
-            </label>
+          </FieldWithSuggestion>
+          <FieldWithSuggestion
+            label="Daily fine if uncured ($)"
+            htmlFor="fine"
+            isAI={aiAppliedFields.has('fine_amount')}
+            reasoning={reasoningFor('fine_amount')}
+            onClearAI={() => {
+              const next = new Set(aiAppliedFields)
+              next.delete('fine_amount')
+              setAIAppliedFields(next)
+            }}
+          >
             <Input
               id="fine"
               type="number"
@@ -290,9 +543,16 @@ export function Wizard({ properties, hasParsedCCR }: WizardProps) {
               max={1000}
               step={5}
               value={fineAmount}
-              onChange={(e) => setFineAmount(Number(e.target.value) || 0)}
+              onChange={(e) => {
+                setFineAmount(Number(e.target.value) || 0)
+                if (aiAppliedFields.has('fine_amount')) {
+                  const next = new Set(aiAppliedFields)
+                  next.delete('fine_amount')
+                  setAIAppliedFields(next)
+                }
+              }}
             />
-          </div>
+          </FieldWithSuggestion>
         </div>
 
         {!hasParsedCCR ? (
@@ -314,7 +574,7 @@ export function Wizard({ properties, hasParsedCCR }: WizardProps) {
 
         <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
           <Button variant="outline" onClick={() => router.push('/violations')}>
-            Cancel
+            Save & exit
           </Button>
           <Button onClick={handleAnalyze} disabled={!canAnalyze}>
             <Sparkles className="h-4 w-4" />
@@ -328,17 +588,19 @@ export function Wizard({ properties, hasParsedCCR }: WizardProps) {
   // ── Step 2: Analyzing ─────────────────────────────────────────────
   if (step === 'analyzing') {
     return (
-      <div className="space-y-6 py-8 text-center">
-        <StepIndicator step={2} total={3} title="Analyzing" />
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Loader2 className="h-6 w-6 animate-spin" />
-        </div>
-        <div className="space-y-1">
-          <p className="font-medium text-muted">Running Covenant Brain</p>
-          <p className="text-sm text-muted-fg">
-            Reading your photo, matching the right CC&amp;R section, and drafting a letter. Usually
-            5–10 seconds.
-          </p>
+      <div className="space-y-6">
+        {stepperHeader}
+        <div className="py-8 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+          <div className="mt-4 space-y-1">
+            <p className="font-medium text-muted">Running Covenant Brain</p>
+            <p className="text-sm text-muted-fg">
+              Reading your photo, matching the right CC&amp;R section, and drafting a letter.
+              Usually 5–10 seconds.
+            </p>
+          </div>
         </div>
       </div>
     )
@@ -348,7 +610,7 @@ export function Wizard({ properties, hasParsedCCR }: WizardProps) {
   if (step === 'review' && analysis) {
     return (
       <div className="space-y-5">
-        <StepIndicator step={3} total={3} title="Review &amp; approve" />
+        {stepperHeader}
 
         {analysis.warnings.length > 0 ? (
           <div className="space-y-2">
@@ -408,21 +670,24 @@ export function Wizard({ properties, hasParsedCCR }: WizardProps) {
   // ── Step 4: Done ──────────────────────────────────────────────────
   if (step === 'done' && createdId) {
     return (
-      <div className="space-y-5 py-8 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-          <CheckCircle2 className="h-7 w-7" />
-        </div>
-        <div className="space-y-1">
-          <h2 className="text-xl font-bold text-muted">Violation recorded</h2>
-          <p className="text-sm text-muted-fg">
-            Notice marked as sent. The cure clock is now running.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-          <Button variant="outline" onClick={() => router.push(`/violations/${createdId}`)}>
-            View violation
-          </Button>
-          <Button onClick={() => router.refresh()}>Create another</Button>
+      <div className="space-y-5">
+        {stepperHeader}
+        <div className="py-8 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+            <CheckCircle2 className="h-7 w-7" />
+          </div>
+          <div className="mt-4 space-y-1">
+            <h2 className="text-xl font-bold text-muted">Violation recorded</h2>
+            <p className="text-sm text-muted-fg">
+              Notice marked as sent. The cure clock is now running.
+            </p>
+          </div>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+            <Button variant="outline" onClick={() => router.push(`/violations/${createdId}`)}>
+              View violation
+            </Button>
+            <Button onClick={() => router.refresh()}>Create another</Button>
+          </div>
         </div>
       </div>
     )
@@ -431,26 +696,42 @@ export function Wizard({ properties, hasParsedCCR }: WizardProps) {
   return null
 }
 
-function StepIndicator({ step, total, title }: { step: number; total: number; title: string }) {
+function FieldWithSuggestion({
+  label,
+  htmlFor,
+  isAI,
+  reasoning,
+  onClearAI,
+  children,
+}: {
+  label: string
+  htmlFor: string
+  isAI?: boolean
+  reasoning?: string | null
+  onClearAI?: () => void
+  children: React.ReactNode
+}) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-muted">{title}</p>
-        <p className="text-xs text-muted-fg">
-          Step {step} of {total}
-        </p>
+        <label htmlFor={htmlFor} className="text-sm font-medium text-muted">
+          {label}
+        </label>
+        {isAI ? (
+          <button
+            type="button"
+            onClick={onClearAI}
+            className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary hover:bg-primary/20"
+            title={reasoning ?? 'AI-suggested value'}
+          >
+            <Sparkles className="h-2.5 w-2.5" /> AI · clear
+          </button>
+        ) : null}
       </div>
-      <div className="flex gap-1">
-        {Array.from({ length: total }).map((_, i) => (
-          <div
-            key={i}
-            className={cn(
-              'h-1 flex-1 rounded-full',
-              i < step ? 'bg-primary' : 'bg-border',
-            )}
-          />
-        ))}
-      </div>
+      {children}
+      {isAI && reasoning ? (
+        <p className="text-[11px] text-muted-fg">{reasoning}</p>
+      ) : null}
     </div>
   )
 }

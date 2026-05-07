@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@homeownerhub/ui'
+import { Alert, Card, CardContent, CardHeader, CardTitle } from '@homeownerhub/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadDraft } from '@/lib/drafts'
 import { Wizard } from './Wizard'
 
 export const metadata = { title: 'New violation' }
@@ -12,10 +13,19 @@ interface PropertyOption {
   unit_number: string | null
 }
 
-export default async function NewViolationPage() {
-  const supabase = await getSupabaseServerClient()
+interface SearchParams {
+  draft?: string
+}
 
-  const [propsRes, ccrRes] = await Promise.all([
+export default async function NewViolationPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>
+}) {
+  const supabase = await getSupabaseServerClient()
+  const { draft: draftId } = await searchParams
+
+  const [propsRes, ccrRes, initialDraft] = await Promise.all([
     supabase
       .from('hoa_properties')
       .select('id, address, unit_number')
@@ -25,10 +35,18 @@ export default async function NewViolationPage() {
       .select('id', { count: 'exact', head: true })
       .eq('type', 'ccr')
       .not('parsed_text', 'is', null),
+    draftId ? loadDraft(draftId) : Promise.resolve(null),
   ])
 
   const properties = (propsRes.data ?? []) as PropertyOption[]
   const hasParsedCCR = (ccrRes.count ?? 0) > 0
+
+  // Only resume drafts of the right kind. If a foreign draft id is in the
+  // URL, we ignore it rather than crashing.
+  const usableDraft =
+    initialDraft && initialDraft.kind === 'violation' && !initialDraft.completed
+      ? initialDraft
+      : null
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -40,12 +58,24 @@ export default async function NewViolationPage() {
         Back to violations
       </Link>
 
+      {usableDraft ? (
+        <Alert variant="info" title="Resumed unfinished draft">
+          Picking up where you left off. Your previous photo and notes are restored. The wizard
+          autosaves as you progress; you can close the tab any time and pick up again from the
+          dashboard.
+        </Alert>
+      ) : null}
+
       <Card variant="elevated">
         <CardHeader>
-          <CardTitle>Report a violation</CardTitle>
+          <CardTitle>{usableDraft ? 'Resume violation report' : 'Report a violation'}</CardTitle>
         </CardHeader>
         <CardContent>
-          <Wizard properties={properties} hasParsedCCR={hasParsedCCR} />
+          <Wizard
+            properties={properties}
+            hasParsedCCR={hasParsedCCR}
+            initialDraft={usableDraft}
+          />
         </CardContent>
       </Card>
     </div>
