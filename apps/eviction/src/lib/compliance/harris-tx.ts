@@ -23,10 +23,13 @@
  * fallthrough below).
  */
 
+// Schema-aligned slugs (eviction_cases_notice_type_check enforces these
+// exact values). 'unknown' is local-only — never persisted; used when
+// the rule engine refuses to handle a case (commercial / not past due).
 export type EvictionNoticeType =
-  | '3_day_pay_or_quit'
-  | '30_day_no_cause'
-  | 'cure_or_quit'
+  | '3day_pay_or_quit'
+  | '30day_vacate'
+  | 'just_cause'
   | 'unknown'
 
 export interface ComplianceCheckInput {
@@ -135,7 +138,7 @@ export function checkHarrisCountyCompliance(
       'Texas Property Code §24.005 requires a written 3-Day Notice to Vacate before any forcible-detainer filing. Serve the notice today; the earliest filing date is 3 days after service.',
     legalBasis:
       'Tex. Prop. Code §24.005(a)–(g). Notice may be served in person, by posting to the inside of the main entry door, or by certified mail (return receipt requested).',
-    requiredNoticeType: '3_day_pay_or_quit',
+    requiredNoticeType: '3day_pay_or_quit',
     filingEligibleDate,
     daysUntilFiling: daysBetween(today, filingEligibleDate),
     canServeNoticeNow: true,

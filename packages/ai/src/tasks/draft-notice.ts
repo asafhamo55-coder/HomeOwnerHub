@@ -1,6 +1,9 @@
 import { runMain } from '../agents/main'
 
-export type EvictionNoticeType = '3_day_pay_or_quit' | '30_day_no_cause' | 'cure_or_quit'
+// Schema-aligned slugs (eviction_cases_notice_type_check enforces these
+// exact values). humanizeNoticeType() maps them to the legal label that
+// goes into the AI prompt.
+export type EvictionNoticeType = '3day_pay_or_quit' | '30day_vacate' | 'just_cause'
 
 export async function draftEvictionNotice(params: {
   tenantName: string
@@ -35,13 +38,13 @@ Requirements:
   )
 }
 
-function humanizeNoticeType(t: EvictionNoticeType): string {
+export function humanizeNoticeType(t: EvictionNoticeType): string {
   switch (t) {
-    case '3_day_pay_or_quit':
+    case '3day_pay_or_quit':
       return '3-Day Notice to Pay or Quit'
-    case '30_day_no_cause':
-      return '30-Day No-Cause Termination'
-    case 'cure_or_quit':
-      return 'Notice to Cure or Quit'
+    case '30day_vacate':
+      return '30-Day Notice to Vacate'
+    case 'just_cause':
+      return 'Just Cause Notice'
   }
 }

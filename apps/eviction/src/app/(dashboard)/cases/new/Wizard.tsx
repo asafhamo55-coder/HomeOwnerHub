@@ -19,6 +19,7 @@ import {
   WizardStepper,
   type WizardStep as StepperStep,
 } from '@homeownerhub/ui'
+import { humanizeNoticeType } from '@homeownerhub/ai'
 import { ComplianceBlock } from '@/components/cases/ComplianceBlock'
 import {
   checkHarrisCountyCompliance,
@@ -402,7 +403,9 @@ export function Wizard({ workspaceName, initial, initialDraft }: WizardProps) {
             loading={aiLoading}
             disabled={!compliance.canServeNoticeNow}
           >
-            Generate {compliance.requiredNoticeType.replace(/_/g, ' ')}
+            Generate {compliance.requiredNoticeType === 'unknown'
+              ? 'notice'
+              : humanizeNoticeType(compliance.requiredNoticeType)}
           </Button>
         </div>
       </div>
@@ -448,7 +451,11 @@ export function Wizard({ workspaceName, initial, initialDraft }: WizardProps) {
           <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
             <Detail label="Property">{propertyAddress}</Detail>
             <Detail label="Tenant">{tenantName}</Detail>
-            <Detail label="Notice type">{compliance.requiredNoticeType.replace(/_/g, ' ')}</Detail>
+            <Detail label="Notice type">
+              {compliance.requiredNoticeType === 'unknown'
+                ? 'Unknown'
+                : humanizeNoticeType(compliance.requiredNoticeType)}
+            </Detail>
             <Detail label="Earliest filing">
               {compliance.filingEligibleDate.toLocaleDateString('en-US', {
                 month: 'short',

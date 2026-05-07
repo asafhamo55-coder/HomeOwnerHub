@@ -27,7 +27,7 @@ export { generateDailyDigest } from './tasks/daily-digest'
 export { aiComplianceCheck } from './tasks/compliance-check'
 export type { AIComplianceFlags } from './tasks/compliance-check'
 
-export { draftEvictionNotice } from './tasks/draft-notice'
+export { draftEvictionNotice, humanizeNoticeType } from './tasks/draft-notice'
 export type { EvictionNoticeType } from './tasks/draft-notice'
 
 export { classifyIntent } from './tasks/classify-intent'

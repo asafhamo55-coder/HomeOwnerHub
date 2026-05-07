@@ -131,12 +131,12 @@ function LegalBasis({
 
 function humanize(t: string): string {
   switch (t) {
-    case '3_day_pay_or_quit':
+    case '3day_pay_or_quit':
       return '3-Day Notice to Vacate'
-    case '30_day_no_cause':
-      return '30-Day No-Cause Termination'
-    case 'cure_or_quit':
-      return 'Notice to Cure or Quit'
+    case '30day_vacate':
+      return '30-Day Notice to Vacate'
+    case 'just_cause':
+      return 'Just Cause Notice'
     default:
       return 'required notice'
   }
