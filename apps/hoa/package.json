@@ -1,0 +1,45 @@
+{
+  "name": "hoa",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack -p 3000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@homeownerhub/ai": "workspace:*",
+    "@homeownerhub/db": "workspace:*",
+    "@homeownerhub/ui": "workspace:*",
+    "@hookform/resolvers": "^3.9.0",
+    "@stripe/stripe-js": "^4.0.0",
+    "@supabase/ssr": "^0.5.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "@tanstack/react-table": "^8.20.0",
+    "cmdk": "^1.0.0",
+    "date-fns": "^4.0.0",
+    "framer-motion": "^11.0.0",
+    "inngest": "^3.20.0",
+    "lucide-react": "^0.460.0",
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-dropzone": "^14.0.0",
+    "react-hook-form": "^7.53.0",
+    "react-hot-toast": "^2.4.0",
+    "stripe": "^17.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "@tailwindcss/typography": "^0.5.0",
+    "typescript": "^5"
+  }
+}

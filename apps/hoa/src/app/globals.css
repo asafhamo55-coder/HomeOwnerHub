@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* HOA Hub theming — teal primary, warm bg, AAA contrast, larger base font.
+   Linda is 58: every interactive element must clear AA at minimum, and
+   body copy clears AAA (7:1).                                               */
+@layer base {
+  :root {
+    --radius: 12px;
+
+    /* Surfaces */
+    --background: 168 60% 98%;          /* #F8FFFE */
+    --surface: 0 0% 100%;
+    --border: 168 50% 93%;              /* #E5F7F4 */
+
+    /* Brand */
+    --primary: 168 100% 39%;            /* #00C9A7 teal */
+    --primary-fg: 0 0% 100%;
+    --accent: 38 92% 50%;               /* #F59E0B amber */
+
+    /* Text */
+    --muted: 200 60% 9%;                /* #0F2027 — body copy, AAA against bg */
+    --muted-fg: 215 19% 47%;            /* #64748B — secondary text */
+
+    --destructive: 0 84% 60%;
+
+    --font-sans: var(--font-inter), system-ui, sans-serif;
+    --font-mono: var(--font-jetbrains-mono), monospace;
+  }
+
+  html {
+    /* HOA bumps the base from 16 to 18px for accessibility. */
+    font-size: 18px;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--muted));
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  *:focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary) / 0.2);
+  }
+}
