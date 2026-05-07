@@ -6,9 +6,10 @@ import {
   AppShellMain,
   AppShellSidebar,
 } from '@homeownerhub/ui'
-import { getCurrentOrg } from '@/lib/orgs'
+import { getCurrentOrg, getUserHubs } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { HoaSidebar } from '@/components/layout/HoaSidebar'
+import { HoaHubSwitcher } from '@/components/layout/HoaHubSwitcher'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await getSupabaseServerClient()
@@ -17,7 +18,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const org = await getCurrentOrg()
+  const [org, userHubs] = await Promise.all([getCurrentOrg(), getUserHubs()])
   if (!org) redirect('/onboarding')
 
   return (
@@ -26,7 +27,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <HoaSidebar orgName={org.name} userEmail={user.email ?? ''} />
       </AppShellSidebar>
       <AppShellMain>
-        <AppShellHeader />
+        <AppShellHeader>
+          <div className="ml-auto">
+            <HoaHubSwitcher userHubs={userHubs} />
+          </div>
+        </AppShellHeader>
         <AppShellContent>{children}</AppShellContent>
       </AppShellMain>
     </AppShell>

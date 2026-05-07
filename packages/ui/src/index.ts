@@ -60,3 +60,7 @@ export {
   NavItem,
 } from './components/Sidebar'
 export type { NavItemProps } from './components/Sidebar'
+
+// Hub switcher (cross-hub nav in AppShellHeader)
+export { HubSwitcher } from './components/HubSwitcher'
+export type { Hub, HubType } from './components/HubSwitcher'
