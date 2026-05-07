@@ -6,6 +6,7 @@ import {
   getDashboardStats,
   getLatestDigest,
 } from '@/lib/dashboard/queries'
+import { listUnfinishedDrafts } from '@/lib/drafts'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ComplianceHeatMap } from '@/components/dashboard/ComplianceHeatMap'
 import { DailyDigestCard } from '@/components/dashboard/DailyDigestCard'
@@ -14,6 +15,7 @@ import {
   PendingApprovalsCard,
   ViolationSummaryCard,
 } from '@/components/dashboard/StatCards'
+import { UnfinishedWorkflowsCard } from '@/components/dashboard/UnfinishedWorkflowsCard'
 
 export const metadata = { title: 'Dashboard' }
 
@@ -51,10 +53,11 @@ export default async function DashboardHome() {
 }
 
 async function DashboardContent({ orgId }: { orgId: string }) {
-  const [stats, digest, heatMapCells] = await Promise.all([
+  const [stats, digest, heatMapCells, drafts] = await Promise.all([
     getDashboardStats(orgId),
     getLatestDigest(orgId),
     getComplianceHeatMap(orgId),
+    listUnfinishedDrafts(),
   ])
 
   return (
@@ -63,6 +66,8 @@ async function DashboardContent({ orgId }: { orgId: string }) {
         initialContent={digest.content}
         initialGeneratedAt={digest.generatedAt}
       />
+
+      <UnfinishedWorkflowsCard drafts={drafts} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <PendingApprovalsCard count={stats.pendingApprovals} />

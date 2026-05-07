@@ -3,7 +3,9 @@ import { ScrollText, Plus, AlertCircle } from 'lucide-react'
 import { format, differenceInCalendarDays } from 'date-fns'
 import { Badge, Button, Card, EmptyState } from '@homeownerhub/ui'
 import { getCurrentOrg } from '@/lib/orgs'
+import { listUnfinishedDrafts } from '@/lib/drafts'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { UnfinishedWorkflowsCard } from '@/components/dashboard/UnfinishedWorkflowsCard'
 
 export const metadata = { title: 'Cases' }
 
@@ -34,14 +36,17 @@ export default async function CasesHomePage() {
   if (!org) return null
 
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
-    .from('eviction_cases')
-    .select(
-      'id, property_address, tenant_name, status, county, state, created_at, filing_eligible_date, notice_sent_at',
-    )
-    .order('created_at', { ascending: false })
+  const [casesRes, drafts] = await Promise.all([
+    supabase
+      .from('eviction_cases')
+      .select(
+        'id, property_address, tenant_name, status, county, state, created_at, filing_eligible_date, notice_sent_at',
+      )
+      .order('created_at', { ascending: false }),
+    listUnfinishedDrafts(),
+  ])
 
-  const cases = (data ?? []) as CaseRow[]
+  const cases = (casesRes.data ?? []) as CaseRow[]
 
   // Apply derived status: notice_sent rows whose filing_eligible_date <= today
   // are effectively "filing_ready" even if no one has flipped the status yet.
@@ -78,6 +83,8 @@ export default async function CasesHomePage() {
           </Link>
         </Button>
       </header>
+
+      <UnfinishedWorkflowsCard drafts={drafts} />
 
       {cases.length === 0 ? (
         <EmptyState

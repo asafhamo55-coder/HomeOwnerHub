@@ -5,9 +5,10 @@ import {
   hoaLateFeeJob,
   pmLateFeeJob,
   evictionReminderJob,
+  wizardDraftRemindersJob,
 } from '@homeownerhub/jobs'
 
-// All four crons mount in the HOA app for Phase 1. Inngest is a single
+// All five crons mount in the HOA app for Phase 1. Inngest is a single
 // app-id ("homeownerhub") so it doesn't matter where the handler lives —
 // scheduled invocations target the function id, not the host. Apps/eviction
 // and apps/pm could mount the same handler if they need their own
@@ -18,5 +19,11 @@ import {
 // /api/inngest already.
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [dailyDigestJob, hoaLateFeeJob, pmLateFeeJob, evictionReminderJob],
+  functions: [
+    dailyDigestJob,
+    hoaLateFeeJob,
+    pmLateFeeJob,
+    evictionReminderJob,
+    wizardDraftRemindersJob,
+  ],
 })
