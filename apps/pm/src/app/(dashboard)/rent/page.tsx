@@ -3,6 +3,7 @@ import { format, differenceInCalendarDays } from 'date-fns'
 import { Wallet } from 'lucide-react'
 import { Badge, Card, EmptyState, Button } from '@homeownerhub/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { ensureLeaseLedger } from '@/lib/rent'
 import { MarkPaidButton } from './MarkPaidButton'
 
 export const metadata = { title: 'Rent' }
@@ -41,6 +42,12 @@ export default async function RentLedgerPage() {
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
+
+  // Backfill any missing months between lease_start and today before
+  // we read the ledger. Idempotent — only inserts gaps.
+  if (prop?.id) {
+    await ensureLeaseLedger(prop.id as string)
+  }
 
   if (!prop) {
     return (

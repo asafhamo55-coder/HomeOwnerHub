@@ -12,7 +12,7 @@ import {
 } from '@homeownerhub/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { ensureCurrentPeriodLedger } from '@/lib/rent'
+import { ensureLeaseLedger } from '@/lib/rent'
 import { StartEvictionButton } from './StartEvictionButton'
 
 export const metadata = { title: 'Dashboard' }
@@ -83,7 +83,8 @@ export default async function PMDashboard() {
   }
 
   // Materialize the current month's ledger row if missing.
-  await ensureCurrentPeriodLedger(property.id)
+  // Backfills missing months from lease_start to today, idempotent.
+  await ensureLeaseLedger(property.id)
 
   const today = new Date()
   const todayISO = today.toISOString().slice(0, 10)
