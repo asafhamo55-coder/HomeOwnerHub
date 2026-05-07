@@ -9,7 +9,7 @@ The first paying HOA. This document is the "do this in order" runbook for the da
 - [ ] Supabase project healthy — `select 1` runs in the SQL editor.
 - [ ] All three apps reachable in production (hoa / evict / pm).
 - [ ] Stripe in **live** mode with a real card on file in case Linda wants to subscribe end-of-meeting.
-- [ ] Anthropic key has spend limit > $5 (digest is cheap, but a runaway loop would be embarrassing).
+- [ ] RunPod pod is warm AND the model file is loaded (test by hitting the digest endpoint manually before the demo). The Daily Digest now runs on Qwen 14B on RunPod, not a hosted API, so a cold pod = stale digest.
 - [ ] RunPod pod is up and warm (`curl $AI_BASE_URL/v1/models` returns 200), or be ready to demo with the "AI unavailable — write manually" fallback.
 
 ### Madison Park's data

@@ -19,8 +19,7 @@ Same Supabase project (`xwdjsxfskvreguyvryhc`) backs all three.
 - A `homeownerhub.com` domain (or whatever — substitute throughout).
 - A Vercel account with the team you want to ship under.
 - Stripe in **live** mode with products + prices created (test-mode prices won't work in prod). See `STRIPE_PRICE_*` vars in each app's `.env.example`.
-- Anthropic API key.
-- RunPod vLLM pod URL + API key (or none — apps degrade gracefully).
+- RunPod vLLM pod URL + API key (or none — apps degrade gracefully). The pod runs Qwen 2.5 14B (main + reason + cloud agents) and optionally Qwen 2.5-VL 7B for the violation wizard's vision step. 100% open source models — no commercial AI vendor calls.
 - Inngest account at https://app.inngest.com — generates the `INNGEST_EVENT_KEY` + `INNGEST_SIGNING_KEY` for production.
 
 ## 1. Run all migrations on Supabase
@@ -107,8 +106,9 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
 STRIPE_PRICE_STARTER=price_...   # HOA only; substitute per app
 # ... other STRIPE_PRICE_* per app
 
-ANTHROPIC_API_KEY=sk-ant-...
-AI_MODEL_CLOUD=claude-haiku-4-5
+# Cloud agent (Daily Digest) now runs on the same Qwen 14B endpoint
+# as the main agent — fully open source, no commercial AI vendor.
+AI_MODEL_CLOUD=Qwen/Qwen2.5-14B-Instruct
 
 # Cross-hub linking
 NEXT_PUBLIC_APP_URL=https://hoa.homeownerhub.com    # this app's URL
