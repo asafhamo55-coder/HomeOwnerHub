@@ -106,7 +106,11 @@ export function Wizard({ workspaceName, initial, initialDraft }: WizardProps) {
     initialPayload.serviceMethod ?? 'personal',
   )
 
-  const county = 'Harris County'
+  // The schema's eviction_cases_county_check constraint allows slugs only
+  // (harris_tx / san_bernardino_ca / king_wa). countyLabel is the human-
+  // readable form for AI prompts and UI; countyDb is what we save.
+  const countyDb = 'harris_tx'
+  const countyLabel = 'Harris County'
   const state = 'TX'
 
   const compliance: ComplianceCheckResult = checkHarrisCountyCompliance({
@@ -187,7 +191,9 @@ export function Wizard({ workspaceName, initial, initialDraft }: WizardProps) {
           tenantName,
           monthlyRent,
           daysUnpaid,
-          county,
+          // AI prompt uses the human-readable label; the slug
+          // (countyDb) is what we save below.
+          county: countyLabel,
           state,
           noticeType: compliance.requiredNoticeType,
           landlordName: workspaceName,
@@ -215,7 +221,7 @@ export function Wizard({ workspaceName, initial, initialDraft }: WizardProps) {
         tenantEmail,
         monthlyRent,
         daysUnpaid,
-        county,
+        county: countyDb,
         state,
         noticeType: compliance.requiredNoticeType,
         noticeDraft: aiResponse.noticeDraft,
@@ -295,7 +301,7 @@ export function Wizard({ workspaceName, initial, initialDraft }: WizardProps) {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="County" htmlFor="county" hint="Phase 1 supports Harris County TX only.">
-            <Input id="county" value={`${county}, ${state}`} disabled />
+            <Input id="county" value={`${countyLabel}, ${state}`} disabled />
           </Field>
           <Field label="Monthly rent" htmlFor="rent" required>
             <Input

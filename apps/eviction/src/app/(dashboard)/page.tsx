@@ -4,6 +4,7 @@ import { format, differenceInCalendarDays } from 'date-fns'
 import { Badge, Button, Card, EmptyState } from '@homeownerhub/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { listUnfinishedDrafts } from '@/lib/drafts'
+import { formatCounty } from '@/lib/county-labels'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { UnfinishedWorkflowsCard } from '@/components/dashboard/UnfinishedWorkflowsCard'
 
@@ -150,7 +151,7 @@ function CaseCard({
       </p>
       <div className="mt-2 flex items-center gap-2 text-xs text-muted-fg">
         <Badge variant="outline" size="sm">
-          {c.county}, {c.state}
+          {formatCounty(c.county)}, {c.state}
         </Badge>
         {filingDate ? (
           <span className="flex items-center gap-1">

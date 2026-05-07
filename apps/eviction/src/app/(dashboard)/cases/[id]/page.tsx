@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from '@homeownerhub/ui'
 import { getCurrentOrg } from '@/lib/orgs'
+import { formatCounty } from '@/lib/county-labels'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { CaseStatusFlips } from '@/components/cases/CaseStatusFlips'
 import { PerCasePayButton } from '@/components/cases/PerCasePayButton'
@@ -84,7 +85,7 @@ export default async function CaseDetailPage({
           <span>{c.tenant_name ?? 'Tenant unknown'}</span>
           <span>·</span>
           <span>
-            {c.county}, {c.state}
+            {formatCounty(c.county)}, {c.state}
           </span>
           <Badge
             variant={
