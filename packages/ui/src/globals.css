@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Default token values — apps override these in their root layout for hub-specific theming. */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --surface: 0 0% 100%;
+    --border: 220 13% 91%;
+    --primary: 168 100% 39%;
+    --primary-fg: 0 0% 100%;
+    --accent: 38 92% 50%;
+    --muted: 215 16% 47%;
+    --muted-fg: 215 16% 47%;
+    --destructive: 0 84% 60%;
+    --radius: 8px;
+    --font-sans: 'Inter', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--muted));
+    font-family: var(--font-sans);
+  }
+
+  *:focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
+}
