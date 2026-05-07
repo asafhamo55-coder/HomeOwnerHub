@@ -31,6 +31,7 @@ interface NavLink {
   href: string
   icon: React.ReactNode
   label: string
+  soon?: boolean
 }
 
 const PRIMARY: NavLink[] = [
@@ -38,13 +39,13 @@ const PRIMARY: NavLink[] = [
   { href: '/violations', icon: <AlertTriangle className="h-4 w-4" />, label: 'Violations' },
   { href: '/properties', icon: <Building2 className="h-4 w-4" />, label: 'Properties' },
   { href: '/documents', icon: <FileText className="h-4 w-4" />, label: 'Documents' },
-  { href: '/dues', icon: <Wallet className="h-4 w-4" />, label: 'Dues' },
-  { href: '/meetings', icon: <CalendarDays className="h-4 w-4" />, label: 'Meetings' },
+  { href: '/dues', icon: <Wallet className="h-4 w-4" />, label: 'Dues', soon: true },
+  { href: '/meetings', icon: <CalendarDays className="h-4 w-4" />, label: 'Meetings', soon: true },
 ]
 
 const SECONDARY: NavLink[] = [
   { href: '/settings', icon: <Settings className="h-4 w-4" />, label: 'Settings' },
-  { href: '/settings/billing', icon: <CreditCard className="h-4 w-4" />, label: 'Billing' },
+  { href: '/settings/billing', icon: <CreditCard className="h-4 w-4" />, label: 'Billing', soon: true },
 ]
 
 function isActive(pathname: string, href: string) {
@@ -67,6 +68,11 @@ function HoaNavLink({ link, active }: { link: NavLink; active: boolean }) {
       >
         <span className="flex h-5 w-5 shrink-0 items-center justify-center">{link.icon}</span>
         <span className="flex-1 truncate">{link.label}</span>
+        {link.soon ? (
+          <span className="rounded-full bg-muted-fg/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-fg">
+            Soon
+          </span>
+        ) : null}
       </Link>
     </li>
   )
