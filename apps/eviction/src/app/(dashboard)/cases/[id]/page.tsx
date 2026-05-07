@@ -1,16 +1,20 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, CreditCard } from 'lucide-react'
 import { format, differenceInCalendarDays } from 'date-fns'
 import {
   Alert,
   Badge,
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from '@homeownerhub/ui'
+import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { CaseStatusFlips } from '@/components/cases/CaseStatusFlips'
+import { PerCasePayButton } from '@/components/cases/PerCasePayButton'
 
 interface CaseDetail {
   id: string
@@ -28,6 +32,8 @@ interface CaseDetail {
   filing_eligible_date: string | null
   status: string | null
   case_notes: string | null
+  outcome: string | null
+  stripe_payment_id: string | null
   compliance_flags: { flags?: string[]; recommendation?: string } | null
   created_at: string | null
 }
@@ -43,13 +49,19 @@ export default async function CaseDetailPage({
   const { data } = await supabase
     .from('eviction_cases')
     .select(
-      'id, property_address, tenant_name, tenant_email, county, state, monthly_rent, days_unpaid, notice_type, notice_draft, notice_sent_at, notice_served_method, filing_eligible_date, status, case_notes, compliance_flags, created_at',
+      'id, property_address, tenant_name, tenant_email, county, state, monthly_rent, days_unpaid, notice_type, notice_draft, notice_sent_at, notice_served_method, filing_eligible_date, status, case_notes, outcome, stripe_payment_id, compliance_flags, created_at',
     )
     .eq('id', id)
     .maybeSingle()
 
   if (!data) notFound()
   const c = data as unknown as CaseDetail
+
+  // Pull the org's plan to decide whether to show the per-case pay button.
+  // Unlimited subscribers don't need to pay per case.
+  const org = await getCurrentOrg()
+  const showPerCaseButton =
+    !c.stripe_payment_id && org?.plan !== 'unlimited'
 
   const filingDate = c.filing_eligible_date ? new Date(c.filing_eligible_date) : null
   const today = new Date()
@@ -75,22 +87,37 @@ export default async function CaseDetailPage({
             {c.county}, {c.state}
           </span>
           <Badge
-            variant={filingReady ? 'destructive' : c.status === 'resolved' ? 'success' : 'warning'}
+            variant={
+              c.status === 'resolved'
+                ? 'success'
+                : filingReady && c.status !== 'filed'
+                  ? 'destructive'
+                  : 'warning'
+            }
             size="sm"
           >
-            {filingReady ? 'filing ready' : (c.status ?? 'unknown').replace('_', ' ')}
+            {c.status === 'resolved'
+              ? 'resolved'
+              : filingReady && c.status === 'notice_sent'
+                ? 'filing ready'
+                : (c.status ?? 'unknown').replace('_', ' ')}
           </Badge>
+          {c.stripe_payment_id ? (
+            <Badge variant="success" size="sm">
+              <CheckCircle2 className="mr-1 h-3 w-3" />
+              Paid
+            </Badge>
+          ) : null}
         </div>
       </header>
 
-      {/* The "filing ready" alert is the action-required signal once the cure period elapses. */}
-      {filingReady ? (
+      {filingReady && c.status !== 'filed' && c.status !== 'resolved' ? (
         <Alert variant="error" title="Filing eligible — file in JP court today">
           The 3-day cure period has elapsed. Texas Property Code §24.005 lets you file the
           forcible-detainer suit in the appropriate Justice of the Peace court today. Bring the
           approved notice and proof of service.
         </Alert>
-      ) : daysUntilFiling !== null && daysUntilFiling > 0 ? (
+      ) : !filingReady && daysUntilFiling !== null && daysUntilFiling > 0 ? (
         <Alert variant="info" hideIcon>
           <span className="flex items-center gap-2 text-sm">
             <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
@@ -101,7 +128,9 @@ export default async function CaseDetailPage({
         </Alert>
       ) : null}
 
-      {c.compliance_flags && Array.isArray(c.compliance_flags.flags) && c.compliance_flags.flags.length > 0 ? (
+      {c.compliance_flags &&
+      Array.isArray(c.compliance_flags.flags) &&
+      c.compliance_flags.flags.length > 0 ? (
         <Alert variant="warning" title="AI flagged edge cases at intake">
           <ul className="list-disc space-y-1 pl-5 text-sm">
             {c.compliance_flags.flags.map((flag, i) => (
@@ -112,6 +141,40 @@ export default async function CaseDetailPage({
             <p className="mt-2 text-sm">{c.compliance_flags.recommendation}</p>
           ) : null}
         </Alert>
+      ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Status</CardTitle>
+          <CardDescription>
+            Move the case forward as you progress in JP court.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CaseStatusFlips
+            caseId={c.id}
+            currentStatus={c.status ?? 'intake'}
+            filingReady={filingReady}
+          />
+        </CardContent>
+      </Card>
+
+      {showPerCaseButton ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CreditCard className="h-4 w-4 text-muted-fg" />
+              Filing fee
+            </CardTitle>
+            <CardDescription>
+              Pay $249 to mark this case as ready to file. Skip if your workspace is on the
+              Unlimited plan.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PerCasePayButton caseId={c.id} />
+          </CardContent>
+        </Card>
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -142,17 +205,14 @@ export default async function CaseDetailPage({
               {c.notice_sent_at ? format(new Date(c.notice_sent_at), 'PPp') : '—'}
             </Row>
             <Row label="Service method">
-              {c.notice_served_method
-                ? c.notice_served_method.replace(/_/g, ' ')
-                : '—'}
+              {c.notice_served_method ? c.notice_served_method.replace(/_/g, ' ') : '—'}
             </Row>
-            <Row label="Earliest filing">
-              {filingDate ? format(filingDate, 'PP') : '—'}
-            </Row>
+            <Row label="Earliest filing">{filingDate ? format(filingDate, 'PP') : '—'}</Row>
             <Row label="Days unpaid">{c.days_unpaid ?? '—'}</Row>
             <Row label="Monthly rent">
               {c.monthly_rent != null ? `$${c.monthly_rent.toLocaleString()}` : '—'}
             </Row>
+            {c.outcome ? <Row label="Outcome">{c.outcome}</Row> : null}
             {c.tenant_email ? (
               <Row label="Tenant email">
                 <a href={`mailto:${c.tenant_email}`} className="text-primary hover:underline">
@@ -173,16 +233,6 @@ export default async function CaseDetailPage({
             <p className="whitespace-pre-wrap text-sm text-muted">{c.case_notes}</p>
           </CardContent>
         </Card>
-      ) : null}
-
-      {filingReady ? (
-        <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-center">
-          <p className="text-sm font-medium text-destructive">
-            <AlertCircle className="mr-1 inline h-4 w-4" />
-            Filing the forcible-detainer suit happens in JP Court (online or in person). Court
-            integration ships in a later checkpoint.
-          </p>
-        </div>
       ) : null}
     </div>
   )
