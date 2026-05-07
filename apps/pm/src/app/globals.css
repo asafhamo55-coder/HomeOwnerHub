@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* PM Hub theming — efficient blue, 16px base. The audience is small
+   landlords who want a fast, no-frills rent tracker. */
+@layer base {
+  :root {
+    --radius: 8px;
+
+    --background: 220 100% 99%;
+    --surface: 0 0% 100%;
+    --border: 220 74% 92%;
+
+    --primary: 217 91% 60%;             /* #3B82F6 blue */
+    --primary-fg: 0 0% 100%;
+    --accent: 160 84% 39%;              /* #10B981 emerald (paid status) */
+
+    --muted: 222 47% 11%;
+    --muted-fg: 215 16% 47%;
+
+    --destructive: 0 84% 60%;
+
+    --font-sans: var(--font-inter), system-ui, sans-serif;
+    --font-mono: var(--font-jetbrains-mono), monospace;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--muted));
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  *:focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
+}

@@ -28,6 +28,12 @@ type Step = 'intake' | 'compliance' | 'review' | 'done'
 
 interface WizardProps {
   workspaceName: string
+  initial?: {
+    propertyAddress?: string
+    tenantName?: string
+    monthlyRent?: number
+    daysUnpaid?: number
+  }
 }
 
 interface AIResponse {
@@ -36,16 +42,17 @@ interface AIResponse {
   warnings: string[]
 }
 
-export function Wizard({ workspaceName }: WizardProps) {
+export function Wizard({ workspaceName, initial }: WizardProps) {
   const router = useRouter()
   const [step, setStep] = useState<Step>('intake')
 
   // Form state — kept across steps so the user can step back and edit.
-  const [propertyAddress, setPropertyAddress] = useState('')
-  const [tenantName, setTenantName] = useState('')
+  // Pre-filled from URL params on cross-hub handoffs (PM Hub -> Eviction).
+  const [propertyAddress, setPropertyAddress] = useState(initial?.propertyAddress ?? '')
+  const [tenantName, setTenantName] = useState(initial?.tenantName ?? '')
   const [tenantEmail, setTenantEmail] = useState('')
-  const [monthlyRent, setMonthlyRent] = useState(1500)
-  const [daysUnpaid, setDaysUnpaid] = useState(7)
+  const [monthlyRent, setMonthlyRent] = useState(initial?.monthlyRent ?? 1500)
+  const [daysUnpaid, setDaysUnpaid] = useState(initial?.daysUnpaid ?? 7)
   const [tenantSituation, setTenantSituation] = useState('')
 
   // Hard-coded for Phase 1 — Harris County TX is the only jurisdiction.
