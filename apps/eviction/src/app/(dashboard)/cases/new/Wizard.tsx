@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
+  Save,
 } from 'lucide-react'
 import {
   Alert,
@@ -15,7 +16,8 @@ import {
   CardContent,
   Input,
   Textarea,
-  cn,
+  WizardStepper,
+  type WizardStep as StepperStep,
 } from '@homeownerhub/ui'
 import { ComplianceBlock } from '@/components/cases/ComplianceBlock'
 import {
@@ -23,8 +25,15 @@ import {
   type ComplianceCheckResult,
 } from '@/lib/compliance/harris-tx'
 import { createApprovedCase } from '@/lib/cases'
+import {
+  saveDraft,
+  markDraftCompleted,
+  discardDraft,
+  type WizardDraft,
+} from '@/lib/drafts'
 
 type Step = 'intake' | 'compliance' | 'review' | 'done'
+type ServiceMethod = 'personal' | 'posting' | 'certified_mail'
 
 interface WizardProps {
   workspaceName: string
@@ -34,6 +43,7 @@ interface WizardProps {
     monthlyRent?: number
     daysUnpaid?: number
   }
+  initialDraft?: WizardDraft | null
 }
 
 interface AIResponse {
@@ -42,42 +52,123 @@ interface AIResponse {
   warnings: string[]
 }
 
-export function Wizard({ workspaceName, initial }: WizardProps) {
+interface DraftPayload {
+  propertyAddress?: string
+  tenantName?: string
+  tenantEmail?: string
+  monthlyRent?: number
+  daysUnpaid?: number
+  tenantSituation?: string
+  serviceMethod?: ServiceMethod
+  aiResponse?: AIResponse | null
+}
+
+const STEPPER_STEPS: StepperStep[] = [
+  { id: 'intake', label: 'Property & tenant', description: 'Address, tenant, rent, days unpaid' },
+  { id: 'compliance', label: 'Compliance check', description: 'Statutory rule engine' },
+  { id: 'review', label: 'Review & serve', description: 'Approve notice via BarBGate' },
+  { id: 'done', label: 'Case opened', description: 'Notice on file' },
+]
+
+function stepIndex(step: Step): number {
+  if (step === 'intake') return 0
+  if (step === 'compliance') return 1
+  if (step === 'review') return 2
+  return 3
+}
+
+export function Wizard({ workspaceName, initial, initialDraft }: WizardProps) {
   const router = useRouter()
-  const [step, setStep] = useState<Step>('intake')
+  const initialPayload = (initialDraft?.payload ?? {}) as DraftPayload
 
-  // Form state — kept across steps so the user can step back and edit.
-  // Pre-filled from URL params on cross-hub handoffs (PM Hub -> Eviction).
-  const [propertyAddress, setPropertyAddress] = useState(initial?.propertyAddress ?? '')
-  const [tenantName, setTenantName] = useState(initial?.tenantName ?? '')
-  const [tenantEmail, setTenantEmail] = useState('')
-  const [monthlyRent, setMonthlyRent] = useState(initial?.monthlyRent ?? 1500)
-  const [daysUnpaid, setDaysUnpaid] = useState(initial?.daysUnpaid ?? 7)
-  const [tenantSituation, setTenantSituation] = useState('')
+  const [step, setStep] = useState<Step>(() => {
+    if (initialPayload.aiResponse) return 'review'
+    if (initialDraft?.current_step === 'compliance') return 'compliance'
+    return 'intake'
+  })
+  const [draftId, setDraftId] = useState<string | null>(initialDraft?.id ?? null)
 
-  // Hard-coded for Phase 1 — Harris County TX is the only jurisdiction.
+  const [propertyAddress, setPropertyAddress] = useState(
+    initialPayload.propertyAddress ?? initial?.propertyAddress ?? '',
+  )
+  const [tenantName, setTenantName] = useState(
+    initialPayload.tenantName ?? initial?.tenantName ?? '',
+  )
+  const [tenantEmail, setTenantEmail] = useState(initialPayload.tenantEmail ?? '')
+  const [monthlyRent, setMonthlyRent] = useState(
+    initialPayload.monthlyRent ?? initial?.monthlyRent ?? 1500,
+  )
+  const [daysUnpaid, setDaysUnpaid] = useState(
+    initialPayload.daysUnpaid ?? initial?.daysUnpaid ?? 7,
+  )
+  const [tenantSituation, setTenantSituation] = useState(initialPayload.tenantSituation ?? '')
+  const [serviceMethod, setServiceMethod] = useState<ServiceMethod>(
+    initialPayload.serviceMethod ?? 'personal',
+  )
+
   const county = 'Harris County'
   const state = 'TX'
 
-  // Computed compliance check for the chosen jurisdiction.
   const compliance: ComplianceCheckResult = checkHarrisCountyCompliance({
     isCommercial: false,
     daysUnpaid,
     monthlyRent,
   })
 
-  // Output of POST /api/ai/draft-notice
-  const [aiResponse, setAIResponse] = useState<AIResponse | null>(null)
+  const [aiResponse, setAIResponse] = useState<AIResponse | null>(
+    initialPayload.aiResponse ?? null,
+  )
   const [aiError, setAIError] = useState<string | null>(null)
   const [aiLoading, startAILoading] = useTransition()
 
-  // Output of approval -> server action createApprovedCase.
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, startSubmitting] = useTransition()
   const [createdId, setCreatedId] = useState<string | null>(null)
-  const [serviceMethod, setServiceMethod] = useState<'personal' | 'posting' | 'certified_mail'>(
-    'personal',
+
+  const [draftSaving, setDraftSaving] = useState(false)
+  const [draftSavedAt, setDraftSavedAt] = useState<Date | null>(
+    initialDraft?.updated_at ? new Date(initialDraft.updated_at) : null,
   )
+
+  const lastSavedRef = useRef<string>('')
+  async function persistDraft(currentStep: Step) {
+    const payload: DraftPayload = {
+      propertyAddress,
+      tenantName,
+      tenantEmail,
+      monthlyRent,
+      daysUnpaid,
+      tenantSituation,
+      serviceMethod,
+      aiResponse,
+    }
+    const serialized = JSON.stringify({ payload, currentStep })
+    if (serialized === lastSavedRef.current) return
+    lastSavedRef.current = serialized
+
+    setDraftSaving(true)
+    try {
+      const result = await saveDraft({
+        draftId: draftId ?? undefined,
+        kind: 'eviction_case',
+        payload: payload as unknown as Record<string, unknown>,
+        currentStep,
+        stepIndex: stepIndex(currentStep),
+        totalSteps: STEPPER_STEPS.length,
+      })
+      if (result.ok) {
+        setDraftId(result.draftId)
+        setDraftSavedAt(new Date())
+      }
+    } finally {
+      setDraftSaving(false)
+    }
+  }
+
+  useEffect(() => {
+    void persistDraft(step)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step])
 
   function goToCompliance() {
     if (!propertyAddress.trim() || !tenantName.trim()) return
@@ -144,16 +235,53 @@ export function Wizard({ workspaceName, initial }: WizardProps) {
         return
       }
       setCreatedId(result.caseId)
+      if (draftId) await markDraftCompleted(draftId)
       setStep('done')
     })
   }
+
+  const stepperHeader = (
+    <div className="space-y-3 border-b border-border pb-4">
+      <WizardStepper
+        steps={STEPPER_STEPS}
+        currentIndex={stepIndex(step)}
+        vertical={false}
+      />
+      <div className="flex items-center justify-between text-xs text-muted-fg">
+        <span>
+          {draftSaving ? (
+            <span className="flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" /> Saving draft…
+            </span>
+          ) : draftSavedAt ? (
+            <span className="flex items-center gap-1">
+              <Save className="h-3 w-3" /> Draft saved
+            </span>
+          ) : null}
+        </span>
+        {draftId && step !== 'done' ? (
+          <button
+            type="button"
+            onClick={async () => {
+              if (!confirm('Discard this in-progress case? This cannot be undone.')) return
+              await discardDraft(draftId)
+              router.push('/')
+            }}
+            className="text-muted-fg hover:text-destructive"
+          >
+            Discard draft
+          </button>
+        ) : null}
+      </div>
+    </div>
+  )
 
   // ── Step 1: intake form ─────────────────────────────────────────────
   if (step === 'intake') {
     const canProceed = propertyAddress.trim().length > 0 && tenantName.trim().length > 0
     return (
       <div className="space-y-5">
-        <StepIndicator step={1} total={3} title="Property &amp; tenant" />
+        {stepperHeader}
 
         <Field label="Property address" htmlFor="address" required>
           <Input
@@ -166,11 +294,7 @@ export function Wizard({ workspaceName, initial }: WizardProps) {
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label="County"
-            htmlFor="county"
-            hint="Phase 1 supports Harris County TX only."
-          >
+          <Field label="County" htmlFor="county" hint="Phase 1 supports Harris County TX only.">
             <Input id="county" value={`${county}, ${state}`} disabled />
           </Field>
           <Field label="Monthly rent" htmlFor="rent" required>
@@ -235,7 +359,7 @@ export function Wizard({ workspaceName, initial }: WizardProps) {
 
         <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
           <Button variant="outline" onClick={() => router.push('/')}>
-            Cancel
+            Save & exit
           </Button>
           <Button onClick={goToCompliance} disabled={!canProceed}>
             Run compliance check
@@ -249,14 +373,13 @@ export function Wizard({ workspaceName, initial }: WizardProps) {
   if (step === 'compliance') {
     return (
       <div className="space-y-5">
-        <StepIndicator step={2} total={3} title="Compliance check" />
+        {stepperHeader}
 
         <ComplianceBlock result={compliance} />
 
-        {/* Note: The block intentionally has no dismiss / acknowledge button.
-            Quality rule #4 in the plan: this block cannot be bypassed. The
-            only forward path is to generate the notice. The filing date is
-            fixed by statute. */}
+        {/* Quality rule #4: this block has no dismiss / acknowledge button.
+            The only forward path is to generate the notice. The filing
+            date is fixed by statute. */}
 
         {aiError ? (
           <Alert variant="error" title="Couldn't generate the notice">
@@ -284,7 +407,7 @@ export function Wizard({ workspaceName, initial }: WizardProps) {
   if (step === 'review' && aiResponse) {
     return (
       <div className="space-y-5">
-        <StepIndicator step={3} total={3} title="Review &amp; serve" />
+        {stepperHeader}
 
         {aiResponse.warnings.length > 0 ? (
           <div className="space-y-2">
@@ -319,9 +442,7 @@ export function Wizard({ workspaceName, initial }: WizardProps) {
           <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
             <Detail label="Property">{propertyAddress}</Detail>
             <Detail label="Tenant">{tenantName}</Detail>
-            <Detail label="Notice type">
-              {compliance.requiredNoticeType.replace(/_/g, ' ')}
-            </Detail>
+            <Detail label="Notice type">{compliance.requiredNoticeType.replace(/_/g, ' ')}</Detail>
             <Detail label="Earliest filing">
               {compliance.filingEligibleDate.toLocaleDateString('en-US', {
                 month: 'short',
@@ -336,9 +457,7 @@ export function Wizard({ workspaceName, initial }: WizardProps) {
           <select
             id="service-method"
             value={serviceMethod}
-            onChange={(e) =>
-              setServiceMethod(e.target.value as typeof serviceMethod)
-            }
+            onChange={(e) => setServiceMethod(e.target.value as ServiceMethod)}
             className="flex h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="personal">Personal delivery</option>
@@ -370,71 +489,40 @@ export function Wizard({ workspaceName, initial }: WizardProps) {
   // ── Step 4: done ────────────────────────────────────────────────────
   if (step === 'done' && createdId) {
     return (
-      <div className="space-y-5 py-8 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-          <CheckCircle2 className="h-7 w-7" />
-        </div>
-        <div className="space-y-1">
-          <h2 className="text-xl font-bold text-muted">Case opened</h2>
-          <p className="text-sm text-muted-fg">
-            Notice recorded. Earliest filing date:{' '}
-            {compliance.filingEligibleDate.toLocaleDateString('en-US', {
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric',
-            })}
-            .
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-          <Button variant="outline" onClick={() => router.push(`/cases/${createdId}`)}>
-            View case
-          </Button>
-          <Button onClick={() => router.refresh()}>Open another</Button>
+      <div className="space-y-5">
+        {stepperHeader}
+        <div className="py-8 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+            <CheckCircle2 className="h-7 w-7" />
+          </div>
+          <div className="mt-4 space-y-1">
+            <h2 className="text-xl font-bold text-muted">Case opened</h2>
+            <p className="text-sm text-muted-fg">
+              Notice recorded. Earliest filing date:{' '}
+              {compliance.filingEligibleDate.toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+              .
+            </p>
+          </div>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+            <Button variant="outline" onClick={() => router.push(`/cases/${createdId}`)}>
+              View case
+            </Button>
+            <Button onClick={() => router.refresh()}>Open another</Button>
+          </div>
         </div>
       </div>
     )
   }
 
-  // Defensive default — shouldn't reach this in practice.
+  // Defensive default
   return (
     <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-fg">
       <Loader2 className="h-4 w-4 animate-spin" />
       Loading...
-    </div>
-  )
-}
-
-// ── Reusable helpers ─────────────────────────────────────────────────
-
-function StepIndicator({
-  step,
-  total,
-  title,
-}: {
-  step: number
-  total: number
-  title: string
-}) {
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-muted">{title}</p>
-        <p className="text-xs text-muted-fg">
-          Step {step} of {total}
-        </p>
-      </div>
-      <div className="flex gap-1">
-        {Array.from({ length: total }).map((_, i) => (
-          <div
-            key={i}
-            className={cn(
-              'h-1 flex-1 rounded-full',
-              i < step ? 'bg-primary' : 'bg-border',
-            )}
-          />
-        ))}
-      </div>
     </div>
   )
 }

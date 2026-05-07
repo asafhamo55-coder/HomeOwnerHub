@@ -1,11 +1,27 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@homeownerhub/ui'
+import { Alert, Card, CardContent, CardHeader, CardTitle } from '@homeownerhub/ui'
+import { loadDraft } from '@/lib/drafts'
 import { MeetingWizard } from '../MeetingWizard'
 
 export const metadata = { title: 'New minutes' }
 
-export default function NewMeetingPage() {
+interface SearchParams {
+  draft?: string
+}
+
+export default async function NewMeetingPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>
+}) {
+  const { draft: draftId } = await searchParams
+  const initialDraft = draftId ? await loadDraft(draftId) : null
+  const usableDraft =
+    initialDraft && initialDraft.kind === 'meeting' && !initialDraft.completed
+      ? initialDraft
+      : null
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <Link
@@ -16,12 +32,18 @@ export default function NewMeetingPage() {
         Back to meetings
       </Link>
 
+      {usableDraft ? (
+        <Alert variant="info" title="Resumed unfinished draft">
+          Your transcript and meeting details are restored. The wizard autosaves as you progress.
+        </Alert>
+      ) : null}
+
       <Card variant="elevated">
         <CardHeader>
-          <CardTitle>Record meeting minutes</CardTitle>
+          <CardTitle>{usableDraft ? 'Resume meeting minutes' : 'Record meeting minutes'}</CardTitle>
         </CardHeader>
         <CardContent>
-          <MeetingWizard />
+          <MeetingWizard initialDraft={usableDraft} />
         </CardContent>
       </Card>
     </div>
