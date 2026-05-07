@@ -108,6 +108,9 @@ importers:
       '@homeownerhub/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@homeownerhub/jobs':
+        specifier: workspace:*
+        version: link:../../packages/jobs
       '@homeownerhub/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -304,6 +307,22 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.45.0
         version: 2.105.3
+    devDependencies:
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/jobs:
+    dependencies:
+      '@homeownerhub/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@homeownerhub/db':
+        specifier: workspace:*
+        version: link:../db
+      inngest:
+        specifier: ^3.20.0
+        version: 3.54.2(@opentelemetry/core@2.7.1(@opentelemetry/api@1.9.1))(next@15.5.16(@opentelemetry/api@1.9.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(typescript@5.9.3)(zod@3.25.76)
     devDependencies:
       typescript:
         specifier: ^5
