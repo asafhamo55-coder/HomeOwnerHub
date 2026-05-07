@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
+import { createAdminClient } from '@homeownerhub/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 const Schema = z.object({
@@ -13,6 +14,13 @@ export interface OnboardingActionState {
   error?: string
 }
 
+// Onboarding is a privileged founder operation: the user is creating the
+// first org they belong to, so RLS-as-them gives a chicken-and-egg failure
+// (they're not a member of the org they're trying to create, so the
+// SELECT-after-INSERT visibility check fails). We use the admin client
+// (service role) for this single setup step. The user is identified by
+// their authenticated session via the regular client; the admin client
+// just performs the writes.
 export async function createHoaOrg(
   _prev: OnboardingActionState,
   formData: FormData,
@@ -26,15 +34,15 @@ export async function createHoaOrg(
     return { error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
   }
 
-  const supabase = await getSupabaseServerClient()
+  const userClient = await getSupabaseServerClient()
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await userClient.auth.getUser()
   if (!user) return { error: 'You must be signed in.' }
 
-  // 1) Create the org. RLS allows authenticated users to insert; the
-  //    org_members row we add next is what links the org to this user.
-  const { data: org, error: orgError } = await supabase
+  const admin = createAdminClient()
+
+  const { data: org, error: orgError } = await admin
     .from('orgs')
     .insert({
       name: parsed.data.name,
@@ -49,19 +57,16 @@ export async function createHoaOrg(
     return { error: orgError?.message ?? 'Could not create the HOA.' }
   }
 
-  // 2) Make the creator an owner.
-  const { error: memberError } = await supabase
-    .from('org_members')
-    .insert({
-      org_id: org.id,
-      user_id: user.id,
-      role: 'owner',
-      joined_at: new Date().toISOString(),
-    })
+  const { error: memberError } = await admin.from('org_members').insert({
+    org_id: org.id,
+    user_id: user.id,
+    role: 'owner',
+    joined_at: new Date().toISOString(),
+  })
 
   if (memberError) {
     // Roll back the org so the user can retry without colliding on a stranded row.
-    await supabase.from('orgs').delete().eq('id', org.id)
+    await admin.from('orgs').delete().eq('id', org.id)
     return { error: memberError.message }
   }
 
