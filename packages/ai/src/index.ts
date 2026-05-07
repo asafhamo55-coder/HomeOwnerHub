@@ -36,5 +36,8 @@ export type { Intent } from './tasks/classify-intent'
 export { runViolationWorkflow } from './tasks/violation-workflow'
 export type { ViolationWorkflowResult } from './tasks/violation-workflow'
 
+export { suggestFieldValues } from './tasks/suggest-fields'
+export type { FieldSuggestion, SuggestFieldsInput } from './tasks/suggest-fields'
+
 // Resilience wrapper
 export { withFallback } from './resilience'
