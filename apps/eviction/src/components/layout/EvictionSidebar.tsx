@@ -35,8 +35,8 @@ const PRIMARY: NavLink[] = [
 ]
 
 const SECONDARY: NavLink[] = [
-  { href: '/settings', icon: <Settings className="h-4 w-4" />, label: 'Settings', soon: true },
-  { href: '/settings/billing', icon: <CreditCard className="h-4 w-4" />, label: 'Billing', soon: true },
+  { href: '/settings', icon: <Settings className="h-4 w-4" />, label: 'Settings' },
+  { href: '/settings/billing', icon: <CreditCard className="h-4 w-4" />, label: 'Billing' },
 ]
 
 function isActive(pathname: string, href: string) {

@@ -2,7 +2,7 @@ import { Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle } from '
 import { isStripeConfigured } from '@homeownerhub/billing'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { openHoaPortal } from '@/lib/billing'
+import { openPmPortal } from '@/lib/billing'
 import { PlanPicker } from './PlanPicker'
 
 export const metadata = { title: 'Billing' }
@@ -23,12 +23,11 @@ export default async function BillingPage() {
   const stripeReady = isStripeConfigured()
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       <header>
         <h1 className="text-2xl font-bold text-muted">Billing</h1>
         <p className="text-sm text-muted-fg">
-          Manage your HOA Hub subscription. Webhooks update your plan
-          automatically after a successful checkout.
+          PM Hub plans. Free covers one property; paid plans unlock multi-property tracking.
         </p>
       </header>
 
@@ -41,20 +40,15 @@ export default async function BillingPage() {
             </Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm">
+        <CardContent className="text-sm">
           {stripeCustomerId ? (
-            <form action={openHoaPortal}>
+            <form action={openPmPortal}>
               <Button type="submit" variant="outline">
                 Manage subscription
               </Button>
-              <p className="mt-2 text-xs text-muted-fg">
-                Opens the Stripe Customer Portal to update card, switch plan, or cancel.
-              </p>
             </form>
           ) : (
-            <p className="text-muted-fg">
-              No subscription on file. Pick a plan below to get started.
-            </p>
+            <p className="text-muted-fg">No subscription on file. Choose a plan below.</p>
           )}
         </CardContent>
       </Card>
@@ -62,8 +56,8 @@ export default async function BillingPage() {
       {!stripeReady ? (
         <Alert variant="warning" title="Stripe not configured">
           Set <code className="rounded bg-amber-100 px-1 font-mono text-xs">STRIPE_SECRET_KEY</code>{' '}
-          and the price IDs in <code className="rounded bg-amber-100 px-1 font-mono text-xs">apps/hoa/.env.local</code>{' '}
-          to enable checkout. The plan cards below are visible but the buttons will fail until you do.
+          and the price IDs in your <code className="rounded bg-amber-100 px-1 font-mono text-xs">.env.local</code>{' '}
+          to enable checkout.
         </Alert>
       ) : null}
 

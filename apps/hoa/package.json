@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@homeownerhub/ai": "workspace:*",
+    "@homeownerhub/billing": "workspace:*",
     "@homeownerhub/db": "workspace:*",
     "@homeownerhub/ui": "workspace:*",
     "@hookform/resolvers": "^3.9.0",

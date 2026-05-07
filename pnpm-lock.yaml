@@ -23,6 +23,9 @@ importers:
       '@homeownerhub/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@homeownerhub/billing':
+        specifier: workspace:*
+        version: link:../../packages/billing
       '@homeownerhub/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -99,6 +102,9 @@ importers:
       '@homeownerhub/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@homeownerhub/billing':
+        specifier: workspace:*
+        version: link:../../packages/billing
       '@homeownerhub/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -190,6 +196,9 @@ importers:
       '@homeownerhub/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@homeownerhub/billing':
+        specifier: workspace:*
+        version: link:../../packages/billing
       '@homeownerhub/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -269,6 +278,19 @@ importers:
       openai:
         specifier: ^4.70.0
         version: 4.104.0(ws@8.20.0)(zod@3.25.76)
+    devDependencies:
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/billing:
+    dependencies:
+      '@homeownerhub/db':
+        specifier: workspace:*
+        version: link:../db
+      stripe:
+        specifier: ^17.0.0
+        version: 17.7.0
     devDependencies:
       typescript:
         specifier: ^5
