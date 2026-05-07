@@ -1,0 +1,19 @@
+{
+  "name": "homeownerhub",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "dev:hoa": "turbo run dev --filter=hoa",
+    "dev:eviction": "turbo run dev --filter=eviction",
+    "dev:pm": "turbo run dev --filter=pm"
+  },
+  "devDependencies": {
+    "turbo": "latest",
+    "typescript": "^5",
+    "@types/node": "^22"
+  }
+}
