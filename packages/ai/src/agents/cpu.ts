@@ -1,9 +1,14 @@
 import OpenAI from 'openai'
 
-const client = new OpenAI({
-  baseURL: process.env.AI_FALLBACK_URL,
-  apiKey: 'local',
-})
+let _client: OpenAI | null = null
+function getClient(): OpenAI {
+  if (_client) return _client
+  _client = new OpenAI({
+    baseURL: process.env.AI_FALLBACK_URL,
+    apiKey: 'local',
+  })
+  return _client
+}
 
 const MODEL_CPU = process.env.AI_FALLBACK_MODEL ?? 'qwen2.5:7b'
 
@@ -13,7 +18,7 @@ export async function runCPU(
   messages: OpenAI.ChatCompletionMessageParam[],
   opts?: { max_tokens?: number },
 ): Promise<string> {
-  const res = await client.chat.completions.create({
+  const res = await getClient().chat.completions.create({
     model: MODEL_CPU,
     messages,
     temperature: 0.2,

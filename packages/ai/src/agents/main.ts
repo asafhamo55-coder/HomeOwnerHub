@@ -1,9 +1,14 @@
 import OpenAI from 'openai'
 
-const client = new OpenAI({
-  baseURL: process.env.AI_BASE_URL,
-  apiKey: process.env.AI_API_KEY || 'local',
-})
+let _client: OpenAI | null = null
+function getClient(): OpenAI {
+  if (_client) return _client
+  _client = new OpenAI({
+    baseURL: process.env.AI_BASE_URL,
+    apiKey: process.env.AI_API_KEY || 'local',
+  })
+  return _client
+}
 
 export const MODEL_MAIN = process.env.AI_MODEL ?? 'Qwen/Qwen2.5-14B-Instruct'
 
@@ -11,7 +16,7 @@ export async function runMain(
   messages: OpenAI.ChatCompletionMessageParam[],
   opts?: { temperature?: number; max_tokens?: number },
 ): Promise<string> {
-  const res = await client.chat.completions.create({
+  const res = await getClient().chat.completions.create({
     model: MODEL_MAIN,
     messages,
     temperature: opts?.temperature ?? 0.3,

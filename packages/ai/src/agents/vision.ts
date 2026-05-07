@@ -1,9 +1,14 @@
 import OpenAI from 'openai'
 
-const client = new OpenAI({
-  baseURL: process.env.AI_BASE_URL_VISION,
-  apiKey: process.env.AI_API_KEY || 'local',
-})
+let _client: OpenAI | null = null
+function getClient(): OpenAI {
+  if (_client) return _client
+  _client = new OpenAI({
+    baseURL: process.env.AI_BASE_URL_VISION,
+    apiKey: process.env.AI_API_KEY || 'local',
+  })
+  return _client
+}
 
 const MODEL_VISION = process.env.AI_MODEL_VISION ?? 'Qwen/Qwen2-VL-7B-Instruct'
 
@@ -12,7 +17,7 @@ export async function analyzeImage(params: {
   question: string
   max_tokens?: number
 }): Promise<string> {
-  const res = await client.chat.completions.create({
+  const res = await getClient().chat.completions.create({
     model: MODEL_VISION,
     messages: [
       {
