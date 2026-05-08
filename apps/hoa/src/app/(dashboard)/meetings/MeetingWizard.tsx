@@ -186,7 +186,17 @@ export function MeetingWizard({ initialDraft }: MeetingWizardProps) {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         setAIError(body?.message ?? 'AI is offline.')
-        summary = `[AI summary unavailable.]\n\nMeeting: ${meetingDate} (${meetingType})\nAttendees: ${attendees || '—'}\n\nWrite the minutes here. Cover: topics discussed, decisions made (with vote counts), action items (owner — task — due date), next meeting.`
+        summary = `[AI summary unavailable — edit the raw transcript below into formal minutes.]
+
+Meeting: ${meetingDate} (${meetingType})
+Attendees: ${attendees || '—'}
+
+Sections to cover: topics discussed, decisions made (with vote counts), action items (owner — task — due date), next meeting.
+
+──────────────────────────────────────────────────────────────────────
+RAW TRANSCRIPT
+──────────────────────────────────────────────────────────────────────
+${transcript}`
       } else {
         const body = (await res.json()) as { summary: string }
         summary = body.summary
