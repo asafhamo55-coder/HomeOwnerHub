@@ -116,9 +116,10 @@ Three separate Vercel projects, all pointing at the same GitHub repo, each with 
 3. Framework Preset: **Next.js**
 4. Root Directory: **`apps/hoa`** (or `apps/eviction` / `apps/pm`)
 5. Build & Output Settings:
-   - **Build Command:** `cd ../.. && pnpm install --frozen-lockfile && pnpm turbo run build --filter=hoa` (substitute `eviction` / `pm`)
-   - **Install Command:** `echo skip` (the build command does the install)
-   - **Output Directory:** `.next`
+   - **Install Command** (override ON): `cd ../.. && pnpm install --frozen-lockfile`
+   - **Build Command** (override ON): `cd ../.. && pnpm turbo run build --filter=hoa` (substitute `eviction` / `pm`)
+   - **Output Directory:** leave default (Vercel auto-detects `.next` inside the Root Directory)
+   - Important: install must run as the install command, NOT inside the build command — Vercel checks for Next.js between install and build, so an `echo skip` install fails with "No Next.js version detected".
 6. Set Production Branch to `claude/phase1-homeownerhub-setup-MILNu` (Settings → Git → Production Branch). Without this, Vercel only deploys `main`.
 7. Paste env vars (next subsection) — pick the right block per app.
 8. Click **Deploy**. First deploy takes 3–5 min.
