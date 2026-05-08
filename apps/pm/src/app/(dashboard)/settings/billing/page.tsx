@@ -19,6 +19,9 @@ export default async function BillingPage() {
     .maybeSingle()
 
   const plan = (orgRow?.plan as string | null) ?? 'free'
+  // PM Hub "Investor" tier persists as 'starter' (schema constraint).
+  // Show the user-facing label, not the raw slug.
+  const planLabel = plan === 'starter' ? 'Investor' : plan
   const stripeCustomerId = (orgRow?.stripe_customer_id as string | null) ?? null
   const stripeReady = isStripeConfigured()
 
@@ -36,7 +39,7 @@ export default async function BillingPage() {
           <CardTitle className="flex items-center gap-2 text-base">
             Current plan
             <Badge variant={plan === 'free' ? 'outline' : 'success'} size="sm">
-              {plan}
+              {planLabel}
             </Badge>
           </CardTitle>
         </CardHeader>

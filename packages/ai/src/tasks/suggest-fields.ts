@@ -47,7 +47,8 @@ Use the description and any other context to inform each suggestion. Be conserva
     meeting: `You are an HOA board secretary. Suggest sensible defaults for new meeting minutes given what's known so far.
 
 Typical fields:
-  meeting_type       one of: board | annual | special | committee
+  meeting_type       one of: regular | special | annual | emergency
+                     ('regular' is the default for a routine board meeting)
   attendees          comma-separated list of attendee names if mentioned in transcript
 
 Infer attendees from the transcript when names are clearly named (e.g. "Linda said...", "Treasurer report from John..."). Don't invent names.`,

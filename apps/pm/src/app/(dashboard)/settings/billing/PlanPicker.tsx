@@ -8,7 +8,10 @@ import { startPmCheckout, type BillingActionResult } from '@/lib/billing'
 const initial: BillingActionResult = {}
 
 interface Plan {
-  id: 'investor' | 'pro'
+  // 'id' is the slug stamped into orgs.plan via the webhook. PM "Investor"
+  // maps to the 'starter' slug (allowed by the orgs_plan_check constraint).
+  // 'label' is what the user sees in the card.
+  id: 'starter' | 'pro'
   label: string
   price: string
   bullets: string[]
@@ -17,7 +20,7 @@ interface Plan {
 
 const PLANS: Plan[] = [
   {
-    id: 'investor',
+    id: 'starter',
     label: 'Investor',
     price: '$15',
     bullets: ['Up to 3 properties', 'Rent ledger + late fees', 'Cross-hub eviction handoff'],

@@ -23,7 +23,8 @@ import {
 } from '@/lib/drafts'
 
 type Step = 'capture' | 'summarizing' | 'review' | 'done'
-type MeetingType = 'board' | 'annual' | 'special' | 'committee'
+// Schema-aligned slugs (hoa_meeting_minutes_meeting_type_check).
+type MeetingType = 'regular' | 'special' | 'annual' | 'emergency'
 
 interface FieldSuggestion {
   field: string
@@ -69,7 +70,7 @@ export function MeetingWizard({ initialDraft }: MeetingWizardProps) {
     initialPayload.meetingDate ?? new Date().toISOString().slice(0, 10),
   )
   const [meetingType, setMeetingType] = useState<MeetingType>(
-    initialPayload.meetingType ?? 'board',
+    initialPayload.meetingType ?? 'regular',
   )
   const [transcript, setTranscript] = useState(initialPayload.transcript ?? '')
   const [attendees, setAttendees] = useState(initialPayload.attendees ?? '')
@@ -156,7 +157,7 @@ export function MeetingWizard({ initialDraft }: MeetingWizardProps) {
       for (const s of list) {
         if (s.field === 'meeting_type') {
           const v = s.value.trim().toLowerCase()
-          if (v === 'board' || v === 'annual' || v === 'special' || v === 'committee') {
+          if (v === 'regular' || v === 'special' || v === 'annual' || v === 'emergency') {
             setMeetingType(v)
             next.add('meeting_type')
           }
@@ -311,10 +312,10 @@ export function MeetingWizard({ initialDraft }: MeetingWizardProps) {
               }}
               className="flex h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option value="board">Board meeting</option>
+              <option value="regular">Regular (board) meeting</option>
               <option value="annual">Annual meeting</option>
               <option value="special">Special meeting</option>
-              <option value="committee">Committee meeting</option>
+              <option value="emergency">Emergency meeting</option>
             </select>
           </div>
         </div>

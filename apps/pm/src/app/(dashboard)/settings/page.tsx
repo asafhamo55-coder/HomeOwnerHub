@@ -35,7 +35,7 @@ export default async function SettingsPage() {
           <Row label="Name">{org.name}</Row>
           <Row label="Plan">
             <Badge variant="outline" size="sm">
-              {org.plan}
+              {org.plan === 'starter' ? 'Investor' : org.plan}
             </Badge>
           </Row>
         </CardContent>

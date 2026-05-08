@@ -10,11 +10,15 @@ import {
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
-const PM_PLANS = ['investor', 'pro'] as const
+// Slugs match the orgs_plan_check constraint
+// (free | starter | standard | pro | enterprise | per_case | unlimited).
+// PM Hub's "Investor" tier maps to 'starter' on the org row; the
+// PlanPicker UI keeps the human-readable "Investor" label.
+const PM_PLANS = ['starter', 'pro'] as const
 type PmPlan = (typeof PM_PLANS)[number]
 
 const PRICE_FOR_PLAN: Record<PmPlan, string | undefined> = {
-  investor: process.env.STRIPE_PRICE_PM_INVESTOR,
+  starter: process.env.STRIPE_PRICE_PM_INVESTOR,
   pro: process.env.STRIPE_PRICE_PM_PRO,
 }
 

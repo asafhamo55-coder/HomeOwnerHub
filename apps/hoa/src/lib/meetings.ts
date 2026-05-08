@@ -6,11 +6,14 @@ import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
+// Schema-aligned slugs (hoa_meeting_minutes_meeting_type_check).
+export type MeetingType = 'regular' | 'special' | 'annual' | 'emergency'
+
 const ApproveSchema = z.object({
   meetingDate: z.string().min(4, 'Meeting date is required.'),
   meetingType: z
-    .enum(['board', 'annual', 'special', 'committee'])
-    .default('board'),
+    .enum(['regular', 'special', 'annual', 'emergency'])
+    .default('regular'),
   rawTranscript: z.string().min(50, 'Paste at least a paragraph of transcript.'),
   aiSummary: z.string().min(20, 'AI summary is empty.'),
   approvedSummary: z.string().min(20, 'Approved minutes are empty.'),
@@ -25,7 +28,7 @@ export interface ApproveResult {
 
 export async function approveMeetingMinutes(input: {
   meetingDate: string
-  meetingType: 'board' | 'annual' | 'special' | 'committee'
+  meetingType: MeetingType
   rawTranscript: string
   aiSummary: string
   approvedSummary: string
