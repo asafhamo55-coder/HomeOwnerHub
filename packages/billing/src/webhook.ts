@@ -98,6 +98,8 @@ export async function handleStripeWebhook(input: {
 
       // Per-case eviction billing: stamp the payment intent id onto the
       // case so the case detail page can show "paid" without polling Stripe.
+      // Scope the update by org_id (from the verified session metadata) so
+      // a stray case_id from another org could never touch this org's row.
       if (caseId) {
         const paymentIntentId =
           typeof session.payment_intent === 'string'
@@ -108,6 +110,7 @@ export async function handleStripeWebhook(input: {
             .from('eviction_cases')
             .update({ stripe_payment_id: paymentIntentId })
             .eq('id', caseId)
+            .eq('org_id', orgId)
           return { ok: true, outcome: 'case_payment_recorded' }
         }
       }
