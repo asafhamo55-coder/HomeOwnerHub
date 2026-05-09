@@ -26,7 +26,12 @@ export function MagicLinkForm({
     setErrorMessage(null)
 
     const supabase = getSupabaseBrowserClient()
-    const callbackUrl = new URL('/auth/callback', window.location.origin)
+    // Vercel auto-generates a project-specific URL alongside the canonical
+    // production URL; both serve the same code but cookies don't cross
+    // between them. Pin the magic-link callback to NEXT_PUBLIC_APP_URL so
+    // a user on the long alias still gets sent back to the canonical host.
+    const origin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+    const callbackUrl = new URL('/auth/callback', origin)
     if (redirectTo) callbackUrl.searchParams.set('next', redirectTo)
 
     const { error } = await supabase.auth.signInWithOtp({
