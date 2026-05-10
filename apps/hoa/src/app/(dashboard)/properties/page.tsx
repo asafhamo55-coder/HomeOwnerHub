@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Building2, Plus } from 'lucide-react'
-import { Button, Card, CardContent, EmptyState } from '@homeownerhub/ui'
+import { Button, Card, CardContent, EmptyState } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 

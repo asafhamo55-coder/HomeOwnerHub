@@ -5,7 +5,7 @@ import {
   createCheckoutSession,
   createPortalSession,
   isStripeConfigured,
-} from '@homeownerhub/billing'
+} from '@homeowner-portal/billing'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 

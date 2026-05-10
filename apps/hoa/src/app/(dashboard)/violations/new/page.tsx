@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { Alert, Card, CardContent, CardHeader, CardTitle } from '@homeownerhub/ui'
+import { Alert, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadDraft } from '@/lib/drafts'
 import { Wizard } from './Wizard'

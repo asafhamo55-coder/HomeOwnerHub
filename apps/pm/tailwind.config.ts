@@ -1,5 +1,5 @@
 import type { Config } from 'tailwindcss'
-import sharedConfig from '@homeownerhub/ui/tailwind.config'
+import sharedConfig from '@homeowner-portal/ui/tailwind.config'
 
 const config: Config = {
   ...sharedConfig,

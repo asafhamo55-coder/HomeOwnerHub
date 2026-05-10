@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { parseCCRDocument } from '@homeownerhub/ai'
+import { parseCCRDocument } from '@homeowner-portal/ai'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 const Schema = z.object({

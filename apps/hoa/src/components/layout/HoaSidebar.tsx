@@ -19,7 +19,7 @@ import {
   SidebarFooter,
   SidebarNav,
   SidebarSection,
-} from '@homeownerhub/ui'
+} from '@homeowner-portal/ui'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 interface HoaSidebarProps {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { generateDailyDigest } from '@homeownerhub/ai'
+import { generateDailyDigest } from '@homeowner-portal/ai'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getDashboardStats } from '@/lib/dashboard/queries'
 import { getSupabaseServerClient } from '@/lib/supabase/server'

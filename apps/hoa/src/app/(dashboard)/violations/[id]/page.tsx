@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Card, CardContent, CardHeader, CardTitle } from '@homeownerhub/ui'
+import { Badge, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 interface ViolationDetail {

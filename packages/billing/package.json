@@ -1,5 +1,5 @@
 {
-  "name": "@homeownerhub/billing",
+  "name": "@homeowner-portal/billing",
   "version": "0.0.0",
   "private": true,
   "main": "./src/index.ts",
@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@homeownerhub/db": "workspace:*",
+    "@homeowner-portal/db": "workspace:*",
     "stripe": "^17.0.0"
   },
   "devDependencies": {

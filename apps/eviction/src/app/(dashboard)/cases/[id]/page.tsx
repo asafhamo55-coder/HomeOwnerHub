@@ -10,7 +10,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@homeownerhub/ui'
+} from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { formatCounty } from '@/lib/county-labels'
 import { getSupabaseServerClient } from '@/lib/supabase/server'

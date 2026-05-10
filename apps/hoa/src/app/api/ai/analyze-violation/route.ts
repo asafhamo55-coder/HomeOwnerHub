@@ -4,7 +4,7 @@ import {
   analyzeViolationPhoto,
   covenantBrainAnalyze,
   draftViolationLetter,
-} from '@homeownerhub/ai'
+} from '@homeowner-portal/ai'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 

@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@homeownerhub/ui'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { PropertyForm } from './PropertyForm'
 

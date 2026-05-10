@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
-import { createCheckoutSession, createPortalSession, isStripeConfigured } from '@homeownerhub/billing'
+import { createCheckoutSession, createPortalSession, isStripeConfigured } from '@homeowner-portal/billing'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 

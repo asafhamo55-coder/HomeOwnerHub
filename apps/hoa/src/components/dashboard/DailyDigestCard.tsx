@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { RefreshCw, Sparkles } from 'lucide-react'
-import { Button, Card, CardContent, CardHeader, CardTitle, Alert } from '@homeownerhub/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Alert } from '@homeowner-portal/ui'
 import { formatDistanceToNow } from 'date-fns'
 
 interface DailyDigestCardProps {

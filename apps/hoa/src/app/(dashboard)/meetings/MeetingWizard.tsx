@@ -13,7 +13,7 @@ import {
   Textarea,
   WizardStepper,
   type WizardStep as StepperStep,
-} from '@homeownerhub/ui'
+} from '@homeowner-portal/ui'
 import { approveMeetingMinutes } from '@/lib/meetings'
 import {
   saveDraft,

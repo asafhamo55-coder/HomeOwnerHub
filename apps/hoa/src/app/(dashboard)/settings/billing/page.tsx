@@ -1,5 +1,5 @@
-import { Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@homeownerhub/ui'
-import { isStripeConfigured } from '@homeownerhub/billing'
+import { Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { isStripeConfigured } from '@homeowner-portal/billing'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { openHoaPortal } from '@/lib/billing'

@@ -1,7 +1,7 @@
 'use client'
 
 import { Gavel } from 'lucide-react'
-import { Button } from '@homeownerhub/ui'
+import { Button } from '@homeowner-portal/ui'
 
 interface StartEvictionButtonProps {
   address: string

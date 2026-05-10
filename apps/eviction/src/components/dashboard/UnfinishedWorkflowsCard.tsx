@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ArrowRight, FileEdit } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { Card, CardContent, CardHeader, CardTitle } from '@homeownerhub/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import type { WizardDraft } from '@/lib/drafts'
 
 const KIND_LABEL: Record<string, string> = {

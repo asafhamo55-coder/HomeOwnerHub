@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@homeownerhub/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import { addDays, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns'
 
 export type DayLevel = 'red' | 'yellow' | 'green' | 'grey'

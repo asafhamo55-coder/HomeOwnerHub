@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { Card, CardContent, Skeleton } from '@homeownerhub/ui'
+import { Card, CardContent, Skeleton } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import {
   getComplianceHeatMap,

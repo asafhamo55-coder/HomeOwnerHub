@@ -1,7 +1,7 @@
 'use client'
 
 import { createBrowserClient } from '@supabase/ssr'
-import type { Database } from '@homeownerhub/db/types'
+import type { Database } from '@homeowner-portal/db/types'
 
 let _client: ReturnType<typeof createBrowserClient<Database>> | null = null
 

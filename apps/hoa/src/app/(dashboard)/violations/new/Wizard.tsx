@@ -23,7 +23,7 @@ import {
   Textarea,
   WizardStepper,
   type WizardStep as StepperStep,
-} from '@homeownerhub/ui'
+} from '@homeowner-portal/ui'
 import { createApprovedViolation } from '@/lib/violations'
 import {
   saveDraft,

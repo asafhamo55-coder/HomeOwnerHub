@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react'
 import { Building2 } from 'lucide-react'
-import { Button, Input, Alert } from '@homeownerhub/ui'
+import { Button, Input, Alert } from '@homeowner-portal/ui'
 import { createHoaOrg, type OnboardingActionState } from './actions'
 
 const initial: OnboardingActionState = {}

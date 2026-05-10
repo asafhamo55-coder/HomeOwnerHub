@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ArrowRight, AlertTriangle, ClipboardCheck, Wallet } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, Badge } from '@homeownerhub/ui'
+import { Card, CardContent, CardHeader, CardTitle, Badge } from '@homeowner-portal/ui'
 import type { DashboardStats } from '@/lib/dashboard/queries'
 
 function currency(n: number): string {

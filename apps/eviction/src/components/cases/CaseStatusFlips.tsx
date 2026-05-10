@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Loader2, Check, ChevronRight } from 'lucide-react'
-import { Alert, Button, cn } from '@homeownerhub/ui'
+import { Alert, Button, cn } from '@homeowner-portal/ui'
 import { updateCaseStatus } from '@/lib/case-actions'
 
 interface CaseStatusFlipsProps {

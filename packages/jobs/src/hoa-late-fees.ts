@@ -1,4 +1,4 @@
-import { createAdminClient } from '@homeownerhub/db'
+import { createAdminClient } from '@homeowner-portal/db'
 import { inngest } from './client'
 
 const HOA_LATE_FEE_RATE = 0.05 // 5% — typical default; configurable per-row later.

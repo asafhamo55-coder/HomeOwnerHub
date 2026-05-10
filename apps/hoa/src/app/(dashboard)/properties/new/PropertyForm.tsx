@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react'
 import Link from 'next/link'
-import { Button, Input, Textarea, Alert, cn } from '@homeownerhub/ui'
+import { Button, Input, Textarea, Alert, cn } from '@homeowner-portal/ui'
 import { createProperty, type PropertyActionState } from '@/lib/properties'
 
 const initial: PropertyActionState = {}

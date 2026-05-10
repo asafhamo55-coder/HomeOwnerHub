@@ -1,5 +1,5 @@
 import { Sparkles } from 'lucide-react'
-import { Card, CardContent } from '@homeownerhub/ui'
+import { Card, CardContent } from '@homeowner-portal/ui'
 
 export function ComingSoon({
   title,

@@ -6,7 +6,7 @@ import {
   pmLateFeeJob,
   evictionReminderJob,
   wizardDraftRemindersJob,
-} from '@homeownerhub/jobs'
+} from '@homeowner-portal/jobs'
 
 // All five crons mount in the HOA app for Phase 1. Inngest is a single
 // app-id ("homeownerhub") so it doesn't matter where the handler lives —

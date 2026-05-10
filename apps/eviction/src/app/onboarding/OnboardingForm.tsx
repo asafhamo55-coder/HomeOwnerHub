@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react'
 import { Briefcase } from 'lucide-react'
-import { Button, Input, Alert } from '@homeownerhub/ui'
+import { Button, Input, Alert } from '@homeowner-portal/ui'
 import { createEvictionOrg, type OnboardingActionState } from './actions'
 
 const initial: OnboardingActionState = {}

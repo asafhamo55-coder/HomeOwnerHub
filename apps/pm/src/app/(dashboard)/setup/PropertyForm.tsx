@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState } from 'react'
-import { Alert, Button, Input } from '@homeownerhub/ui'
+import { Alert, Button, Input } from '@homeowner-portal/ui'
 import { createOrUpdateProperty, type PropertyActionState } from '@/lib/properties'
 
 const initial: PropertyActionState = {}

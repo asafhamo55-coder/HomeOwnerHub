@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Save, Sparkles } from 'lucide-react'
-import { Alert, Button, Textarea } from '@homeownerhub/ui'
+import { Alert, Button, Textarea } from '@homeowner-portal/ui'
 import { updateParsedText } from '@/lib/documents'
 
 interface ParsedTextEditorProps {

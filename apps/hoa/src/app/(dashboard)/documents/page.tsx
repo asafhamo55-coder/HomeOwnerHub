@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { FileText, Plus, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Button, Card, EmptyState } from '@homeownerhub/ui'
+import { Badge, Button, Card, EmptyState } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Documents' }

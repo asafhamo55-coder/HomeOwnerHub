@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Plus, Loader2 } from 'lucide-react'
-import { Alert, Button, Input } from '@homeownerhub/ui'
+import { Alert, Button, Input } from '@homeowner-portal/ui'
 import { materializeCurrentPeriodDues } from '@/lib/dues'
 
 interface Props {

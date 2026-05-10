@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { handleStripeWebhook } from '@homeownerhub/billing'
+import { handleStripeWebhook } from '@homeowner-portal/billing'
 
 export async function POST(request: Request) {
   const result = await handleStripeWebhook({

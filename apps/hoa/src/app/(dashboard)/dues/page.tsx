@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Wallet } from 'lucide-react'
 import { format, differenceInCalendarDays } from 'date-fns'
-import { Badge, Button, Card, EmptyState } from '@homeownerhub/ui'
+import { Badge, Button, Card, EmptyState } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { MarkPaidButton } from './MarkPaidButton'

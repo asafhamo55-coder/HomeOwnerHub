@@ -1,4 +1,4 @@
-import { Card, CardContent } from '@homeownerhub/ui'
+import { Card, CardContent } from '@homeowner-portal/ui'
 
 // Centered card for /login, /signup, /verify. Brand + auth form only —
 // no sidebar, no nav, no chrome.

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, Alert } from '@homeownerhub/ui'
+import { Card, CardContent, CardHeader, CardTitle, Alert } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { loadDraft } from '@/lib/drafts'
 import { Wizard } from './Wizard'

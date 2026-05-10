@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { suggestFieldValues } from '@homeownerhub/ai'
+import { suggestFieldValues } from '@homeowner-portal/ai'
 import { getCurrentOrg } from '@/lib/orgs'
 
 const Schema = z.object({

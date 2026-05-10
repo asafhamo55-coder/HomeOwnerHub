@@ -5,7 +5,7 @@ import {
   AppShellHeader,
   AppShellMain,
   AppShellSidebar,
-} from '@homeownerhub/ui'
+} from '@homeowner-portal/ui'
 import { getCurrentOrg, getUserHubs } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { PmSidebar } from '@/components/layout/PmSidebar'

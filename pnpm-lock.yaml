@@ -20,16 +20,16 @@ importers:
 
   apps/eviction:
     dependencies:
-      '@homeownerhub/ai':
+      '@homeowner-portal/ai':
         specifier: workspace:*
         version: link:../../packages/ai
-      '@homeownerhub/billing':
+      '@homeowner-portal/billing':
         specifier: workspace:*
         version: link:../../packages/billing
-      '@homeownerhub/db':
+      '@homeowner-portal/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@homeownerhub/ui':
+      '@homeowner-portal/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@hookform/resolvers':
@@ -99,19 +99,19 @@ importers:
 
   apps/hoa:
     dependencies:
-      '@homeownerhub/ai':
+      '@homeowner-portal/ai':
         specifier: workspace:*
         version: link:../../packages/ai
-      '@homeownerhub/billing':
+      '@homeowner-portal/billing':
         specifier: workspace:*
         version: link:../../packages/billing
-      '@homeownerhub/db':
+      '@homeowner-portal/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@homeownerhub/jobs':
+      '@homeowner-portal/jobs':
         specifier: workspace:*
         version: link:../../packages/jobs
-      '@homeownerhub/ui':
+      '@homeowner-portal/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@hookform/resolvers':
@@ -196,16 +196,16 @@ importers:
 
   apps/pm:
     dependencies:
-      '@homeownerhub/ai':
+      '@homeowner-portal/ai':
         specifier: workspace:*
         version: link:../../packages/ai
-      '@homeownerhub/billing':
+      '@homeowner-portal/billing':
         specifier: workspace:*
         version: link:../../packages/billing
-      '@homeownerhub/db':
+      '@homeowner-portal/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@homeownerhub/ui':
+      '@homeowner-portal/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@hookform/resolvers':
@@ -275,9 +275,15 @@ importers:
 
   packages/ai:
     dependencies:
+      '@homeowner-portal/db':
+        specifier: workspace:*
+        version: link:../db
       openai:
         specifier: ^4.70.0
         version: 4.104.0(ws@8.20.0)(zod@3.25.76)
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
     devDependencies:
       typescript:
         specifier: ^5
@@ -285,7 +291,7 @@ importers:
 
   packages/billing:
     dependencies:
-      '@homeownerhub/db':
+      '@homeowner-portal/db':
         specifier: workspace:*
         version: link:../db
       stripe:
@@ -311,10 +317,10 @@ importers:
 
   packages/jobs:
     dependencies:
-      '@homeownerhub/ai':
+      '@homeowner-portal/ai':
         specifier: workspace:*
         version: link:../ai
-      '@homeownerhub/db':
+      '@homeowner-portal/db':
         specifier: workspace:*
         version: link:../db
       inngest:
@@ -394,6 +400,25 @@ importers:
       tailwindcss:
         specifier: ^3.4.0
         version: 3.4.19(yaml@2.8.4)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/workflows:
+    dependencies:
+      '@homeowner-portal/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@homeowner-portal/db':
+        specifier: workspace:*
+        version: link:../db
+      openai:
+        specifier: ^4.70.0
+        version: 4.104.0(ws@8.20.0)(zod@3.25.76)
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
+    devDependencies:
       typescript:
         specifier: ^5
         version: 5.9.3

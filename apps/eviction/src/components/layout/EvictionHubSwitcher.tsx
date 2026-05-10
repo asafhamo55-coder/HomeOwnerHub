@@ -1,4 +1,4 @@
-import { HubSwitcher, type Hub } from '@homeownerhub/ui'
+import { HubSwitcher, type Hub } from '@homeowner-portal/ui'
 import type { UserHub } from '@/lib/orgs'
 
 interface Props {

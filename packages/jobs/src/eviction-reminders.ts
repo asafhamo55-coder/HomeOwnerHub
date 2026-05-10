@@ -1,4 +1,4 @@
-import { createAdminClient } from '@homeownerhub/db'
+import { createAdminClient } from '@homeowner-portal/db'
 import { inngest } from './client'
 
 /**

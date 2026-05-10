@@ -1,4 +1,4 @@
-import { Card, CardContent } from '@homeownerhub/ui'
+import { Card, CardContent } from '@homeowner-portal/ui'
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (

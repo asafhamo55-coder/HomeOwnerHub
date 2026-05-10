@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@homeownerhub/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import { UploadForm } from './UploadForm'
 
 export const metadata = { title: 'Upload document' }

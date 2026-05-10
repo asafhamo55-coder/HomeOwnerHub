@@ -1,5 +1,5 @@
 import type Stripe from 'stripe'
-import { createAdminClient } from '@homeownerhub/db'
+import { createAdminClient } from '@homeowner-portal/db'
 import { getStripe } from './client'
 
 export interface WebhookHandleResult {

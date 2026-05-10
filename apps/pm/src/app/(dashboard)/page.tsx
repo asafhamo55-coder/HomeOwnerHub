@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
   EmptyState,
-} from '@homeownerhub/ui'
+} from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ensureLeaseLedger } from '@/lib/rent'

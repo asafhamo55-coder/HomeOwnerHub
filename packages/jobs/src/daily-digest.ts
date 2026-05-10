@@ -1,5 +1,5 @@
-import { generateDailyDigest } from '@homeownerhub/ai'
-import { createAdminClient } from '@homeownerhub/db'
+import { generateDailyDigest } from '@homeowner-portal/ai'
+import { createAdminClient } from '@homeowner-portal/db'
 import { inngest } from './client'
 
 /**

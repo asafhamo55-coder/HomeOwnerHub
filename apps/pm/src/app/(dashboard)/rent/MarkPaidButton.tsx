@@ -2,7 +2,7 @@
 
 import { useTransition } from 'react'
 import { Check, Loader2 } from 'lucide-react'
-import { cn } from '@homeownerhub/ui'
+import { cn } from '@homeowner-portal/ui'
 import { markPeriodPaid } from '@/lib/rent'
 
 export function MarkPaidButton({

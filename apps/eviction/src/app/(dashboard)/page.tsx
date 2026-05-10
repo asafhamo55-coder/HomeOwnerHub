@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ScrollText, Plus, AlertCircle } from 'lucide-react'
 import { format, differenceInCalendarDays } from 'date-fns'
-import { Badge, Button, Card, EmptyState } from '@homeownerhub/ui'
+import { Badge, Button, Card, EmptyState } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { listUnfinishedDrafts } from '@/lib/drafts'
 import { formatCounty } from '@/lib/county-labels'

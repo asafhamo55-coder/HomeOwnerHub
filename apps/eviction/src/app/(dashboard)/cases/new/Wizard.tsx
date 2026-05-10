@@ -18,8 +18,8 @@ import {
   Textarea,
   WizardStepper,
   type WizardStep as StepperStep,
-} from '@homeownerhub/ui'
-import { humanizeNoticeType } from '@homeownerhub/ai'
+} from '@homeowner-portal/ui'
+import { humanizeNoticeType } from '@homeowner-portal/ai'
 import { ComplianceBlock } from '@/components/cases/ComplianceBlock'
 import {
   checkHarrisCountyCompliance,

@@ -8,8 +8,8 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@homeownerhub/ui'
-import { isStripeConfigured } from '@homeownerhub/billing'
+} from '@homeowner-portal/ui'
+import { isStripeConfigured } from '@homeowner-portal/billing'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { openEvictionPortal } from '@/lib/billing'

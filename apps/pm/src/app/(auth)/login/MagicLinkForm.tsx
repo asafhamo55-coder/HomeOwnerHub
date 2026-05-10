@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Mail } from 'lucide-react'
-import { Button, Input, Alert } from '@homeownerhub/ui'
+import { Button, Input, Alert } from '@homeowner-portal/ui'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 export function MagicLinkForm({

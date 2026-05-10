@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Alert, Button } from '@homeownerhub/ui'
+import { Alert, Button } from '@homeowner-portal/ui'
 import { startEvictionUnlimited } from '@/lib/billing'
 
 export function UnlimitedButton({ disabled }: { disabled?: boolean }) {

@@ -5,7 +5,7 @@ import {
   draftEvictionNotice,
   type AIComplianceFlags,
   type EvictionNoticeType,
-} from '@homeownerhub/ai'
+} from '@homeowner-portal/ai'
 import { getCurrentOrg } from '@/lib/orgs'
 
 const Schema = z.object({

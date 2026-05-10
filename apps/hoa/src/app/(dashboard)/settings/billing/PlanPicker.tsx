@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react'
 import { Check } from 'lucide-react'
-import { Alert, Badge, Button, Card, CardContent, cn } from '@homeownerhub/ui'
+import { Alert, Badge, Button, Card, CardContent, cn } from '@homeowner-portal/ui'
 import { startHoaCheckout, type BillingActionResult } from '@/lib/billing'
 
 const initial: BillingActionResult = {}

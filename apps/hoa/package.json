@@ -10,11 +10,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@homeownerhub/ai": "workspace:*",
-    "@homeownerhub/billing": "workspace:*",
-    "@homeownerhub/db": "workspace:*",
-    "@homeownerhub/jobs": "workspace:*",
-    "@homeownerhub/ui": "workspace:*",
+    "@homeowner-portal/ai": "workspace:*",
+    "@homeowner-portal/billing": "workspace:*",
+    "@homeowner-portal/db": "workspace:*",
+    "@homeowner-portal/jobs": "workspace:*",
+    "@homeowner-portal/ui": "workspace:*",
     "@hookform/resolvers": "^3.9.0",
     "@stripe/stripe-js": "^4.0.0",
     "@supabase/ssr": "^0.10.2",

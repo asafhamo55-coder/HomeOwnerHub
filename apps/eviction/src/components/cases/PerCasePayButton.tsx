@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Alert, Button } from '@homeownerhub/ui'
+import { Alert, Button } from '@homeowner-portal/ui'
 import { startPerCaseCheckout } from '@/lib/case-actions'
 
 export function PerCasePayButton({ caseId }: { caseId: string }) {

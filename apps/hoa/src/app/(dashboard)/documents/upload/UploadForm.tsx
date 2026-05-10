@@ -3,7 +3,7 @@
 import { useActionState, useState } from 'react'
 import Link from 'next/link'
 import { Upload } from 'lucide-react'
-import { Alert, Button, Input, Textarea } from '@homeownerhub/ui'
+import { Alert, Button, Input, Textarea } from '@homeowner-portal/ui'
 import { uploadDocument, type UploadActionState } from '@/lib/documents'
 
 const initial: UploadActionState = {}

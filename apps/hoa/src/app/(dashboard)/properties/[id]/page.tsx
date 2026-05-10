@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
   EmptyState,
-} from '@homeownerhub/ui'
+} from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 interface PropertyDetailRow {

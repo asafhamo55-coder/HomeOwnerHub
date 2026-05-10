@@ -41,3 +41,14 @@ export type { FieldSuggestion, SuggestFieldsInput } from './tasks/suggest-fields
 
 // Resilience wrapper
 export { withFallback } from './resilience'
+
+// v1 workflow primitive (spec §7) — every Phase 2 workflow goes through this.
+export { defineWorkflow } from './workflow'
+export type {
+  Workflow,
+  WorkflowResult,
+  WorkflowExecuteApi,
+  WorkflowExecutionContext,
+  WorkflowExecutionStatus,
+  DefineWorkflowOptions,
+} from './workflow'

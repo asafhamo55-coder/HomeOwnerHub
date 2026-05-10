@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Card, CardContent } from '@homeownerhub/ui'
+import { Card, CardContent } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { OnboardingForm } from './OnboardingForm'
 

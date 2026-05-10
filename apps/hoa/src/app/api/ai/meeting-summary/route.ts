@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { summarizeMeeting } from '@homeownerhub/ai'
+import { summarizeMeeting } from '@homeowner-portal/ai'
 import { getCurrentOrg } from '@/lib/orgs'
 
 const Schema = z.object({
