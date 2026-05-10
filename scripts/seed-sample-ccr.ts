@@ -19,6 +19,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { embedTexts, toPgVector } from '../packages/ai/src/embeddings'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -145,6 +146,26 @@ async function main(): Promise<void> {
   const chunks = chunkBySectionHeading(fixtureText)
   console.log(`[seed] Splitting into ${chunks.length} chunks`)
 
+  // Generate embeddings if HF token is available; fall back to NULL
+  // (FTS still works for retrieval).
+  let embeddings: number[][] | null = null
+  if (process.env.HUGGINGFACE_API_TOKEN) {
+    try {
+      console.log('[seed] Generating embeddings…')
+      embeddings = await embedTexts(chunks.map((c) => c.text))
+      console.log(`[seed] Embedded ${embeddings.length} chunks`)
+    } catch (err) {
+      console.warn(
+        '[seed] embedding failed, inserting chunks without:',
+        err instanceof Error ? err.message : err,
+      )
+    }
+  } else {
+    console.log(
+      '[seed] HUGGINGFACE_API_TOKEN not set — skipping embeddings (FTS will still work).',
+    )
+  }
+
   const inserts = chunks.map((c, ordinal) => ({
     organization_id: targetOrg.id,
     document_id: doc.id,
@@ -152,9 +173,11 @@ async function main(): Promise<void> {
     page_number: null,
     ordinal,
     text: c.text,
+    embedding: embeddings?.[ordinal] ? toPgVector(embeddings[ordinal]) : null,
     metadata: {
       doc_title: DOC_TITLE,
       seeded_from: 'sample-ccr.md',
+      embedding_status: embeddings ? 'embedded' : 'pending',
     },
   }))
 

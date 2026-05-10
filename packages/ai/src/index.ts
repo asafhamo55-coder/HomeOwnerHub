@@ -42,6 +42,10 @@ export type { FieldSuggestion, SuggestFieldsInput } from './tasks/suggest-fields
 // Resilience wrapper
 export { withFallback } from './resilience'
 
+// Embeddings (BGE-M3 via HuggingFace bridge per ADR-003)
+export { embedTexts, toPgVector, EmbeddingError } from './embeddings'
+export type { EmbedOptions } from './embeddings'
+
 // v1 workflow primitive (spec §7) — every Phase 2 workflow goes through this.
 export { defineWorkflow } from './workflow'
 export type {

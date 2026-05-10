@@ -7,6 +7,7 @@ import {
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@homeowner-portal/db'
+import { embedTexts, toPgVector } from '@homeowner-portal/ai'
 
 // POST /api/governing-docs/upload
 //
@@ -208,6 +209,21 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const adminDb = createAdminClient()
+
+  // Generate embeddings up-front so they land with the chunks in one
+  // round-trip. Failure is non-fatal — we still insert the rows with
+  // NULL embeddings, and W1's retrieval handles the FTS fallback.
+  let embeddings: number[][] | null = null
+  let embeddingError: string | null = null
+  try {
+    if (process.env.HUGGINGFACE_API_TOKEN || process.env.EMBEDDING_BASE_URL) {
+      embeddings = await embedTexts(chunks.map((c) => c.text))
+    }
+  } catch (err) {
+    embeddingError = err instanceof Error ? err.message : String(err)
+    console.warn('[upload] embedding failed, inserting without:', embeddingError)
+  }
+
   const inserts = chunks.map((c, ordinal) => ({
     organization_id: org.id,
     document_id: doc.id,
@@ -215,7 +231,11 @@ export async function POST(request: Request): Promise<Response> {
     page_number: null,
     ordinal,
     text: c.text,
-    metadata: { parser_version: parserVersion },
+    embedding: embeddings?.[ordinal] ? toPgVector(embeddings[ordinal]) : null,
+    metadata: {
+      parser_version: parserVersion,
+      embedding_status: embeddings ? 'embedded' : 'pending',
+    },
   }))
 
   const { error: chunkErr } = await adminDb
@@ -237,6 +257,9 @@ export async function POST(request: Request): Promise<Response> {
   return NextResponse.json({
     documentId: doc.id,
     chunkCount: inserts.length,
+    embeddedCount: embeddings ? embeddings.length : 0,
+    embeddingStatus: embeddings ? 'embedded' : embeddingError ? 'failed' : 'skipped',
+    embeddingError,
     parserVersion,
   })
 }
