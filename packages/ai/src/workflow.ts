@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { createAdminClient } from '@homeowner-portal/db'
 
@@ -188,7 +187,7 @@ export function defineWorkflow<
           ? 'pending_human_approval'
           : 'completed'
 
-      const inputHash = sha256(stableStringify(input))
+      const inputHash = await sha256(stableStringify(input))
 
       const runId = await persistRun({
         organizationId: ctx.organizationId,
@@ -294,8 +293,18 @@ function clamp01(v: number): number {
   return v
 }
 
-function sha256(input: string): string {
-  return createHash('sha256').update(input).digest('hex')
+async function sha256(input: string): Promise<string> {
+  // Web Crypto API — available globally in Node 20+ and modern browsers,
+  // so the workflow module can be imported by either runtime without
+  // pulling in node:crypto (which webpack refuses to bundle for client).
+  const data = new TextEncoder().encode(input)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const bytes = new Uint8Array(hashBuffer)
+  let hex = ''
+  for (const byte of bytes) {
+    hex += byte.toString(16).padStart(2, '0')
+  }
+  return hex
 }
 
 /**

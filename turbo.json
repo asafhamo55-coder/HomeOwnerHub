@@ -10,7 +10,10 @@
         "SUPABASE_SERVICE_ROLE_KEY",
         "AI_*",
         "STRIPE_*",
-        "INNGEST_*"
+        "INNGEST_*",
+        "HUGGINGFACE_API_TOKEN",
+        "EMBEDDING_BASE_URL",
+        "EMBEDDING_MODEL"
       ]
     },
     "dev": {
