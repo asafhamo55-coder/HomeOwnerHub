@@ -11,6 +11,7 @@ import {
   Home,
   LogOut,
   Settings,
+  Sparkles,
   Wallet,
 } from 'lucide-react'
 import {
@@ -36,6 +37,7 @@ interface NavLink {
 
 const PRIMARY: NavLink[] = [
   { href: '/', icon: <Home className="h-4 w-4" />, label: 'Dashboard' },
+  { href: '/ai/ask', icon: <Sparkles className="h-4 w-4" />, label: 'Ask the Docs' },
   { href: '/violations', icon: <AlertTriangle className="h-4 w-4" />, label: 'Violations' },
   { href: '/properties', icon: <Building2 className="h-4 w-4" />, label: 'Properties' },
   { href: '/documents', icon: <FileText className="h-4 w-4" />, label: 'Documents' },
