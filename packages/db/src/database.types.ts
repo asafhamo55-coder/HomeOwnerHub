@@ -14,6 +14,227 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_feedback: {
+        Row: {
+          ai_run_id: string
+          comment: string | null
+          created_at: string | null
+          edited_output: Json | null
+          id: string
+          organization_id: string
+          signal: string
+          user_id: string
+        }
+        Insert: {
+          ai_run_id: string
+          comment?: string | null
+          created_at?: string | null
+          edited_output?: Json | null
+          id?: string
+          organization_id: string
+          signal: string
+          user_id: string
+        }
+        Update: {
+          ai_run_id?: string
+          comment?: string | null
+          created_at?: string | null
+          edited_output?: Json | null
+          id?: string
+          organization_id?: string
+          signal?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_feedback_ai_run_id_fkey"
+            columns: ["ai_run_id"]
+            isOneToOne: false
+            referencedRelation: "ai_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_feedback_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_runs: {
+        Row: {
+          approved_at: string | null
+          citations: Json | null
+          confidence: number | null
+          created_at: string | null
+          error_code: string | null
+          human_approved: boolean | null
+          human_approver: string | null
+          human_edited_output: Json | null
+          human_feedback: string | null
+          id: string
+          input: Json
+          input_hash: string
+          latency_ms: number | null
+          model: string
+          organization_id: string
+          output: Json
+          prompt_version: string
+          reasoning_trace: string | null
+          status: string
+          tokens_in: number | null
+          tokens_out: number | null
+          workflow_id: string
+          workflow_version: string
+        }
+        Insert: {
+          approved_at?: string | null
+          citations?: Json | null
+          confidence?: number | null
+          created_at?: string | null
+          error_code?: string | null
+          human_approved?: boolean | null
+          human_approver?: string | null
+          human_edited_output?: Json | null
+          human_feedback?: string | null
+          id?: string
+          input: Json
+          input_hash: string
+          latency_ms?: number | null
+          model: string
+          organization_id: string
+          output: Json
+          prompt_version: string
+          reasoning_trace?: string | null
+          status?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          workflow_id: string
+          workflow_version: string
+        }
+        Update: {
+          approved_at?: string | null
+          citations?: Json | null
+          confidence?: number | null
+          created_at?: string | null
+          error_code?: string | null
+          human_approved?: boolean | null
+          human_approver?: string | null
+          human_edited_output?: Json | null
+          human_feedback?: string | null
+          id?: string
+          input?: Json
+          input_hash?: string
+          latency_ms?: number | null
+          model?: string
+          organization_id?: string
+          output?: Json
+          prompt_version?: string
+          reasoning_trace?: string | null
+          status?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          workflow_id?: string
+          workflow_version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_runs_human_approver_fkey"
+            columns: ["human_approver"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_runs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      associations: {
+        Row: {
+          ai_generated: boolean | null
+          ai_workflow_id: string | null
+          created_at: string | null
+          created_by: string | null
+          fiscal_year_start: string | null
+          governing_law_state: string | null
+          id: string
+          name: string
+          organization_id: string
+          state: string
+          total_units: number | null
+          type: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          ai_workflow_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          fiscal_year_start?: string | null
+          governing_law_state?: string | null
+          id?: string
+          name: string
+          organization_id: string
+          state: string
+          total_units?: number | null
+          type?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          ai_generated?: boolean | null
+          ai_workflow_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          fiscal_year_start?: string | null
+          governing_law_state?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+          state?: string
+          total_units?: number | null
+          type?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "associations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "associations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "associations_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -173,6 +394,142 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      governing_document_chunks: {
+        Row: {
+          created_at: string | null
+          document_id: string
+          embedding: string | null
+          id: string
+          metadata: Json | null
+          ordinal: number
+          organization_id: string
+          page_number: number | null
+          section: string | null
+          text: string
+        }
+        Insert: {
+          created_at?: string | null
+          document_id: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          ordinal: number
+          organization_id: string
+          page_number?: number | null
+          section?: string | null
+          text: string
+        }
+        Update: {
+          created_at?: string | null
+          document_id?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          ordinal?: number
+          organization_id?: string
+          page_number?: number | null
+          section?: string | null
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "governing_document_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "governing_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "governing_document_chunks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      governing_documents: {
+        Row: {
+          ai_generated: boolean | null
+          ai_workflow_id: string | null
+          association_id: string | null
+          created_at: string | null
+          created_by: string | null
+          effective_date: string | null
+          file_size: number | null
+          id: string
+          organization_id: string
+          parsed_at: string | null
+          parsed_text: string | null
+          parser_version: string | null
+          storage_path: string | null
+          superseded_at: string | null
+          title: string
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          ai_workflow_id?: string | null
+          association_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          effective_date?: string | null
+          file_size?: number | null
+          id?: string
+          organization_id: string
+          parsed_at?: string | null
+          parsed_text?: string | null
+          parser_version?: string | null
+          storage_path?: string | null
+          superseded_at?: string | null
+          title: string
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          ai_generated?: boolean | null
+          ai_workflow_id?: string | null
+          association_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          effective_date?: string | null
+          file_size?: number | null
+          id?: string
+          organization_id?: string
+          parsed_at?: string | null
+          parsed_text?: string | null
+          parser_version?: string | null
+          storage_path?: string | null
+          superseded_at?: string | null
+          title?: string
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "governing_documents_association_id_fkey"
+            columns: ["association_id"]
+            isOneToOne: false
+            referencedRelation: "associations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "governing_documents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "governing_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
             referencedColumns: ["id"]
           },
         ]
@@ -583,6 +940,7 @@ export type Database = {
           hub_type: string
           id: string
           name: string
+          organization_type: string
           plan: string
           stripe_customer_id: string | null
           stripe_sub_id: string | null
@@ -594,6 +952,7 @@ export type Database = {
           hub_type: string
           id?: string
           name: string
+          organization_type?: string
           plan?: string
           stripe_customer_id?: string | null
           stripe_sub_id?: string | null
@@ -605,12 +964,90 @@ export type Database = {
           hub_type?: string
           id?: string
           name?: string
+          organization_type?: string
           plan?: string
           stripe_customer_id?: string | null
           stripe_sub_id?: string | null
           updated_at?: string | null
         }
         Relationships: []
+      }
+      ownerships: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          organization_id: string
+          owner_email: string | null
+          owner_name: string | null
+          owner_phone: string | null
+          owner_user_id: string | null
+          ownership_pct: number | null
+          source: string | null
+          unit_id: string
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          organization_id: string
+          owner_email?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          owner_user_id?: string | null
+          ownership_pct?: number | null
+          source?: string | null
+          unit_id: string
+          valid_from: string
+          valid_to?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          organization_id?: string
+          owner_email?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          owner_user_id?: string | null
+          ownership_pct?: number | null
+          source?: string | null
+          unit_id?: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ownerships_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ownerships_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ownerships_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ownerships_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pm_properties: {
         Row: {
@@ -772,6 +1209,174 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      tenancies: {
+        Row: {
+          created_at: string | null
+          deposit: number | null
+          id: string
+          lease_end: string | null
+          lease_start: string
+          monthly_rent: number | null
+          organization_id: string
+          status: string
+          tenant_email: string | null
+          tenant_name: string | null
+          tenant_phone: string | null
+          tenant_user_id: string | null
+          unit_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          deposit?: number | null
+          id?: string
+          lease_end?: string | null
+          lease_start: string
+          monthly_rent?: number | null
+          organization_id: string
+          status?: string
+          tenant_email?: string | null
+          tenant_name?: string | null
+          tenant_phone?: string | null
+          tenant_user_id?: string | null
+          unit_id: string
+        }
+        Update: {
+          created_at?: string | null
+          deposit?: number | null
+          id?: string
+          lease_end?: string | null
+          lease_start?: string
+          monthly_rent?: number | null
+          organization_id?: string
+          status?: string
+          tenant_email?: string | null
+          tenant_name?: string | null
+          tenant_phone?: string | null
+          tenant_user_id?: string | null
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenancies_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenancies_tenant_user_id_fkey"
+            columns: ["tenant_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenancies_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      units: {
+        Row: {
+          address_line1: string
+          address_line2: string | null
+          ai_generated: boolean | null
+          ai_workflow_id: string | null
+          association_id: string | null
+          bathrooms: number | null
+          bedrooms: number | null
+          city: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          lot_number: string | null
+          notes: string | null
+          organization_id: string
+          postal_code: string | null
+          square_feet: number | null
+          state: string | null
+          unit_number: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          address_line1: string
+          address_line2?: string | null
+          ai_generated?: boolean | null
+          ai_workflow_id?: string | null
+          association_id?: string | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          city?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          lot_number?: string | null
+          notes?: string | null
+          organization_id: string
+          postal_code?: string | null
+          square_feet?: number | null
+          state?: string | null
+          unit_number?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          address_line1?: string
+          address_line2?: string | null
+          ai_generated?: boolean | null
+          ai_workflow_id?: string | null
+          association_id?: string | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          city?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          lot_number?: string | null
+          notes?: string | null
+          organization_id?: string
+          postal_code?: string | null
+          square_feet?: number | null
+          state?: string | null
+          unit_number?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "units_association_id_fkey"
+            columns: ["association_id"]
+            isOneToOne: false
+            referencedRelation: "associations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wizard_drafts: {
         Row: {
