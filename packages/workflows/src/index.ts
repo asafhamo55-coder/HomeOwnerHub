@@ -10,3 +10,9 @@ export type {
   GoverningDocsBrainOutput,
   GoverningDocsCitation,
 } from './W1-governing-docs-brain'
+
+export {
+  chunkByMarkdownSection,
+  chunkPlainText,
+} from './W1-governing-docs-brain/chunker'
+export type { Chunk } from './W1-governing-docs-brain/chunker'

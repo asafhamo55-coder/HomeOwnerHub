@@ -6,7 +6,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./W1": "./src/W1-governing-docs-brain/index.ts"
+    "./W1": "./src/W1-governing-docs-brain/index.ts",
+    "./chunker": "./src/W1-governing-docs-brain/chunker.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
