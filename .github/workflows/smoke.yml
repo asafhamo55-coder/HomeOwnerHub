@@ -1,0 +1,93 @@
+name: Smoke
+
+on:
+  # Trigger after Vercel deployment_status event signals success.
+  deployment_status: {}
+  # Also allow manual runs from the Actions tab.
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Commit SHA to smoke-test (defaults to latest deployed)'
+        required: false
+        default: ''
+
+# We need only one smoke run per ref at a time.
+concurrency:
+  group: smoke-${{ github.event.deployment_status.environment || github.event.deployment.environment || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Health check all 3 apps
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Only run on successful Vercel production deployments (or manual).
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+
+    steps:
+      - name: Identify deployment
+        id: deploy
+        run: |
+          echo "url=${{ github.event.deployment_status.target_url }}" >> "$GITHUB_OUTPUT"
+          echo "env=${{ github.event.deployment.environment || 'Production' }}" >> "$GITHUB_OUTPUT"
+          echo "Triggered for ${{ github.event.deployment.environment }} at ${{ github.event.deployment_status.target_url }}"
+
+      - name: Probe HOA /api/health
+        run: |
+          set -e
+          URL="https://home-owner-hub-hoa.vercel.app/api/health"
+          echo "::group::HOA"
+          curl -fsSL --max-time 30 -w "\nHTTP %{http_code}\n" "$URL" | tee /tmp/hoa.json
+          OK=$(jq -r '.ok' /tmp/hoa.json)
+          if [ "$OK" != "true" ]; then
+            echo "::error::HOA health is not ok"; cat /tmp/hoa.json
+            exit 1
+          fi
+          echo "::endgroup::"
+
+      - name: Probe Eviction /api/health
+        run: |
+          set -e
+          URL="https://homeowner-hub-eviction.vercel.app/api/health"
+          echo "::group::Eviction"
+          curl -fsSL --max-time 30 -w "\nHTTP %{http_code}\n" "$URL" | tee /tmp/eviction.json
+          OK=$(jq -r '.ok' /tmp/eviction.json)
+          if [ "$OK" != "true" ]; then
+            echo "::error::Eviction health is not ok"; cat /tmp/eviction.json
+            exit 1
+          fi
+          echo "::endgroup::"
+
+      - name: Probe PM /api/health
+        run: |
+          set -e
+          URL="https://home-owner-hub-pm.vercel.app/api/health"
+          echo "::group::PM"
+          curl -fsSL --max-time 30 -w "\nHTTP %{http_code}\n" "$URL" | tee /tmp/pm.json
+          OK=$(jq -r '.ok' /tmp/pm.json)
+          if [ "$OK" != "true" ]; then
+            echo "::error::PM health is not ok"; cat /tmp/pm.json
+            exit 1
+          fi
+          echo "::endgroup::"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Smoke results"
+            echo ""
+            for app in hoa eviction pm; do
+              if [ -f /tmp/$app.json ]; then
+                OK=$(jq -r '.ok' /tmp/$app.json)
+                VERSION=$(jq -r '.version' /tmp/$app.json)
+                DB=$(jq -r '.probes.db.ok' /tmp/$app.json)
+                echo "- **$app** — ok=$OK · version=$VERSION · db=$DB"
+              else
+                echo "- **$app** — not probed"
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
