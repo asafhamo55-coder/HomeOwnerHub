@@ -98,7 +98,12 @@ Keep the report under 500 words even on RED. If a stage produced a long log, tri
 
 A clear, structured pass/fail report so the main session can decide:
 - GREEN → invoke `devops` to push.
-- RED on functional/security → fix and re-run.
-- RED on e2e/perf/pentest/exploratory against TARGET_URL → check whether it's a real regression or a sandbox-reachability artifact.
+- RED on functional/security/penetration → main session should invoke the
+  `qa-fix` subagent, which will apply the narrow allowlist of safe
+  deterministic fixes (eslint --fix, pnpm dedupe, missing security headers,
+  advisory-driven non-major dep bumps), commit them atomically, and re-run
+  the gauntlet. Anything outside that allowlist comes back for human review.
+- RED on e2e/perf/exploratory against TARGET_URL → check whether it's a real
+  regression or a sandbox-reachability artifact before handing to `qa-fix`.
 
-You are a fast pre-deploy gate, not a remediation tool.
+You are a fast pre-deploy gate, not a remediation tool. Remediation is `qa-fix`.

@@ -20,6 +20,10 @@
 #   scripts/qa.sh functional     # run a single stage
 #   scripts/qa.sh --strict       # any skipped-for-missing-tool stage fails the run
 #   scripts/qa.sh --report path  # write JSON summary to path
+#   scripts/qa.sh --fix          # apply shell-deterministic safe fixes
+#                                # (eslint --fix, pnpm dedupe) before running
+#                                # the gauntlet. File-level fixes are out of
+#                                # scope here — use the qa-fix subagent.
 #
 # Env:
 #   TARGET_URL    — base URL for stages 3-6 (default: $HOA_URL)
@@ -49,6 +53,7 @@ TARGET_URL="${TARGET_URL:-$HOA_URL}"
 PERF_BUDGET_MS="${PERF_BUDGET_MS:-1500}"
 
 STRICT="${STRICT:-0}"
+FIX="${FIX:-0}"
 SKIP_STAGES="${SKIP_STAGES:-}"
 REPORT_PATH=""
 SINGLE_STAGE=""
@@ -117,6 +122,52 @@ skipped_by_user() {
     *",$stage,"*) return 0 ;;
     *) return 1 ;;
   esac
+}
+
+# ────────────────────────────────────────────────────────────────────
+# Safe auto-fix (shell-deterministic only)
+#
+# Only fixes that are idempotent and cannot change runtime behavior in
+# surprising ways live here. File-level / code-rewriting fixes (e.g.
+# adding security headers, bumping a vulnerable dep to a specific version)
+# belong in the qa-fix subagent, which can read the QA report and apply
+# Edit/Write operations with full context.
+
+run_fix() {
+  log "${C_BOLD}--fix${C_RESET}  applying safe auto-fixes"
+  local applied=0
+
+  # 1. eslint --fix across the workspace, if eslint is wired up.
+  if [ -f .eslintrc.json ] || [ -f .eslintrc.js ] || [ -f .eslintrc.cjs ] \
+     || [ -f eslint.config.js ] || [ -f eslint.config.mjs ] \
+     || grep -qE '"eslintConfig"\s*:' package.json 2>/dev/null; then
+    log "  pnpm exec eslint --fix ."
+    if pnpm exec eslint --fix . >/tmp/qa-fix-eslint.log 2>&1; then
+      ok "  eslint --fix applied"
+      applied=$((applied + 1))
+    else
+      warn "  eslint --fix had unfixable findings (see /tmp/qa-fix-eslint.log)"
+    fi
+  else
+    warn "  no eslint config detected — skipping --fix"
+  fi
+
+  # 2. pnpm dedupe — collapses redundant transitive versions without
+  # changing direct dependency versions. Safe.
+  log "  pnpm dedupe"
+  if pnpm dedupe >/tmp/qa-fix-dedupe.log 2>&1; then
+    if grep -q 'no changes' /tmp/qa-fix-dedupe.log 2>/dev/null; then
+      ok "  pnpm dedupe — nothing to do"
+    else
+      ok "  pnpm dedupe applied (review pnpm-lock.yaml)"
+      applied=$((applied + 1))
+    fi
+  else
+    warn "  pnpm dedupe failed (see /tmp/qa-fix-dedupe.log)"
+  fi
+
+  log "  $applied safe auto-fix(es) applied · file-level fixes deferred to qa-fix subagent"
+  sep
 }
 
 # ────────────────────────────────────────────────────────────────────
@@ -663,6 +714,7 @@ print_summary() {
 while [ $# -gt 0 ]; do
   case "$1" in
     --strict) STRICT=1 ;;
+    --fix) FIX=1 ;;
     --report) shift; REPORT_PATH="$1" ;;
     -h|--help)
       sed -n '1,40p' "$0"; exit 0 ;;
@@ -674,6 +726,8 @@ while [ $# -gt 0 ]; do
 done
 
 require
+
+if [ "$FIX" = "1" ]; then run_fix; fi
 
 if [ -n "$SINGLE_STAGE" ]; then
   run_stage "$SINGLE_STAGE"
