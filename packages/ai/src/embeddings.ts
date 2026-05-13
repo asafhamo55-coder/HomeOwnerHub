@@ -12,8 +12,13 @@
  * payload sizes manageable.
  */
 
+// HuggingFace deprecated the /pipeline/feature-extraction/<model> path
+// during the Inference Providers migration. The standard model endpoint
+// /models/<id> is what their cURL docs recommend now and what the
+// JS InferenceClient defaults to. Override via EMBEDDING_BASE_URL when
+// we cut over to self-hosted in Phase 2.1.
 const DEFAULT_HF_URL =
-  'https://api-inference.huggingface.co/pipeline/feature-extraction/BAAI/bge-m3'
+  'https://api-inference.huggingface.co/models/BAAI/bge-m3'
 
 const DEFAULT_BATCH_SIZE = 32
 const MAX_RETRIES = 3
