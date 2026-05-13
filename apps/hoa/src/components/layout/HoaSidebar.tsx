@@ -39,6 +39,7 @@ const PRIMARY: NavLink[] = [
   { href: '/', icon: <Home className="h-4 w-4" />, label: 'Dashboard' },
   { href: '/ai/ask', icon: <Sparkles className="h-4 w-4" />, label: 'Ask the Docs' },
   { href: '/violations', icon: <AlertTriangle className="h-4 w-4" />, label: 'Violations' },
+  { href: '/violations/approval-queue', icon: <Sparkles className="h-4 w-4" />, label: 'AI Approval Queue' },
   { href: '/properties', icon: <Building2 className="h-4 w-4" />, label: 'Properties' },
   { href: '/documents', icon: <FileText className="h-4 w-4" />, label: 'Documents' },
   { href: '/documents/governing', icon: <FileText className="h-4 w-4" />, label: 'Governing Docs' },

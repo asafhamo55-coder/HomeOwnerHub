@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./W1": "./src/W1-governing-docs-brain/index.ts",
+    "./W3": "./src/W3-violation-inspector/index.ts",
     "./chunker": "./src/W1-governing-docs-brain/chunker.ts"
   },
   "scripts": {
