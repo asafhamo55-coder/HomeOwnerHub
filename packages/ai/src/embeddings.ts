@@ -12,18 +12,18 @@
  * payload sizes manageable.
  */
 
-// HuggingFace fully migrated to Inference Providers (router.huggingface.co)
-// in 2026 — the old api-inference.huggingface.co subdomain returns 404 on
-// every model path. The router pattern is:
-//   https://router.huggingface.co/<provider>/<route>
-// For HF-native inference (free-tier-eligible), provider = hf-inference.
+// HuggingFace's free Inference Provider tier rotates which models are
+// hosted. As of 2026-05 BAAI/bge-m3 (our originally-spec'd model) is
+// NOT on the free tier; BAAI/bge-base-en-v1.5 IS. The schema column
+// is sized vector(768) to match. Phase 2.1 brings BGE-M3 back via
+// self-hosting (migration 0005c will resize back to vector(1024) at
+// that time).
 //
-// If this also 404s for a given model, that model isn't on the free
-// inference tier. Fix: either set EMBEDDING_BASE_URL to a self-hosted
-// endpoint (Phase 2.1) or skip embeddings entirely — the W1 retrieval
-// path falls back to Postgres FTS via the search_governing_chunks RPC.
+// To check which models are currently on the free tier, see:
+// https://huggingface.co/hf-inference (look at the deployed-models list).
 const DEFAULT_HF_URL =
-  'https://router.huggingface.co/hf-inference/pipeline/feature-extraction/BAAI/bge-m3'
+  'https://router.huggingface.co/hf-inference/pipeline/feature-extraction/BAAI/bge-base-en-v1.5'
+const EXPECTED_DIM = 768
 
 const DEFAULT_BATCH_SIZE = 32
 const MAX_RETRIES = 3
@@ -159,9 +159,9 @@ async function embedBatch(
   }
 
   for (const v of vectors) {
-    if (v.length !== 1024) {
+    if (v.length !== EXPECTED_DIM) {
       throw new EmbeddingError(
-        `Expected 1024-dim vectors, got ${v.length}. Model mismatch?`,
+        `Expected ${EXPECTED_DIM}-dim vectors, got ${v.length}. Model mismatch?`,
       )
     }
   }
