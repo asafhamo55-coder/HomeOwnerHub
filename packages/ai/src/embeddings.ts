@@ -12,8 +12,18 @@
  * payload sizes manageable.
  */
 
+// HuggingFace's free Inference Provider tier rotates which models are
+// hosted. As of 2026-05 BAAI/bge-m3 (our originally-spec'd model) is
+// NOT on the free tier; BAAI/bge-base-en-v1.5 IS. The schema column
+// is sized vector(768) to match. Phase 2.1 brings BGE-M3 back via
+// self-hosting (migration 0005c will resize back to vector(1024) at
+// that time).
+//
+// To check which models are currently on the free tier, see:
+// https://huggingface.co/hf-inference (look at the deployed-models list).
 const DEFAULT_HF_URL =
-  'https://api-inference.huggingface.co/pipeline/feature-extraction/BAAI/bge-m3'
+  'https://router.huggingface.co/hf-inference/pipeline/feature-extraction/BAAI/bge-base-en-v1.5'
+const EXPECTED_DIM = 768
 
 const DEFAULT_BATCH_SIZE = 32
 const MAX_RETRIES = 3
@@ -149,9 +159,9 @@ async function embedBatch(
   }
 
   for (const v of vectors) {
-    if (v.length !== 1024) {
+    if (v.length !== EXPECTED_DIM) {
       throw new EmbeddingError(
-        `Expected 1024-dim vectors, got ${v.length}. Model mismatch?`,
+        `Expected ${EXPECTED_DIM}-dim vectors, got ${v.length}. Model mismatch?`,
       )
     }
   }

@@ -5,11 +5,16 @@
  * governing_document_chunks for whichever HOA org is named in the
  * SEED_ORG_NAME env var (or the first HOA org if unset).
  *
- * Run from repo root:
- *   pnpm --filter @homeowner-portal/db exec tsx ../../scripts/seed-sample-ccr.ts
+ * Run from repo root with pnpm exec so the workspace resolves
+ * @supabase/supabase-js (plain `npx tsx` fails on module resolution):
  *
- * Or: npx tsx scripts/seed-sample-ccr.ts (with NEXT_PUBLIC_SUPABASE_URL +
- * SUPABASE_SERVICE_ROLE_KEY in env).
+ *   SUPABASE_SERVICE_ROLE_KEY=... \
+ *   NEXT_PUBLIC_SUPABASE_URL=https://xwdjsxfskvreguyvryhc.supabase.co \
+ *   pnpm exec tsx scripts/seed-sample-ccr.ts
+ *
+ * Optionally set HUGGINGFACE_API_TOKEN to embed the chunks during seed;
+ * without it the chunks land with NULL embeddings (FTS retrieval still
+ * works) and you can fill them later with scripts/backfill-embeddings.ts.
  *
  * Idempotent: if a governing_documents row with title='Sample Declaration
  * (W1 demo)' already exists for the org, it deletes that row's chunks
