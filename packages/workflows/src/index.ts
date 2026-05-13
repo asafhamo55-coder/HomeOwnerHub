@@ -22,3 +22,41 @@ export type {
   ViolationInspectorInput,
   ViolationInspectorOutput,
 } from './W3-violation-inspector'
+
+// v1.1 — Accounting + Vendor workflows (spec §5, added in v1.1)
+
+export { bankReconciliationAgent } from './W18-bank-reconciliation'
+export type {
+  BankReconciliationInput,
+  BankReconciliationOutput,
+} from './W18-bank-reconciliation'
+export {
+  parseMemoCode,
+  amountsMatchExact,
+  amountsMatchFuzzy,
+  MEMO_CODE_REGEX,
+  EXACT_MATCH_AMOUNT_TOLERANCE_USD,
+  AUTO_POST_CONFIDENCE_FLOOR,
+  EXACT_MEMO_MATCH_CONFIDENCE,
+  DUPLICATE_JE_WINDOW_DAYS,
+} from './W18-bank-reconciliation/tools'
+export type { MemoCodeParts } from './W18-bank-reconciliation/tools'
+
+export { vendorOnboarder } from './W21-vendor-onboarder'
+export type {
+  VendorOnboarderInput,
+  VendorOnboarderOutput,
+  Deficiency,
+} from './W21-vendor-onboarder'
+
+export { rfpComposer } from './W22-rfp-composer'
+export type {
+  RfpComposerInput,
+  RfpComposerOutput,
+} from './W22-rfp-composer'
+
+export { bidComparator } from './W23-bid-comparator'
+export type {
+  BidComparatorInput,
+  BidComparatorOutput,
+} from './W23-bid-comparator'
