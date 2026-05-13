@@ -26,7 +26,7 @@
     "framer-motion": "^11.0.0",
     "inngest": "^3.20.0",
     "lucide-react": "^0.460.0",
-    "next": "^15.0.0",
+    "next": "^15.5.18",
     "pdf-parse": "^1.1.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
