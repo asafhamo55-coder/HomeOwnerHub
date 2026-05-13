@@ -16,3 +16,9 @@ export {
   chunkPlainText,
 } from './W1-governing-docs-brain/chunker'
 export type { Chunk } from './W1-governing-docs-brain/chunker'
+
+export { violationInspector } from './W3-violation-inspector'
+export type {
+  ViolationInspectorInput,
+  ViolationInspectorOutput,
+} from './W3-violation-inspector'
