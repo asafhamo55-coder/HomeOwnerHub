@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, RotateCcw } from 'lucide-react'
 import {
   Alert,
   Badge,
@@ -29,11 +29,12 @@ interface AskResponse {
   runId: string
 }
 
-const SAMPLE_QUESTIONS = [
+const COMMON_QUESTIONS = [
   'Can I paint my front door red?',
   'How many pets am I allowed?',
   'When are HOA dues due each month?',
   'How long can I park a guest car on the street?',
+  'Are short-term rentals like Airbnb allowed?',
 ]
 
 export function AskDocsClient() {
@@ -43,6 +44,13 @@ export function AskDocsClient() {
   )
   const [response, setResponse] = useState<AskResponse | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  function handleClear() {
+    setQuestion('')
+    setStatus('idle')
+    setResponse(null)
+    setErrorMessage(null)
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -102,20 +110,36 @@ export function AskDocsClient() {
               >
                 Ask
               </Button>
-              <span className="text-xs text-muted-fg">
-                Try:{' '}
-                {SAMPLE_QUESTIONS.map((q, i) => (
+              {status !== 'idle' ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleClear}
+                  disabled={status === 'loading'}
+                >
+                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                  Clear
+                </Button>
+              ) : null}
+            </div>
+
+            <div className="space-y-1.5 border-t border-border pt-3">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-fg">
+                Common questions
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {COMMON_QUESTIONS.map((q) => (
                   <button
                     key={q}
                     type="button"
-                    className="underline underline-offset-2 hover:text-muted"
+                    className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-muted-fg hover:border-primary hover:text-muted disabled:opacity-50"
                     onClick={() => setQuestion(q)}
+                    disabled={status === 'loading'}
                   >
                     {q}
-                    {i < SAMPLE_QUESTIONS.length - 1 ? ', ' : ''}
                   </button>
                 ))}
-              </span>
+              </div>
             </div>
           </form>
         </CardContent>

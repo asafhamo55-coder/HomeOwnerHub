@@ -7,23 +7,25 @@
 # end-to-end without waiting for GitHub Actions.
 #
 # Usage:
-#   ./scripts/devops.sh              # full pipeline: verify, push, smoke
+#   ./scripts/devops.sh              # full pipeline: qa, push, smoke
 #   ./scripts/devops.sh verify       # just typecheck + build, no push
-#   ./scripts/devops.sh push         # verify + push only
+#   ./scripts/devops.sh qa           # run the full QA super-agent gauntlet
+#   ./scripts/devops.sh push         # qa + push only
 #   ./scripts/devops.sh smoke        # smoke remote endpoints only
 #   ./scripts/devops.sh status       # last commit + remote deploy status
 #
 # Exit codes:
 #   0 — everything green
-#   1 — verify failed
+#   1 — verify/qa failed
 #   2 — push failed
 #   3 — smoke failed
 #   4 — bad arguments
 #
 # Env overrides:
 #   HOA_URL, EVICTION_URL, PM_URL — override smoke test targets
-#   SKIP_BUILD=1 — skip the build step in verify (typecheck only)
-#   NO_COLOR=1 — disable ANSI colors
+#   SKIP_BUILD=1   — skip the build step in verify (typecheck only)
+#   SKIP_QA=1      — skip the pre-push QA gauntlet (NOT recommended)
+#   NO_COLOR=1     — disable ANSI colors
 
 set -euo pipefail
 
@@ -83,6 +85,19 @@ run_verify() {
   fi
 
   ok "verify ok"
+}
+
+run_qa() {
+  if [ "${SKIP_QA:-}" = "1" ]; then
+    warn "skipping QA gauntlet (SKIP_QA=1) — not recommended"
+    return 0
+  fi
+  log "QA — running pre-deploy super-agent gauntlet"
+  if ! "$(dirname "$0")/qa.sh" --report /tmp/qa-report.json; then
+    err "QA gauntlet failed — refusing to push"
+    return 1
+  fi
+  ok "QA gauntlet green"
 }
 
 run_push() {
@@ -163,7 +178,7 @@ run_status() {
 
 case "${1:-all}" in
   all)
-    run_verify
+    run_qa
     run_push
     log "Waiting 60s for Vercel deploy to propagate..."
     sleep 60
@@ -173,8 +188,11 @@ case "${1:-all}" in
   verify)
     run_verify
     ;;
+  qa)
+    run_qa
+    ;;
   push)
-    run_verify
+    run_qa
     run_push
     ;;
   smoke)
@@ -187,18 +205,21 @@ case "${1:-all}" in
     err "Unknown command: $1"
     cat <<USAGE
 Usage:
-  $0 [verify|push|smoke|status|all]
+  $0 [verify|qa|push|smoke|status|all]
 
 Commands:
-  all      Run verify, push, wait, then smoke (default)
+  all      Run qa, push, wait, then smoke (default)
   verify   Just typecheck + build
-  push     Verify + git push
+  qa       Run the full QA super-agent gauntlet (functional, security,
+           e2e, performance, penetration, exploratory)
+  push     QA + git push
   smoke    Hit /api/health on the 3 production apps
   status   Show repo state + run smoke
 
 Env overrides:
   HOA_URL, EVICTION_URL, PM_URL — change smoke targets
   SKIP_BUILD=1                  — skip build in verify
+  SKIP_QA=1                     — skip the pre-push QA gauntlet
 USAGE
     exit 4
     ;;
