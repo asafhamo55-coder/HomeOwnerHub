@@ -6,11 +6,14 @@
  * HUGGINGFACE_API_TOKEN was configured). Idempotent — safe to re-run any
  * number of times; skips rows that already have an embedding.
  *
- * Run from repo root:
+ * Run from repo root (use `pnpm exec tsx` so workspace dependencies
+ * resolve — `npx tsx` fails with "Cannot find module @supabase/supabase-js"
+ * because it bypasses the workspace's node_modules):
+ *
  *   HUGGINGFACE_API_TOKEN=hf_... \
  *   NEXT_PUBLIC_SUPABASE_URL=https://xwdjsxfskvreguyvryhc.supabase.co \
  *   SUPABASE_SERVICE_ROLE_KEY=... \
- *   npx tsx scripts/backfill-embeddings.ts
+ *   pnpm exec tsx scripts/backfill-embeddings.ts
  *
  * Optional flags via env:
  *   BATCH_SIZE     — chunks per HF API call (default 32)
