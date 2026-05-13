@@ -12,13 +12,18 @@
  * payload sizes manageable.
  */
 
-// HuggingFace deprecated the /pipeline/feature-extraction/<model> path
-// during the Inference Providers migration. The standard model endpoint
-// /models/<id> is what their cURL docs recommend now and what the
-// JS InferenceClient defaults to. Override via EMBEDDING_BASE_URL when
-// we cut over to self-hosted in Phase 2.1.
+// HuggingFace fully migrated to Inference Providers (router.huggingface.co)
+// in 2026 — the old api-inference.huggingface.co subdomain returns 404 on
+// every model path. The router pattern is:
+//   https://router.huggingface.co/<provider>/<route>
+// For HF-native inference (free-tier-eligible), provider = hf-inference.
+//
+// If this also 404s for a given model, that model isn't on the free
+// inference tier. Fix: either set EMBEDDING_BASE_URL to a self-hosted
+// endpoint (Phase 2.1) or skip embeddings entirely — the W1 retrieval
+// path falls back to Postgres FTS via the search_governing_chunks RPC.
 const DEFAULT_HF_URL =
-  'https://api-inference.huggingface.co/models/BAAI/bge-m3'
+  'https://router.huggingface.co/hf-inference/pipeline/feature-extraction/BAAI/bge-m3'
 
 const DEFAULT_BATCH_SIZE = 32
 const MAX_RETRIES = 3
