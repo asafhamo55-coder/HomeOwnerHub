@@ -11,7 +11,8 @@
     "dev:eviction": "turbo run dev --filter=eviction",
     "dev:pm": "turbo run dev --filter=pm",
     "seed:sample-ccr": "tsx scripts/seed-sample-ccr.ts",
-    "backfill:embeddings": "tsx scripts/backfill-embeddings.ts"
+    "backfill:embeddings": "tsx scripts/backfill-embeddings.ts",
+    "eval:w1": "tsx scripts/eval-w1.ts"
   },
   "devDependencies": {
     "turbo": "latest",
