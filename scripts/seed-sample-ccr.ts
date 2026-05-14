@@ -21,6 +21,7 @@
  * and re-inserts. Useful while iterating on chunk granularity.
  */
 
+import './_load-env'
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'

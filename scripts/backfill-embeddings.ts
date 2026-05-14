@@ -20,6 +20,7 @@
  *   MAX_CHUNKS     — stop after N chunks (useful for dry-run; default unlimited)
  */
 
+import './_load-env'
 import { createClient } from '@supabase/supabase-js'
 import { embedTexts, toPgVector } from '../packages/ai/src/embeddings'
 

@@ -33,6 +33,7 @@
  * abort early with a clear message if no chunks exist.
  */
 
+import './_load-env'
 import { createClient } from '@supabase/supabase-js'
 import { governingDocsBrain } from '../packages/workflows/src/W1-governing-docs-brain'
 import {
