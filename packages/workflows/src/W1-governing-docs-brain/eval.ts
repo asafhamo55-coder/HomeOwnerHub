@@ -55,32 +55,204 @@ export interface EvalCase {
 }
 
 export const EVAL_CASES: EvalCase[] = [
-  // PLACEHOLDERS — replace with Madison Park's 20 hand-curated questions
-  // once the Declaration is uploaded. The runner accepts whatever number of
-  // cases is here; the spec §21 gate is ≥ 90% on 20+ cases against the
-  // real Declaration, not against these placeholders.
+  // 20 graded cases against the synthetic Madison Park Declaration in
+  // fixtures/sample-ccr.md. Diverse topics, mixed difficulty, two
+  // escalation cases. Replace 1-for-1 when Madison Park's real
+  // Declaration arrives (the question phrasings carry over; only the
+  // expected substrings + section labels need re-grounding to the real
+  // doc).
+
+  // ─── Architectural Review (5 cases) ────────────────────────────────
+
   {
-    id: 'placeholder-paint-color',
-    question: 'Can I paint my front door red?',
-    expectedAnswerContains: ['approval', 'architectural'],
-    expectedCitationDocTypes: ['declaration', 'rules'],
+    id: 'paint-door-on-palette',
+    // The fixture uses spelled-out durations ("thirty (30) days"); model
+    // paraphrasing may emit "30 days" or "thirty days". Substrings here
+    // pick robust phrasing that survives either form.
+    question:
+      'I want to paint my front door a navy blue from your Approved Door Color Palette. Do I need to file something with the ARC first?',
+    expectedAnswerContains: ['notif', 'managing agent'],
+    expectedAnswerExcludes: ['prior approval', 'arc submission required'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['4.3'],
+    expectedMinConfidence: 'HIGH',
+  },
+  {
+    id: 'paint-door-off-palette',
+    question:
+      'I want to paint my front door a bright orange. The color is not on the Approved Door Color Palette. What do I have to do?',
+    expectedAnswerContains: ['arc', 'approval'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['4.1', '4.3'],
+    expectedMinConfidence: 'HIGH',
+  },
+  {
+    id: 'solar-panels-allowed',
+    question: 'Can I install solar panels on my roof?',
+    expectedAnswerContains: ['permitted', 'placement'],
+    expectedAnswerExcludes: ['prohibited', 'not allowed'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['4.4'],
+    expectedMinConfidence: 'HIGH',
+  },
+  {
+    id: 'satellite-dish-allowed',
+    question:
+      'I want to install a small satellite dish on my house. Do I need ARC approval?',
+    expectedAnswerContains: ['without arc approval', 'least visible'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['4.5'],
+    expectedMinConfidence: 'HIGH',
+  },
+  {
+    id: 'fence-chain-link',
+    question: 'Can I put up a chain-link fence in my back yard?',
+    expectedAnswerContains: ['prohibited'],
+    expectedAnswerExcludes: ['allowed', 'permitted'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['4.6'],
+    expectedMinConfidence: 'HIGH',
+  },
+
+  // ─── Use Restrictions (6 cases) ────────────────────────────────────
+
+  {
+    id: 'pets-max-count',
+    question: 'How many pets am I allowed to have at my house?',
+    expectedAnswerContains: ['two', '2'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['5.3'],
+    expectedMinConfidence: 'HIGH',
+  },
+  {
+    id: 'pets-pit-bull',
+    question: 'Is a pit bull allowed in the community?',
+    expectedAnswerContains: ['prohibited'],
+    expectedAnswerExcludes: ['allowed without restriction'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['5.3', '13.1'],
     expectedMinConfidence: 'MEDIUM',
   },
   {
-    id: 'placeholder-pets',
-    question: 'How many pets am I allowed to have?',
-    expectedAnswerContains: ['pet'],
-    expectedCitationDocTypes: ['declaration', 'rules'],
+    id: 'rv-in-driveway',
+    question: 'Can I park my RV in my driveway for a week while I clean it out?',
+    expectedAnswerContains: ['enclosed', 'garage'],
+    expectedAnswerExcludes: ['permitted indefinitely', 'no time limit'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['5.4'],
+    expectedMinConfidence: 'HIGH',
+  },
+  {
+    id: 'airbnb-allowed',
+    question: 'Can I list my house on Airbnb?',
+    expectedAnswerContains: ['prohibited', 'short-term'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['5.5'],
+    expectedMinConfidence: 'HIGH',
+  },
+  {
+    id: 'home-daycare',
+    question: 'Can I run a small daycare out of my house?',
+    expectedAnswerContains: ['prohibited'],
+    expectedAnswerExcludes: ['allowed', 'permitted'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['5.2'],
+    expectedMinConfidence: 'HIGH',
+  },
+  {
+    id: 'us-flag-display',
+    question: 'Can I fly an American flag from my house without ARC approval?',
+    expectedAnswerContains: ['permitted'],
+    expectedAnswerExcludes: ['arc approval required'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['5.7'],
+    expectedMinConfidence: 'HIGH',
+  },
+
+  // ─── Assessments and Enforcement (5 cases) ─────────────────────────
+
+  {
+    id: 'dues-when-due',
+    question: 'When are my HOA dues due each month?',
+    expectedAnswerContains: ['first', '1st'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['6.1'],
+    expectedMinConfidence: 'HIGH',
+  },
+  {
+    id: 'late-fee-amount',
+    question: 'How much is the late fee if I miss my monthly payment?',
+    expectedAnswerContains: ['5%', '15th'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['6.2'],
+    expectedMinConfidence: 'HIGH',
+  },
+  {
+    id: 'lien-timeline',
+    question:
+      'If I fall 60 days behind on my assessments, what is the HOA legally required to do before filing a lien?',
+    expectedAnswerContains: ['demand letter', 'before recording'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['6.4'],
     expectedMinConfidence: 'MEDIUM',
   },
   {
-    id: 'placeholder-dues-schedule',
-    question: 'When are HOA dues due?',
-    expectedAnswerContains: ['due'],
-    expectedCitationDocTypes: ['declaration', 'bylaws'],
-    expectedMinConfidence: 'MEDIUM',
+    id: 'attorney-fees',
+    question: 'Can the HOA make me pay their attorney fees if they collect against me?',
+    expectedAnswerContains: ['attorney fees'],
+    expectedAnswerExcludes: ['cannot recover', 'not entitled'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['6.6'],
+    expectedMinConfidence: 'HIGH',
   },
-  // ... 17 more land here when Madison Park CC&Rs arrive (spec §21 gate).
+  {
+    id: 'fine-hearing-rights',
+    question: 'I just received a violation notice. Can I request a hearing before the Board?',
+    expectedAnswerContains: ['hearing', 'request', 'managing agent'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['7.3'],
+    expectedMinConfidence: 'HIGH',
+  },
+
+  // ─── Insurance, Board, Amenities (2 cases) ─────────────────────────
+
+  {
+    id: 'owner-interior-insurance',
+    question:
+      'I lease my unit to a tenant. Do I need any specific insurance policy?',
+    expectedAnswerContains: ['ho-6'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['8.2'],
+    expectedMinConfidence: 'HIGH',
+  },
+  {
+    id: 'pool-hours',
+    question: 'What time does the pool open and close?',
+    expectedAnswerContains: ['6:00', '10:00'],
+    expectedCitationDocTypes: ['declaration'],
+    expectedCitationSections: ['10.2'],
+    expectedMinConfidence: 'HIGH',
+  },
+
+  // ─── Escalation cases (2) — proves the model bails when the doc
+  //     doesn't cover the topic, instead of fabricating an answer. ───
+
+  {
+    id: 'escalation-backyard-chickens',
+    question: 'Am I allowed to keep backyard chickens for fresh eggs?',
+    expectedAnswerContains: [],
+    expectedCitationDocTypes: [],
+    expectedMinConfidence: 'LOW',
+    expectsEscalation: true,
+  },
+  {
+    id: 'escalation-installing-ev-charger',
+    question: 'What is the procedure for installing an EV charger in my garage?',
+    expectedAnswerContains: [],
+    expectedCitationDocTypes: [],
+    expectedMinConfidence: 'LOW',
+    expectsEscalation: true,
+  },
 ]
 
 /** Minimum pass rate the runner enforces for a green exit. Spec §21: ≥ 90%. */
