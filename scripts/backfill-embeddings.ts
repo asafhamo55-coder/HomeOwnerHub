@@ -24,8 +24,10 @@ import './_load-env'
 import { createClient } from '@supabase/supabase-js'
 import { embedTexts, toPgVector } from '../packages/ai/src/embeddings'
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+const SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY
 const HF_TOKEN = process.env.HUGGINGFACE_API_TOKEN
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {

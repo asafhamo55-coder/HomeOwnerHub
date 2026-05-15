@@ -47,8 +47,10 @@ import {
   type SuiteResult,
 } from '../packages/workflows/src/W1-governing-docs-brain/eval'
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+const SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY
 const REQUIRE_GATE = process.env.EVAL_REQUIRE_GATE === '1'
 const VERBOSE = process.env.EVAL_VERBOSE === '1'
 
