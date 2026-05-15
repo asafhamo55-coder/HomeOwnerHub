@@ -11,8 +11,12 @@
  *   2. <repo-root>/.env.local
  *   3. <repo-root>/.env
  *
- * Variables already present in process.env (i.e. set by the shell) are
- * NEVER overwritten — explicit `FOO=bar pnpm script` wins.
+ * Variables already present in process.env (i.e. set by the shell) with a
+ * non-empty value are NEVER overwritten — explicit `FOO=bar pnpm script`
+ * wins. Empty-string values (e.g. Vercel's placeholders for Sensitive vars
+ * that the CLI couldn't decrypt) ARE overwritten by a non-empty value
+ * found later in the same file or a lower-priority file, so a manual
+ * append at the end of .env.local with the real value works as expected.
  *
  * Parser handles: KEY=VALUE pairs, optional surrounding quotes,
  * `#` comments, blank lines, and the `export KEY=VALUE` prefix. It
@@ -62,7 +66,12 @@ function mergeIntoEnv(contents: string): number {
     ) {
       value = value.slice(1, -1)
     }
-    if (process.env[key] === undefined) {
+    // Set if currently undefined OR empty. This lets a manual append at
+    // the end of .env.local override an earlier empty placeholder (the
+    // typical "Vercel pulled this but the value is Sensitive" case) while
+    // still letting a shell-set non-empty value win.
+    const current = process.env[key]
+    if (current === undefined || current === '') {
       process.env[key] = value
       added += 1
     }
