@@ -11,6 +11,7 @@ import {
   FileText,
   Home,
   LogOut,
+  Mail,
   Settings,
   Sparkles,
   Wallet,
@@ -47,6 +48,7 @@ const PRIMARY: NavLink[] = [
   { href: '/dues', icon: <Wallet className="h-4 w-4" />, label: 'Dues' },
   { href: '/meetings', icon: <CalendarDays className="h-4 w-4" />, label: 'Meetings' },
   { href: '/vendors', icon: <Briefcase className="h-4 w-4" />, label: 'Vendors' },
+  { href: '/vendors/invitations', icon: <Mail className="h-4 w-4" />, label: 'Vendor Invitations' },
   { href: '/vendors/approval-queue', icon: <Sparkles className="h-4 w-4" />, label: 'Vendor Queue' },
 ]
 

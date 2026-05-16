@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Briefcase, Plus } from 'lucide-react'
+import { Briefcase, Mail, Plus } from 'lucide-react'
 import { format } from 'date-fns'
 import { Badge, Button, Card, EmptyState } from '@homeowner-portal/ui'
 import { listVendors, type ComplianceStatus } from '@/lib/vendors'
@@ -40,12 +40,20 @@ export default async function VendorsListPage() {
             current COI, W-9, and license against your association's requirements.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/vendors/new">
-            <Plus className="h-4 w-4" />
-            Add vendor
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href="/vendors/invitations">
+              <Mail className="h-4 w-4" />
+              Invite a vendor
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/vendors/new">
+              <Plus className="h-4 w-4" />
+              Add vendor
+            </Link>
+          </Button>
+        </div>
       </header>
 
       {vendors.length === 0 ? (

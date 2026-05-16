@@ -4,7 +4,14 @@ import { updateSession } from '@/lib/supabase/middleware'
 // Routes a signed-out user is allowed to hit. The /onboarding page handles
 // its own "already onboarded? bounce home" check, so we don't gate on
 // org-membership here — that would require an extra DB hit on every request.
-const PUBLIC_PREFIXES = ['/login', '/signup', '/verify', '/auth']
+const PUBLIC_PREFIXES = [
+  '/login',
+  '/signup',
+  '/verify',
+  '/auth',
+  '/vendor-onboard',
+  '/api/vendor-onboard',
+]
 
 export async function middleware(request: NextRequest) {
   const { user, response } = await updateSession(request)
