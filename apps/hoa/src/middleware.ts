@@ -11,6 +11,8 @@ const PUBLIC_PREFIXES = [
   '/auth',
   '/vendor-onboard',
   '/api/vendor-onboard',
+  '/rfp-bid',
+  '/api/rfp-bid',
 ]
 
 export async function middleware(request: NextRequest) {

@@ -10,9 +10,15 @@ import {
   CardTitle,
 } from '@homeowner-portal/ui'
 import { getRfp, type RfpStatus } from '@/lib/rfps'
+import { getPrimaryAssociation } from '@/lib/vendors'
+import {
+  listInvitableVendors,
+  listRfpInvitations,
+} from '@/lib/rfp-invitations'
 import { RfpEditForm } from './RfpEditForm'
 import { PublishRfpButton } from './PublishRfpButton'
 import { CancelRfpButton } from './CancelRfpButton'
+import { InviteVendorsPanel } from './InviteVendorsPanel'
 
 export const metadata = { title: 'RFP' }
 
@@ -34,11 +40,20 @@ export default async function RfpDetailPage({
   if (!rfp) notFound()
 
   const isDraft = rfp.status === 'draft'
+  const isOpen = rfp.status === 'open'
   const isCancellable = rfp.status === 'draft' || rfp.status === 'open'
 
   const insurance = rfp.insurance_requirements
     ? Object.entries(rfp.insurance_requirements)
     : []
+
+  const association = isOpen ? await getPrimaryAssociation() : null
+  const [invitableVendors, invitations] = isOpen && association
+    ? await Promise.all([
+        listInvitableVendors(rfp.id, association.id),
+        listRfpInvitations(rfp.id),
+      ])
+    : [[], []]
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -100,6 +115,14 @@ export default async function RfpDetailPage({
           </CardContent>
         </Card>
       )}
+
+      {isOpen ? (
+        <InviteVendorsPanel
+          rfpId={rfp.id}
+          invitableVendors={invitableVendors}
+          invitations={invitations}
+        />
+      ) : null}
 
       {rfp.line_items.length > 0 ? (
         <Card>
