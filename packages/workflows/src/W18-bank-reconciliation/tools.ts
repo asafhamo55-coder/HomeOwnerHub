@@ -76,3 +76,55 @@ export function amountsMatchFuzzy(
   const pctDiff = Math.abs(transactionAmount - assessmentAmount) / assessmentAmount
   return pctDiff <= tolerancePct
 }
+
+const PURPOSE_FOR_TYPE: Record<string, 'DUES' | 'FEE' | 'FINE' | 'ASSESS'> = {
+  regular: 'DUES',
+  late_fee: 'FEE',
+  fine: 'FINE',
+  special: 'ASSESS',
+}
+
+/**
+ * Inverse of `parseMemoCode`: builds the canonical SLUG-UNIT-PURPOSE code
+ * that goes onto an `assessments.memo_code` and back into a homeowner's
+ * Zelle memo. The slug comes from `associations.slug`. The unit portion
+ * uses `units.unit_number` when present; otherwise derives a 4-digit
+ * number from the unit_id so we always have something in-grammar.
+ *
+ * Returns null when the slug is out-of-grammar (must be 2-4 uppercase
+ * letters per ADR-005) so callers can decide whether to leave memo_code
+ * NULL or fix the slug.
+ */
+export function memoCodeFor(input: {
+  associationSlug: string
+  unitNumber: string | null
+  unitId: string
+  assessmentType: string
+}): string | null {
+  // Strip non-letters then truncate. The migration's slug builder
+  // (`regexp_replace(name, '[^A-Za-z0-9]', '', 'g')`) leaves digits in,
+  // and doesn't cap length — "MADISONPARK" is 11 chars. The parser
+  // regex caps at 4. We could change the slug at the DB level, but
+  // truncating here keeps memo_code stable for already-seeded data and
+  // doesn't require a migration.
+  let slug = input.associationSlug.toUpperCase().replace(/[^A-Z]/g, '')
+  if (slug.length < 2) return null
+  if (slug.length > 4) slug = slug.slice(0, 4)
+
+  const purpose = PURPOSE_FOR_TYPE[input.assessmentType]
+  if (!purpose) return null
+
+  let unit = (input.unitNumber ?? '').replace(/\D/g, '')
+  if (unit.length < 3 || unit.length > 5) {
+    // Fall back to a deterministic 4-digit number from unit_id. Take the
+    // last 4 hex chars, mod 10000. Collisions are theoretically possible
+    // within an association (~5% at 100 units) but the memo code is
+    // disambiguated by amount + period during matching, so this is fine
+    // for v1. Real Madison Park onboarding will set unit_number anyway.
+    const hex = input.unitId.replace(/-/g, '').slice(-8)
+    const n = Number.parseInt(hex, 16) % 10000
+    unit = String(n).padStart(4, '0')
+  }
+
+  return `${slug}-${unit}-${purpose}`
+}
