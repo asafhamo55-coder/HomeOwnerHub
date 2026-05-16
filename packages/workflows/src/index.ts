@@ -32,6 +32,7 @@ export type {
 } from './W18-bank-reconciliation'
 export {
   parseMemoCode,
+  memoCodeFor,
   amountsMatchExact,
   amountsMatchFuzzy,
   MEMO_CODE_REGEX,
@@ -60,3 +61,11 @@ export type {
   BidComparatorInput,
   BidComparatorOutput,
 } from './W23-bid-comparator'
+
+// v1.2 — Module 8 State Law & Compliance
+export { stateLawBrain, askStateLaw } from './W30-state-law-brain'
+export type {
+  StateLawBrainInput,
+  StateLawBrainOutput,
+  StateLawCitation,
+} from './W30-state-law-brain'

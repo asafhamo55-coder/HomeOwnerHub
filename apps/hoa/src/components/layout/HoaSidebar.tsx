@@ -13,6 +13,7 @@ import {
   Home,
   LogOut,
   Mail,
+  Scale,
   Settings,
   Sparkles,
   Wallet,
@@ -52,6 +53,7 @@ const PRIMARY: NavLink[] = [
   { href: '/vendors/invitations', icon: <Mail className="h-4 w-4" />, label: 'Vendor Invitations' },
   { href: '/vendors/approval-queue', icon: <Sparkles className="h-4 w-4" />, label: 'Vendor Queue' },
   { href: '/rfps', icon: <FileSpreadsheet className="h-4 w-4" />, label: 'RFPs' },
+  { href: '/legal', icon: <Scale className="h-4 w-4" />, label: 'State Law' },
 ]
 
 const SECONDARY: NavLink[] = [

@@ -10,6 +10,7 @@ import { listUnfinishedDrafts } from '@/lib/drafts'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ComplianceHeatMap } from '@/components/dashboard/ComplianceHeatMap'
 import { DailyDigestCard } from '@/components/dashboard/DailyDigestCard'
+import { StateLawCard } from '@/components/dashboard/StateLawCard'
 import {
   DuesOverviewCard,
   PendingApprovalsCard,
@@ -76,6 +77,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
           amount={stats.overdueDuesAmount}
           propertiesBehind={stats.propertiesBehind}
         />
+        <StateLawCard />
       </div>
 
       <ComplianceHeatMap cells={heatMapCells} />
