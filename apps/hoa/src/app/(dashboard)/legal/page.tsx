@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { BookOpen, ChevronRight, Scale, Sparkles } from 'lucide-react'
+import { BookOpen, CalendarClock, ChevronRight, ExternalLink, Scale, Sparkles } from 'lucide-react'
+import { format } from 'date-fns'
 import {
   Alert,
   Badge,
@@ -10,7 +11,12 @@ import {
   CardTitle,
   EmptyState,
 } from '@homeowner-portal/ui'
-import { getStateLawSummary, type SupportedState } from '@/lib/state-law'
+import {
+  getStateLawSummary,
+  listRecentUpdates,
+  type LawUpdateRow,
+  type SupportedState,
+} from '@/lib/state-law'
 
 export const metadata = { title: 'State Law & Compliance' }
 
@@ -42,6 +48,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 export default async function LegalLandingPage() {
   const summary = await getStateLawSummary()
+  const updates = summary.state ? await listRecentUpdates(summary.state, 10) : []
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -130,6 +137,20 @@ export default async function LegalLandingPage() {
             </Alert>
           ) : null}
 
+          {updates.length > 0 ? (
+            <section className="space-y-2">
+              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-fg">
+                <CalendarClock className="h-3.5 w-3.5" />
+                Recent updates
+              </h2>
+              <ul className="space-y-2">
+                {updates.map((u) => (
+                  <UpdateCard key={u.id} update={u} />
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
           {summary.categories.length > 0 ? (
             <Card>
               <CardHeader>
@@ -169,5 +190,66 @@ function Stat({ label, value }: { label: string; value: number | string }) {
       <p className="text-2xl font-semibold text-muted">{value}</p>
       <p className="text-xs uppercase tracking-wide text-muted-fg">{label}</p>
     </div>
+  )
+}
+
+function UpdateCard({ update }: { update: LawUpdateRow }) {
+  return (
+    <li>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <CardTitle className="text-base">{update.headline}</CardTitle>
+            {update.effective_date ? (
+              <Badge variant="warning" size="sm">
+                Effective {format(new Date(update.effective_date), 'PP')}
+              </Badge>
+            ) : null}
+          </div>
+          {update.category ? (
+            <p className="text-xs text-muted-fg">{update.category}</p>
+          ) : null}
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="whitespace-pre-wrap text-sm text-muted">{update.summary}</p>
+
+          {update.action_items && update.action_items.length > 0 ? (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-fg">
+                Action items
+              </p>
+              <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
+                {update.action_items.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-fg">
+            <span>Posted {format(new Date(update.posted_at), 'PP')}</span>
+            {update.source_url ? (
+              <a
+                href={update.source_url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex items-center gap-1 text-primary hover:underline"
+              >
+                Source
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            ) : null}
+            {update.related_statute_id ? (
+              <Link
+                href={`/legal/browse/${update.related_statute_id}`}
+                className="text-primary hover:underline"
+              >
+                Related statute →
+              </Link>
+            ) : null}
+          </div>
+        </CardContent>
+      </Card>
+    </li>
   )
 }

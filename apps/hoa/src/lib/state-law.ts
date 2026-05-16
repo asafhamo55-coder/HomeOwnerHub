@@ -32,6 +32,19 @@ export interface StateLawSummary {
   associationName: string | null
   statuteCount: number
   categories: Array<{ category: string; count: number }>
+  recentUpdateCount: number
+}
+
+export interface LawUpdateRow {
+  id: string
+  headline: string
+  summary: string
+  action_items: string[] | null
+  category: string | null
+  effective_date: string | null
+  source_url: string | null
+  related_statute_id: string | null
+  posted_at: string
 }
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
@@ -67,15 +80,23 @@ export async function getStateLawSummary(): Promise<StateLawSummary> {
       associationName: assoc?.name ?? null,
       statuteCount: 0,
       categories: [],
+      recentUpdateCount: 0,
     }
   }
 
   const supabase = await getSupabaseServerClient()
-  const { data: rows } = await supabase
-    .from('state_statutes' as never)
-    .select('category')
-    .eq('state', state)
-    .is('superseded_at', null)
+  const [{ data: rows }, { count: updateCount }] = await Promise.all([
+    supabase
+      .from('state_statutes' as never)
+      .select('category')
+      .eq('state', state)
+      .is('superseded_at', null),
+    supabase
+      .from('state_law_updates' as never)
+      .select('id', { count: 'exact', head: true })
+      .eq('state', state)
+      .is('archived_at', null),
+  ])
 
   const items = (rows ?? []) as unknown as Array<{ category: string | null }>
   const counts = new Map<string, number>()
@@ -91,7 +112,25 @@ export async function getStateLawSummary(): Promise<StateLawSummary> {
     categories: Array.from(counts.entries())
       .map(([category, count]) => ({ category, count }))
       .sort((a, b) => b.count - a.count),
+    recentUpdateCount: updateCount ?? 0,
   }
+}
+
+export async function listRecentUpdates(
+  state: SupportedState,
+  limit = 20,
+): Promise<LawUpdateRow[]> {
+  const supabase = await getSupabaseServerClient()
+  const { data } = await supabase
+    .from('state_law_updates' as never)
+    .select(
+      'id, headline, summary, action_items, category, effective_date, source_url, related_statute_id, posted_at',
+    )
+    .eq('state', state)
+    .is('archived_at', null)
+    .order('posted_at', { ascending: false })
+    .limit(limit)
+  return (data ?? []) as unknown as LawUpdateRow[]
 }
 
 export async function listStatutesForState(

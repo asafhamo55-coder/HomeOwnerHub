@@ -46,6 +46,15 @@ export async function StateLawCard() {
                 </span>
               )}
             </p>
+
+            {summary.recentUpdateCount > 0 ? (
+              <p className="text-xs">
+                <Badge variant="warning" size="sm">
+                  {summary.recentUpdateCount} recent update{summary.recentUpdateCount === 1 ? '' : 's'}
+                </Badge>
+              </p>
+            ) : null}
+
             <div className="flex flex-wrap gap-2">
               <Button asChild size="sm">
                 <Link href="/legal/ask">
