@@ -63,3 +63,4 @@ Manager approves green → moves `vendors.status` to `active`. Yellow / red land
 | Version | Changed | Notes |
 |---|---|---|
 | 0.1.0 (prompt 1.0.0) | initial | Skeleton; vision step deferred to Phase 2.1 per ADR-002. |
+| 0.2.0 (prompt 1.0.0) | text-only path live | Validation half wired against `associations.compliance_settings` (migration 0008). Caller passes `manualExtract`; W21 grades + upserts `vendor_compliance`. Vision still deferred to Phase 2.1. |

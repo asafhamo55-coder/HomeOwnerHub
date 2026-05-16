@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   AlertTriangle,
+  Briefcase,
   Building2,
   CalendarDays,
   CreditCard,
@@ -45,6 +46,8 @@ const PRIMARY: NavLink[] = [
   { href: '/documents/governing', icon: <FileText className="h-4 w-4" />, label: 'Governing Docs' },
   { href: '/dues', icon: <Wallet className="h-4 w-4" />, label: 'Dues' },
   { href: '/meetings', icon: <CalendarDays className="h-4 w-4" />, label: 'Meetings' },
+  { href: '/vendors', icon: <Briefcase className="h-4 w-4" />, label: 'Vendors' },
+  { href: '/vendors/approval-queue', icon: <Sparkles className="h-4 w-4" />, label: 'Vendor Queue' },
 ]
 
 const SECONDARY: NavLink[] = [

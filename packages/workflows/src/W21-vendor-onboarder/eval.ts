@@ -47,7 +47,40 @@ export const VALIDATION_CASES: ValidationCase[] = [
     expectedStatus: 'missing',
     expectedDeficiencyCodes: ['w9_missing'],
   },
-  // 5 more land here when Madison Park's vendor docs are loaded.
+  {
+    id: 'red-additional-insured-missing',
+    description:
+      'COI valid + GL above minimum but association is not listed as additional insured',
+    expectedStatus: 'red',
+    expectedDeficiencyCodes: ['additional_insured_missing'],
+  },
+  {
+    id: 'red-gl-aggregate-below-minimum',
+    description: 'GL aggregate $1M, association requires $2M aggregate',
+    expectedStatus: 'red',
+    expectedDeficiencyCodes: ['gl_aggregate_below_minimum'],
+  },
+  {
+    id: 'yellow-license-expiring',
+    description:
+      "Plumbing license expires in 22 days; trade requires a license",
+    expectedStatus: 'yellow',
+    expectedDeficiencyCodes: ['license_expiring_soon'],
+  },
+  {
+    id: 'missing-license-required-trade',
+    description:
+      'Vendor trade is electrical (license required) but no license uploaded',
+    expectedStatus: 'red',
+    expectedDeficiencyCodes: ['license_missing'],
+  },
+  {
+    id: 'yellow-extraction-low-confidence',
+    description:
+      'COI extraction returned LOW confidence; do not mark green even if values appear compliant',
+    expectedStatus: 'yellow',
+    expectedDeficiencyCodes: ['extraction_low_confidence'],
+  },
 ]
 
 export interface ExtractionCase {
