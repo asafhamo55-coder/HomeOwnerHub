@@ -8,6 +8,7 @@ import {
   Building2,
   CalendarDays,
   CreditCard,
+  FileSpreadsheet,
   FileText,
   Home,
   LogOut,
@@ -50,6 +51,7 @@ const PRIMARY: NavLink[] = [
   { href: '/vendors', icon: <Briefcase className="h-4 w-4" />, label: 'Vendors' },
   { href: '/vendors/invitations', icon: <Mail className="h-4 w-4" />, label: 'Vendor Invitations' },
   { href: '/vendors/approval-queue', icon: <Sparkles className="h-4 w-4" />, label: 'Vendor Queue' },
+  { href: '/rfps', icon: <FileSpreadsheet className="h-4 w-4" />, label: 'RFPs' },
 ]
 
 const SECONDARY: NavLink[] = [

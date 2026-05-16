@@ -8,13 +8,19 @@
 // board signs off.
 //
 // Acceptance (spec §5 W22): Madison Park approves a real RFP with
-// ≤ 3 edits, and the draft pulls insurance requirements correctly
+// <= 3 edits, and the draft pulls insurance requirements correctly
 // from association settings (no hallucinated numbers).
 
 import { z } from 'zod'
 import OpenAI from 'openai'
 import { defineWorkflow } from '@homeowner-portal/ai'
-import { PROMPT_VERSION, SYSTEM_PROMPT } from './prompt'
+import { createAdminClient } from '@homeowner-portal/db'
+import {
+  PROMPT_VERSION,
+  SYSTEM_PROMPT,
+  userPromptFor,
+  type AssociationContext,
+} from './prompt'
 
 // ─── Public types ────────────────────────────────────────────────────
 
@@ -53,6 +59,30 @@ export const RfpComposerOutputSchema = z.object({
 
 export type RfpComposerOutput = z.infer<typeof RfpComposerOutputSchema>
 
+// LLM-returned JSON (snake_case per prompt contract).
+const LlmOutputSchema = z.object({
+  title: z.string(),
+  scope: z.string(),
+  line_items: z.array(
+    z.object({
+      description: z.string(),
+      quantity: z.number().nullable().optional(),
+      unit: z.string().nullable().optional(),
+      notes: z.string().nullable().optional(),
+    }),
+  ),
+  evaluation_criteria: z.array(
+    z.object({
+      criterion: z.string(),
+      weight: z.number().int().min(0).max(100),
+    }),
+  ),
+  insurance_requirements: z.record(z.unknown()).nullable().optional(),
+  qualifications: z.array(z.string()),
+  submission_instructions: z.string(),
+  confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']),
+})
+
 // ─── LLM client (OpenAI-compatible) ──────────────────────────────────
 
 let _client: OpenAI | null = null
@@ -70,7 +100,7 @@ function getClient(): OpenAI {
 export const rfpComposer = defineWorkflow({
   id: 'W22',
   name: 'RFP Composer',
-  version: '0.1.0',
+  version: '0.2.0',
   promptVersion: PROMPT_VERSION,
   model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
   // Drafts are never auto-published. Board approval mandatory.
@@ -79,31 +109,90 @@ export const rfpComposer = defineWorkflow({
   outputSchema: RfpComposerOutputSchema,
 
   async run(input, api, _ctx) {
-    // SKELETON. The full pipeline requires:
-    //   1. Load association context (units, common-area acres, prior
-    //      vendor scope, compliance_settings) — the compliance_settings
-    //      column is added to `associations` in a follow-up migration.
-    //   2. Format with userPromptFor() and call the LLM with JSON mode.
-    //   3. Validate the LLM's output against the schema; if confidence
-    //      is LOW, queue for board with a "please flesh out manually"
-    //      message.
-    void input
-    void getClient
-    void SYSTEM_PROMPT
+    const db = createAdminClient()
 
-    api.setConfidence(0)
+    const { data: assoc, error: assocErr } = await db
+      .from('associations' as never)
+      .select('id, name, state, total_units, compliance_settings')
+      .eq('id', input.associationId)
+      .single<{
+        id: string
+        name: string
+        state: string
+        total_units: number | null
+        compliance_settings: Record<string, unknown> | null
+      }>()
+    if (assocErr || !assoc) {
+      throw new Error(
+        `association_not_found: ${assocErr?.message ?? input.associationId}`,
+      )
+    }
+
+    const associationContext: AssociationContext = {
+      name: assoc.name,
+      state: assoc.state,
+      totalUnits: assoc.total_units,
+      // common_area_acres isn't a column yet — placeholder for v1.5.
+      commonAreaAcres: null,
+      insuranceRequirements: assoc.compliance_settings ?? null,
+      priorVendorScope: null,
+    }
+
+    const userPrompt = userPromptFor({
+      freeTextNeed: input.freeTextNeed,
+      budgetMin: input.budgetMin ?? null,
+      budgetMax: input.budgetMax ?? null,
+      submissionDeadline: input.submissionDeadline,
+      association: associationContext,
+    })
+
+    const completion = await getClient().chat.completions.create({
+      model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+      response_format: { type: 'json_object' },
+      temperature: 0.2,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userPrompt },
+      ],
+    })
+
+    if (completion.usage) {
+      api.setTokens(
+        completion.usage.prompt_tokens,
+        completion.usage.completion_tokens,
+      )
+    }
+
+    const rawJson = completion.choices[0]?.message?.content
+    if (!rawJson) {
+      throw new Error('w22_empty_llm_response')
+    }
+    let parsed: z.infer<typeof LlmOutputSchema>
+    try {
+      parsed = LlmOutputSchema.parse(JSON.parse(rawJson))
+    } catch (err) {
+      throw new Error(
+        `w22_llm_output_invalid: ${err instanceof Error ? err.message : String(err)}`,
+      )
+    }
+
+    api.setConfidence(confidenceToNumber(parsed.confidence))
 
     return {
-      title: 'RFP draft (skeleton)',
-      scope:
-        'W22 skeleton — RFP composition awaits association compliance_settings column and association-context loader (see README).',
-      lineItems: [],
-      evaluationCriteria: [],
-      insuranceRequirements: null,
-      qualifications: [],
-      submissionInstructions:
-        'Vendors will receive a tokenized link to submit their bid.',
-      confidence: 'LOW' as const,
+      title: parsed.title,
+      scope: parsed.scope,
+      lineItems: parsed.line_items,
+      evaluationCriteria: parsed.evaluation_criteria,
+      insuranceRequirements: parsed.insurance_requirements ?? null,
+      qualifications: parsed.qualifications,
+      submissionInstructions: parsed.submission_instructions,
+      confidence: parsed.confidence,
     }
   },
 })
+
+function confidenceToNumber(level: 'HIGH' | 'MEDIUM' | 'LOW'): number {
+  if (level === 'HIGH') return 0.9
+  if (level === 'MEDIUM') return 0.6
+  return 0.3
+}
