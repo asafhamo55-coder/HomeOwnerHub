@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Sparkles } from 'lucide-react'
+import { ArrowLeft, FileSpreadsheet, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -84,6 +85,14 @@ export default async function RfpDetailPage({
             </Badge>
           ) : null}
           <Badge variant={STATUS_VARIANT[rfp.status]}>{rfp.status}</Badge>
+          {rfp.status !== 'draft' ? (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/rfps/${rfp.id}/bids`}>
+                <FileSpreadsheet className="h-4 w-4" />
+                View bids
+              </Link>
+            </Button>
+          ) : null}
           {isDraft ? <PublishRfpButton rfpId={rfp.id} /> : null}
           {isCancellable ? <CancelRfpButton rfpId={rfp.id} /> : null}
         </div>
