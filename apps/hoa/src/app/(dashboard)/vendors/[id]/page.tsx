@@ -89,6 +89,15 @@ export default async function VendorDetailPage({
             <KV label="Email" value={vendor.primary_email} />
             <KV label="Phone" value={vendor.primary_phone} />
             <KV label="EIN" value={maskEin(vendor.ein)} />
+            <KV label="Address" value={formatAddress(vendor.address)} />
+            <KV
+              label="Service area"
+              value={
+                vendor.service_area_zips && vendor.service_area_zips.length > 0
+                  ? vendor.service_area_zips.join(', ')
+                  : null
+              }
+            />
             <KV
               label="Added"
               value={format(new Date(vendor.created_at), 'PP')}
@@ -206,6 +215,46 @@ export default async function VendorDetailPage({
         </Card>
       ) : null}
 
+      {vendor.documents.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Documents ({vendor.documents.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1 text-sm">
+              {vendor.documents.map((d) => (
+                <li
+                  key={d.id}
+                  className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/10 px-3 py-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <Badge variant="outline" size="sm">
+                      {d.doc_type}
+                    </Badge>
+                    <span className="ml-2 text-xs text-muted-fg">
+                      {d.storage_path.split('/').slice(-1)[0]}
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-fg">
+                    {format(new Date(d.uploaded_at), 'PP')}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs text-muted-fg">
+              <Link
+                href={`/vendors/${vendor.id}/compliance`}
+                className="font-medium text-primary hover:underline"
+              >
+                Manage documents →
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {vendor.notes ? (
         <Card>
           <CardHeader>
@@ -240,6 +289,16 @@ function maskEin(ein: string | null): string | null {
   const trimmed = ein.replace(/\s+/g, '')
   if (trimmed.length < 4) return '***'
   return `***-**-${trimmed.slice(-4)}`
+}
+
+function formatAddress(
+  address: { line1?: string | null; line2?: string | null; city?: string | null; state?: string | null; postal_code?: string | null } | null,
+): string | null {
+  if (!address) return null
+  const line1 = [address.line1, address.line2].filter(Boolean).join(', ')
+  const line2 = [address.city, address.state, address.postal_code].filter(Boolean).join(' ')
+  const joined = [line1, line2].filter(Boolean).join(' · ')
+  return joined || null
 }
 
 function fmtCurrency(v: number | null): string | null {

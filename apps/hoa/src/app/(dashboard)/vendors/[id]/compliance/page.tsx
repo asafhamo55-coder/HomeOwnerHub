@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import { Alert } from '@homeowner-portal/ui'
 import { getVendor } from '@/lib/vendors'
 import { ComplianceForm } from './ComplianceForm'
+import { DocumentUploader } from './DocumentUploader'
 
 export const metadata = { title: 'Vendor compliance check' }
 
@@ -36,10 +37,13 @@ export default async function VendorCompliancePage({
       </header>
 
       <Alert variant="info" title="Vision/OCR is not yet live">
-        Enter the values manually for now. When the self-hosted vision model
-        comes online, the upload step will read these fields straight from the
-        ACORD-25 PDF.
+        Upload the PDFs for your records, but for now you also need to type
+        the values into the form below. When the self-hosted vision model
+        comes online, the upload step will read these fields straight from
+        the ACORD-25 PDF.
       </Alert>
+
+      <DocumentUploader vendorId={vendor.id} documents={vendor.documents} />
 
       <ComplianceForm vendorId={vendor.id} />
     </div>
