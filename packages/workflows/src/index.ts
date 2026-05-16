@@ -32,7 +32,6 @@ export type {
 } from './W18-bank-reconciliation'
 export {
   parseMemoCode,
-  memoCodeFor,
   amountsMatchExact,
   amountsMatchFuzzy,
   MEMO_CODE_REGEX,
