@@ -277,13 +277,19 @@ export async function inviteVendorsToRfp(
       }),
     })
     if (!emailResult.ok) {
-      console.warn(
+      console.error(
         '[rfp-invite] email send failed for vendor',
         vendorId,
         emailResult.error,
       )
-      // Don't roll back — the invitation row exists and the manager
-      // can re-send by copying the link from the dashboard.
+      // The DB invitation row exists, so the manager can still copy
+      // the link from the dashboard — but the vendor never got an
+      // email, so this is a failure, not a success.
+      failed.push({
+        vendorId,
+        reason: `email_send_failed: ${emailResult.error}`,
+      })
+      continue
     }
     sent += 1
   }
@@ -383,12 +389,17 @@ export async function validateRfpInvitationToken(
   const alreadyBid = !!existingBid && existingBid.status === 'submitted'
 
   // Mark the invitation acknowledged the first time the link is opened.
-  // Best-effort — failure shouldn't block submission.
-  await db
+  // Best-effort — failure shouldn't block submission — but log it loudly
+  // because acknowledged_at powers the "opened" vs "not opened yet"
+  // signal managers chase from the dashboard.
+  const { error: ackErr } = await db
     .from('rfp_invitations' as never)
     .update({ acknowledged_at: new Date().toISOString() } as never)
     .eq('id', data.id)
     .is('acknowledged_at', null)
+  if (ackErr) {
+    console.error('[rfp-invitations] acknowledged_at update failed', ackErr.message)
+  }
 
   return {
     ok: true,

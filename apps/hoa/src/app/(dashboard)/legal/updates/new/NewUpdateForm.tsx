@@ -91,7 +91,7 @@ export function NewUpdateForm({ statutes }: { statutes: StatuteRow[] }) {
       </Field>
 
       <section className="space-y-2">
-        <span className="text-sm font-medium text-muted">Action items</span>
+        <span className="text-sm font-medium text-foreground">Action items</span>
         <Helper>Bullets the board can act on. Each one optional.</Helper>
         <ul className="space-y-2">
           {actionItems.map((item, i) => (
@@ -194,7 +194,7 @@ function Field({
 }) {
   return (
     <label className="block space-y-1">
-      <span className="text-sm font-medium text-muted">
+      <span className="text-sm font-medium text-foreground">
         {label}
         {required ? <span className="ml-0.5 text-destructive">*</span> : null}
       </span>
@@ -204,5 +204,5 @@ function Field({
 }
 
 function Helper({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs text-muted-fg">{children}</p>
+  return <p className="text-xs text-muted">{children}</p>
 }

@@ -38,18 +38,18 @@ export function UploadForm() {
   return (
     <form action={action} className="space-y-5">
       <div className="space-y-1.5">
-        <label htmlFor="file" className="text-sm font-medium text-muted">
+        <label htmlFor="file" className="text-sm font-medium text-foreground">
           File <span className="text-destructive">*</span>
         </label>
         <label
           htmlFor="file"
           className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-background px-6 py-8 text-center transition-colors hover:border-primary"
         >
-          <Upload className="h-6 w-6 text-muted-fg" aria-hidden />
-          <span className="text-sm font-medium text-muted">
+          <Upload className="h-6 w-6 text-muted" aria-hidden />
+          <span className="text-sm font-medium text-foreground">
             {fileName ? fileName : 'Click to select a PDF, DOCX, or text file'}
           </span>
-          <span className="text-xs text-muted-fg">Up to 50 MB</span>
+          <span className="text-xs text-muted">Up to 50 MB</span>
         </label>
         <input
           id="file"
@@ -65,7 +65,7 @@ export function UploadForm() {
 
       <div className="grid gap-5 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <label htmlFor="name" className="text-sm font-medium text-muted">
+          <label htmlFor="name" className="text-sm font-medium text-foreground">
             Display name <span className="text-destructive">*</span>
           </label>
           <Input
@@ -74,7 +74,7 @@ export function UploadForm() {
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Madison Park CC&Rs (2018 amended)"
+            placeholder="CC&Rs (2018 amended)"
             error={Boolean(f.name)}
             disabled={pending}
           />
@@ -82,7 +82,7 @@ export function UploadForm() {
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="type" className="text-sm font-medium text-muted">
+          <label htmlFor="type" className="text-sm font-medium text-foreground">
             Type <span className="text-destructive">*</span>
           </label>
           <select
@@ -104,7 +104,7 @@ export function UploadForm() {
       </div>
 
       <div className="space-y-1.5">
-        <label htmlFor="parsed_text" className="text-sm font-medium text-muted">
+        <label htmlFor="parsed_text" className="text-sm font-medium text-foreground">
           Plain text (optional)
         </label>
         <Textarea
@@ -114,7 +114,7 @@ export function UploadForm() {
           placeholder="Paste the document's text here so the AI can match violations to specific CC&R sections. You can also fill this in later from the document detail page."
           disabled={pending}
         />
-        <p className="text-xs text-muted-fg">
+        <p className="text-xs text-muted">
           Phase 1 doesn&apos;t auto-extract text from PDFs. Pasting the contents here unlocks
           Covenant Brain matching in the violation wizard.
         </p>

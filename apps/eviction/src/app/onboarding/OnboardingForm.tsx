@@ -13,7 +13,7 @@ export function OnboardingForm() {
   return (
     <form action={action} className="space-y-5">
       <div className="space-y-1.5">
-        <label htmlFor="name" className="text-sm font-medium text-muted">
+        <label htmlFor="name" className="text-sm font-medium text-foreground">
           Workspace name
         </label>
         <Input
@@ -25,7 +25,7 @@ export function OnboardingForm() {
           prefix={<Briefcase className="h-4 w-4" aria-hidden />}
           disabled={pending}
         />
-        <p className="text-xs text-muted-fg">
+        <p className="text-xs text-muted">
           Usually your company or LLC name. You can change it later.
         </p>
       </div>

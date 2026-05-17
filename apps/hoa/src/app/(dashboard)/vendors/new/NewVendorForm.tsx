@@ -165,7 +165,7 @@ export function NewVendorForm() {
         </Button>
       </div>
 
-      <p className="text-xs text-muted-fg">
+      <p className="text-xs text-muted">
         <Info className="mr-1 inline h-3 w-3" />
         After saving, you'll land on the compliance page to upload the COI,
         W-9, and license and run the Vendor Onboarder workflow.
@@ -176,7 +176,7 @@ export function NewVendorForm() {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-fg">
+    <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
       {children}
     </h2>
   )
@@ -193,7 +193,7 @@ function Field({
 }) {
   return (
     <label className="block space-y-1">
-      <span className="text-sm font-medium text-muted">
+      <span className="text-sm font-medium text-foreground">
         {label}
         {required ? <span className="ml-0.5 text-destructive">*</span> : null}
       </span>
@@ -203,5 +203,5 @@ function Field({
 }
 
 function Helper({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs text-muted-fg">{children}</p>
+  return <p className="text-xs text-muted">{children}</p>
 }

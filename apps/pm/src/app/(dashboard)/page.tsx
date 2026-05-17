@@ -62,8 +62,8 @@ export default async function PMDashboard() {
     return (
       <div className="mx-auto max-w-3xl space-y-6">
         <header>
-          <h1 className="text-2xl font-bold text-muted">Welcome to {org.name}</h1>
-          <p className="text-sm text-muted-fg">Add your first property to start tracking rent.</p>
+          <h1 className="text-2xl font-bold text-foreground">Welcome to {org.name}</h1>
+          <p className="text-sm text-muted">Add your first property to start tracking rent.</p>
         </header>
         <EmptyState
           icon={<Building2 className="h-10 w-10" aria-hidden />}
@@ -119,8 +119,8 @@ export default async function PMDashboard() {
     <div className="mx-auto max-w-4xl space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-muted">{property.address}</h1>
-          <p className="text-sm text-muted-fg">
+          <h1 className="text-2xl font-bold text-foreground">{property.address}</h1>
+          <p className="text-sm text-muted">
             {property.tenant_name ?? 'No tenant on file'}
             {property.tenant_email ? ` · ${property.tenant_email}` : ''}
           </p>
@@ -133,10 +133,10 @@ export default async function PMDashboard() {
       <Card variant="elevated">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Wallet className="h-4 w-4 text-muted-fg" />
+            <Wallet className="h-4 w-4 text-muted" />
             This month&apos;s rent
             {current ? (
-              <span className="text-sm font-normal text-muted-fg">
+              <span className="text-sm font-normal text-muted">
                 · {format(new Date(current.due_date), 'MMM yyyy')}
               </span>
             ) : null}
@@ -158,17 +158,17 @@ export default async function PMDashboard() {
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-end gap-6">
             <div>
-              <p className="text-3xl font-bold text-muted">
+              <p className="text-3xl font-bold text-foreground">
                 {current ? currency(current.amount_due) : currency(property.monthly_rent ?? 0)}
               </p>
-              <p className="text-xs text-muted-fg">
+              <p className="text-xs text-muted">
                 Due {current ? format(new Date(current.due_date), 'MMM d, yyyy') : '—'}
               </p>
             </div>
             {lateFee > 0 && !isPaid ? (
               <div>
                 <p className="text-xl font-semibold text-destructive">+ {currency(lateFee)}</p>
-                <p className="text-xs text-muted-fg">
+                <p className="text-xs text-muted">
                   Late fee ({current?.late_fee_rate ?? 5}% of rent)
                 </p>
               </div>
@@ -194,8 +194,8 @@ export default async function PMDashboard() {
       {isOverdue ? (
         <Card>
           <CardContent className="space-y-1 p-4 text-sm">
-            <p className="font-medium text-muted">Why &quot;Start eviction&quot; opens a new tab</p>
-            <p className="text-muted-fg">
+            <p className="font-medium text-foreground">Why &quot;Start eviction&quot; opens a new tab</p>
+            <p className="text-muted">
               Eviction filings happen in a separate tool — Eviction Hub — so the legal workflow
               stays isolated from rent tracking. The button pre-fills the address, tenant, rent,
               and days unpaid for you. You only have to confirm and approve the notice.

@@ -74,7 +74,7 @@ export function MagicLinkForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1.5">
-        <label htmlFor="email" className="text-sm font-medium text-muted">
+        <label htmlFor="email" className="text-sm font-medium text-foreground">
           Email address
         </label>
         <Input
@@ -91,7 +91,7 @@ export function MagicLinkForm({
           error={status === 'error'}
           disabled={status === 'sending'}
         />
-        {status !== 'error' ? <p className="text-xs text-muted-fg">{helperText}</p> : null}
+        {status !== 'error' ? <p className="text-xs text-muted">{helperText}</p> : null}
       </div>
 
       {status === 'error' && errorMessage ? (

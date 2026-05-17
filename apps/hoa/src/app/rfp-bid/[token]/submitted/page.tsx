@@ -19,7 +19,7 @@ export default function SubmittedPage() {
             evaluate alongside any other bids received and reach out about
             next steps.
           </p>
-          <p className="text-muted-fg">
+          <p className="text-muted">
             This link can no longer be used to submit. If you need to
             change something, please contact the HOA directly.
           </p>

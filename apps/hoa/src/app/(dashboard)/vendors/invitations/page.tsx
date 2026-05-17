@@ -2,12 +2,12 @@ import Link from 'next/link'
 import { ArrowLeft, Mail } from 'lucide-react'
 import { format } from 'date-fns'
 import {
-  Badge,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   EmptyState,
+  StatusBadge,
 } from '@homeowner-portal/ui'
 import { listInvitations, type InvitationStatus } from '@/lib/vendor-invitations'
 import { InviteVendorForm } from './InviteVendorForm'
@@ -15,11 +15,18 @@ import { RevokeInvitationButton } from './RevokeInvitationButton'
 
 export const metadata = { title: 'Vendor invitations' }
 
-const STATUS_VARIANT: Record<InvitationStatus, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
+const INVITATION_STATUS_TONES: Record<InvitationStatus, 'success' | 'warning' | 'destructive' | 'neutral'> = {
   pending: 'warning',
   submitted: 'success',
-  expired: 'outline',
+  expired: 'destructive',
   revoked: 'destructive',
+}
+
+const INVITATION_STATUS_LABELS: Record<InvitationStatus, string> = {
+  pending: 'Pending',
+  submitted: 'Submitted',
+  expired: 'Link expired',
+  revoked: 'Revoked',
 }
 
 export default async function InvitationsPage() {
@@ -29,15 +36,15 @@ export default async function InvitationsPage() {
     <div className="mx-auto max-w-4xl space-y-6">
       <Link
         href="/vendors"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
+        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to vendors
       </Link>
 
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold text-muted">Vendor invitations</h1>
-        <p className="text-sm text-muted-fg">
+        <h1>Vendor invitations</h1>
+        <p className="text-sm text-muted">
           Send a vendor a tokenized link. They fill in their own business
           details and (optionally) upload COI, W-9, and license. The
           submission lands in your vendors list as a 'prospect'.
@@ -54,7 +61,7 @@ export default async function InvitationsPage() {
       </Card>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-fg">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
           Recent invitations
         </h2>
         {invitations.length === 0 ? (
@@ -72,10 +79,10 @@ export default async function InvitationsPage() {
                   className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-muted">
+                    <p className="truncate font-medium text-foreground">
                       {inv.invitee_name ?? inv.invitee_email}
                     </p>
-                    <p className="text-xs text-muted-fg">
+                    <p className="text-xs text-muted">
                       {inv.invitee_email}
                       {' · sent '}
                       {format(new Date(inv.created_at), 'PP')}
@@ -94,7 +101,11 @@ export default async function InvitationsPage() {
                     ) : null}
                   </div>
                   <div className="flex flex-shrink-0 items-center gap-2">
-                    <Badge variant={STATUS_VARIANT[inv.status]}>{inv.status}</Badge>
+                    <StatusBadge
+                      status={inv.status}
+                      tones={INVITATION_STATUS_TONES}
+                      labels={INVITATION_STATUS_LABELS}
+                    />
                     {inv.status === 'pending' ? (
                       <RevokeInvitationButton invitationId={inv.id} />
                     ) : null}

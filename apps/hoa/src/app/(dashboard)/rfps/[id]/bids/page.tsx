@@ -42,7 +42,7 @@ export default async function BidsPage({
     <div className="mx-auto max-w-5xl space-y-6">
       <Link
         href={`/rfps/${rfpId}`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
+        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to RFP
@@ -50,11 +50,11 @@ export default async function BidsPage({
 
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-mono text-xs text-muted-fg">{rfp.rfp_number}</p>
-          <h1 className="text-2xl font-bold text-muted">
+          <p className="font-mono text-xs text-muted">{rfp.rfp_number}</p>
+          <h1 className="text-2xl font-bold text-foreground">
             Bids on {rfp.title}
           </h1>
-          <p className="text-sm text-muted-fg">
+          <p className="text-sm text-muted">
             {bids.length} bid{bids.length === 1 ? '' : 's'} ·{' '}
             {submittedCount} submitted
           </p>
@@ -90,10 +90,10 @@ export default async function BidsPage({
                   className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-background/50"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-muted">
+                    <p className="truncate font-medium text-foreground">
                       {b.vendor_legal_name}
                     </p>
-                    <p className="text-xs text-muted-fg">
+                    <p className="text-xs text-muted">
                       {b.submitted_at
                         ? `Submitted ${format(new Date(b.submitted_at), 'PP')}`
                         : 'Draft (not submitted)'}
@@ -101,7 +101,7 @@ export default async function BidsPage({
                     </p>
                   </div>
                   <div className="flex flex-shrink-0 flex-col items-end gap-1">
-                    <span className="text-lg font-semibold text-muted">
+                    <span className="text-lg font-semibold text-foreground">
                       ${b.total_amount.toLocaleString()}
                     </span>
                     <Badge variant={STATUS_VARIANT[b.status]} size="sm">

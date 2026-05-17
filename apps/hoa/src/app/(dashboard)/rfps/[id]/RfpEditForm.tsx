@@ -77,18 +77,18 @@ export function RfpEditForm({
   return (
     <form action={handleSubmit} className="space-y-4">
       <label className="block space-y-1">
-        <span className="text-sm font-medium text-muted">Title</span>
+        <span className="text-sm font-medium text-foreground">Title</span>
         <Input name="title" defaultValue={initialTitle} required />
       </label>
 
       <label className="block space-y-1">
-        <span className="text-sm font-medium text-muted">Scope</span>
+        <span className="text-sm font-medium text-foreground">Scope</span>
         <Textarea name="scope" rows={8} defaultValue={initialScope} required />
       </label>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block space-y-1">
-          <span className="text-sm font-medium text-muted">Budget min ($)</span>
+          <span className="text-sm font-medium text-foreground">Budget min ($)</span>
           <Input
             name="budgetMin"
             inputMode="numeric"
@@ -96,7 +96,7 @@ export function RfpEditForm({
           />
         </label>
         <label className="block space-y-1">
-          <span className="text-sm font-medium text-muted">Budget max ($)</span>
+          <span className="text-sm font-medium text-foreground">Budget max ($)</span>
           <Input
             name="budgetMax"
             inputMode="numeric"
@@ -106,7 +106,7 @@ export function RfpEditForm({
       </div>
 
       <label className="block space-y-1">
-        <span className="text-sm font-medium text-muted">Submission deadline</span>
+        <span className="text-sm font-medium text-foreground">Submission deadline</span>
         <Input
           name="submissionDeadline"
           type="datetime-local"

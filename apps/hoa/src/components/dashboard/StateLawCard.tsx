@@ -26,22 +26,22 @@ export async function StateLawCard() {
       </CardHeader>
       <CardContent className="space-y-3">
         {!summary.state ? (
-          <p className="text-sm text-muted-fg">
+          <p className="text-sm text-muted">
             State-specific law coverage opens once your association is in
             one of the v1 states (GA, FL, CA, TX).
           </p>
         ) : (
           <>
-            <p className="text-sm text-muted">
+            <p className="text-sm text-foreground">
               {summary.statuteCount > 0 ? (
                 <>
                   <span className="text-2xl font-semibold">{summary.statuteCount}</span>{' '}
-                  <span className="text-xs text-muted-fg">
+                  <span className="text-xs text-muted">
                     {STATE_NAME[summary.state]} statute sections indexed
                   </span>
                 </>
               ) : (
-                <span className="text-xs text-muted-fg">
+                <span className="text-xs text-muted">
                   No statutes ingested yet for {STATE_NAME[summary.state]}.
                 </span>
               )}

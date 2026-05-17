@@ -61,16 +61,16 @@ export function DailyDigestCard({ initialContent, initialGeneratedAt }: DailyDig
         ) : null}
 
         {hasContent ? (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">{content}</p>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{content}</p>
         ) : (
-          <p className="text-sm text-muted-fg">
-            No digest yet. Click <span className="font-medium text-muted">Refresh</span> to
+          <p className="text-sm text-muted">
+            No digest yet. Click <span className="font-medium text-foreground">Refresh</span> to
             generate one — or wait for the 7am scheduled run once Inngest is wired up.
           </p>
         )}
 
         {generatedAt ? (
-          <p className="text-xs text-muted-fg">
+          <p className="text-xs text-muted">
             Updated {formatDistanceToNow(new Date(generatedAt), { addSuffix: true })} · Claude
             Haiku
           </p>

@@ -10,7 +10,7 @@ export default function NewVendorPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <Link
         href="/vendors"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
+        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to vendors

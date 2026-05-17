@@ -60,7 +60,7 @@ export function NewRfpForm() {
   return (
     <form action={handleSubmit} className="space-y-4">
       <label className="block space-y-1">
-        <span className="text-sm font-medium text-muted">
+        <span className="text-sm font-medium text-foreground">
           What does the association need? <span className="text-destructive">*</span>
         </span>
         <Textarea
@@ -71,7 +71,7 @@ export function NewRfpForm() {
           maxLength={4000}
           placeholder="We need a landscaper for our 4-acre common area: bi-weekly mowing April–October, quarterly fertilization, and seasonal leaf removal in fall. Existing vendor's contract expires Sep 30."
         />
-        <p className="text-xs text-muted-fg">
+        <p className="text-xs text-muted">
           Describe it in your own words. The Composer turns this into a
           structured scope, line items, and evaluation criteria.
         </p>
@@ -79,17 +79,17 @@ export function NewRfpForm() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block space-y-1">
-          <span className="text-sm font-medium text-muted">Budget — minimum ($)</span>
+          <span className="text-sm font-medium text-foreground">Budget — minimum ($)</span>
           <Input name="budgetMin" inputMode="numeric" placeholder="20000" />
         </label>
         <label className="block space-y-1">
-          <span className="text-sm font-medium text-muted">Budget — maximum ($)</span>
+          <span className="text-sm font-medium text-foreground">Budget — maximum ($)</span>
           <Input name="budgetMax" inputMode="numeric" placeholder="35000" />
         </label>
       </div>
 
       <label className="block space-y-1">
-        <span className="text-sm font-medium text-muted">
+        <span className="text-sm font-medium text-foreground">
           Submission deadline <span className="text-destructive">*</span>
         </span>
         <Input
@@ -98,7 +98,7 @@ export function NewRfpForm() {
           required
           defaultValue={defaultDeadline}
         />
-        <p className="text-xs text-muted-fg">
+        <p className="text-xs text-muted">
           Vendors must submit their bid by this date/time.
         </p>
       </label>
@@ -119,7 +119,7 @@ export function NewRfpForm() {
         </Button>
       </div>
 
-      <p className="text-xs text-muted-fg">
+      <p className="text-xs text-muted">
         The draft lands in <span className="font-mono">/rfps</span> as
         status `draft` for your review. Nothing is sent to vendors until
         you publish.

@@ -12,8 +12,8 @@ const config: Config = {
         background: 'hsl(var(--background))',
         surface: 'hsl(var(--surface))',
         border: 'hsl(var(--border))',
-        muted: 'hsl(var(--muted))',
-        'muted-fg': 'hsl(var(--muted-fg))',
+        foreground: 'hsl(var(--foreground))',
+        'muted': 'hsl(var(--muted))',
         destructive: 'hsl(var(--destructive))',
       },
       borderRadius: {

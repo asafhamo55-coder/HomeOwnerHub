@@ -7,8 +7,8 @@ export default function SignupPage() {
   return (
     <div className="space-y-5">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-muted">Create your Eviction Hub account</h2>
-        <p className="text-sm text-muted-fg">
+        <h2 className="text-lg font-semibold text-foreground">Create your Eviction Hub account</h2>
+        <p className="text-sm text-muted">
           We&apos;ll set up your case workspace after you verify your email. Already have an
           account?{' '}
           <Link href="/login" className="font-medium text-primary hover:underline">

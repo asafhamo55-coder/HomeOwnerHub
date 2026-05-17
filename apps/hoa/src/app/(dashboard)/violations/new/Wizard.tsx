@@ -20,8 +20,11 @@ import {
   Card,
   CardContent,
   Input,
+  Select,
   Textarea,
   WizardStepper,
+  useConfirm,
+  useToast,
   type WizardStep as StepperStep,
 } from '@homeowner-portal/ui'
 import { createApprovedViolation } from '@/lib/violations'
@@ -87,6 +90,8 @@ interface DraftPayload {
 
 export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) {
   const router = useRouter()
+  const confirm = useConfirm()
+  const toast = useToast()
   const initialPayload = (initialDraft?.payload ?? {}) as DraftPayload
 
   const [step, setStep] = useState<WizardStepId>(() => {
@@ -332,7 +337,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
         currentIndex={stepIndex(step)}
         vertical={false}
       />
-      <div className="flex items-center justify-between text-xs text-muted-fg">
+      <div className="flex items-center justify-between text-xs text-muted">
         <span>
           {draftSaving ? (
             <span className="flex items-center gap-1">
@@ -348,11 +353,27 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
           <button
             type="button"
             onClick={async () => {
-              if (!confirm('Discard this in-progress violation? This cannot be undone.')) return
-              await discardDraft(draftId)
-              router.push('/violations')
+              const ok = await confirm({
+                title: 'Discard violation draft?',
+                description:
+                  'Your unsaved changes will be lost. This cannot be undone.',
+                confirmLabel: 'Discard',
+                destructive: true,
+              })
+              if (!ok) return
+              try {
+                await discardDraft(draftId)
+                toast({ tone: 'success', message: 'Draft discarded.' })
+                router.push('/violations')
+              } catch (err) {
+                toast({
+                  tone: 'error',
+                  message:
+                    err instanceof Error ? err.message : 'Could not discard draft.',
+                })
+              }
             }}
-            className="text-muted-fg hover:text-destructive"
+            className="text-muted hover:text-destructive"
           >
             Discard draft
           </button>
@@ -369,7 +390,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
         {stepperHeader}
 
         <div className="space-y-1.5">
-          <label htmlFor="property" className="text-sm font-medium text-muted">
+          <label htmlFor="property" className="text-sm font-medium text-foreground">
             Property <span className="text-destructive">*</span>
           </label>
           {properties.length === 0 ? (
@@ -377,11 +398,10 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
               Add a property first before reporting a violation.
             </Alert>
           ) : (
-            <select
+            <Select
               id="property"
               value={propertyId}
               onChange={(e) => setPropertyId(e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             >
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -389,12 +409,12 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
                   {p.unit_number ? ` · ${p.unit_number}` : ''}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-muted">
+          <label className="text-sm font-medium text-foreground">
             Photo <span className="text-destructive">*</span>
           </label>
           {photoPreview || photoStoragePath ? (
@@ -410,17 +430,17 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
                       unoptimized
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xs text-muted-fg">
+                    <div className="flex h-full w-full items-center justify-center text-xs text-muted">
                       Photo on file
                     </div>
                   )}
                 </div>
                 <div className="min-w-0 flex-1 text-sm">
-                  <p className="truncate font-medium text-muted">
+                  <p className="truncate font-medium text-foreground">
                     {photoFile?.name ?? 'Restored from draft'}
                   </p>
                   {photoUploading ? (
-                    <p className="mt-1 flex items-center gap-1 text-xs text-muted-fg">
+                    <p className="mt-1 flex items-center gap-1 text-xs text-muted">
                       <Loader2 className="h-3 w-3 animate-spin" /> Uploading…
                     </p>
                   ) : photoError ? (
@@ -441,9 +461,9 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
               htmlFor="photo"
               className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-background px-6 py-8 text-center hover:border-primary"
             >
-              <ImagePlus className="h-6 w-6 text-muted-fg" aria-hidden />
-              <span className="text-sm font-medium text-muted">Click to add a photo</span>
-              <span className="text-xs text-muted-fg">JPG, PNG, WebP, or HEIC · up to 25 MB</span>
+              <ImagePlus className="h-6 w-6 text-muted" aria-hidden />
+              <span className="text-sm font-medium text-foreground">Click to add a photo</span>
+              <span className="text-xs text-muted">JPG, PNG, WebP, or HEIC · up to 25 MB</span>
             </label>
           )}
           <input
@@ -456,8 +476,8 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="notes" className="text-sm font-medium text-muted">
-            Additional notes <span className="text-muted-fg">(optional)</span>
+          <label htmlFor="notes" className="text-sm font-medium text-foreground">
+            Additional notes <span className="text-muted">(optional)</span>
           </label>
           <Textarea
             id="notes"
@@ -472,10 +492,10 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
         <div className="rounded-lg border border-border bg-background/50 p-3">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <p className="flex items-center gap-1.5 text-sm font-medium text-muted">
+              <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Sparkles className="h-3.5 w-3.5 text-primary" /> AI suggestions
               </p>
-              <p className="text-xs text-muted-fg">
+              <p className="text-xs text-muted">
                 Pick sensible defaults for cure period and fine from the notes + photo.
               </p>
             </div>
@@ -573,8 +593,18 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
         ) : null}
 
         <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-          <Button variant="outline" onClick={() => router.push('/violations')}>
-            Save & exit
+          <Button
+            variant="outline"
+            onClick={async () => {
+              await persistDraft(step)
+              toast({
+                tone: 'success',
+                message: 'Draft saved — pick up later from the dashboard.',
+              })
+              router.push('/violations')
+            }}
+          >
+            Save draft & exit
           </Button>
           <Button onClick={handleAnalyze} disabled={!canAnalyze}>
             <Sparkles className="h-4 w-4" />
@@ -595,8 +625,8 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
           <div className="mt-4 space-y-1">
-            <p className="font-medium text-muted">Running Covenant Brain</p>
-            <p className="text-sm text-muted-fg">
+            <p className="font-medium text-foreground">Running Covenant Brain</p>
+            <p className="text-sm text-muted">
               Reading your photo, matching the right CC&amp;R section, and drafting a letter.
               Usually 5–10 seconds.
             </p>
@@ -630,7 +660,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
             <Detail label="Property">{selectedProperty?.address ?? '—'}</Detail>
             <Detail label="Violation type">{analysis.violationType}</Detail>
             <Detail label="CC&R section">
-              {analysis.ccrSection ?? <span className="text-muted-fg">Not matched</span>}
+              {analysis.ccrSection ?? <span className="text-muted">Not matched</span>}
             </Detail>
             <Detail label="Severity">
               {analysis.severity ? (
@@ -638,10 +668,10 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
                   {analysis.severity}
                 </Badge>
               ) : (
-                <span className="text-muted-fg">—</span>
+                <span className="text-muted">—</span>
               )}
               {analysis.confidence ? (
-                <span className="ml-2 text-xs text-muted-fg">{analysis.confidence} confidence</span>
+                <span className="ml-2 text-xs text-muted">{analysis.confidence} confidence</span>
               ) : null}
             </Detail>
           </CardContent>
@@ -677,8 +707,8 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
             <CheckCircle2 className="h-7 w-7" />
           </div>
           <div className="mt-4 space-y-1">
-            <h2 className="text-xl font-bold text-muted">Violation recorded</h2>
-            <p className="text-sm text-muted-fg">
+            <h2 className="text-xl font-bold text-foreground">Violation recorded</h2>
+            <p className="text-sm text-muted">
               Notice marked as sent. The cure clock is now running.
             </p>
           </div>
@@ -714,7 +744,7 @@ function FieldWithSuggestion({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <label htmlFor={htmlFor} className="text-sm font-medium text-muted">
+        <label htmlFor={htmlFor} className="text-sm font-medium text-foreground">
           {label}
         </label>
         {isAI ? (
@@ -730,7 +760,7 @@ function FieldWithSuggestion({
       </div>
       {children}
       {isAI && reasoning ? (
-        <p className="text-[11px] text-muted-fg">{reasoning}</p>
+        <p className="text-[11px] text-muted">{reasoning}</p>
       ) : null}
     </div>
   )
@@ -739,8 +769,8 @@ function FieldWithSuggestion({
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-fg">{label}</p>
-      <div className="mt-0.5 text-sm text-muted">{children}</div>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</p>
+      <div className="mt-0.5 text-sm text-foreground">{children}</div>
     </div>
   )
 }

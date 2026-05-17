@@ -18,7 +18,7 @@ export default function SubmittedPage() {
             Your details have been forwarded to the HOA for review. They'll
             reach out by email or phone if anything is missing.
           </p>
-          <p className="text-muted-fg">
+          <p className="text-muted">
             This link can no longer be used. If you need to update your
             details, please contact the HOA directly.
           </p>

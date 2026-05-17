@@ -52,7 +52,7 @@ export default async function NewViolationPage({
     <div className="mx-auto max-w-3xl space-y-6">
       <Link
         href="/violations"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
+        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to violations

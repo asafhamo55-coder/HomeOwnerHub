@@ -24,14 +24,14 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <header>
-        <h1 className="text-2xl font-bold text-muted">Settings</h1>
-        <p className="mt-1 text-sm text-muted-fg">Manage your HOA&apos;s configuration.</p>
+        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+        <p className="mt-1 text-sm text-muted">Manage your HOA&apos;s configuration.</p>
       </header>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Building2 className="h-4 w-4 text-muted-fg" />
+            <Building2 className="h-4 w-4 text-muted" />
             HOA
           </CardTitle>
           <CardDescription>
@@ -46,7 +46,7 @@ export default async function SettingsPage() {
             </Badge>
           </Row>
           <Row label="Doors">
-            {org.doors_count ?? <span className="text-muted-fg">Not set</span>}
+            {org.doors_count ?? <span className="text-muted">Not set</span>}
           </Row>
           <Row label="Hub type">{org.hub_type}</Row>
         </CardContent>
@@ -55,7 +55,7 @@ export default async function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Users className="h-4 w-4 text-muted-fg" />
+            <Users className="h-4 w-4 text-muted" />
             Members
           </CardTitle>
           <CardDescription>
@@ -75,8 +75,8 @@ export default async function SettingsPage() {
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-xs uppercase tracking-wide text-muted-fg">{label}</span>
-      <span className="text-muted">{children}</span>
+      <span className="text-xs uppercase tracking-wide text-muted">{label}</span>
+      <span className="text-foreground">{children}</span>
     </div>
   )
 }

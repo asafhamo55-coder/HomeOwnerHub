@@ -36,7 +36,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="text-sm font-medium text-muted">
+      <label htmlFor={htmlFor} className="text-sm font-medium text-foreground">
         {label}
         {required ? <span className="ml-0.5 text-destructive">*</span> : null}
       </label>
@@ -44,7 +44,7 @@ function Field({
       {error ? (
         <p className="text-xs text-destructive">{error}</p>
       ) : hint ? (
-        <p className="text-xs text-muted-fg">{hint}</p>
+        <p className="text-xs text-muted">{hint}</p>
       ) : null}
     </div>
   )

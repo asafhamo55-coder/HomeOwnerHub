@@ -63,7 +63,7 @@ export function CaseStatusFlips({
                     ? 'bg-emerald-100 text-emerald-700'
                     : isCurrent
                       ? 'bg-primary text-primary-fg'
-                      : 'bg-muted-fg/10 text-muted-fg',
+                      : 'bg-muted/10 text-muted',
                 )}
               >
                 {isPast ? <Check className="h-3.5 w-3.5" /> : i + 1}
@@ -71,13 +71,13 @@ export function CaseStatusFlips({
               <span
                 className={cn(
                   'text-xs font-medium',
-                  isPast || isCurrent ? 'text-muted' : 'text-muted-fg',
+                  isPast || isCurrent ? 'text-foreground' : 'text-muted',
                 )}
               >
                 {stage.label}
               </span>
               {i < PIPELINE.length - 1 ? (
-                <ChevronRight className="mx-0.5 h-3 w-3 text-muted-fg" aria-hidden />
+                <ChevronRight className="mx-0.5 h-3 w-3 text-muted" aria-hidden />
               ) : null}
             </li>
           )

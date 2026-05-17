@@ -1,23 +1,37 @@
 import Link from 'next/link'
 import { Briefcase, Mail, Plus } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Button, Card, EmptyState } from '@homeowner-portal/ui'
+import { Button, Card, EmptyState, StatusBadge, Tabs } from '@homeowner-portal/ui'
 import { listVendors, type ComplianceStatus } from '@/lib/vendors'
 
 export const metadata = { title: 'Vendors' }
 
-const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
-  prospect: 'outline',
+const VENDOR_TABS = [
+  { label: 'Active', href: '/vendors' },
+  { label: 'Invitations', href: '/vendors/invitations' },
+  { label: 'Approval queue', href: '/vendors/approval-queue' },
+  { label: 'RFPs', href: '/rfps' },
+]
+
+const VENDOR_STATUS_TONES = {
+  prospect: 'neutral',
   active: 'success',
-  inactive: 'outline',
+  inactive: 'neutral',
   blacklisted: 'destructive',
+} as const
+
+const VENDOR_STATUS_LABELS: Record<string, string> = {
+  prospect: 'Prospect',
+  active: 'Active',
+  inactive: 'Inactive',
+  blacklisted: 'Blacklisted',
 }
 
-const COMPLIANCE_VARIANT: Record<ComplianceStatus, 'success' | 'warning' | 'destructive' | 'outline'> = {
+const COMPLIANCE_TONES: Record<ComplianceStatus, 'success' | 'warning' | 'destructive' | 'neutral'> = {
   green: 'success',
   yellow: 'warning',
   red: 'destructive',
-  missing: 'outline',
+  missing: 'neutral',
 }
 
 const COMPLIANCE_LABEL: Record<ComplianceStatus, string> = {
@@ -34,10 +48,10 @@ export default async function VendorsListPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-muted">Vendors</h1>
-          <p className="text-sm text-muted-fg">
-            {vendors.length} on file. Compliance status reflects each vendor's
-            current COI, W-9, and license against your association's requirements.
+          <h1>Vendors</h1>
+          <p className="text-sm text-muted">
+            {vendors.length} on file. The badge shows whether insurance, W-9,
+            and license are up to date.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -55,6 +69,8 @@ export default async function VendorsListPage() {
           </Button>
         </div>
       </header>
+
+      <Tabs items={VENDOR_TABS} currentPath="/vendors" aria-label="Vendor sections" />
 
       {vendors.length === 0 ? (
         <EmptyState
@@ -82,20 +98,20 @@ export default async function VendorsListPage() {
                     className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-background/50"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-muted">
+                      <p className="truncate font-medium text-foreground">
                         {v.legal_name}
                         {v.dba ? (
-                          <span className="ml-2 text-xs font-normal text-muted-fg">
+                          <span className="ml-2 text-xs font-normal text-muted">
                             d/b/a {v.dba}
                           </span>
                         ) : null}
                       </p>
-                      <p className="text-xs text-muted-fg">
+                      <p className="text-xs text-muted">
                         {(v.trades ?? []).join(', ') || 'No trades on file'}
                         {v.primary_email ? ` · ${v.primary_email}` : ''}
                       </p>
                       {v.compliance?.last_reviewed_at ? (
-                        <p className="mt-0.5 text-xs text-muted-fg">
+                        <p className="mt-0.5 text-xs text-muted">
                           Last reviewed{' '}
                           {format(new Date(v.compliance.last_reviewed_at), 'PP')}
                         </p>
@@ -103,17 +119,23 @@ export default async function VendorsListPage() {
                     </div>
                     <div className="flex flex-shrink-0 items-center gap-2">
                       {compliance ? (
-                        <Badge variant={COMPLIANCE_VARIANT[compliance]} size="sm">
-                          {COMPLIANCE_LABEL[compliance]}
-                        </Badge>
+                        <StatusBadge
+                          status={compliance}
+                          tones={COMPLIANCE_TONES}
+                          labels={COMPLIANCE_LABEL}
+                        />
                       ) : (
-                        <Badge variant="outline" size="sm">
-                          No review
-                        </Badge>
+                        <StatusBadge
+                          status="missing"
+                          tones={COMPLIANCE_TONES}
+                          labels={{ missing: 'No review' }}
+                        />
                       )}
-                      <Badge variant={STATUS_VARIANT[v.status] ?? 'outline'} size="sm">
-                        {v.status}
-                      </Badge>
+                      <StatusBadge
+                        status={v.status}
+                        tones={VENDOR_STATUS_TONES}
+                        labels={VENDOR_STATUS_LABELS}
+                      />
                     </div>
                   </Link>
                 </li>

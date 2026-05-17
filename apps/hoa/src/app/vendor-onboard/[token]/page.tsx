@@ -47,11 +47,11 @@ export default async function VendorOnboardPage({ params }: PageProps) {
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
       <header className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-fg">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">
           Vendor onboarding
         </p>
-        <h1 className="text-2xl font-bold text-muted">{org.name}</h1>
-        <p className="text-sm text-muted-fg">
+        <h1 className="text-2xl font-bold text-foreground">{org.name}</h1>
+        <p className="text-sm text-muted">
           {org.name} has invited you to onboard as a vendor. Please complete
           the form below and (if you have them ready) upload your COI, W-9,
           and contractor license. The board will review your submission and

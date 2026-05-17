@@ -13,7 +13,7 @@ export function OnboardingForm() {
   return (
     <form action={action} className="space-y-5">
       <div className="space-y-1.5">
-        <label htmlFor="name" className="text-sm font-medium text-muted">
+        <label htmlFor="name" className="text-sm font-medium text-foreground">
           HOA name
         </label>
         <Input
@@ -21,15 +21,15 @@ export function OnboardingForm() {
           name="name"
           required
           autoFocus
-          placeholder="Madison Park Homeowners Association"
+          placeholder="Your Community Homeowners Association"
           prefix={<Building2 className="h-4 w-4" aria-hidden />}
           disabled={pending}
         />
       </div>
 
       <div className="space-y-1.5">
-        <label htmlFor="doors_count" className="text-sm font-medium text-muted">
-          Number of homes <span className="text-muted-fg">(optional)</span>
+        <label htmlFor="doors_count" className="text-sm font-medium text-foreground">
+          Number of homes <span className="text-muted">(optional)</span>
         </label>
         <Input
           id="doors_count"
@@ -40,7 +40,7 @@ export function OnboardingForm() {
           placeholder="49"
           disabled={pending}
         />
-        <p className="text-xs text-muted-fg">
+        <p className="text-xs text-muted">
           Used to size your dashboard. You can edit this later in settings.
         </p>
       </div>

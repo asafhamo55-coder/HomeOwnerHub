@@ -39,16 +39,16 @@ export default async function StatuteDetailPage({
     <div className="mx-auto max-w-3xl space-y-6">
       <Link
         href="/legal/browse"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
+        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to statutes
       </Link>
 
       <header className="space-y-2">
-        <p className="font-mono text-xs text-muted-fg">{statute.code_citation}</p>
-        <h1 className="text-2xl font-bold text-muted">{statute.title}</h1>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-fg">
+        <p className="font-mono text-xs text-muted">{statute.code_citation}</p>
+        <h1 className="text-2xl font-bold text-foreground">{statute.title}</h1>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
           {statute.category ? (
             <Badge variant="outline" size="sm">
               {CATEGORY_LABEL[statute.category] ?? statute.category}
@@ -76,14 +76,14 @@ export default async function StatuteDetailPage({
           <CardTitle className="text-base">Statute text</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="whitespace-pre-wrap font-serif text-sm leading-relaxed text-muted">
+          <p className="whitespace-pre-wrap font-serif text-sm leading-relaxed text-foreground">
             {statute.body}
           </p>
         </CardContent>
       </Card>
 
       {statute.source_url ? (
-        <p className="text-xs text-muted-fg">
+        <p className="text-xs text-muted">
           Source:{' '}
           <a
             href={statute.source_url}

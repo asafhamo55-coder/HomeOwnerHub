@@ -49,10 +49,10 @@ export function UnfinishedWorkflowsCard({ drafts }: Props) {
                   className="flex items-center gap-3 py-3 transition-colors hover:bg-background/50"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-muted">
+                    <p className="text-sm font-medium text-foreground">
                       {KIND_LABEL[d.kind] ?? d.kind}
                     </p>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-fg">
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted">
                       <div className="h-1 w-24 rounded-full bg-border">
                         <div
                           className="h-full rounded-full bg-primary"
@@ -68,7 +68,7 @@ export function UnfinishedWorkflowsCard({ drafts }: Props) {
                       </span>
                     </div>
                   </div>
-                  <ArrowRight className="h-4 w-4 flex-shrink-0 text-muted-fg" aria-hidden />
+                  <ArrowRight className="h-4 w-4 flex-shrink-0 text-muted" aria-hidden />
                 </Link>
               </li>
             )

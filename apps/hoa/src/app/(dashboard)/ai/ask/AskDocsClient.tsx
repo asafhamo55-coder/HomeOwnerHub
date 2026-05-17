@@ -102,13 +102,13 @@ export function AskDocsClient() {
               >
                 Ask
               </Button>
-              <span className="text-xs text-muted-fg">
+              <span className="text-xs text-muted">
                 Try:{' '}
                 {SAMPLE_QUESTIONS.map((q, i) => (
                   <button
                     key={q}
                     type="button"
-                    className="underline underline-offset-2 hover:text-muted"
+                    className="underline underline-offset-2 hover:text-foreground"
                     onClick={() => setQuestion(q)}
                   >
                     {q}
@@ -142,10 +142,10 @@ export function AskDocsClient() {
 
             {response.citations.length > 0 ? (
               <div className="space-y-1.5 border-t border-border pt-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-fg">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted">
                   Citations
                 </p>
-                <ul className="space-y-1 text-xs text-muted-fg">
+                <ul className="space-y-1 text-xs text-muted">
                   {response.citations.map((c) => (
                     <li key={c.chunkId} className="flex items-center gap-2">
                       <Badge variant="outline">{capitalize(c.docType)}</Badge>
@@ -157,7 +157,7 @@ export function AskDocsClient() {
             ) : null}
 
             <div className="border-t border-border pt-3">
-              <p className="text-[10px] font-mono text-muted-fg/70">
+              <p className="text-[10px] font-mono text-muted/70">
                 run id: {response.runId}
               </p>
             </div>

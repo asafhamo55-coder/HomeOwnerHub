@@ -21,15 +21,15 @@ export default async function VendorCompliancePage({
     <div className="mx-auto max-w-3xl space-y-6">
       <Link
         href={`/vendors/${vendor.id}`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
+        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to {vendor.legal_name}
       </Link>
 
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold text-muted">Compliance check</h1>
-        <p className="text-sm text-muted-fg">
+        <h1 className="text-2xl font-bold text-foreground">Compliance check</h1>
+        <p className="text-sm text-muted">
           Enter what's on the vendor's COI, W-9, and license. W21 will grade
           them against your association's standards and return a color-coded
           status with a deficiency list.

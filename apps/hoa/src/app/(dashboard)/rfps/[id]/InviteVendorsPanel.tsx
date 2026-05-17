@@ -10,6 +10,8 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  useConfirm,
+  useToast,
 } from '@homeowner-portal/ui'
 import {
   inviteVendorsToRfp,
@@ -83,14 +85,14 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Invite vendors</CardTitle>
-          <p className="text-xs text-muted-fg">
+          <p className="text-xs text-muted">
             Pick vendors to invite. Each gets a unique email link to submit
             their bid. Vendors without a primary email are skipped.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
           {eligible.length === 0 ? (
-            <p className="text-sm text-muted-fg">
+            <p className="text-sm text-muted">
               All vendors are already invited or none are eligible.
             </p>
           ) : (
@@ -103,7 +105,7 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
                       className={`flex items-start gap-3 rounded-md border p-2 transition-colors ${
                         isSelected
                           ? 'border-primary/30 bg-primary/5'
-                          : 'border-border hover:bg-muted/30'
+                          : 'border-border hover:bg-foreground/30'
                       }`}
                     >
                       <input
@@ -113,10 +115,10 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
                         onChange={() => toggle(v.id)}
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-muted">
+                        <p className="truncate text-sm font-medium text-foreground">
                           {v.legal_name}
                         </p>
-                        <p className="text-xs text-muted-fg">
+                        <p className="text-xs text-muted">
                           {(v.trades ?? []).join(', ') || 'No trades on file'}
                         </p>
                       </div>
@@ -163,7 +165,7 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
           ) : null}
 
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-fg">
+            <span className="text-xs text-muted">
               {selected.size} selected
             </span>
             <Button
@@ -186,7 +188,7 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
         </CardHeader>
         <CardContent>
           {invitations.length === 0 ? (
-            <p className="text-sm text-muted-fg">
+            <p className="text-sm text-muted">
               No invitations yet. Pick vendors on the left and send.
             </p>
           ) : (
@@ -204,30 +206,40 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
 
 function InvitationRow({ invitation }: { invitation: RfpInvitationRow }) {
   const router = useRouter()
+  const confirm = useConfirm()
+  const toast = useToast()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  function handleRevoke() {
-    if (!window.confirm('Revoke this invitation? The link will stop working.')) return
+  async function handleRevoke() {
+    const ok = await confirm({
+      title: `Revoke ${invitation.vendor_legal_name}?`,
+      description: 'Their bid link will stop working. They can be re-invited later.',
+      confirmLabel: 'Revoke invitation',
+      destructive: true,
+    })
+    if (!ok) return
     setError(null)
     startTransition(async () => {
       const result = await revokeRfpInvitation(invitation.id)
       if (!result.ok) {
         setError(result.error)
+        toast({ tone: 'error', message: result.error })
         return
       }
+      toast({ tone: 'success', message: 'Invitation revoked.' })
       router.refresh()
     })
   }
 
   return (
-    <li className="rounded-md border border-border bg-muted/10 p-2">
+    <li className="rounded-md border border-border bg-foreground/10 p-2">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-muted">
+          <p className="truncate text-sm font-medium text-foreground">
             {invitation.vendor_legal_name}
           </p>
-          <p className="text-xs text-muted-fg">
+          <p className="text-xs text-muted">
             Invited {new Date(invitation.invited_at).toLocaleDateString()}
             {invitation.acknowledged_at
               ? ` · opened ${new Date(invitation.acknowledged_at).toLocaleDateString()}`

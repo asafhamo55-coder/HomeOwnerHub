@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Plus, Loader2 } from 'lucide-react'
 import { Alert, Button, Input } from '@homeowner-portal/ui'
-import { materializeCurrentPeriodDues } from '@/lib/dues'
+import { materializeCurrentPeriodAssessments } from '@/lib/assessments'
 
 interface Props {
   monthLabel: string
@@ -18,7 +18,7 @@ export function MaterializeButton({ monthLabel }: Props) {
   function handleSubmit() {
     setError(null)
     startTransition(async () => {
-      const result = await materializeCurrentPeriodDues({ amountPerProperty: amount })
+      const result = await materializeCurrentPeriodAssessments({ amountPerUnit: amount })
       if (!result.ok) {
         setError(result.error)
       } else {
@@ -38,8 +38,8 @@ export function MaterializeButton({ monthLabel }: Props) {
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3 sm:flex-row sm:items-center">
-      <label className="text-sm font-medium text-muted">
-        Amount per property:
+      <label className="text-sm font-medium text-foreground">
+        Amount per unit:
         <Input
           type="number"
           min={0}
@@ -54,7 +54,7 @@ export function MaterializeButton({ monthLabel }: Props) {
       <div className="flex items-center gap-2">
         <Button onClick={handleSubmit} disabled={pending} size="sm">
           {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-          Generate
+          Generate dues
         </Button>
         <Button onClick={() => setOpen(false)} variant="ghost" size="sm" disabled={pending}>
           Cancel

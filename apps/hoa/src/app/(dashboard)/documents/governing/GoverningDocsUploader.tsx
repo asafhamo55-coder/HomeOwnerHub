@@ -127,20 +127,20 @@ export function GoverningDocsUploader({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label htmlFor="title" className="text-sm font-medium text-muted">
+              <label htmlFor="title" className="text-sm font-medium text-foreground">
                 Title
               </label>
               <Input
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Madison Park Declaration"
+                placeholder="e.g. Association Declaration"
                 disabled={status === 'uploading'}
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <label htmlFor="docType" className="text-sm font-medium text-muted">
+              <label htmlFor="docType" className="text-sm font-medium text-foreground">
                 Document type
               </label>
               <select
@@ -168,7 +168,7 @@ export function GoverningDocsUploader({
               <div className="space-y-1.5">
                 <label
                   htmlFor="associationId"
-                  className="text-sm font-medium text-muted"
+                  className="text-sm font-medium text-foreground"
                 >
                   Association
                 </label>
@@ -191,9 +191,9 @@ export function GoverningDocsUploader({
             <div className="space-y-1.5">
               <label
                 htmlFor="effectiveDate"
-                className="text-sm font-medium text-muted"
+                className="text-sm font-medium text-foreground"
               >
-                Effective date <span className="text-muted-fg/70">(optional)</span>
+                Effective date <span className="text-muted/70">(optional)</span>
               </label>
               <Input
                 id="effectiveDate"
@@ -206,7 +206,7 @@ export function GoverningDocsUploader({
           </div>
 
           <div className="space-y-2">
-            <div role="tablist" className="flex gap-1 rounded-md bg-muted/30 p-1">
+            <div role="tablist" className="flex gap-1 rounded-md bg-foreground/30 p-1">
               <button
                 type="button"
                 role="tab"
@@ -215,8 +215,8 @@ export function GoverningDocsUploader({
                 className={
                   'flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors ' +
                   (mode === 'file'
-                    ? 'bg-background text-muted shadow-sm'
-                    : 'text-muted-fg hover:text-muted')
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted hover:text-foreground')
                 }
               >
                 Upload file
@@ -229,8 +229,8 @@ export function GoverningDocsUploader({
                 className={
                   'flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors ' +
                   (mode === 'paste'
-                    ? 'bg-background text-muted shadow-sm'
-                    : 'text-muted-fg hover:text-muted')
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted hover:text-foreground')
                 }
               >
                 Paste text
@@ -245,7 +245,7 @@ export function GoverningDocsUploader({
                   onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                   disabled={status === 'uploading'}
                 />
-                <p className="text-xs text-muted-fg">
+                <p className="text-xs text-muted">
                   PDF, TXT, or Markdown. Max 25 MB. Scanned PDFs without OCR may
                   produce empty text — switch to Paste text in that case.
                 </p>
@@ -259,7 +259,7 @@ export function GoverningDocsUploader({
                   placeholder="Paste the full text of the document here..."
                   disabled={status === 'uploading'}
                 />
-                <p className="text-xs text-muted-fg">
+                <p className="text-xs text-muted">
                   Minimum 100 characters. Plain text or markdown both work — markdown
                   with ## Article and ### Section headings produces cleaner chunks.
                 </p>
@@ -275,8 +275,9 @@ export function GoverningDocsUploader({
 
           {status === 'done' && success ? (
             <Alert variant="success" title="Loaded">
-              Indexed {success.chunkCount} chunks (parser: {success.parserVersion}).
-              Reloading the page so it shows up below…
+              We found {success.chunkCount}{' '}
+              {success.chunkCount === 1 ? 'section' : 'sections'} — you can
+              now reference them from the violation wizard and Ask the Docs.
             </Alert>
           ) : null}
 

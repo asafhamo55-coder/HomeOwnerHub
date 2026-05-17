@@ -343,7 +343,7 @@ export const bidComparator = defineWorkflow({
     // upsert happens with a placeholder workflow id derived from the
     // current timestamp. The actual ai_runs link is on the workflow
     // result's `runId`.
-    await db
+    const { error: insertErr } = await db
       .from('bid_comparisons' as never)
       .insert({
         organization_id: rfp.organization_id,
@@ -356,6 +356,10 @@ export const bidComparator = defineWorkflow({
         recommendation_memo: result.recommendationMemo,
         ai_workflow_id: `pending-${Date.now()}-${ctx.organizationId}`,
       } as never)
+
+    if (insertErr) {
+      throw new Error(`Could not save comparison: ${insertErr.message}`)
+    }
 
     return result
   },

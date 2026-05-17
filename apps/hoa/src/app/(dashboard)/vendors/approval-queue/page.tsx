@@ -38,9 +38,9 @@ export default async function VendorApprovalQueuePage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
-          <h1 className="text-2xl font-bold text-muted">Vendor approval queue</h1>
+          <h1>Vendor approval queue</h1>
         </div>
-        <p className="text-sm text-muted-fg">
+        <p className="text-sm text-muted">
           Vendors awaiting board action. Green prospects can be approved;
           yellow / red need a follow-up before they can do work.
         </p>
@@ -49,7 +49,7 @@ export default async function VendorApprovalQueuePage() {
       {queue.length === 0 ? (
         <Card>
           <CardContent>
-            <p className="py-4 text-center text-sm text-muted-fg">
+            <p className="py-4 text-center text-sm text-muted">
               Nothing pending. New vendor compliance results land here.
             </p>
           </CardContent>
@@ -65,13 +65,13 @@ export default async function VendorApprovalQueuePage() {
                   <CardContent>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-muted">{v.legal_name}</p>
-                        <p className="text-xs text-muted-fg">
+                        <p className="font-medium text-foreground">{v.legal_name}</p>
+                        <p className="text-xs text-muted">
                           {(v.trades ?? []).join(', ') || 'No trades on file'}
                         </p>
-                        <p className="mt-1 text-sm text-muted-fg">{reason}</p>
+                        <p className="mt-1 text-sm text-muted">{reason}</p>
                         {v.compliance?.deficiencies?.length ? (
-                          <ul className="mt-2 space-y-1 text-xs text-muted-fg">
+                          <ul className="mt-2 space-y-1 text-xs text-muted">
                             {v.compliance.deficiencies.slice(0, 3).map((d, i) => (
                               <li key={`${d.code}-${i}`}>
                                 <span className="font-mono">{d.code}</span>:{' '}

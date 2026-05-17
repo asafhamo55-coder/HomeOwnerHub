@@ -16,8 +16,8 @@
     --primary-fg: 0 0% 100%;
     --accent: 160 84% 39%;              /* #10B981 emerald (paid status) */
 
-    --muted: 222 47% 11%;
-    --muted-fg: 215 16% 47%;
+    --foreground: 222 47% 11%;
+    --muted: 215 16% 47%;
 
     --destructive: 0 84% 60%;
 
@@ -27,7 +27,7 @@
 
   body {
     background-color: hsl(var(--background));
-    color: hsl(var(--muted));
+    color: hsl(var(--foreground));
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }

@@ -30,8 +30,8 @@ export default async function PropertiesListPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-muted">Properties</h1>
-          <p className="text-sm text-muted-fg">
+          <h1>Properties</h1>
+          <p className="text-sm text-muted">
             {properties.length} {properties.length === 1 ? 'home' : 'homes'} in {org.name}
           </p>
         </div>
@@ -65,7 +65,7 @@ export default async function PropertiesListPage() {
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-background/50 text-xs uppercase tracking-wide text-muted-fg">
+              <thead className="border-b border-border bg-background/50 text-xs uppercase tracking-wide text-muted">
                 <tr>
                   <th className="px-4 py-3 font-medium">Address</th>
                   <th className="hidden px-4 py-3 font-medium sm:table-cell">Unit</th>
@@ -80,17 +80,17 @@ export default async function PropertiesListPage() {
                     className="border-b border-border transition-colors last:border-0 hover:bg-background/50"
                   >
                     <td className="px-4 py-3">
-                      <Link href={`/properties/${p.id}`} className="font-medium text-muted hover:text-primary">
+                      <Link href={`/properties/${p.id}`} className="font-medium text-foreground hover:text-primary">
                         {p.address}
                       </Link>
                     </td>
-                    <td className="hidden px-4 py-3 text-muted-fg sm:table-cell">
+                    <td className="hidden px-4 py-3 text-muted sm:table-cell">
                       {p.unit_number ?? '—'}
                     </td>
-                    <td className="hidden px-4 py-3 text-muted-fg md:table-cell">
+                    <td className="hidden px-4 py-3 text-muted md:table-cell">
                       {p.owner_name ?? '—'}
                     </td>
-                    <td className="hidden px-4 py-3 text-muted-fg md:table-cell">
+                    <td className="hidden px-4 py-3 text-muted md:table-cell">
                       {p.owner_email ?? '—'}
                     </td>
                   </tr>

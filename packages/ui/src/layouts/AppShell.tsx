@@ -105,7 +105,7 @@ export function AppShellHeader({
       <button
         type="button"
         onClick={() => setMobileOpen(!mobileOpen)}
-        className="-ml-1 rounded-md p-1 text-muted-fg hover:bg-background md:hidden"
+        className="-ml-1 rounded-md p-1 text-muted hover:bg-background md:hidden"
         aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
       >
         {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}

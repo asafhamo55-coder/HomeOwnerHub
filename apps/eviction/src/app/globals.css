@@ -21,8 +21,8 @@
     --accent: 38 92% 50%;               /* amber for warnings */
 
     /* Text — AAA against the background */
-    --muted: 263 65% 8%;                /* #0F0A1E */
-    --muted-fg: 215 19% 47%;            /* #64748B */
+    --foreground: 263 65% 8%;                /* #0F0A1E */
+    --muted: 215 19% 47%;            /* #64748B */
 
     --destructive: 0 84% 60%;
 
@@ -32,7 +32,7 @@
 
   body {
     background-color: hsl(var(--background));
-    color: hsl(var(--muted));
+    color: hsl(var(--foreground));
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;

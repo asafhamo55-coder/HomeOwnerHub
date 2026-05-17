@@ -39,7 +39,7 @@ export default async function BrowsePage({
       <div className="mx-auto max-w-4xl space-y-4">
         <Link
           href="/legal"
-          className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
+          className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           Back
@@ -59,17 +59,17 @@ export default async function BrowsePage({
     <div className="mx-auto max-w-4xl space-y-6">
       <Link
         href="/legal"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
+        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to State Law
       </Link>
 
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold text-muted">
+        <h1>
           {category ? CATEGORY_LABEL[category] ?? category : 'All statutes'}
         </h1>
-        <p className="text-sm text-muted-fg">
+        <p className="text-sm text-muted">
           {state} · {statutes.length} section{statutes.length === 1 ? '' : 's'}
         </p>
       </header>
@@ -94,10 +94,10 @@ export default async function BrowsePage({
                   className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-background/50"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-mono text-xs text-muted-fg">
+                    <p className="font-mono text-xs text-muted">
                       {s.code_citation}
                     </p>
-                    <p className="truncate text-sm font-medium text-muted">
+                    <p className="truncate text-sm font-medium text-foreground">
                       {s.title}
                     </p>
                   </div>

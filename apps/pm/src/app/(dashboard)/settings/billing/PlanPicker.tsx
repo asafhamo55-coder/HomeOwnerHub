@@ -60,10 +60,10 @@ export function PlanPicker({ currentPlan }: { currentPlan: string }) {
               <CardContent className="flex flex-1 flex-col gap-3 p-5">
                 <header className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="text-base font-semibold text-muted">{plan.label}</p>
-                    <p className="text-2xl font-bold text-muted">
+                    <p className="text-base font-semibold text-foreground">{plan.label}</p>
+                    <p className="text-2xl font-bold text-foreground">
                       {plan.price}{' '}
-                      <span className="text-xs font-normal text-muted-fg">/ month</span>
+                      <span className="text-xs font-normal text-muted">/ month</span>
                     </p>
                   </div>
                   {isCurrent ? (
@@ -76,7 +76,7 @@ export function PlanPicker({ currentPlan }: { currentPlan: string }) {
                     </Badge>
                   ) : null}
                 </header>
-                <ul className="flex-1 space-y-1.5 text-sm text-muted-fg">
+                <ul className="flex-1 space-y-1.5 text-sm text-muted">
                   {plan.bullets.map((b) => (
                     <li key={b} className="flex items-start gap-2">
                       <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-primary" />

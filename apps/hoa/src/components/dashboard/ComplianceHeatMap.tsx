@@ -56,7 +56,7 @@ export function ComplianceHeatMap({ cells, months = 3 }: ComplianceHeatMapProps)
         <CardTitle className="flex items-center gap-2 text-base">
           Compliance heat map
         </CardTitle>
-        <p className="text-xs text-muted-fg">
+        <p className="text-xs text-muted">
           {format(start, 'MMM yyyy')} – {format(end, 'MMM yyyy')} · red = overdue / yellow = within 3
           days / green = clean
         </p>
@@ -87,12 +87,12 @@ function MonthGrid({
 
   return (
     <div>
-      <p className="mb-2 text-sm font-medium text-muted">{label}</p>
+      <p className="mb-2 text-sm font-medium text-foreground">{label}</p>
       <div className="grid grid-cols-7 gap-1">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
           <div
             key={`hdr-${i}`}
-            className="text-center text-[10px] font-semibold uppercase tracking-wide text-muted-fg"
+            className="text-center text-[10px] font-semibold uppercase tracking-wide text-muted"
           >
             {d}
           </div>
@@ -115,7 +115,7 @@ function MonthGrid({
                     ? 'bg-amber-200 text-amber-900'
                     : cell.level === 'green'
                       ? 'bg-emerald-200 text-emerald-900'
-                      : 'bg-background text-muted-fg'
+                      : 'bg-background text-muted'
               } ${isToday ? 'ring-2 ring-primary' : ''}`}
             >
               {cell.date.getDate()}

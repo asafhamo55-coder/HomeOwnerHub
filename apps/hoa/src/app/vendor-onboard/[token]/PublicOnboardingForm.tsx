@@ -198,7 +198,7 @@ export function PublicOnboardingForm({ token, inviteeEmail, inviteeName }: Props
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-fg">
+    <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
       {children}
     </h2>
   )
@@ -215,7 +215,7 @@ function Field({
 }) {
   return (
     <label className="block space-y-1">
-      <span className="text-sm font-medium text-muted">
+      <span className="text-sm font-medium text-foreground">
         {label}
         {required ? <span className="ml-0.5 text-destructive">*</span> : null}
       </span>
@@ -225,7 +225,7 @@ function Field({
 }
 
 function Helper({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs text-muted-fg">{children}</p>
+  return <p className="text-xs text-muted">{children}</p>
 }
 
 function FileSlot({
@@ -238,8 +238,8 @@ function FileSlot({
   const [fileName, setFileName] = useState<string | null>(null)
   return (
     <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border p-4 text-center">
-      <FileUp className="h-5 w-5 text-muted-fg" />
-      <span className="text-xs font-medium text-muted">{label}</span>
+      <FileUp className="h-5 w-5 text-muted" />
+      <span className="text-xs font-medium text-foreground">{label}</span>
       <input
         ref={inputRef}
         type="file"
@@ -256,7 +256,7 @@ function FileSlot({
         {fileName ? 'Replace' : 'Choose file'}
       </Button>
       {fileName ? (
-        <span className="line-clamp-1 max-w-full text-xs text-muted-fg">{fileName}</span>
+        <span className="line-clamp-1 max-w-full text-xs text-muted">{fileName}</span>
       ) : null}
     </div>
   )

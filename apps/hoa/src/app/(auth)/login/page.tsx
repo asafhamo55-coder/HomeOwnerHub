@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect as nextRedirect } from 'next/navigation'
 import { MagicLinkForm } from './MagicLinkForm'
 
 export const metadata = { title: 'Sign in' }
@@ -10,11 +11,21 @@ export default async function LoginPage({
 }) {
   const { redirect } = await searchParams
 
+  // Dev-only: if DEV_AUTOLOGIN is on, skip the magic-link form entirely
+  // and route through the auto-login handler. Keeps direct /login visits
+  // consistent with the middleware bounce.
+  if (process.env.DEV_AUTOLOGIN === '1') {
+    const target = redirect
+      ? `/auth/dev-login?redirect=${encodeURIComponent(redirect)}`
+      : '/auth/dev-login'
+    nextRedirect(target)
+  }
+
   return (
     <div className="space-y-5">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-muted">Sign in</h2>
-        <p className="text-sm text-muted-fg">
+        <h2 className="text-lg font-semibold text-foreground">Sign in</h2>
+        <p className="text-sm text-muted">
           Enter your email to receive a magic link. New here?{' '}
           <Link href="/signup" className="font-medium text-primary hover:underline">
             Create an account

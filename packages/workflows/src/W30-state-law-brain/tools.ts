@@ -22,6 +22,10 @@ export interface RetrievedStatuteChunk extends PromptChunk {
 export async function retrieveStatuteChunks(
   question: string,
   opts: RetrieveStatuteOptions,
+  // api param accepted for symmetry with workflow callers; we don't
+  // currently thread it into anything because the workflow runtime
+  // captures console output for the ai_runs trace.
+  _api?: unknown,
 ): Promise<RetrievedStatuteChunk[]> {
   const limit = opts.limit ?? 8
   const db = createAdminClient()
@@ -33,10 +37,9 @@ export async function retrieveStatuteChunks(
       if (vector) queryEmbedding = toPgVector(vector)
     }
   } catch (err) {
-    console.warn(
-      '[W30] embedding failed, falling back to FTS:',
-      err instanceof Error ? err.message : err,
-    )
+    // Loud, visible degradation: caller can see in the workflow trace
+    // we fell back to FTS-only retrieval instead of hybrid vector+FTS.
+    console.warn('[W30] embedding unavailable, FTS fallback', err)
   }
 
   const { data, error } = await db.rpc('search_state_statute_chunks' as never, {

@@ -13,7 +13,9 @@
   "dependencies": {
     "@homeowner-portal/ai": "workspace:*",
     "@homeowner-portal/db": "workspace:*",
-    "inngest": "^3.20.0"
+    "@homeowner-portal/workflows": "workspace:*",
+    "inngest": "^3.20.0",
+    "plaid": "^42.2.0"
   },
   "devDependencies": {
     "typescript": "^5"

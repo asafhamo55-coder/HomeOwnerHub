@@ -28,8 +28,8 @@ export default async function BillingPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <header>
-        <h1 className="text-2xl font-bold text-muted">Billing</h1>
-        <p className="text-sm text-muted-fg">
+        <h1 className="text-2xl font-bold text-foreground">Billing</h1>
+        <p className="text-sm text-muted">
           PM Hub plans. Free covers one property; paid plans unlock multi-property tracking.
         </p>
       </header>
@@ -51,7 +51,7 @@ export default async function BillingPage() {
               </Button>
             </form>
           ) : (
-            <p className="text-muted-fg">No subscription on file. Choose a plan below.</p>
+            <p className="text-muted">No subscription on file. Choose a plan below.</p>
           )}
         </CardContent>
       </Card>
@@ -65,7 +65,7 @@ export default async function BillingPage() {
       ) : null}
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-muted">Plans</h2>
+        <h2 className="text-lg font-semibold text-foreground">Plans</h2>
         <PlanPicker currentPlan={plan} />
       </section>
     </div>

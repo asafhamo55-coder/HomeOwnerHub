@@ -27,14 +27,14 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             onChange?.(e)
           }}
           className={cn(
-            'flex min-h-[80px] w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm transition-colors placeholder:text-muted-fg focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50',
+            'flex min-h-[80px] w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm transition-colors placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50',
             error && 'border-destructive focus:ring-destructive',
             className,
           )}
           {...props}
         />
         {showCount && maxLength ? (
-          <p className="text-right text-xs text-muted-fg">
+          <p className="text-right text-xs text-muted">
             {current.length} / {maxLength}
           </p>
         ) : null}

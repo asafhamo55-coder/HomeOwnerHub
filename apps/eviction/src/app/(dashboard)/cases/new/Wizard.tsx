@@ -254,7 +254,7 @@ export function Wizard({ workspaceName, initial, initialDraft }: WizardProps) {
         currentIndex={stepIndex(step)}
         vertical={false}
       />
-      <div className="flex items-center justify-between text-xs text-muted-fg">
+      <div className="flex items-center justify-between text-xs text-muted">
         <span>
           {draftSaving ? (
             <span className="flex items-center gap-1">
@@ -274,7 +274,7 @@ export function Wizard({ workspaceName, initial, initialDraft }: WizardProps) {
               await discardDraft(draftId)
               router.push('/')
             }}
-            className="text-muted-fg hover:text-destructive"
+            className="text-muted hover:text-destructive"
           >
             Discard draft
           </button>
@@ -509,8 +509,8 @@ export function Wizard({ workspaceName, initial, initialDraft }: WizardProps) {
             <CheckCircle2 className="h-7 w-7" />
           </div>
           <div className="mt-4 space-y-1">
-            <h2 className="text-xl font-bold text-muted">Case opened</h2>
-            <p className="text-sm text-muted-fg">
+            <h2 className="text-xl font-bold text-foreground">Case opened</h2>
+            <p className="text-sm text-muted">
               Notice recorded. Earliest filing date:{' '}
               {compliance.filingEligibleDate.toLocaleDateString('en-US', {
                 month: 'long',
@@ -533,7 +533,7 @@ export function Wizard({ workspaceName, initial, initialDraft }: WizardProps) {
 
   // Defensive default
   return (
-    <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-fg">
+    <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted">
       <Loader2 className="h-4 w-4 animate-spin" />
       Loading...
     </div>
@@ -555,12 +555,12 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="text-sm font-medium text-muted">
+      <label htmlFor={htmlFor} className="text-sm font-medium text-foreground">
         {label}
         {required ? <span className="ml-0.5 text-destructive">*</span> : null}
       </label>
       {children}
-      {hint ? <p className="text-xs text-muted-fg">{hint}</p> : null}
+      {hint ? <p className="text-xs text-muted">{hint}</p> : null}
     </div>
   )
 }
@@ -568,8 +568,8 @@ function Field({
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-fg">{label}</p>
-      <p className="mt-0.5 text-sm text-muted">{children}</p>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</p>
+      <p className="mt-0.5 text-sm text-foreground">{children}</p>
     </div>
   )
 }
