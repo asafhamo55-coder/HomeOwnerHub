@@ -16,6 +16,7 @@ import {
   Scale,
   Settings,
   Sparkles,
+  Users,
   Wallet,
 } from 'lucide-react'
 import {
@@ -58,6 +59,7 @@ const PRIMARY: NavLink[] = [
 
 const SECONDARY: NavLink[] = [
   { href: '/settings', icon: <Settings className="h-4 w-4" />, label: 'Settings' },
+  { href: '/settings/members', icon: <Users className="h-4 w-4" />, label: 'Members' },
   { href: '/settings/billing', icon: <CreditCard className="h-4 w-4" />, label: 'Billing' },
 ]
 
