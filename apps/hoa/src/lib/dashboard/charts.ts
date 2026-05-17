@@ -1,0 +1,242 @@
+// Chart-shaped data fetchers for the redesigned dashboard.
+// Each returns plain JSON (no recharts types) so the page component
+// stays a server component and only the chart wrappers run client-side.
+
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+
+export interface DonutSegment {
+  label: string
+  value: number
+  /** Tailwind colour token name (e.g. "success", "warning"). The
+   *  client-side donut maps these to actual fill values. */
+  tone: 'success' | 'warning' | 'destructive' | 'muted' | 'primary'
+}
+
+export interface DonutData {
+  segments: DonutSegment[]
+  total: number
+}
+
+export interface ActivityBucket {
+  /** YYYY-MM-DD */
+  date: string
+  /** Numeric counts grouped on that day. */
+  violations: number
+  arc: number
+  invitations: number
+}
+
+export interface ActivityData {
+  buckets: ActivityBucket[]
+}
+
+export interface KpiTrend {
+  value: number
+  /** Same-shape value for the previous comparable period (e.g. 30 days
+   *  ago) so the UI can render the delta + arrow. NULL when we don't
+   *  have a comparable baseline yet. */
+  previous: number | null
+}
+
+export interface DashboardKpis {
+  duesOutstandingUsd: KpiTrend
+  openViolations: KpiTrend
+  vendorsAtRisk: KpiTrend
+  arcPending: KpiTrend
+}
+
+// ─── Donut: violations by status ────────────────────────────────────
+
+export async function getViolationStatusDonut(orgId: string): Promise<DonutData> {
+  const supabase = await getSupabaseServerClient()
+  const { data } = await supabase
+    .from('hoa_violations')
+    .select('status')
+    .eq('org_id', orgId)
+
+  const rows = (data ?? []) as Array<{ status: string | null }>
+  const counts: Record<string, number> = {}
+  for (const r of rows) {
+    const s = r.status ?? 'unknown'
+    counts[s] = (counts[s] ?? 0) + 1
+  }
+
+  const SEG_ORDER: Array<[string, DonutSegment['tone'], string]> = [
+    ['open', 'warning', 'Open'],
+    ['notice_sent', 'warning', 'Notice sent'],
+    ['cured', 'success', 'Cured'],
+    ['resolved', 'success', 'Resolved'],
+    ['fined', 'destructive', 'Fined'],
+    ['escalated', 'destructive', 'Escalated'],
+  ]
+
+  const segments: DonutSegment[] = []
+  for (const [key, tone, label] of SEG_ORDER) {
+    if ((counts[key] ?? 0) > 0) segments.push({ label, value: counts[key], tone })
+  }
+  const total = segments.reduce((acc, s) => acc + s.value, 0)
+  return { segments, total }
+}
+
+// ─── Donut: vendor compliance ───────────────────────────────────────
+
+export async function getVendorComplianceDonut(orgId: string): Promise<DonutData> {
+  const supabase = await getSupabaseServerClient()
+  // RLS gates board-only access; admins + board see all vendors in their org.
+  // Residents would get 0 rows, which renders as an empty donut.
+  const { data } = await supabase
+    .from('vendor_compliance' as never)
+    .select('coi_status')
+    .eq('organization_id', orgId)
+
+  const rows = (data ?? []) as unknown as Array<{ coi_status: string | null }>
+  const counts = { green: 0, yellow: 0, red: 0, missing: 0 }
+  for (const r of rows) {
+    const k = (r.coi_status ?? 'missing') as keyof typeof counts
+    if (k in counts) counts[k] += 1
+    else counts.missing += 1
+  }
+
+  const segments: DonutSegment[] = []
+  if (counts.green > 0)
+    segments.push({ label: 'Compliant', value: counts.green, tone: 'success' })
+  if (counts.yellow > 0)
+    segments.push({ label: 'Action soon', value: counts.yellow, tone: 'warning' })
+  if (counts.red > 0)
+    segments.push({ label: 'Non-compliant', value: counts.red, tone: 'destructive' })
+  if (counts.missing > 0)
+    segments.push({ label: 'Docs missing', value: counts.missing, tone: 'muted' })
+
+  const total = segments.reduce((acc, s) => acc + s.value, 0)
+  return { segments, total }
+}
+
+// ─── 30-day activity bar ────────────────────────────────────────────
+
+export async function getThirtyDayActivity(
+  orgId: string,
+): Promise<ActivityData> {
+  const supabase = await getSupabaseServerClient()
+  const start = new Date()
+  start.setUTCDate(start.getUTCDate() - 29)
+  start.setUTCHours(0, 0, 0, 0)
+  const startIso = start.toISOString()
+
+  // Initialize empty buckets for every day in the 30-day window so the
+  // chart shows a continuous x-axis even when nothing happened.
+  const buckets = new Map<string, ActivityBucket>()
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(start)
+    d.setUTCDate(start.getUTCDate() + i)
+    const key = d.toISOString().slice(0, 10)
+    buckets.set(key, { date: key, violations: 0, arc: 0, invitations: 0 })
+  }
+
+  const [{ data: viols }, { data: arcs }, { data: invites }] = await Promise.all([
+    supabase
+      .from('hoa_violations')
+      .select('created_at')
+      .eq('org_id', orgId)
+      .gte('created_at', startIso),
+    supabase
+      .from('arc_requests' as never)
+      .select('submitted_at')
+      .eq('organization_id', orgId)
+      .gte('submitted_at', startIso),
+    supabase
+      .from('vendor_onboarding_invitations' as never)
+      .select('created_at')
+      .eq('organization_id', orgId)
+      .gte('created_at', startIso),
+  ])
+
+  for (const r of (viols ?? []) as Array<{ created_at: string }>) {
+    const k = r.created_at.slice(0, 10)
+    const bucket = buckets.get(k)
+    if (bucket) bucket.violations += 1
+  }
+  for (const r of (arcs ?? []) as unknown as Array<{ submitted_at: string }>) {
+    const k = r.submitted_at.slice(0, 10)
+    const bucket = buckets.get(k)
+    if (bucket) bucket.arc += 1
+  }
+  for (const r of (invites ?? []) as unknown as Array<{ created_at: string }>) {
+    const k = r.created_at.slice(0, 10)
+    const bucket = buckets.get(k)
+    if (bucket) bucket.invitations += 1
+  }
+
+  return { buckets: Array.from(buckets.values()) }
+}
+
+// ─── KPI heroes ─────────────────────────────────────────────────────
+
+export async function getDashboardKpis(orgId: string): Promise<DashboardKpis> {
+  const supabase = await getSupabaseServerClient()
+
+  const today = new Date()
+  const thirtyDaysAgo = new Date(today)
+  thirtyDaysAgo.setUTCDate(today.getUTCDate() - 30)
+
+  // Outstanding dues — unpaid balance across all hoa_dues rows for the
+  // org. Schema: amount_due − amount_paid is the outstanding remainder.
+  // Pending / partial / late statuses contribute; paid / waived don't.
+  let duesNow = 0
+  let duesPrev = 0
+  const { data: duesRows } = await supabase
+    .from('hoa_dues')
+    .select('amount_due, amount_paid, status, due_date')
+    .eq('org_id', orgId)
+  if (duesRows) {
+    for (const r of duesRows as Array<{
+      amount_due: number | null
+      amount_paid: number | null
+      status: string | null
+      due_date: string | null
+    }>) {
+      if (r.status === 'paid' || r.status === 'waived') continue
+      const remainder = Number(r.amount_due ?? 0) - Number(r.amount_paid ?? 0)
+      if (remainder <= 0) continue
+      duesNow += remainder
+      const due = r.due_date ? new Date(r.due_date) : null
+      if (due && due < thirtyDaysAgo) duesPrev += remainder
+    }
+  }
+
+  // Open violations (current count).
+  const { count: violationsNow } = await supabase
+    .from('hoa_violations')
+    .select('id', { count: 'exact', head: true })
+    .eq('org_id', orgId)
+    .in('status', ['open', 'notice_sent'])
+  const { count: violationsPrev } = await supabase
+    .from('hoa_violations')
+    .select('id', { count: 'exact', head: true })
+    .eq('org_id', orgId)
+    .in('status', ['open', 'notice_sent'])
+    .lt('created_at', thirtyDaysAgo.toISOString())
+
+  // Vendors at risk — vendor_compliance rows with yellow or red status.
+  const { count: vendorsAtRisk } = await supabase
+    .from('vendor_compliance' as never)
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+    .in('coi_status', ['yellow', 'red'])
+
+  // ARC pending — submitted + in_review.
+  const { count: arcPending } = await supabase
+    .from('arc_requests' as never)
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+    .in('status', ['submitted', 'in_review'])
+
+  return {
+    duesOutstandingUsd: { value: duesNow, previous: duesPrev || null },
+    openViolations: {
+      value: violationsNow ?? 0,
+      previous: violationsPrev ?? null,
+    },
+    vendorsAtRisk: { value: vendorsAtRisk ?? 0, previous: null },
+    arcPending: { value: arcPending ?? 0, previous: null },
+  }
+}
