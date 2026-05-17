@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@homeowner-portal/db'
 import { validateInvitationToken } from '@/lib/vendor-invitations'
+import { sendEmail, appUrl } from '@/lib/email'
 
 // POST /api/vendor-onboard/[token]/submit
 //
@@ -136,6 +137,27 @@ export async function POST(
       ? address
       : null
 
+  // Per-org duplicate guard on EIN. Prevents a network-retry of this
+  // public endpoint (where the first call may have already inserted the
+  // vendor row but the response never reached the client) from creating
+  // a second vendor with the same EIN under the same organization.
+  const { data: existingVendor } = await db
+    .from('vendors' as never)
+    .select('id')
+    .eq('organization_id', invitation.organizationId)
+    .eq('ein', payload.ein)
+    .maybeSingle<{ id: string }>()
+  if (existingVendor) {
+    return NextResponse.json(
+      {
+        error: 'duplicate_ein',
+        message:
+          'A vendor with this EIN already exists for this organization.',
+      },
+      { status: 409 },
+    )
+  }
+
   // Create the vendor row.
   const { data: vendorRow, error: vendorErr } = await db
     .from('vendors' as never)
@@ -166,15 +188,26 @@ export async function POST(
   }
   const vendorId = vendorRow.id
 
-  // Upload each provided file, best-effort. Track failures but don't
-  // roll back — partial uploads are still useful to the board, and the
-  // vendor can retry the failed ones by being re-invited.
+  // Upload each provided file. Any failure aborts the whole submission
+  // and rolls back the vendor row + already-uploaded files, so the
+  // vendor can safely retry with the same token. Reporting "submitted"
+  // when a document didn't actually save would leave the board with an
+  // incomplete file set and no signal to chase.
+  const uploadedPaths: string[] = []
   const uploadResults: Array<{
     docType: string
     storagePath: string
     ok: boolean
     error?: string
   }> = []
+
+  async function abort(status: number, body: Record<string, unknown>) {
+    if (uploadedPaths.length > 0) {
+      await db.storage.from(STORAGE_BUCKET).remove(uploadedPaths)
+    }
+    await db.from('vendors' as never).delete().eq('id', vendorId)
+    return NextResponse.json(body, { status })
+  }
 
   for (const { docType, file } of files) {
     const storagePath = `${invitation.organizationId}/vendors/${vendorId}/${docType}/${safeName(file.name)}`
@@ -186,14 +219,15 @@ export async function POST(
         contentType: file.type || 'application/octet-stream',
       })
     if (uploadErr) {
-      uploadResults.push({
+      console.error('[vendor-onboard] upload failed', { docType, error: uploadErr.message })
+      return abort(502, {
+        error: 'document_upload_failed',
         docType,
-        storagePath,
-        ok: false,
-        error: uploadErr.message,
+        message: uploadErr.message,
       })
-      continue
     }
+    uploadedPaths.push(storagePath)
+
     const { error: insertErr } = await db
       .from('vendor_documents' as never)
       .insert({
@@ -203,20 +237,21 @@ export async function POST(
         storage_path: storagePath,
       } as never)
     if (insertErr) {
-      await db.storage.from(STORAGE_BUCKET).remove([storagePath])
-      uploadResults.push({
+      console.error('[vendor-onboard] document insert failed', { docType, error: insertErr.message })
+      return abort(500, {
+        error: 'document_insert_failed',
         docType,
-        storagePath,
-        ok: false,
-        error: insertErr.message,
+        message: insertErr.message,
       })
-      continue
     }
     uploadResults.push({ docType, storagePath, ok: true })
   }
 
-  // Mark invitation submitted and link to the new vendor.
-  await db
+  // Mark invitation submitted and link to the new vendor. If this fails
+  // the token would remain reusable and the next submission would
+  // create a duplicate vendor — so we abort and roll back instead of
+  // logging and continuing.
+  const { error: invitationErr } = await db
     .from('vendor_onboarding_invitations' as never)
     .update({
       status: 'submitted',
@@ -224,10 +259,87 @@ export async function POST(
       submitted_at: new Date().toISOString(),
     } as never)
     .eq('id', invitation.id)
+  if (invitationErr) {
+    console.error('[vendor-onboard] invitation status update failed', invitationErr.message)
+    return abort(500, {
+      error: 'invitation_update_failed',
+      message: invitationErr.message,
+    })
+  }
+
+  // Best-effort notification to the manager who created the invitation.
+  // Looks up the inviter via invitations.created_by → profiles.email,
+  // sends a one-line summary via Resend. Failures are logged, not
+  // surfaced — the vendor has done their part and shouldn't see an
+  // error if our email pipeline is sick.
+  await notifyManagerOnSubmission(db, invitation.id, vendorId).catch((err) => {
+    console.warn(
+      '[vendor-onboard] manager notification failed:',
+      err instanceof Error ? err.message : err,
+    )
+  })
 
   return NextResponse.json({
     ok: true,
     vendorId,
     documentResults: uploadResults,
   })
+}
+
+async function notifyManagerOnSubmission(
+  db: ReturnType<typeof createAdminClient>,
+  invitationId: string,
+  vendorId: string,
+): Promise<void> {
+  const { data: inv } = await db
+    .from('vendor_onboarding_invitations' as never)
+    .select(
+      'created_by, invitee_name, invitee_email, org:orgs(name)',
+    )
+    .eq('id', invitationId)
+    .maybeSingle<{
+      created_by: string | null
+      invitee_name: string | null
+      invitee_email: string
+      org: { name: string } | null
+    }>()
+  if (!inv?.created_by) return // nobody to notify
+
+  const { data: vendor } = await db
+    .from('vendors' as never)
+    .select('legal_name')
+    .eq('id', vendorId)
+    .maybeSingle<{ legal_name: string }>()
+
+  const { data: profile } = await db
+    .from('profiles')
+    .select('email, full_name')
+    .eq('id', inv.created_by)
+    .maybeSingle<{ email: string | null; full_name: string | null }>()
+  if (!profile?.email) return
+
+  const vendorName = vendor?.legal_name ?? inv.invitee_name ?? inv.invitee_email
+  const orgName = inv.org?.name ?? 'your association'
+
+  await sendEmail({
+    to: profile.email,
+    subject: `${vendorName} completed vendor onboarding`,
+    text: `${vendorName} just submitted their vendor profile for ${orgName}.
+
+Open the manager dashboard to review:
+${appUrl('/vendors')}
+
+— HomeownerHub`,
+    html: `<p>${escapeHtml(vendorName)} just submitted their vendor profile for <strong>${escapeHtml(orgName)}</strong>.</p>
+<p><a href="${appUrl('/vendors')}">Review in the manager dashboard →</a></p>`,
+  })
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }

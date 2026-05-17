@@ -44,6 +44,8 @@ export interface BidLineItemRow {
 
 export interface BidDetail extends BidRow {
   line_items: BidLineItemRow[]
+  parsed_pdf_text: string | null
+  parsed_pdf_at: string | null
 }
 
 export interface BidComparisonRow {
@@ -97,13 +99,15 @@ export async function getBid(bidId: string): Promise<BidDetail | null> {
   const { data: bid } = await supabase
     .from('bids' as never)
     .select(
-      'id, vendor_id, total_amount, payment_terms, warranty, start_date, completion_date, status, submitted_at, raw_document_path, vendor:vendors(legal_name)',
+      'id, vendor_id, total_amount, payment_terms, warranty, start_date, completion_date, status, submitted_at, raw_document_path, parsed_pdf_text, parsed_pdf_at, vendor:vendors(legal_name)',
     )
     .eq('id', bidId)
     .single()
 
   if (!bid) return null
   const r = bid as unknown as Omit<BidRow, 'vendor_legal_name'> & {
+    parsed_pdf_text: string | null
+    parsed_pdf_at: string | null
     vendor: { legal_name: string } | null
   }
 
@@ -126,6 +130,8 @@ export async function getBid(bidId: string): Promise<BidDetail | null> {
     status: r.status,
     submitted_at: r.submitted_at,
     raw_document_path: r.raw_document_path,
+    parsed_pdf_text: r.parsed_pdf_text,
+    parsed_pdf_at: r.parsed_pdf_at,
     line_items: (items ?? []) as unknown as BidLineItemRow[],
   }
 }
@@ -245,12 +251,25 @@ export async function awardBid(
 
   // Other submitted bids on this RFP become 'declined'. Withdrawn /
   // draft bids stay where they are.
-  await supabase
+  //
+  // KNOWN CONSISTENCY GAP: if this update fails, the winning bid + RFP
+  // are already final but losing bids remain in 'submitted'. We log
+  // loudly so a human / monitoring can repair the rows, but we do NOT
+  // fail the whole award — the awarded bid is the source of truth.
+  const { error: declineErr } = await supabase
     .from('bids' as never)
     .update({ status: 'declined' } as never)
     .eq('rfp_id', rfpId)
     .eq('status', 'submitted')
     .neq('id', bidId)
+
+  if (declineErr) {
+    console.error(
+      '[bids] decline losing bids failed',
+      declineErr.message,
+      { rfpId, awardedBidId: bidId },
+    )
+  }
 
   revalidatePath(`/rfps/${rfpId}`)
   revalidatePath(`/rfps/${rfpId}/bids`)

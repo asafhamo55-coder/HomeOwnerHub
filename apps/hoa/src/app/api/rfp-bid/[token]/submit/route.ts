@@ -103,6 +103,7 @@ export async function POST(
   // Optional file upload first — if it fails we want to abort before
   // we have a stray bid row.
   let storagePath: string | null = null
+  let parsedPdfText: string | null = null
   if (file) {
     storagePath = `${invitation.organizationId}/rfps/${invitation.rfpId}/bids/${invitation.vendorId}/${safeName(file.name)}`
     const { error: uploadErr } = await db.storage
@@ -121,6 +122,25 @@ export async function POST(
         { status: 500 },
       )
     }
+
+    // Best-effort: extract text from the PDF so the board can read it
+    // inline during comparison. We do NOT fail the submission if
+    // extraction throws — the PDF is still stored, the form data is
+    // authoritative, and structured AI extraction is the ADR-002
+    // Phase 2.1 path anyway. Only attempts on PDFs; skips images.
+    if ((file.type || '').toLowerCase() === 'application/pdf') {
+      try {
+        const buffer = Buffer.from(await file.arrayBuffer())
+        const pdfParse = (await import('pdf-parse')).default
+        const result = await pdfParse(buffer)
+        parsedPdfText = (result.text ?? '').trim().slice(0, 50_000) || null
+      } catch (err) {
+        console.warn(
+          '[rfp-bid] pdf-parse failed; bid will be saved without parsed_pdf_text:',
+          err instanceof Error ? err.message : err,
+        )
+      }
+    }
   }
 
   // Insert the bid + line items.
@@ -136,6 +156,8 @@ export async function POST(
       start_date: payload.start_date || null,
       completion_date: payload.completion_date || null,
       raw_document_path: storagePath,
+      parsed_pdf_text: parsedPdfText,
+      parsed_pdf_at: parsedPdfText ? new Date().toISOString() : null,
       status: 'submitted',
       submitted_at: new Date().toISOString(),
     } as never)
@@ -171,9 +193,21 @@ export async function POST(
       .from('bid_line_items' as never)
       .insert(itemRows as never)
     if (itemsErr) {
-      // Don't roll back the bid for line-item failure — log and
-      // continue; the manager can see the partial state.
-      console.warn('[rfp-bid] line items insert failed', itemsErr.message)
+      // A bid header without its line items would feed garbage into
+      // the W23 comparator. Roll back the bid row (and uploaded file)
+      // so the vendor can retry the whole submission.
+      console.error('[rfp-bid] line items insert failed', itemsErr.message)
+      await db.from('bids' as never).delete().eq('id', bidRow.id)
+      if (storagePath) {
+        await db.storage.from(STORAGE_BUCKET).remove([storagePath])
+      }
+      return NextResponse.json(
+        {
+          error: 'line_items_insert_failed',
+          message: itemsErr.message,
+        },
+        { status: 500 },
+      )
     }
   }
 
