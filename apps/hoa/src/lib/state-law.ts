@@ -1,5 +1,7 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
 import { askStateLaw, type StateLawBrainOutput } from '@homeowner-portal/workflows'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getPrimaryAssociation } from '@/lib/vendors'
@@ -46,6 +48,23 @@ export interface LawUpdateRow {
   related_statute_id: string | null
   posted_at: string
 }
+
+export interface LawUpdateAdminRow extends LawUpdateRow {
+  state: SupportedState
+  archived_at: string | null
+}
+
+const UPDATE_CATEGORIES = [
+  'meetings',
+  'assessments',
+  'fines',
+  'foreclosure',
+  'records',
+  'architectural',
+  'fair_housing',
+  'amendments',
+  'uncategorized',
+] as const
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
 type ActionErr = { ok: false; error: string }
@@ -160,6 +179,130 @@ export async function getStatute(id: string): Promise<StatuteDetail | null> {
     .eq('id', id)
     .maybeSingle()
   return (data as unknown as StatuteDetail) ?? null
+}
+
+// ─── Manager: post / archive law updates ─────────────────────────────
+
+export async function listAllUpdatesForManager(
+  state: SupportedState,
+): Promise<LawUpdateAdminRow[]> {
+  const supabase = await getSupabaseServerClient()
+  const { data } = await supabase
+    .from('state_law_updates' as never)
+    .select(
+      'id, state, headline, summary, action_items, category, effective_date, source_url, related_statute_id, posted_at, archived_at',
+    )
+    .eq('state', state)
+    .order('posted_at', { ascending: false })
+    .limit(200)
+  return (data ?? []) as unknown as LawUpdateAdminRow[]
+}
+
+const CreateUpdateSchema = z.object({
+  headline: z.string().trim().min(5, 'Headline is too short.').max(200),
+  summary: z.string().trim().min(20, 'Summary should be at least 20 chars.').max(4000),
+  action_items: z.array(z.string().trim().min(1).max(300)).max(20).default([]),
+  category: z.enum(UPDATE_CATEGORIES).nullable().optional(),
+  effective_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Effective date must be YYYY-MM-DD.')
+    .nullable()
+    .optional(),
+  source_url: z
+    .string()
+    .url('Source URL must be a valid URL.')
+    .nullable()
+    .optional()
+    .or(z.literal('')),
+  related_statute_id: z.string().uuid().nullable().optional(),
+})
+
+export interface CreateLawUpdateInput {
+  headline: string
+  summary: string
+  actionItems: string[]
+  category?: string | null
+  effectiveDate?: string | null
+  sourceUrl?: string | null
+  relatedStatuteId?: string | null
+}
+
+export async function createLawUpdate(
+  input: CreateLawUpdateInput,
+): Promise<ActionResult<{ updateId: string }>> {
+  const parsed = CreateUpdateSchema.safeParse({
+    headline: input.headline,
+    summary: input.summary,
+    action_items: input.actionItems,
+    category: input.category ?? null,
+    effective_date: input.effectiveDate ?? null,
+    source_url: input.sourceUrl ?? '',
+    related_statute_id: input.relatedStatuteId ?? null,
+  })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Not signed in.' }
+
+  const state = await getAssociationState()
+  if (!state) {
+    return { ok: false, error: "Your association's state isn't supported yet." }
+  }
+
+  const { data: row, error } = await supabase
+    .from('state_law_updates' as never)
+    .insert({
+      state,
+      headline: parsed.data.headline,
+      summary: parsed.data.summary,
+      action_items: parsed.data.action_items.length > 0 ? parsed.data.action_items : null,
+      category: parsed.data.category ?? null,
+      effective_date: parsed.data.effective_date || null,
+      source_url: parsed.data.source_url || null,
+      related_statute_id: parsed.data.related_statute_id ?? null,
+      posted_by: user.id,
+    } as never)
+    .select('id')
+    .single<{ id: string }>()
+
+  if (error || !row) {
+    return { ok: false, error: error?.message ?? 'Could not save update.' }
+  }
+
+  revalidatePath('/legal')
+  revalidatePath('/legal/updates')
+  revalidatePath('/')
+  return { ok: true, data: { updateId: row.id } }
+}
+
+export async function archiveLawUpdate(id: string): Promise<ActionResult> {
+  const supabase = await getSupabaseServerClient()
+  const { error } = await supabase
+    .from('state_law_updates' as never)
+    .update({ archived_at: new Date().toISOString() } as never)
+    .eq('id', id)
+    .is('archived_at', null)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/legal')
+  revalidatePath('/legal/updates')
+  return { ok: true }
+}
+
+export async function unarchiveLawUpdate(id: string): Promise<ActionResult> {
+  const supabase = await getSupabaseServerClient()
+  const { error } = await supabase
+    .from('state_law_updates' as never)
+    .update({ archived_at: null } as never)
+    .eq('id', id)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/legal')
+  revalidatePath('/legal/updates')
+  return { ok: true }
 }
 
 // ─── Q&A ─────────────────────────────────────────────────────────────

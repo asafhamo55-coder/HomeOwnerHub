@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { BookOpen, CalendarClock, ChevronRight, ExternalLink, Scale, Sparkles } from 'lucide-react'
+import { BookOpen, CalendarClock, ChevronRight, ExternalLink, Plus, Scale, Settings, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Alert,
@@ -120,6 +120,18 @@ export default async function LegalLandingPage() {
                     </Link>
                   </Button>
                 ) : null}
+                <Button asChild variant="outline">
+                  <Link href="/legal/updates/new">
+                    <Plus className="h-4 w-4" />
+                    Post update
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/legal/updates">
+                    <Settings className="h-4 w-4" />
+                    Manage updates
+                  </Link>
+                </Button>
               </div>
             </CardContent>
           </Card>
