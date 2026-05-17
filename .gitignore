@@ -38,3 +38,17 @@ coverage/
 *.local
 .cache/
 .vercel
+.env*.local
+
+# Local-only / personal artifacts that crept into the repo root.
+# These are not part of the product and shouldn't be tracked.
+/graduation_photos/
+graduation_slideshow.html
+start_slideshow.py
+download_photos.py
+board_presentation.html
+HomeownerHub_*.docx
+Declaration*.pdf
+/homeowner-portal@
+/tsx/
+.rtk/
