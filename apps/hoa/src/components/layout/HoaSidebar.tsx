@@ -4,14 +4,19 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   AlertTriangle,
+  Briefcase,
   Building2,
   CalendarDays,
   CreditCard,
+  FileSpreadsheet,
   FileText,
   Home,
   LogOut,
+  Mail,
+  Scale,
   Settings,
   Sparkles,
+  Users,
   Wallet,
 } from 'lucide-react'
 import {
@@ -45,10 +50,16 @@ const PRIMARY: NavLink[] = [
   { href: '/documents/governing', icon: <FileText className="h-4 w-4" />, label: 'Governing Docs' },
   { href: '/dues', icon: <Wallet className="h-4 w-4" />, label: 'Dues' },
   { href: '/meetings', icon: <CalendarDays className="h-4 w-4" />, label: 'Meetings' },
+  { href: '/vendors', icon: <Briefcase className="h-4 w-4" />, label: 'Vendors' },
+  { href: '/vendors/invitations', icon: <Mail className="h-4 w-4" />, label: 'Vendor Invitations' },
+  { href: '/vendors/approval-queue', icon: <Sparkles className="h-4 w-4" />, label: 'Vendor Queue' },
+  { href: '/rfps', icon: <FileSpreadsheet className="h-4 w-4" />, label: 'RFPs' },
+  { href: '/legal', icon: <Scale className="h-4 w-4" />, label: 'State Law' },
 ]
 
 const SECONDARY: NavLink[] = [
   { href: '/settings', icon: <Settings className="h-4 w-4" />, label: 'Settings' },
+  { href: '/settings/members', icon: <Users className="h-4 w-4" />, label: 'Members' },
   { href: '/settings/billing', icon: <CreditCard className="h-4 w-4" />, label: 'Billing' },
 ]
 

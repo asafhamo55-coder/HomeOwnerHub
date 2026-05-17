@@ -8,6 +8,10 @@
     ".": "./src/index.ts",
     "./W1": "./src/W1-governing-docs-brain/index.ts",
     "./W3": "./src/W3-violation-inspector/index.ts",
+    "./W18": "./src/W18-bank-reconciliation/index.ts",
+    "./W21": "./src/W21-vendor-onboarder/index.ts",
+    "./W22": "./src/W22-rfp-composer/index.ts",
+    "./W23": "./src/W23-bid-comparator/index.ts",
     "./chunker": "./src/W1-governing-docs-brain/chunker.ts"
   },
   "scripts": {

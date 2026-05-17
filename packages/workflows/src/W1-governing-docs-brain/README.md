@@ -37,15 +37,92 @@ const { answer, confidence, citations, runId } = await queryGoverningDocs(
 
 The model rates its own answer HIGH / MEDIUM / LOW per the system prompt. A `LOW` answer with no chunks retrieved returns the placeholder "escalate to the board" message, never invented rules. Apps consuming W1 should suppress autosend at LOW (e.g. W2 Concierge will create a service request instead of auto-replying).
 
-## Open work to hit acceptance
+## The gate workflow (spec §21)
 
-The spec's W1 acceptance is "20 hand-curated Madison Park questions answered with correct CC&R section citations." Ship blockers:
+W1 is the v1 gate: **≥ 90% pass rate on ≥ 20 hand-curated questions** before
+any downstream workflow (W2/W3/W4/W11/W12/W13) ships against real customers.
+The runner is `scripts/eval-w1.ts` (pnpm script `pnpm eval:w1`).
 
-- [ ] Upload Madison Park's Declaration as the first `governing_documents` row (PDF + parsed_text).
-- [ ] Chunk the parsed text (~500 tokens with overlap) into `governing_document_chunks`.
-- [ ] Backfill embeddings — currently stubbed as `NULL`; flips on when the embedding provider is wired (ADR-002 Phase 2.1).
-- [ ] Populate `EVAL_CASES` with the 20 curated questions in `eval.ts` and run the harness against the loaded chunks.
-- [ ] Build the upload UI (`apps/hoa/.../documents/upload`) so non-engineers can add documents themselves.
+### One-time setup per Supabase project
+
+```bash
+# 1. Apply migrations (see docs/APPLY_v1.1_MIGRATIONS.md if 0006/0007 are pending).
+
+# 2. Upload Madison Park's Declaration via the HOA app's upload UI:
+#    apps/hoa /documents/governing → upload PDF.
+#    The upload route parses the PDF, splits via packages/workflows/src/.../chunker.ts,
+#    and writes governing_documents + governing_document_chunks (NULL embeddings).
+#
+#    For local iteration without the UI you can use the seed script:
+#      pnpm exec tsx scripts/seed-sample-ccr.ts
+
+# 3. Backfill embeddings (HuggingFace BGE per ADR-003):
+HUGGINGFACE_API_TOKEN=hf_... \
+NEXT_PUBLIC_SUPABASE_URL=https://... \
+SUPABASE_SERVICE_ROLE_KEY=... \
+  pnpm backfill:embeddings
+```
+
+### Running the gate
+
+```bash
+AI_BASE_URL=https://api.groq.com/openai/v1 \
+AI_API_KEY=gsk_... \
+AI_MODEL=llama-3.3-70b-versatile \
+NEXT_PUBLIC_SUPABASE_URL=https://... \
+SUPABASE_SERVICE_ROLE_KEY=... \
+HUGGINGFACE_API_TOKEN=hf_... \
+EVAL_REQUIRE_GATE=1 \
+  pnpm eval:w1
+```
+
+`EVAL_REQUIRE_GATE=1` makes the runner exit 1 unless ≥ 20 cases ran AND pass
+rate ≥ 90%. Drop the flag for a smoke run that always exits 0 (useful while
+iterating on prompt versions).
+
+Other env knobs:
+
+- `EVAL_ORG_NAME` — pick a specific HOA org (defaults to first HOA org)
+- `EVAL_VERBOSE=1` — print full answer + citations for every case (default: only failures)
+
+### Adding a case
+
+Edit `eval.ts` and append to `EVAL_CASES`:
+
+```ts
+{
+  id: 'paint-color-front-door',                  // stable id; never reuse
+  question: 'Can I paint my front door red without ARC approval?',
+  expectedAnswerContains: ['approved', 'palette'], // case-insensitive
+  expectedAnswerExcludes: ['yes, any color'],     // catch over-permissive answers
+  expectedCitationDocTypes: ['declaration'],      // OR-match
+  expectedCitationSections: ['4.2', 'Section 4.2'],// OR-match (substring); optional
+  expectedMinConfidence: 'MEDIUM',
+}
+```
+
+Use `expectsEscalation: true` for out-of-document questions where W1 should
+return LOW confidence with no citations — proves the model doesn't hallucinate.
+
+### What the runner reports
+
+- **Pass rate** — fraction of cases where every assertion held
+- **Citation accuracy** — fraction of cases where at least one returned citation matched the expected doc_type
+- **Confidence accuracy** — fraction of cases where W1's confidence ≥ the case's floor
+- Per-failure detail: question, what W1 answered, the citations it returned, every assertion that failed
+
+### Open work to hit the gate
+
+- [ ] Upload Madison Park's Declaration via the HOA app upload UI.
+- [ ] Confirm chunking looks reasonable (run `pnpm seed:sample-ccr` against
+      a non-prod org first, eyeball the resulting chunks in the database).
+- [ ] Run `pnpm backfill:embeddings` to populate the pgvector column.
+- [ ] Replace the 3 placeholder cases in `eval.ts` with 20 real questions
+      written from a manual read-through of the Declaration.
+- [ ] `pnpm eval:w1` (smoke run) — fix prompt / chunking / retrieval until
+      pass rate clears 90%.
+- [ ] `EVAL_REQUIRE_GATE=1 pnpm eval:w1` — confirm the gate exits 0.
+- [ ] Wire the runner into CI on changes to W1 / chunker / prompt.
 
 ## Versions
 
