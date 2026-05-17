@@ -10,8 +10,11 @@ import {
   Card,
   CardContent,
   Input,
+  Select,
   Textarea,
   WizardStepper,
+  useConfirm,
+  useToast,
   type WizardStep as StepperStep,
 } from '@homeowner-portal/ui'
 import { approveMeetingMinutes } from '@/lib/meetings'
@@ -58,6 +61,8 @@ function stepIndex(step: Step): number {
 
 export function MeetingWizard({ initialDraft }: MeetingWizardProps) {
   const router = useRouter()
+  const confirm = useConfirm()
+  const toast = useToast()
   const initialPayload = (initialDraft?.payload ?? {}) as DraftPayload
 
   const [step, setStep] = useState<Step>(() => {
@@ -242,7 +247,7 @@ ${transcript}`
         currentIndex={stepIndex(step)}
         vertical={false}
       />
-      <div className="flex items-center justify-between text-xs text-muted-fg">
+      <div className="flex items-center justify-between text-xs text-muted">
         <span>
           {draftSaving ? (
             <span className="flex items-center gap-1">
@@ -258,11 +263,27 @@ ${transcript}`
           <button
             type="button"
             onClick={async () => {
-              if (!confirm('Discard this in-progress meeting? This cannot be undone.')) return
-              await discardDraft(draftId)
-              router.push('/meetings')
+              const ok = await confirm({
+                title: 'Discard meeting draft?',
+                description:
+                  'Your unsaved changes will be lost. This cannot be undone.',
+                confirmLabel: 'Discard',
+                destructive: true,
+              })
+              if (!ok) return
+              try {
+                await discardDraft(draftId)
+                toast({ tone: 'success', message: 'Draft discarded.' })
+                router.push('/meetings')
+              } catch (err) {
+                toast({
+                  tone: 'error',
+                  message:
+                    err instanceof Error ? err.message : 'Could not discard draft.',
+                })
+              }
             }}
-            className="text-muted-fg hover:text-destructive"
+            className="text-muted hover:text-destructive"
           >
             Discard draft
           </button>
@@ -279,7 +300,7 @@ ${transcript}`
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <label htmlFor="meeting-date" className="text-sm font-medium text-muted">
+            <label htmlFor="meeting-date" className="text-sm font-medium text-foreground">
               Meeting date
             </label>
             <Input
@@ -291,7 +312,7 @@ ${transcript}`
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label htmlFor="meeting-type" className="text-sm font-medium text-muted">
+              <label htmlFor="meeting-type" className="text-sm font-medium text-foreground">
                 Meeting type
               </label>
               {aiAppliedFields.has('meeting_type') ? (
@@ -309,7 +330,7 @@ ${transcript}`
                 </button>
               ) : null}
             </div>
-            <select
+            <Select
               id="meeting-type"
               value={meetingType}
               onChange={(e) => {
@@ -320,21 +341,20 @@ ${transcript}`
                   setAIAppliedFields(next)
                 }
               }}
-              className="flex h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="regular">Regular (board) meeting</option>
               <option value="annual">Annual meeting</option>
               <option value="special">Special meeting</option>
               <option value="emergency">Emergency meeting</option>
-            </select>
+            </Select>
           </div>
         </div>
 
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <label htmlFor="attendees" className="text-sm font-medium text-muted">
+            <label htmlFor="attendees" className="text-sm font-medium text-foreground">
               Attendees{' '}
-              <span className="text-muted-fg">(optional, one per line or comma-separated)</span>
+              <span className="text-muted">(optional, one per line or comma-separated)</span>
             </label>
             {aiAppliedFields.has('attendees') ? (
               <button
@@ -368,7 +388,7 @@ ${transcript}`
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="transcript" className="text-sm font-medium text-muted">
+          <label htmlFor="transcript" className="text-sm font-medium text-foreground">
             Transcript <span className="text-destructive">*</span>
           </label>
           <Textarea
@@ -379,7 +399,7 @@ ${transcript}`
             placeholder="Paste the raw transcript or your notes from the meeting. The AI will turn it into formal minutes you can edit and approve via BarBGate."
             className="font-mono text-xs"
           />
-          <p className="text-xs text-muted-fg">
+          <p className="text-xs text-muted">
             {transcript.length.toLocaleString()} characters · need at least 50.
           </p>
         </div>
@@ -387,10 +407,10 @@ ${transcript}`
         <div className="rounded-lg border border-border bg-background/50 p-3">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <p className="flex items-center gap-1.5 text-sm font-medium text-muted">
+              <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Sparkles className="h-3.5 w-3.5 text-primary" /> AI suggestions
               </p>
-              <p className="text-xs text-muted-fg">
+              <p className="text-xs text-muted">
                 Pull meeting type + attendee names from the transcript so you don&apos;t retype them.
               </p>
             </div>
@@ -417,8 +437,18 @@ ${transcript}`
         ) : null}
 
         <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-          <Button variant="outline" onClick={() => router.push('/meetings')}>
-            Save & exit
+          <Button
+            variant="outline"
+            onClick={async () => {
+              await persistDraft(step)
+              toast({
+                tone: 'success',
+                message: 'Draft saved — pick up later from the dashboard.',
+              })
+              router.push('/meetings')
+            }}
+          >
+            Save draft & exit
           </Button>
           <Button onClick={handleSummarize} disabled={!canSummarize} loading={aiPending}>
             <Sparkles className="h-4 w-4" />
@@ -433,7 +463,7 @@ ${transcript}`
     return (
       <div className="space-y-5">
         {stepperHeader}
-        <div className="py-12 text-center text-sm text-muted-fg">Summarizing…</div>
+        <div className="py-12 text-center text-sm text-muted">Summarizing…</div>
       </div>
     )
   }
@@ -481,8 +511,8 @@ ${transcript}`
             <CheckCircle2 className="h-7 w-7" />
           </div>
           <div className="mt-4 space-y-1">
-            <h2 className="text-xl font-bold text-muted">Minutes filed</h2>
-            <p className="text-sm text-muted-fg">
+            <h2 className="text-xl font-bold text-foreground">Minutes filed</h2>
+            <p className="text-sm text-muted">
               The approved minutes are now on file for {meetingDate}.
               {createdId ? '' : ''}
             </p>
@@ -504,8 +534,8 @@ ${transcript}`
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-fg">{label}</p>
-      <p className="mt-0.5 text-sm text-muted">{children}</p>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</p>
+      <p className="mt-0.5 text-sm text-foreground">{children}</p>
     </div>
   )
 }

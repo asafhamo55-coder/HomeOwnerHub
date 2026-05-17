@@ -38,7 +38,7 @@ export default async function RfpBidPage({ params }: PageProps) {
             <CardTitle>You've already submitted a bid</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted">
+            <p className="text-sm text-foreground">
               Thanks — your bid for {validation.invitation.rfpNumber} is on
               file. If you need to update it, contact the HOA directly.
             </p>
@@ -54,9 +54,9 @@ export default async function RfpBidPage({ params }: PageProps) {
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
       <header className="space-y-1">
-        <p className="font-mono text-xs text-muted-fg">{inv.rfpNumber}</p>
-        <h1 className="text-2xl font-bold text-muted">{inv.rfpTitle}</h1>
-        <p className="text-sm text-muted-fg">
+        <p className="font-mono text-xs text-muted">{inv.rfpNumber}</p>
+        <h1 className="text-2xl font-bold text-foreground">{inv.rfpTitle}</h1>
+        <p className="text-sm text-muted">
           Invitation for <strong>{inv.vendorLegalName}</strong> · deadline {deadlineFmt}
         </p>
       </header>
@@ -73,7 +73,7 @@ export default async function RfpBidPage({ params }: PageProps) {
           <CardTitle className="text-base">Scope</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="whitespace-pre-wrap text-sm text-muted">{inv.rfpScope}</p>
+          <p className="whitespace-pre-wrap text-sm text-foreground">{inv.rfpScope}</p>
         </CardContent>
       </Card>
 

@@ -24,7 +24,7 @@ export default async function UpdatesAdminPage() {
       <div className="mx-auto max-w-4xl space-y-4">
         <Link
           href="/legal"
-          className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
+          className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           Back
@@ -46,7 +46,7 @@ export default async function UpdatesAdminPage() {
     <div className="mx-auto max-w-4xl space-y-6">
       <Link
         href="/legal"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
+        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to State Law
@@ -54,8 +54,8 @@ export default async function UpdatesAdminPage() {
 
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-muted">Law updates — admin</h1>
-          <p className="text-sm text-muted-fg">
+          <h1>Law updates — admin</h1>
+          <p className="text-sm text-muted">
             {state} · {live} live · {archived} archived
           </p>
         </div>
@@ -88,7 +88,7 @@ export default async function UpdatesAdminPage() {
               <li key={u.id} className="px-4 py-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-muted">
+                    <p className="font-medium text-foreground">
                       {u.headline}
                       {u.archived_at ? (
                         <Badge variant="outline" size="sm" className="ml-2">
@@ -96,14 +96,14 @@ export default async function UpdatesAdminPage() {
                         </Badge>
                       ) : null}
                     </p>
-                    <p className="mt-0.5 text-xs text-muted-fg">
+                    <p className="mt-0.5 text-xs text-muted">
                       Posted {format(new Date(u.posted_at), 'PP')}
                       {u.category ? ` · ${u.category}` : ''}
                       {u.effective_date
                         ? ` · effective ${format(new Date(u.effective_date), 'PP')}`
                         : ''}
                     </p>
-                    <p className="mt-1 line-clamp-2 text-sm text-muted">
+                    <p className="mt-1 line-clamp-2 text-sm text-foreground">
                       {u.summary}
                     </p>
                     {u.source_url ? (

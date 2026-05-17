@@ -49,9 +49,9 @@ export default async function ApprovalQueuePage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
-          <h1 className="text-2xl font-bold text-muted">Violation Approval Queue</h1>
+          <h1>Violation Approval Queue</h1>
         </div>
-        <p className="text-sm text-muted-fg">
+        <p className="text-sm text-muted">
           AI-drafted violation notices awaiting board review. Approve, edit,
           or reject each one. Nothing here ships to a homeowner until the
           board says so.
@@ -61,7 +61,7 @@ export default async function ApprovalQueuePage() {
       {pending.length === 0 ? (
         <Card>
           <CardContent>
-            <p className="py-4 text-center text-sm text-muted-fg">
+            <p className="py-4 text-center text-sm text-muted">
               Nothing pending. New AI drafts from the violations wizard land
               here.
             </p>
@@ -141,7 +141,7 @@ function PendingRunCard({ run }: { run: PendingRun }) {
         </CardHeader>
         <CardContent className="space-y-3">
           {output.citedSection ? (
-            <p className="text-xs text-muted-fg">
+            <p className="text-xs text-muted">
               Cited: <span className="font-mono">{output.citedSection}</span>
             </p>
           ) : (
@@ -150,13 +150,13 @@ function PendingRunCard({ run }: { run: PendingRun }) {
             </p>
           )}
 
-          <p className="whitespace-pre-wrap rounded-md border border-border bg-muted/20 p-3 text-sm">
+          <p className="whitespace-pre-wrap rounded-md border border-border bg-foreground/20 p-3 text-sm">
             {truncatedNotice}
           </p>
 
-          <div className="flex items-center justify-between text-xs text-muted-fg">
+          <div className="flex items-center justify-between text-xs text-muted">
             <span>
-              W{run.workflow_id.slice(1)} · prompt {run.workflow_version} ·{' '}
+              Draft ID {run.id.slice(0, 8)} · v{run.workflow_version} ·{' '}
               {new Date(run.created_at).toLocaleString()}
             </span>
             <Link

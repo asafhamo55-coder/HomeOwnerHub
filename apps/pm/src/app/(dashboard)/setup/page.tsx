@@ -31,10 +31,10 @@ export default async function PropertySetupPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <header>
-        <h1 className="text-2xl font-bold text-muted">
+        <h1 className="text-2xl font-bold text-foreground">
           {existing ? 'Edit property' : 'Add your property'}
         </h1>
-        <p className="text-sm text-muted-fg">
+        <p className="text-sm text-muted">
           PM Hub on the free plan tracks one property. Upgrade for unlimited.
         </p>
       </header>

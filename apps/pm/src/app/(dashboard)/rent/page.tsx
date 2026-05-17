@@ -53,7 +53,7 @@ export default async function RentLedgerPage() {
     return (
       <div className="mx-auto max-w-3xl space-y-6">
         <header>
-          <h1 className="text-2xl font-bold text-muted">Rent</h1>
+          <h1 className="text-2xl font-bold text-foreground">Rent</h1>
         </header>
         <EmptyState
           icon={<Wallet className="h-10 w-10" aria-hidden />}
@@ -83,8 +83,8 @@ export default async function RentLedgerPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <header>
-        <h1 className="text-2xl font-bold text-muted">Rent ledger</h1>
-        <p className="text-sm text-muted-fg">{property.address}</p>
+        <h1 className="text-2xl font-bold text-foreground">Rent ledger</h1>
+        <p className="text-sm text-muted">{property.address}</p>
       </header>
 
       {rows.length === 0 ? (
@@ -102,7 +102,7 @@ export default async function RentLedgerPage() {
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-background/50 text-xs uppercase tracking-wide text-muted-fg">
+              <thead className="border-b border-border bg-background/50 text-xs uppercase tracking-wide text-muted">
                 <tr>
                   <th className="px-4 py-3 font-medium">Period</th>
                   <th className="px-4 py-3 font-medium">Due</th>
@@ -126,18 +126,18 @@ export default async function RentLedgerPage() {
 
                   return (
                     <tr key={r.id} className="border-b border-border last:border-0">
-                      <td className="px-4 py-3 font-medium text-muted">
+                      <td className="px-4 py-3 font-medium text-foreground">
                         {format(due, 'MMM yyyy')}
                       </td>
-                      <td className="px-4 py-3 text-muted-fg">
+                      <td className="px-4 py-3 text-muted">
                         {format(due, 'MMM d, yyyy')}
                       </td>
-                      <td className="px-4 py-3 text-muted">{currency(r.amount_due)}</td>
+                      <td className="px-4 py-3 text-foreground">{currency(r.amount_due)}</td>
                       <td className="px-4 py-3">
                         {computedFee > 0 ? (
                           <span className="text-destructive">+ {currency(computedFee)}</span>
                         ) : (
-                          <span className="text-muted-fg">—</span>
+                          <span className="text-muted">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">

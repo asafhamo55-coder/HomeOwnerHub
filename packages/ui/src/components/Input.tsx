@@ -20,13 +20,13 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             className,
           )}
         >
-          {prefix ? <span className="mr-2 flex shrink-0 items-center text-muted-fg">{prefix}</span> : null}
+          {prefix ? <span className="mr-2 flex shrink-0 items-center text-muted">{prefix}</span> : null}
           <input
             ref={ref}
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-fg disabled:opacity-50"
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted disabled:opacity-50"
             {...props}
           />
-          {suffix ? <span className="ml-2 flex shrink-0 items-center text-muted-fg">{suffix}</span> : null}
+          {suffix ? <span className="ml-2 flex shrink-0 items-center text-muted">{suffix}</span> : null}
         </div>
       )
     }
@@ -35,7 +35,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       <input
         ref={ref}
         className={cn(
-          'flex h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm transition-colors placeholder:text-muted-fg focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50',
+          'flex h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm transition-colors placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50',
           error && 'border-destructive focus:ring-destructive',
           className,
         )}

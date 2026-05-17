@@ -73,15 +73,15 @@ export default async function CaseDetailPage({
     <div className="mx-auto max-w-4xl space-y-6">
       <Link
         href="/"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
+        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to cases
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold text-muted">{c.property_address}</h1>
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-fg">
+        <h1 className="text-2xl font-bold text-foreground">{c.property_address}</h1>
+        <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
           <span>{c.tenant_name ?? 'Tenant unknown'}</span>
           <span>·</span>
           <span>
@@ -164,7 +164,7 @@ export default async function CaseDetailPage({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <CreditCard className="h-4 w-4 text-muted-fg" />
+              <CreditCard className="h-4 w-4 text-muted" />
               Filing fee
             </CardTitle>
             <CardDescription>
@@ -185,11 +185,11 @@ export default async function CaseDetailPage({
           </CardHeader>
           <CardContent>
             {c.notice_draft ? (
-              <pre className="whitespace-pre-wrap rounded-lg border border-border bg-background p-4 font-mono text-xs leading-relaxed text-muted">
+              <pre className="whitespace-pre-wrap rounded-lg border border-border bg-background p-4 font-mono text-xs leading-relaxed text-foreground">
                 {c.notice_draft}
               </pre>
             ) : (
-              <p className="text-sm text-muted-fg">No approved notice on file.</p>
+              <p className="text-sm text-muted">No approved notice on file.</p>
             )}
           </CardContent>
         </Card>
@@ -231,7 +231,7 @@ export default async function CaseDetailPage({
             <CardTitle className="text-base">Notes from intake</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="whitespace-pre-wrap text-sm text-muted">{c.case_notes}</p>
+            <p className="whitespace-pre-wrap text-sm text-foreground">{c.case_notes}</p>
           </CardContent>
         </Card>
       ) : null}
@@ -242,8 +242,8 @@ export default async function CaseDetailPage({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className="text-xs uppercase tracking-wide text-muted-fg">{label}</span>
-      <span className="text-right text-muted">{children}</span>
+      <span className="text-xs uppercase tracking-wide text-muted">{label}</span>
+      <span className="text-right text-foreground">{children}</span>
     </div>
   )
 }

@@ -25,8 +25,8 @@ export default async function BillingPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <header>
-        <h1 className="text-2xl font-bold text-muted">Billing</h1>
-        <p className="text-sm text-muted-fg">
+        <h1 className="text-2xl font-bold text-foreground">Billing</h1>
+        <p className="text-sm text-muted">
           Manage your HOA Hub subscription. Webhooks update your plan
           automatically after a successful checkout.
         </p>
@@ -47,12 +47,12 @@ export default async function BillingPage() {
               <Button type="submit" variant="outline">
                 Manage subscription
               </Button>
-              <p className="mt-2 text-xs text-muted-fg">
+              <p className="mt-2 text-xs text-muted">
                 Opens the Stripe Customer Portal to update card, switch plan, or cancel.
               </p>
             </form>
           ) : (
-            <p className="text-muted-fg">
+            <p className="text-muted">
               No subscription on file. Pick a plan below to get started.
             </p>
           )}
@@ -68,7 +68,7 @@ export default async function BillingPage() {
       ) : null}
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-muted">Plans</h2>
+        <h2 className="text-lg font-semibold text-foreground">Plans</h2>
         <PlanPicker currentPlan={plan} />
       </section>
     </div>

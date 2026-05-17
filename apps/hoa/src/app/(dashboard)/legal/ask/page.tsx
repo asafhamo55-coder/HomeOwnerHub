@@ -20,17 +20,17 @@ export default async function AskStateLawPage() {
     <div className="mx-auto max-w-3xl space-y-6">
       <Link
         href="/legal"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
+        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to State Law
       </Link>
 
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold text-muted">
+        <h1>
           Ask the {state ? `${STATE_NAME[state]} ` : ''}state law
         </h1>
-        <p className="text-sm text-muted-fg">
+        <p className="text-sm text-muted">
           The State Law Brain (W30) answers questions grounded in your
           state's HOA statutes. Every answer cites the section it came
           from. If the statutes don't cover it, the AI says so rather

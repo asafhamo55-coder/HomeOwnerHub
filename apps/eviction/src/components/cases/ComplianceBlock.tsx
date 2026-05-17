@@ -74,7 +74,7 @@ export function ComplianceBlock({ result }: ComplianceBlockProps) {
             >
               Cannot file yet
             </h3>
-            <p className="mt-1 text-sm text-muted">{result.reason}</p>
+            <p className="mt-1 text-sm text-foreground">{result.reason}</p>
           </div>
 
           <LegalBasis text={result.legalBasis} variant="danger" />
@@ -85,17 +85,17 @@ export function ComplianceBlock({ result }: ComplianceBlockProps) {
                 <p className="text-3xl font-bold tabular-nums text-primary">
                   {result.daysUntilFiling}
                 </p>
-                <p className="text-xs uppercase tracking-wide text-muted-fg">
+                <p className="text-xs uppercase tracking-wide text-muted">
                   {result.daysUntilFiling === 1 ? 'day to wait' : 'days to wait'}
                 </p>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-muted">
+                <p className="text-sm font-semibold text-foreground">
                   Serve the {humanize(result.requiredNoticeType)} today
                 </p>
-                <p className="mt-0.5 text-sm text-muted-fg">
+                <p className="mt-0.5 text-sm text-muted">
                   Earliest filing date:{' '}
-                  <span className="font-medium text-muted">
+                  <span className="font-medium text-foreground">
                     {format(result.filingEligibleDate, 'EEEE, MMMM d, yyyy')}
                   </span>
                 </p>
@@ -121,10 +121,10 @@ function LegalBasis({
       : 'border-destructive/15 bg-surface'
   return (
     <div className={`rounded-lg border ${tint} p-3`}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-fg">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
         Legal basis
       </p>
-      <p className="mt-1 font-mono text-xs leading-relaxed text-muted">{text}</p>
+      <p className="mt-1 font-mono text-xs leading-relaxed text-foreground">{text}</p>
     </div>
   )
 }

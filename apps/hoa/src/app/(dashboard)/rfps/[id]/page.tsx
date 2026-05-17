@@ -1,14 +1,18 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, FileSpreadsheet, Sparkles } from 'lucide-react'
+import { FileSpreadsheet, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import {
+  BackLink,
   Badge,
   Button,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
+  KeyValue,
+  KeyValueList,
+  PageHeader,
 } from '@homeowner-portal/ui'
 import { getRfp, type RfpStatus } from '@/lib/rfps'
 import { getPrimaryAssociation } from '@/lib/vendors'
@@ -58,45 +62,47 @@ export default async function RfpDetailPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <Link
-        href="/rfps"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to RFPs
-      </Link>
+      <BackLink href="/rfps" label="All RFPs" />
 
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="font-mono text-xs text-muted-fg">{rfp.rfp_number}</p>
-          <h1 className="text-2xl font-bold text-muted">{rfp.title}</h1>
-          <p className="mt-1 text-xs text-muted-fg">
+      <PageHeader
+        title={
+          <>
+            <span className="block font-mono text-xs font-normal text-muted">
+              {rfp.rfp_number}
+            </span>
+            {rfp.title}
+          </>
+        }
+        description={
+          <>
             Deadline {format(new Date(rfp.submission_deadline), 'PPp')}
             {rfp.budget_min || rfp.budget_max ? (
               <> · {formatBudget(rfp.budget_min, rfp.budget_max)}</>
             ) : null}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {rfp.ai_generated ? (
-            <Badge variant="outline">
-              <Sparkles className="mr-1 h-3 w-3" />
-              AI draft
-            </Badge>
-          ) : null}
-          <Badge variant={STATUS_VARIANT[rfp.status]}>{rfp.status}</Badge>
-          {rfp.status !== 'draft' ? (
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/rfps/${rfp.id}/bids`}>
-                <FileSpreadsheet className="h-4 w-4" />
-                View bids
-              </Link>
-            </Button>
-          ) : null}
-          {isDraft ? <PublishRfpButton rfpId={rfp.id} /> : null}
-          {isCancellable ? <CancelRfpButton rfpId={rfp.id} /> : null}
-        </div>
-      </header>
+          </>
+        }
+        actions={
+          <>
+            {rfp.ai_generated ? (
+              <Badge variant="outline">
+                <Sparkles className="mr-1 h-3 w-3" />
+                AI draft
+              </Badge>
+            ) : null}
+            <Badge variant={STATUS_VARIANT[rfp.status]}>{rfp.status}</Badge>
+            {rfp.status !== 'draft' ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/rfps/${rfp.id}/bids`}>
+                  <FileSpreadsheet className="h-4 w-4" />
+                  View bids
+                </Link>
+              </Button>
+            ) : null}
+            {isDraft ? <PublishRfpButton rfpId={rfp.id} /> : null}
+            {isCancellable ? <CancelRfpButton rfpId={rfp.id} /> : null}
+          </>
+        }
+      />
 
       {isDraft ? (
         <Card>
@@ -120,7 +126,7 @@ export default async function RfpDetailPage({
             <CardTitle className="text-base">Scope</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="whitespace-pre-wrap text-sm text-muted">{rfp.scope}</p>
+            <p className="whitespace-pre-wrap text-sm text-foreground">{rfp.scope}</p>
           </CardContent>
         </Card>
       )}
@@ -143,10 +149,10 @@ export default async function RfpDetailPage({
           <CardContent>
             <ul className="space-y-2">
               {rfp.line_items.map((li) => (
-                <li key={li.id} className="rounded-md border border-border bg-muted/10 p-3">
-                  <p className="text-sm text-muted">{li.description}</p>
+                <li key={li.id} className="rounded-md border border-border bg-foreground/10 p-3">
+                  <p className="text-sm text-foreground">{li.description}</p>
                   {li.quantity != null || li.unit || li.notes ? (
-                    <p className="mt-1 text-xs text-muted-fg">
+                    <p className="mt-1 text-xs text-muted">
                       {li.quantity != null ? `${li.quantity}` : ''}
                       {li.unit ? ` ${li.unit}` : ''}
                       {(li.quantity != null || li.unit) && li.notes ? ' · ' : ''}
@@ -170,8 +176,8 @@ export default async function RfpDetailPage({
               <ul className="space-y-1 text-sm">
                 {rfp.evaluation_criteria.map((c, i) => (
                   <li key={`${c.criterion}-${i}`} className="flex justify-between gap-3">
-                    <span className="text-muted">{c.criterion}</span>
-                    <span className="font-mono text-xs text-muted-fg">
+                    <span className="text-foreground">{c.criterion}</span>
+                    <span className="font-mono text-xs text-muted">
                       {c.weight}%
                     </span>
                   </li>
@@ -187,16 +193,11 @@ export default async function RfpDetailPage({
               <CardTitle className="text-base">Insurance requirements</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-1 text-sm">
+              <KeyValueList>
                 {insurance.map(([k, v]) => (
-                  <li key={k} className="flex justify-between gap-3">
-                    <span className="text-muted-fg">{k}</span>
-                    <span className="truncate text-right text-muted">
-                      {formatInsuranceValue(v)}
-                    </span>
-                  </li>
+                  <KeyValue key={k} label={k} value={formatInsuranceValue(v)} />
                 ))}
-              </ul>
+              </KeyValueList>
             </CardContent>
           </Card>
         ) : null}

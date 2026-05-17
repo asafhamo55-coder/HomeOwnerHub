@@ -1,10 +1,33 @@
 import Link from 'next/link'
 import { AlertTriangle, Plus } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Button, Card, EmptyState } from '@homeowner-portal/ui'
+import { Badge, Button, Card, EmptyState, StatusBadge, Tabs } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Violations' }
+
+const VIOLATION_TABS = [
+  { label: 'All violations', href: '/violations' },
+  { label: 'AI approval queue', href: '/violations/approval-queue' },
+]
+
+const VIOLATION_STATUS_LABELS: Record<string, string> = {
+  open: 'Open',
+  notice_sent: 'Notice sent',
+  cured: 'Cured',
+  resolved: 'Resolved',
+  fined: 'Fined',
+  escalated: 'At attorney',
+}
+
+const VIOLATION_STATUS_TONES = {
+  open: 'neutral',
+  notice_sent: 'warning',
+  cured: 'success',
+  resolved: 'success',
+  fined: 'destructive',
+  escalated: 'destructive',
+} as const
 
 interface ViolationRow {
   id: string
@@ -15,15 +38,6 @@ interface ViolationRow {
   created_at: string | null
   notice_sent_at: string | null
   property: { address: string; unit_number: string | null } | null
-}
-
-const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
-  open: 'outline',
-  notice_sent: 'warning',
-  cured: 'success',
-  resolved: 'success',
-  fined: 'destructive',
-  escalated: 'destructive',
 }
 
 export default async function ViolationsListPage() {
@@ -42,8 +56,8 @@ export default async function ViolationsListPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-muted">Violations</h1>
-          <p className="text-sm text-muted-fg">
+          <h1>Violations</h1>
+          <p className="text-sm text-muted">
             {rows.length} on file (showing most recent first)
           </p>
         </div>
@@ -54,6 +68,8 @@ export default async function ViolationsListPage() {
           </Link>
         </Button>
       </header>
+
+      <Tabs items={VIOLATION_TABS} currentPath="/violations" aria-label="Violation sections" />
 
       {rows.length === 0 ? (
         <EmptyState
@@ -79,13 +95,13 @@ export default async function ViolationsListPage() {
                   className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-background/50"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-muted">{v.description}</p>
-                    <p className="text-xs text-muted-fg">
+                    <p className="truncate font-medium text-foreground">{v.description}</p>
+                    <p className="text-xs text-muted">
                       {v.property?.address ?? 'Property unknown'}
                       {v.property?.unit_number ? ` · ${v.property.unit_number}` : ''}
                       {v.ccr_section ? ` · ${v.ccr_section}` : ''}
                     </p>
-                    <p className="mt-0.5 text-xs text-muted-fg">
+                    <p className="mt-0.5 text-xs text-muted">
                       {v.created_at ? format(new Date(v.created_at), 'PP') : ''}
                       {v.notice_sent_at ? ` · notice sent ${format(new Date(v.notice_sent_at), 'PP')}` : ''}
                     </p>
@@ -96,9 +112,11 @@ export default async function ViolationsListPage() {
                         {v.severity}
                       </Badge>
                     ) : null}
-                    <Badge variant={STATUS_VARIANT[v.status] ?? 'outline'} size="sm">
-                      {v.status.replace('_', ' ')}
-                    </Badge>
+                    <StatusBadge
+                      status={v.status}
+                      tones={VIOLATION_STATUS_TONES}
+                      labels={VIOLATION_STATUS_LABELS}
+                    />
                   </div>
                 </Link>
               </li>

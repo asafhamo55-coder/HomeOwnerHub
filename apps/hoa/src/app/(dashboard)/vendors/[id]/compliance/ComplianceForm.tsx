@@ -207,13 +207,13 @@ export function ComplianceForm({ vendorId }: { vendorId: string }) {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-muted">{result.summary}</p>
+            <p className="text-sm text-foreground">{result.summary}</p>
             {result.deficiencies.length > 0 ? (
               <ul className="space-y-2">
                 {result.deficiencies.map((d, i) => (
                   <li
                     key={`${d.code}-${i}`}
-                    className="flex items-start gap-3 rounded-md border border-border bg-muted/10 p-3 text-sm"
+                    className="flex items-start gap-3 rounded-md border border-border bg-foreground/10 p-3 text-sm"
                   >
                     <Badge
                       variant={d.severity === 'red' ? 'destructive' : 'warning'}
@@ -222,16 +222,16 @@ export function ComplianceForm({ vendorId }: { vendorId: string }) {
                       {d.severity}
                     </Badge>
                     <div className="min-w-0 flex-1">
-                      <p className="font-mono text-xs text-muted-fg">{d.code}</p>
-                      <p className="text-muted">{d.detail}</p>
+                      <p className="font-mono text-xs text-muted">{d.code}</p>
+                      <p className="text-foreground">{d.detail}</p>
                     </div>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-fg">No deficiencies.</p>
+              <p className="text-sm text-muted">No deficiencies.</p>
             )}
-            <p className="text-xs text-muted-fg">W21 run {result.runId}</p>
+            <p className="text-xs text-muted">W21 run {result.runId}</p>
           </CardContent>
         </Card>
       ) : null}
@@ -242,7 +242,7 @@ export function ComplianceForm({ vendorId }: { vendorId: string }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block space-y-1">
-      <span className="text-xs font-medium text-muted">{label}</span>
+      <span className="text-xs font-medium text-foreground">{label}</span>
       {children}
     </label>
   )
@@ -250,7 +250,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Check({ name, label }: { name: string; label: string }) {
   return (
-    <label className="flex items-center gap-2 text-sm text-muted">
+    <label className="flex items-center gap-2 text-sm text-foreground">
       <input type="checkbox" name={name} className="h-4 w-4 rounded border-border" />
       {label}
     </label>

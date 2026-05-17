@@ -2,28 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
-/* HOA Hub theming — teal primary, warm bg, AAA contrast, larger base font.
-   Linda is 58: every interactive element must clear AA at minimum, and
-   body copy clears AAA (7:1).                                               */
+/* HOA Hub theming — indigo primary on a neutral off-white canvas
+   (Linear / Stripe family). Clean, modern, trustworthy. Amber
+   reserved as the AI-affordance accent.
+
+   Constraints honored:
+   - 18px root font preserved (Linda is 58, no shrink)
+   - Body text AAA (>= 7:1) against background
+   - Visually distinct from PM (blue) and Eviction (purple)            */
 @layer base {
   :root {
     --radius: 12px;
 
-    /* Surfaces */
-    --background: 168 60% 98%;          /* #F8FFFE */
-    --surface: 0 0% 100%;
-    --border: 168 50% 93%;              /* #E5F7F4 */
+    /* Surfaces — clean off-white, very slight cool tint.               */
+    --background: 220 33% 99%;          /* #FAFBFD */
+    --surface: 0 0% 100%;               /* #FFFFFF — card surface */
+    --border: 220 13% 91%;              /* #E5E7EB — neutral-200 */
 
-    /* Brand */
-    --primary: 168 100% 39%;            /* #00C9A7 teal */
-    --primary-fg: 0 0% 100%;
-    --accent: 38 92% 50%;               /* #F59E0B amber */
+    /* Brand — indigo. Used for primary CTAs, focus rings, selection.
+       White-on-indigo clears AA Large for buttons.                     */
+    --primary: 244 76% 59%;             /* #4F46E5 — indigo-600 */
+    --primary-fg: 0 0% 100%;            /* #FFFFFF on indigo button */
 
-    /* Text */
-    --muted: 200 60% 9%;                /* #0F2027 — body copy, AAA against bg */
-    --muted-fg: 215 19% 47%;            /* #64748B — secondary text */
+    /* Accent — amber. Reserved for AI affordances, progress, and
+       warmth callouts so it reads as intentional, not decorative.      */
+    --accent: 38 92% 50%;               /* #F59E0B — amber-500 */
 
-    --destructive: 0 84% 60%;
+    /* Text — ink-900 / ink-500. AAA against the cool off-white bg.     */
+    --foreground: 220 39% 11%;          /* #111827 — ink-900 */
+    --muted: 217 9% 46%;                /* #6B7280 — ink-500, secondary text */
+
+    --destructive: 0 72% 45%;           /* deeper, less neon red */
 
     --font-sans: var(--font-inter), system-ui, sans-serif;
     --font-mono: var(--font-jetbrains-mono), monospace;
@@ -36,7 +45,7 @@
 
   body {
     background-color: hsl(var(--background));
-    color: hsl(var(--muted));
+    color: hsl(var(--foreground));
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;

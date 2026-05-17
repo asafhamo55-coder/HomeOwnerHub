@@ -1,10 +1,15 @@
 import Link from 'next/link'
 import { FileText, Plus, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Button, Card, EmptyState } from '@homeowner-portal/ui'
+import { Badge, Button, Card, EmptyState, Tabs } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Documents' }
+
+const DOC_TABS = [
+  { label: 'All documents', href: '/documents' },
+  { label: 'Governing docs', href: '/documents/governing' },
+]
 
 interface DocRow {
   id: string
@@ -42,8 +47,8 @@ export default async function DocumentsPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-muted">Documents</h1>
-          <p className="text-sm text-muted-fg">
+          <h1>Documents</h1>
+          <p className="text-sm text-muted">
             CC&amp;Rs, bylaws, and rules. Parsed text powers Covenant Brain matching in the
             violation wizard.
           </p>
@@ -55,6 +60,8 @@ export default async function DocumentsPage() {
           </Link>
         </Button>
       </header>
+
+      <Tabs items={DOC_TABS} currentPath="/documents" aria-label="Document sections" />
 
       {error ? (
         <Card>
@@ -81,9 +88,9 @@ export default async function DocumentsPage() {
               <li key={d.id} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">
                   <Link href={`/documents/${d.id}`} className="block">
-                    <p className="truncate font-medium text-muted hover:text-primary">{d.name}</p>
+                    <p className="truncate font-medium text-foreground hover:text-primary">{d.name}</p>
                   </Link>
-                  <p className="text-xs text-muted-fg">
+                  <p className="text-xs text-muted">
                     {TYPE_LABEL[d.type] ?? d.type} · {bytes(d.file_size)}
                     {d.created_at ? ` · uploaded ${format(new Date(d.created_at), 'PP')}` : ''}
                   </p>

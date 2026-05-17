@@ -36,8 +36,8 @@ export default async function BillingPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <header>
-        <h1 className="text-2xl font-bold text-muted">Billing</h1>
-        <p className="text-sm text-muted-fg">
+        <h1 className="text-2xl font-bold text-foreground">Billing</h1>
+        <p className="text-sm text-muted">
           Pay per case ($249), or upgrade to Unlimited ($99/month) for high volume.
         </p>
       </header>
@@ -59,7 +59,7 @@ export default async function BillingPage() {
               </Button>
             </form>
           ) : (
-            <p className="text-muted-fg">
+            <p className="text-muted">
               No subscription on file. Choose a plan below or pay per case from a case&apos;s
               detail page.
             </p>
@@ -82,12 +82,12 @@ export default async function BillingPage() {
             <CardDescription>$249 per filing — pay only when you use it.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <ul className="space-y-1.5 text-muted-fg">
+            <ul className="space-y-1.5 text-muted">
               <PlanBullet>Pay $249 per case at the time of filing</PlanBullet>
               <PlanBullet>All compliance + AI features included</PlanBullet>
               <PlanBullet>No monthly commitment</PlanBullet>
             </ul>
-            <p className="text-xs text-muted-fg">
+            <p className="text-xs text-muted">
               Per-case checkout opens from the case detail page once you&apos;ve drafted a
               notice.
             </p>
@@ -111,7 +111,7 @@ export default async function BillingPage() {
             <CardDescription>$99 / month — unlimited filings.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <ul className="space-y-1.5 text-muted-fg">
+            <ul className="space-y-1.5 text-muted">
               <PlanBullet>Unlimited cases per month</PlanBullet>
               <PlanBullet>Same compliance + AI features</PlanBullet>
               <PlanBullet>Best fit for property managers and PM Hub power users</PlanBullet>

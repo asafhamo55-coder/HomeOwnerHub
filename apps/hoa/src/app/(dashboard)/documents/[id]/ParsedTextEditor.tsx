@@ -64,7 +64,7 @@ export function ParsedTextEditor({
           disabled={savingTransition || parsingTransition}
         />
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-muted-fg">{text.length.toLocaleString()} characters</p>
+          <p className="text-xs text-muted">{text.length.toLocaleString()} characters</p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -102,14 +102,14 @@ export function ParsedTextEditor({
 
       {sections && sections.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-muted">Extracted sections</p>
+          <p className="text-sm font-medium text-foreground">Extracted sections</p>
           <ul className="divide-y divide-border rounded-xl border border-border bg-surface text-sm">
             {sections.map((s, i) => (
               <li key={`${s.number}-${i}`} className="flex flex-col gap-0.5 px-4 py-2">
-                <p className="font-medium text-muted">
+                <p className="font-medium text-foreground">
                   {s.number} — {s.title}
                 </p>
-                <p className="text-xs text-muted-fg">{s.summary}</p>
+                <p className="text-xs text-muted">{s.summary}</p>
               </li>
             ))}
           </ul>

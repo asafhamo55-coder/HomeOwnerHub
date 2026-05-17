@@ -56,9 +56,9 @@ export default async function LegalLandingPage() {
         <div>
           <div className="flex items-center gap-2">
             <Scale className="h-5 w-5 text-primary" />
-            <h1 className="text-2xl font-bold text-muted">State Law & Compliance</h1>
+            <h1>State Law & Compliance</h1>
           </div>
-          <p className="text-sm text-muted-fg">
+          <p className="text-sm text-muted">
             Statute Q&A grounded in your state's HOA law — with citations.
           </p>
         </div>
@@ -95,7 +95,7 @@ export default async function LegalLandingPage() {
                 </CardTitle>
                 <Badge variant="outline">{summary.state}</Badge>
               </div>
-              <p className="text-xs text-muted-fg">
+              <p className="text-xs text-muted">
                 {STATE_CODE_LABEL[summary.state]}
               </p>
             </CardHeader>
@@ -137,21 +137,18 @@ export default async function LegalLandingPage() {
           </Card>
 
           {summary.statuteCount === 0 ? (
-            <Alert variant="warning" title="No statutes ingested yet">
+            <Alert variant="warning" title="State-law content not loaded yet">
               <span className="block text-sm">
-                Run{' '}
-                <span className="font-mono">
-                  pnpm tsx scripts/ingest-state-statutes.ts {summary.state}
-                </span>{' '}
-                to load {STATE_NAME[summary.state]}'s HOA statutes. The Q&A
-                workflow is wired and ready — it just needs grounding data.
+                We don't have {STATE_NAME[summary.state]}'s HOA statutes
+                available for your association yet. Contact support to load
+                them — Q&A and browsing will turn on once they're in place.
               </span>
             </Alert>
           ) : null}
 
           {updates.length > 0 ? (
             <section className="space-y-2">
-              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-fg">
+              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted">
                 <CalendarClock className="h-3.5 w-3.5" />
                 Recent updates
               </h2>
@@ -176,10 +173,10 @@ export default async function LegalLandingPage() {
                         href={`/legal/browse?category=${encodeURIComponent(c.category)}`}
                         className="flex items-center justify-between gap-3 py-2 transition-colors hover:text-primary"
                       >
-                        <span className="text-sm text-muted">
+                        <span className="text-sm text-foreground">
                           {CATEGORY_LABEL[c.category] ?? c.category}
                         </span>
-                        <div className="flex items-center gap-2 text-xs text-muted-fg">
+                        <div className="flex items-center gap-2 text-xs text-muted">
                           <span className="font-mono">{c.count}</span>
                           <ChevronRight className="h-3.5 w-3.5" />
                         </div>
@@ -199,8 +196,8 @@ export default async function LegalLandingPage() {
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
     <div>
-      <p className="text-2xl font-semibold text-muted">{value}</p>
-      <p className="text-xs uppercase tracking-wide text-muted-fg">{label}</p>
+      <p className="text-2xl font-semibold text-foreground">{value}</p>
+      <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
     </div>
   )
 }
@@ -219,18 +216,18 @@ function UpdateCard({ update }: { update: LawUpdateRow }) {
             ) : null}
           </div>
           {update.category ? (
-            <p className="text-xs text-muted-fg">{update.category}</p>
+            <p className="text-xs text-muted">{update.category}</p>
           ) : null}
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="whitespace-pre-wrap text-sm text-muted">{update.summary}</p>
+          <p className="whitespace-pre-wrap text-sm text-foreground">{update.summary}</p>
 
           {update.action_items && update.action_items.length > 0 ? (
             <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-fg">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
                 Action items
               </p>
-              <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
+              <ul className="list-disc space-y-1 pl-5 text-sm text-foreground">
                 {update.action_items.map((item, i) => (
                   <li key={i}>{item}</li>
                 ))}
@@ -238,7 +235,7 @@ function UpdateCard({ update }: { update: LawUpdateRow }) {
             </div>
           ) : null}
 
-          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-fg">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
             <span>Posted {format(new Date(update.posted_at), 'PP')}</span>
             {update.source_url ? (
               <a

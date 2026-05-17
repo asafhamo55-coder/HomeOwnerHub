@@ -10,12 +10,12 @@ export default function VerifyPage() {
         <Mail className="h-6 w-6" aria-hidden />
       </div>
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-muted">Check your email</h2>
-        <p className="text-sm text-muted-fg">
+        <h2 className="text-lg font-semibold text-foreground">Check your email</h2>
+        <p className="text-sm text-muted">
           Open the magic link we sent you to finish signing in.
         </p>
       </div>
-      <p className="text-xs text-muted-fg">
+      <p className="text-xs text-muted">
         Wrong email?{' '}
         <Link href="/login" className="font-medium text-primary hover:underline">
           Start over

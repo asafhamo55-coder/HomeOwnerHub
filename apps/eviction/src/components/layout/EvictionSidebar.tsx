@@ -54,13 +54,13 @@ function NavLink({ link, active }: { link: NavLink; active: boolean }) {
           'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
           active
             ? 'bg-primary/10 text-primary'
-            : 'text-muted-fg hover:bg-background hover:text-muted',
+            : 'text-muted hover:bg-background hover:text-foreground',
         )}
       >
         <span className="flex h-5 w-5 shrink-0 items-center justify-center">{link.icon}</span>
         <span className="flex-1 truncate">{link.label}</span>
         {link.soon ? (
-          <span className="rounded-full bg-muted-fg/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-fg">
+          <span className="rounded-full bg-muted/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted">
             Soon
           </span>
         ) : null}
@@ -104,13 +104,13 @@ export function EvictionSidebar({ orgName, userEmail }: EvictionSidebarProps) {
       <SidebarFooter>
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-muted">{userEmail}</p>
-            <p className="text-[11px] text-muted-fg">Eviction Hub · {orgName}</p>
+            <p className="truncate text-xs font-medium text-foreground">{userEmail}</p>
+            <p className="text-[11px] text-muted">Eviction Hub · {orgName}</p>
           </div>
           <button
             type="button"
             onClick={handleSignOut}
-            className="rounded-md p-1.5 text-muted-fg hover:bg-background hover:text-muted"
+            className="rounded-md p-1.5 text-muted hover:bg-background hover:text-foreground"
             aria-label="Sign out"
             title="Sign out"
           >

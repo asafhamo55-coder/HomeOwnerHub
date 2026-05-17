@@ -1,14 +1,18 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, FileCheck2, Sparkles } from 'lucide-react'
+import { FileCheck2, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import {
+  BackLink,
   Badge,
   Button,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
+  KeyValue,
+  KeyValueList,
+  PageHeader,
 } from '@homeowner-portal/ui'
 import { getVendor, type ComplianceStatus } from '@/lib/vendors'
 import { ApproveVendorButton } from './ApproveVendorButton'
@@ -41,67 +45,63 @@ export default async function VendorDetailPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <Link
-        href="/vendors"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to vendors
-      </Link>
+      <BackLink href="/vendors" label="All vendors" />
 
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-muted">{vendor.legal_name}</h1>
-          {vendor.dba ? (
-            <p className="text-sm text-muted-fg">d/b/a {vendor.dba}</p>
-          ) : null}
-          <p className="mt-1 text-xs text-muted-fg">
+      <PageHeader
+        title={vendor.legal_name}
+        description={
+          <>
+            {vendor.dba ? <>d/b/a {vendor.dba} · </> : null}
             {(vendor.trades ?? []).join(', ') || 'No trades on file'}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {status ? (
-            <Badge variant={COMPLIANCE_VARIANT[status]}>
-              {COMPLIANCE_LABEL[status]}
-            </Badge>
-          ) : (
-            <Badge variant="outline">No review yet</Badge>
-          )}
-          <Badge variant="outline">{vendor.status}</Badge>
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/vendors/${vendor.id}/compliance`}>
-              <FileCheck2 className="h-4 w-4" />
-              Run compliance check
-            </Link>
-          </Button>
-          {status === 'green' && vendor.status === 'prospect' ? (
-            <ApproveVendorButton vendorId={vendor.id} />
-          ) : null}
-        </div>
-      </header>
+          </>
+        }
+        actions={
+          <>
+            {status ? (
+              <Badge variant={COMPLIANCE_VARIANT[status]}>
+                {COMPLIANCE_LABEL[status]}
+              </Badge>
+            ) : (
+              <Badge variant="outline">No review yet</Badge>
+            )}
+            <Badge variant="outline">{vendor.status}</Badge>
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/vendors/${vendor.id}/compliance`}>
+                <FileCheck2 className="h-4 w-4" />
+                Run compliance check
+              </Link>
+            </Button>
+            {status === 'green' && vendor.status === 'prospect' ? (
+              <ApproveVendorButton vendorId={vendor.id} vendorName={vendor.legal_name} />
+            ) : null}
+          </>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Contact</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            <KV label="Email" value={vendor.primary_email} />
-            <KV label="Phone" value={vendor.primary_phone} />
-            <KV label="EIN" value={maskEin(vendor.ein)} />
-            <KV label="Address" value={formatAddress(vendor.address)} />
-            <KV
-              label="Service area"
-              value={
-                vendor.service_area_zips && vendor.service_area_zips.length > 0
-                  ? vendor.service_area_zips.join(', ')
-                  : null
-              }
-            />
-            <KV
-              label="Added"
-              value={format(new Date(vendor.created_at), 'PP')}
-            />
+          <CardContent>
+            <KeyValueList>
+              <KeyValue label="Email" value={vendor.primary_email} />
+              <KeyValue label="Phone" value={vendor.primary_phone} />
+              <KeyValue label="EIN" value={maskEin(vendor.ein)} />
+              <KeyValue label="Address" value={formatAddress(vendor.address)} />
+              <KeyValue
+                label="Service area"
+                value={
+                  vendor.service_area_zips && vendor.service_area_zips.length > 0
+                    ? vendor.service_area_zips.join(', ')
+                    : null
+                }
+              />
+              <KeyValue
+                label="Added"
+                value={format(new Date(vendor.created_at), 'PP')}
+              />
+            </KeyValueList>
           </CardContent>
         </Card>
 
@@ -110,26 +110,26 @@ export default async function VendorDetailPage({
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Compliance</CardTitle>
               {compliance?.last_reviewed_at ? (
-                <span className="text-xs text-muted-fg">
+                <span className="text-xs text-muted">
                   Reviewed {format(new Date(compliance.last_reviewed_at), 'PP')}
                 </span>
               ) : null}
             </div>
           </CardHeader>
-          <CardContent className="space-y-1 text-sm">
+          <CardContent>
             {compliance ? (
-              <>
-                <KV label="COI carrier" value={compliance.coi_carrier} />
-                <KV label="Policy #" value={compliance.coi_policy_number} />
-                <KV
+              <KeyValueList>
+                <KeyValue label="COI carrier" value={compliance.coi_carrier} />
+                <KeyValue label="Policy #" value={compliance.coi_policy_number} />
+                <KeyValue
                   label="GL / occurrence"
                   value={fmtCurrency(compliance.coi_general_liability_per_occurrence)}
                 />
-                <KV
+                <KeyValue
                   label="GL aggregate"
                   value={fmtCurrency(compliance.coi_general_liability_aggregate)}
                 />
-                <KV
+                <KeyValue
                   label="COI expires"
                   value={
                     compliance.coi_expiration_date
@@ -137,7 +137,7 @@ export default async function VendorDetailPage({
                       : null
                   }
                 />
-                <KV
+                <KeyValue
                   label="Workers' comp"
                   value={
                     compliance.coi_workers_comp == null
@@ -147,7 +147,7 @@ export default async function VendorDetailPage({
                         : 'No'
                   }
                 />
-                <KV
+                <KeyValue
                   label="Additional insured"
                   value={
                     compliance.coi_additional_insured_present == null
@@ -157,9 +157,9 @@ export default async function VendorDetailPage({
                         : 'No'
                   }
                 />
-                <KV label="W-9 on file" value={compliance.w9_on_file ? 'Yes' : 'No'} />
-                <KV label="License #" value={compliance.license_number} />
-                <KV
+                <KeyValue label="W-9 on file" value={compliance.w9_on_file ? 'Yes' : 'No'} />
+                <KeyValue label="License #" value={compliance.license_number} />
+                <KeyValue
                   label="License expires"
                   value={
                     compliance.license_expiration
@@ -167,9 +167,9 @@ export default async function VendorDetailPage({
                       : null
                   }
                 />
-              </>
+              </KeyValueList>
             ) : (
-              <p className="text-muted-fg">
+              <p className="text-sm text-muted">
                 No compliance review on file yet.{' '}
                 <Link
                   href={`/vendors/${vendor.id}/compliance`}
@@ -197,7 +197,7 @@ export default async function VendorDetailPage({
             {compliance.deficiencies.map((d, i) => (
               <div
                 key={`${d.code}-${i}`}
-                className="flex items-start gap-3 rounded-md border border-border bg-muted/10 p-3"
+                className="flex items-start gap-3 rounded-md border border-border bg-foreground/10 p-3"
               >
                 <Badge
                   variant={d.severity === 'red' ? 'destructive' : 'warning'}
@@ -206,8 +206,8 @@ export default async function VendorDetailPage({
                   {d.severity}
                 </Badge>
                 <div className="min-w-0 flex-1 text-sm">
-                  <p className="font-mono text-xs text-muted-fg">{d.code}</p>
-                  <p className="text-muted">{d.detail}</p>
+                  <p className="font-mono text-xs text-muted">{d.code}</p>
+                  <p className="text-foreground">{d.detail}</p>
                 </div>
               </div>
             ))}
@@ -227,23 +227,23 @@ export default async function VendorDetailPage({
               {vendor.documents.map((d) => (
                 <li
                   key={d.id}
-                  className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/10 px-3 py-2"
+                  className="flex items-center justify-between gap-2 rounded-md border border-border bg-foreground/10 px-3 py-2"
                 >
                   <div className="min-w-0 flex-1">
                     <Badge variant="outline" size="sm">
                       {d.doc_type}
                     </Badge>
-                    <span className="ml-2 text-xs text-muted-fg">
+                    <span className="ml-2 text-xs text-muted">
                       {d.storage_path.split('/').slice(-1)[0]}
                     </span>
                   </div>
-                  <span className="text-xs text-muted-fg">
+                  <span className="text-xs text-muted">
                     {format(new Date(d.uploaded_at), 'PP')}
                   </span>
                 </li>
               ))}
             </ul>
-            <p className="mt-3 text-xs text-muted-fg">
+            <p className="mt-3 text-xs text-muted">
               <Link
                 href={`/vendors/${vendor.id}/compliance`}
                 className="font-medium text-primary hover:underline"
@@ -261,25 +261,10 @@ export default async function VendorDetailPage({
             <CardTitle className="text-base">Notes</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="whitespace-pre-wrap text-sm text-muted">{vendor.notes}</p>
+            <p className="whitespace-pre-wrap text-sm text-foreground">{vendor.notes}</p>
           </CardContent>
         </Card>
       ) : null}
-    </div>
-  )
-}
-
-function KV({ label, value }: { label: string; value: string | number | null }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <span className="text-xs text-muted-fg">{label}</span>
-      <span className="truncate text-right">
-        {value == null || value === '' ? (
-          <span className="text-muted-fg">—</span>
-        ) : (
-          value
-        )}
-      </span>
     </div>
   )
 }

@@ -11,7 +11,7 @@ export function SidebarBrand({
   return (
     <div
       className={cn(
-        'flex h-14 items-center gap-2 border-b border-border px-4 text-base font-semibold text-muted',
+        'flex h-14 items-center gap-2 border-b border-border px-4 text-base font-semibold text-foreground',
         className,
       )}
     >
@@ -53,7 +53,7 @@ export const NavItem = React.forwardRef<HTMLAnchorElement, NavItemProps>(
           'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
           active
             ? 'bg-primary/10 text-primary'
-            : 'text-muted-fg hover:bg-background hover:text-muted',
+            : 'text-muted hover:bg-background hover:text-foreground',
           className,
         )}
         aria-current={active ? 'page' : undefined}
@@ -95,7 +95,7 @@ export function SidebarSection({
   return (
     <div className={cn('mb-2 mt-3 first:mt-0', className)}>
       {label ? (
-        <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wide text-muted-fg/70">
+        <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wide text-muted/70">
           {label}
         </p>
       ) : null}

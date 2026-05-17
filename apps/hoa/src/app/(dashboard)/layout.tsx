@@ -6,11 +6,12 @@ import {
   AppShellMain,
   AppShellSidebar,
 } from '@homeowner-portal/ui'
-import { getCurrentOrg, getUserHubs } from '@/lib/orgs'
+import { getCurrentOrg, getUserHoaOrgs, getUserHubs } from '@/lib/orgs'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { HoaSidebar } from '@/components/layout/HoaSidebar'
 import { HoaHubSwitcher } from '@/components/layout/HoaHubSwitcher'
+import { DashboardProviders } from '@/components/layout/DashboardProviders'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await getSupabaseServerClient()
@@ -19,7 +20,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [org, userHubs] = await Promise.all([getCurrentOrg(), getUserHubs()])
+  const [org, userHubs, hoaOrgs] = await Promise.all([
+    getCurrentOrg(),
+    getUserHubs(),
+    getUserHoaOrgs(),
+  ])
   if (!org) redirect('/onboarding')
 
   // RBAC: residents land on /resident; board/admin continue here. Anyone
@@ -30,18 +35,25 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!role) redirect('/onboarding')
 
   return (
-    <AppShell>
-      <AppShellSidebar>
-        <HoaSidebar orgName={org.name} userEmail={user.email ?? ''} />
-      </AppShellSidebar>
-      <AppShellMain>
-        <AppShellHeader>
-          <div className="ml-auto">
-            <HoaHubSwitcher userHubs={userHubs} />
-          </div>
-        </AppShellHeader>
-        <AppShellContent>{children}</AppShellContent>
-      </AppShellMain>
-    </AppShell>
+    <DashboardProviders>
+      <AppShell>
+        <AppShellSidebar>
+          <HoaSidebar
+            currentOrgId={org.id}
+            currentOrgName={org.name}
+            hoaOrgs={hoaOrgs}
+            userEmail={user.email ?? ''}
+          />
+        </AppShellSidebar>
+        <AppShellMain>
+          <AppShellHeader>
+            <div className="ml-auto">
+              <HoaHubSwitcher userHubs={userHubs} />
+            </div>
+          </AppShellHeader>
+          <AppShellContent>{children}</AppShellContent>
+        </AppShellMain>
+      </AppShell>
+    </DashboardProviders>
   )
 }

@@ -21,7 +21,7 @@ export function PerCasePayButton({ caseId }: { caseId: string }) {
       <Button onClick={handleClick} loading={pending} variant="default">
         Pay $249 to file
       </Button>
-      <p className="text-xs text-muted-fg">
+      <p className="text-xs text-muted">
         Per-case billing. Skip this if your workspace is on the Unlimited plan.
       </p>
       {error ? (

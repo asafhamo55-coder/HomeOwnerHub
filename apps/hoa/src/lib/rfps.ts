@@ -192,7 +192,23 @@ export async function createRfpDraft(
       unit: li.unit ?? null,
       notes: li.notes ?? null,
     }))
-    await supabase.from('rfp_line_items' as never).insert(itemRows as never)
+    const { error: linesErr } = await supabase
+      .from('rfp_line_items' as never)
+      .insert(itemRows as never)
+    if (linesErr) {
+      // Line-items failed but the RFP row exists. `publishRfp` will
+      // refuse the draft until at least one line item lands, so the
+      // manager will see an actionable error rather than a silent
+      // half-saved draft. Surface the underlying message so support
+      // can diagnose.
+      console.error('[rfps.createRfpDraft] line items insert failed', linesErr.message)
+      return {
+        ok: false,
+        error: `Saved the draft, but ${output.lineItems.length} line item${
+          output.lineItems.length === 1 ? '' : 's'
+        } didn't save: ${linesErr.message}. Re-open the draft and re-enter them.`,
+      }
+    }
   }
 
   revalidatePath('/rfps')

@@ -1,7 +1,5 @@
-import Link from 'next/link'
-import { ArrowRight, AlertTriangle, ClipboardCheck, Wallet } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, Badge } from '@homeowner-portal/ui'
-import type { DashboardStats } from '@/lib/dashboard/queries'
+import { AlertTriangle, ClipboardCheck, Wallet } from 'lucide-react'
+import { Badge, StatCard } from '@homeowner-portal/ui'
 
 function currency(n: number): string {
   return n.toLocaleString('en-US', {
@@ -13,33 +11,15 @@ function currency(n: number): string {
 
 export function PendingApprovalsCard({ count }: { count: number }) {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-fg">
-          <ClipboardCheck className="h-4 w-4" />
-          Action required
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div>
-          <p className="text-3xl font-bold text-muted">{count}</p>
-          <p className="text-sm text-muted-fg">
-            {count === 1 ? 'item needs approval' : 'items need approval'}
-          </p>
-        </div>
-        {count > 0 ? (
-          <Link
-            href="/violations?filter=pending-approval"
-            className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-          >
-            Review now
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        ) : (
-          <p className="text-xs text-muted-fg">Inbox zero. Nothing waiting on you.</p>
-        )}
-      </CardContent>
-    </Card>
+    <StatCard
+      icon={<ClipboardCheck className="h-4 w-4" />}
+      label="Action required"
+      value={count}
+      meta={count === 1 ? 'item needs approval' : 'items need approval'}
+      href="/violations?filter=pending-approval"
+      cta={count > 0 ? 'Review now →' : undefined}
+      emptyState={count === 0 ? 'Inbox zero. Nothing waiting on you.' : null}
+    />
   )
 }
 
@@ -51,32 +31,21 @@ export function ViolationSummaryCard({
   overdue: number
 }) {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-fg">
-          <AlertTriangle className="h-4 w-4" />
-          Violations
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-baseline gap-3">
-          <p className="text-3xl font-bold text-muted">{open}</p>
-          <p className="text-sm text-muted-fg">open</p>
-          {overdue > 0 ? (
-            <Badge variant="destructive" size="sm">
-              {overdue} overdue
-            </Badge>
-          ) : null}
-        </div>
-        <Link
-          href="/violations"
-          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-        >
-          View all
-          <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
-      </CardContent>
-    </Card>
+    <StatCard
+      icon={<AlertTriangle className="h-4 w-4" />}
+      label="Violations"
+      value={open}
+      meta="open"
+      valueExtra={
+        overdue > 0 ? (
+          <Badge variant="destructive" size="sm">
+            {overdue} overdue
+          </Badge>
+        ) : null
+      }
+      href="/violations"
+      cta="View all →"
+    />
   )
 }
 
@@ -88,32 +57,19 @@ export function DuesOverviewCard({
   propertiesBehind: number
 }) {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-fg">
-          <Wallet className="h-4 w-4" />
-          Dues overdue
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div>
-          <p className="text-3xl font-bold text-muted">{currency(amount)}</p>
-          <p className="text-sm text-muted-fg">
-            {propertiesBehind === 0
-              ? 'No properties behind'
-              : propertiesBehind === 1
-                ? '1 property behind'
-                : `${propertiesBehind} properties behind`}
-          </p>
-        </div>
-        <Link
-          href="/dues"
-          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-        >
-          View ledger
-          <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
-      </CardContent>
-    </Card>
+    <StatCard
+      icon={<Wallet className="h-4 w-4" />}
+      label="Dues overdue"
+      value={currency(amount)}
+      meta={
+        propertiesBehind === 0
+          ? 'No properties behind'
+          : propertiesBehind === 1
+            ? '1 property behind'
+            : `${propertiesBehind} properties behind`
+      }
+      href="/dues"
+      cta="View ledger →"
+    />
   )
 }

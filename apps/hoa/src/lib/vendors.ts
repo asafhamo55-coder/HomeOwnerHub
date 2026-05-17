@@ -484,7 +484,22 @@ export async function deleteVendorDocument(
 
   if (!doc) return { ok: false, error: 'Document not found.' }
 
-  await supabase.storage.from('hoa-documents').remove([doc.storage_path])
+  // Storage delete must succeed BEFORE the DB row is removed. If the
+  // file remove fails and we'd already nuked the row, the PDF (which
+  // may contain PII — COI, W-9, license) would be orphaned in the
+  // bucket with no metadata to find it again. Better to leave both
+  // in place and surface a retryable error.
+  const { error: storageErr } = await supabase.storage
+    .from('hoa-documents')
+    .remove([doc.storage_path])
+  if (storageErr) {
+    console.error('[vendors] storage remove failed', storageErr)
+    return {
+      ok: false,
+      error:
+        'Could not remove the document file. Try again or contact support.',
+    }
+  }
 
   const { error } = await supabase
     .from('vendor_documents' as never)

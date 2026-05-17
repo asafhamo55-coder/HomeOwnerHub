@@ -77,10 +77,14 @@ export const stateLawBrain = defineWorkflow({
   outputSchema: StateLawBrainOutputSchema,
 
   async run(input, api, _ctx) {
-    const retrieved = await retrieveStatuteChunks(input.question, {
-      state: input.state,
-      limit: 8,
-    })
+    const retrieved = await retrieveStatuteChunks(
+      input.question,
+      {
+        state: input.state,
+        limit: 8,
+      },
+      api,
+    )
 
     if (retrieved.length === 0) {
       api.setConfidence(0)
@@ -112,7 +116,7 @@ export const stateLawBrain = defineWorkflow({
     api.setModel(completion.model)
 
     const raw = completion.choices[0]?.message?.content ?? '{}'
-    const parsed = parseModelJson(raw)
+    const parsed = parseModelJson(raw, api)
 
     const confidence = normalizeConfidence(parsed.confidence)
     api.setConfidence(
@@ -159,7 +163,12 @@ export async function askStateLaw(
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
-function parseModelJson(raw: string): {
+function parseModelJson(
+  raw: string,
+  // api param kept positional for symmetry; the workflow runtime captures
+  // console output, so we don't need its logger here.
+  _api?: unknown,
+): {
   answer?: string
   confidence?: string
   cited_chunk_ids?: string[]
@@ -167,10 +176,11 @@ function parseModelJson(raw: string): {
   try {
     const parsed = JSON.parse(raw)
     if (parsed && typeof parsed === 'object') return parsed
-  } catch {
-    /* fall through */
+    throw new Error('parsed value is not an object')
+  } catch (err) {
+    console.error('[W30] model response parse failed', { error: String(err) })
+    throw new Error('The model returned an unparseable response. Please retry.')
   }
-  return {}
 }
 
 function normalizeConfidence(v: unknown): 'HIGH' | 'MEDIUM' | 'LOW' {

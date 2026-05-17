@@ -102,13 +102,13 @@ export function AskStateLawClient({ state }: { state: 'GA' | 'FL' | 'CA' | 'TX' 
               >
                 Ask
               </Button>
-              <span className="text-xs text-muted-fg">
+              <span className="text-xs text-muted">
                 Try:{' '}
                 {(SAMPLE_QUESTIONS[state] ?? []).map((q, i, arr) => (
                   <button
                     key={q}
                     type="button"
-                    className="underline underline-offset-2 hover:text-muted"
+                    className="underline underline-offset-2 hover:text-foreground"
                     onClick={() => setQuestion(q)}
                   >
                     {q}
@@ -142,7 +142,7 @@ export function AskStateLawClient({ state }: { state: 'GA' | 'FL' | 'CA' | 'TX' 
 
             {response.citations.length > 0 ? (
               <div className="space-y-1.5 border-t border-border pt-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-fg">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted">
                   Citations
                 </p>
                 <ul className="space-y-1 text-xs">
@@ -153,7 +153,7 @@ export function AskStateLawClient({ state }: { state: 'GA' | 'FL' | 'CA' | 'TX' 
                       </Badge>
                       <a
                         href={`/legal/browse/${c.statuteId}`}
-                        className="truncate text-muted-fg hover:text-muted hover:underline"
+                        className="truncate text-muted hover:text-foreground hover:underline"
                       >
                         {c.title}
                       </a>
@@ -167,7 +167,7 @@ export function AskStateLawClient({ state }: { state: 'GA' | 'FL' | 'CA' | 'TX' 
               <span className="block text-xs">{response.disclaimer}</span>
             </Alert>
 
-            <p className="text-[10px] font-mono text-muted-fg/70">
+            <p className="text-[10px] font-mono text-muted/70">
               run id: {response.runId}
             </p>
           </CardContent>

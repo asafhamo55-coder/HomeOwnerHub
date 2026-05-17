@@ -44,7 +44,7 @@ export default async function BidDetailPage({
     <div className="mx-auto max-w-4xl space-y-6">
       <Link
         href={`/rfps/${rfpId}/bids`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
+        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to bids
@@ -52,8 +52,8 @@ export default async function BidDetailPage({
 
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-muted">{bid.vendor_legal_name}</h1>
-          <p className="text-sm text-muted-fg">
+          <h1 className="text-2xl font-bold text-foreground">{bid.vendor_legal_name}</h1>
+          <p className="text-sm text-muted">
             {bid.submitted_at
               ? `Submitted ${format(new Date(bid.submitted_at), 'PPp')}`
               : 'Draft'}
@@ -129,9 +129,10 @@ export default async function BidDetailPage({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs text-muted-fg">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                <tr className="text-left text-xs text-muted">
                   <th className="pb-2">Description</th>
                   <th className="pb-2 text-right">Qty</th>
                   <th className="pb-2 text-right">Unit $</th>
@@ -144,7 +145,7 @@ export default async function BidDetailPage({
                     <td className="py-2 pr-3">
                       {li.description}
                       {li.notes ? (
-                        <span className="block text-xs text-muted-fg">{li.notes}</span>
+                        <span className="block text-xs text-muted">{li.notes}</span>
                       ) : null}
                       {li.is_excluded ? (
                         <Badge variant="destructive" size="sm" className="ml-2">
@@ -169,7 +170,8 @@ export default async function BidDetailPage({
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           </CardContent>
         </Card>
       ) : null}
@@ -180,10 +182,10 @@ export default async function BidDetailPage({
 function KV({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <span className="text-xs text-muted-fg">{label}</span>
+      <span className="text-xs text-muted">{label}</span>
       <span className="truncate text-right">
         {value == null || value === '' ? (
-          <span className="text-muted-fg">—</span>
+          <span className="text-muted">—</span>
         ) : (
           value
         )}

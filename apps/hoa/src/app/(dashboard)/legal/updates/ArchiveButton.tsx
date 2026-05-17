@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Archive, ArchiveRestore } from 'lucide-react'
-import { Button } from '@homeowner-portal/ui'
+import { Button, useConfirm, useToast } from '@homeowner-portal/ui'
 import { archiveLawUpdate, unarchiveLawUpdate } from '@/lib/state-law'
 
 export function ArchiveButton({
@@ -14,14 +14,22 @@ export function ArchiveButton({
   archived: boolean
 }) {
   const router = useRouter()
+  const confirm = useConfirm()
+  const toast = useToast()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  function handleClick() {
-    if (archived) {
-      if (!window.confirm('Restore this update to the feed?')) return
-    } else {
-      if (!window.confirm('Archive this update? It will stop appearing in the feed.')) return
+  async function handleClick() {
+    // Restore is non-destructive — go straight through without a confirm.
+    if (!archived) {
+      const ok = await confirm({
+        title: 'Archive this update?',
+        description:
+          'It will be hidden from the active list. You can restore it later.',
+        confirmLabel: 'Archive',
+        destructive: true,
+      })
+      if (!ok) return
     }
     setError(null)
     startTransition(async () => {
@@ -30,8 +38,13 @@ export function ArchiveButton({
         : await archiveLawUpdate(updateId)
       if (!result.ok) {
         setError(result.error)
+        toast({ tone: 'error', message: result.error })
         return
       }
+      toast({
+        tone: 'success',
+        message: archived ? 'Update restored to the active list.' : 'Update archived.',
+      })
       router.refresh()
     })
   }

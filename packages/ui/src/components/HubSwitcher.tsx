@@ -61,7 +61,7 @@ export function HubSwitcher({ current, hubs }: HubSwitcherProps) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-background"
+        className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-background"
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -71,7 +71,7 @@ export function HubSwitcher({ current, hubs }: HubSwitcherProps) {
         <span className="hidden sm:inline">
           {currentHub?.label ?? labelFor(current)}
         </span>
-        <ChevronDown className="h-3.5 w-3.5 text-muted-fg" aria-hidden />
+        <ChevronDown className="h-3.5 w-3.5 text-muted" aria-hidden />
       </button>
 
       {open ? (
@@ -79,7 +79,7 @@ export function HubSwitcher({ current, hubs }: HubSwitcherProps) {
           role="menu"
           className="absolute right-0 z-30 mt-1 w-64 overflow-hidden rounded-lg border border-border bg-surface shadow-lg"
         >
-          <p className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-fg">
+          <p className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
             Switch hub
           </p>
           <ul className="py-1">
@@ -94,8 +94,8 @@ export function HubSwitcher({ current, hubs }: HubSwitcherProps) {
                         <Icon className="h-4 w-4" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-muted">{h.label}</p>
-                        <p className="truncate text-xs text-muted-fg">
+                        <p className="truncate font-medium text-foreground">{h.label}</p>
+                        <p className="truncate text-xs text-muted">
                           {h.orgName ?? 'Active'} · current
                         </p>
                       </div>
@@ -107,16 +107,16 @@ export function HubSwitcher({ current, hubs }: HubSwitcherProps) {
                         'flex items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-background',
                       )}
                     >
-                      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-muted-fg/10 text-muted-fg">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-muted/10 text-muted">
                         <Icon className="h-4 w-4" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-muted">{h.label}</p>
-                        <p className="truncate text-xs text-muted-fg">
+                        <p className="truncate font-medium text-foreground">{h.label}</p>
+                        <p className="truncate text-xs text-muted">
                           {h.orgName ?? 'Sign in to set up'}
                         </p>
                       </div>
-                      <ExternalLink className="h-3.5 w-3.5 text-muted-fg" aria-hidden />
+                      <ExternalLink className="h-3.5 w-3.5 text-muted" aria-hidden />
                     </a>
                   )}
                 </li>

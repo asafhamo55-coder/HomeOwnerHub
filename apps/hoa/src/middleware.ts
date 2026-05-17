@@ -15,6 +15,12 @@ const PUBLIC_PREFIXES = [
   '/api/rfp-bid',
 ]
 
+// Dev-only escape hatch: set DEV_AUTOLOGIN=1 in .env.local to skip the
+// /login screen entirely. Unauth requests get bounced through
+// /auth/dev-login, which signs in DEV_AUTOLOGIN_EMAIL via service-role
+// and continues to the original destination. NEVER enable in prod.
+const DEV_AUTOLOGIN = process.env.DEV_AUTOLOGIN === '1'
+
 export async function middleware(request: NextRequest) {
   const { user, response } = await updateSession(request)
 
@@ -22,7 +28,8 @@ export async function middleware(request: NextRequest) {
   const isPublic = PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))
 
   if (!user && !isPublic) {
-    const loginUrl = new URL('/login', request.url)
+    const target = DEV_AUTOLOGIN ? '/auth/dev-login' : '/login'
+    const loginUrl = new URL(target, request.url)
     if (path !== '/') loginUrl.searchParams.set('redirect', path)
     return NextResponse.redirect(loginUrl)
   }

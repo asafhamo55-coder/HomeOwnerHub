@@ -1,17 +1,25 @@
 import Link from 'next/link'
 import { FileSpreadsheet, Plus, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Button, Card, EmptyState } from '@homeowner-portal/ui'
+import { Badge, Button, Card, EmptyState, StatusBadge } from '@homeowner-portal/ui'
 import { listRfps, type RfpStatus } from '@/lib/rfps'
 
 export const metadata = { title: 'RFPs' }
 
-const STATUS_VARIANT: Record<RfpStatus, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
-  draft: 'outline',
+const RFP_STATUS_TONES: Record<RfpStatus, 'neutral' | 'success' | 'warning' | 'destructive'> = {
+  draft: 'neutral',
   open: 'success',
   evaluation: 'warning',
   awarded: 'success',
   cancelled: 'destructive',
+}
+
+const RFP_STATUS_LABELS: Record<RfpStatus, string> = {
+  draft: 'Draft',
+  open: 'Open',
+  evaluation: 'In evaluation',
+  awarded: 'Awarded',
+  cancelled: 'Cancelled',
 }
 
 export default async function RfpsListPage() {
@@ -21,8 +29,8 @@ export default async function RfpsListPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-muted">RFPs</h1>
-          <p className="text-sm text-muted-fg">
+          <h1>RFPs</h1>
+          <p className="text-sm text-muted">
             Requests for proposal. Describe the need; the RFP Composer
             workflow drafts a structured document, you edit and publish.
           </p>
@@ -59,8 +67,8 @@ export default async function RfpsListPage() {
                   className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-background/50"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-muted">{r.title}</p>
-                    <p className="text-xs text-muted-fg">
+                    <p className="truncate font-medium text-foreground">{r.title}</p>
+                    <p className="text-xs text-muted">
                       <span className="font-mono">{r.rfp_number}</span>
                       {' · deadline '}
                       {format(new Date(r.submission_deadline), 'PP')}
@@ -74,14 +82,16 @@ export default async function RfpsListPage() {
                   </div>
                   <div className="flex flex-shrink-0 items-center gap-2">
                     {r.ai_generated ? (
-                      <Badge variant="outline" size="sm">
+                      <Badge variant="ai" size="sm">
                         <Sparkles className="mr-1 h-3 w-3" />
                         AI draft
                       </Badge>
                     ) : null}
-                    <Badge variant={STATUS_VARIANT[r.status]} size="sm">
-                      {r.status}
-                    </Badge>
+                    <StatusBadge
+                      status={r.status}
+                      tones={RFP_STATUS_TONES}
+                      labels={RFP_STATUS_LABELS}
+                    />
                   </div>
                 </Link>
               </li>

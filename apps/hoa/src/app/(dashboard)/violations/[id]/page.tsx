@@ -1,8 +1,16 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import {
+  BackLink,
+  Badge,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  KeyValue,
+  KeyValueList,
+  PageHeader,
+} from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 interface ViolationDetail {
@@ -51,25 +59,26 @@ export default async function ViolationDetailPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <Link
-        href="/violations"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to violations
-      </Link>
+      <BackLink href="/violations" label="All violations" />
 
-      <header className="space-y-2">
-        <h1 className="text-2xl font-bold text-muted">{v.description}</h1>
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-fg">
-          <span>{v.property?.address ?? 'Property unknown'}</span>
-          {v.property?.unit_number ? <span>· {v.property.unit_number}</span> : null}
-          {v.ccr_section ? <span>· {v.ccr_section}</span> : null}
-          <Badge variant={v.status === 'resolved' ? 'success' : overdue ? 'destructive' : 'warning'} size="sm">
+      <PageHeader
+        title={v.description}
+        description={
+          <>
+            {v.property?.address ?? 'Property unknown'}
+            {v.property?.unit_number ? <> · {v.property.unit_number}</> : null}
+            {v.ccr_section ? <> · {v.ccr_section}</> : null}
+          </>
+        }
+        actions={
+          <Badge
+            variant={v.status === 'resolved' ? 'success' : overdue ? 'destructive' : 'warning'}
+            size="sm"
+          >
             {overdue ? 'overdue' : v.status.replace('_', ' ')}
           </Badge>
-        </div>
-      </header>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="md:col-span-2">
@@ -78,11 +87,11 @@ export default async function ViolationDetailPage({
           </CardHeader>
           <CardContent>
             {v.approved_letter ? (
-              <pre className="whitespace-pre-wrap rounded-lg border border-border bg-background p-4 font-mono text-xs leading-relaxed text-muted">
+              <pre className="whitespace-pre-wrap rounded-lg border border-border bg-background p-4 font-mono text-xs leading-relaxed text-foreground">
                 {v.approved_letter}
               </pre>
             ) : (
-              <p className="text-sm text-muted-fg">No approved letter on file.</p>
+              <p className="text-sm text-muted">No approved letter on file.</p>
             )}
           </CardContent>
         </Card>
@@ -91,29 +100,39 @@ export default async function ViolationDetailPage({
           <CardHeader>
             <CardTitle className="text-base">Timeline</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <Row label="Reported">
-              {v.created_at ? format(new Date(v.created_at), 'PPp') : '—'}
-            </Row>
-            <Row label="Approved">
-              {v.approved_at ? format(new Date(v.approved_at), 'PPp') : '—'}
-            </Row>
-            <Row label="Notice sent">
-              {v.notice_sent_at ? format(new Date(v.notice_sent_at), 'PPp') : '—'}
-            </Row>
-            <Row label="Cure deadline">
-              {cureDeadline ? format(cureDeadline, 'PP') : '—'}
-            </Row>
-            <Row label="Daily fine">
-              {v.fine_amount != null ? `$${v.fine_amount}/day` : '—'}
-            </Row>
-            {v.severity ? (
-              <Row label="Severity">
-                <Badge variant="outline" size="sm">
-                  {v.severity}
-                </Badge>
-              </Row>
-            ) : null}
+          <CardContent>
+            <KeyValueList className="sm:grid-cols-1">
+              <KeyValue
+                label="Reported"
+                value={v.created_at ? format(new Date(v.created_at), 'PPp') : null}
+              />
+              <KeyValue
+                label="Approved"
+                value={v.approved_at ? format(new Date(v.approved_at), 'PPp') : null}
+              />
+              <KeyValue
+                label="Notice sent"
+                value={v.notice_sent_at ? format(new Date(v.notice_sent_at), 'PPp') : null}
+              />
+              <KeyValue
+                label="Cure deadline"
+                value={cureDeadline ? format(cureDeadline, 'PP') : null}
+              />
+              <KeyValue
+                label="Daily fine"
+                value={v.fine_amount != null ? `$${v.fine_amount}/day` : null}
+              />
+              {v.severity ? (
+                <KeyValue
+                  label="Severity"
+                  value={
+                    <Badge variant="outline" size="sm">
+                      {v.severity}
+                    </Badge>
+                  }
+                />
+              ) : null}
+            </KeyValueList>
           </CardContent>
         </Card>
       </div>
@@ -141,11 +160,3 @@ export default async function ViolationDetailPage({
   )
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-xs uppercase tracking-wide text-muted-fg">{label}</span>
-      <span className="text-right text-muted">{children}</span>
-    </div>
-  )
-}

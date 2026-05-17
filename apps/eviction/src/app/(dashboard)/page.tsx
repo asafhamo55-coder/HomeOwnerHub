@@ -72,8 +72,8 @@ export default async function CasesHomePage() {
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-muted">Cases</h1>
-          <p className="text-sm text-muted-fg">
+          <h1 className="text-2xl font-bold text-foreground">Cases</h1>
+          <p className="text-sm text-muted">
             {cases.length} {cases.length === 1 ? 'case' : 'cases'} in {org.name}
           </p>
         </div>
@@ -107,13 +107,13 @@ export default async function CasesHomePage() {
             {byColumn.map((col) => (
               <div key={col.id} className="w-72 flex-shrink-0 md:w-auto">
                 <div className="mb-2 flex items-center justify-between px-1">
-                  <h2 className="text-sm font-semibold text-muted">{col.label}</h2>
-                  <span className="text-xs text-muted-fg">{col.cases.length}</span>
+                  <h2 className="text-sm font-semibold text-foreground">{col.label}</h2>
+                  <span className="text-xs text-muted">{col.cases.length}</span>
                 </div>
-                <p className="mb-3 px-1 text-[11px] text-muted-fg">{col.description}</p>
+                <p className="mb-3 px-1 text-[11px] text-muted">{col.description}</p>
                 <div className="space-y-2">
                   {col.cases.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-border bg-surface px-3 py-4 text-center text-xs text-muted-fg">
+                    <div className="rounded-lg border border-dashed border-border bg-surface px-3 py-4 text-center text-xs text-muted">
                       Empty
                     </div>
                   ) : (
@@ -145,11 +145,11 @@ function CaseCard({
       href={`/cases/${c.id}`}
       className="block rounded-lg border border-border bg-surface p-3 transition-colors hover:border-primary/40 hover:bg-primary/5"
     >
-      <p className="truncate text-sm font-medium text-muted">{c.property_address}</p>
-      <p className="mt-0.5 truncate text-xs text-muted-fg">
+      <p className="truncate text-sm font-medium text-foreground">{c.property_address}</p>
+      <p className="mt-0.5 truncate text-xs text-muted">
         {c.tenant_name ?? 'Tenant unknown'}
       </p>
-      <div className="mt-2 flex items-center gap-2 text-xs text-muted-fg">
+      <div className="mt-2 flex items-center gap-2 text-xs text-muted">
         <Badge variant="outline" size="sm">
           {formatCounty(c.county)}, {c.state}
         </Badge>

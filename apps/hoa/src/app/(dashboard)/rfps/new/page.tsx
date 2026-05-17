@@ -10,15 +10,15 @@ export default function NewRfpPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <Link
         href="/rfps"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
+        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to RFPs
       </Link>
 
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold text-muted">Draft an RFP</h1>
-        <p className="text-sm text-muted-fg">
+        <h1>Draft an RFP</h1>
+        <p className="text-sm text-muted">
           Describe what your association needs and the RFP Composer
           (W22) turns it into a structured document — scope, line items,
           evaluation criteria, insurance requirements pulled from your

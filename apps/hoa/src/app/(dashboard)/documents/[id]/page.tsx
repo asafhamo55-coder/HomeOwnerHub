@@ -4,7 +4,12 @@ import { ArrowLeft, FileText } from 'lucide-react'
 import { format } from 'date-fns'
 import { Badge, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import {
+  listDocumentVersions,
+  signedDownloadUrl,
+} from '@/lib/documents'
 import { ParsedTextEditor } from './ParsedTextEditor'
+import { DocumentActions } from './DocumentActions'
 
 interface DocDetailRow {
   id: string
@@ -52,11 +57,32 @@ export default async function DocumentDetailPage({
     .from('hoa-documents')
     .createSignedUrl(doc.storage_path, 3600)
 
+  // Version history + per-version download URLs. Catches the "missing
+  // table" case cleanly when 0010 hasn't been applied — list returns
+  // [] rather than throwing.
+  let versions: Awaited<ReturnType<typeof listDocumentVersions>> = []
+  try {
+    versions = await listDocumentVersions(doc.id)
+  } catch {
+    versions = []
+  }
+  const versionItems = await Promise.all(
+    versions.map(async (v) => ({
+      id: v.id,
+      versionNumber: v.version_number,
+      name: v.name,
+      fileSize: v.file_size,
+      reason: v.reason,
+      createdAt: v.created_at,
+      downloadUrl: await signedDownloadUrl(v.storage_path),
+    })),
+  )
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <Link
         href="/documents"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-fg hover:text-muted"
+        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to documents
@@ -64,8 +90,8 @@ export default async function DocumentDetailPage({
 
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-bold text-muted">{doc.name}</h1>
-          <p className="text-sm text-muted-fg">
+          <h1 className="truncate">{doc.name}</h1>
+          <p className="text-sm text-muted">
             {TYPE_LABEL[doc.type] ?? doc.type}
             {doc.created_at ? ` · uploaded ${format(new Date(doc.created_at), 'PP')}` : ''}
           </p>
@@ -81,7 +107,7 @@ export default async function DocumentDetailPage({
               href={signed.signedUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted hover:bg-background"
+              className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-background"
             >
               <FileText className="h-4 w-4" />
               Open file
@@ -102,6 +128,8 @@ export default async function DocumentDetailPage({
           />
         </CardContent>
       </Card>
+
+      <DocumentActions documentId={doc.id} versions={versionItems} />
     </div>
   )
 }

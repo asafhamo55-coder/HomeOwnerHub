@@ -6,7 +6,7 @@ export interface WizardStep {
   id: string
   label: string
   description?: string
-  /** Status — 'done' shows a check, 'current' is highlighted, 'upcoming' is muted. */
+  /** Status — 'done' shows a check, 'current' is highlighted, 'upcoming' is dimmed. */
   status?: 'done' | 'current' | 'upcoming'
 }
 
@@ -69,8 +69,8 @@ export function WizardStepper({
     return (
       <div className={cn('space-y-2', className)}>
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-muted">{stepLabel}</p>
-          <p className="text-xs text-muted-fg">{percent}% complete</p>
+          <p className="text-sm font-medium text-foreground">{stepLabel}</p>
+          <p className="text-xs text-muted">{percent}% complete</p>
         </div>
         <div className="flex gap-1">
           {resolved.map((s) => (
@@ -86,7 +86,7 @@ export function WizardStepper({
             />
           ))}
         </div>
-        <p className="text-xs text-muted-fg">
+        <p className="text-xs text-muted">
           {resolved[currentIdx === -1 ? Math.max(0, doneCount - 1) : currentIdx]?.label}
         </p>
       </div>
@@ -96,8 +96,8 @@ export function WizardStepper({
   return (
     <div className={cn('space-y-3', className)}>
       <div className="flex items-baseline justify-between">
-        <p className="text-sm font-semibold text-muted">Workflow</p>
-        <p className="text-xs text-muted-fg">
+        <p className="text-sm font-semibold text-foreground">Workflow</p>
+        <p className="text-xs text-muted">
           {stepLabel} · {percent}%
         </p>
       </div>
@@ -113,7 +113,7 @@ export function WizardStepper({
                     ? 'border-emerald-300 bg-emerald-100 text-emerald-700'
                     : s.status === 'current'
                       ? 'border-primary bg-primary text-primary-fg'
-                      : 'border-border bg-surface text-muted-fg',
+                      : 'border-border bg-surface text-muted',
                 )}
               >
                 {s.status === 'done' ? <Check className="h-3.5 w-3.5" /> : i + 1}
@@ -132,13 +132,13 @@ export function WizardStepper({
               <p
                 className={cn(
                   'text-sm font-medium',
-                  s.status === 'upcoming' ? 'text-muted-fg' : 'text-muted',
+                  s.status === 'upcoming' ? 'text-muted' : 'text-foreground',
                 )}
               >
                 {s.label}
               </p>
               {s.description ? (
-                <p className="text-xs text-muted-fg">{s.description}</p>
+                <p className="text-xs text-muted">{s.description}</p>
               ) : null}
             </div>
           </li>

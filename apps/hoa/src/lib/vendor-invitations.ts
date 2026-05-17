@@ -62,7 +62,15 @@ export interface CreateInvitationInput {
 
 export async function createInvitation(
   input: CreateInvitationInput,
-): Promise<ActionResult<{ invitationId: string; token: string; link: string }>> {
+): Promise<
+  ActionResult<{
+    invitationId: string
+    token: string
+    link: string
+    emailSent: boolean
+    emailError?: string
+  }>
+> {
   const parsed = CreateSchema.safeParse({
     invitee_email: input.inviteeEmail,
     invitee_name: input.inviteeName ?? null,
@@ -123,12 +131,23 @@ export async function createInvitation(
   })
 
   if (!send.ok) {
-    // Don't roll back the invitation — the manager can resend / copy the link.
-    console.warn('[invitation] email send failed', send.error)
+    // Keep the invitation row — the manager can copy the link below —
+    // but report emailSent=false so the UI says so plainly instead of
+    // claiming "We've emailed the vendor."
+    console.error('[invitation] email send failed', send.error)
   }
 
   revalidatePath('/vendors/invitations')
-  return { ok: true, data: { invitationId: row.id, token, link } }
+  return {
+    ok: true,
+    data: {
+      invitationId: row.id,
+      token,
+      link,
+      emailSent: send.ok,
+      emailError: send.ok ? undefined : send.error,
+    },
+  }
 }
 
 export async function revokeInvitation(id: string): Promise<ActionResult> {

@@ -1,10 +1,24 @@
 import Link from 'next/link'
 import { CalendarDays, Plus } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Button, Card, EmptyState } from '@homeowner-portal/ui'
+import { Button, Card, EmptyState, StatusBadge } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Meetings' }
+
+const MEETING_STATUS_TONES: Record<string, 'success' | 'warning' | 'neutral' | 'outline'> = {
+  draft: 'neutral',
+  in_progress: 'warning',
+  approved: 'success',
+  archived: 'neutral',
+}
+
+const MEETING_STATUS_LABELS: Record<string, string> = {
+  draft: 'Draft',
+  in_progress: 'In progress',
+  approved: 'Approved',
+  archived: 'Archived',
+}
 
 interface MeetingRow {
   id: string
@@ -30,8 +44,8 @@ export default async function MeetingsPage() {
     <div className="mx-auto max-w-4xl space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-muted">Meetings</h1>
-          <p className="text-sm text-muted-fg">
+          <h1>Meetings</h1>
+          <p className="text-sm text-muted">
             Paste a transcript, get an AI-drafted minutes, approve it through BarBGate.
           </p>
         </div>
@@ -64,26 +78,29 @@ export default async function MeetingsPage() {
               <li key={m.id} className="px-4 py-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="font-medium text-muted">
+                    <p className="font-medium text-foreground">
                       {format(new Date(m.meeting_date), 'PPP')}
                       {m.meeting_type ? (
-                        <span className="ml-2 text-xs font-normal text-muted-fg">
+                        <span className="ml-2 text-xs font-normal text-muted">
                           · {m.meeting_type}
                         </span>
                       ) : null}
                     </p>
-                    <p className="mt-1 text-xs text-muted-fg">
+                    <p className="mt-1 text-xs text-muted">
                       {m.attendees && m.attendees.length > 0
                         ? `${m.attendees.length} attendees`
                         : 'No attendee list'}
                     </p>
                   </div>
-                  <Badge variant={m.status === 'approved' ? 'success' : 'outline'} size="sm">
-                    {m.status ?? 'draft'}
-                  </Badge>
+                  <StatusBadge
+                    status={m.status ?? 'draft'}
+                    tones={MEETING_STATUS_TONES}
+                    labels={MEETING_STATUS_LABELS}
+                    size="sm"
+                  />
                 </div>
                 {m.ai_summary ? (
-                  <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm text-muted-fg">
+                  <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm text-muted">
                     {m.ai_summary}
                   </p>
                 ) : null}

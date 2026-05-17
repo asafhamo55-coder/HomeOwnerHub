@@ -7,6 +7,8 @@ const cardVariants = cva('rounded-xl bg-surface', {
     variant: {
       default: 'border border-border',
       elevated: 'border border-border shadow-md',
+      interactive:
+        'border border-border transition-shadow transition-colors hover:shadow-md hover:border-primary/30 cursor-pointer',
       ghost: 'border-0 bg-transparent',
     },
   },
@@ -40,7 +42,7 @@ CardTitle.displayName = 'CardTitle'
 
 export const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
   ({ className, ...props }, ref) => (
-    <p ref={ref} className={cn('text-sm text-muted-fg', className)} {...props} />
+    <p ref={ref} className={cn('text-sm text-muted', className)} {...props} />
   ),
 )
 CardDescription.displayName = 'CardDescription'

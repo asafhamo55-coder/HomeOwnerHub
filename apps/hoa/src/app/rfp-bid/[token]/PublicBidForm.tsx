@@ -126,7 +126,7 @@ export function PublicBidForm({ token }: { token: string }) {
           {lines.map((line, i) => (
             <li
               key={i}
-              className="rounded-md border border-border bg-muted/10 p-3"
+              className="rounded-md border border-border bg-foreground/10 p-3"
             >
               <div className="grid gap-2 sm:grid-cols-4">
                 <div className="sm:col-span-2">
@@ -184,7 +184,7 @@ export function PublicBidForm({ token }: { token: string }) {
           download it during evaluation.
         </Helper>
         <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border p-4 text-center">
-          <FileUp className="h-5 w-5 text-muted-fg" />
+          <FileUp className="h-5 w-5 text-muted" />
           <input
             ref={fileRef}
             type="file"
@@ -201,7 +201,7 @@ export function PublicBidForm({ token }: { token: string }) {
             {fileName ? 'Replace' : 'Choose file'}
           </Button>
           {fileName ? (
-            <span className="line-clamp-1 max-w-full text-xs text-muted-fg">{fileName}</span>
+            <span className="line-clamp-1 max-w-full text-xs text-muted">{fileName}</span>
           ) : null}
         </div>
       </section>
@@ -223,7 +223,7 @@ export function PublicBidForm({ token }: { token: string }) {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-fg">
+    <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
       {children}
     </h2>
   )
@@ -240,7 +240,7 @@ function Field({
 }) {
   return (
     <label className="block space-y-1">
-      <span className="text-sm font-medium text-muted">
+      <span className="text-sm font-medium text-foreground">
         {label}
         {required ? <span className="ml-0.5 text-destructive">*</span> : null}
       </span>
@@ -250,5 +250,5 @@ function Field({
 }
 
 function Helper({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs text-muted-fg">{children}</p>
+  return <p className="text-xs text-muted">{children}</p>
 }

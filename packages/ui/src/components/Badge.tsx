@@ -11,6 +11,10 @@ const badgeVariants = cva(
         success: 'border-transparent bg-emerald-100 text-emerald-800',
         warning: 'border-transparent bg-amber-100 text-amber-800',
         destructive: 'border-transparent bg-red-100 text-red-800',
+        info: 'border-transparent bg-sky-100 text-sky-800',
+        neutral: 'border-transparent bg-slate-100 text-slate-700',
+        // AI-generated content. Matches the Sparkles icon family used for AI affordances.
+        ai: 'border-transparent bg-amber-100 text-amber-800',
         outline: 'border-border bg-transparent',
       },
       size: {

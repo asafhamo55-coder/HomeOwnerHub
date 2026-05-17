@@ -56,18 +56,18 @@ export default async function GoverningDocumentsPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold text-muted">Governing Documents</h1>
-        <p className="text-sm text-muted-fg">
+        <h1>Governing Documents</h1>
+        <p className="text-sm text-muted">
           Upload your Declaration, Bylaws, Rules, amendments, and policies.
-          We extract the text, split it into chunks, and feed it to the
-          Governing Docs Brain so questions on the <a className="underline" href="/ai/ask">Ask the Docs</a> page get cited answers.
+          We read the text, break it into sections, and use them to answer
+          questions with citations on the <a className="underline" href="/ai/ask">Ask the Docs</a> page.
         </p>
       </header>
 
       {associations.length === 0 ? (
         <Card>
           <CardContent>
-            <p className="text-sm text-muted-fg">
+            <p className="text-sm text-muted">
               No association on file yet. Open the Settings page first.
             </p>
           </CardContent>
@@ -82,7 +82,7 @@ export default async function GoverningDocumentsPage() {
         </CardHeader>
         <CardContent>
           {enriched.length === 0 ? (
-            <p className="text-sm text-muted-fg">
+            <p className="text-sm text-muted">
               Nothing yet. Upload your first document above.
             </p>
           ) : (
@@ -94,12 +94,12 @@ export default async function GoverningDocumentsPage() {
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{d.title}</p>
-                    <p className="text-xs text-muted-fg">
+                    <p className="text-xs text-muted">
                       {capitalize(d.type)}
                       {d.effective_date ? ` · effective ${d.effective_date}` : ''}
                     </p>
                   </div>
-                  <Badge variant="outline">{d.chunk_count} chunks</Badge>
+                  <Badge variant="outline">{d.chunk_count} sections</Badge>
                 </li>
               ))}
             </ul>
