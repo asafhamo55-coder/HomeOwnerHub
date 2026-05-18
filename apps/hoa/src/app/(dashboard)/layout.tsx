@@ -12,6 +12,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { HoaSidebar } from '@/components/layout/HoaSidebar'
 import { HoaHubSwitcher } from '@/components/layout/HoaHubSwitcher'
 import { DashboardProviders } from '@/components/layout/DashboardProviders'
+import { PlatformAdminLink } from '@/components/layout/PlatformAdminLink'
 import { RoleSwitcherMount } from '@/components/dev/RoleSwitcherMount'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -51,7 +52,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </AppShellSidebar>
         <AppShellMain>
           <AppShellHeader>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <PlatformAdminLink />
               <HoaHubSwitcher userHubs={userHubs} />
             </div>
           </AppShellHeader>
