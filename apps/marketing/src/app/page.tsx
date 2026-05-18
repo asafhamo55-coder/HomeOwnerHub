@@ -10,6 +10,7 @@ import { Communities } from '@/components/site/communities'
 import { TestimonialsMarquee } from '@/components/site/testimonials-marquee'
 import { WorkflowsGrid } from '@/components/site/workflows-grid'
 import { CaseStudy } from '@/components/site/case-study'
+import { MidCta } from '@/components/site/mid-cta'
 import { HowItWorks } from '@/components/site/how-it-works'
 import { PricingTeaser } from '@/components/site/pricing-teaser'
 import { CtaCloser } from '@/components/site/cta-closer'
@@ -28,6 +29,7 @@ export default function HomePage() {
       <TestimonialsMarquee />
       <WorkflowsGrid />
       <CaseStudy />
+      <MidCta />
       <HowItWorks />
       <PricingTeaser />
       <CtaCloser />

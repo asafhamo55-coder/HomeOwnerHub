@@ -7,10 +7,14 @@
       "outputs": [".next/**", "!.next/cache/**", "dist/**"],
       "env": [
         "NEXT_PUBLIC_*",
-        "SUPABASE_SERVICE_ROLE_KEY",
+        "SUPABASE_*",
+        "POSTGRES_*",
         "AI_*",
         "STRIPE_*",
         "INNGEST_*",
+        "PLAID_*",
+        "RESEND_API_KEY",
+        "EMAIL_FROM",
         "HUGGINGFACE_API_TOKEN",
         "EMBEDDING_BASE_URL",
         "EMBEDDING_MODEL"

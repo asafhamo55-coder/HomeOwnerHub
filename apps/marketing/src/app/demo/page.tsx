@@ -1,5 +1,13 @@
 import type { Metadata } from 'next'
-import { Calendar, FileText, Users, ShieldCheck, ArrowRight } from 'lucide-react'
+import {
+  Calendar,
+  FileText,
+  Users,
+  ShieldCheck,
+  ArrowRight,
+  Check,
+  X,
+} from 'lucide-react'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { DemoForm } from './demo-form'
@@ -131,6 +139,88 @@ export default function DemoPage() {
         </div>
       </section>
 
+      {/* What we will / won't do — sets honest expectations upfront. */}
+      <section className="border-t border-ink-200/60 py-20">
+        <div className="container-page">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-700">
+              Honest scope
+            </p>
+            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
+              What you get. What we won't pretend.
+            </h2>
+          </div>
+          <div className="mx-auto mt-12 grid max-w-5xl gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/30 p-7">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                What we do
+              </p>
+              <ul className="mt-4 space-y-3">
+                {[
+                  'Answer covenant questions with the exact section cited',
+                  'Draft violation notices for board approval',
+                  'Generate meeting minutes the same night',
+                  'Reconcile bank feeds to the GL automatically',
+                  'Show resident-facing rule lookups in plain English',
+                ].map((b) => (
+                  <li key={b} className="flex gap-2.5 text-sm leading-relaxed text-ink-800">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-ink-200/70 bg-white p-7">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-700">
+                What we don't
+              </p>
+              <ul className="mt-4 space-y-3">
+                {[
+                  'Send a notice without board approval. The human stays in the loop.',
+                  'Replace your attorney. The AI cites; counsel decides.',
+                  'Resell your data. It stays in your tenant, RLS-isolated.',
+                  'Charge for an integration you never use.',
+                  'Auto-convert your pilot. You opt in, every time.',
+                ].map((b) => (
+                  <li key={b} className="flex gap-2.5 text-sm leading-relaxed text-ink-700">
+                    <X className="mt-0.5 h-4 w-4 shrink-0 text-ink-400" />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ — top objections boards raise before booking. */}
+      <section className="border-t border-ink-200/60 bg-ink-50/40 py-20">
+        <div className="container-page">
+          <div className="mx-auto max-w-3xl">
+            <div className="text-center">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-700">
+                Common questions
+              </p>
+              <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
+                Before you book the demo.
+              </h2>
+            </div>
+            <dl className="mt-12 divide-y divide-ink-200/70 rounded-2xl border border-ink-200/70 bg-white">
+              {FAQS.map(({ q, a }) => (
+                <div key={q} className="px-6 py-6 md:px-8">
+                  <dt className="text-base font-semibold text-ink-900">{q}</dt>
+                  <dd className="mt-2 text-sm leading-relaxed text-ink-600">{a}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-8 text-center text-xs text-ink-500">
+              Have a different question? Send it in the form above. We answer
+              every demo request within one business day.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section className="py-24">
         <div className="container-page">
           <div className="mx-auto max-w-2xl rounded-2xl border border-ink-200/70 bg-white p-8 text-center ring-card">
@@ -159,6 +249,33 @@ export default function DemoPage() {
     </main>
   )
 }
+
+const FAQS: { q: string; a: string }[] = [
+  {
+    q: 'Will Ledger replace our community manager?',
+    a: 'No. Ledger replaces the slow paperwork — covenant lookups, notice drafts, minutes, AR reminders — so your manager (or your treasurer) has time for the human work. Most boards keep their manager and use Ledger to give them leverage.',
+  },
+  {
+    q: 'What happens to data we already have?',
+    a: 'You upload your CC&R and bylaws as PDFs. We do not need a migration, a service-rep handoff, or integrations to start. Your roster, GL, and history can come over when you are ready — most boards run in parallel for the first month.',
+  },
+  {
+    q: 'How is the AI prevented from making things up?',
+    a: 'Every legal answer cites the exact section number it pulled from. If the rule is not in your governing docs, the AI says so. Violation notices ship as drafts the board approves; the AI never sends anything by itself.',
+  },
+  {
+    q: 'What about privacy and data security?',
+    a: 'Your tenant is RLS-isolated in Postgres — no other association can read your rows. We do not train on your data. Documents stay in your tenant; you can export or delete on request.',
+  },
+  {
+    q: 'What does it cost after the six-month pilot?',
+    a: 'Pricing is per-door, billed annually, no per-feature add-ons. We publish the bands on /pricing before the demo so the board sees the full picture upfront. No auto-conversion — you opt in.',
+  },
+  {
+    q: 'How long until our community is live?',
+    a: 'Covenant Brain is answering questions the same day you upload the CC&R. Full onboarding (resident roster, GL setup, vendor list) usually takes one to two weeks of part-time work, depending on the state of your records.',
+  },
+]
 
 function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
