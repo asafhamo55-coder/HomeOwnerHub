@@ -4,12 +4,16 @@ import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle, EmptyState } from '@homeowner-portal/ui'
 import type { DonutSegment } from '@/lib/dashboard/charts'
 
+// Six distinct, accessible tones. Hues are spaced ~60° apart on the
+// colour wheel so adjacent slices on the donut never read as the same
+// colour even for users with mild colour-vision deficiency.
 const TONE_FILL: Record<DonutSegment['tone'], string> = {
-  success: '#10b981', // emerald-500
-  warning: '#f59e0b', // amber-500
-  destructive: '#ef4444', // red-500
-  muted: '#9ca3af', // gray-400
-  primary: '#2563eb', // blue-600
+  primary: '#2563eb',     // blue-600     — open / needs board
+  warning: '#f59e0b',     // amber-500    — notice / cure window
+  success: '#10b981',     // emerald-500  — cured / positive
+  muted: '#64748b',       // slate-500    — resolved / archival
+  destructive: '#ef4444', // red-500      — fined / non-compliant
+  severe: '#7c3aed',      // violet-600   — escalated / legal
 }
 
 interface StatusDonutProps {

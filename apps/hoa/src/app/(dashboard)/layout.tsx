@@ -7,11 +7,12 @@ import {
   AppShellSidebar,
 } from '@homeowner-portal/ui'
 import { getCurrentOrg, getUserHoaOrgs, getUserHubs } from '@/lib/orgs'
-import { getCurrentUserRoleInOrg } from '@/lib/auth'
+import { getEffectiveRoleInOrg } from '@/lib/role-override'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { HoaSidebar } from '@/components/layout/HoaSidebar'
 import { HoaHubSwitcher } from '@/components/layout/HoaHubSwitcher'
 import { DashboardProviders } from '@/components/layout/DashboardProviders'
+import { RoleSwitcherMount } from '@/components/dev/RoleSwitcherMount'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await getSupabaseServerClient()
@@ -30,7 +31,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // RBAC: residents land on /resident; board/admin continue here. Anyone
   // without a role in their current org gets sent back through onboarding.
   // Migration 0012 establishes the {admin, board, resident} vocabulary.
-  const role = await getCurrentUserRoleInOrg(org.id)
+  // getEffectiveRoleInOrg honors the dev override cookie for admins,
+  // so admins can preview the resident UI without actually changing
+  // their real role. Non-admins always get their real role.
+  const role = await getEffectiveRoleInOrg(org.id)
   if (role === 'resident') redirect('/resident')
   if (!role) redirect('/onboarding')
 
@@ -54,6 +58,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <AppShellContent>{children}</AppShellContent>
         </AppShellMain>
       </AppShell>
+      {/* Dev-only role switcher. Renders nothing for non-admins.
+          Remove this line when you no longer want the switcher. */}
+      <RoleSwitcherMount />
     </DashboardProviders>
   )
 }

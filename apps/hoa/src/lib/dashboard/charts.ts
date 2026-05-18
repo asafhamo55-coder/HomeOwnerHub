@@ -7,9 +7,16 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 export interface DonutSegment {
   label: string
   value: number
-  /** Tailwind colour token name (e.g. "success", "warning"). The
-   *  client-side donut maps these to actual fill values. */
-  tone: 'success' | 'warning' | 'destructive' | 'muted' | 'primary'
+  /** Semantic colour token. The client-side donut maps these to fills.
+   *  Each tone is visually distinct so two adjacent segments are
+   *  always tellable apart — see TONE_FILL in StatusDonut.tsx. */
+  tone:
+    | 'primary'      // blue — waiting on board / new
+    | 'warning'      // amber — waiting on resident / soon
+    | 'success'      // emerald — resolved positive (cured)
+    | 'muted'        // slate — closed / archival
+    | 'destructive'  // red — fined / non-compliant
+    | 'severe'       // violet — escalated / legal hearing
 }
 
 export interface DonutData {
@@ -61,13 +68,16 @@ export async function getViolationStatusDonut(orgId: string): Promise<DonutData>
     counts[s] = (counts[s] ?? 0) + 1
   }
 
+  // Each violation state gets its own tone so adjacent slices on the
+  // donut are always distinguishable. The progression mirrors the
+  // lifecycle: board action → resident cure window → outcome.
   const SEG_ORDER: Array<[string, DonutSegment['tone'], string]> = [
-    ['open', 'warning', 'Open'],
-    ['notice_sent', 'warning', 'Notice sent'],
-    ['cured', 'success', 'Cured'],
-    ['resolved', 'success', 'Resolved'],
-    ['fined', 'destructive', 'Fined'],
-    ['escalated', 'destructive', 'Escalated'],
+    ['open', 'primary', 'Open'],            // blue — needs board review
+    ['notice_sent', 'warning', 'Notice sent'], // amber — cure window
+    ['cured', 'success', 'Cured'],          // emerald — resident fixed
+    ['resolved', 'muted', 'Resolved'],      // slate — closed / archival
+    ['fined', 'destructive', 'Fined'],      // red — monetary penalty
+    ['escalated', 'severe', 'Escalated'],   // violet — legal / hearing
   ]
 
   const segments: DonutSegment[] = []
