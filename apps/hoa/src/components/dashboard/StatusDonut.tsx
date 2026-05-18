@@ -33,21 +33,32 @@ export function StatusDonut({
   emptyDescription = 'When activity starts the breakdown will show here.',
   icon,
 }: StatusDonutProps) {
+  const ariaSummary =
+    total === 0
+      ? `${title}: no data`
+      : `${title}: ${total} total — ${segments
+          .map((s) => `${s.value} ${s.label.toLowerCase()}`)
+          .join(', ')}`
+
   return (
     <Card className="h-full">
-      <CardHeader>
+      <CardHeader className="p-5 pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
           {icon}
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex min-h-[200px] items-center">
+      <CardContent className="flex min-h-[200px] items-center p-5 pt-2">
         {total === 0 ? (
           <div className="flex w-full justify-center">
             <EmptyState title={emptyTitle} description={emptyDescription} />
           </div>
         ) : (
-          <div className="grid w-full items-center gap-4 sm:grid-cols-[160px_1fr]">
+          <div
+            role="img"
+            aria-label={ariaSummary}
+            className="grid w-full items-center gap-4 sm:grid-cols-[160px_1fr]"
+          >
             <div className="relative h-40">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -74,7 +85,7 @@ export function StatusDonut({
               </ResponsiveContainer>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-2xl font-semibold tabular-nums">{total}</span>
-                <span className="text-[10px] uppercase tracking-wide text-muted">
+                <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
                   total
                 </span>
               </div>

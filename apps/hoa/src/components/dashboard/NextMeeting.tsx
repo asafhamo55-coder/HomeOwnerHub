@@ -27,7 +27,7 @@ export function NextMeeting({ meeting }: { meeting: NextMeetingInfo | null }) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <CalendarPlus className="h-4 w-4 text-sky-600" aria-hidden />
+            <CalendarPlus className="h-4 w-4 text-muted" aria-hidden />
             Next meeting
           </CardTitle>
         </CardHeader>
@@ -54,11 +54,13 @@ export function NextMeeting({ meeting }: { meeting: NextMeetingInfo | null }) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
-          <CalendarDays className="h-4 w-4 text-sky-600" aria-hidden />
+          <CalendarDays className="h-4 w-4 text-muted" aria-hidden />
           Next meeting
         </CardTitle>
         {inPast ? (
-          <span className="text-xs text-amber-600">Minutes pending</span>
+          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+            Minutes pending
+          </span>
         ) : null}
       </CardHeader>
       <CardContent className="space-y-3">

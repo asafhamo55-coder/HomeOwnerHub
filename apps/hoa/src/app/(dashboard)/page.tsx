@@ -50,12 +50,20 @@ export default async function DashboardHome() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <header className="space-y-1">
-        <h1>
+      <header className="space-y-2">
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+          {new Date().toLocaleDateString(undefined, {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+          })}
+          {' · '}
+          {org.name}
+        </p>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {greeting()}
           {userName ? `, ${userName}` : ''}
         </h1>
-        <p className="text-sm text-muted">{org.name}</p>
       </header>
 
       <Suspense fallback={<DashboardSkeleton />}>
@@ -191,7 +199,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
             Daily digest
           </span>
           <span className="text-xs text-muted">
-            {digest.content ? 'AI-summarised' : 'not yet generated'}
+            {digest.content ? 'AI-summarized' : 'not yet generated'}
           </span>
         </summary>
         <div className="border-t border-border p-2">

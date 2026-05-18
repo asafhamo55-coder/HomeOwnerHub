@@ -10,11 +10,14 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import type { ApprovalItem, ApprovalKind } from '@/lib/dashboard/queries'
 
+// Kind icons render in muted so the row's signal is the title + age,
+// not a rainbow of decorative colour. Severity goes on chips/dots, not
+// on the kind glyph itself.
 const KIND_ICON: Record<ApprovalKind, React.ReactNode> = {
-  violation: <AlertTriangle className="h-4 w-4 text-amber-600" aria-hidden />,
-  meeting: <CalendarDays className="h-4 w-4 text-sky-600" aria-hidden />,
-  invoice: <Receipt className="h-4 w-4 text-emerald-600" aria-hidden />,
-  rfp: <FileSpreadsheet className="h-4 w-4 text-violet-600" aria-hidden />,
+  violation: <AlertTriangle className="h-4 w-4 text-muted" aria-hidden />,
+  meeting: <CalendarDays className="h-4 w-4 text-muted" aria-hidden />,
+  invoice: <Receipt className="h-4 w-4 text-muted" aria-hidden />,
+  rfp: <FileSpreadsheet className="h-4 w-4 text-muted" aria-hidden />,
 }
 
 const MS_DAY = 86_400_000
@@ -75,7 +78,7 @@ export function ApprovalsInbox({
             <li key={`${item.kind}:${item.id}`}>
               <Link
                 href={item.href}
-                className="flex items-center gap-3 px-6 py-3 transition-colors hover:bg-background/50"
+                className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/40"
               >
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/10">
                   {KIND_ICON[item.kind]}
@@ -90,7 +93,7 @@ export function ApprovalsInbox({
           ))}
         </ul>
         {overflow > 0 ? (
-          <div className="border-t border-border px-6 py-3 text-xs text-muted">
+          <div className="border-t border-border px-5 py-3 text-xs text-muted">
             + {overflow} more pending. Open each section to review.
           </div>
         ) : null}
