@@ -378,6 +378,11 @@ export type Database = {
           fiscal_year_start: string | null
           governing_law_state: string | null
           id: string
+          lease_cap_ai_source: string | null
+          lease_cap_ai_suggested_pct: number | null
+          lease_cap_pct: number | null
+          lease_cap_set_at: string | null
+          lease_cap_set_by: string | null
           name: string
           organization_id: string
           slug: string
@@ -396,6 +401,11 @@ export type Database = {
           fiscal_year_start?: string | null
           governing_law_state?: string | null
           id?: string
+          lease_cap_ai_source?: string | null
+          lease_cap_ai_suggested_pct?: number | null
+          lease_cap_pct?: number | null
+          lease_cap_set_at?: string | null
+          lease_cap_set_by?: string | null
           name: string
           organization_id: string
           slug: string
@@ -414,6 +424,11 @@ export type Database = {
           fiscal_year_start?: string | null
           governing_law_state?: string | null
           id?: string
+          lease_cap_ai_source?: string | null
+          lease_cap_ai_suggested_pct?: number | null
+          lease_cap_pct?: number | null
+          lease_cap_set_at?: string | null
+          lease_cap_set_by?: string | null
           name?: string
           organization_id?: string
           slug?: string
@@ -1108,6 +1123,471 @@ export type Database = {
           },
         ]
       }
+      communication_recipients: {
+        Row: {
+          channel: string
+          clicked_at: string | null
+          communication_id: string
+          delivered_at: string | null
+          delivery_status: string
+          email: string | null
+          error_message: string | null
+          external_id: string | null
+          failed_at: string | null
+          id: string
+          opened_at: string | null
+          organization_id: string
+          phone: string | null
+          queued_at: string
+          recipient_name: string | null
+          replied_at: string | null
+          sent_at: string | null
+          unit_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          channel: string
+          clicked_at?: string | null
+          communication_id: string
+          delivered_at?: string | null
+          delivery_status?: string
+          email?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          failed_at?: string | null
+          id?: string
+          opened_at?: string | null
+          organization_id: string
+          phone?: string | null
+          queued_at?: string
+          recipient_name?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          unit_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          channel?: string
+          clicked_at?: string | null
+          communication_id?: string
+          delivered_at?: string | null
+          delivery_status?: string
+          email?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          failed_at?: string | null
+          id?: string
+          opened_at?: string | null
+          organization_id?: string
+          phone?: string | null
+          queued_at?: string
+          recipient_name?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          unit_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_recipients_communication_id_fkey"
+            columns: ["communication_id"]
+            isOneToOne: false
+            referencedRelation: "communications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_recipients_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_recipients_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_recipients_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_replies: {
+        Row: {
+          ai_category: string | null
+          ai_summary: string | null
+          body: string
+          channel: string
+          communication_id: string
+          external_id: string | null
+          from_email: string | null
+          from_phone: string | null
+          id: string
+          organization_id: string
+          read_at: string | null
+          read_by: string | null
+          received_at: string
+          recipient_id: string | null
+          subject: string | null
+        }
+        Insert: {
+          ai_category?: string | null
+          ai_summary?: string | null
+          body: string
+          channel: string
+          communication_id: string
+          external_id?: string | null
+          from_email?: string | null
+          from_phone?: string | null
+          id?: string
+          organization_id: string
+          read_at?: string | null
+          read_by?: string | null
+          received_at?: string
+          recipient_id?: string | null
+          subject?: string | null
+        }
+        Update: {
+          ai_category?: string | null
+          ai_summary?: string | null
+          body?: string
+          channel?: string
+          communication_id?: string
+          external_id?: string | null
+          from_email?: string | null
+          from_phone?: string | null
+          id?: string
+          organization_id?: string
+          read_at?: string | null
+          read_by?: string | null
+          received_at?: string
+          recipient_id?: string | null
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_replies_communication_id_fkey"
+            columns: ["communication_id"]
+            isOneToOne: false
+            referencedRelation: "communications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_replies_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_replies_read_by_fkey"
+            columns: ["read_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_replies_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "communication_recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_templates: {
+        Row: {
+          ai_generated: boolean
+          ai_workflow_id: string | null
+          association_id: string | null
+          body_html: string
+          body_sms: string | null
+          body_text: string | null
+          category: string
+          channels: string[]
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          language: string
+          name: string
+          organization_id: string
+          subject: string
+          updated_at: string
+          variables: Json
+        }
+        Insert: {
+          ai_generated?: boolean
+          ai_workflow_id?: string | null
+          association_id?: string | null
+          body_html: string
+          body_sms?: string | null
+          body_text?: string | null
+          category: string
+          channels?: string[]
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          language?: string
+          name: string
+          organization_id: string
+          subject: string
+          updated_at?: string
+          variables?: Json
+        }
+        Update: {
+          ai_generated?: boolean
+          ai_workflow_id?: string | null
+          association_id?: string | null
+          body_html?: string
+          body_sms?: string | null
+          body_text?: string | null
+          category?: string
+          channels?: string[]
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          language?: string
+          name?: string
+          organization_id?: string
+          subject?: string
+          updated_at?: string
+          variables?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_templates_association_id_fkey"
+            columns: ["association_id"]
+            isOneToOne: false
+            referencedRelation: "associations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_threads: {
+        Row: {
+          association_id: string
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          id: string
+          organization_id: string
+          related_resource: Json | null
+          root_communication_id: string | null
+          status: string
+          topic_category: string
+          topic_label: string | null
+          unit_id: string | null
+        }
+        Insert: {
+          association_id: string
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          id?: string
+          organization_id: string
+          related_resource?: Json | null
+          root_communication_id?: string | null
+          status?: string
+          topic_category: string
+          topic_label?: string | null
+          unit_id?: string | null
+        }
+        Update: {
+          association_id?: string
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          related_resource?: Json | null
+          root_communication_id?: string | null
+          status?: string
+          topic_category?: string
+          topic_label?: string | null
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_threads_association_id_fkey"
+            columns: ["association_id"]
+            isOneToOne: false
+            referencedRelation: "associations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_threads_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_threads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_threads_root_communication_id_fkey"
+            columns: ["root_communication_id"]
+            isOneToOne: false
+            referencedRelation: "communications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_threads_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communications: {
+        Row: {
+          ai_generated: boolean
+          ai_workflow_id: string | null
+          association_id: string
+          audience_definition: Json
+          audience_summary: string | null
+          body_html: string
+          body_text: string | null
+          category: string
+          channels: string[]
+          created_at: string
+          created_by: string | null
+          id: string
+          organization_id: string
+          related_resource: Json | null
+          scheduled_for: string | null
+          sent_at: string | null
+          sent_by: string | null
+          source: string
+          status: string
+          subject: string
+          template_id: string | null
+          thread_id: string | null
+        }
+        Insert: {
+          ai_generated?: boolean
+          ai_workflow_id?: string | null
+          association_id: string
+          audience_definition: Json
+          audience_summary?: string | null
+          body_html: string
+          body_text?: string | null
+          category: string
+          channels?: string[]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id: string
+          related_resource?: Json | null
+          scheduled_for?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          source?: string
+          status?: string
+          subject: string
+          template_id?: string | null
+          thread_id?: string | null
+        }
+        Update: {
+          ai_generated?: boolean
+          ai_workflow_id?: string | null
+          association_id?: string
+          audience_definition?: Json
+          audience_summary?: string | null
+          body_html?: string
+          body_text?: string | null
+          category?: string
+          channels?: string[]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id?: string
+          related_resource?: Json | null
+          scheduled_for?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          source?: string
+          status?: string
+          subject?: string
+          template_id?: string | null
+          thread_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communications_association_id_fkey"
+            columns: ["association_id"]
+            isOneToOne: false
+            referencedRelation: "associations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communications_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communications_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communications_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communications_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "communication_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communications_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "communication_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eviction_cases: {
         Row: {
           balance_owed: number | null
@@ -1748,6 +2228,9 @@ export type Database = {
           owner_email: string | null
           owner_name: string | null
           owner_phone: string | null
+          tenure: Database["public"]["Enums"]["property_tenure"]
+          tenure_updated_at: string | null
+          tenure_updated_by: string | null
           unit_number: string | null
           updated_at: string | null
         }
@@ -1760,6 +2243,9 @@ export type Database = {
           owner_email?: string | null
           owner_name?: string | null
           owner_phone?: string | null
+          tenure?: Database["public"]["Enums"]["property_tenure"]
+          tenure_updated_at?: string | null
+          tenure_updated_by?: string | null
           unit_number?: string | null
           updated_at?: string | null
         }
@@ -1772,6 +2258,9 @@ export type Database = {
           owner_email?: string | null
           owner_name?: string | null
           owner_phone?: string | null
+          tenure?: Database["public"]["Enums"]["property_tenure"]
+          tenure_updated_at?: string | null
+          tenure_updated_by?: string | null
           unit_number?: string | null
           updated_at?: string | null
         }
@@ -2068,6 +2557,67 @@ export type Database = {
             columns: ["reverses_id"]
             isOneToOne: false
             referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lease_waiting_list: {
+        Row: {
+          association_id: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          organization_id: string
+          property_id: string
+          requested_at: string
+          status: string
+          status_updated_at: string | null
+          status_updated_by: string | null
+        }
+        Insert: {
+          association_id: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          organization_id: string
+          property_id: string
+          requested_at?: string
+          status?: string
+          status_updated_at?: string | null
+          status_updated_by?: string | null
+        }
+        Update: {
+          association_id?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          property_id?: string
+          requested_at?: string
+          status?: string
+          status_updated_at?: string | null
+          status_updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lease_waiting_list_association_id_fkey"
+            columns: ["association_id"]
+            isOneToOne: false
+            referencedRelation: "associations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lease_waiting_list_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lease_waiting_list_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_properties"
             referencedColumns: ["id"]
           },
         ]
@@ -2720,6 +3270,117 @@ export type Database = {
         }
         Relationships: []
       }
+      property_events: {
+        Row: {
+          created_by: string | null
+          id: string
+          kind: Database["public"]["Enums"]["property_event_kind"]
+          notes: string | null
+          occurred_at: string
+          organization_id: string
+          payload: Json
+          property_id: string
+        }
+        Insert: {
+          created_by?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["property_event_kind"]
+          notes?: string | null
+          occurred_at?: string
+          organization_id: string
+          payload?: Json
+          property_id: string
+        }
+        Update: {
+          created_by?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["property_event_kind"]
+          notes?: string | null
+          occurred_at?: string
+          organization_id?: string
+          payload?: Json
+          property_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_events_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_residents: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string | null
+          full_name: string
+          id: string
+          is_primary: boolean
+          moved_in_at: string | null
+          moved_out_at: string | null
+          notes: string | null
+          organization_id: string
+          phone: string | null
+          property_id: string
+          role: Database["public"]["Enums"]["property_resident_role"]
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          full_name: string
+          id?: string
+          is_primary?: boolean
+          moved_in_at?: string | null
+          moved_out_at?: string | null
+          notes?: string | null
+          organization_id: string
+          phone?: string | null
+          property_id: string
+          role: Database["public"]["Enums"]["property_resident_role"]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          is_primary?: boolean
+          moved_in_at?: string | null
+          moved_out_at?: string | null
+          notes?: string | null
+          organization_id?: string
+          phone?: string | null
+          property_id?: string
+          role?: Database["public"]["Enums"]["property_resident_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_residents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_residents_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recurring_journal_entries: {
         Row: {
           association_id: string
@@ -2771,6 +3432,70 @@ export type Database = {
             columns: ["template_je_id"]
             isOneToOne: false
             referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resident_communication_preferences: {
+        Row: {
+          email_opt_in: boolean
+          id: string
+          language: string
+          mail_opt_in: boolean
+          organization_id: string
+          portal_opt_in: boolean
+          quiet_hours: Json | null
+          sms_opt_in: boolean
+          unit_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          email_opt_in?: boolean
+          id?: string
+          language?: string
+          mail_opt_in?: boolean
+          organization_id: string
+          portal_opt_in?: boolean
+          quiet_hours?: Json | null
+          sms_opt_in?: boolean
+          unit_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          email_opt_in?: boolean
+          id?: string
+          language?: string
+          mail_opt_in?: boolean
+          organization_id?: string
+          portal_opt_in?: boolean
+          quiet_hours?: Json | null
+          sms_opt_in?: boolean
+          unit_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resident_communication_preferences_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resident_communication_preferences_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resident_communication_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3967,7 +4692,18 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      property_event_kind:
+        | "tenure_changed"
+        | "ownership_changed"
+        | "resident_added"
+        | "resident_removed"
+        | "lease_started"
+        | "lease_ended"
+        | "waiting_list_added"
+        | "waiting_list_resolved"
+        | "note"
+      property_resident_role: "owner" | "tenant" | "family_member" | "other"
+      property_tenure: "owner_occupied" | "leased" | "unknown"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4094,6 +4830,20 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      property_event_kind: [
+        "tenure_changed",
+        "ownership_changed",
+        "resident_added",
+        "resident_removed",
+        "lease_started",
+        "lease_ended",
+        "waiting_list_added",
+        "waiting_list_resolved",
+        "note",
+      ],
+      property_resident_role: ["owner", "tenant", "family_member", "other"],
+      property_tenure: ["owner_occupied", "leased", "unknown"],
+    },
   },
 } as const

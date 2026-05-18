@@ -11,6 +11,7 @@ import {
   CreditCard,
   FileText,
   Home,
+  KeyRound,
   LogOut,
   Scale,
   ScrollText,
@@ -64,6 +65,7 @@ const GROUPS: NavGroup[] = [
     label: 'Community',
     items: [
       { href: '/properties', icon: <Building2 className="h-4 w-4" />, label: 'Properties' },
+      { href: '/leases', icon: <KeyRound className="h-4 w-4" />, label: 'Leases' },
       { href: '/violations', icon: <AlertTriangle className="h-4 w-4" />, label: 'Violations' },
       { href: '/meetings', icon: <CalendarDays className="h-4 w-4" />, label: 'Meetings' },
     ],

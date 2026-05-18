@@ -7,6 +7,7 @@ import {
   getAtRiskThisWeek,
   getComplianceHeatMap,
   getLatestDigest,
+  getLeaseSummary,
   getNextMeeting,
 } from '@/lib/dashboard/queries'
 import {
@@ -23,6 +24,7 @@ import { AtRiskThisWeek } from '@/components/dashboard/AtRiskThisWeek'
 import { ComplianceHeatMap } from '@/components/dashboard/ComplianceHeatMap'
 import { DailyDigestCard } from '@/components/dashboard/DailyDigestCard'
 import { KpiHero } from '@/components/dashboard/KpiHero'
+import { LeaseSummaryCard } from '@/components/dashboard/LeaseSummaryCard'
 import { NextMeeting } from '@/components/dashboard/NextMeeting'
 import { StatusDonut } from '@/components/dashboard/StatusDonut'
 import { UnfinishedWorkflowsCard } from '@/components/dashboard/UnfinishedWorkflowsCard'
@@ -72,6 +74,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     approvals,
     atRisk,
     nextMeeting,
+    leaseSummary,
     digest,
     heatMapCells,
     drafts,
@@ -83,6 +86,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     getApprovalsInbox(orgId),
     getAtRiskThisWeek(orgId),
     getNextMeeting(orgId),
+    getLeaseSummary(orgId),
     getLatestDigest(orgId),
     getComplianceHeatMap(orgId),
     listUnfinishedDrafts(),
@@ -134,8 +138,9 @@ async function DashboardContent({ orgId }: { orgId: string }) {
         />
       </div>
 
-      {/* At-a-glance breakdowns. */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/* At-a-glance breakdowns. Three equal columns when lease summary
+          is present (org has associations); two when it isn't. */}
+      <div className={`grid gap-4 ${leaseSummary.hasAssociation ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
         <StatusDonut
           title="Violations by status"
           icon={<AlertTriangle className="h-4 w-4 text-muted" />}
@@ -152,6 +157,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
           emptyTitle="No vendors graded yet"
           emptyDescription="Run a compliance check on your vendors to populate this view."
         />
+        <LeaseSummaryCard summary={leaseSummary} />
       </div>
 
       {/* 30-day activity bar. */}
