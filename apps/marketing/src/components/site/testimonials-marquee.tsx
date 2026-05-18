@@ -103,13 +103,13 @@ export function TestimonialsMarquee() {
     <section className="overflow-hidden py-24 md:py-32">
       <div className="container-page">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-ember-600">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-ember-600">
             Voices from the community
           </p>
           <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-5xl">
             Boards, residents, and landlords using Ledger.
           </h2>
-          <p className="mt-5 text-lg leading-relaxed text-ink-500">
+          <p className="mt-5 text-base leading-relaxed text-ink-500 md:text-lg">
             Early pilots and reference customers. First-name attribution while
             we onboard the next wave — full named case studies as they land.
           </p>
@@ -118,22 +118,24 @@ export function TestimonialsMarquee() {
 
       {/* Marquee — full-bleed so cards bleed past the container edge. */}
       <div
-        className="group relative mt-14"
-        aria-label="Testimonials carousel"
+        className="group relative mt-12"
+        role="region"
+        aria-roledescription="carousel"
+        aria-label="Customer testimonials"
       >
         {/* Soft fade masks on either end so cards fade in / out instead of clipping. */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-white to-transparent md:w-40" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-white to-transparent md:w-40" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-white to-transparent md:w-32" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-white to-transparent md:w-32" />
 
         <div
           className={cn(
-            'flex w-max gap-5 will-change-transform',
+            'flex w-max gap-4 will-change-transform',
             'animate-marquee group-hover:[animation-play-state:paused]',
             'motion-reduce:animate-none',
           )}
         >
           {track.map((t, i) => (
-            <Card key={`${t.name}-${i}`} t={t} />
+            <Card key={`${t.name}-${i}`} t={t} ariaHidden={i >= TESTIMONIALS.length} />
           ))}
         </div>
       </div>
@@ -141,22 +143,25 @@ export function TestimonialsMarquee() {
   )
 }
 
-function Card({ t }: { t: Testimonial }) {
+function Card({ t, ariaHidden }: { t: Testimonial; ariaHidden: boolean }) {
   const portrait = PORTRAITS[t.portrait]
   const url = `${portrait.src}?w=160&h=160&q=80&auto=format&fit=crop&crop=faces`
   return (
-    <figure className="flex w-[360px] shrink-0 flex-col rounded-2xl border border-ink-200/70 bg-white p-6 md:w-[420px]">
-      <Quote className="h-5 w-5 text-ember-500" />
-      <blockquote className="mt-4 text-[15px] leading-relaxed text-ink-800">
+    <figure
+      aria-hidden={ariaHidden}
+      className="flex h-[280px] w-[340px] shrink-0 flex-col rounded-2xl border border-ink-200/70 bg-white p-6 md:w-[380px]"
+    >
+      <Quote className="h-4 w-4 text-ember-500" aria-hidden="true" />
+      <blockquote className="mt-3 line-clamp-5 flex-1 text-[14.5px] leading-relaxed text-ink-800">
         {t.quote}
       </blockquote>
-      <figcaption className="mt-6 flex items-center gap-3 border-t border-ink-200/70 pt-4">
-        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-ink-100 ring-1 ring-ink-200">
+      <figcaption className="mt-4 flex items-center gap-3 border-t border-ink-200/70 pt-4">
+        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-ink-100 ring-1 ring-ink-200">
           <Image
             src={url}
             alt={portrait.alt}
             fill
-            sizes="44px"
+            sizes="40px"
             className="object-cover"
           />
         </div>

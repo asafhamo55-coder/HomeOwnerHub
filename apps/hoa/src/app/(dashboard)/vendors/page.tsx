@@ -1,7 +1,7 @@
 import Link from 'next/link'
-import { Briefcase, Mail, Plus } from 'lucide-react'
+import { Briefcase, Mail, Plus, Search, X } from 'lucide-react'
 import { format } from 'date-fns'
-import { Button, Card, EmptyState, StatusBadge, Tabs } from '@homeowner-portal/ui'
+import { Button, Card, EmptyState, Input, StatusBadge, Tabs } from '@homeowner-portal/ui'
 import { listVendors, type ComplianceStatus } from '@/lib/vendors'
 
 export const metadata = { title: 'Vendors' }
@@ -41,8 +41,28 @@ const COMPLIANCE_LABEL: Record<ComplianceStatus, string> = {
   missing: 'Docs missing',
 }
 
-export default async function VendorsListPage() {
-  const vendors = await listVendors()
+export default async function VendorsListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>
+}) {
+  const { q: qParam } = await searchParams
+  const search = (qParam ?? '').trim().toLowerCase()
+
+  const allVendors = await listVendors()
+  const vendors = search
+    ? allVendors.filter((v) => {
+        const hay = [
+          v.legal_name,
+          v.dba ?? '',
+          v.primary_email ?? '',
+          (v.trades ?? []).join(' '),
+        ]
+          .join(' ')
+          .toLowerCase()
+        return hay.includes(search)
+      })
+    : allVendors
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -50,8 +70,8 @@ export default async function VendorsListPage() {
         <div>
           <h1>Vendors</h1>
           <p className="text-sm text-muted">
-            {vendors.length} on file. The badge shows whether insurance, W-9,
-            and license are up to date.
+            {vendors.length} on file
+            {search ? ` matching “${search}”` : '. The badge shows whether insurance, W-9, and license are up to date.'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -72,20 +92,56 @@ export default async function VendorsListPage() {
 
       <Tabs items={VENDOR_TABS} currentPath="/vendors" aria-label="Vendor sections" />
 
+      <form action="/vendors" method="get" className="flex flex-wrap items-center gap-2 sm:max-w-md">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden />
+          <Input
+            type="search"
+            name="q"
+            defaultValue={search}
+            placeholder="Search name, email, or trade"
+            className="pl-9"
+            aria-label="Search vendors"
+          />
+        </div>
+        <Button type="submit" size="sm">Search</Button>
+        {search ? (
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/vendors">
+              <X className="h-3.5 w-3.5" />
+              Clear
+            </Link>
+          </Button>
+        ) : null}
+      </form>
+
       {vendors.length === 0 ? (
-        <EmptyState
-          icon={<Briefcase className="h-10 w-10" aria-hidden />}
-          title="No vendors yet"
-          description="Add your first vendor. Once you enter their COI, W-9, and license, the Vendor Onboarder workflow grades them against your standards."
-          action={
-            <Button asChild>
-              <Link href="/vendors/new">
-                <Plus className="h-4 w-4" />
-                Add first vendor
-              </Link>
-            </Button>
-          }
-        />
+        search ? (
+          <EmptyState
+            icon={<Search className="h-10 w-10" aria-hidden />}
+            title={`No vendors match “${search}”`}
+            description="Try a shorter or different term, or clear the search."
+            action={
+              <Button asChild variant="outline">
+                <Link href="/vendors">Clear search</Link>
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={<Briefcase className="h-10 w-10" aria-hidden />}
+            title="No vendors yet"
+            description="Add your first vendor. Once you enter their COI, W-9, and license, the Vendor Onboarder workflow grades them against your standards."
+            action={
+              <Button asChild>
+                <Link href="/vendors/new">
+                  <Plus className="h-4 w-4" />
+                  Add first vendor
+                </Link>
+              </Button>
+            }
+          />
+        )
       ) : (
         <Card>
           <ul className="divide-y divide-border">

@@ -33,7 +33,7 @@ export function KpiHero({
   const trend = previous != null ? computeTrend(value, previous, upIsBad ?? false) : null
 
   const body = (
-    <CardContent className="space-y-2 p-5">
+    <CardContent className="flex h-full flex-col justify-between gap-2 p-5">
       <p className="text-xs font-medium uppercase tracking-wide text-muted">
         {label}
       </p>
@@ -66,12 +66,12 @@ export function KpiHero({
 
   if (href) {
     return (
-      <Link href={href} className="block">
-        <Card className="transition-shadow hover:shadow-md">{body}</Card>
+      <Link href={href} className="block h-full">
+        <Card className="h-full transition-shadow hover:shadow-md">{body}</Card>
       </Link>
     )
   }
-  return <Card>{body}</Card>
+  return <Card className="h-full">{body}</Card>
 }
 
 function computeTrend(

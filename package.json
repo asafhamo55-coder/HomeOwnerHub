@@ -13,6 +13,7 @@
     "dev:marketing": "turbo run dev --filter=marketing",
     "seed:sample-ccr": "tsx scripts/seed-sample-ccr.ts",
     "seed:accounting": "tsx scripts/seed-accounting.ts",
+    "seed:comm-templates": "tsx scripts/seed-comm-templates.ts",
     "test:accounting": "tsx scripts/test-accounting.ts",
     "test:ar": "tsx scripts/test-ar.ts",
     "test:bank-rec": "tsx scripts/test-bank-rec.ts",

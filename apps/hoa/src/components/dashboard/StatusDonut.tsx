@@ -30,18 +30,20 @@ export function StatusDonut({
   icon,
 }: StatusDonutProps) {
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           {icon}
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex min-h-[200px] items-center">
         {total === 0 ? (
-          <EmptyState title={emptyTitle} description={emptyDescription} />
+          <div className="flex w-full justify-center">
+            <EmptyState title={emptyTitle} description={emptyDescription} />
+          </div>
         ) : (
-          <div className="grid items-center gap-4 sm:grid-cols-[160px_1fr]">
+          <div className="grid w-full items-center gap-4 sm:grid-cols-[160px_1fr]">
             <div className="relative h-40">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>

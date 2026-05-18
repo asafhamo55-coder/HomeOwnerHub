@@ -60,6 +60,21 @@ export interface NextMeetingInfo {
   status: string | null
 }
 
+export interface LeaseSummary {
+  /** True when at least one association under this org exists. */
+  hasAssociation: boolean
+  /** Aggregate cap % when single-association; first-association cap otherwise. */
+  capPct: number | null
+  totalUnits: number
+  leasedCount: number
+  /** leasedCount / totalUnits * 100, 0 when totalUnits is 0. */
+  leasedPct: number
+  /** Floor((capPct/100)*totalUnits) - leasedCount, floored at 0. Null when capPct is unset. */
+  headroom: number | null
+  /** Count of waiting_list rows with status='waiting' across all associations under this org. */
+  waitingListCount: number
+}
+
 export async function getDashboardStats(orgId: string): Promise<DashboardStats> {
   const supabase = await getSupabaseServerClient()
   const today = new Date().toISOString().slice(0, 10)
@@ -280,6 +295,90 @@ export async function getApprovalsInbox(orgId: string): Promise<ApprovalsInbox> 
   })
 
   return { items, totalCount: items.length }
+}
+
+// Lease cap + current state + waiting list count for the dashboard
+// widget. Aggregates across every association under the org so an HOA
+// with multiple sub-associations sees one rolled-up number. `capPct` is
+// taken from the first association when multiple are present (most v1
+// orgs have one; we document that limitation rather than weight-average
+// it which would be misleading).
+export async function getLeaseSummary(orgId: string): Promise<LeaseSummary> {
+  const supabase = await getSupabaseServerClient()
+
+  // 1. Resolve associations + their caps in one query.
+  const { data: assocs } = await supabase
+    .from('associations' as never)
+    .select('id, lease_cap_pct')
+    .eq('organization_id', orgId)
+  const assocRows = ((assocs ?? []) as unknown as Array<{
+    id: string
+    lease_cap_pct: number | string | null
+  }>)
+  if (assocRows.length === 0) {
+    return {
+      hasAssociation: false,
+      capPct: null,
+      totalUnits: 0,
+      leasedCount: 0,
+      leasedPct: 0,
+      headroom: null,
+      waitingListCount: 0,
+    }
+  }
+  const assocIds = assocRows.map((a) => a.id)
+  const firstCapRaw = assocRows[0].lease_cap_pct
+  const capPct =
+    firstCapRaw === null || firstCapRaw === undefined ? null : Number(firstCapRaw)
+
+  // 2. Resolve the units → properties for tenure roll-up.
+  const { data: unitsRows } = await supabase
+    .from('units' as never)
+    .select('legacy_hoa_property_id')
+    .in('association_id', assocIds)
+    .not('legacy_hoa_property_id', 'is', null)
+  const propertyIds = ((unitsRows ?? []) as unknown as Array<{
+    legacy_hoa_property_id: string | null
+  }>)
+    .map((r) => r.legacy_hoa_property_id)
+    .filter((id): id is string => !!id)
+
+  let leasedCount = 0
+  if (propertyIds.length > 0) {
+    const { count } = await supabase
+      .from('hoa_properties')
+      .select('id', { count: 'exact', head: true })
+      .in('id', propertyIds)
+      // `tenure` was added in migration 0017; the generated DB types
+      // haven't been regenerated yet, so we cast to `never` until the
+      // next type-gen pass. The column does exist in the DB.
+      .eq('tenure' as never, 'leased')
+    leasedCount = count ?? 0
+  }
+  const totalUnits = propertyIds.length
+
+  // 3. Waiting-list count (status='waiting' across all associations).
+  const { count: waitingListCount } = await supabase
+    .from('lease_waiting_list' as never)
+    .select('id', { count: 'exact', head: true })
+    .in('association_id', assocIds)
+    .eq('status', 'waiting')
+
+  const leasedPct = totalUnits === 0 ? 0 : (leasedCount / totalUnits) * 100
+  const headroom =
+    capPct === null || totalUnits === 0
+      ? null
+      : Math.max(0, Math.floor((capPct / 100) * totalUnits) - leasedCount)
+
+  return {
+    hasAssociation: true,
+    capPct,
+    totalUnits,
+    leasedCount,
+    leasedPct,
+    headroom,
+    waitingListCount: waitingListCount ?? 0,
+  }
 }
 
 export async function getLatestDigest(orgId: string): Promise<DigestSnapshot> {
