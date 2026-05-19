@@ -337,10 +337,11 @@ export function ActionItemsSection({ meetingId, items }: ActionItemsSectionProps
                           Priority
                           <Select
                             value={item.priority}
-                            className="!w-auto !min-h-0 py-0.5 pl-2 pr-7 text-xs"
-                            onChange={(e) => {
+                            variant="ghost"
+                            className="!w-auto !min-h-0 px-2 py-0.5 text-xs"
+                            onValueChange={(v) => {
                               handleFieldChange(item.id, {
-                                priority: e.target.value as ActionItemPriority,
+                                priority: v as ActionItemPriority,
                               })
                             }}
                           >
@@ -361,12 +362,9 @@ export function ActionItemsSection({ meetingId, items }: ActionItemsSectionProps
                     <div className="flex shrink-0 flex-col items-end gap-2">
                       <Select
                         value={item.status}
-                        className="!w-auto py-1 pl-2 pr-7 text-xs"
-                        onChange={(e) =>
-                          handleStatusChange(
-                            item.id,
-                            e.target.value as ActionItemStatus,
-                          )
+                        className="!w-auto px-2 py-1 text-xs"
+                        onValueChange={(v) =>
+                          handleStatusChange(item.id, v as ActionItemStatus)
                         }
                       >
                         <option value="open">Open</option>

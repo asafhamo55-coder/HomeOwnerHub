@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Send } from 'lucide-react'
-import { Button, Input, Textarea } from '@homeowner-portal/ui'
+import { Button, Input, Select, Textarea } from '@homeowner-portal/ui'
 import {
   createViolationReport,
   type ViolationCategory,
@@ -55,21 +55,13 @@ export function ReportViolationForm() {
   return (
     <form action={handleSubmit} className="space-y-5">
       <Field label="What kind of issue?" required>
-        <select
-          name="category"
-          required
-          defaultValue=""
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-        >
-          <option value="" disabled>
-            Choose one…
-          </option>
+        <Select name="category" required placeholder="Choose one…">
           {CATEGORIES.map((c) => (
             <option key={c.value} value={c.value}>
               {c.label}
             </option>
           ))}
-        </select>
+        </Select>
       </Field>
 
       <Field label="Address or location" required>

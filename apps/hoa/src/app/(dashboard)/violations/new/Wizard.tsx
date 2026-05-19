@@ -401,7 +401,8 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
             <Select
               id="property"
               value={propertyId}
-              onChange={(e) => setPropertyId(e.target.value)}
+              onValueChange={setPropertyId}
+              placeholder="Select property"
             >
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>

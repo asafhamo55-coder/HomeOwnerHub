@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Save } from 'lucide-react'
-import { Button, Input } from '@homeowner-portal/ui'
+import { Button, Input, Select } from '@homeowner-portal/ui'
 import { updateTenant } from '@/lib/platform-admin'
 
 interface Props {
@@ -53,15 +53,11 @@ export function EditTenantForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block space-y-1">
           <span className="text-sm font-medium">Plan</span>
-          <select
-            name="plan"
-            defaultValue={initialPlan}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-          >
+          <Select name="plan" defaultValue={initialPlan}>
             <option value="free">Free</option>
             <option value="pro">Pro</option>
             <option value="enterprise">Enterprise</option>
-          </select>
+          </Select>
         </label>
         <label className="block space-y-1">
           <span className="text-sm font-medium">Doors / units</span>

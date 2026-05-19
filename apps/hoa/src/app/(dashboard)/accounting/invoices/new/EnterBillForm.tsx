@@ -66,10 +66,11 @@ export function EnterBillForm({
         <span className="font-medium text-foreground">Vendor</span>
         <Select
           value={vendorId}
-          onChange={(e) => setVendorId(e.target.value)}
+          onValueChange={setVendorId}
           required
           disabled={pending}
           className="mt-1"
+          placeholder="Select vendor"
         >
           {vendors.map((v) => (
             <option key={v.id} value={v.id}>{v.label}</option>
@@ -81,10 +82,11 @@ export function EnterBillForm({
         <span className="font-medium text-foreground">Expense account</span>
         <Select
           value={expenseAccountId}
-          onChange={(e) => setExpenseAccountId(e.target.value)}
+          onValueChange={setExpenseAccountId}
           required
           disabled={pending}
           className="mt-1"
+          placeholder="Select expense account"
         >
           {expenseAccounts.map((a) => (
             <option key={a.id} value={a.id}>{a.label}</option>

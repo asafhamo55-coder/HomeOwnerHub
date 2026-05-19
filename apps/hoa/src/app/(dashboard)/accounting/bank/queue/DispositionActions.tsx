@@ -93,8 +93,9 @@ export function DispositionActions({
             <span className="text-muted">Expense account</span>
             <Select
               value={expenseAccountId}
-              onChange={(e) => setExpenseAccountId(e.target.value)}
+              onValueChange={setExpenseAccountId}
               className="mt-1"
+              placeholder="Choose account"
             >
               {expenseAccounts.map((a) => (
                 <option key={a.id} value={a.id}>{a.label}</option>

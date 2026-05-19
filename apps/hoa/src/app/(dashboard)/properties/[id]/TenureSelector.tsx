@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Pencil, X, Plus } from 'lucide-react'
-import { Button, useToast } from '@homeowner-portal/ui'
+import { Button, Select, useToast } from '@homeowner-portal/ui'
 import { setPropertyTenure, type PropertyTenure } from '@/lib/properties'
 import { addToWaitingList } from '@/lib/leases'
 
@@ -85,18 +85,18 @@ export function TenureSelector({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <select
+        <Select
           value={value}
-          onChange={(e) => setValue(e.target.value as PropertyTenure)}
+          onValueChange={(v) => setValue(v as PropertyTenure)}
           disabled={pending}
-          className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          className="!w-auto"
         >
           {TENURE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>
           ))}
-        </select>
+        </Select>
         <Button size="sm" onClick={handleSave} loading={pending} disabled={pending}>
           Save
         </Button>

@@ -333,8 +333,8 @@ ${transcript}`
             <Select
               id="meeting-type"
               value={meetingType}
-              onChange={(e) => {
-                setMeetingType(e.target.value as MeetingType)
+              onValueChange={(v) => {
+                setMeetingType(v as MeetingType)
                 if (aiAppliedFields.has('meeting_type')) {
                   const next = new Set(aiAppliedFields)
                   next.delete('meeting_type')

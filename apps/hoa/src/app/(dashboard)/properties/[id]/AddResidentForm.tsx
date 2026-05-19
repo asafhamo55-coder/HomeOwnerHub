@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, X } from 'lucide-react'
-import { Button, Input, useToast } from '@homeowner-portal/ui'
+import { Button, Input, Select, useToast } from '@homeowner-portal/ui'
 import {
   addResident,
   type PropertyResidentRole,
@@ -98,18 +98,18 @@ export function AddResidentForm({ propertyId }: { propertyId: string }) {
           <label className="block text-xs font-medium uppercase tracking-wide text-muted">
             Role
           </label>
-          <select
+          <Select
             value={role}
-            onChange={(e) => setRole(e.target.value as PropertyResidentRole)}
+            onValueChange={(v) => setRole(v as PropertyResidentRole)}
             disabled={pending}
-            className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className="mt-1"
           >
             {ROLE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
           <label className="block text-xs font-medium uppercase tracking-wide text-muted">

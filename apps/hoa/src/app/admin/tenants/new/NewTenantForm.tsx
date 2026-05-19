@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Building2 } from 'lucide-react'
-import { Button, Input } from '@homeowner-portal/ui'
+import { Button, Input, Select } from '@homeowner-portal/ui'
 import { createTenant } from '@/lib/platform-admin'
 
 export function NewTenantForm() {
@@ -55,15 +55,11 @@ export function NewTenantForm() {
 
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Plan">
-            <select
-              name="plan"
-              defaultValue="free"
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-            >
+            <Select name="plan" defaultValue="free">
               <option value="free">Free</option>
               <option value="pro">Pro</option>
               <option value="enterprise">Enterprise</option>
-            </select>
+            </Select>
           </Field>
           <Field label="Doors / units (optional)">
             <Input name="doors_count" inputMode="numeric" placeholder="125" />
@@ -85,28 +81,19 @@ export function NewTenantForm() {
 
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="State" required>
-            <select
-              name="state"
-              required
-              defaultValue="GA"
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-            >
+            <Select name="state" required defaultValue="GA">
               <option value="GA">Georgia</option>
               <option value="FL">Florida</option>
               <option value="CA">California</option>
               <option value="TX">Texas</option>
-            </select>
+            </Select>
           </Field>
           <Field label="Type">
-            <select
-              name="association_type"
-              defaultValue="hoa"
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-            >
+            <Select name="association_type" defaultValue="hoa">
               <option value="hoa">HOA</option>
               <option value="condo">Condo</option>
               <option value="coop">Co-op</option>
-            </select>
+            </Select>
           </Field>
         </div>
       </section>

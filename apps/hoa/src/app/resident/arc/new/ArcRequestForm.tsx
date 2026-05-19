@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Send } from 'lucide-react'
-import { Button, Input, Textarea } from '@homeowner-portal/ui'
+import { Button, Input, Select, Textarea } from '@homeowner-portal/ui'
 import { createArcRequest, type ArcCategory } from '@/lib/resident-submissions'
 import type { ResidentUnit } from '@/lib/resident'
 
@@ -58,13 +58,9 @@ export function ArcRequestForm({ units }: { units: ResidentUnit[] }) {
   return (
     <form action={handleSubmit} className="space-y-5">
       <Field label="Unit" required>
-        <select
-          name="unit_id"
-          required
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-        >
+        <Select name="unit_id" required placeholder="Select unit">
           {units.length === 0 ? (
-            <option value="">(no units linked)</option>
+            <option value="none" disabled>(no units linked)</option>
           ) : (
             units.map((u) => (
               <option key={u.unit_id} value={u.unit_id}>
@@ -72,25 +68,17 @@ export function ArcRequestForm({ units }: { units: ResidentUnit[] }) {
               </option>
             ))
           )}
-        </select>
+        </Select>
       </Field>
 
       <Field label="Type of change" required>
-        <select
-          name="category"
-          required
-          defaultValue=""
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-        >
-          <option value="" disabled>
-            Choose one…
-          </option>
+        <Select name="category" required placeholder="Choose one…">
           {CATEGORIES.map((c) => (
             <option key={c.value} value={c.value}>
               {c.label}
             </option>
           ))}
-        </select>
+        </Select>
       </Field>
 
       <Field label="One-line summary" required>

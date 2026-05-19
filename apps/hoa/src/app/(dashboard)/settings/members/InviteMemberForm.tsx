@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Send } from 'lucide-react'
-import { Button, Input } from '@homeowner-portal/ui'
+import { Button, Input, Select } from '@homeowner-portal/ui'
 import { inviteMember, type MemberRole } from '@/lib/members'
 
 const ROLES: Array<{ value: MemberRole; label: string; help: string }> = [
@@ -56,18 +56,13 @@ export function InviteMemberForm() {
 
       <label className="block space-y-1">
         <span className="text-sm font-medium">Role <span className="text-destructive">*</span></span>
-        <select
-          name="role"
-          required
-          defaultValue="resident"
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-        >
+        <Select name="role" required defaultValue="resident">
           {ROLES.map((r) => (
             <option key={r.value} value={r.value}>
               {r.label}
             </option>
           ))}
-        </select>
+        </Select>
         <p className="text-xs text-muted">
           {ROLES.find((r) => r.value === 'resident')?.help} (Default — pick another above.)
         </p>

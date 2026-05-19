@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Trash2 } from 'lucide-react'
-import { Badge, Button } from '@homeowner-portal/ui'
+import { Badge, Button, Select } from '@homeowner-portal/ui'
 import { changeMemberRole, removeMember, type MemberRole, type MemberRow as MemberRowType } from '@/lib/members'
 
 const ROLE_VARIANT: Record<MemberRole, 'default' | 'success' | 'outline'> = {
@@ -58,16 +58,17 @@ export function MemberRow({ member, isSelf }: { member: MemberRowType; isSelf: b
       </div>
 
       <div className="flex flex-shrink-0 items-center gap-2">
-        <select
+        <Select
           value={member.role}
-          onChange={(e) => handleRoleChange(e.target.value as MemberRole)}
+          onValueChange={(v) => handleRoleChange(v as MemberRole)}
           disabled={isPending}
-          className="rounded-md border border-border bg-background px-2 py-1 text-xs"
+          variant="ghost"
+          className="!w-auto text-xs"
         >
           <option value="admin">Admin</option>
           <option value="board">Board</option>
           <option value="resident">Resident</option>
-        </select>
+        </Select>
         <Badge variant={ROLE_VARIANT[member.role]} size="sm">
           {member.role}
         </Badge>
