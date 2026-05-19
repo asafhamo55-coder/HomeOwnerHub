@@ -69,3 +69,10 @@ export type {
   StateLawBrainOutput,
   StateLawCitation,
 } from './W30-state-law-brain'
+
+// v1.2 — Module 9 Communications
+export { commComposer } from './W31-comm-composer'
+export type {
+  CommComposerInput,
+  CommComposerOutput,
+} from './W31-comm-composer'

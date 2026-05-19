@@ -10,6 +10,7 @@
 import { z } from 'zod'
 import OpenAI from 'openai'
 import { defineWorkflow } from '@homeowner-portal/ai'
+import { createAdminClient } from '@homeowner-portal/db'
 import { PROMPT_VERSION, SYSTEM_PROMPT, userPromptFor } from './prompt'
 import { retrieveChunks } from './tools'
 
@@ -75,13 +76,24 @@ export const governingDocsBrain = defineWorkflow({
     })
 
     if (retrieved.length === 0) {
-      // No grounding chunks — return a low-confidence "I don't know"
-      // rather than letting the LLM hallucinate. This is the safety
-      // floor the spec demands ("never speculate or invent rules").
+      // No grounding chunks — but tell the user WHY. The canned "escalate
+      // to board" message is correct when docs exist but the question
+      // isn't covered; it's a terrible answer when no docs have been
+      // uploaded at all. One extra count query disambiguates and makes
+      // the answer actionable.
       api.setConfidence(0)
+      const hasDocs = await hasGoverningDocs(
+        ctx.organizationId,
+        input.associationId ?? null,
+      )
+      const answer = hasDocs
+        ? "I couldn't find anything in the governing documents that addresses that directly. " +
+          "Try rephrasing the question, or browse the documents in Documents → Governing. " +
+          "If this is a board-decision question, escalate to the board."
+        : 'No governing documents are uploaded yet, so there’s nothing for me to search. ' +
+          'Upload your CC&Rs, Bylaws, and Rules in Documents → Governing — once parsed, I can answer questions about them.'
       return {
-        answer:
-          "The governing documents I have access to don't address this directly. Please escalate to the board.",
+        answer,
         confidence: 'LOW' as const,
         citations: [] as GoverningDocsCitation[],
       }
@@ -170,4 +182,43 @@ function parseModelJson(raw: string): {
 function normalizeConfidence(value: unknown): 'HIGH' | 'MEDIUM' | 'LOW' {
   if (value === 'HIGH' || value === 'MEDIUM' || value === 'LOW') return value
   return 'LOW'
+}
+
+/**
+ * Cheap existence check — distinguishes "no docs at all" from "docs but
+ * no match for this question." Uses head:true so Postgres only returns
+ * the count, no rows. Service-role client because the workflow runs from
+ * server code without a user session attached.
+ *
+ * Errors fall back to `false` (the worst case is the user sees the
+ * "upload docs" message when they shouldn't — recoverable, not harmful).
+ */
+async function hasGoverningDocs(
+  organizationId: string,
+  associationId: string | null,
+): Promise<boolean> {
+  try {
+    const db = createAdminClient()
+    let query = db
+      .from('governing_document_chunks')
+      .select('id', { head: true, count: 'exact' })
+      .eq('organization_id', organizationId)
+      .limit(1)
+    if (associationId) {
+      // chunks are joined to docs for association_id; do a join via
+      // document_id. We can't `eq` here directly without a JOIN — use a
+      // separate count on governing_documents for the association-scoped
+      // case.
+      const { count } = await db
+        .from('governing_documents')
+        .select('id', { head: true, count: 'exact' })
+        .eq('organization_id', organizationId)
+        .eq('association_id', associationId)
+      return (count ?? 0) > 0
+    }
+    const { count } = await query
+    return (count ?? 0) > 0
+  } catch {
+    return false
+  }
 }

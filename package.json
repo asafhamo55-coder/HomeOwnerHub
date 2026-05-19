@@ -27,6 +27,7 @@
     "test:recurring-jes": "tsx scripts/test-recurring-jes.ts",
     "test:documents": "tsx scripts/test-documents.ts",
     "test:je-actions": "tsx scripts/test-je-actions.ts",
+    "test:comms": "tsx scripts/test-comms.ts",
     "smoke:pdf": "tsx scripts/smoke-pdf.ts",
     "backfill:embeddings": "tsx scripts/backfill-embeddings.ts",
     "eval:w1": "tsx scripts/eval-w1.ts"

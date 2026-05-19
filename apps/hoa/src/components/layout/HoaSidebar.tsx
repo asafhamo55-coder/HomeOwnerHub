@@ -13,6 +13,7 @@ import {
   Home,
   KeyRound,
   LogOut,
+  Megaphone,
   Scale,
   ScrollText,
   Settings,
@@ -68,6 +69,7 @@ const GROUPS: NavGroup[] = [
       { href: '/leases', icon: <KeyRound className="h-4 w-4" />, label: 'Leases' },
       { href: '/violations', icon: <AlertTriangle className="h-4 w-4" />, label: 'Violations' },
       { href: '/meetings', icon: <CalendarDays className="h-4 w-4" />, label: 'Meetings' },
+      { href: '/communications', icon: <Megaphone className="h-4 w-4" />, label: 'Communications' },
     ],
   },
   {
