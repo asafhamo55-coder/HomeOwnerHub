@@ -415,6 +415,130 @@ export async function getPlatformStats(): Promise<PlatformStats> {
   }
 }
 
+// ─── Tenant preview (read-only "view as tenant") ────────────────────
+// Returns chart-shaped data for a single tenant via service-role.
+// Mirrors the shape of lib/dashboard/charts.ts so the preview page can
+// reuse the existing client components (StatusDonut, ActivityBar).
+// Emits one audit row per call so we have a log of every preview view.
+
+export interface TenantPreviewData {
+  org: { id: string; name: string; plan: string; suspended_at: string | null }
+  violations_donut: {
+    segments: Array<{ label: string; value: number; tone: 'success' | 'warning' | 'destructive' | 'muted' | 'primary' }>
+    total: number
+  }
+  vendor_compliance_donut: {
+    segments: Array<{ label: string; value: number; tone: 'success' | 'warning' | 'destructive' | 'muted' | 'primary' }>
+    total: number
+  }
+  activity_30d: Array<{ date: string; violations: number; arc: number; invitations: number }>
+}
+
+export async function getTenantPreview(
+  orgId: string,
+): Promise<TenantPreviewData | null> {
+  const { userId } = await requirePlatformAdmin()
+  const db = createAdminClient()
+
+  const { data: org } = await db
+    .from('orgs' as never)
+    .select('id, name, plan, suspended_at')
+    .eq('id', orgId)
+    .maybeSingle<{
+      id: string
+      name: string
+      plan: string
+      suspended_at: string | null
+    }>()
+  if (!org) return null
+
+  // Audit the view. Best-effort; failure shouldn't block the preview.
+  await writeAudit(db, userId, 'tenant.preview', orgId, null).catch(() => {})
+
+  const start = new Date()
+  start.setUTCDate(start.getUTCDate() - 29)
+  start.setUTCHours(0, 0, 0, 0)
+  const startIso = start.toISOString()
+
+  const [
+    { data: violations },
+    { data: vendorCompliance },
+    { data: viols30 },
+    { data: arc30 },
+    { data: invites30 },
+  ] = await Promise.all([
+    db.from('hoa_violations').select('status').eq('org_id', orgId),
+    db.from('vendor_compliance' as never).select('coi_status').eq('organization_id', orgId),
+    db.from('hoa_violations').select('created_at').eq('org_id', orgId).gte('created_at', startIso),
+    db.from('arc_requests' as never).select('submitted_at').eq('organization_id', orgId).gte('submitted_at', startIso),
+    db
+      .from('vendor_onboarding_invitations' as never)
+      .select('created_at')
+      .eq('organization_id', orgId)
+      .gte('created_at', startIso),
+  ])
+
+  // Violations donut.
+  const vCounts: Record<string, number> = {}
+  for (const r of (violations ?? []) as Array<{ status: string | null }>) {
+    const s = r.status ?? 'unknown'
+    vCounts[s] = (vCounts[s] ?? 0) + 1
+  }
+  const violationSegments: TenantPreviewData['violations_donut']['segments'] = []
+  if (vCounts.open) violationSegments.push({ label: 'Open', value: vCounts.open, tone: 'primary' })
+  if (vCounts.notice_sent) violationSegments.push({ label: 'Notice sent', value: vCounts.notice_sent, tone: 'warning' })
+  if (vCounts.cured) violationSegments.push({ label: 'Cured', value: vCounts.cured, tone: 'success' })
+  if (vCounts.resolved) violationSegments.push({ label: 'Resolved', value: vCounts.resolved, tone: 'muted' })
+  if (vCounts.fined) violationSegments.push({ label: 'Fined', value: vCounts.fined, tone: 'destructive' })
+  if (vCounts.escalated) violationSegments.push({ label: 'Escalated', value: vCounts.escalated, tone: 'destructive' })
+  const vTotal = violationSegments.reduce((acc, s) => acc + s.value, 0)
+
+  // Vendor compliance donut.
+  const cCounts = { green: 0, yellow: 0, red: 0, missing: 0 }
+  for (const r of (vendorCompliance ?? []) as unknown as Array<{ coi_status: string | null }>) {
+    const k = (r.coi_status ?? 'missing') as keyof typeof cCounts
+    if (k in cCounts) cCounts[k] += 1
+    else cCounts.missing += 1
+  }
+  const vendorSegments: TenantPreviewData['vendor_compliance_donut']['segments'] = []
+  if (cCounts.green) vendorSegments.push({ label: 'Compliant', value: cCounts.green, tone: 'success' })
+  if (cCounts.yellow) vendorSegments.push({ label: 'Action soon', value: cCounts.yellow, tone: 'warning' })
+  if (cCounts.red) vendorSegments.push({ label: 'Non-compliant', value: cCounts.red, tone: 'destructive' })
+  if (cCounts.missing) vendorSegments.push({ label: 'Docs missing', value: cCounts.missing, tone: 'muted' })
+  const cTotal = vendorSegments.reduce((acc, s) => acc + s.value, 0)
+
+  // 30-day activity buckets.
+  const buckets = new Map<string, { date: string; violations: number; arc: number; invitations: number }>()
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(start)
+    d.setUTCDate(start.getUTCDate() + i)
+    const k = d.toISOString().slice(0, 10)
+    buckets.set(k, { date: k, violations: 0, arc: 0, invitations: 0 })
+  }
+  for (const r of (viols30 ?? []) as Array<{ created_at: string }>) {
+    const k = r.created_at.slice(0, 10)
+    const b = buckets.get(k)
+    if (b) b.violations += 1
+  }
+  for (const r of (arc30 ?? []) as unknown as Array<{ submitted_at: string }>) {
+    const k = r.submitted_at.slice(0, 10)
+    const b = buckets.get(k)
+    if (b) b.arc += 1
+  }
+  for (const r of (invites30 ?? []) as unknown as Array<{ created_at: string }>) {
+    const k = r.created_at.slice(0, 10)
+    const b = buckets.get(k)
+    if (b) b.invitations += 1
+  }
+
+  return {
+    org,
+    violations_donut: { segments: violationSegments, total: vTotal },
+    vendor_compliance_donut: { segments: vendorSegments, total: cTotal },
+    activity_30d: Array.from(buckets.values()),
+  }
+}
+
 export async function listPlatformAuditLog(limit = 100): Promise<AuditRow[]> {
   await requirePlatformAdmin()
   const db = createAdminClient()

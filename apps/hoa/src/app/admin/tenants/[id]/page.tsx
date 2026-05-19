@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Pencil } from 'lucide-react'
+import { ArrowLeft, Eye, Pencil } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Badge,
@@ -57,6 +57,12 @@ export default async function TenantDetailPage({
         </div>
         <div className="flex flex-col items-end gap-2">
           <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/admin/tenants/${t.org.id}/preview`}>
+                <Eye className="h-3.5 w-3.5" />
+                Preview
+              </Link>
+            </Button>
             <Button asChild variant="outline" size="sm">
               <Link href={`/admin/tenants/${t.org.id}/edit`}>
                 <Pencil className="h-3.5 w-3.5" />
