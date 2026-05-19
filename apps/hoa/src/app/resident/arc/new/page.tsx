@@ -1,6 +1,4 @@
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
-import { Alert, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { Alert, BackLink, Card, CardContent, CardHeader, CardTitle, PageHeader } from '@homeowner-portal/ui'
 import { getResidentUnits } from '@/lib/resident'
 import { ArcRequestForm } from './ArcRequestForm'
 
@@ -11,22 +9,12 @@ export default async function NewArcRequestPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <Link
-        href="/resident/arc"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to my ARC applications
-      </Link>
+      <BackLink href="/resident/arc" label="Back to my ARC applications" />
 
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold">Architectural Review application</h1>
-        <p className="text-sm text-muted">
-          Submit a request for an exterior change to your unit. The board's
-          Architectural Review Committee will review and respond within
-          thirty (30) days per the Declaration.
-        </p>
-      </header>
+      <PageHeader
+        title="Architectural Review application"
+        description="Submit a request for an exterior change to your unit. The board's Architectural Review Committee will review and respond within thirty (30) days per the Declaration."
+      />
 
       <Alert variant="info" title="Before you submit">
         <span className="block text-sm">

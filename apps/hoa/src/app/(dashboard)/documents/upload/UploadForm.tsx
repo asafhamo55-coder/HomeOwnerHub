@@ -1,9 +1,10 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Upload } from 'lucide-react'
 import { Alert, Button, Input, Textarea } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { uploadDocument, type UploadActionState } from '@/lib/documents'
 
 const initial: UploadActionState = {}
@@ -21,6 +22,7 @@ export function UploadForm() {
   const [autoFilledName, setAutoFilledName] = useState(false)
   const [name, setName] = useState('')
   const f = state.fieldErrors ?? {}
+  const parsedTextRef = useRef<HTMLTextAreaElement>(null)
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -104,10 +106,18 @@ export function UploadForm() {
       </div>
 
       <div className="space-y-1.5">
-        <label htmlFor="parsed_text" className="text-sm font-medium text-foreground">
-          Plain text (optional)
-        </label>
+        <div className="flex items-center justify-between gap-2">
+          <label htmlFor="parsed_text" className="text-sm font-medium text-foreground">
+            Plain text (optional)
+          </label>
+          <AiRewriteButton
+            textareaRef={parsedTextRef}
+            context="Plain text extracted from a governing document — preserve every section number and legal clause exactly"
+            disabled={pending}
+          />
+        </div>
         <Textarea
+          ref={parsedTextRef}
           id="parsed_text"
           name="parsed_text"
           rows={6}

@@ -1,8 +1,9 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useRef } from 'react'
 import Link from 'next/link'
 import { Button, Input, Textarea, Alert, cn } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { createProperty, type PropertyActionState } from '@/lib/properties'
 
 const initial: PropertyActionState = {}
@@ -41,6 +42,7 @@ function Field({
 export function PropertyForm() {
   const [state, action, pending] = useActionState(createProperty, initial)
   const f = state.fieldErrors ?? {}
+  const notesRef = useRef<HTMLTextAreaElement>(null)
 
   return (
     <form action={action} className={cn('space-y-5')}>
@@ -101,13 +103,23 @@ export function PropertyForm() {
       </div>
 
       <Field label="Notes" htmlFor="notes" hint="Optional. Anything the board should remember.">
-        <Textarea
-          id="notes"
-          name="notes"
-          rows={3}
-          placeholder="Side gate needs lock replaced. Owner travels frequently."
-          disabled={pending}
-        />
+        <div className="space-y-1.5">
+          <div className="flex justify-end">
+            <AiRewriteButton
+              textareaRef={notesRef}
+              context="Internal property notes for the HOA board"
+              disabled={pending}
+            />
+          </div>
+          <Textarea
+            ref={notesRef}
+            id="notes"
+            name="notes"
+            rows={3}
+            placeholder="Side gate needs lock replaced. Owner travels frequently."
+            disabled={pending}
+          />
+        </div>
       </Field>
 
       {state.error ? (

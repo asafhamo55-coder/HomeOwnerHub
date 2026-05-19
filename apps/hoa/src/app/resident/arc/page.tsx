@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ClipboardList, Plus } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Button, Card, EmptyState } from '@homeowner-portal/ui'
+import { Badge, Button, Card, EmptyState, PageHeader } from '@homeowner-portal/ui'
 import { listMyArcRequests, type ArcStatus } from '@/lib/resident-submissions'
 
 export const metadata = { title: 'My ARC applications' }
@@ -31,20 +31,18 @@ export default async function MyArcRequestsPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">My ARC applications</h1>
-          <p className="text-sm text-muted">
-            Your architectural review requests and the board's responses.
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/resident/arc/new">
-            <Plus className="h-4 w-4" />
-            New application
-          </Link>
-        </Button>
-      </header>
+      <PageHeader
+        title="My ARC applications"
+        description="Your architectural review requests and the board's responses."
+        actions={
+          <Button asChild>
+            <Link href="/resident/arc/new">
+              <Plus className="h-4 w-4" />
+              New application
+            </Link>
+          </Button>
+        }
+      />
 
       {requests.length === 0 ? (
         <EmptyState

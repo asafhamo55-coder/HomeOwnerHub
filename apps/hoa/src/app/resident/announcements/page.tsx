@@ -1,6 +1,6 @@
 import { CalendarClock, ExternalLink, Megaphone } from 'lucide-react'
 import { format } from 'date-fns'
-import { Alert, Badge, Card, CardContent, CardHeader, CardTitle, EmptyState } from '@homeowner-portal/ui'
+import { Alert, Badge, Card, CardContent, CardHeader, CardTitle, EmptyState, PageHeader } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Announcements' }
@@ -31,15 +31,15 @@ export default async function ResidentAnnouncementsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header className="space-y-1">
-        <div className="flex items-center gap-2">
-          <Megaphone className="h-5 w-5 text-primary" />
-          <h1 className="text-2xl font-bold">Announcements</h1>
-        </div>
-        <p className="text-sm text-muted">
-          Recent updates that affect your association and what to do about them.
-        </p>
-      </header>
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            <Megaphone className="h-5 w-5 text-primary" aria-hidden />
+            Announcements
+          </span>
+        }
+        description="Recent updates that affect your association and what to do about them."
+      />
 
       <Alert variant="info" title="Informational only">
         <span className="block text-sm">

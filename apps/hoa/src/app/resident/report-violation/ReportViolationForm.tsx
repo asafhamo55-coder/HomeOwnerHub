@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Send } from 'lucide-react'
 import { Button, Input, Select, Textarea } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import {
   createViolationReport,
   type ViolationCategory,
@@ -26,6 +27,7 @@ export function ReportViolationForm() {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const descriptionRef = useRef<HTMLTextAreaElement>(null)
 
   async function handleSubmit(formData: FormData) {
     setError(null)
@@ -83,14 +85,24 @@ export function ReportViolationForm() {
       </Field>
 
       <Field label="What did you observe?" required>
-        <Textarea
-          name="description"
-          rows={6}
-          required
-          minLength={20}
-          maxLength={4000}
-          placeholder="Just the facts — what, when, how often. The board will follow up if more info is needed."
-        />
+        <div className="space-y-1.5">
+          <div className="flex justify-end">
+            <AiRewriteButton
+              textareaRef={descriptionRef}
+              context="Resident-submitted violation report — preserve facts, dates, and times exactly; avoid speculation or accusations"
+              disabled={isPending}
+            />
+          </div>
+          <Textarea
+            ref={descriptionRef}
+            name="description"
+            rows={6}
+            required
+            minLength={20}
+            maxLength={4000}
+            placeholder="Just the facts — what, when, how often. The board will follow up if more info is needed."
+          />
+        </div>
         <Helper>
           Stick to what you observed. Avoid speculation or accusations.
           Photos can be emailed to the board separately.

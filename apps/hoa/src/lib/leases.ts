@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { queryGoverningDocs } from '@homeowner-portal/workflows/W1'
 import { getCurrentOrg } from '@/lib/orgs'
+import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { logPropertyEvent } from '@/lib/property-events'
@@ -192,15 +193,22 @@ export async function setLeaseCap(
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
   }
 
+  // Board/admin only. The (dashboard) layout already redirects residents
+  // away from the page, but server actions are reachable via direct POST
+  // regardless, so we gate here too.
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return { ok: false, error: "You don't have permission to perform this action." }
+  }
+
   const supabase = await getSupabaseServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Not signed in.' }
 
-  // RLS on associations already restricts to org members; the (dashboard)
-  // layout gates the page to admin/board roles so we don't double-check
-  // role here.
   const { error } = await supabase
     .from('associations' as never)
     .update({
@@ -228,6 +236,13 @@ export async function suggestLeaseCapFromDocs(
 ): Promise<ActionResult<SuggestCapResult>> {
   const org = await getCurrentOrg()
   if (!org) return { ok: false, error: 'No HOA selected.' }
+
+  // Board/admin only. Server actions are reachable via direct POST so
+  // even though the page redirects residents, we double-check here.
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return { ok: false, error: "You don't have permission to perform this action." }
+  }
 
   // The caller passes associationId for clarity, but we validate against
   // the user's primary association to keep RLS-friendly behavior. If
@@ -360,7 +375,7 @@ export async function listWaitingList(
 
 const AddWaitingListSchema = z.object({
   property_id: z.string().uuid(),
-  notes: z.string().trim().optional(),
+  notes: z.string().trim().max(2000, 'Notes must be 2000 characters or fewer.').optional(),
 })
 
 export interface AddToWaitingListInput {
@@ -381,6 +396,15 @@ export async function addToWaitingList(
 
   const org = await getCurrentOrg()
   if (!org) return { ok: false, error: 'No HOA selected.' }
+
+  // Board/admin only on the manager-side action. Residents have their
+  // own portal flow and shouldn't be able to add to the waiting list
+  // through this entrypoint.
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return { ok: false, error: "You don't have permission to perform this action." }
+  }
+
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No association configured.' }
 
@@ -416,12 +440,15 @@ export async function addToWaitingList(
     return { ok: false, error: msg }
   }
 
-  await logPropertyEvent({
+  const ev = await logPropertyEvent({
     propertyId: parsed.data.property_id,
     kind: 'waiting_list_added',
     payload: { waitingListEntryId: data.id },
     notes: parsed.data.notes ?? null,
   })
+  if (!ev.ok) {
+    console.error('[leases.addToWaitingList] event log failed', ev.error)
+  }
 
   revalidatePath('/leases')
   revalidatePath(`/properties/${parsed.data.property_id}`)
@@ -431,6 +458,14 @@ export async function addToWaitingList(
 export async function approveWaitingListEntry(
   entryId: string,
 ): Promise<ActionResult> {
+  // Board/admin only on the manager-side action.
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return { ok: false, error: "You don't have permission to perform this action." }
+  }
+
   const supabase = await getSupabaseServerClient()
   const {
     data: { user },
@@ -458,7 +493,13 @@ export async function approveWaitingListEntry(
   const prevTenure: PropertyTenure = (prop?.tenure ?? 'unknown') as PropertyTenure
 
   const nowIso = new Date().toISOString()
-  const { error: updateErr } = await supabase
+  // Guard against a TOCTOU race: a concurrent caller could approve/deny
+  // this same entry between our SELECT above and this UPDATE. The
+  // .eq('status', 'waiting') makes the UPDATE conditional, and .select()
+  // returns the row only if it actually flipped. If we get nothing back,
+  // someone else already resolved it — bail rather than firing tenure
+  // changes and audit events for a no-op.
+  const { data: updatedRows, error: updateErr } = await supabase
     .from('lease_waiting_list' as never)
     .update({
       status: 'approved',
@@ -466,7 +507,16 @@ export async function approveWaitingListEntry(
       status_updated_by: user.id,
     } as never)
     .eq('id', entryId)
+    .eq('status', 'waiting')
+    .select('id')
   if (updateErr) return { ok: false, error: updateErr.message }
+  if (!updatedRows || (updatedRows as unknown as Array<unknown>).length === 0) {
+    return {
+      ok: false,
+      error:
+        'This entry was already resolved by another action — refresh and try again.',
+    }
+  }
 
   if (prevTenure !== 'leased') {
     const { error: tenureErr } = await supabase
@@ -478,29 +528,54 @@ export async function approveWaitingListEntry(
       } as never)
       .eq('id', entry.property_id)
     if (tenureErr) {
+      // Don't leave the UI saying "Approved" while the property is
+      // still owner-occupied — cap counts would diverge. Surface a
+      // clear error so the user can refresh and retry.
       console.error(
         '[leases.approveWaitingListEntry] tenure update failed',
         tenureErr.message,
       )
+      return {
+        ok: false,
+        error: `Approved the entry but couldn't update property tenure: ${tenureErr.message}. Refresh and retry.`,
+      }
     }
   }
 
-  await logPropertyEvent({
+  const evResolved = await logPropertyEvent({
     propertyId: entry.property_id,
     kind: 'waiting_list_resolved',
     payload: { outcome: 'approved', entryId },
   })
+  if (!evResolved.ok) {
+    console.error(
+      '[leases.approveWaitingListEntry] event log failed',
+      evResolved.error,
+    )
+  }
   if (prevTenure !== 'leased') {
-    await logPropertyEvent({
+    const evTenure = await logPropertyEvent({
       propertyId: entry.property_id,
       kind: 'tenure_changed',
       payload: { from: prevTenure, to: 'leased', via: 'waiting_list_approval' },
     })
-    await logPropertyEvent({
+    if (!evTenure.ok) {
+      console.error(
+        '[leases.approveWaitingListEntry] event log failed',
+        evTenure.error,
+      )
+    }
+    const evStart = await logPropertyEvent({
       propertyId: entry.property_id,
       kind: 'lease_started',
       payload: { entryId },
     })
+    if (!evStart.ok) {
+      console.error(
+        '[leases.approveWaitingListEntry] event log failed',
+        evStart.error,
+      )
+    }
   }
 
   revalidatePath('/leases')
@@ -512,6 +587,14 @@ export async function denyWaitingListEntry(
   entryId: string,
   reason: string,
 ): Promise<ActionResult> {
+  // Board/admin only.
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return { ok: false, error: "You don't have permission to perform this action." }
+  }
+
   const supabase = await getSupabaseServerClient()
   const {
     data: { user },
@@ -539,12 +622,15 @@ export async function denyWaitingListEntry(
     .eq('id', entryId)
   if (error) return { ok: false, error: error.message }
 
-  await logPropertyEvent({
+  const ev = await logPropertyEvent({
     propertyId: entry.property_id,
     kind: 'waiting_list_resolved',
     payload: { outcome: 'denied', entryId, reason: reason || null },
     notes: reason || null,
   })
+  if (!ev.ok) {
+    console.error('[leases.denyWaitingListEntry] event log failed', ev.error)
+  }
 
   revalidatePath('/leases')
   revalidatePath(`/properties/${entry.property_id}`)
@@ -554,6 +640,14 @@ export async function denyWaitingListEntry(
 export async function withdrawWaitingListEntry(
   entryId: string,
 ): Promise<ActionResult> {
+  // Board/admin only on the manager-side action.
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return { ok: false, error: "You don't have permission to perform this action." }
+  }
+
   const supabase = await getSupabaseServerClient()
   const {
     data: { user },
@@ -581,11 +675,17 @@ export async function withdrawWaitingListEntry(
     .eq('id', entryId)
   if (error) return { ok: false, error: error.message }
 
-  await logPropertyEvent({
+  const ev = await logPropertyEvent({
     propertyId: entry.property_id,
     kind: 'waiting_list_resolved',
     payload: { outcome: 'withdrawn', entryId },
   })
+  if (!ev.ok) {
+    console.error(
+      '[leases.withdrawWaitingListEntry] event log failed',
+      ev.error,
+    )
+  }
 
   revalidatePath('/leases')
   revalidatePath(`/properties/${entry.property_id}`)

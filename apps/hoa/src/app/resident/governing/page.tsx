@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { FileText } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Card, EmptyState } from '@homeowner-portal/ui'
+import { Badge, Card, EmptyState, PageHeader } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Governing Documents' }
@@ -35,13 +35,10 @@ export default async function ResidentGoverningPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold">Governing Documents</h1>
-        <p className="text-sm text-muted">
-          Your association's Declaration, Bylaws, Rules, and amendments.
-          Tap a document to view it.
-        </p>
-      </header>
+      <PageHeader
+        title="Governing Documents"
+        description="Your association's Declaration, Bylaws, Rules, and amendments. Tap a document to view it."
+      />
 
       {rows.length === 0 ? (
         <EmptyState

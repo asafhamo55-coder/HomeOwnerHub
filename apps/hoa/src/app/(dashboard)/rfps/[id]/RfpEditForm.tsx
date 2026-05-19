@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button, Input, Textarea } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { updateRfp } from '@/lib/rfps'
 
 interface Props {
@@ -24,6 +25,7 @@ export function RfpEditForm({
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const scopeRef = useRef<HTMLTextAreaElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
@@ -81,10 +83,23 @@ export function RfpEditForm({
         <Input name="title" defaultValue={initialTitle} required />
       </label>
 
-      <label className="block space-y-1">
-        <span className="text-sm font-medium text-foreground">Scope</span>
-        <Textarea name="scope" rows={8} defaultValue={initialScope} required />
-      </label>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-medium text-foreground">Scope</span>
+          <AiRewriteButton
+            textareaRef={scopeRef}
+            context="RFP scope of work — preserve dates, dollar amounts, deadlines, and deliverables"
+            disabled={isPending}
+          />
+        </div>
+        <Textarea
+          ref={scopeRef}
+          name="scope"
+          rows={8}
+          defaultValue={initialScope}
+          required
+        />
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block space-y-1">

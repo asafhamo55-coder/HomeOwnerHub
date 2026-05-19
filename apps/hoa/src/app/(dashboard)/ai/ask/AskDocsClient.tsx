@@ -12,6 +12,7 @@ import {
   CardTitle,
   Textarea,
 } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 
 type Confidence = 'HIGH' | 'MEDIUM' | 'LOW'
 
@@ -110,6 +111,12 @@ export function AskDocsClient() {
               >
                 Ask
               </Button>
+              <AiRewriteButton
+                value={question}
+                onChange={setQuestion}
+                context="Question to the governing-docs AI — rephrase for clarity"
+                disabled={status === 'loading'}
+              />
               {status !== 'idle' ? (
                 <Button
                   type="button"

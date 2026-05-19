@@ -1,6 +1,5 @@
-import Link from 'next/link'
-import { ArrowLeft, Shield } from 'lucide-react'
-import { Alert, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { Shield } from 'lucide-react'
+import { Alert, BackLink, Card, CardContent, CardHeader, CardTitle, PageHeader } from '@homeowner-portal/ui'
 import { ReportViolationForm } from './ReportViolationForm'
 
 export const metadata = { title: 'Report a concern' }
@@ -8,22 +7,12 @@ export const metadata = { title: 'Report a concern' }
 export default function ReportViolationPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <Link
-        href="/resident"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to My Home
-      </Link>
+      <BackLink href="/resident" label="Back to My Home" />
 
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold">Report a concern</h1>
-        <p className="text-sm text-muted">
-          Let the board know about a possible rule violation or community
-          issue. The board will review and decide whether to open a formal
-          violation.
-        </p>
-      </header>
+      <PageHeader
+        title="Report a concern"
+        description="Let the board know about a possible rule violation or community issue. The board will review and decide whether to open a formal violation."
+      />
 
       <Alert variant="info" title="Your identity stays confidential">
         <span className="block text-sm">

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Briefcase, Mail, Plus, Search, X } from 'lucide-react'
+import { Briefcase, Download, Mail, Plus, Search, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { Button, Card, EmptyState, Input, StatusBadge, Tabs } from '@homeowner-portal/ui'
 import { listVendors, type ComplianceStatus } from '@/lib/vendors'
@@ -75,6 +75,12 @@ export default async function VendorsListPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <a href={`/vendors/export${search ? `?q=${encodeURIComponent(search)}` : ''}`}>
+              <Download className="h-4 w-4" />
+              Export CSV
+            </a>
+          </Button>
           <Button asChild variant="outline">
             <Link href="/vendors/invitations">
               <Mail className="h-4 w-4" />

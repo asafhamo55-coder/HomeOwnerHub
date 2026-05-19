@@ -63,7 +63,14 @@ export interface NextMeetingInfo {
 export interface LeaseSummary {
   /** True when at least one association under this org exists. */
   hasAssociation: boolean
-  /** Aggregate cap % when single-association; first-association cap otherwise. */
+  /**
+   * Cap % rolled up across associations:
+   *  - null if all associations have no cap set
+   *  - the single value if all non-null caps agree
+   *  - the MOST RESTRICTIVE (lowest) cap if caps differ — safe default so
+   *    a manager seeing 25% cap won't accidentally exceed a 15% cap in
+   *    another association. The UI should label this as mixed.
+   */
   capPct: number | null
   totalUnits: number
   leasedCount: number
@@ -73,6 +80,12 @@ export interface LeaseSummary {
   headroom: number | null
   /** Count of waiting_list rows with status='waiting' across all associations under this org. */
   waitingListCount: number
+  /**
+   * True when associations under this org have differing non-null caps,
+   * so `capPct` reflects only the most-restrictive one. UI should label
+   * this so the manager doesn't assume the cap is uniform.
+   */
+  capIsMixed: boolean
 }
 
 export async function getDashboardStats(orgId: string): Promise<DashboardStats> {
@@ -299,10 +312,12 @@ export async function getApprovalsInbox(orgId: string): Promise<ApprovalsInbox> 
 
 // Lease cap + current state + waiting list count for the dashboard
 // widget. Aggregates across every association under the org so an HOA
-// with multiple sub-associations sees one rolled-up number. `capPct` is
-// taken from the first association when multiple are present (most v1
-// orgs have one; we document that limitation rather than weight-average
-// it which would be misleading).
+// with multiple sub-associations sees one rolled-up number. When
+// associations have differing non-null caps we surface the most
+// restrictive (lowest) one and flag `capIsMixed: true` so the UI can
+// label it — picking the lowest is the safe interpretation since a
+// manager seeing 25% cap shouldn't accidentally exceed a 15% cap in
+// another association.
 export async function getLeaseSummary(orgId: string): Promise<LeaseSummary> {
   const supabase = await getSupabaseServerClient()
 
@@ -324,12 +339,30 @@ export async function getLeaseSummary(orgId: string): Promise<LeaseSummary> {
       leasedPct: 0,
       headroom: null,
       waitingListCount: 0,
+      capIsMixed: false,
     }
   }
   const assocIds = assocRows.map((a) => a.id)
-  const firstCapRaw = assocRows[0].lease_cap_pct
-  const capPct =
-    firstCapRaw === null || firstCapRaw === undefined ? null : Number(firstCapRaw)
+
+  // Roll up caps across associations:
+  //  - all null  → capPct null,            capIsMixed false
+  //  - all equal → that value,             capIsMixed false
+  //  - differ    → most-restrictive (min), capIsMixed true
+  const capValues = assocRows
+    .map((a) => a.lease_cap_pct)
+    .filter((v): v is number | string => v !== null && v !== undefined)
+    .map((v) => Number(v))
+    .filter((n) => Number.isFinite(n))
+  let capPct: number | null
+  let capIsMixed = false
+  if (capValues.length === 0) {
+    capPct = null
+  } else {
+    const min = Math.min(...capValues)
+    const max = Math.max(...capValues)
+    capPct = min
+    capIsMixed = min !== max
+  }
 
   // 2. Resolve the units → properties for tenure roll-up.
   const { data: unitsRows } = await supabase
@@ -378,6 +411,7 @@ export async function getLeaseSummary(orgId: string): Promise<LeaseSummary> {
     leasedPct,
     headroom,
     waitingListCount: waitingListCount ?? 0,
+    capIsMixed,
   }
 }
 

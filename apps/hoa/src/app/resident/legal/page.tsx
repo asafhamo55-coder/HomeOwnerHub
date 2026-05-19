@@ -1,5 +1,5 @@
 import { Scale } from 'lucide-react'
-import { Alert, EmptyState } from '@homeowner-portal/ui'
+import { Alert, EmptyState, PageHeader } from '@homeowner-portal/ui'
 import { getAssociationState } from '@/lib/state-law'
 import { AskStateLawClient } from '@/app/(dashboard)/legal/ask/AskStateLawClient'
 
@@ -17,18 +17,15 @@ export default async function ResidentLegalPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header className="space-y-1">
-        <div className="flex items-center gap-2">
-          <Scale className="h-5 w-5 text-primary" />
-          <h1 className="text-2xl font-bold">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            <Scale className="h-5 w-5 text-primary" aria-hidden />
             Ask the {state ? `${STATE_NAME[state]} ` : ''}state law
-          </h1>
-        </div>
-        <p className="text-sm text-muted">
-          Get plain-English answers grounded in your state's actual HOA
-          statutes, with citations to specific code sections.
-        </p>
-      </header>
+          </span>
+        }
+        description="Get plain-English answers grounded in your state's actual HOA statutes, with citations to specific code sections."
+      />
 
       <Alert variant="info" title="Informational, not legal advice">
         <span className="block text-sm">

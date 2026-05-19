@@ -12,6 +12,7 @@ import {
   CardTitle,
   Textarea,
 } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { askStateLawAction } from '@/lib/state-law'
 
 type Confidence = 'HIGH' | 'MEDIUM' | 'LOW'
@@ -102,6 +103,12 @@ export function AskStateLawClient({ state }: { state: 'GA' | 'FL' | 'CA' | 'TX' 
               >
                 Ask
               </Button>
+              <AiRewriteButton
+                value={question}
+                onChange={setQuestion}
+                context="Question to the state-law AI — rephrase for clarity"
+                disabled={isPending}
+              />
               <span className="text-xs text-muted">
                 Try:{' '}
                 {(SAMPLE_QUESTIONS[state] ?? []).map((q, i, arr) => (

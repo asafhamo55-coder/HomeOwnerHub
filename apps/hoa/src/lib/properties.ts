@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
+import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { logPropertyEvent } from '@/lib/property-events'
 import {
@@ -158,6 +159,16 @@ export async function setPropertyTenure(
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
   }
 
+  // Board/admin only: the (dashboard) layout already redirects residents,
+  // but server actions are reachable via direct POST regardless of which
+  // page rendered them, so we gate here too.
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return { ok: false, error: "You don't have permission to perform this action." }
+  }
+
   const supabase = await getSupabaseServerClient()
   const {
     data: { user },
@@ -187,31 +198,177 @@ export async function setPropertyTenure(
     .eq('id', parsed.data.property_id)
   if (error) return { ok: false, error: error.message }
 
-  await logPropertyEvent({
+  const evTenure = await logPropertyEvent({
     propertyId: parsed.data.property_id,
     kind: 'tenure_changed',
     payload: { from: prev, to: parsed.data.tenure },
     notes: parsed.data.notes ?? null,
   })
+  if (!evTenure.ok) {
+    console.error('[properties.setPropertyTenure] event log failed', evTenure.error)
+  }
 
   // When a property flips to 'leased', record a lease_started marker so
   // the timeline reads as a story instead of a single tenure-change row.
   if (parsed.data.tenure === 'leased' && prev !== 'leased') {
-    await logPropertyEvent({
+    const evStart = await logPropertyEvent({
       propertyId: parsed.data.property_id,
       kind: 'lease_started',
       payload: { from: prev },
     })
+    if (!evStart.ok) {
+      console.error('[properties.setPropertyTenure] event log failed', evStart.error)
+    }
   }
   if (parsed.data.tenure !== 'leased' && prev === 'leased') {
-    await logPropertyEvent({
+    const evEnd = await logPropertyEvent({
       propertyId: parsed.data.property_id,
       kind: 'lease_ended',
       payload: { to: parsed.data.tenure },
     })
+    if (!evEnd.ok) {
+      console.error('[properties.setPropertyTenure] event log failed', evEnd.error)
+    }
   }
 
   revalidatePath(`/properties/${parsed.data.property_id}`)
   revalidatePath('/leases')
   return { ok: true }
+}
+
+// ─── Bulk tenure ─────────────────────────────────────────────────────
+
+const BulkSetTenureSchema = z.object({
+  property_ids: z
+    .array(z.string().uuid())
+    .min(1, 'Select at least one property.')
+    .max(200, 'You can update at most 200 properties at a time.'),
+  tenure: z.enum(['owner_occupied', 'leased', 'unknown']),
+})
+
+export interface BulkSetTenureInput {
+  propertyIds: string[]
+  tenure: PropertyTenure
+}
+
+// Bulk-set tenure across many properties. We loop and call the same
+// underlying steps as `setPropertyTenure` so each property gets:
+//   • the table update with stamped tenure_updated_at / _by
+//   • a `tenure_changed` property_events row
+//   • lease_started / lease_ended markers on the boundary cases
+// We deliberately do NOT call setPropertyTenure() in a loop — that would
+// re-run getCurrentUserRoleInOrg() for every row (one round-trip each).
+export async function bulkSetPropertyTenure(
+  input: BulkSetTenureInput,
+): Promise<ActionResult<{ updated: number; failed: number }>> {
+  const parsed = BulkSetTenureSchema.safeParse({
+    property_ids: input.propertyIds,
+    tenure: input.tenure,
+  })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+
+  // Board/admin only — mirror the security fix pattern from setPropertyTenure.
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return { ok: false, error: "You don't have permission to perform this action." }
+  }
+
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Not signed in.' }
+
+  // De-dupe IDs in case the client posted the same id twice.
+  const ids = Array.from(new Set(parsed.data.property_ids))
+
+  // Single round-trip to read prior tenures. RLS scopes this to the
+  // user's org automatically; ids outside the org just won't return.
+  const { data: existingRows, error: readErr } = await supabase
+    .from('hoa_properties')
+    .select('id, tenure')
+    .in('id', ids)
+  if (readErr) return { ok: false, error: readErr.message }
+
+  const existing = new Map<string, PropertyTenure>()
+  for (const row of (existingRows ?? []) as unknown as Array<{
+    id: string
+    tenure: PropertyTenure | null
+  }>) {
+    existing.set(row.id, (row.tenure ?? 'unknown') as PropertyTenure)
+  }
+
+  const nowIso = new Date().toISOString()
+  const target = parsed.data.tenure
+  let updated = 0
+  let failed = 0
+
+  for (const propertyId of ids) {
+    const prev = existing.get(propertyId)
+    if (prev === undefined) {
+      // Property either doesn't exist or RLS hid it. Count as failure.
+      failed += 1
+      continue
+    }
+    if (prev === target) {
+      // No-op — don't log a noisy event, but count it as "updated" so
+      // the user sees the intuitive total.
+      updated += 1
+      continue
+    }
+
+    const { error: updErr } = await supabase
+      .from('hoa_properties')
+      .update({
+        tenure: target,
+        tenure_updated_at: nowIso,
+        tenure_updated_by: user.id,
+      } as never)
+      .eq('id', propertyId)
+    if (updErr) {
+      console.error('[properties.bulkSetPropertyTenure] update failed', propertyId, updErr.message)
+      failed += 1
+      continue
+    }
+
+    const evTenure = await logPropertyEvent({
+      propertyId,
+      kind: 'tenure_changed',
+      payload: { from: prev, to: target, via: 'bulk' },
+    })
+    if (!evTenure.ok) {
+      console.error('[properties.bulkSetPropertyTenure] event log failed', evTenure.error)
+    }
+
+    if (target === 'leased' && prev !== 'leased') {
+      const evStart = await logPropertyEvent({
+        propertyId,
+        kind: 'lease_started',
+        payload: { from: prev, via: 'bulk' },
+      })
+      if (!evStart.ok) {
+        console.error('[properties.bulkSetPropertyTenure] event log failed', evStart.error)
+      }
+    }
+    if (target !== 'leased' && prev === 'leased') {
+      const evEnd = await logPropertyEvent({
+        propertyId,
+        kind: 'lease_ended',
+        payload: { to: target, via: 'bulk' },
+      })
+      if (!evEnd.ok) {
+        console.error('[properties.bulkSetPropertyTenure] event log failed', evEnd.error)
+      }
+    }
+
+    updated += 1
+  }
+
+  revalidatePath('/properties')
+  revalidatePath('/leases')
+  return { ok: true, data: { updated, failed } }
 }

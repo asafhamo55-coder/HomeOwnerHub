@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { AlertTriangle, Plus, Search, X } from 'lucide-react'
+import { AlertTriangle, Download, Plus, Search, X } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Badge,
@@ -65,7 +65,12 @@ export default async function ViolationsListPage({
     .order('created_at', { ascending: false })
     .limit(100)
   if (search.length > 0) {
-    const safe = search.replace(/[,()]/g, ' ')
+    // Cap length, escape LIKE wildcards (`%`, `_`, `\`) so they don't
+    // match everything, and strip PostgREST `.or()` separators.
+    const safe = search
+      .slice(0, 100)
+      .replace(/[%_\\]/g, '\\$&')
+      .replace(/[,()]/g, ' ')
     query = query.or(
       `description.ilike.%${safe}%,ccr_section.ilike.%${safe}%`,
     )
@@ -84,12 +89,20 @@ export default async function ViolationsListPage({
             {search ? ` matching “${search}”` : ' (showing most recent first)'}
           </p>
         </div>
-        <Button asChild>
-          <Link href="/violations/new">
-            <Plus className="h-4 w-4" />
-            Report violation
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <a href={`/violations/export${search ? `?q=${encodeURIComponent(search)}` : ''}`}>
+              <Download className="h-4 w-4" />
+              Export CSV
+            </a>
+          </Button>
+          <Button asChild>
+            <Link href="/violations/new">
+              <Plus className="h-4 w-4" />
+              Report violation
+            </Link>
+          </Button>
+        </div>
       </header>
 
       <Tabs items={VIOLATION_TABS} currentPath="/violations" aria-label="Violation sections" />

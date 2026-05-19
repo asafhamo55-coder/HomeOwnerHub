@@ -1,5 +1,5 @@
 import { Wallet } from 'lucide-react'
-import { Alert, Card, CardContent, CardHeader, CardTitle, EmptyState } from '@homeowner-portal/ui'
+import { Alert, Card, CardContent, CardHeader, CardTitle, EmptyState, PageHeader } from '@homeowner-portal/ui'
 import { getResidentUnits } from '@/lib/resident'
 
 export const metadata = { title: 'My Dues' }
@@ -9,12 +9,13 @@ export default async function ResidentDuesPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold">My Dues</h1>
-        <p className="text-sm text-muted">
-          Current balance and payment history for your unit{units.length === 1 ? '' : 's'}.
-        </p>
-      </header>
+      <PageHeader
+        title="My Dues"
+        description={`Current balance and payment history for your unit${units.length === 1 ? '' : 's'}.`}
+      />
+      {/* TODO: wire in real dues data via getResidentDues() — filter assessments
+          + ledger entries by user → owners → units. Until then this page shows
+          the linked units and an informational Alert. */}
 
       {units.length === 0 ? (
         <EmptyState

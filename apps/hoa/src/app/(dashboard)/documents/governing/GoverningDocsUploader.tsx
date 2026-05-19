@@ -12,6 +12,7 @@ import {
   Input,
   Textarea,
 } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 
 const DOC_TYPES = [
   { value: 'declaration', label: 'Declaration / CC&Rs' },
@@ -252,6 +253,14 @@ export function GoverningDocsUploader({
               </div>
             ) : (
               <div className="space-y-1.5">
+                <div className="flex justify-end">
+                  <AiRewriteButton
+                    value={pastedText}
+                    onChange={setPastedText}
+                    context="Governing document text (CC&Rs, Bylaws, Rules) — preserve every section number, citation, and legal clause exactly"
+                    disabled={status === 'uploading'}
+                  />
+                </div>
                 <Textarea
                   value={pastedText}
                   onChange={(e) => setPastedText(e.target.value)}

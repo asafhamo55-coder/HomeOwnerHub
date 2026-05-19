@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Send } from 'lucide-react'
 import { Button, Input, Select, Textarea } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { createArcRequest, type ArcCategory } from '@/lib/resident-submissions'
 import type { ResidentUnit } from '@/lib/resident'
 
@@ -23,6 +24,7 @@ export function ArcRequestForm({ units }: { units: ResidentUnit[] }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const scopeRef = useRef<HTMLTextAreaElement>(null)
 
   async function handleSubmit(formData: FormData) {
     setError(null)
@@ -91,14 +93,24 @@ export function ArcRequestForm({ units }: { units: ResidentUnit[] }) {
       </Field>
 
       <Field label="Detailed description" required>
-        <Textarea
-          name="scope_description"
-          rows={6}
-          required
-          minLength={20}
-          maxLength={4000}
-          placeholder="Materials, dimensions, colors, contractor, anything else the ARC will want to know."
-        />
+        <div className="space-y-1.5">
+          <div className="flex justify-end">
+            <AiRewriteButton
+              textareaRef={scopeRef}
+              context="Resident ARC application — preserve materials, dimensions, colors, contractor names, and dates exactly"
+              disabled={isPending}
+            />
+          </div>
+          <Textarea
+            ref={scopeRef}
+            name="scope_description"
+            rows={6}
+            required
+            minLength={20}
+            maxLength={4000}
+            placeholder="Materials, dimensions, colors, contractor, anything else the ARC will want to know."
+          />
+        </div>
         <Helper>
           Be specific. Materials, dimensions, colors, location. Plans or
           photos can be emailed to the board separately if needed.

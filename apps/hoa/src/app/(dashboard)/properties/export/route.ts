@@ -29,7 +29,14 @@ const TENURE_LABEL: Record<Tenure, string> = {
 
 function csvEscape(value: string | null | undefined): string {
   if (value == null) return ''
-  const s = String(value)
+  let s = String(value)
+  // Defense against CSV formula injection: Excel/Google Sheets evaluate
+  // any cell whose first character is `=`, `+`, `-`, `@`, TAB, or CR as
+  // a formula on open. Prepend a single quote so the spreadsheet treats
+  // the cell as literal text. See OWASP "CSV Injection".
+  if (/^[=+\-@\t\r]/.test(s)) {
+    s = `'${s}`
+  }
   // Quote when the value contains a comma, quote, or newline. Escape any
   // embedded quotes by doubling them, per RFC 4180.
   if (/[",\n\r]/.test(s)) {
@@ -59,7 +66,13 @@ export async function GET(request: NextRequest) {
     query = query.eq('tenure' as never, activeTenure)
   }
   if (search.length > 0) {
-    const safe = search.replace(/[,()]/g, ' ')
+    // Cap length to prevent pathological inputs, escape LIKE wildcards
+    // (`%`, `_`, `\`) so they don't match everything, and strip
+    // PostgREST `.or()` separators (`,`, `(`, `)`).
+    const safe = search
+      .slice(0, 100)
+      .replace(/[%_\\]/g, '\\$&')
+      .replace(/[,()]/g, ' ')
     query = query.or(
       `address.ilike.%${safe}%,unit_number.ilike.%${safe}%,owner_name.ilike.%${safe}%,owner_email.ilike.%${safe}%`,
     )

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useMemo, useState, useTransition } from 'react'
 import { Loader2, Send } from 'lucide-react'
 import { Alert, Button, Input, Select } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { sendCommunication } from '@/lib/communications/send'
 
 interface TemplateOption {
@@ -239,18 +240,29 @@ export function NewCommunicationWizard({
             className="mt-1"
           />
         </label>
-        <label className="mt-3 block text-sm">
-          <span className="text-muted">Body (HTML)</span>
+        <div className="mt-3">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <label htmlFor="comm-body" className="text-sm text-muted">
+              Body (HTML)
+            </label>
+            <AiRewriteButton
+              value={bodyHtml}
+              onChange={setBodyHtml}
+              context={`HOA communication, category: ${CATEGORY_LABEL[category]}`}
+              disabled={pending}
+            />
+          </div>
           <textarea
+            id="comm-body"
             value={bodyHtml}
             onChange={(e) => setBodyHtml(e.target.value)}
             placeholder="<p>Hi {{ recipient_name }}, ...</p>"
             required
             disabled={pending}
             rows={10}
-            className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-xs text-foreground"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-xs text-foreground"
           />
-        </label>
+        </div>
       </Section>
 
       {/* Step 5 — channels + schedule */}

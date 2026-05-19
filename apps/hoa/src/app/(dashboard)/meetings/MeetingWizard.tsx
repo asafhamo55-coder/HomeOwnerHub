@@ -17,6 +17,7 @@ import {
   useToast,
   type WizardStep as StepperStep,
 } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { approveMeetingMinutes } from '@/lib/meetings'
 import {
   saveDraft,
@@ -388,9 +389,16 @@ ${transcript}`
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="transcript" className="text-sm font-medium text-foreground">
-            Transcript <span className="text-destructive">*</span>
-          </label>
+          <div className="flex items-center justify-between gap-2">
+            <label htmlFor="transcript" className="text-sm font-medium text-foreground">
+              Transcript <span className="text-destructive">*</span>
+            </label>
+            <AiRewriteButton
+              value={transcript}
+              onChange={setTranscript}
+              context="HOA meeting transcript or notes — the AI will later turn this into formal minutes"
+            />
+          </div>
           <Textarea
             id="transcript"
             value={transcript}

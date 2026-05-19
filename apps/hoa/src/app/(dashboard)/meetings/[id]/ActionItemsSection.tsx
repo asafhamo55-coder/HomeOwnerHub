@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, User2, CalendarDays, AlertCircle } from 'lucide-react'
 import { format, isPast, isToday } from 'date-fns'
@@ -17,6 +17,7 @@ import {
   useConfirm,
   useToast,
 } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import {
   createActionItem,
   deleteActionItem,
@@ -50,6 +51,7 @@ export function ActionItemsSection({ meetingId, items }: ActionItemsSectionProps
   const toast = useToast()
   const confirm = useConfirm()
   const [showForm, setShowForm] = useState(items.length === 0)
+  const newDescRef = useRef<HTMLTextAreaElement>(null)
   const [pending, startTransition] = useTransition()
 
   const openCount = items.filter((i) => i.status === 'open' || i.status === 'in_progress').length
@@ -169,10 +171,17 @@ export function ActionItemsSection({ meetingId, items }: ActionItemsSectionProps
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-foreground" htmlFor="ai-desc">
-                  Detail <span className="text-muted">(optional)</span>
-                </label>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-xs font-medium text-foreground" htmlFor="ai-desc">
+                    Detail <span className="text-muted">(optional)</span>
+                  </label>
+                  <AiRewriteButton
+                    textareaRef={newDescRef}
+                    context="Meeting action-item detail — preserve dates, references, and links exactly"
+                  />
+                </div>
                 <Textarea
+                  ref={newDescRef}
                   id="ai-desc"
                   name="description"
                   maxLength={2000}

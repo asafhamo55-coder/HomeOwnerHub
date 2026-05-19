@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Save, Sparkles } from 'lucide-react'
 import { Alert, Button, Textarea } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { updateParsedText } from '@/lib/documents'
 
 interface ParsedTextEditorProps {
@@ -55,6 +56,14 @@ export function ParsedTextEditor({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
+        <div className="flex justify-end">
+          <AiRewriteButton
+            value={text}
+            onChange={setText}
+            context="Plain text extracted from a governing document — preserve every section number, citation, and clause"
+            disabled={savingTransition || parsingTransition}
+          />
+        </div>
         <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}

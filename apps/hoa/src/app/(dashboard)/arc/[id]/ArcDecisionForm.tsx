@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Check, X, Eye } from 'lucide-react'
 import { Button, Textarea } from '@homeowner-portal/ui'
 import { respondToArcRequest } from '@/lib/board-review'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 
 export function ArcDecisionForm({
   arcId,
@@ -36,8 +37,16 @@ export function ArcDecisionForm({
 
   return (
     <div className="space-y-3">
-      <label className="block space-y-1">
-        <span className="text-sm font-medium">Board response (optional)</span>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-medium">Board response (optional)</span>
+          <AiRewriteButton
+            value={response}
+            onChange={setResponse}
+            context="ARC application board response — the resident sees this verbatim"
+            disabled={isPending}
+          />
+        </div>
         <Textarea
           value={response}
           onChange={(e) => setResponse(e.target.value)}
@@ -45,7 +54,7 @@ export function ArcDecisionForm({
           maxLength={4000}
           placeholder="Required conditions, color samples, or reason for denial. The resident sees this verbatim."
         />
-      </label>
+      </div>
 
       {error ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">

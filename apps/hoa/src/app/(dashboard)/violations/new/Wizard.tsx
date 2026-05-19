@@ -27,6 +27,7 @@ import {
   useToast,
   type WizardStep as StepperStep,
 } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { createApprovedViolation } from '@/lib/violations'
 import {
   saveDraft,
@@ -477,9 +478,16 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="notes" className="text-sm font-medium text-foreground">
-            Additional notes <span className="text-muted">(optional)</span>
-          </label>
+          <div className="flex items-center justify-between gap-2">
+            <label htmlFor="notes" className="text-sm font-medium text-foreground">
+              Additional notes <span className="text-muted">(optional)</span>
+            </label>
+            <AiRewriteButton
+              value={notes}
+              onChange={setNotes}
+              context="Violation report notes — observed details, recurrence, safety concerns"
+            />
+          </div>
           <Textarea
             id="notes"
             value={notes}

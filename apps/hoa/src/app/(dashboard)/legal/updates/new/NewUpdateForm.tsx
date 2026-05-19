@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Send, Trash2 } from 'lucide-react'
 import { Button, Input, Textarea } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { createLawUpdate, type StatuteRow } from '@/lib/state-law'
 
 const CATEGORIES: Array<{ value: string; label: string }> = [
@@ -23,6 +24,7 @@ export function NewUpdateForm({ statutes }: { statutes: StatuteRow[] }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [actionItems, setActionItems] = useState<string[]>([''])
+  const summaryRef = useRef<HTMLTextAreaElement>(null)
 
   function addActionItem() {
     setActionItems((prev) => [...prev, ''])
@@ -79,14 +81,24 @@ export function NewUpdateForm({ statutes }: { statutes: StatuteRow[] }) {
       </Field>
 
       <Field label="Summary" required>
-        <Textarea
-          name="summary"
-          rows={6}
-          required
-          minLength={20}
-          maxLength={4000}
-          placeholder="Florida SB 4-D, signed May 26, 2022, requires HOAs and condo associations governing buildings of three stories or more to perform a Structural Integrity Reserve Study and milestone inspections..."
-        />
+        <div className="space-y-1.5">
+          <div className="flex justify-end">
+            <AiRewriteButton
+              textareaRef={summaryRef}
+              context="Plain-English summary of a state-law change for HOA boards — preserve statute citations, dates, and effective deadlines exactly"
+              disabled={isPending}
+            />
+          </div>
+          <Textarea
+            ref={summaryRef}
+            name="summary"
+            rows={6}
+            required
+            minLength={20}
+            maxLength={4000}
+            placeholder="Florida SB 4-D, signed May 26, 2022, requires HOAs and condo associations governing buildings of three stories or more to perform a Structural Integrity Reserve Study and milestone inspections..."
+          />
+        </div>
         <Helper>1–3 paragraphs of plain English. The board reads this; write for them.</Helper>
       </Field>
 

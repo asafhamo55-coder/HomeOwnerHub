@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Briefcase, ClipboardList, Home, Megaphone, Sparkles, Wallet } from 'lucide-react'
-import { Badge, Card, CardContent, CardHeader, CardTitle, EmptyState } from '@homeowner-portal/ui'
+import { Badge, Card, CardContent, CardHeader, CardTitle, EmptyState, PageHeader } from '@homeowner-portal/ui'
 import { getResidentSummary } from '@/lib/resident'
 
 export const metadata = { title: 'My Home' }
@@ -8,15 +8,15 @@ export const metadata = { title: 'My Home' }
 export default async function ResidentDashboard() {
   const summary = await getResidentSummary()
 
+  const description = `${summary.associationName ?? summary.orgName ?? 'Your community'}${
+    summary.units.length > 0
+      ? ` · ${summary.units.length} unit${summary.units.length === 1 ? '' : 's'} on file`
+      : ''
+  }`
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold">My Home</h1>
-        <p className="text-sm text-muted">
-          {summary.associationName ?? summary.orgName ?? 'Your community'}
-          {summary.units.length > 0 ? ` · ${summary.units.length} unit${summary.units.length === 1 ? '' : 's'} on file` : null}
-        </p>
-      </header>
+      <PageHeader title="My Home" description={description} />
 
       {summary.units.length === 0 ? (
         <EmptyState

@@ -52,13 +52,33 @@ export async function listResidents(
 
 const AddResidentSchema = z.object({
   property_id: z.string().uuid(),
-  full_name: z.string().trim().min(1, 'Name is required.'),
-  email: z.string().trim().email().optional().or(z.literal('').transform(() => undefined)),
-  phone: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
+  full_name: z
+    .string()
+    .trim()
+    .min(1, 'Name is required.')
+    .max(200, 'Name must be 200 characters or fewer.'),
+  email: z
+    .string()
+    .trim()
+    .email()
+    .max(200, 'Email must be 200 characters or fewer.')
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
+  phone: z
+    .string()
+    .trim()
+    .max(50, 'Phone must be 50 characters or fewer.')
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
   role: z.enum(['owner', 'tenant', 'family_member', 'other']),
   is_primary: z.boolean().optional(),
   moved_in_at: z.string().optional().or(z.literal('').transform(() => undefined)),
-  notes: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
+  notes: z
+    .string()
+    .trim()
+    .max(2000, 'Notes must be 2000 characters or fewer.')
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
 })
 
 export interface AddResidentInput {
@@ -118,7 +138,7 @@ export async function addResident(
     return { ok: false, error: error?.message ?? 'Could not add resident.' }
   }
 
-  await logPropertyEvent({
+  const ev = await logPropertyEvent({
     propertyId: parsed.data.property_id,
     kind: 'resident_added',
     payload: {
@@ -127,20 +147,43 @@ export async function addResident(
       role: parsed.data.role,
     },
   })
+  if (!ev.ok) {
+    console.error('[property-residents.addResident] event log failed', ev.error)
+  }
 
   revalidatePath(`/properties/${parsed.data.property_id}`)
   return { ok: true, data: { residentId: data.id } }
 }
 
 const UpdateResidentSchema = z.object({
-  full_name: z.string().trim().min(1).optional(),
-  email: z.string().trim().email().nullable().optional(),
-  phone: z.string().trim().nullable().optional(),
+  full_name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200, 'Name must be 200 characters or fewer.')
+    .optional(),
+  email: z
+    .string()
+    .trim()
+    .email()
+    .max(200, 'Email must be 200 characters or fewer.')
+    .nullable()
+    .optional(),
+  phone: z
+    .string()
+    .trim()
+    .max(50, 'Phone must be 50 characters or fewer.')
+    .nullable()
+    .optional(),
   role: z.enum(['owner', 'tenant', 'family_member', 'other']).optional(),
   is_primary: z.boolean().optional(),
   moved_in_at: z.string().nullable().optional(),
   moved_out_at: z.string().nullable().optional(),
-  notes: z.string().nullable().optional(),
+  notes: z
+    .string()
+    .max(2000, 'Notes must be 2000 characters or fewer.')
+    .nullable()
+    .optional(),
 })
 
 export type UpdateResidentInput = z.infer<typeof UpdateResidentSchema>
@@ -195,7 +238,7 @@ export async function updateResident(
     parsed.data.moved_out_at !== existing.moved_out_at &&
     parsed.data.moved_out_at !== null
   if (roleChanged || movedOut) {
-    await logPropertyEvent({
+    const ev = await logPropertyEvent({
       propertyId: existing.property_id,
       kind: movedOut ? 'resident_removed' : 'note',
       payload: {
@@ -207,6 +250,9 @@ export async function updateResident(
         movedOutAt: movedOut ? parsed.data.moved_out_at : undefined,
       },
     })
+    if (!ev.ok) {
+      console.error('[property-residents.updateResident] event log failed', ev.error)
+    }
   }
 
   revalidatePath(`/properties/${existing.property_id}`)
@@ -217,15 +263,23 @@ export async function removeResident(residentId: string): Promise<ActionResult> 
   const supabase = await getSupabaseServerClient()
   const { data: existing } = await supabase
     .from('property_residents' as never)
-    .select('id, property_id, full_name, role')
+    .select('id, property_id, full_name, role, moved_out_at')
     .eq('id', residentId)
     .maybeSingle<{
       id: string
       property_id: string
       full_name: string
       role: PropertyResidentRole
+      moved_out_at: string | null
     }>()
   if (!existing) return { ok: false, error: 'Resident not found.' }
+
+  // Don't fire a misleading audit row when the update would be a no-op.
+  // Without this check the row count stays at 0 but we'd still log a
+  // resident_removed event dated today.
+  if (existing.moved_out_at) {
+    return { ok: false, error: 'Resident has already been removed.' }
+  }
 
   const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
   const { error } = await supabase
@@ -235,7 +289,7 @@ export async function removeResident(residentId: string): Promise<ActionResult> 
     .is('moved_out_at', null)
   if (error) return { ok: false, error: error.message }
 
-  await logPropertyEvent({
+  const ev = await logPropertyEvent({
     propertyId: existing.property_id,
     kind: 'resident_removed',
     payload: {
@@ -245,6 +299,9 @@ export async function removeResident(residentId: string): Promise<ActionResult> 
       movedOutAt: today,
     },
   })
+  if (!ev.ok) {
+    console.error('[property-residents.removeResident] event log failed', ev.error)
+  }
 
   revalidatePath(`/properties/${existing.property_id}`)
   return { ok: true }

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Info } from 'lucide-react'
 import { Alert, Button, Input, Textarea } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { createVendor } from '@/lib/vendors'
 
 export function NewVendorForm() {
@@ -12,6 +13,7 @@ export function NewVendorForm() {
   const [error, setError] = useState<string | null>(null)
   const [tradesText, setTradesText] = useState('')
   const [zipsText, setZipsText] = useState('')
+  const notesRef = useRef<HTMLTextAreaElement>(null)
 
   async function handleSubmit(formData: FormData) {
     setError(null)
@@ -146,7 +148,21 @@ export function NewVendorForm() {
       <section className="space-y-3">
         <SectionTitle>Notes</SectionTitle>
         <Field label="Internal notes">
-          <Textarea name="notes" rows={3} placeholder="Internal notes for the board." />
+          <div className="space-y-1.5">
+            <div className="flex justify-end">
+              <AiRewriteButton
+                textareaRef={notesRef}
+                context="Internal board notes about a vendor"
+                disabled={isPending}
+              />
+            </div>
+            <Textarea
+              ref={notesRef}
+              name="notes"
+              rows={3}
+              placeholder="Internal notes for the board."
+            />
+          </div>
         </Field>
       </section>
 

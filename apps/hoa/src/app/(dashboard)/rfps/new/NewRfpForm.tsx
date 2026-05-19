@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
 import { Button, Input, Textarea } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { createRfpDraft } from '@/lib/rfps'
 
 export function NewRfpForm() {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const freeTextRef = useRef<HTMLTextAreaElement>(null)
 
   async function handleSubmit(formData: FormData) {
     setError(null)
@@ -59,11 +61,19 @@ export function NewRfpForm() {
 
   return (
     <form action={handleSubmit} className="space-y-4">
-      <label className="block space-y-1">
-        <span className="text-sm font-medium text-foreground">
-          What does the association need? <span className="text-destructive">*</span>
-        </span>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-medium text-foreground">
+            What does the association need? <span className="text-destructive">*</span>
+          </span>
+          <AiRewriteButton
+            textareaRef={freeTextRef}
+            context="RFP scope description — preserve dates, dollar amounts, deadlines, and acreage"
+            disabled={isPending}
+          />
+        </div>
         <Textarea
+          ref={freeTextRef}
           name="freeTextNeed"
           rows={6}
           required
@@ -75,7 +85,7 @@ export function NewRfpForm() {
           Describe it in your own words. The Composer turns this into a
           structured scope, line items, and evaluation criteria.
         </p>
-      </label>
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block space-y-1">

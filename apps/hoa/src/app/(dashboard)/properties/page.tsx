@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { Building2, Download, Plus, Search, X } from 'lucide-react'
-import { Badge, Button, Card, CardContent, EmptyState, Input } from '@homeowner-portal/ui'
+import { Button, Card, CardContent, EmptyState, Input } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { PropertiesBulkActions } from './PropertiesBulkActions'
 
 export const metadata = { title: 'Properties' }
 
@@ -25,20 +26,6 @@ const TENURE_LABEL: Record<Tenure, string> = {
   owner_occupied: 'Owner-occupied',
   leased: 'Leased',
   unknown: 'Unknown',
-}
-
-const TENURE_VARIANT: Record<Tenure, 'success' | 'warning' | 'neutral'> = {
-  owner_occupied: 'success',
-  leased: 'warning',
-  unknown: 'neutral',
-}
-
-function formatDate(value: string | null): string {
-  if (!value) return '—'
-  const d = new Date(value)
-  return Number.isNaN(d.getTime())
-    ? '—'
-    : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 const TENURE_FILTERS: Array<{ key: 'all' | Tenure; label: string }> = [
@@ -77,10 +64,14 @@ export default async function PropertiesListPage({
     query = query.eq('tenure' as never, activeTenure)
   }
   if (search.length > 0) {
-    // Escape `,` and `)` which PostgREST treats as `.or` separators —
-    // unlikely in real addresses but cheap to guard. Match on address,
-    // unit_number, owner_name, or owner_email.
-    const safe = search.replace(/[,()]/g, ' ')
+    // Cap length to prevent pathological inputs, escape LIKE wildcards
+    // (`%`, `_`, `\`) so a stray `%` doesn't match every property, and
+    // strip PostgREST `.or()` separators (`,`, `(`, `)`). Match on
+    // address, unit_number, owner_name, or owner_email.
+    const safe = search
+      .slice(0, 100)
+      .replace(/[%_\\]/g, '\\$&')
+      .replace(/[,()]/g, ' ')
     query = query.or(
       `address.ilike.%${safe}%,unit_number.ilike.%${safe}%,owner_name.ilike.%${safe}%,owner_email.ilike.%${safe}%`,
     )
@@ -230,80 +221,11 @@ export default async function PropertiesListPage({
         )
       ) : (
         <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-background/50 text-xs uppercase tracking-wide text-muted">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Address</th>
-                  <th className="hidden px-4 py-3 font-medium sm:table-cell">Unit</th>
-                  <th className="hidden px-4 py-3 font-medium md:table-cell">Owner</th>
-                  <th className="hidden px-4 py-3 font-medium lg:table-cell">Email</th>
-                  <th className="hidden px-4 py-3 font-medium lg:table-cell">Phone</th>
-                  <th className="hidden px-4 py-3 font-medium md:table-cell">Tenure</th>
-                  <th className="hidden px-4 py-3 font-medium xl:table-cell">Notes</th>
-                  <th className="hidden px-4 py-3 font-medium xl:table-cell">Added</th>
-                  <th className="hidden px-4 py-3 font-medium xl:table-cell">Updated</th>
-                </tr>
-              </thead>
-              <tbody>
-                {properties.map((p) => {
-                  const tenure: Tenure = p.tenure ?? 'unknown'
-                  return (
-                    <tr
-                      key={p.id}
-                      className="border-b border-border transition-colors last:border-0 hover:bg-background/50"
-                    >
-                      <td className="px-4 py-3">
-                        <Link href={`/properties/${p.id}`} className="font-medium text-foreground hover:text-primary">
-                          {p.address}
-                        </Link>
-                      </td>
-                      <td className="hidden px-4 py-3 text-muted sm:table-cell">
-                        {p.unit_number ?? '—'}
-                      </td>
-                      <td className="hidden px-4 py-3 text-muted md:table-cell">
-                        {p.owner_name ?? '—'}
-                      </td>
-                      <td className="hidden px-4 py-3 text-muted lg:table-cell">
-                        {p.owner_email ? (
-                          <a href={`mailto:${p.owner_email}`} className="hover:text-primary">
-                            {p.owner_email}
-                          </a>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td className="hidden px-4 py-3 text-muted lg:table-cell">
-                        {p.owner_phone ? (
-                          <a href={`tel:${p.owner_phone}`} className="hover:text-primary">
-                            {p.owner_phone}
-                          </a>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td className="hidden px-4 py-3 md:table-cell">
-                        <Badge variant={TENURE_VARIANT[tenure]} size="sm">
-                          {TENURE_LABEL[tenure]}
-                        </Badge>
-                      </td>
-                      <td className="hidden max-w-xs px-4 py-3 text-muted xl:table-cell">
-                        <span className="line-clamp-2" title={p.notes ?? undefined}>
-                          {p.notes ?? '—'}
-                        </span>
-                      </td>
-                      <td className="hidden whitespace-nowrap px-4 py-3 text-muted xl:table-cell">
-                        {formatDate(p.created_at)}
-                      </td>
-                      <td className="hidden whitespace-nowrap px-4 py-3 text-muted xl:table-cell">
-                        {formatDate(p.updated_at)}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+          {/* Rows + checkboxes + bulk-action bar live in one client island
+              so selection state is co-located with the bar that consumes
+              it. The server still drives the row data (search/filter
+              run on the URL via the form above). */}
+          <PropertiesBulkActions properties={properties} />
         </Card>
       )}
     </div>

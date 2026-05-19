@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { KeyRound, Home, AlertTriangle } from 'lucide-react'
+import { KeyRound, Home, AlertTriangle, Download } from 'lucide-react'
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -61,6 +62,16 @@ export default async function LeasesPage() {
       <PageHeader
         title="Lease management"
         description={`Cap, current state, and waiting list for leased units in ${assoc.name}.`}
+        actions={
+          <Button asChild variant="outline">
+            {/* Plain anchor — Next Link would prefetch the CSV. We want
+                a straight GET that triggers a browser download. */}
+            <a href="/leases/export">
+              <Download className="h-4 w-4" />
+              Export CSV
+            </a>
+          </Button>
+        }
       />
 
       {/* ─── Current state ─── */}

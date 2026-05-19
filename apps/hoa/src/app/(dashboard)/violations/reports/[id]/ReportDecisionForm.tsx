@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { AlertTriangle, Eye, X } from 'lucide-react'
 import { Button, Textarea } from '@homeowner-portal/ui'
 import { respondToViolationReport } from '@/lib/board-review'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 
 export function ReportDecisionForm({
   reportId,
@@ -42,8 +43,16 @@ export function ReportDecisionForm({
 
   return (
     <div className="space-y-3">
-      <label className="block space-y-1">
-        <span className="text-sm font-medium">Internal note (board only)</span>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-medium">Internal note (board only)</span>
+          <AiRewriteButton
+            value={note}
+            onChange={setNote}
+            context="Internal board note on a violation report — not visible to the reporter"
+            disabled={isPending}
+          />
+        </div>
         <Textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
@@ -51,7 +60,7 @@ export function ReportDecisionForm({
           maxLength={4000}
           placeholder="Notes for other board members. Not visible to the reporter."
         />
-      </label>
+      </div>
 
       {error ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
