@@ -14,6 +14,7 @@
     "seed:sample-ccr": "tsx scripts/seed-sample-ccr.ts",
     "seed:accounting": "tsx scripts/seed-accounting.ts",
     "seed:comm-templates": "tsx scripts/seed-comm-templates.ts",
+    "seed:demo-comms": "tsx scripts/seed-demo-comms.ts",
     "test:accounting": "tsx scripts/test-accounting.ts",
     "test:ar": "tsx scripts/test-ar.ts",
     "test:bank-rec": "tsx scripts/test-bank-rec.ts",
