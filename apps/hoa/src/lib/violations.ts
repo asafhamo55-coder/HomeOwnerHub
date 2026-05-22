@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violation-statuses'
 
 const STORAGE_BUCKET = 'hoa-photos'
 
@@ -121,16 +122,10 @@ export async function createApprovedViolation(
 // transition records who/when via the per-status timestamp columns the
 // schema already carries, so the timeline shows the actual history not
 // just the current state.
-
-export const VIOLATION_STATUSES = [
-  'open',
-  'notice_sent',
-  'fined',
-  'resolved',
-  'dismissed',
-] as const
-
-export type ViolationStatus = (typeof VIOLATION_STATUSES)[number]
+//
+// The status enum + type live in ./violation-statuses (plain module)
+// so they can be imported by client components — re-exporting them from
+// here would violate the "use server" file's async-functions-only rule.
 
 const UpdateStatusSchema = z.object({
   violationId: z.string().uuid(),

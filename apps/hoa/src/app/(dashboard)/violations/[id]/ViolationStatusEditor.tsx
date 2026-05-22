@@ -4,11 +4,11 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Loader2 } from 'lucide-react'
 import { Alert, Button, Select, Textarea } from '@homeowner-portal/ui'
+import { updateViolationStatus } from '@/lib/violations'
 import {
-  updateViolationStatus,
   VIOLATION_STATUSES,
   type ViolationStatus,
-} from '@/lib/violations'
+} from '@/lib/violation-statuses'
 
 const STATUS_LABEL: Record<ViolationStatus, string> = {
   open: 'Open',

@@ -12,7 +12,7 @@ import {
   PageHeader,
 } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violations'
+import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violation-statuses'
 import { ViolationStatusEditor } from './ViolationStatusEditor'
 
 interface ViolationDetail {
