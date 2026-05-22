@@ -114,3 +114,82 @@ export async function createApprovedViolation(
   revalidatePath('/')
   return { ok: true, violationId: row.id }
 }
+
+// ─── Status update ──────────────────────────────────────────────────
+// Board members move a violation through its lifecycle from the detail
+// page: open → notice_sent → (fined →) resolved | dismissed. Each
+// transition records who/when via the per-status timestamp columns the
+// schema already carries, so the timeline shows the actual history not
+// just the current state.
+
+export const VIOLATION_STATUSES = [
+  'open',
+  'notice_sent',
+  'fined',
+  'resolved',
+  'dismissed',
+] as const
+
+export type ViolationStatus = (typeof VIOLATION_STATUSES)[number]
+
+const UpdateStatusSchema = z.object({
+  violationId: z.string().uuid(),
+  status: z.enum(VIOLATION_STATUSES),
+  resolutionNote: z.string().trim().max(2000).nullable().optional(),
+})
+
+export interface UpdateViolationStatusInput {
+  violationId: string
+  status: ViolationStatus
+  resolutionNote?: string | null
+}
+
+export type UpdateViolationStatusResult =
+  | { ok: true }
+  | { ok: false; error: string }
+
+export async function updateViolationStatus(
+  input: UpdateViolationStatusInput,
+): Promise<UpdateViolationStatusResult> {
+  const parsed = UpdateStatusSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Not signed in.' }
+
+  const now = new Date().toISOString()
+  const isClosing =
+    parsed.data.status === 'resolved' || parsed.data.status === 'dismissed'
+
+  const updates = {
+    status: parsed.data.status,
+    // Resolution / dismissal: write the timestamp + note. Note is cleared
+    // when transitioning back out of a terminal state by an admin
+    // correcting a mistake.
+    resolved_at: isClosing ? now : null,
+    resolution_note: isClosing ? (parsed.data.resolutionNote ?? null) : null,
+    // Fines accruing: mark today as the start so reporting can compute
+    // days-elapsed × daily fine without needing the original cure deadline.
+    fine_start_date:
+      parsed.data.status === 'fined' ? now.slice(0, 10) : null,
+  }
+
+  const { error } = await supabase
+    .from('hoa_violations')
+    .update(updates)
+    .eq('id', parsed.data.violationId)
+
+  if (error) {
+    return { ok: false, error: error.message }
+  }
+
+  revalidatePath(`/violations/${parsed.data.violationId}`)
+  revalidatePath('/violations')
+  revalidatePath('/')
+  return { ok: true }
+}

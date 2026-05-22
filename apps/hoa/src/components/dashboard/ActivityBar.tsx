@@ -1,14 +1,7 @@
 'use client'
 
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import { useMemo } from 'react'
+import ReactECharts from 'echarts-for-react'
 import {
   Card,
   CardContent,
@@ -17,8 +10,6 @@ import {
   EmptyState,
 } from '@homeowner-portal/ui'
 import type { ActivityBucket } from '@/lib/dashboard/charts'
-
-const TICK_STYLE = { fontSize: 11, fill: '#6b7280' }
 
 const SERIES: Array<{
   key: 'violations' | 'arc' | 'invitations'
@@ -46,11 +37,59 @@ export function ActivityBar({ buckets }: ActivityBarProps) {
   )
   const total = totals.violations + totals.arc + totals.invitations
 
-  // Truncate "YYYY-MM-DD" to "MM-DD" for axis readability.
-  const formatted = buckets.map((b) => ({
-    ...b,
-    short: b.date.slice(5),
-  }))
+  const option = useMemo(
+    () => ({
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        textStyle: { fontSize: 12 },
+        borderColor: '#e5e7eb',
+        borderWidth: 1,
+        padding: [6, 10],
+      },
+      // Legend is rendered in the header above the chart (matches the
+      // prior design), so suppress ECharts' own legend.
+      legend: { show: false },
+      grid: {
+        // Tight margins — matches the recharts version's compact look.
+        top: 8,
+        right: 8,
+        bottom: 20,
+        left: 28,
+        containLabel: false,
+      },
+      xAxis: {
+        type: 'category',
+        // Truncate "YYYY-MM-DD" to "MM-DD" for axis readability.
+        data: buckets.map((b) => b.date.slice(5)),
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { fontSize: 11, color: '#6b7280' },
+      },
+      yAxis: {
+        type: 'value',
+        axisLine: { show: false },
+        axisTick: { show: false },
+        splitLine: { lineStyle: { color: '#e5e7eb', type: [2, 4] as [number, number] } },
+        axisLabel: { fontSize: 11, color: '#6b7280' },
+        minInterval: 1,
+      },
+      series: SERIES.map((s, i) => ({
+        name: s.label,
+        type: 'bar',
+        stack: 'activity',
+        itemStyle: {
+          color: s.fill,
+          // Round the top of the topmost stacked segment only; lower
+          // segments stay squared off so the stack reads cleanly.
+          borderRadius: i === SERIES.length - 1 ? [2, 2, 0, 0] : 0,
+        },
+        emphasis: { focus: 'series' },
+        data: buckets.map((b) => b[s.key]),
+      })),
+    }),
+    [buckets],
+  )
 
   return (
     <Card>
@@ -81,39 +120,13 @@ export function ActivityBar({ buckets }: ActivityBarProps) {
           />
         ) : (
           <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={formatted} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
-                <CartesianGrid stroke="#e5e7eb" strokeDasharray="2 4" vertical={false} />
-                <XAxis
-                  dataKey="short"
-                  tick={TICK_STYLE}
-                  interval="preserveStartEnd"
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  tick={TICK_STYLE}
-                  tickLine={false}
-                  axisLine={false}
-                  width={28}
-                  allowDecimals={false}
-                />
-                <Tooltip
-                  contentStyle={{ fontSize: 12, borderRadius: 6, borderColor: '#e5e7eb' }}
-                  cursor={{ fill: 'rgba(0,0,0,0.04)' }}
-                />
-                {SERIES.map((s) => (
-                  <Bar
-                    key={s.key}
-                    dataKey={s.key}
-                    stackId="a"
-                    fill={s.fill}
-                    name={s.label}
-                    radius={[2, 2, 0, 0]}
-                  />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
+            <ReactECharts
+              option={option}
+              style={{ height: '100%', width: '100%' }}
+              opts={{ renderer: 'svg' }}
+              notMerge
+              lazyUpdate
+            />
           </div>
         )}
       </CardContent>

@@ -12,6 +12,8 @@ import {
   PageHeader,
 } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violations'
+import { ViolationStatusEditor } from './ViolationStatusEditor'
 
 interface ViolationDetail {
   id: string
@@ -28,6 +30,9 @@ interface ViolationDetail {
   ai_draft_letter: string | null
   photo_urls: string[] | null
   created_at: string | null
+  resolved_at: string | null
+  resolution_note: string | null
+  fine_start_date: string | null
   property: { address: string; unit_number: string | null; owner_name: string | null } | null
 }
 
@@ -42,7 +47,7 @@ export default async function ViolationDetailPage({
   const { data } = await supabase
     .from('hoa_violations')
     .select(
-      'id, description, violation_type, status, severity, ccr_section, cure_period_days, fine_amount, notice_sent_at, approved_at, approved_letter, ai_draft_letter, photo_urls, created_at, property:hoa_properties(address, unit_number, owner_name)',
+      'id, description, violation_type, status, severity, ccr_section, cure_period_days, fine_amount, notice_sent_at, approved_at, approved_letter, ai_draft_letter, photo_urls, created_at, resolved_at, resolution_note, fine_start_date, property:hoa_properties(address, unit_number, owner_name)',
     )
     .eq('id', id)
     .maybeSingle()
@@ -55,7 +60,14 @@ export default async function ViolationDetailPage({
   if (v.notice_sent_at && v.cure_period_days) {
     cureDeadline = new Date(new Date(v.notice_sent_at).getTime() + v.cure_period_days * 86_400_000)
   }
-  const overdue = cureDeadline ? cureDeadline < new Date() && v.status !== 'resolved' : false
+  const isClosed = v.status === 'resolved' || v.status === 'dismissed'
+  const overdue = cureDeadline ? cureDeadline < new Date() && !isClosed : false
+  // Defensive: legacy rows may carry a status not yet in the enum.
+  // Default to 'open' for the editor — admin can move it forward from there.
+  const currentStatus: ViolationStatus =
+    (VIOLATION_STATUSES as readonly string[]).includes(v.status)
+      ? (v.status as ViolationStatus)
+      : 'open'
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -72,7 +84,15 @@ export default async function ViolationDetailPage({
         }
         actions={
           <Badge
-            variant={v.status === 'resolved' ? 'success' : overdue ? 'destructive' : 'warning'}
+            variant={
+              v.status === 'resolved'
+                ? 'success'
+                : v.status === 'dismissed'
+                  ? 'neutral'
+                  : overdue
+                    ? 'destructive'
+                    : 'warning'
+            }
             size="sm"
           >
             {overdue ? 'overdue' : v.status.replace('_', ' ')}
@@ -118,10 +138,22 @@ export default async function ViolationDetailPage({
                 label="Cure deadline"
                 value={cureDeadline ? format(cureDeadline, 'PP') : null}
               />
+              {v.fine_start_date ? (
+                <KeyValue
+                  label="Fines started"
+                  value={format(new Date(v.fine_start_date), 'PP')}
+                />
+              ) : null}
               <KeyValue
                 label="Daily fine"
                 value={v.fine_amount != null ? `$${v.fine_amount}/day` : null}
               />
+              {v.resolved_at ? (
+                <KeyValue
+                  label={v.status === 'dismissed' ? 'Dismissed' : 'Resolved'}
+                  value={format(new Date(v.resolved_at), 'PPp')}
+                />
+              ) : null}
               {v.severity ? (
                 <KeyValue
                   label="Severity"
@@ -136,6 +168,32 @@ export default async function ViolationDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Update status</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ViolationStatusEditor
+            violationId={v.id}
+            currentStatus={currentStatus}
+            currentResolutionNote={v.resolution_note}
+          />
+        </CardContent>
+      </Card>
+
+      {v.resolution_note ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              {v.status === 'dismissed' ? 'Reason for dismissal' : 'Resolution note'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="whitespace-pre-wrap text-sm text-foreground">{v.resolution_note}</p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {v.photo_urls && v.photo_urls.length > 0 ? (
         <Card>

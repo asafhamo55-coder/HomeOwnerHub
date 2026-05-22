@@ -46,6 +46,6 @@ export const config = {
   matcher: [
     // Run on every page except static assets, API routes that need their own
     // handling (webhooks), and image optimization.
-    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|api/inngest|api/health).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|api/inngest|api/health|api/cron).*)',
   ],
 }

@@ -1,6 +1,7 @@
 'use client'
 
-import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip } from 'recharts'
+import { useMemo } from 'react'
+import ReactECharts from 'echarts-for-react'
 import { Card, CardContent, CardHeader, CardTitle, EmptyState } from '@homeowner-portal/ui'
 import type { DonutSegment } from '@/lib/dashboard/charts'
 
@@ -33,6 +34,45 @@ export function StatusDonut({
   emptyDescription = 'When activity starts the breakdown will show here.',
   icon,
 }: StatusDonutProps) {
+  // Recompute the chart option only when inputs change. ECharts re-runs
+  // the option diff on every render otherwise, which is wasteful.
+  const option = useMemo(
+    () => ({
+      tooltip: {
+        trigger: 'item',
+        textStyle: { fontSize: 12 },
+        borderColor: '#e5e7eb',
+        borderWidth: 1,
+        padding: [6, 10],
+        // value (count) + percentage; matches what recharts showed.
+        formatter: '{b}: <b>{c}</b> ({d}%)',
+      },
+      // Disable the legend — we render our own list to the right of the
+      // donut so this stays consistent with the previous design.
+      legend: { show: false },
+      series: [
+        {
+          type: 'pie',
+          radius: ['60%', '88%'],
+          // Smooth out the slice transitions; the rounded corners + small
+          // gap between slices match the recharts paddingAngle=1 look.
+          itemStyle: { borderColor: '#fff', borderWidth: 1, borderRadius: 2 },
+          label: { show: false },
+          labelLine: { show: false },
+          // Slight rotate so the first (largest) slice starts at 12 o'clock,
+          // making the donut feel anchored.
+          startAngle: 90,
+          data: segments.map((s) => ({
+            name: s.label,
+            value: s.value,
+            itemStyle: { color: TONE_FILL[s.tone] },
+          })),
+        },
+      ],
+    }),
+    [segments],
+  )
+
   const ariaSummary =
     total === 0
       ? `${title}: no data`
@@ -60,29 +100,13 @@ export function StatusDonut({
             className="grid w-full items-center gap-4 sm:grid-cols-[160px_1fr]"
           >
             <div className="relative h-40">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={segments}
-                    dataKey="value"
-                    innerRadius={50}
-                    outerRadius={70}
-                    paddingAngle={1}
-                    strokeWidth={0}
-                  >
-                    {segments.map((s, i) => (
-                      <Cell key={`${s.label}-${i}`} fill={TONE_FILL[s.tone]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      fontSize: 12,
-                      borderRadius: 6,
-                      borderColor: '#e5e7eb',
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <ReactECharts
+                option={option}
+                style={{ height: '100%', width: '100%' }}
+                opts={{ renderer: 'svg' }}
+                notMerge
+                lazyUpdate
+              />
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-2xl font-semibold tabular-nums">{total}</span>
                 <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
