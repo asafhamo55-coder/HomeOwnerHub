@@ -84,8 +84,13 @@ interface DraftPayload {
   notes?: string
   curePeriod?: number
   fineAmount?: number
+  /** Singular legacy fields — kept for backwards-compat when restoring
+   *  drafts saved before multi-photo support shipped. New drafts use
+   *  the arrays below; restore logic merges old → new. */
   photoStoragePath?: string | null
   photoSignedUrl?: string | null
+  photoStoragePaths?: string[]
+  photoSignedUrls?: string[]
   analysis?: AnalysisResult | null
 }
 
@@ -109,14 +114,22 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
   const [curePeriod, setCurePeriod] = useState(initialPayload.curePeriod ?? 14)
   const [fineAmount, setFineAmount] = useState(initialPayload.fineAmount ?? 25)
 
-  const [photoFile, setPhotoFile] = useState<File | null>(null)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
-  const [photoStoragePath, setPhotoStoragePath] = useState<string | null>(
-    initialPayload.photoStoragePath ?? null,
-  )
-  const [photoSignedUrl, setPhotoSignedUrl] = useState<string | null>(
-    initialPayload.photoSignedUrl ?? null,
-  )
+  // Multi-photo state. Each index across the four arrays describes the
+  // same logical photo: file (raw, before upload), preview (blob URL
+  // for instant display), storagePath (Supabase Storage key), signedUrl
+  // (the short-lived URL used by the analyze endpoint).
+  //
+  // Restore from draft: prefer the new array fields; fall back to the
+  // legacy singular fields so drafts saved before multi-photo still
+  // hydrate. Files themselves can't be restored from a draft.
+  const initialStoragePaths = initialPayload.photoStoragePaths
+    ?? (initialPayload.photoStoragePath ? [initialPayload.photoStoragePath] : [])
+  const initialSignedUrls = initialPayload.photoSignedUrls
+    ?? (initialPayload.photoSignedUrl ? [initialPayload.photoSignedUrl] : [])
+
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
+  const [photoStoragePaths, setPhotoStoragePaths] = useState<string[]>(initialStoragePaths)
+  const [photoSignedUrls, setPhotoSignedUrls] = useState<string[]>(initialSignedUrls)
   const [photoUploading, setPhotoUploading] = useState(false)
   const [photoError, setPhotoError] = useState<string | null>(null)
 
@@ -151,8 +164,12 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
       notes,
       curePeriod,
       fineAmount,
-      photoStoragePath,
-      photoSignedUrl,
+      // Persist arrays + keep the legacy singulars in sync (first item)
+      // so an older client restoring the draft still sees one photo.
+      photoStoragePaths,
+      photoSignedUrls,
+      photoStoragePath: photoStoragePaths[0] ?? null,
+      photoSignedUrl: photoSignedUrls[0] ?? null,
       analysis,
     }
     const serialized = JSON.stringify({ payload, currentStep })
@@ -185,41 +202,60 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
   }, [step])
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setPhotoFile(file)
-    setPhotoPreview(URL.createObjectURL(file))
-    setPhotoStoragePath(null)
-    setPhotoSignedUrl(null)
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
+
+    // Append preview URLs immediately so the grid updates while uploads
+    // are still in flight.
+    const newPreviews = files.map((f) => URL.createObjectURL(f))
+    setPhotoPreviews((prev) => [...prev, ...newPreviews])
     setPhotoError(null)
     setPhotoUploading(true)
 
-    const fd = new FormData()
-    fd.append('file', file)
-    try {
-      const res = await fetch('/api/violations/photo', { method: 'POST', body: fd })
-      const body = await res.json()
-      if (!res.ok) {
-        setPhotoError(body?.message ?? 'Photo upload failed.')
-        return
+    // Sequential upload — keeps Storage rate-limit risk low and means
+    // partial successes still land in the same order as the previews.
+    for (const file of files) {
+      const fd = new FormData()
+      fd.append('file', file)
+      try {
+        const res = await fetch('/api/violations/photo', { method: 'POST', body: fd })
+        const body = await res.json()
+        if (!res.ok) {
+          setPhotoError(body?.message ?? `Upload failed for ${file.name}.`)
+          continue
+        }
+        setPhotoStoragePaths((prev) => [...prev, body.storagePath])
+        setPhotoSignedUrls((prev) => [...prev, body.signedUrl])
+      } catch (err) {
+        setPhotoError(err instanceof Error ? err.message : 'Photo upload failed.')
       }
-      setPhotoStoragePath(body.storagePath)
-      setPhotoSignedUrl(body.signedUrl)
-      // Save draft once the photo is uploaded — that's a meaningful checkpoint.
-      void persistDraft('capture')
-    } catch (err) {
-      setPhotoError(err instanceof Error ? err.message : 'Photo upload failed.')
-    } finally {
-      setPhotoUploading(false)
     }
+
+    setPhotoUploading(false)
+    // Save draft once uploads settle — meaningful checkpoint.
+    void persistDraft('capture')
+    // Reset the input so the same file can be re-selected if removed.
+    e.target.value = ''
   }
 
-  function clearPhoto() {
-    setPhotoFile(null)
-    if (photoPreview) URL.revokeObjectURL(photoPreview)
-    setPhotoPreview(null)
-    setPhotoStoragePath(null)
-    setPhotoSignedUrl(null)
+  function removePhotoAt(index: number) {
+    setPhotoPreviews((prev) => {
+      const url = prev[index]
+      if (url && url.startsWith('blob:')) URL.revokeObjectURL(url)
+      return prev.filter((_, i) => i !== index)
+    })
+    setPhotoStoragePaths((prev) => prev.filter((_, i) => i !== index))
+    setPhotoSignedUrls((prev) => prev.filter((_, i) => i !== index))
+    setPhotoError(null)
+  }
+
+  function clearPhotos() {
+    for (const url of photoPreviews) {
+      if (url.startsWith('blob:')) URL.revokeObjectURL(url)
+    }
+    setPhotoPreviews([])
+    setPhotoStoragePaths([])
+    setPhotoSignedUrls([])
     setPhotoError(null)
   }
 
@@ -236,7 +272,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
             notes,
             propertyAddress: selectedProperty?.address ?? '',
             unitNumber: selectedProperty?.unit_number ?? null,
-            hasPhoto: Boolean(photoStoragePath),
+            hasPhoto: photoStoragePaths.length > 0,
           },
           fields: ['cure_period_days', 'fine_amount', 'severity', 'violation_type'],
         }),
@@ -270,7 +306,12 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
   }
 
   async function handleAnalyze() {
-    if (!propertyId || !photoSignedUrl) return
+    // Vision analysis still goes single-photo for now — the analyze
+    // endpoint takes one signedUrl. Use the first uploaded photo
+    // (typically the primary evidence shot). Multi-image analysis is
+    // a future enhancement that requires endpoint changes.
+    const primarySignedUrl = photoSignedUrls[0]
+    if (!propertyId || !primarySignedUrl) return
     setStep('analyzing')
     setAnalyzeError(null)
 
@@ -279,7 +320,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         propertyId,
-        photoSignedUrl,
+        photoSignedUrl: primarySignedUrl,
         manualDescription: notes.trim() || undefined,
         curePeriodDays: curePeriod,
         fineAmount,
@@ -312,7 +353,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
         fineAmount,
         aiDraftLetter: analysis.letterDraft,
         approvedLetter,
-        photoStoragePaths: photoStoragePath ? [photoStoragePath] : [],
+        photoStoragePaths,
       })
       if (!result.ok) {
         setSubmitError(result.error)
@@ -385,7 +426,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
 
   // ── Step 1: Capture ────────────────────────────────────────────────
   if (step === 'capture') {
-    const canAnalyze = Boolean(propertyId && photoSignedUrl && !photoUploading)
+    const canAnalyze = Boolean(propertyId && photoSignedUrls.length > 0 && !photoUploading)
     return (
       <div className="space-y-5">
         {stepperHeader}
@@ -417,60 +458,97 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
 
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-foreground">
-            Photo <span className="text-destructive">*</span>
+            Photos <span className="text-destructive">*</span>
+            <span className="ml-1 text-xs font-normal text-muted">
+              ({photoStoragePaths.length} uploaded
+              {photoUploading ? ', uploading…' : ''})
+            </span>
           </label>
-          {photoPreview || photoStoragePath ? (
-            <Card>
-              <CardContent className="flex items-start gap-3 p-3">
-                <div className="relative h-32 w-32 flex-shrink-0 overflow-hidden rounded-lg bg-background">
-                  {photoPreview ? (
-                    <Image
-                      src={photoPreview}
-                      alt="Violation photo preview"
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xs text-muted">
-                      Photo on file
+
+          {photoPreviews.length > 0 || photoStoragePaths.length > 0 ? (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                {/* Each tile shows either an in-progress preview (blob URL)
+                    or a "restored from draft" placeholder when we only have
+                    a storagePath but no preview (draft hydration case).
+                    The total length is max(previews, storagePaths). */}
+                {Array.from({
+                  length: Math.max(photoPreviews.length, photoStoragePaths.length),
+                }).map((_, i) => {
+                  const preview = photoPreviews[i]
+                  const uploaded = photoStoragePaths[i]
+                  return (
+                    <div
+                      key={i}
+                      className="relative aspect-square overflow-hidden rounded-lg border border-border bg-background"
+                    >
+                      {preview ? (
+                        <Image
+                          src={preview}
+                          alt={`Violation photo ${i + 1}`}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs text-muted">
+                          Photo {i + 1}
+                        </div>
+                      )}
+                      {uploaded ? (
+                        <span className="absolute left-1 top-1 flex items-center gap-0.5 rounded bg-emerald-600/90 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                          <CheckCircle2 className="h-2.5 w-2.5" /> Uploaded
+                        </span>
+                      ) : photoUploading ? (
+                        <span className="absolute left-1 top-1 flex items-center gap-0.5 rounded bg-foreground/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                          <Loader2 className="h-2.5 w-2.5 animate-spin" /> Uploading
+                        </span>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => removePhotoAt(i)}
+                        aria-label={`Remove photo ${i + 1}`}
+                        className="absolute right-1 top-1 rounded bg-foreground/70 p-1 text-white hover:bg-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1 text-sm">
-                  <p className="truncate font-medium text-foreground">
-                    {photoFile?.name ?? 'Restored from draft'}
-                  </p>
-                  {photoUploading ? (
-                    <p className="mt-1 flex items-center gap-1 text-xs text-muted">
-                      <Loader2 className="h-3 w-3 animate-spin" /> Uploading…
-                    </p>
-                  ) : photoError ? (
-                    <p className="mt-1 text-xs text-destructive">{photoError}</p>
-                  ) : photoSignedUrl ? (
-                    <p className="mt-1 flex items-center gap-1 text-xs text-emerald-700">
-                      <CheckCircle2 className="h-3 w-3" /> Uploaded
-                    </p>
-                  ) : null}
-                </div>
-                <Button variant="ghost" size="icon" onClick={clearPhoto} aria-label="Remove photo">
-                  <X className="h-4 w-4" />
-                </Button>
-              </CardContent>
-            </Card>
+                  )
+                })}
+
+                {/* "Add more" tile sits inline with the thumbnails. */}
+                <label
+                  htmlFor="photo"
+                  className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border bg-background text-center hover:border-primary"
+                >
+                  <ImagePlus className="h-5 w-5 text-muted" aria-hidden />
+                  <span className="text-xs font-medium text-foreground">Add more</span>
+                </label>
+              </div>
+
+              {photoError ? (
+                <p className="text-xs text-destructive">{photoError}</p>
+              ) : null}
+              {photoStoragePaths.length > 1 ? (
+                <p className="text-xs text-muted">
+                  AI analysis uses the first photo. All photos are saved on the violation record.
+                </p>
+              ) : null}
+            </div>
           ) : (
             <label
               htmlFor="photo"
               className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-background px-6 py-8 text-center hover:border-primary"
             >
               <ImagePlus className="h-6 w-6 text-muted" aria-hidden />
-              <span className="text-sm font-medium text-foreground">Click to add a photo</span>
-              <span className="text-xs text-muted">JPG, PNG, WebP, or HEIC · up to 25 MB</span>
+              <span className="text-sm font-medium text-foreground">Click to add photos</span>
+              <span className="text-xs text-muted">JPG, PNG, WebP, or HEIC · up to 25 MB each · multiple allowed</span>
             </label>
           )}
           <input
             id="photo"
             type="file"
+            multiple
             accept="image/jpeg,image/png,image/webp,image/heic"
             className="sr-only"
             onChange={handlePhotoChange}
