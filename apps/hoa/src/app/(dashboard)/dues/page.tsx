@@ -9,6 +9,7 @@ import { MaterializeButton } from './MaterializeButton'
 import { DeleteAssessmentButton } from './DeleteAssessmentButton'
 
 export const metadata = { title: 'Dues' }
+export const dynamic = 'force-dynamic'
 
 const DUES_STATUS_TONES: Record<string, 'success' | 'warning' | 'destructive' | 'neutral' | 'outline'> = {
   paid: 'success',

@@ -6,6 +6,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { PropertiesBulkActions } from './PropertiesBulkActions'
 
 export const metadata = { title: 'Properties' }
+export const dynamic = 'force-dynamic'
 
 type Tenure = 'owner_occupied' | 'leased' | 'unknown'
 
@@ -57,6 +58,7 @@ export default async function PropertiesListPage({
       'id, address, unit_number, owner_name, owner_email, owner_phone, tenure, notes, created_at, updated_at',
     )
     .eq('org_id', org.id)
+    .is('deleted_at', null)
     .order('address', { ascending: true })
   if (activeTenure !== 'all') {
     // `tenure` was added in migration 0017; DB types are stale until the

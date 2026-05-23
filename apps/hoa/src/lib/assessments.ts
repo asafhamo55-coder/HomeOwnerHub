@@ -177,6 +177,7 @@ export async function materializeCurrentPeriodAssessments(input: {
   }
 
   revalidatePath('/dues')
+  revalidatePath('/')
   revalidatePath('/accounting')
   revalidatePath('/accounting/ledger')
   return { ok: true, created }
@@ -346,6 +347,7 @@ export async function createDues(
   }
 
   revalidatePath('/dues')
+  revalidatePath('/')
   revalidatePath('/accounting')
   revalidatePath('/accounting/ledger')
   return { ok: true, created }
@@ -436,6 +438,7 @@ export async function deleteAssessment(
   if (error) return { ok: false, error: error.message }
 
   revalidatePath('/dues')
+  revalidatePath('/')
   revalidatePath('/accounting')
   revalidatePath('/accounting/ledger')
   return { ok: true }
@@ -560,6 +563,7 @@ export async function markAssessmentPaid(input: {
     .eq('id', assessment.id)
 
   revalidatePath('/dues')
+  revalidatePath('/')
   revalidatePath('/accounting')
   revalidatePath('/accounting/ledger')
   return { ok: true, assessmentId: assessment.id }

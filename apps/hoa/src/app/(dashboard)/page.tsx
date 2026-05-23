@@ -31,6 +31,14 @@ import { UnfinishedWorkflowsCard } from '@/components/dashboard/UnfinishedWorkfl
 
 export const metadata = { title: 'Dashboard' }
 
+// The dashboard surfaces near-real-time state across every entity
+// (dues, violations, lease occupancy, approvals, etc.) and is the
+// single page where staleness is most visible. Default page caching
+// would serve stale renders even when server actions revalidated
+// underlying tables. Force-dynamic — the queries below are all cheap
+// indexed lookups, total render time is well inside the budget.
+export const dynamic = 'force-dynamic'
+
 function greeting(date = new Date()): string {
   const h = date.getHours()
   if (h < 12) return 'Good morning'
