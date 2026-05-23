@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 // CSV export of the properties list, scoped to the current user's org
@@ -55,12 +56,18 @@ export async function GET(request: NextRequest) {
       ? tenureParam
       : 'all'
 
+  const org = await getCurrentOrg()
+  if (!org) {
+    return NextResponse.json({ error: 'no_org' }, { status: 403 })
+  }
+
   const supabase = await getSupabaseServerClient()
   let query = supabase
     .from('hoa_properties')
     .select(
       'id, address, unit_number, owner_name, owner_email, owner_phone, tenure, notes, created_at, updated_at',
     )
+    .eq('org_id', org.id)
     .order('address', { ascending: true })
   if (activeTenure !== 'all') {
     query = query.eq('tenure' as never, activeTenure)

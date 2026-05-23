@@ -56,6 +56,7 @@ export default async function PropertiesListPage({
     .select(
       'id, address, unit_number, owner_name, owner_email, owner_phone, tenure, notes, created_at, updated_at',
     )
+    .eq('org_id', org.id)
     .order('address', { ascending: true })
   if (activeTenure !== 'all') {
     // `tenure` was added in migration 0017; DB types are stale until the

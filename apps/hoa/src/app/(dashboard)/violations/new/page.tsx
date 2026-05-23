@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { Alert, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadDraft } from '@/lib/drafts'
 import { Wizard } from './Wizard'
@@ -23,12 +24,15 @@ export default async function NewViolationPage({
   searchParams: Promise<SearchParams>
 }) {
   const supabase = await getSupabaseServerClient()
+  const org = await getCurrentOrg()
+  if (!org) return null
   const { draft: draftId } = await searchParams
 
   const [propsRes, ccrRes, initialDraft] = await Promise.all([
     supabase
       .from('hoa_properties')
       .select('id, address, unit_number')
+      .eq('org_id', org.id)
       .order('address', { ascending: true }),
     supabase
       .from('hoa_documents')
