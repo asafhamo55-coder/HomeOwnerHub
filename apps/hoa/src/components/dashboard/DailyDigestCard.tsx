@@ -61,7 +61,14 @@ export function DailyDigestCard({ initialContent, initialGeneratedAt }: DailyDig
         ) : null}
 
         {hasContent ? (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{content}</p>
+          <ul className="space-y-1.5 text-sm leading-relaxed text-foreground">
+            {parseToBullets(content!).map((line, i) => (
+              <li key={i} className="flex gap-2">
+                <span className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
         ) : (
           <p className="text-sm text-muted">
             No digest yet. Click <span className="font-medium text-foreground">Refresh</span> to
@@ -78,4 +85,29 @@ export function DailyDigestCard({ initialContent, initialGeneratedAt }: DailyDig
       </CardContent>
     </Card>
   )
+}
+
+/**
+ * Splits LLM-generated digest content into discrete bullet items.
+ *   1. Split on hard line breaks
+ *   2. Strip a leading bullet glyph if the LLM already wrote them
+ *   3. Discard empty / pure-whitespace lines
+ *
+ * If the text has no line breaks (single paragraph), tries to split on
+ * sentence boundaries (". ") as a fallback so the user gets *some*
+ * structure rather than one giant bullet.
+ */
+function parseToBullets(text: string): string[] {
+  const byLine = text
+    .split(/\r?\n+/)
+    .map((line) => line.trim().replace(/^[-•*]\s+/, ''))
+    .filter((line) => line.length > 0)
+
+  if (byLine.length > 1) return byLine
+
+  // Single-blob fallback: split on sentence endings, keep punctuation.
+  return text
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
 }

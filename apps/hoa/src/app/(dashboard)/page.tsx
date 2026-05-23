@@ -110,6 +110,15 @@ async function DashboardContent({ orgId }: { orgId: string }) {
 
   return (
     <div className="space-y-6">
+      {/* Daily digest — pinned to the top so every dashboard visit
+          surfaces the AI summary of "what changed since yesterday"
+          before any other widget. Bullets render automatically when
+          content exists; the card explains how to generate one if not. */}
+      <DailyDigestCard
+        initialContent={digest.content}
+        initialGeneratedAt={digest.generatedAt}
+      />
+
       {/* KPI heroes — the four numbers that should answer "what should I
           care about today?" before scrolling. */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -196,25 +205,6 @@ async function DashboardContent({ orgId }: { orgId: string }) {
             <AtRiskThisWeek items={atRisk.items} totalCount={atRisk.totalCount} />
             <NextMeeting meeting={nextMeeting} />
           </div>
-        </div>
-      </details>
-
-      {/* Daily digest — narrative context, collapsed by default. */}
-      <details className="rounded-xl border border-border bg-surface">
-        <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium hover:bg-foreground/5">
-          <span className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4 text-muted" />
-            Daily digest
-          </span>
-          <span className="text-xs text-muted">
-            {digest.content ? 'AI-summarized' : 'not yet generated'}
-          </span>
-        </summary>
-        <div className="border-t border-border p-2">
-          <DailyDigestCard
-            initialContent={digest.content}
-            initialGeneratedAt={digest.generatedAt}
-          />
         </div>
       </details>
 
