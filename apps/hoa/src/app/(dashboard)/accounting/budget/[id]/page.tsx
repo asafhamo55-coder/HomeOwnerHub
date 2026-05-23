@@ -9,6 +9,7 @@ import {
   listAccounts,
 } from '@/lib/accounting/queries'
 import { BudgetEditor } from './BudgetEditor'
+import { BudgetActions } from './BudgetActions'
 
 export const metadata = { title: 'Budget' }
 
@@ -63,6 +64,7 @@ export default async function BudgetDetailPage({ params }: PageProps) {
           <h1 className="text-2xl font-bold text-foreground">
             {budget.fund?.name ?? 'Budget'}
           </h1>
+          <BudgetActions budgetId={budget.id} isEditable={isEditable} />
           <Badge
             variant={
               budget.status === 'approved'

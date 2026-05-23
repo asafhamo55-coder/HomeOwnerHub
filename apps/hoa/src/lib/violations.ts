@@ -143,6 +143,90 @@ export type UpdateViolationStatusResult =
   | { ok: true }
   | { ok: false; error: string }
 
+// ─── Edit violation details ─────────────────────────────────────────
+
+const UpdateViolationSchema = z.object({
+  violationId: z.string().uuid(),
+  description: z.string().trim().min(3).max(2000).optional(),
+  violation_type: z.string().trim().min(2).max(200).optional(),
+  ccr_section: z.string().trim().nullable().optional(),
+  severity: z.enum(['low', 'medium', 'high']).nullable().optional(),
+  cure_period_days: z.number().int().min(1).max(180).optional(),
+  fine_amount: z.number().min(0).max(1000).optional(),
+})
+
+export interface UpdateViolationInput {
+  violationId: string
+  description?: string
+  violationType?: string
+  ccrSection?: string | null
+  severity?: 'low' | 'medium' | 'high' | null
+  curePeriodDays?: number
+  fineAmount?: number
+}
+
+export type UpdateViolationResult = { ok: true } | { ok: false; error: string }
+
+export async function updateViolation(
+  input: UpdateViolationInput,
+): Promise<UpdateViolationResult> {
+  const parsed = UpdateViolationSchema.safeParse({
+    violationId: input.violationId,
+    description: input.description,
+    violation_type: input.violationType,
+    ccr_section: input.ccrSection,
+    severity: input.severity,
+    cure_period_days: input.curePeriodDays,
+    fine_amount: input.fineAmount,
+  })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+
+  const supabase = await getSupabaseServerClient()
+  const patch: Record<string, unknown> = {}
+  if (parsed.data.description !== undefined) patch.description = parsed.data.description
+  if (parsed.data.violation_type !== undefined) patch.violation_type = parsed.data.violation_type
+  if (parsed.data.ccr_section !== undefined) patch.ccr_section = parsed.data.ccr_section
+  if (parsed.data.severity !== undefined) patch.severity = parsed.data.severity
+  if (parsed.data.cure_period_days !== undefined) patch.cure_period_days = parsed.data.cure_period_days
+  if (parsed.data.fine_amount !== undefined) patch.fine_amount = parsed.data.fine_amount
+
+  if (Object.keys(patch).length === 0) return { ok: true }
+
+  const { error } = await supabase
+    .from('hoa_violations')
+    .update(patch as never)
+    .eq('id', parsed.data.violationId)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath(`/violations/${parsed.data.violationId}`)
+  revalidatePath('/violations')
+  return { ok: true }
+}
+
+// ─── Delete violation ───────────────────────────────────────────────
+
+export async function deleteViolation(
+  violationId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+
+  const supabase = await getSupabaseServerClient()
+  const { error } = await supabase
+    .from('hoa_violations')
+    .delete()
+    .eq('id', violationId)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/violations')
+  return { ok: true }
+}
+
 export async function updateViolationStatus(
   input: UpdateViolationStatusInput,
 ): Promise<UpdateViolationStatusResult> {

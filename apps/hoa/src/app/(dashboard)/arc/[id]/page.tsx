@@ -8,6 +8,7 @@ import {
   type ArcStatus,
 } from '@/lib/board-review'
 import { ArcDecisionForm } from './ArcDecisionForm'
+import { ArcActions } from './ArcActions'
 
 export const metadata = { title: 'ARC application' }
 
@@ -64,6 +65,7 @@ export default async function ArcReviewDetailPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ArcActions arcId={arc.id} />
           <Badge variant="outline">{CATEGORY_LABEL[arc.category] ?? arc.category}</Badge>
           <Badge variant={STATUS_VARIANT[arc.status]}>
             {arc.status.replace('_', ' ')}

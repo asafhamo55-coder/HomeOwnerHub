@@ -293,6 +293,44 @@ export async function archiveLawUpdate(id: string): Promise<ActionResult> {
   return { ok: true }
 }
 
+export async function deleteLawUpdate(id: string): Promise<ActionResult> {
+  const supabase = await getSupabaseServerClient()
+  const { error } = await supabase
+    .from('state_law_updates' as never)
+    .delete()
+    .eq('id', id)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/legal')
+  revalidatePath('/legal/updates')
+  return { ok: true }
+}
+
+export async function updateLawUpdate(
+  id: string,
+  input: Partial<CreateLawUpdateInput>,
+): Promise<ActionResult> {
+  const patch: Record<string, unknown> = {}
+  if (input.headline !== undefined) patch.headline = input.headline
+  if (input.summary !== undefined) patch.summary = input.summary
+  if (input.actionItems !== undefined) patch.action_items = input.actionItems.length > 0 ? input.actionItems : null
+  if (input.category !== undefined) patch.category = input.category ?? null
+  if (input.effectiveDate !== undefined) patch.effective_date = input.effectiveDate || null
+  if (input.sourceUrl !== undefined) patch.source_url = input.sourceUrl || null
+
+  if (Object.keys(patch).length === 0) return { ok: true }
+
+  const supabase = await getSupabaseServerClient()
+  const { error } = await supabase
+    .from('state_law_updates' as never)
+    .update(patch as never)
+    .eq('id', id)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/legal')
+  revalidatePath('/legal/updates')
+  return { ok: true }
+}
+
 export async function unarchiveLawUpdate(id: string): Promise<ActionResult> {
   const supabase = await getSupabaseServerClient()
   const { error } = await supabase

@@ -16,6 +16,7 @@ import {
 } from '@homeowner-portal/ui'
 import { getVendor, type ComplianceStatus } from '@/lib/vendors'
 import { ApproveVendorButton } from './ApproveVendorButton'
+import { VendorActions } from './VendorActions'
 
 const COMPLIANCE_VARIANT: Record<ComplianceStatus, 'success' | 'warning' | 'destructive' | 'outline'> = {
   green: 'success',
@@ -57,6 +58,7 @@ export default async function VendorDetailPage({
         }
         actions={
           <>
+            <VendorActions vendorId={vendor.id} vendorName={vendor.legal_name} />
             {status ? (
               <Badge variant={COMPLIANCE_VARIANT[status]}>
                 {COMPLIANCE_LABEL[status]}

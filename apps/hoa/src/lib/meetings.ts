@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
+import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 // Schema-aligned slugs (hoa_meeting_minutes_meeting_type_check).
@@ -85,4 +86,81 @@ export async function approveMeetingMinutes(input: {
 
   revalidatePath('/meetings')
   return { ok: true, meetingId: row.id as string }
+}
+
+// ─── Update meeting ─────────────────────────────────────────────────
+
+type MeetingActionResult = { ok: true } | { ok: false; error: string }
+
+const UpdateMeetingSchema = z.object({
+  meetingDate: z.string().min(4).optional(),
+  meetingType: z.enum(['regular', 'special', 'annual', 'emergency']).optional(),
+  approvedSummary: z.string().min(10).optional(),
+  attendees: z.array(z.string()).optional(),
+})
+
+export interface UpdateMeetingInput {
+  meetingDate?: string
+  meetingType?: MeetingType
+  approvedSummary?: string
+  attendees?: string[]
+}
+
+export async function updateMeeting(
+  meetingId: string,
+  input: UpdateMeetingInput,
+): Promise<MeetingActionResult> {
+  const parsed = UpdateMeetingSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return { ok: false, error: "You don't have permission to perform this action." }
+  }
+
+  const supabase = await getSupabaseServerClient()
+  const patch: Record<string, unknown> = {}
+  if (parsed.data.meetingDate !== undefined) patch.meeting_date = parsed.data.meetingDate
+  if (parsed.data.meetingType !== undefined) patch.meeting_type = parsed.data.meetingType
+  if (parsed.data.approvedSummary !== undefined) patch.ai_summary = parsed.data.approvedSummary
+  if (parsed.data.attendees !== undefined) patch.attendees = parsed.data.attendees
+
+  if (Object.keys(patch).length === 0) return { ok: true }
+
+  const { error } = await supabase
+    .from('hoa_meeting_minutes')
+    .update(patch as never)
+    .eq('id', meetingId)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath(`/meetings/${meetingId}`)
+  revalidatePath('/meetings')
+  return { ok: true }
+}
+
+// ─── Delete meeting ─────────────────────────────────────────────────
+
+export async function deleteMeeting(
+  meetingId: string,
+): Promise<MeetingActionResult> {
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return { ok: false, error: "You don't have permission to perform this action." }
+  }
+
+  const supabase = await getSupabaseServerClient()
+  const { error } = await supabase
+    .from('hoa_meeting_minutes')
+    .delete()
+    .eq('id', meetingId)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/meetings')
+  return { ok: true }
 }

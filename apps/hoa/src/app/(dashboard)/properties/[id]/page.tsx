@@ -32,6 +32,8 @@ import type { PropertyResidentRow, PropertyResidentRole } from '@/lib/property-r
 import type { PropertyEventRow, PropertyEventKind } from '@/lib/property-events'
 import { TenureSelector } from './TenureSelector'
 import { AddResidentForm } from './AddResidentForm'
+import { PropertyActions } from './PropertyActions'
+import { ResidentActions } from './ResidentActions'
 
 interface PropertyDetailRow {
   id: string
@@ -130,7 +132,10 @@ export default async function PropertyDetailPage({
       </Link>
 
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold text-foreground">{p.address}</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-2xl font-bold text-foreground">{p.address}</h1>
+          <PropertyActions propertyId={p.id} />
+        </div>
         <p className="text-sm text-muted">
           {[p.unit_number ? `Unit ${p.unit_number}` : null, p.owner_name].filter(Boolean).join(' · ') ||
             'No additional details'}
@@ -383,7 +388,7 @@ function ResidentRow({ resident }: { resident: PropertyResidentRow }) {
         : 'neutral'
   return (
     <li
-      className={`flex items-start justify-between gap-3 px-4 py-3 text-sm ${
+      className={`flex items-center justify-between gap-3 px-4 py-3 text-sm ${
         isActive ? '' : 'opacity-60'
       }`}
     >
@@ -419,6 +424,11 @@ function ResidentRow({ resident }: { resident: PropertyResidentRow }) {
           ) : null}
         </div>
       </div>
+      <ResidentActions
+        residentId={resident.id}
+        residentName={resident.full_name}
+        isActive={isActive}
+      />
     </li>
   )
 }

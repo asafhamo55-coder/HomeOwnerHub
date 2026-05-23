@@ -6,6 +6,7 @@ import { getPrimaryAssociation } from '@/lib/vendors'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { MarkPaidButton } from './MarkPaidButton'
 import { MaterializeButton } from './MaterializeButton'
+import { DeleteAssessmentButton } from './DeleteAssessmentButton'
 
 export const metadata = { title: 'Dues' }
 
@@ -256,9 +257,14 @@ function PeriodTable({
                     )}
                   </td>
                   <td className="px-4 py-2 text-right">
-                    {!isPaid ? (
-                      <MarkPaidButton assessmentId={r.id} balance={balance} />
-                    ) : null}
+                    <div className="flex items-center justify-end gap-1">
+                      {!isPaid ? (
+                        <>
+                          <MarkPaidButton assessmentId={r.id} balance={balance} />
+                          <DeleteAssessmentButton assessmentId={r.id} />
+                        </>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               )

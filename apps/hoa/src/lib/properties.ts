@@ -74,6 +74,71 @@ export async function createProperty(
   redirect('/properties')
 }
 
+// ─── Update property ────────────────────────────────────────────────
+
+const UpdatePropertySchema = z.object({
+  address: z.string().trim().min(3).max(500).optional(),
+  unit_number: z.string().trim().nullable().optional(),
+  owner_name: z.string().trim().nullable().optional(),
+  owner_email: z.string().trim().email().nullable().optional().or(z.literal('')),
+  owner_phone: z.string().trim().nullable().optional(),
+  notes: z.string().trim().nullable().optional(),
+})
+
+export interface UpdatePropertyInput {
+  address?: string
+  unitNumber?: string | null
+  ownerName?: string | null
+  ownerEmail?: string | null
+  ownerPhone?: string | null
+  notes?: string | null
+}
+
+export async function updateProperty(
+  propertyId: string,
+  input: UpdatePropertyInput,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const parsed = UpdatePropertySchema.safeParse({
+    address: input.address,
+    unit_number: input.unitNumber,
+    owner_name: input.ownerName,
+    owner_email: input.ownerEmail,
+    owner_phone: input.ownerPhone,
+    notes: input.notes,
+  })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return { ok: false, error: "You don't have permission to perform this action." }
+  }
+
+  const supabase = await getSupabaseServerClient()
+  const patch: Record<string, unknown> = {}
+  if (parsed.data.address !== undefined) patch.address = parsed.data.address
+  if (parsed.data.unit_number !== undefined) patch.unit_number = parsed.data.unit_number || null
+  if (parsed.data.owner_name !== undefined) patch.owner_name = parsed.data.owner_name || null
+  if (parsed.data.owner_email !== undefined) patch.owner_email = parsed.data.owner_email || null
+  if (parsed.data.owner_phone !== undefined) patch.owner_phone = parsed.data.owner_phone || null
+  if (parsed.data.notes !== undefined) patch.notes = parsed.data.notes || null
+
+  if (Object.keys(patch).length === 0) return { ok: true }
+
+  const { error } = await supabase
+    .from('hoa_properties')
+    .update(patch as never)
+    .eq('id', propertyId)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath(`/properties/${propertyId}`)
+  revalidatePath('/properties')
+  return { ok: true }
+}
+
 export async function deleteProperty(propertyId: string) {
   const supabase = await getSupabaseServerClient()
   // RLS scopes the delete to the user's org automatically — no extra org check needed.

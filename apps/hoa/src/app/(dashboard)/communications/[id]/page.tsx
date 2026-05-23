@@ -14,6 +14,7 @@ import { format } from 'date-fns'
 import { Badge, Card } from '@homeowner-portal/ui'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getCommunication } from '@/lib/communications/queries'
+import { CommunicationActions } from './CommunicationActions'
 
 export const metadata = { title: 'Message' }
 
@@ -62,6 +63,7 @@ export default async function CommunicationDetailPage({ params }: PageProps) {
         <div className="flex flex-wrap items-baseline gap-3">
           <h1 className="text-2xl font-bold text-foreground">{comm.subject}</h1>
           <Badge variant={STATUS_VARIANT[comm.status] ?? 'outline'}>{comm.status}</Badge>
+          <CommunicationActions commId={comm.id} />
           {comm.ai_generated ? (
             <Badge variant="outline">
               <Sparkles className="mr-1 h-3 w-3" />

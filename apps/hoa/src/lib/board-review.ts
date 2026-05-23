@@ -196,6 +196,21 @@ export async function respondToArcRequest(
   return { ok: true }
 }
 
+// ─── Delete ARC request ─────────────────────────────────────────────
+
+export async function deleteArcRequest(arcId: string): Promise<ActionResult> {
+  await requireBoardOrAdmin()
+  const supabase = await getSupabaseServerClient()
+  const { error } = await supabase
+    .from('arc_requests' as never)
+    .delete()
+    .eq('id', arcId)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/arc')
+  return { ok: true }
+}
+
 // ─── Resident violation reports ─────────────────────────────────────
 
 export type ViolationReportStatus =

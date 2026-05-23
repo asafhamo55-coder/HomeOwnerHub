@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { Badge, Card } from '@homeowner-portal/ui'
 import { getAccountingContext, getInvoice } from '@/lib/accounting/queries'
 import { MarkInvoicePaidButton } from './MarkInvoicePaidButton'
+import { InvoiceActions } from './InvoiceActions'
 
 export const metadata = { title: 'Invoice' }
 
@@ -62,6 +63,7 @@ export default async function InvoiceDetailPage({ params }: PageProps) {
           >
             {invoice.status}
           </Badge>
+          <InvoiceActions invoiceId={invoice.id} isPaid={isPaid} />
           {invoice.ai_generated ? (
             <Badge variant="outline">
               <Sparkles className="mr-1 h-3 w-3" />

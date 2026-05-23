@@ -14,6 +14,7 @@ import {
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violation-statuses'
 import { ViolationStatusEditor } from './ViolationStatusEditor'
+import { ViolationActions } from './ViolationActions'
 
 interface ViolationDetail {
   id: string
@@ -83,6 +84,8 @@ export default async function ViolationDetailPage({
           </>
         }
         actions={
+          <>
+          <ViolationActions violationId={v.id} />
           <Badge
             variant={
               v.status === 'resolved'
@@ -97,6 +100,7 @@ export default async function ViolationDetailPage({
           >
             {overdue ? 'overdue' : v.status.replace('_', ' ')}
           </Badge>
+          </>
         }
       />
 

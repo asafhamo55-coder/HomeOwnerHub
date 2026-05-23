@@ -19,6 +19,7 @@ import {
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { listActionItems } from '@/lib/meeting-action-items'
 import { ActionItemsSection } from './ActionItemsSection'
+import { MeetingActions } from './MeetingActions'
 
 export const dynamic = 'force-dynamic'
 
@@ -110,11 +111,14 @@ export default async function MeetingDetailPage(props: {
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             {format(dateObj, 'PPP')}
           </h1>
-          <StatusBadge
+          <div className="flex items-center gap-2">
+            <MeetingActions meetingId={meeting.id} />
+            <StatusBadge
             status={meeting.status ?? 'draft'}
             tones={MEETING_STATUS_TONES}
             labels={MEETING_STATUS_LABELS}
           />
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted">
           {meeting.attendees && meeting.attendees.length > 0 ? (

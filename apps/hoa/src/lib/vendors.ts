@@ -526,6 +526,95 @@ export async function getVendorDocumentSignedUrl(
   return data?.signedUrl ?? null
 }
 
+// ─── Update vendor ──────────────────────────────────────────────────
+
+const UpdateVendorSchema = z.object({
+  legal_name: z.string().trim().min(2).max(200).optional(),
+  dba: z.string().trim().nullable().optional(),
+  primary_email: z.string().trim().email().nullable().optional().or(z.literal('')),
+  primary_phone: z.string().trim().nullable().optional(),
+  trades: z.array(z.string().trim().min(1)).optional(),
+  notes: z.string().trim().nullable().optional(),
+})
+
+export interface UpdateVendorInput {
+  legalName?: string
+  dba?: string | null
+  primaryEmail?: string | null
+  primaryPhone?: string | null
+  trades?: string[]
+  notes?: string | null
+}
+
+export async function updateVendor(
+  vendorId: string,
+  input: UpdateVendorInput,
+): Promise<ActionResult> {
+  const parsed = UpdateVendorSchema.safeParse({
+    legal_name: input.legalName,
+    dba: input.dba,
+    primary_email: input.primaryEmail,
+    primary_phone: input.primaryPhone,
+    trades: input.trades,
+    notes: input.notes,
+  })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+
+  const supabase = await getSupabaseServerClient()
+  const patch: Record<string, unknown> = {}
+  if (parsed.data.legal_name !== undefined) patch.legal_name = parsed.data.legal_name
+  if (parsed.data.dba !== undefined) patch.dba = parsed.data.dba || null
+  if (parsed.data.primary_email !== undefined) patch.primary_email = parsed.data.primary_email || null
+  if (parsed.data.primary_phone !== undefined) patch.primary_phone = parsed.data.primary_phone || null
+  if (parsed.data.trades !== undefined) patch.trades = parsed.data.trades
+  if (parsed.data.notes !== undefined) patch.notes = parsed.data.notes || null
+
+  if (Object.keys(patch).length === 0) return { ok: true }
+
+  const { error } = await supabase
+    .from('vendors' as never)
+    .update(patch as never)
+    .eq('id', vendorId)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath(`/vendors/${vendorId}`)
+  revalidatePath('/vendors')
+  return { ok: true }
+}
+
+// ─── Delete vendor ──────────────────────────────────────────────────
+
+export async function deleteVendor(vendorId: string): Promise<ActionResult> {
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+
+  const supabase = await getSupabaseServerClient()
+
+  // Clean up vendor documents from storage first
+  const { data: docs } = await supabase
+    .from('vendor_documents' as never)
+    .select('storage_path')
+    .eq('vendor_id', vendorId)
+  const paths = ((docs ?? []) as unknown as { storage_path: string }[]).map((d) => d.storage_path)
+  if (paths.length > 0) {
+    await supabase.storage.from('hoa-documents').remove(paths)
+  }
+
+  const { error } = await supabase
+    .from('vendors' as never)
+    .delete()
+    .eq('id', vendorId)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/vendors')
+  return { ok: true }
+}
+
 export async function approveVendor(
   vendorId: string,
 ): Promise<ActionResult> {

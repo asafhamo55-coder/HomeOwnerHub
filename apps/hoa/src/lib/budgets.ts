@@ -70,6 +70,35 @@ export async function createBudget(input: {
   return { ok: true, budgetId: data.id }
 }
 
+// ─── deleteBudget ───────────────────────────────────────────────────
+
+export async function deleteBudget(
+  budgetId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const assoc = await getPrimaryAssociation()
+  if (!assoc) return { ok: false, error: 'No HOA association configured.' }
+
+  const supabase = await getSupabaseServerClient()
+  const { data: budget } = await supabase
+    .from('budgets')
+    .select('id, status')
+    .eq('id', budgetId)
+    .eq('association_id', assoc.id)
+    .single()
+  if (!budget) return { ok: false, error: 'Budget not found.' }
+
+  if (budget.status === 'approved') {
+    return { ok: false, error: 'Cannot delete an approved budget. Archive it instead.' }
+  }
+
+  await supabase.from('budget_line_items').delete().eq('budget_id', budgetId)
+  const { error } = await supabase.from('budgets').delete().eq('id', budgetId)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/accounting/budget')
+  return { ok: true }
+}
+
 // ─── saveBudgetLineItems ─────────────────────────────────────────────
 
 const SaveLineItemsSchema = z.object({

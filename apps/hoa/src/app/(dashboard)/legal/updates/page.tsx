@@ -13,6 +13,7 @@ import {
   listAllUpdatesForManager,
 } from '@/lib/state-law'
 import { ArchiveButton } from './ArchiveButton'
+import { DeleteUpdateButton } from './DeleteUpdateButton'
 
 export const metadata = { title: 'Law updates — admin' }
 
@@ -118,7 +119,10 @@ export default async function UpdatesAdminPage() {
                       </a>
                     ) : null}
                   </div>
-                  <ArchiveButton updateId={u.id} archived={!!u.archived_at} />
+                  <div className="flex items-center gap-2">
+                    <ArchiveButton updateId={u.id} archived={!!u.archived_at} />
+                    <DeleteUpdateButton updateId={u.id} />
+                  </div>
                 </div>
               </li>
             ))}

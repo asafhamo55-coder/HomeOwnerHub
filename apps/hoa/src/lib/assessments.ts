@@ -182,6 +182,39 @@ export async function materializeCurrentPeriodAssessments(input: {
   return { ok: true, created }
 }
 
+// ─── delete assessment ──────────────────────────────────────────────
+
+export async function deleteAssessment(
+  assessmentId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const assoc = await getPrimaryAssociation()
+  if (!assoc) return { ok: false, error: 'No HOA association configured.' }
+
+  const supabase = await getSupabaseServerClient()
+  const { data: assessment } = await supabase
+    .from('assessments')
+    .select('id, status')
+    .eq('id', assessmentId)
+    .eq('association_id', assoc.id)
+    .single()
+  if (!assessment) return { ok: false, error: 'Assessment not found.' }
+
+  if (assessment.status === 'paid') {
+    return { ok: false, error: 'Cannot delete a paid assessment. Reverse the payment first.' }
+  }
+
+  const { error } = await supabase
+    .from('assessments')
+    .delete()
+    .eq('id', assessmentId)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/dues')
+  revalidatePath('/accounting')
+  revalidatePath('/accounting/ledger')
+  return { ok: true }
+}
+
 // ─── mark paid ───────────────────────────────────────────────────────
 
 const MarkPaidSchema = z.object({

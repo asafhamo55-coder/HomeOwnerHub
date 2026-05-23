@@ -170,6 +170,39 @@ export async function enterBill(input: {
   return { ok: true, invoiceId: invoice.id }
 }
 
+// ─── deleteInvoice ──────────────────────────────────────────────────
+
+export async function deleteInvoice(
+  invoiceId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const assoc = await getPrimaryAssociation()
+  if (!assoc) return { ok: false, error: 'No HOA association configured.' }
+
+  const supabase = await getSupabaseServerClient()
+  const { data: invoice } = await supabase
+    .from('invoices')
+    .select('id, status')
+    .eq('id', invoiceId)
+    .eq('association_id', assoc.id)
+    .single()
+  if (!invoice) return { ok: false, error: 'Invoice not found.' }
+
+  if (invoice.status === 'paid') {
+    return { ok: false, error: 'Cannot delete a paid invoice. Reverse the payment first.' }
+  }
+
+  const { error } = await supabase
+    .from('invoices')
+    .delete()
+    .eq('id', invoiceId)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/accounting/invoices')
+  revalidatePath('/accounting')
+  revalidatePath('/accounting/ledger')
+  return { ok: true }
+}
+
 // ─── markInvoicePaid ─────────────────────────────────────────────────
 
 const MarkInvoicePaidSchema = z.object({
