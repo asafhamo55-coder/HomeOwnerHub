@@ -238,13 +238,20 @@ async function main(): Promise<void> {
 async function launchBrowser(): Promise<Browser> {
   const token = process.env.BROWSERLESS_TOKEN
   if (token) {
-    const endpoint = process.env.BROWSERLESS_ENDPOINT
+    // Browserless v2 splits protocols by path:
+    //   /                     — CDP (for puppeteer.connect)
+    //   /playwright/chromium  — Playwright protocol (for chromium.connect)
+    // We use Playwright, so we need the Playwright path. Earlier we
+    // hit the bare endpoint and chromium.connect() hung silently
+    // waiting for a Playwright handshake that CDP would never send.
+    const base = process.env.BROWSERLESS_ENDPOINT
       ?? 'wss://production-sfo.browserless.io'
-    const url = `${endpoint}?token=${token}`
-    console.log(`[scrape] using Browserless (${endpoint})`)
+    const url = `${base}/playwright/chromium?token=${token}`
+    console.log(`[scrape] using Browserless (${base})`)
     console.log(`[scrape] connecting WebSocket... (token length=${token.length})`)
     try {
-      const browser = await chromiumPw.connect(url)
+      // 30s connect timeout — silent hangs are unacceptable.
+      const browser = await chromiumPw.connect(url, { timeout: 30_000 })
       console.log(`[scrape] Browserless connected ✓`)
       browser.on('disconnected', () => {
         console.error(`[scrape] Browserless disconnected unexpectedly`)
@@ -252,11 +259,7 @@ async function launchBrowser(): Promise<Browser> {
       return browser
     } catch (err) {
       console.error(`[scrape] Browserless connect FAILED: ${(err as Error).message}`)
-      console.error(`[scrape] Likely causes:
-  - Token rejected (wrong token, or token requires a different endpoint)
-  - Newer Browserless plans use wss://chrome.browserless.io?token=... or
-    wss://production-sfo.browserless.io/chromium/playwright?token=...
-  - Try setting BROWSERLESS_ENDPOINT in .env.local to one of those.`)
+      console.error(`[scrape] If still failing, try BROWSERLESS_ENDPOINT=wss://chrome.browserless.io in .env.local`)
       throw err
     }
   }
