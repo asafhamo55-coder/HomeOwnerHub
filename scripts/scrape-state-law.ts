@@ -44,8 +44,8 @@ import './_load-env'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
-import { chromium } from 'playwright-extra'
-import type { Page } from 'playwright'
+import { chromium as chromiumExtra } from 'playwright-extra'
+import { chromium as chromiumPw, type Browser, type Page } from 'playwright'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore — no types shipped
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
@@ -53,8 +53,9 @@ import { sourcesFor, type StateLawSource } from './state-law-sources'
 
 // Stealth masks navigator.webdriver, chrome.runtime, plugin/language
 // arrays, and ~15 other browser-fingerprint surfaces Cloudflare reads.
-// Without it our first attempt at Justia was 26/26 HTTP 403.
-chromium.use(StealthPlugin())
+// Only applies to the local-Chromium path; when going via Browserless,
+// they handle automation evasion server-side.
+chromiumExtra.use(StealthPlugin())
 
 const SUPPORTED_STATES = new Set(['GA', 'FL', 'CA', 'TX'])
 
@@ -114,7 +115,7 @@ async function main(): Promise<void> {
   // Read existing JSONL so --skip-fresh can short-circuit fresh rows.
   const existing = await readExisting(outPath)
 
-  const browser = await chromium.launch({ headless: true })
+  const browser = await launchBrowser()
   const ctx = await browser.newContext({
     userAgent: UA,
     viewport: { width: 1920, height: 1080 },
@@ -213,6 +214,40 @@ async function main(): Promise<void> {
   } else {
     console.log(`[scrape] dry run — re-run with --apply to upsert into Supabase.`)
   }
+}
+
+// ───────────────────────── browser launch ─────────────────────────
+
+/**
+ * Picks the browser path based on env:
+ *
+ *   - If BROWSERLESS_TOKEN is set, connects to Browserless's hosted
+ *     Chromium over WebSocket. Browserless runs the browser on their
+ *     infra with residential IPs that Cloudflare doesn't block. Plain
+ *     `playwright` (no stealth) — Browserless handles evasion server-
+ *     side, and the local stealth plugin can't apply to a remote
+ *     browser anyway.
+ *
+ *   - Otherwise launches local Chromium with the stealth plugin. This
+ *     is the path that gets 403'd by Justia's Cloudflare — kept as a
+ *     fallback for sites that don't have aggressive bot detection.
+ *
+ * The downstream code is identical for both paths (it just sees a
+ * Browser).
+ */
+async function launchBrowser(): Promise<Browser> {
+  const token = process.env.BROWSERLESS_TOKEN
+  if (token) {
+    const endpoint = process.env.BROWSERLESS_ENDPOINT
+      ?? 'wss://production-sfo.browserless.io'
+    console.log(`[scrape] using Browserless (${endpoint})`)
+    // The connect URL must include the token as a query param. Some
+    // Browserless plans also accept `?stealth=true&proxy=residential`
+    // — uncomment if you upgrade and want those.
+    return await chromiumPw.connect(`${endpoint}?token=${token}`)
+  }
+  console.log('[scrape] using local Chromium with stealth plugin')
+  return await chromiumExtra.launch({ headless: true })
 }
 
 // ───────────────────────── DOM extraction ──────────────────────────
