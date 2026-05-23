@@ -6,7 +6,11 @@ export interface DashboardStats {
   openViolations: number
   overdueViolations: number
   pendingApprovals: number
+  /** $ sum of unpaid assessments where due_date < today (past-due). */
   overdueDuesAmount: number
+  /** $ sum of ALL unpaid assessments — overdue + upcoming. Includes
+   *  today-due. Surfaces freshly-added dues that aren't yet past due. */
+  outstandingDuesAmount: number
   propertiesBehind: number
 }
 
@@ -102,29 +106,34 @@ export async function getDashboardStats(orgId: string): Promise<DashboardStats> 
     .eq('organization_id', orgId)
   const assocIds = (assocs ?? []).map((a) => a.id)
 
+  // Pull ALL unpaid assessments (overdue + upcoming). Splitting into
+  // two buckets in-memory is cheaper than two round-trips, and a
+  // healthy HOA has at most a few hundred outstanding rows.
   const assessmentsPromise =
     assocIds.length > 0
       ? supabase
           .from('assessments')
-          .select('id, amount, unit_id, status, payments(amount)')
+          .select('id, amount, unit_id, status, due_date, payments(amount)')
           .in('association_id', assocIds)
+          .is('deleted_at', null)
           .neq('status', 'paid')
           .neq('status', 'waived')
           .neq('status', 'written_off')
-          .lt('due_date', today)
-      : Promise.resolve({ data: [] as { id: string; amount: number; unit_id: string; status: string; payments: { amount: number }[] }[] })
+      : Promise.resolve({ data: [] as { id: string; amount: number; unit_id: string; status: string; due_date: string; payments: { amount: number }[] }[] })
 
   const [open, overdue, pending, assessments] = await Promise.all([
     supabase
       .from('hoa_violations')
       .select('id', { count: 'exact', head: true })
       .eq('org_id', orgId)
+      .is('deleted_at', null)
       .in('status', ['open', 'notice_sent']),
 
     supabase
       .from('hoa_violations')
       .select('notice_sent_at, cure_period_days')
       .eq('org_id', orgId)
+      .is('deleted_at', null)
       .eq('status', 'notice_sent')
       .not('notice_sent_at', 'is', null),
 
@@ -132,6 +141,7 @@ export async function getDashboardStats(orgId: string): Promise<DashboardStats> 
       .from('hoa_violations')
       .select('id', { count: 'exact', head: true })
       .eq('org_id', orgId)
+      .is('deleted_at', null)
       .not('ai_draft_letter', 'is', null)
       .is('approved_at', null),
 
@@ -150,23 +160,32 @@ export async function getDashboardStats(orgId: string): Promise<DashboardStats> 
     amount: number
     unit_id: string
     status: string
+    due_date: string
     payments: { amount: number }[]
   }
-  const overdueRows = (assessments.data ?? []) as unknown as AssessmentShape[]
+  const allRows = (assessments.data ?? []) as unknown as AssessmentShape[]
 
-  const overdueDuesAmount = overdueRows.reduce((sum, row) => {
+  // Compute remaining $ once per row; bucket into overdue vs total.
+  let overdueDuesAmount = 0
+  let outstandingDuesAmount = 0
+  const overdueUnitIds = new Set<string>()
+  for (const row of allRows) {
     const paid = (row.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
-    const remaining = Number(row.amount) - paid
-    return sum + Math.max(remaining, 0)
-  }, 0)
-
-  const propertiesBehind = new Set(overdueRows.map((r) => r.unit_id)).size
+    const remaining = Math.max(Number(row.amount) - paid, 0)
+    outstandingDuesAmount += remaining
+    if (row.due_date < today) {
+      overdueDuesAmount += remaining
+      overdueUnitIds.add(row.unit_id)
+    }
+  }
+  const propertiesBehind = overdueUnitIds.size
 
   return {
     openViolations: open.count ?? 0,
     overdueViolations: overdueCount,
     pendingApprovals: pending.count ?? 0,
     overdueDuesAmount,
+    outstandingDuesAmount,
     propertiesBehind,
   }
 }
@@ -185,6 +204,7 @@ export async function getApprovalsInbox(orgId: string): Promise<ApprovalsInbox> 
         'id, description, created_at, property:hoa_properties(address, unit_number)',
       )
       .eq('org_id', orgId)
+      .is('deleted_at', null)
       .not('ai_draft_letter', 'is', null)
       .is('approved_at', null)
       .order('created_at', { ascending: false })
@@ -195,6 +215,7 @@ export async function getApprovalsInbox(orgId: string): Promise<ApprovalsInbox> 
       .from('hoa_meeting_minutes')
       .select('id, meeting_date, meeting_type, status, updated_at')
       .eq('org_id', orgId)
+      .is('deleted_at', null)
       .neq('status', 'approved')
       .order('meeting_date', { ascending: false })
       .limit(10),
@@ -382,9 +403,7 @@ export async function getLeaseSummary(orgId: string): Promise<LeaseSummary> {
       .from('hoa_properties')
       .select('id', { count: 'exact', head: true })
       .in('id', propertyIds)
-      // `tenure` was added in migration 0017; the generated DB types
-      // haven't been regenerated yet, so we cast to `never` until the
-      // next type-gen pass. The column does exist in the DB.
+      .is('deleted_at', null)
       .eq('tenure' as never, 'leased')
     leasedCount = count ?? 0
   }
@@ -458,6 +477,7 @@ export async function getComplianceHeatMap(orgId: string): Promise<DayCell[]> {
           .from('assessments')
           .select('id, due_date, status')
           .in('association_id', assocIds)
+          .is('deleted_at', null)
           .gte('due_date', startISO)
           .lte('due_date', endISO)
       : Promise.resolve({ data: [] as { id: string; due_date: string; status: string }[] })
@@ -467,6 +487,7 @@ export async function getComplianceHeatMap(orgId: string): Promise<DayCell[]> {
       .from('hoa_violations')
       .select('id, status, notice_sent_at, cure_period_days')
       .eq('org_id', orgId)
+      .is('deleted_at', null)
       .not('notice_sent_at', 'is', null),
     duesPromise,
   ])
@@ -559,6 +580,7 @@ export async function getAtRiskThisWeek(orgId: string): Promise<AtRiskResult> {
             'id, due_date, amount, status, unit:units(unit_number)',
           )
           .in('association_id', assocIds)
+          .is('deleted_at', null)
           .not('status', 'in', '("paid","waived","written_off")')
           .lt('due_date', thirtyDaysAgoISO)
       : Promise.resolve({
@@ -578,6 +600,7 @@ export async function getAtRiskThisWeek(orgId: string): Promise<AtRiskResult> {
         'id, description, notice_sent_at, cure_period_days, property:hoa_properties(address, unit_number)',
       )
       .eq('org_id', orgId)
+      .is('deleted_at', null)
       .eq('status', 'notice_sent')
       .not('notice_sent_at', 'is', null),
 
@@ -696,6 +719,7 @@ export async function getNextMeeting(
     .from('hoa_meeting_minutes')
     .select('id, meeting_date, meeting_type, status')
     .eq('org_id', orgId)
+    .is('deleted_at', null)
     .gte('meeting_date', todayISO)
     .order('meeting_date', { ascending: true })
     .limit(1)
@@ -719,6 +743,7 @@ export async function getNextMeeting(
     .from('hoa_meeting_minutes')
     .select('id, meeting_date, meeting_type, status')
     .eq('org_id', orgId)
+    .is('deleted_at', null)
     .neq('status', 'approved')
     .lt('meeting_date', todayISO)
     .order('meeting_date', { ascending: false })

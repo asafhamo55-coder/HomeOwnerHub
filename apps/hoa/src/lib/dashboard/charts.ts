@@ -60,6 +60,7 @@ export async function getViolationStatusDonut(orgId: string): Promise<DonutData>
     .from('hoa_violations')
     .select('status')
     .eq('org_id', orgId)
+    .is('deleted_at', null)
 
   const rows = (data ?? []) as Array<{ status: string | null }>
   const counts: Record<string, number> = {}
@@ -147,11 +148,13 @@ export async function getThirtyDayActivity(
       .from('hoa_violations')
       .select('created_at')
       .eq('org_id', orgId)
+      .is('deleted_at', null)
       .gte('created_at', startIso),
     supabase
       .from('arc_requests' as never)
       .select('submitted_at')
       .eq('organization_id', orgId)
+      .is('deleted_at', null)
       .gte('submitted_at', startIso),
     supabase
       .from('vendor_onboarding_invitations' as never)
@@ -188,24 +191,34 @@ export async function getDashboardKpis(orgId: string): Promise<DashboardKpis> {
   const thirtyDaysAgo = new Date(today)
   thirtyDaysAgo.setUTCDate(today.getUTCDate() - 30)
 
-  // Outstanding dues — unpaid balance across all hoa_dues rows for the
-  // org. Schema: amount_due − amount_paid is the outstanding remainder.
-  // Pending / partial / late statuses contribute; paid / waived don't.
+  // Outstanding dues — sum of remaining unpaid balance across all
+  // assessments rows. Replaces the legacy hoa_dues path which is no
+  // longer being written to (assessments is the table the /dues/new
+  // form and materialize action populate).
+  //
+  // "Previous" = balance that was outstanding 30+ days ago, used by
+  // the KPI trend arrow.
   let duesNow = 0
   let duesPrev = 0
-  const { data: duesRows } = await supabase
-    .from('hoa_dues')
-    .select('amount_due, amount_paid, status, due_date')
-    .eq('org_id', orgId)
-  if (duesRows) {
-    for (const r of duesRows as Array<{
-      amount_due: number | null
-      amount_paid: number | null
+  const { data: assessmentRows } = await supabase
+    .from('assessments')
+    .select('amount, status, due_date, payments(amount)')
+    .eq('organization_id', orgId)
+    .is('deleted_at', null)
+    .neq('status', 'paid')
+    .neq('status', 'waived')
+    .neq('status', 'written_off')
+  if (assessmentRows) {
+    for (const r of assessmentRows as Array<{
+      amount: number | string | null
       status: string | null
       due_date: string | null
+      payments: { amount: number | string }[]
     }>) {
-      if (r.status === 'paid' || r.status === 'waived') continue
-      const remainder = Number(r.amount_due ?? 0) - Number(r.amount_paid ?? 0)
+      const paid = (r.payments ?? []).reduce(
+        (s, p) => s + Number(p.amount), 0,
+      )
+      const remainder = Math.max(Number(r.amount ?? 0) - paid, 0)
       if (remainder <= 0) continue
       duesNow += remainder
       const due = r.due_date ? new Date(r.due_date) : null
@@ -218,11 +231,13 @@ export async function getDashboardKpis(orgId: string): Promise<DashboardKpis> {
     .from('hoa_violations')
     .select('id', { count: 'exact', head: true })
     .eq('org_id', orgId)
+    .is('deleted_at', null)
     .in('status', ['open', 'notice_sent'])
   const { count: violationsPrev } = await supabase
     .from('hoa_violations')
     .select('id', { count: 'exact', head: true })
     .eq('org_id', orgId)
+    .is('deleted_at', null)
     .in('status', ['open', 'notice_sent'])
     .lt('created_at', thirtyDaysAgo.toISOString())
 
