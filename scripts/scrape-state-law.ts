@@ -240,11 +240,25 @@ async function launchBrowser(): Promise<Browser> {
   if (token) {
     const endpoint = process.env.BROWSERLESS_ENDPOINT
       ?? 'wss://production-sfo.browserless.io'
+    const url = `${endpoint}?token=${token}`
     console.log(`[scrape] using Browserless (${endpoint})`)
-    // The connect URL must include the token as a query param. Some
-    // Browserless plans also accept `?stealth=true&proxy=residential`
-    // — uncomment if you upgrade and want those.
-    return await chromiumPw.connect(`${endpoint}?token=${token}`)
+    console.log(`[scrape] connecting WebSocket... (token length=${token.length})`)
+    try {
+      const browser = await chromiumPw.connect(url)
+      console.log(`[scrape] Browserless connected ✓`)
+      browser.on('disconnected', () => {
+        console.error(`[scrape] Browserless disconnected unexpectedly`)
+      })
+      return browser
+    } catch (err) {
+      console.error(`[scrape] Browserless connect FAILED: ${(err as Error).message}`)
+      console.error(`[scrape] Likely causes:
+  - Token rejected (wrong token, or token requires a different endpoint)
+  - Newer Browserless plans use wss://chrome.browserless.io?token=... or
+    wss://production-sfo.browserless.io/chromium/playwright?token=...
+  - Try setting BROWSERLESS_ENDPOINT in .env.local to one of those.`)
+      throw err
+    }
   }
   console.log('[scrape] using local Chromium with stealth plugin')
   return await chromiumExtra.launch({ headless: true })
@@ -375,7 +389,19 @@ function runIngester(state: string): Promise<void> {
   })
 }
 
+// Catch anything that escapes the main() promise — including async
+// errors thrown from event handlers (e.g. browser.on('disconnected')).
+process.on('unhandledRejection', (reason) => {
+  console.error('[scrape] unhandled rejection:', reason)
+  process.exit(1)
+})
+process.on('uncaughtException', (err) => {
+  console.error('[scrape] uncaught exception:', err)
+  process.exit(1)
+})
+
 main().catch((err) => {
   console.error('[scrape] fatal:', err)
+  console.error('[scrape] stack:', (err as Error)?.stack ?? '(no stack)')
   process.exit(1)
 })
