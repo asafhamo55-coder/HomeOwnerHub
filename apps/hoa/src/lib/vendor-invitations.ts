@@ -37,12 +37,16 @@ export type ActionResult<T = void> = ActionOk<T> | ActionErr
 // ─── Reads (manager-side, RLS-respecting) ────────────────────────────
 
 export async function listInvitations(): Promise<InvitationRow[]> {
+  const org = await getCurrentOrg()
+  if (!org) return []
+
   const supabase = await getSupabaseServerClient()
   const { data } = await supabase
     .from('vendor_onboarding_invitations' as never)
     .select(
       'id, invitee_email, invitee_name, status, expires_at, created_at, submitted_at, vendor_id',
     )
+    .eq('organization_id', org.id)
     .order('created_at', { ascending: false })
     .limit(100)
   return (data ?? []) as unknown as InvitationRow[]

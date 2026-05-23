@@ -93,6 +93,9 @@ export async function getPrimaryAssociation(): Promise<{ id: string; name: strin
 }
 
 export async function listVendors(): Promise<VendorWithCompliance[]> {
+  const org = await getCurrentOrg()
+  if (!org) return []
+
   const supabase = await getSupabaseServerClient()
   const assoc = await getPrimaryAssociation()
 
@@ -101,6 +104,7 @@ export async function listVendors(): Promise<VendorWithCompliance[]> {
     .select(
       'id, legal_name, dba, status, trades, primary_email, primary_phone, created_at',
     )
+    .eq('organization_id', org.id)
     .order('legal_name', { ascending: true })
     .limit(200)
 

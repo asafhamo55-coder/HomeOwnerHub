@@ -50,9 +50,13 @@ export async function listInvitableVendors(
 ): Promise<InvitableVendor[]> {
   const supabase = await getSupabaseServerClient()
 
+  const org = await getCurrentOrg()
+  if (!org) return []
+
   const { data: vendorRows } = await supabase
     .from('vendors' as never)
     .select('id, legal_name, trades, status')
+    .eq('organization_id', org.id)
     .neq('status', 'blacklisted')
     .order('legal_name', { ascending: true })
 
