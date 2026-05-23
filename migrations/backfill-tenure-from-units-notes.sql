@@ -17,11 +17,11 @@
 -- USAGE — replace <ORG_ID> if running for a different tenant.
 
 UPDATE public.hoa_properties hp
-   SET tenure = CASE
+   SET tenure = (CASE
      WHEN u.notes ILIKE '%occupancy: rental%'         THEN 'leased'
      WHEN u.notes ILIKE '%occupancy: owner_occupied%' THEN 'owner_occupied'
      ELSE NULL
-   END
+   END)::public.property_tenure
   FROM public.units u
  WHERE hp.org_id      = u.organization_id
    AND hp.address     = u.address_line1
