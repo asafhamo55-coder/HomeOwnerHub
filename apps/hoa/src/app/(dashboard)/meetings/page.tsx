@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { Button, Card, EmptyState, StatusBadge } from '@homeowner-portal/ui'
+import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Meetings' }
@@ -46,10 +47,14 @@ interface ActionItemAgg {
 }
 
 export default async function MeetingsPage() {
+  const org = await getCurrentOrg()
+  if (!org) return null
+
   const supabase = await getSupabaseServerClient()
   const { data } = await supabase
     .from('hoa_meeting_minutes')
     .select('id, meeting_date, meeting_type, status, approved_at, attendees, ai_summary')
+    .eq('org_id', org.id)
     .order('meeting_date', { ascending: false })
     .limit(50)
 

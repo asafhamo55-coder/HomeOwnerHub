@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { FileText, Plus, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import { Badge, Button, Card, EmptyState, Tabs } from '@homeowner-portal/ui'
+import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Documents' }
@@ -35,10 +36,14 @@ function bytes(n: number | null): string {
 }
 
 export default async function DocumentsPage() {
+  const org = await getCurrentOrg()
+  if (!org) return null
+
   const supabase = await getSupabaseServerClient()
   const { data, error } = await supabase
     .from('hoa_documents')
     .select('id, name, type, file_size, parsed_at, created_at')
+    .eq('org_id', org.id)
     .order('created_at', { ascending: false })
 
   const docs = (data ?? []) as DocRow[]

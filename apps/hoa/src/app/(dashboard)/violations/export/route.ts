@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 // CSV export of the violations list, scoped to the current user's org
@@ -44,12 +45,18 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const search = (url.searchParams.get('q') ?? '').trim()
 
+  const org = await getCurrentOrg()
+  if (!org) {
+    return NextResponse.json({ error: 'no_org' }, { status: 403 })
+  }
+
   const supabase = await getSupabaseServerClient()
   let query = supabase
     .from('hoa_violations')
     .select(
       'id, description, status, severity, ccr_section, created_at, notice_sent_at, property:hoa_properties(address, unit_number)',
     )
+    .eq('org_id', org.id)
     .order('created_at', { ascending: false })
   if (search.length > 0) {
     const safe = search

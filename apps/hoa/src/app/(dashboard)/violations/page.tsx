@@ -10,6 +10,7 @@ import {
   StatusBadge,
   Tabs,
 } from '@homeowner-portal/ui'
+import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Violations' }
@@ -56,12 +57,16 @@ export default async function ViolationsListPage({
   const { q: qParam } = await searchParams
   const search = (qParam ?? '').trim()
 
+  const org = await getCurrentOrg()
+  if (!org) return null
+
   const supabase = await getSupabaseServerClient()
   let query = supabase
     .from('hoa_violations')
     .select(
       'id, description, status, severity, ccr_section, created_at, notice_sent_at, property:hoa_properties(address, unit_number)',
     )
+    .eq('org_id', org.id)
     .order('created_at', { ascending: false })
     .limit(100)
   if (search.length > 0) {

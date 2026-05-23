@@ -37,6 +37,7 @@ export default async function NewViolationPage({
     supabase
       .from('hoa_documents')
       .select('id', { count: 'exact', head: true })
+      .eq('org_id', org.id)
       .eq('type', 'ccr')
       .not('parsed_text', 'is', null),
     draftId ? loadDraft(draftId) : Promise.resolve(null),
