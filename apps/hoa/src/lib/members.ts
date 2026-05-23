@@ -138,8 +138,11 @@ async function attachToOrg(args: {
 }): Promise<ActionResult<{ userId: string; alreadyExisted: boolean }>> {
   const supabase = await getSupabaseServerClient()
 
-  // Ensure profile exists. profiles table is upsert-safe by id.
-  await supabase
+  // Ensure profile exists. Use the admin client because the RLS policy on
+  // profiles only allows users to edit their own row (id = auth.uid()),
+  // but here the admin is writing a profile for the invited user.
+  const admin = createAdminClient()
+  await admin
     .from('profiles')
     .upsert({
       id: args.userId,
