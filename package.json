@@ -31,12 +31,17 @@
     "test:comms": "tsx scripts/test-comms.ts",
     "smoke:pdf": "tsx scripts/smoke-pdf.ts",
     "backfill:embeddings": "tsx scripts/backfill-embeddings.ts",
-    "eval:w1": "tsx scripts/eval-w1.ts"
+    "eval:w1": "tsx scripts/eval-w1.ts",
+    "ingest:state-law": "tsx scripts/ingest-state-statutes.ts",
+    "scrape:state-law": "tsx scripts/scrape-state-law.ts"
   },
   "devDependencies": {
     "turbo": "latest",
     "tsx": "^4.19.0",
     "typescript": "^5",
-    "@types/node": "^22"
+    "@types/node": "^22",
+    "playwright": "^1.46.0",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   }
 }
