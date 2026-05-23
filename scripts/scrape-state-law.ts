@@ -246,7 +246,13 @@ async function launchBrowser(): Promise<Browser> {
     // waiting for a Playwright handshake that CDP would never send.
     const base = process.env.BROWSERLESS_ENDPOINT
       ?? 'wss://production-sfo.browserless.io'
-    const url = `${base}/playwright/chromium?token=${token}`
+    // stealth=true: server-side fingerprint masking (Browserless's
+    //   equivalent of the stealth plugin, applied to their own browser
+    //   process). Free on most plans.
+    // headless=false: forces Browserless's stealth mode to use a real
+    //   Chromium binary (not headless shell) which presents a more
+    //   normal fingerprint.
+    const url = `${base}/playwright/chromium?token=${token}&stealth=true&headless=false`
     console.log(`[scrape] using Browserless (${base})`)
     console.log(`[scrape] connecting WebSocket... (token length=${token.length})`)
     try {
