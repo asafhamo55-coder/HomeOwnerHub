@@ -54,6 +54,8 @@ WHERE u.organization_id = 'a4906f16-baf3-4232-a2bd-a78ea432ad86'
        AND hp.address = u.address_line1
        AND hp.deleted_at IS NULL
   );
+-- PREREQ: migration 0022_soft_delete.sql must be applied first
+-- (it adds deleted_at to hoa_properties + other tables).
 
 -- Verification:
 --   SELECT COUNT(*) FROM public.hoa_properties
