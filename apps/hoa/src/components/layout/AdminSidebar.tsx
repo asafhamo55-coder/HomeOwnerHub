@@ -11,6 +11,7 @@ import {
   LogOut,
   ScrollText,
   Shield,
+  Upload,
 } from 'lucide-react'
 import {
   cn,
@@ -37,6 +38,7 @@ const PLATFORM: NavLink[] = [
   { href: '/admin/analytics', icon: <ChartLine className="h-4 w-4" />, label: 'Analytics' },
   { href: '/admin/audit', icon: <ClipboardList className="h-4 w-4" />, label: 'Audit log' },
   { href: '/admin/admins', icon: <Shield className="h-4 w-4" />, label: 'Platform admins' },
+  { href: '/admin/import-units', icon: <Upload className="h-4 w-4" />, label: 'Import units' },
 ]
 
 const RETURN: NavLink = {
