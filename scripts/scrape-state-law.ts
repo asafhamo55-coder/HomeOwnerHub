@@ -134,9 +134,17 @@ async function main(): Promise<void> {
   let scraped = 0
   let reused = 0
   let failed = 0
+  let consecutiveFailures = 0
 
   try {
     for (const src of sources) {
+      // Fail-fast: if the first 3 URLs all fail, the site is blocking
+      // us — stop wasting time on the remaining 23.
+      if (consecutiveFailures >= 3 && scraped === 0) {
+        console.warn(`[scrape] 3 consecutive failures with 0 successes — aborting early.`)
+        break
+      }
+
       const cached = existing.get(src.code_citation)
       if (skipFresh && cached && isFresh(cached.fetched_at, 30)) {
         results.push(cached)
@@ -150,6 +158,7 @@ async function main(): Promise<void> {
         if (!body || body.length < 80) {
           console.warn(`[scrape] ${src.code_citation}: body too short (${body?.length ?? 0} chars), skipping`)
           failed += 1
+          consecutiveFailures += 1
           continue
         }
         const rec: ScrapedRecord = {
@@ -163,9 +172,11 @@ async function main(): Promise<void> {
         }
         results.push(rec)
         scraped += 1
+        consecutiveFailures = 0
         console.log(`[scrape] ${src.code_citation}: ${body.length} chars`)
       } catch (err) {
         failed += 1
+        consecutiveFailures += 1
         console.error(`[scrape] ${src.code_citation}: ${(err as Error).message}`)
       } finally {
         await page.close()
@@ -219,24 +230,35 @@ async function main(): Promise<void> {
  * warning rather than aborting the whole run.
  */
 async function scrapeSection(page: Page, src: StateLawSource): Promise<string> {
-  // networkidle lets Cloudflare's JS challenge resolve before we read.
-  // domcontentloaded would fire too early on a managed-challenge page.
+  // domcontentloaded fires when the HTML is parsed — fast. Some
+  // Cloudflare protected pages serve a challenge that never settles
+  // network requests (long-poll), so networkidle deadlocks. We then
+  // wait separately for the statute selector, capped short.
   const resp = await page.goto(src.url, {
-    waitUntil: 'networkidle',
-    timeout: 45_000,
+    waitUntil: 'domcontentloaded',
+    timeout: 20_000,
   })
   if (!resp) throw new Error('no response')
   if (resp.status() >= 400) {
     throw new Error(`HTTP ${resp.status()}`)
   }
 
-  // Wait briefly for the codes-content block to settle. Justia
-  // occasionally injects via JS.
-  await page
-    .waitForSelector('.codes-content, .section-content, .content', { timeout: 5_000 })
-    .catch(() => {
-      /* fall through — extractBody will surface emptiness */
-    })
+  // Wait for the statute body. If a Cloudflare challenge page is
+  // serving instead, this will time out — at which point we dump the
+  // raw HTML for the first failure so we can diagnose.
+  const found = await page
+    .waitForSelector('.codes-content, .section-content, .content', { timeout: 8_000 })
+    .then(() => true)
+    .catch(() => false)
+
+  if (!found) {
+    // Diagnostic: capture the first failed page so we can see what
+    // Cloudflare is actually serving (challenge HTML vs unknown layout).
+    const html = await page.content()
+    const diagPath = path.resolve(process.cwd(), 'data/statutes/_last-failure.html')
+    await fs.writeFile(diagPath, html, 'utf-8').catch(() => {})
+    throw new Error(`selector miss (HTML dumped to ${diagPath})`)
+  }
 
   return await page.evaluate(() => {
     // Try the modern selector first, then older fallbacks.
