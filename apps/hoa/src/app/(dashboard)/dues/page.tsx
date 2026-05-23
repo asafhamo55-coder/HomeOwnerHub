@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Wallet } from 'lucide-react'
+import { Plus, Wallet } from 'lucide-react'
 import { format, differenceInCalendarDays } from 'date-fns'
 import { Badge, Button, Card, EmptyState, StatusBadge } from '@homeowner-portal/ui'
 import { getPrimaryAssociation } from '@/lib/vendors'
@@ -70,6 +70,7 @@ export default async function DuesPage() {
       'id, amount, due_date, status, assessment_type, fiscal_period:fiscal_period_id(id, start_date, end_date), unit:unit_id(id, unit_number, address_line1), payments(amount)',
     )
     .eq('association_id', assoc.id)
+    .is('deleted_at', null)
     .order('due_date', { ascending: false })
     .limit(500)
 
@@ -111,7 +112,15 @@ export default async function DuesPage() {
               : 'All caught up.'}
           </p>
         </div>
-        <MaterializeButton monthLabel={currentMonthLabel} />
+        <div className="flex items-center gap-2">
+          <Button asChild>
+            <Link href="/dues/new">
+              <Plus className="h-4 w-4" />
+              Add due
+            </Link>
+          </Button>
+          <MaterializeButton monthLabel={currentMonthLabel} />
+        </div>
       </header>
 
       {error ? (

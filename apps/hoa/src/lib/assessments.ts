@@ -182,6 +182,231 @@ export async function materializeCurrentPeriodAssessments(input: {
   return { ok: true, created }
 }
 
+// ─── add due (manual create) ─────────────────────────────────────────
+
+const CreateDuesSchema = z.object({
+  scope: z.enum(['all', 'unit']),
+  unitId: z.string().uuid().optional(),
+  frequency: z.enum(['one_time', 'monthly', 'annual']),
+  assessmentType: z.enum(['regular', 'special']).default('regular'),
+  amount: z.number().positive().max(100_000),
+  firstDueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD'),
+  memo: z.string().max(140).optional(),
+})
+
+export interface CreateDuesInput {
+  scope: 'all' | 'unit'
+  unitId?: string
+  frequency: 'one_time' | 'monthly' | 'annual'
+  assessmentType?: 'regular' | 'special'
+  amount: number
+  firstDueDate: string  // YYYY-MM-DD
+  memo?: string
+}
+
+/**
+ * Manually add HOA dues. Two axes:
+ *   • scope     = 'all' (every unit in the association) | 'unit' (one)
+ *   • frequency = 'one_time' | 'monthly' (12 over 12 months) | 'annual'
+ *
+ * Each generated row gets a matching Dr AR / Cr Income journal entry
+ * in the OPERATING fund — same accounting treatment as the
+ * materialize flow.
+ *
+ * Sequential per-row (entry_number race). For "monthly × all units"
+ * that's 49 × 12 = 588 round-trips and can take 30–60s. v1 takes the
+ * straightforward path; if we hit Vercel timeouts we'll add batching.
+ */
+export async function createDues(
+  input: CreateDuesInput,
+): Promise<AssessmentActionResult> {
+  const parsed = CreateDuesSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+  }
+  if (parsed.data.scope === 'unit' && !parsed.data.unitId) {
+    return { ok: false, error: 'unitId is required when scope is "unit".' }
+  }
+
+  const assoc = await getPrimaryAssociation()
+  if (!assoc) return { ok: false, error: 'No HOA association configured.' }
+
+  const supabase = await getSupabaseServerClient()
+
+  const { data: assocRow } = await supabase
+    .from('associations')
+    .select('organization_id, slug')
+    .eq('id', assoc.id)
+    .single()
+  if (!assocRow) return { ok: false, error: 'Association not found.' }
+
+  const { data: period } = await supabase
+    .from('fiscal_periods')
+    .select('id, start_date, end_date')
+    .eq('association_id', assoc.id)
+    .eq('status', 'open')
+    .order('start_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!period) {
+    return { ok: false, error: 'No open fiscal period — run pnpm seed:accounting first.' }
+  }
+
+  const refs = await loadAccountingRefs(supabase, assoc.id)
+  if (!refs) {
+    return { ok: false, error: 'Accounting not set up — run pnpm seed:accounting.' }
+  }
+
+  // Resolve target units. For scope='all' pull every unit in the
+  // association; for 'unit' grab the single one (validated to belong
+  // to this association — defense against id-spoofing in the form).
+  let units: Array<{ id: string; unit_number: string | null }> = []
+  if (parsed.data.scope === 'all') {
+    const { data } = await supabase
+      .from('units')
+      .select('id, unit_number')
+      .eq('association_id', assoc.id)
+    units = data ?? []
+  } else {
+    const { data } = await supabase
+      .from('units')
+      .select('id, unit_number')
+      .eq('association_id', assoc.id)
+      .eq('id', parsed.data.unitId!)
+      .maybeSingle()
+    if (!data) return { ok: false, error: 'Unit not found in this association.' }
+    units = [data]
+  }
+
+  if (units.length === 0) {
+    return { ok: false, error: 'No units to bill — import properties first.' }
+  }
+
+  // Build due dates from frequency.
+  const dueDates = generateDueDates(parsed.data.firstDueDate, parsed.data.frequency)
+
+  // Generate one assessment + JE per (unit × dueDate).
+  let created = 0
+  for (const u of units) {
+    for (const due of dueDates) {
+      const memoCode = memoCodeFor({
+        associationSlug: assocRow.slug,
+        unitNumber: u.unit_number,
+        unitId: u.id,
+        assessmentType: parsed.data.assessmentType,
+      })
+
+      const insertPayload: AssessmentInsert = {
+        organization_id: assocRow.organization_id,
+        association_id: assoc.id,
+        unit_id: u.id,
+        fiscal_period_id: period.id,
+        assessment_type: parsed.data.assessmentType,
+        amount: parsed.data.amount,
+        due_date: due,
+        memo_code: memoCode,
+        status: 'open',
+      }
+
+      const { data: inserted, error: insertErr } = await supabase
+        .from('assessments')
+        .insert(insertPayload)
+        .select('id')
+        .single()
+
+      if (insertErr || !inserted) {
+        return { ok: false, error: `unit ${u.id} @ ${due}: ${insertErr?.message ?? 'insert failed'}` }
+      }
+
+      const memoTxt = parsed.data.memo
+        ? `${parsed.data.memo} (${parsed.data.assessmentType} dues, due ${due})`
+        : `${parsed.data.assessmentType} dues, due ${due}`
+
+      const je = await postJournalEntry(supabase, {
+        organizationId: assocRow.organization_id,
+        associationId: assoc.id,
+        fiscalPeriodId: period.id,
+        entryDate: new Date().toISOString().slice(0, 10),
+        memo: memoTxt,
+        source: 'ar_payment',
+        sourceId: inserted.id,
+        lines: [
+          { accountId: refs.acctAR,                fundId: refs.fundOperating, debit: parsed.data.amount, credit: 0 },
+          { accountId: refs.acctAssessmentIncome,  fundId: refs.fundOperating, debit: 0,                  credit: parsed.data.amount },
+        ],
+      })
+
+      if (!je.ok) {
+        // Roll back the orphan assessment so trial balance stays clean.
+        await supabase.from('assessments').delete().eq('id', inserted.id)
+        return { ok: false, error: `unit ${u.id} @ ${due} JE failed: ${je.error}` }
+      }
+      created += 1
+    }
+  }
+
+  revalidatePath('/dues')
+  revalidatePath('/accounting')
+  revalidatePath('/accounting/ledger')
+  return { ok: true, created }
+}
+
+/**
+ * Generates due dates from a first-due ISO date string and a frequency.
+ *   - one_time / annual: [firstDueDate]   (single occurrence)
+ *   - monthly: 12 dates, same day-of-month +0..+11 months from first
+ *
+ * Note: annual = one_time in v1. We split them in the type so the UI
+ * can label "annual" distinctly, but the assessment shape is identical.
+ * If you later want annual = 12 monthly payments of (amount / 12), do
+ * that math in the caller before invoking this function.
+ */
+function generateDueDates(firstDue: string, frequency: 'one_time' | 'monthly' | 'annual'): string[] {
+  if (frequency === 'one_time' || frequency === 'annual') return [firstDue]
+
+  const first = new Date(`${firstDue}T00:00:00Z`)
+  const out: string[] = []
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(Date.UTC(
+      first.getUTCFullYear(),
+      first.getUTCMonth() + i,
+      first.getUTCDate(),
+    ))
+    out.push(d.toISOString().slice(0, 10))
+  }
+  return out
+}
+
+/** Returns all units in the primary association, for the dropdown on /dues/new. */
+export async function listUnitsForDues(): Promise<Array<{
+  id: string
+  label: string
+}>> {
+  const assoc = await getPrimaryAssociation()
+  if (!assoc) return []
+
+  const supabase = await getSupabaseServerClient()
+  const { data } = await supabase
+    .from('units')
+    .select('id, address_line1, unit_number, lot_number')
+    .eq('association_id', assoc.id)
+    .order('address_line1', { ascending: true })
+
+  return ((data ?? []) as Array<{
+    id: string
+    address_line1: string | null
+    unit_number: string | null
+    lot_number: string | null
+  }>).map((u) => ({
+    id: u.id,
+    label: [
+      u.lot_number ? `Lot ${u.lot_number}` : null,
+      u.address_line1,
+      u.unit_number ? `#${u.unit_number}` : null,
+    ].filter(Boolean).join(' · '),
+  }))
+}
+
 // ─── delete assessment ──────────────────────────────────────────────
 
 export async function deleteAssessment(
@@ -205,8 +430,9 @@ export async function deleteAssessment(
 
   const { error } = await supabase
     .from('assessments')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() } as never)
     .eq('id', assessmentId)
+    .is('deleted_at', null)
   if (error) return { ok: false, error: error.message }
 
   revalidatePath('/dues')
