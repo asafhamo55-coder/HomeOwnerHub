@@ -30,8 +30,16 @@ export type ActionResult<T = void> = ActionOk<T> | ActionErr
 
 export async function listMembers(): Promise<MemberRow[]> {
   const { org } = await requireAdmin()
-  const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+
+  // Use the admin (service-role) client because profiles RLS restricts
+  // SELECT to `id = auth.uid()` — a per-user policy that prevents the
+  // user-bound client from reading other members' profile rows. Without
+  // service role here, every member except the caller comes back with
+  // a null profile and renders as "(unknown user)". requireAdmin() above
+  // already enforces the caller is an admin of THIS org, so the scope
+  // stays tenant-isolated.
+  const admin = createAdminClient()
+  const { data } = await admin
     .from('org_members')
     .select(
       'user_id, role, joined_at, invited_at, profile:profiles(email, full_name)',
@@ -47,9 +55,26 @@ export async function listMembers(): Promise<MemberRow[]> {
     profile: { email: string | null; full_name: string | null } | null
   }>
 
+  // Belt-and-suspenders fallback: if profile is still null (e.g., the
+  // handle_new_user trigger hasn't fired yet, or the row was wiped),
+  // pull the email straight from auth.users so the UI always has
+  // SOMETHING to show instead of "(unknown user)".
+  const missingProfileIds = rows
+    .filter((r) => !r.profile?.email)
+    .map((r) => r.user_id)
+  const authBackfill = new Map<string, string>()
+  if (missingProfileIds.length > 0) {
+    const { data: authList } = await admin.auth.admin.listUsers()
+    const byId = new Map(authList?.users.map((u) => [u.id, u.email ?? null]) ?? [])
+    for (const id of missingProfileIds) {
+      const email = byId.get(id)
+      if (email) authBackfill.set(id, email)
+    }
+  }
+
   return rows.map((r) => ({
     user_id: r.user_id,
-    email: r.profile?.email ?? null,
+    email: r.profile?.email ?? authBackfill.get(r.user_id) ?? null,
     full_name: r.profile?.full_name ?? null,
     role: ((['admin', 'board', 'resident'] as const).includes(r.role as MemberRole)
       ? r.role
@@ -97,8 +122,24 @@ export async function inviteMember(
   // creates the user (if missing) and sends a magic-link invitation.
   // If the user already exists this returns the existing user instead
   // of creating a duplicate.
+  //
+  // redirectTo: the magic-link in the email points here. Without it,
+  // Supabase falls back to the project's "Site URL" which may be wrong.
+  // We send the user to /auth/callback which exchanges the magic-link
+  // code for a session and then forwards to the dashboard.
+  //
+  // data: the trigger handle_new_user reads raw_user_meta_data->>full_name
+  // to seed profiles.full_name. Passing the invited name here means the
+  // user shows up with a real name even before they complete sign-in.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.homeownerledger.com'
+  const inviteOptions = {
+    redirectTo: `${appUrl}/auth/callback`,
+    data: parsed.data.full_name
+      ? { full_name: parsed.data.full_name }
+      : undefined,
+  }
   const { data: invitedUser, error: inviteErr } = await admin.auth.admin
-    .inviteUserByEmail(parsed.data.email)
+    .inviteUserByEmail(parsed.data.email, inviteOptions)
   if (inviteErr) {
     // If the user already exists, fall back to a direct lookup.
     const { data: list } = await admin.auth.admin.listUsers()
