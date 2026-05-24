@@ -16,7 +16,7 @@
 CREATE TABLE IF NOT EXISTS public.state_statutes (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   state           text NOT NULL CHECK (state IN ('GA', 'FL', 'CA', 'TX')),
-  code_citation   text NOT NULL,                  -- 'O.C.G.A. § 44-3-108'
+  code_citation   text NOT NULL,                  -- 'O.C.G.A. Section 44-3-108'
   title           text NOT NULL,                  -- 'Annual meetings of association'
   category        text,                           -- 'meetings', 'assessments', 'fines', ...
   body            text NOT NULL,
