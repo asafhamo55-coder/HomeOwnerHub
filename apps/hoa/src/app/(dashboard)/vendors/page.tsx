@@ -5,6 +5,7 @@ import { Button, Card, EmptyState, Input, StatusBadge, Tabs } from '@homeowner-p
 import { listVendors, type ComplianceStatus } from '@/lib/vendors'
 
 export const metadata = { title: 'Vendors' }
+export const dynamic = 'force-dynamic'
 
 const VENDOR_TABS = [
   { label: 'Active', href: '/vendors' },

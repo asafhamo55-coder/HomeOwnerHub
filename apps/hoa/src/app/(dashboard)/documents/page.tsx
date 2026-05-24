@@ -6,6 +6,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Documents' }
+export const dynamic = 'force-dynamic'
 
 const DOC_TABS = [
   { label: 'All documents', href: '/documents' },

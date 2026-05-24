@@ -10,6 +10,7 @@ import {
 } from '@/lib/accounting/queries'
 
 export const metadata = { title: 'Accounting' }
+export const dynamic = 'force-dynamic'
 
 function currency(n: number): string {
   return n.toLocaleString('en-US', {

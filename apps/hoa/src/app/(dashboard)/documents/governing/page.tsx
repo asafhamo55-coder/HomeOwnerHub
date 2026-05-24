@@ -5,6 +5,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { GoverningDocsUploader } from './GoverningDocsUploader'
 
 export const metadata = { title: 'Governing Documents' }
+export const dynamic = 'force-dynamic'
 
 interface AssociationRow {
   id: string

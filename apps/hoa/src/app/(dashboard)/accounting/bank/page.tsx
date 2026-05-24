@@ -11,6 +11,7 @@ import {
 import { LinkPlaidButton } from './LinkPlaidButton'
 
 export const metadata = { title: 'Bank Accounts' }
+export const dynamic = 'force-dynamic'
 
 function currency(n: number): string {
   return n.toLocaleString('en-US', {

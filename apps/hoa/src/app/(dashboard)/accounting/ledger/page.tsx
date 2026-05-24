@@ -9,6 +9,7 @@ import {
 } from '@/lib/accounting/queries'
 
 export const metadata = { title: 'General Ledger' }
+export const dynamic = 'force-dynamic'
 
 const SOURCES = [
   'manual',

@@ -14,6 +14,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Violations' }
+export const dynamic = 'force-dynamic'
 
 const VIOLATION_TABS = [
   { label: 'All violations', href: '/violations' },

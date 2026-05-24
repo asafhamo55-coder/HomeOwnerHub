@@ -22,6 +22,7 @@ import { LeaseCapEditor } from './LeaseCapEditor'
 import { WaitingListActions } from './WaitingListActions'
 
 export const metadata = { title: 'Leases' }
+export const dynamic = 'force-dynamic'
 
 export default async function LeasesPage() {
   const assoc = await getPrimaryAssociation()

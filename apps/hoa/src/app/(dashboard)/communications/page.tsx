@@ -6,6 +6,7 @@ import { getPrimaryAssociation } from '@/lib/vendors'
 import { listCommunications } from '@/lib/communications/queries'
 
 export const metadata = { title: 'Communications' }
+export const dynamic = 'force-dynamic'
 
 const CATEGORY_LABEL: Record<string, string> = {
   welcome: 'Welcome',

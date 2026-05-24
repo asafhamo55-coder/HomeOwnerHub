@@ -11,6 +11,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Settings' }
+export const dynamic = 'force-dynamic'
 
 export default async function SettingsPage() {
   const org = await getCurrentOrg()

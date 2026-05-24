@@ -6,6 +6,7 @@ import { getAccountingContext } from '@/lib/accounting/queries'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Payment Plans' }
+export const dynamic = 'force-dynamic'
 
 interface PlanRow {
   id: string

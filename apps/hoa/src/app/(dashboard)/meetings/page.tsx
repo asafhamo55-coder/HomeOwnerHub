@@ -12,6 +12,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Meetings' }
+export const dynamic = 'force-dynamic'
 
 const MEETING_STATUS_TONES: Record<
   string,

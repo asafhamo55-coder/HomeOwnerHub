@@ -5,6 +5,7 @@ import { Badge, BackLink, Button, Card, EmptyState, PageHeader, Select } from '@
 import { getAccountingContext, listInvoices } from '@/lib/accounting/queries'
 
 export const metadata = { title: 'Invoices' }
+export const dynamic = 'force-dynamic'
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
   received: 'outline',
