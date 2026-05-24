@@ -64,11 +64,20 @@ export async function listMembers(): Promise<MemberRow[]> {
     .map((r) => r.user_id)
   const authBackfill = new Map<string, string>()
   if (missingProfileIds.length > 0) {
-    const { data: authList } = await admin.auth.admin.listUsers()
-    const byId = new Map(authList?.users.map((u) => [u.id, u.email ?? null]) ?? [])
-    for (const id of missingProfileIds) {
-      const email = byId.get(id)
-      if (email) authBackfill.set(id, email)
+    // Hardened: any failure here MUST NOT take down the members page.
+    // Worst case the UI falls back to user_id-only display.
+    try {
+      const { data: authList, error: authErr } = await admin.auth.admin.listUsers()
+      if (authErr) {
+        console.warn('[members] auth.admin.listUsers failed:', authErr.message)
+      } else {
+        const users = authList?.users ?? []
+        for (const u of users) {
+          if (u.id && u.email) authBackfill.set(u.id, u.email)
+        }
+      }
+    } catch (err) {
+      console.warn('[members] auth.admin.listUsers threw:', err)
     }
   }
 
