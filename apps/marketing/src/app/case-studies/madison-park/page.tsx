@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 const timeline = [
   { day: 'Day 1', title: 'Documents uploaded', body: 'CC&R (1996, restated 2024), Bylaws, 2025 budget, last 12 months of minutes. 47 PDFs total.' },
-  { day: 'Day 1 · 15 min', title: 'First Aha', body: 'Linda asks Covenant Brain: "Can residents paint their fence?" Answer cited §3.4. Sent to the board over text.' },
+  { day: 'Day 1 · 15 min', title: 'First Aha', body: 'Linda asks Covenant Brain: "Can residents paint their fence?" Answer cited Section 3.4. Sent to the board over text.' },
   { day: 'Week 1', title: 'Board onboarded', body: 'Three remaining board members invited. All trained themselves via the 2-minute tour. Zero support tickets.' },
   { day: 'Week 2', title: 'First violation notice', body: 'Drafter generated a fence-color violation. Linda approved in 90 seconds. Resident replied within 48 hours.' },
   { day: 'Week 3', title: 'Reserve discrepancy caught', body: 'Reserve Live flagged a $4,200 variance between the spreadsheet and the bank reconciliation. Three-year-old error.' },

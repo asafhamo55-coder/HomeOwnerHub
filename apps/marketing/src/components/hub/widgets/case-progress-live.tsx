@@ -31,7 +31,7 @@ const STAGES: StageDef[] = [
     Icon: FileText,
     bar: 'B',
     detail: 'County-specific template generated. Bar B — awaiting attorney review.',
-    citation: 'GA OCGA §44-7-50',
+    citation: 'GA OCGA Section 44-7-50',
     duration: 2500,
   },
   {

@@ -85,7 +85,7 @@ export default async function ViolationReportDetailPage({
           <strong>
             {report.reporter_name ?? report.reporter_email ?? '(unknown user)'}
           </strong>
-          . Per Policy §12.03, do not disclose the reporter's identity to the
+          . Per Policy Section 12.03, do not disclose the reporter's identity to the
           subject of the report or other residents.
         </span>
       </Alert>

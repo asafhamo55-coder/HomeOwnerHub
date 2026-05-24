@@ -22,7 +22,7 @@ export function EvictionCaseVisual() {
 
         <div className="mt-3 space-y-2">
           <Step delay={0} state="done" title="Tenant intake captured" sub="Riley T., 88 Ridge Rd · 11 days overdue" />
-          <Step delay={0.1} state="done" title="30-day notice drafted" sub="GA OCGA §34-6-2 compliant" />
+          <Step delay={0.1} state="done" title="30-day notice drafted" sub="GA OCGA Section 34-6-2 compliant" />
           <Step delay={0.2} state="active" title="Attorney review in progress" sub="Reviewed by GA counsel · 2 business days" />
           <Step delay={0.3} state="pending" title="Certified mail to tenant" sub="Auto-dispatch on approval" />
           <Step delay={0.4} state="pending" title="Court filing (demo only)" sub="Your attorney files the real document" />

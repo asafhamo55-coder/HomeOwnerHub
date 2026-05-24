@@ -32,7 +32,7 @@ const workflows: { name: string; bar: Bar; hub: 'HOA' | 'PM' | 'Eviction' | 'All
   { name: 'Multilingual Comms', bar: 'C', hub: 'All', description: 'Every outbound email auto-translated to each resident\'s language.' },
   { name: 'Conversational Resident Portal', bar: 'C', hub: 'HOA', description: 'Residents ask the AI before they email the board.' },
   { name: 'Minutes Engine', bar: 'B', hub: 'HOA', description: 'Records the meeting. Drafts the minutes. Captures every decision.' },
-  { name: 'Lease & Document Q&A', bar: 'C', hub: 'PM', description: '"What does §4.2 say about pet deposits?" — answered in 3 seconds.' },
+  { name: 'Lease & Document Q&A', bar: 'C', hub: 'PM', description: '"What does Section 4.2 say about pet deposits?" — answered in 3 seconds.' },
   { name: 'Vendor Oracle', bar: 'B', hub: 'HOA', description: 'Past spend, ratings, and recommended vendor for the next job.' },
   { name: 'Delinquency Coach', bar: 'B', hub: 'PM', description: 'Day 5 to day 30: notices, follow-ups, payment plan offers.' },
   { name: 'Tenant Risk Score', bar: 'A', hub: 'PM', description: 'Score a prospective tenant. Demo only — not for decisions yet.' },

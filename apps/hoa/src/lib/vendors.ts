@@ -105,6 +105,7 @@ export async function listVendors(): Promise<VendorWithCompliance[]> {
       'id, legal_name, dba, status, trades, primary_email, primary_phone, created_at',
     )
     .eq('organization_id', org.id)
+    .is('deleted_at', null)
     .order('legal_name', { ascending: true })
     .limit(200)
 
@@ -157,6 +158,7 @@ export async function getVendor(id: string): Promise<VendorDetail | null> {
       'id, legal_name, dba, ein, address, service_area_zips, status, trades, primary_email, primary_phone, notes, created_at',
     )
     .eq('id', id)
+    .is('deleted_at', null)
     .single()
 
   if (!vendor) return null
@@ -594,21 +596,11 @@ export async function deleteVendor(vendorId: string): Promise<ActionResult> {
   if (!org) return { ok: false, error: 'No HOA selected.' }
 
   const supabase = await getSupabaseServerClient()
-
-  // Clean up vendor documents from storage first
-  const { data: docs } = await supabase
-    .from('vendor_documents' as never)
-    .select('storage_path')
-    .eq('vendor_id', vendorId)
-  const paths = ((docs ?? []) as unknown as { storage_path: string }[]).map((d) => d.storage_path)
-  if (paths.length > 0) {
-    await supabase.storage.from('hoa-documents').remove(paths)
-  }
-
   const { error } = await supabase
     .from('vendors' as never)
-    .delete()
+    .update({ deleted_at: new Date().toISOString() } as never)
     .eq('id', vendorId)
+    .is('deleted_at', null)
   if (error) return { ok: false, error: error.message }
 
   revalidatePath('/vendors')

@@ -67,6 +67,7 @@ export default async function ViolationsListPage({
       'id, description, status, severity, ccr_section, created_at, notice_sent_at, property:hoa_properties(address, unit_number)',
     )
     .eq('org_id', org.id)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(100)
   if (search.length > 0) {

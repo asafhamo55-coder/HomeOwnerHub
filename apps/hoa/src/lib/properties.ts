@@ -141,8 +141,11 @@ export async function updateProperty(
 
 export async function deleteProperty(propertyId: string) {
   const supabase = await getSupabaseServerClient()
-  // RLS scopes the delete to the user's org automatically — no extra org check needed.
-  const { error } = await supabase.from('hoa_properties').delete().eq('id', propertyId)
+  const { error } = await supabase
+    .from('hoa_properties')
+    .update({ deleted_at: new Date().toISOString() } as never)
+    .eq('id', propertyId)
+    .is('deleted_at', null)
   if (error) throw new Error(error.message)
   revalidatePath('/properties')
 }
@@ -181,6 +184,7 @@ export async function getPropertyDetail(
       'id, address, unit_number, owner_name, owner_email, owner_phone, notes, tenure, tenure_updated_at, tenure_updated_by, created_at',
     )
     .eq('id', propertyId)
+    .is('deleted_at', null)
     .maybeSingle()
 
   if (!property) return null

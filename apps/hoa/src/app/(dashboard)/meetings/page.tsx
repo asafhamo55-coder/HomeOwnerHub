@@ -55,6 +55,7 @@ export default async function MeetingsPage() {
     .from('hoa_meeting_minutes')
     .select('id, meeting_date, meeting_type, status, approved_at, attendees, ai_summary')
     .eq('org_id', org.id)
+    .is('deleted_at', null)
     .order('meeting_date', { ascending: false })
     .limit(50)
 

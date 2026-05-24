@@ -81,7 +81,7 @@ export default function LandlordsPage() {
             icon: 'FileSearch',
             bar: 'C',
             title: 'Lease & Document Q&A',
-            body: '"What does §4.2 say about pet deposits?" — answered in 3 seconds, with the lease section cited.',
+            body: '"What does Section 4.2 say about pet deposits?" — answered in 3 seconds, with the lease section cited.',
           },
           {
             icon: 'Wrench',

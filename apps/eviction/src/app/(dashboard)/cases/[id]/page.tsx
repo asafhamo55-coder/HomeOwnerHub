@@ -114,7 +114,7 @@ export default async function CaseDetailPage({
 
       {filingReady && c.status !== 'filed' && c.status !== 'resolved' ? (
         <Alert variant="error" title="Filing eligible — file in JP court today">
-          The 3-day cure period has elapsed. Texas Property Code §24.005 lets you file the
+          The 3-day cure period has elapsed. Texas Property Code Section 24.005 lets you file the
           forcible-detainer suit in the appropriate Justice of the Peace court today. Bring the
           approved notice and proof of service.
         </Alert>

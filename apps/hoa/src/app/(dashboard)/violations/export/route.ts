@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
       'id, description, status, severity, ccr_section, created_at, notice_sent_at, property:hoa_properties(address, unit_number)',
     )
     .eq('org_id', org.id)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
   if (search.length > 0) {
     const safe = search

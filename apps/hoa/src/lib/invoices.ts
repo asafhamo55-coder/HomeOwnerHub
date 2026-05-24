@@ -193,8 +193,9 @@ export async function deleteInvoice(
 
   const { error } = await supabase
     .from('invoices')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() } as never)
     .eq('id', invoiceId)
+    .is('deleted_at', null)
   if (error) return { ok: false, error: error.message }
 
   revalidatePath('/accounting/invoices')

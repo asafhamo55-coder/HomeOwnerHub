@@ -30,7 +30,7 @@ const STATE_NAME: Record<SupportedState, string> = {
 const STATE_CODE_LABEL: Record<SupportedState, string> = {
   GA: 'O.C.G.A. Title 44, Ch. 3 (POA / Condominium acts)',
   FL: 'Florida Statutes Ch. 720 (HOA Act) + Ch. 718 (Condominium Act)',
-  CA: 'Davis-Stirling Common Interest Development Act (Civ. Code §§ 4000–6150)',
+  CA: 'Davis-Stirling Common Interest Development Act (Civ. Code Sections 4000–6150)',
   TX: 'Texas Property Code Ch. 209 (Residential Property Owners Protection Act)',
 }
 

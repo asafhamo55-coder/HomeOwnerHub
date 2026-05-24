@@ -8,24 +8,24 @@ import { cn } from '@/lib/cn'
 const QUERIES = [
   {
     q: 'Can residents paint their fence without approval?',
-    citation: 'CC&R §3.4 — Architectural Standards',
+    citation: 'CC&R Section 3.4 — Architectural Standards',
     answer:
       'No. Section 3.4 of your CC&R requires fence color and material changes to be submitted to the Architectural Review Committee at least 14 days before work begins. Repainting in the original approved color is exempt.',
-    chips: ['§3.4 Architectural', 'ARC review', '14-day notice'],
+    chips: ['Sec. 3.4 Architectural', 'ARC review', '14-day notice'],
   },
   {
     q: 'What are the quiet hours?',
-    citation: 'CC&R §6.2 — Nuisance and Noise',
+    citation: 'CC&R Section 6.2 — Nuisance and Noise',
     answer:
       '10:00 PM to 7:00 AM on weekdays, and 11:00 PM to 8:00 AM on weekends. Section 6.2 of your CC&R prohibits any noise audible beyond the unit during these hours. Repeat violations carry a $50 fine per occurrence.',
-    chips: ['§6.2 Nuisance', '$50 fine', 'Weekend hours'],
+    chips: ['Sec. 6.2 Nuisance', '$50 fine', 'Weekend hours'],
   },
   {
     q: 'Can we fine a homeowner for late lawn care?',
-    citation: 'Bylaws §4.1 + GA OCGA §44-3-223',
+    citation: 'Bylaws Section 4.1 + GA OCGA Section 44-3-223',
     answer:
-      'Yes, if you follow the notice-and-hearing process in Bylaws §4.1: (1) written notice describing the violation, (2) at least 14 days to cure, (3) opportunity for a hearing. Georgia law requires the fine schedule to be in your published rules.',
-    chips: ['Bylaws §4.1', '14-day cure', 'Hearing required'],
+      'Yes, if you follow the notice-and-hearing process in Bylaws Section 4.1: (1) written notice describing the violation, (2) at least 14 days to cure, (3) opportunity for a hearing. Georgia law requires the fine schedule to be in your published rules.',
+    chips: ['Bylaws Sec. 4.1', '14-day cure', 'Hearing required'],
   },
 ]
 

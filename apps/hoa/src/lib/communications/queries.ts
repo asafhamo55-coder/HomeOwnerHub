@@ -49,6 +49,7 @@ export async function listCommunications(
         'recipients:communication_recipients(delivery_status)',
     )
     .eq('association_id', associationId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(filters.limit ?? 100)
 
@@ -167,6 +168,7 @@ export async function getCommunication(
     )
     .eq('association_id', associationId)
     .eq('id', commId)
+    .is('deleted_at', null)
     .maybeSingle()
 
   if (!data) return null

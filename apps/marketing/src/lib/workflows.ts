@@ -33,7 +33,7 @@ export const WORKFLOWS: Workflow[] = [
   { id: 7, name: 'Minutes Engine', hub: 'HOA', bar: 'B', status: 'planned', month: 'M3',
     description: 'Records meeting → drafts board-ready minutes. Captures every motion, vote, decision.' },
   { id: 8, name: 'Lease & Document Q&A', hub: 'PM', bar: 'C', status: 'planned', month: 'M3',
-    description: '"What does §4.2 say about pet deposits?" Answered in 3 seconds with lease section cited.' },
+    description: '"What does Section 4.2 say about pet deposits?" Answered in 3 seconds with lease section cited.' },
   { id: 9, name: 'Vendor Oracle', hub: 'HOA', bar: 'B', status: 'planned', month: 'M3',
     description: 'Past spend, ratings, and the recommended vendor for the next job.' },
   { id: 10, name: 'Delinquency Coach (day 5–30)', hub: 'PM', bar: 'B', status: 'planned', month: 'M3',

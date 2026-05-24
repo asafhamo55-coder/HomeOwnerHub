@@ -16,7 +16,7 @@ const SCENARIOS: Scenario[] = [
   {
     trigger: 'Unapproved fence height',
     location: '211 Oak St',
-    citation: 'CC&R §3.4 — Architectural Standards',
+    citation: 'CC&R Section 3.4 — Architectural Standards',
     draftLines: [
       'Your fence at 211 Oak St exceeds the 6-foot height limit specified in Section 3.4 of the Madison Park CC&R.',
       'The Architectural Review Committee requires fence modifications to be submitted at least 14 days in advance.',
@@ -27,9 +27,9 @@ const SCENARIOS: Scenario[] = [
   {
     trigger: 'Trash bins left curbside',
     location: '88 Ridge Rd',
-    citation: 'Bylaws §4.1 — Common Area Standards',
+    citation: 'Bylaws Section 4.1 — Common Area Standards',
     draftLines: [
-      'Trash and recycling containers must be returned to the side or rear of the property within 24 hours of pickup, per Bylaws §4.1.',
+      'Trash and recycling containers must be returned to the side or rear of the property within 24 hours of pickup, per Bylaws Section 4.1.',
       'Repeated occurrences over the past 30 days have been documented and photographed.',
       'Required action: Return containers within 24 hours of collection going forward. Continued violations may incur a $50 weekly fine per the published rule schedule.',
     ],
@@ -38,9 +38,9 @@ const SCENARIOS: Scenario[] = [
   {
     trigger: 'Landscaping below standard',
     location: '412 Elm Ave',
-    citation: 'CC&R §5.2 — Property Maintenance',
+    citation: 'CC&R Section 5.2 — Property Maintenance',
     draftLines: [
-      'The front lawn at 412 Elm Ave does not meet the maintenance standard described in CC&R §5.2 ("kept in a neat and orderly manner").',
+      'The front lawn at 412 Elm Ave does not meet the maintenance standard described in CC&R Section 5.2 ("kept in a neat and orderly manner").',
       'Specific issues observed: grass exceeding 8 inches, visible weed growth in landscaping beds.',
       'Required action: Restore landscaping to compliant condition within 14 days. The ARC may approve alternative xeriscape designs if submitted in writing.',
     ],

@@ -109,7 +109,7 @@ export function checkHarrisCountyCompliance(
       canFile: false,
       reason:
         'Commercial leases follow a different procedure than this tool covers. Consult counsel.',
-      legalBasis: 'Tex. Prop. Code §92.001 (residential definition).',
+      legalBasis: 'Tex. Prop. Code Section 92.001 (residential definition).',
       requiredNoticeType: 'unknown',
       filingEligibleDate: today,
       daysUntilFiling: 0,
@@ -122,7 +122,7 @@ export function checkHarrisCountyCompliance(
       canFile: false,
       reason:
         'Rent is not past due. There is no cause for an eviction filing on these facts.',
-      legalBasis: 'Tex. Prop. Code §24.002 (forcible detainer requires unpaid rent or holdover).',
+      legalBasis: 'Tex. Prop. Code Section 24.002 (forcible detainer requires unpaid rent or holdover).',
       requiredNoticeType: 'unknown',
       filingEligibleDate: today,
       daysUntilFiling: 0,
@@ -135,9 +135,9 @@ export function checkHarrisCountyCompliance(
   return {
     canFile: false,
     reason:
-      'Texas Property Code §24.005 requires a written 3-Day Notice to Vacate before any forcible-detainer filing. Serve the notice today; the earliest filing date is 3 days after service.',
+      'Texas Property Code Section 24.005 requires a written 3-Day Notice to Vacate before any forcible-detainer filing. Serve the notice today; the earliest filing date is 3 days after service.',
     legalBasis:
-      'Tex. Prop. Code §24.005(a)–(g). Notice may be served in person, by posting to the inside of the main entry door, or by certified mail (return receipt requested).',
+      'Tex. Prop. Code Section 24.005(a)–(g). Notice may be served in person, by posting to the inside of the main entry door, or by certified mail (return receipt requested).',
     requiredNoticeType: '3day_pay_or_quit',
     filingEligibleDate,
     daysUntilFiling: daysBetween(today, filingEligibleDate),

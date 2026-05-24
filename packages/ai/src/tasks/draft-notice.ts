@@ -28,7 +28,7 @@ Landlord: ${params.landlordName}
 
 Requirements:
 - Use the legally required language for ${params.county}.
-- Include a verbatim statutory citation block (e.g., "Texas Property Code §24.005").
+- Include a verbatim statutory citation block (e.g., "Texas Property Code Section 24.005").
 - Leave the date line blank (the landlord will fill in on service).
 - Include a service-method checklist at the bottom (personal delivery / posting / certified mail).
 - Plain text only. No markdown.`,

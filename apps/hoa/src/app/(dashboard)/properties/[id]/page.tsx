@@ -104,6 +104,7 @@ export default async function PropertyDetailPage({
       .from('hoa_violations')
       .select('id, description, status, severity, created_at, cure_period_days, notice_sent_at')
       .eq('property_id', id)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(20),
     unit
@@ -113,6 +114,7 @@ export default async function PropertyDetailPage({
             'id, due_date, amount, status, assessment_type, fiscal_period:fiscal_period_id(start_date), payments(amount)',
           )
           .eq('unit_id', unit.id)
+          .is('deleted_at', null)
           .order('due_date', { ascending: false })
           .limit(12)
       : Promise.resolve({ data: [] }),

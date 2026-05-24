@@ -49,6 +49,7 @@ export async function listBudgets(associationId: string): Promise<BudgetSummary[
       'id, status, approved_at, fund:fund_id(id, code, name), fiscalPeriod:fiscal_period_id(id, start_date, end_date), budget_line_items(amount)',
     )
     .eq('association_id', associationId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
   type Shape = {
@@ -100,6 +101,7 @@ export async function getBudget(
     )
     .eq('id', budgetId)
     .eq('association_id', associationId)
+    .is('deleted_at', null)
     .maybeSingle()
   if (!data) return null
 
@@ -794,6 +796,7 @@ export async function listInvoices(
       'id, invoice_number, invoice_date, due_date, amount, status, vendor:vendor_id(id, legal_name, dba), payments(amount, paid_at)',
     )
     .eq('association_id', associationId)
+    .is('deleted_at', null)
     .order('invoice_date', { ascending: false })
     .limit(filters.limit ?? 200)
   if (filters.status) q = q.eq('status', filters.status)
@@ -821,6 +824,7 @@ export async function getInvoice(
     )
     .eq('association_id', associationId)
     .eq('id', invoiceId)
+    .is('deleted_at', null)
     .maybeSingle()
   if (!data) return null
 

@@ -219,8 +219,9 @@ export async function deleteViolation(
   const supabase = await getSupabaseServerClient()
   const { error } = await supabase
     .from('hoa_violations')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() } as never)
     .eq('id', violationId)
+    .is('deleted_at', null)
   if (error) return { ok: false, error: error.message }
 
   revalidatePath('/violations')

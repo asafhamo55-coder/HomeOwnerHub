@@ -147,6 +147,7 @@ export async function listRecentUpdates(
     )
     .eq('state', state)
     .is('archived_at', null)
+    .is('deleted_at', null)
     .order('posted_at', { ascending: false })
     .limit(limit)
   return (data ?? []) as unknown as LawUpdateRow[]
@@ -193,6 +194,7 @@ export async function listAllUpdatesForManager(
       'id, state, headline, summary, action_items, category, effective_date, source_url, related_statute_id, posted_at, archived_at',
     )
     .eq('state', state)
+    .is('deleted_at', null)
     .order('posted_at', { ascending: false })
     .limit(200)
   return (data ?? []) as unknown as LawUpdateAdminRow[]
@@ -297,8 +299,9 @@ export async function deleteLawUpdate(id: string): Promise<ActionResult> {
   const supabase = await getSupabaseServerClient()
   const { error } = await supabase
     .from('state_law_updates' as never)
-    .delete()
+    .update({ deleted_at: new Date().toISOString() } as never)
     .eq('id', id)
+    .is('deleted_at', null)
   if (error) return { ok: false, error: error.message }
   revalidatePath('/legal')
   revalidatePath('/legal/updates')

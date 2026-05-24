@@ -51,6 +51,7 @@ export default async function ViolationDetailPage({
       'id, description, violation_type, status, severity, ccr_section, cure_period_days, fine_amount, notice_sent_at, approved_at, approved_letter, ai_draft_letter, photo_urls, created_at, resolved_at, resolution_note, fine_start_date, property:hoa_properties(address, unit_number, owner_name)',
     )
     .eq('id', id)
+    .is('deleted_at', null)
     .maybeSingle()
 
   if (!data) notFound()

@@ -126,7 +126,7 @@ async function fillChartOfAccountsDescriptions(db: Db): Promise<void> {
     '3010': 'Cumulative reserve fund equity since association inception.',
     '4000': 'Monthly assessment billings — primary revenue source.',
     '4010': 'One-time special assessments levied by board action.',
-    '4100': 'Fees on late dues per CC&R §7.3 — $25/month.',
+    '4100': 'Fees on late dues per CC&R Section 7.3 — $25/month.',
     '4110': 'Covenant violation fines per the published fine schedule.',
     '4200': 'Bank interest earned on reserve fund balances.',
     '5000': 'Verde Garden Co — landscape contract, $4,850/mo.',

@@ -319,7 +319,7 @@ function printCaseDetail(r: CaseResult): void {
   if (r.citations.length > 0) {
     console.log(
       `     citations: ${r.citations
-        .map((c) => `${c.docType}${c.section ? ` §${c.section}` : ''}`)
+        .map((c) => `${c.docType}${c.section ? ` Section ${c.section}` : ''}`)
         .join(', ')}`,
     )
   } else {

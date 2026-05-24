@@ -63,7 +63,7 @@ export function NewVendorForm() {
           Vendors you add here are visible only to your HOA. You can run a
           compliance check per association within your organization, but the
           vendor profile and ratings are never shared across other customers
-          on the platform (antitrust posture per spec §14.6).
+          on the platform (antitrust posture per spec Section 14.6).
         </span>
       </Alert>
 

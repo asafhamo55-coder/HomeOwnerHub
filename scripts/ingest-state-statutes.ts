@@ -14,7 +14,7 @@
  * object with the shape:
  *
  *   {
- *     "code_citation": "O.C.G.A. § 44-3-108",
+ *     "code_citation": "O.C.G.A. Section 44-3-108",
  *     "title": "Annual meetings of association",
  *     "category": "meetings",
  *     "body": "<full statute text>",

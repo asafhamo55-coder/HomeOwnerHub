@@ -81,6 +81,7 @@ export default async function MeetingDetailPage(props: {
       'id, meeting_date, meeting_type, attendees, ai_summary, raw_transcript, motions, status, approved_at, approved_by, created_at',
     )
     .eq('id', id)
+    .is('deleted_at', null)
     .maybeSingle()
 
   if (!data) notFound()

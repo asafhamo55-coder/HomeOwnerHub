@@ -42,7 +42,7 @@ export default async function ViolationReportsListPage() {
         <p className="text-sm text-muted">
           Concerns submitted by residents. {pending} awaiting decision ·{' '}
           {reports.length} total. The reporter's identity is shown to you but
-          should not be shared with other residents per Policy §12.03.
+          should not be shared with other residents per Policy Section 12.03.
         </p>
       </header>
 

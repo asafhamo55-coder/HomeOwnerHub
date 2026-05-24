@@ -33,7 +33,8 @@
     "backfill:embeddings": "tsx scripts/backfill-embeddings.ts",
     "eval:w1": "tsx scripts/eval-w1.ts",
     "ingest:state-law": "tsx scripts/ingest-state-statutes.ts",
-    "scrape:state-law": "tsx scripts/scrape-state-law.ts"
+    "scrape:state-law": "tsx scripts/scrape-state-law.ts",
+    "migrate:properties-residents": "tsx scripts/migrate-properties-residents.ts"
   },
   "devDependencies": {
     "turbo": "latest",
