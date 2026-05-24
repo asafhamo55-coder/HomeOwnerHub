@@ -1,6 +1,7 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
+import { DASHBOARD_TAG } from '@/lib/dashboard/cached'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
@@ -158,6 +159,7 @@ export async function createEvent(
 
   revalidatePath('/')  // dashboard rollup
   revalidatePath('/events')
+  revalidateTag(DASHBOARD_TAG(org.id))
   return { ok: true, data: { id: data.id } }
 }
 

@@ -2,20 +2,21 @@ import { Suspense } from 'react'
 import { AlertTriangle, Briefcase, ClipboardList, Wallet } from 'lucide-react'
 import { Card, CardContent, Skeleton } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
+// Cached fan-out — every dashboard query memoized server-side keyed by
+// orgId with a 30s TTL. Mutations bust this via
+// revalidateTag(`dashboard:${orgId}`). See ./lib/dashboard/cached.ts.
 import {
-  getApprovalsInbox,
-  getAtRiskThisWeek,
-  getComplianceHeatMap,
-  getLatestDigest,
-  getLeaseSummary,
-  getNextMeeting,
-} from '@/lib/dashboard/queries'
-import {
-  getDashboardKpis,
-  getThirtyDayActivity,
-  getVendorComplianceDonut,
-  getViolationStatusDonut,
-} from '@/lib/dashboard/charts'
+  getCachedApprovalsInbox,
+  getCachedAtRiskThisWeek,
+  getCachedComplianceHeatMap,
+  getCachedDashboardKpis,
+  getCachedLatestDigest,
+  getCachedLeaseSummary,
+  getCachedNextMeeting,
+  getCachedThirtyDayActivity,
+  getCachedVendorComplianceDonut,
+  getCachedViolationStatusDonut,
+} from '@/lib/dashboard/cached'
 import { listUnfinishedDrafts } from '@/lib/drafts'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ActivityBar } from '@/components/dashboard/ActivityBar'
@@ -95,16 +96,16 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     heatMapCells,
     drafts,
   ] = await Promise.all([
-    getDashboardKpis(orgId),
-    getViolationStatusDonut(orgId),
-    getVendorComplianceDonut(orgId),
-    getThirtyDayActivity(orgId),
-    getApprovalsInbox(orgId),
-    getAtRiskThisWeek(orgId),
-    getNextMeeting(orgId),
-    getLeaseSummary(orgId),
-    getLatestDigest(orgId),
-    getComplianceHeatMap(orgId),
+    getCachedDashboardKpis(orgId),
+    getCachedViolationStatusDonut(orgId),
+    getCachedVendorComplianceDonut(orgId),
+    getCachedThirtyDayActivity(orgId),
+    getCachedApprovalsInbox(orgId),
+    getCachedAtRiskThisWeek(orgId),
+    getCachedNextMeeting(orgId),
+    getCachedLeaseSummary(orgId),
+    getCachedLatestDigest(orgId),
+    getCachedComplianceHeatMap(orgId),
     listUnfinishedDrafts(),
   ])
 

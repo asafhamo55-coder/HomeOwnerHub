@@ -1,8 +1,20 @@
 // Chart-shaped data fetchers for the redesigned dashboard.
 // Each returns plain JSON (no recharts types) so the page component
 // stays a server component and only the chart wrappers run client-side.
+//
+// Every function takes an optional `client` so the cached wrappers in
+// ./cached.ts can pass an admin-client (no cookies, so unstable_cache
+// can memoize) while the original cookie-bound code path keeps working
+// for any other caller.
 
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+type AnyClient = SupabaseClient<any, any, any>
+
+async function resolveClient(client?: AnyClient): Promise<AnyClient> {
+  return client ?? ((await getSupabaseServerClient()) as unknown as AnyClient)
+}
 
 export interface DonutSegment {
   label: string
@@ -54,8 +66,11 @@ export interface DashboardKpis {
 
 // ─── Donut: violations by status ────────────────────────────────────
 
-export async function getViolationStatusDonut(orgId: string): Promise<DonutData> {
-  const supabase = await getSupabaseServerClient()
+export async function getViolationStatusDonut(
+  orgId: string,
+  client?: AnyClient,
+): Promise<DonutData> {
+  const supabase = await resolveClient(client)
   const { data } = await supabase
     .from('hoa_violations')
     .select('status')
@@ -91,8 +106,11 @@ export async function getViolationStatusDonut(orgId: string): Promise<DonutData>
 
 // ─── Donut: vendor compliance ───────────────────────────────────────
 
-export async function getVendorComplianceDonut(orgId: string): Promise<DonutData> {
-  const supabase = await getSupabaseServerClient()
+export async function getVendorComplianceDonut(
+  orgId: string,
+  client?: AnyClient,
+): Promise<DonutData> {
+  const supabase = await resolveClient(client)
   // RLS gates board-only access; admins + board see all vendors in their org.
   // Residents would get 0 rows, which renders as an empty donut.
   const { data } = await supabase
@@ -126,8 +144,9 @@ export async function getVendorComplianceDonut(orgId: string): Promise<DonutData
 
 export async function getThirtyDayActivity(
   orgId: string,
+  client?: AnyClient,
 ): Promise<ActivityData> {
-  const supabase = await getSupabaseServerClient()
+  const supabase = await resolveClient(client)
   const start = new Date()
   start.setUTCDate(start.getUTCDate() - 29)
   start.setUTCHours(0, 0, 0, 0)
@@ -184,8 +203,11 @@ export async function getThirtyDayActivity(
 
 // ─── KPI heroes ─────────────────────────────────────────────────────
 
-export async function getDashboardKpis(orgId: string): Promise<DashboardKpis> {
-  const supabase = await getSupabaseServerClient()
+export async function getDashboardKpis(
+  orgId: string,
+  client?: AnyClient,
+): Promise<DashboardKpis> {
+  const supabase = await resolveClient(client)
 
   const today = new Date()
   const thirtyDaysAgo = new Date(today)

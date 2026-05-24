@@ -1,6 +1,7 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
+import { DASHBOARD_TAG } from '@/lib/dashboard/cached'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
@@ -86,6 +87,7 @@ export async function approveMeetingMinutes(input: {
 
   revalidatePath('/')  // dashboard rollup
   revalidatePath('/meetings')
+  revalidateTag(DASHBOARD_TAG(org.id))
   return { ok: true, meetingId: row.id as string }
 }
 

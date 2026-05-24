@@ -1,6 +1,17 @@
 import { addDays, isSameDay, startOfMonth, endOfMonth } from 'date-fns'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { DayCell, DayLevel } from '@/components/dashboard/ComplianceHeatMap'
+
+// Optional `client` on every fetcher lets ./cached.ts pass an admin
+// client (no cookies, so unstable_cache can memoize). Falls back to
+// the cookie-bound server client when called the normal way.
+
+type AnyClient = SupabaseClient<any, any, any>
+
+async function resolveClient(client?: AnyClient): Promise<AnyClient> {
+  return client ?? ((await getSupabaseServerClient()) as unknown as AnyClient)
+}
 
 export interface DashboardStats {
   openViolations: number
@@ -92,8 +103,11 @@ export interface LeaseSummary {
   capIsMixed: boolean
 }
 
-export async function getDashboardStats(orgId: string): Promise<DashboardStats> {
-  const supabase = await getSupabaseServerClient()
+export async function getDashboardStats(
+  orgId: string,
+  client?: AnyClient,
+): Promise<DashboardStats> {
+  const supabase = await resolveClient(client)
   const today = new Date().toISOString().slice(0, 10)
 
   // Resolve associations for this org so the v1 assessments query stays
@@ -193,8 +207,11 @@ export async function getDashboardStats(orgId: string): Promise<DashboardStats> 
 // Unions every "manager owes an approval" source so the dashboard can
 // surface a single "waiting on you" list instead of scattering pending
 // items across four separate pages.
-export async function getApprovalsInbox(orgId: string): Promise<ApprovalsInbox> {
-  const supabase = await getSupabaseServerClient()
+export async function getApprovalsInbox(
+  orgId: string,
+  client?: AnyClient,
+): Promise<ApprovalsInbox> {
+  const supabase = await resolveClient(client)
 
   const [violations, minutes, invoices, rfps] = await Promise.all([
     // AI-drafted violation letters awaiting human approval (Bar B gate).
@@ -339,8 +356,11 @@ export async function getApprovalsInbox(orgId: string): Promise<ApprovalsInbox> 
 // label it — picking the lowest is the safe interpretation since a
 // manager seeing 25% cap shouldn't accidentally exceed a 15% cap in
 // another association.
-export async function getLeaseSummary(orgId: string): Promise<LeaseSummary> {
-  const supabase = await getSupabaseServerClient()
+export async function getLeaseSummary(
+  orgId: string,
+  client?: AnyClient,
+): Promise<LeaseSummary> {
+  const supabase = await resolveClient(client)
 
   // 1. Resolve associations + their caps in one query.
   const { data: assocs } = await supabase
@@ -434,8 +454,11 @@ export async function getLeaseSummary(orgId: string): Promise<LeaseSummary> {
   }
 }
 
-export async function getLatestDigest(orgId: string): Promise<DigestSnapshot> {
-  const supabase = await getSupabaseServerClient()
+export async function getLatestDigest(
+  orgId: string,
+  client?: AnyClient,
+): Promise<DigestSnapshot> {
+  const supabase = await resolveClient(client)
   const { data } = await supabase
     .from('hoa_digests')
     .select('content, generated_at')
@@ -455,8 +478,11 @@ export async function getLatestDigest(orgId: string): Promise<DigestSnapshot> {
  * if there's an event on the day but everything's clean. Days with no
  * events stay grey.
  */
-export async function getComplianceHeatMap(orgId: string): Promise<DayCell[]> {
-  const supabase = await getSupabaseServerClient()
+export async function getComplianceHeatMap(
+  orgId: string,
+  client?: AnyClient,
+): Promise<DayCell[]> {
+  const supabase = await resolveClient(client)
   const today = new Date()
   const start = startOfMonth(today)
   const end = endOfMonth(addDays(start, 3 * 32))
@@ -555,8 +581,11 @@ export async function getComplianceHeatMap(orgId: string): Promise<DayCell[]> {
  * Sorted by urgency (most-overdue first), capped at 6 visible items.
  * `totalCount` reflects the full at-risk set so the UI can show overflow.
  */
-export async function getAtRiskThisWeek(orgId: string): Promise<AtRiskResult> {
-  const supabase = await getSupabaseServerClient()
+export async function getAtRiskThisWeek(
+  orgId: string,
+  client?: AnyClient,
+): Promise<AtRiskResult> {
+  const supabase = await resolveClient(client)
   const today = new Date()
   const todayMs = today.getTime()
   const todayISO = today.toISOString().slice(0, 10)
@@ -709,8 +738,9 @@ export async function getAtRiskThisWeek(orgId: string): Promise<AtRiskResult> {
  */
 export async function getNextMeeting(
   orgId: string,
+  client?: AnyClient,
 ): Promise<NextMeetingInfo | null> {
-  const supabase = await getSupabaseServerClient()
+  const supabase = await resolveClient(client)
   const today = new Date()
   const todayISO = today.toISOString().slice(0, 10)
 
