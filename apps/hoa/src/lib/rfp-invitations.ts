@@ -298,6 +298,7 @@ export async function inviteVendorsToRfp(
     sent += 1
   }
 
+  revalidatePath('/')  // dashboard rollup
   revalidatePath(`/rfps/${rfp.id}`)
   return { ok: true, data: { sent, skipped, failed } }
 }

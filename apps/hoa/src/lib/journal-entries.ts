@@ -116,6 +116,7 @@ export async function reverseJournalEntry(input: {
       .eq('id', original.id),
   ])
 
+  revalidatePath('/')  // dashboard rollup
   revalidatePath(`/accounting/ledger/${original.id}`)
   revalidatePath(`/accounting/ledger/${je.journalEntryId}`)
   revalidatePath('/accounting/ledger')

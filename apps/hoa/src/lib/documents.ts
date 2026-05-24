@@ -99,6 +99,7 @@ export async function uploadDocument(
     return { error: rowError.message }
   }
 
+  revalidatePath('/')  // dashboard rollup
   revalidatePath('/documents')
   redirect('/documents')
 }

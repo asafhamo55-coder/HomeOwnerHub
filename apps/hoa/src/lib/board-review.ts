@@ -72,6 +72,7 @@ export async function listArcRequestsForBoard(opts?: {
     .select(
       'id, unit_id, submitted_by, category, summary, status, submitted_at, board_response_at, unit:units(unit_number), submitter:profiles!arc_requests_submitted_by_fkey(full_name, email)',
     )
+    .is('deleted_at', null)
     .order('submitted_at', { ascending: false })
     .limit(200)
   if (opts?.status) query = query.eq('status', opts.status)
@@ -116,6 +117,7 @@ export async function getArcRequestForBoard(
       'id, unit_id, submitted_by, category, summary, scope_description, proposed_start, proposed_completion, contractor_name, contractor_license, status, board_response, board_response_at, board_response_by, submitted_at, unit:units(unit_number), submitter:profiles!arc_requests_submitted_by_fkey(full_name, email)',
     )
     .eq('id', id)
+    .is('deleted_at', null)
     .maybeSingle()
   if (!data) return null
 
@@ -191,6 +193,7 @@ export async function respondToArcRequest(
 
   if (error) return { ok: false, error: error.message }
 
+  revalidatePath('/')  // dashboard rollup
   revalidatePath('/arc')
   revalidatePath(`/arc/${parsed.data.arc_id}`)
   return { ok: true }
@@ -203,8 +206,9 @@ export async function deleteArcRequest(arcId: string): Promise<ActionResult> {
   const supabase = await getSupabaseServerClient()
   const { error } = await supabase
     .from('arc_requests' as never)
-    .delete()
+    .update({ deleted_at: new Date().toISOString() } as never)
     .eq('id', arcId)
+    .is('deleted_at', null)
   if (error) return { ok: false, error: error.message }
 
   revalidatePath('/arc')

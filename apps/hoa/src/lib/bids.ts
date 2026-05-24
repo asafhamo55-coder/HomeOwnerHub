@@ -175,6 +175,7 @@ export async function runBidComparison(
       { rfpId },
       { organizationId: org.id },
     )
+    revalidatePath('/')  // dashboard rollup
     revalidatePath(`/rfps/${rfpId}`)
     revalidatePath(`/rfps/${rfpId}/comparison`)
     return { ok: true, data: { runId, output } }

@@ -157,6 +157,7 @@ export async function createArcRequest(
     return { ok: false, error: error?.message ?? 'Could not submit application.' }
   }
 
+  revalidatePath('/')  // dashboard rollup
   revalidatePath('/resident')
   revalidatePath('/resident/arc')
   return { ok: true, data: { requestId: row.id } }

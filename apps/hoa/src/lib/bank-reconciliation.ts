@@ -128,6 +128,7 @@ export async function reconcileBankAccount(input: {
     reconciliationId = data.id
   }
 
+  revalidatePath('/')  // dashboard rollup
   revalidatePath('/accounting/bank')
   return {
     ok: true,

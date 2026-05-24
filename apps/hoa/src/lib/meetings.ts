@@ -84,6 +84,7 @@ export async function approveMeetingMinutes(input: {
     .update({ ai_summary: parsed.data.approvedSummary })
     .eq('id', row.id as string)
 
+  revalidatePath('/')  // dashboard rollup
   revalidatePath('/meetings')
   return { ok: true, meetingId: row.id as string }
 }
@@ -157,8 +158,9 @@ export async function deleteMeeting(
   const supabase = await getSupabaseServerClient()
   const { error } = await supabase
     .from('hoa_meeting_minutes')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() } as never)
     .eq('id', meetingId)
+    .is('deleted_at', null)
   if (error) return { ok: false, error: error.message }
 
   revalidatePath('/meetings')

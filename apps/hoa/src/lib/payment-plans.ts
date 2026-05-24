@@ -171,6 +171,7 @@ export async function createPaymentPlan(input: {
     }
   }
 
+  revalidatePath('/')  // dashboard rollup
   revalidatePath('/accounting/payment-plans')
   revalidatePath('/dues')
   revalidatePath('/accounting/ledger')

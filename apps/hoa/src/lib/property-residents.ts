@@ -42,6 +42,7 @@ export async function listResidents(
       'id, property_id, full_name, email, phone, role, is_primary, moved_in_at, moved_out_at, notes, created_at',
     )
     .eq('property_id', propertyId)
+    .is('deleted_at', null)
     .order('moved_out_at', { ascending: false, nullsFirst: true })
     .order('is_primary', { ascending: false })
     .order('full_name', { ascending: true })
@@ -151,6 +152,7 @@ export async function addResident(
     console.error('[property-residents.addResident] event log failed', ev.error)
   }
 
+  revalidatePath('/')  // dashboard rollup
   revalidatePath(`/properties/${parsed.data.property_id}`)
   return { ok: true, data: { residentId: data.id } }
 }

@@ -156,6 +156,7 @@ export async function createEvent(
     return { ok: false, error: error?.message ?? 'Could not create event.' }
   }
 
+  revalidatePath('/')  // dashboard rollup
   revalidatePath('/events')
   return { ok: true, data: { id: data.id } }
 }

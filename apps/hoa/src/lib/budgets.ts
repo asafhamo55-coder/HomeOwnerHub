@@ -66,6 +66,7 @@ export async function createBudget(input: {
     return { ok: false, error: `budget insert: ${error?.message}` }
   }
 
+  revalidatePath('/')  // dashboard rollup
   revalidatePath('/accounting/budget')
   return { ok: true, budgetId: data.id }
 }
@@ -91,8 +92,11 @@ export async function deleteBudget(
     return { ok: false, error: 'Cannot delete an approved budget. Archive it instead.' }
   }
 
-  await supabase.from('budget_line_items').delete().eq('budget_id', budgetId)
-  const { error } = await supabase.from('budgets').delete().eq('id', budgetId)
+  const { error } = await supabase
+    .from('budgets')
+    .update({ deleted_at: new Date().toISOString() } as never)
+    .eq('id', budgetId)
+    .is('deleted_at', null)
   if (error) return { ok: false, error: error.message }
 
   revalidatePath('/accounting/budget')
@@ -143,6 +147,7 @@ export async function saveBudgetLineItems(input: {
     .select('id, status, association_id')
     .eq('id', parsed.data.budgetId)
     .eq('association_id', assoc.id)
+    .is('deleted_at', null)
     .single()
   if (!budget) return { ok: false, error: 'Budget not found.' }
   if (budget.status === 'approved' || budget.status === 'archived') {
@@ -196,6 +201,7 @@ export async function approveBudget(input: {
     .select('id, status')
     .eq('id', parsed.data.budgetId)
     .eq('association_id', assoc.id)
+    .is('deleted_at', null)
     .single()
   if (!budget) return { ok: false, error: 'Budget not found.' }
   if (budget.status !== 'draft') {
