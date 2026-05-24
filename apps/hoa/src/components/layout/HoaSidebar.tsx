@@ -15,6 +15,7 @@ import {
   KeyRound,
   LogOut,
   Megaphone,
+  MessageSquare,
   Scale,
   ScrollText,
   Settings,
@@ -72,6 +73,7 @@ const GROUPS: NavGroup[] = [
       { href: '/meetings', icon: <CalendarDays className="h-4 w-4" />, label: 'Meetings' },
       { href: '/events', icon: <CalendarHeart className="h-4 w-4" />, label: 'Events' },
       { href: '/communications', icon: <Megaphone className="h-4 w-4" />, label: 'Communications' },
+      { href: '/tickets', icon: <MessageSquare className="h-4 w-4" />, label: 'Tickets' },
     ],
   },
   {

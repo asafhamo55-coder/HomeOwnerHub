@@ -10,6 +10,7 @@ import {
   Home,
   LogOut,
   Megaphone,
+  MessageSquare,
   Scale,
   Sparkles,
   Wallet,
@@ -61,6 +62,7 @@ const NAV: Array<{ label?: string; items: NavLink[] }> = [
     items: [
       { href: '/resident/arc/new', icon: <ClipboardList className="h-4 w-4" />, label: 'ARC Application', soon: true },
       { href: '/resident/report-violation', icon: <CalendarClock className="h-4 w-4" />, label: 'Report Violation', soon: true },
+      { href: '/resident/tickets', icon: <MessageSquare className="h-4 w-4" />, label: 'My Tickets' },
     ],
   },
 ]

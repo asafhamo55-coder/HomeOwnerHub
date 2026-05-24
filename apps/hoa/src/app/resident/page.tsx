@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Briefcase, ClipboardList, Home, Megaphone, Sparkles, Wallet } from 'lucide-react'
+import { Briefcase, ClipboardList, Home, Megaphone, MessageSquare, Sparkles, Wallet } from 'lucide-react'
 import { Badge, Card, CardContent, CardHeader, CardTitle, EmptyState, PageHeader } from '@homeowner-portal/ui'
 import { getResidentSummary } from '@/lib/resident'
 
@@ -86,6 +86,13 @@ export default async function ResidentDashboard() {
           description="Submit a violation report or community concern to the board."
           cta="Submit report"
           href="/resident/report-violation"
+        />
+        <ActionCard
+          icon={<MessageSquare className="h-4 w-4 text-primary" />}
+          title="Tickets"
+          description="Open a support ticket or check the status of an existing one."
+          cta="My tickets"
+          href="/resident/tickets"
         />
       </div>
     </div>
