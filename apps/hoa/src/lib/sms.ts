@@ -85,7 +85,12 @@ export async function sendSms(
  * perfect — SMS body should be plain English, the manager edits in
  * the wizard before sending.
  */
-export function htmlToSmsBody(html: string, maxLen = 1500): string {
+// Default cap chosen to fit one Twilio segment with the trial-account
+// prefix ("Sent from your Twilio trial account - ") that Twilio prepends
+// for free accounts. 160 - 38 prefix = 122 chars usable. Long-form
+// messages should use a link to /communications/[id] instead — long
+// unregistered SMS gets aggressively carrier-filtered on US networks.
+export function htmlToSmsBody(html: string, maxLen = 320): string {
   const stripped = html
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')

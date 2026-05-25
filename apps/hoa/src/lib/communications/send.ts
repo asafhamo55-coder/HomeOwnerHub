@@ -231,9 +231,10 @@ export async function sendCommunication(
     unit_id: string | null
   }
   const recipientRows: RecipientRow[] = insertedRecipients as RecipientRow[]
-  // Capture assocRow.name in a const so the async closure doesn't lose
+  // Capture closed-over values OUTSIDE the async fn so TS doesn't lose
   // the prior null-narrowing across the await boundary.
   const associationName = assocRow.name
+  const commId = comm.id
 
   async function deliverOne(recipient: RecipientRow): Promise<Outcome> {
     const bag = {
@@ -275,9 +276,21 @@ export async function sendCommunication(
         await markFailed(supabase, recipient.id, 'no phone number')
         return 'skipped'
       }
-      // SMS body is plain text — squash the HTML body. The subject is
-      // prefixed for context since SMS has no separate subject line.
-      const smsBody = `${subject}\n\n${text ?? htmlToSmsBody(html)}`
+      // SMS body — squash to plain text and cap aggressively (one or
+      // two Twilio segments at most). Long-form SMS triggers US-carrier
+      // filtering for unregistered A2P traffic. If the message is long,
+      // truncate and append a "more in portal" link rather than blasting
+      // 10 segments to a carrier that will drop them.
+      const PORTAL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.homeownerledger.com'
+      const portalLink = `${PORTAL.replace(/\/$/, '')}/communications/${commId}`
+      const rawBody = text ?? htmlToSmsBody(html, 200)
+      const truncated = rawBody.length >= 200
+      // Keep total body short — Twilio trial prefixes auto-add ~38 chars
+      // ("Sent from your Twilio trial account - "), and we want to stay
+      // under 2 segments (~300 char Twilio total for a single SMS-like
+      // experience). Format: "<Subject>: <body>" or "<Subject>: <truncated>… see <link>"
+      const head = `${subject}: ${rawBody}`.slice(0, truncated ? 240 : 280)
+      const smsBody = truncated ? `${head}… see ${portalLink}` : head
       const result = await sendSms({ to: phone, body: smsBody })
       if (result.ok) {
         await supabase
