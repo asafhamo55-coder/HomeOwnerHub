@@ -166,7 +166,7 @@ export async function sendCommunication(
       recipientInserts.push({
         organization_id: assocRow.organization_id,
         communication_id: comm.id,
-        unit_id: r.unitId,
+        unit_id: r.unitId?.startsWith('manual:') ? null : r.unitId,
         user_id: r.userId,
         recipient_name: r.recipientName,
         email: r.email,
