@@ -23,7 +23,6 @@ import {
   getVendorComplianceDonut,
   getViolationStatusDonut,
 } from '@/lib/dashboard/charts'
-import { listUnfinishedDrafts } from '@/lib/drafts'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ActivityBar } from '@/components/dashboard/ActivityBar'
 import { ApprovalsInbox } from '@/components/dashboard/ApprovalsInbox'
@@ -34,7 +33,6 @@ import { KpiHero } from '@/components/dashboard/KpiHero'
 import { LeaseSummaryCard } from '@/components/dashboard/LeaseSummaryCard'
 import { NextMeeting } from '@/components/dashboard/NextMeeting'
 import { StatusDonut } from '@/components/dashboard/StatusDonut'
-import { UnfinishedWorkflowsCard } from '@/components/dashboard/UnfinishedWorkflowsCard'
 
 export const metadata = { title: 'Dashboard' }
 
@@ -100,7 +98,6 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     leaseSummary,
     digest,
     heatMapCells,
-    drafts,
   ] = await Promise.all([
     getDashboardKpis(orgId),
     getViolationStatusDonut(orgId),
@@ -112,7 +109,6 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     getLeaseSummary(orgId),
     getLatestDigest(orgId),
     getComplianceHeatMap(orgId),
-    listUnfinishedDrafts(),
   ])
 
   return (
@@ -214,9 +210,6 @@ async function DashboardContent({ orgId }: { orgId: string }) {
           </div>
         </div>
       </details>
-
-      {/* Drafts the user left mid-flow. Self-hides when empty. */}
-      <UnfinishedWorkflowsCard drafts={drafts} />
 
       {/* Year-view heat map — collapsed. */}
       <details className="rounded-xl border border-border bg-surface">
