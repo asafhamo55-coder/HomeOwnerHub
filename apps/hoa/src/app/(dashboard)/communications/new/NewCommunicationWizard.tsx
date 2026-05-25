@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState, useTransition } from 'react'
-import { Loader2, Mail, Plus, Send, Users2, X } from 'lucide-react'
+import { Loader2, Mail, Phone, Plus, Send, Users2, X } from 'lucide-react'
 import { Alert, Button, Input, Select } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { sendCommunication } from '@/lib/communications/send'
@@ -51,7 +51,7 @@ const AUDIENCE_LABELS: Record<AudienceKind, string> = {
   late_on_dues: 'Late on dues',
   open_violations: 'Units with open violations',
   specific_property: 'Specific property',
-  manual_emails: 'Email address(es)',
+  manual_emails: 'Custom contacts',
 }
 
 const CATEGORIES = [
@@ -110,37 +110,34 @@ export function NewCommunicationWizard({
   const [residentsLoading, setResidentsLoading] = useState(false)
   const [checkedResidentIds, setCheckedResidentIds] = useState<Set<string>>(new Set())
 
-  // Manual-email audience state. emailDraft = the value being typed
-  // into the "add" input; manualEmails = committed list.
-  const [emailDraft, setEmailDraft] = useState('')
-  const [manualEmails, setManualEmails] = useState<string[]>([])
+  // Manual contacts audience state.
+  interface ManualContact { email: string; phone: string; name: string }
+  const [manualContacts, setManualContacts] = useState<ManualContact[]>([])
+  const [draftEmail, setDraftEmail] = useState('')
+  const [draftPhone, setDraftPhone] = useState('')
+  const [draftName, setDraftName] = useState('')
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const US_PHONE_RE = /^(\+?1?\s*)?(\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/
 
-  function commitEmailDraft(): { ok: true } | { ok: false; error: string } {
-    const raw = emailDraft.trim()
-    if (!raw) return { ok: true } // nothing to commit; no-op
-    // Allow comma / semicolon / newline as separators so the sender can
-    // paste a bunch at once.
-    const parts = raw
-      .split(/[\s,;]+/)
-      .map((p) => p.trim().toLowerCase())
-      .filter(Boolean)
-    const valid: string[] = []
-    for (const p of parts) {
-      if (!EMAIL_RE.test(p)) return { ok: false, error: `"${p}" doesn't look like an email.` }
-      if (manualEmails.includes(p) || valid.includes(p)) continue
-      valid.push(p)
-    }
-    if (valid.length === 0) {
-      setEmailDraft('')
-      return { ok: true }
-    }
-    setManualEmails((prev) => [...prev, ...valid])
-    setEmailDraft('')
+  function addManualContact(): { ok: true } | { ok: false; error: string } {
+    const email = draftEmail.trim().toLowerCase()
+    const phone = draftPhone.trim()
+    const name = draftName.trim()
+    if (!email && !phone) return { ok: false, error: 'Enter an email or phone number.' }
+    if (email && !EMAIL_RE.test(email)) return { ok: false, error: `"${email}" doesn't look like a valid email.` }
+    if (phone && !US_PHONE_RE.test(phone)) return { ok: false, error: `"${phone}" doesn't look like a US phone number.` }
+    const alreadyExists = manualContacts.some(
+      (c) => (email && c.email === email) || (phone && c.phone === phone),
+    )
+    if (alreadyExists) return { ok: false, error: 'This contact is already in the list.' }
+    setManualContacts((prev) => [...prev, { email, phone, name }])
+    setDraftEmail('')
+    setDraftPhone('')
+    setDraftName('')
     return { ok: true }
   }
-  function removeEmail(email: string) {
-    setManualEmails((prev) => prev.filter((e) => e !== email))
+  function removeContact(index: number) {
+    setManualContacts((prev) => prev.filter((_, i) => i !== index))
   }
 
   // Load residents whenever a property is selected. Default to ALL
@@ -243,22 +240,31 @@ export function NewCommunicationWizard({
         residentIds: Array.from(checkedResidentIds),
       }
     } else if (audience === 'manual_emails') {
-      // Fold any in-flight draft into the committed list before sending,
-      // so the sender doesn't have to remember to hit Add.
-      const merged = [...manualEmails]
-      const drafted = emailDraft.trim().toLowerCase()
-      if (drafted) {
-        if (!EMAIL_RE.test(drafted)) {
-          setError(`"${drafted}" doesn't look like an email.`)
+      // Fold any in-flight draft into the committed list before sending.
+      let contacts = [...manualContacts]
+      const dEmail = draftEmail.trim().toLowerCase()
+      const dPhone = draftPhone.trim()
+      if (dEmail || dPhone) {
+        if (dEmail && !EMAIL_RE.test(dEmail)) {
+          setError(`"${dEmail}" doesn't look like an email.`)
           return
         }
-        if (!merged.includes(drafted)) merged.push(drafted)
+        if (dPhone && !US_PHONE_RE.test(dPhone)) {
+          setError(`"${dPhone}" doesn't look like a US phone number.`)
+          return
+        }
+        contacts.push({ email: dEmail, phone: dPhone, name: draftName.trim() })
       }
-      if (merged.length === 0) {
-        setError('Add at least one email address.')
+      if (contacts.length === 0) {
+        setError('Add at least one contact.')
         return
       }
-      audienceDef = { kind: 'manual_emails', emails: merged }
+      audienceDef = {
+        kind: 'manual_emails',
+        emails: contacts.map((c) => c.email),
+        emailNames: contacts.map((c) => c.name),
+        phones: contacts.map((c) => c.phone),
+      }
     } else {
       audienceDef = { kind: audience }
     }
@@ -322,7 +328,7 @@ export function NewCommunicationWizard({
               kind === 'specific_property'
                 ? properties.length
                 : kind === 'manual_emails'
-                  ? manualEmails.length
+                  ? manualContacts.length
                   : audienceCounts[kind as keyof AudienceCounts]
             const disabled =
               pending ||
@@ -362,59 +368,94 @@ export function NewCommunicationWizard({
         {audience === 'manual_emails' ? (
           <div className="mt-4 space-y-3 rounded-md border border-border bg-background/40 p-4">
             <p className="text-xs text-muted">
-              Type an email and press <kbd className="rounded border border-border bg-surface px-1 font-mono">Enter</kbd>{' '}
-              or comma. Useful for one-off messages to people not in the
-              resident list — vendors, attorneys, contractors.
+              Add contacts by email and/or US phone number. At least one is
+              required per contact. Useful for one-off messages to people not
+              in the resident list — vendors, attorneys, contractors.
             </p>
-            <div className="flex gap-2">
+            <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
+              <Input
+                type="text"
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+                placeholder="Name (optional)"
+                disabled={pending}
+              />
               <Input
                 type="email"
-                value={emailDraft}
-                onChange={(e) => setEmailDraft(e.target.value)}
+                value={draftEmail}
+                onChange={(e) => setDraftEmail(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ',') {
+                  if (e.key === 'Enter') {
                     e.preventDefault()
-                    const result = commitEmailDraft()
+                    const result = addManualContact()
                     if (!result.ok) setError(result.error)
                   }
                 }}
-                placeholder="attorney@example.com"
+                placeholder="email@example.com"
                 disabled={pending}
-                className="flex-1"
+              />
+              <Input
+                type="tel"
+                value={draftPhone}
+                onChange={(e) => setDraftPhone(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    const result = addManualContact()
+                    if (!result.ok) setError(result.error)
+                  }
+                }}
+                placeholder="(555) 123-4567"
+                disabled={pending}
               />
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  const result = commitEmailDraft()
+                  const result = addManualContact()
                   if (!result.ok) setError(result.error)
                 }}
-                disabled={pending || emailDraft.trim().length === 0}
+                disabled={pending || (!draftEmail.trim() && !draftPhone.trim())}
               >
                 <Plus className="h-4 w-4" />
                 Add
               </Button>
             </div>
 
-            {manualEmails.length === 0 ? (
+            {manualContacts.length === 0 ? (
               <p className="flex items-center gap-2 text-xs italic text-muted">
-                <Mail className="h-3.5 w-3.5" />
-                No addresses added yet.
+                <Users2 className="h-3.5 w-3.5" />
+                No contacts added yet.
               </p>
             ) : (
-              <ul className="flex flex-wrap gap-2">
-                {manualEmails.map((email) => (
+              <ul className="space-y-1.5">
+                {manualContacts.map((c, i) => (
                   <li
-                    key={email}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-foreground"
+                    key={i}
+                    className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm"
                   >
-                    <Mail className="h-3 w-3 text-muted" />
-                    {email}
+                    <div className="min-w-0 flex-1">
+                      {c.name ? <span className="font-medium text-foreground">{c.name}</span> : null}
+                      <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted">
+                        {c.email ? (
+                          <span className="inline-flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            {c.email}
+                          </span>
+                        ) : null}
+                        {c.phone ? (
+                          <span className="inline-flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {c.phone}
+                          </span>
+                        ) : null}
+                      </span>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => removeEmail(email)}
-                      className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-muted hover:bg-destructive/10 hover:text-destructive"
-                      aria-label={`Remove ${email}`}
+                      onClick={() => removeContact(i)}
+                      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={`Remove ${c.name || c.email || c.phone}`}
                       disabled={pending}
                     >
                       <X className="h-3 w-3" />

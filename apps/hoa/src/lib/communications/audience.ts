@@ -45,6 +45,10 @@ export interface AudienceDefinition {
    *  Length mismatch is tolerated — missing names default to the
    *  local-part of the email. */
   emailNames?: string[]
+  /** Populated when kind = 'manual_emails'. US phone numbers (E.164 or
+   *  raw digits) paired by index with `emails`. Enables SMS delivery to
+   *  manually-entered contacts alongside email. */
+  phones?: string[]
   /** Future filters land here without breaking the shape. */
   extra?: Record<string, unknown>
 }
@@ -86,10 +90,10 @@ export async function resolveAudience(
     return resolveSpecificResidents(db, def.residentIds ?? [])
   }
 
-  // Manual email addresses — no DB lookup at all. Recipients are
+  // Manual email/phone addresses — no DB lookup at all. Recipients are
   // constructed in-memory from the typed-in list. No unit binding.
   if (def.kind === 'manual_emails') {
-    return resolveManualEmails(def.emails ?? [], def.emailNames ?? [])
+    return resolveManualContacts(def.emails ?? [], def.emailNames ?? [], def.phones ?? [])
   }
 
   // Pull the unit roster first; every filter narrows from this set.
@@ -304,48 +308,56 @@ function summaryFor(def: AudienceDefinition, count: number): string {
 }
 
 /**
- * Manual-email audience. The sender typed in addresses directly —
- * no resident or unit context. Useful for one-off comms to people not
- * in the property roster (HOA attorney, a contractor, a city office).
+ * Manual contacts audience. The sender typed in email addresses and/or
+ * phone numbers directly — no resident or unit context. Useful for
+ * one-off comms to people not in the property roster.
  *
- * Dedupes (case-insensitive) and trims whitespace. Invalid-looking
- * entries are dropped silently; we don't want to throw at resolve time
- * because the wizard already validates on submit.
+ * Each index across emails/names/phones represents one contact.
+ * A contact must have at least an email or a phone to be included.
  */
-function resolveManualEmails(
+function resolveManualContacts(
   emails: string[],
   names: string[],
+  phones: string[],
 ): ResolvedAudience {
   const seen = new Set<string>()
   const recipients: ResolvedRecipient[] = []
-  emails.forEach((raw, i) => {
-    const email = raw.trim().toLowerCase()
-    if (!email) return
-    // Permissive RFC-5322 subset — must have an @ with text on each
-    // side and a dot in the domain. Catches obvious typos without
-    // chasing edge cases (manual entry; the sender will see bounces
-    // in the recipient list anyway).
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return
-    if (seen.has(email)) return
-    seen.add(email)
-    const localPart = email.split('@')[0] ?? email
+  const maxLen = Math.max(emails.length, phones.length)
+  for (let i = 0; i < maxLen; i++) {
+    const email = (emails[i] ?? '').trim().toLowerCase() || null
+    const phone = normalizeUsPhone(phones[i] ?? '') || null
+    if (!email && !phone) continue
+    const dedupeKey = email ?? phone ?? ''
+    if (seen.has(dedupeKey)) continue
+    seen.add(dedupeKey)
+    const nameFromEmail = email ? (email.split('@')[0] ?? email) : null
+    const recipientName = names[i]?.trim() || nameFromEmail || phone || 'Recipient'
     recipients.push({
-      unitId: `manual:${email}`, // synthetic stable id (no real unit binding)
+      unitId: `manual:${dedupeKey}`,
       unitAddress: null,
       unitNumber: null,
-      recipientName: (names[i]?.trim() || localPart) || null,
+      recipientName,
       email,
-      phone: null,
+      phone,
       userId: null,
     })
-  })
+  }
   return {
     recipients,
     summary: summaryFor(
-      { kind: 'manual_emails', emails, emailNames: names },
+      { kind: 'manual_emails', emails, emailNames: names, phones },
       recipients.length,
     ),
   }
+}
+
+function normalizeUsPhone(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length === 0) return null
+  if (digits.length === 10) return `+1${digits}`
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
+  if (raw.startsWith('+1') && digits.length === 11) return `+${digits}`
+  return null
 }
 
 /**
