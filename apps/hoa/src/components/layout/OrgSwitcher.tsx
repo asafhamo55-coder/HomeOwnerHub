@@ -41,7 +41,7 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, orgs }: Props) {
         return
       }
       setOpen(false)
-      router.refresh()
+      window.location.href = '/'
     })
   }
 
