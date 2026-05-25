@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { FileText } from 'lucide-react'
 import { format } from 'date-fns'
 import { Badge, Card, EmptyState, PageHeader } from '@homeowner-portal/ui'
+import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Governing Documents' }
@@ -24,10 +25,14 @@ const DOC_TYPE_LABEL: Record<string, string> = {
 }
 
 export default async function ResidentGoverningPage() {
+  const org = await getCurrentOrg()
+  if (!org) return null
+
   const supabase = await getSupabaseServerClient()
   const { data } = await supabase
     .from('hoa_documents')
     .select('id, name, type, created_at, parsed_at')
+    .eq('org_id', org.id)
     .order('created_at', { ascending: false })
     .limit(100)
 
