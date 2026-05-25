@@ -2,22 +2,25 @@ import { Suspense } from 'react'
 import { AlertTriangle, Briefcase, ClipboardList, Wallet } from 'lucide-react'
 import { Card, CardContent, Skeleton } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
-// Cached fan-out (v2). All 10 dashboard queries memoized server-side
-// via module-scoped unstable_cache wrappers, keyed by orgId, with a 5s
-// TTL and a static 'dashboard' tag for surgical revalidateTag busts.
-// See ./lib/dashboard/cached.ts for the design notes.
+// EMERGENCY ROLLBACK (v2 — second attempt) 2026-05-25: cached layer
+// broke prod AGAIN at runtime with reference 2236965075. Both the
+// dynamic factory pattern (v1) and the canonical module-scoped pattern
+// (v2) fail. Not pushing a v3 without a real Vercel-environment repro.
+// Reverting to cookie-bound fetchers — they're slower but they work.
 import {
-  getCachedApprovalsInbox,
-  getCachedAtRiskThisWeek,
-  getCachedComplianceHeatMap,
-  getCachedDashboardKpis,
-  getCachedLatestDigest,
-  getCachedLeaseSummary,
-  getCachedNextMeeting,
-  getCachedThirtyDayActivity,
-  getCachedVendorComplianceDonut,
-  getCachedViolationStatusDonut,
-} from '@/lib/dashboard/cached'
+  getApprovalsInbox,
+  getAtRiskThisWeek,
+  getComplianceHeatMap,
+  getLatestDigest,
+  getLeaseSummary,
+  getNextMeeting,
+} from '@/lib/dashboard/queries'
+import {
+  getDashboardKpis,
+  getThirtyDayActivity,
+  getVendorComplianceDonut,
+  getViolationStatusDonut,
+} from '@/lib/dashboard/charts'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ActivityBar } from '@/components/dashboard/ActivityBar'
 import { ApprovalsInbox } from '@/components/dashboard/ApprovalsInbox'
@@ -94,16 +97,16 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     digest,
     heatMapCells,
   ] = await Promise.all([
-    getCachedDashboardKpis(orgId),
-    getCachedViolationStatusDonut(orgId),
-    getCachedVendorComplianceDonut(orgId),
-    getCachedThirtyDayActivity(orgId),
-    getCachedApprovalsInbox(orgId),
-    getCachedAtRiskThisWeek(orgId),
-    getCachedNextMeeting(orgId),
-    getCachedLeaseSummary(orgId),
-    getCachedLatestDigest(orgId),
-    getCachedComplianceHeatMap(orgId),
+    getDashboardKpis(orgId),
+    getViolationStatusDonut(orgId),
+    getVendorComplianceDonut(orgId),
+    getThirtyDayActivity(orgId),
+    getApprovalsInbox(orgId),
+    getAtRiskThisWeek(orgId),
+    getNextMeeting(orgId),
+    getLeaseSummary(orgId),
+    getLatestDigest(orgId),
+    getComplianceHeatMap(orgId),
   ])
 
   return (
