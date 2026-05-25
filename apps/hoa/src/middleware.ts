@@ -44,8 +44,11 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Run on every page except static assets, API routes that need their own
-    // handling (webhooks), and image optimization.
-    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|api/inngest|api/health|api/cron).*)',
+    // Run on every page except:
+    //   - static assets, image optimization
+    //   - api/webhooks, api/inngest, api/health, api/cron (have their own auth)
+    //   - api/admin/setup-stripe-pricing (bearer-token-authed, called via curl
+    //     so we don't want middleware redirecting to /login)
+    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|api/inngest|api/health|api/cron|api/admin/setup-stripe-pricing).*)',
   ],
 }
