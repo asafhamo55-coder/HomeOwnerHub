@@ -62,17 +62,21 @@
 }
 
 /* NavigationProgress — top-of-viewport loading bar shown while a same-
-   origin link navigation is in flight. Animates a width sweep from 0 to
-   95% over ~1.5s so the user sees motion BEFORE the loading.tsx
-   skeleton appears. Capped at 95% so it doesn't claim "done" before
-   the page actually loads. */
+   origin link navigation is in flight. Starts at 20% width so the bar
+   is visible the FRAME the user clicks (not invisibly tiny). Width
+   ramps to 90% over ~1.2s on a logarithmic-feel curve so progress
+   slows as it approaches "done" — the classic "feels fast at first,
+   then we're working on it" pattern. Capped at 90% so we never claim
+   "done" before the page actually loads. */
 @keyframes nav-progress-bar {
-  0%   { transform: scaleX(0);    opacity: 1;   }
-  50%  { transform: scaleX(0.6);  opacity: 1;   }
-  100% { transform: scaleX(0.95); opacity: 0.85; }
+  0%   { transform: scaleX(0.20); opacity: 1; }
+  20%  { transform: scaleX(0.45); opacity: 1; }
+  50%  { transform: scaleX(0.72); opacity: 1; }
+  80%  { transform: scaleX(0.85); opacity: 0.95; }
+  100% { transform: scaleX(0.90); opacity: 0.85; }
 }
 .nav-progress-bar {
-  animation: nav-progress-bar 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation: nav-progress-bar 1.2s cubic-bezier(0.1, 0.7, 0.1, 1) forwards;
   transform-origin: left;
   width: 100%;
 }
