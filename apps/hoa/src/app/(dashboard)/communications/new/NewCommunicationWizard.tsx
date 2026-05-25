@@ -1,11 +1,15 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useMemo, useState, useTransition } from 'react'
-import { Loader2, Send } from 'lucide-react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
+import { Loader2, Send, Users2 } from 'lucide-react'
 import { Alert, Button, Input, Select } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { sendCommunication } from '@/lib/communications/send'
+import {
+  listPropertyResidents,
+  type ResidentOption,
+} from '@/lib/communications/actions'
 
 interface TemplateOption {
   id: string
@@ -26,7 +30,15 @@ interface AudienceCounts {
   open_violations: number
 }
 
-type AudienceKind = keyof AudienceCounts
+interface PropertyOption {
+  id: string
+  label: string
+}
+
+// 'specific_property' is a wizard-local kind that drives the property
+// + resident-picker UI; on submit it's converted to the resolver's
+// 'specific_residents' shape with the checked resident ids.
+type AudienceKind = keyof AudienceCounts | 'specific_property'
 
 const AUDIENCE_LABELS: Record<AudienceKind, string> = {
   everyone: 'Everyone',
@@ -34,6 +46,7 @@ const AUDIENCE_LABELS: Record<AudienceKind, string> = {
   tenants_only: 'Tenants only',
   late_on_dues: 'Late on dues',
   open_violations: 'Units with open violations',
+  specific_property: 'Specific property',
 }
 
 const CATEGORIES = [
@@ -65,9 +78,11 @@ const CHANNELS = ['email', 'portal'] as const
 export function NewCommunicationWizard({
   templates,
   audienceCounts,
+  properties,
 }: {
   templates: TemplateOption[]
   audienceCounts: AudienceCounts
+  properties: PropertyOption[]
 }) {
   const router = useRouter()
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>('announcement')
@@ -80,6 +95,60 @@ export function NewCommunicationWizard({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+
+  // Specific-property audience state.
+  // selectedPropertyId — single property at a time keeps the UI simple.
+  // residents — loaded via server action when a property is picked.
+  // checkedResidentIds — which named residents at that property to send to.
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('')
+  const [residents, setResidents] = useState<ResidentOption[]>([])
+  const [residentsLoading, setResidentsLoading] = useState(false)
+  const [checkedResidentIds, setCheckedResidentIds] = useState<Set<string>>(new Set())
+
+  // Load residents whenever a property is selected. Default to ALL
+  // checked — the sender opts OUT of a resident, rather than having to
+  // opt every single one in.
+  useEffect(() => {
+    if (audience !== 'specific_property' || !selectedPropertyId) {
+      setResidents([])
+      setCheckedResidentIds(new Set())
+      return
+    }
+    let cancelled = false
+    setResidentsLoading(true)
+    listPropertyResidents(selectedPropertyId)
+      .then((rows) => {
+        if (cancelled) return
+        setResidents(rows)
+        setCheckedResidentIds(new Set(rows.map((r) => r.id)))
+      })
+      .finally(() => {
+        if (!cancelled) setResidentsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [audience, selectedPropertyId])
+
+  function toggleResident(id: string) {
+    setCheckedResidentIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  function selectAllResidents() {
+    setCheckedResidentIds(new Set(residents.map((r) => r.id)))
+  }
+  function selectByRole(role: ResidentOption['role']) {
+    setCheckedResidentIds(
+      new Set(residents.filter((r) => r.role === role).map((r) => r.id)),
+    )
+  }
+  function clearResidents() {
+    setCheckedResidentIds(new Set())
+  }
 
   // Templates relevant to the picked category come first; "Custom" gets
   // everything. Selecting a template pre-fills subject + body so the
@@ -119,6 +188,26 @@ export function NewCommunicationWizard({
       return
     }
 
+    // Translate the wizard-local 'specific_property' kind into the
+    // resolver's 'specific_residents' shape with the checked ids.
+    let audienceDef: Parameters<typeof sendCommunication>[0]['audience']
+    if (audience === 'specific_property') {
+      if (!selectedPropertyId) {
+        setError('Pick a property first.')
+        return
+      }
+      if (checkedResidentIds.size === 0) {
+        setError('Pick at least one resident at that property.')
+        return
+      }
+      audienceDef = {
+        kind: 'specific_residents',
+        residentIds: Array.from(checkedResidentIds),
+      }
+    } else {
+      audienceDef = { kind: audience }
+    }
+
     startTransition(async () => {
       const result = await sendCommunication({
         category,
@@ -126,7 +215,7 @@ export function NewCommunicationWizard({
         bodyHtml,
         bodyText: stripHtml(bodyHtml),
         channels: channels as ('email' | 'portal' | 'sms' | 'mail')[],
-        audience: { kind: audience },
+        audience: audienceDef,
         templateId: templateId || undefined,
         scheduledFor: scheduledFor || undefined,
       })
@@ -173,8 +262,13 @@ export function NewCommunicationWizard({
       <Section number={2} title="Audience" hint="Who receives this?">
         <div className="grid gap-2 sm:grid-cols-2">
           {(Object.keys(AUDIENCE_LABELS) as AudienceKind[]).map((kind) => {
-            const count = audienceCounts[kind]
             const selected = audience === kind
+            const count =
+              kind === 'specific_property'
+                ? properties.length
+                : audienceCounts[kind as keyof AudienceCounts]
+            const disabled =
+              pending || (kind !== 'specific_property' && count === 0)
             return (
               <label
                 key={kind}
@@ -182,7 +276,7 @@ export function NewCommunicationWizard({
                   selected
                     ? 'border-primary bg-primary/5 text-foreground'
                     : 'border-border text-muted hover:bg-background'
-                } ${count === 0 ? 'opacity-50' : ''}`}
+                } ${disabled ? 'opacity-50' : ''}`}
               >
                 <span className="flex items-center gap-2">
                   <input
@@ -191,7 +285,7 @@ export function NewCommunicationWizard({
                     value={kind}
                     checked={selected}
                     onChange={() => setAudience(kind)}
-                    disabled={pending || count === 0}
+                    disabled={disabled}
                   />
                   {AUDIENCE_LABELS[kind]}
                 </span>
@@ -200,6 +294,125 @@ export function NewCommunicationWizard({
             )
           })}
         </div>
+
+        {/* Property picker + resident checkboxes — only when
+            "Specific property" is the chosen audience. */}
+        {audience === 'specific_property' ? (
+          <div className="mt-4 space-y-3 rounded-md border border-border bg-background/40 p-4">
+            <div>
+              <label className="text-xs font-medium text-foreground" htmlFor="comm-property">
+                Property
+              </label>
+              <Select
+                id="comm-property"
+                value={selectedPropertyId}
+                onValueChange={setSelectedPropertyId}
+                disabled={pending}
+                placeholder="Choose a property"
+                className="mt-1"
+              >
+                <option value="" disabled>
+                  — pick one —
+                </option>
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            {selectedPropertyId ? (
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-foreground">
+                    Who at this property?{' '}
+                    <span className="font-normal text-muted">
+                      ({checkedResidentIds.size} selected)
+                    </span>
+                  </p>
+                  {residents.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                      <button
+                        type="button"
+                        className="rounded-full border border-border bg-surface px-2 py-0.5 hover:bg-background"
+                        onClick={selectAllResidents}
+                      >
+                        All
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-full border border-border bg-surface px-2 py-0.5 hover:bg-background"
+                        onClick={() => selectByRole('owner')}
+                      >
+                        Owners
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-full border border-border bg-surface px-2 py-0.5 hover:bg-background"
+                        onClick={() => selectByRole('tenant')}
+                      >
+                        Tenants
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-full border border-border bg-surface px-2 py-0.5 hover:bg-background"
+                        onClick={clearResidents}
+                      >
+                        None
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+
+                {residentsLoading ? (
+                  <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Loading residents…
+                  </p>
+                ) : residents.length === 0 ? (
+                  <p className="mt-3 flex items-center gap-2 text-xs italic text-muted">
+                    <Users2 className="h-3.5 w-3.5" />
+                    No active residents recorded for this property.
+                    Add residents on the property detail page first.
+                  </p>
+                ) : (
+                  <ul className="mt-2 divide-y divide-border rounded-md border border-border bg-surface">
+                    {residents.map((r) => {
+                      const checked = checkedResidentIds.has(r.id)
+                      return (
+                        <li key={r.id}>
+                          <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-background/50">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleResident(r.id)}
+                              disabled={pending}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm text-foreground">
+                                {r.fullName}
+                                {r.isPrimary ? (
+                                  <span className="ml-2 rounded-full bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-primary">
+                                    primary
+                                  </span>
+                                ) : null}
+                              </p>
+                              <p className="text-xs text-muted">
+                                {roleHumanLabel(r.role)}
+                                {r.email ? ` · ${r.email}` : ' · no email on file'}
+                              </p>
+                            </div>
+                          </label>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </Section>
 
       {/* Step 3 — template */}
@@ -334,6 +547,15 @@ function Section({
       <div className="ml-7">{children}</div>
     </div>
   )
+}
+
+function roleHumanLabel(role: ResidentOption['role']): string {
+  switch (role) {
+    case 'owner': return 'Owner'
+    case 'tenant': return 'Tenant'
+    case 'family_member': return 'Family member'
+    case 'other': return 'Resident'
+  }
 }
 
 /** Strip HTML tags for the plain-text fallback we hand to Resend. Not

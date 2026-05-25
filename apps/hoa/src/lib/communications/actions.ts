@@ -1,10 +1,79 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
 type ActionResult = { ok: true } | { ok: false; error: string }
+
+// ─── Per-property resident lookup (powers the "Specific property"
+//     audience option in the new-communication wizard) ────────────────
+
+export interface ResidentOption {
+  id: string
+  fullName: string
+  email: string | null
+  phone: string | null
+  role: 'owner' | 'tenant' | 'family_member' | 'other'
+  isPrimary: boolean
+}
+
+/**
+ * Returns active (not moved-out) residents at a property — the
+ * data behind the resident checkboxes in the new-message wizard
+ * once the sender picks a property. Sorted: primaries first, then by
+ * role (owners → tenants → family → other), then alphabetically.
+ *
+ * Org-scoped via the active org cookie. Returns [] if the property
+ * doesn't belong to the current org (no error surfacing — we don't
+ * want to leak whether a property id exists in another tenant).
+ */
+export async function listPropertyResidents(
+  propertyId: string,
+): Promise<ResidentOption[]> {
+  const org = await getCurrentOrg()
+  if (!org) return []
+
+  const supabase = await getSupabaseServerClient()
+
+  // Confirm the property belongs to this org before reading residents.
+  const { data: prop } = await supabase
+    .from('hoa_properties')
+    .select('id')
+    .eq('id', propertyId)
+    .eq('org_id', org.id)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!prop) return []
+
+  const { data } = await supabase
+    .from('property_residents' as never)
+    .select('id, full_name, email, phone, role, is_primary')
+    .eq('property_id', propertyId)
+    .is('moved_out_at', null)
+    .order('is_primary', { ascending: false })
+    .order('role')
+    .order('full_name')
+
+  type Row = {
+    id: string
+    full_name: string | null
+    email: string | null
+    phone: string | null
+    role: string | null
+    is_primary: boolean | null
+  }
+  const rows = (data ?? []) as unknown as Row[]
+  return rows.map((r) => ({
+    id: r.id,
+    fullName: r.full_name ?? '(no name)',
+    email: r.email,
+    phone: r.phone,
+    role: (r.role as ResidentOption['role']) ?? 'other',
+    isPrimary: r.is_primary ?? false,
+  }))
+}
 
 export async function deleteCommunication(
   commId: string,

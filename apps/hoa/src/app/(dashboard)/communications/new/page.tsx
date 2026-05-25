@@ -42,6 +42,23 @@ export default async function NewCommunicationPage() {
 
   const templates = await listTemplates(assocRow.organization_id, assoc.id)
 
+  // Property list for the "Specific property" audience option. Cheap
+  // top-level query — we don't load residents here; that's lazy-loaded
+  // per-property via the listPropertyResidents server action.
+  const { data: propertyRows } = await supabase
+    .from('hoa_properties')
+    .select('id, address, unit_number')
+    .eq('org_id', assocRow.organization_id)
+    .is('deleted_at', null)
+    .order('address')
+    .limit(500)
+  const properties = (propertyRows ?? []).map((p) => ({
+    id: p.id as string,
+    label: [p.address, p.unit_number ? `· ${p.unit_number}` : null]
+      .filter(Boolean)
+      .join(' '),
+  }))
+
   // Pre-compute audience counts so the wizard can show "All owners (82)"
   // without a roundtrip per selection. Cheap counts via Postgres.
   const today = new Date().toISOString().slice(0, 10)
@@ -144,6 +161,7 @@ export default async function NewCommunicationPage() {
               channels: t.channels,
             }))}
             audienceCounts={counts}
+            properties={properties}
           />
         </div>
       </Card>

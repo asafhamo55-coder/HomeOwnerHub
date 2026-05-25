@@ -24,10 +24,17 @@ export type AudienceKind =
   | 'late_on_dues'            // assessments past due, not paid
   | 'open_violations'         // unresolved hoa_violations
   | 'specific_units'          // explicit unit_id list
+  | 'specific_residents'      // explicit property_resident_id list
 
 export interface AudienceDefinition {
   kind: AudienceKind
   unitIds?: string[]          // populated when kind = 'specific_units'
+  /** Populated when kind = 'specific_residents'. Each id refers to a
+   *  row in property_residents (the canonical "who lives here" table
+   *  from migration 0017). Lets the sender pick a specific named
+   *  person — or several named people at one property — instead of
+   *  the broad "owner/tenant role" buckets. */
+  residentIds?: string[]
   /** Future filters land here without breaking the shape. */
   extra?: Record<string, unknown>
 }
@@ -61,6 +68,14 @@ export async function resolveAudience(
   associationId: string,
   def: AudienceDefinition,
 ): Promise<ResolvedAudience> {
+  // Per-resident targeting is a different code path entirely — we go
+  // through property_residents (the canonical resident roster) rather
+  // than the ownerships/tenancies tables. Short-circuit here so the
+  // rest of the function can stay focused on unit-level audiences.
+  if (def.kind === 'specific_residents') {
+    return resolveSpecificResidents(db, def.residentIds ?? [])
+  }
+
   // Pull the unit roster first; every filter narrows from this set.
   const { data: units } = await db
     .from('units')
@@ -261,5 +276,97 @@ function summaryFor(def: AudienceDefinition, count: number): string {
       return `Units with open violations (${count} ${noun})`
     case 'specific_units':
       return `${(def.unitIds ?? []).length} hand-picked unit${(def.unitIds ?? []).length === 1 ? '' : 's'} (${count} ${noun})`
+    case 'specific_residents': {
+      const n = (def.residentIds ?? []).length
+      return `${n} hand-picked resident${n === 1 ? '' : 's'} (${count} ${noun})`
+    }
+  }
+}
+
+/**
+ * Per-resident audience. Direct lookup by property_residents.id —
+ * no unit-level narrowing. Used by the "Specific property" flow in
+ * the wizard where the sender hand-picks named people at one (or
+ * more) properties.
+ *
+ * Returns ResolvedRecipient shaped the same as the unit-level path so
+ * the downstream send pipeline doesn't care which audience kind built
+ * the list. unit_id is best-effort: we look up the unit via
+ * units.legacy_hoa_property_id → property_residents.property_id so
+ * delivery analytics can still tie back to a unit when available.
+ */
+async function resolveSpecificResidents(
+  db: Db,
+  residentIds: string[],
+): Promise<ResolvedAudience> {
+  if (residentIds.length === 0) {
+    return { recipients: [], summary: summaryFor({ kind: 'specific_residents', residentIds: [] }, 0) }
+  }
+
+  const { data: residents } = await db
+    .from('property_residents' as never)
+    .select('id, property_id, full_name, email, phone, role')
+    .in('id', residentIds)
+    .is('moved_out_at', null)
+
+  type ResidentRow = {
+    id: string
+    property_id: string
+    full_name: string | null
+    email: string | null
+    phone: string | null
+    role: string | null
+  }
+  const rows = (residents ?? []) as unknown as ResidentRow[]
+  if (rows.length === 0) {
+    return { recipients: [], summary: summaryFor({ kind: 'specific_residents', residentIds }, 0) }
+  }
+
+  // Best-effort unit lookup via the legacy_hoa_property_id bridge.
+  // If the bridge isn't populated for a property, unit_id stays null —
+  // delivery still works because we have name/email/phone directly.
+  const propertyIds = Array.from(new Set(rows.map((r) => r.property_id)))
+  const { data: bridgeRows } = await db
+    .from('units' as never)
+    .select('id, legacy_hoa_property_id, address_line1, unit_number')
+    .in('legacy_hoa_property_id', propertyIds)
+  type BridgeRow = {
+    id: string
+    legacy_hoa_property_id: string | null
+    address_line1: string | null
+    unit_number: string | null
+  }
+  const unitByProperty = new Map<string, BridgeRow>(
+    ((bridgeRows ?? []) as unknown as BridgeRow[])
+      .filter((b) => b.legacy_hoa_property_id)
+      .map((b) => [b.legacy_hoa_property_id as string, b]),
+  )
+
+  const recipients: ResolvedRecipient[] = rows.map((r) => {
+    const unit = unitByProperty.get(r.property_id)
+    return {
+      unitId: unit?.id ?? r.property_id, // fall back to property_id so the row still has a stable id
+      unitAddress: unit?.address_line1 ?? null,
+      unitNumber: unit?.unit_number ?? null,
+      recipientName: r.full_name ?? roleLabel(r.role),
+      email: r.email,
+      phone: r.phone,
+      userId: null, // property_residents doesn't carry a user_id; portal delivery falls back to email
+    }
+  })
+
+  return {
+    recipients,
+    summary: summaryFor({ kind: 'specific_residents', residentIds }, recipients.length),
+  }
+}
+
+function roleLabel(role: string | null): string {
+  switch (role) {
+    case 'owner': return 'Owner'
+    case 'tenant': return 'Tenant'
+    case 'family_member': return 'Family member'
+    case 'other': return 'Resident'
+    default: return 'Resident'
   }
 }
