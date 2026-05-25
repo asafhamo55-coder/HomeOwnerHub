@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState, useTransition } from 'react'
-import { Loader2, Send, Users2 } from 'lucide-react'
+import { Loader2, Mail, Plus, Send, Users2, X } from 'lucide-react'
 import { Alert, Button, Input, Select } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { sendCommunication } from '@/lib/communications/send'
@@ -35,10 +35,14 @@ interface PropertyOption {
   label: string
 }
 
-// 'specific_property' is a wizard-local kind that drives the property
-// + resident-picker UI; on submit it's converted to the resolver's
-// 'specific_residents' shape with the checked resident ids.
-type AudienceKind = keyof AudienceCounts | 'specific_property'
+// 'specific_property' drives the property + resident-picker UI; on
+// submit it converts to the resolver's 'specific_residents' shape.
+// 'manual_emails' drives a free-form email entry list — also passes
+// through to the resolver as-is.
+type AudienceKind =
+  | keyof AudienceCounts
+  | 'specific_property'
+  | 'manual_emails'
 
 const AUDIENCE_LABELS: Record<AudienceKind, string> = {
   everyone: 'Everyone',
@@ -47,6 +51,7 @@ const AUDIENCE_LABELS: Record<AudienceKind, string> = {
   late_on_dues: 'Late on dues',
   open_violations: 'Units with open violations',
   specific_property: 'Specific property',
+  manual_emails: 'Email address(es)',
 }
 
 const CATEGORIES = [
@@ -104,6 +109,39 @@ export function NewCommunicationWizard({
   const [residents, setResidents] = useState<ResidentOption[]>([])
   const [residentsLoading, setResidentsLoading] = useState(false)
   const [checkedResidentIds, setCheckedResidentIds] = useState<Set<string>>(new Set())
+
+  // Manual-email audience state. emailDraft = the value being typed
+  // into the "add" input; manualEmails = committed list.
+  const [emailDraft, setEmailDraft] = useState('')
+  const [manualEmails, setManualEmails] = useState<string[]>([])
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+  function commitEmailDraft(): { ok: true } | { ok: false; error: string } {
+    const raw = emailDraft.trim()
+    if (!raw) return { ok: true } // nothing to commit; no-op
+    // Allow comma / semicolon / newline as separators so the sender can
+    // paste a bunch at once.
+    const parts = raw
+      .split(/[\s,;]+/)
+      .map((p) => p.trim().toLowerCase())
+      .filter(Boolean)
+    const valid: string[] = []
+    for (const p of parts) {
+      if (!EMAIL_RE.test(p)) return { ok: false, error: `"${p}" doesn't look like an email.` }
+      if (manualEmails.includes(p) || valid.includes(p)) continue
+      valid.push(p)
+    }
+    if (valid.length === 0) {
+      setEmailDraft('')
+      return { ok: true }
+    }
+    setManualEmails((prev) => [...prev, ...valid])
+    setEmailDraft('')
+    return { ok: true }
+  }
+  function removeEmail(email: string) {
+    setManualEmails((prev) => prev.filter((e) => e !== email))
+  }
 
   // Load residents whenever a property is selected. Default to ALL
   // checked — the sender opts OUT of a resident, rather than having to
@@ -204,6 +242,23 @@ export function NewCommunicationWizard({
         kind: 'specific_residents',
         residentIds: Array.from(checkedResidentIds),
       }
+    } else if (audience === 'manual_emails') {
+      // Fold any in-flight draft into the committed list before sending,
+      // so the sender doesn't have to remember to hit Add.
+      const merged = [...manualEmails]
+      const drafted = emailDraft.trim().toLowerCase()
+      if (drafted) {
+        if (!EMAIL_RE.test(drafted)) {
+          setError(`"${drafted}" doesn't look like an email.`)
+          return
+        }
+        if (!merged.includes(drafted)) merged.push(drafted)
+      }
+      if (merged.length === 0) {
+        setError('Add at least one email address.')
+        return
+      }
+      audienceDef = { kind: 'manual_emails', emails: merged }
     } else {
       audienceDef = { kind: audience }
     }
@@ -266,9 +321,14 @@ export function NewCommunicationWizard({
             const count =
               kind === 'specific_property'
                 ? properties.length
-                : audienceCounts[kind as keyof AudienceCounts]
+                : kind === 'manual_emails'
+                  ? manualEmails.length
+                  : audienceCounts[kind as keyof AudienceCounts]
             const disabled =
-              pending || (kind !== 'specific_property' && count === 0)
+              pending ||
+              (kind !== 'specific_property' &&
+                kind !== 'manual_emails' &&
+                count === 0)
             return (
               <label
                 key={kind}
@@ -297,6 +357,75 @@ export function NewCommunicationWizard({
 
         {/* Property picker + resident checkboxes — only when
             "Specific property" is the chosen audience. */}
+        {/* Manual email entry — typed-in addresses for one-off
+            recipients (vendor, attorney, anyone not in the roster). */}
+        {audience === 'manual_emails' ? (
+          <div className="mt-4 space-y-3 rounded-md border border-border bg-background/40 p-4">
+            <p className="text-xs text-muted">
+              Type an email and press <kbd className="rounded border border-border bg-surface px-1 font-mono">Enter</kbd>{' '}
+              or comma. Useful for one-off messages to people not in the
+              resident list — vendors, attorneys, contractors.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                value={emailDraft}
+                onChange={(e) => setEmailDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault()
+                    const result = commitEmailDraft()
+                    if (!result.ok) setError(result.error)
+                  }
+                }}
+                placeholder="attorney@example.com"
+                disabled={pending}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const result = commitEmailDraft()
+                  if (!result.ok) setError(result.error)
+                }}
+                disabled={pending || emailDraft.trim().length === 0}
+              >
+                <Plus className="h-4 w-4" />
+                Add
+              </Button>
+            </div>
+
+            {manualEmails.length === 0 ? (
+              <p className="flex items-center gap-2 text-xs italic text-muted">
+                <Mail className="h-3.5 w-3.5" />
+                No addresses added yet.
+              </p>
+            ) : (
+              <ul className="flex flex-wrap gap-2">
+                {manualEmails.map((email) => (
+                  <li
+                    key={email}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-foreground"
+                  >
+                    <Mail className="h-3 w-3 text-muted" />
+                    {email}
+                    <button
+                      type="button"
+                      onClick={() => removeEmail(email)}
+                      className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-muted hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={`Remove ${email}`}
+                      disabled={pending}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
+
         {audience === 'specific_property' ? (
           <div className="mt-4 space-y-3 rounded-md border border-border bg-background/40 p-4">
             <div>

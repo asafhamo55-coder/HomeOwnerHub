@@ -25,6 +25,7 @@ export type AudienceKind =
   | 'open_violations'         // unresolved hoa_violations
   | 'specific_units'          // explicit unit_id list
   | 'specific_residents'      // explicit property_resident_id list
+  | 'manual_emails'           // typed-in email addresses (vendors, attorneys, etc.)
 
 export interface AudienceDefinition {
   kind: AudienceKind
@@ -35,6 +36,15 @@ export interface AudienceDefinition {
    *  person — or several named people at one property — instead of
    *  the broad "owner/tenant role" buckets. */
   residentIds?: string[]
+  /** Populated when kind = 'manual_emails'. Free-form email addresses
+   *  typed by the sender — used for one-off comms to people not in the
+   *  property roster (HOA attorney, a specific vendor, an architect,
+   *  etc.). Each entry becomes a recipient with no unit binding. */
+  emails?: string[]
+  /** Optional per-email display names paired by index with `emails`.
+   *  Length mismatch is tolerated — missing names default to the
+   *  local-part of the email. */
+  emailNames?: string[]
   /** Future filters land here without breaking the shape. */
   extra?: Record<string, unknown>
 }
@@ -74,6 +84,12 @@ export async function resolveAudience(
   // rest of the function can stay focused on unit-level audiences.
   if (def.kind === 'specific_residents') {
     return resolveSpecificResidents(db, def.residentIds ?? [])
+  }
+
+  // Manual email addresses — no DB lookup at all. Recipients are
+  // constructed in-memory from the typed-in list. No unit binding.
+  if (def.kind === 'manual_emails') {
+    return resolveManualEmails(def.emails ?? [], def.emailNames ?? [])
   }
 
   // Pull the unit roster first; every filter narrows from this set.
@@ -280,6 +296,55 @@ function summaryFor(def: AudienceDefinition, count: number): string {
       const n = (def.residentIds ?? []).length
       return `${n} hand-picked resident${n === 1 ? '' : 's'} (${count} ${noun})`
     }
+    case 'manual_emails': {
+      const n = (def.emails ?? []).length
+      return `${n} manually-entered email${n === 1 ? '' : 's'} (${count} ${noun})`
+    }
+  }
+}
+
+/**
+ * Manual-email audience. The sender typed in addresses directly —
+ * no resident or unit context. Useful for one-off comms to people not
+ * in the property roster (HOA attorney, a contractor, a city office).
+ *
+ * Dedupes (case-insensitive) and trims whitespace. Invalid-looking
+ * entries are dropped silently; we don't want to throw at resolve time
+ * because the wizard already validates on submit.
+ */
+function resolveManualEmails(
+  emails: string[],
+  names: string[],
+): ResolvedAudience {
+  const seen = new Set<string>()
+  const recipients: ResolvedRecipient[] = []
+  emails.forEach((raw, i) => {
+    const email = raw.trim().toLowerCase()
+    if (!email) return
+    // Permissive RFC-5322 subset — must have an @ with text on each
+    // side and a dot in the domain. Catches obvious typos without
+    // chasing edge cases (manual entry; the sender will see bounces
+    // in the recipient list anyway).
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return
+    if (seen.has(email)) return
+    seen.add(email)
+    const localPart = email.split('@')[0] ?? email
+    recipients.push({
+      unitId: `manual:${email}`, // synthetic stable id (no real unit binding)
+      unitAddress: null,
+      unitNumber: null,
+      recipientName: (names[i]?.trim() || localPart) || null,
+      email,
+      phone: null,
+      userId: null,
+    })
+  })
+  return {
+    recipients,
+    summary: summaryFor(
+      { kind: 'manual_emails', emails, emailNames: names },
+      recipients.length,
+    ),
   }
 }
 
