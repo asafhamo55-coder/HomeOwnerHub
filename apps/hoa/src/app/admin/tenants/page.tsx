@@ -19,10 +19,10 @@ export default async function TenantsListPage({
   const filtered = allTenants.filter((t) => {
     if (activeFilter === 'archived') return !!t.archived_at
     if (activeFilter === 'suspended') return !!t.suspended_at && !t.archived_at
-    return !t.archived_at
+    return !t.archived_at && !t.suspended_at
   })
 
-  const activeTenants = allTenants.filter((t) => !t.archived_at)
+  const activeTenants = allTenants.filter((t) => !t.archived_at && !t.suspended_at)
   const archivedTenants = allTenants.filter((t) => !!t.archived_at)
   const suspendedTenants = allTenants.filter((t) => !!t.suspended_at && !t.archived_at)
 

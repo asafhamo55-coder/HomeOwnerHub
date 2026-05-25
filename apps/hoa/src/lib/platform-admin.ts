@@ -1029,12 +1029,32 @@ export async function resumeTenant(orgId: string): Promise<ActionResult> {
   return { ok: true }
 }
 
+async function ensureArchiveColumn(db: ReturnType<typeof createAdminClient>): Promise<boolean> {
+  const { error } = await db.rpc('exec_sql' as never, {
+    query: 'ALTER TABLE public.orgs ADD COLUMN IF NOT EXISTS archived_at timestamptz',
+  } as never)
+  if (error) {
+    // rpc may not exist — try a direct update with a dummy value to test
+    const { error: testErr } = await db
+      .from('orgs' as never)
+      .update({ archived_at: null } as never)
+      .eq('id', '00000000-0000-0000-0000-000000000000')
+    return !testErr || !testErr.message.includes('archived_at')
+  }
+  return true
+}
+
 export async function archiveTenant(
   orgId: string,
   reason?: string | null,
 ): Promise<ActionResult> {
   const { userId } = await requirePlatformAdmin()
   const db = createAdminClient()
+
+  const columnExists = await ensureArchiveColumn(db)
+  if (!columnExists) {
+    return { ok: false, error: 'Migration required: run migration 0025_archive_tenant.sql to enable archiving.' }
+  }
 
   const { data: org } = await db
     .from('orgs' as never)
@@ -1060,6 +1080,11 @@ export async function archiveTenant(
 export async function restoreTenant(orgId: string): Promise<ActionResult> {
   const { userId } = await requirePlatformAdmin()
   const db = createAdminClient()
+
+  const columnExists = await ensureArchiveColumn(db)
+  if (!columnExists) {
+    return { ok: false, error: 'Migration required: run migration 0025_archive_tenant.sql to enable restoring.' }
+  }
 
   const { data: org } = await db
     .from('orgs' as never)
