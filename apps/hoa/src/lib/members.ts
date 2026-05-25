@@ -9,7 +9,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { requireAdmin, type Role } from '@/lib/auth'
+import { requireBoardOrAdmin, type Role } from '@/lib/auth'
 
 export type MemberRole = Role
 
@@ -40,7 +40,7 @@ export interface PropertyOption {
 
 /** Loads every property in the current org for the invite-form dropdown. */
 export async function listOrgProperties(): Promise<PropertyOption[]> {
-  const { org } = await requireAdmin()
+  const { org } = await requireBoardOrAdmin()
   const admin = createAdminClient()
   const { data } = await admin
     .from('hoa_properties')
@@ -58,7 +58,7 @@ export type ActionResult<T = void> = ActionOk<T> | ActionErr
 // ─── Reads ───────────────────────────────────────────────────────────
 
 export async function listMembers(): Promise<MemberRow[]> {
-  const { org } = await requireAdmin()
+  const { org } = await requireBoardOrAdmin()
 
   // Use the admin (service-role) client because profiles RLS restricts
   // SELECT to `id = auth.uid()` — a per-user policy that prevents the
@@ -196,7 +196,7 @@ export async function inviteMember(
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
   }
 
-  const { org } = await requireAdmin()
+  const { org } = await requireBoardOrAdmin()
 
   // We need the admin (service-role) client to create a Supabase Auth
   // user. We then INSERT into org_members via the user-bound client so
@@ -437,7 +437,7 @@ export async function changeMemberRole(
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
   }
 
-  const { org } = await requireAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
 
   // Guard against removing the last admin. Count current admins in org.
@@ -478,7 +478,7 @@ export async function changeMemberRole(
 // ─── Remove ──────────────────────────────────────────────────────────
 
 export async function removeMember(userId: string): Promise<ActionResult> {
-  const { org } = await requireAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
 
   // Same guard: don't allow removing the last admin.
