@@ -2,27 +2,22 @@ import { Suspense } from 'react'
 import { AlertTriangle, Briefcase, ClipboardList, Wallet } from 'lucide-react'
 import { Card, CardContent, Skeleton } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
-// EMERGENCY ROLLBACK 2026-05-25: the unstable_cache layer (988f26c)
-// broke the prod dashboard with a runtime error. SUPABASE_SERVICE_ROLE_KEY
-// is set in Vercel — so the cause is elsewhere (likely an interaction
-// between unstable_cache's serialization expectations and the
-// SupabaseClient instance being passed through the cached callback).
-// Reverted to the cookie-bound fetchers. The cached.ts module stays
-// in tree, unused, while we diagnose the real cause.
+// Cached fan-out (v2). All 10 dashboard queries memoized server-side
+// via module-scoped unstable_cache wrappers, keyed by orgId, with a 5s
+// TTL and a static 'dashboard' tag for surgical revalidateTag busts.
+// See ./lib/dashboard/cached.ts for the design notes.
 import {
-  getApprovalsInbox,
-  getAtRiskThisWeek,
-  getComplianceHeatMap,
-  getLatestDigest,
-  getLeaseSummary,
-  getNextMeeting,
-} from '@/lib/dashboard/queries'
-import {
-  getDashboardKpis,
-  getThirtyDayActivity,
-  getVendorComplianceDonut,
-  getViolationStatusDonut,
-} from '@/lib/dashboard/charts'
+  getCachedApprovalsInbox,
+  getCachedAtRiskThisWeek,
+  getCachedComplianceHeatMap,
+  getCachedDashboardKpis,
+  getCachedLatestDigest,
+  getCachedLeaseSummary,
+  getCachedNextMeeting,
+  getCachedThirtyDayActivity,
+  getCachedVendorComplianceDonut,
+  getCachedViolationStatusDonut,
+} from '@/lib/dashboard/cached'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ActivityBar } from '@/components/dashboard/ActivityBar'
 import { ApprovalsInbox } from '@/components/dashboard/ApprovalsInbox'
@@ -99,16 +94,16 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     digest,
     heatMapCells,
   ] = await Promise.all([
-    getDashboardKpis(orgId),
-    getViolationStatusDonut(orgId),
-    getVendorComplianceDonut(orgId),
-    getThirtyDayActivity(orgId),
-    getApprovalsInbox(orgId),
-    getAtRiskThisWeek(orgId),
-    getNextMeeting(orgId),
-    getLeaseSummary(orgId),
-    getLatestDigest(orgId),
-    getComplianceHeatMap(orgId),
+    getCachedDashboardKpis(orgId),
+    getCachedViolationStatusDonut(orgId),
+    getCachedVendorComplianceDonut(orgId),
+    getCachedThirtyDayActivity(orgId),
+    getCachedApprovalsInbox(orgId),
+    getCachedAtRiskThisWeek(orgId),
+    getCachedNextMeeting(orgId),
+    getCachedLeaseSummary(orgId),
+    getCachedLatestDigest(orgId),
+    getCachedComplianceHeatMap(orgId),
   ])
 
   return (
