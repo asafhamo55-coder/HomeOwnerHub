@@ -45,12 +45,16 @@ import {
 
 type AnyClient = SupabaseClient<any, any, any>
 
-// 30s is the sweet spot for HOA workloads: users hitting the dashboard
-// in quick succession during a board meeting will share warm cache, but
-// after a mutation the next dashboard load (3-5s later) refreshes via
-// revalidateTag. If the tag bust is dropped (e.g. background job
-// mutation), the worst-case stale window is 30s.
-const TTL_SEC = 30
+// 5s TTL: short enough that a user opening the dashboard always sees
+// current data, long enough to deduplicate the ~10 parallel queries
+// triggered by a single dashboard render (so we don't hammer the DB
+// for the same orgId across the Promise.all). Mutations still bust
+// via revalidateTag for surgical invalidation.
+//
+// Was 30s originally — reduced after user reported widgets showing
+// stale state after editing entities. The 30s window was too long
+// for a "refresh-on-every-visit" expectation.
+const TTL_SEC = 5
 
 function dashboardTag(orgId: string): string {
   return `dashboard:${orgId}`

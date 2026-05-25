@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { RefreshCw, Sparkles } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Alert } from '@homeowner-portal/ui'
 import { formatDistanceToNow } from 'date-fns'
@@ -10,11 +10,21 @@ interface DailyDigestCardProps {
   initialGeneratedAt: string | null
 }
 
+// If the cached digest is older than this, auto-regenerate on mount so
+// "Today's digest" stays current without the user clicking Refresh.
+// 4h is a sensible default — board members opening the dashboard in
+// the morning, midday, and evening each get a fresh digest, but we
+// don't burn LLM credits on every page navigation.
+const AUTO_REFRESH_AFTER_MS = 4 * 60 * 60 * 1000  // 4 hours
+
 export function DailyDigestCard({ initialContent, initialGeneratedAt }: DailyDigestCardProps) {
   const [content, setContent] = useState(initialContent)
   const [generatedAt, setGeneratedAt] = useState(initialGeneratedAt)
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  // Guards against double-fire if React strict mode re-mounts the
+  // effect — we only want to auto-refresh once per page open.
+  const autoRefreshFired = useRef(false)
 
   function refresh() {
     setError(null)
@@ -30,6 +40,20 @@ export function DailyDigestCard({ initialContent, initialGeneratedAt }: DailyDig
       setGeneratedAt(body.generatedAt)
     })
   }
+
+  // Auto-refresh on mount when the digest is missing or stale. Stays
+  // silent on errors (the user will see the existing content or the
+  // empty state and can click Refresh manually).
+  useEffect(() => {
+    if (autoRefreshFired.current) return
+    const isStale =
+      !generatedAt ||
+      Date.now() - new Date(generatedAt).getTime() > AUTO_REFRESH_AFTER_MS
+    if (!isStale) return
+    autoRefreshFired.current = true
+    refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const hasContent = Boolean(content?.trim())
 
