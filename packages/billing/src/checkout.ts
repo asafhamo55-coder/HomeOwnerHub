@@ -18,6 +18,12 @@ export interface CheckoutSessionInput {
   customerEmail?: string | null
   /** Extra metadata to attach to the session (e.g. case_id for per-case). */
   extraMetadata?: Record<string, string>
+  /**
+   * Quantity for per-unit-priced subscriptions (e.g. per-door HOA
+   * billing). Stripe multiplies the Price's unit_amount by this. Default
+   * is 1 — set for per-door / per-seat plans.
+   */
+  quantity?: number
 }
 
 export async function createCheckoutSession(
@@ -30,7 +36,7 @@ export async function createCheckoutSession(
 
   return stripe.checkout.sessions.create({
     mode: input.mode,
-    line_items: [{ price: input.priceId, quantity: 1 }],
+    line_items: [{ price: input.priceId, quantity: input.quantity ?? 1 }],
     success_url: `${input.successUrl}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: input.cancelUrl,
     metadata: {

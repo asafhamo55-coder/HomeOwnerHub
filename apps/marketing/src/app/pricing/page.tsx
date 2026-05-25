@@ -7,49 +7,43 @@ import { RoiCalculator } from '@/components/site/roi-calculator'
 import { cn } from '@/lib/cn'
 
 export const metadata: Metadata = {
-  title: 'Pricing — Less than a management company',
+  title: 'Pricing — $4.99 per door, $200/mo minimum',
   description:
-    'HOA from $39/mo. PM free tier or $19–$49/mo. Eviction $99–$199 per case. Six-month free pilot for HOAs.',
+    'HOA Hub: $4.99 per door per month with a $200 minimum. Pay annually and save 10%. PM free tier or $19–$49/mo. Eviction $99–$199 per case.',
 }
 
+// HOA per-door plan. One tier; cadence (monthly vs annual) drives the
+// price, with 10% off annual. Mirrors the in-app billing page and the
+// shared module at packages/billing/src/pricing.ts — keep these in sync.
 const hoaTiers = [
   {
-    name: 'HOA Starter',
-    price: '$39',
-    period: '/mo',
-    sub: '≤ 50 doors',
-    bullets: ['Onboarding Agent', 'Covenant Brain', 'Resident portal (read-only)', 'Multilingual comms', 'Daily Digest'],
-    cta: 'Pilot for free',
+    name: 'HOA Monthly',
+    price: '$4.99',
+    period: '/door · mo',
+    sub: '$200/mo minimum · billed monthly',
+    bullets: [
+      'AI Daily Digest + Compliance Heat Map',
+      'Violation wizard with Covenant Brain',
+      'Meeting Co-Pilot summaries',
+      'Resident portal — dues, ARC, governing docs',
+      'Multilingual comms + Daily Digest',
+    ],
+    cta: 'Start monthly',
   },
   {
-    name: 'HOA Standard',
-    price: '$79',
-    period: '/mo',
-    sub: '51–300 doors · Most boards',
+    name: 'HOA Annual',
+    price: '$4.49',
+    period: '/door · mo',
+    sub: '$200/mo minimum · save 10% paying yearly · 12-month commitment',
     bullets: [
-      'Everything in Starter',
-      'Violation Drafter (Bar B)',
-      'Minutes Engine (Bar B)',
-      'Reserve Live (Bar B)',
-      'Vendor Oracle',
-      'ARC Recommender',
+      'Everything in HOA Monthly',
+      'Bar B agents: Violation Drafter, Minutes Engine, Reserve Live',
+      'Vendor Oracle + ARC Recommender',
+      'Board Copilot + multi-board access controls',
+      'Priority support',
     ],
-    cta: 'Book a demo',
+    cta: 'Save 10% annually',
     featured: true,
-  },
-  {
-    name: 'HOA Plus',
-    price: '$149',
-    period: '/mo',
-    sub: '301–1,000 doors',
-    bullets: [
-      'Everything in Standard',
-      'Board Copilot (Bar B)',
-      'White-label resident portal',
-      'Compliance Heat Map',
-      'Priority support + monthly review',
-    ],
-    cta: 'Talk to us',
   },
 ]
 

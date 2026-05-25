@@ -5,10 +5,17 @@ import { Calculator, ArrowRight, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/cn'
 
+// Per-door pricing — $4.99/door/month with a $200/month minimum.
+// Keep this in sync with packages/billing/src/pricing.ts (kept literal
+// here because the marketing app doesn't depend on @homeowner-portal/billing).
+const PER_DOOR_USD = 4.99
+const MIN_MONTHLY_USD = 200
+
 function selectTier(doors: number): { name: string; monthly: number } {
-  if (doors <= 50) return { name: 'HOA Starter', monthly: 39 }
-  if (doors <= 300) return { name: 'HOA Standard', monthly: 79 }
-  return { name: 'HOA Plus', monthly: 149 }
+  const computed = doors * PER_DOOR_USD
+  const monthly = Math.max(computed, MIN_MONTHLY_USD)
+  const name = computed < MIN_MONTHLY_USD ? 'HOA Hub (minimum)' : 'HOA Hub'
+  return { name, monthly: Math.round(monthly) }
 }
 
 function fmtUsd(n: number): string {
