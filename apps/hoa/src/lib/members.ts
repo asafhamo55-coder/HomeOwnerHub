@@ -20,6 +20,35 @@ export interface MemberRow {
   role: MemberRole
   joined_at: string | null
   invited_at: string | null
+  /** First active property_residents row matched on email — null if
+   *  the member isn't linked to any home yet. */
+  linkedProperty: {
+    propertyId: string
+    address: string
+    unitNumber: string | null
+    residencyRole: string
+  } | null
+}
+
+export type ResidencyRole = 'owner' | 'tenant' | 'family_member' | 'other'
+
+export interface PropertyOption {
+  id: string
+  address: string
+  unit_number: string | null
+}
+
+/** Loads every property in the current org for the invite-form dropdown. */
+export async function listOrgProperties(): Promise<PropertyOption[]> {
+  const { org } = await requireAdmin()
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('hoa_properties')
+    .select('id, address, unit_number')
+    .eq('org_id', org.id)
+    .is('deleted_at', null)
+    .order('address')
+  return (data ?? []) as PropertyOption[]
 }
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
@@ -81,16 +110,56 @@ export async function listMembers(): Promise<MemberRow[]> {
     }
   }
 
-  return rows.map((r) => ({
-    user_id: r.user_id,
-    email: r.profile?.email ?? authBackfill.get(r.user_id) ?? null,
-    full_name: r.profile?.full_name ?? null,
-    role: ((['admin', 'board', 'resident'] as const).includes(r.role as MemberRole)
-      ? r.role
-      : 'resident') as MemberRole,
-    joined_at: r.joined_at,
-    invited_at: r.invited_at,
-  }))
+  // property_residents has no user_id column — it matches members to
+  // homes by email. Fetch all active property-resident rows for this
+  // org once, then index by lower(email) for an O(1) lookup per member.
+  // Only "active" (moved_out_at IS NULL) rows count; old residents
+  // shouldn't pollute the column.
+  const memberEmails = rows
+    .map((r) => (r.profile?.email ?? authBackfill.get(r.user_id) ?? '').toLowerCase())
+    .filter((e) => e.length > 0)
+  const linkByEmail = new Map<string, MemberRow['linkedProperty']>()
+  if (memberEmails.length > 0) {
+    const { data: links } = await admin
+      .from('property_residents')
+      .select(
+        'email, role, property:hoa_properties(id, address, unit_number)',
+      )
+      .eq('organization_id' as never, org.id)
+      .in('email' as never, memberEmails)
+      .is('moved_out_at' as never, null)
+    type LinkRow = {
+      email: string | null
+      role: string
+      property: { id: string; address: string; unit_number: string | null } | null
+    }
+    for (const link of (links ?? []) as unknown as LinkRow[]) {
+      if (!link.email || !link.property) continue
+      const key = link.email.toLowerCase()
+      if (linkByEmail.has(key)) continue   // first match wins per member
+      linkByEmail.set(key, {
+        propertyId: link.property.id,
+        address: link.property.address,
+        unitNumber: link.property.unit_number,
+        residencyRole: link.role,
+      })
+    }
+  }
+
+  return rows.map((r) => {
+    const email = r.profile?.email ?? authBackfill.get(r.user_id) ?? null
+    return {
+      user_id: r.user_id,
+      email,
+      full_name: r.profile?.full_name ?? null,
+      role: ((['admin', 'board', 'resident'] as const).includes(r.role as MemberRole)
+        ? r.role
+        : 'resident') as MemberRole,
+      joined_at: r.joined_at,
+      invited_at: r.invited_at,
+      linkedProperty: email ? (linkByEmail.get(email.toLowerCase()) ?? null) : null,
+    }
+  })
 }
 
 // ─── Invite ──────────────────────────────────────────────────────────
@@ -99,12 +168,18 @@ const InviteSchema = z.object({
   email: z.string().trim().email('Email looks invalid.'),
   role: z.enum(['admin', 'board', 'resident']),
   full_name: z.string().trim().max(200).nullable().optional(),
+  propertyId: z.string().uuid().nullable().optional(),
+  residencyRole: z.enum(['owner', 'tenant', 'family_member', 'other']).nullable().optional(),
 })
 
 export interface InviteMemberInput {
   email: string
   role: MemberRole
   fullName?: string | null
+  /** Optional — when set, also creates a property_residents row matching
+   *  email + property so the member appears under "Linked to:" in lists. */
+  propertyId?: string | null
+  residencyRole?: ResidencyRole | null
 }
 
 export async function inviteMember(
@@ -114,6 +189,8 @@ export async function inviteMember(
     email: input.email,
     role: input.role,
     full_name: input.fullName ?? null,
+    propertyId: input.propertyId ?? null,
+    residencyRole: input.residencyRole ?? null,
   })
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
@@ -165,6 +242,8 @@ export async function inviteMember(
       role: parsed.data.role,
       orgId: org.id,
       alreadyExisted: true,
+      propertyId: parsed.data.propertyId ?? null,
+      residencyRole: parsed.data.residencyRole ?? null,
     })
   }
 
@@ -175,6 +254,8 @@ export async function inviteMember(
     role: parsed.data.role,
     orgId: org.id,
     alreadyExisted: false,
+    propertyId: parsed.data.propertyId ?? null,
+    residencyRole: parsed.data.residencyRole ?? null,
   })
 }
 
@@ -185,6 +266,8 @@ async function attachToOrg(args: {
   role: MemberRole
   orgId: string
   alreadyExisted: boolean
+  propertyId?: string | null
+  residencyRole?: ResidencyRole | null
 }): Promise<ActionResult<{ userId: string; alreadyExisted: boolean }>> {
   const supabase = await getSupabaseServerClient()
 
@@ -222,7 +305,43 @@ async function attachToOrg(args: {
     if (updateErr) return { ok: false, error: updateErr.message }
   }
 
+  // Optionally link to a property. property_residents has no user_id —
+  // it matches members on email at read time. If a row already exists
+  // for this (org, property, email), skip; otherwise insert. Failure
+  // here is non-fatal — the member is still attached to the org, we
+  // just don't get the property link.
+  if (args.propertyId) {
+    const residencyRole = args.residencyRole ?? 'owner'
+    const { data: existing } = await admin
+      .from('property_residents')
+      .select('id')
+      .eq('organization_id' as never, args.orgId)
+      .eq('property_id' as never, args.propertyId)
+      .ilike('email' as never, args.email)
+      .is('moved_out_at' as never, null)
+      .maybeSingle<{ id: string }>()
+
+    if (!existing) {
+      const { error: residErr } = await admin
+        .from('property_residents')
+        .insert({
+          organization_id: args.orgId,
+          property_id: args.propertyId,
+          full_name: args.fullName ?? args.email.split('@')[0],
+          email: args.email,
+          role: residencyRole,
+          is_primary: false,
+          moved_in_at: new Date().toISOString().slice(0, 10),
+        } as never)
+      if (residErr) {
+        console.warn('[members] property_residents insert failed:', residErr.message)
+      }
+    }
+  }
+
   revalidatePath('/settings/members')
+  revalidatePath('/')
+  if (args.propertyId) revalidatePath(`/properties/${args.propertyId}`)
   return {
     ok: true,
     data: { userId: args.userId, alreadyExisted: args.alreadyExisted },

@@ -4,7 +4,12 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Send } from 'lucide-react'
 import { Button, Input, Select } from '@homeowner-portal/ui'
-import { inviteMember, type MemberRole } from '@/lib/members'
+import {
+  inviteMember,
+  type MemberRole,
+  type PropertyOption,
+  type ResidencyRole,
+} from '@/lib/members'
 
 const ROLES: Array<{ value: MemberRole; label: string; help: string }> = [
   { value: 'admin', label: 'Admin', help: 'Full control — can manage members + everything Board can do.' },
@@ -12,11 +17,20 @@ const ROLES: Array<{ value: MemberRole; label: string; help: string }> = [
   { value: 'resident', label: 'Resident', help: 'Homeowner portal — view dues, submit ARC/violation reports.' },
 ]
 
-export function InviteMemberForm() {
+const RESIDENCY_ROLES: Array<{ value: ResidencyRole; label: string }> = [
+  { value: 'owner', label: 'Owner' },
+  { value: 'tenant', label: 'Tenant' },
+  { value: 'family_member', label: 'Family member' },
+  { value: 'other', label: 'Other' },
+]
+
+export function InviteMemberForm({ properties }: { properties: PropertyOption[] }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [propertyId, setPropertyId] = useState<string>('')
+  const [residencyRole, setResidencyRole] = useState<ResidencyRole>('owner')
 
   async function handleSubmit(formData: FormData) {
     setError(null)
@@ -27,15 +41,24 @@ export function InviteMemberForm() {
     const fullName = String(formData.get('full_name') ?? '').trim() || null
 
     startTransition(async () => {
-      const result = await inviteMember({ email, role, fullName })
+      const result = await inviteMember({
+        email,
+        role,
+        fullName,
+        propertyId: propertyId || null,
+        residencyRole: propertyId ? residencyRole : null,
+      })
       if (!result.ok) {
         setError(result.error)
         return
       }
+      const linkSuffix = propertyId
+        ? ` and linked to the selected property as ${residencyRole.replace('_', ' ')}.`
+        : '.'
       setSuccess(
         result.data.alreadyExisted
-          ? `${email} was already in the system; added to this HOA as ${role}.`
-          : `Invitation sent to ${email}. They'll get a magic link to sign in.`,
+          ? `${email} was already in the system; added to this HOA as ${role}${linkSuffix.replace(/\.$/, ', linked to the selected property.')}`
+          : `Invitation sent to ${email}${linkSuffix} They'll get a magic link to sign in.`,
       )
       router.refresh()
     })
@@ -67,6 +90,41 @@ export function InviteMemberForm() {
           {ROLES.find((r) => r.value === 'resident')?.help} (Default — pick another above.)
         </p>
       </label>
+
+      <div className="space-y-3 rounded-lg border border-dashed border-border bg-muted/10 p-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted">
+          Link to a property (optional)
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block space-y-1">
+            <span className="text-sm font-medium">Property</span>
+            <Select value={propertyId} onValueChange={setPropertyId}>
+              <option value="">— none —</option>
+              {properties.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.address}{p.unit_number ? ` · ${p.unit_number}` : ''}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="block space-y-1">
+            <span className="text-sm font-medium">Residency role</span>
+            <Select
+              value={residencyRole}
+              onValueChange={(v) => setResidencyRole(v as ResidencyRole)}
+              disabled={!propertyId}
+            >
+              {RESIDENCY_ROLES.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </Select>
+          </label>
+        </div>
+        <p className="text-xs text-muted">
+          If selected, also creates a property-residents row matching this email
+          to the property. The Members list will show the link under "Linked to:".
+        </p>
+      </div>
 
       {error ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">

@@ -8,7 +8,7 @@ import {
 } from '@homeowner-portal/ui'
 import { requireAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { listMembers } from '@/lib/members'
+import { listMembers, listOrgProperties } from '@/lib/members'
 import { InviteMemberForm } from './InviteMemberForm'
 import { MemberRow } from './MemberRow'
 
@@ -22,7 +22,10 @@ export default async function MembersPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const members = await listMembers()
+  const [members, properties] = await Promise.all([
+    listMembers(),
+    listOrgProperties(),
+  ])
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -51,7 +54,7 @@ export default async function MembersPage() {
           <CardTitle>Invite a member</CardTitle>
         </CardHeader>
         <CardContent>
-          <InviteMemberForm />
+          <InviteMemberForm properties={properties} />
         </CardContent>
       </Card>
 

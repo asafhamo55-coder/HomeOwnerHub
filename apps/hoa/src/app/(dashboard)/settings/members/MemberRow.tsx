@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Trash2 } from 'lucide-react'
+import Link from 'next/link'
+import { Home, Trash2 } from 'lucide-react'
 import { Badge, Button, Select } from '@homeowner-portal/ui'
 import { changeMemberRole, removeMember, type MemberRole, type MemberRow as MemberRowType } from '@/lib/members'
 
@@ -53,6 +54,22 @@ export function MemberRow({ member, isSelf }: { member: MemberRowType; isSelf: b
         </p>
         {member.full_name && member.email ? (
           <p className="text-xs text-muted">{member.email}</p>
+        ) : null}
+        {member.linkedProperty ? (
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">
+            <Home className="h-3 w-3" aria-hidden />
+            <span>Linked to:</span>
+            <Link
+              href={`/properties/${member.linkedProperty.propertyId}`}
+              className="font-medium text-foreground underline-offset-2 hover:underline"
+            >
+              {member.linkedProperty.address}
+              {member.linkedProperty.unitNumber ? ` · ${member.linkedProperty.unitNumber}` : ''}
+            </Link>
+            <span className="text-muted/80">
+              ({member.linkedProperty.residencyRole.replace('_', ' ')})
+            </span>
+          </p>
         ) : null}
         {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
       </div>
