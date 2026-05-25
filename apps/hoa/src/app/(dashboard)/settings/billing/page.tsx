@@ -55,7 +55,7 @@ export default async function BillingPage() {
                 {formatUsd(summary.monthlyUsd)}<span className="text-sm font-normal text-muted">/mo</span>
               </p>
             </div>
-            <div className="rounded-lg border border-primary/40 bg-primary/5 p-3">
+            <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 dark:border-violet-900/40 dark:bg-violet-950/30">
               <p className="text-xs uppercase tracking-wide text-muted">If annual (save 10%)</p>
               <p className="mt-1 text-xl font-semibold text-foreground">
                 {formatUsd(summary.annualUsd)}<span className="text-sm font-normal text-muted">/yr</span>
@@ -70,6 +70,16 @@ export default async function BillingPage() {
             <p className="text-xs text-muted">
               {summary.billableDoors} doors billed (per-door price × {doors} would fall below the {formatUsd(PRICING.MIN_MONTHLY_USD)}/mo minimum).
             </p>
+          ) : null}
+
+          {plan === 'free' ? (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+              <strong>Free plan note:</strong> the free tier is offered
+              temporarily to a small set of design-partner HOAs while we
+              refine the platform. It will be retired once we exit the
+              partner phase — pick a paid plan below to lock in current
+              pricing before that.
+            </div>
           ) : null}
 
           {stripeCustomerId ? (
