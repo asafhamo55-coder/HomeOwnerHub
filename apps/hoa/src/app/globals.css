@@ -60,3 +60,22 @@
     background-color: hsl(var(--primary) / 0.2);
   }
 }
+
+/* NavigationProgress — top-of-viewport loading bar shown while a same-
+   origin link navigation is in flight. Animates a width sweep from 0 to
+   95% over ~1.5s so the user sees motion BEFORE the loading.tsx
+   skeleton appears. Capped at 95% so it doesn't claim "done" before
+   the page actually loads. */
+@keyframes nav-progress-bar {
+  0%   { transform: scaleX(0);    opacity: 1;   }
+  50%  { transform: scaleX(0.6);  opacity: 1;   }
+  100% { transform: scaleX(0.95); opacity: 0.85; }
+}
+.nav-progress-bar {
+  animation: nav-progress-bar 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  transform-origin: left;
+  width: 100%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-progress-bar { animation: none; transform: scaleX(0.8); opacity: 1; }
+}

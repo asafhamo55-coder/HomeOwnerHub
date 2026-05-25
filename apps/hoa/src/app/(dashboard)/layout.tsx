@@ -14,6 +14,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { HoaSidebar } from '@/components/layout/HoaSidebar'
 import { HoaHubSwitcher } from '@/components/layout/HoaHubSwitcher'
 import { DashboardProviders } from '@/components/layout/DashboardProviders'
+import { NavigationProgress } from '@/components/layout/NavigationProgress'
 import { PlatformAdminLink } from '@/components/layout/PlatformAdminLink'
 import { RoleSwitcherMount } from '@/components/dev/RoleSwitcherMount'
 
@@ -60,6 +61,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <DashboardProviders>
+      {/* Instant click-to-motion feedback. Renders nothing until a
+          same-origin link is clicked; bar sweeps left-to-right during
+          server fetch. Pure client component, no server-side risk. */}
+      <NavigationProgress />
       <AppShell>
         <AppShellSidebar>
           <HoaSidebar
