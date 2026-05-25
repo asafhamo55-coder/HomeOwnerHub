@@ -305,13 +305,26 @@ async function attachToOrg(args: {
     if (updateErr) return { ok: false, error: updateErr.message }
   }
 
-  // Optionally link to a property. property_residents has no user_id —
-  // it matches members on email at read time. If a row already exists
-  // for this (org, property, email), skip; otherwise insert. Failure
-  // here is non-fatal — the member is still attached to the org, we
-  // just don't get the property link.
+  // Optionally link to a property. We write to TWO tables so both data
+  // models stay in sync:
+  //
+  //   1) property_residents — legacy email-matched roster. Drives the
+  //      Members list "Linked to:" column and the property detail
+  //      "Residents" section.
+  //
+  //   2) ownerships OR tenancies — newer multi-association model with a
+  //      proper user_id FK. Drives the /resident dashboard which queries
+  //      `ownerships.owner_user_id = auth.uid()` (or tenancies). Without
+  //      this, the invited user sees "No unit linked to your account
+  //      yet" on /resident.
+  //
+  // Bridge from hoa_properties.id → units.id via the
+  // legacy_hoa_property_id column we backfilled earlier. If no matching
+  // unit exists, only the legacy row gets written and we log a warning.
   if (args.propertyId) {
     const residencyRole = args.residencyRole ?? 'owner'
+
+    // 1) property_residents — skip if a matching active row already exists
     const { data: existing } = await admin
       .from('property_residents')
       .select('id')
@@ -337,6 +350,66 @@ async function attachToOrg(args: {
         console.warn('[members] property_residents insert failed:', residErr.message)
       }
     }
+
+    // 2) ownerships / tenancies — for /resident dashboard visibility
+    const { data: unitRow } = await admin
+      .from('units')
+      .select('id')
+      .eq('organization_id', args.orgId)
+      .eq('legacy_hoa_property_id', args.propertyId)
+      .maybeSingle<{ id: string }>()
+
+    if (!unitRow) {
+      console.warn(
+        `[members] no units row for hoa_property ${args.propertyId} — /resident link skipped`,
+      )
+    } else if (residencyRole === 'owner') {
+      // Skip if an active ownership already exists for this user + unit.
+      const { data: existingOwn } = await admin
+        .from('ownerships')
+        .select('id')
+        .eq('unit_id', unitRow.id)
+        .eq('owner_user_id', args.userId)
+        .is('valid_to', null)
+        .maybeSingle<{ id: string }>()
+      if (!existingOwn) {
+        const { error: ownErr } = await admin.from('ownerships').insert({
+          organization_id: args.orgId,
+          unit_id: unitRow.id,
+          owner_user_id: args.userId,
+          owner_name: args.fullName,
+          owner_email: args.email,
+          ownership_pct: 100,
+          valid_from: new Date().toISOString().slice(0, 10),
+          source: 'member_invite',
+        } as never)
+        if (ownErr) console.warn('[members] ownership insert failed:', ownErr.message)
+      }
+    } else if (residencyRole === 'tenant') {
+      // Skip if an active tenancy already exists for this user + unit.
+      const today = new Date().toISOString().slice(0, 10)
+      const { data: existingTen } = await admin
+        .from('tenancies')
+        .select('id')
+        .eq('unit_id', unitRow.id)
+        .eq('tenant_user_id', args.userId)
+        .eq('status', 'active')
+        .maybeSingle<{ id: string }>()
+      if (!existingTen) {
+        const { error: tenErr } = await admin.from('tenancies').insert({
+          organization_id: args.orgId,
+          unit_id: unitRow.id,
+          tenant_user_id: args.userId,
+          tenant_name: args.fullName,
+          tenant_email: args.email,
+          lease_start: today,
+          status: 'active',
+        } as never)
+        if (tenErr) console.warn('[members] tenancy insert failed:', tenErr.message)
+      }
+    }
+    // family_member / other → property_residents only (no fit in
+    // ownerships or tenancies). The Members list still shows the link.
   }
 
   revalidatePath('/settings/members')
