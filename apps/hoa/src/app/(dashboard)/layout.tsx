@@ -6,8 +6,10 @@ import {
   AppShellMain,
   AppShellSidebar,
 } from '@homeowner-portal/ui'
+import { createAdminClient } from '@homeowner-portal/db'
 import { getCurrentOrg, getUserHoaOrgs, getUserHubs } from '@/lib/orgs'
 import { getEffectiveRoleInOrg } from '@/lib/role-override'
+import { isPlatformAdmin } from '@/lib/platform-admin'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { HoaSidebar } from '@/components/layout/HoaSidebar'
 import { HoaHubSwitcher } from '@/components/layout/HoaHubSwitcher'
@@ -27,7 +29,24 @@ export default async function DashboardLayout({ children }: { children: React.Re
     getUserHubs(),
     getUserHoaOrgs(),
   ])
-  if (!org) redirect('/onboarding')
+
+  // No HOA membership at all. Two cases:
+  //   1) Platform admins (no HOA org_members rows) clicking "Back to HOA Hub"
+  //      from the platform tree. Send them somewhere useful — either the
+  //      tenant they most recently previewed, or the tenants list — instead
+  //      of /onboarding which prompts them to create a NEW HOA they don't
+  //      need.
+  //   2) Brand-new users who genuinely have no org → /onboarding flow.
+  if (!org) {
+    if (await isPlatformAdmin()) {
+      const lastPreviewedOrgId = await findLastPreviewedOrgId(user.id)
+      if (lastPreviewedOrgId) {
+        redirect(`/admin/tenants/${lastPreviewedOrgId}`)
+      }
+      redirect('/admin/tenants')
+    }
+    redirect('/onboarding')
+  }
 
   // RBAC: residents land on /resident; board/admin continue here. Anyone
   // without a role in their current org gets sent back through onboarding.

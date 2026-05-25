@@ -415,6 +415,246 @@ export async function getPlatformStats(): Promise<PlatformStats> {
   }
 }
 
+// ─── Platform analytics ─────────────────────────────────────────────
+
+export interface TenantHealthRow {
+  id: string
+  name: string
+  plan: string
+  created_at: string | null
+  suspended_at: string | null
+  members: number
+  units: number
+  associations: number
+  vendors: number
+  vendors_at_risk: number
+  open_violations: number
+  ai_runs_30d: number
+  outstanding_dues_usd: number
+}
+
+export interface PlatformAnalytics {
+  total_tenants: number
+  active_tenants: number
+  suspended_tenants: number
+  total_members: number
+  total_units: number
+  total_vendors: number
+  total_violations: number
+  total_open_violations: number
+  total_ai_runs_30d: number
+  total_outstanding_dues_usd: number
+  tenants_by_plan: Array<{ plan: string; count: number }>
+  tenants_over_time: Array<{ month: string; count: number }>
+  members_over_time: Array<{ month: string; count: number }>
+  violations_by_status: Array<{ status: string; count: number }>
+  vendor_compliance: { green: number; yellow: number; red: number; missing: number }
+  feature_adoption: Array<{ feature: string; tenants_using: number; total_tenants: number }>
+  workflows_30d: Array<{ workflow_id: string; runs: number }>
+  tenant_health: TenantHealthRow[]
+}
+
+export async function getAnalyticsData(): Promise<PlatformAnalytics> {
+  await requirePlatformAdmin()
+  const db = createAdminClient()
+
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const thirtyDaysAgoIso = thirtyDaysAgo.toISOString()
+
+  const [
+    { data: orgs },
+    { data: memberRows },
+    { data: unitRows },
+    { data: vendorRows },
+    { data: violationRows },
+    { data: aiRunRows },
+    { data: duesRows },
+    { data: associationRows },
+    { data: rfpOrgs },
+    { data: arcOrgs },
+    { data: docOrgs },
+  ] = await Promise.all([
+    db.from('orgs' as never).select('id, name, plan, created_at, suspended_at'),
+    db.from('org_members').select('org_id, invited_at'),
+    db.from('units' as never).select('organization_id'),
+    db.from('vendor_compliance' as never).select('organization_id, coi_status'),
+    db.from('hoa_violations').select('org_id, status'),
+    db.from('ai_runs' as never).select('organization_id, workflow_id, created_at').gte('created_at', thirtyDaysAgoIso),
+    db.from('assessments' as never).select('organization_id, amount, status, payments(amount)').neq('status', 'paid').neq('status', 'waived').neq('status', 'written_off'),
+    db.from('associations' as never).select('organization_id'),
+    db.from('rfps' as never).select('organization_id'),
+    db.from('arc_requests' as never).select('organization_id'),
+    db.from('hoa_documents').select('org_id'),
+  ])
+
+  const orgsTyped = (orgs ?? []) as Array<{
+    id: string; name: string; plan: string; created_at: string | null; suspended_at: string | null
+  }>
+
+  const planCounts = new Map<string, number>()
+  let activeTenants = 0
+  let suspendedTenants = 0
+  for (const o of orgsTyped) {
+    planCounts.set(o.plan, (planCounts.get(o.plan) ?? 0) + 1)
+    if (o.suspended_at) suspendedTenants += 1
+    else activeTenants += 1
+  }
+
+  // Tenants created per month, last 12 months
+  const months: Array<{ month: string; count: number }> = []
+  const now = new Date()
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    months.push({ month: key, count: 0 })
+  }
+  for (const o of orgsTyped) {
+    if (!o.created_at) continue
+    const created = new Date(o.created_at)
+    const key = `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, '0')}`
+    const bucket = months.find((m) => m.month === key)
+    if (bucket) bucket.count += 1
+  }
+
+  // Members joined per month
+  const memberMonths: Array<{ month: string; count: number }> = []
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    memberMonths.push({ month: key, count: 0 })
+  }
+  for (const r of (memberRows ?? []) as Array<{ org_id: string; invited_at: string | null }>) {
+    if (!r.invited_at) continue
+    const d = new Date(r.invited_at)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const bucket = memberMonths.find((m) => m.month === key)
+    if (bucket) bucket.count += 1
+  }
+
+  // Per-org counts for tenant health table
+  const orgMemberCounts = new Map<string, number>()
+  for (const r of (memberRows ?? []) as Array<{ org_id: string }>) {
+    orgMemberCounts.set(r.org_id, (orgMemberCounts.get(r.org_id) ?? 0) + 1)
+  }
+
+  const orgUnitCounts = new Map<string, number>()
+  for (const r of (unitRows ?? []) as unknown as Array<{ organization_id: string }>) {
+    orgUnitCounts.set(r.organization_id, (orgUnitCounts.get(r.organization_id) ?? 0) + 1)
+  }
+
+  const orgAssocCounts = new Map<string, number>()
+  for (const r of (associationRows ?? []) as unknown as Array<{ organization_id: string }>) {
+    orgAssocCounts.set(r.organization_id, (orgAssocCounts.get(r.organization_id) ?? 0) + 1)
+  }
+
+  const orgVendorCounts = new Map<string, number>()
+  const orgVendorAtRisk = new Map<string, number>()
+  const complianceTotals = { green: 0, yellow: 0, red: 0, missing: 0 }
+  for (const r of (vendorRows ?? []) as unknown as Array<{ organization_id: string; coi_status: string | null }>) {
+    orgVendorCounts.set(r.organization_id, (orgVendorCounts.get(r.organization_id) ?? 0) + 1)
+    const s = r.coi_status ?? 'missing'
+    if (s === 'green') complianceTotals.green += 1
+    else if (s === 'yellow') { complianceTotals.yellow += 1; orgVendorAtRisk.set(r.organization_id, (orgVendorAtRisk.get(r.organization_id) ?? 0) + 1) }
+    else if (s === 'red') { complianceTotals.red += 1; orgVendorAtRisk.set(r.organization_id, (orgVendorAtRisk.get(r.organization_id) ?? 0) + 1) }
+    else complianceTotals.missing += 1
+  }
+
+  // Violations by status
+  const violationStatusCounts = new Map<string, number>()
+  const orgOpenViolations = new Map<string, number>()
+  let totalOpenViolations = 0
+  for (const r of (violationRows ?? []) as Array<{ org_id: string; status: string }>) {
+    violationStatusCounts.set(r.status, (violationStatusCounts.get(r.status) ?? 0) + 1)
+    if (r.status === 'open' || r.status === 'notice_sent') {
+      totalOpenViolations += 1
+      orgOpenViolations.set(r.org_id, (orgOpenViolations.get(r.org_id) ?? 0) + 1)
+    }
+  }
+
+  // AI runs per org (30d)
+  const orgAiRuns = new Map<string, number>()
+  const workflowCounts = new Map<string, number>()
+  for (const r of (aiRunRows ?? []) as unknown as Array<{ organization_id: string; workflow_id: string }>) {
+    orgAiRuns.set(r.organization_id, (orgAiRuns.get(r.organization_id) ?? 0) + 1)
+    workflowCounts.set(r.workflow_id, (workflowCounts.get(r.workflow_id) ?? 0) + 1)
+  }
+
+  // Outstanding dues per org
+  const orgDues = new Map<string, number>()
+  let totalDues = 0
+  for (const r of (duesRows ?? []) as unknown as Array<{
+    organization_id: string; amount: number | string | null; status: string | null; payments: Array<{ amount: number | string }>
+  }>) {
+    const paid = (r.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
+    const remainder = Math.max(Number(r.amount ?? 0) - paid, 0)
+    if (remainder > 0) {
+      totalDues += remainder
+      orgDues.set(r.organization_id, (orgDues.get(r.organization_id) ?? 0) + remainder)
+    }
+  }
+
+  // Feature adoption: count how many tenants have at least one row in each feature table
+  const rfpOrgSet = new Set((rfpOrgs ?? []).map((r: any) => r.organization_id).filter(Boolean))
+  const arcOrgSet = new Set((arcOrgs ?? []).map((r: any) => r.organization_id).filter(Boolean))
+  const docOrgSet = new Set((docOrgs ?? []).map((r: any) => r.org_id).filter(Boolean))
+  const violOrgSet = new Set((violationRows ?? []).map((r: any) => r.org_id).filter(Boolean))
+  const vendorOrgSet = new Set((vendorRows ?? []).map((r: any) => r.organization_id).filter(Boolean))
+  const aiOrgSet = new Set((aiRunRows ?? []).map((r: any) => r.organization_id).filter(Boolean))
+
+  const totalT = orgsTyped.length
+  const featureAdoption = [
+    { feature: 'Violations', tenants_using: violOrgSet.size, total_tenants: totalT },
+    { feature: 'Vendor management', tenants_using: vendorOrgSet.size, total_tenants: totalT },
+    { feature: 'Documents', tenants_using: docOrgSet.size, total_tenants: totalT },
+    { feature: 'ARC requests', tenants_using: arcOrgSet.size, total_tenants: totalT },
+    { feature: 'Procurement (RFPs)', tenants_using: rfpOrgSet.size, total_tenants: totalT },
+    { feature: 'AI workflows', tenants_using: aiOrgSet.size, total_tenants: totalT },
+  ].sort((a, b) => b.tenants_using - a.tenants_using)
+
+  // Build tenant health table
+  const tenantHealth: TenantHealthRow[] = orgsTyped.map((o) => ({
+    id: o.id,
+    name: o.name,
+    plan: o.plan,
+    created_at: o.created_at,
+    suspended_at: o.suspended_at,
+    members: orgMemberCounts.get(o.id) ?? 0,
+    units: orgUnitCounts.get(o.id) ?? 0,
+    associations: orgAssocCounts.get(o.id) ?? 0,
+    vendors: orgVendorCounts.get(o.id) ?? 0,
+    vendors_at_risk: orgVendorAtRisk.get(o.id) ?? 0,
+    open_violations: orgOpenViolations.get(o.id) ?? 0,
+    ai_runs_30d: orgAiRuns.get(o.id) ?? 0,
+    outstanding_dues_usd: orgDues.get(o.id) ?? 0,
+  }))
+
+  return {
+    total_tenants: totalT,
+    active_tenants: activeTenants,
+    suspended_tenants: suspendedTenants,
+    total_members: (memberRows ?? []).length,
+    total_units: (unitRows ?? []).length,
+    total_vendors: orgVendorCounts.size > 0 ? Array.from(orgVendorCounts.values()).reduce((a, b) => a + b, 0) : 0,
+    total_violations: (violationRows ?? []).length,
+    total_open_violations: totalOpenViolations,
+    total_ai_runs_30d: (aiRunRows ?? []).length,
+    total_outstanding_dues_usd: totalDues,
+    tenants_by_plan: Array.from(planCounts.entries()).map(([plan, count]) => ({ plan, count })),
+    tenants_over_time: months,
+    members_over_time: memberMonths,
+    violations_by_status: Array.from(violationStatusCounts.entries())
+      .map(([status, count]) => ({ status, count }))
+      .sort((a, b) => b.count - a.count),
+    vendor_compliance: complianceTotals,
+    feature_adoption: featureAdoption,
+    workflows_30d: Array.from(workflowCounts.entries())
+      .map(([workflow_id, runs]) => ({ workflow_id, runs }))
+      .sort((a, b) => b.runs - a.runs),
+    tenant_health: tenantHealth,
+  }
+}
+
 // ─── Tenant preview (read-only "view as tenant") ────────────────────
 // Returns chart-shaped data for a single tenant via service-role.
 // Mirrors the shape of lib/dashboard/charts.ts so the preview page can
