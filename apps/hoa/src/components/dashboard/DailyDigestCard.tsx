@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { RefreshCw, Sparkles } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Alert } from '@homeowner-portal/ui'
 import { formatDistanceToNow } from 'date-fns'
@@ -10,25 +10,19 @@ interface DailyDigestCardProps {
   initialGeneratedAt: string | null
 }
 
-// If the cached digest is older than this, auto-regenerate on mount so
-// "Today's digest" stays current without the user clicking Refresh.
-// 4h is a sensible default — board members opening the dashboard in
-// the morning, midday, and evening each get a fresh digest, but we
-// don't burn LLM credits on every page navigation.
 const AUTO_REFRESH_AFTER_MS = 4 * 60 * 60 * 1000  // 4 hours
 
 export function DailyDigestCard({ initialContent, initialGeneratedAt }: DailyDigestCardProps) {
   const [content, setContent] = useState(initialContent)
   const [generatedAt, setGeneratedAt] = useState(initialGeneratedAt)
   const [error, setError] = useState<string | null>(null)
-  const [pending, startTransition] = useTransition()
-  // Guards against double-fire if React strict mode re-mounts the
-  // effect — we only want to auto-refresh once per page open.
+  const [loading, setLoading] = useState(false)
   const autoRefreshFired = useRef(false)
 
-  function refresh() {
+  const refresh = useCallback(async () => {
     setError(null)
-    startTransition(async () => {
+    setLoading(true)
+    try {
       const res = await fetch('/api/ai/daily-digest', { method: 'POST' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
@@ -38,12 +32,13 @@ export function DailyDigestCard({ initialContent, initialGeneratedAt }: DailyDig
       const body = await res.json()
       setContent(body.content)
       setGeneratedAt(body.generatedAt)
-    })
-  }
+    } catch {
+      setError('Could not reach the AI service. Try again shortly.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-  // Auto-refresh on mount when the digest is missing or stale. Stays
-  // silent on errors (the user will see the existing content or the
-  // empty state and can click Refresh manually).
   useEffect(() => {
     if (autoRefreshFired.current) return
     const isStale =
@@ -52,8 +47,7 @@ export function DailyDigestCard({ initialContent, initialGeneratedAt }: DailyDig
     if (!isStale) return
     autoRefreshFired.current = true
     refresh()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [generatedAt, refresh])
 
   const hasContent = Boolean(content?.trim())
 
@@ -70,11 +64,11 @@ export function DailyDigestCard({ initialContent, initialGeneratedAt }: DailyDig
           variant="ghost"
           size="sm"
           onClick={refresh}
-          loading={pending}
+          disabled={loading}
           aria-label="Refresh digest"
         >
-          <RefreshCw className="h-4 w-4" />
-          <span className="hidden sm:inline">Refresh</span>
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">{loading ? 'Generating…' : 'Refresh'}</span>
         </Button>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -93,10 +87,12 @@ export function DailyDigestCard({ initialContent, initialGeneratedAt }: DailyDig
               </li>
             ))}
           </ul>
+        ) : loading ? (
+          <p className="text-sm text-muted">Generating your morning briefing…</p>
         ) : (
           <p className="text-sm text-muted">
             No digest yet. Click <span className="font-medium text-foreground">Refresh</span> to
-            generate one — or wait for the 7am scheduled run once Inngest is wired up.
+            generate one.
           </p>
         )}
 
@@ -111,16 +107,6 @@ export function DailyDigestCard({ initialContent, initialGeneratedAt }: DailyDig
   )
 }
 
-/**
- * Splits LLM-generated digest content into discrete bullet items.
- *   1. Split on hard line breaks
- *   2. Strip a leading bullet glyph if the LLM already wrote them
- *   3. Discard empty / pure-whitespace lines
- *
- * If the text has no line breaks (single paragraph), tries to split on
- * sentence boundaries (". ") as a fallback so the user gets *some*
- * structure rather than one giant bullet.
- */
 function parseToBullets(text: string): string[] {
   const byLine = text
     .split(/\r?\n+/)
@@ -129,7 +115,6 @@ function parseToBullets(text: string): string[] {
 
   if (byLine.length > 1) return byLine
 
-  // Single-blob fallback: split on sentence endings, keep punctuation.
   return text
     .split(/(?<=[.!?])\s+/)
     .map((s) => s.trim())
