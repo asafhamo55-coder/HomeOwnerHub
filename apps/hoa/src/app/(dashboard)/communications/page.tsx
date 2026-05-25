@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { CheckCheck, Eye, Mail, MessageSquare, Plus, Reply, Send } from 'lucide-react'
-import { format } from 'date-fns'
 import { Badge, Button, Card, EmptyState, Select } from '@homeowner-portal/ui'
+import { LocalDateTime } from '@/components/ui/LocalDateTime'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { listCommunications } from '@/lib/communications/queries'
 
@@ -191,11 +191,18 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
                     <p className="text-xs text-muted">
                       {CATEGORY_LABEL[c.category] ?? c.category}
                       {c.audience_summary ? ` · ${c.audience_summary}` : ''}
-                      {c.sent_at
-                        ? ` · sent ${format(new Date(c.sent_at), 'PP p')}`
-                        : c.scheduled_for
-                          ? ` · scheduled ${format(new Date(c.scheduled_for), 'PP p')}`
-                          : ` · ${format(new Date(c.created_at), 'PP')}`}
+                      {' · '}
+                      {c.sent_at ? (
+                        <LocalDateTime iso={c.sent_at} variant="short" prefix="sent" />
+                      ) : c.scheduled_for ? (
+                        <LocalDateTime
+                          iso={c.scheduled_for}
+                          variant="short"
+                          prefix="scheduled"
+                        />
+                      ) : (
+                        <LocalDateTime iso={c.created_at} variant="date-only" />
+                      )}
                     </p>
                     {c.totalRecipients > 0 ? (
                       <p className="mt-1 text-xs text-muted">

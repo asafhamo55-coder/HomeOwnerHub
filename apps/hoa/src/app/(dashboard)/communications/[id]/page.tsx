@@ -10,8 +10,8 @@ import {
   Reply,
   Sparkles,
 } from 'lucide-react'
-import { format } from 'date-fns'
 import { Badge, Card } from '@homeowner-portal/ui'
+import { LocalDateTime } from '@/components/ui/LocalDateTime'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getCommunication } from '@/lib/communications/queries'
 import { CommunicationActions } from './CommunicationActions'
@@ -73,11 +73,21 @@ export default async function CommunicationDetailPage({ params }: PageProps) {
         </div>
         <p className="text-xs text-muted">
           {comm.category} ·{' '}
-          {comm.sent_at
-            ? `sent ${format(new Date(comm.sent_at), 'PPP p')}`
-            : comm.scheduled_for
-              ? `scheduled ${format(new Date(comm.scheduled_for), 'PPP p')}`
-              : `created ${format(new Date(comm.created_at), 'PPP p')}`}
+          {comm.sent_at ? (
+            <LocalDateTime iso={comm.sent_at} variant="long" prefix="sent" />
+          ) : comm.scheduled_for ? (
+            <LocalDateTime
+              iso={comm.scheduled_for}
+              variant="long"
+              prefix="scheduled"
+            />
+          ) : (
+            <LocalDateTime
+              iso={comm.created_at}
+              variant="long"
+              prefix="created"
+            />
+          )}
           {comm.audience_summary ? ` · ${comm.audience_summary}` : ''}
           {comm.template ? ` · template: ${comm.template.name}` : ''}
         </p>
@@ -201,7 +211,7 @@ export default async function CommunicationDetailPage({ params }: PageProps) {
                       {r.from_email ?? r.from_phone ?? 'Anonymous'}
                     </p>
                     <p className="text-xs text-muted">
-                      {format(new Date(r.received_at), 'PPP p')}
+                      <LocalDateTime iso={r.received_at} variant="long" />
                       {r.read_at ? null : (
                         <span className="ml-2 inline-flex items-center gap-1 text-primary">
                           <Circle className="h-2 w-2 fill-current" />
@@ -269,7 +279,11 @@ function Timeline({ events }: { events: { label: string; at: string }[] }) {
           <Clock className="h-3 w-3" />
           <span>
             {e.label}{' '}
-            <span className="text-muted">{format(new Date(e.at), 'PP p')}</span>
+            <LocalDateTime
+              iso={e.at}
+              variant="short"
+              className="text-muted"
+            />
           </span>
         </span>
       ))}
