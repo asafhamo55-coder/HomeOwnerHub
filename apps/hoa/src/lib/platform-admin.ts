@@ -146,7 +146,7 @@ export async function listTenants(): Promise<TenantRow[]> {
 
   const { data: orgs } = await db
     .from('orgs' as never)
-    .select('id, name, hub_type, plan, doors_count, organization_type, created_at, suspended_at, archived_at')
+    .select('*')
     .order('created_at', { ascending: false })
 
   if (!orgs || orgs.length === 0) return []
@@ -170,9 +170,10 @@ export async function listTenants(): Promise<TenantRow[]> {
     organization_type: string | null
     created_at: string | null
     suspended_at: string | null
-    archived_at: string | null
+    archived_at?: string | null
   }>).map((o) => ({
     ...o,
+    archived_at: o.archived_at ?? null,
     member_count: memberCounts.get(o.id) ?? 0,
     association_count: associationCounts.get(o.id) ?? 0,
     units_count: unitCounts.get(o.id) ?? 0,
@@ -205,7 +206,7 @@ export async function getTenantDetail(orgId: string): Promise<TenantStatistics |
 
   const { data: org } = await db
     .from('orgs' as never)
-    .select('id, name, hub_type, plan, doors_count, organization_type, created_at, suspended_at, archived_at')
+    .select('*')
     .eq('id', orgId)
     .maybeSingle<{
       id: string
@@ -216,7 +217,7 @@ export async function getTenantDetail(orgId: string): Promise<TenantStatistics |
       organization_type: string | null
       created_at: string | null
       suspended_at: string | null
-      archived_at: string | null
+      archived_at?: string | null
     }>()
 
   if (!org) return null
@@ -318,7 +319,7 @@ export async function getTenantDetail(orgId: string): Promise<TenantStatistics |
   }
 
   return {
-    org,
+    org: { ...org, archived_at: org.archived_at ?? null },
     members: memberCounts,
     units: units ?? 0,
     associations: associations ?? 0,
@@ -1037,9 +1038,9 @@ export async function archiveTenant(
 
   const { data: org } = await db
     .from('orgs' as never)
-    .select('archived_at')
+    .select('*')
     .eq('id', orgId)
-    .maybeSingle<{ archived_at: string | null }>()
+    .maybeSingle<{ archived_at?: string | null }>()
   if (!org) return { ok: false, error: 'Tenant not found.' }
   if (org.archived_at) return { ok: false, error: 'Tenant is already archived.' }
 
@@ -1062,9 +1063,9 @@ export async function restoreTenant(orgId: string): Promise<ActionResult> {
 
   const { data: org } = await db
     .from('orgs' as never)
-    .select('archived_at')
+    .select('*')
     .eq('id', orgId)
-    .maybeSingle<{ archived_at: string | null }>()
+    .maybeSingle<{ archived_at?: string | null }>()
   if (!org) return { ok: false, error: 'Tenant not found.' }
   if (!org.archived_at) return { ok: false, error: 'Tenant is not archived.' }
 
