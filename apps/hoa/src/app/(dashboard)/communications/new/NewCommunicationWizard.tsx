@@ -78,7 +78,7 @@ const CATEGORY_LABEL: Record<(typeof CATEGORIES)[number], string> = {
   custom: 'Custom',
 }
 
-const CHANNELS = ['email', 'portal'] as const
+const CHANNELS = ['email', 'sms', 'portal'] as const
 
 export function NewCommunicationWizard({
   templates,

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
 import { sendEmail } from '@/lib/email'
+import { sendSms, htmlToSmsBody } from '@/lib/sms'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { resolveAudience, type AudienceDefinition } from './audience'
@@ -191,7 +192,7 @@ export async function sendCommunication(
   const { data: insertedRecipients, error: recErr } = await supabase
     .from('communication_recipients')
     .insert(recipientInserts)
-    .select('id, channel, email, recipient_name, unit_id')
+    .select('id, channel, email, phone, recipient_name, unit_id')
   if (recErr || !insertedRecipients) {
     await supabase
       .from('communications')
@@ -260,6 +261,33 @@ export async function sendCommunication(
         await markFailed(supabase, recipient.id, result.error)
         failedCount += 1
       }
+    } else if (recipient.channel === 'sms') {
+      // SMS via Twilio. Phone is checked at recipient-row creation
+      // (see step 3 above) so we only reach here with a phone present.
+      const phone = recipient.phone
+      if (!phone) {
+        await markFailed(supabase, recipient.id, 'no phone number')
+        skippedCount += 1
+        continue
+      }
+      // SMS body is plain text — squash the HTML body. The subject is
+      // prefixed for context since SMS has no separate subject line.
+      const smsBody = `${subject}\n\n${text ?? htmlToSmsBody(html)}`
+      const result = await sendSms({ to: phone, body: smsBody })
+      if (result.ok) {
+        await supabase
+          .from('communication_recipients')
+          .update({
+            delivery_status: 'sent',
+            sent_at: new Date().toISOString(),
+            external_id: result.messageSid,
+          })
+          .eq('id', recipient.id)
+        sentCount += 1
+      } else {
+        await markFailed(supabase, recipient.id, result.error)
+        failedCount += 1
+      }
     } else if (recipient.channel === 'portal') {
       // No external send — the portal reads from communication_recipients
       // to show unread comms to the resident.
@@ -272,7 +300,7 @@ export async function sendCommunication(
         .eq('id', recipient.id)
       sentCount += 1
     } else {
-      // SMS / mail not yet wired — skip with a clear marker.
+      // 'mail' (physical) not yet wired — skip with a clear marker.
       await markFailed(
         supabase,
         recipient.id,
