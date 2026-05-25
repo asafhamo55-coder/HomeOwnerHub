@@ -21,8 +21,14 @@ const ANNUAL_LOOKUP_KEY = 'hoa_per_door_annual'
 const MONTHLY_UNIT_CENTS = 499  // $4.99
 const ANNUAL_UNIT_CENTS = 5388  // $53.88 ($4.99 × 12 × 0.9, the 10% discount baked in)
 
-export async function POST(): Promise<Response> {
-  if (!(await isPlatformAdmin())) {
+export async function POST(request: Request): Promise<Response> {
+  // Two auth paths so this route works both from the browser (session
+  // cookies) and from curl/CI (bearer token = CRON_SECRET).
+  const bearer = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim()
+  const cronSecret = process.env.CRON_SECRET
+  const bearerOk = bearer && cronSecret && bearer === cronSecret
+  const sessionOk = bearerOk ? false : await isPlatformAdmin()
+  if (!bearerOk && !sessionOk) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
   if (!isStripeConfigured()) {
