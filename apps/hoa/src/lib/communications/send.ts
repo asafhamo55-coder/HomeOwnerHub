@@ -216,18 +216,30 @@ export async function sendCommunication(
     }
   }
 
-  // 5. Send-now: per-recipient delivery. Email goes through Resend;
-  //    portal just marks 'sent' (the resident sees it in their inbox);
-  //    mail/sms left for Phase 4.
-  let sentCount = 0
-  let failedCount = 0
-  let skippedCount = 0
+  // 5. Send-now: per-recipient delivery, parallelized via Promise.all
+  //    so a 20-recipient blast finishes in ~500ms wall-clock (slowest
+  //    single provider call) instead of N × 500ms sequential. Each
+  //    recipient resolves to a 'sent' | 'failed' | 'skipped' outcome
+  //    independently — a single bad address never blocks the others.
+  type Outcome = 'sent' | 'failed' | 'skipped'
+  type RecipientRow = {
+    id: string
+    channel: string
+    email: string | null
+    phone: string | null
+    recipient_name: string | null
+    unit_id: string | null
+  }
+  const recipientRows: RecipientRow[] = insertedRecipients as RecipientRow[]
+  // Capture assocRow.name in a const so the async closure doesn't lose
+  // the prior null-narrowing across the await boundary.
+  const associationName = assocRow.name
 
-  for (const recipient of insertedRecipients) {
+  async function deliverOne(recipient: RecipientRow): Promise<Outcome> {
     const bag = {
       owner_name: recipient.recipient_name ?? 'Resident',
       recipient_name: recipient.recipient_name ?? 'Resident',
-      association_name: assocRow.name,
+      association_name: associationName,
       unit_id: recipient.unit_id ?? '',
     }
     const subject = renderTemplate(value.subject, bag).rendered
@@ -239,15 +251,9 @@ export async function sendCommunication(
     if (recipient.channel === 'email') {
       if (!recipient.email) {
         await markFailed(supabase, recipient.id, 'no email address')
-        skippedCount += 1
-        continue
+        return 'skipped'
       }
-      const result = await sendEmail({
-        to: recipient.email,
-        subject,
-        html,
-        text,
-      })
+      const result = await sendEmail({ to: recipient.email, subject, html, text })
       if (result.ok) {
         await supabase
           .from('communication_recipients')
@@ -257,19 +263,17 @@ export async function sendCommunication(
             external_id: result.messageId,
           })
           .eq('id', recipient.id)
-        sentCount += 1
-      } else {
-        await markFailed(supabase, recipient.id, result.error)
-        failedCount += 1
+        return 'sent'
       }
-    } else if (recipient.channel === 'sms') {
-      // SMS via Twilio. Phone is checked at recipient-row creation
-      // (see step 3 above) so we only reach here with a phone present.
+      await markFailed(supabase, recipient.id, result.error)
+      return 'failed'
+    }
+
+    if (recipient.channel === 'sms') {
       const phone = recipient.phone
       if (!phone) {
         await markFailed(supabase, recipient.id, 'no phone number')
-        skippedCount += 1
-        continue
+        return 'skipped'
       }
       // SMS body is plain text — squash the HTML body. The subject is
       // prefixed for context since SMS has no separate subject line.
@@ -284,12 +288,13 @@ export async function sendCommunication(
             external_id: result.messageSid,
           })
           .eq('id', recipient.id)
-        sentCount += 1
-      } else {
-        await markFailed(supabase, recipient.id, result.error)
-        failedCount += 1
+        return 'sent'
       }
-    } else if (recipient.channel === 'portal') {
+      await markFailed(supabase, recipient.id, result.error)
+      return 'failed'
+    }
+
+    if (recipient.channel === 'portal') {
       // No external send — the portal reads from communication_recipients
       // to show unread comms to the resident.
       await supabase
@@ -299,16 +304,26 @@ export async function sendCommunication(
           sent_at: new Date().toISOString(),
         })
         .eq('id', recipient.id)
-      sentCount += 1
-    } else {
-      // 'mail' (physical) not yet wired — skip with a clear marker.
-      await markFailed(
-        supabase,
-        recipient.id,
-        `${recipient.channel} channel not yet implemented`,
-      )
-      skippedCount += 1
+      return 'sent'
     }
+
+    // 'mail' (physical) not yet wired — skip with a clear marker.
+    await markFailed(
+      supabase,
+      recipient.id,
+      `${recipient.channel} channel not yet implemented`,
+    )
+    return 'skipped'
+  }
+
+  const outcomes = await Promise.all(recipientRows.map(deliverOne))
+  let sentCount = 0
+  let failedCount = 0
+  let skippedCount = 0
+  for (const o of outcomes) {
+    if (o === 'sent') sentCount += 1
+    else if (o === 'failed') failedCount += 1
+    else skippedCount += 1
   }
 
   // 6. Finalize the parent row. 'failed' only when EVERY recipient failed;

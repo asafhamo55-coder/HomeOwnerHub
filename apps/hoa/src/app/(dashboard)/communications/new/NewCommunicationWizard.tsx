@@ -290,11 +290,10 @@ export function NewCommunicationWizard({
           (result.failedCount > 0 ? `, ${result.failedCount} failed` : '') +
           '.'
       setSuccess(msg)
-      // Bounce to the detail view after a half-second so the user sees the toast.
-      setTimeout(() => {
-        router.push(`/communications/${result.communicationId}`)
-        router.refresh()
-      }, 600)
+      // Redirect immediately — the detail page shows the same success
+      // info plus per-recipient delivery status. No artificial wait.
+      router.push(`/communications/${result.communicationId}`)
+      router.refresh()
     })
   }
 
