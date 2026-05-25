@@ -34,6 +34,7 @@ import { TenureSelector } from './TenureSelector'
 import { AddResidentForm } from './AddResidentForm'
 import { PropertyActions } from './PropertyActions'
 import { ResidentActions } from './ResidentActions'
+import { ResidentRow as ResidentRowClient } from './ResidentRow'
 
 interface PropertyDetailRow {
   id: string
@@ -211,7 +212,7 @@ export default async function PropertyDetailPage({
           <Card>
             <ul className="divide-y divide-border">
               {residents.map((r) => (
-                <ResidentRow key={r.id} resident={r} />
+                <ResidentRowClient key={r.id} resident={r} />
               ))}
             </ul>
           </Card>
