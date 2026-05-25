@@ -6,7 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@homeowner-portal/ui'
-import { requireAdmin } from '@/lib/auth'
+import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { listMembers, listOrgProperties } from '@/lib/members'
 import { InviteMemberForm } from './InviteMemberForm'
@@ -15,7 +15,7 @@ import { MemberRow } from './MemberRow'
 export const metadata = { title: 'Members' }
 
 export default async function MembersPage() {
-  await requireAdmin()
+  await requireBoardOrAdmin()
 
   const supabase = await getSupabaseServerClient()
   const {
