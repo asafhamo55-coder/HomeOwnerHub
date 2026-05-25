@@ -7,6 +7,7 @@ import {
   createPortalSession,
   isStripeConfigured,
   billableDoors,
+  getStripe,
 } from '@homeowner-portal/billing'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -17,15 +18,49 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 // per-door price. The minimum-monthly floor is enforced app-side via
 // billableDoors() (which never returns less than the implied minimum).
 //
-// Falls back to the legacy STRIPE_PRICE_STANDARD env var if the new
-// vars aren't set yet — keeps existing deploys working during the
-// pricing migration.
+// Price resolution order (tries each until found):
+//   1. STRIPE_PRICE_PER_DOOR_{MONTHLY,ANNUAL} env vars (explicit override)
+//   2. Stripe Price with the standardized lookup_key — populated when
+//      the operator hits /api/admin/setup-stripe-pricing once
+//   3. Legacy STRIPE_PRICE_STANDARD (only for monthly — backwards-compat)
 const HOA_CADENCES = ['monthly', 'annual'] as const
 type HoaCadence = (typeof HOA_CADENCES)[number]
 
-const PRICE_FOR_CADENCE: Record<HoaCadence, string | undefined> = {
-  monthly: process.env.STRIPE_PRICE_PER_DOOR_MONTHLY ?? process.env.STRIPE_PRICE_STANDARD,
-  annual: process.env.STRIPE_PRICE_PER_DOOR_ANNUAL,
+const LOOKUP_KEY_FOR_CADENCE: Record<HoaCadence, string> = {
+  monthly: 'hoa_per_door_monthly',
+  annual: 'hoa_per_door_annual',
+}
+
+// In-memory cache. Process-scoped (good enough — Stripe Price IDs
+// don't change at runtime, and lambdas get fresh memory anyway).
+const priceIdCache: Partial<Record<HoaCadence, string>> = {}
+
+async function resolvePriceId(cadence: HoaCadence): Promise<string | null> {
+  // 1. Explicit env override wins.
+  const fromEnv =
+    cadence === 'monthly'
+      ? process.env.STRIPE_PRICE_PER_DOOR_MONTHLY ?? process.env.STRIPE_PRICE_STANDARD
+      : process.env.STRIPE_PRICE_PER_DOOR_ANNUAL
+  if (fromEnv) return fromEnv
+
+  // 2. In-memory cache (avoids hitting Stripe API on every checkout).
+  if (priceIdCache[cadence]) return priceIdCache[cadence]!
+
+  // 3. Look up by stable key set during /api/admin/setup-stripe-pricing.
+  const stripe = getStripe()
+  if (!stripe) return null
+  try {
+    const search = await stripe.prices.search({
+      query: `lookup_key:'${LOOKUP_KEY_FOR_CADENCE[cadence]}' AND active:'true'`,
+      limit: 1,
+    })
+    const id = search.data[0]?.id ?? null
+    if (id) priceIdCache[cadence] = id
+    return id
+  } catch (err) {
+    console.warn(`[billing] price lookup failed for ${cadence}:`, err)
+    return null
+  }
 }
 
 const CadenceSchema = z.enum(HOA_CADENCES)
@@ -45,10 +80,10 @@ export async function startHoaCheckout(
   const parsed = CadenceSchema.safeParse(formData.get('plan'))
   if (!parsed.success) return { error: 'Pick a billing cadence first.' }
 
-  const priceId = PRICE_FOR_CADENCE[parsed.data]
+  const priceId = await resolvePriceId(parsed.data)
   if (!priceId) {
     return {
-      error: `Stripe price for "${parsed.data}" billing is not configured. Set STRIPE_PRICE_PER_DOOR_${parsed.data.toUpperCase()} in Vercel env vars.`,
+      error: `Stripe price for "${parsed.data}" billing is not configured. Hit /api/admin/setup-stripe-pricing once to create it, or set STRIPE_PRICE_PER_DOOR_${parsed.data.toUpperCase()} in Vercel env vars.`,
     }
   }
 
