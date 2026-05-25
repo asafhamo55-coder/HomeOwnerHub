@@ -30,6 +30,7 @@ export interface TenantRow {
   units_count: number
   last_activity_at: string | null
   suspended_at: string | null
+  archived_at: string | null
 }
 
 export interface TenantStatistics {
@@ -42,6 +43,7 @@ export interface TenantStatistics {
     organization_type: string | null
     created_at: string | null
     suspended_at: string | null
+    archived_at: string | null
   }
   members: { admin: number; board: number; resident: number; total: number }
   units: number
@@ -144,7 +146,7 @@ export async function listTenants(): Promise<TenantRow[]> {
 
   const { data: orgs } = await db
     .from('orgs' as never)
-    .select('id, name, hub_type, plan, doors_count, organization_type, created_at, suspended_at')
+    .select('id, name, hub_type, plan, doors_count, organization_type, created_at, suspended_at, archived_at')
     .order('created_at', { ascending: false })
 
   if (!orgs || orgs.length === 0) return []
@@ -168,6 +170,7 @@ export async function listTenants(): Promise<TenantRow[]> {
     organization_type: string | null
     created_at: string | null
     suspended_at: string | null
+    archived_at: string | null
   }>).map((o) => ({
     ...o,
     member_count: memberCounts.get(o.id) ?? 0,
@@ -202,7 +205,7 @@ export async function getTenantDetail(orgId: string): Promise<TenantStatistics |
 
   const { data: org } = await db
     .from('orgs' as never)
-    .select('id, name, hub_type, plan, doors_count, organization_type, created_at, suspended_at')
+    .select('id, name, hub_type, plan, doors_count, organization_type, created_at, suspended_at, archived_at')
     .eq('id', orgId)
     .maybeSingle<{
       id: string
@@ -213,6 +216,7 @@ export async function getTenantDetail(orgId: string): Promise<TenantStatistics |
       organization_type: string | null
       created_at: string | null
       suspended_at: string | null
+      archived_at: string | null
     }>()
 
   if (!org) return null
@@ -1021,6 +1025,59 @@ export async function resumeTenant(orgId: string): Promise<ActionResult> {
   await writeAudit(db, userId, 'tenant.resume', orgId, null)
   revalidatePath(`/admin/tenants/${orgId}`)
   revalidatePath('/admin/tenants')
+  return { ok: true }
+}
+
+export async function archiveTenant(
+  orgId: string,
+  reason?: string | null,
+): Promise<ActionResult> {
+  const { userId } = await requirePlatformAdmin()
+  const db = createAdminClient()
+
+  const { data: org } = await db
+    .from('orgs' as never)
+    .select('archived_at')
+    .eq('id', orgId)
+    .maybeSingle<{ archived_at: string | null }>()
+  if (!org) return { ok: false, error: 'Tenant not found.' }
+  if (org.archived_at) return { ok: false, error: 'Tenant is already archived.' }
+
+  const { error } = await db
+    .from('orgs')
+    .update({ archived_at: new Date().toISOString(), suspended_at: new Date().toISOString() } as never)
+    .eq('id', orgId)
+  if (error) return { ok: false, error: error.message }
+
+  await writeAudit(db, userId, 'tenant.archive', orgId, { reason: reason ?? null })
+  revalidatePath(`/admin/tenants/${orgId}`)
+  revalidatePath('/admin/tenants')
+  revalidatePath('/admin/analytics')
+  return { ok: true }
+}
+
+export async function restoreTenant(orgId: string): Promise<ActionResult> {
+  const { userId } = await requirePlatformAdmin()
+  const db = createAdminClient()
+
+  const { data: org } = await db
+    .from('orgs' as never)
+    .select('archived_at')
+    .eq('id', orgId)
+    .maybeSingle<{ archived_at: string | null }>()
+  if (!org) return { ok: false, error: 'Tenant not found.' }
+  if (!org.archived_at) return { ok: false, error: 'Tenant is not archived.' }
+
+  const { error } = await db
+    .from('orgs')
+    .update({ archived_at: null, suspended_at: null } as never)
+    .eq('id', orgId)
+  if (error) return { ok: false, error: error.message }
+
+  await writeAudit(db, userId, 'tenant.restore', orgId, null)
+  revalidatePath(`/admin/tenants/${orgId}`)
+  revalidatePath('/admin/tenants')
+  revalidatePath('/admin/analytics')
   return { ok: true }
 }
 

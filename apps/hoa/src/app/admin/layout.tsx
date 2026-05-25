@@ -9,6 +9,7 @@ import {
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { isPlatformAdmin } from '@/lib/platform-admin'
 import { AdminSidebar } from '@/components/layout/AdminSidebar'
+import { AdminProviders } from '@/components/layout/AdminProviders'
 
 // Platform-admin tree. Gated server-side by the platform_admins table
 // (migration 0019). Renders a distinct UI shell so it's visually
@@ -43,7 +44,9 @@ export default async function AdminLayout({
             </span>
           </div>
         </AppShellHeader>
-        <AppShellContent>{children}</AppShellContent>
+        <AppShellContent>
+          <AdminProviders>{children}</AdminProviders>
+        </AppShellContent>
       </AppShellMain>
     </AppShell>
   )

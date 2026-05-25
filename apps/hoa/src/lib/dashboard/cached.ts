@@ -1,29 +1,29 @@
-// Cached versions of the dashboard fetchers.
+// Cached versions of the dashboard fetchers (v2 — module-scoped pattern).
 //
-// Why this exists: every dashboard page render fans out ~10 server-side
-// queries to Supabase. Authenticated, per-user, per-org pages can't be
-// edge-cached, so without caching every TTFB pays the full DB round-trip
-// cost. unstable_cache memoizes server-side keyed by orgId. Two users in
-// the same org share the cached result, and mutations can surgically
-// bust it via revalidateTag('dashboard:<orgId>').
+// v1 (commit 988f26c) broke prod with a runtime error because each call
+// to the exported getter re-invoked `unstable_cache(...)()` inside an
+// arrow factory. That pattern is unsupported — Next.js docs require
+// the unstable_cache wrapper to be created ONCE at module scope, with
+// dynamic inputs passed as function arguments (which Next includes in
+// the implicit cache key alongside `keyParts`).
 //
-// The underlying fetchers in charts.ts / queries.ts each take an
-// optional client. We pass createAdminClient() (no cookies) so
-// unstable_cache can actually memoize — the standard server client
-// reads cookies which would make every key request-unique.
+// v2 follows the canonical pattern:
+//   1. ONE unstable_cache call per fetcher, at module scope.
+//   2. orgId is a function ARGUMENT — not closed over.
+//   3. createAdminClient() runs INSIDE the cached function — no
+//      closure capture of a SupabaseClient (which is non-serializable
+//      and would corrupt cache identity if captured).
+//   4. Tags are STATIC at wrap time. Per-org tag invalidation isn't
+//      supported by unstable_cache options, so we use a single static
+//      'dashboard' tag. revalidatePath('/') from mutation libs is the
+//      primary invalidation; the 5s TTL is the safety net.
 //
 // SAFETY:
 //   - Admin client bypasses RLS, but we only enter this code path after
 //     the page has already resolved the user's org via getCurrentOrg().
 //     Two users in the same org should see the same dashboard data
 //     (counts, sums, charts — none of it is per-user-restricted).
-//   - The TTL bounds any worst-case staleness/leak window.
-//   - Per-user data (drafts, "your assignments") is intentionally NOT
-//     cached here — those are still called via the cookie-bound path.
-//
-// Tags:
-//   `dashboard:${orgId}` — all dashboard cache entries for an org. Bust
-//   from any mutation lib via revalidateTag(`dashboard:${orgId}`).
+//   - 5s TTL bounds any worst-case staleness/leak window.
 
 import { unstable_cache } from 'next/cache'
 import { createAdminClient } from '@homeowner-portal/db'
@@ -45,115 +45,132 @@ import {
 
 type AnyClient = SupabaseClient<any, any, any>
 
-// 5s TTL: short enough that a user opening the dashboard always sees
-// current data, long enough to deduplicate the ~10 parallel queries
-// triggered by a single dashboard render (so we don't hammer the DB
-// for the same orgId across the Promise.all). Mutations still bust
-// via revalidateTag for surgical invalidation.
-//
-// Was 30s originally — reduced after user reported widgets showing
-// stale state after editing entities. The 30s window was too long
-// for a "refresh-on-every-visit" expectation.
+// 5s TTL — matches the previous cached.ts setting. Short enough that
+// a user navigating back to the dashboard sees current data within a
+// session, long enough to dedupe within a single render's Promise.all
+// when multiple call sites end up requesting the same orgId.
 const TTL_SEC = 5
 
-function dashboardTag(orgId: string): string {
-  return `dashboard:${orgId}`
-}
+// Static tag — revalidateTag('dashboard') busts ALL cached dashboard
+// entries (across all orgs). Acceptable because each mutation
+// originates in a single org context, and the cross-org busting only
+// costs the other orgs one fresh fetch on their next view.
+const DASHBOARD_TAG = 'dashboard'
 
-function adminClient(): AnyClient {
+// Exported so mutation libs can call revalidateTag(DASHBOARD_TAG_ALL).
+// Same value as DASHBOARD_TAG above — exported as a stable name.
+export const DASHBOARD_TAG_ALL = DASHBOARD_TAG
+
+// Helper that constructs a fresh admin client. Called INSIDE each
+// cached function (not captured in closure).
+function admin(): AnyClient {
   return createAdminClient() as unknown as AnyClient
-}
-
-// Tag for "anything dashboard-shaped under this org." Exported so
-// mutation libs can call revalidateTag(DASHBOARD_TAG(org.id)).
-export function DASHBOARD_TAG(orgId: string): string {
-  return dashboardTag(orgId)
 }
 
 // ─── KPI heroes ─────────────────────────────────────────────────────
 
-export const getCachedDashboardKpis = (orgId: string) =>
-  unstable_cache(
-    () => getDashboardKpis(orgId, adminClient()),
-    ['dashboard-kpis', orgId],
-    { revalidate: TTL_SEC, tags: [dashboardTag(orgId)] },
-  )()
+const _kpis = unstable_cache(
+  async (orgId: string) => getDashboardKpis(orgId, admin()),
+  ['dashboard-kpis-v2'],
+  { revalidate: TTL_SEC, tags: [DASHBOARD_TAG] },
+)
+export function getCachedDashboardKpis(orgId: string) {
+  return _kpis(orgId)
+}
 
 // ─── Donuts ─────────────────────────────────────────────────────────
 
-export const getCachedViolationStatusDonut = (orgId: string) =>
-  unstable_cache(
-    () => getViolationStatusDonut(orgId, adminClient()),
-    ['violation-donut', orgId],
-    { revalidate: TTL_SEC, tags: [dashboardTag(orgId)] },
-  )()
+const _violationDonut = unstable_cache(
+  async (orgId: string) => getViolationStatusDonut(orgId, admin()),
+  ['violation-donut-v2'],
+  { revalidate: TTL_SEC, tags: [DASHBOARD_TAG] },
+)
+export function getCachedViolationStatusDonut(orgId: string) {
+  return _violationDonut(orgId)
+}
 
-export const getCachedVendorComplianceDonut = (orgId: string) =>
-  unstable_cache(
-    () => getVendorComplianceDonut(orgId, adminClient()),
-    ['vendor-compliance-donut', orgId],
-    { revalidate: TTL_SEC, tags: [dashboardTag(orgId)] },
-  )()
+const _vendorDonut = unstable_cache(
+  async (orgId: string) => getVendorComplianceDonut(orgId, admin()),
+  ['vendor-compliance-donut-v2'],
+  { revalidate: TTL_SEC, tags: [DASHBOARD_TAG] },
+)
+export function getCachedVendorComplianceDonut(orgId: string) {
+  return _vendorDonut(orgId)
+}
 
 // ─── 30-day activity ────────────────────────────────────────────────
 
-export const getCachedThirtyDayActivity = (orgId: string) =>
-  unstable_cache(
-    () => getThirtyDayActivity(orgId, adminClient()),
-    ['thirty-day-activity', orgId],
-    { revalidate: TTL_SEC, tags: [dashboardTag(orgId)] },
-  )()
+const _activity = unstable_cache(
+  async (orgId: string) => getThirtyDayActivity(orgId, admin()),
+  ['thirty-day-activity-v2'],
+  { revalidate: TTL_SEC, tags: [DASHBOARD_TAG] },
+)
+export function getCachedThirtyDayActivity(orgId: string) {
+  return _activity(orgId)
+}
 
 // ─── Approvals inbox ────────────────────────────────────────────────
 
-export const getCachedApprovalsInbox = (orgId: string) =>
-  unstable_cache(
-    () => getApprovalsInbox(orgId, adminClient()),
-    ['approvals-inbox', orgId],
-    { revalidate: TTL_SEC, tags: [dashboardTag(orgId)] },
-  )()
+const _approvals = unstable_cache(
+  async (orgId: string) => getApprovalsInbox(orgId, admin()),
+  ['approvals-inbox-v2'],
+  { revalidate: TTL_SEC, tags: [DASHBOARD_TAG] },
+)
+export function getCachedApprovalsInbox(orgId: string) {
+  return _approvals(orgId)
+}
 
 // ─── At-risk this week ──────────────────────────────────────────────
 
-export const getCachedAtRiskThisWeek = (orgId: string) =>
-  unstable_cache(
-    () => getAtRiskThisWeek(orgId, adminClient()),
-    ['at-risk-week', orgId],
-    { revalidate: TTL_SEC, tags: [dashboardTag(orgId)] },
-  )()
+const _atRisk = unstable_cache(
+  async (orgId: string) => getAtRiskThisWeek(orgId, admin()),
+  ['at-risk-week-v2'],
+  { revalidate: TTL_SEC, tags: [DASHBOARD_TAG] },
+)
+export function getCachedAtRiskThisWeek(orgId: string) {
+  return _atRisk(orgId)
+}
 
 // ─── Lease summary ──────────────────────────────────────────────────
 
-export const getCachedLeaseSummary = (orgId: string) =>
-  unstable_cache(
-    () => getLeaseSummary(orgId, adminClient()),
-    ['lease-summary', orgId],
-    { revalidate: TTL_SEC, tags: [dashboardTag(orgId)] },
-  )()
+const _lease = unstable_cache(
+  async (orgId: string) => getLeaseSummary(orgId, admin()),
+  ['lease-summary-v2'],
+  { revalidate: TTL_SEC, tags: [DASHBOARD_TAG] },
+)
+export function getCachedLeaseSummary(orgId: string) {
+  return _lease(orgId)
+}
 
 // ─── Next meeting ───────────────────────────────────────────────────
 
-export const getCachedNextMeeting = (orgId: string) =>
-  unstable_cache(
-    () => getNextMeeting(orgId, adminClient()),
-    ['next-meeting', orgId],
-    { revalidate: TTL_SEC, tags: [dashboardTag(orgId)] },
-  )()
+const _nextMeeting = unstable_cache(
+  async (orgId: string) => getNextMeeting(orgId, admin()),
+  ['next-meeting-v2'],
+  { revalidate: TTL_SEC, tags: [DASHBOARD_TAG] },
+)
+export function getCachedNextMeeting(orgId: string) {
+  return _nextMeeting(orgId)
+}
 
 // ─── Compliance heat map ────────────────────────────────────────────
 
-export const getCachedComplianceHeatMap = (orgId: string) =>
-  unstable_cache(
-    () => getComplianceHeatMap(orgId, adminClient()),
-    ['compliance-heatmap', orgId],
-    { revalidate: TTL_SEC, tags: [dashboardTag(orgId)] },
-  )()
+const _heatMap = unstable_cache(
+  async (orgId: string) => getComplianceHeatMap(orgId, admin()),
+  ['compliance-heatmap-v2'],
+  { revalidate: TTL_SEC, tags: [DASHBOARD_TAG] },
+)
+export function getCachedComplianceHeatMap(orgId: string) {
+  return _heatMap(orgId)
+}
 
 // ─── Latest digest ──────────────────────────────────────────────────
 
-export const getCachedLatestDigest = (orgId: string) =>
-  unstable_cache(
-    () => getLatestDigest(orgId, adminClient()),
-    ['latest-digest', orgId],
-    { revalidate: TTL_SEC, tags: [dashboardTag(orgId)] },
-  )()
+const _digest = unstable_cache(
+  async (orgId: string) => getLatestDigest(orgId, admin()),
+  ['latest-digest-v2'],
+  { revalidate: TTL_SEC, tags: [DASHBOARD_TAG] },
+)
+export function getCachedLatestDigest(orgId: string) {
+  return _digest(orgId)
+}

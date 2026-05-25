@@ -46,7 +46,11 @@ export default async function TenantDetailPage({
                 {t.org.organization_type.replace(/_/g, ' ')}
               </Badge>
             ) : null}
-            {t.org.suspended_at ? (
+            {t.org.archived_at ? (
+              <Badge variant="destructive" size="sm">
+                Archived {format(new Date(t.org.archived_at), 'PP')}
+              </Badge>
+            ) : t.org.suspended_at ? (
               <Badge variant="destructive" size="sm">
                 Suspended {format(new Date(t.org.suspended_at), 'PP')}
               </Badge>
@@ -70,7 +74,7 @@ export default async function TenantDetailPage({
               </Link>
             </Button>
           </div>
-          <TenantActions orgId={t.org.id} suspendedAt={t.org.suspended_at} />
+          <TenantActions orgId={t.org.id} orgName={t.org.name} suspendedAt={t.org.suspended_at} archivedAt={t.org.archived_at} />
         </div>
       </header>
 
