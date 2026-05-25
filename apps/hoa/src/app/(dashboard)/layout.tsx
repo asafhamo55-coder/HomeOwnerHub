@@ -85,3 +85,33 @@ export default async function DashboardLayout({ children }: { children: React.Re
     </DashboardProviders>
   )
 }
+
+/**
+ * Finds the most recently previewed tenant org_id for a given platform
+ * admin from platform_admin_audit. Used when a platform admin with no
+ * HOA membership clicks "Back to HOA Hub" — we route them to the last
+ * tenant they actually looked at rather than the tenant list. Returns
+ * null when there's no preview history yet (then we fall back to the
+ * list).
+ *
+ * Service-role client because the audit table is locked down to
+ * platform admins via app-side gating, and reading from it via the
+ * user-bound client would be RLS-restricted.
+ */
+async function findLastPreviewedOrgId(userId: string): Promise<string | null> {
+  try {
+    const admin = createAdminClient()
+    const { data } = await admin
+      .from('platform_admin_audit' as never)
+      .select('target_org_id, created_at, action')
+      .eq('actor_user_id', userId)
+      .eq('action', 'tenant.preview')
+      .not('target_org_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle<{ target_org_id: string | null }>()
+    return data?.target_org_id ?? null
+  } catch {
+    return null
+  }
+}
