@@ -15,6 +15,7 @@ export function PublicOnboardingForm({ token, inviteeEmail, inviteeName }: Props
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [tradesText, setTradesText] = useState('')
   const [zipsText, setZipsText] = useState('')
 
@@ -24,6 +25,8 @@ export function PublicOnboardingForm({ token, inviteeEmail, inviteeName }: Props
 
   async function handleSubmit(formData: FormData) {
     setError(null)
+    setFieldErrors({})
+
     const trades = tradesText
       .split(',')
       .map((t) => t.trim())
@@ -42,15 +45,46 @@ export function PublicOnboardingForm({ token, inviteeEmail, inviteeName }: Props
     }
     const hasAddress = Object.values(addr).some((v) => v != null && v !== '')
 
+    const einRaw = String(formData.get('ein') ?? '').trim()
     const payload = {
-      legal_name: String(formData.get('legalName') ?? ''),
+      legal_name: String(formData.get('legalName') ?? '').trim(),
       dba: String(formData.get('dba') ?? '').trim() || null,
-      ein: String(formData.get('ein') ?? '').trim(),
+      ein: einRaw,
       primary_email: String(formData.get('primaryEmail') ?? '').trim() || null,
       primary_phone: String(formData.get('primaryPhone') ?? '').trim() || null,
       trades,
       address: hasAddress ? addr : null,
       service_area_zips: serviceAreaZips,
+    }
+
+    // ─── Client-side validation ────────────────────────────────────
+    // Catch the most common formatting issues here so the user sees
+    // the error inline (under the field) instead of after a server
+    // round-trip. Server still re-validates — this is UX, not a
+    // security boundary.
+    const newFieldErrors: Record<string, string> = {}
+    if (payload.legal_name.length < 2) {
+      newFieldErrors.legal_name = 'Legal name is required.'
+    }
+    const einDigits = einRaw.replace(/\D/g, '')
+    if (einDigits.length !== 9) {
+      newFieldErrors.ein =
+        'EIN must contain exactly 9 digits (formatting like hyphens or spaces is fine).'
+    }
+    if (!payload.primary_email && !payload.primary_phone) {
+      newFieldErrors.primary_email = 'Email or phone is required.'
+    }
+    if (trades.length === 0) {
+      newFieldErrors.trades = 'List at least one trade (comma-separated).'
+    }
+    const badZipIdx = serviceAreaZips.findIndex((z) => !/^\d{5}(-\d{4})?$/.test(z))
+    if (badZipIdx >= 0) {
+      newFieldErrors.service_area_zips = `ZIP code "${serviceAreaZips[badZipIdx]}" isn't valid — use 5 digits or ZIP+4 (e.g. 30022 or 30022-1234).`
+    }
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors)
+      setError('Please fix the highlighted fields above and try again.')
+      return
     }
 
     const body = new FormData()
@@ -71,8 +105,21 @@ export function PublicOnboardingForm({ token, inviteeEmail, inviteeName }: Props
         const errBody = (await res.json().catch(() => ({}))) as {
           message?: string
           error?: string
+          issues?: Array<{ path?: (string | number)[]; message?: string }>
         }
-        setError(errBody.message ?? errBody.error ?? 'Submission failed.')
+        // Map server zod issues → per-field errors so the user sees
+        // the exact problem next to the right input.
+        if (errBody.issues && errBody.issues.length > 0) {
+          const mapped: Record<string, string> = {}
+          for (const iss of errBody.issues) {
+            const key = String(iss.path?.[0] ?? '_')
+            if (!mapped[key] && iss.message) mapped[key] = iss.message
+          }
+          setFieldErrors(mapped)
+          setError('Please fix the highlighted fields above and try again.')
+        } else {
+          setError(errBody.message ?? errBody.error ?? 'Submission failed.')
+        }
         return
       }
       router.push(`/vendor-onboard/${token}/submitted`)
@@ -83,7 +130,7 @@ export function PublicOnboardingForm({ token, inviteeEmail, inviteeName }: Props
     <form action={handleSubmit} className="space-y-5">
       <section className="space-y-3">
         <SectionTitle>Identity</SectionTitle>
-        <Field label="Legal business name" required>
+        <Field label="Legal business name" required error={fieldErrors.legal_name}>
           <Input
             name="legalName"
             required
@@ -94,9 +141,9 @@ export function PublicOnboardingForm({ token, inviteeEmail, inviteeName }: Props
         <Field label="DBA (doing business as)">
           <Input name="dba" placeholder="ACME Lawn Care" />
         </Field>
-        <Field label="EIN" required>
+        <Field label="EIN" required error={fieldErrors.ein}>
           <Input name="ein" required placeholder="12-3456789" inputMode="numeric" />
-          <Helper>9 digits, format `12-3456789`. Required so the HOA can issue a 1099.</Helper>
+          <Helper>9 digits — formatting like hyphens, spaces, or periods is fine. Required so the HOA can issue a 1099.</Helper>
         </Field>
       </section>
 
@@ -104,7 +151,7 @@ export function PublicOnboardingForm({ token, inviteeEmail, inviteeName }: Props
         <SectionTitle>Contact</SectionTitle>
         <Helper>At least one of email or phone is required.</Helper>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Primary email">
+          <Field label="Primary email" error={fieldErrors.primary_email}>
             <Input
               name="primaryEmail"
               type="email"
@@ -112,7 +159,7 @@ export function PublicOnboardingForm({ token, inviteeEmail, inviteeName }: Props
               placeholder="ops@acme.com"
             />
           </Field>
-          <Field label="Primary phone">
+          <Field label="Primary phone" error={fieldErrors.primary_phone}>
             <Input name="primaryPhone" placeholder="(555) 123-4567" />
           </Field>
         </div>
@@ -141,7 +188,7 @@ export function PublicOnboardingForm({ token, inviteeEmail, inviteeName }: Props
 
       <section className="space-y-3">
         <SectionTitle>Trades & service area</SectionTitle>
-        <Field label="Trades" required>
+        <Field label="Trades" required error={fieldErrors.trades}>
           <Input
             name="trades"
             value={tradesText}
@@ -151,7 +198,7 @@ export function PublicOnboardingForm({ token, inviteeEmail, inviteeName }: Props
           />
           <Helper>Comma-separated. List every trade you offer.</Helper>
         </Field>
-        <Field label="Service area ZIPs">
+        <Field label="Service area ZIPs" error={fieldErrors.service_area_zips}>
           <Input
             name="service_area_zips"
             value={zipsText}
@@ -159,7 +206,7 @@ export function PublicOnboardingForm({ token, inviteeEmail, inviteeName }: Props
             placeholder="30303, 30305, 30309"
             inputMode="numeric"
           />
-          <Helper>Comma- or space-separated 5-digit ZIPs.</Helper>
+          <Helper>Comma- or space-separated. 5-digit ZIPs or ZIP+4 both work.</Helper>
         </Field>
       </section>
 
@@ -207,10 +254,13 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function Field({
   label,
   required,
+  error,
   children,
 }: {
   label: string
   required?: boolean
+  /** Per-field validation message. Rendered red under the input. */
+  error?: string | null
   children: React.ReactNode
 }) {
   return (
@@ -220,6 +270,9 @@ function Field({
         {required ? <span className="ml-0.5 text-destructive">*</span> : null}
       </span>
       {children}
+      {error ? (
+        <span className="block text-xs font-medium text-destructive">{error}</span>
+      ) : null}
     </label>
   )
 }
