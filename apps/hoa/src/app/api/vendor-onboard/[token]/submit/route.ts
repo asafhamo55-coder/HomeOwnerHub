@@ -43,7 +43,15 @@ const PayloadSchema = z
   .object({
     legal_name: z.string().trim().min(2),
     dba: z.string().trim().nullable().optional(),
-    ein: z.string().trim().regex(EIN_REGEX, 'EIN must be 9 digits.'),
+    // Strip non-digit chars first, then validate just the digit count.
+    // Tolerates "12-3456789", "12 3456789", "12-345-6789", etc. —
+    // vendors enter EINs in several conventions and we don't want
+    // formatting nits to block submission.
+    ein: z
+      .string()
+      .trim()
+      .transform((s) => s.replace(/\D/g, ''))
+      .refine((s) => s.length === 9, 'EIN must contain exactly 9 digits.'),
     primary_email: z.string().trim().email().nullable().optional().or(z.literal('')),
     primary_phone: z.string().trim().nullable().optional(),
     trades: z.array(z.string().trim().min(1)).min(1),

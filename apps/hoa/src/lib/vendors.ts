@@ -212,11 +212,15 @@ const CreateVendorSchema = z
   .object({
     legal_name: z.string().trim().min(2, 'Legal name is required.'),
     dba: z.string().trim().optional().nullable(),
+    // Strip non-digit chars first, then validate just the digit count.
+    // Same approach as the public vendor-onboard endpoint — tolerates
+    // any formatting convention (12-3456789, 12 3456789, etc.).
     ein: z
       .string()
       .trim()
       .min(1, 'EIN is required (needed for 1099 reporting).')
-      .regex(EIN_REGEX, 'EIN must be 9 digits, e.g. 12-3456789.'),
+      .transform((s) => s.replace(/\D/g, ''))
+      .refine((s) => s.length === 9, 'EIN must contain exactly 9 digits, e.g. 12-3456789.'),
     primary_email: z
       .string()
       .trim()
