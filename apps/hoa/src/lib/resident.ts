@@ -118,14 +118,18 @@ export async function getResidentSummary(): Promise<ResidentSummary> {
     associationName = assoc?.name ?? null
   }
 
-  // Count published state-law updates as a rough "what's new" signal.
-  // RLS lets residents read non-archived rows of state_law_updates.
   let recentAnnouncements = 0
-  const { count: updateCount } = await supabase
-    .from('state_law_updates' as never)
-    .select('id', { count: 'exact', head: true })
-    .is('archived_at', null)
-  recentAnnouncements = updateCount ?? 0
+  if (org) {
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const { count } = await supabase
+      .from('communications' as never)
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', org.id)
+      .eq('status', 'sent')
+      .gte('sent_at', thirtyDaysAgo.toISOString())
+    recentAnnouncements = count ?? 0
+  }
 
   return {
     units,

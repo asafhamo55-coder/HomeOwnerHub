@@ -1,33 +1,62 @@
-import { CalendarClock, ExternalLink, Megaphone } from 'lucide-react'
+import { CalendarClock, Megaphone } from 'lucide-react'
 import { format } from 'date-fns'
-import { Alert, Badge, Card, CardContent, CardHeader, CardTitle, EmptyState, PageHeader } from '@homeowner-portal/ui'
+import { Badge, Card, CardContent, CardHeader, CardTitle, EmptyState, PageHeader } from '@homeowner-portal/ui'
+import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata = { title: 'Announcements' }
 
-interface UpdateRow {
+interface CommRow {
   id: string
-  headline: string
-  summary: string
-  action_items: string[] | null
-  category: string | null
-  effective_date: string | null
-  source_url: string | null
-  posted_at: string
+  subject: string
+  body_text: string | null
+  body_html: string
+  category: string
+  sent_at: string | null
+  created_at: string
+}
+
+const CATEGORY_LABEL: Record<string, string> = {
+  welcome: 'Welcome',
+  dues: 'Dues',
+  meeting: 'Meeting',
+  violation: 'Violation',
+  arc: 'ARC',
+  financial: 'Financial',
+  emergency: 'Emergency',
+  announcement: 'Announcement',
+  custom: 'Custom',
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]+/g, ' ')
+    .trim()
 }
 
 export default async function ResidentAnnouncementsPage() {
+  const org = await getCurrentOrg()
+  if (!org) return null
+
   const supabase = await getSupabaseServerClient()
   const { data } = await supabase
-    .from('state_law_updates' as never)
-    .select(
-      'id, headline, summary, action_items, category, effective_date, source_url, posted_at',
-    )
-    .is('archived_at', null)
-    .order('posted_at', { ascending: false })
+    .from('communications' as never)
+    .select('id, subject, body_text, body_html, category, sent_at, created_at')
+    .eq('organization_id', org.id)
+    .eq('status', 'sent')
+    .order('sent_at', { ascending: false })
     .limit(50)
 
-  const updates = (data ?? []) as unknown as UpdateRow[]
+  const comms = (data ?? []) as unknown as CommRow[]
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -38,71 +67,41 @@ export default async function ResidentAnnouncementsPage() {
             Announcements
           </span>
         }
-        description="Recent updates that affect your association and what to do about them."
+        description="Recent communications from your board."
       />
 
-      <Alert variant="info" title="Informational only">
-        <span className="block text-sm">
-          Announcements posted here are informational and are not legal advice.
-          If a notice affects your specific situation, contact your board or
-          a licensed attorney.
-        </span>
-      </Alert>
-
-      {updates.length === 0 ? (
+      {comms.length === 0 ? (
         <EmptyState
           icon={<Megaphone className="h-10 w-10" aria-hidden />}
           title="No announcements yet"
-          description="When your board posts an update it will show up here."
+          description="When the board sends a communication, it will show up here."
         />
       ) : (
         <ul className="space-y-3">
-          {updates.map((u) => (
-            <li key={u.id}>
-              <Card>
-                <CardHeader>
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <CardTitle className="text-base">{u.headline}</CardTitle>
-                    {u.effective_date ? (
-                      <Badge variant="warning" size="sm">
-                        <CalendarClock className="mr-1 h-3 w-3" />
-                        Effective {format(new Date(u.effective_date), 'PP')}
+          {comms.map((c) => {
+            const body = c.body_text ?? stripHtml(c.body_html)
+            const dateStr = c.sent_at ?? c.created_at
+            return (
+              <li key={c.id}>
+                <Card>
+                  <CardHeader>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <CardTitle className="text-base">{c.subject}</CardTitle>
+                      <Badge variant="outline" size="sm">
+                        {CATEGORY_LABEL[c.category] ?? c.category}
                       </Badge>
-                    ) : null}
-                  </div>
-                  <p className="text-xs text-muted">
-                    {format(new Date(u.posted_at), 'PP')}
-                    {u.category ? ` · ${u.category}` : ''}
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="whitespace-pre-wrap text-sm">{u.summary}</p>
-                  {u.action_items && u.action_items.length > 0 ? (
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                        What to do
-                      </p>
-                      <ul className="list-disc space-y-1 pl-5 text-sm">
-                        {u.action_items.map((it, i) => (
-                          <li key={i}>{it}</li>
-                        ))}
-                      </ul>
                     </div>
-                  ) : null}
-                  {u.source_url ? (
-                    <a
-                      href={u.source_url}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                    >
-                      Source <ExternalLink className="h-3 w-3" />
-                    </a>
-                  ) : null}
-                </CardContent>
-              </Card>
-            </li>
-          ))}
+                    <p className="text-xs text-muted">
+                      {format(new Date(dateStr), 'PPp')}
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="whitespace-pre-wrap text-sm">{body}</p>
+                  </CardContent>
+                </Card>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>
