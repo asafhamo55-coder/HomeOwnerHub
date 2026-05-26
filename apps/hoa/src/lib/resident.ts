@@ -24,10 +24,10 @@ export interface ResidentSummary {
   recentAnnouncements: number
 }
 
-// Returns every unit currently owned by the signed-in user. The
-// supabase auth helper auth_owner_unit_ids() in migration 0012
-// returns the same data via SQL, but for app code we query the
-// `ownerships` table directly with a JOIN to `units` for the address.
+// Returns every unit currently owned by the signed-in user. Primary
+// lookup is `ownerships.owner_user_id`. Fallback: if no ownerships
+// rows exist, check `property_residents` by email — residents linked
+// by email (e.g. via CSV import) still see their property.
 export async function getResidentUnits(): Promise<ResidentUnit[]> {
   const supabase = await getSupabaseServerClient()
   const {
@@ -55,14 +55,50 @@ export async function getResidentUnits(): Promise<ResidentUnit[]> {
     } | null
   }>
 
-  return rows.map((r) => ({
-    unit_id: r.unit_id,
-    unit_number: r.unit?.unit_number ?? null,
-    address: r.unit?.address_line1 ?? null,
-    association_id: r.unit?.association_id ?? null,
-    ownership_pct: r.ownership_pct,
-    valid_from: r.valid_from,
-  }))
+  if (rows.length > 0) {
+    return rows.map((r) => ({
+      unit_id: r.unit_id,
+      unit_number: r.unit?.unit_number ?? null,
+      address: r.unit?.address_line1 ?? null,
+      association_id: r.unit?.association_id ?? null,
+      ownership_pct: r.ownership_pct,
+      valid_from: r.valid_from,
+    }))
+  }
+
+  // Fallback: look up by email in property_residents → hoa_properties → units.
+  if (!user.email) return []
+  const { data: prData } = await supabase
+    .from('property_residents' as never)
+    .select(
+      'property_id, role, moved_in_at, property:hoa_properties(id, address, unit_number, org_id)',
+    )
+    .ilike('email' as never, user.email)
+    .is('moved_out_at' as never, null)
+    .order('moved_in_at' as never, { ascending: false })
+
+  const prRows = (prData ?? []) as unknown as Array<{
+    property_id: string
+    role: string
+    moved_in_at: string | null
+    property: {
+      id: string
+      address: string | null
+      unit_number: string | null
+      org_id: string | null
+    } | null
+  }>
+
+  return prRows
+    .filter((r) => r.property != null)
+    .map((r) => ({
+      unit_id: r.property_id,
+      unit_number: r.property!.unit_number ?? null,
+      address: r.property!.address ?? null,
+      association_id: null,
+      ownership_pct: null,
+      valid_from: r.moved_in_at ?? new Date().toISOString(),
+    }))
 }
 
 // Aggregate counts for the resident dashboard cards.
