@@ -60,8 +60,8 @@ export interface KpiTrend {
 export interface DashboardKpis {
   duesOutstandingUsd: KpiTrend
   openViolations: KpiTrend
-  vendorsAtRisk: KpiTrend
-  arcPending: KpiTrend
+  activeVendors: KpiTrend
+  openTickets: KpiTrend
 }
 
 // ─── Donut: violations by status ────────────────────────────────────
@@ -104,38 +104,42 @@ export async function getViolationStatusDonut(
   return { segments, total }
 }
 
-// ─── Donut: vendor compliance ───────────────────────────────────────
+// ─── Donut: tickets by category ─────────────────────────────────────
 
-export async function getVendorComplianceDonut(
+export async function getTicketCategoryDonut(
   orgId: string,
   client?: AnyClient,
 ): Promise<DonutData> {
   const supabase = await resolveClient(client)
-  // RLS gates board-only access; admins + board see all vendors in their org.
-  // Residents would get 0 rows, which renders as an empty donut.
   const { data } = await supabase
-    .from('vendor_compliance' as never)
-    .select('coi_status')
+    .from('tickets' as never)
+    .select('category')
     .eq('organization_id', orgId)
+    .is('deleted_at', null)
 
-  const rows = (data ?? []) as unknown as Array<{ coi_status: string | null }>
-  const counts = { green: 0, yellow: 0, red: 0, missing: 0 }
+  const rows = (data ?? []) as unknown as Array<{ category: string | null }>
+  const counts: Record<string, number> = {}
   for (const r of rows) {
-    const k = (r.coi_status ?? 'missing') as keyof typeof counts
-    if (k in counts) counts[k] += 1
-    else counts.missing += 1
+    const c = r.category ?? 'other'
+    counts[c] = (counts[c] ?? 0) + 1
   }
 
-  const segments: DonutSegment[] = []
-  if (counts.green > 0)
-    segments.push({ label: 'Compliant', value: counts.green, tone: 'success' })
-  if (counts.yellow > 0)
-    segments.push({ label: 'Action soon', value: counts.yellow, tone: 'warning' })
-  if (counts.red > 0)
-    segments.push({ label: 'Non-compliant', value: counts.red, tone: 'destructive' })
-  if (counts.missing > 0)
-    segments.push({ label: 'Docs missing', value: counts.missing, tone: 'muted' })
+  const CAT_ORDER: Array<[string, DonutSegment['tone'], string]> = [
+    ['maintenance', 'primary', 'Maintenance'],
+    ['noise', 'warning', 'Noise'],
+    ['parking', 'severe', 'Parking'],
+    ['common_area', 'success', 'Common area'],
+    ['billing', 'destructive', 'Billing'],
+    ['access', 'muted', 'Access'],
+    ['safety', 'warning', 'Safety'],
+    ['general', 'primary', 'General'],
+    ['other', 'muted', 'Other'],
+  ]
 
+  const segments: DonutSegment[] = []
+  for (const [key, tone, label] of CAT_ORDER) {
+    if ((counts[key] ?? 0) > 0) segments.push({ label, value: counts[key], tone })
+  }
   const total = segments.reduce((acc, s) => acc + s.value, 0)
   return { segments, total }
 }
@@ -263,19 +267,18 @@ export async function getDashboardKpis(
     .in('status', ['open', 'notice_sent'])
     .lt('created_at', thirtyDaysAgo.toISOString())
 
-  // Vendors at risk — vendor_compliance rows with yellow or red status.
-  const { count: vendorsAtRisk } = await supabase
-    .from('vendor_compliance' as never)
+  const { count: activeVendors } = await supabase
+    .from('vendors' as never)
     .select('id', { count: 'exact', head: true })
     .eq('organization_id', orgId)
-    .in('coi_status', ['yellow', 'red'])
+    .eq('status', 'active')
 
-  // ARC pending — submitted + in_review.
-  const { count: arcPending } = await supabase
-    .from('arc_requests' as never)
+  const { count: openTickets } = await supabase
+    .from('tickets' as never)
     .select('id', { count: 'exact', head: true })
     .eq('organization_id', orgId)
-    .in('status', ['submitted', 'in_review'])
+    .in('status', ['open', 'in_progress'])
+    .is('deleted_at', null)
 
   return {
     duesOutstandingUsd: { value: duesNow, previous: duesPrev || null },
@@ -283,7 +286,7 @@ export async function getDashboardKpis(
       value: violationsNow ?? 0,
       previous: violationsPrev ?? null,
     },
-    vendorsAtRisk: { value: vendorsAtRisk ?? 0, previous: null },
-    arcPending: { value: arcPending ?? 0, previous: null },
+    activeVendors: { value: activeVendors ?? 0, previous: null },
+    openTickets: { value: openTickets ?? 0, previous: null },
   }
 }

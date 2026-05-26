@@ -31,7 +31,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   getDashboardKpis,
   getThirtyDayActivity,
-  getVendorComplianceDonut,
+  getTicketCategoryDonut,
   getViolationStatusDonut,
 } from './charts'
 import {
@@ -89,13 +89,13 @@ export function getCachedViolationStatusDonut(orgId: string) {
   return _violationDonut(orgId)
 }
 
-const _vendorDonut = unstable_cache(
-  async (orgId: string) => getVendorComplianceDonut(orgId, admin()),
-  ['vendor-compliance-donut-v2'],
+const _ticketDonut = unstable_cache(
+  async (orgId: string) => getTicketCategoryDonut(orgId, admin()),
+  ['ticket-category-donut-v1'],
   { revalidate: TTL_SEC, tags: [DASHBOARD_TAG] },
 )
-export function getCachedVendorComplianceDonut(orgId: string) {
-  return _vendorDonut(orgId)
+export function getCachedTicketCategoryDonut(orgId: string) {
+  return _ticketDonut(orgId)
 }
 
 // ─── 30-day activity ────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { AlertTriangle, Briefcase, ClipboardList, Wallet } from 'lucide-react'
+import { AlertTriangle, Briefcase, MessageSquare, Wallet } from 'lucide-react'
 import { Card, CardContent, Skeleton } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 // EMERGENCY ROLLBACK (v2 — second attempt) 2026-05-25: cached layer
@@ -18,7 +18,7 @@ import {
 import {
   getDashboardKpis,
   getThirtyDayActivity,
-  getVendorComplianceDonut,
+  getTicketCategoryDonut,
   getViolationStatusDonut,
 } from '@/lib/dashboard/charts'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -101,7 +101,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
   const [
     kpis,
     violationsDonut,
-    vendorComplianceDonut,
+    ticketCategoryDonut,
     activity,
     approvals,
     atRisk,
@@ -112,7 +112,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
   ] = await Promise.all([
     getDashboardKpis(orgId),
     getViolationStatusDonut(orgId),
-    getVendorComplianceDonut(orgId),
+    getTicketCategoryDonut(orgId),
     getThirtyDayActivity(orgId),
     getApprovalsInbox(orgId),
     getAtRiskThisWeek(orgId),
@@ -154,26 +154,26 @@ async function DashboardContent({ orgId }: { orgId: string }) {
           tone={kpis.openViolations.value > 0 ? 'warning' : 'success'}
         />
         <KpiHero
-          label="Vendors at risk"
-          value={kpis.vendorsAtRisk.value}
+          label="Active vendors"
+          value={kpis.activeVendors.value}
           sub={
-            kpis.vendorsAtRisk.value === 0
-              ? 'all compliant'
-              : `${kpis.vendorsAtRisk.value} with yellow or red status`
+            kpis.activeVendors.value === 0
+              ? 'no vendors on file'
+              : `${kpis.activeVendors.value} active`
           }
-          href="/vendors/approval-queue"
-          tone={kpis.vendorsAtRisk.value > 0 ? 'warning' : 'success'}
+          href="/vendors"
+          tone="default"
         />
         <KpiHero
-          label="ARC pending"
-          value={kpis.arcPending.value}
+          label="Open tickets"
+          value={kpis.openTickets.value}
           sub={
-            kpis.arcPending.value === 0
-              ? 'no applications waiting'
-              : 'awaiting board response'
+            kpis.openTickets.value === 0
+              ? 'no open tickets'
+              : 'awaiting response'
           }
-          href="/arc"
-          tone={kpis.arcPending.value > 0 ? 'warning' : 'default'}
+          href="/tickets"
+          tone={kpis.openTickets.value > 0 ? 'warning' : 'success'}
         />
       </div>
 
@@ -189,12 +189,12 @@ async function DashboardContent({ orgId }: { orgId: string }) {
           emptyDescription="When violations are reported, the status breakdown will show here."
         />
         <StatusDonut
-          title="Vendor compliance"
-          icon={<Briefcase className="h-4 w-4 text-muted" />}
-          segments={vendorComplianceDonut.segments}
-          total={vendorComplianceDonut.total}
-          emptyTitle="No vendors graded yet"
-          emptyDescription="Run a compliance check on your vendors to populate this view."
+          title="Tickets by category"
+          icon={<MessageSquare className="h-4 w-4 text-muted" />}
+          segments={ticketCategoryDonut.segments}
+          total={ticketCategoryDonut.total}
+          emptyTitle="No tickets yet"
+          emptyDescription="When residents submit tickets, the category breakdown will show here."
         />
         <LeaseSummaryCard summary={leaseSummary} />
       </div>
