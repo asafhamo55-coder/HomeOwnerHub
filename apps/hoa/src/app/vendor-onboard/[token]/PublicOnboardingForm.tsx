@@ -102,23 +102,41 @@ export function PublicOnboardingForm({ token, inviteeEmail, inviteeName }: Props
         body,
       })
       if (!res.ok) {
-        const errBody = (await res.json().catch(() => ({}))) as {
+        type ZodIssue = { path?: (string | number)[]; message?: string }
+        type WrappedBody = {
           message?: string
           error?: string
-          issues?: Array<{ path?: (string | number)[]; message?: string }>
+          issues?: ZodIssue[]
         }
-        // Map server zod issues → per-field errors so the user sees
-        // the exact problem next to the right input.
-        if (errBody.issues && errBody.issues.length > 0) {
+        const raw = (await res.json().catch(() => null)) as
+          | WrappedBody
+          | ZodIssue[]
+          | null
+
+        // Normalize: the route returns { error, issues }, but be
+        // defensive — some error paths return the issues array bare,
+        // and we never want raw JSON visible to the user.
+        let issues: ZodIssue[] | undefined
+        let topLevelMessage: string | undefined
+        if (Array.isArray(raw)) {
+          issues = raw
+        } else if (raw && typeof raw === 'object') {
+          issues = raw.issues
+          topLevelMessage = raw.message ?? raw.error ?? undefined
+        }
+
+        if (issues && issues.length > 0) {
           const mapped: Record<string, string> = {}
-          for (const iss of errBody.issues) {
+          for (const iss of issues) {
             const key = String(iss.path?.[0] ?? '_')
             if (!mapped[key] && iss.message) mapped[key] = iss.message
           }
           setFieldErrors(mapped)
-          setError('Please fix the highlighted fields above and try again.')
+          setError(
+            'Please fix the highlighted fields above and try again.',
+          )
         } else {
-          setError(errBody.message ?? errBody.error ?? 'Submission failed.')
+          setError(topLevelMessage ?? 'Submission failed. Please try again.')
         }
         return
       }
