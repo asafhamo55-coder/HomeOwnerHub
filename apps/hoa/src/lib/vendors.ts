@@ -229,7 +229,17 @@ const CreateVendorSchema = z
       .array(z.string().trim().min(1))
       .min(1, 'Add at least one trade — drives license validation.'),
     address: AddressSchema.optional().nullable(),
-    service_area_zips: z.array(z.string().trim().regex(/^\d{5}$/, 'ZIP must be 5 digits.')).default([]),
+    // Accept ZIP or ZIP+4 — strict 5-only rejected legitimate entries
+    // from the vendor onboarding form. Normalize to 5-digit base.
+    service_area_zips: z
+      .array(
+        z
+          .string()
+          .trim()
+          .regex(/^\d{5}(-\d{4})?$/, 'ZIP must be 5 digits, with an optional -4 suffix.')
+          .transform((z) => z.slice(0, 5)),
+      )
+      .default([]),
     notes: z.string().trim().optional().nullable(),
   })
   .refine(

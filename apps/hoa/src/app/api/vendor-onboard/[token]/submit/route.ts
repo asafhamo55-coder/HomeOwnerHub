@@ -48,8 +48,18 @@ const PayloadSchema = z
     primary_phone: z.string().trim().nullable().optional(),
     trades: z.array(z.string().trim().min(1)).min(1),
     address: AddressSchema.nullable().optional(),
+    // Accept either a 5-digit ZIP (30022) or a ZIP+4 (30022-1234).
+    // Strict 5-only used to reject legitimate ZIP+4 entries and block
+    // onboarding. Normalize to the 5-digit base before storage so
+    // downstream filtering stays consistent.
     service_area_zips: z
-      .array(z.string().trim().regex(/^\d{5}$/))
+      .array(
+        z
+          .string()
+          .trim()
+          .regex(/^\d{5}(-\d{4})?$/, 'ZIP must be 5 digits, with an optional -4 suffix.')
+          .transform((z) => z.slice(0, 5)),
+      )
       .default([]),
   })
   .refine(
