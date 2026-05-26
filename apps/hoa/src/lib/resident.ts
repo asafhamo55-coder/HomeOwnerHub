@@ -66,7 +66,9 @@ export async function getResidentUnits(): Promise<ResidentUnit[]> {
     }))
   }
 
-  // Fallback: look up by email in property_residents → hoa_properties → units.
+  // Fallback: look up by email in property_residents → hoa_properties,
+  // then resolve the matching units row via legacy_hoa_property_id so
+  // the returned unit_id is valid for FK references (e.g. tickets).
   if (!user.email) return []
   const { data: prData } = await supabase
     .from('property_residents' as never)
@@ -89,16 +91,34 @@ export async function getResidentUnits(): Promise<ResidentUnit[]> {
     } | null
   }>
 
-  return prRows
-    .filter((r) => r.property != null)
-    .map((r) => ({
-      unit_id: r.property_id,
+  const validRows = prRows.filter((r) => r.property != null)
+  if (validRows.length === 0) return []
+
+  const propertyIds = validRows.map((r) => r.property_id)
+  const { data: unitLinks } = await supabase
+    .from('units' as never)
+    .select('id, legacy_hoa_property_id, association_id')
+    .in('legacy_hoa_property_id' as never, propertyIds)
+
+  const unitByPropId = new Map(
+    ((unitLinks ?? []) as unknown as Array<{
+      id: string
+      legacy_hoa_property_id: string
+      association_id: string | null
+    }>).map((u) => [u.legacy_hoa_property_id, u]),
+  )
+
+  return validRows.map((r) => {
+    const linked = unitByPropId.get(r.property_id)
+    return {
+      unit_id: linked?.id ?? r.property_id,
       unit_number: r.property!.unit_number ?? null,
       address: r.property!.address ?? null,
-      association_id: null,
+      association_id: linked?.association_id ?? null,
       ownership_pct: null,
       valid_from: r.moved_in_at ?? new Date().toISOString(),
-    }))
+    }
+  })
 }
 
 // Aggregate counts for the resident dashboard cards.
