@@ -22,6 +22,17 @@ const PUBLIC_PREFIXES = [
 const DEV_AUTOLOGIN = process.env.DEV_AUTOLOGIN === '1'
 
 export async function middleware(request: NextRequest) {
+  // Short-circuit Vercel's internal favicon scraper. It hits `/` on
+  // every preview deployment to extract the <link rel="icon"> from the
+  // page. Our auth gate redirects it to /login, generating one log
+  // line per preview build. Returning 204 directly skips the redirect
+  // (and the Supabase session update below) — purely log-noise
+  // reduction, no user-visible behavior change.
+  const ua = request.headers.get('user-agent') ?? ''
+  if (ua.startsWith('vercel-favicon')) {
+    return new NextResponse(null, { status: 204 })
+  }
+
   const { user, response } = await updateSession(request)
 
   const path = request.nextUrl.pathname
