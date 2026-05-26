@@ -1,4 +1,4 @@
-import { Building2, Users } from 'lucide-react'
+import { Building2, User, Users } from 'lucide-react'
 import {
   Badge,
   Card,
@@ -8,7 +8,9 @@ import {
   CardTitle,
 } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
+import { getMyProfile } from '@/lib/profile'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { ProfileForm } from './ProfileForm'
 
 export const metadata = { title: 'Settings' }
 export const dynamic = 'force-dynamic'
@@ -18,9 +20,10 @@ export default async function SettingsPage() {
   if (!org) return null
 
   const supabase = await getSupabaseServerClient()
-  const { count: memberCount } = await supabase
-    .from('org_members')
-    .select('user_id', { count: 'exact', head: true })
+  const [{ count: memberCount }, profile] = await Promise.all([
+    supabase.from('org_members').select('user_id', { count: 'exact', head: true }),
+    getMyProfile(),
+  ])
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -28,6 +31,24 @@ export default async function SettingsPage() {
         <h1 className="text-2xl font-bold text-foreground">Settings</h1>
         <p className="mt-1 text-sm text-muted">Manage your HOA&apos;s configuration.</p>
       </header>
+
+      {profile ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <User className="h-4 w-4 text-muted" />
+              My profile
+            </CardTitle>
+            <CardDescription>
+              The name shown in the dashboard greeting, emails, and the members
+              list.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ProfileForm profile={profile} />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

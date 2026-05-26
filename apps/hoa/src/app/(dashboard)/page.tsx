@@ -53,11 +53,24 @@ export default async function DashboardHome() {
   const org = await getCurrentOrg()
   if (!org) return null
 
+  // Prefer the user's set full_name from profiles. Fall back to the
+  // email-prefix only when no name has been set yet, so the greeting
+  // always shows something. Editable on /settings via ProfileForm.
   const supabase = await getSupabaseServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  const userName = user?.email ? user.email.split('@')[0] : null
+  const { data: profileRow } = user
+    ? await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .maybeSingle<{ full_name: string | null }>()
+    : { data: null }
+  const fullName = profileRow?.full_name?.trim() || null
+  const firstName = fullName ? fullName.split(/\s+/)[0] : null
+  const userName =
+    firstName ?? (user?.email ? user.email.split('@')[0] : null)
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
