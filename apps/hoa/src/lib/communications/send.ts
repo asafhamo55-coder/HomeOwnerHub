@@ -285,12 +285,10 @@ export async function sendCommunication(
       const portalLink = `${PORTAL.replace(/\/$/, '')}/communications/${commId}`
       const rawBody = text ?? htmlToSmsBody(html, 200)
       const truncated = rawBody.length >= 200
-      // Keep total body short — Twilio trial prefixes auto-add ~38 chars
-      // ("Sent from your Twilio trial account - "), and we want to stay
-      // under 2 segments (~300 char Twilio total for a single SMS-like
-      // experience). Format: "<Subject>: <body>" or "<Subject>: <truncated>… see <link>"
-      const head = `${subject}: ${rawBody}`.slice(0, truncated ? 240 : 280)
-      const smsBody = truncated ? `${head}… see ${portalLink}` : head
+      const combined = `${subject}: ${rawBody}`
+      const smsBody = truncated
+        ? `${combined.slice(0, 240)}… see ${portalLink}`.slice(0, 279)
+        : combined.slice(0, 279)
       const result = await sendSms({ to: phone, body: smsBody })
       if (result.ok) {
         await supabase

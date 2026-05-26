@@ -90,7 +90,7 @@ export async function sendSms(
 // for free accounts. 160 - 38 prefix = 122 chars usable. Long-form
 // messages should use a link to /communications/[id] instead — long
 // unregistered SMS gets aggressively carrier-filtered on US networks.
-export function htmlToSmsBody(html: string, maxLen = 320): string {
+export function htmlToSmsBody(html: string, maxLen = 279): string {
   const stripped = html
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
