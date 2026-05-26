@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@homeowner-portal/ui'
+import { requireAdmin } from '@/lib/auth'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getMyProfile } from '@/lib/profile'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -16,6 +17,7 @@ export const metadata = { title: 'Settings' }
 export const dynamic = 'force-dynamic'
 
 export default async function SettingsPage() {
+  await requireAdmin()
   const org = await getCurrentOrg()
   if (!org) return null
 

@@ -196,7 +196,11 @@ export async function inviteMember(
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
   }
 
-  const { org } = await requireBoardOrAdmin()
+  const { role: callerRole, org } = await requireBoardOrAdmin()
+
+  if (callerRole === 'board' && parsed.data.role !== 'resident') {
+    return { ok: false, error: 'Board members can only invite residents.' }
+  }
 
   // We need the admin (service-role) client to create a Supabase Auth
   // user. We then INSERT into org_members via the user-bound client so

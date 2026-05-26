@@ -1,6 +1,7 @@
 import { Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import { isStripeConfigured, billingSummary, formatUsd, PRICING } from '@homeowner-portal/billing'
 import { getCurrentOrg } from '@/lib/orgs'
+import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { openHoaPortal } from '@/lib/billing'
 import { PlanPicker } from './PlanPicker'
@@ -8,8 +9,10 @@ import { PlanPicker } from './PlanPicker'
 export const metadata = { title: 'Billing' }
 
 export default async function BillingPage() {
+  const { role } = await requireBoardOrAdmin()
   const org = await getCurrentOrg()
   if (!org) return null
+  const isAdmin = role === 'admin'
 
   const supabase = await getSupabaseServerClient()
   const { data: orgRow } = await supabase
@@ -82,7 +85,7 @@ export default async function BillingPage() {
             </div>
           ) : null}
 
-          {stripeCustomerId ? (
+          {isAdmin && stripeCustomerId ? (
             <form action={openHoaPortal}>
               <Button type="submit" variant="outline">
                 Manage subscription
@@ -92,11 +95,11 @@ export default async function BillingPage() {
                 Cancellation is available after your initial {PRICING.COMMIT_MONTHS}-month term.
               </p>
             </form>
-          ) : (
+          ) : isAdmin ? (
             <p className="text-muted">
               No subscription on file. Pick a billing cadence below to get started.
             </p>
-          )}
+          ) : null}
         </CardContent>
       </Card>
 
@@ -109,10 +112,12 @@ export default async function BillingPage() {
         </Alert>
       ) : null}
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-foreground">Plan</h2>
-        <PlanPicker currentPlan={plan} doors={doors} />
-      </section>
+      {isAdmin && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold text-foreground">Plan</h2>
+          <PlanPicker currentPlan={plan} doors={doors} />
+        </section>
+      )}
     </div>
   )
 }

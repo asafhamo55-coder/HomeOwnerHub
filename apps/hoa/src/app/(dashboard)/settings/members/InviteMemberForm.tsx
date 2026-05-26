@@ -11,7 +11,7 @@ import {
   type ResidencyRole,
 } from '@/lib/members'
 
-const ROLES: Array<{ value: MemberRole; label: string; help: string }> = [
+const ALL_ROLES: Array<{ value: MemberRole; label: string; help: string }> = [
   { value: 'admin', label: 'Admin', help: 'Full control — can manage members + everything Board can do.' },
   { value: 'board', label: 'Board', help: 'Can manage vendors, RFPs, violations, dues. Cannot manage members.' },
   { value: 'resident', label: 'Resident', help: 'Homeowner portal — view dues, submit ARC/violation reports.' },
@@ -24,7 +24,8 @@ const RESIDENCY_ROLES: Array<{ value: ResidencyRole; label: string }> = [
   { value: 'other', label: 'Other' },
 ]
 
-export function InviteMemberForm({ properties }: { properties: PropertyOption[] }) {
+export function InviteMemberForm({ properties, role }: { properties: PropertyOption[]; role: 'admin' | 'board' }) {
+  const ROLES = role === 'admin' ? ALL_ROLES : ALL_ROLES.filter((r) => r.value === 'resident')
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)

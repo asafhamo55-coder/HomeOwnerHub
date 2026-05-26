@@ -39,6 +39,7 @@ interface HoaSidebarProps {
   currentOrgName: string
   hoaOrgs: UserHoaOrg[]
   userEmail: string
+  role: 'admin' | 'board'
 }
 
 interface NavLink {
@@ -98,8 +99,13 @@ const GROUPS: NavGroup[] = [
   },
 ]
 
-const ACCOUNT: NavLink[] = [
+const ADMIN_ACCOUNT: NavLink[] = [
   { href: '/settings', icon: <Settings className="h-4 w-4" />, label: 'Settings' },
+  { href: '/settings/members', icon: <Users className="h-4 w-4" />, label: 'Members' },
+  { href: '/settings/billing', icon: <CreditCard className="h-4 w-4" />, label: 'Billing' },
+]
+
+const BOARD_ACCOUNT: NavLink[] = [
   { href: '/settings/members', icon: <Users className="h-4 w-4" />, label: 'Members' },
   { href: '/settings/billing', icon: <CreditCard className="h-4 w-4" />, label: 'Billing' },
 ]
@@ -140,6 +146,7 @@ export function HoaSidebar({
   currentOrgName,
   hoaOrgs,
   userEmail,
+  role,
 }: HoaSidebarProps) {
   const pathname = usePathname()
 
@@ -182,7 +189,7 @@ export function HoaSidebar({
         ))}
 
         <SidebarSection label="Account">
-          {ACCOUNT.map((link) => (
+          {(role === 'admin' ? ADMIN_ACCOUNT : BOARD_ACCOUNT).map((link) => (
             <HoaNavLink
               key={link.href}
               link={link}

@@ -70,15 +70,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <HoaSidebar
             currentOrgId={org.id}
             currentOrgName={org.name}
-            hoaOrgs={hoaOrgs}
+            hoaOrgs={role === 'admin' ? hoaOrgs : hoaOrgs.filter((o) => o.id === org.id)}
             userEmail={user.email ?? ''}
+            role={role}
           />
         </AppShellSidebar>
         <AppShellMain>
           <AppShellHeader>
             <div className="ml-auto flex items-center gap-2">
-              <PlatformAdminLink />
-              <HoaHubSwitcher userHubs={userHubs} />
+              {role === 'admin' && <PlatformAdminLink />}
+              {role === 'admin' && <HoaHubSwitcher userHubs={userHubs} />}
             </div>
           </AppShellHeader>
           <AppShellContent>{children}</AppShellContent>

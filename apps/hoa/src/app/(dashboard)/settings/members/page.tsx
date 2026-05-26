@@ -15,7 +15,7 @@ import { MemberRow } from './MemberRow'
 export const metadata = { title: 'Members' }
 
 export default async function MembersPage() {
-  await requireBoardOrAdmin()
+  const { role } = await requireBoardOrAdmin()
 
   const supabase = await getSupabaseServerClient()
   const {
@@ -54,7 +54,7 @@ export default async function MembersPage() {
           <CardTitle>Invite a member</CardTitle>
         </CardHeader>
         <CardContent>
-          <InviteMemberForm properties={properties} />
+          <InviteMemberForm properties={properties} role={role} />
         </CardContent>
       </Card>
 
