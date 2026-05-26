@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { ChevronDown, ChevronUp, Pencil, Save, X } from 'lucide-react'
-import { Badge, Button, Input, Select, useToast } from '@homeowner-portal/ui'
+import { Badge, Button, Input, Select, Textarea, useToast } from '@homeowner-portal/ui'
 import {
   updateResident,
   type PropertyResidentRow,
@@ -217,12 +217,11 @@ function ResidentEditForm({
       </div>
 
       <Field label="Notes">
-        <textarea
+        <Textarea
           value={notes}
           onChange={(e) => setNotes(e.currentTarget.value)}
           rows={2}
           maxLength={2000}
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           placeholder="Optional — anything the board should know."
         />
       </Field>

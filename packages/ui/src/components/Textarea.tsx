@@ -9,7 +9,7 @@ export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextArea
 }
 
 export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, error, showCount, maxLength, value, defaultValue, onChange, ...props }, ref) => {
+  ({ className, error, showCount = true, maxLength, value, defaultValue, onChange, ...props }, ref) => {
     const [internal, setInternal] = React.useState<string>(
       typeof defaultValue === 'string' ? defaultValue : '',
     )
@@ -33,9 +33,18 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           )}
           {...props}
         />
-        {showCount && maxLength ? (
+        {showCount ? (
           <p className="text-right text-xs text-muted">
-            {current.length} / {maxLength}
+            {maxLength ? (
+              <>
+                {current.length} / {maxLength}{' '}
+                <span className="text-muted/70">characters</span>
+              </>
+            ) : (
+              <>
+                {current.length} {current.length === 1 ? 'character' : 'characters'}
+              </>
+            )}
           </p>
         ) : null}
       </div>

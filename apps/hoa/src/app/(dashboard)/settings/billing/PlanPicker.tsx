@@ -55,7 +55,11 @@ export function PlanPicker({
 
   return (
     <div className="space-y-4">
-      {/* Cadence toggle — monthly vs annual */}
+      {/* Cadence toggle — monthly vs annual.
+          Active state uses a light violet pill against the dark foreground
+          text — readable both on light + dark backgrounds. Previous
+          bg-primary + primary-foreground combo looked like a solid dark
+          block with hard-to-read white text. */}
       <div className="inline-flex rounded-lg border border-border bg-card p-1 text-sm">
         <button
           type="button"
@@ -64,7 +68,7 @@ export function PlanPicker({
           className={cn(
             'rounded-md px-3 py-1.5 font-medium transition',
             cadence === 'monthly'
-              ? 'bg-primary text-primary-foreground'
+              ? 'bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-100'
               : 'text-muted hover:text-foreground',
           )}
         >
@@ -77,7 +81,7 @@ export function PlanPicker({
           className={cn(
             'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition',
             cadence === 'annual'
-              ? 'bg-primary text-primary-foreground'
+              ? 'bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-100'
               : 'text-muted hover:text-foreground',
           )}
         >
@@ -88,12 +92,12 @@ export function PlanPicker({
         </button>
       </div>
 
-      <Card variant="elevated" className="border-primary">
+      <Card variant="elevated" className="border-violet-200 dark:border-violet-900/40">
         <CardContent className="space-y-4 p-6">
           <header className="flex items-start justify-between gap-2">
             <div className="space-y-1">
               <p className="flex items-center gap-2 text-base font-semibold text-foreground">
-                <Sparkles className="h-4 w-4 text-primary" />
+                <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                 HOA Hub
               </p>
               <p className="text-3xl font-bold text-foreground">
@@ -122,7 +126,7 @@ export function PlanPicker({
           <ul className="grid gap-1.5 text-sm text-muted sm:grid-cols-2">
             {FEATURE_BULLETS.map((b) => (
               <li key={b} className="flex items-start gap-2">
-                <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-primary" />
+                <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
                 <span>{b}</span>
               </li>
             ))}
@@ -146,7 +150,7 @@ export function PlanPicker({
               type="submit"
               variant="default"
               size="md"
-              className="w-full"
+              className="w-full bg-violet-600 text-white hover:bg-violet-700 dark:bg-violet-500 dark:hover:bg-violet-600"
               loading={pending}
               disabled={isCurrent}
             >
