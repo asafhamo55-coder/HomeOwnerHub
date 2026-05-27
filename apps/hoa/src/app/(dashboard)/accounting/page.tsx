@@ -117,7 +117,7 @@ export default async function AccountingIndexPage() {
           description="Vendor bills and bill-pay. Each one posts a Dr Expense / Cr AP entry."
         />
         <NavTile
-          href="/accounting/reports/balance-sheet"
+          href="/accounting/reports"
           icon={<PieChart className="h-5 w-5" />}
           title="Reports"
           description="Balance Sheet, Income Statement, Cash Flow. Computed live from posted entries."
