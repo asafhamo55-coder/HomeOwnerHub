@@ -438,7 +438,7 @@ export async function getLeaseSummary(
 
   const leasedPct = totalUnits === 0 ? 0 : (leasedCount / totalUnits) * 100
   const headroom =
-    capPct === null || totalUnits === 0
+    capPct === null || capPct === 0 || totalUnits === 0
       ? null
       : Math.max(0, Math.floor((capPct / 100) * totalUnits) - leasedCount)
 

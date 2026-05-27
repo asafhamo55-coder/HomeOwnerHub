@@ -121,8 +121,9 @@ export async function getLeaseStats(
 
   // Headroom = (cap% of totalUnits) - currently leased. Floored at 0 so
   // we never show "-3 units can still be leased".
+  // A cap of 0 means "not configured" (same as null), not "no leasing."
   let headroom: number | null = null
-  if (capPct !== null && totalUnits > 0) {
+  if (capPct !== null && capPct > 0 && totalUnits > 0) {
     const maxLeasable = Math.floor((capPct / 100) * totalUnits)
     headroom = Math.max(0, maxLeasable - leasedCount)
   }

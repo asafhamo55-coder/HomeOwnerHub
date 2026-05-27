@@ -54,7 +54,7 @@ export default async function LeasesPage() {
 
   const leasedPctDisplay =
     stats.totalUnits === 0 ? '—' : `${stats.leasedPct.toFixed(1)}%`
-  const capDisplay = cap?.capPct === null || cap?.capPct === undefined ? '—' : `${cap.capPct}%`
+  const capDisplay = !cap?.capPct ? '—' : `${cap.capPct}%`
   const headroomDisplay =
     stats.headroom === null ? '—' : `${stats.headroom}`
 
@@ -96,7 +96,7 @@ export default async function LeasesPage() {
             label="Cap"
             value={capDisplay}
             meta={
-              cap?.capPct === null || cap?.capPct === undefined
+              !cap?.capPct
                 ? 'No cap set yet.'
                 : 'of total units allowed to be leased'
             }
