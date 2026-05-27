@@ -30,6 +30,7 @@ import { DailyDigestCard } from '@/components/dashboard/DailyDigestCard'
 import { KpiHero } from '@/components/dashboard/KpiHero'
 import { LeaseSummaryCard } from '@/components/dashboard/LeaseSummaryCard'
 import { NextMeeting } from '@/components/dashboard/NextMeeting'
+import { StatusBar } from '@/components/dashboard/StatusBar'
 import { StatusDonut } from '@/components/dashboard/StatusDonut'
 
 export const metadata = { title: 'Dashboard' }
@@ -188,7 +189,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
           emptyTitle="No violations on file"
           emptyDescription="When violations are reported, the status breakdown will show here."
         />
-        <StatusDonut
+        <StatusBar
           title="Tickets by category"
           icon={<MessageSquare className="h-4 w-4 text-muted" />}
           segments={ticketCategoryDonut.segments}
