@@ -96,8 +96,14 @@ export function AskDocsClient() {
     setResponse(null)
 
     try {
-      const endpoint = mode === 'community' ? '/api/ai/ask-community' : '/api/ai/ask-docs'
-      const res = await fetch(endpoint, {
+      // Both modes route to /api/ai/ask-community now — the tool-using
+      // agent picks search_governing_docs vs. the DB tools per question.
+      // The mode toggle becomes a UX hint about what KIND of answer the
+      // user expects (and seeds the prompt suggestions list), not a
+      // separate backend. /api/ai/ask-docs still exists for the
+      // resident-portal "rules only" use case if we want to expose it
+      // later, but board/admin gets the unified smart agent.
+      const res = await fetch('/api/ai/ask-community', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: question.trim() }),

@@ -14,6 +14,9 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 const AskSchema = z.object({
   question: z.string().min(3).max(2000),
+  /** Optional — narrows search_governing_docs lookups to one
+   *  association when the org has multiple. */
+  associationId: z.string().uuid().nullable().optional(),
 })
 
 export async function POST(request: Request): Promise<Response> {
@@ -47,6 +50,7 @@ export async function POST(request: Request): Promise<Response> {
     const result = await askCommunity(parsed.data.question, {
       db,
       orgId: ctx.org.id,
+      associationId: parsed.data.associationId ?? null,
     })
     return NextResponse.json(result)
   } catch (err) {

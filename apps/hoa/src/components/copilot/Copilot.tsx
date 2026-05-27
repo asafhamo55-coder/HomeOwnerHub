@@ -8,15 +8,22 @@ import { CopilotMessage, type Citation, type Confidence, type Message } from './
 // Right-side persistent copilot. Mounted once in DashboardProviders so it
 // survives soft navigations across all (dashboard)/* routes.
 //
-// API contract: identical to (dashboard)/ai/ask/AskDocsClient.tsx — we POST
-// { question } to /api/ai/ask-docs and consume { answer, confidence,
-// citations, runId }. Do not invent fields here; mirror the docs page.
+// Backend: /api/ai/ask-community — the tool-using agent that can both
+// (a) search the governing docs via W1 RAG and (b) query the live HOA
+// database (units, dues, violations, meetings, etc.). The LLM picks
+// which tools to call per question.
+//
+// citations + confidence are populated only when the agent's answer
+// pulled from governing docs; pure data answers ("how many properties")
+// come back without them — the UI degrades cleanly.
 
 interface AskResponse {
   answer: string
-  confidence: Confidence
-  citations: Citation[]
-  runId: string
+  confidence?: Confidence
+  citations?: Citation[]
+  runId?: string
+  toolCalls?: Array<{ name: string; args: Record<string, unknown>; result: unknown }>
+  steps?: number
 }
 
 const STORAGE_KEY = 'hoa.copilot.open'
@@ -87,7 +94,7 @@ export function Copilot() {
     setSending(true)
 
     try {
-      const res = await fetch('/api/ai/ask-docs', {
+      const res = await fetch('/api/ai/ask-community', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: trimmed }),

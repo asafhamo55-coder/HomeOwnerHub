@@ -15,7 +15,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
-import { TOOLS, TOOL_BY_NAME } from './tools'
+import { TOOLS, TOOL_BY_NAME, type DocsCitation, type DocsToolResult } from './tools'
 
 type Db = SupabaseClient<Database>
 
@@ -23,19 +23,26 @@ const MAX_STEPS = 8
 
 const SYSTEM_PROMPT = `You are a community-data assistant for an HOA management platform.
 
-Answer questions about the community by calling the provided tools. Each tool returns structured JSON — read it carefully and summarize the result in plain English. Cite specific numbers and names from the tool output.
+Two kinds of questions, two kinds of tools:
+
+1. RULES / POLICIES ("Can I do X?", "What's the limit on Y?", "Process for Z?") → use search_governing_docs. The answer must come from the community's CC&Rs / bylaws / rules — don't infer from numbers.
+
+2. DATA ("How many", "Who is", "List", "When was") → use the typed DB tools (count_units_by_tenure, list_overdue_dues, get_unit_owner, count_open_violations, list_recent_meetings, count_properties). They return live database state.
+
+Some questions need BOTH — e.g. "How many violations do we have and what's the fine schedule?" → call count_open_violations AND search_governing_docs, then synthesize.
 
 Style:
 - Be concise — 1–3 sentences for simple questions, a short bulleted list when listing rows.
 - Show $ amounts as "$1,234" (no decimals unless smaller than $10).
 - Show dates as "Jan 15, 2026".
-- If a tool returns 0 results, say so directly — don't make up data.
-- If you can't answer with the available tools, say "I don't have a tool for that yet — try asking about dues, properties, violations, or meetings."
+- If a tool returns 0 results or LOW confidence, say so directly — don't make up data.
+- When search_governing_docs returns citations, paraphrase the rule and quote the section briefly. The UI shows the full citation separately.
 
 Never:
 - Invent data not present in tool results.
 - Reference data from other organizations or communities.
-- Speculate about reasons for trends — stick to the facts.`
+- Speculate about reasons for trends — stick to the facts.
+- Pretend a rule exists when search_governing_docs returns LOW confidence with no relevant citations; say "I don't see that in your governing docs" instead.`
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
@@ -55,11 +62,20 @@ export interface AgentResult {
   answer: string
   toolCalls: Array<{ name: string; args: Record<string, unknown>; result: unknown }>
   steps: number
+  /** Aggregated citations from any search_governing_docs tool calls.
+   *  Empty when the agent only used DB tools. */
+  citations?: DocsCitation[]
+  /** Highest-confidence docs lookup made during this answer.
+   *  Undefined when no docs tool was used. W1 uses uppercase. */
+  confidence?: 'HIGH' | 'MEDIUM' | 'LOW'
+  /** Run id from the most recent docs lookup, when applicable. The
+   *  audit log links to ai_runs.id for traceability. */
+  runId?: string
 }
 
 export async function askCommunity(
   question: string,
-  ctx: { db: Db; orgId: string },
+  ctx: { db: Db; orgId: string; associationId?: string | null },
 ): Promise<AgentResult> {
   const apiKey = process.env.AI_API_KEY
   const baseUrl = process.env.AI_BASE_URL ?? 'https://api.groq.com/openai/v1'
@@ -134,6 +150,7 @@ export async function askCommunity(
         answer: msg.content?.trim() ?? '(no answer)',
         toolCalls: toolCallLog,
         steps: step,
+        ...extractDocsArtifacts(toolCallLog),
       }
     }
 
@@ -179,5 +196,43 @@ export async function askCommunity(
       "I couldn't finish answering that within the step budget. Try a more specific question, or break it into smaller pieces.",
     toolCalls: toolCallLog,
     steps: MAX_STEPS,
+    ...extractDocsArtifacts(toolCallLog),
+  }
+}
+
+/**
+ * Pull citations + best confidence + runId out of search_governing_docs
+ * tool results so the response carries them at the top level. The
+ * existing Copilot / AskDocsClient render these without changes.
+ *
+ * Multiple docs lookups in one answer: citations concatenate, confidence
+ * takes the highest level seen, runId comes from the latest call (UI
+ * "view audit trail" link).
+ */
+function extractDocsArtifacts(
+  log: AgentResult['toolCalls'],
+): Pick<AgentResult, 'citations' | 'confidence' | 'runId'> {
+  const docsCalls = log.filter((c) => c.name === 'search_governing_docs')
+  if (docsCalls.length === 0) return {}
+  const citations: DocsCitation[] = []
+  let bestConfidence: 'HIGH' | 'MEDIUM' | 'LOW' | undefined
+  let runId: string | undefined
+  // Order: LOW < MEDIUM < HIGH. Pick the max across all docs calls so
+  // the UI shows the strongest evidence we found.
+  const rank = { LOW: 1, MEDIUM: 2, HIGH: 3 } as const
+  for (const c of docsCalls) {
+    const r = c.result as DocsToolResult | { error: string }
+    if (!r || (r as { error?: string }).error) continue
+    const ok = r as DocsToolResult
+    citations.push(...ok.citations)
+    if (!bestConfidence || rank[ok.confidence] > rank[bestConfidence]) {
+      bestConfidence = ok.confidence
+    }
+    if (ok.runId) runId = ok.runId
+  }
+  return {
+    citations,
+    confidence: bestConfidence,
+    runId,
   }
 }
