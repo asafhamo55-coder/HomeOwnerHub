@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
+import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -46,7 +47,14 @@ export const viewport: import('next').Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* PWA service-worker registrar + update prompt. Renders nothing
+            in dev or when no SW update is pending. Defers registration
+            until the browser is idle so it never competes with initial
+            render. */}
+        <ServiceWorkerRegister />
+      </body>
     </html>
   )
 }
