@@ -3,6 +3,7 @@ import {
   AlertCircle,
   ArrowRight,
   CalendarDays,
+  CalendarPlus,
   CheckCircle2,
   Plus,
 } from 'lucide-react'
@@ -107,12 +108,20 @@ export default async function MeetingsPage() {
             Action items track due dates &amp; status separately.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/meetings/new">
-            <Plus className="h-4 w-4" />
-            New minutes
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link href="/meetings/schedule">
+              <CalendarPlus className="h-4 w-4" />
+              Schedule
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/meetings/new">
+              <Plus className="h-4 w-4" />
+              New minutes
+            </Link>
+          </Button>
+        </div>
       </header>
 
       {rows.length === 0 ? (

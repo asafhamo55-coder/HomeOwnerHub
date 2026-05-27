@@ -91,6 +91,56 @@ export async function approveMeetingMinutes(input: {
   return { ok: true, meetingId: row.id as string }
 }
 
+// ─── Schedule a future meeting ──────────────────────────────────────
+
+const ScheduleSchema = z.object({
+  meetingDate: z.string().min(4, 'Meeting date is required.'),
+  meetingType: z.enum(['regular', 'special', 'annual', 'emergency']).default('regular'),
+  agenda: z.string().trim().max(4000).optional(),
+})
+
+export async function scheduleMeeting(input: {
+  meetingDate: string
+  meetingType: MeetingType
+  agenda?: string
+}): Promise<ApproveResult> {
+  const parsed = ScheduleSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Not signed in.' }
+
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+
+  const { data: row, error } = await supabase
+    .from('hoa_meeting_minutes')
+    .insert({
+      org_id: org.id,
+      meeting_date: parsed.data.meetingDate,
+      meeting_type: parsed.data.meetingType,
+      ai_summary: parsed.data.agenda ?? null,
+      status: 'draft',
+      created_by: user.id,
+    })
+    .select('id')
+    .single()
+
+  if (error || !row) {
+    return { ok: false, error: error?.message ?? 'Could not schedule the meeting.' }
+  }
+
+  revalidatePath('/')
+  revalidatePath('/meetings')
+  revalidateTag(DASHBOARD_TAG_ALL)
+  return { ok: true, meetingId: row.id as string }
+}
+
 // ─── Update meeting ─────────────────────────────────────────────────
 
 type MeetingActionResult = { ok: true } | { ok: false; error: string }

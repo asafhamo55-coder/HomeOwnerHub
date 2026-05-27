@@ -34,7 +34,7 @@ export function NextMeeting({ meeting }: { meeting: NextMeetingInfo | null }) {
         <CardContent className="text-sm text-muted">
           No meeting scheduled.{' '}
           <Link
-            href="/meetings/new"
+            href="/meetings/schedule"
             className="text-foreground underline-offset-2 hover:underline"
           >
             Schedule the next board meeting <ArrowRight className="inline h-3.5 w-3.5" aria-hidden />
