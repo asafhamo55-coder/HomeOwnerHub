@@ -2,9 +2,11 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { Alert } from '@homeowner-portal/ui'
+import { getCurrentUserRole } from '@/lib/auth'
 import { getVendor } from '@/lib/vendors'
 import { ComplianceForm } from './ComplianceForm'
 import { DocumentUploader } from './DocumentUploader'
+import { ManualOverrideCard } from './ManualOverrideCard'
 
 export const metadata = { title: 'Vendor compliance check' }
 
@@ -14,8 +16,13 @@ export default async function VendorCompliancePage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const vendor = await getVendor(id)
+  const [vendor, ctx] = await Promise.all([getVendor(id), getCurrentUserRole()])
   if (!vendor) notFound()
+
+  // Only board/admin can override the AI compliance grade. Residents
+  // shouldn't be in this tree anyway (layout redirects them) but defense
+  // in depth — and we use this to decide whether to render the card.
+  const canOverride = ctx?.role === 'admin' || ctx?.role === 'board'
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -46,6 +53,13 @@ export default async function VendorCompliancePage({
       <DocumentUploader vendorId={vendor.id} documents={vendor.documents} />
 
       <ComplianceForm vendorId={vendor.id} />
+
+      {canOverride ? (
+        <ManualOverrideCard
+          vendorId={vendor.id}
+          currentStatus={vendor.compliance?.coi_status ?? null}
+        />
+      ) : null}
     </div>
   )
 }

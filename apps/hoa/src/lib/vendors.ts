@@ -659,3 +659,102 @@ export async function approveVendor(
   revalidatePath('/vendors')
   return { ok: true }
 }
+
+
+// ─── Manual compliance override (admin / board only) ─────────────────
+//
+// The AI-driven compliance check (W21) sometimes graded a vendor too
+// strictly or got stuck. This escape hatch lets a board member or
+// admin set the status directly without rerunning W21 — useful when
+// they have offline proof (a signed COI on paper, a phone-verified
+// license number) that the AI cant see.
+//
+// Gated to admin + board roles. Residents redirect at the layout
+// level; this guard adds defense-in-depth via the requireBoardOrAdmin
+// helper.
+
+const ManualOverrideSchema = z.object({
+  vendorId: z.string().uuid(),
+  status: z.enum(["green", "yellow", "red", "missing"]),
+  summary: z.string().trim().max(500).optional().nullable(),
+})
+
+export interface ManualComplianceInput {
+  vendorId: string
+  status: ComplianceStatus
+  summary?: string | null
+}
+
+export async function setVendorComplianceManually(
+  input: ManualComplianceInput,
+): Promise<ActionResult> {
+  const parsed = ManualOverrideSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." }
+  }
+
+  // Gate. requireBoardOrAdmin throws/redirects for residents.
+  const { requireBoardOrAdmin } = await import("@/lib/auth")
+  const { role, org } = await requireBoardOrAdmin()
+
+  // vendor_compliance has UNIQUE (vendor_id, association_id) — scope
+  // the override to the primary association so the upsert key matches.
+  const assoc = await getPrimaryAssociation()
+
+  const supabase = await getSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const actor = user?.id ?? null
+
+  // Persist as a single deficiency record so the existing UI continues
+  // to render it. Future enhancement: dedicated audit table.
+  const deficiencies = parsed.data.summary
+    ? [
+        {
+          code: "manual_override",
+          severity: parsed.data.status === "green" ? "info" : "warning",
+          detail: parsed.data.summary,
+        },
+      ]
+    : []
+
+  const { error } = await supabase
+    .from("vendor_compliance" as never)
+    .upsert(
+      {
+        organization_id: org.id,
+        vendor_id: parsed.data.vendorId,
+        association_id: assoc?.id ?? null,
+        coi_status: parsed.data.status,
+        deficiencies,
+        last_reviewed_at: new Date().toISOString(),
+        last_reviewed_by: actor,
+      } as never,
+      { onConflict: "vendor_id,association_id" },
+    )
+
+  if (error) return { ok: false, error: error.message }
+
+  // Audit trail. Best-effort — never block the override if the audit
+  // log write fails.
+  await supabase
+    .from("audit_log")
+    .insert({
+      org_id: org.id,
+      user_id: actor,
+      action: "vendor.compliance.manual_override",
+      entity_type: "vendor",
+      entity_id: parsed.data.vendorId,
+      metadata: {
+        new_status: parsed.data.status,
+        actor_role: role,
+        summary: parsed.data.summary ?? null,
+      },
+    } as never)
+    .then(() => undefined)
+
+  revalidatePath(`/vendors/${parsed.data.vendorId}`)
+  revalidatePath(`/vendors/${parsed.data.vendorId}/compliance`)
+  revalidatePath("/vendors")
+  revalidatePath("/")
+  return { ok: true }
+}
