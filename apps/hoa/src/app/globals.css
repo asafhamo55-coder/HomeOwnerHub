@@ -38,6 +38,34 @@
     --font-mono: var(--font-jetbrains-mono), monospace;
   }
 
+  /* Dark theme — same token names, dark HSL values. Activates when
+     html.dark is set (Tailwind darkMode: 'class'). Every component
+     that uses semantic tokens (text-foreground, bg-surface,
+     border-border, etc.) themes automatically. Hardcoded Tailwind
+     colors (text-emerald-500, bg-amber-50) do NOT theme — we audit
+     and replace those gradually as they're noticed. */
+  :root.dark {
+    /* Surfaces — near-black with a slight cool tint so it reads
+       distinct from pure black (which feels muddy at scale). */
+    --background: 220 14% 8%;           /* #11141A — page canvas */
+    --surface: 220 14% 12%;             /* #1A1E26 — card surface */
+    --border: 220 13% 22%;               /* #2F3540 — subtle separator */
+
+    /* Brand — same indigo but +6L so it stays vibrant against dark bg.
+       Indigo-600 looks muddy on dark; indigo-500 reads correctly. */
+    --primary: 244 76% 68%;              /* lifted indigo */
+    --primary-fg: 0 0% 100%;             /* keep white on indigo button */
+
+    /* Accent — keep amber-500; works against dark just fine. */
+    --accent: 38 92% 55%;                /* slightly lifted amber */
+
+    /* Text — near-white with cool tint matching the background. */
+    --foreground: 220 14% 95%;           /* #EEF0F4 — ink-50ish */
+    --muted: 217 10% 64%;                /* #94A1AF — secondary text */
+
+    --destructive: 0 78% 65%;            /* brighter red so it stays visible */
+  }
+
   html {
     /* HOA bumps the base from 16 to 18px for accessibility. */
     font-size: 18px;

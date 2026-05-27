@@ -46,7 +46,28 @@ export const viewport: import('next').Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+    <html
+      lang="en"
+      className={`${inter.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
+    >
+      <head>
+        {/*
+          Pre-paint theme script. Runs synchronously BEFORE any React
+          rendering so the .dark class is on <html> before paint —
+          eliminates the white flash users would otherwise see when
+          dark mode is their preference. Reads localStorage; falls
+          back to the OS color-scheme media query.
+          suppressHydrationWarning above keeps React quiet about the
+          className diff this script introduces server→client.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var t=localStorage.getItem('theme');if(!t||t==='system'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}if(t==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})();",
+          }}
+        />
+      </head>
       <body>
         {children}
         {/* PWA service-worker registrar + update prompt. Renders nothing

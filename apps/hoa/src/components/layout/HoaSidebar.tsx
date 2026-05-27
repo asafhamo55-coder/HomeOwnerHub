@@ -32,6 +32,7 @@ import {
 } from '@homeowner-portal/ui'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { OrgSwitcher } from '@/components/layout/OrgSwitcher'
+import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import type { UserHoaOrg } from '@/lib/orgs'
 
 interface HoaSidebarProps {
@@ -205,6 +206,7 @@ export function HoaSidebar({
             <p className="truncate text-xs font-medium text-foreground">{userEmail}</p>
             <p className="truncate text-[11px] text-muted">HOA Hub · {currentOrgName}</p>
           </div>
+          <ThemeToggle className="rounded-md p-1.5 text-muted hover:bg-background hover:text-foreground" />
           <button
             type="button"
             onClick={handleSignOut}
