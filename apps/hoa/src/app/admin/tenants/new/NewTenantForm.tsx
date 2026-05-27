@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Building2 } from 'lucide-react'
 import { Button, Input, Select } from '@homeowner-portal/ui'
 import { createTenant } from '@/lib/platform-admin'
+import { US_STATES } from '@/lib/us-states'
 
 export function NewTenantForm() {
   const router = useRouter()
@@ -20,7 +21,7 @@ export function NewTenantForm() {
     const doorsCount = doorsRaw ? Number(doorsRaw.replace(/[^0-9]/g, '')) : null
 
     const associationName = String(formData.get('association_name') ?? '').trim()
-    const state = String(formData.get('state') ?? 'GA') as 'GA' | 'FL' | 'CA' | 'TX'
+    const state = String(formData.get('state') ?? 'GA')
     const associationType = String(formData.get('association_type') ?? 'hoa') as 'hoa' | 'condo' | 'coop'
     const inviteAdminEmail = String(formData.get('invite_admin_email') ?? '').trim() || null
 
@@ -82,10 +83,11 @@ export function NewTenantForm() {
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="State" required>
             <Select name="state" required defaultValue="GA">
-              <option value="GA">Georgia</option>
-              <option value="FL">Florida</option>
-              <option value="CA">California</option>
-              <option value="TX">Texas</option>
+              {US_STATES.map((s) => (
+                <option key={s.code} value={s.code}>
+                  {s.name}
+                </option>
+              ))}
             </Select>
           </Field>
           <Field label="Type">

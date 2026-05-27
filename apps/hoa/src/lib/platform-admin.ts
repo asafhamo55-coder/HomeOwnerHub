@@ -14,6 +14,7 @@ import { z } from 'zod'
 import { createAdminClient } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sendEmail, appUrl } from '@/lib/email'
+import { isUsStateCode } from '@/lib/us-states'
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -825,7 +826,13 @@ const CreateTenantSchema = z.object({
   plan: z.enum(['free', 'pro', 'enterprise']).default('free'),
   doors_count: z.number().int().min(0).nullable().optional(),
   association_name: z.string().trim().min(2).max(200),
-  state: z.enum(['GA', 'FL', 'CA', 'TX']),
+  // Any valid USPS 2-letter US state/DC code. Was previously locked
+  // to GA/FL/CA/TX (the W30 State Law Brain v1 footprint), but tenant
+  // creation shouldn't be limited by what state-law content we've
+  // curated — every state can run an HOA. State-law features still
+  // surface "we don't yet support this state" gracefully on unmapped
+  // codes.
+  state: z.string().refine(isUsStateCode, 'Pick a US state.'),
   association_type: z.enum(['hoa', 'condo', 'coop']).default('hoa'),
   invite_admin_email: z
     .string()
@@ -840,7 +847,8 @@ export interface CreateTenantInput {
   plan?: 'free' | 'pro' | 'enterprise'
   doorsCount?: number | null
   associationName: string
-  state: 'GA' | 'FL' | 'CA' | 'TX'
+  /** USPS 2-letter state code (any US state + DC). */
+  state: string
   associationType?: 'hoa' | 'condo' | 'coop'
   inviteAdminEmail?: string | null
 }
