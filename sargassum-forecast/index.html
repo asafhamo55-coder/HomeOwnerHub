@@ -85,6 +85,7 @@
       <button class="month-btn" style="flex:0 0 auto;min-width:0" onclick="map.fitBounds(VIEW_FULL)">🌍 Atlantic belt</button>
       <button class="month-btn" style="flex:0 0 auto;min-width:0" onclick="map.fitBounds(VIEW_GULF)">📍 Gulf focus</button>
       <button class="month-btn" id="beltToggle" style="flex:0 0 auto;min-width:0" onclick="toggleBelt()">🌿 Belt overlay: on</button>
+      <button class="month-btn" id="liveToggle" style="flex:0 0 auto;min-width:0" onclick="toggleLive()" title="Real near-real-time satellite chlorophyll-a (a proxy for floating algae) from NASA EOSDIS GIBS / MODIS Aqua">🛰️ Live chlorophyll: off</button>
     </div>
     <div id="map"></div>
   </div>
@@ -114,6 +115,10 @@
         <div class="legend-row"><span class="swatch" style="background:var(--g-high)"></span> High — heavy beaching likely</div>
         <div class="legend-row"><span class="swatch" style="background:var(--g-sev)"></span> Severe — massive influx / cleanup needed</div>
         <p class="muted">Marker size scales with risk. Click any marker for the site's month-by-month outlook.</p>
+        <p class="muted" style="border-top:1px solid var(--line);padding-top:8px">
+          <b style="color:var(--ink)">🛰️ Live chlorophyll</b> toggles a real near-real-time NASA satellite layer
+          (MODIS-Aqua chlorophyll-a, a proxy for floating algae). The coloured markers, belt and charts are a
+          <b>modeled climatology/outlook</b> — the satellite tiles are the only live data on the map.</p>
       </div>
     </div>
   </div>
@@ -333,6 +338,23 @@ function updateBelt(mk){
   beltArrows.forEach(x=>{ if(x.setStyle) x.setStyle({opacity:0.25+s*0.55}); });
 }
 buildBelt();
+
+/* ---- REAL near-real-time layer: NASA GIBS MODIS-Aqua chlorophyll-a ----
+   No auth, CORS-friendly, Leaflet-ready. Chlorophyll is a proxy for floating
+   algae/blooms. Uses imagery from a few days back to allow for processing lag. */
+const GIBS_DATE = new Date(Date.now()-3*864e5).toISOString().slice(0,10);
+const liveChl = L.tileLayer(
+  'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Aqua_Chlorophyll_A/default/'+
+  GIBS_DATE+'/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png',
+  {maxNativeZoom:7, maxZoom:11, opacity:.6, bounds:[[-85,-180],[85,180]],
+   attribution:'Chlorophyll-a: NASA EOSDIS GIBS / MODIS Aqua ('+GIBS_DATE+')'});
+let liveOn=false;
+function toggleLive(){
+  liveOn=!liveOn;
+  if(liveOn){ liveChl.addTo(map); } else { map.removeLayer(liveChl); }
+  document.getElementById('liveToggle').textContent='🛰️ Live chlorophyll: '+(liveOn?'on':'off');
+}
+
 let beltOn=true;
 function toggleBelt(){
   beltOn=!beltOn;

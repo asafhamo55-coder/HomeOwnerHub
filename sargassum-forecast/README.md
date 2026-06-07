@@ -89,3 +89,41 @@ Each beach is classified into one of five tiers for the selected month:
 - **Open-ocean biomass ≠ beaching volume.** The amount of sargassum floating offshore does not directly translate to how much lands on a given beach; actual landings depend heavily on local **winds and currents** at the time.
 - **Verify against the latest USF SaWS bulletin** before any operational or decision-making use. This dashboard is a communication and planning aid, not an authoritative forecast.
 - **Not for navigation or any safety-critical use.** Do not rely on this tool for vessel routing, emergency response, or other situations where accuracy is essential to safety.
+
+---
+
+## Going live with real data
+
+The dashboard ships with one **real, near-real-time** layer already wired in: the
+**🛰️ Live chlorophyll** toggle adds a NASA EOSDIS **GIBS MODIS-Aqua chlorophyll-a**
+tile layer (no auth, CORS-friendly, Leaflet-ready). Chlorophyll-a is a *proxy* for
+floating-algae blooms — it is not a sargassum-specific product, but it shows genuine
+current ocean conditions alongside the modeled outlook.
+
+To replace more of the modeled layers with authoritative data, the recommended phased
+plan (from the integration research) is:
+
+| Phase | What | Source | Backend needed? |
+|-------|------|--------|-----------------|
+| **1** *(done)* | Live satellite tiles | **NASA GIBS** WMTS (MODIS/VIIRS chlorophyll-a) — `gibs.earthdata.nasa.gov`, no auth, CORS-clean | No — client-side |
+| **2** | Real coastal **risk categories** | **NOAA SIR** (AOML/CoastWatch) GeoJSON + ERDDAP `noaa_aoml_atlantic_oceanwatch_AFAI_7D` | Yes — small proxy (host blocks bots / CORS; normalize NOAA tiers → the 5-tier ramp; cache daily) |
+| **3** | Real **drift** overlay | **Copernicus Marine** surface currents (GLORYS / `GLOBAL_ANALYSISFORECAST_PHY_001_024`) via the `copernicusmarine` toolbox | Yes — scheduled job (auth + NetCDF; precompute particle advection) |
+
+Key sources for going live:
+
+- **NOAA Sargassum Inundation Risk (SIR)** — the single best operational source, since it
+  natively outputs coastal beaching-**risk categories**: daily maps at `cwcgom.aoml.noaa.gov/SIR/`,
+  GeoJSON risk geometries, and an ERDDAP server (`cwcgom.aoml.noaa.gov/erddap/`) exposing
+  NetCDF/GeoTIFF/PNG/WMS/OPeNDAP. Free, no auth. *Note: the host blocks non-browser user-agents,
+  so a tiny serverless proxy is needed.*
+- **USF SaWS** — monthly Outlook PDFs at a predictable URL
+  (`…/Sargassum_outlook_<YEAR>_bulletin<NN>_USF.pdf`) plus daily AFAI/density imagery. Host also
+  blocks bots → proxy.
+- **NASA GIBS** — `gibs.earthdata.nasa.gov/wmts/epsg3857/best/…` — the only fully client-side option.
+- **Copernicus Marine Service** — ocean-colour (`OCEANCOLOUR_GLO_BGC_L3_NRT_009_101`) and currents
+  products; free account; WMTS viz tiles are browser-usable, bulk NetCDF needs a backend.
+- **sargassummonitoring.com** — citizen-science map, **no public API** — link out / attribute only,
+  do not scrape.
+
+> The repo is a Next.js monorepo (`apps/`) with existing serverless route handlers, so a
+> `sargassum-forecast` API route is a natural home for the Phase-2 NOAA SIR proxy.
