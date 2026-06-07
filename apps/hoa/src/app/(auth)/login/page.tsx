@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect as nextRedirect } from 'next/navigation'
-import { MagicLinkForm } from './MagicLinkForm'
+import { LoginMethods } from './LoginMethods'
 
 export const metadata = { title: 'Sign in' }
 
@@ -26,14 +26,15 @@ export default async function LoginPage({
       <div className="space-y-1">
         <h2 className="text-lg font-semibold text-foreground">Sign in</h2>
         <p className="text-sm text-muted">
-          Enter your email to receive a magic link. New here?{' '}
+          Sign in with your password, or have a one-time link emailed to you.
+          New here?{' '}
           <Link href="/signup" className="font-medium text-primary hover:underline">
             Create an account
           </Link>
           .
         </p>
       </div>
-      <MagicLinkForm redirectTo={redirect} />
+      <LoginMethods redirectTo={redirect} />
     </div>
   )
 }
