@@ -167,15 +167,15 @@ const TIERS = {
 const MONTHS = ["Jun 2026","Jul 2026","Aug 2026","Sep 2026","Oct 2026","Nov 2026","Dec 2026"];
 // (7 entries so the user sees the full decline tail; "Jun" is the issue month)
 
-// 12-month climatology index (0-100), avg 2011-2024. Peak May-Aug.
-const SEASON = {Jan:15,Feb:18,Mar:30,Apr:55,May:80,Jun:95,Jul:100,Aug:85,Sep:60,Oct:40,Nov:25,Dec:18};
+// 12-month climatology index (0-100), avg 2011-2024. Peak Jun-Jul.
+const SEASON = {Jan:15,Feb:20,Mar:38,Apr:60,May:82,Jun:100,Jul:98,Aug:80,Sep:55,Oct:38,Nov:25,Dec:18};
 // month-key for each forecast step
 const MK = ["Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 // Per-month narrative for the outlook
 const TREND = {
-  Jun:"Near the seasonal peak. The Great Atlantic Sargassum Belt is at its broadest; strong, repeated influxes expected on east- and south-facing Caribbean and Yucatán beaches.",
-  Jul:"Annual maximum. Heaviest beaching of the year for the Mexican Caribbean and Florida Keys; daily collection likely at exposed resorts.",
+  Jun:"At the seasonal peak. The Great Atlantic Sargassum Belt is at its broadest; strong, repeated influxes on east- and south-facing Caribbean and Yucatán beaches. Note: 2025 set an all-time record (~37.5 Mt) and early-2026 readings are record-high, so absolute volumes may exceed prior years.",
+  Jul:"Annual maximum (co-peak with June). Heaviest beaching of the year for the Mexican Caribbean and Florida Keys; daily collection likely at exposed resorts. On a record baseline, July can equal or exceed June.",
   Aug:"Still very high but just past peak. Rafts begin to fragment and sink; northern Gulf sees its short late-summer bump.",
   Sep:"Declining. Belt biomass falls sharply; beaching becomes intermittent rather than continuous.",
   Oct:"Moderate and easing. Mostly scattered patches; clean-water windows become common between events.",
@@ -183,8 +183,9 @@ const TREND = {
   Dec:"Seasonal low. Minimal sargassum basin-wide; conditions generally clean ahead of the next spring build-up."
 };
 
-// 10-year annual peak bloom (million tonnes, GASB) — approx from USF bulletins
-const YEARS = {2011:2,2012:1,2013:0.5,2014:2,2015:3,2016:1.5,2017:3,2018:20,2019:13,2020:7,2021:14,2022:22,2023:33,2024:27};
+// Annual peak bloom (million tonnes, GASB) — USF/NOAA/Wang et al. 2019.
+// 2013 = no belt formed; 2018 record-at-time; 2022 record; 2025 all-time record.
+const YEARS = {2011:2,2012:4,2013:0,2014:6,2015:9,2016:5,2017:13,2018:20,2019:18,2020:15,2021:16,2022:24.2,2023:22,2024:10,2025:37.5};
 
 /* Monitored sites.
    exposure = baseline susceptibility multiplier (0-1).
