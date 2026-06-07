@@ -4,15 +4,6 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Gulf of Mexico Sargassum Forecast &amp; Beaching Risk Map</title>
-
-<!-- Leaflet -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
 <style>
   :root{
     --bg:#071a26; --panel:#0e2a3a; --panel2:#123446; --ink:#e8f4f8; --muted:#9fc0cf;
@@ -22,18 +13,16 @@
   *{box-sizing:border-box}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:linear-gradient(160deg,#04131c,#071a26 40%,#06222e);color:var(--ink);}
-  header{padding:22px 26px 14px;border-bottom:1px solid var(--line);
+  header{padding:20px 24px 12px;border-bottom:1px solid var(--line);
     background:linear-gradient(90deg,rgba(39,196,196,.12),transparent);}
-  header h1{margin:0;font-size:23px;letter-spacing:.3px}
-  header p{margin:6px 0 0;color:var(--muted);font-size:13.5px;max-width:920px;line-height:1.5}
-  .wrap{display:grid;grid-template-columns:1fr 360px;gap:16px;padding:16px 18px;}
+  header h1{margin:0;font-size:22px;letter-spacing:.3px}
+  header p{margin:6px 0 0;color:var(--muted);font-size:13px;max-width:960px;line-height:1.5}
+  .wrap{display:grid;grid-template-columns:1fr 340px;gap:16px;padding:16px 18px;}
   @media (max-width:1000px){.wrap{grid-template-columns:1fr}}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
-  .card h2{margin:0;padding:13px 16px;font-size:14px;letter-spacing:.4px;text-transform:uppercase;
+  .card h2{margin:0;padding:12px 16px;font-size:13px;letter-spacing:.4px;text-transform:uppercase;
     color:var(--muted);border-bottom:1px solid var(--line);background:var(--panel2)}
-  #map{height:560px;width:100%}
   .pad{padding:14px 16px}
-  /* Forecast controls */
   .month-bar{display:flex;flex-wrap:wrap;gap:6px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel2)}
   .month-btn{flex:1 1 auto;min-width:62px;cursor:pointer;border:1px solid var(--line);background:#0b2433;
     color:var(--ink);border-radius:9px;padding:8px 6px;font-size:12px;text-align:center;transition:.15s}
@@ -41,71 +30,65 @@
   .month-btn small{color:var(--muted);font-size:10.5px}
   .month-btn.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;background:#10384a}
   .month-btn .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle}
-  /* Legend */
-  .legend-row{display:flex;align-items:center;gap:9px;margin:8px 0;font-size:13px}
+  #mapSvg{display:block;width:100%;height:auto;background:#0a2230}
+  .legend-row{display:flex;align-items:center;gap:9px;margin:7px 0;font-size:13px}
   .swatch{width:16px;height:16px;border-radius:4px;flex:none;box-shadow:0 0 0 1px rgba(255,255,255,.15)}
   .muted{color:var(--muted);font-size:12.5px;line-height:1.55}
-  /* Forecast summary */
   #forecastBox h3{margin:2px 0 4px;font-size:18px}
   .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;color:#06212b}
   .trend{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.55}
-  /* table */
   table{width:100%;border-collapse:collapse;font-size:12.5px}
   th,td{padding:7px 8px;text-align:left;border-bottom:1px solid var(--line)}
   th{color:var(--muted);font-weight:600;text-transform:uppercase;font-size:10.5px;letter-spacing:.4px}
   td .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px}
-  .chart-wrap{padding:10px 12px 16px;height:230px}
+  .chart-wrap{padding:10px 14px 14px}
   footer{padding:14px 22px 30px;color:var(--muted);font-size:11.5px;line-height:1.6;border-top:1px solid var(--line)}
   a{color:var(--accent)}
-  .leaflet-popup-content{font-size:13px}
-  .leaflet-popup-content b{font-size:14px}
-  .kpi{display:flex;gap:10px;flex-wrap:wrap;padding:0 16px 14px}
+  .kpi{display:flex;gap:10px;flex-wrap:wrap}
   .kpi div{flex:1 1 90px;background:#0b2433;border:1px solid var(--line);border-radius:10px;padding:10px}
   .kpi b{display:block;font-size:20px}
   .kpi small{color:var(--muted);font-size:11px}
+  .badge{display:inline-block;background:#0b2433;border:1px solid var(--line);border-radius:8px;
+    padding:3px 8px;font-size:11px;color:var(--muted);margin-left:8px}
 </style>
 </head>
 <body>
 
 <header>
-  <h1>🌊 Gulf of Mexico Sargassum Forecast &amp; Beaching-Risk Map</h1>
-  <p>Interactive beaching-risk outlook for the Gulf of Mexico, Yucatán/Mexican Caribbean and the Florida coasts.
-  Risk levels are modeled from the <b>2011–2024</b> satellite record (USF Sargassum Watch System / Great Atlantic Sargassum
-  Belt bulletins) combined with the typical seasonal drift cycle. Use the month buttons to step through the
-  <b>6-month outlook</b> — issued June 2026, stepping the issue month through December 2026. Inspired by the colour-coded risk maps of sargassummonitoring.com.</p>
+  <h1>🌊 Gulf of Mexico Sargassum Forecast &amp; Beaching-Risk Map <span class="badge">offline · no dependencies</span></h1>
+  <p>Beaching-risk outlook for the Gulf of Mexico, Yucatán / Mexican Caribbean and the Florida coasts, modeled from the
+  <b>2011–2024</b> satellite record (USF Sargassum Watch System / Great Atlantic Sargassum Belt bulletins) and the seasonal
+  drift cycle. Step through the <b>6-month outlook</b> (issued June 2026 → December 2026) with the month buttons. This page
+  is fully self-contained — the map and charts are drawn with inline SVG and need no internet.</p>
 </header>
 
 <div class="wrap">
-
-  <!-- LEFT: Map + forecast strip -->
   <div class="card">
     <div class="month-bar" id="monthBar"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--panel2);align-items:center">
-      <span class="muted" style="font-size:11.5px">View:</span>
-      <button class="month-btn" style="flex:0 0 auto;min-width:0" onclick="map.fitBounds(VIEW_FULL)">🌍 Atlantic belt</button>
-      <button class="month-btn" style="flex:0 0 auto;min-width:0" onclick="map.fitBounds(VIEW_GULF)">📍 Gulf focus</button>
-      <button class="month-btn" id="beltToggle" style="flex:0 0 auto;min-width:0" onclick="toggleBelt()">🌿 Belt overlay: on</button>
-      <button class="month-btn" id="liveToggle" style="flex:0 0 auto;min-width:0" onclick="toggleLive()" title="Real near-real-time satellite chlorophyll-a (a proxy for floating algae) from NASA EOSDIS GIBS / MODIS Aqua">🛰️ Live chlorophyll: off</button>
-    </div>
-    <div id="map"></div>
+    <svg id="mapSvg" viewBox="0 0 940 400" preserveAspectRatio="xMidYMid meet" aria-label="Sargassum risk map">
+      <rect x="0" y="0" width="940" height="400" fill="#0a2230"/>
+      <g id="graticule"></g>
+      <g id="coast"></g>
+      <g id="belt"></g>
+      <g id="arrows"></g>
+      <g id="markers"></g>
+      <g id="labels"></g>
+    </svg>
   </div>
 
-  <!-- RIGHT: panels -->
   <div style="display:flex;flex-direction:column;gap:16px">
-
     <div class="card" id="forecastBox">
       <h2>Forecast for selected month</h2>
       <div class="pad">
         <h3 id="fMonth">—</h3>
         <span class="pill" id="fPill">—</span>
-        <div class="kpi" style="padding-left:0;padding-right:0;margin-top:12px">
+        <div class="kpi" style="margin-top:12px">
           <div><b id="kSeason">—</b><small>Seasonal index (0–100)</small></div>
           <div><b id="kSites">—</b><small>High/Severe sites</small></div>
         </div>
         <div class="trend" id="fTrend"></div>
       </div>
     </div>
-
     <div class="card">
       <h2>Risk legend</h2>
       <div class="pad">
@@ -114,44 +97,37 @@
         <div class="legend-row"><span class="swatch" style="background:var(--g-mod)"></span> Moderate — visible rafts, some beaching</div>
         <div class="legend-row"><span class="swatch" style="background:var(--g-high)"></span> High — heavy beaching likely</div>
         <div class="legend-row"><span class="swatch" style="background:var(--g-sev)"></span> Severe — massive influx / cleanup needed</div>
-        <p class="muted">Marker size scales with risk. Click any marker for the site's month-by-month outlook.</p>
-        <p class="muted" style="border-top:1px solid var(--line);padding-top:8px">
-          <b style="color:var(--ink)">🛰️ Live chlorophyll</b> toggles a real near-real-time NASA satellite layer
-          (MODIS-Aqua chlorophyll-a, a proxy for floating algae). The coloured markers, belt and charts are a
-          <b>modeled climatology/outlook</b> — the satellite tiles are the only live data on the map.</p>
+        <p class="muted">Marker size scales with risk. Hover a marker for its details. The dashed cyan band + arrows show the
+        Great Atlantic Sargassum Belt drifting in via the Caribbean &amp; Loop Current.</p>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Wide charts row -->
 <div class="wrap" style="grid-template-columns:1fr 1fr">
   <div class="card">
     <h2>Typical seasonal cycle (2011–2024 average)</h2>
-    <div class="chart-wrap"><canvas id="seasonChart"></canvas></div>
+    <div class="chart-wrap" id="seasonChart"></div>
   </div>
   <div class="card">
     <h2>Annual peak bloom — Great Atlantic Sargassum Belt (million tonnes)</h2>
-    <div class="chart-wrap"><canvas id="yearChart"></canvas></div>
+    <div class="chart-wrap" id="yearChart"></div>
   </div>
 </div>
 
-<!-- Regional phasing -->
 <div class="wrap" style="grid-template-columns:1fr">
   <div class="card">
     <h2>Regional phasing — the belt drifts west &amp; north (self-normalised, each region to its own peak)</h2>
-    <div class="chart-wrap" style="height:260px"><canvas id="regionChart"></canvas></div>
+    <div class="chart-wrap" id="regionChart"></div>
     <p class="muted" style="padding:0 16px 14px">
-      The open Atlantic nursery leads (peak Jun–Jul), the Caribbean follows (~Jul–Aug), and the Gulf of Mexico
-      lags last (~Aug–Sep) as Sargassum rides the Yucatán/Loop Current. The eastern Atlantic off West Africa runs
-      counter-phase — a winter aggregation zone (peak Feb–Mar) that re-seeds the next summer bloom. At peak, the open
-      Atlantic holds ~80% of belt biomass, the Caribbean ~15%, and the Gulf only ~4% — so the Gulf's absolute load is
-      small even when its risk is high locally. <i>Curves are modeled from USF/NOAA bulletins &amp; Wang et al. 2019.</i>
+      The open Atlantic nursery leads (peak Jun–Jul), the Caribbean follows (~Jul–Aug), and the Gulf of Mexico lags last
+      (~Aug–Sep) as Sargassum rides the Yucatán/Loop Current. The eastern Atlantic off West Africa runs counter-phase — a
+      winter aggregation zone (peak Feb–Mar) that re-seeds the next summer bloom. At peak, the open Atlantic holds ~80% of
+      belt biomass, the Caribbean ~15%, and the Gulf only ~4%. <i>Modeled from USF/NOAA bulletins &amp; Wang et al. 2019.</i>
     </p>
   </div>
 </div>
 
-<!-- Table -->
 <div class="wrap" style="grid-template-columns:1fr">
   <div class="card">
     <h2>Monitored beaches — risk for selected month</h2>
@@ -165,329 +141,256 @@
 </div>
 
 <footer>
-  <b>Methodology &amp; sources.</b> Risk is derived from (1) the monthly sargassum abundance climatology averaged over
-  2011–2024, (2) each site's documented baseline exposure to the Great Atlantic Sargassum Belt, and (3) the prevailing
-  surface-current / wind drift that carries pelagic <i>Sargassum</i> through the Caribbean into the Gulf of Mexico.
-  Bloom magnitudes referenced from the USF Optical Oceanography Lab <i>Sargassum Watch System (SaWS)</i> and the monthly
-  <i>Outlook of Sargassum blooms</i> bulletins; satellite detection uses MODIS/VIIRS. Colour-coded presentation inspired by
-  <a href="https://sargassummonitoring.com" target="_blank" rel="noopener">sargassummonitoring.com</a>. Figures for 2025–2026
-  are model projections, not measurements — verify against the latest USF bulletin before operational use.
-  <br>Forecast issued: <b>June 2026</b> · horizon: <b>6 months, through December 2026</b> (issue month shown first).
+  <b>Methodology &amp; sources.</b> Risk = monthly 2011–2024 sargassum climatology × each site's baseline exposure to the
+  Great Atlantic Sargassum Belt, capped at the site's known seasonal-peak tier, reflecting the surface-current / wind drift
+  that carries pelagic <i>Sargassum</i> through the Caribbean into the Gulf. Bloom magnitudes from the USF Optical
+  Oceanography Lab <i>Sargassum Watch System (SaWS)</i> monthly bulletins (satellite detection: MODIS/VIIRS); belt geometry
+  from Wang et al. (2019), <i>Science</i> 365:83–87. Colour scheme inspired by sargassummonitoring.com.
+  Figures for 2025–2026 are model projections, not measurements — verify against the latest USF bulletin before operational use.
+  <br>A richer interactive (slippy-map) version with a live NASA satellite layer is in <code>index-interactive.html</code>
+  (requires internet for map tiles &amp; libraries).
+  <br>Forecast issued: <b>June 2026</b> · horizon: <b>6 months, through December 2026</b>.
 </footer>
 
 <script>
-/* ----------------------------------------------------------------------------
-   DATA  (10-year climatology + 6-month outlook)
-   ---------------------------------------------------------------------------- */
-
-// Risk tiers
+/* ===========================================================================
+   DATA — 10-year climatology + 6-month outlook (all inline, no network)
+   =========================================================================== */
 const TIERS = {
-  none:    {label:"None",     color:"#2ecc71", w:0},
-  low:     {label:"Low",      color:"#a3d65c", w:1},
-  moderate:{label:"Moderate", color:"#f4d03f", w:2},
-  high:    {label:"High",     color:"#e67e22", w:3},
-  severe:  {label:"Severe",   color:"#c0392b", w:4},
+  none:{label:"None",color:"#2ecc71",w:0}, low:{label:"Low",color:"#a3d65c",w:1},
+  moderate:{label:"Moderate",color:"#f4d03f",w:2}, high:{label:"High",color:"#e67e22",w:3},
+  severe:{label:"Severe",color:"#c0392b",w:4},
 };
-
-// Forecast horizon — the 6 months we step through
 const MONTHS = ["Jun 2026","Jul 2026","Aug 2026","Sep 2026","Oct 2026","Nov 2026","Dec 2026"];
-// (7 entries so the user sees the full decline tail; "Jun" is the issue month)
-
-// 12-month climatology index (0-100), avg 2011-2024. Peak Jun-Jul.
-const SEASON = {Jan:15,Feb:20,Mar:38,Apr:60,May:82,Jun:100,Jul:98,Aug:80,Sep:55,Oct:38,Nov:25,Dec:18};
-// month-key for each forecast step
 const MK = ["Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-// Per-month narrative for the outlook
+const SEASON = {Jan:15,Feb:20,Mar:38,Apr:60,May:82,Jun:100,Jul:98,Aug:80,Sep:55,Oct:38,Nov:25,Dec:18};
 const TREND = {
-  Jun:"At the seasonal peak. The Great Atlantic Sargassum Belt is at its broadest; strong, repeated influxes on east- and south-facing Caribbean and Yucatán beaches. Note: 2025 set an all-time record (~37.5 Mt) and early-2026 readings are record-high, so absolute volumes may exceed prior years.",
-  Jul:"Annual maximum (co-peak with June). Heaviest beaching of the year for the Mexican Caribbean and Florida Keys; daily collection likely at exposed resorts. On a record baseline, July can equal or exceed June.",
+  Jun:"At the seasonal peak. The belt is at its broadest; strong, repeated influxes on east- and south-facing Caribbean and Yucatán beaches. 2025 set an all-time record (~37.5 Mt) and early-2026 readings are record-high.",
+  Jul:"Annual maximum (co-peak with June). Heaviest beaching of the year for the Mexican Caribbean and Florida Keys; daily collection likely at exposed resorts.",
   Aug:"Still very high but just past peak. Rafts begin to fragment and sink; northern Gulf sees its short late-summer bump.",
   Sep:"Declining. Belt biomass falls sharply; beaching becomes intermittent rather than continuous.",
   Oct:"Moderate and easing. Mostly scattered patches; clean-water windows become common between events.",
   Nov:"Low. Only the most exposed Caribbean shores see occasional landings; most beaches clear.",
   Dec:"Seasonal low. Minimal sargassum basin-wide; conditions generally clean ahead of the next spring build-up."
 };
-
-// Annual peak bloom (million tonnes, GASB) — USF/NOAA/Wang et al. 2019.
-// 2013 = no belt formed; 2018 record-at-time; 2022 record; 2025 all-time record.
 const YEARS = {2011:2,2012:4,2013:0,2014:6,2015:9,2016:5,2017:13,2018:20,2019:18,2020:15,2021:16,2022:24.2,2023:22,2024:10,2025:37.5};
 
-/* Great Atlantic Sargassum Belt schematic footprint (peak season),
-   Wang et al. 2019 / USF SaWS. Closed ring: north edge W->E, south edge E->W. */
 const GASB_POLYGON = [
   [25,-90],[23,-85],[21,-75],[19,-65],[20,-55],[20,-45],[19,-35],[17,-25],[15,-18],
   [9,-18],[8,-25],[8,-35],[8,-45],[9,-55],[11,-62],[13,-72],[16,-82],[20,-88]
 ];
-// Transport: N. Equatorial / N. Brazil Current -> Caribbean Current -> Loop Current
 const GASB_ARROWS = [
   [[13,-22],[11,-38]],[[11,-38],[10,-52]],[[10,-52],[14,-61]],
   [[14,-61],[16,-75]],[[16,-75],[21,-86]],[[21,-86],[25,-88]]
 ];
 const GASB_HOTSPOTS = [
-  {name:"Central Tropical Atlantic core", ll:[11,-45]},
-  {name:"Eastern Caribbean entry (Lesser Antilles)", ll:[14,-61]},
-  {name:"NW Caribbean / Yucatán approach", ll:[20,-86]}
+  {name:"Central Tropical Atlantic core",ll:[11,-45]},
+  {name:"Eastern Caribbean entry",ll:[14,-61]},
+  {name:"NW Caribbean / Yucatán approach",ll:[20,-86]}
 ];
-
-/* Regional monthly phasing (self-normalised 0-100, each region to its own max).
-   Atlantic leads -> Caribbean mid -> Gulf lags; E. Atlantic = winter aggregation. */
 const REGIONS = {
-  atlantic:  {label:"Open Atlantic (nursery)", color:"#27c4c4",
-              data:[18,22,32,50,72,92,100,95,78,55,33,22]},
-  caribbean: {label:"Caribbean Sea",           color:"#f4d03f",
-              data:[10,12,18,30,52,78,96,100,82,55,28,15]},
-  gulf:      {label:"Gulf of Mexico",          color:"#e67e22",
-              data:[8,8,12,20,38,60,82,95,100,75,40,18]},
-  eAtlantic: {label:"E. Atlantic off W. Africa (winter agg.)", color:"#a3d65c",
-              data:[85,95,100,88,62,42,30,28,35,50,65,78]}
+  atlantic:{label:"Open Atlantic (nursery)",color:"#27c4c4",data:[18,22,32,50,72,92,100,95,78,55,33,22]},
+  caribbean:{label:"Caribbean Sea",color:"#f4d03f",data:[10,12,18,30,52,78,96,100,82,55,28,15]},
+  gulf:{label:"Gulf of Mexico",color:"#e67e22",data:[8,8,12,20,38,60,82,95,100,75,40,18]},
+  eAtlantic:{label:"E. Atlantic off W. Africa",color:"#a3d65c",data:[85,95,100,88,62,42,30,28,35,50,65,78]}
 };
-// Rough share of total belt biomass at peak: open Atlantic ~80%, Caribbean ~15%, Gulf ~4%.
-
-/* Monitored sites.
-   exposure = baseline susceptibility multiplier (0-1).
-   peakTier = worst-case tier at the seasonal peak (used to scale the curve). */
 const SITES = [
-  // Mexican Caribbean — hardest hit
-  {name:"Cancún",            country:"Mexico", lat:21.16, lng:-86.85, exp:1.00, peak:"severe"},
-  {name:"Playa del Carmen",  country:"Mexico", lat:20.63, lng:-87.07, exp:1.00, peak:"severe"},
-  {name:"Tulum",             country:"Mexico", lat:20.21, lng:-87.46, exp:1.00, peak:"severe"},
-  {name:"Cozumel",           country:"Mexico", lat:20.42, lng:-86.92, exp:0.85, peak:"high"},
-  {name:"Mahahual",          country:"Mexico", lat:18.71, lng:-87.71, exp:0.95, peak:"severe"},
-  // Yucatán Gulf coast
-  {name:"Progreso (Yucatán)",country:"Mexico", lat:21.28, lng:-89.66, exp:0.45, peak:"moderate"},
-  // Western / southern Gulf
-  {name:"Veracruz",          country:"Mexico", lat:19.17, lng:-96.13, exp:0.30, peak:"low"},
-  {name:"Tampico/Tamaulipas",country:"Mexico", lat:22.25, lng:-97.86, exp:0.30, peak:"low"},
-  // Texas
-  {name:"South Padre Island",country:"USA",    lat:26.10, lng:-97.17, exp:0.55, peak:"moderate"},
-  {name:"Galveston",         country:"USA",    lat:29.30, lng:-94.79, exp:0.45, peak:"moderate"},
-  // Northern Gulf
-  {name:"Grand Isle (LA)",   country:"USA",    lat:29.24, lng:-89.99, exp:0.30, peak:"low"},
-  {name:"Gulf Shores (AL)",  country:"USA",    lat:30.25, lng:-87.70, exp:0.40, peak:"moderate"},
-  {name:"Pensacola (FL)",    country:"USA",    lat:30.40, lng:-87.20, exp:0.40, peak:"moderate"},
-  // Florida peninsula
-  {name:"Fort Myers / Naples",country:"USA",   lat:26.14, lng:-81.79, exp:0.55, peak:"moderate"},
-  {name:"Key West",          country:"USA",    lat:24.55, lng:-81.78, exp:0.90, peak:"high"},
-  {name:"Miami / Key Biscayne",country:"USA",  lat:25.76, lng:-80.19, exp:0.95, peak:"severe"},
-  {name:"Fort Lauderdale",   country:"USA",    lat:26.12, lng:-80.10, exp:0.90, peak:"high"},
-  // Caribbean reference sites (the source of Gulf-bound sargassum)
-  {name:"Punta Cana (DR)",   country:"Dom. Rep.",lat:18.58,lng:-68.40,exp:1.00, peak:"severe"},
-  {name:"Cancún offshore belt",country:"Open sea",lat:20.0,lng:-85.0, exp:1.00, peak:"severe"},
+  {name:"Cancún",country:"Mexico",lat:21.16,lng:-86.85,exp:1.00,peak:"severe"},
+  {name:"Playa del Carmen",country:"Mexico",lat:20.63,lng:-87.07,exp:1.00,peak:"severe"},
+  {name:"Tulum",country:"Mexico",lat:20.21,lng:-87.46,exp:1.00,peak:"severe"},
+  {name:"Cozumel",country:"Mexico",lat:20.42,lng:-86.92,exp:0.85,peak:"high"},
+  {name:"Mahahual",country:"Mexico",lat:18.71,lng:-87.71,exp:0.95,peak:"severe"},
+  {name:"Progreso (Yucatán)",country:"Mexico",lat:21.28,lng:-89.66,exp:0.45,peak:"moderate"},
+  {name:"Veracruz",country:"Mexico",lat:19.17,lng:-96.13,exp:0.30,peak:"low"},
+  {name:"Tampico",country:"Mexico",lat:22.25,lng:-97.86,exp:0.30,peak:"low"},
+  {name:"South Padre Is.",country:"USA",lat:26.10,lng:-97.17,exp:0.55,peak:"moderate"},
+  {name:"Galveston",country:"USA",lat:29.30,lng:-94.79,exp:0.45,peak:"moderate"},
+  {name:"Grand Isle (LA)",country:"USA",lat:29.24,lng:-89.99,exp:0.30,peak:"low"},
+  {name:"Gulf Shores (AL)",country:"USA",lat:30.25,lng:-87.70,exp:0.40,peak:"moderate"},
+  {name:"Pensacola (FL)",country:"USA",lat:30.40,lng:-87.20,exp:0.40,peak:"moderate"},
+  {name:"Fort Myers/Naples",country:"USA",lat:26.14,lng:-81.79,exp:0.55,peak:"moderate"},
+  {name:"Key West",country:"USA",lat:24.55,lng:-81.78,exp:0.90,peak:"high"},
+  {name:"Miami",country:"USA",lat:25.76,lng:-80.19,exp:0.95,peak:"severe"},
+  {name:"Fort Lauderdale",country:"USA",lat:26.12,lng:-80.10,exp:0.90,peak:"high"},
+  {name:"Punta Cana (DR)",country:"Dom. Rep.",lat:18.58,lng:-68.40,exp:1.00,peak:"severe"},
 ];
 
-/* ----------------------------------------------------------------------------
+/* ===========================================================================
    RISK MODEL
-   ---------------------------------------------------------------------------- */
+   =========================================================================== */
 const TIER_ORDER = ["none","low","moderate","high","severe"];
-
-// Compute a 0-100 site index for a given month key.
-function siteIndex(site, mk){
-  const s = SEASON[mk]/100;          // seasonal factor 0-1
-  const raw = s * site.exp * 100;    // scaled by baseline exposure
-  return Math.round(raw);
+function siteIndex(s,mk){ return Math.round(SEASON[mk]/100 * s.exp * 100); }
+function indexToTier(idx,peak){
+  const ceil = TIER_ORDER.indexOf(peak);
+  let t = idx<8?0 : idx<25?1 : idx<50?2 : idx<72?3 : 4;
+  return TIER_ORDER[Math.min(t,ceil)];
 }
-// Map an index + the site's peak ceiling to a tier.
-function indexToTier(idx, peakTier){
-  const ceil = TIER_ORDER.indexOf(peakTier);
-  let t;
-  if(idx < 8) t=0; else if(idx<25) t=1; else if(idx<50) t=2; else if(idx<72) t=3; else t=4;
-  return TIER_ORDER[Math.min(t, ceil)];
+function siteTier(s,mk){ return indexToTier(siteIndex(s,mk), s.peak); }
+
+/* ===========================================================================
+   INLINE SVG MAP  (equirectangular projection, no tiles)
+   =========================================================================== */
+const MAPW=940, MAPH=400, B={lo:-98,la:31,dLo:40,dLa:16};
+const X = lng => (lng - B.lo)/B.dLo * MAPW;
+const Y = lat => (B.la - lat)/B.dLa * MAPH;
+const NS = "http://www.w3.org/2000/svg";
+const el = id => document.getElementById(id);
+function svg(tag,attrs,parent){
+  const n=document.createElementNS(NS,tag);
+  for(const k in attrs) n.setAttribute(k,attrs[k]);
+  if(parent) parent.appendChild(n);
+  return n;
 }
-function siteTier(site, mk){ return indexToTier(siteIndex(site,mk), site.peak); }
+function path(pts){ return pts.map(([la,lo])=>`${X(lo).toFixed(1)},${Y(la).toFixed(1)}`).join(" "); }
 
-/* ----------------------------------------------------------------------------
-   MAP
-   ---------------------------------------------------------------------------- */
-const map = L.map('map',{scrollWheelZoom:true});
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-  attribution:'&copy; OpenStreetMap &copy; CARTO', subdomains:'abcd', maxZoom:11
-}).addTo(map);
+// schematic coastlines (lat,lng) — rough but recognizable
+const COAST = {
+  us:[[31,-98],[26.0,-97.2],[27.8,-97.4],[29.7,-95.0],[29.3,-94.7],[29.5,-92.0],[29.1,-90.2],
+      [30.2,-89.0],[30.4,-87.5],[30.1,-85.6],[29.7,-84.0],[28.8,-82.8],[27.6,-82.6],[26.4,-82.1],
+      [25.2,-81.1],[25.2,-80.3],[26.6,-80.1],[28.0,-80.5],[29.5,-81.0],[30.7,-81.4],[31,-81.4]],
+  mx:[[31,-98],[24.5,-97.8],[22.3,-97.8],[21.0,-97.3],[19.2,-96.1],[18.6,-94.6],[18.2,-94.0],
+      [18.5,-92.0],[18.7,-90.6],[20.6,-90.5],[21.3,-89.7],[21.5,-88.1],[21.2,-86.9],[20.2,-87.4],
+      [18.9,-87.6],[18.4,-88.3],[16.0,-88.9],[15.0,-92.0],[15,-98]],
+  cuba:[[23.0,-84.0],[23.2,-82.4],[22.6,-80.5],[21.6,-78.5],[20.8,-76.5],[20.2,-74.2],[20.0,-74.6],
+        [20.9,-76.8],[21.7,-79.0],[22.4,-81.2],[22.7,-83.5]],
+  hisp:[[19.9,-71.8],[19.8,-69.9],[19.3,-69.2],[18.4,-68.4],[18.2,-68.7],[18.3,-70.5],[18.0,-71.7]],
+  jam:[[18.5,-78.4],[18.5,-76.3],[17.8,-76.3],[17.9,-78.3]]
+};
 
-const VIEW_FULL = [[5,-98],[31,-15]];   // whole belt: Gulf -> West Africa
-const VIEW_GULF = [[17,-98],[31,-78]];  // Gulf of Mexico focus
-map.fitBounds(VIEW_FULL);
-
-/* ---- GASB belt overlay (seasonal): polygon + drift arrows + hotspots ---- */
-const beltLayer = L.layerGroup().addTo(map);
-let beltPoly, beltArrows=[], beltDots=[];
-function buildBelt(){
-  beltPoly = L.polygon(GASB_POLYGON,{color:"#27c4c4",weight:1.2,fillColor:"#27c4c4",
-    fillOpacity:.18,dashArray:"4 4"}).addTo(beltLayer)
-    .bindTooltip("Great Atlantic Sargassum Belt (peak-season footprint)",{sticky:true});
-  GASB_ARROWS.forEach(seg=>{
-    const pl=L.polyline(seg,{color:"#7fe9e9",weight:2,opacity:.7}).addTo(beltLayer);
-    // simple arrowhead via a small marker at the end
-    const [a,b]=seg, ang=Math.atan2(b[0]-a[0],b[1]-a[1])*180/Math.PI;
-    const head=L.marker(b,{icon:L.divIcon({className:'',html:
-      `<div style="color:#7fe9e9;transform:rotate(${-ang}deg);font-size:15px;line-height:0">➤</div>`,
-      iconSize:[12,12],iconAnchor:[6,6]})}).addTo(beltLayer);
-    beltArrows.push(pl,head);
+function buildStatic(){
+  // graticule every 5°
+  const g=el('graticule');
+  for(let lo=-95;lo<=-60;lo+=5){ svg('line',{x1:X(lo),y1:0,x2:X(lo),y2:MAPH,stroke:"#0e2f40","stroke-width":1},g);
+    svg('text',{x:X(lo)+2,y:MAPH-4,fill:"#2c5567","font-size":9},g).textContent=lo+"°";}
+  for(let la=20;la<=30;la+=5){ svg('line',{x1:0,y1:Y(la),x2:MAPW,y2:Y(la),stroke:"#0e2f40","stroke-width":1},g);
+    svg('text',{x:3,y:Y(la)-3,fill:"#2c5567","font-size":9},g).textContent=la+"°N";}
+  // coast
+  const c=el('coast');
+  for(const k in COAST) svg('polygon',{points:path(COAST[k]),fill:"#10384a",stroke:"#1d5468","stroke-width":1.2},c);
+  // drift arrows (static geometry; opacity updated per month)
+  const a=el('arrows');
+  GASB_ARROWS.forEach(([p,q])=>{
+    const x1=X(p[1]),y1=Y(p[0]),x2=X(q[1]),y2=Y(q[0]);
+    svg('line',{x1,y1,x2,y2,stroke:"#7fe9e9","stroke-width":2,"stroke-linecap":"round","data-arr":1,opacity:.6},a);
+    const ang=Math.atan2(y2-y1,x2-x1), L=9;
+    svg('polygon',{points:`${x2},${y2} ${x2-L*Math.cos(ang-.4)},${y2-L*Math.sin(ang-.4)} ${x2-L*Math.cos(ang+.4)},${y2-L*Math.sin(ang+.4)}`,
+      fill:"#7fe9e9","data-arr":1,opacity:.6},a);
   });
-  GASB_HOTSPOTS.forEach(h=>{
-    const c=L.circleMarker(h.ll,{radius:14,color:"#27c4c4",weight:1,fillColor:"#27c4c4",
-      fillOpacity:.12}).addTo(beltLayer).bindTooltip(h.name);
-    beltDots.push(c);
-  });
-}
-function updateBelt(mk){
-  if(!beltPoly) return;
-  const s=SEASON[mk]/100;                    // belt waxes/wanes with the season
-  beltPoly.setStyle({fillOpacity:0.06+s*0.30, opacity:0.3+s*0.6});
-  beltDots.forEach(c=>c.setStyle({fillOpacity:0.04+s*0.22}));
-  beltArrows.forEach(x=>{ if(x.setStyle) x.setStyle({opacity:0.25+s*0.55}); });
-}
-buildBelt();
-
-/* ---- REAL near-real-time layer: NASA GIBS MODIS-Aqua chlorophyll-a ----
-   No auth, CORS-friendly, Leaflet-ready. Chlorophyll is a proxy for floating
-   algae/blooms. Uses imagery from a few days back to allow for processing lag. */
-const GIBS_DATE = new Date(Date.now()-3*864e5).toISOString().slice(0,10);
-const liveChl = L.tileLayer(
-  'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Aqua_Chlorophyll_A/default/'+
-  GIBS_DATE+'/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png',
-  {maxNativeZoom:7, maxZoom:11, opacity:.6, bounds:[[-85,-180],[85,180]],
-   attribution:'Chlorophyll-a: NASA EOSDIS GIBS / MODIS Aqua ('+GIBS_DATE+')'});
-let liveOn=false;
-function toggleLive(){
-  liveOn=!liveOn;
-  if(liveOn){ liveChl.addTo(map); } else { map.removeLayer(liveChl); }
-  document.getElementById('liveToggle').textContent='🛰️ Live chlorophyll: '+(liveOn?'on':'off');
+  GASB_HOTSPOTS.forEach(h=>{ const c=svg('circle',{cx:X(h.ll[1]),cy:Y(h.ll[0]),r:16,fill:"#27c4c4",opacity:.10,"data-hot":1},a);
+    c.appendChild(document.createElementNS(NS,'title')).textContent=h.name; });
 }
 
-let beltOn=true;
-function toggleBelt(){
-  beltOn=!beltOn;
-  if(beltOn){ beltLayer.addTo(map); } else { map.removeLayer(beltLayer); }
-  document.getElementById('beltToggle').textContent='🌿 Belt overlay: '+(beltOn?'on':'off');
+function drawBelt(mk){
+  const b=el('belt'); b.innerHTML='';
+  const s=SEASON[mk]/100;
+  svg('polygon',{points:path(GASB_POLYGON),fill:"#27c4c4","fill-opacity":(0.05+s*0.22).toFixed(2),
+    stroke:"#27c4c4","stroke-opacity":(0.3+s*0.5).toFixed(2),"stroke-width":1.2,"stroke-dasharray":"5 4"},b);
+  el('arrows').querySelectorAll('[data-arr]').forEach(n=>n.setAttribute('opacity',(0.2+s*0.6).toFixed(2)));
+  el('arrows').querySelectorAll('[data-hot]').forEach(n=>n.setAttribute('opacity',(0.04+s*0.18).toFixed(2)));
 }
 
-let markers = [];
 function drawMarkers(mk){
-  markers.forEach(m=>map.removeLayer(m));
-  markers = [];
-  SITES.forEach(site=>{
-    const tier = siteTier(site, mk);
-    const t = TIERS[tier];
-    const idx = siteIndex(site, mk);
-    const r = 7 + t.w*4;
-    const m = L.circleMarker([site.lat,site.lng],{
-      radius:r, color:"#04131c", weight:1.5, fillColor:t.color, fillOpacity:.9
-    }).addTo(map);
-    m.bindPopup(
-      `<b>${site.name}</b><br>${site.country}<br>`+
-      `Risk: <b style="color:${t.color}">${t.label}</b> &nbsp; (index ${idx})<br>`+
-      `<small>Baseline exposure: ${(site.exp*100|0)}% · seasonal peak: ${TIERS[site.peak].label}</small>`
-    );
-    markers.push(m);
+  const m=el('markers'), lab=el('labels'); m.innerHTML=''; lab.innerHTML='';
+  SITES.forEach(s=>{
+    const tier=siteTier(s,mk), t=TIERS[tier], idx=siteIndex(s,mk);
+    const cx=X(s.lng), cy=Y(s.lat), r=5+t.w*3;
+    const c=svg('circle',{cx,cy,r,fill:t.color,stroke:"#04131c","stroke-width":1.5},m);
+    c.appendChild(document.createElementNS(NS,'title')).textContent=
+      `${s.name} (${s.country}) — ${t.label} · index ${idx} · peak ${TIERS[s.peak].label}`;
+    if(t.w>=3){ // label only the hotter sites to avoid clutter
+      svg('text',{x:cx+r+2,y:cy+3,fill:"#cfe7ef","font-size":10,"paint-order":"stroke",
+        stroke:"#04131c","stroke-width":2.5},lab).textContent=s.name;
+    }
   });
 }
 
-/* ----------------------------------------------------------------------------
-   MONTH BUTTONS
-   ---------------------------------------------------------------------------- */
-let current = 0;
-const monthBar = document.getElementById('monthBar');
+/* ===========================================================================
+   INLINE SVG CHARTS
+   =========================================================================== */
+function lineChart(series,labels,maxY,h){
+  const w=860,p=34; h=h||190; const n=labels.length;
+  const PX=i=> p + i/(n-1)*(w-2*p);
+  const PY=v=> (h-20) - v/maxY*(h-32);
+  let g=`<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="xMidYMid meet">`;
+  for(let k=0;k<=4;k++){ const yy=PY(maxY*k/4);
+    g+=`<line x1="${p}" y1="${yy}" x2="${w-p}" y2="${yy}" stroke="#143343"/>`+
+       `<text x="4" y="${yy+3}" fill="#9fc0cf" font-size="9">${Math.round(maxY*k/4)}</text>`; }
+  series.forEach(s=>{
+    const pts=s.data.map((v,i)=>`${PX(i)},${PY(v)}`).join(" ");
+    if(s.fill) g+=`<polygon points="${PX(0)},${h-20} ${pts} ${PX(n-1)},${h-20}" fill="${s.fill}"/>`;
+    g+=`<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2"/>`;
+    s.data.forEach((v,i)=> g+=`<circle cx="${PX(i)}" cy="${PY(v)}" r="2.4" fill="${s.color}"/>`);
+  });
+  labels.forEach((l,i)=>{ if(n<=12 || i%2===0)
+    g+=`<text x="${PX(i)}" y="${h-5}" fill="#9fc0cf" font-size="9" text-anchor="middle">${l}</text>`; });
+  return g+`</svg>`;
+}
+function barChart(data,labels,colors,maxY){
+  const w=860,p=34,h=200,n=data.length, bw=(w-2*p)/n*0.66;
+  const PX=i=> p + (i+0.5)/n*(w-2*p);
+  const PY=v=> (h-22) - v/maxY*(h-34);
+  let g=`<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="xMidYMid meet">`;
+  for(let k=0;k<=4;k++){ const yy=PY(maxY*k/4);
+    g+=`<line x1="${p}" y1="${yy}" x2="${w-p}" y2="${yy}" stroke="#143343"/>`+
+       `<text x="4" y="${yy+3}" fill="#9fc0cf" font-size="9">${Math.round(maxY*k/4)}</text>`; }
+  data.forEach((v,i)=>{ const x=PX(i)-bw/2, y=PY(v);
+    g+=`<rect x="${x}" y="${y}" width="${bw}" height="${(h-22)-y}" rx="2" fill="${colors[i]}"/>`;
+    g+=`<text x="${PX(i)}" y="${h-6}" fill="#9fc0cf" font-size="8.5" text-anchor="middle">${labels[i]}</text>`; });
+  return g+`</svg>`;
+}
+function legend(items){
+  return `<div class="pad" style="display:flex;flex-wrap:wrap;gap:14px;padding-top:0">`+
+    items.map(i=>`<span style="font-size:11.5px;color:var(--muted)"><span class="dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${i.color};margin-right:5px"></span>${i.label}</span>`).join("")+`</div>`;
+}
+
+/* ===========================================================================
+   MONTH STEPPER + PANELS
+   =========================================================================== */
+const monthBar=el('monthBar');
 MONTHS.forEach((label,i)=>{
-  const mk = MK[i];
-  const tier = SEASON[mk]>=72?"severe":SEASON[mk]>=50?"high":SEASON[mk]>=25?"moderate":SEASON[mk]>=8?"low":"none";
-  const btn = document.createElement('div');
-  btn.className='month-btn'+(i===0?' active':'');
-  btn.innerHTML=`<span class="dot" style="background:${TIERS[tier].color}"></span><b>${label.split(' ')[0]}</b><small>idx ${SEASON[mk]}</small>`;
-  btn.onclick=()=>select(i);
-  monthBar.appendChild(btn);
+  const mk=MK[i], v=SEASON[mk];
+  const tier=v>=72?"severe":v>=50?"high":v>=25?"moderate":v>=8?"low":"none";
+  const b=document.createElement('div'); b.className='month-btn'+(i===0?' active':'');
+  b.innerHTML=`<span class="dot" style="background:${TIERS[tier].color}"></span><b>${label.split(' ')[0]}</b><small>idx ${v}</small>`;
+  b.onclick=()=>select(i); monthBar.appendChild(b);
 });
-
 function select(i){
-  current=i;
   [...monthBar.children].forEach((b,j)=>b.classList.toggle('active',j===i));
-  const mk = MK[i];
-  drawMarkers(mk);
-  updateBelt(mk);
-  updateForecast(mk, MONTHS[i]);
-  updateTable(mk);
+  const mk=MK[i];
+  drawBelt(mk); drawMarkers(mk); updateForecast(mk,MONTHS[i]); updateTable(mk);
 }
-
-/* ----------------------------------------------------------------------------
-   FORECAST PANEL
-   ---------------------------------------------------------------------------- */
 function updateForecast(mk,label){
-  const idx = SEASON[mk];
-  const overallTier = idx>=72?"severe":idx>=50?"high":idx>=25?"moderate":idx>=8?"low":"none";
-  const t = TIERS[overallTier];
-  document.getElementById('fMonth').textContent = label;
-  const pill = document.getElementById('fPill');
-  pill.textContent = "Basin-wide: "+t.label;
-  pill.style.background = t.color;
-  document.getElementById('kSeason').textContent = idx;
-  const hi = SITES.filter(s=>["high","severe"].includes(siteTier(s,mk))).length;
-  document.getElementById('kSites').textContent = hi;
-  document.getElementById('fTrend').textContent = TREND[mk];
+  const idx=SEASON[mk];
+  const tierName=idx>=72?"severe":idx>=50?"high":idx>=25?"moderate":idx>=8?"low":"none";
+  const t=TIERS[tierName];
+  el('fMonth').textContent=label;
+  const pill=el('fPill'); pill.textContent="Basin-wide: "+t.label; pill.style.background=t.color;
+  el('kSeason').textContent=idx;
+  el('kSites').textContent=SITES.filter(s=>["high","severe"].includes(siteTier(s,mk))).length;
+  el('fTrend').textContent=TREND[mk];
 }
-
-/* ----------------------------------------------------------------------------
-   TABLE
-   ---------------------------------------------------------------------------- */
 function updateTable(mk){
-  const tb = document.querySelector('#siteTable tbody');
-  tb.innerHTML='';
-  // sort by current risk descending
-  const rows = SITES.map(s=>({s, idx:siteIndex(s,mk), tier:siteTier(s,mk)}))
-                    .sort((a,b)=>b.idx-a.idx);
-  rows.forEach(({s,idx,tier})=>{
-    const t=TIERS[tier];
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td><span class="dot" style="background:${t.color}"></span>${s.name}</td>`+
-      `<td>${s.country}</td>`+
-      `<td>${TIERS[s.peak].label}</td>`+
-      `<td><b style="color:${t.color}">${t.label}</b></td>`+
-      `<td>${idx}</td>`;
-    tb.appendChild(tr);
-  });
+  const tb=document.querySelector('#siteTable tbody'); tb.innerHTML='';
+  SITES.map(s=>({s,idx:siteIndex(s,mk),tier:siteTier(s,mk)})).sort((a,b)=>b.idx-a.idx)
+    .forEach(({s,idx,tier})=>{ const t=TIERS[tier];
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td><span class="dot" style="background:${t.color}"></span>${s.name}</td><td>${s.country}</td>`+
+        `<td>${TIERS[s.peak].label}</td><td><b style="color:${t.color}">${t.label}</b></td><td>${idx}</td>`;
+      tb.appendChild(tr); });
 }
 
-/* ----------------------------------------------------------------------------
-   CHARTS
-   ---------------------------------------------------------------------------- */
-const seasonKeys = Object.keys(SEASON);
-new Chart(document.getElementById('seasonChart'),{
-  type:'line',
-  data:{labels:seasonKeys,
-    datasets:[{label:'Abundance index',data:Object.values(SEASON),
-      borderColor:'#27c4c4',backgroundColor:'rgba(39,196,196,.18)',fill:true,tension:.35,pointRadius:3}]},
-  options:{responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{labels:{color:'#9fc0cf'}}},
-    scales:{x:{ticks:{color:'#9fc0cf'},grid:{color:'#143343'}},
-            y:{ticks:{color:'#9fc0cf'},grid:{color:'#143343'},suggestedMax:100}}}
-});
-
-const yk = Object.keys(YEARS);
-new Chart(document.getElementById('yearChart'),{
-  type:'bar',
-  data:{labels:yk,
-    datasets:[{label:'Million tonnes (peak)',data:Object.values(YEARS),
-      backgroundColor:yk.map(y=>YEARS[y]>=25?'#c0392b':YEARS[y]>=12?'#e67e22':YEARS[y]>=5?'#f4d03f':'#a3d65c')}]},
-  options:{responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{labels:{color:'#9fc0cf'}}},
-    scales:{x:{ticks:{color:'#9fc0cf'},grid:{color:'#143343'}},
-            y:{ticks:{color:'#9fc0cf'},grid:{color:'#143343'}}}}
-});
-
-const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-new Chart(document.getElementById('regionChart'),{
-  type:'line',
-  data:{labels:MO, datasets:Object.values(REGIONS).map(r=>({
-    label:r.label, data:r.data, borderColor:r.color,
-    backgroundColor:'transparent', tension:.35, pointRadius:2, borderWidth:2}))},
-  options:{responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{labels:{color:'#9fc0cf',boxWidth:14,font:{size:11}}}},
-    scales:{x:{ticks:{color:'#9fc0cf'},grid:{color:'#143343'}},
-            y:{ticks:{color:'#9fc0cf'},grid:{color:'#143343'},suggestedMax:100}}}
-});
-
-/* ----------------------------------------------------------------------------
+/* ===========================================================================
    INIT
-   ---------------------------------------------------------------------------- */
+   =========================================================================== */
+const MO=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+buildStatic();
+el('seasonChart').innerHTML = lineChart(
+  [{data:Object.values(SEASON),color:"#27c4c4",fill:"rgba(39,196,196,.18)"}], MO, 100, 200);
+const yk=Object.keys(YEARS), yv=Object.values(YEARS);
+el('yearChart').innerHTML = barChart(yv, yk, yv.map(v=>v>=25?"#c0392b":v>=12?"#e67e22":v>=5?"#f4d03f":"#a3d65c"), 40);
+el('regionChart').innerHTML = lineChart(
+  Object.values(REGIONS).map(r=>({data:r.data,color:r.color})), MO, 100, 230)
+  + legend(Object.values(REGIONS).map(r=>({color:r.color,label:r.label})));
 select(0);
 </script>
 </body>
