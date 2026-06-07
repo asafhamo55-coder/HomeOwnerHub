@@ -80,6 +80,12 @@
   <!-- LEFT: Map + forecast strip -->
   <div class="card">
     <div class="month-bar" id="monthBar"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--panel2);align-items:center">
+      <span class="muted" style="font-size:11.5px">View:</span>
+      <button class="month-btn" style="flex:0 0 auto;min-width:0" onclick="map.fitBounds(VIEW_FULL)">🌍 Atlantic belt</button>
+      <button class="month-btn" style="flex:0 0 auto;min-width:0" onclick="map.fitBounds(VIEW_GULF)">📍 Gulf focus</button>
+      <button class="month-btn" id="beltToggle" style="flex:0 0 auto;min-width:0" onclick="toggleBelt()">🌿 Belt overlay: on</button>
+    </div>
     <div id="map"></div>
   </div>
 
@@ -122,6 +128,21 @@
   <div class="card">
     <h2>Annual peak bloom — Great Atlantic Sargassum Belt (million tonnes)</h2>
     <div class="chart-wrap"><canvas id="yearChart"></canvas></div>
+  </div>
+</div>
+
+<!-- Regional phasing -->
+<div class="wrap" style="grid-template-columns:1fr">
+  <div class="card">
+    <h2>Regional phasing — the belt drifts west &amp; north (self-normalised, each region to its own peak)</h2>
+    <div class="chart-wrap" style="height:260px"><canvas id="regionChart"></canvas></div>
+    <p class="muted" style="padding:0 16px 14px">
+      The open Atlantic nursery leads (peak Jun–Jul), the Caribbean follows (~Jul–Aug), and the Gulf of Mexico
+      lags last (~Aug–Sep) as Sargassum rides the Yucatán/Loop Current. The eastern Atlantic off West Africa runs
+      counter-phase — a winter aggregation zone (peak Feb–Mar) that re-seeds the next summer bloom. At peak, the open
+      Atlantic holds ~80% of belt biomass, the Caribbean ~15%, and the Gulf only ~4% — so the Gulf's absolute load is
+      small even when its risk is high locally. <i>Curves are modeled from USF/NOAA bulletins &amp; Wang et al. 2019.</i>
+    </p>
   </div>
 </div>
 
@@ -187,6 +208,37 @@ const TREND = {
 // 2013 = no belt formed; 2018 record-at-time; 2022 record; 2025 all-time record.
 const YEARS = {2011:2,2012:4,2013:0,2014:6,2015:9,2016:5,2017:13,2018:20,2019:18,2020:15,2021:16,2022:24.2,2023:22,2024:10,2025:37.5};
 
+/* Great Atlantic Sargassum Belt schematic footprint (peak season),
+   Wang et al. 2019 / USF SaWS. Closed ring: north edge W->E, south edge E->W. */
+const GASB_POLYGON = [
+  [25,-90],[23,-85],[21,-75],[19,-65],[20,-55],[20,-45],[19,-35],[17,-25],[15,-18],
+  [9,-18],[8,-25],[8,-35],[8,-45],[9,-55],[11,-62],[13,-72],[16,-82],[20,-88]
+];
+// Transport: N. Equatorial / N. Brazil Current -> Caribbean Current -> Loop Current
+const GASB_ARROWS = [
+  [[13,-22],[11,-38]],[[11,-38],[10,-52]],[[10,-52],[14,-61]],
+  [[14,-61],[16,-75]],[[16,-75],[21,-86]],[[21,-86],[25,-88]]
+];
+const GASB_HOTSPOTS = [
+  {name:"Central Tropical Atlantic core", ll:[11,-45]},
+  {name:"Eastern Caribbean entry (Lesser Antilles)", ll:[14,-61]},
+  {name:"NW Caribbean / Yucatán approach", ll:[20,-86]}
+];
+
+/* Regional monthly phasing (self-normalised 0-100, each region to its own max).
+   Atlantic leads -> Caribbean mid -> Gulf lags; E. Atlantic = winter aggregation. */
+const REGIONS = {
+  atlantic:  {label:"Open Atlantic (nursery)", color:"#27c4c4",
+              data:[18,22,32,50,72,92,100,95,78,55,33,22]},
+  caribbean: {label:"Caribbean Sea",           color:"#f4d03f",
+              data:[10,12,18,30,52,78,96,100,82,55,28,15]},
+  gulf:      {label:"Gulf of Mexico",          color:"#e67e22",
+              data:[8,8,12,20,38,60,82,95,100,75,40,18]},
+  eAtlantic: {label:"E. Atlantic off W. Africa (winter agg.)", color:"#a3d65c",
+              data:[85,95,100,88,62,42,30,28,35,50,65,78]}
+};
+// Rough share of total belt biomass at peak: open Atlantic ~80%, Caribbean ~15%, Gulf ~4%.
+
 /* Monitored sites.
    exposure = baseline susceptibility multiplier (0-1).
    peakTier = worst-case tier at the seasonal peak (used to scale the curve). */
@@ -242,10 +294,51 @@ function siteTier(site, mk){ return indexToTier(siteIndex(site,mk), site.peak); 
 /* ----------------------------------------------------------------------------
    MAP
    ---------------------------------------------------------------------------- */
-const map = L.map('map',{scrollWheelZoom:true}).setView([24.5,-88],5);
+const map = L.map('map',{scrollWheelZoom:true});
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
   attribution:'&copy; OpenStreetMap &copy; CARTO', subdomains:'abcd', maxZoom:11
 }).addTo(map);
+
+const VIEW_FULL = [[5,-98],[31,-15]];   // whole belt: Gulf -> West Africa
+const VIEW_GULF = [[17,-98],[31,-78]];  // Gulf of Mexico focus
+map.fitBounds(VIEW_FULL);
+
+/* ---- GASB belt overlay (seasonal): polygon + drift arrows + hotspots ---- */
+const beltLayer = L.layerGroup().addTo(map);
+let beltPoly, beltArrows=[], beltDots=[];
+function buildBelt(){
+  beltPoly = L.polygon(GASB_POLYGON,{color:"#27c4c4",weight:1.2,fillColor:"#27c4c4",
+    fillOpacity:.18,dashArray:"4 4"}).addTo(beltLayer)
+    .bindTooltip("Great Atlantic Sargassum Belt (peak-season footprint)",{sticky:true});
+  GASB_ARROWS.forEach(seg=>{
+    const pl=L.polyline(seg,{color:"#7fe9e9",weight:2,opacity:.7}).addTo(beltLayer);
+    // simple arrowhead via a small marker at the end
+    const [a,b]=seg, ang=Math.atan2(b[0]-a[0],b[1]-a[1])*180/Math.PI;
+    const head=L.marker(b,{icon:L.divIcon({className:'',html:
+      `<div style="color:#7fe9e9;transform:rotate(${-ang}deg);font-size:15px;line-height:0">➤</div>`,
+      iconSize:[12,12],iconAnchor:[6,6]})}).addTo(beltLayer);
+    beltArrows.push(pl,head);
+  });
+  GASB_HOTSPOTS.forEach(h=>{
+    const c=L.circleMarker(h.ll,{radius:14,color:"#27c4c4",weight:1,fillColor:"#27c4c4",
+      fillOpacity:.12}).addTo(beltLayer).bindTooltip(h.name);
+    beltDots.push(c);
+  });
+}
+function updateBelt(mk){
+  if(!beltPoly) return;
+  const s=SEASON[mk]/100;                    // belt waxes/wanes with the season
+  beltPoly.setStyle({fillOpacity:0.06+s*0.30, opacity:0.3+s*0.6});
+  beltDots.forEach(c=>c.setStyle({fillOpacity:0.04+s*0.22}));
+  beltArrows.forEach(x=>{ if(x.setStyle) x.setStyle({opacity:0.25+s*0.55}); });
+}
+buildBelt();
+let beltOn=true;
+function toggleBelt(){
+  beltOn=!beltOn;
+  if(beltOn){ beltLayer.addTo(map); } else { map.removeLayer(beltLayer); }
+  document.getElementById('beltToggle').textContent='🌿 Belt overlay: '+(beltOn?'on':'off');
+}
 
 let markers = [];
 function drawMarkers(mk){
@@ -288,6 +381,7 @@ function select(i){
   [...monthBar.children].forEach((b,j)=>b.classList.toggle('active',j===i));
   const mk = MK[i];
   drawMarkers(mk);
+  updateBelt(mk);
   updateForecast(mk, MONTHS[i]);
   updateTable(mk);
 }
@@ -355,6 +449,18 @@ new Chart(document.getElementById('yearChart'),{
     plugins:{legend:{labels:{color:'#9fc0cf'}}},
     scales:{x:{ticks:{color:'#9fc0cf'},grid:{color:'#143343'}},
             y:{ticks:{color:'#9fc0cf'},grid:{color:'#143343'}}}}
+});
+
+const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+new Chart(document.getElementById('regionChart'),{
+  type:'line',
+  data:{labels:MO, datasets:Object.values(REGIONS).map(r=>({
+    label:r.label, data:r.data, borderColor:r.color,
+    backgroundColor:'transparent', tension:.35, pointRadius:2, borderWidth:2}))},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#9fc0cf',boxWidth:14,font:{size:11}}}},
+    scales:{x:{ticks:{color:'#9fc0cf'},grid:{color:'#143343'}},
+            y:{ticks:{color:'#9fc0cf'},grid:{color:'#143343'},suggestedMax:100}}}
 });
 
 /* ----------------------------------------------------------------------------
