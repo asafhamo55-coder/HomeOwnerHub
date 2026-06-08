@@ -82,20 +82,22 @@ export interface BoardMemberOption {
   userId: string
   fullName: string
   email: string | null
-  role: 'board'
+  role: 'board' | 'admin'
 }
 
 /**
- * Board members of the current org — the data behind the board
- * checkboxes in the new-message wizard. Org-scoped via the active org
- * cookie; returns [] when no org is selected. Reads run through the
- * service-role client inside fetchBoardMembers (profiles RLS blocks the
- * user-bound client from seeing other members' emails).
+ * Board + admin members of the current org — the data behind the board
+ * checkboxes in the pickers. Board members are checked by default; admins
+ * are offered as an opt-in extra (the picker leaves them unchecked).
+ * Org-scoped via the active org cookie; returns [] when no org is
+ * selected. Reads run through the service-role client inside
+ * fetchBoardMembers (profiles RLS blocks the user-bound client from
+ * seeing other members' emails).
  */
 export async function listBoardMembers(): Promise<BoardMemberOption[]> {
   const org = await getCurrentOrg()
   if (!org) return []
-  const members = await fetchBoardMembers(org.id)
+  const members = await fetchBoardMembers(org.id, ['board', 'admin'])
   return members.map((m) => ({
     userId: m.userId,
     fullName: m.fullName,

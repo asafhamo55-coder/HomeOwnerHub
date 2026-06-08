@@ -64,8 +64,18 @@ export async function sendEventAlertEmail(
     summary = resolved.summary
   } else if (audienceDef.kind === 'board') {
     // No association on file, but the board lives at the org level — we can
-    // still reach them directly.
-    const members = await fetchBoardMembers(organizationId)
+    // still reach them directly. A hand-picked subset may include admins,
+    // so pull both roles and filter; otherwise the board role only.
+    const picked = audienceDef.boardUserIds
+    const hasSubset = !!(picked && picked.length > 0)
+    let members = await fetchBoardMembers(
+      organizationId,
+      hasSubset ? ['board', 'admin'] : ['board'],
+    )
+    if (hasSubset) {
+      const allow = new Set(picked)
+      members = members.filter((m) => allow.has(m.userId))
+    }
     recipients = members.map((m) => ({
       unitId: `board:${m.userId}`,
       unitAddress: null,

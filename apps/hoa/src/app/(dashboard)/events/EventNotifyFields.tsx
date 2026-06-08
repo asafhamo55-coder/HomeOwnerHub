@@ -91,9 +91,12 @@ export function EventNotifyFields({
     listBoardMembers()
       .then((rows) => {
         setBoard(rows)
-        // Honor a previously-saved subset; otherwise check everyone.
+        // Honor a previously-saved subset; otherwise default to the board
+        // role only — admins are listed but left unchecked (opt-in).
         setCheckedBoard((prev) =>
-          prev.size > 0 ? prev : new Set(rows.map((r) => r.userId)),
+          prev.size > 0
+            ? prev
+            : new Set(rows.filter((r) => r.role === 'board').map((r) => r.userId)),
         )
       })
       .finally(() => setBoardLoading(false))
@@ -126,9 +129,16 @@ export function EventNotifyFields({
   useEffect(() => {
     let audience: EventAudienceValue
     if (kind === 'board') {
-      const allChecked = board.length > 0 && checkedBoard.size === board.length
+      // Omit boardUserIds (⇒ "the whole board at send time") only when the
+      // selection is exactly every board-role member and no admins — any
+      // admin pick or board deselect needs explicit ids.
+      const boardRoleIds = board.filter((m) => m.role === 'board').map((m) => m.userId)
+      const isWholeBoard =
+        boardRoleIds.length > 0 &&
+        checkedBoard.size === boardRoleIds.length &&
+        boardRoleIds.every((id) => checkedBoard.has(id))
       audience =
-        allChecked || board.length === 0
+        isWholeBoard || board.length === 0
           ? { kind: 'board' }
           : { kind: 'board', boardUserIds: Array.from(checkedBoard) }
     } else if (kind === 'specific_residents') {
@@ -258,6 +268,15 @@ export function EventNotifyFields({
                       />
                       <span className="min-w-0 flex-1 text-sm text-foreground">
                         {m.fullName}
+                        <span
+                          className={`ml-2 rounded-full px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide ${
+                            m.role === 'admin'
+                              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                              : 'bg-primary/10 text-primary'
+                          }`}
+                        >
+                          {m.role}
+                        </span>
                         <span className="ml-2 text-xs text-muted">
                           {m.email ?? 'no email on file'}
                         </span>
@@ -268,8 +287,8 @@ export function EventNotifyFields({
               </ul>
             )}
             <p className="text-xs italic text-muted">
-              SMS is skipped for board members — there is no phone number on file
-              for board roles.
+              Board members are checked by default; admins are listed as an
+              opt-in. SMS is skipped for these roles — no phone number is on file.
             </p>
           </div>
         ) : null}

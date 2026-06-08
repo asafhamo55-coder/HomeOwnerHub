@@ -471,39 +471,51 @@ function roleLabel(role: string | null): string {
 
 // ─── Board audience ───────────────────────────────────────────────────
 
+export type BoardRole = 'board' | 'admin'
+
 export interface BoardMember {
   userId: string
   fullName: string
   email: string | null
-  /** Always 'board' today — the board audience is role='board' only.
-   *  Kept on the shape so the picker can show/segment by role later. */
-  role: 'board'
+  /** 'board' or 'admin'. The picker checks board members by default and
+   *  offers admins as an opt-in (unchecked) extra. */
+  role: BoardRole
 }
 
 /**
- * Every board member of an org. Shared by the wizard's board picker
+ * Org members eligible for the board audience. Shared by the pickers
  * (via the listBoardMembers server action) and the send-time resolver
  * so the two never drift on who "the board" is.
  *
- * Board membership is role='board' in org_members. Reading the matching
- * profiles / auth emails requires the service-role client — profiles RLS
- * restricts SELECT to the caller's own row, so a user-bound client would
- * see every other member as email-less. Same pattern as events-alerts.ts
- * and members.ts → listMembers.
+ * `roles` controls which org_members roles are returned — defaults to
+ * just ['board'] (the audience's canonical meaning), but the pickers ask
+ * for ['board','admin'] so admins can be hand-added to a send.
+ *
+ * Reading the matching profiles / auth emails requires the service-role
+ * client — profiles RLS restricts SELECT to the caller's own row, so a
+ * user-bound client would see every other member as email-less. Same
+ * pattern as events-alerts.ts and members.ts → listMembers.
  */
-export async function fetchBoardMembers(orgId: string): Promise<BoardMember[]> {
+export async function fetchBoardMembers(
+  orgId: string,
+  roles: BoardRole[] = ['board'],
+): Promise<BoardMember[]> {
   const admin = createAdminClient()
 
   const { data: memberRows } = await admin
     .from('org_members')
     .select('user_id, role')
     .eq('org_id', orgId)
-    .eq('role', 'board')
+    .in('role', roles)
 
-  const userIds = ((memberRows ?? []) as Array<{ user_id: string; role: string }>)
-    .map((m) => m.user_id)
-    .filter(Boolean)
-  if (userIds.length === 0) return []
+  const rows = ((memberRows ?? []) as Array<{ user_id: string; role: string }>).filter(
+    (m) => m.user_id,
+  )
+  if (rows.length === 0) return []
+  const roleById = new Map<string, BoardRole>(
+    rows.map((m) => [m.user_id, m.role === 'admin' ? 'admin' : 'board']),
+  )
+  const userIds = [...roleById.keys()]
 
   // Names + emails from profiles; auth.users backfills any member whose
   // profile email hasn't been populated yet.
@@ -535,9 +547,14 @@ export async function fetchBoardMembers(orgId: string): Promise<BoardMember[]> {
       const p = profileById.get(id)
       const email = p?.email ?? authEmail.get(id) ?? null
       const fullName = p?.full_name ?? (email ? (email.split('@')[0] ?? email) : '(no name)')
-      return { userId: id, fullName, email, role: 'board' as const }
+      return { userId: id, fullName, email, role: roleById.get(id) ?? 'board' }
     })
-    .sort((a, b) => a.fullName.localeCompare(b.fullName))
+    // Board members first (the default-checked set), then admins; each
+    // group alphabetical.
+    .sort((a, b) => {
+      if (a.role !== b.role) return a.role === 'board' ? -1 : 1
+      return a.fullName.localeCompare(b.fullName)
+    })
 }
 
 /**
@@ -546,9 +563,10 @@ export async function fetchBoardMembers(orgId: string): Promise<BoardMember[]> {
  * then fetch the board roster via the service-role client.
  *
  * boardUserIds narrows to a hand-picked subset; absent/empty means the
- * whole board. Recipients carry userId (enabling the in-app portal
- * channel) and email; phone is always null because profiles holds no
- * phone number, so the SMS channel is a no-op for board sends.
+ * whole board (role='board' only — admins are never swept in implicitly,
+ * only when explicitly listed in boardUserIds). Recipients carry userId
+ * (enabling the in-app portal channel) and email; phone is always null
+ * because profiles holds no phone number, so SMS is a no-op for board.
  */
 async function resolveBoard(
   db: Db,
@@ -565,8 +583,11 @@ async function resolveBoard(
     return { recipients: [], summary: summaryFor({ kind: 'board', boardUserIds }, 0) }
   }
 
-  let members = await fetchBoardMembers(orgId)
-  if (boardUserIds && boardUserIds.length > 0) {
+  const hasSubset = !!(boardUserIds && boardUserIds.length > 0)
+  // A hand-picked subset may include admins, so pull both roles and then
+  // filter. With no subset, the audience is strictly the board role.
+  let members = await fetchBoardMembers(orgId, hasSubset ? ['board', 'admin'] : ['board'])
+  if (hasSubset) {
     const allow = new Set(boardUserIds)
     members = members.filter((m) => allow.has(m.userId))
   }

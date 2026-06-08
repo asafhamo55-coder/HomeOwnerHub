@@ -206,7 +206,11 @@ export function NewCommunicationWizard({
       .then((rows) => {
         if (cancelled) return
         setBoardMembers(rows)
-        setCheckedBoardIds(new Set(rows.map((r) => r.userId)))
+        // Default to the board role only — admins are listed but left
+        // unchecked, so they're opt-in per send.
+        setCheckedBoardIds(
+          new Set(rows.filter((r) => r.role === 'board').map((r) => r.userId)),
+        )
       })
       .finally(() => {
         if (!cancelled) setBoardLoading(false)
@@ -290,11 +294,18 @@ export function NewCommunicationWizard({
         setError('Pick at least one board member.')
         return
       }
-      // All members checked ⇒ send to the whole board (omit the id list
-      // so it stays correct even if the roster changes before sending).
-      const allChecked =
-        boardMembers.length > 0 && checkedBoardIds.size === boardMembers.length
-      audienceDef = allChecked
+      // Omit the id list (⇒ "the whole board") only when exactly every
+      // board-role member is checked and no admins — so it stays correct
+      // if the roster changes before sending. Any admin pick or board
+      // deselect sends explicit ids.
+      const boardRoleIds = boardMembers
+        .filter((m) => m.role === 'board')
+        .map((m) => m.userId)
+      const isWholeBoard =
+        boardRoleIds.length > 0 &&
+        checkedBoardIds.size === boardRoleIds.length &&
+        boardRoleIds.every((id) => checkedBoardIds.has(id))
+      audienceDef = isWholeBoard
         ? { kind: 'board' }
         : { kind: 'board', boardUserIds: Array.from(checkedBoardIds) }
     } else if (audience === 'manual_emails') {
@@ -700,8 +711,14 @@ export function NewCommunicationWizard({
                           <div className="min-w-0 flex-1">
                             <p className="text-sm text-foreground">
                               {m.fullName}
-                              <span className="ml-2 rounded-full bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-primary">
-                                board
+                              <span
+                                className={`ml-2 rounded-full px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide ${
+                                  m.role === 'admin'
+                                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                    : 'bg-primary/10 text-primary'
+                                }`}
+                              >
+                                {m.role}
                               </span>
                             </p>
                             <p className="text-xs text-muted">
