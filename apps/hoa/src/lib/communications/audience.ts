@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
+import { createAdminClient } from '@homeowner-portal/db'
 
 /**
  * Audience resolution — turns a high-level filter ("late on dues") into
@@ -25,6 +26,7 @@ export type AudienceKind =
   | 'open_violations'         // unresolved hoa_violations
   | 'specific_units'          // explicit unit_id list
   | 'specific_residents'      // explicit property_resident_id list
+  | 'board'                   // HOA board members (org_members role='board')
   | 'manual_emails'           // typed-in email addresses (vendors, attorneys, etc.)
 
 export interface AudienceDefinition {
@@ -36,6 +38,10 @@ export interface AudienceDefinition {
    *  person — or several named people at one property — instead of
    *  the broad "owner/tenant role" buckets. */
   residentIds?: string[]
+  /** Populated when kind = 'board'. Subset of board-member user_ids the
+   *  sender hand-picked. Absent / empty ⇒ every board member of the org.
+   *  Each id is an org_members.user_id with role='board'. */
+  boardUserIds?: string[]
   /** Populated when kind = 'manual_emails'. Free-form email addresses
    *  typed by the sender — used for one-off comms to people not in the
    *  property roster (HOA attorney, a specific vendor, an architect,
@@ -88,6 +94,15 @@ export async function resolveAudience(
   // rest of the function can stay focused on unit-level audiences.
   if (def.kind === 'specific_residents') {
     return resolveSpecificResidents(db, def.residentIds ?? [])
+  }
+
+  // Board members — org-level audience (org_members), not unit-level.
+  // Resolved through the service-role client because reading other
+  // members' profiles / auth emails is blocked by RLS for the
+  // user-bound client. Short-circuit here for the same reason as
+  // specific_residents.
+  if (def.kind === 'board') {
+    return resolveBoard(db, associationId, def.boardUserIds)
   }
 
   // Manual email/phone addresses — no DB lookup at all. Recipients are
@@ -300,6 +315,12 @@ function summaryFor(def: AudienceDefinition, count: number): string {
       const n = (def.residentIds ?? []).length
       return `${n} hand-picked resident${n === 1 ? '' : 's'} (${count} ${noun})`
     }
+    case 'board': {
+      const picked = (def.boardUserIds ?? []).length
+      return picked > 0
+        ? `${picked} hand-picked board member${picked === 1 ? '' : 's'} (${count} ${noun})`
+        : `HOA board (${count} ${noun})`
+    }
     case 'manual_emails': {
       const n = (def.emails ?? []).length
       return `${n} manually-entered email${n === 1 ? '' : 's'} (${count} ${noun})`
@@ -445,5 +466,123 @@ function roleLabel(role: string | null): string {
     case 'family_member': return 'Family member'
     case 'other': return 'Resident'
     default: return 'Resident'
+  }
+}
+
+// ─── Board audience ───────────────────────────────────────────────────
+
+export interface BoardMember {
+  userId: string
+  fullName: string
+  email: string | null
+  /** Always 'board' today — the board audience is role='board' only.
+   *  Kept on the shape so the picker can show/segment by role later. */
+  role: 'board'
+}
+
+/**
+ * Every board member of an org. Shared by the wizard's board picker
+ * (via the listBoardMembers server action) and the send-time resolver
+ * so the two never drift on who "the board" is.
+ *
+ * Board membership is role='board' in org_members. Reading the matching
+ * profiles / auth emails requires the service-role client — profiles RLS
+ * restricts SELECT to the caller's own row, so a user-bound client would
+ * see every other member as email-less. Same pattern as events-alerts.ts
+ * and members.ts → listMembers.
+ */
+export async function fetchBoardMembers(orgId: string): Promise<BoardMember[]> {
+  const admin = createAdminClient()
+
+  const { data: memberRows } = await admin
+    .from('org_members')
+    .select('user_id, role')
+    .eq('org_id', orgId)
+    .eq('role', 'board')
+
+  const userIds = ((memberRows ?? []) as Array<{ user_id: string; role: string }>)
+    .map((m) => m.user_id)
+    .filter(Boolean)
+  if (userIds.length === 0) return []
+
+  // Names + emails from profiles; auth.users backfills any member whose
+  // profile email hasn't been populated yet.
+  const { data: profileRows } = await admin
+    .from('profiles')
+    .select('id, email, full_name')
+    .in('id', userIds)
+  type ProfileRow = { id: string; email: string | null; full_name: string | null }
+  const profileById = new Map<string, ProfileRow>(
+    ((profileRows ?? []) as ProfileRow[]).map((p) => [p.id, p]),
+  )
+
+  const needsEmail = userIds.filter((id) => !profileById.get(id)?.email)
+  const authEmail = new Map<string, string>()
+  if (needsEmail.length > 0) {
+    try {
+      const { data: list } = await admin.auth.admin.listUsers()
+      for (const u of list?.users ?? []) {
+        if (u.id && u.email) authEmail.set(u.id, u.email)
+      }
+    } catch {
+      // Non-fatal — a member with no resolvable email just resolves to
+      // email=null and is reachable only via the portal channel.
+    }
+  }
+
+  return userIds
+    .map((id) => {
+      const p = profileById.get(id)
+      const email = p?.email ?? authEmail.get(id) ?? null
+      const fullName = p?.full_name ?? (email ? (email.split('@')[0] ?? email) : '(no name)')
+      return { userId: id, fullName, email, role: 'board' as const }
+    })
+    .sort((a, b) => a.fullName.localeCompare(b.fullName))
+}
+
+/**
+ * Board audience resolver. Board membership is org-scoped, so we first
+ * map the association to its org (readable by the user-bound client),
+ * then fetch the board roster via the service-role client.
+ *
+ * boardUserIds narrows to a hand-picked subset; absent/empty means the
+ * whole board. Recipients carry userId (enabling the in-app portal
+ * channel) and email; phone is always null because profiles holds no
+ * phone number, so the SMS channel is a no-op for board sends.
+ */
+async function resolveBoard(
+  db: Db,
+  associationId: string,
+  boardUserIds: string[] | undefined,
+): Promise<ResolvedAudience> {
+  const { data: assoc } = await db
+    .from('associations')
+    .select('organization_id')
+    .eq('id', associationId)
+    .maybeSingle()
+  const orgId = (assoc as { organization_id: string } | null)?.organization_id
+  if (!orgId) {
+    return { recipients: [], summary: summaryFor({ kind: 'board', boardUserIds }, 0) }
+  }
+
+  let members = await fetchBoardMembers(orgId)
+  if (boardUserIds && boardUserIds.length > 0) {
+    const allow = new Set(boardUserIds)
+    members = members.filter((m) => allow.has(m.userId))
+  }
+
+  const recipients: ResolvedRecipient[] = members.map((m) => ({
+    unitId: `board:${m.userId}`, // synthetic id — nulled out on recipient insert
+    unitAddress: null,
+    unitNumber: null,
+    recipientName: m.fullName,
+    email: m.email,
+    phone: null, // profiles carries no phone → board SMS skips
+    userId: m.userId, // enables the in-app portal channel
+  }))
+
+  return {
+    recipients,
+    summary: summaryFor({ kind: 'board', boardUserIds }, recipients.length),
   }
 }

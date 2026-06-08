@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ChevronLeft, MessageSquare } from 'lucide-react'
 import { Card, EmptyState } from '@homeowner-portal/ui'
+import { createAdminClient } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { listTemplates } from '@/lib/communications/queries'
@@ -128,7 +129,21 @@ export default async function NewCommunicationPage() {
       .in('status', ['open', 'notice_sent'])
     openViolationsCount = new Set((vios ?? []).map((v) => v.property_id)).size
   }
-  const counts = { ...audienceCounts, open_violations: openViolationsCount }
+  // Board-member count for the "Board" audience option. org_members
+  // emails are read via the service-role client elsewhere, but a plain
+  // role='board' headcount only needs the org id. Service-role keeps it
+  // immune to org_members RLS variations.
+  const { count: boardCount } = await createAdminClient()
+    .from('org_members')
+    .select('user_id', { count: 'exact', head: true })
+    .eq('org_id', assocRow.organization_id)
+    .eq('role', 'board')
+
+  const counts = {
+    ...audienceCounts,
+    open_violations: openViolationsCount,
+    board: boardCount ?? 0,
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

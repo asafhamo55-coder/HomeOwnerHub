@@ -52,10 +52,12 @@ const SendSchema = z.object({
       'open_violations',
       'specific_units',
       'specific_residents',
+      'board',
       'manual_emails',
     ]),
     unitIds: z.array(z.string().uuid()).optional(),
     residentIds: z.array(z.string().uuid()).optional(),
+    boardUserIds: z.array(z.string().uuid()).optional(),
     emails: z.array(z.string()).optional(),
     emailNames: z.array(z.string().max(120)).optional(),
     phones: z.array(z.string().max(20)).optional(),
@@ -166,7 +168,12 @@ export async function sendCommunication(
       recipientInserts.push({
         organization_id: assocRow.organization_id,
         communication_id: comm.id,
-        unit_id: r.unitId?.startsWith('manual:') ? null : r.unitId,
+        // Synthetic ids ('manual:…', 'board:…') aren't real unit UUIDs —
+        // null them so the FK/uuid column stays valid.
+        unit_id:
+          !r.unitId || r.unitId.startsWith('manual:') || r.unitId.startsWith('board:')
+            ? null
+            : r.unitId,
         user_id: r.userId,
         recipient_name: r.recipientName,
         email: r.email,

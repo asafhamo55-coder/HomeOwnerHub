@@ -8,7 +8,9 @@ import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { sendCommunication } from '@/lib/communications/send'
 import {
   listPropertyResidents,
+  listBoardMembers,
   type ResidentOption,
+  type BoardMemberOption,
 } from '@/lib/communications/actions'
 
 interface TemplateOption {
@@ -28,6 +30,7 @@ interface AudienceCounts {
   tenants_only: number
   late_on_dues: number
   open_violations: number
+  board: number
 }
 
 interface PropertyOption {
@@ -51,6 +54,7 @@ const AUDIENCE_LABELS: Record<AudienceKind, string> = {
   late_on_dues: 'Late on dues',
   open_violations: 'Units with open violations',
   specific_property: 'Specific property',
+  board: 'Board',
   manual_emails: 'Custom contacts',
 }
 
@@ -109,6 +113,13 @@ export function NewCommunicationWizard({
   const [residents, setResidents] = useState<ResidentOption[]>([])
   const [residentsLoading, setResidentsLoading] = useState(false)
   const [checkedResidentIds, setCheckedResidentIds] = useState<Set<string>>(new Set())
+
+  // Board audience state. Loaded lazily when "Board" is picked. Defaults
+  // to ALL checked — the sender opts a board member OUT rather than
+  // having to opt each one in (mirrors the resident picker).
+  const [boardMembers, setBoardMembers] = useState<BoardMemberOption[]>([])
+  const [boardLoading, setBoardLoading] = useState(false)
+  const [checkedBoardIds, setCheckedBoardIds] = useState<Set<string>>(new Set())
 
   // Manual contacts audience state.
   interface ManualContact { email: string; phone: string; name: string }
@@ -185,6 +196,41 @@ export function NewCommunicationWizard({
     setCheckedResidentIds(new Set())
   }
 
+  // Load board members whenever "Board" becomes the chosen audience.
+  // Default every member checked.
+  useEffect(() => {
+    if (audience !== 'board') return
+    let cancelled = false
+    setBoardLoading(true)
+    listBoardMembers()
+      .then((rows) => {
+        if (cancelled) return
+        setBoardMembers(rows)
+        setCheckedBoardIds(new Set(rows.map((r) => r.userId)))
+      })
+      .finally(() => {
+        if (!cancelled) setBoardLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [audience])
+
+  function toggleBoardMember(id: string) {
+    setCheckedBoardIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  function selectAllBoard() {
+    setCheckedBoardIds(new Set(boardMembers.map((r) => r.userId)))
+  }
+  function clearBoard() {
+    setCheckedBoardIds(new Set())
+  }
+
   // Templates relevant to the picked category come first; "Custom" gets
   // everything. Selecting a template pre-fills subject + body so the
   // manager can tweak before sending.
@@ -239,6 +285,18 @@ export function NewCommunicationWizard({
         kind: 'specific_residents',
         residentIds: Array.from(checkedResidentIds),
       }
+    } else if (audience === 'board') {
+      if (checkedBoardIds.size === 0) {
+        setError('Pick at least one board member.')
+        return
+      }
+      // All members checked ⇒ send to the whole board (omit the id list
+      // so it stays correct even if the roster changes before sending).
+      const allChecked =
+        boardMembers.length > 0 && checkedBoardIds.size === boardMembers.length
+      audienceDef = allChecked
+        ? { kind: 'board' }
+        : { kind: 'board', boardUserIds: Array.from(checkedBoardIds) }
     } else if (audience === 'manual_emails') {
       // Fold any in-flight draft into the committed list before sending.
       let contacts = [...manualContacts]
@@ -580,6 +638,87 @@ export function NewCommunicationWizard({
                 )}
               </div>
             ) : null}
+          </div>
+        ) : null}
+        {/* Board picker — checkbox list of board members, defaulting
+            to all selected. "Board" is reached by email + in-app portal;
+            there's no phone on file so SMS is a no-op for this audience. */}
+        {audience === 'board' ? (
+          <div className="mt-4 space-y-3 rounded-md border border-border bg-background/40 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-medium text-foreground">
+                Which board members?{' '}
+                <span className="font-normal text-muted">
+                  ({checkedBoardIds.size} selected)
+                </span>
+              </p>
+              {boardMembers.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <button
+                    type="button"
+                    className="rounded-full border border-border bg-surface px-2 py-0.5 hover:bg-background"
+                    onClick={selectAllBoard}
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-full border border-border bg-surface px-2 py-0.5 hover:bg-background"
+                    onClick={clearBoard}
+                  >
+                    None
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
+            {boardLoading ? (
+              <p className="inline-flex items-center gap-1.5 text-xs text-muted">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Loading board members…
+              </p>
+            ) : boardMembers.length === 0 ? (
+              <p className="flex items-center gap-2 text-xs italic text-muted">
+                <Users2 className="h-3.5 w-3.5" />
+                No board members yet. Invite members with the Board role
+                on the Members page first.
+              </p>
+            ) : (
+              <>
+                <ul className="divide-y divide-border rounded-md border border-border bg-surface">
+                  {boardMembers.map((m) => {
+                    const checked = checkedBoardIds.has(m.userId)
+                    return (
+                      <li key={m.userId}>
+                        <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-background/50">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleBoardMember(m.userId)}
+                            disabled={pending}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-foreground">
+                              {m.fullName}
+                              <span className="ml-2 rounded-full bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-primary">
+                                board
+                              </span>
+                            </p>
+                            <p className="text-xs text-muted">
+                              {m.email ?? 'no email on file'}
+                            </p>
+                          </div>
+                        </label>
+                      </li>
+                    )
+                  })}
+                </ul>
+                <p className="text-xs italic text-muted">
+                  Board members are reached by email and the in-app portal.
+                  SMS is skipped — there is no phone number on file for board roles.
+                </p>
+              </>
+            )}
           </div>
         ) : null}
       </Section>

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { fetchBoardMembers } from './audience'
 
 type ActionResult = { ok: true } | { ok: false; error: string }
 
@@ -72,6 +73,34 @@ export async function listPropertyResidents(
     phone: r.phone,
     role: (r.role as ResidentOption['role']) ?? 'other',
     isPrimary: r.is_primary ?? false,
+  }))
+}
+
+// ─── Board-member lookup (powers the "Board" audience option) ─────────
+
+export interface BoardMemberOption {
+  userId: string
+  fullName: string
+  email: string | null
+  role: 'board'
+}
+
+/**
+ * Board members of the current org — the data behind the board
+ * checkboxes in the new-message wizard. Org-scoped via the active org
+ * cookie; returns [] when no org is selected. Reads run through the
+ * service-role client inside fetchBoardMembers (profiles RLS blocks the
+ * user-bound client from seeing other members' emails).
+ */
+export async function listBoardMembers(): Promise<BoardMemberOption[]> {
+  const org = await getCurrentOrg()
+  if (!org) return []
+  const members = await fetchBoardMembers(org.id)
+  return members.map((m) => ({
+    userId: m.userId,
+    fullName: m.fullName,
+    email: m.email,
+    role: m.role,
   }))
 }
 
