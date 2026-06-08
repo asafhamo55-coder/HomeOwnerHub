@@ -23,7 +23,7 @@ export function EventActions({
       const ok = await confirm({
         title: 'Send a test alert now?',
         description:
-          "We'll email everyone on the board for this HOA right now. The event's 'last alert' fields will update so the cron skips this occurrence.",
+          "We'll notify this event's configured audience on its configured channels right now. The event's 'last alert' fields will update so the cron skips this occurrence.",
         confirmLabel: 'Send test alert',
       })
       if (!ok) return
@@ -38,7 +38,7 @@ export function EventActions({
         message:
           sent > 0
             ? `Sent ${sent} alert${sent === 1 ? '' : 's'}${failed > 0 ? ` (${failed} failed)` : ''}.`
-            : 'No recipients available to alert. Make sure the board has email addresses.',
+            : 'No recipients available to alert. Check the event audience has contact info on file.',
       })
       router.refresh()
     })

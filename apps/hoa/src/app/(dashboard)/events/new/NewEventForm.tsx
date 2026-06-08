@@ -10,13 +10,25 @@ import {
   useToast,
 } from '@homeowner-portal/ui'
 import { createEvent } from '@/lib/events'
+import {
+  EventNotifyFields,
+  type EventNotifyValue,
+} from '../EventNotifyFields'
 
-export function NewEventForm() {
+export function NewEventForm({
+  properties,
+}: {
+  properties: { id: string; label: string }[]
+}) {
   const router = useRouter()
   const toast = useToast()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [recurrence, setRecurrence] = useState<'annual' | 'none'>('annual')
+  const [notify, setNotify] = useState<EventNotifyValue>({
+    channels: ['email'],
+    audience: { kind: 'board' },
+  })
 
   function handleSubmit(formData: FormData) {
     setError(null)
@@ -43,6 +55,11 @@ export function NewEventForm() {
       setError('Alert days must be a whole number between 0 and 90.')
       return
     }
+    const notifyError = validateNotify(notify)
+    if (notifyError) {
+      setError(notifyError)
+      return
+    }
 
     startTransition(async () => {
       const result = await createEvent({
@@ -51,6 +68,8 @@ export function NewEventForm() {
         event_date: eventDate,
         recurrence,
         alert_days_before: alertDays,
+        notify_channels: notify.channels,
+        notify_audience: notify.audience,
       })
       if (!result.ok) {
         setError(result.error)
@@ -101,7 +120,7 @@ export function NewEventForm() {
         </Field>
       </div>
 
-      <Field label="Alert the board" required>
+      <Field label="Alert lead time" required>
         <div className="flex items-center gap-2">
           <Input
             name="alert_days_before"
@@ -116,8 +135,22 @@ export function NewEventForm() {
           />
           <span className="text-sm text-muted">days before</span>
         </div>
-        <Helper>0–90 days. We email admin + board members on that day.</Helper>
+        <Helper>0–90 days. The notification below fires on that day.</Helper>
       </Field>
+
+      <div className="space-y-1 border-t border-border pt-4">
+        <p className="text-sm font-medium text-foreground">Notification</p>
+        <p className="text-xs text-muted">
+          Choose how to reach people and who to reach when this alert fires.
+        </p>
+        <div className="pt-2">
+          <EventNotifyFields
+            properties={properties}
+            onChange={setNotify}
+            disabled={pending}
+          />
+        </div>
+      </div>
 
       {error ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
@@ -140,6 +173,28 @@ export function NewEventForm() {
       </div>
     </form>
   )
+}
+
+// Shared client-side guard so create + edit reject empty selections
+// before the round-trip (the server schema enforces the same rules).
+export function validateNotify(notify: EventNotifyValue): string | null {
+  if (notify.channels.length === 0) {
+    return 'Pick at least one notification channel.'
+  }
+  if (
+    notify.audience.kind === 'board' &&
+    notify.audience.boardUserIds &&
+    notify.audience.boardUserIds.length === 0
+  ) {
+    return 'Pick at least one board member, or choose All.'
+  }
+  if (
+    notify.audience.kind === 'specific_residents' &&
+    (notify.audience.residentIds?.length ?? 0) === 0
+  ) {
+    return 'Pick at least one resident to notify.'
+  }
+  return null
 }
 
 function Field({

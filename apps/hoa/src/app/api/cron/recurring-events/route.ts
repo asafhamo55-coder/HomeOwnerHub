@@ -59,7 +59,7 @@ export async function GET(request: Request): Promise<Response> {
   const { data: rows, error } = await admin
     .from('hoa_recurring_events' as never)
     .select(
-      'id, organization_id, association_id, title, description, event_date, recurrence, alert_days_before, last_alert_sent_at, last_alert_sent_for, is_active, created_at',
+      'id, organization_id, association_id, title, description, event_date, recurrence, alert_days_before, notify_channels, notify_audience, last_alert_sent_at, last_alert_sent_for, is_active, created_at',
     )
     .eq('is_active', true)
     .lte('event_date', ninetyDaysFromNowIso)

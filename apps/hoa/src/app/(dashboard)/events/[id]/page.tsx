@@ -10,7 +10,7 @@ import {
   KeyValueList,
   PageHeader,
 } from '@homeowner-portal/ui'
-import { getEvent } from '@/lib/events'
+import { getEvent, listEventNotifyProperties } from '@/lib/events'
 import { EventActions } from './EventActions'
 import { EditEventForm } from './EditEventForm'
 
@@ -23,6 +23,7 @@ export default async function EventDetailPage(props: {
   const { id } = await props.params
   const event = await getEvent(id)
   if (!event) notFound()
+  const properties = await listEventNotifyProperties()
 
   const dateLabel = formatLongDate(event.event_date)
   const days = daysUntilDate(event.event_date)
@@ -91,7 +92,7 @@ export default async function EventDetailPage(props: {
           <CardTitle className="text-base">Edit</CardTitle>
         </CardHeader>
         <CardContent className="p-5 pt-0">
-          <EditEventForm event={event} />
+          <EditEventForm event={event} properties={properties} />
         </CardContent>
       </Card>
 

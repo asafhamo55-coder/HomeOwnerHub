@@ -7,6 +7,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sendEventAlertEmail } from '@/lib/events-alerts'
+import type { AudienceDefinition } from '@/lib/communications/audience'
 
 // Recurring events — annual reminders that nudge the board ahead of
 // deadlines (Annual Board Meeting, Fiscal Year End, Insurance Renewal).
@@ -28,6 +29,15 @@ export type ActionResult<T = void> = ActionOk<T> | ActionErr
 
 export type Recurrence = 'annual' | 'none'
 
+// Delivery channels an event alert can fire on. Subset of the
+// communications channels — 'mail' (physical) isn't offered for events.
+export type NotifyChannel = 'email' | 'sms' | 'portal'
+
+// Audience kinds an event alert can target. A deliberately narrower set
+// than the full communications resolver: the three the board asked for —
+// the whole community, the board, or specific residents.
+export type EventAudienceKind = 'everyone' | 'board' | 'specific_residents'
+
 export interface RecurringEvent {
   id: string
   title: string
@@ -35,6 +45,11 @@ export interface RecurringEvent {
   event_date: string // ISO YYYY-MM-DD
   recurrence: Recurrence
   alert_days_before: number
+  /** Channels the alert fires on. Defaults to ['email'] (migration 0021). */
+  notify_channels: NotifyChannel[]
+  /** Who the alert targets — an AudienceDefinition. Defaults to the
+   *  board ({ kind: 'board' }) so legacy rows behave as before. */
+  notify_audience: AudienceDefinition
   last_alert_sent_at: string | null
   last_alert_sent_for: string | null
   is_active: boolean
@@ -45,7 +60,7 @@ export interface RecurringEvent {
 // ─── Reads ───────────────────────────────────────────────────────────
 
 const SELECT_COLUMNS =
-  'id, title, description, event_date, recurrence, alert_days_before, last_alert_sent_at, last_alert_sent_for, is_active, association_id, created_at'
+  'id, title, description, event_date, recurrence, alert_days_before, notify_channels, notify_audience, last_alert_sent_at, last_alert_sent_for, is_active, association_id, created_at'
 
 export async function listEvents(): Promise<RecurringEvent[]> {
   const supabase = await getSupabaseServerClient()
@@ -55,7 +70,7 @@ export async function listEvents(): Promise<RecurringEvent[]> {
     .order('event_date', { ascending: true })
     .limit(500)
 
-  return (data ?? []) as unknown as RecurringEvent[]
+  return ((data ?? []) as unknown as RecurringEvent[]).map(normalizeEvent)
 }
 
 export async function getEvent(id: string): Promise<RecurringEvent | null> {
@@ -65,10 +80,63 @@ export async function getEvent(id: string): Promise<RecurringEvent | null> {
     .select(SELECT_COLUMNS)
     .eq('id', id)
     .maybeSingle<RecurringEvent>()
-  return data ?? null
+  return data ? normalizeEvent(data) : null
+}
+
+// Guarantees notify_channels / notify_audience are always populated even
+// if a row predates the backfill or carries a null jsonb — the UI and
+// the alert sender can then treat them as non-optional.
+//
+// Not exported: a 'use server' module may only export async functions,
+// and this is a pure synchronous helper used by the reads above.
+function normalizeEvent(row: RecurringEvent): RecurringEvent {
+  const channels =
+    Array.isArray(row.notify_channels) && row.notify_channels.length > 0
+      ? row.notify_channels
+      : (['email'] as NotifyChannel[])
+  const audience =
+    row.notify_audience && typeof row.notify_audience === 'object' && 'kind' in row.notify_audience
+      ? row.notify_audience
+      : ({ kind: 'board' } as AudienceDefinition)
+  return { ...row, notify_channels: channels, notify_audience: audience }
+}
+
+// Properties for the "Specific resident" picker in the event notify
+// fields. Org-scoped; mirrors the communications wizard's property list.
+export async function listEventNotifyProperties(): Promise<
+  { id: string; label: string }[]
+> {
+  const org = await getCurrentOrg()
+  if (!org) return []
+  const supabase = await getSupabaseServerClient()
+  const { data } = await supabase
+    .from('hoa_properties')
+    .select('id, address, unit_number')
+    .eq('org_id', org.id)
+    .is('deleted_at', null)
+    .order('address')
+    .limit(500)
+  return (data ?? []).map((p) => ({
+    id: p.id as string,
+    label: [p.address, p.unit_number ? `· ${p.unit_number}` : null]
+      .filter(Boolean)
+      .join(' '),
+  }))
 }
 
 // ─── Validation ──────────────────────────────────────────────────────
+
+// Notify audience — the narrowed event-side AudienceDefinition. Only the
+// three kinds the event form exposes, each with its optional id list.
+const NotifyAudienceSchema = z.object({
+  kind: z.enum(['everyone', 'board', 'specific_residents']),
+  boardUserIds: z.array(z.string().uuid()).optional(),
+  residentIds: z.array(z.string().uuid()).optional(),
+})
+
+const NotifyChannelsSchema = z
+  .array(z.enum(['email', 'sms', 'portal']))
+  .min(1, 'Pick at least one notification channel.')
 
 // Reused by create + update. Update partials apply .partial() at call
 // site so we can reuse the same constraints.
@@ -93,6 +161,8 @@ const EventFieldsSchema = z.object({
     .int('Alert days must be a whole number.')
     .min(0, 'Alert days must be 0 or more.')
     .max(90, 'Alert days must be 90 or fewer.'),
+  notify_channels: NotifyChannelsSchema,
+  notify_audience: NotifyAudienceSchema,
   association_id: z.string().uuid().nullable().optional(),
 })
 
@@ -102,6 +172,8 @@ export interface CreateEventInput {
   event_date: string
   recurrence: Recurrence
   alert_days_before: number
+  notify_channels: NotifyChannel[]
+  notify_audience: AudienceDefinition
   association_id?: string | null
 }
 
@@ -111,6 +183,8 @@ export interface UpdateEventInput {
   event_date?: string
   recurrence?: Recurrence
   alert_days_before?: number
+  notify_channels?: NotifyChannel[]
+  notify_audience?: AudienceDefinition
   association_id?: string | null
 }
 
@@ -147,6 +221,8 @@ export async function createEvent(
       event_date: parsed.data.event_date,
       recurrence: parsed.data.recurrence,
       alert_days_before: parsed.data.alert_days_before,
+      notify_channels: parsed.data.notify_channels,
+      notify_audience: parsed.data.notify_audience,
       is_active: true,
       created_by: user.id,
     } as never)
@@ -188,6 +264,10 @@ export async function updateEvent(
   if (parsed.data.recurrence !== undefined) patch.recurrence = parsed.data.recurrence
   if (parsed.data.alert_days_before !== undefined)
     patch.alert_days_before = parsed.data.alert_days_before
+  if (parsed.data.notify_channels !== undefined)
+    patch.notify_channels = parsed.data.notify_channels
+  if (parsed.data.notify_audience !== undefined)
+    patch.notify_audience = parsed.data.notify_audience
   if (parsed.data.association_id !== undefined)
     patch.association_id = parsed.data.association_id ?? null
 

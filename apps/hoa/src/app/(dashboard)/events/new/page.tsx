@@ -6,10 +6,12 @@ import {
   CardTitle,
 } from '@homeowner-portal/ui'
 import { NewEventForm } from './NewEventForm'
+import { listEventNotifyProperties } from '@/lib/events'
 
 export const metadata = { title: 'New event' }
 
-export default function NewEventPage() {
+export default async function NewEventPage() {
+  const properties = await listEventNotifyProperties()
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <BackLink href="/events" label="Events" />
@@ -18,7 +20,7 @@ export default function NewEventPage() {
           <CardTitle>Create a recurring event</CardTitle>
         </CardHeader>
         <CardContent>
-          <NewEventForm />
+          <NewEventForm properties={properties} />
         </CardContent>
       </Card>
     </div>

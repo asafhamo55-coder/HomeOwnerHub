@@ -10,14 +10,29 @@ import {
   useToast,
 } from '@homeowner-portal/ui'
 import { updateEvent, type RecurringEvent } from '@/lib/events'
+import {
+  EventNotifyFields,
+  type EventNotifyValue,
+  type EventAudienceKind,
+} from '../EventNotifyFields'
+import { validateNotify } from '../new/NewEventForm'
 
-export function EditEventForm({ event }: { event: RecurringEvent }) {
+export function EditEventForm({
+  event,
+  properties,
+}: {
+  event: RecurringEvent
+  properties: { id: string; label: string }[]
+}) {
   const router = useRouter()
   const toast = useToast()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [recurrence, setRecurrence] = useState<'annual' | 'none'>(
     event.recurrence,
+  )
+  const [notify, setNotify] = useState<EventNotifyValue>(() =>
+    initialNotify(event),
   )
 
   function handleSubmit(formData: FormData) {
@@ -45,6 +60,11 @@ export function EditEventForm({ event }: { event: RecurringEvent }) {
       setError('Alert days must be a whole number between 0 and 90.')
       return
     }
+    const notifyError = validateNotify(notify)
+    if (notifyError) {
+      setError(notifyError)
+      return
+    }
 
     startTransition(async () => {
       const result = await updateEvent(event.id, {
@@ -53,6 +73,8 @@ export function EditEventForm({ event }: { event: RecurringEvent }) {
         event_date: eventDate,
         recurrence,
         alert_days_before: alertDays,
+        notify_channels: notify.channels,
+        notify_audience: notify.audience,
       })
       if (!result.ok) {
         setError(result.error)
@@ -123,6 +145,21 @@ export function EditEventForm({ event }: { event: RecurringEvent }) {
         </div>
       </Field>
 
+      <div className="space-y-1 border-t border-border pt-4">
+        <p className="text-sm font-medium text-foreground">Notification</p>
+        <p className="text-xs text-muted">
+          Choose how to reach people and who to reach when this alert fires.
+        </p>
+        <div className="pt-2">
+          <EventNotifyFields
+            properties={properties}
+            initial={notify}
+            onChange={setNotify}
+            disabled={pending}
+          />
+        </div>
+      </div>
+
       {error ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
           {error}
@@ -136,6 +173,29 @@ export function EditEventForm({ event }: { event: RecurringEvent }) {
       </div>
     </form>
   )
+}
+
+// Map a stored event's notify config onto the picker's value shape,
+// narrowing the audience kind to the three the event form supports.
+function initialNotify(event: RecurringEvent): EventNotifyValue {
+  const channels: EventNotifyValue['channels'] = event.notify_channels?.length
+    ? event.notify_channels
+    : ['email']
+  const def = event.notify_audience
+  const kind = (def?.kind ?? 'board') as string
+  const supported: EventAudienceKind[] = ['everyone', 'board', 'specific_residents']
+  const audienceKind: EventAudienceKind = supported.includes(kind as EventAudienceKind)
+    ? (kind as EventAudienceKind)
+    : 'board'
+  return {
+    channels,
+    audience:
+      audienceKind === 'board'
+        ? { kind: 'board', boardUserIds: def?.boardUserIds }
+        : audienceKind === 'specific_residents'
+          ? { kind: 'specific_residents', residentIds: def?.residentIds }
+          : { kind: 'everyone' },
+  }
 }
 
 function Field({
