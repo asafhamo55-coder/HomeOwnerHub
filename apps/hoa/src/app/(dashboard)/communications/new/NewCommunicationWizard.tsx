@@ -804,7 +804,7 @@ export function NewCommunicationWizard({
       </Section>
 
       {/* Step 5 — channels + schedule */}
-      <Section number={5} title="Channels & schedule" hint="Pick where this lands. Email goes via Resend; portal shows in-app.">
+      <Section number={5} title="Channels & schedule" hint="Pick where this lands. Portal messages show in the resident's in-app inbox.">
         <div className="flex flex-wrap gap-4">
           {CHANNELS.map((c) => (
             <label key={c} className="flex items-center gap-2 text-sm text-foreground">

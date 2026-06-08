@@ -37,8 +37,8 @@ interface PropertyOption {
 }
 
 const CHANNELS: { value: NotifyChannel; label: string; hint: string }[] = [
-  { value: 'email', label: 'Email', hint: 'via Resend' },
-  { value: 'sms', label: 'SMS', hint: 'via Twilio' },
+  { value: 'email', label: 'Email', hint: 'to their email address' },
+  { value: 'sms', label: 'SMS', hint: 'text message' },
   { value: 'portal', label: 'In-app portal', hint: 'shows in their inbox' },
 ]
 
