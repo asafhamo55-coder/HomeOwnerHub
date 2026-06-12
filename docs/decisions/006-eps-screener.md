@@ -1,7 +1,7 @@
 # 006 — Fundamental EPS Screener
 
 **Date:** 2026-06-12
-**Status:** Accepted (plan)
+**Status:** Accepted — **implemented**
 **Context:** New product — a per-user fundamental-EPS screener — to ship as a
 fourth hub in the monorepo alongside HOA / PM / Eviction. Full plan in
 `docs/EPS_SCREENER_BUILD_PLAN.md` (v0.2). This ADR records the decisions that
@@ -12,14 +12,15 @@ v0.1 §9 open questions.
 
 | Area | Choice | Notes |
 |---|---|---|
-| App placement | New `apps/screener` ("Equity Screener Hub") | Reuses `@homeowner-portal/ui` + `@homeowner-portal/db`; copies `apps/hoa` shell |
+| App placement | New `apps/screener` ("Equity Screener Hub") | Reuses `@homeowner-portal/ui`; same shell/tokens as `apps/hoa` |
+| Billing / auth / RLS | **None — free app** (revised per owner) | No login, no per-user scoping, no RLS on `screener_*`; single shared watchlist, service-role writes |
 | Background jobs | **Inngest** weekly cron | Consistent with ADR-001 + the five existing crons in `packages/jobs`; no new infra |
 | Charts | **ECharts** (`echarts-for-react`) | The lib `apps/hoa` already uses; overrides v0.1's Recharts |
 | Data provider | **FMP**, behind a `packages/market-data` adapter | Single provider covers all 5 steps; adapter mirrors `packages/ai`/`billing` and defers yfinance's Python worker |
 | Step 5 ratio | **trailing ÷ forward P/E** | `= EPS_fwd / EPS_ttm`, the consensus growth ratio; trailing÷current = 1 |
 | Scorecard verdict | **5 signal chips + soft "X/5 passing"; no hard buy/avoid** | Matches HOA "show signals, human decides" + BarBGate no-overclaim |
 | Universe | **Manual per-user watchlist** for v1 | Bulk import deferred to Phase 3 behind the same ingest path |
-| Tenancy | **Per-user RLS (`owner_id = auth.uid()`)** from day one | Personal tool → simpler than org/`org_members`; still RLS-first, org-scoping can layer on later |
+| Tenancy | **None — single shared watchlist, no RLS** | Free app, no auth; org/RLS scoping can layer on later without a data migration |
 | Refresh cadence | **Inngest weekly cron + manual "Refresh now"** | Earnings are quarterly; both hit one idempotent ingest path |
 | Migrations | `0026_screener.sql` + `0027_screener_views.sql` | Idempotent, two-policy RLS, `set_updated_at` triggers, `screener_*` table prefix |
 | Derived metrics | **SQL views** (`LAG(eps,4)` YoY, `LAG(eps,1)` QoQ); QoQ slope in `src/lib/signals.ts` | Views over stored columns; quarterly table is the single source of truth |

@@ -18,7 +18,10 @@
         "TWILIO_*",
         "HUGGINGFACE_API_TOKEN",
         "EMBEDDING_BASE_URL",
-        "EMBEDDING_MODEL"
+        "EMBEDDING_MODEL",
+        "MARKET_DATA_*",
+        "SCREENER_APP_URL",
+        "CRON_SECRET"
       ]
     },
     "dev": {

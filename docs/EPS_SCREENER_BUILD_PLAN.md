@@ -1,29 +1,41 @@
-# Fundamental EPS Screener — Build Plan (v0.2, repo-aligned)
+# Fundamental EPS Screener — Build Plan (v0.3, repo-aligned, free app)
 
 > **What changed from v0.1:** the original draft targeted a greenfield Next.js +
 > Vercel-Cron + Recharts app. This version re-bases the plan onto the patterns
 > this monorepo *already* runs so the screener ships as a first-class hub next to
 > HOA / PM / Eviction — same shell, same tokens, same job runner, same migration
-> and RLS conventions. The methodology and formulas (§2) are unchanged; the
-> stack, architecture, and UX are now "the same hi UX pattern as the HOA system."
+> conventions. The methodology and formulas (§2) are unchanged; the stack,
+> architecture, and UX are now "the same hi UX pattern as the HOA system."
+>
+> **v0.3 scope change (per owner):** this is a **free app** — **no billing, no
+> auth, no RLS, no multi-tenancy.** A single shared watchlist. Any number of
+> tickers can be added; NVDA is only the verification fixture. Writes go through
+> the service-role client (the `/api/ingest` route + the Inngest cron); reads are
+> server-side. RLS is intentionally **not** enabled on the `screener_*` tables.
 >
 > Open decisions from v0.1 §9 are **resolved** in §10 and recorded in
 > `docs/decisions/006-eps-screener.md`.
+>
+> **Status: IMPLEMENTED.** `apps/screener`, `packages/market-data`, migrations
+> `0026`/`0027`, the Inngest cron, and `scripts/test-screener-signals.ts` are in
+> the tree. `next build` + `tsc` are green; the signals engine reproduces the
+> deck's NVDA numbers (`pnpm test:screener`).
 
 ---
 
 ## 0. The one-paragraph summary
 
 A new app, **`apps/screener`** ("Equity Screener Hub"), reuses
-`@homeowner-portal/ui` and `@homeowner-portal/db`. A user keeps a per-user
-**watchlist** of tickers. An **Inngest** weekly cron (plus a "Refresh now"
-button) pulls quarterly EPS (12 actual + 1–2 estimate), valuation, and 5-year
-annual financials through a pluggable **`packages/market-data`** provider
-adapter (FMP first), upserts them idempotently into Supabase, and the five
-methodology signals are computed from SQL views (`LAG` window functions) on
-read. The dashboard is a sortable scorecard table of colored signal chips; the
-ticker page is an ECharts EPS-trend chart + QoQ-delta bars + the 5-step
-scorecard. RLS scopes everything to `auth.uid()` from day one.
+`@homeowner-portal/ui`. A single shared **watchlist** of tickers (free app — no
+auth/RLS). An **Inngest** weekly cron (plus a "Refresh now" button) pulls
+quarterly EPS (12 actual + 1–2 estimate), valuation, and 5-year annual
+financials through a pluggable **`packages/market-data`** provider adapter (FMP
+first, deterministic mock fallback), upserts them idempotently into Supabase via
+the service-role client, and the five methodology signals are computed by a
+shared pure engine (`src/lib/signals.ts`) on read. The dashboard is a sortable
+scorecard table of colored signal chips; the ticker page is an ECharts
+EPS-trend chart + QoQ-delta bars + the 5-step scorecard. Add any symbol from the
+"Add ticker" box.
 
 ---
 
@@ -139,31 +151,33 @@ existing `AI_*` / `STRIPE_*` groups.
 
 ```
 apps/screener  (Next.js 15 App Router, React 19, Tailwind 3 — same as apps/hoa)
-├── src/app/layout.tsx                root: fonts, theme pre-paint script, PWA (copy apps/hoa/layout.tsx)
-├── src/app/globals.css               @import @homeowner-portal/ui tokens; sets --screener CSS vars
-├── src/app/(auth)/…                  Supabase Auth (magic link) — reuse hoa's (auth) group
-├── src/app/(dashboard)/layout.tsx    AppShell + ScreenerSidebar, auth-guard via getSupabaseServerClient
-├── src/app/(dashboard)/page.tsx      watchlist scorecard table (RSC reads eps_signals view)
-├── src/app/(dashboard)/ticker/[symbol]/page.tsx   detail: ECharts trend + QoQ bars + 5-step scorecard
-├── src/app/api/ingest/route.ts       POST {symbol?} → pull + upsert (idempotent). Auth-gated.
-└── src/lib/signals.ts                pure functions: yoyGrowth, qoqSlope, fwdGrowth, edge-case labels
+├── src/app/layout.tsx                root: fonts, theme pre-paint script, <Providers> + <Shell>
+├── src/app/globals.css               --screener CSS vars incl. --pos/--neg directional tokens
+├── src/app/page.tsx                  dashboard: StatCards + sortable scorecard table (RSC)
+├── src/app/ticker/[symbol]/page.tsx  detail: Tabs → scorecard / ECharts trend+QoQ / financials
+├── src/app/api/ingest/route.ts       POST {symbol?} → pull + upsert (idempotent). Optional CRON_SECRET gate.
+├── src/app/actions.ts                server actions: add / refresh / refreshAll / remove
+├── src/lib/signals.ts                pure engine: peReasonableness, fundamentalsTrend, yoyGrowth, qoqTrend, fwdGrowth, buildScorecard
+├── src/lib/ingest.ts                 ingestTicker / ingestAllActive (service-role upserts)
+├── src/lib/queries.ts                getWatchlist / getTicker → runs the signals engine on read
+└── src/lib/db.ts                     schema-less service-role Supabase client (no RLS)
 
-packages/market-data                  provider adapter (FMP first) — §3
-packages/jobs/src/screener-refresh.ts Inngest weekly cron → loops active watchlist → calls ingest logic
-packages/db                           shared Supabase clients + regenerated database.types.ts
+packages/market-data                  provider adapter: DataProvider + FmpProvider + MockProvider — §3
+packages/jobs/src/screener-refresh.ts Inngest weekly cron → POSTs the app's /api/ingest (HTTP seam)
 
 Supabase (Postgres)
-├── migrations/0026_screener.sql      tables + RLS + set_updated_at triggers (idempotent)
-├── migrations/0027_screener_views.sql derived metrics: eps_growth, eps_signals (LAG window fns)
-└── RLS                               per-user (auth.uid()) — see §10.5
+├── migrations/0026_screener.sql      screener_* tables + set_updated_at trigger (idempotent, NO RLS)
+└── migrations/0027_screener_views.sql derived metrics: eps_growth / annual_trend / latest_* (LAG window fns)
 ```
 
 **Why Inngest, not Vercel Cron:** the repo already runs five Inngest crons
 (`packages/jobs`, app id `homeownerhub`) and ADR-001 settled "Inngest over
 pg-boss/Trigger.dev." Adding a sixth function is zero new infra. The
-"Refresh now" button and the cron both call the *same* ingest code path (route
-handler logic factored into `src/lib/ingest.ts` so the job imports it without an
-HTTP hop), keeping ingestion idempotent and single-sourced.
+"Refresh now" button (server action) and the cron both drive the *same*
+idempotent ingest code path in `src/lib/ingest.ts`. The cron lives in
+`packages/jobs`, which can't import across the app boundary, so it reaches the
+logic by POSTing the app's `/api/ingest` endpoint (`SCREENER_APP_URL`) — one
+seam, single-sourced ingestion.
 
 **Ingestion is idempotent**: upsert on `(ticker_id, fiscal_period)`. Re-running
 never duplicates; estimates get overwritten by actuals when earnings land
@@ -181,22 +195,22 @@ existing "views over window functions" instinct (e.g. dues-aging SQL).
 Conventions copied from `migrations/0024_tickets.sql`: `uuid` PKs with
 `gen_random_uuid()`, `created_at/updated_at timestamptz default now()`,
 `set_updated_at` BEFORE-UPDATE trigger, partial indexes, `CHECK` constraints,
-idempotent `CREATE TABLE IF NOT EXISTS`, and the **two-policy RLS pattern**.
+idempotent `CREATE TABLE IF NOT EXISTS`. **No RLS** — free, single shared
+watchlist; all writes are service-role, all reads server-side.
 
 ```sql
--- 0026_screener.sql  (idempotent, RLS owner-scoped to auth.uid())
+-- 0026_screener.sql  (idempotent, NO RLS — single shared watchlist)
 
 CREATE TABLE IF NOT EXISTS public.screener_tickers (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  owner_id    uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   symbol      text NOT NULL,
   name        text,
-  currency    text DEFAULT 'USD',
+  currency    text NOT NULL DEFAULT 'USD',
   active      boolean NOT NULL DEFAULT true,
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now(),
   deleted_at  timestamptz,
-  UNIQUE (owner_id, symbol)
+  UNIQUE (symbol)
 );
 
 CREATE TABLE IF NOT EXISTS public.screener_quarterly_eps (   -- the persistent trend line
@@ -241,9 +255,8 @@ CREATE TABLE IF NOT EXISTS public.screener_annual_financials (   -- step 2, 5-yr
   UNIQUE (ticker_id, fiscal_year)
 );
 
--- Indexes, set_updated_at trigger on screener_tickers, and RLS policies
--- (owner_id = auth.uid() for tickers; EXISTS-join through ticker_id for the
--- child tables) follow exactly. Service-role (Inngest) bypasses RLS for writes.
+-- Indexes + a set_updated_at trigger on screener_tickers follow exactly. No
+-- RLS is enabled; all access is server-side via the service-role client.
 ```
 
 **Derived views — `0027_screener_views.sql`:**
@@ -257,15 +270,16 @@ FROM public.screener_quarterly_eps
 WHERE NOT is_forecast
 WINDOW w AS (PARTITION BY ticker_id ORDER BY period_end);
 
--- screener_eps_signals: one row per ticker joining latest eps_growth +
--- latest valuation_snapshot + 5yr annual trend booleans → the dashboard reads
--- this single view. QoQ slope (linear regression over N quarters) is computed
--- in src/lib/signals.ts from the eps_growth rows, not in SQL, so N stays a
--- config value (§7).
+-- Plus screener_annual_trend (step-2 booleans), screener_latest_valuation,
+-- and screener_latest_eps_growth (DISTINCT ON). QoQ slope (linear regression
+-- over N quarters) is computed in src/lib/signals.ts from the eps_growth rows,
+-- not in SQL, so N stays a config value (§7).
 ```
 
-Views inherit RLS from their base tables (Postgres `security_invoker`), so the
-dashboard's user-bound client only ever sees the caller's own tickers.
+In practice the app reads the raw `screener_*` tables in `src/lib/queries.ts`
+and runs the **same** `buildScorecard` engine the ingest path / tests use, so
+the dashboard, the detail page, and `pnpm test:screener` can never disagree on
+the numbers. The views above are available for ad-hoc SQL / future use.
 
 ---
 
@@ -332,12 +346,12 @@ screener: {
 
 ---
 
-## 8. Phasing — gated like the existing build spec
+## 8. Phasing
 
-- **Phase 0 — Foundation.** `migrations/0026` + `0027`; `packages/market-data` with FMP + mock providers; `src/lib/ingest.ts` + `/api/ingest` for one ticker (NVDA). Verify the computed signals against the deck's NVDA numbers with `scripts/test-screener-signals.ts` (mirrors `scripts/test-accounting.ts`; add to root `package.json` as `test:screener`). Regenerate `database.types.ts`.
-- **Phase 1 — Watchlist + dashboard.** `apps/screener` scaffold (copy `apps/hoa` shell, `(auth)` + `(dashboard)` groups, globals, manifest). Watchlist CRUD, all 5 signals from the views, the scorecard table, `screener` tokens, `ScreenerSidebar`, Inngest weekly cron + Refresh-now button.
-- **Phase 2 — Detail + edges.** Ticker detail with ECharts trend/QoQ charts, full edge-case handling (turnaround/`n/a`), QoQ slope label, `Tabs`, `BackLink`.
-- **Phase 3 — Hardening.** Alerts on signal flips, fallback/secondary provider behind the adapter, optional yfinance worker, optional Natan-engine handoff.
+- **Phase 0 — Foundation. ✅ done.** `migrations/0026` + `0027`; `packages/market-data` with FMP + mock providers; `src/lib/signals.ts` + `src/lib/ingest.ts` + `/api/ingest`. Signals verified against the deck's NVDA numbers via `scripts/test-screener-signals.ts` (`pnpm test:screener`).
+- **Phase 1 — Watchlist + dashboard. ✅ done.** `apps/screener` scaffold (shell, globals, manifest, no auth). Add/refresh/remove via server actions, all 5 signals, StatCards + sortable scorecard table, `screener` tokens, `ScreenerSidebar`, Inngest weekly cron + Refresh-now button.
+- **Phase 2 — Detail + edges. ✅ done.** Ticker detail with ECharts trend/QoQ charts, full edge-case handling (turnaround/`n/a`), QoQ slope label, `Tabs`, `BackLink`.
+- **Phase 3 — Hardening (future).** Alerts on signal flips, fallback/secondary provider behind the adapter, optional yfinance worker, optional Natan-engine handoff, real forward-P/E source (FMP free tier omits it — step 5 degrades to `n/a` until then).
 
 A **`BarBGate`** review is required before any AI-flavored copy ships
 (consistent with the repo's mandatory AI gate) — relevant only if Phase 3 adds an
@@ -345,17 +359,24 @@ A **`BarBGate`** review is required before any AI-flavored copy ships
 
 ---
 
-## 9. Concrete first-PR checklist (hand to Claude Code)
+## 9. What shipped (all ✅)
 
-1. `packages/market-data` package (`provider.ts`, `providers/fmp.ts`, `providers/mock.ts`, `index.ts`, `package.json`, `tsconfig.json` — copy `packages/billing` shape).
-2. `migrations/0026_screener.sql` + `migrations/0027_screener_views.sql` (idempotent, RLS, triggers).
-3. `pnpm --filter @homeowner-portal/db gen:types` → commit refreshed `database.types.ts`.
-4. `src/lib/signals.ts` (pure, fully unit-tested) + `scripts/test-screener-signals.ts` + `test:screener` script.
-5. `src/lib/ingest.ts` + `apps/screener/src/app/api/ingest/route.ts`.
-6. `apps/screener` shell: copy `apps/hoa` `layout.tsx` / `globals.css` / `(auth)` / `(dashboard)/layout.tsx`, swap palette to `screener` tokens, add `ScreenerSidebar`.
-7. Dashboard table + StatCards; ticker detail with ECharts; Toast/Confirm/EmptyState wiring.
-8. `packages/jobs/src/screener-refresh.ts` Inngest weekly cron + register in `packages/jobs/src/index.ts`.
-9. `MARKET_DATA_*` added to `turbo.json` build env + `dev:screener` script in root `package.json`.
+1. `packages/market-data` — `provider.ts` (interface), `providers/fmp.ts`, `providers/mock.ts` (NVDA fixture + synthetic fallback), `index.ts` (`getProvider()` env switch).
+2. `migrations/0026_screener.sql` (tables + trigger, no RLS) + `migrations/0027_screener_views.sql` (views).
+3. `apps/screener/src/lib/signals.ts` (pure engine) + `scripts/test-screener-signals.ts` + `pnpm test:screener` (green).
+4. `src/lib/ingest.ts` + `src/lib/db.ts` + `src/app/api/ingest/route.ts` + `src/app/actions.ts`.
+5. `apps/screener` shell (`layout.tsx`, `globals.css`, `manifest.ts`, `Shell`, `ScreenerSidebar`, `ThemeToggle`, `Providers`), `screener` tokens in `packages/ui`.
+6. Dashboard (`page.tsx`: StatCards + `WatchlistTable`) + ticker detail (`ticker/[symbol]/page.tsx`: `Tabs` → `Scorecard` / ECharts `EpsTrendChart`+`QoqDeltaChart` / financials). Toast/Confirm/EmptyState/Skeleton wired.
+7. `packages/jobs/src/screener-refresh.ts` Inngest weekly cron + registered in `index.ts`.
+8. `MARKET_DATA_*` / `SCREENER_APP_URL` / `CRON_SECRET` in `turbo.json` build env; `dev:screener` + `test:screener` in root `package.json`.
+
+**Verification:** `pnpm test:screener` green; `pnpm --filter screener build` green (`tsc` + Next build pass).
+
+### Deploy / runtime config
+- Set `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (server-only) for the screener app.
+- Apply `migrations/0026` + `0027` to the Supabase project.
+- `MARKET_DATA_PROVIDER=mock` (default with no key) for offline/demo; set `MARKET_DATA_FMP_API_KEY` + `MARKET_DATA_PROVIDER=fmp` for live data.
+- For the weekly cron: set `SCREENER_APP_URL` on the deploy that hosts the Inngest functions; optionally `CRON_SECRET` (sent + enforced on `/api/ingest`).
 
 ---
 
@@ -368,8 +389,8 @@ Full rationale in `docs/decisions/006-eps-screener.md` (ADR-006).
 | 10.1 | Step 5 ratio | **trailing ÷ forward P/E** ✅ | `trailing/forward = (P/E_ttm)/(P/E_fwd) = EPS_fwd/EPS_ttm` = the consensus EPS-growth ratio. trailing÷current = 1 (useless). Confirmed. |
 | 10.2 | Data provider | **FMP primary, behind the `packages/market-data` adapter** | Single provider covers all 5 steps; tiny watchlist stays in free/cheap limits; adapter defers yfinance's Python-worker cost to Phase 3. |
 | 10.3 | Scorecard verdict | **Show the 5 signal chips; add a soft composite "X/5 passing" count — no hard buy/avoid label** | Matches the HOA "show signals, let the human decide" philosophy and the BarBGate no-overclaim stance. A binary verdict would imply advice we don't stand behind. |
-| 10.4 | Universe | **Manual per-user watchlist for v1** | Smallest surface that proves the methodology; bulk import is a Phase 3 add behind the same ingest path. |
-| 10.5 | Multi-user | **Per-user RLS (`owner_id = auth.uid()`) from day one** | The screener is a personal tool, so per-user is simpler than the org/`org_members` model — but it's still true multi-tenant RLS, matching the "RLS from day one" HOA instinct. Org-scoping can layer on later without a data migration. |
+| 10.4 | Universe | **Manual shared watchlist for v1** | Smallest surface that proves the methodology; bulk import is a Phase 3 add behind the same ingest path. Add any symbol — NVDA is only the verification fixture. |
+| 10.5 | Multi-user | **None — free app, no auth/RLS, single shared watchlist** (revised per owner) | No billing, no login, no per-user scoping. Writes are service-role; reads are server-side. Org/RLS scoping can layer on later without a data migration if the product ever needs it. |
 | 10.6 | Refresh cadence | **Inngest weekly cron + manual "Refresh now" button** | Earnings are quarterly, so weekly is ample; both hit the same idempotent ingest path. Event-driven (earnings-calendar) is a Phase 3 refinement. |
 
 ---
@@ -382,7 +403,7 @@ Full rationale in `docs/decisions/006-eps-screener.md` (ADR-006).
 | Charts | Recharts | **ECharts** (`echarts-for-react`) | What `apps/hoa` actually ships |
 | UI primitives | new build | **`@homeowner-portal/ui`** reuse | Same shell/tokens/dark-mode/PWA as HOA |
 | Provider | inline adapter | **`packages/market-data`** workspace pkg | Mirrors `packages/ai` / `billing` boundary |
-| Tenancy | "matches HOA pattern" (org) | **per-user RLS** | Personal tool; simpler, still RLS-first |
+| Tenancy | "matches HOA pattern" (org) | **none — no auth/RLS** | Free app; single shared watchlist, service-role writes |
 | Tables | `tickers`, `quarterly_eps`, … | **`screener_*` prefixed** | Single shared Postgres schema; avoid collisions |
 | Signal colors | green/amber/red brand | **`--pos`/`--neg` semantic tokens**, neutral brand | Finance UX: don't let brand chrome read as a buy signal |
 ```

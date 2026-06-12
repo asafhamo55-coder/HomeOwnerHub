@@ -39,6 +39,22 @@ export const tokens = {
     muted: '#64748B',
     fontSizeBase: '16px',
   },
+  // Equity Screener Hub. Finance UX rule: green=up / red=down are DATA colors,
+  // so the brand/primary is a neutral slate-indigo (never directional) and the
+  // pos/neg tokens are reserved exclusively for signal chips + chart deltas.
+  screener: {
+    primary: '#4F46E5',     // slate-indigo — brand chrome only
+    primaryFg: '#ffffff',
+    accent: '#F59E0B',      // amber — AI affordances (consistent across hubs)
+    pos: '#059669',         // emerald-600 — up / pass / accelerating ONLY
+    neg: '#E11D48',         // rose-600 — down / fail / decelerating ONLY
+    bg: '#FAFBFD',
+    surface: '#ffffff',
+    border: '#E5E7EB',
+    text: '#111827',
+    muted: '#6B7280',
+    fontSizeBase: '16px',
+  },
 } as const
 
 export type HubKey = keyof typeof tokens

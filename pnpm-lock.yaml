@@ -373,6 +373,61 @@ importers:
         specifier: ^5
         version: 5.9.3
 
+  apps/screener:
+    dependencies:
+      '@homeowner-portal/market-data':
+        specifier: workspace:*
+        version: link:../../packages/market-data
+      '@homeowner-portal/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@supabase/supabase-js':
+        specifier: ^2.45.0
+        version: 2.105.3
+      echarts:
+        specifier: ^6.1.0
+        version: 6.1.0
+      echarts-for-react:
+        specifier: ^3.0.6
+        version: 3.0.6(echarts@6.1.0)(react@19.2.6)
+      lucide-react:
+        specifier: ^0.460.0
+        version: 0.460.0(react@19.2.6)
+      next:
+        specifier: ^15.0.0
+        version: 15.5.16(@opentelemetry/api@1.9.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.6
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.6(react@19.2.6)
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.14)
+      autoprefixer:
+        specifier: ^10.4.0
+        version: 10.5.0(postcss@8.5.14)
+      postcss:
+        specifier: ^8.4.0
+        version: 8.5.14
+      tailwindcss:
+        specifier: ^3.4.0
+        version: 3.4.19(tsx@4.21.0)(yaml@2.8.4)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
   packages/ai:
     dependencies:
       '@homeowner-portal/db':
@@ -435,6 +490,12 @@ importers:
       plaid:
         specifier: ^42.2.0
         version: 42.2.0
+    devDependencies:
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/market-data:
     devDependencies:
       typescript:
         specifier: ^5

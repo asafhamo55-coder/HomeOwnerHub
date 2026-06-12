@@ -11,6 +11,8 @@
     "dev:eviction": "turbo run dev --filter=eviction",
     "dev:pm": "turbo run dev --filter=pm",
     "dev:marketing": "turbo run dev --filter=marketing",
+    "dev:screener": "turbo run dev --filter=screener",
+    "test:screener": "tsx scripts/test-screener-signals.ts",
     "seed:sample-ccr": "tsx scripts/seed-sample-ccr.ts",
     "seed:accounting": "tsx scripts/seed-accounting.ts",
     "seed:comm-templates": "tsx scripts/seed-comm-templates.ts",
