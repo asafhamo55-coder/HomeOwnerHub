@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Sparkles } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowRight, HelpCircle, Sparkles } from 'lucide-react'
 import {
   Alert,
   Badge,
@@ -23,11 +24,33 @@ interface Citation {
   section: string | null
 }
 
+type RecommendationAction = 'arc' | 'report_violation' | 'ticket'
+
+interface Recommendation {
+  action: RecommendationAction
+  text: string
+}
+
 interface AskResponse {
   answer: string
   confidence: Confidence
   citations: Citation[]
+  clarification?: string | null
+  recommendation?: Recommendation | null
   runId: string
+}
+
+// Each recommended action maps to a real page in the resident portal.
+const ACTION_META: Record<
+  RecommendationAction,
+  { label: string; href: string }
+> = {
+  arc: { label: 'Start an ARC application', href: '/resident/arc/new' },
+  report_violation: {
+    label: 'Report a concern to the board',
+    href: '/resident/report-violation',
+  },
+  ticket: { label: 'Open a support ticket', href: '/resident/tickets' },
 }
 
 const SAMPLE_QUESTIONS = [
@@ -142,9 +165,46 @@ export function AskDocsClient() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">
-              {response.answer}
-            </p>
+            {response.answer ? (
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                {response.answer}
+              </p>
+            ) : null}
+
+            {response.clarification ? (
+              <div className="space-y-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-amber-600">
+                  <HelpCircle className="h-3.5 w-3.5" />
+                  One quick clarification
+                </p>
+                <p className="text-sm leading-relaxed">
+                  {response.clarification}
+                </p>
+                <p className="text-xs text-muted">
+                  Add that detail to your question above and ask again for a
+                  more precise answer.
+                </p>
+              </div>
+            ) : null}
+
+            {response.recommendation &&
+            ACTION_META[response.recommendation.action] ? (
+              <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-primary">
+                  Recommended next step
+                </p>
+                <p className="text-sm leading-relaxed">
+                  {response.recommendation.text}
+                </p>
+                <Link
+                  href={ACTION_META[response.recommendation.action].href}
+                  className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  {ACTION_META[response.recommendation.action].label}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            ) : null}
 
             {response.citations.length > 0 ? (
               <div className="space-y-1.5 border-t border-border pt-3">

@@ -34,10 +34,27 @@ export const GoverningDocsCitationSchema = z.object({
 
 export type GoverningDocsCitation = z.infer<typeof GoverningDocsCitationSchema>
 
+// A recommended next step, tied to a concrete action the portal actually
+// offers. Rendered as a dedicated section in the resident UI.
+export const GoverningDocsRecommendationSchema = z.object({
+  action: z.enum(['arc', 'report_violation', 'ticket']),
+  text: z.string(),
+})
+
+export type GoverningDocsRecommendation = z.infer<
+  typeof GoverningDocsRecommendationSchema
+>
+
 export const GoverningDocsBrainOutputSchema = z.object({
   answer: z.string(),
   confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   citations: z.array(GoverningDocsCitationSchema),
+  // A one-sentence follow-up question when the ask is ambiguous; null when
+  // the question was specific enough to answer confidently.
+  clarification: z.string().nullish(),
+  // The single next step to take; null for purely informational questions.
+  // `.nullish()` keeps existing callers/returns that omit it valid.
+  recommendation: GoverningDocsRecommendationSchema.nullish(),
 })
 
 export type GoverningDocsBrainOutput = z.infer<
@@ -146,6 +163,11 @@ export const governingDocsBrain = defineWorkflow({
       answer: typeof parsed.answer === 'string' ? parsed.answer : '',
       confidence,
       citations,
+      clarification:
+        typeof parsed.clarification === 'string' && parsed.clarification.trim()
+          ? parsed.clarification.trim()
+          : null,
+      recommendation: normalizeRecommendation(parsed.recommendation),
     }
   },
 })
@@ -169,6 +191,8 @@ function parseModelJson(raw: string): {
   answer?: string
   confidence?: string
   cited_chunk_ids?: string[]
+  clarification?: string
+  recommendation?: unknown
 } {
   try {
     const parsed = JSON.parse(raw)
@@ -177,6 +201,24 @@ function parseModelJson(raw: string): {
     // model returned non-JSON despite response_format; fall through
   }
   return {}
+}
+
+/**
+ * Coerce the model's free-form recommendation into our typed shape. The
+ * model may emit action "none" (or an unknown value) with empty text — all
+ * of those collapse to null so the UI simply omits the next-step section.
+ */
+function normalizeRecommendation(
+  value: unknown,
+): GoverningDocsRecommendation | null {
+  if (!value || typeof value !== 'object') return null
+  const { action, text } = value as { action?: unknown; text?: unknown }
+  const cleanText = typeof text === 'string' ? text.trim() : ''
+  if (!cleanText) return null
+  if (action === 'arc' || action === 'report_violation' || action === 'ticket') {
+    return { action, text: cleanText }
+  }
+  return null
 }
 
 function normalizeConfidence(value: unknown): 'HIGH' | 'MEDIUM' | 'LOW' {
