@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { Badge, Card, CardContent, CardHeader, CardTitle, EmptyState } from '@homeowner-portal/ui'
 import { getResidentDashboard, type OpenViolationRow } from '@/lib/resident-dashboard'
+import type { ResidentUnit } from '@/lib/resident'
 import type { TicketRow } from '@/lib/resident-tickets'
 import type { ArcRequestRow } from '@/lib/resident-submissions'
 
@@ -115,32 +116,9 @@ export default async function ResidentDashboard() {
             </section>
           ) : null}
 
-          {/* Units on file */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">
-                My {data.units.length === 1 ? 'unit' : 'units'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {data.units.map((u) => (
-                  <li
-                    key={u.unit_id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-foreground/5 px-3 py-2 text-sm"
-                  >
-                    <div>
-                      <p className="font-medium">{u.unit_number ?? '(no unit number)'}</p>
-                      {u.address ? <p className="text-xs text-muted">{u.address}</p> : null}
-                    </div>
-                    <Badge variant="outline" size="sm">
-                      {u.ownership_pct ? `${u.ownership_pct}% owner` : 'Owner'}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+          {/* Units on file — grouped by community when the owner holds
+              units across more than one association. */}
+          <UnitsCard units={data.units} />
         </>
       )}
 
@@ -195,6 +173,81 @@ export default async function ResidentDashboard() {
       </section>
     </div>
   )
+}
+
+function UnitsCard({ units }: { units: ResidentUnit[] }) {
+  const communities = [
+    ...new Set(units.map((u) => u.association_name).filter((n): n is string => n != null && n !== '')),
+  ]
+  const multiCommunity = communities.length > 1
+  // Only group under community headings when the owner spans more than
+  // one association; a single-community owner sees a flat list.
+  const groups = multiCommunity
+    ? groupUnitsByCommunity(units)
+    : [{ community: null as string | null, units }]
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base">My {units.length === 1 ? 'unit' : 'units'}</CardTitle>
+          <Badge variant="outline" size="sm">
+            {units.length} {units.length === 1 ? 'unit' : 'units'}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {groups.map((group) => (
+          <div key={group.community ?? '__ungrouped'} className="space-y-2">
+            {group.community ? (
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                {group.community}
+              </p>
+            ) : null}
+            <ul className="space-y-2">
+              {group.units.map((u) => (
+                <UnitRow key={u.unit_id} unit={u} />
+              ))}
+            </ul>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
+function UnitRow({ unit }: { unit: ResidentUnit }) {
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-foreground/5 px-3 py-2 text-sm">
+      <div>
+        <p className="font-medium">{unit.unit_number ?? '(no unit number)'}</p>
+        {unit.address ? <p className="text-xs text-muted">{unit.address}</p> : null}
+      </div>
+      <Badge variant="outline" size="sm">
+        {unit.ownership_pct ? `${unit.ownership_pct}% owner` : 'Owner'}
+      </Badge>
+    </li>
+  )
+}
+
+// Groups units by their community (association) name, preserving first-seen
+// order. Units without a community fall into a trailing "Other" group.
+function groupUnitsByCommunity(
+  units: ResidentUnit[],
+): Array<{ community: string | null; units: ResidentUnit[] }> {
+  const groups: Array<{ community: string | null; units: ResidentUnit[] }> = []
+  const byKey = new Map<string, { community: string | null; units: ResidentUnit[] }>()
+  for (const unit of units) {
+    const key = unit.association_name ?? '__other'
+    let group = byKey.get(key)
+    if (!group) {
+      group = { community: unit.association_name ?? 'Other', units: [] }
+      byKey.set(key, group)
+      groups.push(group)
+    }
+    group.units.push(unit)
+  }
+  return groups
 }
 
 function SectionHeading({ icon, title }: { icon: React.ReactNode; title: string }) {
