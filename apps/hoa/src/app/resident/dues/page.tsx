@@ -43,6 +43,9 @@ export default async function ResidentDuesPage() {
                   <li key={u.unit_id} className="rounded-md border border-border bg-foreground/5 px-3 py-2 text-sm">
                     <p className="font-medium">{u.unit_number ?? '(no unit number)'}</p>
                     {u.address ? <p className="text-xs text-muted">{u.address}</p> : null}
+                    {u.association_name ? (
+                      <p className="text-xs text-muted">{u.association_name}</p>
+                    ) : null}
                   </li>
                 ))}
               </ul>

@@ -12,24 +12,68 @@ export interface ResidentUnit {
   unit_number: string | null
   address: string | null
   association_id: string | null
+  association_name: string | null
   ownership_pct: number | null
   valid_from: string
 }
 
 export interface ResidentSummary {
   units: ResidentUnit[]
+  /** First community name — kept for single-community callers. */
   associationName: string | null
+  /** Distinct community names across all owned units (multi-property owners). */
+  associationNames: string[]
   orgName: string | null
   openViolations: number
   recentAnnouncements: number
 }
 
-// Returns every unit currently owned by the signed-in user. Primary
+// Returns every unit currently owned by the signed-in user, each tagged
+// with its association (community) name so a multi-property owner can tell
+// which community a unit belongs to. Wraps the raw lookup below and fills
+// in association names in a single batched query.
+export async function getResidentUnits(): Promise<ResidentUnit[]> {
+  const supabase = await getSupabaseServerClient()
+  const units = await getOwnedUnits(supabase)
+  return attachAssociationNames(supabase, units)
+}
+
+// Resolves the association (community) name for each unit's association_id
+// in one batched query. Units without an association_id keep a null name.
+async function attachAssociationNames(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  units: ResidentUnit[],
+): Promise<ResidentUnit[]> {
+  const associationIds = [
+    ...new Set(units.map((u) => u.association_id).filter((id): id is string => id != null)),
+  ]
+  if (associationIds.length === 0) return units
+
+  const { data } = await supabase
+    .from('associations' as never)
+    .select('id, name')
+    .in('id', associationIds)
+
+  const nameById = new Map(
+    ((data ?? []) as unknown as Array<{ id: string; name: string | null }>).map((a) => [
+      a.id,
+      a.name,
+    ]),
+  )
+
+  return units.map((u) => ({
+    ...u,
+    association_name: u.association_id ? nameById.get(u.association_id) ?? null : null,
+  }))
+}
+
+// Raw lookup of every unit currently owned by the signed-in user. Primary
 // lookup is `ownerships.owner_user_id`. Fallback: if no ownerships
 // rows exist, check `property_residents` by email — residents linked
 // by email (e.g. via CSV import) still see their property.
-export async function getResidentUnits(): Promise<ResidentUnit[]> {
-  const supabase = await getSupabaseServerClient()
+async function getOwnedUnits(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+): Promise<ResidentUnit[]> {
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -61,6 +105,7 @@ export async function getResidentUnits(): Promise<ResidentUnit[]> {
       unit_number: r.unit?.unit_number ?? null,
       address: r.unit?.address_line1 ?? null,
       association_id: r.unit?.association_id ?? null,
+      association_name: null,
       ownership_pct: r.ownership_pct,
       valid_from: r.valid_from,
     }))
@@ -115,6 +160,7 @@ export async function getResidentUnits(): Promise<ResidentUnit[]> {
       unit_number: r.property!.unit_number ?? null,
       address: r.property!.address ?? null,
       association_id: linked?.association_id ?? null,
+      association_name: null,
       ownership_pct: null,
       valid_from: r.moved_in_at ?? new Date().toISOString(),
     }
@@ -128,15 +174,11 @@ export async function getResidentSummary(): Promise<ResidentSummary> {
 
   const units = await getResidentUnits()
 
-  let associationName: string | null = null
-  if (units.length > 0 && units[0].association_id) {
-    const { data: assoc } = await supabase
-      .from('associations' as never)
-      .select('name')
-      .eq('id', units[0].association_id)
-      .maybeSingle<{ name: string }>()
-    associationName = assoc?.name ?? null
-  }
+  // Distinct community names across every owned unit, preserving order.
+  const associationNames = [
+    ...new Set(units.map((u) => u.association_name).filter((n): n is string => n != null && n !== '')),
+  ]
+  const associationName = associationNames[0] ?? null
 
   let recentAnnouncements = 0
   if (org) {
@@ -154,6 +196,7 @@ export async function getResidentSummary(): Promise<ResidentSummary> {
   return {
     units,
     associationName,
+    associationNames,
     orgName: org?.name ?? null,
     openViolations: 0, // wired in Phase 16d once violation queries land
     recentAnnouncements,

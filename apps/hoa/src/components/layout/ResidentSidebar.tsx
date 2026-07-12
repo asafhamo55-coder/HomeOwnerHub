@@ -6,12 +6,10 @@ import {
   BookOpen,
   CalendarClock,
   ClipboardList,
-  FileText,
   Home,
   LogOut,
   Megaphone,
   MessageSquare,
-  Scale,
   Sparkles,
   Wallet,
 } from 'lucide-react'
@@ -52,9 +50,7 @@ const NAV: Array<{ label?: string; items: NavLink[] }> = [
   {
     label: 'Knowledge',
     items: [
-      { href: '/resident/governing', icon: <FileText className="h-4 w-4" />, label: 'Governing Docs' },
       { href: '/resident/ask', icon: <Sparkles className="h-4 w-4" />, label: 'Ask the Docs' },
-      { href: '/resident/legal', icon: <Scale className="h-4 w-4" />, label: 'State Law' },
     ],
   },
   {
