@@ -18,6 +18,22 @@ type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
 type ActionErr = { ok: false; error: string }
 export type ActionResult<T = void> = ActionOk<T> | ActionErr
 
+/** One message in a submission thread, as the board sees it — includes
+ *  internal board-only notes (residents never receive these). */
+export interface BoardMessageRow {
+  id: string
+  author_role: 'resident' | 'board' | 'admin'
+  body: string
+  internal: boolean
+  created_at: string
+}
+
+const BoardReplySchema = z.object({
+  id: z.string().uuid(),
+  body: z.string().trim().min(1, 'Message cannot be empty.').max(4000),
+  internal: z.boolean(),
+})
+
 // ─── ARC review ─────────────────────────────────────────────────────
 
 export type ArcStatus =
@@ -215,6 +231,59 @@ export async function deleteArcRequest(arcId: string): Promise<ActionResult> {
   return { ok: true }
 }
 
+// ─── ARC thread ─────────────────────────────────────────────────────
+
+export async function getArcMessagesForBoard(
+  arcId: string,
+): Promise<BoardMessageRow[]> {
+  await requireBoardOrAdmin()
+  const supabase = await getSupabaseServerClient()
+  const { data } = await supabase
+    .from('arc_request_messages' as never)
+    .select('id, author_role, body, internal, created_at')
+    .eq('arc_request_id', arcId)
+    .order('created_at', { ascending: true })
+  return (data ?? []) as unknown as BoardMessageRow[]
+}
+
+export async function postArcMessage(input: {
+  arcId: string
+  body: string
+  internal: boolean
+}): Promise<ActionResult> {
+  const parsed = BoardReplySchema.safeParse({
+    id: input.arcId,
+    body: input.body,
+    internal: input.internal,
+  })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+
+  await requireBoardOrAdmin()
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Not signed in.' }
+
+  const { error } = await supabase
+    .from('arc_request_messages' as never)
+    .insert({
+      arc_request_id: parsed.data.id,
+      author_id: user.id,
+      author_role: 'board',
+      body: parsed.data.body,
+      internal: parsed.data.internal,
+    } as never)
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath(`/arc/${parsed.data.id}`)
+  revalidatePath(`/resident/arc/${parsed.data.id}`)
+  return { ok: true }
+}
+
 // ─── Resident violation reports ─────────────────────────────────────
 
 export type ViolationReportStatus =
@@ -360,5 +429,58 @@ export async function respondToViolationReport(
 
   revalidatePath('/violations/reports')
   revalidatePath(`/violations/reports/${parsed.data.report_id}`)
+  return { ok: true }
+}
+
+// ─── Violation report thread ────────────────────────────────────────
+
+export async function getViolationReportMessagesForBoard(
+  reportId: string,
+): Promise<BoardMessageRow[]> {
+  await requireBoardOrAdmin()
+  const supabase = await getSupabaseServerClient()
+  const { data } = await supabase
+    .from('resident_violation_report_messages' as never)
+    .select('id, author_role, body, internal, created_at')
+    .eq('report_id', reportId)
+    .order('created_at', { ascending: true })
+  return (data ?? []) as unknown as BoardMessageRow[]
+}
+
+export async function postViolationReportMessage(input: {
+  reportId: string
+  body: string
+  internal: boolean
+}): Promise<ActionResult> {
+  const parsed = BoardReplySchema.safeParse({
+    id: input.reportId,
+    body: input.body,
+    internal: input.internal,
+  })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+
+  await requireBoardOrAdmin()
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Not signed in.' }
+
+  const { error } = await supabase
+    .from('resident_violation_report_messages' as never)
+    .insert({
+      report_id: parsed.data.id,
+      author_id: user.id,
+      author_role: 'board',
+      body: parsed.data.body,
+      internal: parsed.data.internal,
+    } as never)
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath(`/violations/reports/${parsed.data.id}`)
+  revalidatePath(`/resident/violations/${parsed.data.id}`)
   return { ok: true }
 }

@@ -53,7 +53,7 @@ export function ArcRequestForm({ units }: { units: ResidentUnit[] }) {
         setError(result.error)
         return
       }
-      router.push('/resident/arc')
+      router.push(`/resident/arc/${result.data.requestId}`)
     })
   }
 

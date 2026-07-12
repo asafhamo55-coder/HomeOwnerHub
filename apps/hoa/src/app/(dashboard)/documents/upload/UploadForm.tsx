@@ -3,7 +3,7 @@
 import { useActionState, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Upload } from 'lucide-react'
-import { Alert, Button, Input, Textarea } from '@homeowner-portal/ui'
+import { Alert, Button, Input, Select, Textarea } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { uploadDocument, type UploadActionState } from '@/lib/documents'
 
@@ -87,20 +87,19 @@ export function UploadForm() {
           <label htmlFor="type" className="text-sm font-medium text-foreground">
             Type <span className="text-destructive">*</span>
           </label>
-          <select
+          <Select
             id="type"
             name="type"
             required
             defaultValue="ccr"
             disabled={pending}
-            className="flex h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
           >
             {DOC_TYPES.map((t) => (
               <option key={t.value} value={t.value}>
                 {t.label}
               </option>
             ))}
-          </select>
+          </Select>
           {f.type ? <p className="text-xs text-destructive">{f.type}</p> : null}
         </div>
       </div>

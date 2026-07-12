@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ChevronLeft, TrendingUp } from 'lucide-react'
 import { format } from 'date-fns'
-import { Card, EmptyState } from '@homeowner-portal/ui'
+import { Card, EmptyState, Select } from '@homeowner-portal/ui'
 import {
   computeIncomeStatement,
   getAccountingContext,
@@ -90,29 +90,29 @@ export default async function IncomeStatementPage({ searchParams }: PageProps) {
         <form className="flex flex-wrap items-end gap-3 px-4 py-3">
           <label className="flex flex-col gap-1 text-xs text-muted">
             Period
-            <select
+            <Select
               name="period"
               defaultValue={periodId}
-              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+              className="w-full sm:w-56"
             >
               {periods.map((p) => (
                 <option key={p.id} value={p.id}>
                   {format(new Date(p.start_date), 'yyyy')} · {p.status}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className="flex flex-col gap-1 text-xs text-muted">
             Basis
-            <select
+            <Select
               name="basis"
               defaultValue={basis}
-              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+              className="w-full sm:w-56"
             >
               <option value="accrual">Accrual</option>
               <option value="cash">Cash</option>
               <option value="modified">Modified accrual</option>
-            </select>
+            </Select>
           </label>
           <button
             type="submit"

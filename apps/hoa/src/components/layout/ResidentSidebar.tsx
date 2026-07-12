@@ -4,12 +4,12 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   BookOpen,
-  CalendarClock,
   ClipboardList,
   Home,
   LogOut,
   Megaphone,
   MessageSquare,
+  ShieldAlert,
   Sparkles,
   Wallet,
 } from 'lucide-react'
@@ -54,10 +54,10 @@ const NAV: Array<{ label?: string; items: NavLink[] }> = [
     ],
   },
   {
-    label: 'Submit',
+    label: 'Requests',
     items: [
-      { href: '/resident/arc/new', icon: <ClipboardList className="h-4 w-4" />, label: 'ARC Application', soon: true },
-      { href: '/resident/report-violation', icon: <CalendarClock className="h-4 w-4" />, label: 'Report Violation', soon: true },
+      { href: '/resident/arc', icon: <ClipboardList className="h-4 w-4" />, label: 'ARC Applications' },
+      { href: '/resident/violations', icon: <ShieldAlert className="h-4 w-4" />, label: 'My Concerns' },
       { href: '/resident/tickets', icon: <MessageSquare className="h-4 w-4" />, label: 'My Tickets' },
     ],
   },

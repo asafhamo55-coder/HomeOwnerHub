@@ -2,7 +2,7 @@
 
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button, Card, CardContent, useToast } from '@homeowner-portal/ui'
+import { Button, Card, CardContent, Select, useToast } from '@homeowner-portal/ui'
 import { updateViolation } from '@/lib/violations'
 
 interface Props {
@@ -54,15 +54,14 @@ export function EditViolationForm({ violationId, defaultValues }: Props) {
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-foreground">Severity</label>
-              <select
+              <Select
                 name="severity"
                 defaultValue={defaultValues.severity}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
-              </select>
+              </Select>
             </div>
             <Field label="Cure period (days)" name="curePeriodDays" type="number" defaultValue={String(defaultValues.curePeriodDays)} />
             <Field label="Fine amount ($)" name="fineAmount" type="number" defaultValue={String(defaultValues.fineAmount)} />

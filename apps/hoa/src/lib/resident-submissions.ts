@@ -13,6 +13,21 @@ type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
 type ActionErr = { ok: false; error: string }
 export type ActionResult<T = void> = ActionOk<T> | ActionErr
 
+/** One message in a submission thread (ARC application or violation
+ *  report). Residents only ever see non-internal messages. Display uses
+ *  author_role ("You" vs "Board"), matching the tickets thread UI. */
+export interface SubmissionMessageRow {
+  id: string
+  author_role: 'resident' | 'board' | 'admin'
+  body: string
+  created_at: string
+}
+
+const AddMessageSchema = z.object({
+  id: z.string().uuid(),
+  body: z.string().trim().min(1, 'Message cannot be empty.').max(4000),
+})
+
 // ─── ARC requests ────────────────────────────────────────────────────
 
 export type ArcCategory =
@@ -165,6 +180,113 @@ export async function createArcRequest(
   return { ok: true, data: { requestId: row.id } }
 }
 
+export interface ArcRequestDetail extends ArcRequestRow {
+  contractor_license: string | null
+  messages: SubmissionMessageRow[]
+}
+
+export async function getMyArcRequest(id: string): Promise<ArcRequestDetail | null> {
+  const actor = await getResidentActor()
+  if (!actor.id) return null
+
+  const { data: request } = await actor.client
+    .from('arc_requests' as never)
+    .select(
+      'id, unit_id, category, summary, scope_description, proposed_start, proposed_completion, contractor_name, contractor_license, status, board_response, board_response_at, submitted_at',
+    )
+    .eq('id', id)
+    .eq('submitted_by', actor.id)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!request) return null
+
+  // `internal: false` reproduces the resident's exact visibility — they
+  // never see internal board notes. Explicit here because the impersonated
+  // path uses a service-role client that would otherwise bypass that RLS.
+  const { data: msgs } = await actor.client
+    .from('arc_request_messages' as never)
+    .select('id, author_role, body, created_at')
+    .eq('arc_request_id', id)
+    .eq('internal' as never, false)
+    .order('created_at', { ascending: true })
+
+  const r = request as unknown as ArcRequestDetail
+  r.messages = (msgs ?? []) as unknown as SubmissionMessageRow[]
+  return r
+}
+
+export async function addArcMessage(
+  arcId: string,
+  body: string,
+): Promise<ActionResult> {
+  const parsed = AddMessageSchema.safeParse({ id: arcId, body })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+
+  if ((await getResidentActor()).impersonating) {
+    return { ok: false, error: IMPERSONATION_READONLY_MSG }
+  }
+
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Not signed in.' }
+
+  const { error } = await supabase
+    .from('arc_request_messages' as never)
+    .insert({
+      arc_request_id: parsed.data.id,
+      author_id: user.id,
+      author_role: 'resident',
+      body: parsed.data.body,
+      internal: false,
+    } as never)
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath(`/resident/arc/${arcId}`)
+  revalidatePath(`/arc/${arcId}`)
+  return { ok: true }
+}
+
+export async function withdrawMyArcRequest(arcId: string): Promise<ActionResult> {
+  if ((await getResidentActor()).impersonating) {
+    return { ok: false, error: IMPERSONATION_READONLY_MSG }
+  }
+
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Not signed in.' }
+
+  // Only a still-pending application can be withdrawn. Guarding on status
+  // here keeps a resident from "un-deciding" an approved/denied request.
+  const { data: row, error } = await supabase
+    .from('arc_requests' as never)
+    .update({ status: 'withdrawn' } as never)
+    .eq('id', arcId)
+    .eq('submitted_by', user.id)
+    .in('status', ['submitted', 'in_review'])
+    .is('deleted_at', null)
+    .select('id')
+    .maybeSingle<{ id: string }>()
+
+  if (error) return { ok: false, error: error.message }
+  if (!row) {
+    return { ok: false, error: 'This application can no longer be withdrawn.' }
+  }
+
+  revalidatePath('/')
+  revalidatePath('/resident/arc')
+  revalidatePath(`/resident/arc/${arcId}`)
+  revalidatePath('/arc')
+  revalidatePath(`/arc/${arcId}`)
+  return { ok: true }
+}
+
 // ─── resident violation reports ──────────────────────────────────────
 
 export type ViolationCategory =
@@ -277,6 +399,75 @@ export async function createViolationReport(
   }
 
   revalidatePath('/resident')
+  revalidatePath('/resident/violations')
   revalidatePath('/resident/report-violation')
   return { ok: true, data: { reportId: row.id } }
+}
+
+export interface ViolationReportDetail extends ViolationReportRow {
+  messages: SubmissionMessageRow[]
+}
+
+export async function getMyViolationReport(
+  id: string,
+): Promise<ViolationReportDetail | null> {
+  const actor = await getResidentActor()
+  if (!actor.id) return null
+
+  const { data: report } = await actor.client
+    .from('resident_violation_reports' as never)
+    .select('id, category, description, about_address, occurred_at, status, submitted_at')
+    .eq('id', id)
+    .eq('reported_by', actor.id)
+    .maybeSingle()
+  if (!report) return null
+
+  // `internal: false` — the reporter never sees the board's internal note,
+  // only messages the board explicitly sends back to them.
+  const { data: msgs } = await actor.client
+    .from('resident_violation_report_messages' as never)
+    .select('id, author_role, body, created_at')
+    .eq('report_id', id)
+    .eq('internal' as never, false)
+    .order('created_at', { ascending: true })
+
+  const r = report as unknown as ViolationReportDetail
+  r.messages = (msgs ?? []) as unknown as SubmissionMessageRow[]
+  return r
+}
+
+export async function addViolationReportMessage(
+  reportId: string,
+  body: string,
+): Promise<ActionResult> {
+  const parsed = AddMessageSchema.safeParse({ id: reportId, body })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+
+  if ((await getResidentActor()).impersonating) {
+    return { ok: false, error: IMPERSONATION_READONLY_MSG }
+  }
+
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Not signed in.' }
+
+  const { error } = await supabase
+    .from('resident_violation_report_messages' as never)
+    .insert({
+      report_id: parsed.data.id,
+      author_id: user.id,
+      author_role: 'resident',
+      body: parsed.data.body,
+      internal: false,
+    } as never)
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath(`/resident/violations/${reportId}`)
+  revalidatePath(`/violations/reports/${reportId}`)
+  return { ok: true }
 }

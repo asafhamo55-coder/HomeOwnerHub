@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Send, Trash2 } from 'lucide-react'
-import { Button, Input, Textarea } from '@homeowner-portal/ui'
+import { Button, Input, Select, Textarea } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { createLawUpdate, type StatuteRow } from '@/lib/state-law'
 
@@ -136,16 +136,13 @@ export function NewUpdateForm({ statutes }: { statutes: StatuteRow[] }) {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Category">
-          <select
-            name="category"
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-          >
+          <Select name="category">
             {CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label="Effective date">
           <Input name="effective_date" type="date" />
@@ -162,17 +159,14 @@ export function NewUpdateForm({ statutes }: { statutes: StatuteRow[] }) {
       </Field>
 
       <Field label="Related statute (optional)">
-        <select
-          name="related_statute_id"
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-        >
+        <Select name="related_statute_id">
           <option value="">(none)</option>
           {statutes.map((s) => (
             <option key={s.id} value={s.id}>
               {s.code_citation} — {s.title}
             </option>
           ))}
-        </select>
+        </Select>
         <Helper>Link this update to the statute it changes, if applicable.</Helper>
       </Field>
 

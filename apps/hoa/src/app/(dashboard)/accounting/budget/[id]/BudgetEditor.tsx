@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Check, Loader2, Plus, Save, Trash2 } from 'lucide-react'
-import { Alert, Button, Input } from '@homeowner-portal/ui'
+import { Alert, Button, Input, Select } from '@homeowner-portal/ui'
 import { approveBudget, saveBudgetLineItems } from '@/lib/budgets'
 
 interface LineItem {
@@ -114,10 +114,10 @@ export function BudgetEditor({
                 <tr key={l.id ?? `new-${idx}`} className="border-b border-border last:border-0">
                   <td className="px-3 py-2">
                     {editable ? (
-                      <select
+                      <Select
                         value={l.accountId}
-                        onChange={(e) => {
-                          const acct = accounts.find((a) => a.id === e.target.value)
+                        onValueChange={(v) => {
+                          const acct = accounts.find((a) => a.id === v)
                           if (!acct) return
                           updateLine(idx, {
                             accountId: acct.id,
@@ -125,12 +125,12 @@ export function BudgetEditor({
                             accountType: acct.type,
                           })
                         }}
-                        className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground"
+                        className="w-full sm:w-56"
                       >
                         {accounts.map((a) => (
                           <option key={a.id} value={a.id}>{a.label}</option>
                         ))}
-                      </select>
+                      </Select>
                     ) : (
                       <span className="text-foreground">{l.accountLabel}</span>
                     )}

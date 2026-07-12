@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Check, Loader2 } from 'lucide-react'
-import { Alert, Button } from '@homeowner-portal/ui'
+import { Alert, Button, Select } from '@homeowner-portal/ui'
 import { markInvoicePaid } from '@/lib/invoices'
 
 const METHODS = ['check', 'ach', 'card', 'cash', 'other'] as const
@@ -40,16 +40,16 @@ export function MarkInvoicePaidButton({
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-xs text-muted">
           Payment method
-          <select
+          <Select
             value={method}
-            onChange={(e) => setMethod(e.target.value as (typeof METHODS)[number])}
-            className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+            onValueChange={(v) => setMethod(v as (typeof METHODS)[number])}
+            className="w-full sm:w-56"
             disabled={pending}
           >
             {METHODS.map((m) => (
               <option key={m} value={m}>{m}</option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="flex flex-1 flex-col gap-1 text-xs text-muted">
           Reference (check #, etc.)

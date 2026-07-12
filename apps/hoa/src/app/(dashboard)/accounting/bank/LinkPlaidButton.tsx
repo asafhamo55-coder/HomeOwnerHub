@@ -8,7 +8,7 @@ import {
   type PlaidLinkOptions,
 } from 'react-plaid-link'
 import { Link2, Loader2 } from 'lucide-react'
-import { Alert, Button } from '@homeowner-portal/ui'
+import { Alert, Button, Select } from '@homeowner-portal/ui'
 
 interface FundOption {
   id: string
@@ -105,16 +105,16 @@ export function LinkPlaidButton({ funds }: { funds: FundOption[] }) {
     <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
       <label className="flex flex-col gap-1 text-xs text-muted">
         Attach to fund
-        <select
+        <Select
           value={fundId}
-          onChange={(e) => setFundId(e.target.value)}
-          className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+          onValueChange={(v) => setFundId(v)}
+          className="w-full sm:w-56"
           disabled={busy}
         >
           {funds.map((f) => (
             <option key={f.id} value={f.id}>{f.label}</option>
           ))}
-        </select>
+        </Select>
       </label>
       <Button onClick={handleLink} disabled={busy} size="sm">
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}

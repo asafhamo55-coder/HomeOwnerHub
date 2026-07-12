@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Loader2, Plus } from 'lucide-react'
-import { Alert, Button, Input } from '@homeowner-portal/ui'
+import { Alert, Button, Input, Select } from '@homeowner-portal/ui'
 import { createPaymentPlan } from '@/lib/payment-plans'
 
 interface UnitOption {
@@ -56,17 +56,17 @@ export function NewPlanForm({ units }: { units: UnitOption[] }) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <label className="block text-sm">
         <span className="font-medium text-foreground">Unit</span>
-        <select
+        <Select
+          className="mt-1"
           value={unitId}
-          onChange={(e) => setUnitId(e.target.value)}
-          className="mt-1 w-full rounded-md border border-border bg-background px-2 py-2 text-sm text-foreground"
+          onValueChange={(v) => setUnitId(v)}
           required
           disabled={pending}
         >
           {units.map((u) => (
             <option key={u.id} value={u.id}>{u.label}</option>
           ))}
-        </select>
+        </Select>
       </label>
 
       <div className="grid gap-3 sm:grid-cols-3">

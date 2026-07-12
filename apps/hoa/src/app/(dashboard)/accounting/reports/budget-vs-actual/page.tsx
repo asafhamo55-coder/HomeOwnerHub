@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ChevronLeft, Scale } from 'lucide-react'
 import { format } from 'date-fns'
-import { Card, EmptyState } from '@homeowner-portal/ui'
+import { Card, EmptyState, Select } from '@homeowner-portal/ui'
 import {
   computeBudgetVsActual,
   getAccountingContext,
@@ -100,10 +100,10 @@ export default async function BudgetVsActualPage({ searchParams }: PageProps) {
         <form className="flex flex-wrap items-end gap-3 px-4 py-3">
           <label className="flex flex-col gap-1 text-xs text-muted">
             Budget
-            <select
+            <Select
               name="budget"
               defaultValue={budgetId}
-              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+              className="w-full sm:w-56"
             >
               {budgets.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -112,7 +112,7 @@ export default async function BudgetVsActualPage({ searchParams }: PageProps) {
                   {b.status}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <button
             type="submit"

@@ -15,6 +15,7 @@ import {
   Card,
   CardContent,
   Input,
+  Select,
   Textarea,
   WizardStepper,
   type WizardStep as StepperStep,
@@ -467,16 +468,15 @@ export function Wizard({ workspaceName, initial, initialDraft }: WizardProps) {
         </Card>
 
         <Field label="Service method" htmlFor="service-method">
-          <select
+          <Select
             id="service-method"
             value={serviceMethod}
-            onChange={(e) => setServiceMethod(e.target.value as ServiceMethod)}
-            className="flex h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            onValueChange={(v) => setServiceMethod(v as ServiceMethod)}
           >
             <option value="personal">Personal delivery</option>
             <option value="posting">Posting on inside of main entry door</option>
             <option value="certified_mail">Certified mail (return receipt requested)</option>
-          </select>
+          </Select>
         </Field>
 
         {submitError ? (

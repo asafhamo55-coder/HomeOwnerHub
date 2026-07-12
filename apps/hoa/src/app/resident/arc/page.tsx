@@ -62,27 +62,29 @@ export default async function MyArcRequestsPage() {
         <Card>
           <ul className="divide-y divide-border">
             {requests.map((r) => (
-              <li
-                key={r.id}
-                className="flex flex-wrap items-start justify-between gap-3 px-4 py-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{r.summary}</p>
-                  <p className="text-xs text-muted">
-                    {CATEGORY_LABEL[r.category] ?? r.category}
-                    {' · submitted '}
-                    {format(new Date(r.submitted_at), 'PP')}
-                  </p>
-                  {r.board_response ? (
-                    <p className="mt-1 text-sm">
-                      <span className="font-semibold">Board response:</span>{' '}
-                      {r.board_response}
+              <li key={r.id}>
+                <Link
+                  href={`/resident/arc/${r.id}`}
+                  className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 hover:bg-foreground/5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{r.summary}</p>
+                    <p className="text-xs text-muted">
+                      {CATEGORY_LABEL[r.category] ?? r.category}
+                      {' · submitted '}
+                      {format(new Date(r.submitted_at), 'PP')}
                     </p>
-                  ) : null}
-                </div>
-                <Badge variant={STATUS_VARIANT[r.status]} size="sm">
-                  {r.status.replace('_', ' ')}
-                </Badge>
+                    {r.board_response ? (
+                      <p className="mt-1 text-sm">
+                        <span className="font-semibold">Board response:</span>{' '}
+                        {r.board_response}
+                      </p>
+                    ) : null}
+                  </div>
+                  <Badge variant={STATUS_VARIANT[r.status]} size="sm">
+                    {r.status.replace('_', ' ')}
+                  </Badge>
+                </Link>
               </li>
             ))}
           </ul>

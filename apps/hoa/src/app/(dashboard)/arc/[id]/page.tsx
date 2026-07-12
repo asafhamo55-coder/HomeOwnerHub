@@ -1,13 +1,15 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, MessageSquare } from 'lucide-react'
 import { format } from 'date-fns'
 import { Badge, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import {
   getArcRequestForBoard,
+  getArcMessagesForBoard,
   type ArcStatus,
 } from '@/lib/board-review'
 import { ArcDecisionForm } from './ArcDecisionForm'
+import { ArcBoardReplyForm } from './ArcBoardReplyForm'
 import { ArcActions } from './ArcActions'
 
 export const metadata = { title: 'ARC application' }
@@ -40,6 +42,7 @@ export default async function ArcReviewDetailPage({
   const { id } = await params
   const arc = await getArcRequestForBoard(id)
   if (!arc) notFound()
+  const messages = await getArcMessagesForBoard(id)
 
   const decided =
     arc.status === 'approved' || arc.status === 'denied'
@@ -135,6 +138,60 @@ export default async function ArcReviewDetailPage({
           </CardContent>
         </Card>
       ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MessageSquare className="h-4 w-4" />
+            Conversation
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {messages.length === 0 ? (
+            <p className="text-sm text-muted">
+              No messages yet. Replies you send here are visible to the resident;
+              internal notes are not.
+            </p>
+          ) : (
+            <ul className="space-y-4">
+              {messages.map((m) => (
+                <li
+                  key={m.id}
+                  className={
+                    m.internal
+                      ? 'space-y-1 rounded-md border border-dashed border-warning/40 bg-warning/5 p-2'
+                      : 'space-y-1'
+                  }
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">
+                      {m.author_role === 'resident' ? 'Resident' : 'Board'}
+                    </span>
+                    <Badge
+                      variant={m.author_role === 'resident' ? 'outline' : 'default'}
+                      size="sm"
+                    >
+                      {m.author_role}
+                    </Badge>
+                    {m.internal ? (
+                      <Badge variant="warning" size="sm">
+                        internal
+                      </Badge>
+                    ) : null}
+                    <span className="text-xs text-muted">
+                      {format(new Date(m.created_at), 'PPp')}
+                    </span>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm">{m.body}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="border-t border-border pt-4">
+            <ArcBoardReplyForm arcId={arc.id} />
+          </div>
+        </CardContent>
+      </Card>
 
       {arc.status === 'withdrawn' ? null : (
         <Card variant="elevated">

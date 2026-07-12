@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Loader2, Repeat } from 'lucide-react'
-import { Alert, Button, Input } from '@homeowner-portal/ui'
+import { Alert, Button, Input, Select } from '@homeowner-portal/ui'
 import { promoteJeToRecurring } from '@/lib/journal-entries'
 
 const CADENCES = ['daily', 'weekly', 'monthly', 'quarterly', 'annually'] as const
@@ -63,16 +63,16 @@ export function PromoteRecurringButton({ journalEntryId }: { journalEntryId: str
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="block text-xs">
           <span className="text-muted">Cadence</span>
-          <select
+          <Select
+            className="mt-1"
             value={cadence}
-            onChange={(e) => setCadence(e.target.value as (typeof CADENCES)[number])}
-            className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+            onValueChange={(v) => setCadence(v as (typeof CADENCES)[number])}
             disabled={pending}
           >
             {CADENCES.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="block text-xs">
           <span className="text-muted">Next run</span>

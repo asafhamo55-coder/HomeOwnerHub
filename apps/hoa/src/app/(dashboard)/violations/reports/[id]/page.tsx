@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Shield } from 'lucide-react'
+import { ArrowLeft, MessageSquare, Shield } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Alert,
@@ -12,9 +12,11 @@ import {
 } from '@homeowner-portal/ui'
 import {
   getResidentViolationReportForBoard,
+  getViolationReportMessagesForBoard,
   type ViolationReportStatus,
 } from '@/lib/board-review'
 import { ReportDecisionForm } from './ReportDecisionForm'
+import { ReportBoardReplyForm } from './ReportBoardReplyForm'
 
 export const metadata = { title: 'Resident violation report' }
 
@@ -46,6 +48,7 @@ export default async function ViolationReportDetailPage({
   const { id } = await params
   const report = await getResidentViolationReportForBoard(id)
   if (!report) notFound()
+  const messages = await getViolationReportMessagesForBoard(id)
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -96,6 +99,60 @@ export default async function ViolationReportDetailPage({
         </CardHeader>
         <CardContent>
           <p className="whitespace-pre-wrap text-sm">{report.description}</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MessageSquare className="h-4 w-4" />
+            Conversation with reporter
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {messages.length === 0 ? (
+            <p className="text-sm text-muted">
+              No messages yet. Replies you send here are visible to the reporter;
+              internal notes are not.
+            </p>
+          ) : (
+            <ul className="space-y-4">
+              {messages.map((m) => (
+                <li
+                  key={m.id}
+                  className={
+                    m.internal
+                      ? 'space-y-1 rounded-md border border-dashed border-warning/40 bg-warning/5 p-2'
+                      : 'space-y-1'
+                  }
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">
+                      {m.author_role === 'resident' ? 'Reporter' : 'Board'}
+                    </span>
+                    <Badge
+                      variant={m.author_role === 'resident' ? 'outline' : 'default'}
+                      size="sm"
+                    >
+                      {m.author_role}
+                    </Badge>
+                    {m.internal ? (
+                      <Badge variant="warning" size="sm">
+                        internal
+                      </Badge>
+                    ) : null}
+                    <span className="text-xs text-muted">
+                      {format(new Date(m.created_at), 'PPp')}
+                    </span>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm">{m.body}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="border-t border-border pt-4">
+            <ReportBoardReplyForm reportId={report.id} />
+          </div>
         </CardContent>
       </Card>
 

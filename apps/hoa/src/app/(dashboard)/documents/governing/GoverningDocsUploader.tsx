@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
   Input,
+  Select,
   Textarea,
 } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
@@ -144,23 +145,20 @@ export function GoverningDocsUploader({
               <label htmlFor="docType" className="text-sm font-medium text-foreground">
                 Document type
               </label>
-              <select
+              <Select
                 id="docType"
                 value={docType}
-                onChange={(e) =>
-                  setDocType(
-                    e.target.value as (typeof DOC_TYPES)[number]['value'],
-                  )
+                onValueChange={(v) =>
+                  setDocType(v as (typeof DOC_TYPES)[number]['value'])
                 }
                 disabled={status === 'uploading'}
-                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 {DOC_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>
                     {t.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -173,19 +171,18 @@ export function GoverningDocsUploader({
                 >
                   Association
                 </label>
-                <select
+                <Select
                   id="associationId"
                   value={associationId}
-                  onChange={(e) => setAssociationId(e.target.value)}
+                  onValueChange={(v) => setAssociationId(v)}
                   disabled={status === 'uploading'}
-                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   {associations.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             ) : null}
 

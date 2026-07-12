@@ -50,7 +50,9 @@ export function ReportViolationForm() {
         return
       }
       setSuccess(true)
-      setTimeout(() => router.push('/resident'), 1500)
+      // Land the resident on the concern's tracking page so they can follow
+      // the board's decision and message back.
+      setTimeout(() => router.push(`/resident/violations/${result.data.reportId}`), 1200)
     })
   }
 
