@@ -1,10 +1,12 @@
 import Link from 'next/link'
-import { MessageSquare, Plus } from 'lucide-react'
+import { MessageSquarePlus, Plus } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Button, Card, EmptyState, PageHeader } from '@homeowner-portal/ui'
+import { Badge, Button } from '@homeowner-portal/ui'
 import { listMyTickets, type TicketStatus } from '@/lib/resident-tickets'
+import { ScreenEmpty, ScreenHeader, TappableRow } from '@/components/resident/screen'
 
 export const metadata = { title: 'My Tickets' }
+export const dynamic = 'force-dynamic'
 
 const STATUS_VARIANT: Record<TicketStatus, 'success' | 'warning' | 'outline'> = {
   open: 'outline',
@@ -28,25 +30,25 @@ export default async function MyTicketsPage() {
   const tickets = await listMyTickets()
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <PageHeader
-        title="My Tickets"
-        description="Your support tickets and the board's responses."
-        actions={
-          <Button asChild>
+    <div className="space-y-6">
+      <ScreenHeader
+        title="Support tickets"
+        subtitle="Your requests and the board's responses."
+        action={
+          <Button asChild size="sm">
             <Link href="/resident/tickets/new">
               <Plus className="h-4 w-4" />
-              New ticket
+              New
             </Link>
           </Button>
         }
       />
 
       {tickets.length === 0 ? (
-        <EmptyState
-          icon={<MessageSquare className="h-10 w-10" aria-hidden />}
+        <ScreenEmpty
+          icon={<MessageSquarePlus className="h-6 w-6" />}
           title="No tickets yet"
-          description="When you submit a support ticket, it will appear here with its current status."
+          description="When you submit a support request, it will appear here with its current status."
           action={
             <Button asChild>
               <Link href="/resident/tickets/new">
@@ -57,30 +59,22 @@ export default async function MyTicketsPage() {
           }
         />
       ) : (
-        <Card>
-          <ul className="divide-y divide-border">
-            {tickets.map((t) => (
-              <li key={t.id}>
-                <Link
-                  href={`/resident/tickets/${t.id}`}
-                  className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 hover:bg-foreground/5"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">{t.subject}</p>
-                    <p className="text-xs text-muted">
-                      {CATEGORY_LABEL[t.category] ?? t.category}
-                      {' · opened '}
-                      {format(new Date(t.created_at), 'PP')}
-                    </p>
-                  </div>
-                  <Badge variant={STATUS_VARIANT[t.status]} size="sm">
-                    {t.status.replace('_', ' ')}
-                  </Badge>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <div className="space-y-2.5">
+          {tickets.map((t) => (
+            <TappableRow
+              key={t.id}
+              href={`/resident/tickets/${t.id}`}
+              icon={<MessageSquarePlus className="h-5 w-5" />}
+              title={t.subject}
+              subtitle={`${CATEGORY_LABEL[t.category] ?? t.category} · opened ${format(new Date(t.created_at), 'PP')}`}
+              trailing={
+                <Badge variant={STATUS_VARIANT[t.status]} size="sm">
+                  {t.status.replace('_', ' ')}
+                </Badge>
+              }
+            />
+          ))}
+        </div>
       )}
     </div>
   )

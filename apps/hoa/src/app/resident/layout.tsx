@@ -1,24 +1,19 @@
 import { redirect } from 'next/navigation'
-import {
-  AppShell,
-  AppShellContent,
-  AppShellHeader,
-  AppShellMain,
-  AppShellSidebar,
-} from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getEffectiveRoleInOrg } from '@/lib/role-override'
 import { getResidentActor, getImpersonationTarget } from '@/lib/impersonation'
-import { ResidentSidebar } from '@/components/layout/ResidentSidebar'
+import { ResidentTopBar } from '@/components/resident/ResidentTopBar'
+import { ResidentTabBar } from '@/components/resident/ResidentTabBar'
 import { RoleSwitcherMount } from '@/components/dev/RoleSwitcherMount'
 import { ImpersonationBanner } from '@/components/ImpersonationBanner'
 
-// Resident-only route tree. Gates role + builds the AppShell sidebar.
-// Uses getEffectiveRoleInOrg so an admin with the dev override cookie
-// set to "resident" sees this UI; real residents always land here.
-// An admin with an active impersonation cookie also reaches this tree,
-// viewing the target owner's data read-only (see lib/impersonation.ts).
+// Resident-only route tree. Unlike the board/admin dashboard (fixed
+// sidebar shell), the resident portal wears a consumer app shell: a slim
+// top bar, a centered single-column content area, and a fixed bottom tab
+// bar on every viewport. Gating logic is unchanged — getEffectiveRoleInOrg
+// so an admin with the dev override (or an active impersonation cookie)
+// sees this UI; real residents always land here.
 
 export default async function ResidentLayout({
   children,
@@ -45,28 +40,25 @@ export default async function ResidentLayout({
   }
 
   const impersonation = actor.impersonating ? await getImpersonationTarget() : null
+  const userEmail = actor.impersonating ? actor.email ?? '' : user.email ?? ''
 
   return (
-    <AppShell>
-      <AppShellSidebar>
-        <ResidentSidebar
-          orgName={org.name}
-          userEmail={actor.impersonating ? actor.email ?? '' : user.email ?? ''}
-        />
-      </AppShellSidebar>
-      <AppShellMain>
-        <AppShellHeader>
-          <div className="ml-auto text-xs text-muted">Resident portal</div>
-        </AppShellHeader>
-        <AppShellContent>
-          {impersonation ? (
+    <div className="flex min-h-screen flex-col bg-background">
+      <ResidentTopBar orgName={org.name} userEmail={userEmail} />
+
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-28 pt-5">
+        {impersonation ? (
+          <div className="mb-4">
             <ImpersonationBanner name={impersonation.name} />
-          ) : null}
-          {children}
-        </AppShellContent>
-      </AppShellMain>
+          </div>
+        ) : null}
+        {children}
+      </main>
+
+      <ResidentTabBar />
+
       {/* Dev-only role switcher. Renders nothing for non-admins. */}
       <RoleSwitcherMount />
-    </AppShell>
+    </div>
   )
 }

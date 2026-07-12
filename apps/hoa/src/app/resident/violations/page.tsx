@@ -1,10 +1,12 @@
 import Link from 'next/link'
 import { Plus, ShieldAlert } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Button, Card, EmptyState, PageHeader } from '@homeowner-portal/ui'
+import { Badge, Button } from '@homeowner-portal/ui'
 import { listMyViolationReports } from '@/lib/resident-submissions'
+import { ScreenEmpty, ScreenHeader, TappableRow } from '@/components/resident/screen'
 
 export const metadata = { title: 'My reported concerns' }
+export const dynamic = 'force-dynamic'
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
   submitted: 'outline',
@@ -38,23 +40,23 @@ export default async function MyViolationReportsPage() {
   const reports = await listMyViolationReports()
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <PageHeader
-        title="My reported concerns"
-        description="Concerns you've reported to the board and their current status."
-        actions={
-          <Button asChild>
+    <div className="space-y-6">
+      <ScreenHeader
+        title="Reported concerns"
+        subtitle="Concerns you've reported and their current status."
+        action={
+          <Button asChild size="sm">
             <Link href="/resident/report-violation">
               <Plus className="h-4 w-4" />
-              Report a concern
+              New
             </Link>
           </Button>
         }
       />
 
       {reports.length === 0 ? (
-        <EmptyState
-          icon={<ShieldAlert className="h-10 w-10" aria-hidden />}
+        <ScreenEmpty
+          icon={<ShieldAlert className="h-6 w-6" />}
           title="No concerns reported"
           description="When you report a possible rule violation or community issue, it will appear here so you can track what the board decides."
           action={
@@ -67,31 +69,23 @@ export default async function MyViolationReportsPage() {
           }
         />
       ) : (
-        <Card>
-          <ul className="divide-y divide-border">
-            {reports.map((r) => (
-              <li key={r.id}>
-                <Link
-                  href={`/resident/violations/${r.id}`}
-                  className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 hover:bg-foreground/5"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">
-                      {CATEGORY_LABEL[r.category] ?? r.category}
-                      {r.about_address ? ` · ${r.about_address}` : ''}
-                    </p>
-                    <p className="text-xs text-muted">
-                      Reported {format(new Date(r.submitted_at), 'PP')}
-                    </p>
-                  </div>
-                  <Badge variant={STATUS_VARIANT[r.status] ?? 'outline'} size="sm">
-                    {STATUS_LABEL[r.status] ?? r.status.replace(/_/g, ' ')}
-                  </Badge>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <div className="space-y-2.5">
+          {reports.map((r) => (
+            <TappableRow
+              key={r.id}
+              href={`/resident/violations/${r.id}`}
+              icon={<ShieldAlert className="h-5 w-5" />}
+              tone="amber"
+              title={`${CATEGORY_LABEL[r.category] ?? r.category}${r.about_address ? ` · ${r.about_address}` : ''}`}
+              subtitle={`Reported ${format(new Date(r.submitted_at), 'PP')}`}
+              trailing={
+                <Badge variant={STATUS_VARIANT[r.status] ?? 'outline'} size="sm">
+                  {STATUS_LABEL[r.status] ?? r.status.replace(/_/g, ' ')}
+                </Badge>
+              }
+            />
+          ))}
+        </div>
       )}
     </div>
   )
