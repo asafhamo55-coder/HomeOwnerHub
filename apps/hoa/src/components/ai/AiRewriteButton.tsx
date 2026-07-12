@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Sparkles, X } from 'lucide-react'
 import { Button } from '@homeowner-portal/ui'
 
@@ -67,6 +68,34 @@ export function AiRewriteButton(props: AiRewriteButtonProps) {
   // Tick on every interaction so we re-read the ref'd textarea's current
   // value when deciding if the button should be disabled.
   const [, setReadTick] = useState(0)
+  // Portal target only exists on the client. Gate rendering on mount so
+  // SSR doesn't try to reach document.body.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  function close() {
+    setOpen(false)
+  }
+
+  // While the dialog is open: close on Escape and lock background scroll.
+  // Guarantees an always-available exit even if some overlay ends up
+  // sitting over the modal's controls.
+  useEffect(() => {
+    if (!open) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setOpen(false)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [open])
 
   async function generate() {
     const current = readValue()
@@ -99,49 +128,36 @@ export function AiRewriteButton(props: AiRewriteButtonProps) {
     setOpen(false)
   }
 
-  return (
-    <>
-      <Button
-        type="button"
-        variant="outline"
-        size={size}
-        disabled={disabled}
-        onClick={generate}
-        onMouseEnter={() => setReadTick((t) => t + 1)}
-        onFocus={() => setReadTick((t) => t + 1)}
-        title="Get 3 AI rewrites"
-      >
-        <Sparkles className="h-3.5 w-3.5" />
-        {iconOnly ? null : 'Improve with AI'}
-      </Button>
+  const dialog = (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="AI rewrite suggestions"
+      // z-[100] keeps the dialog above every other fixed overlay in the
+      // app (sticky header z-20, sidebar z-40, dev role-switcher z-50) so
+      // nothing can sit over its close controls.
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) close()
+      }}
+    >
+      <div className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-xl">
+        <header className="flex items-center justify-between border-b border-border px-5 py-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Sparkles className="h-4 w-4 text-amber-500" />
+            Choose a rewrite
+          </div>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={close}
+            className="rounded p-1 text-muted hover:bg-foreground/5 hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
 
-      {open ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="AI rewrite suggestions"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setOpen(false)
-          }}
-        >
-          <div className="w-full max-w-3xl overflow-hidden rounded-xl border border-border bg-surface shadow-xl">
-            <header className="flex items-center justify-between border-b border-border px-5 py-3">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Sparkles className="h-4 w-4 text-amber-500" />
-                Choose a rewrite
-              </div>
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={() => setOpen(false)}
-                className="rounded p-1 text-muted hover:bg-foreground/5 hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </header>
-
-            <div className="max-h-[70vh] overflow-y-auto p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {loading ? (
                 <div className="space-y-3">
                   {[0, 1, 2].map((i) => (
@@ -194,10 +210,36 @@ export function AiRewriteButton(props: AiRewriteButtonProps) {
                   </p>
                 </div>
               )}
-            </div>
-          </div>
         </div>
-      ) : null}
+
+        <footer className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+          <Button type="button" variant="outline" size="sm" onClick={close}>
+            {variants.length > 0 ? 'Keep original' : 'Close'}
+          </Button>
+        </footer>
+      </div>
+    </div>
+  )
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        size={size}
+        disabled={disabled}
+        onClick={generate}
+        onMouseEnter={() => setReadTick((t) => t + 1)}
+        onFocus={() => setReadTick((t) => t + 1)}
+        title="Get 3 AI rewrites"
+      >
+        <Sparkles className="h-3.5 w-3.5" />
+        {iconOnly ? null : 'Improve with AI'}
+      </Button>
+
+      {/* Portal to <body> so no ancestor stacking/overflow context can
+          ever trap the dialog, and so it escapes the form DOM entirely. */}
+      {mounted && open ? createPortal(dialog, document.body) : null}
     </>
   )
 }
