@@ -32,6 +32,7 @@ import { LeaseSummaryCard } from '@/components/dashboard/LeaseSummaryCard'
 import { NextMeeting } from '@/components/dashboard/NextMeeting'
 import { StatusBar } from '@/components/dashboard/StatusBar'
 import { StatusDonut } from '@/components/dashboard/StatusDonut'
+import { GreetingHeadline } from '@/components/dashboard/GreetingHeadline'
 
 export const metadata = { title: 'Dashboard' }
 
@@ -43,12 +44,13 @@ export const metadata = { title: 'Dashboard' }
 // indexed lookups, total render time is well inside the budget.
 export const dynamic = 'force-dynamic'
 
-function greeting(date = new Date()): string {
-  const h = date.getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 18) return 'Good afternoon'
-  return 'Good evening'
-}
+// Server-rendered placeholder date shown until GreetingHeadline swaps in
+// the visitor's local date on mount. UTC on Vercel, so only used briefly.
+const serverDateLabel = new Date().toLocaleDateString(undefined, {
+  weekday: 'long',
+  month: 'long',
+  day: 'numeric',
+})
 
 export default async function DashboardHome() {
   const org = await getCurrentOrg()
@@ -76,19 +78,7 @@ export default async function DashboardHome() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="space-y-2">
-        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-          {new Date().toLocaleDateString(undefined, {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-          })}
-          {' · '}
-          {org.name}
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          {greeting()}
-          {userName ? `, ${userName}` : ''}
-        </h1>
+        <GreetingHeadline name={userName} contextLabel={org.name} fallbackDate={serverDateLabel} />
       </header>
 
       <Suspense fallback={<DashboardSkeleton />}>

@@ -46,18 +46,11 @@ export default async function ResidentDashboard() {
     <div className="mx-auto max-w-5xl space-y-6">
       {/* Greeting */}
       <header className="space-y-2">
-        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-          {new Date().toLocaleDateString(undefined, {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-          })}
-          {data.associationName || data.orgName ? ` · ${data.associationName ?? data.orgName}` : ''}
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          {greeting()}
-          {data.firstName ? `, ${data.firstName}` : ''}
-        </h1>
+        <GreetingHeadline
+          name={data.firstName}
+          contextLabel={data.associationName ?? data.orgName}
+          fallbackDate={serverDateLabel}
+        />
         <p className="text-sm text-muted">
           {hasUnit
             ? actionItems > 0
