@@ -53,7 +53,7 @@ export function CreateTicketForm({ units }: { units: ResidentUnit[] }) {
           ) : (
             units.map((u) => (
               <option key={u.unit_id} value={u.unit_id}>
-                {u.unit_number ?? '(no number)'} — {u.address ?? 'address unknown'}
+                {[u.unit_number, u.address].filter(Boolean).join(' — ') || 'Your unit'}
               </option>
             ))
           )}

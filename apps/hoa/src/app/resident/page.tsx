@@ -16,6 +16,7 @@ import { getResidentDashboard, type OpenViolationRow } from '@/lib/resident-dash
 import type { ResidentUnit } from '@/lib/resident'
 import type { TicketRow } from '@/lib/resident-tickets'
 import type { ArcRequestRow } from '@/lib/resident-submissions'
+import { GreetingHeadline } from '@/components/dashboard/GreetingHeadline'
 
 export const metadata = { title: 'My Home' }
 
@@ -26,12 +27,13 @@ export const dynamic = 'force-dynamic'
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
-function greeting(date = new Date()): string {
-  const h = date.getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 18) return 'Good afternoon'
-  return 'Good evening'
-}
+// Server-rendered placeholder date shown until GreetingHeadline swaps in
+// the visitor's local date on mount. UTC on Vercel, so only used briefly.
+const serverDateLabel = new Date().toLocaleDateString(undefined, {
+  weekday: 'long',
+  month: 'long',
+  day: 'numeric',
+})
 
 export default async function ResidentDashboard() {
   const data = await getResidentDashboard()
@@ -220,8 +222,10 @@ function UnitRow({ unit }: { unit: ResidentUnit }) {
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-foreground/5 px-3 py-2 text-sm">
       <div>
-        <p className="font-medium">{unit.unit_number ?? '(no unit number)'}</p>
-        {unit.address ? <p className="text-xs text-muted">{unit.address}</p> : null}
+        <p className="font-medium">{unit.unit_number ?? unit.address ?? 'Your unit'}</p>
+        {unit.unit_number && unit.address ? (
+          <p className="text-xs text-muted">{unit.address}</p>
+        ) : null}
       </div>
       <Badge variant="outline" size="sm">
         {unit.ownership_pct ? `${unit.ownership_pct}% owner` : 'Owner'}
