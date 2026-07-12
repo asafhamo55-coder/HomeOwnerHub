@@ -15,7 +15,7 @@
         "PLAID_*",
         "RESEND_API_KEY",
         "EMAIL_FROM",
-        "TWILIO_*",
+        "VONAGE_*",
         "HUGGINGFACE_API_TOKEN",
         "EMBEDDING_BASE_URL",
         "EMBEDDING_MODEL"

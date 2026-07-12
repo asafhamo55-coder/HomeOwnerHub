@@ -91,7 +91,7 @@ Every workflow rides on one or more of these. Build them once, ship them everywh
 - Powers workflows: 1, 2, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14, 16
 
 ### Pillar CE — Communications Engine
-- Channels: email (Resend), SMS (Twilio), in-app (Supabase Realtime), portal
+- Channels: email (Resend), SMS (Vonage), in-app (Supabase Realtime), portal
 - Translation gate: outbound auto-translates to recipient.language via Qwen
 - Human review gate: workflow-configurable (required for B-bar outputs)
 - Audit trail: every send logs original language, delivered language, AI-generated flag, reviewer ID
