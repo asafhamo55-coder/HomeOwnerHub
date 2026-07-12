@@ -147,6 +147,9 @@ importers:
       '@tanstack/react-table':
         specifier: ^8.20.0
         version: 8.21.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@vonage/server-sdk':
+        specifier: ^3.21.2
+        version: 3.27.0
       cmdk:
         specifier: ^1.0.0
         version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -204,9 +207,6 @@ importers:
       stripe:
         specifier: ^17.0.0
         version: 17.7.0
-      twilio:
-        specifier: ^5.5.2
-        version: 5.13.1
       zod:
         specifier: ^3.23.0
         version: 3.25.76
@@ -2040,6 +2040,9 @@ packages:
   '@types/connect@3.4.38':
     resolution: {integrity: sha512-K6uROf1LD88uDQqJCktA4yzL1YYAK6NgfsI0v/mTgyPKWsX1CnJ0XPSDhViejru1GcRkLWb8RlzFYJRqGUbaug==}
 
+  '@types/debug@4.1.12':
+    resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
+
   '@types/debug@4.1.13':
     resolution: {integrity: sha512-KSVgmQmzMwPlmtljOomayoR89W4FynCAi3E8PPs7vmDVPe84hT+vGPKkJfThkmXs0x0jAaa9U8uW8bbfyS2fWw==}
 
@@ -2089,6 +2092,82 @@ packages:
 
   '@types/ws@8.18.1':
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
+
+  '@vonage/accounts@1.20.0':
+    resolution: {integrity: sha512-cCWoD8IjKmwYfsQcf5IhnPCvZ2uAlmgvy2CgjFjjxahZ+LuLvPaNLjE+P9cxe+TyiQBkfyvb91hOmlQP4PKIDg==}
+    engines: {node: '>=20'}
+
+  '@vonage/applications@1.20.0':
+    resolution: {integrity: sha512-P7gkz1rJAMLCvLRHL1LXguMd8eEBUfkMQ5EWMvp4FLgF06hWrquoGGqOWRXxWC+jVdDC9YAGuxgyGY8eVvkb+A==}
+    engines: {node: '>=20'}
+
+  '@vonage/auth@1.15.0':
+    resolution: {integrity: sha512-sRyHb2xvtTAzCsTThV2vsA/Z+mjgwkQqrqhAMmAUT5DbGr+VKChQk6FQmIcB11q0TXy/yUAv2oYKLT3bf/W/UA==}
+    engines: {node: '>=20'}
+
+  '@vonage/conversations@1.14.0':
+    resolution: {integrity: sha512-QCYmLfPJcqKCP98ZI3BJwJSNVD77ACbcO707sS+slHrMJ5h+epM5rn8tHoDAO5LdK+FZFTDHMeD3vnjJ+wPQpA==}
+    engines: {node: '>=20'}
+
+  '@vonage/jwt@1.14.0':
+    resolution: {integrity: sha512-7TuSjNy0jE86YeRMQYB5ZjR4hlr885IsPo0YapVeOQ1QiB3KeSHa8z1+0Y2575SWk7riN0FMYVNSYm3RBoVuZQ==}
+    engines: {node: '>=20'}
+
+  '@vonage/messages@1.24.0':
+    resolution: {integrity: sha512-u9vKetu5dAwSlL/lzsOtUUFkhog8JH3jQ+k92haGCxaH1Dz2cTYTIH0rt/r6HQI1c3kzS9VhzWhhR+elulcfhA==}
+    engines: {node: '>=20'}
+
+  '@vonage/number-insights@1.20.0':
+    resolution: {integrity: sha512-nAGeEy2eydiC66kyvQX/xI2ceShxGirDp1T97gGLb0s1Dk1CCWHsHI2ZL5wpuYEkD4Tog9dVtlALMroj9xepPA==}
+    engines: {node: '>=20'}
+
+  '@vonage/numbers@1.22.0':
+    resolution: {integrity: sha512-6ojpEPPOVDsAyhCe9gE37mr1qAAXndxXafun7kh/GPTpXtX/ESDfDizOV4GLIO0OGnHDfh4nsDBAfsBYCb7zeA==}
+    engines: {node: '>=20'}
+
+  '@vonage/pricing@1.20.0':
+    resolution: {integrity: sha512-Gr4ewJolxx4gzr3SW77tMAMtlrWny5DF3YtgfLmSqwCGOm0VQFJalLWpd/A6RPeGcUMtumNrkySv/Y1OgRYZ7Q==}
+    engines: {node: '>=20'}
+
+  '@vonage/redact@1.19.0':
+    resolution: {integrity: sha512-qIKFFeWXTOXH8D1/qi3y35s2sdBrWHZoC1N+5HSjxTmA4mk2Rjz0ZkdIbSz9DB+O4QQQsHyi2UFoZYKtwAetkA==}
+    engines: {node: '>=20'}
+
+  '@vonage/server-client@1.20.0':
+    resolution: {integrity: sha512-3V1dIvTBxRiPutPzb7XP702OrZExrpbCM3sIDYCM2lZXw4yojNvPWgcyvi1W4nkNkgKJm1rqJNAFDI1JNV6VRw==}
+    engines: {node: '>=20'}
+
+  '@vonage/server-sdk@3.27.0':
+    resolution: {integrity: sha512-FeGrPyIghb9PdORXXAGI2I8+xWEOpNoA5L6/kSKzAxXFzHTjW25qOLuAUm8Gl+rWFPzIFOsYqgFEvVu2o5gK3w==}
+    engines: {node: '>=20'}
+
+  '@vonage/sms@1.21.0':
+    resolution: {integrity: sha512-6g4Lf8882pN2qLmqWQQq/2zONpUcEf3y+W88Hm/I84kwmq3HcWL9ycB4WGBkT8Kk8BB7JYrJciJMALE2fUrphw==}
+    engines: {node: '>=20'}
+
+  '@vonage/users@1.14.0':
+    resolution: {integrity: sha512-CbYr7i8Wk+xJBqYqC5PR5XURjhuwKHegxvN044Q5gzs9x21xmyTXG2XpV3vHo8G/Y6mHt9ym70jFDpc0G3BH2g==}
+    engines: {node: '>=20'}
+
+  '@vonage/verify2@1.19.0':
+    resolution: {integrity: sha512-W7Mrf89giGTgc08vF5iBTBx+Qik/13YehMM23LtEMaKZmBu/y079JT/LJEwcKypY4y3kgMyLDMFXh+o+0GH4Sg==}
+    engines: {node: '>=20'}
+
+  '@vonage/verify@1.20.0':
+    resolution: {integrity: sha512-FsIDXWCME7S0ZGPKTqpKiuOsDCqIqVfQeLWEqilCbJ3kvqT18H8hKP0zCLz6IEtiAYZQQ+3maWQQ1Agddq0uvQ==}
+    engines: {node: '>=20'}
+
+  '@vonage/vetch@1.11.0':
+    resolution: {integrity: sha512-yXLh6nKZZlddW/rg83uNnufBv1LyCdut2ItIsIy24M1l03HqhCIhUinXzcxE2mCn56uOJ7y4yl7OeAaf5nBJAA==}
+    engines: {node: '>=20'}
+
+  '@vonage/video@1.28.0':
+    resolution: {integrity: sha512-niN0Vif7ObS4GNv0jIX9U3he/009On+s1vfYn5kZlGe61MsTLKWXTZJMcv5HtSF+sLS+l9s5lD4uzkTcjD46Aw==}
+    engines: {node: '>=20'}
+
+  '@vonage/voice@1.21.0':
+    resolution: {integrity: sha512-RqmQifzvPWSXO1Jd1JZjis8ty5OD9d0hX2xQHB5r5cP9Hx4vVlX7aDgZsUNy7J5BTeTpNTgrfMFkeeNGYuRcpQ==}
+    engines: {node: '>=20'}
 
   abort-controller@3.0.0:
     resolution: {integrity: sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==}
@@ -2305,9 +2384,6 @@ packages:
 
   date-fns@4.1.0:
     resolution: {integrity: sha512-Ukq0owbQXxa/U3EGtsdVBkR1w7KOQ5gIBqdH2hkvknzZPYvBxb/aa6E8L7tmjFtkwZBu3UXBbjIgPo/Ez4xaNg==}
-
-  dayjs@1.11.20:
-    resolution: {integrity: sha512-YbwwqR/uYpeoP4pu043q+LTDLFBLApUP6VxRihdfNTqu4ubqMlGDLd6ErXhEgsyvY0K6nCs7nggYumAN+9uEuQ==}
 
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
@@ -3304,10 +3380,6 @@ packages:
   scheduler@0.27.0:
     resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
 
-  scmp@2.1.0:
-    resolution: {integrity: sha512-o/mRQGk9Rcer/jEEw/yw4mwo3EU/NvYvp577/Btqrym9Qy5/MdWGBqipbALgd2lrdWTJ5/gqDusxfnQBxOxT2Q==}
-    deprecated: Just use Node.js's crypto.timingSafeEqual()
-
   selderee@0.11.0:
     resolution: {integrity: sha512-5TF+l7p4+OsnP8BCCvSyZiSPc4x4//p5uPwK8TCnVPJYRmU2aYKMpOXvw8zM5a5JvuuCGN1jmsMwuU2W02ukfA==}
 
@@ -3437,6 +3509,9 @@ packages:
   ts-interface-checker@0.1.13:
     resolution: {integrity: sha512-Y/arvbn+rrz3JCKl9C4kVNfTfSm2/mEp5FSz5EsZSANGPSlQrpRI5M4PKF+mJnE52jOO90PnPSc3Ur3bTQw0gA==}
 
+  ts-xor@1.3.0:
+    resolution: {integrity: sha512-RLXVjliCzc1gfKQFLRpfeD0rrWmjnSTgj7+RFhoq3KRkUYa8LE/TIidYOzM5h+IdFBDSjjSgk9Lto9sdMfDFEA==}
+
   tslib@2.3.0:
     resolution: {integrity: sha512-N82ooyxVNm6h1riLCoyS9e3fuJ3AMG2zIZs2Gd1ATcSFjSA23Q0fzjjZeh0jbJvWVDZ0cJT8yaNNaaXHzueNjg==}
 
@@ -3451,10 +3526,6 @@ packages:
   turbo@2.9.9:
     resolution: {integrity: sha512-3xfzXE/yTjhh0S5dIWlE+3E+J9A09REpLI1ZqVh2+HrNZoVzZn0pkvjiRgVK/Ev3PF9XnaTwCntTx+CADWXcyA==}
     hasBin: true
-
-  twilio@5.13.1:
-    resolution: {integrity: sha512-sT+PkhptF4Mf7t8eXFFvPQx4w5VHnBIPXbltGPMFRe+R2GxfRdMuFbuNA/cEm0aQR6LFQOn33+fhClg+TjRVqQ==}
-    engines: {node: '>=14.0'}
 
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
@@ -3515,6 +3586,10 @@ packages:
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
+  uuid@13.0.0:
+    resolution: {integrity: sha512-XQegIaBTVUjSHliKqcnFqYypAd4S+WCYt5NIeRs6w/UAry7z8Y9j5ZwRRL4kzq9U3sD6v+85er9FvkEaBpji2w==}
+    hasBin: true
+
   web-streams-polyfill@3.3.3:
     resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
     engines: {node: '>= 8'}
@@ -3547,10 +3622,6 @@ packages:
         optional: true
       utf-8-validate:
         optional: true
-
-  xmlbuilder@13.0.2:
-    resolution: {integrity: sha512-Eux0i2QdDYKbdbA6AM6xE4m6ZTZr4G4xF9kahI2ukSEMCzwce2eX9WlTI5J3s+NU7hpasFsr8hWIONae7LluAQ==}
-    engines: {node: '>=6.0'}
 
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
@@ -5146,6 +5217,10 @@ snapshots:
     dependencies:
       '@types/node': 22.19.17
 
+  '@types/debug@4.1.12':
+    dependencies:
+      '@types/ms': 2.1.0
+
   '@types/debug@4.1.13':
     dependencies:
       '@types/ms': 2.1.0
@@ -5210,6 +5285,161 @@ snapshots:
   '@types/ws@8.18.1':
     dependencies:
       '@types/node': 22.19.17
+
+  '@vonage/accounts@1.20.0':
+    dependencies:
+      '@vonage/server-client': 1.20.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/applications@1.20.0':
+    dependencies:
+      '@vonage/server-client': 1.20.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/auth@1.15.0':
+    dependencies:
+      '@vonage/jwt': 1.14.0
+      debug: 4.4.3
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/conversations@1.14.0':
+    dependencies:
+      '@vonage/messages': 1.24.0
+      '@vonage/server-client': 1.20.0
+      '@vonage/users': 1.14.0
+      '@vonage/voice': 1.21.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/jwt@1.14.0':
+    dependencies:
+      debug: 4.4.3
+      jsonwebtoken: 9.0.3
+      uuid: 13.0.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/messages@1.24.0':
+    dependencies:
+      '@vonage/server-client': 1.20.0
+      '@vonage/vetch': 1.11.0
+      debug: 4.4.3
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/number-insights@1.20.0':
+    dependencies:
+      '@vonage/auth': 1.15.0
+      '@vonage/server-client': 1.20.0
+      '@vonage/vetch': 1.11.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/numbers@1.22.0':
+    dependencies:
+      '@vonage/auth': 1.15.0
+      '@vonage/server-client': 1.20.0
+      '@vonage/vetch': 1.11.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/pricing@1.20.0':
+    dependencies:
+      '@vonage/auth': 1.15.0
+      '@vonage/server-client': 1.20.0
+      '@vonage/vetch': 1.11.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/redact@1.19.0':
+    dependencies:
+      '@vonage/server-client': 1.20.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/server-client@1.20.0':
+    dependencies:
+      '@vonage/auth': 1.15.0
+      '@vonage/vetch': 1.11.0
+      debug: 4.4.3
+      node-fetch: 3.3.2
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/server-sdk@3.27.0':
+    dependencies:
+      '@vonage/accounts': 1.20.0
+      '@vonage/applications': 1.20.0
+      '@vonage/auth': 1.15.0
+      '@vonage/conversations': 1.14.0
+      '@vonage/messages': 1.24.0
+      '@vonage/number-insights': 1.20.0
+      '@vonage/numbers': 1.22.0
+      '@vonage/pricing': 1.20.0
+      '@vonage/redact': 1.19.0
+      '@vonage/server-client': 1.20.0
+      '@vonage/sms': 1.21.0
+      '@vonage/users': 1.14.0
+      '@vonage/verify': 1.20.0
+      '@vonage/verify2': 1.19.0
+      '@vonage/video': 1.28.0
+      '@vonage/voice': 1.21.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/sms@1.21.0':
+    dependencies:
+      '@vonage/auth': 1.15.0
+      '@vonage/server-client': 1.20.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/users@1.14.0':
+    dependencies:
+      '@vonage/server-client': 1.20.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/verify2@1.19.0':
+    dependencies:
+      '@vonage/server-client': 1.20.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/verify@1.20.0':
+    dependencies:
+      '@vonage/auth': 1.15.0
+      '@vonage/server-client': 1.20.0
+      '@vonage/vetch': 1.11.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/vetch@1.11.0':
+    dependencies:
+      '@types/node-fetch': 2.6.13
+      node-fetch: 3.3.2
+
+  '@vonage/video@1.28.0':
+    dependencies:
+      '@vonage/auth': 1.15.0
+      '@vonage/jwt': 1.14.0
+      '@vonage/server-client': 1.20.0
+      '@vonage/vetch': 1.11.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vonage/voice@1.21.0':
+    dependencies:
+      '@types/debug': 4.1.12
+      '@vonage/server-client': 1.20.0
+      '@vonage/vetch': 1.11.0
+      debug: 4.4.3
+      ts-xor: 1.3.0
+    transitivePeerDependencies:
+      - supports-color
 
   abort-controller@3.0.0:
     dependencies:
@@ -5420,8 +5650,6 @@ snapshots:
   data-uri-to-buffer@4.0.1: {}
 
   date-fns@4.1.0: {}
-
-  dayjs@1.11.20: {}
 
   debug@4.4.3:
     dependencies:
@@ -6413,8 +6641,6 @@ snapshots:
 
   scheduler@0.27.0: {}
 
-  scmp@2.1.0: {}
-
   selderee@0.11.0:
     dependencies:
       parseley: 0.12.1
@@ -6602,6 +6828,8 @@ snapshots:
 
   ts-interface-checker@0.1.13: {}
 
+  ts-xor@1.3.0: {}
+
   tslib@2.3.0: {}
 
   tslib@2.8.1: {}
@@ -6621,19 +6849,6 @@ snapshots:
       '@turbo/linux-arm64': 2.9.9
       '@turbo/windows-64': 2.9.9
       '@turbo/windows-arm64': 2.9.9
-
-  twilio@5.13.1:
-    dependencies:
-      axios: 1.16.1
-      dayjs: 1.11.20
-      https-proxy-agent: 5.0.1
-      jsonwebtoken: 9.0.3
-      qs: 6.15.1
-      scmp: 2.1.0
-      xmlbuilder: 13.0.2
-    transitivePeerDependencies:
-      - debug
-      - supports-color
 
   typescript@5.9.3: {}
 
@@ -6682,6 +6897,8 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
+  uuid@13.0.0: {}
+
   web-streams-polyfill@3.3.3: {}
 
   web-streams-polyfill@4.0.0-beta.3: {}
@@ -6702,8 +6919,6 @@ snapshots:
   wrappy@1.0.2: {}
 
   ws@8.20.0: {}
-
-  xmlbuilder@13.0.2: {}
 
   xtend@4.0.2: {}
 

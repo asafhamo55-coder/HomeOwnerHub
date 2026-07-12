@@ -284,7 +284,7 @@ export async function sendCommunication(
         return 'skipped'
       }
       // SMS body — squash to plain text and cap aggressively (one or
-      // two Twilio segments at most). Long-form SMS triggers US-carrier
+      // two SMS segments at most). Long-form SMS triggers US-carrier
       // filtering for unregistered A2P traffic. If the message is long,
       // truncate and append a "more in portal" link rather than blasting
       // 10 segments to a carrier that will drop them.
