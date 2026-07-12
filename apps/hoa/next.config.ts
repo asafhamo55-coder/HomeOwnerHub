@@ -40,6 +40,26 @@ const SECURITY_HEADERS = [
 ]
 
 const config: NextConfig = {
+  // Client-side Router Cache tuning. Next 15 defaults `dynamic` to 0s,
+  // which means every navigation to a dynamic (auth + per-org DB) page
+  // throws away the <Link prefetch> payload and re-fetches from the
+  // server on click — the brief flash between pages. Giving dynamic
+  // pages a short reuse window lets an in-viewport/hover prefetch (and
+  // any recently-visited page) satisfy the click instantly from memory,
+  // so the destination paints immediately with no server round-trip.
+  //
+  // Trade-off: a page can serve up to `dynamic` seconds stale when
+  // navigated back to. Mutations that call revalidatePath/revalidateTag
+  // or router.refresh() still bust the cache, so writes stay correct;
+  // only passive re-navigation within the window reuses cached content.
+  // 30s is a comfortable balance for a dashboard — raise it for snappier
+  // back-nav, lower it if any page must always show second-fresh data.
+  experimental: {
+    staleTimes: {
+      dynamic: 30,
+      static: 300,
+    },
+  },
   // Workspace UI/AI/db packages ship raw TS — let Next compile them.
   transpilePackages: [
     '@homeowner-portal/ui',
