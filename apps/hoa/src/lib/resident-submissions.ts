@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getResidentUnits } from '@/lib/resident'
+import { getResidentActor, IMPERSONATION_READONLY_MSG } from '@/lib/impersonation'
 
 // ─── shared ──────────────────────────────────────────────────────────
 
@@ -82,17 +83,14 @@ export interface CreateArcInput {
 }
 
 export async function listMyArcRequests(): Promise<ArcRequestRow[]> {
-  const supabase = await getSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return []
-  const { data } = await supabase
+  const actor = await getResidentActor()
+  if (!actor.id) return []
+  const { data } = await actor.client
     .from('arc_requests' as never)
     .select(
       'id, unit_id, category, summary, scope_description, proposed_start, proposed_completion, contractor_name, status, board_response, board_response_at, submitted_at',
     )
-    .eq('submitted_by', user.id)
+    .eq('submitted_by', actor.id)
     .order('submitted_at', { ascending: false })
     .limit(50)
   return (data ?? []) as unknown as ArcRequestRow[]
@@ -113,6 +111,10 @@ export async function createArcRequest(
   })
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+
+  if ((await getResidentActor()).impersonating) {
+    return { ok: false, error: IMPERSONATION_READONLY_MSG }
   }
 
   const supabase = await getSupabaseServerClient()
@@ -213,17 +215,14 @@ export interface ViolationReportRow {
 }
 
 export async function listMyViolationReports(): Promise<ViolationReportRow[]> {
-  const supabase = await getSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return []
-  const { data } = await supabase
+  const actor = await getResidentActor()
+  if (!actor.id) return []
+  const { data } = await actor.client
     .from('resident_violation_reports' as never)
     .select(
       'id, category, description, about_address, occurred_at, status, submitted_at',
     )
-    .eq('reported_by', user.id)
+    .eq('reported_by', actor.id)
     .order('submitted_at', { ascending: false })
     .limit(50)
   return (data ?? []) as unknown as ViolationReportRow[]
@@ -240,6 +239,10 @@ export async function createViolationReport(
   })
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+
+  if ((await getResidentActor()).impersonating) {
+    return { ok: false, error: IMPERSONATION_READONLY_MSG }
   }
 
   const supabase = await getSupabaseServerClient()

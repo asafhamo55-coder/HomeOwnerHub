@@ -11,6 +11,7 @@ import {
   type PropertyResidentRole,
 } from '@/lib/property-residents'
 import { ResidentActions } from './ResidentActions'
+import { EnterPortalButton } from './EnterPortalButton'
 
 // Inline-editable resident row. Click the pencil → row expands to a
 // form with all editable fields. Save calls updateResident; Cancel
@@ -34,7 +35,17 @@ const ROLE_LABEL: Record<PropertyResidentRole, string> = {
   other: 'Other',
 }
 
-export function ResidentRow({ resident }: { resident: PropertyResidentRow }) {
+export function ResidentRow({
+  resident,
+  isAdmin = false,
+  propertyId,
+  unitId,
+}: {
+  resident: PropertyResidentRow
+  isAdmin?: boolean
+  propertyId?: string
+  unitId?: string | null
+}) {
   const [editing, setEditing] = useState(false)
   const isActive = resident.moved_out_at === null
   const roleVariant: 'success' | 'info' | 'neutral' | 'outline' =
@@ -81,6 +92,15 @@ export function ResidentRow({ resident }: { resident: PropertyResidentRow }) {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {isAdmin && isActive && resident.role === 'owner' && propertyId ? (
+              <EnterPortalButton
+                email={resident.email}
+                name={resident.full_name}
+                propertyId={propertyId}
+                unitId={unitId ?? null}
+                variant="ghost"
+              />
+            ) : null}
             {isActive ? (
               <Button
                 variant="ghost"

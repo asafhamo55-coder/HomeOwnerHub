@@ -11,8 +11,10 @@
 // community's rows — so the unit/property filters here are what keep a
 // resident from seeing a neighbour's dues or violations.
 
-import { getSupabaseServerClient } from '@/lib/supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@homeowner-portal/db'
 import { getCurrentOrg } from '@/lib/orgs'
+import { getResidentActor } from '@/lib/impersonation'
 import { getResidentUnits, type ResidentUnit } from '@/lib/resident'
 import { listMyTickets, type TicketRow } from '@/lib/resident-tickets'
 import { listMyArcRequests, type ArcRequestRow } from '@/lib/resident-submissions'
@@ -61,25 +63,24 @@ export interface ResidentDashboard {
   pendingArc: ArcRequestRow[]
 }
 
-type Supabase = Awaited<ReturnType<typeof getSupabaseServerClient>>
+type Supabase = SupabaseClient<Database>
 
 const EMPTY_DUES: ResidentDues = { balance: 0, openCount: 0, pastDueCount: 0, nextDueDate: null }
 
 export async function getResidentDashboard(): Promise<ResidentDashboard> {
-  const supabase = await getSupabaseServerClient()
+  const actor = await getResidentActor()
+  const supabase = actor.client
   const org = await getCurrentOrg()
 
-  const [
-    {
-      data: { user },
-    },
-    units,
-  ] = await Promise.all([supabase.auth.getUser(), getResidentUnits()])
+  // Impersonation-safe: scope on the actor's identity (the service-role
+  // client used while impersonating has no auth session of its own).
+  const actorUser = actor.id ? { id: actor.id, email: actor.email } : null
+  const units = await getResidentUnits()
 
   const unitIds = units.map((u) => u.unit_id)
 
   const [firstName, openViolations, dues, tickets, arc, recentAnnouncements] = await Promise.all([
-    resolveFirstName(supabase, user),
+    resolveFirstName(supabase, actorUser),
     getOpenViolations(supabase, unitIds),
     getDues(supabase, unitIds),
     listMyTickets(),

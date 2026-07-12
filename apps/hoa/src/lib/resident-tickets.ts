@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getResidentUnits } from '@/lib/resident'
+import { getResidentActor, IMPERSONATION_READONLY_MSG } from '@/lib/impersonation'
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
 type ActionErr = { ok: false; error: string }
@@ -67,15 +68,12 @@ export interface CreateTicketInput {
 }
 
 export async function listMyTickets(): Promise<TicketRow[]> {
-  const supabase = await getSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return []
-  const { data } = await supabase
+  const actor = await getResidentActor()
+  if (!actor.id) return []
+  const { data } = await actor.client
     .from('tickets' as never)
     .select('id, unit_id, category, subject, status, priority, created_at')
-    .eq('submitted_by', user.id)
+    .eq('submitted_by', actor.id)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(50)
@@ -83,25 +81,26 @@ export async function listMyTickets(): Promise<TicketRow[]> {
 }
 
 export async function getMyTicket(id: string): Promise<TicketDetail | null> {
-  const supabase = await getSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
+  const actor = await getResidentActor()
+  if (!actor.id) return null
 
-  const { data: ticket } = await supabase
+  const { data: ticket } = await actor.client
     .from('tickets' as never)
     .select('id, unit_id, category, subject, description, status, priority, created_at, closed_at')
     .eq('id', id)
-    .eq('submitted_by', user.id)
+    .eq('submitted_by', actor.id)
     .is('deleted_at', null)
     .maybeSingle()
   if (!ticket) return null
 
-  const { data: msgs } = await supabase
+  // `internal: false` reproduces the resident's exact visibility: residents
+  // never see internal staff notes. Explicit here because the impersonated
+  // path uses a service-role client that would otherwise bypass that RLS.
+  const { data: msgs } = await actor.client
     .from('ticket_messages' as never)
     .select('id, author_role, body, created_at, author:profiles!ticket_messages_author_id_fkey(full_name)')
     .eq('ticket_id', id)
+    .eq('internal' as never, false)
     .order('created_at', { ascending: true })
 
   const t = ticket as unknown as TicketDetail
@@ -132,6 +131,10 @@ export async function createTicket(
   })
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+
+  if ((await getResidentActor()).impersonating) {
+    return { ok: false, error: IMPERSONATION_READONLY_MSG }
   }
 
   const supabase = await getSupabaseServerClient()
@@ -186,6 +189,10 @@ export async function addTicketMessage(
   const parsed = AddMessageSchema.safeParse({ ticket_id: ticketId, body })
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+
+  if ((await getResidentActor()).impersonating) {
+    return { ok: false, error: IMPERSONATION_READONLY_MSG }
   }
 
   const supabase = await getSupabaseServerClient()

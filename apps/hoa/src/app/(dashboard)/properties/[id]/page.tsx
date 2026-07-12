@@ -28,6 +28,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPropertyDetail, type PropertyTenure } from '@/lib/properties'
 import { getLeaseCap } from '@/lib/leases'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { getCurrentUserRole } from '@/lib/auth'
 import type { PropertyResidentRow, PropertyResidentRole } from '@/lib/property-residents'
 import type { PropertyEventRow, PropertyEventKind } from '@/lib/property-events'
 import { TenureSelector } from './TenureSelector'
@@ -35,6 +36,7 @@ import { AddResidentForm } from './AddResidentForm'
 import { PropertyActions } from './PropertyActions'
 import { ResidentActions } from './ResidentActions'
 import { ResidentRow as ResidentRowClient } from './ResidentRow'
+import { EnterPortalButton } from './EnterPortalButton'
 
 interface PropertyDetailRow {
   id: string
@@ -100,6 +102,11 @@ export default async function PropertyDetailPage({
     .eq('legacy_hoa_property_id', id)
     .maybeSingle()
 
+  // Only admins get the "Enter portal" impersonation control.
+  const ctx = await getCurrentUserRole()
+  const isAdmin = ctx?.role === 'admin'
+  const unitId = unit?.id ?? null
+
   const [violationsRes, assessmentsRes] = await Promise.all([
     supabase
       .from('hoa_violations')
@@ -148,7 +155,17 @@ export default async function PropertyDetailPage({
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Owner</CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base">Owner</CardTitle>
+              {isAdmin && p.owner_email ? (
+                <EnterPortalButton
+                  email={p.owner_email}
+                  name={p.owner_name}
+                  propertyId={p.id}
+                  unitId={unitId}
+                />
+              ) : null}
+            </div>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             <p className="text-foreground">{p.owner_name ?? <span className="text-muted">Not on file</span>}</p>
@@ -212,7 +229,13 @@ export default async function PropertyDetailPage({
           <Card>
             <ul className="divide-y divide-border">
               {residents.map((r) => (
-                <ResidentRowClient key={r.id} resident={r} />
+                <ResidentRowClient
+                  key={r.id}
+                  resident={r}
+                  isAdmin={isAdmin}
+                  propertyId={p.id}
+                  unitId={unitId}
+                />
               ))}
             </ul>
           </Card>

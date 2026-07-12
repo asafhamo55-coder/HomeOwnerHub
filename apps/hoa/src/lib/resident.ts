@@ -4,8 +4,10 @@
 // Uses the user-bound supabase client so RLS enforces the unit boundary;
 // callers do NOT need to thread a user id through.
 
-import { getSupabaseServerClient } from '@/lib/supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@homeowner-portal/db'
 import { getCurrentOrg } from '@/lib/orgs'
+import { getResidentActor, type ResidentActor } from '@/lib/impersonation'
 
 export interface ResidentUnit {
   unit_id: string
@@ -33,15 +35,15 @@ export interface ResidentSummary {
 // which community a unit belongs to. Wraps the raw lookup below and fills
 // in association names in a single batched query.
 export async function getResidentUnits(): Promise<ResidentUnit[]> {
-  const supabase = await getSupabaseServerClient()
-  const units = await getOwnedUnits(supabase)
-  return attachAssociationNames(supabase, units)
+  const actor = await getResidentActor()
+  const units = await getOwnedUnits(actor)
+  return attachAssociationNames(actor.client, units)
 }
 
 // Resolves the association (community) name for each unit's association_id
 // in one batched query. Units without an association_id keep a null name.
 async function attachAssociationNames(
-  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  supabase: SupabaseClient<Database>,
   units: ResidentUnit[],
 ): Promise<ResidentUnit[]> {
   const associationIds = [
@@ -71,24 +73,14 @@ async function attachAssociationNames(
 // lookup is `ownerships.owner_user_id`. Fallback: if no ownerships
 // rows exist, check `property_residents` by email — residents linked
 // by email (e.g. via CSV import) still see their property.
-async function getOwnedUnits(
-  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
-): Promise<ResidentUnit[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return []
+async function getOwnedUnits(actor: ResidentActor): Promise<ResidentUnit[]> {
+  const supabase = actor.client
+  // Impersonation note: `actor.client` may be a service-role client with no
+  // auth session, so we scope on actor.id / actor.email directly rather than
+  // re-deriving the user from the client.
+  if (!actor.id && !actor.email) return []
 
-  const { data } = await supabase
-    .from('ownerships')
-    .select(
-      'unit_id, ownership_pct, valid_from, unit:units(unit_number, address_line1, association_id)',
-    )
-    .eq('owner_user_id', user.id)
-    .is('valid_to', null)
-    .order('valid_from', { ascending: false })
-
-  const rows = (data ?? []) as unknown as Array<{
+  const rows: Array<{
     unit_id: string
     ownership_pct: number | null
     valid_from: string
@@ -97,7 +89,21 @@ async function getOwnedUnits(
       address_line1: string | null
       association_id: string | null
     } | null
-  }>
+  }> = []
+
+  if (actor.id) {
+    const { data } = await supabase
+      .from('ownerships')
+      .select(
+        'unit_id, ownership_pct, valid_from, unit:units(unit_number, address_line1, association_id)',
+      )
+      .eq('owner_user_id', actor.id)
+      .is('valid_to', null)
+      .order('valid_from', { ascending: false })
+    rows.push(
+      ...((data ?? []) as unknown as typeof rows),
+    )
+  }
 
   if (rows.length > 0) {
     return rows.map((r) => ({
@@ -114,13 +120,13 @@ async function getOwnedUnits(
   // Fallback: look up by email in property_residents → hoa_properties,
   // then resolve the matching units row via legacy_hoa_property_id so
   // the returned unit_id is valid for FK references (e.g. tickets).
-  if (!user.email) return []
+  if (!actor.email) return []
   const { data: prData } = await supabase
     .from('property_residents' as never)
     .select(
       'property_id, role, moved_in_at, property:hoa_properties(id, address, unit_number, org_id)',
     )
-    .ilike('email' as never, user.email)
+    .ilike('email' as never, actor.email)
     .is('moved_out_at' as never, null)
     .order('moved_in_at' as never, { ascending: false })
 
@@ -169,7 +175,8 @@ async function getOwnedUnits(
 
 // Aggregate counts for the resident dashboard cards.
 export async function getResidentSummary(): Promise<ResidentSummary> {
-  const supabase = await getSupabaseServerClient()
+  const actor = await getResidentActor()
+  const supabase = actor.client
   const org = await getCurrentOrg()
 
   const units = await getResidentUnits()
