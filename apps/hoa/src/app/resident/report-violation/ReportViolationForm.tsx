@@ -22,7 +22,11 @@ const CATEGORIES: Array<{ value: ViolationCategory; label: string }> = [
   { value: 'other', label: 'Other' },
 ]
 
-export function ReportViolationForm() {
+export function ReportViolationForm({
+  defaultDescription,
+}: {
+  defaultDescription?: string
+}) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -102,6 +106,7 @@ export function ReportViolationForm() {
             required
             minLength={20}
             maxLength={4000}
+            defaultValue={defaultDescription}
             placeholder="Just the facts — what, when, how often. The board will follow up if more info is needed."
           />
         </div>

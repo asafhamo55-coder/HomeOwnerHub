@@ -26,9 +26,15 @@ interface Citation {
 
 type RecommendationAction = 'arc' | 'report_violation' | 'ticket'
 
+interface Prefill {
+  summary?: string
+  description?: string
+}
+
 interface Recommendation {
   action: RecommendationAction
   text: string
+  prefill?: Prefill | null
 }
 
 interface AskResponse {
@@ -40,17 +46,43 @@ interface AskResponse {
   runId: string
 }
 
-// Each recommended action maps to a real page in the resident portal.
-const ACTION_META: Record<
-  RecommendationAction,
-  { label: string; href: string }
-> = {
-  arc: { label: 'Start an ARC application', href: '/resident/arc/new' },
-  report_violation: {
-    label: 'Report a concern to the board',
-    href: '/resident/report-violation',
-  },
-  ticket: { label: 'Open a support ticket', href: '/resident/tickets' },
+// The button label for each action's "Yes, help me" offer.
+const ACTION_LABEL: Record<RecommendationAction, string> = {
+  arc: 'Start my ARC application',
+  report_violation: 'Report this to the board',
+  ticket: 'Open a support ticket',
+}
+
+// Build the deep link into the target form, carrying the AI's draft as
+// query params the form reads into its (uncontrolled) default values. Each
+// form is authenticated, so the resident's identity is filled server-side —
+// we only pass the request content, never personal details.
+function buildActionHref(
+  action: RecommendationAction,
+  prefill?: Prefill | null,
+): string {
+  const summary = prefill?.summary?.trim() ?? ''
+  const description = prefill?.description?.trim() ?? ''
+  const params = new URLSearchParams()
+
+  if (action === 'arc') {
+    if (summary) params.set('summary', summary)
+    if (description) params.set('scope', description)
+    return withQuery('/resident/arc/new', params)
+  }
+  if (action === 'report_violation') {
+    if (description) params.set('description', description)
+    return withQuery('/resident/report-violation', params)
+  }
+  // ticket
+  if (summary) params.set('subject', summary)
+  if (description) params.set('description', description)
+  return withQuery('/resident/tickets/new', params)
+}
+
+function withQuery(path: string, params: URLSearchParams): string {
+  const qs = params.toString()
+  return qs ? `${path}?${qs}` : path
 }
 
 const SAMPLE_QUESTIONS = [
@@ -67,6 +99,7 @@ export function AskDocsClient() {
   )
   const [response, setResponse] = useState<AskResponse | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [helpDismissed, setHelpDismissed] = useState(false)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -74,6 +107,7 @@ export function AskDocsClient() {
     setStatus('loading')
     setErrorMessage(null)
     setResponse(null)
+    setHelpDismissed(false)
 
     try {
       const res = await fetch('/api/ai/ask-docs', {
@@ -187,22 +221,54 @@ export function AskDocsClient() {
               </div>
             ) : null}
 
-            {response.recommendation &&
-            ACTION_META[response.recommendation.action] ? (
-              <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-primary">
-                  Recommended next step
-                </p>
-                <p className="text-sm leading-relaxed">
-                  {response.recommendation.text}
-                </p>
-                <Link
-                  href={ACTION_META[response.recommendation.action].href}
-                  className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-                >
-                  {ACTION_META[response.recommendation.action].label}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+            {response.recommendation ? (
+              <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-primary">
+                    Recommended next step
+                  </p>
+                  <p className="text-sm leading-relaxed">
+                    {response.recommendation.text}
+                  </p>
+                </div>
+
+                {helpDismissed ? (
+                  <p className="text-xs text-muted">
+                    No problem — you can start it anytime from the sidebar.
+                  </p>
+                ) : (
+                  <div className="space-y-2 border-t border-primary/20 pt-3">
+                    <p className="text-sm font-medium">
+                      Would you like me to help you with that?
+                    </p>
+                    {response.recommendation.prefill ? (
+                      <p className="text-xs text-muted">
+                        I&apos;ll open the form with your request already
+                        filled in — you can review and edit everything before
+                        submitting.
+                      </p>
+                    ) : null}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={buildActionHref(
+                          response.recommendation.action,
+                          response.recommendation.prefill,
+                        )}
+                        className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                      >
+                        Yes — {ACTION_LABEL[response.recommendation.action]}
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setHelpDismissed(true)}
+                        className="rounded-md px-3 py-1.5 text-sm font-medium text-muted hover:text-foreground"
+                      >
+                        No, thanks
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : null}
 

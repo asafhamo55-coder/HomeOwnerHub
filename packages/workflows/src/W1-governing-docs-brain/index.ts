@@ -34,11 +34,22 @@ export const GoverningDocsCitationSchema = z.object({
 
 export type GoverningDocsCitation = z.infer<typeof GoverningDocsCitationSchema>
 
+// A ready-to-submit draft the resident can edit, used to pre-fill the
+// target form (summary is a title for ARC/ticket; empty for violations).
+export const GoverningDocsPrefillSchema = z.object({
+  summary: z.string(),
+  description: z.string(),
+})
+
+export type GoverningDocsPrefill = z.infer<typeof GoverningDocsPrefillSchema>
+
 // A recommended next step, tied to a concrete action the portal actually
-// offers. Rendered as a dedicated section in the resident UI.
+// offers. Rendered as a dedicated section in the resident UI, with an
+// offer to open the pre-filled form.
 export const GoverningDocsRecommendationSchema = z.object({
   action: z.enum(['arc', 'report_violation', 'ticket']),
   text: z.string(),
+  prefill: GoverningDocsPrefillSchema.nullish(),
 })
 
 export type GoverningDocsRecommendation = z.infer<
@@ -212,13 +223,36 @@ function normalizeRecommendation(
   value: unknown,
 ): GoverningDocsRecommendation | null {
   if (!value || typeof value !== 'object') return null
-  const { action, text } = value as { action?: unknown; text?: unknown }
+  const { action, text, prefill } = value as {
+    action?: unknown
+    text?: unknown
+    prefill?: unknown
+  }
   const cleanText = typeof text === 'string' ? text.trim() : ''
   if (!cleanText) return null
   if (action === 'arc' || action === 'report_violation' || action === 'ticket') {
-    return { action, text: cleanText }
+    return { action, text: cleanText, prefill: normalizePrefill(prefill) }
   }
   return null
+}
+
+/**
+ * Sanitize the model's prefill draft. Caps match the target forms' field
+ * limits (summary/subject 200, description/scope 4000). Returns null when
+ * there's nothing usable so the UI just offers a blank form.
+ */
+function normalizePrefill(value: unknown): GoverningDocsPrefill | null {
+  if (!value || typeof value !== 'object') return null
+  const { summary, description } = value as {
+    summary?: unknown
+    description?: unknown
+  }
+  const cleanSummary =
+    typeof summary === 'string' ? summary.trim().slice(0, 200) : ''
+  const cleanDescription =
+    typeof description === 'string' ? description.trim().slice(0, 4000) : ''
+  if (!cleanSummary && !cleanDescription) return null
+  return { summary: cleanSummary, description: cleanDescription }
 }
 
 function normalizeConfidence(value: unknown): 'HIGH' | 'MEDIUM' | 'LOW' {

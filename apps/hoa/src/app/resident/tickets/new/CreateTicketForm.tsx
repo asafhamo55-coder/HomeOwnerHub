@@ -20,7 +20,15 @@ const CATEGORIES: Array<{ value: TicketCategory; label: string }> = [
   { value: 'other', label: 'Other' },
 ]
 
-export function CreateTicketForm({ units }: { units: ResidentUnit[] }) {
+export function CreateTicketForm({
+  units,
+  defaultSubject,
+  defaultDescription,
+}: {
+  units: ResidentUnit[]
+  defaultSubject?: string
+  defaultDescription?: string
+}) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -75,6 +83,7 @@ export function CreateTicketForm({ units }: { units: ResidentUnit[] }) {
           name="subject"
           required
           maxLength={200}
+          defaultValue={defaultSubject}
           placeholder="Brief summary of your issue"
         />
       </Field>
@@ -95,6 +104,7 @@ export function CreateTicketForm({ units }: { units: ResidentUnit[] }) {
             required
             minLength={20}
             maxLength={4000}
+            defaultValue={defaultDescription}
             placeholder="Describe the issue in detail. Include dates, locations, and any relevant information."
           />
         </div>

@@ -4,8 +4,13 @@ import { ArcRequestForm } from './ArcRequestForm'
 
 export const metadata = { title: 'New ARC application' }
 
-export default async function NewArcRequestPage() {
+export default async function NewArcRequestPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ summary?: string; scope?: string }>
+}) {
   const units = await getResidentUnits()
+  const { summary, scope } = await searchParams
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -29,7 +34,11 @@ export default async function NewArcRequestPage() {
           <CardTitle>Application</CardTitle>
         </CardHeader>
         <CardContent>
-          <ArcRequestForm units={units} />
+          <ArcRequestForm
+            units={units}
+            defaultSummary={summary}
+            defaultScope={scope}
+          />
         </CardContent>
       </Card>
     </div>

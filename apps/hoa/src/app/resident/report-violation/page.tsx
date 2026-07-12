@@ -4,7 +4,13 @@ import { ReportViolationForm } from './ReportViolationForm'
 
 export const metadata = { title: 'Report a concern' }
 
-export default function ReportViolationPage() {
+export default async function ReportViolationPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ description?: string }>
+}) {
+  const { description } = await searchParams
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <BackLink href="/resident" label="Back to My Home" />
@@ -28,7 +34,7 @@ export default function ReportViolationPage() {
           <CardTitle>Tell the board what you saw</CardTitle>
         </CardHeader>
         <CardContent>
-          <ReportViolationForm />
+          <ReportViolationForm defaultDescription={description} />
         </CardContent>
       </Card>
     </div>

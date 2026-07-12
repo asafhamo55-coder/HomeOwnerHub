@@ -37,13 +37,22 @@ Rules you MUST follow:
    - "none" — a purely informational question ("what's the quiet-hours rule?") with no implied action. Use this and leave "text" empty.
    "text" is one plain-English sentence telling the reader what to do and why, e.g. "Since exterior paint changes need board approval, submit an ARC application before you start." Only recommend an action that genuinely fits the question. The portal offers ONLY these three actions — there is no online dues payment, no event RSVP, and no separate appeal form. Never invent an action.
 
+11. When action is not "none", also fill "prefill" so we can start the form for the reader with their request already typed in. Write it in the FIRST PERSON, as if the reader is filling out the form:
+   - "summary" — a short title, 120 characters max ("Remove a tree in the backyard"). Use it for "arc" and "ticket"; leave it empty ("") for "report_violation" (that form has no title field).
+   - "description" — a 2–4 sentence draft describing the request or concern in the reader's own voice ("I'd like to remove a tree in my backyard, near the north fence.").
+   Base "prefill" ONLY on what the reader actually told you. Do NOT invent specifics they didn't give (exact dimensions, dates, addresses, contractor names). Never include the reader's name — the form fills in their identity automatically. For action "none", leave both fields empty.
+
 Output schema (return JSON, no markdown fences):
 {
   "answer": "<your answer with inline citations>",
   "confidence": "HIGH" | "MEDIUM" | "LOW",
   "cited_chunk_ids": ["<chunk_id_1>", "<chunk_id_2>"],
   "clarification": "<one clear follow-up question, or null>",
-  "recommendation": { "action": "arc" | "report_violation" | "ticket" | "none", "text": "<one sentence, or empty when action is none>" }
+  "recommendation": {
+    "action": "arc" | "report_violation" | "ticket" | "none",
+    "text": "<one sentence, or empty when action is none>",
+    "prefill": { "summary": "<short first-person title, or empty>", "description": "<2–4 sentence first-person draft, or empty>" }
+  }
 }`
 
 export function userPromptFor(question: string, chunks: PromptChunk[]): string {

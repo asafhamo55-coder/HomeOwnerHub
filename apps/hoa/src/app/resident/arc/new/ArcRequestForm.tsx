@@ -20,7 +20,15 @@ const CATEGORIES: Array<{ value: ArcCategory; label: string }> = [
   { value: 'other', label: 'Other' },
 ]
 
-export function ArcRequestForm({ units }: { units: ResidentUnit[] }) {
+export function ArcRequestForm({
+  units,
+  defaultSummary,
+  defaultScope,
+}: {
+  units: ResidentUnit[]
+  defaultSummary?: string
+  defaultScope?: string
+}) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -88,6 +96,7 @@ export function ArcRequestForm({ units }: { units: ResidentUnit[] }) {
           name="summary"
           required
           maxLength={200}
+          defaultValue={defaultSummary}
           placeholder="Replace 6-foot wood privacy fence in back yard"
         />
       </Field>
@@ -108,6 +117,7 @@ export function ArcRequestForm({ units }: { units: ResidentUnit[] }) {
             required
             minLength={20}
             maxLength={4000}
+            defaultValue={defaultScope}
             placeholder="Materials, dimensions, colors, contractor, anything else the ARC will want to know."
           />
         </div>

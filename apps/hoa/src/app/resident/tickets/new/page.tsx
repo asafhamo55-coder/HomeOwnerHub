@@ -4,8 +4,13 @@ import { CreateTicketForm } from './CreateTicketForm'
 
 export const metadata = { title: 'New Ticket' }
 
-export default async function NewTicketPage() {
+export default async function NewTicketPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ subject?: string; description?: string }>
+}) {
   const units = await getResidentUnits()
+  const { subject, description } = await searchParams
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -21,7 +26,11 @@ export default async function NewTicketPage() {
           <CardTitle>Ticket details</CardTitle>
         </CardHeader>
         <CardContent>
-          <CreateTicketForm units={units} />
+          <CreateTicketForm
+            units={units}
+            defaultSubject={subject}
+            defaultDescription={description}
+          />
         </CardContent>
       </Card>
     </div>
