@@ -19,10 +19,13 @@ import { ReportDecisionForm } from './ReportDecisionForm'
 import { ReportBoardReplyForm } from './ReportBoardReplyForm'
 
 export const metadata = { title: 'Resident violation report' }
+// Force a fresh render after a board decision so the status reflects the
+// write immediately (see the note in ../../arc/[id]/page.tsx).
+export const dynamic = 'force-dynamic'
 
 const STATUS_VARIANT: Record<ViolationReportStatus, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
   submitted: 'warning',
-  under_review: 'warning',
+  under_review: 'default',
   opened_as_violation: 'destructive',
   closed_no_action: 'outline',
   dismissed: 'outline',
@@ -164,6 +167,7 @@ export default async function ViolationReportDetailPage({
           <ReportDecisionForm
             reportId={report.id}
             currentNote={report.board_note}
+            currentStatus={report.status}
           />
         </CardContent>
       </Card>

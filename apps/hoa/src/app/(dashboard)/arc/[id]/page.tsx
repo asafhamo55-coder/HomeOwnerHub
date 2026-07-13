@@ -13,10 +13,14 @@ import { ArcBoardReplyForm } from './ArcBoardReplyForm'
 import { ArcActions } from './ArcActions'
 
 export const metadata = { title: 'ARC application' }
+// Force a fresh render after a board decision — without this the client
+// router can serve the cached segment and the status looks unchanged even
+// though the write landed.
+export const dynamic = 'force-dynamic'
 
 const STATUS_VARIANT: Record<ArcStatus, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
   submitted: 'warning',
-  in_review: 'warning',
+  in_review: 'default',
   approved: 'success',
   denied: 'destructive',
   withdrawn: 'outline',
@@ -204,6 +208,7 @@ export default async function ArcReviewDetailPage({
             <ArcDecisionForm
               arcId={arc.id}
               currentResponse={arc.board_response}
+              currentStatus={arc.status}
             />
           </CardContent>
         </Card>

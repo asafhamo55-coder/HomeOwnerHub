@@ -15,6 +15,9 @@ import { TicketActionItems } from './TicketActionItems'
 import { TicketActions } from './TicketActions'
 
 export const metadata = { title: 'Ticket' }
+// Fresh render after a status/priority change so the board sees it apply
+// immediately (see the note in ../../arc/[id]/page.tsx).
+export const dynamic = 'force-dynamic'
 
 const STATUS_VARIANT: Record<TicketStatus, 'success' | 'warning' | 'outline'> = {
   open: 'outline',
