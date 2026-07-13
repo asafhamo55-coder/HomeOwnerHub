@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, MessageSquare, Shield } from 'lucide-react'
+import { ArrowLeft, MessageSquare, Paperclip, Shield } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Alert,
@@ -15,6 +15,8 @@ import {
   getViolationReportMessagesForBoard,
   type ViolationReportStatus,
 } from '@/lib/board-review'
+import { listSubmissionAttachments } from '@/lib/submission-attachments'
+import { SubmissionAttachments } from '@/components/attachments/SubmissionAttachments'
 import { ReportDecisionForm } from './ReportDecisionForm'
 import { ReportBoardReplyForm } from './ReportBoardReplyForm'
 
@@ -52,6 +54,7 @@ export default async function ViolationReportDetailPage({
   const report = await getResidentViolationReportForBoard(id)
   if (!report) notFound()
   const messages = await getViolationReportMessagesForBoard(id)
+  const attachments = await listSubmissionAttachments('concern', id)
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -156,6 +159,23 @@ export default async function ViolationReportDetailPage({
           <div className="border-t border-border pt-4">
             <ReportBoardReplyForm reportId={report.id} />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Paperclip className="h-4 w-4" />
+            Documents
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SubmissionAttachments
+            threadType="concern"
+            parentId={report.id}
+            attachments={attachments}
+            canDelete
+          />
         </CardContent>
       </Card>
 

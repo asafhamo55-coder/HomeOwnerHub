@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, Paperclip } from 'lucide-react'
 import {
   BackLink,
   Badge,
@@ -11,9 +11,12 @@ import {
   PageHeader,
 } from '@homeowner-portal/ui'
 import { getMyViolationReport } from '@/lib/resident-submissions'
+import { listSubmissionAttachments } from '@/lib/submission-attachments'
+import { SubmissionAttachments } from '@/components/attachments/SubmissionAttachments'
 import { ViolationReplyForm } from './ViolationReplyForm'
 
 export const metadata = { title: 'Reported concern' }
+export const dynamic = 'force-dynamic'
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
   submitted: 'outline',
@@ -55,6 +58,7 @@ export default async function ResidentViolationDetailPage({
   const { id } = await params
   const report = await getMyViolationReport(id)
   if (!report) notFound()
+  const attachments = await listSubmissionAttachments('concern', id)
 
   const closed = CLOSED.has(report.status)
 
@@ -125,6 +129,22 @@ export default async function ResidentViolationDetailPage({
               ))}
             </ul>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Paperclip className="h-4 w-4" />
+            Documents
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SubmissionAttachments
+            threadType="concern"
+            parentId={report.id}
+            attachments={attachments}
+          />
         </CardContent>
       </Card>
 

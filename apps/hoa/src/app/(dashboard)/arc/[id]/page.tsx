@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, MessageSquare } from 'lucide-react'
+import { ArrowLeft, MessageSquare, Paperclip } from 'lucide-react'
 import { format } from 'date-fns'
 import { Badge, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import {
@@ -8,6 +8,8 @@ import {
   getArcMessagesForBoard,
   type ArcStatus,
 } from '@/lib/board-review'
+import { listSubmissionAttachments } from '@/lib/submission-attachments'
+import { SubmissionAttachments } from '@/components/attachments/SubmissionAttachments'
 import { ArcDecisionForm } from './ArcDecisionForm'
 import { ArcBoardReplyForm } from './ArcBoardReplyForm'
 import { ArcActions } from './ArcActions'
@@ -47,6 +49,7 @@ export default async function ArcReviewDetailPage({
   const arc = await getArcRequestForBoard(id)
   if (!arc) notFound()
   const messages = await getArcMessagesForBoard(id)
+  const attachments = await listSubmissionAttachments('arc', id)
 
   const decided =
     arc.status === 'approved' || arc.status === 'denied'
@@ -194,6 +197,23 @@ export default async function ArcReviewDetailPage({
           <div className="border-t border-border pt-4">
             <ArcBoardReplyForm arcId={arc.id} />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Paperclip className="h-4 w-4" />
+            Documents
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SubmissionAttachments
+            threadType="arc"
+            parentId={arc.id}
+            attachments={attachments}
+            canDelete
+          />
         </CardContent>
       </Card>
 

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { ArrowLeft, MessageSquare, ClipboardList } from 'lucide-react'
+import { ArrowLeft, MessageSquare, ClipboardList, Paperclip } from 'lucide-react'
 import { Badge, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import {
   getTicketForBoard,
@@ -13,6 +13,8 @@ import { TicketReplyForm } from './TicketReplyForm'
 import { TicketStatusEditor } from './TicketStatusEditor'
 import { TicketActionItems } from './TicketActionItems'
 import { TicketActions } from './TicketActions'
+import { listSubmissionAttachments } from '@/lib/submission-attachments'
+import { SubmissionAttachments } from '@/components/attachments/SubmissionAttachments'
 
 export const metadata = { title: 'Ticket' }
 // Fresh render after a status/priority change so the board sees it apply
@@ -50,9 +52,10 @@ export default async function BoardTicketDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const [ticket, actionItems] = await Promise.all([
+  const [ticket, actionItems, attachments] = await Promise.all([
     getTicketForBoard(id),
     listTicketActionItems(id),
+    listSubmissionAttachments('ticket', id),
   ])
   if (!ticket) notFound()
 
@@ -162,6 +165,23 @@ export default async function BoardTicketDetailPage({
         </CardHeader>
         <CardContent>
           <TicketReplyForm ticketId={ticket.id} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Paperclip className="h-4 w-4" />
+            Documents
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SubmissionAttachments
+            threadType="ticket"
+            parentId={ticket.id}
+            attachments={attachments}
+            canDelete
+          />
         </CardContent>
       </Card>
 

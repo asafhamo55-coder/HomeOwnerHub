@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
-import { CheckCircle2, MessageSquare } from 'lucide-react'
+import { CheckCircle2, MessageSquare, Paperclip } from 'lucide-react'
 import {
   BackLink,
   Badge,
@@ -11,10 +11,13 @@ import {
   PageHeader,
 } from '@homeowner-portal/ui'
 import { getMyArcRequest, type ArcStatus } from '@/lib/resident-submissions'
+import { listSubmissionAttachments } from '@/lib/submission-attachments'
+import { SubmissionAttachments } from '@/components/attachments/SubmissionAttachments'
 import { ArcReplyForm } from './ArcReplyForm'
 import { WithdrawArcButton } from './WithdrawArcButton'
 
 export const metadata = { title: 'ARC application' }
+export const dynamic = 'force-dynamic'
 
 const STATUS_VARIANT: Record<ArcStatus, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
   submitted: 'outline',
@@ -48,6 +51,7 @@ export default async function ResidentArcDetailPage({
   const { id } = await params
   const arc = await getMyArcRequest(id)
   if (!arc) notFound()
+  const attachments = await listSubmissionAttachments('arc', id)
 
   const pending = PENDING.includes(arc.status)
 
@@ -149,6 +153,22 @@ export default async function ResidentArcDetailPage({
               ))}
             </ul>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Paperclip className="h-4 w-4" />
+            Documents
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SubmissionAttachments
+            threadType="arc"
+            parentId={arc.id}
+            attachments={attachments}
+          />
         </CardContent>
       </Card>
 

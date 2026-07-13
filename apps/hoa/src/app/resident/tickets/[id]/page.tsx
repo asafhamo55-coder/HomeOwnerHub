@@ -1,11 +1,14 @@
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, Paperclip } from 'lucide-react'
 import { BackLink, Badge, Card, CardContent, CardHeader, CardTitle, PageHeader } from '@homeowner-portal/ui'
 import { getMyTicket, type TicketStatus } from '@/lib/resident-tickets'
+import { listSubmissionAttachments } from '@/lib/submission-attachments'
+import { SubmissionAttachments } from '@/components/attachments/SubmissionAttachments'
 import { ResidentTicketReplyForm } from './ResidentTicketReplyForm'
 
 export const metadata = { title: 'Ticket' }
+export const dynamic = 'force-dynamic'
 
 const STATUS_VARIANT: Record<TicketStatus, 'success' | 'warning' | 'outline'> = {
   open: 'outline',
@@ -21,6 +24,7 @@ export default async function ResidentTicketDetailPage({
   const { id } = await params
   const ticket = await getMyTicket(id)
   if (!ticket) notFound()
+  const attachments = await listSubmissionAttachments('ticket', id)
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -83,6 +87,22 @@ export default async function ResidentTicketDetailPage({
               ))}
             </ul>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Paperclip className="h-4 w-4" />
+            Documents
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SubmissionAttachments
+            threadType="ticket"
+            parentId={ticket.id}
+            attachments={attachments}
+          />
         </CardContent>
       </Card>
 
