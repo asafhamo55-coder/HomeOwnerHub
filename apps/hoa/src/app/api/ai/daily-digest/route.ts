@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { generateDailyDigest } from '@homeowner-portal/ai'
 import { getCurrentOrg } from '@/lib/orgs'
-import { getDashboardStats } from '@/lib/dashboard/queries'
+import { getDashboardStats, getResidentQueueCounts } from '@/lib/dashboard/queries'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 // On-demand digest regeneration. The cron-driven version runs at 7am via
@@ -13,7 +13,10 @@ export async function POST() {
     return NextResponse.json({ error: 'no_org' }, { status: 403 })
   }
 
-  const stats = await getDashboardStats(org.id)
+  const [stats, queues] = await Promise.all([
+    getDashboardStats(org.id),
+    getResidentQueueCounts(org.id),
+  ])
 
   let content: string
   try {
@@ -23,6 +26,9 @@ export async function POST() {
       overdueViolations: stats.overdueViolations,
       overdueAmount: stats.overdueDuesAmount,
       pendingApprovals: stats.pendingApprovals,
+      openTickets: queues.openTickets,
+      openArcRequests: queues.pendingArcRequests,
+      openConcerns: queues.openConcerns,
       upcomingMeetings: [],
     })
   } catch (err) {

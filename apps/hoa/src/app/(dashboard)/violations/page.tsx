@@ -18,6 +18,7 @@ export const dynamic = 'force-dynamic'
 
 const VIOLATION_TABS = [
   { label: 'All violations', href: '/violations' },
+  { label: 'Resident reports', href: '/violations/reports' },
   { label: 'AI approval queue', href: '/violations/approval-queue' },
 ]
 

@@ -454,6 +454,52 @@ export async function getLeaseSummary(
   }
 }
 
+export interface ResidentQueueCounts {
+  /** Support tickets still open or in progress. */
+  openTickets: number
+  /** ARC applications submitted or in review (awaiting a decision). */
+  pendingArcRequests: number
+  /** Resident-reported concerns submitted or under review. */
+  openConcerns: number
+}
+
+// Counts of the three resident-submitted queues the board must action.
+// Feeds the daily digest (and is cheap enough to surface on the dashboard).
+// All three tables are org-scoped via organization_id; head:true keeps each
+// query to a count with no row transfer.
+export async function getResidentQueueCounts(
+  orgId: string,
+  client?: AnyClient,
+): Promise<ResidentQueueCounts> {
+  const supabase = await resolveClient(client)
+
+  const [tickets, arc, concerns] = await Promise.all([
+    supabase
+      .from('tickets')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgId)
+      .is('deleted_at', null)
+      .in('status', ['open', 'in_progress']),
+    supabase
+      .from('arc_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgId)
+      .is('deleted_at', null)
+      .in('status', ['submitted', 'in_review']),
+    supabase
+      .from('resident_violation_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgId)
+      .in('status', ['submitted', 'under_review']),
+  ])
+
+  return {
+    openTickets: tickets.count ?? 0,
+    pendingArcRequests: arc.count ?? 0,
+    openConcerns: concerns.count ?? 0,
+  }
+}
+
 export async function getLatestDigest(
   orgId: string,
   client?: AnyClient,

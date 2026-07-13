@@ -38,9 +38,30 @@ export const dailyDigestJob = inngest.createFunction(
       const result = await step.run(`digest-${orgId}`, async () => {
         const today = new Date().toISOString().slice(0, 10)
 
+        // Resident-submitted queues the board must action. Cast to a loose
+        // client: `tickets` isn't in the generated Database type, and the
+        // service-role client bypasses RLS so we scope by organization_id.
+        const anyDb = db as unknown as {
+          from: (table: string) => any
+        }
+        const queueCount = (
+          table: string,
+          statuses: string[],
+          withDeletedAt: boolean,
+        ) => {
+          let qb = anyDb
+            .from(table)
+            .select('id', { count: 'exact', head: true })
+            .eq('organization_id', orgId)
+            .in('status', statuses)
+          if (withDeletedAt) qb = qb.is('deleted_at', null)
+          return qb
+        }
+
         // Pull the same counts the dashboard renders so the digest's tone
         // matches what the user will see when they sign in.
-        const [open, overdue, pending, dues] = await Promise.all([
+        const [open, overdue, pending, dues, tickets, arc, concerns] =
+          await Promise.all([
           db
             .from('hoa_violations')
             .select('id', { count: 'exact', head: true })
@@ -67,6 +88,10 @@ export const dailyDigestJob = inngest.createFunction(
             .eq('org_id', orgId)
             .neq('status', 'paid')
             .lt('due_date', today),
+
+          queueCount('tickets', ['open', 'in_progress'], true),
+          queueCount('arc_requests', ['submitted', 'in_review'], true),
+          queueCount('resident_violation_reports', ['submitted', 'under_review'], false),
         ])
 
         const overdueCount = (overdue.data ?? []).filter((v) => {
@@ -92,6 +117,9 @@ export const dailyDigestJob = inngest.createFunction(
             overdueViolations: overdueCount,
             overdueAmount,
             pendingApprovals: pending.count ?? 0,
+            openTickets: tickets.count ?? 0,
+            openArcRequests: arc.count ?? 0,
+            openConcerns: concerns.count ?? 0,
             upcomingMeetings: [],
           })
         } catch (err) {

@@ -1,13 +1,21 @@
 import Link from 'next/link'
 import { Megaphone } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Card, EmptyState } from '@homeowner-portal/ui'
+import { Badge, Card, EmptyState, Tabs } from '@homeowner-portal/ui'
 import {
   listResidentViolationReportsForBoard,
   type ViolationReportStatus,
 } from '@/lib/board-review'
 
 export const metadata = { title: 'Resident violation reports' }
+
+// Mirrors VIOLATION_TABS in ../page.tsx so the Violations section shares a
+// consistent tab bar across its sibling pages.
+const VIOLATION_TABS = [
+  { label: 'All violations', href: '/violations' },
+  { label: 'Resident reports', href: '/violations/reports' },
+  { label: 'AI approval queue', href: '/violations/approval-queue' },
+]
 
 const STATUS_VARIANT: Record<ViolationReportStatus, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
   submitted: 'warning',
@@ -45,6 +53,8 @@ export default async function ViolationReportsListPage() {
           should not be shared with other residents per Policy Section 12.03.
         </p>
       </header>
+
+      <Tabs items={VIOLATION_TABS} currentPath="/violations/reports" aria-label="Violation sections" />
 
       {reports.length === 0 ? (
         <EmptyState
