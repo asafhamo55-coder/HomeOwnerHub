@@ -111,7 +111,7 @@ export function ReportDecisionForm({
 
       <div className="flex flex-wrap gap-2">
         <Button
-          variant="outline"
+          variant={currentStatus === 'under_review' ? 'default' : 'outline'}
           size="sm"
           onClick={() => submit('under_review')}
           disabled={isPending}
@@ -120,7 +120,7 @@ export function ReportDecisionForm({
           {isPending ? 'Saving…' : 'Mark under review'}
         </Button>
         <Button
-          variant="outline"
+          variant={currentStatus === 'dismissed' ? 'default' : 'outline'}
           size="sm"
           onClick={() => submit('dismissed')}
           disabled={isPending}
@@ -129,7 +129,7 @@ export function ReportDecisionForm({
           {isPending ? 'Saving…' : 'Dismiss'}
         </Button>
         <Button
-          variant="outline"
+          variant={currentStatus === 'closed_no_action' ? 'default' : 'outline'}
           size="sm"
           onClick={() => submit('closed_no_action')}
           disabled={isPending}
@@ -137,6 +137,7 @@ export function ReportDecisionForm({
           {isPending ? 'Saving…' : 'Close — no action'}
         </Button>
         <Button
+          variant={currentStatus === 'opened_as_violation' ? 'default' : 'outline'}
           size="sm"
           onClick={() => submit('opened_as_violation')}
           disabled={isPending}

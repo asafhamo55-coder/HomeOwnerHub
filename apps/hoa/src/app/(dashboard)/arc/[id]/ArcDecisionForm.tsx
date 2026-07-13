@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, X, Eye } from 'lucide-react'
+import { ThumbsUp, X, Eye } from 'lucide-react'
 import { Badge, Button, Textarea } from '@homeowner-portal/ui'
 import { respondToArcRequest, type ArcStatus } from '@/lib/board-review'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
@@ -104,7 +104,7 @@ export function ArcDecisionForm({
 
       <div className="flex flex-wrap gap-2">
         <Button
-          variant="outline"
+          variant={currentStatus === 'in_review' ? 'default' : 'outline'}
           size="sm"
           onClick={() => submit('in_review')}
           disabled={isPending}
@@ -113,7 +113,7 @@ export function ArcDecisionForm({
           {isPending ? 'Saving…' : 'Mark in review'}
         </Button>
         <Button
-          variant="outline"
+          variant={currentStatus === 'denied' ? 'default' : 'outline'}
           size="sm"
           onClick={() => submit('denied')}
           disabled={isPending}
@@ -121,8 +121,13 @@ export function ArcDecisionForm({
           <X className="h-4 w-4" />
           {isPending ? 'Saving…' : 'Deny'}
         </Button>
-        <Button size="sm" onClick={() => submit('approved')} disabled={isPending}>
-          <Check className="h-4 w-4" />
+        <Button
+          variant={currentStatus === 'approved' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => submit('approved')}
+          disabled={isPending}
+        >
+          <ThumbsUp className="h-4 w-4" />
           {isPending ? 'Saving…' : 'Approve'}
         </Button>
       </div>
