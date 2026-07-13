@@ -13,6 +13,10 @@ out/
 # Env files
 .env
 .env.local
+
+# Supabase CLI local state (contains pooler-url with DB credentials — never commit)
+supabase/.temp/
+supabase/.branches/
 .env.*.local
 !.env.example
 
