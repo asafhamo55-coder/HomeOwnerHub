@@ -37,6 +37,22 @@ export interface OpenViolationRow {
   created_at: string | null
 }
 
+/** One outstanding charge on a resident's account, net of partial payments. */
+export interface ResidentCharge {
+  /** Assessment id. */
+  id: string
+  /** Owning unit id, so a multi-unit resident can tell charges apart. */
+  unitId: string
+  /** e.g. "regular", "special", "late_fee", "fine" — humanized in the UI. */
+  assessmentType: string
+  /** ISO yyyy-mm-dd. */
+  dueDate: string
+  /** Remaining owed on this charge, net of any partial payment. */
+  amount: number
+  /** Already past its due date as of today. */
+  pastDue: boolean
+}
+
 export interface ResidentDues {
   /** Total still owed across every owned unit (net of partial payments). */
   balance: number
@@ -46,6 +62,8 @@ export interface ResidentDues {
   pastDueCount: number
   /** Earliest upcoming/overdue due date, ISO yyyy-mm-dd, or null. */
   nextDueDate: string | null
+  /** Every outstanding charge, most urgent first (past-due, oldest first). */
+  charges: ResidentCharge[]
 }
 
 export interface ResidentDashboard {
@@ -65,7 +83,13 @@ export interface ResidentDashboard {
 
 type Supabase = SupabaseClient<Database>
 
-const EMPTY_DUES: ResidentDues = { balance: 0, openCount: 0, pastDueCount: 0, nextDueDate: null }
+const EMPTY_DUES: ResidentDues = {
+  balance: 0,
+  openCount: 0,
+  pastDueCount: 0,
+  nextDueDate: null,
+  charges: [],
+}
 
 export async function getResidentDashboard(): Promise<ResidentDashboard> {
   const actor = await getResidentActor()
@@ -160,15 +184,18 @@ async function getDues(supabase: Supabase, unitIds: string[]): Promise<ResidentD
 
   const { data: rows } = await supabase
     .from('assessments')
-    .select('id, amount, due_date, status')
+    .select('id, unit_id, amount, due_date, status, assessment_type')
     .in('unit_id', unitIds)
     .in('status', ['open', 'partial'])
+    .is('deleted_at', null)
 
   const assessments = (rows ?? []) as Array<{
     id: string
+    unit_id: string
     amount: number
     due_date: string
     status: string
+    assessment_type: string
   }>
   if (assessments.length === 0) return EMPTY_DUES
 
@@ -191,17 +218,34 @@ async function getDues(supabase: Supabase, unitIds: string[]): Promise<ResidentD
   let openCount = 0
   let pastDueCount = 0
   let nextDueDate: string | null = null
+  const charges: ResidentCharge[] = []
 
   for (const a of assessments) {
     const remaining = Number(a.amount) - (paidByAssessment.get(a.id) ?? 0)
     if (remaining <= 0) continue
+    const pastDue = Boolean(a.due_date && a.due_date <= today)
     balance += remaining
     openCount++
-    if (a.due_date && a.due_date <= today) pastDueCount++
+    if (pastDue) pastDueCount++
     if (a.due_date && (nextDueDate === null || a.due_date < nextDueDate)) nextDueDate = a.due_date
+    charges.push({
+      id: a.id,
+      unitId: a.unit_id,
+      assessmentType: a.assessment_type,
+      dueDate: a.due_date,
+      amount: Math.round(remaining * 100) / 100,
+      pastDue,
+    })
   }
 
-  return { balance: Math.round(balance * 100) / 100, openCount, pastDueCount, nextDueDate }
+  // Most urgent first: past-due charges (oldest due date leading), then
+  // upcoming charges ordered by due date.
+  charges.sort((x, y) => {
+    if (x.pastDue !== y.pastDue) return x.pastDue ? -1 : 1
+    return x.dueDate < y.dueDate ? -1 : x.dueDate > y.dueDate ? 1 : 0
+  })
+
+  return { balance: Math.round(balance * 100) / 100, openCount, pastDueCount, nextDueDate, charges }
 }
 
 async function getRecentAnnouncements(supabase: Supabase, orgId: string | null): Promise<number> {

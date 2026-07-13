@@ -1,7 +1,8 @@
-import { format } from 'date-fns'
-import { CheckCircle2, CreditCard, Home, Wallet } from 'lucide-react'
+import { differenceInCalendarDays, format } from 'date-fns'
+import { AlertTriangle, CheckCircle2, CreditCard, Home, Wallet } from 'lucide-react'
 import { Badge } from '@homeowner-portal/ui'
-import { getResidentDashboard } from '@/lib/resident-dashboard'
+import { getResidentDashboard, type ResidentCharge } from '@/lib/resident-dashboard'
+import type { ResidentUnit } from '@/lib/resident'
 import { IconTile, Panel, ScreenHeader, SectionLabel, TappableRow } from '@/components/resident/screen'
 
 export const metadata = { title: 'Dues' }
@@ -68,6 +69,22 @@ export default async function ResidentDuesPage() {
         </div>
       )}
 
+      {/* Every outstanding charge, most urgent first */}
+      {dues.charges.length > 0 ? (
+        <section className="space-y-2.5">
+          <SectionLabel>
+            {overdue ? 'Charges — past due first' : 'Open charges'}
+          </SectionLabel>
+          {dues.charges.map((charge) => (
+            <ChargeRow
+              key={charge.id}
+              charge={charge}
+              unitLabel={units.length > 1 ? unitLabel(units, charge.unitId) : null}
+            />
+          ))}
+        </section>
+      ) : null}
+
       {/* Homes the dues cover */}
       <section className="space-y-2.5">
         <SectionLabel>{units.length === 1 ? 'Your home' : 'Your homes'}</SectionLabel>
@@ -94,5 +111,54 @@ export default async function ResidentDuesPage() {
         For a detailed statement or to make a payment, contact your community manager.
       </p>
     </div>
+  )
+}
+
+// Friendly names for the assessment_type enum (regular | special |
+// late_fee | fine). Unknown types fall back to a humanized slug.
+const CHARGE_TYPE_LABELS: Record<string, string> = {
+  regular: 'Regular dues',
+  special: 'Special assessment',
+  late_fee: 'Late fee',
+  fine: 'Fine',
+}
+
+function chargeTypeLabel(type: string): string {
+  return CHARGE_TYPE_LABELS[type] ?? type.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
+}
+
+function unitLabel(units: ResidentUnit[], unitId: string): string | null {
+  const unit = units.find((u) => u.unit_id === unitId)
+  if (!unit) return null
+  return unit.unit_number ?? unit.address ?? null
+}
+
+function ChargeRow({ charge, unitLabel }: { charge: ResidentCharge; unitLabel: string | null }) {
+  const daysLate = charge.pastDue ? differenceInCalendarDays(new Date(), new Date(charge.dueDate)) : 0
+  const dueText = charge.pastDue
+    ? daysLate > 0
+      ? `Due ${format(new Date(charge.dueDate), 'PP')} · ${daysLate} ${daysLate === 1 ? 'day' : 'days'} late`
+      : `Due ${format(new Date(charge.dueDate), 'PP')} · due today`
+    : `Due ${format(new Date(charge.dueDate), 'PP')}`
+
+  return (
+    <TappableRow
+      icon={charge.pastDue ? <AlertTriangle className="h-5 w-5" /> : <CreditCard className="h-5 w-5" />}
+      tone={charge.pastDue ? 'rose' : 'amber'}
+      title={chargeTypeLabel(charge.assessmentType)}
+      subtitle={unitLabel ? `${unitLabel} · ${dueText}` : dueText}
+      trailing={
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-[15px] font-semibold text-foreground">
+            {usd.format(charge.amount)}
+          </span>
+          {charge.pastDue ? (
+            <Badge variant="destructive" size="sm">
+              Past due
+            </Badge>
+          ) : null}
+        </div>
+      }
+    />
   )
 }
