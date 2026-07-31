@@ -62,6 +62,12 @@ export const config = {
     //   - api/webhooks, api/inngest, api/health, api/cron (have their own auth)
     //   - api/admin/setup-stripe-pricing (bearer-token-authed, called via curl
     //     so we don't want middleware redirecting to /login)
-    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|api/inngest|api/health|api/cron|api/admin/setup-stripe-pricing).*)',
+    //   - api/oauth (Google's redirect back to /api/oauth/google/callback is a
+    //     cross-site top-level navigation; if the session cookie ever fails to
+    //     ride along, middleware would silently swallow the one-time-use code
+    //     by bouncing to /login instead of letting the route redirect to
+    //     /settings/mailbox with a readable error. The route verifies its own
+    //     signed OAuth `state` — it doesn't need middleware's auth gate.)
+    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|api/inngest|api/health|api/cron|api/admin/setup-stripe-pricing|api/oauth).*)',
   ],
 }
