@@ -4,6 +4,8 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev": "turbo run dev",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
@@ -37,12 +39,13 @@
     "migrate:properties-residents": "tsx scripts/migrate-properties-residents.ts"
   },
   "devDependencies": {
-    "turbo": "latest",
-    "tsx": "^4.19.0",
-    "typescript": "^5",
     "@types/node": "^22",
     "playwright": "^1.46.0",
     "playwright-extra": "^4.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "tsx": "^4.19.0",
+    "turbo": "latest",
+    "typescript": "^5",
+    "vitest": "^2.1.9"
   }
 }
