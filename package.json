@@ -32,6 +32,7 @@
     "test:je-actions": "tsx scripts/test-je-actions.ts",
     "test:comms": "tsx scripts/test-comms.ts",
     "test:property-resolve": "tsx scripts/test-property-resolve.ts",
+    "test:inbox-rls": "tsx scripts/test-inbox-rls.ts",
     "smoke:pdf": "tsx scripts/smoke-pdf.ts",
     "backfill:embeddings": "tsx scripts/backfill-embeddings.ts",
     "eval:w1": "tsx scripts/eval-w1.ts",
