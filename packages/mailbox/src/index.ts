@@ -9,3 +9,4 @@ export {
   refreshAccessToken,
   GMAIL_SCOPES,
 } from './oauth'
+export { GmailClient } from './client'
