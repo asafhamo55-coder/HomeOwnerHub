@@ -38,33 +38,12 @@ import {
 } from '@homeowner-portal/mailbox'
 import { ingestMessages } from '../../../apps/hoa/src/lib/inbox/ingest'
 import { applyMatch, matchThread } from '../../../apps/hoa/src/lib/inbox/match'
+import { logDbError } from './db-error'
 import { inngest } from './client'
 import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
 
 const BACKFILL_MONTHS = 12
 const PAGE_SIZE = 50
-
-/**
- * Structural rather than importing `PostgrestError` from
- * `@supabase/supabase-js` directly — this package depends on it only
- * transitively (through `@homeowner-portal/db`), and `.message`/`.code` is
- * all any caller here needs. Never log `.details`: on a PostgrestError it
- * can carry row values, which may include resident PII.
- */
-type DbError = { message: string; code?: string } | Error
-
-function logDbError(
-  fn: string,
-  table: string,
-  context: Record<string, string | null>,
-  error: DbError,
-): void {
-  console.error(`${fn}: query on "${table}" failed`, {
-    ...context,
-    code: 'code' in error ? error.code : undefined,
-    message: error.message,
-  })
-}
 
 export const mailboxBackfillJob = inngest.createFunction(
   {

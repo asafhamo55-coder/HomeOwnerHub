@@ -17,32 +17,11 @@ import {
   MailboxAuthError,
   refreshAccessToken,
 } from '@homeowner-portal/mailbox'
+import { logDbError } from './db-error'
 
 type Db = ReturnType<typeof createAdminClient>
 
 const REFRESH_MARGIN_MS = 5 * 60 * 1000
-
-/**
- * Structural rather than importing `PostgrestError` from
- * `@supabase/supabase-js` directly — this package depends on it only
- * transitively (through `@homeowner-portal/db`), and `.message`/`.code` is
- * all any caller here needs. Never log `.details`: on a PostgrestError it
- * can carry row values, which may include resident PII.
- */
-type DbError = { message: string; code?: string } | Error
-
-function logDbError(
-  fn: string,
-  table: string,
-  context: Record<string, string | null>,
-  error: DbError,
-): void {
-  console.error(`${fn}: query on "${table}" failed`, {
-    ...context,
-    code: 'code' in error ? error.code : undefined,
-    message: error.message,
-  })
-}
 
 export async function getAccessTokenFor(db: Db, accountId: string): Promise<string> {
   const { data: secret, error } = await db

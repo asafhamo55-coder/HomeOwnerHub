@@ -2,30 +2,9 @@ import { createAdminClient } from '@homeowner-portal/db'
 import { GmailClient, MailboxAuthError, syncMailbox } from '@homeowner-portal/mailbox'
 import { ingestMessages } from '../../../apps/hoa/src/lib/inbox/ingest'
 import { applyMatch, matchThread } from '../../../apps/hoa/src/lib/inbox/match'
+import { logDbError } from './db-error'
 import { inngest } from './client'
 import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
-
-/**
- * Structural rather than importing `PostgrestError` from
- * `@supabase/supabase-js` directly — this package depends on it only
- * transitively (through `@homeowner-portal/db`), and `.message`/`.code` is
- * all any caller here needs. Never log `.details`: on a PostgrestError it
- * can carry row values, which may include resident PII.
- */
-type DbError = { message: string; code?: string } | Error
-
-function logDbError(
-  fn: string,
-  table: string,
-  context: Record<string, string | null>,
-  error: DbError,
-): void {
-  console.error(`${fn}: query on "${table}" failed`, {
-    ...context,
-    code: 'code' in error ? error.code : undefined,
-    message: error.message,
-  })
-}
 
 /**
  * Mailbox sync — every 2 minutes.
@@ -150,11 +129,23 @@ export const mailboxSyncJob = inngest.createFunction(
           const gmailThreadIds = [
             ...new Set(result.messages.map((m) => m.gmailThreadId)),
           ]
-          const { data: threads } = await db
+          const { data: threads, error: threadsError } = await db
             .from('inbox_threads')
             .select('id')
             .eq('mailbox_account_id', account.id)
             .in('gmail_thread_id', gmailThreadIds)
+
+          if (threadsError) {
+            logDbError(
+              'mailboxSyncJob',
+              'inbox_threads',
+              { accountId: account.id },
+              threadsError,
+            )
+            throw new Error(
+              `mailboxSyncJob: failed to load threads for matching for account ${account.id}: ${threadsError.message}`,
+            )
+          }
 
           for (const thread of threads ?? []) {
             await applyMatch(
