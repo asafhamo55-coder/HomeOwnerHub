@@ -12,6 +12,7 @@
  */
 
 import type { ParsedAttachment, ParsedMessage } from './types'
+import { stripQuotedReply } from './quote'
 
 export interface GmailHeader {
   name: string
@@ -184,7 +185,7 @@ export function parseGmailMessage(raw: GmailApiMessage): ParsedMessage {
     subject: header(headers, 'Subject'),
     bodyText: state.bodyText,
     bodyHtml: state.bodyHtml,
-    strippedText: null, // filled by stripQuotedReply — see Task 8
+    strippedText: stripQuotedReply(state.bodyText),
 
     attachments: state.attachments,
     sentAt: sentAtMs !== null ? new Date(sentAtMs).toISOString() : null,

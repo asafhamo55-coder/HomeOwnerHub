@@ -105,6 +105,16 @@ describe('parseGmailMessage', () => {
     expect(m.toEmails).toEqual([])
   })
 
+  it('populates strippedText from bodyText', () => {
+    const m = parseGmailMessage(as(simple))
+    expect(m.strippedText).toBe(m.bodyText)
+  })
+
+  it('leaves strippedText null when there is no text body', () => {
+    const m = parseGmailMessage(as({ id: 'x', threadId: 'y' }))
+    expect(m.strippedText).toBeNull()
+  })
+
   it('splits a quoted comma-containing display name in To from the address after it (2, not 3)', () => {
     const m = parseGmailMessage(as(edgeCases))
     expect(m.toEmails).toHaveLength(2)
