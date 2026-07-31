@@ -5061,8 +5061,23 @@ Split deliberately into a **pure decision function** (table-tested in vitest) an
   decideMatch(signals: MatchSignals): MatchOutcome            // pure
   extractAddressCandidates(text: string | null): string[]     // pure
   matchThread(db, orgId, threadId): Promise<MatchOutcome>     // db
-  applyMatch(db, threadId, outcome): Promise<void>            // db
+  applyMatch(db, orgId, threadId, outcome): Promise<void>     // db
   ```
+
+  **Amended post-review (see `.superpowers/sdd/task-14-report.md`,
+  "Fix pass — org-scoping + signal coverage"):** the original brief below
+  gave `applyMatch` the signature `applyMatch(db, threadId, outcome)`, with
+  no `orgId`. Review found this was the one place in the module that
+  wasn't org-scoped like every other query here, and — because the only
+  caller (`packages/jobs/src/mailbox-sync.ts`) uses a service-role client
+  that bypasses RLS — nothing else would have caught a caller bug pairing
+  a thread id with the wrong org. `applyMatch` now takes `orgId: string`
+  (ordered before `threadId`, matching `matchThread`) and scopes both its
+  SELECT and its UPDATE with `.eq('organization_id', orgId)`. The
+  implementation code block in Step 3 below and the integration script in
+  Step 5 predate this fix and still show the unscoped three-argument form;
+  treat the interface above, and the actual files on disk, as
+  authoritative.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -5643,6 +5658,20 @@ export async function applyMatch(
 }
 ```
 
+**Amended post-review:** the embedded `matchThread` above passes
+`senderEmail` straight to `.ilike('email_address', senderEmail)` for the
+sender-alias lookup (signal 2), unescaped and unnormalized, while
+`resolvePropertyByEmail` (signal 3/4) normalizes with `.trim().toLowerCase()`
+internally. The as-built `apps/hoa/src/lib/inbox/match.ts` closed both
+gaps: every `.ilike()` call is escaped via `escapeLikePattern` (so `_`/`%`
+in an address aren't treated as wildcards), and `senderEmail` is normalized
+once, near the top of `matchThread`, with the normalized value reused for
+every subsequent comparison — so incidental whitespace or case from header
+parsing can no longer make the alias lookup silently miss while the
+resident-email lookup still succeeds. `matchThread` and `applyMatch` also
+capture and throw on every Supabase error (`logDbError`), which the
+embedded code block above omits for brevity.
+
 - [ ] **Step 4: Run the tests**
 
 ```bash
@@ -5861,6 +5890,24 @@ Expected: `ALL PASS` — 5 checks.
 ```bash
 rtk pnpm typecheck && rtk git add apps/hoa/src/lib/inbox/ scripts/test-inbox-match.ts package.json && rtk git commit -m "feat(inbox): deterministic six-signal matcher with auditable reasons"
 ```
+
+**Amended post-review (see `.superpowers/sdd/task-14-report.md`,
+"Fix pass — org-scoping + signal coverage"):** the 5-check integration
+script above only ever exercised sender-alias, resident-email, owner-email,
+address-in-body, and none — three of the six signals (thread continuity,
+ambiguous email across two bridged properties, and sender name) were never
+proven to wire from Postgres into `decideMatch` correctly. `scripts/test-inbox-match.ts`
+now seeds fixtures F (thread continuity), G (ambiguous email — one person,
+two properties, both candidate unit ids asserted), and H (sender name), plus
+fixture I asserting that the sender-alias lookup normalizes a `from_email`
+with surrounding whitespace and mixed case (see the Step 3 amendment note
+above on `senderEmail` normalization). The previously-dead `skip()`
+counter is now wired: fixtures F/G/H each seed inside a `try/catch` and call
+`skip()` if a prerequisite insert fails, rather than aborting the whole run.
+The "Ruling" check was broadened from asserting only outcomes C and D to
+walking every outcome the script produced. Current run: 12 checks (A, B, C,
+D, E, I, F, G, H, Ruling, Z, Za), all PASS, zero skips — see the report for
+full output.
 
 ---
 

@@ -32,6 +32,7 @@ import './_load-env'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../packages/db/src/database.types'
 import { matchThread } from '../apps/hoa/src/lib/inbox/match'
+import type { MatchOutcome } from '../apps/hoa/src/lib/inbox/match'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY
@@ -102,6 +103,8 @@ async function seedThread(
     fromName?: string
     subject?: string
     strippedText?: string
+    inReplyTo?: string
+    direction?: 'inbound' | 'outbound'
   },
 ): Promise<string> {
   const { data: thread, error: threadError } = await db
@@ -127,11 +130,12 @@ async function seedThread(
     mailbox_account_id: accountId,
     gmail_message_id: `${gmailThreadId}-m1`,
     rfc822_message_id: `<${gmailThreadId}@mail>`,
-    direction: 'inbound',
+    direction: message.direction ?? 'inbound',
     from_email: message.fromEmail,
     from_name: message.fromName ?? null,
     subject: message.subject ?? 'test',
     stripped_text: message.strippedText ?? 'body',
+    in_reply_to: message.inReplyTo ?? null,
     sent_at: new Date().toISOString(),
   })
 
@@ -272,13 +276,164 @@ async function main(): Promise<void> {
       `${rE.confidence}/${rE.rule}`,
     )
 
-    // Ruling check: only HIGH confidence may ever auto-attach a unitId.
-    // If a medium/low outcome above carried a non-null unitId, that is a
-    // BLOCKED-severity bug, not a test-assertion tweak.
+    // I: the alias lookup normalizes the sender email before comparing —
+    // a from_email with surrounding whitespace and mixed case must still
+    // match an alias stored lowercase and trimmed ('vendor@example.test',
+    // seeded above in E).
+    const tI = await seedThread(org.id, account.id, `${TAG}-i`, {
+      fromEmail: '  Vendor@Example.TEST  ',
+    })
+    const rI = await matchThread(db, org.id, tI)
     check(
-      'Ruling: no medium/low outcome auto-attached a unit',
-      [rC, rD].every((r) => r.confidence === 'high' || r.unitId === null),
-      `C=${rC.confidence}/${rC.unitId} D=${rD.confidence}/${rD.unitId}`,
+      'I. alias lookup matches despite whitespace/case in from_email',
+      rI.confidence === 'high' && rI.unitId === unit.id && rI.rule === 'sender_alias',
+      `${rI.confidence}/${rI.rule}`,
+    )
+
+    // Every outcome the script produced, for the cross-cutting Ruling
+    // check below. Populated as each fixture succeeds; a skipped fixture
+    // simply contributes nothing rather than aborting the run.
+    const allOutcomes: Array<{ label: string; outcome: MatchOutcome }> = [
+      { label: 'A', outcome: rA },
+      { label: 'B', outcome: rB },
+      { label: 'C', outcome: rC },
+      { label: 'D', outcome: rD },
+      { label: 'E', outcome: rE },
+      { label: 'I', outcome: rI },
+    ]
+
+    // F: thread continuity — a reply to a message stored under a DIFFERENT
+    // thread whose inbox_threads.unit_id is already set. Expect the unit to
+    // be inherited at HIGH confidence.
+    try {
+      const parentGmailThreadId = `${TAG}-f-parent`
+      const tFParent = await seedThread(org.id, account.id, parentGmailThreadId, {
+        fromEmail: 'notice@example.test',
+        direction: 'outbound',
+      })
+      const { error: parentUnitErr } = await db
+        .from('inbox_threads')
+        .update({ unit_id: unit.id })
+        .eq('id', tFParent)
+      if (parentUnitErr) {
+        throw new Error(`could not set parent thread unit_id — ${parentUnitErr.message}`)
+      }
+
+      const tF = await seedThread(org.id, account.id, `${TAG}-f-child`, {
+        fromEmail: 'thread-reply@example.test',
+        inReplyTo: `<${parentGmailThreadId}@mail>`,
+      })
+      const rF = await matchThread(db, org.id, tF)
+      check(
+        'F. thread continuity → high, unit inherited from parent thread',
+        rF.confidence === 'high' && rF.unitId === unit.id && rF.rule === 'thread_continuity',
+        `${rF.confidence}/${rF.rule}`,
+      )
+      allOutcomes.push({ label: 'F', outcome: rF })
+    } catch (err) {
+      skip('F. thread continuity', err instanceof Error ? err.message : String(err))
+    }
+
+    // G: ambiguous email — one person (by email) owning TWO bridged
+    // properties. Expect MEDIUM confidence, unitId null, and both
+    // candidate unit ids recorded.
+    try {
+      const { data: property2, error: property2Error } = await db
+        .from('hoa_properties')
+        .insert({ org_id: org.id, address: '77 Birch Ct' })
+        .select('id')
+        .single()
+      if (property2Error || !property2) {
+        throw new Error(`could not seed second hoa_properties — ${property2Error?.message}`)
+      }
+
+      const { data: unit2, error: unit2Error } = await db
+        .from('units')
+        .insert({
+          organization_id: org.id,
+          address_line1: '77 Birch Ct',
+          legacy_hoa_property_id: property2.id,
+        })
+        .select('id')
+        .single()
+      if (unit2Error || !unit2) {
+        throw new Error(`could not seed second units row — ${unit2Error?.message}`)
+      }
+
+      const multiEmail = 'multi.owner@example.test'
+      const { error: res1Err } = await db.from('property_residents').insert({
+        organization_id: org.id,
+        property_id: property.id,
+        full_name: 'Multi Owner',
+        email: multiEmail,
+        role: 'owner',
+      })
+      if (res1Err) {
+        throw new Error(`could not seed first property_residents row — ${res1Err.message}`)
+      }
+
+      const { error: res2Err } = await db.from('property_residents').insert({
+        organization_id: org.id,
+        property_id: property2.id,
+        full_name: 'Multi Owner',
+        email: multiEmail,
+        role: 'owner',
+      })
+      if (res2Err) {
+        throw new Error(`could not seed second property_residents row — ${res2Err.message}`)
+      }
+
+      const tG = await seedThread(org.id, account.id, `${TAG}-g`, { fromEmail: multiEmail })
+      const rG = await matchThread(db, org.id, tG)
+      const candidateIds = rG.reason.candidate_unit_ids ?? []
+      check(
+        'G. one person, two properties → medium, ambiguous, both candidates listed',
+        rG.confidence === 'medium' &&
+          rG.unitId === null &&
+          rG.rule === 'resident_email_ambiguous' &&
+          candidateIds.length === 2 &&
+          candidateIds.includes(unit.id) &&
+          candidateIds.includes(unit2.id),
+        `${rG.confidence}/${rG.rule} candidates=${candidateIds.join(',')}`,
+      )
+      allOutcomes.push({ label: 'G', outcome: rG })
+    } catch (err) {
+      skip('G. ambiguous email', err instanceof Error ? err.message : String(err))
+    }
+
+    // H: sender name — an unknown email whose from_name exactly matches
+    // one resident on file. Expect LOW confidence, unitId null.
+    try {
+      const tH = await seedThread(org.id, account.id, `${TAG}-h`, {
+        fromEmail: 'stranger-name@example.test',
+        fromName: 'Jenna Rivera',
+      })
+      const rH = await matchThread(db, org.id, tH)
+      check(
+        'H. unknown email, known sender name → low, unit NOT auto-attached',
+        rH.confidence === 'low' && rH.unitId === null && rH.rule === 'sender_name',
+        `${rH.confidence}/${rH.rule}`,
+      )
+      allOutcomes.push({ label: 'H', outcome: rH })
+    } catch (err) {
+      skip('H. sender name', err instanceof Error ? err.message : String(err))
+    }
+
+    // Ruling check: only HIGH confidence may ever auto-attach a unitId.
+    // This is a genuine cross-cutting guard — it walks EVERY outcome the
+    // script produced (not just C and D) and asserts the invariant holds
+    // across all of them. If any medium/low/none outcome carried a
+    // non-null unitId, that is a BLOCKED-severity bug, not a
+    // test-assertion tweak.
+    check(
+      'Ruling: no medium/low/none outcome auto-attached a unit',
+      allOutcomes.every(
+        ({ outcome }) => outcome.confidence === 'high' || outcome.unitId === null,
+      ),
+      allOutcomes
+        .filter(({ outcome }) => outcome.confidence !== 'high')
+        .map(({ label, outcome }) => `${label}=${outcome.confidence}/${outcome.unitId}`)
+        .join(' '),
     )
   } catch (err) {
     console.error('\nUnexpected error during test body:', err instanceof Error ? err.message : err)

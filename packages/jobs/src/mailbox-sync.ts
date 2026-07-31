@@ -119,6 +119,7 @@ export const mailboxSyncJob = inngest.createFunction(
           for (const thread of threads ?? []) {
             await applyMatch(
               db,
+              account.organization_id,
               thread.id,
               await matchThread(db, account.organization_id, thread.id),
             )

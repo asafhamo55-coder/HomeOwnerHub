@@ -305,7 +305,13 @@ export async function matchThread(
     }
   }
 
-  const senderEmail = first.from_email
+  // Normalized once, up front, so every subsequent comparison — the alias
+  // lookup and resolvePropertyByEmail — sees the same value. Without this,
+  // incidental whitespace or mixed case from header parsing would make the
+  // sender-alias lookup (signal 2, HIGH confidence) silently miss while
+  // resolvePropertyByEmail's own internal normalization still succeeds,
+  // making signal precedence depend on incidental formatting.
+  const senderEmail = first.from_email ? first.from_email.trim().toLowerCase() : null
   if (senderEmail) {
     // ── 2. sender alias ───────────────────────────────────────────
     const { data: alias, error: aliasError } = await db
@@ -400,20 +406,29 @@ function buildEmptySignals(): MatchSignals {
  * by hand must not have it silently re-filed when a new message arrives.
  * Also refuses to reopen a closed thread — a re-match on new mail must not
  * pull a thread a manager already closed back into the open queue.
+ *
+ * Scoped to orgId on both the SELECT and the UPDATE — matching every other
+ * query in this module — because the only caller (packages/jobs/mailbox-sync)
+ * uses a service-role client that bypasses RLS entirely. RLS is not a
+ * backstop here: if a caller bug ever paired a thread id with the wrong
+ * organization, an unscoped query would happily write match state onto
+ * another tenant's thread.
  */
 export async function applyMatch(
   db: Db,
+  orgId: string,
   threadId: string,
   outcome: MatchOutcome,
 ): Promise<void> {
   const { data: thread, error: threadError } = await db
     .from('inbox_threads')
     .select('match_source, status')
+    .eq('organization_id', orgId)
     .eq('id', threadId)
     .maybeSingle()
 
   if (threadError) {
-    logDbError('applyMatch', 'inbox_threads', { threadId }, threadError)
+    logDbError('applyMatch', 'inbox_threads', { orgId, threadId }, threadError)
     throw threadError
   }
 
@@ -436,10 +451,11 @@ export async function applyMatch(
       // Never reopen a closed thread just because it was re-matched.
       status: thread?.status === 'closed' ? 'closed' : outcome.status,
     })
+    .eq('organization_id', orgId)
     .eq('id', threadId)
 
   if (updateError) {
-    logDbError('applyMatch', 'inbox_threads', { threadId }, updateError)
+    logDbError('applyMatch', 'inbox_threads', { orgId, threadId }, updateError)
     throw updateError
   }
 }
