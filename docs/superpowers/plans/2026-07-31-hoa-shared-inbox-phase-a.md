@@ -845,10 +845,11 @@ Every table Phase A needs, in one migration. `inbox_reply_exemplars` is delibera
 
 **Files:**
 - Create: `migrations/0029_inbox.sql`
+- Create: `migrations/0030_inbox_message_uniq_scope.sql` — post-hoc correction, see the note after Step 1. Scopes the `gmail_message_id` dedupe key per mailbox (Gmail guarantees message-id uniqueness only within one mailbox, never globally), adds `inbox_messages.mailbox_account_id`, and adds `inbox_thread_links_resource_idx`.
 
 **Interfaces:**
 - Consumes: `public.auth_org_ids()`, `public.auth_is_board_or_admin(uuid)` (existing helpers)
-- Produces: tables `mailbox_accounts`, `mailbox_account_secrets`, `inbox_threads`, `inbox_messages`, `inbox_attachments`, `inbox_sender_aliases`, `inbox_thread_links`
+- Produces: tables `mailbox_accounts`, `mailbox_account_secrets`, `inbox_threads`, `inbox_messages` (including `mailbox_account_id`), `inbox_attachments`, `inbox_sender_aliases`, `inbox_thread_links`
 
 - [ ] **Step 1: Write the migration**
 
@@ -969,7 +970,9 @@ CREATE TABLE IF NOT EXISTS public.inbox_messages (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id   uuid NOT NULL REFERENCES public.orgs(id) ON DELETE CASCADE,
   thread_id         uuid NOT NULL REFERENCES public.inbox_threads(id) ON DELETE CASCADE,
-  gmail_message_id  text NOT NULL,      -- THE dedupe key
+  mailbox_account_id uuid NOT NULL
+    REFERENCES public.mailbox_accounts(id) ON DELETE CASCADE,
+  gmail_message_id  text NOT NULL,      -- THE dedupe key, scoped per mailbox — see below
 
   rfc822_message_id text,
   in_reply_to       text,
@@ -993,8 +996,18 @@ CREATE TABLE IF NOT EXISTS public.inbox_messages (
 
 -- Idempotent ingest depends on this. A full re-sync after a historyId
 -- expiry MUST be a no-op for anything already stored.
+--
+-- Scoped to (mailbox_account_id, gmail_message_id), NOT gmail_message_id
+-- alone: Gmail only guarantees message-id uniqueness within one mailbox,
+-- not across accounts. A global unique index would mean two tenants
+-- whose mailboxes ever produce the same id have the second tenant's
+-- genuinely-new email silently discarded by ON CONFLICT DO NOTHING — no
+-- error, no log line, the email just never appears.
 CREATE UNIQUE INDEX IF NOT EXISTS inbox_messages_gmail_uniq
-  ON public.inbox_messages(gmail_message_id);
+  ON public.inbox_messages(mailbox_account_id, gmail_message_id);
+
+CREATE INDEX IF NOT EXISTS inbox_messages_mailbox_idx
+  ON public.inbox_messages(mailbox_account_id);
 
 CREATE INDEX IF NOT EXISTS inbox_messages_thread_idx
   ON public.inbox_messages(thread_id, sent_at);
@@ -1067,6 +1080,12 @@ CREATE TABLE IF NOT EXISTS public.inbox_thread_links (
 CREATE UNIQUE INDEX IF NOT EXISTS inbox_thread_links_uniq
   ON public.inbox_thread_links(thread_id, resource_type, resource_id);
 
+-- Reverse lookup: "does this ticket/ARC/violation already have a linked
+-- thread". inbox_thread_links_uniq above is keyed thread-first and does
+-- not serve this direction.
+CREATE INDEX IF NOT EXISTS inbox_thread_links_resource_idx
+  ON public.inbox_thread_links(resource_type, resource_id);
+
 -- ─── RLS ─────────────────────────────────────────────────────────────
 ALTER TABLE public.mailbox_accounts        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mailbox_account_secrets ENABLE ROW LEVEL SECURITY;
@@ -1132,6 +1151,20 @@ CREATE POLICY board_access ON public.inbox_thread_links
 -- is intentional and must not be "fixed" by adding an org_access policy.
 ```
 
+**Note (post-hoc correction):** the block above already shows the
+corrected schema — `inbox_messages.mailbox_account_id` and the two-column
+`inbox_messages_gmail_uniq` — not what `migrations/0029_inbox.sql`
+literally contains on disk. `0029_inbox.sql` shipped with a *global*
+unique index on `gmail_message_id` alone, which is wrong: Gmail only
+guarantees message-id uniqueness within one mailbox, never across
+accounts, so a global index means a second tenant's genuinely-new email
+can be silently discarded by the ingest path's `ON CONFLICT DO NOTHING`
+as a false "duplicate" of an unrelated tenant's message — cross-tenant
+data loss with no error and no log line. `0029_inbox.sql` is not edited
+(already applied and reviewed); `migrations/0030_inbox_message_uniq_scope.sql`
+is the additive fix applied after it, and is what actually produces the
+schema shown above.
+
 - [ ] **Step 2: Apply the migration**
 
 Paste into the Supabase SQL editor and run, or apply via the CLI per `docs/APPLY_v1.1_MIGRATIONS.md`.
@@ -1160,6 +1193,22 @@ rtk pnpm --filter @homeowner-portal/db gen:types
 ```bash
 rtk pnpm typecheck && rtk git add migrations/0029_inbox.sql packages/db/src/database.types.ts && rtk git commit -m "feat(db): inbox schema — mailbox accounts, threads, messages, attachments, aliases"
 ```
+
+- [ ] **Step 6: Post-hoc correction — scope the dedupe key per mailbox**
+
+Caught in review after 0029 was applied: `gmail_message_id` is only
+unique **within** a mailbox, never globally, so the index in Step 1 as
+originally written is a cross-tenant data-loss bug (see the note above
+Step 2). Fix with an additive migration rather than editing the applied
+0029:
+
+```bash
+rtk supabase db query --linked < migrations/0030_inbox_message_uniq_scope.sql
+rtk pnpm --filter @homeowner-portal/db gen:types
+rtk proxy pnpm typecheck
+rtk git add migrations/0030_inbox_message_uniq_scope.sql packages/db/src/database.types.ts && rtk git commit -m "fix(db): scope inbox_messages gmail_message_id uniqueness per mailbox"
+```
+Expected: `inbox_messages_gmail_uniq` is now `(mailbox_account_id, gmail_message_id)`; `inbox_messages.mailbox_account_id` exists and is `NOT NULL`; re-running the migration is a no-op.
 
 ---
 
@@ -3678,8 +3727,10 @@ Expected: FAIL — `Failed to resolve import "./sync"`.
  *                        history after ~7 days, so any outage longer than
  *                        that cannot resume incrementally)
  *
- * Paths 2 and 3 rely on the unique index on inbox_messages.gmail_message_id
- * for idempotency: a re-fetch of already-stored mail must be a no-op.
+ * Paths 2 and 3 rely on the unique index on
+ * inbox_messages(mailbox_account_id, gmail_message_id) for idempotency: a
+ * re-fetch of already-stored mail must be a no-op. Scoped per mailbox
+ * because Gmail only guarantees message-id uniqueness within one mailbox.
  */
 
 import { GmailClient } from './client'
@@ -3868,7 +3919,7 @@ rtk pnpm install
  * every one of those paths must be a no-op. Two mechanisms:
  *
  *   - inbox_threads   upsert on (mailbox_account_id, gmail_thread_id)
- *   - inbox_messages  insert ... on conflict (gmail_message_id) do nothing
+ *   - inbox_messages  insert ... on conflict (mailbox_account_id, gmail_message_id) do nothing
  *
  * Matching is deliberately NOT done here. Ingest's job is durable
  * capture; match.ts runs after, so a matcher bug can be fixed and
@@ -3997,6 +4048,7 @@ export async function ingestMessages(
           {
             organization_id: orgId,
             thread_id: threadId,
+            mailbox_account_id: mailboxAccountId,
             gmail_message_id: message.gmailMessageId,
             rfc822_message_id: message.rfc822MessageId,
             in_reply_to: message.inReplyTo,
@@ -4012,7 +4064,7 @@ export async function ingestMessages(
             stripped_text: message.strippedText,
             sent_at: message.sentAt,
           },
-          { onConflict: 'gmail_message_id', ignoreDuplicates: true },
+          { onConflict: 'mailbox_account_id,gmail_message_id', ignoreDuplicates: true },
         )
         .select('id')
 
@@ -4754,6 +4806,7 @@ async function seedThread(
   await db.from('inbox_messages').insert({
     organization_id: orgId,
     thread_id: thread!.id,
+    mailbox_account_id: accountId,
     gmail_message_id: `${gmailThreadId}-m1`,
     rfc822_message_id: `<${gmailThreadId}@mail>`,
     direction: 'inbound',
@@ -5029,8 +5082,8 @@ import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
  *
  * Concurrency is keyed on the mailbox account so two runs can never
  * interleave on one mailbox. The unique index on
- * inbox_messages.gmail_message_id is the second line of defence; this is
- * the first.
+ * inbox_messages(mailbox_account_id, gmail_message_id) is the second
+ * line of defence; this is the first.
  *
  * A per-account failure is caught and recorded rather than thrown,
  * because one HOA with revoked credentials must not stop every other

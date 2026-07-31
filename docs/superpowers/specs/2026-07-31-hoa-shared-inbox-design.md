@@ -164,7 +164,11 @@ last_message_at, last_direction
 
 ### `inbox_messages`
 ```
-id, organization_id, thread_id, gmail_message_id   -- UNIQUE, the dedupe key
+id, organization_id, thread_id, mailbox_account_id, gmail_message_id
+                                        -- UNIQUE per (mailbox_account_id, gmail_message_id),
+                                        -- the dedupe key. Scoped per mailbox, not global —
+                                        -- Gmail guarantees message-id uniqueness only within
+                                        -- one mailbox, never across accounts.
 rfc822_message_id, in_reply_to, references text[]
 direction ('inbound'|'outbound')
 from_email, from_name, to_emails[], cc_emails[]
@@ -202,6 +206,8 @@ Every manual triage assignment writes a row. The next email from that address ma
 ```
 id, organization_id, thread_id, resource_type, resource_id, created_by
 UNIQUE (thread_id, resource_type, resource_id)
+INDEX (resource_type, resource_id)   -- reverse lookup: does this ticket/ARC/violation
+                                      -- already have a linked thread
 ```
 Links a thread to a ticket / ARC request / violation without either owning the other (D5).
 
@@ -353,7 +359,7 @@ Thread list filters: Needs review · Open · Waiting · All, with property attri
 |---|---|---|
 | **Sync stops silently** | `last_synced_at` watchdog > 30 min | `sync_status='stalled'`, inbox banner, included in `dailyDigestJob` |
 | Credentials revoked | `invalid_grant` | `auth_failed`, **stop retrying**, email org admin with reconnect link |
-| `historyId` expired (404) | Gmail 404 | Date-ranged `messages.list` re-sync; unique `gmail_message_id` + upsert makes it a no-op for existing rows |
+| `historyId` expired (404) | Gmail 404 | Date-ranged `messages.list` re-sync; unique `(mailbox_account_id, gmail_message_id)` + upsert makes it a no-op for existing rows |
 | Overlapping syncs | — | Inngest concurrency key per `mailbox_account_id` |
 | Rate limits | 429 | Exponential backoff with jitter via `packages/ai/src/resilience.ts` |
 | Send fails | Gmail error | Never optimistically write the outbound row; draft preserved exactly as typed, with retry |

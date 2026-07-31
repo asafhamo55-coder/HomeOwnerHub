@@ -2605,6 +2605,7 @@ export type Database = {
           id: string
           in_reply_to: string | null
           ingested_at: string
+          mailbox_account_id: string
           organization_id: string
           references_ids: string[] | null
           rfc822_message_id: string | null
@@ -2626,6 +2627,7 @@ export type Database = {
           id?: string
           in_reply_to?: string | null
           ingested_at?: string
+          mailbox_account_id: string
           organization_id: string
           references_ids?: string[] | null
           rfc822_message_id?: string | null
@@ -2647,6 +2649,7 @@ export type Database = {
           id?: string
           in_reply_to?: string | null
           ingested_at?: string
+          mailbox_account_id?: string
           organization_id?: string
           references_ids?: string[] | null
           rfc822_message_id?: string | null
@@ -2662,6 +2665,13 @@ export type Database = {
             columns: ["communication_id"]
             isOneToOne: false
             referencedRelation: "communications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_messages_mailbox_account_id_fkey"
+            columns: ["mailbox_account_id"]
+            isOneToOne: false
+            referencedRelation: "mailbox_accounts"
             referencedColumns: ["id"]
           },
           {
