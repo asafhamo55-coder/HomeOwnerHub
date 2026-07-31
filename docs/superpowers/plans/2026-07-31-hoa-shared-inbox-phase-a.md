@@ -5967,12 +5967,53 @@ type Db = ReturnType<typeof createAdminClient>
 
 const REFRESH_MARGIN_MS = 5 * 60 * 1000
 
+/**
+ * Structural rather than importing `PostgrestError` from
+ * `@supabase/supabase-js` directly — this package depends on it only
+ * transitively (through `@homeowner-portal/db`), and `.message`/`.code` is
+ * all any caller here needs. Never log `.details`: on a PostgrestError it
+ * can carry row values, which may include resident PII.
+ */
+type DbError = { message: string; code?: string } | Error
+
+function logDbError(
+  fn: string,
+  table: string,
+  context: Record<string, string | null>,
+  error: DbError,
+): void {
+  console.error(`${fn}: query on "${table}" failed`, {
+    ...context,
+    code: 'code' in error ? error.code : undefined,
+    message: error.message,
+  })
+}
+
+// A DB read failure and a genuine zero-row result look identical unless
+// `error` is checked. supabase-js's `.maybeSingle()` returns
+// `{ data: null, error: <PostgrestError> }` WITHOUT throwing on a soft
+// failure — an RLS misconfiguration, connection-pool exhaustion, a
+// transient Postgres blip. Below, only a CLEAN read with genuinely zero
+// rows (`error === null && data === null`) may become a MailboxAuthError.
+// A non-null `error` throws a generic, retryable Error instead — because
+// MailboxAuthError sends the caller (mailbox-sync.ts) to markAuthFailed,
+// which sets sync_status='auth_failed', and the account-listing query
+// filters `.neq('sync_status', 'auth_failed')` — so misclassifying a
+// transient blip as an auth failure would permanently drop a working
+// mailbox from every future run until a human notices and reconnects.
 export async function getAccessTokenFor(db: Db, accountId: string): Promise<string> {
-  const { data: secret } = await db
+  const { data: secret, error } = await db
     .from('mailbox_account_secrets')
     .select('refresh_token_enc, access_token_enc, token_expires_at')
     .eq('mailbox_account_id', accountId)
     .maybeSingle()
+
+  if (error) {
+    logDbError('getAccessTokenFor', 'mailbox_account_secrets', { accountId }, error)
+    throw new Error(
+      `getAccessTokenFor: failed to read credentials for mailbox account ${accountId}: ${error.message}`,
+    )
+  }
 
   if (!secret) {
     throw new MailboxAuthError(`No stored credentials for mailbox account ${accountId}.`)
@@ -5987,7 +6028,7 @@ export async function getAccessTokenFor(db: Db, accountId: string): Promise<stri
 
   const tokens = await refreshAccessToken(decryptToken(secret.refresh_token_enc))
 
-  await db
+  const { error: updateError } = await db
     .from('mailbox_account_secrets')
     .update({
       access_token_enc: encryptToken(tokens.accessToken),
@@ -6001,6 +6042,17 @@ export async function getAccessTokenFor(db: Db, accountId: string): Promise<stri
     })
     .eq('mailbox_account_id', accountId)
 
+  if (updateError) {
+    // The refreshed token is good and would otherwise be handed back to
+    // the caller below, but if the persist fails, the next run reads the
+    // stale pre-refresh row and just refreshes again — wasted work, not
+    // silent data loss, but it must be visible and retried, not swallowed.
+    logDbError('getAccessTokenFor', 'mailbox_account_secrets', { accountId }, updateError)
+    throw new Error(
+      `getAccessTokenFor: failed to persist refreshed token for mailbox account ${accountId}: ${updateError.message}`,
+    )
+  }
+
   return tokens.accessToken
 }
 
@@ -6008,16 +6060,29 @@ export async function getAccessTokenFor(db: Db, accountId: string): Promise<stri
  * Credentials are dead. Stop retrying — hammering Google's token endpoint
  * with a revoked grant is how an OAuth client gets flagged — and make the
  * failure visible so someone reconnects.
+ *
+ * Judgement call: this runs on an error path — the caller already caught
+ * a MailboxAuthError and is about to log it. If THIS write also fails,
+ * throwing would replace that original, more informative auth failure
+ * with a less useful "couldn't record the failure" error, so this logs
+ * loudly instead of throwing. A failed write here just means
+ * sync_status never actually flips to 'auth_failed', so the account stays
+ * in the sync rotation and fails the same way again next run — the safer
+ * of the two failure modes, and self-correcting once the write succeeds.
  */
 export async function markAuthFailed(
   db: Db,
   accountId: string,
   message: string,
 ): Promise<void> {
-  await db
+  const { error } = await db
     .from('mailbox_accounts')
     .update({ sync_status: 'auth_failed', sync_error: message })
     .eq('id', accountId)
+
+  if (error) {
+    logDbError('markAuthFailed', 'mailbox_accounts', { accountId }, error)
+  }
 }
 ```
 
@@ -6031,13 +6096,37 @@ import { applyMatch, matchThread } from '../../../apps/hoa/src/lib/inbox/match'
 import { inngest } from './client'
 import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
 
+type DbError = { message: string; code?: string } | Error
+
+function logDbError(
+  fn: string,
+  table: string,
+  context: Record<string, string | null>,
+  error: DbError,
+): void {
+  console.error(`${fn}: query on "${table}" failed`, {
+    ...context,
+    code: 'code' in error ? error.code : undefined,
+    message: error.message,
+  })
+}
+
 /**
  * Mailbox sync — every 2 minutes.
  *
- * Concurrency is keyed on the mailbox account so two runs can never
- * interleave on one mailbox. The unique index on
- * inbox_messages(mailbox_account_id, gmail_message_id) is the second
- * line of defence; this is the first.
+ * This is a plain global lock (`limit: 1`, no key), not a per-account one.
+ * The job is cron-triggered — Inngest's internal cron event carries no
+ * `accountId` — so a key expression like `event.data.accountId` evaluates
+ * to the same empty value on every run and produces exactly the same
+ * global lock as writing no key at all, just with a misleading comment
+ * claiming per-account isolation. Being honest about that: this prevents
+ * overlapping invocations of the whole job, nothing more. The unique
+ * indexes on inbox_threads and inbox_messages are what actually guard
+ * against duplicate writes at the row level. Genuine per-account isolation
+ * (so one slow mailbox can't back up every other tenant's sync window)
+ * would require fanning out one event per account instead of looping over
+ * all of them in a single cron invocation — a deliberate follow-up, not
+ * something a concurrency key alone can achieve.
  *
  * A per-account failure is caught and recorded rather than thrown,
  * because one HOA with revoked credentials must not stop every other
@@ -6047,17 +6136,25 @@ export const mailboxSyncJob = inngest.createFunction(
   {
     id: 'mailbox-sync',
     name: 'Mailbox Sync',
-    concurrency: [{ key: 'event.data.accountId', limit: 1 }],
+    concurrency: [{ limit: 1 }],
   },
   { cron: '*/2 * * * *' },
   async ({ logger }) => {
     const db = createAdminClient()
 
-    const { data: accounts } = await db
+    const { data: accounts, error: accountsError } = await db
       .from('mailbox_accounts')
       .select('id, organization_id, email_address, scope_mode, scope_value, sync_cursor')
       .is('disconnected_at', null)
       .neq('sync_status', 'auth_failed')
+
+    if (accountsError) {
+      // Do NOT fall into the "no connected mailboxes" branch on a failed
+      // query — that log line would lie about why nothing synced. Throw
+      // so the run fails visibly instead.
+      logDbError('mailboxSyncJob', 'mailbox_accounts', {}, accountsError)
+      throw new Error(`mailboxSyncJob: failed to load mailbox accounts: ${accountsError.message}`)
+    }
 
     if (!accounts || accounts.length === 0) {
       logger.info('[mailbox-sync] no connected mailboxes')
@@ -6093,19 +6190,31 @@ export const mailboxSyncJob = inngest.createFunction(
           )
         }
 
-        // A capped fallback run had to advance the cursor, so anything past
-        // the cap is not coming back on the next sync. Backfill paginates
-        // properly with page tokens and is idempotent, so it recovers the
-        // remainder. Without this, a mailbox that took >200 messages in a
-        // 7-day outage would silently lose the oldest of them.
-        if (result.usedFallback && result.truncated) {
+        // Backfill is requested on ANY truncated run, not only a truncated
+        // fallback run — see sync.ts for why a capped HISTORY run can also
+        // need it (out-of-scope events can hold the cursor still forever
+        // on their own). Backfill paginates properly with page tokens and
+        // is idempotent against inbox_messages' unique index, so
+        // requesting it unconditionally on any truncated run is what
+        // guarantees forward progress either way.
+        if (result.truncated) {
           logger.warn(
-            `[mailbox-sync] ${account.email_address}: capped fallback — requesting backfill`,
+            `[mailbox-sync] ${account.email_address}: truncated run` +
+              `${result.usedFallback ? ' (fallback)' : ' (history)'} — requesting backfill`,
           )
           await inngest.send({
             name: 'mailbox/backfill.requested',
             data: { accountId: account.id },
           })
+        }
+
+        if (result.fetchFailures > 0) {
+          // Opaque Gmail message ids only — never an address, subject, or
+          // body.
+          logger.warn(
+            `[mailbox-sync] ${account.email_address}: ${result.fetchFailures} ` +
+              `message(s) could not be fetched or parsed and were skipped`,
+          )
         }
 
         const ingested = await ingestMessages(
@@ -6129,21 +6238,43 @@ export const mailboxSyncJob = inngest.createFunction(
           for (const thread of threads ?? []) {
             await applyMatch(
               db,
+              account.organization_id,
               thread.id,
               await matchThread(db, account.organization_id, thread.id),
             )
           }
         }
 
-        await db
+        // A non-zero fetchFailures means specific messages are missing
+        // from an otherwise-successful run. Surface that on the account
+        // record rather than letting sync_status='ok' + sync_error=null
+        // claim a clean run that wasn't quite complete.
+        const syncError =
+          result.fetchFailures > 0
+            ? `${result.fetchFailures} message(s) could not be fetched or parsed on the last sync and were skipped.`
+            : null
+
+        const { error: statusError } = await db
           .from('mailbox_accounts')
           .update({
             sync_cursor: result.nextCursor,
             last_synced_at: new Date().toISOString(),
             sync_status: 'ok',
-            sync_error: null,
+            sync_error: syncError,
           })
           .eq('id', account.id)
+
+        if (statusError) {
+          // A silently-failed status write is worse than no write: the
+          // success log and synced++ below would fire while the database
+          // record disagrees. Throw so this account falls into the catch
+          // block below like any other failure — cursor unadvanced,
+          // `synced` not incremented, retried next run.
+          logDbError('mailboxSyncJob', 'mailbox_accounts', { accountId: account.id }, statusError)
+          throw new Error(
+            `mailboxSyncJob: failed to persist sync status for ${account.email_address}: ${statusError.message}`,
+          )
+        }
 
         if (ingested.attachmentsQueued > 0) {
           await inngest.send({
@@ -6164,10 +6295,21 @@ export const mailboxSyncJob = inngest.createFunction(
           await markAuthFailed(db, account.id, message)
           logger.error(`[mailbox-sync] ${account.email_address}: AUTH FAILED — ${message}`)
         } else {
-          await db
+          const { error: recordError } = await db
             .from('mailbox_accounts')
             .update({ sync_error: message })
             .eq('id', account.id)
+
+          // Judgement call: already inside the catch block for the
+          // ORIGINAL failure. If this write also fails, throwing would
+          // propagate out of the per-account try/catch — there is no
+          // outer catch around the loop — and abort every remaining
+          // account's sync for a strictly less informative error. So this
+          // logs loudly instead of throwing; the original error is still
+          // logged below unconditionally.
+          if (recordError) {
+            logDbError('mailboxSyncJob', 'mailbox_accounts', { accountId: account.id }, recordError)
+          }
           logger.error(`[mailbox-sync] ${account.email_address}: ${message}`)
         }
         // Continue to the next account — one bad mailbox must not stop
@@ -6194,21 +6336,41 @@ export const mailboxWatchdogJob = inngest.createFunction(
     const db = createAdminClient()
     const threshold = new Date(Date.now() - 30 * 60 * 1000).toISOString()
 
-    const { data: stalled } = await db
+    const { data: stalled, error: stalledError } = await db
       .from('mailbox_accounts')
       .select('id, email_address, last_synced_at')
       .is('disconnected_at', null)
       .eq('sync_status', 'ok')
       .or(`last_synced_at.is.null,last_synced_at.lt.${threshold}`)
 
+    if (stalledError) {
+      // A watchdog whose own read fails soft — `stalled` ends up null, the
+      // loop below never runs, the function returns a clean
+      // `{ stalled: 0 }` — is the worst version of the exact bug this job
+      // exists to catch: Inngest's own failure tracking would see a
+      // successful run. Throw so this is a visible, failing execution.
+      logDbError('mailboxWatchdogJob', 'mailbox_accounts', {}, stalledError)
+      throw new Error(`mailboxWatchdogJob: failed to load sync status: ${stalledError.message}`)
+    }
+
     for (const account of stalled ?? []) {
-      await db
+      const { error: flagError } = await db
         .from('mailbox_accounts')
         .update({
           sync_status: 'stalled',
           sync_error: `No successful sync since ${account.last_synced_at ?? 'connection'}.`,
         })
         .eq('id', account.id)
+
+      if (flagError) {
+        // No enclosing per-account handler here to demote this to "record
+        // and continue" — throw, same as the read above: a stall that
+        // fails to get flagged must still fail the run visibly.
+        logDbError('mailboxWatchdogJob', 'mailbox_accounts', { accountId: account.id }, flagError)
+        throw new Error(
+          `mailboxWatchdogJob: failed to flag ${account.email_address} as stalled: ${flagError.message}`,
+        )
+      }
 
       logger.error(`[mailbox-watchdog] STALLED: ${account.email_address}`)
     }
@@ -6247,12 +6409,26 @@ and to the `functions` array:
 In `packages/jobs/src/daily-digest.ts`, inside the per-org section that assembles digest content, add:
 
 ```ts
-    const { data: brokenMailboxes } = await db
+    const { data: brokenMailboxes, error: brokenMailboxesError } = await db
       .from('mailbox_accounts')
       .select('email_address, sync_status, sync_error')
       .eq('organization_id', org.id)
       .is('disconnected_at', null)
       .in('sync_status', ['stalled', 'auth_failed'])
+
+    if (brokenMailboxesError) {
+      // Judgement call: this check is best-effort visibility running
+      // alongside digest generation, not a gate on it (see the module doc
+      // comment — it runs "regardless of whether digest generation itself
+      // succeeds"). A failed query must not read as "nothing is broken",
+      // so it's logged loudly (message/code only — PostgrestError.details
+      // can carry row values), but it does not throw and does not abort
+      // this org's digest.
+      logger.error(`[daily-digest] ${org.id}: failed to check mailbox sync status`, {
+        code: brokenMailboxesError.code,
+        message: brokenMailboxesError.message,
+      })
+    }
 
     for (const mailbox of brokenMailboxes ?? []) {
       logger.error(

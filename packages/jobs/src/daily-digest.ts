@@ -39,12 +39,27 @@ export const dailyDigestJob = inngest.createFunction(
       // email is flowing while it isn't loses trust in the product
       // permanently, so this is checked every digest run regardless of
       // whether digest generation itself succeeds.
-      const { data: brokenMailboxes } = await db
+      const { data: brokenMailboxes, error: brokenMailboxesError } = await db
         .from('mailbox_accounts')
         .select('email_address, sync_status, sync_error')
         .eq('organization_id', orgId)
         .is('disconnected_at', null)
         .in('sync_status', ['stalled', 'auth_failed'])
+
+      if (brokenMailboxesError) {
+        // A failed check here must not read as "nothing is broken" — log
+        // it (message/code only; PostgrestError.details can carry row
+        // values) and keep going. This check is best-effort visibility
+        // alongside digest generation, not a gate on it, so a query
+        // failure does not abort the org's digest below.
+        logger.error(
+          `[daily-digest] ${orgId}: failed to check mailbox sync status`,
+          {
+            code: brokenMailboxesError.code,
+            message: brokenMailboxesError.message,
+          },
+        )
+      }
 
       for (const mailbox of brokenMailboxes ?? []) {
         logger.error(
