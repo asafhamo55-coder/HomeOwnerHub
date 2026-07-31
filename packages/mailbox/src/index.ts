@@ -11,3 +11,5 @@ export {
 } from './oauth'
 export { GmailClient } from './client'
 export { isInScope, buildScopeQuery, recommendScope } from './scope'
+export { syncMailbox } from './sync'
+export type { SyncOptions } from './sync'
