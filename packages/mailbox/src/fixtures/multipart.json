@@ -1,0 +1,30 @@
+{
+  "id": "28f0a1b2c3d4e5f6",
+  "threadId": "28f0a1b2c3d4e5f0",
+  "labelIds": ["INBOX"],
+  "internalDate": "1785500100000",
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      { "name": "Message-ID", "value": "<def456@mail.gmail.com>" },
+      { "name": "From", "value": "\"Chen, Mei\" <mchen.home@yahoo.com>" },
+      { "name": "To", "value": "board@madisonparkhoa.org, manager@madisonparkhoa.org" },
+      { "name": "Cc", "value": "Dana Okafor <d.okafor@gmail.com>" },
+      { "name": "Subject", "value": "Fence stain color approval" },
+      { "name": "In-Reply-To", "value": "<parent-1@mail.gmail.com>" },
+      { "name": "References", "value": "<root@mail.gmail.com> <parent-1@mail.gmail.com>" }
+    ],
+    "parts": [
+      {
+        "mimeType": "text/plain",
+        "headers": [],
+        "body": { "size": 20, "data": "UGxhaW4gdGV4dCB2ZXJzaW9u" }
+      },
+      {
+        "mimeType": "text/html",
+        "headers": [],
+        "body": { "size": 33, "data": "PHA-SFRNTCB2ZXJzaW9uPC9wPg" }
+      }
+    ]
+  }
+}

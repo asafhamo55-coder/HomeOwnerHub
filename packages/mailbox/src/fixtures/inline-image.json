@@ -1,0 +1,31 @@
+{
+  "id": "48f0a1b2c3d4e5f6",
+  "threadId": "48f0a1b2c3d4e5f0",
+  "labelIds": ["INBOX"],
+  "internalDate": "1785500300000",
+  "payload": {
+    "mimeType": "multipart/related",
+    "headers": [
+      { "name": "Message-ID", "value": "<jkl012@mail.gmail.com>" },
+      { "name": "From", "value": "office@titleco.com" },
+      { "name": "To", "value": "board@madisonparkhoa.org" },
+      { "name": "Subject", "value": "Closing packet" }
+    ],
+    "parts": [
+      {
+        "mimeType": "text/plain",
+        "headers": [],
+        "body": { "size": 12, "data": "U2VlIGF0dGFjaGVk" }
+      },
+      {
+        "mimeType": "image/gif",
+        "filename": "logo.gif",
+        "headers": [
+          { "name": "Content-Disposition", "value": "inline; filename=\"logo.gif\"" },
+          { "name": "Content-ID", "value": "<logo@titleco>" }
+        ],
+        "body": { "size": 4096, "attachmentId": "ANGjdJ_attach_logo" }
+      }
+    ]
+  }
+}
