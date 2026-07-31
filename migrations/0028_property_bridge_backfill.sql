@@ -19,6 +19,17 @@
 -- Idempotent. Safe to re-run.
 
 -- ─── normalize_address ───────────────────────────────────────────────
+-- WARNING: This function is IMMUTABLE and is used in functional indexes
+-- (units_norm_address_idx, hoa_properties_norm_address_idx). PostgreSQL
+-- does NOT recompute existing index entries when the function is redefined
+-- via CREATE OR REPLACE. Any change here silently corrupts the indexes —
+-- they will return rows computed under the old definition while the function
+-- returns new values. To prevent silent mismatches, any migration that
+-- modifies this function MUST include these two statements in the SAME
+-- migration (idempotent; safe to re-run):
+--   REINDEX INDEX CONCURRENTLY units_norm_address_idx;
+--   REINDEX INDEX CONCURRENTLY hoa_properties_norm_address_idx;
+-- Omitting these will cause addresses to stop matching at runtime.
 CREATE OR REPLACE FUNCTION public.normalize_address(raw text)
 RETURNS text
 LANGUAGE plpgsql
@@ -33,6 +44,10 @@ BEGIN
   IF raw IS NULL THEN RETURN ''; END IF;
 
   -- 1. lowercase  2. non-alphanumeric → space  3. collapse  4. trim
+  -- Note: POSIX [:space:] matches ASCII space/tab/newline only, not Unicode
+  -- spaces (e.g., non-breaking space). The TypeScript twin uses \s, which
+  -- includes Unicode. For real street addresses this divergence is negligible,
+  -- but it exists; see apps/hoa/src/lib/properties/normalize-address.ts.
   cleaned := btrim(regexp_replace(
                regexp_replace(lower(raw), '[^a-z0-9[:space:]]', ' ', 'g'),
                '\s+', ' ', 'g'));
@@ -86,6 +101,11 @@ UPDATE public.units u
    AND public.normalize_address(u.address_line1) = public.normalize_address(hp.address)
    AND public.normalize_address(u.address_line1) <> ''
    AND u.legacy_hoa_property_id IS DISTINCT FROM hp.id
+   -- Uniqueness check: only one hoa_property must normalize to this unit's
+   -- address within the same org. This is intentional — multiple units CAN
+   -- share a single hoa_property row (e.g., unit 101 and 102 both at one
+   -- address). We just prevent confusion by not guessing which hoa_property
+   -- a unit belongs to if there are multiple candidates on the property side.
    AND (
      SELECT count(*) FROM public.hoa_properties hp2
       WHERE hp2.org_id = u.organization_id
