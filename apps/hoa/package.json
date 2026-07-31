@@ -15,6 +15,7 @@
     "@homeowner-portal/billing": "workspace:*",
     "@homeowner-portal/db": "workspace:*",
     "@homeowner-portal/jobs": "workspace:*",
+    "@homeowner-portal/mailbox": "workspace:*",
     "@homeowner-portal/ui": "workspace:*",
     "@homeowner-portal/workflows": "workspace:*",
     "@hookform/resolvers": "^3.9.0",

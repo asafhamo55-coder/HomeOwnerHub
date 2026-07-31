@@ -126,6 +126,9 @@ importers:
       '@homeowner-portal/jobs':
         specifier: workspace:*
         version: link:../../packages/jobs
+      '@homeowner-portal/mailbox':
+        specifier: workspace:*
+        version: link:../../packages/mailbox
       '@homeowner-portal/ui':
         specifier: workspace:*
         version: link:../../packages/ui
