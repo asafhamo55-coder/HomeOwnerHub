@@ -58,4 +58,58 @@ describe('token crypto', () => {
     process.env.MAILBOX_TOKEN_KEY = Buffer.alloc(16, 9).toString('base64')
     expect(() => encryptToken('x')).toThrow(/32 bytes/)
   })
+
+  describe('currentKeyVersion validation', () => {
+    beforeEach(() => {
+      process.env.MAILBOX_TOKEN_KEY = KEY_A
+      process.env.MAILBOX_TOKEN_KEY_VERSION = '1'
+      delete process.env.MAILBOX_TOKEN_KEY_V1
+      delete process.env.MAILBOX_TOKEN_KEY_V2
+    })
+
+    it('returns 1 when MAILBOX_TOKEN_KEY_VERSION is unset', () => {
+      delete process.env.MAILBOX_TOKEN_KEY_VERSION
+      expect(currentKeyVersion()).toBe(1)
+    })
+
+    it('returns 1 when MAILBOX_TOKEN_KEY_VERSION is empty string', () => {
+      process.env.MAILBOX_TOKEN_KEY_VERSION = ''
+      expect(currentKeyVersion()).toBe(1)
+    })
+
+    it('returns the parsed version for a valid numeric string', () => {
+      process.env.MAILBOX_TOKEN_KEY_VERSION = '2'
+      expect(currentKeyVersion()).toBe(2)
+    })
+
+    it('trims whitespace and returns parsed version', () => {
+      process.env.MAILBOX_TOKEN_KEY_VERSION = '  3  '
+      expect(currentKeyVersion()).toBe(3)
+    })
+
+    it('throws a clear error when version has "v" prefix like "v2"', () => {
+      process.env.MAILBOX_TOKEN_KEY_VERSION = 'v2'
+      expect(() => currentKeyVersion()).toThrow(/MAILBOX_TOKEN_KEY_VERSION.*must be.*positive integer/)
+    })
+
+    it('throws a clear error when version is 0', () => {
+      process.env.MAILBOX_TOKEN_KEY_VERSION = '0'
+      expect(() => currentKeyVersion()).toThrow()
+    })
+
+    it('throws a clear error when version is negative', () => {
+      process.env.MAILBOX_TOKEN_KEY_VERSION = '-1'
+      expect(() => currentKeyVersion()).toThrow()
+    })
+
+    it('throws a clear error for non-numeric string like "abc"', () => {
+      process.env.MAILBOX_TOKEN_KEY_VERSION = 'abc'
+      expect(() => currentKeyVersion()).toThrow(/MAILBOX_TOKEN_KEY_VERSION.*must be.*positive integer/)
+    })
+
+    it('throws a clear error for decimal version like "2.5"', () => {
+      process.env.MAILBOX_TOKEN_KEY_VERSION = '2.5'
+      expect(() => currentKeyVersion()).toThrow(/MAILBOX_TOKEN_KEY_VERSION.*must be.*positive integer/)
+    })
+  })
 })

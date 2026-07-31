@@ -46,8 +46,34 @@ function readKey(version: number): Buffer {
 }
 
 export function currentKeyVersion(): number {
-  const parsed = Number.parseInt(process.env.MAILBOX_TOKEN_KEY_VERSION ?? '1', 10)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
+  const raw = process.env.MAILBOX_TOKEN_KEY_VERSION
+
+  // If unset or empty, use default version 1 (the un-rotated state)
+  if (!raw || raw === '') {
+    return 1
+  }
+
+  // Trim whitespace to avoid operator mistakes like " 2 "
+  const trimmed = raw.trim()
+
+  // Must be a numeric string (all digits, no prefix like "v2")
+  if (!/^\d+$/.test(trimmed)) {
+    throw new Error(
+      `MAILBOX_TOKEN_KEY_VERSION must be a positive integer; got "${raw}". ` +
+      `Versions are numeric like "1" or "2", not "v1" or "v2".`,
+    )
+  }
+
+  const parsed = Number.parseInt(trimmed, 10)
+
+  // Must be positive (reject "0" or leading zeros that parse to 0)
+  if (parsed <= 0) {
+    throw new Error(
+      `MAILBOX_TOKEN_KEY_VERSION must be a positive integer; got "${raw}".`,
+    )
+  }
+
+  return parsed
 }
 
 export function encryptToken(plain: string): string {
