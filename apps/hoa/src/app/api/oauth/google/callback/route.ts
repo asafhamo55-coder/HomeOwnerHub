@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { inngest } from '@homeowner-portal/jobs'
-import { completeConnect } from '@/lib/inbox/connect'
+import { completeConnect, sanitizeReturnTo } from '@/lib/inbox/connect'
 
 /**
  * Google redirects here after consent.
@@ -40,8 +40,14 @@ export async function GET(request: Request): Promise<Response> {
       data: { accountId },
     })
 
+    // `completeConnect` already sanitizes `returnTo` before returning it,
+    // but this route interpolates it straight into a redirect URL, and a
+    // `state` blob may have been minted and signed by an older build
+    // that trusted an unvalidated `returnTo`. Re-validating at the point
+    // of use costs nothing and removes the dependency on every caller of
+    // `completeConnect` remembering to do it upstream.
     return NextResponse.redirect(
-      new URL(`${returnTo}?connected=1&account=${accountId}`, request.url),
+      new URL(`${sanitizeReturnTo(returnTo)}?connected=1&account=${accountId}`, request.url),
     )
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Connection failed.'

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { startConnect } from '@/lib/inbox/connect'
+import { sanitizeReturnTo, startConnect } from '@/lib/inbox/connect'
 
 export async function GET(request: Request): Promise<Response> {
   const org = await getCurrentOrg()
@@ -13,8 +13,11 @@ export async function GET(request: Request): Promise<Response> {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.redirect(new URL('/login', request.url))
 
-  const returnTo =
-    new URL(request.url).searchParams.get('returnTo') ?? '/settings/mailbox'
+  // `returnTo` is attacker-controllable query input (a board member can
+  // be sent a crafted link and will complete a genuine Google consent
+  // screen). Validate it here, before it is ever signed into `state` —
+  // signing does not "launder" a hostile value, it just certifies one.
+  const returnTo = sanitizeReturnTo(new URL(request.url).searchParams.get('returnTo'))
 
   try {
     return NextResponse.redirect(startConnect(org.id, user.id, returnTo))

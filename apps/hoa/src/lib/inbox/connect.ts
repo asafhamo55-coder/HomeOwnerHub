@@ -37,6 +37,9 @@ import {
 
 const STATE_TTL_MS = 10 * 60 * 1000
 
+/** Default landing page when `returnTo` is missing or fails validation. */
+export const DEFAULT_RETURN_TO = '/settings/mailbox'
+
 interface StatePayload {
   orgId: string
   userId: string
@@ -50,24 +53,69 @@ function stateSecret(): string {
   return secret
 }
 
-function signState(payload: StatePayload): string {
+/**
+ * Reduce an untrusted `returnTo` candidate to a same-origin path, or fall
+ * back to `DEFAULT_RETURN_TO`.
+ *
+ * `new URL(candidate, base)` ignores `base` whenever `candidate` is
+ * already an absolute URL — including protocol-relative forms like
+ * `//evil.com`, which browsers resolve using the *current* protocol. A
+ * value that starts with a single `/` and nothing else suspicious is
+ * the only shape trusted to stay on this origin, so anything else is
+ * rejected outright rather than "cleaned up" into something that looks
+ * safe but might not be (e.g. stripping a leading slash from `//evil.com`
+ * still leaves an attacker-controlled host once a browser re-adds it).
+ *
+ * Exported so it can be unit-tested directly and reused by any other
+ * redirect-accepting entry point.
+ */
+export function sanitizeReturnTo(candidate: string | null | undefined): string {
+  if (!candidate) return DEFAULT_RETURN_TO
+  if (!candidate.startsWith('/')) return DEFAULT_RETURN_TO
+  if (candidate.startsWith('//')) return DEFAULT_RETURN_TO
+  if (candidate.startsWith('/\\')) return DEFAULT_RETURN_TO
+  if (candidate.includes('://')) return DEFAULT_RETURN_TO
+  return candidate
+}
+
+/**
+ * Exported beyond this module's natural contract solely so the test file
+ * beside it can exercise the signing/verification logic directly — this
+ * is security-critical (it gates standing access to an entire HOA
+ * mailbox) and deserves direct coverage rather than only the indirect
+ * coverage `startConnect`/`completeConnect` would give it.
+ */
+export function signState(payload: StatePayload): string {
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url')
   const mac = createHmac('sha256', stateSecret()).update(body).digest('base64url')
   return `${body}.${mac}`
 }
 
-function verifyState(state: string): StatePayload {
-  const [body, mac] = state.split('.')
+export function verifyState(state: string): StatePayload {
+  const parts = state.split('.')
+  if (parts.length !== 2) throw new Error('Malformed OAuth state.')
+  const [body, mac] = parts
   if (!body || !mac) throw new Error('Malformed OAuth state.')
 
-  const expected = createHmac('sha256', stateSecret()).update(body).digest('base64url')
+  let expected: string
+  try {
+    expected = createHmac('sha256', stateSecret()).update(body).digest('base64url')
+  } catch {
+    throw new Error('Malformed OAuth state.')
+  }
+
   const a = Buffer.from(mac)
   const b = Buffer.from(expected)
   if (a.length !== b.length || !timingSafeEqual(a, b)) {
     throw new Error('OAuth state signature mismatch.')
   }
 
-  const payload = JSON.parse(Buffer.from(body, 'base64url').toString()) as StatePayload
+  let payload: StatePayload
+  try {
+    payload = JSON.parse(Buffer.from(body, 'base64url').toString()) as StatePayload
+  } catch {
+    throw new Error('Malformed OAuth state.')
+  }
   if (Date.now() - payload.issuedAt > STATE_TTL_MS) {
     throw new Error('OAuth state expired — please start the connection again.')
   }
@@ -95,8 +143,16 @@ function logDbError(
 }
 
 export function startConnect(orgId: string, userId: string, returnTo: string): string {
+  // Defense in depth: sanitize here too, even though the route already
+  // validates its query param — this keeps the guarantee attached to the
+  // function itself rather than relying on every caller to remember it.
   return buildConsentUrl({
-    state: signState({ orgId, userId, returnTo, issuedAt: Date.now() }),
+    state: signState({
+      orgId,
+      userId,
+      returnTo: sanitizeReturnTo(returnTo),
+      issuedAt: Date.now(),
+    }),
   })
 }
 
@@ -104,7 +160,12 @@ export async function completeConnect(
   code: string,
   state: string,
 ): Promise<{ accountId: string; orgId: string; returnTo: string }> {
-  const { orgId, userId, returnTo } = verifyState(state)
+  const { orgId, userId, returnTo: rawReturnTo } = verifyState(state)
+  // Defense in depth: `state` may have been minted by an older build that
+  // signed an unvalidated `returnTo`, or the signing key may have leaked.
+  // Re-validate here rather than trusting the signature alone to have
+  // carried a safe value.
+  const returnTo = sanitizeReturnTo(rawReturnTo)
 
   const tokens = await exchangeCode(code)
   if (!tokens.refreshToken) {
@@ -119,7 +180,17 @@ export async function completeConnect(
 
   const client = new GmailClient(tokens.accessToken)
   const profile = await client.getProfile()
-  const sendAs = await client.listSendAs().catch(() => [])
+  const sendAs = await client.listSendAs().catch((error: unknown) => {
+    // A real outage here silently degrades the scope recommendation to
+    // "no aliases" rather than failing the whole connect — that's the
+    // right tradeoff (a fresh mailbox connection shouldn't hard-fail
+    // over a secondary Gmail API call), but it should leave a trace
+    // instead of vanishing entirely.
+    console.error('completeConnect: listSendAs failed, continuing with no aliases', {
+      message: error instanceof Error ? error.message : String(error),
+    })
+    return []
+  })
   const recommended = recommendScope(sendAs, profile.emailAddress)
 
   const db = createAdminClient()
@@ -146,6 +217,14 @@ export async function completeConnect(
 
   if (existing) {
     accountId = existing.id
+    // Deliberately NOT updating scope_mode/scope_value/display_name here.
+    // `recommended` reflects this run's Gmail state, but a tenant may
+    // have hand-narrowed scope_value after the initial connect (e.g. to
+    // a single label) specifically to limit what the mailbox ingests —
+    // silently overwriting that on every reconnect would be a privacy
+    // regression disguised as a bug fix. If Google's recommendation
+    // should ever win on reconnect, that needs an explicit signal (e.g.
+    // "reset to recommended" in the UI), not an implicit one here.
     const { error: updateError } = await db
       .from('mailbox_accounts')
       .update({ sync_status: 'ok', sync_error: null, connected_by: userId })

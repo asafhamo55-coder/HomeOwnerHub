@@ -7198,6 +7198,44 @@ Read `apps/hoa/src/middleware.ts` and check its `matcher`. The callback must be 
 rtk pnpm typecheck && rtk git add apps/hoa/src/lib/inbox/connect.ts apps/hoa/src/app/api/oauth/ packages/jobs/package.json && rtk git commit -m "feat(inbox): Google OAuth connect flow with signed state"
 ```
 
+### Fix pass (2026-07-31): open redirect + state-signing tests
+
+Post-implementation review found `returnTo` was read unvalidated from the
+query string, signed into `state`, and later interpolated straight into
+`new URL(...)` in the callback — `new URL(arg, base)` ignores `base`
+whenever `arg` is already absolute (including `//evil.com`), so a crafted
+`GET /api/oauth/google/start?returnTo=https://evil.com` link ended a
+genuine Google consent flow on an attacker's domain. Signing `state` does
+not fix this: the hostile value is attacker-supplied before signing, so
+the signature just certifies it.
+
+Fixes applied (full detail: `.superpowers/sdd/task-17-report.md`):
+
+- Added `sanitizeReturnTo()` to `apps/hoa/src/lib/inbox/connect.ts` — a
+  pure function accepting only a same-origin path (`/...`) and rejecting
+  `//...`, any `.../\\...` backslash form, and anything containing
+  `://`, falling back to `DEFAULT_RETURN_TO` (`/settings/mailbox`) on
+  rejection. Applied at every entry/consumption point: the start route's
+  query param, `startConnect`, `completeConnect`'s return value, and the
+  callback route's redirect construction — defense in depth rather than
+  a single choke point, since `state` may have been minted by an older
+  build that signed an unvalidated value.
+- Exported `signState`/`verifyState` from `connect.ts` (previously
+  module-private) specifically so they could be unit-tested directly —
+  this pure logic gates standing access to an entire HOA mailbox and had
+  zero coverage. New tests: `apps/hoa/src/lib/inbox/connect.test.ts`
+  (round trip, tampered payload byte, tampered MAC, expired TTL,
+  malformed state in several shapes, and the `sanitizeReturnTo` matrix).
+- `listSendAs()` failures during scope recommendation in `completeConnect`
+  now log before falling back to an empty alias list, instead of
+  silently swallowing a real Gmail outage.
+- Reconnect intentionally still does not overwrite `scope_mode` /
+  `scope_value` / `display_name` on an existing row — documented in a
+  comment at the call site. Overwriting on every reconnect risks
+  clobbering a scope a tenant deliberately hand-narrowed; if Google's
+  recommendation should ever win on reconnect, that needs an explicit
+  UI-driven "reset to recommended" action, not an implicit one here.
+
 ---
 
 ## Task 18: Settings → Mailbox page
