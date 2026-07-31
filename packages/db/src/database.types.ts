@@ -201,6 +201,51 @@ export type Database = {
           },
         ]
       }
+      arc_request_messages: {
+        Row: {
+          arc_request_id: string
+          author_id: string
+          author_role: string
+          body: string
+          created_at: string
+          id: string
+          internal: boolean
+        }
+        Insert: {
+          arc_request_id: string
+          author_id: string
+          author_role: string
+          body: string
+          created_at?: string
+          id?: string
+          internal?: boolean
+        }
+        Update: {
+          arc_request_id?: string
+          author_id?: string
+          author_role?: string
+          body?: string
+          created_at?: string
+          id?: string
+          internal?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arc_request_messages_arc_request_id_fkey"
+            columns: ["arc_request_id"]
+            isOneToOne: false
+            referencedRelation: "arc_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arc_request_messages_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       arc_requests: {
         Row: {
           association_id: string | null
@@ -210,6 +255,7 @@ export type Database = {
           category: string
           contractor_license: string | null
           contractor_name: string | null
+          deleted_at: string | null
           id: string
           organization_id: string
           proposed_completion: string | null
@@ -229,6 +275,7 @@ export type Database = {
           category: string
           contractor_license?: string | null
           contractor_name?: string | null
+          deleted_at?: string | null
           id?: string
           organization_id: string
           proposed_completion?: string | null
@@ -248,6 +295,7 @@ export type Database = {
           category?: string
           contractor_license?: string | null
           contractor_name?: string | null
+          deleted_at?: string | null
           id?: string
           organization_id?: string
           proposed_completion?: string | null
@@ -303,6 +351,7 @@ export type Database = {
           assessment_type: string
           association_id: string
           created_at: string
+          deleted_at: string | null
           due_date: string
           fiscal_period_id: string
           id: string
@@ -316,6 +365,7 @@ export type Database = {
           assessment_type: string
           association_id: string
           created_at?: string
+          deleted_at?: string | null
           due_date: string
           fiscal_period_id: string
           id?: string
@@ -329,6 +379,7 @@ export type Database = {
           assessment_type?: string
           association_id?: string
           created_at?: string
+          deleted_at?: string | null
           due_date?: string
           fiscal_period_id?: string
           id?: string
@@ -950,6 +1001,7 @@ export type Database = {
           approved_by: string | null
           association_id: string
           created_at: string
+          deleted_at: string | null
           fiscal_period_id: string
           fund_id: string
           id: string
@@ -961,6 +1013,7 @@ export type Database = {
           approved_by?: string | null
           association_id: string
           created_at?: string
+          deleted_at?: string | null
           fiscal_period_id: string
           fund_id: string
           id?: string
@@ -972,6 +1025,7 @@ export type Database = {
           approved_by?: string | null
           association_id?: string
           created_at?: string
+          deleted_at?: string | null
           fiscal_period_id?: string
           fund_id?: string
           id?: string
@@ -1483,6 +1537,7 @@ export type Database = {
           channels: string[]
           created_at: string
           created_by: string | null
+          deleted_at: string | null
           id: string
           organization_id: string
           related_resource: Json | null
@@ -1507,6 +1562,7 @@ export type Database = {
           channels?: string[]
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           id?: string
           organization_id: string
           related_resource?: Json | null
@@ -1531,6 +1587,7 @@ export type Database = {
           channels?: string[]
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           id?: string
           organization_id?: string
           related_resource?: Json | null
@@ -2151,6 +2208,7 @@ export type Database = {
           attendees: string[] | null
           created_at: string | null
           created_by: string | null
+          deleted_at: string | null
           id: string
           meeting_date: string
           meeting_type: string | null
@@ -2168,6 +2226,7 @@ export type Database = {
           attendees?: string[] | null
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
           id?: string
           meeting_date: string
           meeting_type?: string | null
@@ -2185,6 +2244,7 @@ export type Database = {
           attendees?: string[] | null
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
           id?: string
           meeting_date?: string
           meeting_type?: string | null
@@ -2222,6 +2282,7 @@ export type Database = {
         Row: {
           address: string
           created_at: string | null
+          deleted_at: string | null
           id: string
           notes: string | null
           org_id: string
@@ -2237,6 +2298,7 @@ export type Database = {
         Insert: {
           address: string
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
           notes?: string | null
           org_id: string
@@ -2252,6 +2314,7 @@ export type Database = {
         Update: {
           address?: string
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
           notes?: string | null
           org_id?: string
@@ -2274,6 +2337,78 @@ export type Database = {
           },
         ]
       }
+      hoa_recurring_events: {
+        Row: {
+          alert_days_before: number
+          association_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          event_date: string
+          id: string
+          is_active: boolean
+          last_alert_sent_at: string | null
+          last_alert_sent_for: string | null
+          notify_audience: Json
+          notify_channels: string[]
+          organization_id: string
+          recurrence: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          alert_days_before?: number
+          association_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_date: string
+          id?: string
+          is_active?: boolean
+          last_alert_sent_at?: string | null
+          last_alert_sent_for?: string | null
+          notify_audience?: Json
+          notify_channels?: string[]
+          organization_id: string
+          recurrence?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          alert_days_before?: number
+          association_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_date?: string
+          id?: string
+          is_active?: boolean
+          last_alert_sent_at?: string | null
+          last_alert_sent_for?: string | null
+          notify_audience?: Json
+          notify_channels?: string[]
+          organization_id?: string
+          recurrence?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hoa_recurring_events_association_id_fkey"
+            columns: ["association_id"]
+            isOneToOne: false
+            referencedRelation: "associations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hoa_recurring_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hoa_violations: {
         Row: {
           ai_draft_letter: string | null
@@ -2284,6 +2419,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           cure_period_days: number | null
+          deleted_at: string | null
           description: string
           fine_amount: number | null
           fine_start_date: string | null
@@ -2308,6 +2444,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           cure_period_days?: number | null
+          deleted_at?: string | null
           description: string
           fine_amount?: number | null
           fine_start_date?: string | null
@@ -2332,6 +2469,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           cure_period_days?: number | null
+          deleted_at?: string | null
           description?: string
           fine_amount?: number | null
           fine_start_date?: string | null
@@ -2378,6 +2516,377 @@ export type Database = {
           },
         ]
       }
+      inbox_attachments: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          fetch_attempts: number
+          fetch_error: string | null
+          fetch_status: string
+          file_name: string
+          gmail_attachment_id: string | null
+          id: string
+          is_inline: boolean
+          message_id: string
+          organization_id: string
+          sha256: string | null
+          size_bytes: number | null
+          storage_path: string | null
+          thread_id: string
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          fetch_attempts?: number
+          fetch_error?: string | null
+          fetch_status?: string
+          file_name: string
+          gmail_attachment_id?: string | null
+          id?: string
+          is_inline?: boolean
+          message_id: string
+          organization_id: string
+          sha256?: string | null
+          size_bytes?: number | null
+          storage_path?: string | null
+          thread_id: string
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          fetch_attempts?: number
+          fetch_error?: string | null
+          fetch_status?: string
+          file_name?: string
+          gmail_attachment_id?: string | null
+          id?: string
+          is_inline?: boolean
+          message_id?: string
+          organization_id?: string
+          sha256?: string | null
+          size_bytes?: number | null
+          storage_path?: string | null
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbox_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_attachments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_attachments_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inbox_messages: {
+        Row: {
+          body_html: string | null
+          body_text: string | null
+          cc_emails: string[]
+          communication_id: string | null
+          direction: string
+          from_email: string | null
+          from_name: string | null
+          gmail_message_id: string
+          id: string
+          in_reply_to: string | null
+          ingested_at: string
+          organization_id: string
+          references_ids: string[] | null
+          rfc822_message_id: string | null
+          sent_at: string | null
+          stripped_text: string | null
+          subject: string | null
+          thread_id: string
+          to_emails: string[]
+        }
+        Insert: {
+          body_html?: string | null
+          body_text?: string | null
+          cc_emails?: string[]
+          communication_id?: string | null
+          direction: string
+          from_email?: string | null
+          from_name?: string | null
+          gmail_message_id: string
+          id?: string
+          in_reply_to?: string | null
+          ingested_at?: string
+          organization_id: string
+          references_ids?: string[] | null
+          rfc822_message_id?: string | null
+          sent_at?: string | null
+          stripped_text?: string | null
+          subject?: string | null
+          thread_id: string
+          to_emails?: string[]
+        }
+        Update: {
+          body_html?: string | null
+          body_text?: string | null
+          cc_emails?: string[]
+          communication_id?: string | null
+          direction?: string
+          from_email?: string | null
+          from_name?: string | null
+          gmail_message_id?: string
+          id?: string
+          in_reply_to?: string | null
+          ingested_at?: string
+          organization_id?: string
+          references_ids?: string[] | null
+          rfc822_message_id?: string | null
+          sent_at?: string | null
+          stripped_text?: string | null
+          subject?: string | null
+          thread_id?: string
+          to_emails?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbox_messages_communication_id_fkey"
+            columns: ["communication_id"]
+            isOneToOne: false
+            referencedRelation: "communications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inbox_sender_aliases: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email_address: string
+          id: string
+          organization_id: string
+          resident_id: string | null
+          source: string
+          unit_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email_address: string
+          id?: string
+          organization_id: string
+          resident_id?: string | null
+          source?: string
+          unit_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email_address?: string
+          id?: string
+          organization_id?: string
+          resident_id?: string | null
+          source?: string
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbox_sender_aliases_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_sender_aliases_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_sender_aliases_resident_id_fkey"
+            columns: ["resident_id"]
+            isOneToOne: false
+            referencedRelation: "property_residents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_sender_aliases_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inbox_thread_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          organization_id: string
+          resource_id: string
+          resource_type: string
+          thread_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id: string
+          resource_id: string
+          resource_type: string
+          thread_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id?: string
+          resource_id?: string
+          resource_type?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbox_thread_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_thread_links_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_thread_links_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inbox_threads: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          gmail_thread_id: string
+          id: string
+          last_direction: string | null
+          last_message_at: string | null
+          mailbox_account_id: string
+          match_confidence: string
+          match_reason: Json | null
+          match_source: string
+          organization_id: string
+          participants: Json
+          resident_id: string | null
+          status: string
+          subject: string | null
+          unit_id: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          gmail_thread_id: string
+          id?: string
+          last_direction?: string | null
+          last_message_at?: string | null
+          mailbox_account_id: string
+          match_confidence?: string
+          match_reason?: Json | null
+          match_source?: string
+          organization_id: string
+          participants?: Json
+          resident_id?: string | null
+          status?: string
+          subject?: string | null
+          unit_id?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          gmail_thread_id?: string
+          id?: string
+          last_direction?: string | null
+          last_message_at?: string | null
+          mailbox_account_id?: string
+          match_confidence?: string
+          match_reason?: Json | null
+          match_source?: string
+          organization_id?: string
+          participants?: Json
+          resident_id?: string | null
+          status?: string
+          subject?: string | null
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbox_threads_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_threads_mailbox_account_id_fkey"
+            columns: ["mailbox_account_id"]
+            isOneToOne: false
+            referencedRelation: "mailbox_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_threads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_threads_resident_id_fkey"
+            columns: ["resident_id"]
+            isOneToOne: false
+            referencedRelation: "property_residents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_threads_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           ai_generated: boolean
@@ -2385,6 +2894,7 @@ export type Database = {
           amount: number
           association_id: string
           created_at: string
+          deleted_at: string | null
           due_date: string | null
           id: string
           invoice_date: string
@@ -2400,6 +2910,7 @@ export type Database = {
           amount: number
           association_id: string
           created_at?: string
+          deleted_at?: string | null
           due_date?: string | null
           id?: string
           invoice_date: string
@@ -2415,6 +2926,7 @@ export type Database = {
           amount?: number
           association_id?: string
           created_at?: string
+          deleted_at?: string | null
           due_date?: string | null
           id?: string
           invoice_date?: string
@@ -2684,6 +3196,219 @@ export type Database = {
           },
         ]
       }
+      mailbox_account_secrets: {
+        Row: {
+          access_token_enc: string | null
+          key_version: number
+          mailbox_account_id: string
+          refresh_token_enc: string
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token_enc?: string | null
+          key_version?: number
+          mailbox_account_id: string
+          refresh_token_enc: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token_enc?: string | null
+          key_version?: number
+          mailbox_account_id?: string
+          refresh_token_enc?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mailbox_account_secrets_mailbox_account_id_fkey"
+            columns: ["mailbox_account_id"]
+            isOneToOne: true
+            referencedRelation: "mailbox_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mailbox_accounts: {
+        Row: {
+          backfill_progress: Json
+          backfill_status: string
+          connected_at: string
+          connected_by: string | null
+          disconnected_at: string | null
+          display_name: string | null
+          email_address: string
+          google_sub: string | null
+          id: string
+          last_synced_at: string | null
+          organization_id: string
+          provider: string
+          scope_mode: string
+          scope_value: string | null
+          sync_cursor: string | null
+          sync_error: string | null
+          sync_status: string
+        }
+        Insert: {
+          backfill_progress?: Json
+          backfill_status?: string
+          connected_at?: string
+          connected_by?: string | null
+          disconnected_at?: string | null
+          display_name?: string | null
+          email_address: string
+          google_sub?: string | null
+          id?: string
+          last_synced_at?: string | null
+          organization_id: string
+          provider?: string
+          scope_mode?: string
+          scope_value?: string | null
+          sync_cursor?: string | null
+          sync_error?: string | null
+          sync_status?: string
+        }
+        Update: {
+          backfill_progress?: Json
+          backfill_status?: string
+          connected_at?: string
+          connected_by?: string | null
+          disconnected_at?: string | null
+          display_name?: string | null
+          email_address?: string
+          google_sub?: string | null
+          id?: string
+          last_synced_at?: string | null
+          organization_id?: string
+          provider?: string
+          scope_mode?: string
+          scope_value?: string | null
+          sync_cursor?: string | null
+          sync_error?: string | null
+          sync_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mailbox_accounts_connected_by_fkey"
+            columns: ["connected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mailbox_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_action_items: {
+        Row: {
+          ai_generated: boolean
+          assignee_name: string | null
+          assignee_user_id: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          meeting_id: string | null
+          org_id: string
+          priority: Database["public"]["Enums"]["action_item_priority"]
+          status: Database["public"]["Enums"]["action_item_status"]
+          ticket_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          ai_generated?: boolean
+          assignee_name?: string | null
+          assignee_user_id?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          meeting_id?: string | null
+          org_id: string
+          priority?: Database["public"]["Enums"]["action_item_priority"]
+          status?: Database["public"]["Enums"]["action_item_status"]
+          ticket_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          ai_generated?: boolean
+          assignee_name?: string | null
+          assignee_user_id?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          meeting_id?: string | null
+          org_id?: string
+          priority?: Database["public"]["Enums"]["action_item_priority"]
+          status?: Database["public"]["Enums"]["action_item_status"]
+          ticket_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_action_items_assignee_user_id_fkey"
+            columns: ["assignee_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_action_items_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_action_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_action_items_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_meeting_minutes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_action_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_action_items_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_members: {
         Row: {
           invited_at: string | null
@@ -2725,6 +3450,7 @@ export type Database = {
       }
       orgs: {
         Row: {
+          archived_at: string | null
           created_at: string | null
           doors_count: number | null
           hub_type: string
@@ -2734,9 +3460,11 @@ export type Database = {
           plan: string
           stripe_customer_id: string | null
           stripe_sub_id: string | null
+          suspended_at: string | null
           updated_at: string | null
         }
         Insert: {
+          archived_at?: string | null
           created_at?: string | null
           doors_count?: number | null
           hub_type: string
@@ -2746,9 +3474,11 @@ export type Database = {
           plan?: string
           stripe_customer_id?: string | null
           stripe_sub_id?: string | null
+          suspended_at?: string | null
           updated_at?: string | null
         }
         Update: {
+          archived_at?: string | null
           created_at?: string | null
           doors_count?: number | null
           hub_type?: string
@@ -2758,6 +3488,7 @@ export type Database = {
           plan?: string
           stripe_customer_id?: string | null
           stripe_sub_id?: string | null
+          suspended_at?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -3109,6 +3840,87 @@ export type Database = {
           },
         ]
       }
+      platform_admin_audit: {
+        Row: {
+          action: string
+          actor_user_id: string
+          created_at: string
+          id: string
+          payload: Json | null
+          target_org_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_user_id: string
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          target_org_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          target_org_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_admin_audit_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_admin_audit_target_org_id_fkey"
+            columns: ["target_org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_admins: {
+        Row: {
+          granted_at: string
+          granted_by: string | null
+          note: string | null
+          revoked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string
+          granted_by?: string | null
+          note?: string | null
+          revoked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          granted_at?: string
+          granted_by?: string | null
+          note?: string | null
+          revoked_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_admins_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_admins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pm_properties: {
         Row: {
           address: string
@@ -3322,6 +4134,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          deleted_at: string | null
           email: string | null
           full_name: string
           id: string
@@ -3337,6 +4150,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           email?: string | null
           full_name: string
           id?: string
@@ -3352,6 +4166,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           email?: string | null
           full_name?: string
           id?: string
@@ -3496,6 +4311,51 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resident_violation_report_messages: {
+        Row: {
+          author_id: string
+          author_role: string
+          body: string
+          created_at: string
+          id: string
+          internal: boolean
+          report_id: string
+        }
+        Insert: {
+          author_id: string
+          author_role: string
+          body: string
+          created_at?: string
+          id?: string
+          internal?: boolean
+          report_id: string
+        }
+        Update: {
+          author_id?: string
+          author_role?: string
+          body?: string
+          created_at?: string
+          id?: string
+          internal?: boolean
+          report_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resident_violation_report_messages_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resident_violation_report_messages_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "resident_violation_reports"
             referencedColumns: ["id"]
           },
         ]
@@ -3777,6 +4637,7 @@ export type Database = {
           action_items: string[] | null
           archived_at: string | null
           category: string | null
+          deleted_at: string | null
           effective_date: string | null
           headline: string
           id: string
@@ -3791,6 +4652,7 @@ export type Database = {
           action_items?: string[] | null
           archived_at?: string | null
           category?: string | null
+          deleted_at?: string | null
           effective_date?: string | null
           headline: string
           id?: string
@@ -3805,6 +4667,7 @@ export type Database = {
           action_items?: string[] | null
           archived_at?: string | null
           category?: string | null
+          deleted_at?: string | null
           effective_date?: string | null
           headline?: string
           id?: string
@@ -3972,6 +4835,141 @@ export type Database = {
           },
           {
             foreignKeyName: "tenancies_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_messages: {
+        Row: {
+          author_id: string
+          author_role: string
+          body: string
+          created_at: string
+          id: string
+          internal: boolean
+          ticket_id: string
+        }
+        Insert: {
+          author_id: string
+          author_role: string
+          body: string
+          created_at?: string
+          id?: string
+          internal?: boolean
+          ticket_id: string
+        }
+        Update: {
+          author_id?: string
+          author_role?: string
+          body?: string
+          created_at?: string
+          id?: string
+          internal?: boolean
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_messages_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tickets: {
+        Row: {
+          association_id: string | null
+          category: string
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          deleted_at: string | null
+          description: string
+          id: string
+          organization_id: string
+          priority: string
+          status: string
+          subject: string
+          submitted_by: string
+          unit_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          association_id?: string | null
+          category: string
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          description: string
+          id?: string
+          organization_id: string
+          priority?: string
+          status?: string
+          subject: string
+          submitted_by: string
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          association_id?: string | null
+          category?: string
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          description?: string
+          id?: string
+          organization_id?: string
+          priority?: string
+          status?: string
+          subject?: string
+          submitted_by?: string
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_association_id_fkey"
+            columns: ["association_id"]
+            isOneToOne: false
+            referencedRelation: "associations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"
@@ -4454,6 +5452,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           dba: string | null
+          deleted_at: string | null
           ein: string | null
           id: string
           legal_name: string
@@ -4471,6 +5470,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           dba?: string | null
+          deleted_at?: string | null
           ein?: string | null
           id?: string
           legal_name: string
@@ -4488,6 +5488,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           dba?: string | null
+          deleted_at?: string | null
           ein?: string | null
           id?: string
           legal_name?: string
@@ -4643,14 +5644,24 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      property_bridge_gaps: {
+        Row: {
+          address: string | null
+          gap_kind: string | null
+          organization_id: string | null
+          record_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       auth_is_admin: { Args: { p_org_id: string }; Returns: boolean }
       auth_is_board_or_admin: { Args: { p_org_id: string }; Returns: boolean }
+      auth_is_platform_admin: { Args: never; Returns: boolean }
       auth_org_ids: { Args: never; Returns: string[] }
       auth_owner_unit_ids: { Args: never; Returns: string[] }
       auth_role_in_org: { Args: { p_org_id: string }; Returns: string }
+      normalize_address: { Args: { raw: string }; Returns: string }
       search_governing_chunks: {
         Args: {
           p_association_id?: string
@@ -4690,8 +5701,27 @@ export type Database = {
           title: string
         }[]
       }
+      seed_queued_recipients: {
+        Args: { p_comm_id: string; p_count: number; p_org_id: string }
+        Returns: undefined
+      }
+      seed_recipients: {
+        Args: {
+          p_comm_id: string
+          p_count: number
+          p_org_id: string
+          p_sent_at: string
+        }
+        Returns: undefined
+      }
+      seed_replies: {
+        Args: { p_comm_id: string; p_count: number; p_org_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
+      action_item_priority: "low" | "normal" | "high"
+      action_item_status: "open" | "in_progress" | "done" | "cancelled"
       property_event_kind:
         | "tenure_changed"
         | "ownership_changed"
@@ -4831,6 +5861,8 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      action_item_priority: ["low", "normal", "high"],
+      action_item_status: ["open", "in_progress", "done", "cancelled"],
       property_event_kind: [
         "tenure_changed",
         "ownership_changed",
