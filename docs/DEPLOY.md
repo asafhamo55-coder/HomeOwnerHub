@@ -121,6 +121,17 @@ INNGEST_EVENT_KEY=<from app.inngest.com>
 INNGEST_SIGNING_KEY=<from app.inngest.com>
 ```
 
+### Mailbox (HOA Shared Inbox)
+
+| Var | Required | Notes |
+|---|---|---|
+| `MAILBOX_TOKEN_KEY` | yes | Base64 32-byte AES-256 key. Generate: `openssl rand -base64 32`. Encrypts Gmail refresh tokens at rest. |
+| `MAILBOX_TOKEN_KEY_VERSION` | no | Defaults to `1`. Bump when rotating. |
+| `MAILBOX_TOKEN_KEY_V<n>` | on rotation | Retired keys. **Must be retained** or envelopes sealed under version `<n>` become unopenable and every affected HOA has to reconnect. |
+| `GOOGLE_OAUTH_CLIENT_ID` | yes | From the Google Cloud project. |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | yes | |
+| `GOOGLE_OAUTH_REDIRECT_URI` | yes | `<app-url>/api/oauth/google/callback` |
+
 ### Deploy
 
 ```bash
