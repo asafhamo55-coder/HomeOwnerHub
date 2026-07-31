@@ -29,7 +29,7 @@ export interface PropertyRef {
   unitNumber: string | null
 }
 
-export type PropertyMatchSource = 'property_resident' | 'owner_email' | 'profile'
+export type PropertyMatchSource = 'property_resident' | 'owner_email'
 
 export interface PropertyMatch {
   ref: PropertyRef
@@ -49,6 +49,22 @@ interface UnitRow {
   unit_number: string | null
 }
 
+/**
+ * Escape a value for safe use inside a Postgres LIKE/ILIKE pattern.
+ *
+ * `_` matches any single character and `%` matches any sequence in
+ * LIKE/ILIKE patterns — without escaping them, `.ilike()` is not an exact
+ * match, it is a wildcard match. Email addresses commonly contain
+ * underscores, so an unescaped needle like `john_doe@example.com` would
+ * also match `johnXdoe@example.com`.
+ *
+ * Backslash must be escaped FIRST — escaping it after `%`/`_` would
+ * double-escape the backslashes those substitutions just inserted.
+ */
+export function escapeLikePattern(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
+}
+
 function toRef(row: UnitRow): PropertyRef {
   return {
     unitId: row.id,
@@ -64,12 +80,23 @@ export async function getPropertyRef(
   orgId: string,
   unitId: string,
 ): Promise<PropertyRef | null> {
-  const { data } = await db
+  const { data, error } = await db
     .from('units')
     .select(UNIT_COLUMNS)
     .eq('organization_id', orgId)
     .eq('id', unitId)
     .maybeSingle()
+
+  // Throw rather than swallow: a transient DB error here must not be
+  // indistinguishable from "unit not found" — see resolvePropertyByEmail
+  // for why the caller needs this to surface instead of silently
+  // reclassifying as "no match".
+  if (error) {
+    console.error(
+      `getPropertyRef: query on "units" failed (org ${orgId}): ${error.message}`,
+    )
+    throw error
+  }
 
   return data ? toRef(data as UnitRow) : null
 }
@@ -92,6 +119,8 @@ export async function resolvePropertyByEmail(
   const needle = email.trim().toLowerCase()
   if (!needle) return []
 
+  const pattern = escapeLikePattern(needle)
+
   const matches: PropertyMatch[] = []
   const seenUnitIds = new Set<string>()
 
@@ -110,44 +139,100 @@ export async function resolvePropertyByEmail(
   }
 
   // ── 1. property_residents (via the bridge) ────────────────────────
-  const { data: residents } = await db
+  const { data: residents, error: residentsError } = await db
     .from('property_residents')
     .select('id, full_name, property_id')
     .eq('organization_id', orgId)
     .is('moved_out_at', null)
-    .ilike('email', needle)
+    .ilike('email', pattern)
+
+  // Throw rather than return []: a query failure here must not be
+  // indistinguishable from "no match", or a real DB hiccup would silently
+  // reclassify a known resident as an unknown sender. The sync job that
+  // calls through here wraps each mailbox in a try/catch that records
+  // sync_error and leaves the cursor unadvanced, so throwing lets a real
+  // failure surface and be retried instead of being permanently
+  // mis-filed. Do not soften this back to a silent empty return.
+  if (residentsError) {
+    console.error(
+      `resolvePropertyByEmail: query on "property_residents" failed (org ${orgId}): ${residentsError.message}`,
+    )
+    throw residentsError
+  }
 
   const residentPropertyIds = (residents ?? []).map((r) => r.property_id)
   if (residentPropertyIds.length > 0) {
-    const { data: units } = await db
-      .from('units')
-      .select(UNIT_COLUMNS)
-      .eq('organization_id', orgId)
-      .in('legacy_hoa_property_id', residentPropertyIds)
+    // Filter out residents whose parent hoa_properties row is
+    // soft-deleted, matching the owner_email branch below — a resident
+    // row orphaned on a deleted property must not surface a match here.
+    const { data: liveProperties, error: livePropertiesError } = await db
+      .from('hoa_properties')
+      .select('id')
+      .eq('org_id', orgId)
+      .is('deleted_at', null)
+      .in('id', residentPropertyIds)
 
-    for (const unit of (units ?? []) as UnitRow[]) {
-      const resident = (residents ?? []).find(
-        (r) => r.property_id === unit.legacy_hoa_property_id,
+    if (livePropertiesError) {
+      console.error(
+        `resolvePropertyByEmail: query on "hoa_properties" failed (org ${orgId}): ${livePropertiesError.message}`,
       )
-      push(unit, resident?.id ?? null, resident?.full_name ?? null, 'property_resident')
+      throw livePropertiesError
+    }
+
+    const livePropertyIds = (liveProperties ?? []).map((p) => p.id)
+
+    if (livePropertyIds.length > 0) {
+      const { data: units, error: unitsError } = await db
+        .from('units')
+        .select(UNIT_COLUMNS)
+        .eq('organization_id', orgId)
+        .in('legacy_hoa_property_id', livePropertyIds)
+
+      if (unitsError) {
+        console.error(
+          `resolvePropertyByEmail: query on "units" failed (org ${orgId}): ${unitsError.message}`,
+        )
+        throw unitsError
+      }
+
+      for (const unit of (units ?? []) as UnitRow[]) {
+        const resident = (residents ?? []).find(
+          (r) => r.property_id === unit.legacy_hoa_property_id,
+        )
+        push(unit, resident?.id ?? null, resident?.full_name ?? null, 'property_resident')
+      }
     }
   }
 
   // ── 2. hoa_properties.owner_email (via the bridge) ────────────────
-  const { data: owned } = await db
+  const { data: owned, error: ownedError } = await db
     .from('hoa_properties')
     .select('id, owner_name')
     .eq('org_id', orgId)
     .is('deleted_at', null)
-    .ilike('owner_email', needle)
+    .ilike('owner_email', pattern)
+
+  if (ownedError) {
+    console.error(
+      `resolvePropertyByEmail: query on "hoa_properties" failed (org ${orgId}): ${ownedError.message}`,
+    )
+    throw ownedError
+  }
 
   const ownedIds = (owned ?? []).map((p) => p.id)
   if (ownedIds.length > 0) {
-    const { data: units } = await db
+    const { data: units, error: ownedUnitsError } = await db
       .from('units')
       .select(UNIT_COLUMNS)
       .eq('organization_id', orgId)
       .in('legacy_hoa_property_id', ownedIds)
+
+    if (ownedUnitsError) {
+      console.error(
+        `resolvePropertyByEmail: query on "units" failed (org ${orgId}): ${ownedUnitsError.message}`,
+      )
+      throw ownedUnitsError
+    }
 
     for (const unit of (units ?? []) as UnitRow[]) {
       const owner = (owned ?? []).find(
@@ -173,10 +258,20 @@ export async function resolvePropertyByAddress(
   const needle = normalizeAddress(rawAddress)
   if (needle === '') return []
 
-  const { data } = await db
+  const { data, error } = await db
     .from('units')
     .select(UNIT_COLUMNS)
     .eq('organization_id', orgId)
+
+  // Throw rather than swallow: see resolvePropertyByEmail above for why
+  // — a DB error must surface and be retried, not be mistaken for "no
+  // address match".
+  if (error) {
+    console.error(
+      `resolvePropertyByAddress: query on "units" failed (org ${orgId}): ${error.message}`,
+    )
+    throw error
+  }
 
   return ((data ?? []) as UnitRow[])
     .filter((row) => normalizeAddress(row.address_line1) === needle)
