@@ -10,3 +10,4 @@ export {
   GMAIL_SCOPES,
 } from './oauth'
 export { GmailClient } from './client'
+export { isInScope, buildScopeQuery, recommendScope } from './scope'

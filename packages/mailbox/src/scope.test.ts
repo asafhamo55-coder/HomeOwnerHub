@@ -1,0 +1,142 @@
+import { describe, expect, it } from 'vitest'
+import { buildScopeQuery, isInScope, recommendScope } from './scope'
+import type { ParsedMessage } from './types'
+
+function msg(over: Partial<ParsedMessage> = {}): ParsedMessage {
+  return {
+    gmailMessageId: 'm1',
+    gmailThreadId: 't1',
+    rfc822MessageId: null,
+    inReplyTo: null,
+    references: [],
+    fromEmail: 'j.rivera@gmail.com',
+    fromName: 'Jenna',
+    toEmails: ['board@mp.org'],
+    ccEmails: [],
+    deliveredTo: [],
+    subject: 'hi',
+    bodyText: 'hi',
+    bodyHtml: null,
+    strippedText: 'hi',
+    attachments: [],
+    sentAt: null,
+    labelIds: ['INBOX'],
+    ...over,
+  }
+}
+
+describe('isInScope', () => {
+  it('mode=all keeps everything', () => {
+    expect(isInScope(msg({ toEmails: ['someone@else.com'] }), 'all', null)).toBe(true)
+  })
+
+  it('mode=address keeps mail addressed To the scoped address', () => {
+    expect(isInScope(msg({ toEmails: ['board@mp.org'] }), 'address', 'board@mp.org')).toBe(
+      true,
+    )
+  })
+
+  it('mode=address keeps mail Cc-ed to the scoped address', () => {
+    expect(
+      isInScope(
+        msg({ toEmails: ['other@x.com'], ccEmails: ['board@mp.org'] }),
+        'address',
+        'board@mp.org',
+      ),
+    ).toBe(true)
+  })
+
+  it('mode=address keeps mail routed via Delivered-To (Google Group fan-out)', () => {
+    // The critical case: a Group delivers to a personal inbox, so the
+    // group address appears ONLY in Delivered-To, never in To.
+    expect(
+      isInScope(
+        msg({ toEmails: ['president.personal@gmail.com'], deliveredTo: ['board@mp.org'] }),
+        'address',
+        'board@mp.org',
+      ),
+    ).toBe(true)
+  })
+
+  it('mode=address REJECTS unrelated personal mail', () => {
+    // The whole point: a connected personal Gmail must not leak private
+    // correspondence into a shared board tool.
+    expect(
+      isInScope(
+        msg({ toEmails: ['president.personal@gmail.com'], fromEmail: 'doctor@clinic.com' }),
+        'address',
+        'board@mp.org',
+      ),
+    ).toBe(false)
+  })
+
+  it('mode=address is case-insensitive', () => {
+    expect(isInScope(msg({ toEmails: ['BOARD@MP.ORG'] }), 'address', 'board@mp.org')).toBe(
+      true,
+    )
+  })
+
+  it('mode=address with no scopeValue rejects everything rather than leaking', () => {
+    // Fail closed. A misconfigured scope must not silently become "all".
+    expect(isInScope(msg(), 'address', null)).toBe(false)
+  })
+
+  it('mode=label keeps a message carrying the label', () => {
+    expect(isInScope(msg({ labelIds: ['INBOX', 'Label_9'] }), 'label', 'Label_9')).toBe(true)
+  })
+
+  it('mode=label rejects a message without the label', () => {
+    expect(isInScope(msg({ labelIds: ['INBOX'] }), 'label', 'Label_9')).toBe(false)
+  })
+})
+
+describe('buildScopeQuery', () => {
+  it('scopes by deliveredto for address mode', () => {
+    expect(buildScopeQuery('address', 'board@mp.org')).toBe(
+      '(to:board@mp.org OR cc:board@mp.org OR deliveredto:board@mp.org)',
+    )
+  })
+
+  it('scopes by label for label mode', () => {
+    expect(buildScopeQuery('label', 'Label_9')).toBe('label:Label_9')
+  })
+
+  it('returns an empty query for all mode', () => {
+    expect(buildScopeQuery('all', null)).toBe('')
+  })
+
+  it('appends an after: clause when given', () => {
+    expect(buildScopeQuery('all', null, '2025/07/31')).toBe('after:2025/07/31')
+    expect(buildScopeQuery('label', 'L1', '2025/07/31')).toBe('label:L1 after:2025/07/31')
+  })
+})
+
+describe('recommendScope', () => {
+  it('recommends a non-primary shared alias when one exists', () => {
+    const result = recommendScope(
+      [
+        { sendAsEmail: 'president@gmail.com', isPrimary: true, isDefault: true },
+        { sendAsEmail: 'board@mp.org', isPrimary: false, isDefault: false },
+      ],
+      'president@gmail.com',
+    )
+    expect(result).toEqual({ scopeMode: 'address', scopeValue: 'board@mp.org' })
+  })
+
+  it('recommends address-scoped on the primary when it is the only address', () => {
+    const result = recommendScope(
+      [{ sendAsEmail: 'board@mp.org', isPrimary: true, isDefault: true }],
+      'board@mp.org',
+    )
+    // Still 'address', not 'all' — safe default even for a dedicated
+    // account. The user can widen it explicitly.
+    expect(result).toEqual({ scopeMode: 'address', scopeValue: 'board@mp.org' })
+  })
+
+  it('falls back to the profile email when sendAs is empty', () => {
+    expect(recommendScope([], 'board@mp.org')).toEqual({
+      scopeMode: 'address',
+      scopeValue: 'board@mp.org',
+    })
+  })
+})
