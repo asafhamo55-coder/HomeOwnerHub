@@ -66,15 +66,58 @@ function stateSecret(): string {
  * safe but might not be (e.g. stripping a leading slash from `//evil.com`
  * still leaves an attacker-controlled host once a browser re-adds it).
  *
+ * A prior version of this function checked only the literal string —
+ * `startsWith('//')`, `startsWith('/\\')`, `includes('://')` — and was
+ * bypassed by `/\t/evil.com`. The WHATWG URL parser (what Node's `URL`
+ * runs, which is what `NextResponse.redirect(new URL(...))` uses, and
+ * what every browser uses) strips ASCII tab/CR/LF from *anywhere* in the
+ * input, unconditionally, before any other parsing step. That single
+ * leading slash plus a tab plus another slash looks path-shaped to a
+ * literal-string check and passed every one of them, then collapsed to
+ * `//evil.com` — a protocol-relative network-path reference — the moment
+ * the tab vanished during parsing. Fixed two ways:
+ *   1. Reject any candidate containing a raw tab/CR/LF outright, before
+ *      any structural check runs. Stripping them ourselves would just
+ *      move the same bug one layer up with us as the new source of
+ *      truth for "clean" — rejection is the only option that can't be
+ *      quietly reinterpreted later.
+ *   2. Treat `new URL(candidate, <dummy origin>)` as the authority, not
+ *      just the cheap string checks. It uses the exact parser the real
+ *      redirect runs, so it cannot disagree with what actually happens
+ *      at redirect time the way hand-written string reasoning can.
+ *
  * Exported so it can be unit-tested directly and reused by any other
  * redirect-accepting entry point.
  */
 export function sanitizeReturnTo(candidate: string | null | undefined): string {
   if (!candidate) return DEFAULT_RETURN_TO
+
+  // Anywhere in the string, not just leading/trailing — this is what the
+  // URL parser itself strips unconditionally, and is exactly what let
+  // `/\t/evil.com` slip past every anchored check below.
+  if (/[\t\r\n]/.test(candidate)) return DEFAULT_RETURN_TO
+
+  // Cheap structural pre-checks. `includes`, not `startsWith`: anchoring
+  // these checks to the start of the string is what made the bypass
+  // possible in the first place, so a hostile `//` or `/\` is rejected
+  // no matter where it appears, not only at position 0.
   if (!candidate.startsWith('/')) return DEFAULT_RETURN_TO
-  if (candidate.startsWith('//')) return DEFAULT_RETURN_TO
-  if (candidate.startsWith('/\\')) return DEFAULT_RETURN_TO
+  if (candidate.includes('//')) return DEFAULT_RETURN_TO
+  if (candidate.includes('/\\')) return DEFAULT_RETURN_TO
   if (candidate.includes('://')) return DEFAULT_RETURN_TO
+
+  // Authority: resolve with the same parser the real redirect uses, and
+  // accept only if the origin survived unchanged. See the function
+  // comment above for why this — not the string checks — is the actual
+  // source of truth.
+  const PLACEHOLDER_ORIGIN = 'https://sanitize-return-to.invalid'
+  try {
+    const resolved = new URL(candidate, PLACEHOLDER_ORIGIN)
+    if (resolved.origin !== PLACEHOLDER_ORIGIN) return DEFAULT_RETURN_TO
+  } catch {
+    return DEFAULT_RETURN_TO
+  }
+
   return candidate
 }
 

@@ -1,6 +1,18 @@
 import { createHmac } from 'node:crypto'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { sanitizeReturnTo, signState, verifyState } from './connect'
+import { DEFAULT_RETURN_TO, sanitizeReturnTo, signState, verifyState } from './connect'
+
+/**
+ * The same base the real redirect resolves against
+ * (`new URL(sanitizeReturnTo(returnTo) + '?...', request.url)` in both
+ * `apps/hoa/src/app/api/oauth/google/start/route.ts` and
+ * `.../callback/route.ts`). Tests below reproduce that exact call shape
+ * rather than asserting on what `sanitizeReturnTo` returns in isolation —
+ * a value can look path-shaped as a string and still resolve off-origin
+ * once parsed, which is exactly how the control-character bypass slipped
+ * past the previous version of this function.
+ */
+const REDIRECT_BASE = 'https://app.example.com/api/oauth/google/callback'
 
 // signState/verifyState only use MAILBOX_TOKEN_KEY as an HMAC key via
 // node:crypto's createHmac, which accepts any string — unlike
@@ -40,7 +52,18 @@ describe('signState / verifyState', () => {
     expect(() => verifyState(tampered)).toThrow(/signature mismatch/)
   })
 
-  it('rejects a state with a tampered MAC', () => {
+  // NOTE on what this test does and doesn't prove: it asserts that a MAC
+  // with one flipped byte is rejected — i.e. the comparison correctly
+  // returns "not equal" for unequal inputs. A naive `mac === expected`
+  // would reject this exact input too, so this assertion by itself does
+  // NOT distinguish `verifyState`'s `timingSafeEqual` from a plain `===`.
+  // Nothing a black-box `expect(...).toThrow()` assertion can observe
+  // proves constant-time behaviour — that requires measuring execution
+  // time across many inputs (or reading the implementation), not
+  // asserting on a return value. The guarantee that this comparison
+  // runs in constant time is enforced by code review of `verifyState`
+  // (see the module-level comment in connect.ts), not by this test.
+  it('rejects a state with a tampered MAC (does not prove constant-time comparison — see note above)', () => {
     const state = signState(payload())
     const [body, mac] = state.split('.')
     const macBytes = Buffer.from(mac, 'base64url')
@@ -123,5 +146,81 @@ describe('sanitizeReturnTo', () => {
 
   it('rejects a value that does not start with a slash', () => {
     expect(sanitizeReturnTo('evil.com')).toBe('/settings/mailbox')
+  })
+
+  /**
+   * The property that actually matters: does the value `sanitizeReturnTo`
+   * hands back stay on this origin once it goes through the *exact* call
+   * the real routes make — `new URL(sanitized + '?x=1', base)`? A string
+   * can look path-shaped (single leading slash, no literal "//", no
+   * literal "://") and still resolve to a different origin once the same
+   * WHATWG parser Node's `URL`/`NextResponse.redirect` uses gets hold of
+   * it — that gap is exactly how `/\t/evil.com` bypassed the previous
+   * version of this function. Asserting on the parsed `origin`, not on
+   * the shape of the returned string, is what would have caught that.
+   */
+  function resolvedOrigin(candidate: string | null | undefined): string {
+    const sanitized = sanitizeReturnTo(candidate)
+    return new URL(`${sanitized}?x=1`, REDIRECT_BASE).origin
+  }
+
+  const baseOrigin = new URL(REDIRECT_BASE).origin
+
+  describe('accepted — origin is preserved end to end', () => {
+    it.each([
+      '/inbox',
+      '/settings/mailbox',
+      '/inbox?filter=open',
+      '/a/b/c',
+    ])('%s', (candidate) => {
+      expect(sanitizeReturnTo(candidate)).toBe(candidate)
+      expect(resolvedOrigin(candidate)).toBe(baseOrigin)
+    })
+  })
+
+  describe('rejected — falls back to DEFAULT_RETURN_TO and origin never leaves this host', () => {
+    it.each([
+      // Absolute / protocol-relative / backslash forms.
+      ['https://evil.com', 'absolute URL to another host'],
+      ['HTTPS://evil.com', 'absolute URL, uppercase scheme'],
+      ['//evil.com', 'protocol-relative'],
+      ['/\\evil.com', 'backslash-prefixed'],
+      ['\\\\evil.com', 'double-backslash-prefixed'],
+      ['///evil.com', 'triple slash'],
+      ['/\\/evil.com', 'slash-backslash-slash'],
+      // Non-http(s) schemes.
+      ['javascript:alert(1)', 'javascript: scheme'],
+      ['java\tscript:alert(1)', 'javascript: scheme with an embedded tab'],
+      // The confirmed control-character bypass, in all three stripped
+      // characters, and in combination.
+      ['/\t/evil.com', 'embedded tab — the confirmed bypass'],
+      ['/\n/evil.com', 'embedded LF'],
+      ['/\r/evil.com', 'embedded CR'],
+      ['/\t\t//evil.com', 'double tab plus protocol-relative'],
+      ['/\r\n/evil.com', 'CRLF combination'],
+      // Query-string smuggling and non-slash-leading input.
+      ['/redirect?next=https://evil.com', 'scheme smuggled into a query param'],
+      [' /foo', 'leading whitespace before an otherwise-valid path'],
+      ['\t//evil.com', 'leading tab before a protocol-relative form'],
+      ['evil.com', 'no leading slash at all'],
+    ])('%s (%s)', (candidate) => {
+      expect(sanitizeReturnTo(candidate)).toBe(DEFAULT_RETURN_TO)
+      expect(resolvedOrigin(candidate)).toBe(baseOrigin)
+    })
+
+    it('null', () => {
+      expect(sanitizeReturnTo(null)).toBe(DEFAULT_RETURN_TO)
+      expect(resolvedOrigin(null)).toBe(baseOrigin)
+    })
+
+    it('undefined', () => {
+      expect(sanitizeReturnTo(undefined)).toBe(DEFAULT_RETURN_TO)
+      expect(resolvedOrigin(undefined)).toBe(baseOrigin)
+    })
+
+    it('empty string', () => {
+      expect(sanitizeReturnTo('')).toBe(DEFAULT_RETURN_TO)
+      expect(resolvedOrigin('')).toBe(baseOrigin)
+    })
   })
 })

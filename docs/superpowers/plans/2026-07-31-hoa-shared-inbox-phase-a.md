@@ -7236,6 +7236,43 @@ Fixes applied (full detail: `.superpowers/sdd/task-17-report.md`):
   recommendation should ever win on reconnect, that needs an explicit
   UI-driven "reset to recommended" action, not an implicit one here.
 
+### Fix pass 2 (2026-07-31): control-character redirect bypass
+
+The Fix pass above added `sanitizeReturnTo()` and applied it at four call
+sites, describing that as defense in depth. It wasn't: all four call the
+same function, and that function checked only the *literal* string
+(`startsWith('//')`, `startsWith('/\\')`, `includes('://')`). The WHATWG
+URL parser — what Node's `URL` runs, which is what
+`NextResponse.redirect(new URL(...))` uses, and what every browser uses —
+strips ASCII tab (0x09), LF (0x0A), and CR (0x0D) from *anywhere* in the
+input, unconditionally, before any other parsing step. `/\t/evil.com`
+passed every anchored check (one leading slash, not `//`, not `/\`, no
+`://`) and was returned unchanged; the tab then vanished during parsing,
+collapsing it to `//evil.com` — a protocol-relative network-path
+reference that took over the host. Reachable end to end via
+`GET /api/oauth/google/start?returnTo=%2F%09%2Fevil.com` (`%0A`/`%0D`
+behave identically).
+
+`sanitizeReturnTo()` now:
+1. Rejects outright on any raw tab/CR/LF anywhere in the candidate,
+   before any structural check runs — stripping them would just move
+   the same class of bug one layer up.
+2. Uses `includes`, not only `startsWith`, for `//` and `/\` — anchoring
+   to position 0 is what made the original bypass possible.
+3. Keeps the same-shape requirements (single leading `/`, no `://`
+   anywhere) and still falls back to `DEFAULT_RETURN_TO` rather than
+   attempting repair.
+4. Adds a final authoritative check: `new URL(candidate, <dummy
+   origin>)` resolved and compared against that dummy origin — the
+   exact parser the real redirect uses, run ahead of time, so it can't
+   disagree with what happens at redirect time the way hand-written
+   string reasoning can (and did).
+
+Full detail, attack matrix with actual output, and the corrected framing
+of the MAC-tamper tests (they show a flipped byte is rejected — which a
+plain `===` would also reject — not that the comparison is constant
+time): `.superpowers/sdd/task-17-report.md`, "Fix pass 2" section.
+
 ---
 
 ## Task 18: Settings → Mailbox page
