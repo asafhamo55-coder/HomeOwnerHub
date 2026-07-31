@@ -58,6 +58,16 @@ export interface SyncResult {
    * caller has to trigger a backfill or the capped-off messages are lost.
    */
   truncated: boolean
+  /**
+   * Count of selected messages whose fetch/parse failed and were skipped
+   * rather than aborting the whole run (e.g. a 404 from a message deleted
+   * between listing and fetching). A non-zero value means some messages were
+   * permanently skipped, which the caller should surface rather than ignore.
+   * Note: differs from `truncated` — truncated means "more mail exists that
+   * this run did not fetch", while fetchFailures means "specific messages
+   * could not be fetched at all".
+   */
+  fetchFailures: number
 }
 
 export interface OAuthTokens {

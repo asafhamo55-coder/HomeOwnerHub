@@ -39,22 +39,6 @@ export interface SyncOptions {
   maxMessages?: number
 }
 
-/**
- * `SyncResult` (types.ts) doesn't have a `fetchFailures` field yet — that
- * file is out of scope for this change. This extends it locally so the
- * count can be returned without editing types.ts. types.ts should grow this
- * field for real in a follow-up so callers elsewhere in the codebase can
- * import it directly instead of relying on structural typing.
- */
-export interface SyncResultWithFetchFailures extends SyncResult {
-  /**
-   * Count of selected messages whose fetch/parse failed and were skipped
-   * rather than aborting the whole run (e.g. a 404 from a message deleted
-   * between listing and fetching). Does not include MailboxAuthError, which
-   * always propagates instead of being counted.
-   */
-  fetchFailures: number
-}
 
 async function collectHistoryIds(
   client: GmailClient,
@@ -101,7 +85,7 @@ export async function syncMailbox(
   client: GmailClient,
   account: MailboxAccount,
   opts: SyncOptions = {},
-): Promise<SyncResultWithFetchFailures> {
+): Promise<SyncResult> {
   const cap = opts.maxMessages ?? DEFAULT_MAX_MESSAGES
 
   let messageIds: string[] = []
