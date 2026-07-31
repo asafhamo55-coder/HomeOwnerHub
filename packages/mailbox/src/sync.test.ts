@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { syncMailbox } from './sync'
-import { MailboxHistoryExpiredError } from './types'
+import { MailboxAuthError, MailboxHistoryExpiredError } from './types'
 import type { MailboxAccount } from './types'
 import type { GmailClient } from './client'
 import type { GmailApiMessage } from './parse'
@@ -196,5 +196,126 @@ describe('syncMailbox', () => {
     const result = await syncMailbox(fakeClient(), account)
     expect(result.messages).toEqual([])
     expect(result.nextCursor).toBe('999')
+  })
+
+  it('reports truncated on the HISTORY path when a page lands exactly on the cap with more remaining', async () => {
+    // Two pages of 1 id each, cap 2: count lands exactly on cap on the
+    // second page, but nextPageToken still points at more. The old
+    // `messageIds.length > cap` arithmetic misses this — 2 is not > 2 — so
+    // the loop must instead report whatever page.nextPageToken remained
+    // unconsumed.
+    const listHistory = vi
+      .fn()
+      .mockResolvedValueOnce({
+        messageIds: ['m1'],
+        nextPageToken: 'p2',
+        historyId: null,
+      })
+      .mockResolvedValueOnce({
+        messageIds: ['m2'],
+        nextPageToken: 'p3',
+        historyId: '950',
+      })
+
+    const result = await syncMailbox(fakeClient({ listHistory }), account, {
+      maxMessages: 2,
+    })
+
+    expect(result.messages).toHaveLength(2)
+    expect(result.truncated).toBe(true)
+    // History path: cursor still held even though the boundary math changed.
+    expect(result.nextCursor).toBe('900')
+  })
+
+  it('reports truncated on the FALLBACK path when a page lands exactly on the cap with more remaining', async () => {
+    const listMessages = vi
+      .fn()
+      .mockResolvedValueOnce({ messageIds: ['m1'], nextPageToken: 'p2' })
+      .mockResolvedValueOnce({ messageIds: ['m2'], nextPageToken: 'p3' })
+
+    const result = await syncMailbox(
+      fakeClient({ listMessages }),
+      { ...account, syncCursor: null },
+      { fallbackAfterDate: '2026/07/01', maxMessages: 2 },
+    )
+
+    expect(result.usedFallback).toBe(true)
+    expect(result.messages).toHaveLength(2)
+    expect(result.truncated).toBe(true)
+    expect(result.nextCursor).toBe('999')
+  })
+
+  it('skips a single unfetchable message and reports fetchFailures instead of aborting the run', async () => {
+    const client = fakeClient({
+      listHistory: vi.fn(async () => ({
+        messageIds: ['m1', 'm2', 'm3'],
+        nextPageToken: null,
+        historyId: '950',
+      })),
+      getMessage: vi.fn(async (id: string) => {
+        if (id === 'm2') throw new Error('404 Not Found')
+        return rawMessage(id, ['board@mp.org'])
+      }),
+    })
+
+    const result = await syncMailbox(client, account)
+
+    expect(result.messages.map((m) => m.gmailMessageId)).toEqual(['m1', 'm3'])
+    expect(result.fetchFailures).toBe(1)
+  })
+
+  it('propagates a MailboxAuthError instead of skipping it, since every later fetch will fail too', async () => {
+    const client = fakeClient({
+      listHistory: vi.fn(async () => ({
+        messageIds: ['m1', 'm2', 'm3'],
+        nextPageToken: null,
+        historyId: '950',
+      })),
+      getMessage: vi.fn(async (id: string) => {
+        if (id === 'm2') throw new MailboxAuthError('credentials dead')
+        return rawMessage(id, ['board@mp.org'])
+      }),
+    })
+
+    await expect(syncMailbox(client, account)).rejects.toThrow(MailboxAuthError)
+  })
+
+  it('excludes an out-of-scope message collected on the FALLBACK path', async () => {
+    const client = fakeClient({
+      listMessages: vi.fn(async () => ({
+        messageIds: ['m1', 'm2'],
+        nextPageToken: null,
+      })),
+      getMessage: vi.fn(async (id: string) =>
+        id === 'm1'
+          ? rawMessage('m1', ['board@mp.org'])
+          : rawMessage('m2', ['president.personal@gmail.com']),
+      ),
+    })
+
+    const result = await syncMailbox(
+      client,
+      { ...account, syncCursor: null },
+      { fallbackAfterDate: '2026/07/01' },
+    )
+
+    expect(result.usedFallback).toBe(true)
+    expect(result.messages.map((m) => m.gmailMessageId)).toEqual(['m1'])
+  })
+
+  it('holds the previous cursor instead of emitting an empty string when a non-capped history walk never receives a historyId', async () => {
+    const client = fakeClient({
+      listHistory: vi.fn(async () => ({
+        messageIds: ['m1'],
+        nextPageToken: null,
+        historyId: null,
+      })),
+    })
+
+    const result = await syncMailbox(client, account)
+
+    expect(result.truncated).toBe(false)
+    expect(result.nextCursor).toBe('900')
+    expect(result.nextCursor).not.toBe('')
   })
 })

@@ -3827,7 +3827,7 @@ The last pure piece. Takes an account and a cursor, returns parsed in-scope mess
 
 **Interfaces:**
 - Consumes: `GmailClient` (Task 10), `isInScope`/`buildScopeQuery` (Task 11), `parseGmailMessage` (Task 7), `MailboxAccount`/`SyncResult` (Task 6)
-- Produces: `syncMailbox(client: GmailClient, account: MailboxAccount, opts?: { fallbackAfterDate?: string; maxMessages?: number }): Promise<SyncResult>`
+- Produces: `syncMailbox(client: GmailClient, account: MailboxAccount, opts?: { fallbackAfterDate?: string; maxMessages?: number }): Promise<SyncResultWithFetchFailures>`, where `SyncResultWithFetchFailures` is `SyncResult` (Task 6) plus a `fetchFailures: number` count. Defined locally in `sync.ts` because `SyncResult` itself lives in `types.ts`; `types.ts` should grow the `fetchFailures` field for real in a follow-up so downstream callers can import the type directly.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -3836,9 +3836,10 @@ Create `packages/mailbox/src/sync.test.ts`:
 ```ts
 import { describe, expect, it, vi } from 'vitest'
 import { syncMailbox } from './sync'
-import { MailboxHistoryExpiredError } from './types'
+import { MailboxAuthError, MailboxHistoryExpiredError } from './types'
 import type { MailboxAccount } from './types'
 import type { GmailClient } from './client'
+import type { GmailApiMessage } from './parse'
 
 const account: MailboxAccount = {
   id: 'acct-1',
@@ -3848,7 +3849,7 @@ const account: MailboxAccount = {
   syncCursor: '900',
 }
 
-function rawMessage(id: string, to: string[]): unknown {
+function rawMessage(id: string, to: string[]): GmailApiMessage {
   return {
     id,
     threadId: `t-${id}`,
@@ -4032,6 +4033,127 @@ describe('syncMailbox', () => {
     expect(result.messages).toEqual([])
     expect(result.nextCursor).toBe('999')
   })
+
+  it('reports truncated on the HISTORY path when a page lands exactly on the cap with more remaining', async () => {
+    // Two pages of 1 id each, cap 2: count lands exactly on cap on the
+    // second page, but nextPageToken still points at more. A
+    // `messageIds.length > cap` check alone misses this — 2 is not > 2 — so
+    // the collector must separately report whatever page token remained
+    // unconsumed.
+    const listHistory = vi
+      .fn()
+      .mockResolvedValueOnce({
+        messageIds: ['m1'],
+        nextPageToken: 'p2',
+        historyId: null,
+      })
+      .mockResolvedValueOnce({
+        messageIds: ['m2'],
+        nextPageToken: 'p3',
+        historyId: '950',
+      })
+
+    const result = await syncMailbox(fakeClient({ listHistory }), account, {
+      maxMessages: 2,
+    })
+
+    expect(result.messages).toHaveLength(2)
+    expect(result.truncated).toBe(true)
+    // History path: cursor still held even at the boundary.
+    expect(result.nextCursor).toBe('900')
+  })
+
+  it('reports truncated on the FALLBACK path when a page lands exactly on the cap with more remaining', async () => {
+    const listMessages = vi
+      .fn()
+      .mockResolvedValueOnce({ messageIds: ['m1'], nextPageToken: 'p2' })
+      .mockResolvedValueOnce({ messageIds: ['m2'], nextPageToken: 'p3' })
+
+    const result = await syncMailbox(
+      fakeClient({ listMessages }),
+      { ...account, syncCursor: null },
+      { fallbackAfterDate: '2026/07/01', maxMessages: 2 },
+    )
+
+    expect(result.usedFallback).toBe(true)
+    expect(result.messages).toHaveLength(2)
+    expect(result.truncated).toBe(true)
+    expect(result.nextCursor).toBe('999')
+  })
+
+  it('skips a single unfetchable message and reports fetchFailures instead of aborting the run', async () => {
+    const client = fakeClient({
+      listHistory: vi.fn(async () => ({
+        messageIds: ['m1', 'm2', 'm3'],
+        nextPageToken: null,
+        historyId: '950',
+      })),
+      getMessage: vi.fn(async (id: string) => {
+        if (id === 'm2') throw new Error('404 Not Found')
+        return rawMessage(id, ['board@mp.org'])
+      }),
+    })
+
+    const result = await syncMailbox(client, account)
+
+    expect(result.messages.map((m) => m.gmailMessageId)).toEqual(['m1', 'm3'])
+    expect(result.fetchFailures).toBe(1)
+  })
+
+  it('propagates a MailboxAuthError instead of skipping it, since every later fetch will fail too', async () => {
+    const client = fakeClient({
+      listHistory: vi.fn(async () => ({
+        messageIds: ['m1', 'm2', 'm3'],
+        nextPageToken: null,
+        historyId: '950',
+      })),
+      getMessage: vi.fn(async (id: string) => {
+        if (id === 'm2') throw new MailboxAuthError('credentials dead')
+        return rawMessage(id, ['board@mp.org'])
+      }),
+    })
+
+    await expect(syncMailbox(client, account)).rejects.toThrow(MailboxAuthError)
+  })
+
+  it('excludes an out-of-scope message collected on the FALLBACK path', async () => {
+    const client = fakeClient({
+      listMessages: vi.fn(async () => ({
+        messageIds: ['m1', 'm2'],
+        nextPageToken: null,
+      })),
+      getMessage: vi.fn(async (id: string) =>
+        id === 'm1'
+          ? rawMessage('m1', ['board@mp.org'])
+          : rawMessage('m2', ['president.personal@gmail.com']),
+      ),
+    })
+
+    const result = await syncMailbox(
+      client,
+      { ...account, syncCursor: null },
+      { fallbackAfterDate: '2026/07/01' },
+    )
+
+    expect(result.usedFallback).toBe(true)
+    expect(result.messages.map((m) => m.gmailMessageId)).toEqual(['m1'])
+  })
+
+  it('holds the previous cursor instead of emitting an empty string when a non-capped history walk never receives a historyId', async () => {
+    const client = fakeClient({
+      listHistory: vi.fn(async () => ({
+        messageIds: ['m1'],
+        nextPageToken: null,
+        historyId: null,
+      })),
+    })
+
+    const result = await syncMailbox(client, account)
+
+    expect(result.truncated).toBe(false)
+    expect(result.nextCursor).toBe('900')
+    expect(result.nextCursor).not.toBe('')
+  })
 })
 ```
 
@@ -4070,6 +4192,7 @@ import { GmailClient } from './client'
 import { parseGmailMessage } from './parse'
 import { buildScopeQuery, isInScope } from './scope'
 import {
+  MailboxAuthError,
   MailboxHistoryExpiredError,
   type MailboxAccount,
   type ParsedMessage,
@@ -4085,11 +4208,28 @@ export interface SyncOptions {
   maxMessages?: number
 }
 
+/**
+ * `SyncResult` (types.ts) doesn't carry a `fetchFailures` field. This
+ * extends it locally so the count can be returned without touching
+ * types.ts in this task's diff. types.ts should grow this field for real
+ * in a follow-up so callers elsewhere can import it directly instead of
+ * relying on structural typing.
+ */
+export interface SyncResultWithFetchFailures extends SyncResult {
+  /**
+   * Count of selected messages whose fetch/parse failed and were skipped
+   * rather than aborting the whole run (e.g. a 404 from a message deleted
+   * between listing and fetching). Does not include MailboxAuthError, which
+   * always propagates instead of being counted.
+   */
+  fetchFailures: number
+}
+
 async function collectHistoryIds(
   client: GmailClient,
   startHistoryId: string,
   cap: number,
-): Promise<{ ids: string[]; historyId: string | null }> {
+): Promise<{ ids: string[]; historyId: string | null; hasMore: boolean }> {
   const ids: string[] = []
   let pageToken: string | undefined
   let historyId: string | null = null
@@ -4101,14 +4241,19 @@ async function collectHistoryIds(
     pageToken = page.nextPageToken ?? undefined
   } while (pageToken && ids.length < cap)
 
-  return { ids, historyId }
+  // `pageToken` is truthy here only if the loop stopped because it hit the
+  // cap while a page still had more results waiting — i.e. pagination was
+  // cut short, not exhausted. Do not infer this from `ids.length` alone: a
+  // count that lands exactly on `cap` looks identical to "done" unless we
+  // also track whether a page token was left unconsumed.
+  return { ids, historyId, hasMore: Boolean(pageToken) }
 }
 
 async function collectQueryIds(
   client: GmailClient,
   query: string,
   cap: number,
-): Promise<string[]> {
+): Promise<{ ids: string[]; hasMore: boolean }> {
   const ids: string[] = []
   let pageToken: string | undefined
 
@@ -4118,25 +4263,27 @@ async function collectQueryIds(
     pageToken = page.nextPageToken ?? undefined
   } while (pageToken && ids.length < cap)
 
-  return ids
+  return { ids, hasMore: Boolean(pageToken) }
 }
 
 export async function syncMailbox(
   client: GmailClient,
   account: MailboxAccount,
   opts: SyncOptions = {},
-): Promise<SyncResult> {
+): Promise<SyncResultWithFetchFailures> {
   const cap = opts.maxMessages ?? DEFAULT_MAX_MESSAGES
 
   let messageIds: string[] = []
   let historyId: string | null = null
   let usedFallback = false
+  let hasMore = false
 
   if (account.syncCursor) {
     try {
       const walked = await collectHistoryIds(client, account.syncCursor, cap)
       messageIds = walked.ids
       historyId = walked.historyId
+      hasMore = walked.hasMore
     } catch (error) {
       if (!(error instanceof MailboxHistoryExpiredError)) throw error
       usedFallback = true
@@ -4153,19 +4300,48 @@ export async function syncMailbox(
       account.scopeValue,
       opts.fallbackAfterDate,
     )
-    messageIds = await collectQueryIds(client, query, cap)
+    const walked = await collectQueryIds(client, query, cap)
+    messageIds = walked.ids
+    hasMore = walked.hasMore
 
     // Re-anchor on the mailbox's current historyId so the NEXT run is
     // incremental again.
     historyId = (await client.getProfile()).historyId
   }
 
-  const truncated = messageIds.length > cap
+  // `hasMore` catches the exact-cap boundary (a page landed precisely on
+  // `cap` with a page token still pointing at more results); the length
+  // check catches the case a single oversized page pushed us past `cap` in
+  // one shot. Neither alone is sufficient — see sync.test.ts for the
+  // boundary case this guards against.
+  const truncated = hasMore || messageIds.length > cap
   const selected = messageIds.slice(0, cap)
 
   const messages: ParsedMessage[] = []
+  let fetchFailures = 0
   for (const id of selected) {
-    const parsed = parseGmailMessage(await client.getMessage(id))
+    let parsed: ParsedMessage
+    try {
+      parsed = parseGmailMessage(await client.getMessage(id))
+    } catch (error) {
+      // An auth failure means every subsequent fetch will fail too — let it
+      // propagate rather than burning through the rest of the batch.
+      if (error instanceof MailboxAuthError) throw error
+
+      // Anything else (most commonly a 404 — the message was deleted
+      // between listing and fetching) is a per-message problem, not a
+      // batch-ending one. Skip it and keep going so one poison message
+      // can't permanently block this mailbox's sync. Log only the Gmail
+      // message id (an opaque identifier) — never the body, subject, or
+      // any address.
+      fetchFailures++
+      console.error(
+        `mailbox sync: skipping unfetchable message ${id}`,
+        error instanceof Error ? error.message : String(error),
+      )
+      continue
+    }
+
     if (isInScope(parsed, account.scopeMode, account.scopeValue)) {
       messages.push(parsed)
     }
@@ -4179,13 +4355,41 @@ export async function syncMailbox(
   // never advance. The cursor moves to the mailbox's current historyId and
   // the caller must trigger a backfill, which paginates properly with page
   // tokens, to cover what the cap dropped.
+  //
+  // Trade-off this hold accepts: if a mailbox's first `cap` history events
+  // are ALL out-of-scope, a capped HISTORY run holds the same cursor every
+  // time and re-walks the identical window forever without advancing.
+  // Changing the hold rule to dodge that would risk skipping mail on a
+  // normal capped run, which is worse than wasted work, so it stays as-is.
+  // The mitigation lives one level up, in the caller: trigger a backfill on
+  // ANY truncated run (history OR fallback), not only a fallback one. The
+  // backfill paginates properly with page tokens and is idempotent against
+  // inbox_messages' unique index, so it makes forward progress even in the
+  // all-out-of-scope stall case the incremental walk cannot resolve on its
+  // own. See Task 15 (the sync job) for where this gets wired up.
   const holdCursor = truncated && !usedFallback
 
-  const nextCursor = holdCursor
-    ? (account.syncCursor as string)
-    : (historyId ?? account.syncCursor ?? '')
+  let nextCursor: string
+  if (holdCursor) {
+    nextCursor = account.syncCursor as string
+  } else {
+    const resolved = historyId ?? account.syncCursor
+    if (!resolved) {
+      // Neither a fresh historyId nor a previous cursor is available to
+      // persist. This should be unreachable in practice (the history path
+      // requires a truthy syncCursor to start, and the fallback path always
+      // re-anchors from getProfile()), but silently emitting '' here would
+      // look like "no cursor" to the next run and force an unnecessary full
+      // bootstrap. Fail loudly instead of masking a state that should be
+      // impossible.
+      throw new Error(
+        `syncMailbox: unable to determine a next cursor for mailbox ${account.id}`,
+      )
+    }
+    nextCursor = resolved
+  }
 
-  return { messages, nextCursor, usedFallback, truncated }
+  return { messages, nextCursor, usedFallback, truncated, fetchFailures }
 }
 ```
 
@@ -4194,7 +4398,7 @@ export async function syncMailbox(
 ```bash
 rtk pnpm test:unit
 ```
-Expected: PASS — 7 sync tests.
+Expected: PASS — 14 sync tests.
 
 - [ ] **Step 5: Export, typecheck, commit**
 
@@ -4205,11 +4409,27 @@ export { syncMailbox } from './sync'
 export type { SyncOptions } from './sync'
 ```
 
+Follow-up not covered by this task's diff: `types.ts` should grow the real
+`fetchFailures: number` field on `SyncResult` (see the "Interfaces" note
+above), and once it does, `index.ts`'s existing `export * from './types'`
+picks it up automatically — no separate export line needed. Until then,
+`SyncResultWithFetchFailures` (defined in `sync.ts`) isn't re-exported from
+`index.ts`; callers importing from the package root see it structurally
+through `syncMailbox`'s return type but can't name it directly.
+
 ```bash
 rtk pnpm test:unit && rtk pnpm typecheck && rtk git add packages/mailbox/ && rtk git commit -m "feat(mailbox): incremental syncMailbox with history-expiry fallback"
 ```
 
-`packages/mailbox` is now complete: ~50 unit tests, zero network, zero database.
+`packages/mailbox` is now complete: zero network, zero database.
+
+**Reviewer follow-up (fix pass, same day):** the initial implementation had
+a truncation-boundary bug (a page landing exactly on `cap` with more results
+pending was reported as `truncated: false`, silently dropping mail) and let
+a single unfetchable message abort the whole run. Both are fixed in the code
+above — see `hasMore` tracking in the collectors and the per-message
+try/catch around `getMessage`/`parseGmailMessage`. Full history in
+`.superpowers/sdd/task-12-report.md`.
 
 ---
 
