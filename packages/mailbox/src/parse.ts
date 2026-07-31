@@ -86,8 +86,11 @@ export function parseAddress(raw: string): { email: string | null; name: string 
     return { email: angled[2].trim().toLowerCase(), name: name === '' ? null : name }
   }
 
-  // bare a@b.com
-  if (trimmed.includes('@')) {
+  // bare a@b.com — but only if it's actually a plausible address. A
+  // malformed angle-bracket form like `Name <a@b.com` (no closing `>`)
+  // falls through here too; without this check the whole raw string
+  // (display name and all) would be returned as `email`.
+  if (/^[^\s<>]+@[^\s<>]+$/.test(trimmed)) {
     return { email: trimmed.toLowerCase(), name: null }
   }
   return { email: null, name: trimmed === '' ? null : trimmed }
@@ -156,7 +159,14 @@ export function parseGmailMessage(raw: GmailApiMessage): ParsedMessage {
     .map((s) => s.trim())
     .filter((s) => s !== '')
 
+  // Date's valid range is ±8.64e15 ms from the epoch; Number.isFinite alone
+  // lets larger-but-finite values through, and `new Date(n).toISOString()`
+  // throws RangeError past that bound. A corrupt internalDate must degrade
+  // to sentAt: null, not crash the whole sync run.
+  const MAX_SAFE_DATE_MS = 8_640_000_000_000_000
   const internal = raw.internalDate ? Number.parseInt(raw.internalDate, 10) : NaN
+  const sentAtMs =
+    Number.isFinite(internal) && Math.abs(internal) <= MAX_SAFE_DATE_MS ? internal : null
 
   return {
     gmailMessageId: raw.id,
@@ -177,7 +187,7 @@ export function parseGmailMessage(raw: GmailApiMessage): ParsedMessage {
     strippedText: null, // filled by stripQuotedReply — see Task 8
 
     attachments: state.attachments,
-    sentAt: Number.isFinite(internal) ? new Date(internal).toISOString() : null,
+    sentAt: sentAtMs !== null ? new Date(sentAtMs).toISOString() : null,
     labelIds: raw.labelIds ?? [],
   }
 }

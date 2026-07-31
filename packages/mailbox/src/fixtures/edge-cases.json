@@ -1,0 +1,32 @@
+{
+  "id": "68f0a1b2c3d4e5f6",
+  "threadId": "68f0a1b2c3d4e5f0",
+  "labelIds": ["INBOX"],
+  "internalDate": "1785500500000",
+  "payload": {
+    "mimeType": "multipart/mixed",
+    "headers": [
+      { "name": "Message-ID", "value": "<pqr678@mail.gmail.com>" },
+      { "name": "From", "value": "Marcus Webb <m.webb@gmail.com>" },
+      { "name": "To", "value": "\"Chen, Mei\" <m@x.com>, other@y.com" },
+      { "name": "subject", "value": "Fence stain color approval - fan out" },
+      { "name": "Delivered-To", "value": "board@madisonparkhoa.org" },
+      { "name": "Delivered-To", "value": "hoa-board-group@googlegroups.com" }
+    ],
+    "parts": [
+      {
+        "mimeType": "text/plain",
+        "headers": [],
+        "body": { "size": 43, "data": "UGxlYXNlIHJldmlldyB0aGUgYXR0YWNoZWQgc2lnbmF0dXJlIGJsb2NrLg" }
+      },
+      {
+        "mimeType": "image/png",
+        "filename": "sig.png",
+        "headers": [
+          { "name": "Content-ID", "value": "<sig@host>" }
+        ],
+        "body": { "size": 2048, "attachmentId": "ANGjdJ_attach_sig" }
+      }
+    ]
+  }
+}
