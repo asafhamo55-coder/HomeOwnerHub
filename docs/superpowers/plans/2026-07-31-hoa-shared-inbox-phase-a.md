@@ -1469,6 +1469,13 @@ export interface SyncResult {
   nextCursor: string
   /** True when historyId expired and a date-ranged re-sync was used. */
   usedFallback: boolean
+  /**
+   * True when maxMessages capped the run. On the history path the cursor is
+   * held so the remainder is picked up next time. On the FALLBACK path the
+   * cursor must advance (there is no resumable history position), so the
+   * caller has to trigger a backfill or the capped-off messages are lost.
+   */
+  truncated: boolean
 }
 
 export interface OAuthTokens {
@@ -3609,9 +3616,33 @@ describe('syncMailbox', () => {
 
     const result = await syncMailbox(client, account, { maxMessages: 2 })
     expect(result.messages).toHaveLength(2)
-    // Cursor is NOT advanced on a truncated run — the remainder must be
-    // picked up next time rather than silently skipped.
+    expect(result.truncated).toBe(true)
+    // History path: cursor is HELD so the remainder is picked up next run
+    // rather than silently skipped.
     expect(result.nextCursor).toBe('900')
+  })
+
+  it('advances the cursor on a truncated FALLBACK run and reports truncation', async () => {
+    // Holding a null/stale cursor here would re-fetch the same newest N
+    // forever. The cursor must advance, and the caller must backfill to
+    // cover what the cap dropped.
+    const client = fakeClient({
+      listMessages: vi.fn(async () => ({
+        messageIds: ['m1', 'm2', 'm3', 'm4'],
+        nextPageToken: null,
+      })),
+    })
+
+    const result = await syncMailbox(
+      client,
+      { ...account, syncCursor: null },
+      { fallbackAfterDate: '2026/07/01', maxMessages: 2 },
+    )
+
+    expect(result.usedFallback).toBe(true)
+    expect(result.truncated).toBe(true)
+    expect(result.messages).toHaveLength(2)
+    expect(result.nextCursor).toBe('999')
   })
 
   it('returns no messages and holds the cursor when history is empty', async () => {
@@ -3756,13 +3787,21 @@ export async function syncMailbox(
     }
   }
 
-  // On a truncated run, hold the cursor. Advancing it would skip the
-  // messages we did not fetch, and they would never be seen again.
-  const nextCursor = truncated
-    ? (account.syncCursor ?? historyId ?? '')
+  // On a truncated HISTORY run, hold the cursor — the next run re-walks
+  // from the same point and picks up the remainder.
+  //
+  // On a truncated FALLBACK run we cannot hold it: the cursor is null or
+  // stale, so holding it would re-fetch the same newest N forever and
+  // never advance. The cursor moves to the mailbox's current historyId and
+  // the caller must trigger a backfill, which paginates properly with page
+  // tokens, to cover what the cap dropped.
+  const holdCursor = truncated && !usedFallback
+
+  const nextCursor = holdCursor
+    ? (account.syncCursor as string)
     : (historyId ?? account.syncCursor ?? '')
 
-  return { messages, nextCursor, usedFallback }
+  return { messages, nextCursor, usedFallback, truncated }
 }
 ```
 
@@ -5045,6 +5084,21 @@ export const mailboxSyncJob = inngest.createFunction(
           logger.warn(
             `[mailbox-sync] ${account.email_address}: historyId expired, used dated re-sync`,
           )
+        }
+
+        // A capped fallback run had to advance the cursor, so anything past
+        // the cap is not coming back on the next sync. Backfill paginates
+        // properly with page tokens and is idempotent, so it recovers the
+        // remainder. Without this, a mailbox that took >200 messages in a
+        // 7-day outage would silently lose the oldest of them.
+        if (result.usedFallback && result.truncated) {
+          logger.warn(
+            `[mailbox-sync] ${account.email_address}: capped fallback — requesting backfill`,
+          )
+          await inngest.send({
+            name: 'mailbox/backfill.requested',
+            data: { accountId: account.id },
+          })
         }
 
         const ingested = await ingestMessages(
