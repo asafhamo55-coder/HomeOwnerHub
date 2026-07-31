@@ -35,6 +35,24 @@ export const dailyDigestJob = inngest.createFunction(
       const orgId = org.id as string
       const orgName = org.name as string
 
+      // Surface any mailbox that has stopped syncing. A board that believes
+      // email is flowing while it isn't loses trust in the product
+      // permanently, so this is checked every digest run regardless of
+      // whether digest generation itself succeeds.
+      const { data: brokenMailboxes } = await db
+        .from('mailbox_accounts')
+        .select('email_address, sync_status, sync_error')
+        .eq('organization_id', orgId)
+        .is('disconnected_at', null)
+        .in('sync_status', ['stalled', 'auth_failed'])
+
+      for (const mailbox of brokenMailboxes ?? []) {
+        logger.error(
+          `[daily-digest] ${orgId}: mailbox ${mailbox.email_address} is ` +
+            `${mailbox.sync_status} — ${mailbox.sync_error ?? 'no detail'}`,
+        )
+      }
+
       const result = await step.run(`digest-${orgId}`, async () => {
         const today = new Date().toISOString().slice(0, 10)
 

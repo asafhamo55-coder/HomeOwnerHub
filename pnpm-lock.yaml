@@ -432,6 +432,9 @@ importers:
       '@homeowner-portal/db':
         specifier: workspace:*
         version: link:../db
+      '@homeowner-portal/mailbox':
+        specifier: workspace:*
+        version: link:../mailbox
       '@homeowner-portal/workflows':
         specifier: workspace:*
         version: link:../workflows
