@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildScopeQuery, isInScope, recommendScope } from './scope'
-import type { ParsedMessage } from './types'
+import type { ParsedMessage, ScopeMode } from './types'
 
 function msg(over: Partial<ParsedMessage> = {}): ParsedMessage {
   return {
@@ -70,8 +70,16 @@ describe('isInScope', () => {
     ).toBe(false)
   })
 
-  it('mode=address is case-insensitive', () => {
+  it('mode=address is case-insensitive (haystack side)', () => {
     expect(isInScope(msg({ toEmails: ['BOARD@MP.ORG'] }), 'address', 'board@mp.org')).toBe(
+      true,
+    )
+  })
+
+  it('mode=address is case-insensitive (needle side)', () => {
+    // The fixture haystack is lowercase; if the needle-side .toLowerCase()
+    // were removed, this would fail while the test above still passed.
+    expect(isInScope(msg({ toEmails: ['board@mp.org'] }), 'address', 'BOARD@MP.ORG')).toBe(
       true,
     )
   })
@@ -81,12 +89,26 @@ describe('isInScope', () => {
     expect(isInScope(msg(), 'address', null)).toBe(false)
   })
 
+  it('mode=address with an empty-string scopeValue rejects everything', () => {
+    expect(isInScope(msg(), 'address', '')).toBe(false)
+  })
+
+  it('mode=address with a whitespace-only scopeValue rejects everything', () => {
+    expect(isInScope(msg(), 'address', '   ')).toBe(false)
+  })
+
   it('mode=label keeps a message carrying the label', () => {
     expect(isInScope(msg({ labelIds: ['INBOX', 'Label_9'] }), 'label', 'Label_9')).toBe(true)
   })
 
   it('mode=label rejects a message without the label', () => {
     expect(isInScope(msg({ labelIds: ['INBOX'] }), 'label', 'Label_9')).toBe(false)
+  })
+
+  it('an unrecognized scopeMode fails closed rather than falling through to address matching', () => {
+    expect(
+      isInScope(msg({ toEmails: ['board@mp.org'] }), 'bogus' as ScopeMode, 'board@mp.org'),
+    ).toBe(false)
   })
 })
 
@@ -108,6 +130,36 @@ describe('buildScopeQuery', () => {
   it('appends an after: clause when given', () => {
     expect(buildScopeQuery('all', null, '2025/07/31')).toBe('after:2025/07/31')
     expect(buildScopeQuery('label', 'L1', '2025/07/31')).toBe('label:L1 after:2025/07/31')
+  })
+
+  it('rejects a query-widening address instead of building an unrestricted query', () => {
+    // A bare space plus Gmail query syntax would turn the fetch-side
+    // filter into "match essentially every message with a To: header".
+    expect(() => buildScopeQuery('address', 'x@y.com OR to:*')).toThrow(/scopeValue/)
+  })
+
+  it('rejects a label value containing a space', () => {
+    expect(() => buildScopeQuery('label', 'Label 9')).toThrow(/scopeValue/)
+  })
+
+  it('rejects a label value containing a colon', () => {
+    expect(() => buildScopeQuery('label', 'label:evil')).toThrow(/scopeValue/)
+  })
+
+  it('rejects an unrecognized scopeMode instead of degrading to an unrestricted query', () => {
+    expect(() => buildScopeQuery('bogus' as ScopeMode, 'whatever')).toThrow(/scopeMode/)
+  })
+
+  it('accepts a plus-tagged address without throwing', () => {
+    expect(buildScopeQuery('address', 'board+arc@mp.org')).toBe(
+      '(to:board+arc@mp.org OR cc:board+arc@mp.org OR deliveredto:board+arc@mp.org)',
+    )
+  })
+
+  it('accepts a subdomain address without throwing', () => {
+    expect(buildScopeQuery('address', 'board@mail.mp.org')).toBe(
+      '(to:board@mail.mp.org OR cc:board@mail.mp.org OR deliveredto:board@mail.mp.org)',
+    )
   })
 })
 
@@ -138,5 +190,19 @@ describe('recommendScope', () => {
       scopeMode: 'address',
       scopeValue: 'board@mp.org',
     })
+  })
+
+  it('with multiple non-primary aliases, picks the first one in list order', () => {
+    // Pinning this so the choice is documented behavior, not incidental —
+    // Array.prototype.find takes the first match.
+    const result = recommendScope(
+      [
+        { sendAsEmail: 'president@gmail.com', isPrimary: true, isDefault: true },
+        { sendAsEmail: 'board@mp.org', isPrimary: false, isDefault: false },
+        { sendAsEmail: 'arc@mp.org', isPrimary: false, isDefault: false },
+      ],
+      'president@gmail.com',
+    )
+    expect(result).toEqual({ scopeMode: 'address', scopeValue: 'board@mp.org' })
   })
 })

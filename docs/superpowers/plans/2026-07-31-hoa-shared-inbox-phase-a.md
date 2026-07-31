@@ -3437,7 +3437,7 @@ Create `packages/mailbox/src/scope.test.ts`:
 ```ts
 import { describe, expect, it } from 'vitest'
 import { buildScopeQuery, isInScope, recommendScope } from './scope'
-import type { ParsedMessage } from './types'
+import type { ParsedMessage, ScopeMode } from './types'
 
 function msg(over: Partial<ParsedMessage> = {}): ParsedMessage {
   return {
@@ -3507,8 +3507,16 @@ describe('isInScope', () => {
     ).toBe(false)
   })
 
-  it('mode=address is case-insensitive', () => {
+  it('mode=address is case-insensitive (haystack side)', () => {
     expect(isInScope(msg({ toEmails: ['BOARD@MP.ORG'] }), 'address', 'board@mp.org')).toBe(
+      true,
+    )
+  })
+
+  it('mode=address is case-insensitive (needle side)', () => {
+    // The fixture haystack is lowercase; if the needle-side .toLowerCase()
+    // were removed, this would fail while the test above still passed.
+    expect(isInScope(msg({ toEmails: ['board@mp.org'] }), 'address', 'BOARD@MP.ORG')).toBe(
       true,
     )
   })
@@ -3518,12 +3526,26 @@ describe('isInScope', () => {
     expect(isInScope(msg(), 'address', null)).toBe(false)
   })
 
+  it('mode=address with an empty-string scopeValue rejects everything', () => {
+    expect(isInScope(msg(), 'address', '')).toBe(false)
+  })
+
+  it('mode=address with a whitespace-only scopeValue rejects everything', () => {
+    expect(isInScope(msg(), 'address', '   ')).toBe(false)
+  })
+
   it('mode=label keeps a message carrying the label', () => {
     expect(isInScope(msg({ labelIds: ['INBOX', 'Label_9'] }), 'label', 'Label_9')).toBe(true)
   })
 
   it('mode=label rejects a message without the label', () => {
     expect(isInScope(msg({ labelIds: ['INBOX'] }), 'label', 'Label_9')).toBe(false)
+  })
+
+  it('an unrecognized scopeMode fails closed rather than falling through to address matching', () => {
+    expect(
+      isInScope(msg({ toEmails: ['board@mp.org'] }), 'bogus' as ScopeMode, 'board@mp.org'),
+    ).toBe(false)
   })
 })
 
@@ -3545,6 +3567,36 @@ describe('buildScopeQuery', () => {
   it('appends an after: clause when given', () => {
     expect(buildScopeQuery('all', null, '2025/07/31')).toBe('after:2025/07/31')
     expect(buildScopeQuery('label', 'L1', '2025/07/31')).toBe('label:L1 after:2025/07/31')
+  })
+
+  it('rejects a query-widening address instead of building an unrestricted query', () => {
+    // A bare space plus Gmail query syntax would turn the fetch-side
+    // filter into "match essentially every message with a To: header".
+    expect(() => buildScopeQuery('address', 'x@y.com OR to:*')).toThrow(/scopeValue/)
+  })
+
+  it('rejects a label value containing a space', () => {
+    expect(() => buildScopeQuery('label', 'Label 9')).toThrow(/scopeValue/)
+  })
+
+  it('rejects a label value containing a colon', () => {
+    expect(() => buildScopeQuery('label', 'label:evil')).toThrow(/scopeValue/)
+  })
+
+  it('rejects an unrecognized scopeMode instead of degrading to an unrestricted query', () => {
+    expect(() => buildScopeQuery('bogus' as ScopeMode, 'whatever')).toThrow(/scopeMode/)
+  })
+
+  it('accepts a plus-tagged address without throwing', () => {
+    expect(buildScopeQuery('address', 'board+arc@mp.org')).toBe(
+      '(to:board+arc@mp.org OR cc:board+arc@mp.org OR deliveredto:board+arc@mp.org)',
+    )
+  })
+
+  it('accepts a subdomain address without throwing', () => {
+    expect(buildScopeQuery('address', 'board@mail.mp.org')).toBe(
+      '(to:board@mail.mp.org OR cc:board@mail.mp.org OR deliveredto:board@mail.mp.org)',
+    )
   })
 })
 
@@ -3575,6 +3627,20 @@ describe('recommendScope', () => {
       scopeMode: 'address',
       scopeValue: 'board@mp.org',
     })
+  })
+
+  it('with multiple non-primary aliases, picks the first one in list order', () => {
+    // Pinning this so the choice is documented behavior, not incidental —
+    // Array.prototype.find takes the first match.
+    const result = recommendScope(
+      [
+        { sendAsEmail: 'president@gmail.com', isPrimary: true, isDefault: true },
+        { sendAsEmail: 'board@mp.org', isPrimary: false, isDefault: false },
+        { sendAsEmail: 'arc@mp.org', isPrimary: false, isDefault: false },
+      ],
+      'president@gmail.com',
+    )
+    expect(result).toEqual({ scopeMode: 'address', scopeValue: 'board@mp.org' })
   })
 })
 ```
@@ -3608,6 +3674,16 @@ Expected: FAIL — `Failed to resolve import "./scope"`.
 
 import type { ParsedMessage, ScopeMode } from './types'
 
+// A plausible single email address: no whitespace/quotes/parens/commas
+// (which are Gmail query metacharacters), exactly one `@`, non-empty local
+// and domain parts. Not full RFC 5322 validation — deliberately pragmatic.
+const ADDRESS_RE = /^[^\s"'()<>,]+@[^\s"'()<>,]+$/
+
+// Gmail label ids are conservative tokens in practice (e.g. `Label_9`,
+// `INBOX`). Restricting to this set keeps `label:<value>` unambiguous and
+// rules out anything that could inject additional query syntax.
+const LABEL_RE = /^[A-Za-z0-9_-]+$/
+
 export function isInScope(
   message: ParsedMessage,
   scopeMode: ScopeMode,
@@ -3615,14 +3691,24 @@ export function isInScope(
 ): boolean {
   if (scopeMode === 'all') return true
 
-  // Fail closed. Never treat a missing scope value as "allow everything".
-  if (!scopeValue) return false
+  // Fail closed. Never treat a missing/blank scope value as "allow
+  // everything". Trim first so a whitespace-only value can't slip past.
+  const trimmed = scopeValue?.trim()
+  if (!trimmed) return false
 
   if (scopeMode === 'label') {
-    return message.labelIds.includes(scopeValue)
+    return message.labelIds.includes(trimmed)
   }
 
-  const needle = scopeValue.trim().toLowerCase()
+  if (scopeMode !== 'address') {
+    // Unrecognized mode: fail closed by dropping the message. isInScope
+    // runs per message inside a sync loop, so this must never throw —
+    // buildScopeQuery is the place that rejects bad config loudly, before
+    // any fetching happens.
+    return false
+  }
+
+  const needle = trimmed.toLowerCase()
   const haystack = [
     ...message.toEmails,
     ...message.ccEmails,
@@ -3635,6 +3721,12 @@ export function isInScope(
 /**
  * The equivalent filter expressed as a Gmail search query, so backfill and
  * fallback re-sync never fetch out-of-scope mail in the first place.
+ *
+ * Unlike `isInScope`, this throws on invalid input instead of degrading.
+ * It runs once per sync (not per message) to build the fetch-side query,
+ * and the sync job wraps each mailbox in a try/catch that records
+ * `sync_error` and leaves the cursor unadvanced — so a bad config surfaces
+ * loudly instead of quietly widening the fetch to "everything".
  */
 export function buildScopeQuery(
   scopeMode: ScopeMode,
@@ -3643,12 +3735,28 @@ export function buildScopeQuery(
 ): string {
   const clauses: string[] = []
 
-  if (scopeMode === 'address' && scopeValue) {
-    clauses.push(
-      `(to:${scopeValue} OR cc:${scopeValue} OR deliveredto:${scopeValue})`,
-    )
-  } else if (scopeMode === 'label' && scopeValue) {
-    clauses.push(`label:${scopeValue}`)
+  if (scopeMode === 'address') {
+    if (scopeValue) {
+      if (!ADDRESS_RE.test(scopeValue)) {
+        throw new Error(
+          `buildScopeQuery: scopeValue "${scopeValue}" is not a valid single email address`,
+        )
+      }
+      clauses.push(
+        `(to:${scopeValue} OR cc:${scopeValue} OR deliveredto:${scopeValue})`,
+      )
+    }
+  } else if (scopeMode === 'label') {
+    if (scopeValue) {
+      if (!LABEL_RE.test(scopeValue)) {
+        throw new Error(
+          `buildScopeQuery: scopeValue "${scopeValue}" is not a valid Gmail label id`,
+        )
+      }
+      clauses.push(`label:${scopeValue}`)
+    }
+  } else if (scopeMode !== 'all') {
+    throw new Error(`buildScopeQuery: unrecognized scopeMode "${scopeMode}"`)
   }
 
   if (afterDate) clauses.push(`after:${afterDate}`)
@@ -3679,12 +3787,21 @@ export function recommendScope(
 }
 ```
 
+`buildScopeQuery` throws on invalid config; `isInScope` returns `false` on
+the equivalent case. The difference is call frequency and blast radius:
+`buildScopeQuery` runs once per sync to build the fetch-side query, so a
+loud failure (recorded as `sync_error`, cursor unadvanced) is cheap and
+surfaces a misconfigured mailbox immediately. `isInScope` runs once per
+message inside the sync loop — throwing there would abort a sync partway
+through on one bad message, whereas dropping just that message and
+continuing is the fail-closed behavior this module promises.
+
 - [ ] **Step 4: Run the tests**
 
 ```bash
 rtk pnpm test:unit
 ```
-Expected: PASS — 16 scope tests.
+Expected: PASS — 27 scope tests.
 
 - [ ] **Step 5: Export and commit**
 

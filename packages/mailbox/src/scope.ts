@@ -17,6 +17,16 @@
 
 import type { ParsedMessage, ScopeMode } from './types'
 
+// A plausible single email address: no whitespace/quotes/parens/commas
+// (which are Gmail query metacharacters), exactly one `@`, non-empty local
+// and domain parts. Not full RFC 5322 validation — deliberately pragmatic.
+const ADDRESS_RE = /^[^\s"'()<>,]+@[^\s"'()<>,]+$/
+
+// Gmail label ids are conservative tokens in practice (e.g. `Label_9`,
+// `INBOX`). Restricting to this set keeps `label:<value>` unambiguous and
+// rules out anything that could inject additional query syntax.
+const LABEL_RE = /^[A-Za-z0-9_-]+$/
+
 export function isInScope(
   message: ParsedMessage,
   scopeMode: ScopeMode,
@@ -24,14 +34,24 @@ export function isInScope(
 ): boolean {
   if (scopeMode === 'all') return true
 
-  // Fail closed. Never treat a missing scope value as "allow everything".
-  if (!scopeValue) return false
+  // Fail closed. Never treat a missing/blank scope value as "allow
+  // everything". Trim first so a whitespace-only value can't slip past.
+  const trimmed = scopeValue?.trim()
+  if (!trimmed) return false
 
   if (scopeMode === 'label') {
-    return message.labelIds.includes(scopeValue)
+    return message.labelIds.includes(trimmed)
   }
 
-  const needle = scopeValue.trim().toLowerCase()
+  if (scopeMode !== 'address') {
+    // Unrecognized mode: fail closed by dropping the message. isInScope
+    // runs per message inside a sync loop, so this must never throw —
+    // buildScopeQuery is the place that rejects bad config loudly, before
+    // any fetching happens.
+    return false
+  }
+
+  const needle = trimmed.toLowerCase()
   const haystack = [
     ...message.toEmails,
     ...message.ccEmails,
@@ -44,6 +64,12 @@ export function isInScope(
 /**
  * The equivalent filter expressed as a Gmail search query, so backfill and
  * fallback re-sync never fetch out-of-scope mail in the first place.
+ *
+ * Unlike `isInScope`, this throws on invalid input instead of degrading.
+ * It runs once per sync (not per message) to build the fetch-side query,
+ * and the sync job wraps each mailbox in a try/catch that records
+ * `sync_error` and leaves the cursor unadvanced — so a bad config surfaces
+ * loudly instead of quietly widening the fetch to "everything".
  */
 export function buildScopeQuery(
   scopeMode: ScopeMode,
@@ -52,12 +78,28 @@ export function buildScopeQuery(
 ): string {
   const clauses: string[] = []
 
-  if (scopeMode === 'address' && scopeValue) {
-    clauses.push(
-      `(to:${scopeValue} OR cc:${scopeValue} OR deliveredto:${scopeValue})`,
-    )
-  } else if (scopeMode === 'label' && scopeValue) {
-    clauses.push(`label:${scopeValue}`)
+  if (scopeMode === 'address') {
+    if (scopeValue) {
+      if (!ADDRESS_RE.test(scopeValue)) {
+        throw new Error(
+          `buildScopeQuery: scopeValue "${scopeValue}" is not a valid single email address`,
+        )
+      }
+      clauses.push(
+        `(to:${scopeValue} OR cc:${scopeValue} OR deliveredto:${scopeValue})`,
+      )
+    }
+  } else if (scopeMode === 'label') {
+    if (scopeValue) {
+      if (!LABEL_RE.test(scopeValue)) {
+        throw new Error(
+          `buildScopeQuery: scopeValue "${scopeValue}" is not a valid Gmail label id`,
+        )
+      }
+      clauses.push(`label:${scopeValue}`)
+    }
+  } else if (scopeMode !== 'all') {
+    throw new Error(`buildScopeQuery: unrecognized scopeMode "${scopeMode}"`)
   }
 
   if (afterDate) clauses.push(`after:${afterDate}`)
