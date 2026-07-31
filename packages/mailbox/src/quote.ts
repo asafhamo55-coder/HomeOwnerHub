@@ -18,8 +18,6 @@ const CUT_PATTERNS: RegExp[] = [
   // across lines, so we anchor on a line STARTING with "On " and ending
   // with "wrote:".
   /^On .*wrote:\s*$/i,
-  // Gmail wraps long attributions; this catches the continuation form.
-  /^On .*\bat\b.*$/i,
   // Outlook
   /^-{2,}\s*Original Message\s*-{2,}\s*$/i,
   /^_{5,}\s*$/,
@@ -31,6 +29,33 @@ const CUT_PATTERNS: RegExp[] = [
 
 /** Lines that only continue an Outlook header block. */
 const HEADER_BLOCK = /^(Sent|To|Cc|Subject|Date):\s*/i
+
+/**
+ * Gmail sometimes wraps a long "On <date>, <person> wrote:" attribution
+ * across two or three lines, splitting mid-sentence (often right before
+ * the sender name or "wrote:" itself). The single-line form is already
+ * matched directly by CUT_PATTERNS above; this checks whether joining the
+ * current line with the next one or two lines completes the same
+ * "wrote:" terminator.
+ *
+ * We deliberately key on the literal "wrote:" terminator rather than on
+ * an incidental word like "at" — "at" shows up constantly in ordinary
+ * prose ("On arrival at the gate...", "On Saturdays at the pool...", "On
+ * the topic at hand...") and matching on it would cut a resident's
+ * message at its very first line. "wrote:" is the actual, reliable
+ * signal that this is an attribution line, wrapped or not.
+ */
+function isWrappedOnWroteAttribution(lines: string[], i: number): boolean {
+  if (!/^On /i.test(lines[i].trim())) return false
+  for (let span = 2; span <= 3; span++) {
+    const joined = lines
+      .slice(i, i + span)
+      .map((l) => l.trim())
+      .join(' ')
+    if (/^On .*wrote:\s*$/i.test(joined)) return true
+  }
+  return false
+}
 
 function isQuoted(line: string): boolean {
   return line.trimStart().startsWith('>')
@@ -69,6 +94,12 @@ export function stripQuotedReply(bodyText: string | null): string | null {
     }
 
     if (CUT_PATTERNS.some((re) => re.test(line))) {
+      cut = i
+      break
+    }
+
+    // Wrapped "On ... wrote:" attribution spanning the next 1-2 lines.
+    if (isWrappedOnWroteAttribution(working, i)) {
       cut = i
       break
     }

@@ -79,6 +79,61 @@ describe('stripQuotedReply', () => {
     expect(stripQuotedReply(body)).toBe(body)
   })
 
+  it('strips a Gmail attribution wrapped across two lines', () => {
+    const body = [
+      'The gate still is not working.',
+      '',
+      'On Mon, Jul 27, 2026 at 9:14 AM Madison Park HOA',
+      '<board@mp.org> wrote:',
+      '> Your new code is 4417.',
+    ].join('\n')
+    expect(stripQuotedReply(body)).toBe('The gate still is not working.')
+  })
+
+  it('strips a Gmail attribution wrapped across three lines', () => {
+    const body = [
+      'The gate still is not working.',
+      '',
+      'On Mon, Jul 27, 2026 at 9:14 AM Madison Park HOA',
+      '<board@mp.org>',
+      'wrote:',
+      '> Your new code is 4417.',
+    ].join('\n')
+    expect(stripQuotedReply(body)).toBe('The gate still is not working.')
+  })
+
+  it('does NOT strip "On arrival at the gate, the code failed." (contains "at" but no wrapped "wrote:")', () => {
+    const body = [
+      'On arrival at the gate, the code failed.',
+      'Can someone reset it today?',
+    ].join('\n')
+    expect(stripQuotedReply(body)).toBe(body)
+  })
+
+  it('does NOT strip "On Saturdays at the pool..." (contains "at" but no wrapped "wrote:")', () => {
+    const body = [
+      'On Saturdays at the pool we usually see kids swimming late.',
+      'Is that against the posted hours?',
+    ].join('\n')
+    expect(stripQuotedReply(body)).toBe(body)
+  })
+
+  it('does NOT strip "On the topic at hand..." (contains "at" but no wrapped "wrote:")', () => {
+    const body = [
+      'On the topic at hand, I think we should approve it.',
+      'Let me know if you need anything else from me.',
+    ].join('\n')
+    expect(stripQuotedReply(body)).toBe(body)
+  })
+
+  it('does NOT strip a line starting with "On " when no "wrote:" appears nearby', () => {
+    const body = [
+      'On second thought, let’s hold off on the fence stain until fall.',
+      'The forecast looks wet this week.',
+    ].join('\n')
+    expect(stripQuotedReply(body)).toBe(body)
+  })
+
   it('returns the original text when stripping would leave nothing', () => {
     // A pure top-quote with no new content — better to keep something
     // than to hand downstream an empty string.
