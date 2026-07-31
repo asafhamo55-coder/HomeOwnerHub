@@ -2525,6 +2525,7 @@ export type Database = {
           fetch_status: string
           file_name: string
           gmail_attachment_id: string | null
+          gmail_attachment_key: string | null
           id: string
           is_inline: boolean
           message_id: string
@@ -2542,6 +2543,7 @@ export type Database = {
           fetch_status?: string
           file_name: string
           gmail_attachment_id?: string | null
+          gmail_attachment_key?: string | null
           id?: string
           is_inline?: boolean
           message_id: string
@@ -2559,6 +2561,7 @@ export type Database = {
           fetch_status?: string
           file_name?: string
           gmail_attachment_id?: string | null
+          gmail_attachment_key?: string | null
           id?: string
           is_inline?: boolean
           message_id?: string
