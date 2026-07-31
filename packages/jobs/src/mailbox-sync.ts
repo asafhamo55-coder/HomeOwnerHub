@@ -39,7 +39,9 @@ export const mailboxSyncJob = inngest.createFunction(
 
     const { data: accounts, error: accountsError } = await db
       .from('mailbox_accounts')
-      .select('id, organization_id, email_address, scope_mode, scope_value, sync_cursor')
+      .select(
+        'id, organization_id, email_address, scope_mode, scope_value, sync_cursor, backfill_status',
+      )
       .is('disconnected_at', null)
       .neq('sync_status', 'auth_failed')
 
@@ -96,15 +98,29 @@ export const mailboxSyncJob = inngest.createFunction(
         // paginates properly with page tokens and is idempotent against
         // inbox_messages' unique index, so requesting it unconditionally on
         // any truncated run is what guarantees forward progress either way.
+        //
+        // BUT: not if a backfill for this account is already `'running'`.
+        // That chain will reach the frontier on its own — re-requesting
+        // would start a second concurrent chain that begins from
+        // `pageToken: undefined`, wasting Gmail quota and, worse, resetting
+        // `done` to 0 in `backfill_progress` so the setup UI's counter
+        // visibly counts backward mid-import.
         if (result.truncated) {
-          logger.warn(
-            `[mailbox-sync] ${account.email_address}: truncated run` +
-              `${result.usedFallback ? ' (fallback)' : ' (history)'} — requesting backfill`,
-          )
-          await inngest.send({
-            name: 'mailbox/backfill.requested',
-            data: { accountId: account.id },
-          })
+          if (account.backfill_status === 'running') {
+            logger.info(
+              `[mailbox-sync] ${account.email_address}: truncated run — backfill ` +
+                `already running, not re-requesting`,
+            )
+          } else {
+            logger.warn(
+              `[mailbox-sync] ${account.email_address}: truncated run` +
+                `${result.usedFallback ? ' (fallback)' : ' (history)'} — requesting backfill`,
+            )
+            await inngest.send({
+              name: 'mailbox/backfill.requested',
+              data: { accountId: account.id },
+            })
+          }
         }
 
         if (result.fetchFailures > 0) {

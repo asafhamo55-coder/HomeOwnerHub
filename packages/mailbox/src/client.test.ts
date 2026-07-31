@@ -66,6 +66,34 @@ describe('GmailClient', () => {
     expect(url).toContain('q=after%3A2025%2F07%2F31')
   })
 
+  it('defaults listMessages maxResults to 100 when not given', async () => {
+    const fetchMock = stubJson({ messages: [], nextPageToken: null })
+    await new GmailClient('at').listMessages('after:2025/07/31')
+
+    const [url] = fetchMock.mock.calls[0] as [string]
+    expect(url).toContain('maxResults=100')
+  })
+
+  it('sends the maxResults value it was given', async () => {
+    const fetchMock = stubJson({ messages: [], nextPageToken: null })
+    await new GmailClient('at').listMessages('after:2025/07/31', undefined, 50)
+
+    const [url] = fetchMock.mock.calls[0] as [string]
+    expect(url).toContain('maxResults=50')
+  })
+
+  it('surfaces resultSizeEstimate from listMessages as an estimate, not a count', async () => {
+    stubJson({ messages: [{ id: 'm1' }], nextPageToken: null, resultSizeEstimate: 3800 })
+    const result = await new GmailClient('at').listMessages('after:2025/07/31')
+    expect(result.resultSizeEstimate).toBe(3800)
+  })
+
+  it('returns null resultSizeEstimate when Gmail omits it', async () => {
+    stubJson({ messages: [{ id: 'm1' }], nextPageToken: null })
+    const result = await new GmailClient('at').listMessages('after:2025/07/31')
+    expect(result.resultSizeEstimate).toBeNull()
+  })
+
   it('decodes attachment bytes from base64url', async () => {
     const original = Buffer.from('PDF-BYTES')
     stubJson({ data: original.toString('base64url'), size: original.length })

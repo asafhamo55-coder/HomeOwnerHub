@@ -6144,7 +6144,9 @@ export const mailboxSyncJob = inngest.createFunction(
 
     const { data: accounts, error: accountsError } = await db
       .from('mailbox_accounts')
-      .select('id, organization_id, email_address, scope_mode, scope_value, sync_cursor')
+      .select(
+        'id, organization_id, email_address, scope_mode, scope_value, sync_cursor, backfill_status',
+      )
       .is('disconnected_at', null)
       .neq('sync_status', 'auth_failed')
 
@@ -6197,15 +6199,30 @@ export const mailboxSyncJob = inngest.createFunction(
         // is idempotent against inbox_messages' unique index, so
         // requesting it unconditionally on any truncated run is what
         // guarantees forward progress either way.
+        //
+        // BUT: not if a backfill for this account is already `'running'`.
+        // That chain reaches the frontier on its own; re-requesting would
+        // start a second concurrent chain from `pageToken: undefined`,
+        // wasting Gmail quota and resetting `done` to 0 in
+        // `backfill_progress` so the setup UI's counter visibly counts
+        // backward mid-import. This requires selecting `backfill_status`
+        // alongside the other account columns above.
         if (result.truncated) {
-          logger.warn(
-            `[mailbox-sync] ${account.email_address}: truncated run` +
-              `${result.usedFallback ? ' (fallback)' : ' (history)'} — requesting backfill`,
-          )
-          await inngest.send({
-            name: 'mailbox/backfill.requested',
-            data: { accountId: account.id },
-          })
+          if (account.backfill_status === 'running') {
+            logger.info(
+              `[mailbox-sync] ${account.email_address}: truncated run — backfill ` +
+                `already running, not re-requesting`,
+            )
+          } else {
+            logger.warn(
+              `[mailbox-sync] ${account.email_address}: truncated run` +
+                `${result.usedFallback ? ' (fallback)' : ' (history)'} — requesting backfill`,
+            )
+            await inngest.send({
+              name: 'mailbox/backfill.requested',
+              data: { accountId: account.id },
+            })
+          }
         }
 
         if (result.fetchFailures > 0) {
@@ -6477,6 +6494,23 @@ Imports 12 months of history so the connect preview has real numbers and Phase B
 - Consumes: `GmailClient`, `buildScopeQuery`, `parseGmailMessage`, `isInScope` (Tasks 7–11); `getAccessTokenFor` (Task 15); `ingestMessages` (Task 13); `matchThread`/`applyMatch` (Task 14)
 - Produces: `mailboxBackfillJob`, triggered by the `mailbox/backfill.requested` event
 
+**INVARIANT (load-bearing — do not violate when touching this file):** the
+number of message ids this job FETCHES on a page must always equal the
+number it PROCESSES on that same page. `GmailClient.listMessages` takes an
+optional `maxResults` (defaulting to 100, unchanged for `sync.ts`); the
+backfill passes `PAGE_SIZE` as `maxResults` so the page it receives already
+contains at most `PAGE_SIZE` ids, and it processes every one of them before
+looking at `nextPageToken`. `nextPageToken` is Gmail's cursor for "after
+everything this page contained" — fetching more than is processed (e.g. by
+slicing the page down after receiving up to 100 results) silently drops the
+unprocessed remainder: never ingested, never scope-checked, and never
+retried, because the next page token already points past it. An earlier
+version of this job did exactly that — requested Gmail's default 100 results
+per page, then `.slice(0, PAGE_SIZE)`'d it down to 50 before the fetch loop,
+dropping message positions 50–99 of every page, silently, forever. If a
+smaller effective page is ever needed, shrink `PAGE_SIZE` — never fetch N and
+process fewer than N.
+
 - [ ] **Step 1: Write `packages/jobs/src/mailbox-backfill.ts`**
 
 ```ts
@@ -6490,24 +6524,43 @@ import {
 } from '@homeowner-portal/mailbox'
 import { ingestMessages } from '../../../apps/hoa/src/lib/inbox/ingest'
 import { applyMatch, matchThread } from '../../../apps/hoa/src/lib/inbox/match'
+import { logDbError } from './db-error'
 import { inngest } from './client'
 import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
 
 const BACKFILL_MONTHS = 12
 const PAGE_SIZE = 50
 
+interface BackfillAccount {
+  id: string
+  organization_id: string
+  email_address: string
+  scope_mode: string
+  scope_value: string | null
+}
+
 /**
- * Historical backfill, event-triggered at mailbox connect.
+ * Historical backfill, event-triggered at mailbox connect (and re-triggered
+ * by mailbox-sync.ts on a truncated run whose backfill is not already in
+ * flight — see Task 15).
  *
  * Separate from mailboxSyncJob because it is a fundamentally different
  * shape: thousands of messages instead of a handful, minutes instead of
  * seconds. Running it inside the 2-minute cron would starve every other
  * mailbox.
  *
- * Resumable by design. Each invocation drains up to PAGE_SIZE messages
- * and re-emits itself while work remains, so no single function
- * invocation can exceed the platform timeout. Progress is written to
- * mailbox_accounts.backfill_progress for the setup UI.
+ * Resumable by design. Each invocation drains one page of up to PAGE_SIZE
+ * messages and re-emits itself while work remains, so no single function
+ * invocation can exceed the platform timeout, and a crash resumes from the
+ * last page token instead of restarting twelve months of history. Progress
+ * is written to mailbox_accounts.backfill_progress for the setup UI.
+ *
+ * The account lookup and the `backfill_status: 'running'` write both live
+ * INSIDE the try block below (not before it) so a transient failure in
+ * either one is caught by the same catch that records `backfill_status:
+ * 'failed'`. Nothing watchdogs `backfill_status` the way mailboxWatchdogJob
+ * watches `sync_status` (Task 15), so an exit path that skips the catch
+ * would leave the setup UI showing an import that silently never finishes.
  */
 export const mailboxBackfillJob = inngest.createFunction(
   {
@@ -6522,30 +6575,62 @@ export const mailboxBackfillJob = inngest.createFunction(
     const pageToken = (event.data.pageToken as string | undefined) ?? undefined
     const doneSoFar = (event.data.done as number | undefined) ?? 0
 
-    const { data: account } = await db
-      .from('mailbox_accounts')
-      .select('id, organization_id, email_address, scope_mode, scope_value, backfill_progress')
-      .eq('id', accountId)
-      .is('disconnected_at', null)
-      .maybeSingle()
+    // Carried forward from the event that started this chain (see the
+    // re-emit below), computed/observed ONCE on the first invocation:
+    //   - afterDate: pageToken is bound to the query string that minted
+    //     it, so recomputing `afterDate` from `new Date()` on every
+    //     invocation would mint a different `after:` clause if the chain
+    //     spans midnight and replay a stale pageToken against it.
+    //   - totalEstimate: Gmail's resultSizeEstimate is only meaningful as
+    //     a stable "of ~N" figure if read once, from the first page, not
+    //     re-read (and possibly drifting) on every page.
+    const carriedAfterDate = event.data.afterDate as string | undefined
+    const carriedTotalEstimate = (event.data.totalEstimate as number | null | undefined) ?? null
 
-    if (!account) {
-      logger.warn(`[mailbox-backfill] account ${accountId} not found or disconnected`)
-      return { skipped: true }
-    }
-
-    await db
-      .from('mailbox_accounts')
-      .update({ backfill_status: 'running' })
-      .eq('id', accountId)
+    let account: BackfillAccount | null = null
 
     try {
+      const { data: accountData, error: accountError } = await db
+        .from('mailbox_accounts')
+        .select('id, organization_id, email_address, scope_mode, scope_value')
+        .eq('id', accountId)
+        .is('disconnected_at', null)
+        .maybeSingle()
+
+      if (accountError) {
+        logDbError('mailboxBackfillJob', 'mailbox_accounts', { accountId }, accountError)
+        throw new Error(
+          `mailboxBackfillJob: failed to load mailbox account ${accountId}: ${accountError.message}`,
+        )
+      }
+
+      if (!accountData) {
+        logger.warn(`[mailbox-backfill] account ${accountId} not found or disconnected`)
+        return { skipped: true }
+      }
+
+      account = accountData
+
+      const { error: runningError } = await db
+        .from('mailbox_accounts')
+        .update({ backfill_status: 'running' })
+        .eq('id', accountId)
+
+      if (runningError) {
+        logDbError('mailboxBackfillJob', 'mailbox_accounts', { accountId }, runningError)
+      }
+
       const accessToken = await getAccessTokenFor(db, accountId)
       const client = new GmailClient(accessToken)
 
-      const since = new Date()
-      since.setMonth(since.getMonth() - BACKFILL_MONTHS)
-      const afterDate = since.toISOString().slice(0, 10).replace(/-/g, '/')
+      let afterDate: string
+      if (carriedAfterDate) {
+        afterDate = carriedAfterDate
+      } else {
+        const since = new Date()
+        since.setMonth(since.getMonth() - BACKFILL_MONTHS)
+        afterDate = since.toISOString().slice(0, 10).replace(/-/g, '/')
+      }
 
       const query = buildScopeQuery(
         account.scope_mode as 'address' | 'label' | 'all',
@@ -6553,12 +6638,28 @@ export const mailboxBackfillJob = inngest.createFunction(
         afterDate,
       )
 
-      const page = await client.listMessages(query, pageToken)
-      const ids = page.messageIds.slice(0, PAGE_SIZE)
+      // PAGE_SIZE passed as maxResults — see the INVARIANT above. Every id
+      // in page.messageIds is processed below; never slice it down.
+      const page = await client.listMessages(query, pageToken, PAGE_SIZE)
+      const ids = page.messageIds
+      const totalEstimate = carriedTotalEstimate ?? page.resultSizeEstimate ?? null
 
       const messages = []
+      let fetchFailures = 0
       for (const id of ids) {
-        const parsed = parseGmailMessage(await client.getMessage(id))
+        let parsed
+        try {
+          parsed = parseGmailMessage(await client.getMessage(id))
+        } catch (error) {
+          if (error instanceof MailboxAuthError) throw error
+          fetchFailures++
+          console.error(
+            `mailbox backfill: skipping unfetchable message ${id}`,
+            error instanceof Error ? error.message : String(error),
+          )
+          continue
+        }
+
         if (
           isInScope(
             parsed,
@@ -6570,40 +6671,62 @@ export const mailboxBackfillJob = inngest.createFunction(
         }
       }
 
-      const ingested = await ingestMessages(
-        db,
-        account.organization_id,
-        accountId,
-        messages,
-      )
+      if (fetchFailures > 0) {
+        logger.warn(
+          `[mailbox-backfill] ${account.email_address}: ${fetchFailures} ` +
+            `message(s) could not be fetched or parsed and were skipped`,
+        )
+      }
+
+      const ingested = await ingestMessages(db, account.organization_id, accountId, messages)
 
       if (messages.length > 0) {
         const gmailThreadIds = [...new Set(messages.map((m) => m.gmailThreadId))]
-        const { data: threads } = await db
+        const { data: threads, error: threadsError } = await db
           .from('inbox_threads')
           .select('id')
           .eq('mailbox_account_id', accountId)
           .in('gmail_thread_id', gmailThreadIds)
 
+        if (threadsError) {
+          logDbError('mailboxBackfillJob', 'inbox_threads', { accountId }, threadsError)
+          throw new Error(
+            `mailboxBackfillJob: failed to load threads for matching for account ${accountId}: ${threadsError.message}`,
+          )
+        }
+
         for (const thread of threads ?? []) {
           await applyMatch(
             db,
+            account.organization_id,
             thread.id,
             await matchThread(db, account.organization_id, thread.id),
           )
         }
       }
 
+      // `done` counts every id this invocation FETCHED, which — by the
+      // invariant above — is exactly the number it processed.
       const done = doneSoFar + ids.length
       const hasMore = page.nextPageToken !== null
 
-      await db
+      const { error: progressError } = await db
         .from('mailbox_accounts')
         .update({
           backfill_status: hasMore ? 'running' : 'done',
-          backfill_progress: { done, has_more: hasMore },
+          // total_estimate is Gmail's resultSizeEstimate from the FIRST
+          // page of this chain — an ESTIMATE, not an exact count. The UI
+          // contract must tolerate `done > total_estimate`.
+          backfill_progress: { done, has_more: hasMore, total_estimate: totalEstimate },
         })
         .eq('id', accountId)
+
+      if (progressError) {
+        logDbError('mailboxBackfillJob', 'mailbox_accounts', { accountId }, progressError)
+        throw new Error(
+          `mailboxBackfillJob: failed to persist backfill progress for ${account.email_address}: ${progressError.message}`,
+        )
+      }
 
       logger.info(
         `[mailbox-backfill] ${account.email_address}: ${done} processed, ` +
@@ -6611,12 +6734,12 @@ export const mailboxBackfillJob = inngest.createFunction(
       )
 
       if (hasMore) {
-        // Re-emit rather than loop. Each invocation stays well inside the
-        // function timeout, and a crash resumes from the last page token
-        // instead of restarting twelve months of history.
+        // Re-emit rather than loop. afterDate and totalEstimate are carried
+        // forward unchanged so every invocation in this chain uses the
+        // identical query string and a stable estimate.
         await step.sendEvent('continue-backfill', {
           name: 'mailbox/backfill.requested',
-          data: { accountId, pageToken: page.nextPageToken, done },
+          data: { accountId, pageToken: page.nextPageToken, done, afterDate, totalEstimate },
         })
       }
 
@@ -6627,12 +6750,20 @@ export const mailboxBackfillJob = inngest.createFunction(
       if (error instanceof MailboxAuthError) {
         await markAuthFailed(db, accountId, message)
       }
-      await db
+
+      const { error: failError } = await db
         .from('mailbox_accounts')
         .update({ backfill_status: 'failed', sync_error: message })
         .eq('id', accountId)
 
-      logger.error(`[mailbox-backfill] ${account.email_address}: ${message}`)
+      if (failError) {
+        logDbError('mailboxBackfillJob', 'mailbox_accounts', { accountId }, failError)
+      }
+
+      // `account` may still be null here if the account lookup itself
+      // threw — fall back to the opaque accountId; there is no address to
+      // log in that case.
+      logger.error(`[mailbox-backfill] ${account?.email_address ?? accountId}: ${message}`)
       throw error
     }
   },

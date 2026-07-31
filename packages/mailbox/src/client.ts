@@ -125,21 +125,54 @@ export class GmailClient {
     }
   }
 
+  /**
+   * `maxResults` defaults to Gmail's own default (100) so callers that
+   * don't care — namely sync.ts's `collectQueryIds`, which already loops
+   * pages correctly via `nextPageToken` — see no behavior change.
+   *
+   * Callers that DO pass `maxResults` (the backfill job, to stay under a
+   * fixed per-invocation processing budget) must treat it as a hard
+   * contract: every id in `messageIds` must be processed before consuming
+   * `nextPageToken`. `nextPageToken` is Gmail's cursor for "after this
+   * page's `maxResults`", not "after however many the caller felt like
+   * handling" — fetching N ids and processing fewer than N silently drops
+   * the un-processed remainder with no record it ever existed.
+   *
+   * `resultSizeEstimate` is exactly that — an ESTIMATE, not an exact count
+   * (Gmail documents it as approximate and it can shift between pages of
+   * the same query). It's surfaced here so a caller can show rough
+   * progress, never as a value to reconcile against.
+   */
   async listMessages(
     query: string,
     pageToken?: string,
-  ): Promise<{ messageIds: string[]; nextPageToken: string | null }> {
-    const params = new URLSearchParams({ q: query, maxResults: '100' })
+    maxResults = 100,
+  ): Promise<{
+    messageIds: string[]
+    nextPageToken: string | null
+    /**
+     * Optional in the type (not just in practice) so existing callers that
+     * destructure only `messageIds`/`nextPageToken` — and existing test
+     * doubles built against the old shape, e.g. sync.test.ts's fakeClient —
+     * keep typechecking without modification. The real implementation
+     * below always populates it.
+     */
+    resultSizeEstimate?: number | null
+  }> {
+    const params = new URLSearchParams({ q: query, maxResults: String(maxResults) })
     if (pageToken) params.set('pageToken', pageToken)
 
     const json = await this.request<{
       messages?: Array<{ id: string }>
       nextPageToken?: string
+      resultSizeEstimate?: number
     }>(`/messages?${params.toString()}`)
 
     return {
       messageIds: (json.messages ?? []).map((m) => m.id),
       nextPageToken: json.nextPageToken ?? null,
+      resultSizeEstimate:
+        typeof json.resultSizeEstimate === 'number' ? json.resultSizeEstimate : null,
     }
   }
 
