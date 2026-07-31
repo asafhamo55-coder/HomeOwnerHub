@@ -61,12 +61,20 @@ interface TokenResponse {
 
 // Google error codes on the token endpoint that mean the grant itself is
 // dead — retrying will never succeed and the HOA must re-authorize. Only
-// these, on a 400 or 401, warrant MailboxAuthError. See module docstring.
+// these warrant MailboxAuthError.
+//
+// Deliberately excluded: invalid_request. RFC 6749 §5.2 defines it as
+// "the request is missing a required parameter, includes an invalid
+// parameter value, includes a parameter more than once, or is otherwise
+// malformed." That is a bug in OUR request construction, not a dead grant.
+// If it fires, it fires deterministically on every attempt (same code sends
+// same request). Classifying it as MailboxAuthError tells the HOA to
+// reconnect Gmail — which rebuilds the identical malformed request and
+// reproduces the identical error. That creates an unresolvable support loop.
 const CREDENTIAL_REJECTION_ERRORS = new Set([
   'invalid_grant',
   'invalid_client',
   'unauthorized_client',
-  'invalid_request',
 ])
 
 async function postToken(body: URLSearchParams): Promise<TokenResponse> {
@@ -87,26 +95,36 @@ async function postToken(body: URLSearchParams): Promise<TokenResponse> {
     throw new Error(`Token endpoint returned a non-JSON response (status ${response.status}).`)
   }
 
-  if (
-    json.error &&
-    (response.status === 400 || response.status === 401) &&
-    CREDENTIAL_REJECTION_ERRORS.has(json.error)
-  ) {
-    throw new MailboxAuthError(json.error_description ?? json.error)
+  // Treat presence of json.error as a failure regardless of HTTP status.
+  // This catches 200 responses that carry both error and access_token,
+  // which must be treated as failures, not successes.
+  if (json.error) {
+    // Classify based on the error code itself, not the HTTP status.
+    // A 400/401 with a credential rejection code means the grant is dead.
+    // But we also check the code against CREDENTIAL_REJECTION_ERRORS
+    // regardless of status, because Google can return errors in unusual ways.
+    if (CREDENTIAL_REJECTION_ERRORS.has(json.error)) {
+      throw new MailboxAuthError(json.error_description ?? json.error)
+    }
+    // For all other error codes (including transient errors, rate limiting,
+    // unexpected 200s, etc), it's not proof of a dead credential.
+    // Include Google's error text since we already parsed it.
+    const detail = json.error_description ?? json.error
+    throw new Error(`Token request failed (${response.status}): ${detail}.`)
   }
 
   if (!response.ok) {
-    // 5xx, 429, and other 4xx without a credential-rejection code are
-    // transient or unexpected — may succeed on retry — so this stays a
-    // generic Error, not MailboxAuthError.
-    const detail = json.error ? `: ${json.error_description ?? json.error}` : ''
-    throw new Error(`Token request failed (${response.status})${detail}.`)
+    // No json.error, but non-2xx status — transient or unexpected.
+    // This handles cases like 400/401/403/5xx with no error field.
+    throw new Error(`Token request failed (${response.status}).`)
   }
+
   if (!json.access_token) {
-    // A 200 with no access_token and no error is an unexpected API
-    // response, not proof of a revoked grant.
+    // 200 status, no error field, but missing access_token — unexpected
+    // API response, not proof of a revoked grant.
     throw new Error(`Token response missing access_token (status ${response.status}).`)
   }
+
   return json
 }
 

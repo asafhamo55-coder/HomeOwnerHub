@@ -159,6 +159,85 @@ describe('postToken error classification', () => {
     expect(err).toBeInstanceOf(Error)
     expect(err).not.toBeInstanceOf(MailboxAuthError)
   })
+
+  it('treats a 400 with no error field as a generic Error, not MailboxAuthError', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({}), { status: 400 })))
+    const err: unknown = await exchangeCode('code').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(err).not.toBeInstanceOf(MailboxAuthError)
+    expect((err as Error).message).toContain('400')
+  })
+
+  it('treats a 401 with no error field as a generic Error, not MailboxAuthError', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({}), { status: 401 })))
+    const err: unknown = await exchangeCode('code').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(err).not.toBeInstanceOf(MailboxAuthError)
+    expect((err as Error).message).toContain('401')
+  })
+
+  it('treats a 403 as a generic Error, not MailboxAuthError', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({}), { status: 403 })))
+    const err: unknown = await exchangeCode('code').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(err).not.toBeInstanceOf(MailboxAuthError)
+    expect((err as Error).message).toContain('403')
+  })
+
+  it('classifies a 200 carrying invalid_grant (credential rejection) as MailboxAuthError, not success', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: 'invalid_grant', access_token: 'at-1' }), {
+          status: 200,
+        }),
+      ),
+    )
+    const err: unknown = await exchangeCode('code').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(MailboxAuthError)
+  })
+
+  it('classifies a 200 carrying temporarily_unavailable as a generic Error, not MailboxAuthError', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: 'temporarily_unavailable', access_token: 'at-1' }), {
+          status: 200,
+        }),
+      ),
+    )
+    const err: unknown = await exchangeCode('code').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(err).not.toBeInstanceOf(MailboxAuthError)
+  })
+
+  it('includes Google error text in the message for non-credential-rejection errors', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: 'rate_limited', error_description: 'Too many requests' }), {
+          status: 429,
+        }),
+      ),
+    )
+    const err: unknown = await exchangeCode('code').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(err).not.toBeInstanceOf(MailboxAuthError)
+    expect((err as Error).message).toContain('Too many requests')
+  })
+
+  it('includes Google error code when error_description is not provided', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: 'invalid_request' }), { status: 400 }),
+      ),
+    )
+    const err: unknown = await exchangeCode('code').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(err).not.toBeInstanceOf(MailboxAuthError)
+    expect((err as Error).message).toContain('invalid_request')
+  })
 })
 
 describe('refreshAccessToken', () => {

@@ -2948,12 +2948,20 @@ interface TokenResponse {
 //
 // Google error codes on the token endpoint that mean the grant itself is
 // dead — retrying will never succeed and the HOA must re-authorize. Only
-// these, on a 400 or 401, warrant MailboxAuthError.
+// these warrant MailboxAuthError.
+//
+// Deliberately excluded: invalid_request. RFC 6749 §5.2 defines it as
+// "the request is missing a required parameter, includes an invalid
+// parameter value, includes a parameter more than once, or is otherwise
+// malformed." That is a bug in OUR request construction, not a dead grant.
+// If it fires, it fires deterministically on every attempt (same code sends
+// same request). Classifying it as MailboxAuthError tells the HOA to
+// reconnect Gmail — which rebuilds the identical malformed request and
+// reproduces the identical error. That creates an unresolvable support loop.
 const CREDENTIAL_REJECTION_ERRORS = new Set([
   'invalid_grant',
   'invalid_client',
   'unauthorized_client',
-  'invalid_request',
 ])
 
 async function postToken(body: URLSearchParams): Promise<TokenResponse> {
