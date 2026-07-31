@@ -85,6 +85,19 @@ export function MailboxConnectCard({ status, preview, scopeOptions, returnTo }: 
             </Alert>
           ) : null}
 
+          {status.backfillStatus === 'failed' ? (
+            <Alert variant="error" title="History import stopped">
+              We could not finish importing this mailbox&apos;s message history, so
+              older mail may be missing below. New mail keeps syncing normally. It
+              will only restart on its own if a future sync happens to run
+              truncated — there is no guaranteed automatic retry, so reconnect now
+              to restart the import right away.{' '}
+              <Link className="underline" href="/api/oauth/google/start">
+                Reconnect
+              </Link>
+            </Alert>
+          ) : null}
+
           {backfilling ? (
             <Alert variant="info" title="Importing history">
               <p>
@@ -137,7 +150,7 @@ export function MailboxConnectCard({ status, preview, scopeOptions, returnTo }: 
               What we found in the last 30 days
             </p>
             <div className="grid grid-cols-3 gap-2">
-              <Stat label="emails" value={preview.totalMessages} />
+              <Stat label="threads" value={preview.totalThreads} />
               <Stat label="matched to a property" value={preview.matchedThreads} tone="ok" />
               <Stat label="need review" value={preview.needsReviewThreads} tone="warn" />
             </div>

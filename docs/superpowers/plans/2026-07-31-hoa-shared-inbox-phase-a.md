@@ -7846,6 +7846,62 @@ Visit `http://localhost:3000/settings/mailbox`. With no mailbox connected you sh
 rtk git add apps/hoa/src/app/\(dashboard\)/settings/mailbox/ apps/hoa/src/lib/inbox/queries.ts && rtk git commit -m "feat(inbox): settings mailbox page with scope picker and connect preview"
 ```
 
+**Reviewer follow-up (fix pass, same day):** review found one Critical and
+three Important issues in the original implementation above, all fixed:
+
+- **Critical — mode/value mismatch could be saved.** `ScopePicker.tsx` kept
+  one shared `value` in `useState` across all three modes and never reset it
+  on mode switch, so choosing an address, then clicking the "label" radio,
+  then Save, silently submitted `scopeMode="label"` with an email address as
+  `scopeValue`. The old server check only verified a value was *present*
+  (`!scopeValue`), never that it matched the selected mode — the mismatch
+  was persisted and only surfaced later as a thrown error inside a sync
+  (`buildScopeQuery` on a malformed label id). Fixed at both layers: the
+  radios' `onChange` now resets `value` to `''` on every mode switch, and
+  `ScopeSchema` (moved to a new pure module, `scopeSchema.ts`) adds a
+  `.superRefine` that validates the value's shape against the selected mode
+  using the *same* `ADDRESS_RE`/`LABEL_RE` regexes `buildScopeQuery` in
+  `packages/mailbox/src/scope.ts` validates against, so the action rejects
+  precisely what the sync would later reject — never more permissive, never
+  stricter (a `+`-tagged address and a subdomain address both still pass).
+- **Important — whitespace-only value bypassed the guard.**
+  `formData.get('scopeValue') || undefined` mapped `""` to `undefined` but
+  left `" "` truthy, so `scopeMode !== 'all' && !scopeValue` never fired for
+  a whitespace-only value. `ScopeSchema` now trims `scopeValue` before the
+  emptiness check (matching the fail-closed `.trim()` in
+  `packages/mailbox/src/scope.ts`'s `isInScope`), so `"   "` is rejected the
+  same as `""`.
+- **Important — a failed backfill was invisible.** `MailboxConnectCard.tsx`
+  had no UI branch for `backfillStatus === 'failed'` (only `'running'` and
+  the `syncStatus` alerts), so a mailbox whose history import the watchdog
+  (Task 16 fix pass) marked `'failed'` looked connected with a preview that
+  silently never filled in. Added an error `Alert` for that state. Confirmed
+  via `packages/jobs/src/mailbox-sync.ts`'s watchdog and the OAuth callback
+  (`apps/hoa/src/app/api/oauth/google/callback/route.ts`, which
+  unconditionally re-sends `mailbox/backfill.requested` after any successful
+  connect) that a failed backfill is not guaranteed to retry on its own — it
+  only restarts automatically if a later sync for that account happens to
+  run truncated — but reconnecting always restarts it immediately. The
+  message is worded to reflect that honestly rather than promising an
+  automatic retry that may not come.
+- **Important — the stat row mixed units.** `getConnectPreview` returned
+  `totalMessages` (a message count, queried separately from
+  `inbox_messages`, org-scoped rather than account-scoped) rendered beside
+  `matchedThreads`/`needsReviewThreads` (thread counts), so a thread with
+  several messages made "X total / Y matched / Z need review" fail to
+  reconcile. Removed the separate message-count query entirely and replaced
+  it with `totalThreads: number` (renamed from `totalMessages`), computed as
+  the length of the same account-scoped thread list already fetched for the
+  matched/needs-review split — all three stats are now thread counts over
+  the same 30-day, same-account window.
+
+New pure module `apps/hoa/src/app/(dashboard)/settings/mailbox/scopeSchema.ts`
+holds `ScopeSchema` so it can be unit tested without a Supabase client or
+Next.js request context (`actions.ts` imports `next/headers` transitively via
+`getSupabaseServerClient`, which fails outside a real request). Covered by a
+new test file, `scopeSchema.test.ts`, added to the root `vitest.config.ts`
+`include` globs. Full history in `.superpowers/sdd/task-18-report.md`.
+
 ---
 
 ## Task 19: Onboarding setup checklist

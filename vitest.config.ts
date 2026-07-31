@@ -10,6 +10,7 @@ export default defineConfig({
       'packages/mailbox/src/**/*.test.ts',
       'apps/hoa/src/lib/properties/**/*.test.ts',
       'apps/hoa/src/lib/inbox/**/*.test.ts',
+      'apps/hoa/src/app/\\(dashboard\\)/settings/mailbox/**/*.test.ts',
     ],
     environment: 'node',
     passWithNoTests: false,

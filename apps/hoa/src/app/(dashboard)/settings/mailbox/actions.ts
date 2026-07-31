@@ -4,17 +4,12 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { ScopeSchema } from './scopeSchema'
 
 export interface MailboxActionState {
   error?: string
   ok?: boolean
 }
-
-const ScopeSchema = z.object({
-  accountId: z.string().uuid(),
-  scopeMode: z.enum(['address', 'label', 'all']),
-  scopeValue: z.string().max(320).optional(),
-})
 
 export async function updateScope(
   _prev: MailboxActionState,
@@ -26,22 +21,27 @@ export async function updateScope(
   const parsed = ScopeSchema.safeParse({
     accountId: formData.get('accountId'),
     scopeMode: formData.get('scopeMode'),
-    scopeValue: formData.get('scopeValue') || undefined,
+    scopeValue: formData.get('scopeValue') ?? undefined,
   })
-  if (!parsed.success) return { error: 'Invalid scope selection.' }
+  // Fail closed. ScopeSchema (./scopeSchema.ts) enforces two things
+  // together, both required before this is ever persisted: (1) address
+  // and label modes are meaningless without a value — buildScopeQuery
+  // (@homeowner-portal/mailbox) treats an EMPTY value for those modes as
+  // "no restricting clause", which would fetch everything, so a missing
+  // value is rejected here rather than silently becoming unrestricted;
+  // and (2) the value's SHAPE must match the selected mode (a single
+  // email address for 'address', a `[A-Za-z0-9_-]+` token for 'label') —
+  // this is what stops a stale value from a previous mode selection (or a
+  // hand-crafted submission) from being saved with a mode it doesn't
+  // match, which would otherwise only surface later as a thrown error
+  // inside a sync. Trimming happens inside the schema so a
+  // whitespace-only value can't slip past either check.
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message ?? 'Invalid scope selection.'
+    return { error: message }
+  }
 
   const { accountId, scopeMode, scopeValue } = parsed.data
-
-  // Fail closed: address and label modes are meaningless without a value,
-  // and a null value would drop every message. buildScopeQuery
-  // (@homeowner-portal/mailbox) throws on a malformed non-empty value at
-  // sync time, but an EMPTY value for 'address'/'label' isn't malformed
-  // to it — it just omits the restricting clause, which would fetch
-  // everything. That "empty means unrestricted" trap has to be closed
-  // here, before the save, not discovered later in a sync.
-  if (scopeMode !== 'all' && !scopeValue) {
-    return { error: 'Pick an address or a label for this scope.' }
-  }
 
   const supabase = await getSupabaseServerClient()
   const { error } = await supabase

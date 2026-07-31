@@ -57,7 +57,14 @@ export interface ConnectPreviewRow {
 }
 
 export interface ConnectPreview {
-  totalMessages: number
+  /**
+   * Thread count, not message count — deliberately the same unit as
+   * `matchedThreads`/`needsReviewThreads` below. A single thread can
+   * contain several messages, so mixing a message count in here would
+   * make "X total / Y matched / Z need review" fail to reconcile for
+   * anyone reading the panel.
+   */
+  totalThreads: number
   matchedThreads: number
   needsReviewThreads: number
   sample: ConnectPreviewRow[]
@@ -130,19 +137,6 @@ export async function getConnectPreview(
   accountId: string,
 ): Promise<ConnectPreview> {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-
-  const { count: totalMessages, error: countError } = await db
-    .from('inbox_messages')
-    .select('id', { count: 'exact', head: true })
-    .eq('organization_id', orgId)
-    .gte('sent_at', thirtyDaysAgo)
-
-  if (countError) {
-    logDbError('getConnectPreview', 'inbox_messages', { orgId, accountId }, countError)
-    throw new Error(
-      `getConnectPreview: failed to count recent messages: ${countError.message}`,
-    )
-  }
 
   const { data: threads, error: threadsError } = await db
     .from('inbox_threads')
@@ -218,7 +212,7 @@ export async function getConnectPreview(
   }
 
   return {
-    totalMessages: totalMessages ?? 0,
+    totalThreads: all.length,
     matchedThreads: matched.length,
     needsReviewThreads: needsReview.length,
     sample,

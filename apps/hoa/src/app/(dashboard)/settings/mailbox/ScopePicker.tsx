@@ -47,7 +47,15 @@ export function ScopePicker({
           name="mode-ui"
           className="sr-only"
           checked={mode === 'address'}
-          onChange={() => setMode('address')}
+          onChange={() => {
+            // Switching modes must never carry a value picked under a
+            // different mode forward — e.g. a Gmail label id left over
+            // from 'label' mode is not a valid address, and vice versa.
+            // Reset here so Save can't submit a mode/value pair that
+            // don't match.
+            setMode('address')
+            setValue('')
+          }}
         />
         <span className="text-sm font-medium text-foreground">
           Mail sent to a specific address
@@ -61,6 +69,7 @@ export function ScopePicker({
             onChange={(e) => setValue(e.target.value)}
             className="mt-2 w-full rounded-md border border-border bg-background p-2 text-sm"
           >
+            <option value="">Select an address…</option>
             {addresses.map((address) => (
               <option key={address} value={address}>
                 {address}
@@ -81,7 +90,10 @@ export function ScopePicker({
           name="mode-ui"
           className="sr-only"
           checked={mode === 'label'}
-          onChange={() => setMode('label')}
+          onChange={() => {
+            setMode('label')
+            setValue('')
+          }}
         />
         <span className="text-sm font-medium text-foreground">
           Only mail with a Gmail label
@@ -115,7 +127,10 @@ export function ScopePicker({
           name="mode-ui"
           className="sr-only"
           checked={mode === 'all'}
-          onChange={() => setMode('all')}
+          onChange={() => {
+            setMode('all')
+            setValue('')
+          }}
         />
         <span className="text-sm font-medium text-foreground">
           Everything in this inbox
