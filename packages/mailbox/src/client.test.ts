@@ -113,4 +113,29 @@ describe('GmailClient', () => {
     )
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
+
+  it('throws when getAttachment response has no data field', async () => {
+    stubJson({ size: 1024 })
+    await expect(new GmailClient('at').getAttachment('m1', 'a1')).rejects.toThrow(
+      /Attachment data missing or invalid for message m1 attachment a1/,
+    )
+  })
+
+  it('throws when getAttachment data is not a string', async () => {
+    stubJson({ data: null, size: 1024 })
+    await expect(new GmailClient('at').getAttachment('m1', 'a1')).rejects.toThrow(
+      /Attachment data missing or invalid for message m1 attachment a1/,
+    )
+  })
+
+  it('throws Error (not MailboxHistoryExpiredError) on a 404 from getMessage', async () => {
+    stubJson({ error: { message: 'Requested entity was not found.' } }, 404)
+    try {
+      await new GmailClient('at').getMessage('m1')
+      expect.fail('Should have thrown')
+    } catch (err) {
+      expect(err).toBeInstanceOf(Error)
+      expect(err).not.toBeInstanceOf(MailboxHistoryExpiredError)
+    }
+  })
 })

@@ -151,6 +151,11 @@ export class GmailClient {
     const json = await this.request<{ data?: string; size?: number }>(
       `/messages/${messageId}/attachments/${attachmentId}`,
     )
-    return Buffer.from(json.data ?? '', 'base64url')
+    if (typeof json.data !== 'string') {
+      throw new Error(
+        `Attachment data missing or invalid for message ${messageId} attachment ${attachmentId}`,
+      )
+    }
+    return Buffer.from(json.data, 'base64url')
   }
 }
