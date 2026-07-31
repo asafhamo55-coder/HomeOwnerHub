@@ -59,6 +59,16 @@ interface TokenResponse {
   error_description?: string
 }
 
+// Google error codes on the token endpoint that mean the grant itself is
+// dead — retrying will never succeed and the HOA must re-authorize. Only
+// these, on a 400 or 401, warrant MailboxAuthError. See module docstring.
+const CREDENTIAL_REJECTION_ERRORS = new Set([
+  'invalid_grant',
+  'invalid_client',
+  'unauthorized_client',
+  'invalid_request',
+])
+
 async function postToken(body: URLSearchParams): Promise<TokenResponse> {
   const response = await fetch(TOKEN_ENDPOINT, {
     method: 'POST',
@@ -66,15 +76,36 @@ async function postToken(body: URLSearchParams): Promise<TokenResponse> {
     body,
   })
 
-  const json = (await response.json()) as TokenResponse
+  let json: TokenResponse
+  try {
+    json = (await response.json()) as TokenResponse
+  } catch {
+    // An HTML error page or gateway-timeout body from oauth2.googleapis.com
+    // is plausible under load. That's not proof the credential is dead —
+    // it's a transient/unexpected failure, so it must not become
+    // MailboxAuthError (which stops the sync job's retries permanently).
+    throw new Error(`Token endpoint returned a non-JSON response (status ${response.status}).`)
+  }
 
-  if (!response.ok || json.error) {
-    throw new MailboxAuthError(
-      json.error_description ?? json.error ?? `Token request failed (${response.status})`,
-    )
+  if (
+    json.error &&
+    (response.status === 400 || response.status === 401) &&
+    CREDENTIAL_REJECTION_ERRORS.has(json.error)
+  ) {
+    throw new MailboxAuthError(json.error_description ?? json.error)
+  }
+
+  if (!response.ok) {
+    // 5xx, 429, and other 4xx without a credential-rejection code are
+    // transient or unexpected — may succeed on retry — so this stays a
+    // generic Error, not MailboxAuthError.
+    const detail = json.error ? `: ${json.error_description ?? json.error}` : ''
+    throw new Error(`Token request failed (${response.status})${detail}.`)
   }
   if (!json.access_token) {
-    throw new MailboxAuthError('Token response contained no access_token.')
+    // A 200 with no access_token and no error is an unexpected API
+    // response, not proof of a revoked grant.
+    throw new Error(`Token response missing access_token (status ${response.status}).`)
   }
   return json
 }

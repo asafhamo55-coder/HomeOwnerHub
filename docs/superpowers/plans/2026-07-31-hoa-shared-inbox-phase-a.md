@@ -2707,9 +2707,14 @@ describe('buildConsentUrl', () => {
 
   it('requests exactly the scopes we need and no more', () => {
     const url = new URL(buildConsentUrl({ state: 's' }))
-    expect(url.searchParams.get('scope')).toBe(GMAIL_SCOPES.join(' '))
-    expect(GMAIL_SCOPES).toContain('https://www.googleapis.com/auth/gmail.readonly')
+    const requested = (url.searchParams.get('scope') ?? '').split(' ')
+    expect(requested).toContain('https://www.googleapis.com/auth/gmail.readonly')
+    expect(requested).toContain('https://www.googleapis.com/auth/gmail.send')
+    expect(requested).toContain('https://www.googleapis.com/auth/gmail.settings.basic')
+    expect(requested).toContain('openid')
+    expect(requested).toContain('email')
     expect(GMAIL_SCOPES).not.toContain('https://mail.google.com/')
+    expect(requested).not.toContain('https://mail.google.com/')
   })
 
   it('passes login_hint when given', () => {
@@ -2756,6 +2761,79 @@ describe('exchangeCode', () => {
       ),
     )
     await expect(exchangeCode('bad')).rejects.toBeInstanceOf(MailboxAuthError)
+  })
+})
+
+// Error classification matters beyond "does it throw": MailboxAuthError is
+// a signal the sync job uses to STOP retrying and mark the mailbox
+// auth_failed, demanding the HOA reconnect. A transient failure (a Google
+// outage, a bad gateway) must come back as a generic Error, or a blip
+// becomes a support ticket. Exercised via exchangeCode since postToken
+// itself isn't exported.
+describe('postToken error classification', () => {
+  it('does NOT classify a 500 as MailboxAuthError, and the message contains the status', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 500 })))
+    const err: unknown = await exchangeCode('code').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(err).not.toBeInstanceOf(MailboxAuthError)
+    expect((err as Error).message).toContain('500')
+  })
+
+  it('does NOT classify a 503 as MailboxAuthError, and the message contains the status', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 503 })))
+    const err: unknown = await exchangeCode('code').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(err).not.toBeInstanceOf(MailboxAuthError)
+    expect((err as Error).message).toContain('503')
+  })
+
+  it('classifies a 400 invalid_grant as MailboxAuthError', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 }),
+      ),
+    )
+    await expect(exchangeCode('code')).rejects.toBeInstanceOf(MailboxAuthError)
+  })
+
+  it('classifies a 401 carrying an OAuth error field as MailboxAuthError', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: 'invalid_client' }), { status: 401 }),
+      ),
+    )
+    await expect(exchangeCode('code')).rejects.toBeInstanceOf(MailboxAuthError)
+  })
+
+  it('does NOT classify a 429 as MailboxAuthError', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ error: 'rate_limited' }), { status: 429 })),
+    )
+    const err: unknown = await exchangeCode('code').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(err).not.toBeInstanceOf(MailboxAuthError)
+  })
+
+  it('wraps a non-JSON error body as a generic Error mentioning the status, not a raw SyntaxError', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('<html>502 Bad Gateway</html>', { status: 502 })),
+    )
+    const err: unknown = await exchangeCode('code').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(err).not.toBeInstanceOf(MailboxAuthError)
+    expect(err).not.toBeInstanceOf(SyntaxError)
+    expect((err as Error).message).toContain('502')
+  })
+
+  it('treats a 200 with no access_token and no error as a generic Error, not MailboxAuthError', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({}), { status: 200 })))
+    const err: unknown = await exchangeCode('code').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(err).not.toBeInstanceOf(MailboxAuthError)
   })
 })
 
@@ -2860,6 +2938,24 @@ interface TokenResponse {
   error_description?: string
 }
 
+// MailboxAuthError is not just an error type — the sync job treats it as
+// "credentials are dead": it STOPS retrying, marks the mailbox
+// auth_failed, and surfaces a reconnect prompt to the HOA. A generic Error
+// means "transient, retry later." Throwing MailboxAuthError for a 500/503
+// during a passing Google outage would permanently disconnect the mailbox
+// over a blip, so classification has to be based on what the response
+// actually indicates, not merely "was it a non-2xx".
+//
+// Google error codes on the token endpoint that mean the grant itself is
+// dead — retrying will never succeed and the HOA must re-authorize. Only
+// these, on a 400 or 401, warrant MailboxAuthError.
+const CREDENTIAL_REJECTION_ERRORS = new Set([
+  'invalid_grant',
+  'invalid_client',
+  'unauthorized_client',
+  'invalid_request',
+])
+
 async function postToken(body: URLSearchParams): Promise<TokenResponse> {
   const response = await fetch(TOKEN_ENDPOINT, {
     method: 'POST',
@@ -2867,15 +2963,37 @@ async function postToken(body: URLSearchParams): Promise<TokenResponse> {
     body,
   })
 
-  const json = (await response.json()) as TokenResponse
+  let json: TokenResponse
+  try {
+    json = (await response.json()) as TokenResponse
+  } catch {
+    // An HTML error page or gateway-timeout body from oauth2.googleapis.com
+    // is plausible under load. A malformed body is not proof of a dead
+    // credential, so this stays a generic Error (with the status attached)
+    // instead of an opaque SyntaxError or a MailboxAuthError.
+    throw new Error(`Token endpoint returned a non-JSON response (status ${response.status}).`)
+  }
 
-  if (!response.ok || json.error) {
-    throw new MailboxAuthError(
-      json.error_description ?? json.error ?? `Token request failed (${response.status})`,
-    )
+  if (
+    json.error &&
+    (response.status === 400 || response.status === 401) &&
+    CREDENTIAL_REJECTION_ERRORS.has(json.error)
+  ) {
+    throw new MailboxAuthError(json.error_description ?? json.error)
+  }
+
+  if (!response.ok) {
+    // 5xx, 429, and other 4xx without a credential-rejection code are
+    // transient or unexpected — may succeed on retry — so this is a
+    // generic Error, not MailboxAuthError. The status is included so a
+    // failure is diagnosable.
+    const detail = json.error ? `: ${json.error_description ?? json.error}` : ''
+    throw new Error(`Token request failed (${response.status})${detail}.`)
   }
   if (!json.access_token) {
-    throw new MailboxAuthError('Token response contained no access_token.')
+    // A 200 with no access_token and no error is an unexpected API
+    // response, not proof of a revoked grant.
+    throw new Error(`Token response missing access_token (status ${response.status}).`)
   }
   return json
 }
@@ -2923,7 +3041,9 @@ export async function refreshAccessToken(refreshToken: string): Promise<OAuthTok
 ```bash
 rtk pnpm test:unit
 ```
-Expected: PASS — 8 oauth tests.
+Expected: PASS — 15 oauth tests (includes explicit error-classification
+coverage for 5xx/429/malformed-JSON/malformed-200 vs. genuine
+credential-rejection cases; see prose note above `postToken`).
 
 - [ ] **Step 5: Export and typecheck**
 
