@@ -6345,6 +6345,57 @@ export const mailboxSyncJob = inngest.createFunction(
  * stops, or every run throws, and nobody notices for a week while
  * residents go unanswered. A sync that has not completed in 30 minutes is
  * broken by definition — the cron runs every 2.
+ *
+ * A second, independent check covers the historical backfill chain (Task
+ * 16). That chain's own try/catch records `backfill_status: 'failed'` on
+ * any JS-level throw, but a step that dies out-of-band — a platform
+ * timeout, an OOM, a process kill — never reaches the catch and leaves
+ * the row at `backfill_status: 'running'` forever. That gap got sharper
+ * once mailboxSyncJob started skipping its re-trigger of
+ * `mailbox/backfill.requested` while `backfill_status` is already
+ * `'running'` (see the comment on that check in Step 3 above): the
+ * accidental recovery a blind re-trigger used to provide is gone, so
+ * without this second check a killed backfill leaves the setup UI showing
+ * "Importing history…" indefinitely, with no code path able to correct
+ * it.
+ *
+ * Staleness is read from `backfill_updated_at`
+ * (migrations/0032_mailbox_backfill_watchdog.sql), a column stamped by a
+ * DB trigger on `mailbox_accounts` whenever `backfill_status` or
+ * `backfill_progress` changes — deliberately NOT by application code, so
+ * mailbox-backfill.ts (Task 16) needed no changes to keep it current: its
+ * existing per-page `.update()` already touches both columns.
+ *
+ * Threshold: 30 minutes, same as the sync check above, chosen with a wide
+ * margin over any legitimate in-flight page. A page is expected to take
+ * seconds; even the pathological case — every one of PAGE_SIZE (50)
+ * message fetches hitting GmailClient's full retry ladder (3 retries,
+ * ~500–2500ms backoff each) — tops out around 3-4 minutes for a single
+ * page, roughly an order of magnitude under 30. A chain making normal
+ * progress re-emits (and the trigger re-stamps `backfill_updated_at`)
+ * every page, so 30 minutes of silence cannot be a healthy chain that
+ * just happens to be mid-flight.
+ *
+ * On detection this marks `backfill_status: 'failed'` rather than
+ * re-emitting `mailbox/backfill.requested` directly from here.
+ * Considered and rejected: resuming correctly needs `pageToken` and
+ * `afterDate`, which live only in the event payload threaded through the
+ * chain — `backfill_progress` persists `done`/`has_more`/`total_estimate`
+ * but not those two, so this watchdog has no way to resume mid-chain and
+ * would have to restart from scratch regardless of which path fires the
+ * event. Marking `'failed'` is a single honest state change that both
+ * fixes the setup UI and releases mailboxSyncJob's own re-trigger guard
+ * so the *next* truncated sync run restarts the chain using logic that
+ * already exists and is already tested there, instead of duplicating
+ * "start a fresh backfill" event-emission in a second file — which would
+ * also risk a duplicate concurrent chain if the "dead" process turns out
+ * to still be alive and finishes after this watchdog already re-emitted.
+ *
+ * This is not a complete recovery guarantee: restart depends on a future
+ * truncated sync run for this account. That dependency was already
+ * accepted when mailboxSyncJob's re-trigger guard stopped re-requesting a
+ * `'running'` backfill; this watchdog closes the "permanently stuck" gap
+ * that change introduced, not a pre-existing gap in how restarts fire.
  */
 export const mailboxWatchdogJob = inngest.createFunction(
   { id: 'mailbox-watchdog', name: 'Mailbox Stall Watchdog' },
@@ -6392,10 +6443,66 @@ export const mailboxWatchdogJob = inngest.createFunction(
       logger.error(`[mailbox-watchdog] STALLED: ${account.email_address}`)
     }
 
-    return { stalled: stalled?.length ?? 0 }
+    // Second, independent check: a backfill chain stuck at
+    // `backfill_status: 'running'` with no forward progress in 30 minutes.
+    // See the doc comment above for why `backfill_updated_at` is the right
+    // signal and why 'failed' (not a direct re-emit) is the right action.
+    const { data: stalledBackfills, error: stalledBackfillsError } = await db
+      .from('mailbox_accounts')
+      .select('id, email_address, backfill_updated_at')
+      .is('disconnected_at', null)
+      .eq('backfill_status', 'running')
+      .or(`backfill_updated_at.is.null,backfill_updated_at.lt.${threshold}`)
+
+    if (stalledBackfillsError) {
+      // Same reasoning as the sync-status read above: a soft failure here
+      // must not be allowed to look like "nothing stalled" — throw so the
+      // run fails visibly instead.
+      logDbError('mailboxWatchdogJob', 'mailbox_accounts', {}, stalledBackfillsError)
+      throw new Error(
+        `mailboxWatchdogJob: failed to load backfill status: ${stalledBackfillsError.message}`,
+      )
+    }
+
+    for (const account of stalledBackfills ?? []) {
+      const { error: flagError } = await db
+        .from('mailbox_accounts')
+        .update({
+          backfill_status: 'failed',
+          sync_error: `Backfill made no progress since ${account.backfill_updated_at ?? 'it started'}.`,
+        })
+        .eq('id', account.id)
+
+      if (flagError) {
+        // Same judgement as the sync-stall loop above: no enclosing
+        // handler to demote this to "record and continue" — a backfill
+        // stall that fails to get flagged must still fail the run visibly.
+        logDbError('mailboxWatchdogJob', 'mailbox_accounts', { accountId: account.id }, flagError)
+        throw new Error(
+          `mailboxWatchdogJob: failed to flag ${account.email_address}'s backfill as failed: ${flagError.message}`,
+        )
+      }
+
+      logger.error(`[mailbox-watchdog] BACKFILL STALLED: ${account.email_address}`)
+    }
+
+    return {
+      stalled: stalled?.length ?? 0,
+      backfillStalled: stalledBackfills?.length ?? 0,
+    }
   },
 )
 ```
+
+**Migration:** `migrations/0032_mailbox_backfill_watchdog.sql` adds
+`mailbox_accounts.backfill_updated_at`, a `BEFORE UPDATE` trigger that
+stamps it whenever `backfill_status` or `backfill_progress` changes, and
+`mailbox_accounts_backfill_idx` (mirrors `mailbox_accounts_sync_idx` from
+0029). The trigger — not an application-code write — is what keeps this
+column current without touching mailbox-backfill.ts (Task 16). Idempotent;
+applied with `rtk supabase db query --linked < migrations/0032_mailbox_backfill_watchdog.sql`
+and verified by re-running it and confirming the column/trigger/index all
+already exist on the second pass.
 
 - [ ] **Step 4: Export the jobs**
 
@@ -6558,9 +6665,14 @@ interface BackfillAccount {
  * The account lookup and the `backfill_status: 'running'` write both live
  * INSIDE the try block below (not before it) so a transient failure in
  * either one is caught by the same catch that records `backfill_status:
- * 'failed'`. Nothing watchdogs `backfill_status` the way mailboxWatchdogJob
- * watches `sync_status` (Task 15), so an exit path that skips the catch
- * would leave the setup UI showing an import that silently never finishes.
+ * 'failed'`. That catch only fires on a JS-level throw, though — it
+ * cannot run if the invocation dies out-of-band (platform timeout, OOM,
+ * process kill). mailboxWatchdogJob (Task 15) now covers exactly that gap
+ * via `backfill_updated_at`, a column a DB trigger keeps current without
+ * any change to this file (see the watchdog's own comment in Task 15 for
+ * the full reasoning) — but this file's own try/catch remains the primary,
+ * faster-acting mechanism; the watchdog is the 30-minute backstop for what
+ * escapes it.
  */
 export const mailboxBackfillJob = inngest.createFunction(
   {

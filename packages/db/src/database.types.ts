@@ -3248,6 +3248,7 @@ export type Database = {
         Row: {
           backfill_progress: Json
           backfill_status: string
+          backfill_updated_at: string | null
           connected_at: string
           connected_by: string | null
           disconnected_at: string | null
@@ -3267,6 +3268,7 @@ export type Database = {
         Insert: {
           backfill_progress?: Json
           backfill_status?: string
+          backfill_updated_at?: string | null
           connected_at?: string
           connected_by?: string | null
           disconnected_at?: string | null
@@ -3286,6 +3288,7 @@ export type Database = {
         Update: {
           backfill_progress?: Json
           backfill_status?: string
+          backfill_updated_at?: string | null
           connected_at?: string
           connected_by?: string | null
           disconnected_at?: string | null

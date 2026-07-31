@@ -40,7 +40,11 @@ function fakeClient(over: Partial<GmailClient> = {}): GmailClient {
       nextPageToken: null,
       historyId: '999',
     })),
-    listMessages: vi.fn(async () => ({ messageIds: [], nextPageToken: null })),
+    listMessages: vi.fn(async () => ({
+      messageIds: [],
+      nextPageToken: null,
+      resultSizeEstimate: null,
+    })),
     getMessage: vi.fn(async (id: string) => rawMessage(id, ['board@mp.org'])),
     getAttachment: vi.fn(),
     listSendAs: vi.fn(),
@@ -109,6 +113,7 @@ describe('syncMailbox', () => {
     const listMessages = vi.fn(async () => ({
       messageIds: ['m5'],
       nextPageToken: null,
+      resultSizeEstimate: null,
     }))
 
     const client = fakeClient({
@@ -138,6 +143,7 @@ describe('syncMailbox', () => {
     const listMessages = vi.fn(async () => ({
       messageIds: ['m7'],
       nextPageToken: null,
+      resultSizeEstimate: null,
     }))
     const client = fakeClient({ listMessages })
 
@@ -177,6 +183,7 @@ describe('syncMailbox', () => {
       listMessages: vi.fn(async () => ({
         messageIds: ['m1', 'm2', 'm3', 'm4'],
         nextPageToken: null,
+        resultSizeEstimate: null,
       })),
     })
 
@@ -230,8 +237,8 @@ describe('syncMailbox', () => {
   it('reports truncated on the FALLBACK path when a page lands exactly on the cap with more remaining', async () => {
     const listMessages = vi
       .fn()
-      .mockResolvedValueOnce({ messageIds: ['m1'], nextPageToken: 'p2' })
-      .mockResolvedValueOnce({ messageIds: ['m2'], nextPageToken: 'p3' })
+      .mockResolvedValueOnce({ messageIds: ['m1'], nextPageToken: 'p2', resultSizeEstimate: null })
+      .mockResolvedValueOnce({ messageIds: ['m2'], nextPageToken: 'p3', resultSizeEstimate: null })
 
     const result = await syncMailbox(
       fakeClient({ listMessages }),
@@ -285,6 +292,7 @@ describe('syncMailbox', () => {
       listMessages: vi.fn(async () => ({
         messageIds: ['m1', 'm2'],
         nextPageToken: null,
+        resultSizeEstimate: null,
       })),
       getMessage: vi.fn(async (id: string) =>
         id === 'm1'

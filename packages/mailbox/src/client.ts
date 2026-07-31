@@ -151,13 +151,13 @@ export class GmailClient {
     messageIds: string[]
     nextPageToken: string | null
     /**
-     * Optional in the type (not just in practice) so existing callers that
-     * destructure only `messageIds`/`nextPageToken` — and existing test
-     * doubles built against the old shape, e.g. sync.test.ts's fakeClient —
-     * keep typechecking without modification. The real implementation
-     * below always populates it.
+     * Required — the real implementation below always populates it (Gmail
+     * omits `resultSizeEstimate` from the JSON only in edge cases; when
+     * that happens we already normalize it to `null`, never `undefined`).
+     * Test doubles must supply it explicitly rather than the type being
+     * loosened to fit stale mocks.
      */
-    resultSizeEstimate?: number | null
+    resultSizeEstimate: number | null
   }> {
     const params = new URLSearchParams({ q: query, maxResults: String(maxResults) })
     if (pageToken) params.set('pageToken', pageToken)
