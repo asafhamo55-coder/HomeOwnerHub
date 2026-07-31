@@ -218,3 +218,87 @@ export async function getConnectPreview(
     sample,
   }
 }
+
+export interface SetupStep {
+  key: 'hoa_details' | 'mailbox' | 'properties' | 'board_members'
+  title: string
+  description: string
+  done: boolean
+  href: string
+  cta: string
+}
+
+/**
+ * Drives the onboarding checklist and the dashboard nudge.
+ *
+ * Completion is DERIVED from real data, never stored as a flag. A stored
+ * "onboarding complete" boolean drifts the moment someone deletes their
+ * last property, and then the checklist lies.
+ *
+ * The two `head: true` counts below decide whether a step renders as done
+ * or not-done, so — same stakes-based split as the rest of this module —
+ * a failed count must not be mistaken for a zero count. Both destructure
+ * `error` and throw rather than falling through to `count ?? 0`, which
+ * would silently render an incomplete step as done or an already-done
+ * step as still pending.
+ */
+export async function getSetupProgress(db: Db, orgId: string): Promise<SetupStep[]> {
+  const [mailbox, propertiesResult, membersResult] = await Promise.all([
+    getMailboxStatus(db, orgId),
+    db
+      .from('units')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgId),
+    db
+      .from('org_members')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('org_id', orgId),
+  ])
+
+  const { count: propertiesCount, error: propertiesError } = propertiesResult
+  if (propertiesError) {
+    logDbError('getSetupProgress', 'units', { orgId }, propertiesError)
+    throw new Error(`getSetupProgress: failed to count properties: ${propertiesError.message}`)
+  }
+
+  const { count: membersCount, error: membersError } = membersResult
+  if (membersError) {
+    logDbError('getSetupProgress', 'org_members', { orgId }, membersError)
+    throw new Error(`getSetupProgress: failed to count board members: ${membersError.message}`)
+  }
+
+  return [
+    {
+      key: 'hoa_details',
+      title: 'HOA details',
+      description: 'Name and size of your community.',
+      done: true, // guaranteed — the org exists
+      href: '/settings',
+      cta: 'Edit',
+    },
+    {
+      key: 'mailbox',
+      title: 'Connect your HOA mailbox',
+      description: 'Resident emails flow in automatically, matched to properties.',
+      done: mailbox !== null,
+      href: '/onboarding/setup',
+      cta: 'Connect Google',
+    },
+    {
+      key: 'properties',
+      title: 'Import properties',
+      description: 'Addresses and owners, so email can be matched to a home.',
+      done: (propertiesCount ?? 0) > 0,
+      href: '/admin/import-units',
+      cta: 'Upload CSV',
+    },
+    {
+      key: 'board_members',
+      title: 'Invite board members',
+      description: 'Give the rest of the board access.',
+      done: (membersCount ?? 0) > 1,
+      href: '/settings/members',
+      cta: 'Invite',
+    },
+  ]
+}

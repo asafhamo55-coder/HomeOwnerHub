@@ -70,5 +70,5 @@ export async function createHoaOrg(
     return { error: memberError.message }
   }
 
-  redirect('/')
+  redirect('/onboarding/setup')
 }

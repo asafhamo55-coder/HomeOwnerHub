@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
+import Link from 'next/link'
 import { AlertTriangle, Briefcase, MessageSquare, Wallet } from 'lucide-react'
-import { Card, CardContent, Skeleton } from '@homeowner-portal/ui'
+import { Alert, Card, CardContent, Skeleton } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 // EMERGENCY ROLLBACK (v2 — second attempt) 2026-05-25: cached layer
 // broke prod AGAIN at runtime with reference 2236965075. Both the
@@ -21,6 +22,7 @@ import {
   getTicketCategoryDonut,
   getViolationStatusDonut,
 } from '@/lib/dashboard/charts'
+import { getSetupProgress } from '@/lib/inbox/queries'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ActivityBar } from '@/components/dashboard/ActivityBar'
 import { ApprovalsInbox } from '@/components/dashboard/ApprovalsInbox'
@@ -75,11 +77,24 @@ export default async function DashboardHome() {
   const userName =
     firstName ?? (user?.email ? user.email.split('@')[0] : null)
 
+  const setupSteps = await getSetupProgress(supabase, org.id)
+  const pendingSetup = setupSteps.filter((step) => !step.done)
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="space-y-2">
         <GreetingHeadline name={userName} contextLabel={org.name} fallbackDate={serverDateLabel} />
       </header>
+
+      {pendingSetup.length > 0 ? (
+        <Alert variant="info" title="Finish setting up">
+          {pendingSetup.length} step{pendingSetup.length === 1 ? '' : 's'} left —{' '}
+          {pendingSetup[0].title}.{' '}
+          <Link href="/onboarding/setup" className="underline">
+            Continue
+          </Link>
+        </Alert>
+      ) : null}
 
       <Suspense fallback={<DashboardSkeleton />}>
         <DashboardContent orgId={org.id} />
