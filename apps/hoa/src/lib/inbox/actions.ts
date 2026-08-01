@@ -49,6 +49,21 @@
  * "looks like it worked, nothing happened" failure mode the PII/error
  * rule above exists to prevent.
  *
+ * Org scoping applies to VALUES written into a row, not just the row
+ * being written to (amended post-review, Task 21 finding 1 — see
+ * `.superpowers/sdd/task-21-report.md`, "Fix pass — org-scoping +
+ * silent failures"). `assignThreadToProperty`'s `unitId` is form input
+ * like `threadId`, but unlike `threadId` it was never checked against
+ * `org.id` before being written into `inbox_threads.unit_id` and
+ * `inbox_sender_aliases.unit_id` — it relied entirely on RLS via
+ * `auth_org_ids()`, which returns every org a caller belongs to, so a
+ * management-company admin spanning several HOAs could file a thread
+ * under another org's property. `assignThreadToProperty` now resolves
+ * `unitId` through `getPropertyRef(db, org.id, unitId)`
+ * (apps/hoa/src/lib/properties/resolve.ts) before writing it anywhere,
+ * and rejects with an error if it doesn't resolve inside the caller's
+ * org.
+ *
  * PII: never log an email address, subject, or body. Only ids and
  * Postgres error codes/messages.
  */
@@ -59,11 +74,21 @@ import type { PostgrestError } from '@supabase/supabase-js'
 import type { Json } from '@homeowner-portal/db/types'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { escapeLikePattern } from '@/lib/properties/resolve'
+import { escapeLikePattern, getPropertyRef } from '@/lib/properties/resolve'
 
 export interface InboxActionState {
   error?: string
   ok?: boolean
+  /**
+   * A truthy `ok` does not mean every side effect of the action
+   * succeeded — see `assignThreadToProperty`'s docstring. `warning`
+   * carries a distinguishable partial-success message when the primary
+   * mutation succeeded but a secondary effect (currently: remembering
+   * the sender) did not. Callers that only check `state.error` before
+   * this field existed keep working unchanged; surfacing `warning` in
+   * the UI is a follow-up (see task-21-report.md).
+   */
+  warning?: string
 }
 
 function logDbError(
@@ -91,7 +116,9 @@ const AssignSchema = z.object({
  * File a thread against a property by hand.
  *
  * See the module docstring for why match_source = 'manual' and the
- * sender-alias upsert are the two effects that matter here.
+ * sender-alias upsert are the two effects that matter here, and for why
+ * `unitId` is resolved through `getPropertyRef` before it is written
+ * anywhere.
  */
 export async function assignThreadToProperty(
   _prev: InboxActionState,
@@ -113,6 +140,18 @@ export async function assignThreadToProperty(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Not signed in.' }
+
+  // `unitId` is form input exactly like `threadId`, but it is the VALUE
+  // being written into an org-scoped row, not the row being updated — an
+  // `.eq('organization_id', org.id)` on the UPDATE below does nothing to
+  // stop a crafted or stale unitId from another org from being written
+  // in. getPropertyRef is org-scoped and is the single source of truth
+  // for "does this unit belong to this org" (see
+  // apps/hoa/src/lib/properties/resolve.ts); reject before writing
+  // anything if it doesn't resolve, rather than relying on RLS via
+  // auth_org_ids(), which returns every org a caller belongs to.
+  const propertyRef = await getPropertyRef(supabase, org.id, unitId)
+  if (!propertyRef) return { error: 'Property not found.' }
 
   const reason: Record<string, unknown> = {
     rule: 'manual_assignment',
@@ -144,6 +183,17 @@ export async function assignThreadToProperty(
     return { error: 'Thread not found.' }
   }
 
+  // Distinguishable partial-success (Task 21 finding 2 — see
+  // `.superpowers/sdd/task-21-report.md`, "Fix pass — org-scoping +
+  // silent failures"): the assignment above already succeeded and is
+  // NOT rolled back by a failure below. But the alias upsert is the
+  // matcher's entire learning loop — it is why the needs-review queue
+  // shrinks week over week — so a manager who ticks "remember this
+  // sender" needs to be told, truthfully, whether that second effect
+  // actually happened. `rememberSenderFailed` lets the caller say "filed,
+  // but not remembered" instead of a bare "ok: true" that overclaims.
+  let rememberSenderFailed = false
+
   if (rememberSender) {
     const { data: message, error: messageError } = await supabase
       .from('inbox_messages')
@@ -165,6 +215,7 @@ export async function assignThreadToProperty(
         { orgId: org.id, threadId },
         messageError,
       )
+      rememberSenderFailed = true
     } else if (message?.from_email) {
       // Atomic upsert on the (organization_id, lower(email_address))
       // unique index (materialized as the generated column
@@ -192,13 +243,19 @@ export async function assignThreadToProperty(
           { orgId: org.id, threadId },
           aliasError,
         )
+        rememberSenderFailed = true
       }
     }
   }
 
   revalidatePath('/inbox')
   revalidatePath(`/inbox/${threadId}`)
-  return { ok: true }
+  return rememberSenderFailed
+    ? {
+        ok: true,
+        warning: 'Assigned, but we could not remember this sender for next time.',
+      }
+    : { ok: true }
 }
 
 // ─── Status ──────────────────────────────────────────────────────────
@@ -208,6 +265,15 @@ const StatusSchema = z.object({
   status: z.enum(['needs_review', 'open', 'waiting', 'closed']),
 })
 
+/**
+ * Deliberately does NOT touch `match_source` when closing a thread — see
+ * `applyMatch`'s docstring (apps/hoa/src/lib/inbox/match.ts) for why: a
+ * status change is not a judgement about which property a thread
+ * belongs to, and `applyMatch` now guards on `status === 'closed'`
+ * directly instead, which freezes match state while closed without
+ * overclaiming a manual decision or permanently blocking auto-match
+ * after the thread is reopened.
+ */
 export async function setThreadStatus(
   _prev: InboxActionState,
   formData: FormData,
@@ -292,6 +358,17 @@ export async function linkThreadToResource(
   }
   if (!thread) return { error: 'Thread not found.' }
 
+  // `resourceId` has NO validation against `resourceType` and no FK —
+  // `inbox_thread_links.resource_id` has no foreign key to any of the
+  // four tables it can point at (ticket/arc_request/violation/
+  // communication_thread), so any UUID, extant or fabricated, can be
+  // linked here (Task 21 finding 4 — see
+  // `.superpowers/sdd/task-21-report.md`, "Fix pass — org-scoping +
+  // silent failures"). Deliberately NOT fixed with per-type validation
+  // in this pass — no reader exists yet, so nothing dangles visibly
+  // today. Whoever builds the thread-view join that reads this table
+  // MUST org-scope that join itself (resourceId cannot be trusted to
+  // belong to this org, or even to be a real row, on its own).
   const { error } = await supabase.from('inbox_thread_links').upsert(
     {
       organization_id: org.id,

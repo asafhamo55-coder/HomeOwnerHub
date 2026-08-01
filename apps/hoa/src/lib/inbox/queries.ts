@@ -23,6 +23,19 @@
  * enrich one row of the sample (a sender lookup, a unit lookup) log and
  * degrade that single row to "unknown" rather than failing the whole
  * preview.
+ *
+ * Org scoping (amended post-review, Task 21 finding 1 — see
+ * `.superpowers/sdd/task-21-report.md`, "Fix pass — org-scoping +
+ * silent failures"): every by-id lookup in this module now carries an
+ * explicit `.eq('organization_id', orgId)`, even where the id being
+ * looked up (a `unit_id` off an already org-scoped thread, an
+ * `accountId` passed in by an org-scoped caller) looked safe by
+ * chain-of-trust. RLS via `auth_org_ids()` is NOT a sufficient
+ * substitute for this: it returns every org a user belongs to, so for
+ * a management-company admin spanning several HOAs, an unscoped by-id
+ * lookup can resolve a row that belongs to a DIFFERENT org than the
+ * one the caller passed in, and this module has no way to know that
+ * happened. Treat every new by-id lookup added here the same way.
  */
 
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
@@ -141,6 +154,7 @@ export async function getConnectPreview(
   const { data: threads, error: threadsError } = await db
     .from('inbox_threads')
     .select('id, subject, unit_id, match_confidence, status, last_message_at')
+    .eq('organization_id', orgId)
     .eq('mailbox_account_id', accountId)
     .gte('last_message_at', thirtyDaysAgo)
     .order('last_message_at', { ascending: false })
@@ -189,6 +203,7 @@ export async function getConnectPreview(
       const { data: unit, error: unitError } = await db
         .from('units')
         .select('address_line1')
+        .eq('organization_id', orgId)
         .eq('id', thread.unit_id)
         .maybeSingle()
 
@@ -426,7 +441,11 @@ export async function listThreads(
       .eq('direction', 'inbound')
       .order('sent_at', { ascending: false }),
     unitIds.length > 0
-      ? db.from('units').select('id, address_line1').in('id', unitIds)
+      ? db
+          .from('units')
+          .select('id, address_line1')
+          .eq('organization_id', orgId)
+          .in('id', unitIds)
       : Promise.resolve({
           data: [] as Array<{ id: string; address_line1: string }>,
           error: null,

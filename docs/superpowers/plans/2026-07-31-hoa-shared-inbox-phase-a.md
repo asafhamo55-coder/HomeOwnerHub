@@ -5079,6 +5079,26 @@ Split deliberately into a **pure decision function** (table-tested in vitest) an
   treat the interface above, and the actual files on disk, as
   authoritative.
 
+  **Amended post-review a second time (see `.superpowers/sdd/task-21-report.md`,
+  "Fix pass — org-scoping + silent failures"):** `applyMatch`'s guard
+  against re-filing a thread was `if (thread?.match_source === 'manual')
+  return`, with a separate line pinning `status` back to `'closed'` on
+  write so a re-match couldn't reopen a closed thread. Task 21 finding 3
+  showed that pin was incomplete — it protected `status` but still let
+  `unit_id`/`resident_id`/`match_confidence`/`match_reason` be silently
+  overwritten while the thread was closed, so a later reopen could
+  surface a property no human had approved. The guard is now `if
+  (thread?.match_source === 'manual' || thread?.status === 'closed')
+  return` — a closed thread's match fields are frozen entirely, not just
+  its status column, and unfreeze naturally the moment it's reopened.
+  The rejected alternative was having `setThreadStatus`
+  (apps/hoa/src/lib/inbox/actions.ts, Task 21) stamp `match_source =
+  'manual'` on close: closing a thread is a judgement about whether the
+  conversation is done, not about which property it belongs to, so
+  marking it "manual" would overclaim a decision the manager never made
+  and would permanently block auto-matching even after the thread is
+  reopened. `setThreadStatus` still only ever writes `status`.
+
 - [ ] **Step 1: Write the failing test**
 
 Create `apps/hoa/src/lib/inbox/match.test.ts`:
@@ -8651,6 +8671,33 @@ Built before the thread view so the view has working buttons rather than placeho
   searchProperties(term: string): Promise<Array<{ unitId; address }>>
   ```
   `searchProperties` takes only a search term — it reads the org from the session, like every other action in this file.
+
+  **Amended post-review (see `.superpowers/sdd/task-21-report.md`, "Fix
+  pass — org-scoping + silent failures"):** the sample implementation
+  below (and the version that originally shipped) writes `unitId` — form
+  input — directly into `inbox_threads.unit_id` and
+  `inbox_sender_aliases.unit_id` without checking it resolves inside the
+  caller's org, relying entirely on RLS via `auth_org_ids()`, which
+  returns every org a caller belongs to. `assignThreadToProperty` now
+  resolves `unitId` through `getPropertyRef(db, org.id, unitId)`
+  (apps/hoa/src/lib/properties/resolve.ts, Task 3) before writing it
+  anywhere and rejects with an error if it doesn't resolve. Separately,
+  `InboxActionState` gained an optional `warning?: string` field:
+  `assignThreadToProperty` used to return `{ ok: true }` unconditionally
+  even when the sender-alias upsert (the matcher's entire learning loop)
+  or the message lookup that feeds it failed — a manager who ticked
+  "remember this sender" was told something happened that didn't.
+  `warning` carries a truthful partial-success message in that case
+  while still returning `ok: true` for the assignment itself, which did
+  succeed. The UI (`apps/hoa/src/app/(dashboard)/inbox/[id]/AssignPropertyForm.tsx`)
+  does not yet render `state.warning` — see the Task 21 report for the
+  follow-up. `applyMatch`'s guard against re-filing a closed thread was
+  also widened here; see the amendment in Task 14 above for detail —
+  the change lives in match.ts, not actions.ts, but the finding was
+  raised against this task's behavior (a manager closing a thread via
+  `setThreadStatus`), so it's cross-referenced from both places.
+  Treat the interface above, and the actual files on disk, as
+  authoritative over the code block in Step 1 below.
 
 - [ ] **Step 1: Write `apps/hoa/src/lib/inbox/actions.ts`**
 

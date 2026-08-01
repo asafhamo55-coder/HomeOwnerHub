@@ -404,8 +404,28 @@ function buildEmptySignals(): MatchSignals {
  *
  * Refuses to overwrite a manual assignment. A manager who filed a thread
  * by hand must not have it silently re-filed when a new message arrives.
- * Also refuses to reopen a closed thread — a re-match on new mail must not
- * pull a thread a manager already closed back into the open queue.
+ *
+ * Also refuses to touch a CLOSED thread at all — not just its `status`
+ * column (amended post-review, Task 21 finding 3 — see
+ * `.superpowers/sdd/task-21-report.md`, "Fix pass — org-scoping +
+ * silent failures"). The previous version pinned `status` back to
+ * `'closed'` but still overwrote `unit_id`/`resident_id`/
+ * `match_confidence`/`match_reason` with a fresh outcome whenever new
+ * mail landed on a closed thread — so the thread's filing silently
+ * changed while closed, and if a manager reopened it later, it could
+ * sit under a property no human had approved.
+ *
+ * This guard is on `status`, not on `setThreadStatus` stamping
+ * `match_source = 'manual'` when a thread is closed — that alternative
+ * was considered and rejected. Closing a thread is a judgement about
+ * whether the CONVERSATION is done, not a judgement about WHICH
+ * property it belongs to; marking the match "manual" on every close
+ * would overclaim a decision the manager never made, and would
+ * permanently block auto-matching on that thread even after it's
+ * reopened. Gating on `status === 'closed'` instead freezes match state
+ * only while closed and lets auto-matching resume naturally the moment
+ * the thread is reopened — the same "manual survives forever, status
+ * guard is temporary" split the rest of this module already relies on.
  *
  * Scoped to orgId on both the SELECT and the UPDATE — matching every other
  * query in this module — because the only caller (packages/jobs/mailbox-sync)
@@ -432,7 +452,7 @@ export async function applyMatch(
     throw threadError
   }
 
-  if (thread?.match_source === 'manual') return
+  if (thread?.match_source === 'manual' || thread?.status === 'closed') return
 
   const { error: updateError } = await db
     .from('inbox_threads')
@@ -448,8 +468,7 @@ export async function applyMatch(
       // MatchReason to `any`.
       match_reason: outcome.reason as unknown as Json,
       match_source: 'auto',
-      // Never reopen a closed thread just because it was re-matched.
-      status: thread?.status === 'closed' ? 'closed' : outcome.status,
+      status: outcome.status,
     })
     .eq('organization_id', orgId)
     .eq('id', threadId)
