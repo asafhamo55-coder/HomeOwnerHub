@@ -302,3 +302,159 @@ export async function getSetupProgress(db: Db, orgId: string): Promise<SetupStep
     },
   ]
 }
+
+// ─── Inbox list (Task 20) ───────────────────────────────────────────────
+
+export type InboxFilter = 'needs_review' | 'open' | 'waiting' | 'closed' | 'all'
+
+export interface ThreadListItem {
+  id: string
+  subject: string | null
+  fromName: string | null
+  fromEmail: string | null
+  snippet: string | null
+  lastMessageAt: string | null
+  unitId: string | null
+  propertyAddress: string | null
+  matchConfidence: string
+  status: string
+  hasAttachments: boolean
+}
+
+/**
+ * Backs the filter-chip counts on the inbox list. A miscount here is not
+ * cosmetic: if the "needs_review" count silently fell back to 0 on a
+ * failed query, a manager would read that as "nothing to do" and skip the
+ * queue entirely — the same failure mode `error` handling in this module
+ * exists to prevent everywhere else, so each per-status count throws
+ * rather than defaulting.
+ */
+export async function countThreadsByStatus(
+  db: Db,
+  orgId: string,
+): Promise<Record<InboxFilter, number>> {
+  const statuses: Array<Exclude<InboxFilter, 'all'>> = [
+    'needs_review',
+    'open',
+    'waiting',
+    'closed',
+  ]
+
+  const counts = await Promise.all(
+    statuses.map((status) =>
+      db
+        .from('inbox_threads')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .eq('status', status),
+    ),
+  )
+
+  const result = {} as Record<InboxFilter, number>
+  statuses.forEach((status, index) => {
+    const { count, error } = counts[index]
+    if (error) {
+      logDbError('countThreadsByStatus', 'inbox_threads', { orgId, status }, error)
+      throw new Error(`countThreadsByStatus: failed to count "${status}" threads: ${error.message}`)
+    }
+    result[status] = count ?? 0
+  })
+  result.all = statuses.reduce((sum, status) => sum + result[status], 0)
+  return result
+}
+
+/**
+ * The inbox list itself. The main thread query is list-defining — a
+ * swallowed error here would render an empty inbox indistinguishable
+ * from a quiet week, so it throws. The three batched lookups below
+ * (messages, units, attachment flags) only enrich rows that already
+ * exist; a failure in one degrades those fields to "unknown" for this
+ * page rather than hiding the whole list, matching the stakes split in
+ * getConnectPreview above.
+ */
+export async function listThreads(
+  db: Db,
+  orgId: string,
+  filter: InboxFilter,
+  limit = 50,
+): Promise<ThreadListItem[]> {
+  let query = db
+    .from('inbox_threads')
+    .select('id, subject, unit_id, match_confidence, status, last_message_at')
+    .eq('organization_id', orgId)
+    .order('last_message_at', { ascending: false, nullsFirst: false })
+    .limit(limit)
+
+  if (filter !== 'all') query = query.eq('status', filter)
+
+  const { data: threads, error: threadsError } = await query
+  if (threadsError) {
+    logDbError('listThreads', 'inbox_threads', { orgId, filter }, threadsError)
+    throw new Error(`listThreads: failed to load threads: ${threadsError.message}`)
+  }
+  if (!threads || threads.length === 0) return []
+
+  const threadIds = threads.map((t) => t.id)
+  const unitIds = threads.map((t) => t.unit_id).filter((id): id is string => id !== null)
+
+  // Batch the lookups rather than querying per row — a 50-thread page
+  // would otherwise fire 150 round-trips.
+  const [messagesResult, unitsResult, attachmentsResult] = await Promise.all([
+    db
+      .from('inbox_messages')
+      .select('thread_id, from_name, from_email, stripped_text, sent_at')
+      .in('thread_id', threadIds)
+      .eq('direction', 'inbound')
+      .order('sent_at', { ascending: false }),
+    unitIds.length > 0
+      ? db.from('units').select('id, address_line1').in('id', unitIds)
+      : Promise.resolve({
+          data: [] as Array<{ id: string; address_line1: string }>,
+          error: null,
+        }),
+    db
+      .from('inbox_attachments')
+      .select('thread_id')
+      .in('thread_id', threadIds)
+      .neq('fetch_status', 'skipped'),
+  ])
+
+  const { data: messages, error: messagesError } = messagesResult
+  if (messagesError) {
+    logDbError('listThreads', 'inbox_messages', { orgId, filter }, messagesError)
+  }
+
+  const { data: units, error: unitsError } = unitsResult
+  if (unitsError) {
+    logDbError('listThreads', 'units', { orgId, filter }, unitsError)
+  }
+
+  const { data: attachments, error: attachmentsError } = attachmentsResult
+  if (attachmentsError) {
+    logDbError('listThreads', 'inbox_attachments', { orgId, filter }, attachmentsError)
+  }
+
+  const newestByThread = new Map<string, NonNullable<typeof messages>[number]>()
+  for (const message of messages ?? []) {
+    if (!newestByThread.has(message.thread_id)) newestByThread.set(message.thread_id, message)
+  }
+  const addressByUnit = new Map((units ?? []).map((u) => [u.id, u.address_line1]))
+  const threadsWithFiles = new Set((attachments ?? []).map((a) => a.thread_id))
+
+  return threads.map((thread) => {
+    const newest = newestByThread.get(thread.id)
+    return {
+      id: thread.id,
+      subject: thread.subject,
+      fromName: newest?.from_name ?? null,
+      fromEmail: newest?.from_email ?? null,
+      snippet: newest?.stripped_text?.slice(0, 140) ?? null,
+      lastMessageAt: thread.last_message_at,
+      unitId: thread.unit_id,
+      propertyAddress: thread.unit_id ? addressByUnit.get(thread.unit_id) ?? null : null,
+      matchConfidence: thread.match_confidence,
+      status: thread.status,
+      hasAttachments: threadsWithFiles.has(thread.id),
+    }
+  })
+}

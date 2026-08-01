@@ -15,6 +15,7 @@ import {
   Home,
   KeyRound,
   LogOut,
+  Mail,
   Megaphone,
   MessageSquare,
   Scale,
@@ -70,6 +71,7 @@ const GROUPS: NavGroup[] = [
   {
     label: 'Community',
     items: [
+      { href: '/inbox', icon: <Mail className="h-4 w-4" />, label: 'Inbox' },
       { href: '/properties', icon: <Building2 className="h-4 w-4" />, label: 'Properties' },
       { href: '/leases', icon: <KeyRound className="h-4 w-4" />, label: 'Leases' },
       { href: '/violations', icon: <AlertTriangle className="h-4 w-4" />, label: 'Violations' },
