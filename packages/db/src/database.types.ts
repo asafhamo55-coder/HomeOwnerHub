@@ -2698,6 +2698,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           email_address: string
+          email_address_lower: string | null
           id: string
           organization_id: string
           resident_id: string | null
@@ -2708,6 +2709,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           email_address: string
+          email_address_lower?: string | null
           id?: string
           organization_id: string
           resident_id?: string | null
@@ -2718,6 +2720,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           email_address?: string
+          email_address_lower?: string | null
           id?: string
           organization_id?: string
           resident_id?: string | null
