@@ -16,6 +16,7 @@ import { MailboxAuthError, type OAuthTokens } from './types'
 
 const AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth'
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
+const REVOKE_ENDPOINT = 'https://oauth2.googleapis.com/revoke'
 
 export const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
@@ -149,6 +150,51 @@ export async function exchangeCode(code: string): Promise<OAuthTokens> {
     }),
   )
   return toTokens(json, null)
+}
+
+/**
+ * Tear the Google-side grant down.
+ *
+ * Deleting our encrypted copy of the refresh token stops US from using
+ * the mailbox, but it does not tell Google anything — the grant stays
+ * live in the HOA's account until it is revoked or manually removed at
+ * myaccount.google.com/permissions. An HOA that clicks "Disconnect"
+ * means "revoke access", so this is what makes the button honest.
+ *
+ * Revoking a REFRESH token revokes the whole grant, including every
+ * access token derived from it, so one call is enough — passing the
+ * access token as well would be redundant.
+ *
+ * No client credentials: unlike the token endpoint, Google's revocation
+ * endpoint authenticates on the token alone (RFC 7009 style), so this
+ * needs no env vars and cannot fail for a missing secret.
+ *
+ * A 400 `invalid_token` is treated as SUCCESS, not an error: it means the
+ * grant is already gone (the user revoked it in their Google account, or
+ * a previous disconnect got this far). The caller's goal is the end
+ * state, not the state transition, and turning "already revoked" into a
+ * thrown error would make a clean disconnect look broken.
+ */
+export async function revokeToken(token: string): Promise<void> {
+  const response = await fetch(REVOKE_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ token }),
+  })
+
+  if (response.ok) return
+
+  let code: string | undefined
+  try {
+    code = ((await response.json()) as { error?: string }).error
+  } catch {
+    // An HTML error page or gateway body — leave `code` undefined and
+    // fall through to the generic message below.
+  }
+
+  if (response.status === 400 && code === 'invalid_token') return
+
+  throw new Error(`Token revocation failed (${response.status})${code ? `: ${code}` : ''}.`)
 }
 
 export async function refreshAccessToken(refreshToken: string): Promise<OAuthTokens> {

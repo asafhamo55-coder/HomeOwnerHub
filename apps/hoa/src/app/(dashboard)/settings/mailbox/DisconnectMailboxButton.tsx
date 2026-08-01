@@ -15,9 +15,12 @@ interface Props {
  * it was found to render invisibly in some browser/CSS combinations and
  * silently swallow the action.
  *
- * disconnectMailbox is a soft disconnect: it sets disconnected_at and
- * leaves the account row and all ingested mail in place, so calling it
- * again for the same address is safe and reversible by reconnecting.
+ * disconnectMailbox soft-deletes the ACCOUNT (sets disconnected_at,
+ * leaving the row and all ingested mail in place, so calling it again for
+ * the same address is safe and reversible by reconnecting) but HARD-
+ * deletes the credential and revokes the Google-side grant. Reconnecting
+ * therefore goes through the full consent screen again, which is the
+ * correct meaning of "Disconnect" — see the doc comment on the action.
  */
 export function DisconnectMailboxButton({ accountId }: Props) {
   const router = useRouter()
@@ -33,7 +36,7 @@ export function DisconnectMailboxButton({ accountId }: Props) {
   return (
     <TwoClickDelete
       onDelete={handleDelete}
-      successMessage="Mailbox disconnected. Imported mail is still here."
+      successMessage="Mailbox disconnected and Google access revoked. Imported mail is still here."
       onAfterDelete={() => router.refresh()}
       label="Disconnect mailbox"
       variant="ghost"

@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildConsentUrl, exchangeCode, GMAIL_SCOPES, refreshAccessToken } from './oauth'
+import {
+  buildConsentUrl,
+  exchangeCode,
+  GMAIL_SCOPES,
+  refreshAccessToken,
+  revokeToken,
+} from './oauth'
 import { MailboxAuthError } from './types'
 
 beforeEach(() => {
@@ -266,5 +272,54 @@ describe('refreshAccessToken', () => {
       ),
     )
     await expect(refreshAccessToken('revoked')).rejects.toBeInstanceOf(MailboxAuthError)
+  })
+})
+
+describe('revokeToken', () => {
+  it('posts the token to Google’s revocation endpoint', async () => {
+    const fetchMock = vi.fn(async () => new Response('', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await revokeToken('rt-1')
+
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('https://oauth2.googleapis.com/revoke')
+    expect(init.method).toBe('POST')
+    expect(String(init.body)).toBe('token=rt-1')
+  })
+
+  it('needs no client credentials — revocation authenticates on the token alone', async () => {
+    delete process.env.GOOGLE_OAUTH_CLIENT_ID
+    delete process.env.GOOGLE_OAUTH_CLIENT_SECRET
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 200 })))
+    await expect(revokeToken('rt-1')).resolves.toBeUndefined()
+  })
+
+  it('treats an already-revoked grant as success, not failure', async () => {
+    // The caller wants an END STATE ("this grant is gone"), not a state
+    // transition. A user who already revoked us in their Google account
+    // must still get a clean disconnect.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: 'invalid_token' }), { status: 400 }),
+      ),
+    )
+    await expect(revokeToken('already-gone')).resolves.toBeUndefined()
+  })
+
+  it('throws on a real server-side failure so the caller can log it', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html>502</html>', { status: 502 })))
+    await expect(revokeToken('rt-1')).rejects.toThrow(/revocation failed \(502\)/)
+  })
+
+  it('throws — never silently succeeds — on a 400 that is not invalid_token', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: 'invalid_request' }), { status: 400 }),
+      ),
+    )
+    await expect(revokeToken('rt-1')).rejects.toThrow(/invalid_request/)
   })
 })

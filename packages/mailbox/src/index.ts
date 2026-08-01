@@ -7,6 +7,7 @@ export {
   buildConsentUrl,
   exchangeCode,
   refreshAccessToken,
+  revokeToken,
   GMAIL_SCOPES,
 } from './oauth'
 export { GmailClient } from './client'
