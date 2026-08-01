@@ -1,4 +1,39 @@
 /**
+ * ⚠ CROSS-PACKAGE CONSTRAINT — read this before adding an import here.
+ *
+ * `packages/jobs` imports this module DIRECTLY over a relative path
+ * (`../../../apps/hoa/src/lib/...`), compiling it under its OWN tsconfig
+ * rather than the `hoa` app's. Four files are shared this way:
+ *
+ *   apps/hoa/src/lib/inbox/ingest.ts
+ *   apps/hoa/src/lib/inbox/match.ts
+ *   apps/hoa/src/lib/properties/resolve.ts
+ *   apps/hoa/src/lib/properties/normalize-address.ts
+ *
+ * That only works because every import in them that leaves this set of
+ * four is `import type` — fully erased by TypeScript, so there is no
+ * runtime dependency for the jobs package to resolve. Therefore, in this
+ * file:
+ *
+ *   - NO `@/…` path aliases — jobs' tsconfig does not define them.
+ *   - NO `import 'server-only'` — not a dependency of this repo, and the
+ *     jobs package is not a Next runtime. (This is the tempting one: the
+ *     file is full of service-role queries.)
+ *   - NO Next-specific imports (`next/*`, `next/headers`, `next/cache`).
+ *   - Value imports only from the other three files above; everything
+ *     else stays `import type`.
+ *   - Need a runtime helper? Copy it in (see the local `logDbError` in
+ *     ingest.ts / match.ts) or add it to `@homeowner-portal/db` /
+ *     `@homeowner-portal/mailbox`, both of which jobs already depends on.
+ *
+ * Breaking any of these leaves `pnpm --filter hoa typecheck` GREEN and
+ * fails `pnpm --filter @homeowner-portal/jobs typecheck` instead — the
+ * error surfaces in a package that does not contain the edit, which is
+ * why it is written here and not only on the consumer side
+ * (packages/jobs/src/mailbox-sync.ts).
+ */
+
+/**
  * Persist parsed Gmail messages.
  *
  * Idempotency is the contract. A history-expiry fallback (or an Inngest

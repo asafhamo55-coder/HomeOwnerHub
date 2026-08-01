@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { decideMatch, extractAddressCandidates } from './match'
-import type { MatchSignals } from './match'
+import { applyMatch, decideMatch, extractAddressCandidates } from './match'
+import type { MatchOutcome, MatchSignals } from './match'
 import type { PropertyMatch } from '../properties/resolve'
 
 function emptySignals(over: Partial<MatchSignals> = {}): MatchSignals {
@@ -204,5 +204,140 @@ describe('extractAddressCandidates', () => {
     expect(
       extractAddressCandidates('214 Oak Ln — again, 214 Oak Ln is the problem'),
     ).toHaveLength(1)
+  })
+})
+
+/**
+ * applyMatch's guard against clobbering a manual filing.
+ *
+ * This is the one regression in this module that would be SILENT: the
+ * write still succeeds, the sync job still logs a clean run, and the only
+ * evidence is a thread quietly reverting from the property a manager
+ * chose back to whatever the matcher guessed (possibly nothing). So the
+ * guard is asserted structurally — the predicates must be ON the UPDATE
+ * statement, because a read-then-decide version passes every behavioural
+ * test written against a single-threaded mock while still losing the race
+ * against a concurrent manual assignment in production.
+ */
+type ApplyMatchDb = Parameters<typeof applyMatch>[0]
+
+interface RecordedWrite {
+  table: string
+  values: Record<string, unknown>
+  filters: Array<{ op: 'eq' | 'neq'; column: string; value: unknown }>
+}
+
+function recordingDb(result: { error: unknown } = { error: null }) {
+  const writes: RecordedWrite[] = []
+  const reads: string[] = []
+
+  const db = {
+    from(table: string) {
+      return {
+        select(columns: string) {
+          reads.push(`${table}:${columns}`)
+          throw new Error(
+            `applyMatch issued an unexpected SELECT on "${table}" — the guard ` +
+              'must be predicates on the UPDATE, not a read-then-decide.',
+          )
+        },
+        update(values: Record<string, unknown>) {
+          const write: RecordedWrite = { table, values, filters: [] }
+          writes.push(write)
+          const builder = {
+            eq(column: string, value: unknown) {
+              write.filters.push({ op: 'eq', column, value })
+              return builder
+            },
+            neq(column: string, value: unknown) {
+              write.filters.push({ op: 'neq', column, value })
+              return builder
+            },
+            then<T>(onFulfilled: (value: { error: unknown }) => T) {
+              return Promise.resolve(result).then(onFulfilled)
+            },
+          }
+          return builder
+        },
+      }
+    },
+  }
+
+  return { db: db as unknown as ApplyMatchDb, writes, reads }
+}
+
+const OUTCOME: MatchOutcome = {
+  unitId: 'unit-1',
+  residentId: 'res-1',
+  confidence: 'high',
+  rule: 'resident_email',
+  reason: { rule: 'resident_email', matched_on: 'resident_email' },
+  status: 'open',
+}
+
+describe('applyMatch — the guard is atomic, not read-then-decide', () => {
+  it('never reads the thread first — one statement, no TOCTOU window', async () => {
+    const { db, writes, reads } = recordingDb()
+    await applyMatch(db, 'org-1', 'thread-1', OUTCOME)
+    expect(reads).toEqual([])
+    expect(writes).toHaveLength(1)
+  })
+
+  it('refuses a manual filing inside the UPDATE itself', async () => {
+    const { db, writes } = recordingDb()
+    await applyMatch(db, 'org-1', 'thread-1', OUTCOME)
+    expect(writes[0]?.filters).toContainEqual({
+      op: 'neq',
+      column: 'match_source',
+      value: 'manual',
+    })
+  })
+
+  it('refuses a closed thread inside the UPDATE itself', async () => {
+    const { db, writes } = recordingDb()
+    await applyMatch(db, 'org-1', 'thread-1', OUTCOME)
+    expect(writes[0]?.filters).toContainEqual({
+      op: 'neq',
+      column: 'status',
+      value: 'closed',
+    })
+  })
+
+  it('stays org-scoped and thread-scoped on the write', async () => {
+    const { db, writes } = recordingDb()
+    await applyMatch(db, 'org-1', 'thread-1', OUTCOME)
+    expect(writes[0]?.filters).toContainEqual({
+      op: 'eq',
+      column: 'organization_id',
+      value: 'org-1',
+    })
+    expect(writes[0]?.filters).toContainEqual({ op: 'eq', column: 'id', value: 'thread-1' })
+    expect(writes[0]?.table).toBe('inbox_threads')
+  })
+
+  it('writes the outcome and stamps match_source back to auto', async () => {
+    const { db, writes } = recordingDb()
+    await applyMatch(db, 'org-1', 'thread-1', OUTCOME)
+    expect(writes[0]?.values).toMatchObject({
+      unit_id: 'unit-1',
+      resident_id: 'res-1',
+      match_confidence: 'high',
+      match_source: 'auto',
+      status: 'open',
+    })
+  })
+
+  it('a guarded no-op resolves quietly — zero rows matched is not an error', async () => {
+    // PostgREST reports a zero-row UPDATE as success with `error: null`.
+    // Refusing to overwrite a manual filing is the intended outcome, so it
+    // must not throw and must not be logged as a failure.
+    const { db } = recordingDb({ error: null })
+    await expect(applyMatch(db, 'org-1', 'thread-1', OUTCOME)).resolves.toBeUndefined()
+  })
+
+  it('a real write failure still throws rather than being swallowed', async () => {
+    const failure = { message: 'connection reset', code: '08006' }
+    const { db } = recordingDb({ error: failure })
+    await expect(applyMatch(db, 'org-1', 'thread-1', OUTCOME)).rejects.toBe(failure)
   })
 })

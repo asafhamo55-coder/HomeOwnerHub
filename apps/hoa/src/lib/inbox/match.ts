@@ -1,4 +1,39 @@
 /**
+ * ⚠ CROSS-PACKAGE CONSTRAINT — read this before adding an import here.
+ *
+ * `packages/jobs` imports this module DIRECTLY over a relative path
+ * (`../../../apps/hoa/src/lib/...`), compiling it under its OWN tsconfig
+ * rather than the `hoa` app's. Four files are shared this way:
+ *
+ *   apps/hoa/src/lib/inbox/ingest.ts
+ *   apps/hoa/src/lib/inbox/match.ts
+ *   apps/hoa/src/lib/properties/resolve.ts
+ *   apps/hoa/src/lib/properties/normalize-address.ts
+ *
+ * That only works because every import in them that leaves this set of
+ * four is `import type` — fully erased by TypeScript, so there is no
+ * runtime dependency for the jobs package to resolve. Therefore, in this
+ * file:
+ *
+ *   - NO `@/…` path aliases — jobs' tsconfig does not define them.
+ *   - NO `import 'server-only'` — not a dependency of this repo, and the
+ *     jobs package is not a Next runtime. (This is the tempting one: the
+ *     file is full of service-role queries.)
+ *   - NO Next-specific imports (`next/*`, `next/headers`, `next/cache`).
+ *   - Value imports only from the other three files above; everything
+ *     else stays `import type`.
+ *   - Need a runtime helper? Copy it in (see the local `logDbError` in
+ *     ingest.ts / match.ts) or add it to `@homeowner-portal/db` /
+ *     `@homeowner-portal/mailbox`, both of which jobs already depends on.
+ *
+ * Breaking any of these leaves `pnpm --filter hoa typecheck` GREEN and
+ * fails `pnpm --filter @homeowner-portal/jobs typecheck` instead — the
+ * error surfaces in a package that does not contain the edit, which is
+ * why it is written here and not only on the consumer side
+ * (packages/jobs/src/mailbox-sync.ts).
+ */
+
+/**
  * Deterministic inbox matcher. No LLM.
  *
  * Matching is a keyed lookup where the keys are available, and it has to
@@ -429,10 +464,40 @@ function buildEmptySignals(): MatchSignals {
  * same "manual survives forever, status guard is temporary" split the rest
  * of this module already relies on.
  *
- * Scoped to orgId on both the SELECT and the UPDATE — matching every other
- * query in this module — because the only caller (packages/jobs/mailbox-sync)
- * uses a service-role client that bypasses RLS entirely. RLS is not a
- * backstop here: if a caller bug ever paired a thread id with the wrong
+ * Both guards are expressed as predicates ON THE UPDATE
+ * (`.neq('match_source', 'manual')`, `.neq('status', 'closed')`), not as a
+ * SELECT-then-decide in JavaScript (amended post-review — final branch
+ * review, Fix 1). The previous version read `match_source`/`status`,
+ * tested them here, and then issued an UNCONDITIONAL update; a manual
+ * assignment committing in the window between those two statements was
+ * silently overwritten — `unit_id` reverted to the auto outcome (possibly
+ * NULL), `match_source` flipped back to `'auto'`, `status` back to
+ * `'needs_review'`. That window is not theoretical: the ordinary trigger
+ * is a resident replying to a thread the manager just filed by hand,
+ * which is precisely when the sync job runs this function. Evaluating the
+ * predicates inside the same statement that writes makes the guard atomic
+ * — Postgres takes the row lock, re-checks under it, and a concurrent
+ * manual assignment simply makes the UPDATE match zero rows.
+ *
+ * A guarded no-op is therefore a zero-row UPDATE, which PostgREST reports
+ * as success with no error — the same silent return the JS guard gave,
+ * and deliberately NOT logged as a failure: refusing to overwrite a manual
+ * filing is the intended outcome, not a fault. (Distinguishing "guarded"
+ * from "thread doesn't exist" would need `count: 'exact'`, and neither
+ * case is actionable here — the sync job re-matches on the next inbound
+ * message either way.)
+ *
+ * The preceding SELECT was REMOVED rather than kept alongside the new
+ * predicates: its only consumer was the JS guard, it could not tell the
+ * truth about the row at write time anyway (that was the bug), and a
+ * second round-trip per matched thread is not free on a 50-thread sync.
+ * `match_source` and `status` are both NOT NULL (migration 0029), so
+ * `.neq` cannot be defeated by SQL's NULL comparison semantics.
+ *
+ * Scoped to orgId on the UPDATE — matching every other query in this
+ * module — because the only caller (packages/jobs/mailbox-sync) uses a
+ * service-role client that bypasses RLS entirely. RLS is not a backstop
+ * here: if a caller bug ever paired a thread id with the wrong
  * organization, an unscoped query would happily write match state onto
  * another tenant's thread.
  */
@@ -442,20 +507,6 @@ export async function applyMatch(
   threadId: string,
   outcome: MatchOutcome,
 ): Promise<void> {
-  const { data: thread, error: threadError } = await db
-    .from('inbox_threads')
-    .select('match_source, status')
-    .eq('organization_id', orgId)
-    .eq('id', threadId)
-    .maybeSingle()
-
-  if (threadError) {
-    logDbError('applyMatch', 'inbox_threads', { orgId, threadId }, threadError)
-    throw threadError
-  }
-
-  if (thread?.match_source === 'manual' || thread?.status === 'closed') return
-
   const { error: updateError } = await db
     .from('inbox_threads')
     .update({
@@ -474,6 +525,10 @@ export async function applyMatch(
     })
     .eq('organization_id', orgId)
     .eq('id', threadId)
+    // The guard. See the doc comment above for why these are predicates on
+    // the write and not a preceding SELECT.
+    .neq('match_source', 'manual')
+    .neq('status', 'closed')
 
   if (updateError) {
     logDbError('applyMatch', 'inbox_threads', { orgId, threadId }, updateError)
