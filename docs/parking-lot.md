@@ -116,3 +116,18 @@ parked.
 - 2026-05-13 — **CAM-friendly ACH (Heritage Bank / Alliance Association
   Bank)** — Spec §18 open #6 + ADR-005. Stripe is sufficient for the
   design-partner phase. Revisit when first CAM signs.
+
+### Extract `packages/inbox` from `apps/hoa/src/lib/inbox`
+
+`packages/jobs/src/mailbox-{sync,backfill,attachments}.ts` import
+`ingest.ts` and `match.ts` from `apps/hoa` by relative path. It resolves and
+bundles correctly, but a package reaching into an app is backwards.
+
+Fix: move `ingest.ts`, `match.ts`, `properties/resolve.ts`, and
+`properties/normalize-address.ts` into a `packages/inbox` workspace package;
+both `apps/hoa` and `packages/jobs` then import it normally. Mechanical —
+the modules already have no Next-specific imports, which is why the move is
+safe to defer rather than dangerous.
+
+Deferred because doing it before Phase A was proven meant moving files that
+were still changing every task.
