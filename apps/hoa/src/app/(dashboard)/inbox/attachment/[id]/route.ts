@@ -1,23 +1,23 @@
 import { NextResponse } from 'next/server'
-import type { PostgrestError } from '@supabase/supabase-js'
+// The SHARED helper, not a fourth private copy (amended post-review —
+// final branch review, Fix 6). Imported via the `./db-error` subpath, not
+// the package root: `@homeowner-portal/jobs` resolves to src/index.ts,
+// which pulls in every Inngest function definition (plus plaid, ai and
+// workflows) — none of which belongs in an app route. src/db-error.ts has
+// ZERO imports of its own, so this subpath drags in nothing but the
+// function itself. Same shape as the existing
+// `@homeowner-portal/jobs/mailbox-tokens` subpath.
+//
+// The remaining private copies in lib/inbox/match.ts and lib/inbox/
+// ingest.ts are NOT redundant and must stay: those two files are imported
+// by packages/jobs over a relative path and may not carry any runtime
+// import at all (see the header comment on each).
+import { logDbError } from '@homeowner-portal/jobs/db-error'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 const BUCKET = 'hoa-documents'
 const SIGNED_URL_TTL_SECONDS = 60
-
-function logDbError(
-  fn: string,
-  table: string,
-  context: Record<string, string | null>,
-  error: PostgrestError,
-): void {
-  console.error(`${fn}: query on "${table}" failed`, {
-    ...context,
-    code: error.code,
-    message: error.message,
-  })
-}
 
 /**
  * Attachment download.

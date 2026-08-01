@@ -6,7 +6,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./mailbox-tokens": "./src/mailbox-tokens.ts"
+    "./mailbox-tokens": "./src/mailbox-tokens.ts",
+    "./db-error": "./src/db-error.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
