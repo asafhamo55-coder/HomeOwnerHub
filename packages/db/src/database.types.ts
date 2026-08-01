@@ -2722,7 +2722,7 @@ export type Database = {
           {
             foreignKeyName: "inbox_reply_embeddings_message_id_fkey"
             columns: ["message_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "inbox_messages"
             referencedColumns: ["id"]
           },
