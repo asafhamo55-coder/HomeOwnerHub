@@ -12,6 +12,7 @@ export default defineConfig({
   test: {
     include: [
       'packages/mailbox/src/**/*.test.ts',
+      'packages/workflows/src/**/*.test.ts',
       'apps/hoa/src/lib/properties/**/*.test.ts',
       'apps/hoa/src/lib/inbox/**/*.test.ts',
       'apps/hoa/src/app/\\(dashboard\\)/settings/mailbox/**/*.test.ts',
