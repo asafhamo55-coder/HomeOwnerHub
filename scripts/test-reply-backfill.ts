@@ -11,10 +11,10 @@
  *   A1/A2 — buildScopeQuery's output still contains both `from:` (the new
  *     clause) and `to:` (the pre-existing clause), proving the widen was
  *     additive, not a replacement.
- *   A3 — no live (not disconnected) mailbox_accounts row is left at
- *     backfill_status='done' after the migration ran; every one of them
- *     must be 'pending' (or 'running'/'failed' if a re-backfill already
- *     started) so a stale 'done' can't skip the wider re-import.
+ *   A3 — every live (not disconnected) account at backfill_status=pending
+ *     carries an empty backfill_progress, proving the migration reset BOTH
+ *     columns. Deliberately an invariant, not a post-migration snapshot: an
+ *     assertion on 'done' would fail forever once a re-backfill succeeds.
  *
  * Also reports (informationally, not a pass/fail) how many outbound
  * inbox_messages rows currently exist — expected to be 0 until an actual
@@ -53,15 +53,50 @@ async function main(): Promise<void> {
 
   const accounts = await db
     .from('mailbox_accounts')
-    .select('id, backfill_status')
+    .select('id, backfill_status, backfill_progress')
     .is('disconnected_at', null)
   if (accounts.error) {
     throw new Error(`${accounts.error.code} ${accounts.error.message}`)
   }
+
+  const live = accounts.data ?? []
+
+  // A3 asserts an invariant that stays true for the life of the feature,
+  // NOT a one-shot post-migration snapshot.
+  //
+  // The original assertion was "no live account is at backfill_status=done".
+  // That holds the instant the migration runs and becomes permanently FALSE
+  // the moment a re-backfill legitimately succeeds and sets 'done' again —
+  // so a script the plan tells you to run as a regression check would have
+  // failed forever once the feature started working. Found in review.
+  //
+  // What actually matters is that the migration reset BOTH columns: a
+  // migration that flipped backfill_status to 'pending' but left a stale
+  // backfill_progress behind would show the UI a half-finished counter for
+  // an import that has not started. Progress is only meaningful once an
+  // import is under way, so 'pending' must always carry an empty one.
+  const staleProgress = live.filter(
+    (a) =>
+      a.backfill_status === 'pending' &&
+      Object.keys((a.backfill_progress ?? {}) as Record<string, unknown>).length > 0,
+  )
   check(
-    'A3 no live account left at backfill_status=done',
-    (accounts.data ?? []).every((a) => a.backfill_status !== 'done'),
-    `${accounts.data?.length ?? 0} live account(s)`,
+    'A3 every pending live account has an empty backfill_progress',
+    staleProgress.length === 0,
+    `${live.length} live account(s), ${staleProgress.length} with stale progress`,
+  )
+
+  // Reported, not asserted. Whether an account is 'done' is a fact about
+  // when the last import ran, not a correctness property — asserting on it
+  // is what made the original A3 self-defeating.
+  const byStatus = new Map<string, number>()
+  for (const a of live) {
+    byStatus.set(a.backfill_status, (byStatus.get(a.backfill_status) ?? 0) + 1)
+  }
+  console.log(
+    `live accounts by backfill_status: ${
+      [...byStatus].map(([k, v]) => `${k}=${v}`).join('  ') || '(none)'
+    }`,
   )
 
   const msgs = await db.from('inbox_messages').select('direction')
