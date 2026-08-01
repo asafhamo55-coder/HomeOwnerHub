@@ -33,6 +33,7 @@ import {
   exchangeCode,
   GmailClient,
   recommendScope,
+  revokeToken,
 } from '@homeowner-portal/mailbox'
 
 const STATE_TTL_MS = 10 * 60 * 1000
@@ -262,21 +263,79 @@ export async function completeConnect(
   })
   const recommended = recommendScope(sendAs, profile.emailAddress)
 
-  // Reconnecting the same address reuses the row so ingested history and
-  // its threads survive — never create a second account row for a
-  // reconnect.
-  const { data: existing, error: lookupError } = await db
+  // Every LIVE account for this org, not just one matching this address
+  // (amended post-review — final branch review, Fix 4). Two things depend
+  // on seeing the whole set:
+  //
+  //   1. Reconnecting the SAME address reuses its row so ingested history
+  //      and its threads survive — never create a second account row for
+  //      a reconnect. (Unchanged.)
+  //   2. A DIFFERENT address is refused outright. `mailbox_accounts_live_uniq`
+  //      is a partial unique index on (organization_id, email_address), so
+  //      the database happily allows several live accounts per org, and
+  //      mailboxSyncJob loops over all of them — mail from both flows into
+  //      the shared inbox. But getMailboxStatus is
+  //      `.order('connected_at', desc).limit(1)`, so the UI only ever
+  //      renders the newest one: the older account's scope picker and
+  //      Disconnect button become unreachable. The realistic path is not
+  //      exotic — a board member clicks "Reconnect" (both alerts link to a
+  //      bare /api/oauth/google/start with no login_hint), Google defaults
+  //      to their PERSONAL account, they consent, and the old lookup —
+  //      keyed on (orgId, profile.emailAddress) — found no match and
+  //      inserted a second row. Their personal Gmail then synced into a
+  //      board-visible inbox with no way to remove it from the UI.
+  //
+  // Refusing is the right call rather than silently repointing the
+  // existing row at the new address: the existing row owns ingested
+  // threads and messages belonging to the OLD mailbox, and rewriting its
+  // email_address would relabel that correspondence as having come from
+  // an address it never came from.
+  const { data: liveAccounts, error: lookupError } = await db
     .from('mailbox_accounts')
-    .select('id')
+    .select('id, email_address')
     .eq('organization_id', orgId)
-    .eq('email_address', profile.emailAddress)
     .is('disconnected_at', null)
-    .maybeSingle()
 
   if (lookupError) {
     logDbError('completeConnect', 'mailbox_accounts', { orgId }, lookupError)
     throw new Error(
       `completeConnect: failed to check for an existing mailbox connection: ${lookupError.message}`,
+    )
+  }
+
+  const existing =
+    (liveAccounts ?? []).find((a) => a.email_address === profile.emailAddress) ?? null
+  const otherLive = (liveAccounts ?? []).find(
+    (a) => a.email_address !== profile.emailAddress,
+  )
+
+  if (!existing && otherLive) {
+    // The refresh token we just minted is for a mailbox we are refusing to
+    // store. Dropping it on the floor would leave a live Google-side grant
+    // over someone's (quite possibly personal) mailbox with nothing on our
+    // side able to revoke it later — we never persist it, so no disconnect
+    // path would ever reach it. Best-effort teardown, same policy as
+    // disconnectMailbox: a failure here is logged, never surfaced in place
+    // of the actionable message below.
+    try {
+      await revokeToken(tokens.refreshToken)
+    } catch (error) {
+      console.error('completeConnect: failed to revoke the rejected grant', {
+        orgId,
+        message: error instanceof Error ? error.message : String(error),
+      })
+    }
+
+    // Names BOTH addresses on purpose: "a mailbox is already connected" is
+    // unactionable when the whole failure mode is that Google silently
+    // signed the user in as someone they did not intend. The callback
+    // route redirects this message to /settings/mailbox?error=… where it
+    // renders verbatim.
+    throw new Error(
+      `You signed in as ${profile.emailAddress}, but this organization already has ` +
+        `${otherLive.email_address} connected. Disconnect ${otherLive.email_address} ` +
+        `first, or start again and choose ${otherLive.email_address} on Google's ` +
+        `account picker.`,
     )
   }
 
