@@ -60,7 +60,7 @@ export async function createHoaOrg(
   const { error: memberError } = await admin.from('org_members').insert({
     org_id: org.id,
     user_id: user.id,
-    role: 'owner',
+    role: 'admin',
     joined_at: new Date().toISOString(),
   })
 
