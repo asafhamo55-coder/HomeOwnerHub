@@ -84,7 +84,19 @@ Every fragment returned carries a stable identifier. A fragment that cannot be c
 
 `degraded[]` is load-bearing: if the dues query failed, the draft must not imply a balance. Phase A designed out "a blank rail reads as nothing owed"; the same trap exists in prose.
 
-### Layer 2 — Generation (`draft/generate.ts`)
+### Layer 2 — Generation: **W32 Reply Drafter** (`packages/workflows/src/W32-reply-drafter/`)
+
+**Amended during planning.** The original draft of this spec proposed a bespoke `draft/generate.ts`. The codebase already has an AI workflow framework (`defineWorkflow` in `packages/ai/src/workflow.ts`) with eight workflows on it, and rebuilding around it would duplicate solved problems and bypass the audit trail. W32 follows W1/W30/W31's shape: `index.ts` (schemas + `defineWorkflow`), `prompt.ts`, `tools.ts`, `README.md`.
+
+The framework already provides, at no cost:
+
+- `ai_runs` audit row per draft, returning a `runId` to store on `inbox_drafts`
+- `humanApprovalRequired: true` as a declared property of the workflow
+- `addCitations(chunkIds)`, `setConfidence()`, `setTokens()`, `setModel()`
+- `version` + `promptVersion` stamped on every run, so a bad prompt revision is traceable
+- zod validation of both input and output
+
+Two grounding sources are existing workflows and are **called, not reimplemented**: `queryGoverningDocs` (W1) for governing documents and `askStateLaw` (W30) for statutes. Both already return citations. Only past-reply retrieval is new.
 
 Structured output, not prose:
 
@@ -145,7 +157,8 @@ Populated by a backfill job over historical outbound messages, then kept current
 | `blanks` | jsonb | unfilled blanks block approval |
 | `grounded` | boolean | |
 | `grounding_note` | text | D5 banner text |
-| `model`, `prompt_version` | text | reproducibility |
+| `ai_run_id` | uuid | FK `ai_runs` — the W32 execution that produced this draft |
+| `model`, `prompt_version` | text | denormalised from the run for cheap display |
 | `created_by`, `approved_by` | uuid | |
 | `approved_at`, `send_after`, `sent_at` | timestamptz | |
 | `gmail_message_id` | text | returned by the send call |
