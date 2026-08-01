@@ -1,4 +1,8 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
+
+const rootDir = path.dirname(fileURLToPath(import.meta.url))
 
 // Root-level unit-test harness. Scope is deliberately narrow: PURE
 // modules only — no Supabase, no Next server components, no network.
@@ -14,5 +18,16 @@ export default defineConfig({
     ],
     environment: 'node',
     passWithNoTests: false,
+  },
+  resolve: {
+    alias: {
+      // apps/hoa's tsconfig maps "@/*" -> "./src/*" (apps/hoa/tsconfig.json).
+      // Vitest doesn't read tsconfig `paths` on its own, so any module under
+      // the globs above that imports a same-app sibling via "@/..." (as the
+      // codebase does everywhere else — see apps/hoa/src/lib/inbox/queries.ts
+      // consumers) needs the alias mirrored here, or the import fails to
+      // resolve outside a Next build.
+      '@': path.resolve(rootDir, 'apps/hoa/src'),
+    },
   },
 })
