@@ -2693,6 +2693,48 @@ export type Database = {
           },
         ]
       }
+      inbox_reply_embeddings: {
+        Row: {
+          created_at: string
+          embedding: string
+          id: string
+          message_id: string
+          organization_id: string
+          text_sha256: string
+        }
+        Insert: {
+          created_at?: string
+          embedding: string
+          id?: string
+          message_id: string
+          organization_id: string
+          text_sha256: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: string
+          id?: string
+          message_id?: string
+          organization_id?: string
+          text_sha256?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbox_reply_embeddings_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: true
+            referencedRelation: "inbox_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_reply_embeddings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inbox_sender_aliases: {
         Row: {
           created_at: string
