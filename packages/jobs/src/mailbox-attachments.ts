@@ -150,13 +150,33 @@ export const mailboxAttachmentsJob = inngest.createFunction(
         // never be able to escape the org's storage prefix. Strip
         // everything but a conservative allowlist (letters, digits, dot,
         // underscore, hyphen) — in particular this removes every '/', so
-        // the sanitized name can never introduce a path segment, even a
-        // literal ".." can't traverse without a separator around it. Cap
-        // length, and fall back to the attachment id if sanitizing leaves
-        // nothing usable (e.g. an all-emoji original filename).
-        const safeName =
-          attachment.file_name.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120) || attachment.id
-        const path = `${attachment.organization_id}/inbox/${attachment.thread_id}/${attachment.message_id}/${safeName}`
+        // the sanitized name can never introduce a path segment. A
+        // sanitized name that is entirely dots (e.g. "." or "..") is also
+        // rejected: it would sit between two literal '/' from the template
+        // below, which reads like a traversal segment to anything that
+        // treats storage keys as filesystem paths. That can't actually
+        // happen today — Supabase Storage keys are opaque strings that are
+        // never canonicalized against a filesystem — but that's a property
+        // of the storage backend, not something this code should rely on,
+        // so guard explicitly rather than lean on an argument that doesn't
+        // hold. Also fall back to the attachment id if sanitizing leaves
+        // nothing usable at all (e.g. an all-emoji original filename). Cap
+        // length.
+        const sanitized = attachment.file_name.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120)
+        const safeName = sanitized && !/^\.+$/.test(sanitized) ? sanitized : attachment.id
+
+        // Two attachments on the same message can sanitize to the same
+        // name (e.g. "Report [Q1].pdf" and "Report (Q1).pdf" both become
+        // "Report_Q1_.pdf", since '[', ']', '(', ')' all map to '_'), so
+        // safeName alone is not a safe path component — the upload below
+        // uses upsert: true, so a collision would silently overwrite one
+        // attachment's stored bytes with another's while both rows keep
+        // their own, now-mismatched, metadata and sha256. The attachment's
+        // own id disambiguates: it's unique per row and stable across
+        // retries of that same row, so a retry after a partial failure
+        // still resolves to this same path and upsert: true overwrites
+        // only its own prior (partial) upload, never another attachment's.
+        const path = `${attachment.organization_id}/inbox/${attachment.thread_id}/${attachment.message_id}/${attachment.id}/${safeName}`
 
         const { error: uploadError } = await db.storage.from(BUCKET).upload(path, bytes, {
           upsert: true,
@@ -175,6 +195,14 @@ export const mailboxAttachmentsJob = inngest.createFunction(
           )
         }
 
+        // Known, accepted trade-off: storage_path is only ever set on this
+        // success branch. If this update itself fails, the row retries and
+        // can still land 'failed' at MAX_ATTEMPTS (see the catch block
+        // below) with the object already sitting in storage but no row
+        // ever referencing it — an orphaned object, permanently. Harmless
+        // (no data is served incorrectly), but a real storage leak. Not
+        // building a cleanup mechanism for this pass; this comment is the
+        // record that it's a deliberate gap, not an oversight.
         const { error: storedError } = await db
           .from('inbox_attachments')
           .update({

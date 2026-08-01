@@ -9777,6 +9777,49 @@ export async function GET(
 rtk pnpm typecheck && rtk git add packages/jobs/ apps/hoa/src/app/ && rtk git commit -m "feat(inbox): attachment fetch job and signed-URL download"
 ```
 
+### Fix pass (2026-08-01): attachment path collision + traversal comment + orphan trade-off
+
+Post-implementation review of `packages/jobs/src/mailbox-attachments.ts` found a
+silent data-integrity bug: the storage path's `safeName` sanitization maps
+every non-allowlisted character to `_`, so two different original
+filenames on the *same message* can collapse to the same sanitized string
+(`Report [Q1].pdf` and `Report (Q1).pdf` both become `Report_Q1_.pdf`,
+since `[`, `]`, `(`, `)` all map to `_`). The upload uses `upsert: true`,
+so the second attachment's upload silently overwrote the first's object
+at the shared path. The unique index in
+`migrations/0031_inbox_attachment_uniq.sql` is keyed on the *original*
+`file_name`, so it does not catch this. Each row kept its own,
+correctly-computed `sha256` and metadata, but one row's `storage_path`
+now served the *other* attachment's bytes — a row that looks fine and
+silently serves the wrong content, worse than the visible-failure bar
+this job was built to meet.
+
+Fixes applied (full detail: `.superpowers/sdd/task-23-report.md`, "Fix
+pass (path collision)"):
+
+- The attachment's own `id` is now its own path segment:
+  `{organization_id}/inbox/{thread_id}/{message_id}/{attachment.id}/{safeName}`.
+  The id is unique per row and stable across retries of that same row, so
+  two attachments on the same message can never collide regardless of
+  what their filenames sanitize to, while a retry after a partial
+  failure still resolves to the same path and `upsert: true` overwrites
+  only its own prior (partial) upload.
+- The sanitization comment's traversal-safety argument was imprecise: it
+  claimed `..` "can't traverse without a separator around it," but a
+  sanitized name can legitimately BE `.` or `..` and sits between two
+  literal `/` from the template string. `safeName` now explicitly
+  rejects a sanitized result that is entirely dots (falling back to the
+  attachment id, same as the existing "nothing usable" fallback), and
+  the comment states the real reason this is safe today — Supabase
+  Storage keys are opaque strings that are never canonicalized against a
+  filesystem — as a property of the backend rather than an enforced
+  invariant of this code.
+- Documented (comment only, no cleanup mechanism added) that if the
+  upload succeeds but the subsequent `storage_path` update fails, the
+  row can still retry to `failed` at `MAX_ATTEMPTS` with the uploaded
+  object never referenced by any row — a permanent but harmless storage
+  leak, called out as a deliberate, known trade-off for this pass.
+
 ---
 
 ## Task 24: End-to-end verification
