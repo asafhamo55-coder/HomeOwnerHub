@@ -31,6 +31,20 @@ export interface ThreadRetrieval {
   fragments: RetrievedFragment[]
   degraded: string[]
   hasProperty: boolean
+  /**
+   * W1's and W30's own synthesized answers, kept for background context only
+   * — NOT surfaced as a fragment and NOT given a refId. `fragments` now
+   * carries each citation's actual chunk text (see `fetchGoverningDocChunkTexts`
+   * / `fetchStatuteChunkTexts` below), so a reviewer can check a quote
+   * against its source. These two strings are the opposite of that: the
+   * model's paraphrase of what the docs/statutes said, useful for orienting
+   * the drafting step, but never something the composer should present next
+   * to a citation label as if it were the document's own words.
+   */
+  aiContext: {
+    governingDocs: string | null
+    stateLaw: string | null
+  }
 }
 
 /**
@@ -137,42 +151,142 @@ async function resolveAssociationState(
 }
 
 /**
+ * Fetch each governing-doc chunk's own text by id, scoped to the org.
+ *
+ * W1's public output (`GoverningDocsCitation`) carries per-citation METADATA
+ * only (chunkId/documentId/docType/section) — no chunk text. Fetching it
+ * directly from `governing_document_chunks` is what makes each fragment's
+ * `text` the document's own words rather than the model's paraphrase of
+ * them. `organization_id` is filtered here, not just trusted from the
+ * caller: these are one association's private governing documents, and a
+ * chunk id alone does not prove it belongs to `orgId`.
+ *
+ * Soft-fails like every other read in this module: a failed query returns
+ * `failed: true` and an empty map rather than throwing, so one source's
+ * outage degrades the draft instead of losing it entirely.
+ */
+export async function fetchGoverningDocChunkTexts(
+  db: SupabaseClient<Database>,
+  orgId: string,
+  chunkIds: string[],
+): Promise<{ texts: Map<string, string>; failed: boolean }> {
+  if (chunkIds.length === 0) return { texts: new Map(), failed: false }
+
+  const { data, error } = await db
+    .from('governing_document_chunks')
+    .select('id, text')
+    .eq('organization_id', orgId)
+    .in('id', chunkIds)
+
+  if (error) {
+    // Never log .details — it can echo row/document contents.
+    console.error(
+      `retrieveForThread: governing doc chunk text fetch failed: ${error.code} ${error.message}`,
+    )
+    return { texts: new Map(), failed: true }
+  }
+
+  const texts = new Map<string, string>()
+  for (const row of data ?? []) {
+    if (row.text && row.text.trim()) texts.set(row.id, row.text)
+  }
+  return { texts, failed: false }
+}
+
+/**
+ * Fetch each state-statute chunk's own text by id.
+ *
+ * Mirrors `fetchGoverningDocChunkTexts` but against `state_statute_chunks`,
+ * whose text column is `content`, not `text`. That table has no
+ * `organization_id` — statutes are public law shared across every org, not
+ * one association's private documents — so scoping is by chunk id only. Do
+ * not add an org filter here: the column does not exist, and adding a
+ * fabricated one would just make every lookup fail closed.
+ */
+export async function fetchStatuteChunkTexts(
+  db: SupabaseClient<Database>,
+  chunkIds: string[],
+): Promise<{ texts: Map<string, string>; failed: boolean }> {
+  if (chunkIds.length === 0) return { texts: new Map(), failed: false }
+
+  const { data, error } = await db
+    .from('state_statute_chunks')
+    .select('id, content')
+    .in('id', chunkIds)
+
+  if (error) {
+    console.error(
+      `retrieveForThread: state statute chunk text fetch failed: ${error.code} ${error.message}`,
+    )
+    return { texts: new Map(), failed: true }
+  }
+
+  const texts = new Map<string, string>()
+  for (const row of data ?? []) {
+    if (row.content && row.content.trim()) texts.set(row.id, row.content)
+  }
+  return { texts, failed: false }
+}
+
+/**
  * Resolve the org's state, then ask W30. Bundled into one function so the
  * whole thing is a single entry in the `Promise.allSettled` batch below —
  * state resolution stays off the critical path of the other three sources.
+ *
+ * W30's public output (`StateLawBrainOutput`) carries per-citation METADATA
+ * only (chunkId/statuteId/codeCitation/title/category) — no per-chunk text.
+ * Each citation's real text is fetched by id from `state_statute_chunks`
+ * below, rather than attributing the one synthesized `answer` to every
+ * citing chunk (that answer is preserved separately, see `answer` on the
+ * return value, for background context — not as a per-citation quote).
+ * A chunk id that comes back with no row, or that a failed fetch could not
+ * resolve, is dropped rather than emitted with empty/placeholder text; the
+ * caller is told via `degraded`.
  */
 async function fetchStatuteCitations(
   db: SupabaseClient<Database>,
   orgId: string,
   question: string,
-): Promise<{ citations: SourceResults['statutes']['citations']; unavailable: boolean }> {
+): Promise<{
+  citations: SourceResults['statutes']['citations']
+  unavailable: boolean
+  degraded: string[]
+  answer: string | null
+}> {
   const state = await resolveAssociationState(db, orgId)
-  if (!state) return { citations: [], unavailable: true }
+  if (!state) return { citations: [], unavailable: true, degraded: [], answer: null }
 
   const out = await askStateLaw(question, state, { organizationId: orgId })
   if (out.citations.length === 0 || !out.answer.trim()) {
     // A real, successful answer of "nothing on point" — not a failure.
-    return { citations: [], unavailable: false }
+    return { citations: [], unavailable: false, degraded: [], answer: null }
+  }
+
+  const { texts, failed } = await fetchStatuteChunkTexts(
+    db,
+    out.citations.map((c) => c.chunkId),
+  )
+
+  const citations: SourceResults['statutes']['citations'] = []
+  let missing = false
+  for (const c of out.citations) {
+    const text = texts.get(c.chunkId)
+    if (!text) {
+      missing = true
+      continue
+    }
+    citations.push({
+      chunkId: c.chunkId,
+      label: c.title ? `${c.codeCitation} — ${c.title}` : c.codeCitation,
+      text,
+    })
   }
 
   return {
-    citations: out.citations.map((c) => ({
-      chunkId: c.chunkId,
-      label: c.title ? `${c.codeCitation} — ${c.title}` : c.codeCitation,
-      // W30's public output (StateLawBrainOutput) carries per-citation
-      // METADATA only (chunkId/statuteId/codeCitation/title/category) — no
-      // per-chunk text. The brief assumed `{ chunkId, label, text }` came
-      // straight off each citation; the only actual quotable text is the
-      // one synthesized `answer` for the whole query. W30 re-validates
-      // `cited_chunk_ids` against what it actually retrieved before
-      // returning them (index.ts:126-139), so every citation here did
-      // genuinely contribute to `answer` — attributing that answer text to
-      // each of its citing chunks is the closest honest mapping available
-      // through the public wrapper, without reaching into W30's private
-      // retrieval internals (tools.ts) to get raw chunk text.
-      text: out.answer,
-    })),
+    citations,
     unavailable: false,
+    degraded: failed || missing ? ['state_law_chunk_text'] : [],
+    answer: out.answer,
   }
 }
 
@@ -264,6 +378,7 @@ export async function retrieveForThread(
       fragments: [],
       degraded: ['no_inbound_text'],
       hasProperty: Boolean(thread.unitId),
+      aiContext: { governingDocs: null, stateLaw: null },
     }
   }
 
@@ -277,6 +392,7 @@ export async function retrieveForThread(
   ])
 
   let docs: SourceResults['docs'] = { citations: [] }
+  let governingDocsContext: string | null = null
   if (docsResult.status === 'rejected') {
     console.error(`retrieveForThread: governing docs failed: ${String(docsResult.reason)}`)
     degraded.push('governing_documents')
@@ -285,28 +401,49 @@ export async function retrieveForThread(
     // GoverningDocsBrainOutput.citations (packages/workflows/src/
     // W1-governing-docs-brain/index.ts:28-33) is
     // `{ chunkId, documentId, docType, section }` — metadata only, no
-    // `label`/`text` fields as the brief assumed. Same shape gap as W30,
-    // same resolution: attribute the one synthesized `answer` to each
-    // chunk that was actually cited in producing it (re-validated against
-    // retrieved chunks at index.ts:158-171).
+    // `label`/`text` fields. Each citation's real text is fetched by id
+    // from `governing_document_chunks` (org-scoped) rather than attributing
+    // the one synthesized `answer` to every chunk that cited it — see
+    // `fetchGoverningDocChunkTexts` above. The synthesized answer is kept
+    // separately, for background context only, not as a per-citation quote.
     if (out.citations.length > 0 && out.answer.trim()) {
-      docs = {
-        citations: out.citations.map((c) => ({
+      const { texts, failed } = await fetchGoverningDocChunkTexts(
+        db,
+        orgId,
+        out.citations.map((c) => c.chunkId),
+      )
+
+      const citations: SourceResults['docs']['citations'] = []
+      let missing = false
+      for (const c of out.citations) {
+        const text = texts.get(c.chunkId)
+        if (!text) {
+          missing = true
+          continue
+        }
+        citations.push({
           chunkId: c.chunkId,
           label: c.section ? `${c.docType} ${c.section}` : c.docType,
-          text: out.answer,
-        })),
+          text,
+        })
       }
+
+      if (failed || missing) degraded.push('governing_documents_chunk_text')
+      docs = { citations }
+      governingDocsContext = out.answer
     }
   }
 
   let statutes: SourceResults['statutes'] = { citations: [] }
+  let stateLawContext: string | null = null
   if (statutesResult.status === 'rejected') {
     console.error(`retrieveForThread: state law failed: ${String(statutesResult.reason)}`)
     degraded.push('state_law')
   } else {
     statutes = { citations: statutesResult.value.citations }
     if (statutesResult.value.unavailable) degraded.push('state_law')
+    degraded.push(...statutesResult.value.degraded)
+    stateLawContext = statutesResult.value.answer
   }
 
   let property: SourceResults['property'] = null
@@ -348,5 +485,6 @@ export async function retrieveForThread(
     fragments: collected.fragments,
     degraded: collected.degraded,
     hasProperty: Boolean(thread.unitId),
+    aiContext: { governingDocs: governingDocsContext, stateLaw: stateLawContext },
   }
 }
