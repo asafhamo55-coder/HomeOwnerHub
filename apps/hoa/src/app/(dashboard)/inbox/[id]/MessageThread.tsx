@@ -1,0 +1,65 @@
+import type { ThreadMessage } from '@/lib/inbox/queries'
+
+// No `text-warning` utility exists in the shared Tailwind config
+// (packages/ui/tailwind.config.ts only defines primary/accent/background/
+// surface/border/foreground/muted/destructive as CSS-variable tokens).
+// The "couldn't retrieve" attachment state uses the same literal
+// amber/dark: pair already used for this exact distinction elsewhere in
+// the inbox (ThreadList.tsx's confidenceTone).
+export function MessageThread({ messages }: { messages: ThreadMessage[] }) {
+  return (
+    <div className="space-y-3">
+      {messages.map((message) => (
+        <article
+          key={message.id}
+          className={`rounded-lg border p-3 ${
+            message.direction === 'outbound'
+              ? 'border-primary/40 bg-primary/5'
+              : 'border-border bg-muted/5'
+          }`}
+        >
+          <header className="mb-2 flex flex-wrap items-baseline gap-2 text-xs text-muted">
+            <span className="font-semibold text-foreground">
+              {message.fromName ?? message.fromEmail ?? 'Unknown'}
+            </span>
+            <span>→ {message.toEmails.join(', ') || '—'}</span>
+            <span className="ml-auto">
+              {message.sentAt ? new Date(message.sentAt).toLocaleString() : ''}
+            </span>
+          </header>
+
+          {/* strippedText is the quote-stripped body and is what should be
+              displayed; bodyText is the full message including quoted
+              history and is only a fallback when stripping produced
+              nothing. */}
+          <p className="whitespace-pre-wrap text-sm text-foreground">
+            {message.strippedText ?? message.bodyText ?? '(no body)'}
+          </p>
+
+          {message.attachments.length > 0 ? (
+            <ul className="mt-2 space-y-1 border-t border-border pt-2">
+              {message.attachments.map((file) => (
+                <li key={file.id} className="text-xs">
+                  {file.fetchStatus === 'stored' ? (
+                    // /inbox/attachment/[id] doesn't exist yet — it's
+                    // Task 23. The link target will start resolving once
+                    // that route lands; nothing here needs to change.
+                    <a href={`/inbox/attachment/${file.id}`} className="underline">
+                      📎 {file.fileName}
+                    </a>
+                  ) : file.fetchStatus === 'pending' ? (
+                    <span className="text-muted">📎 {file.fileName} — downloading…</span>
+                  ) : (
+                    <span className="text-amber-700 dark:text-amber-400">
+                      📎 {file.fileName} — couldn&apos;t retrieve, open in Gmail
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </article>
+      ))}
+    </div>
+  )
+}

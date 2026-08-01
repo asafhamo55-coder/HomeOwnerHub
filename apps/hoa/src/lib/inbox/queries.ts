@@ -481,3 +481,426 @@ export async function listThreads(
     }
   })
 }
+
+// ─── Thread detail + property rail (Task 22) ────────────────────────────
+
+export interface ThreadMessage {
+  id: string
+  direction: 'inbound' | 'outbound'
+  fromName: string | null
+  fromEmail: string | null
+  toEmails: string[]
+  subject: string | null
+  bodyText: string | null
+  strippedText: string | null
+  sentAt: string | null
+  attachments: Array<{
+    id: string
+    fileName: string
+    sizeBytes: number | null
+    fetchStatus: string
+  }>
+}
+
+export interface ThreadDetail {
+  id: string
+  subject: string | null
+  status: string
+  unitId: string | null
+  matchConfidence: string
+  matchReason: Record<string, unknown> | null
+  matchSource: string
+  messages: ThreadMessage[]
+}
+
+/**
+ * Everything the rail shows. This is the differentiator over Gmail, so it
+ * is assembled eagerly rather than lazily behind clicks — context that is
+ * hidden stops being checked.
+ *
+ * `degraded` lists which sections could not be loaded and were defaulted
+ * to an empty/zero value rather than left absent. A manager reading
+ * "Dues: Current" or "Open violations: None" must be able to tell that
+ * apart from "we don't actually know" — a wrong figure here is exactly
+ * the failure this screen exists to prevent. PropertyRail renders a
+ * degraded section as an explicit "couldn't load" state instead of the
+ * numeric default, rather than silently implying a false zero.
+ */
+export interface PropertyContext {
+  address: string
+  unitNumber: string | null
+  residents: Array<{ name: string; role: string; email: string | null }>
+  duesBalance: number
+  duesOverdueCount: number
+  openViolations: number
+  openArcRequests: Array<{ id: string; summary: string; status: string }>
+  openTickets: Array<{ id: string; subject: string; status: string }>
+  lastCommunication: { subject: string; sentAt: string | null } | null
+  degraded: Array<
+    'residents' | 'dues' | 'violations' | 'arc' | 'tickets' | 'lastCommunication'
+  >
+}
+
+/**
+ * Loads a thread and its messages/attachments for the conversation pane.
+ *
+ * The thread and message queries define the page — a swallowed error here
+ * would render an empty or truncated conversation, indistinguishable from
+ * a genuinely quiet thread, so both throw. The attachment lookup only
+ * enriches messages that already loaded successfully; a failure there
+ * degrades every message to "no attachments" rather than failing the
+ * whole thread view, the same stakes split listThreads/getConnectPreview
+ * use above.
+ */
+export async function getThreadDetail(
+  db: Db,
+  orgId: string,
+  threadId: string,
+): Promise<ThreadDetail | null> {
+  const { data: thread, error: threadError } = await db
+    .from('inbox_threads')
+    .select('id, subject, status, unit_id, match_confidence, match_reason, match_source')
+    .eq('organization_id', orgId)
+    .eq('id', threadId)
+    .maybeSingle()
+
+  if (threadError) {
+    logDbError('getThreadDetail', 'inbox_threads', { orgId, threadId }, threadError)
+    throw new Error(`getThreadDetail: failed to load thread: ${threadError.message}`)
+  }
+  if (!thread) return null
+
+  const { data: messages, error: messagesError } = await db
+    .from('inbox_messages')
+    .select(
+      'id, direction, from_name, from_email, to_emails, subject, body_text, stripped_text, sent_at',
+    )
+    .eq('thread_id', threadId)
+    .order('sent_at', { ascending: true })
+
+  if (messagesError) {
+    logDbError('getThreadDetail', 'inbox_messages', { orgId, threadId }, messagesError)
+    throw new Error(`getThreadDetail: failed to load messages: ${messagesError.message}`)
+  }
+
+  const messageIds = (messages ?? []).map((m) => m.id)
+  const { data: attachments, error: attachmentsError } =
+    messageIds.length > 0
+      ? await db
+          .from('inbox_attachments')
+          .select('id, message_id, file_name, size_bytes, fetch_status')
+          .in('message_id', messageIds)
+          .neq('fetch_status', 'skipped')
+      : {
+          data: [] as Array<{
+            id: string
+            message_id: string
+            file_name: string
+            size_bytes: number | null
+            fetch_status: string
+          }>,
+          error: null,
+        }
+
+  if (attachmentsError) {
+    // Enrichment only — messages already loaded successfully above.
+    // Degrade every message to "no attachments" rather than failing the
+    // whole thread view over a missing paperclip.
+    logDbError('getThreadDetail', 'inbox_attachments', { orgId, threadId }, attachmentsError)
+  }
+
+  return {
+    id: thread.id,
+    subject: thread.subject,
+    status: thread.status,
+    unitId: thread.unit_id,
+    matchConfidence: thread.match_confidence,
+    matchReason: thread.match_reason as Record<string, unknown> | null,
+    matchSource: thread.match_source,
+    messages: (messages ?? []).map((message) => ({
+      id: message.id,
+      direction: message.direction as 'inbound' | 'outbound',
+      fromName: message.from_name,
+      fromEmail: message.from_email,
+      toEmails: message.to_emails ?? [],
+      subject: message.subject,
+      bodyText: message.body_text,
+      strippedText: message.stripped_text,
+      sentAt: message.sent_at,
+      attachments: (attachments ?? [])
+        .filter((a) => a.message_id === message.id)
+        .map((a) => ({
+          id: a.id,
+          fileName: a.file_name,
+          sizeBytes: a.size_bytes,
+          fetchStatus: a.fetch_status,
+        })),
+    })),
+  }
+}
+
+/**
+ * Loads the property rail context for a unit already confirmed to be
+ * attached to a thread.
+ *
+ * The unit lookup throws on error rather than returning null: a caller
+ * that received `null` here could not tell "this unit doesn't exist"
+ * apart from "the query failed" — and the thread page treats a null
+ * context the same as "not filed yet" for a thread with no unitId, which
+ * would misrepresent an actually-filed thread as unmatched. That is the
+ * same shape as the attribution bug just fixed in ThreadList.tsx: branch
+ * on ground truth (`unitId`) first, and if the enrichment fails, say so
+ * honestly. See PropertyRail for how the caller turns a thrown error into
+ * an explicit "couldn't load" state instead of "not filed".
+ *
+ * The six per-section lookups below (residents, dues, violations, arc,
+ * tickets, last communication) enrich a unit already confirmed to exist:
+ * fetched concurrently — never a per-row loop — and a failure in one
+ * degrades only that section, tracked in `degraded` so the rail can say
+ * "couldn't load" instead of implying a false zero.
+ */
+export async function getPropertyContext(
+  db: Db,
+  orgId: string,
+  unitId: string,
+): Promise<PropertyContext | null> {
+  const { data: unit, error: unitError } = await db
+    .from('units')
+    .select('id, address_line1, unit_number, legacy_hoa_property_id')
+    .eq('organization_id', orgId)
+    .eq('id', unitId)
+    .maybeSingle()
+
+  if (unitError) {
+    logDbError('getPropertyContext', 'units', { orgId, unitId }, unitError)
+    throw new Error(`getPropertyContext: failed to load unit: ${unitError.message}`)
+  }
+  if (!unit) return null
+
+  const legacyId = unit.legacy_hoa_property_id
+  const degraded: PropertyContext['degraded'] = []
+
+  const [residentsRes, assessmentsRes, violationsRes, arcRes, ticketsRes, commsRes] =
+    await Promise.all([
+      legacyId
+        ? db
+            .from('property_residents')
+            .select('full_name, role, email')
+            .eq('organization_id', orgId)
+            .eq('property_id', legacyId)
+            .is('moved_out_at', null)
+        : Promise.resolve({
+            data: [] as Array<{ full_name: string; role: string; email: string | null }>,
+            error: null as PostgrestError | null,
+          }),
+      // Status vocabulary is the DB CHECK constraint on assessments
+      // (migrations/0006_accounting.sql): open|partial|paid|waived|
+      // written_off. 'open'/'partial' are what's still outstanding —
+      // netted against `payments` below (assessment.amount is the FULL
+      // charge, not the remaining balance), mirroring
+      // apps/hoa/src/lib/resident-dashboard.ts's getDues so a partially
+      // paid assessment doesn't overstate what's owed.
+      db
+        .from('assessments')
+        .select('id, amount, due_date, status')
+        .eq('organization_id', orgId)
+        .eq('unit_id', unitId)
+        .in('status', ['open', 'partial'])
+        .is('deleted_at', null),
+      // hoa_violations keys its org column `org_id` (not
+      // `organization_id` like every other table here) and its property
+      // reference on `property_id` against the LEGACY hoa property id,
+      // not unit_id — verified against database.types.ts, not the
+      // brief's guess. Status vocabulary
+      // (apps/hoa/src/lib/violation-statuses.ts): open|notice_sent|
+      // fined|resolved|dismissed — "open" for the rail means anything
+      // not yet closed out, not literally status = 'open', or a
+      // violation sitting in notice_sent/fined would silently vanish
+      // from the count.
+      legacyId
+        ? db
+            .from('hoa_violations')
+            .select('id', { count: 'exact', head: true })
+            .eq('org_id', orgId)
+            .eq('property_id', legacyId)
+            .not('status', 'in', '("resolved","dismissed")')
+            .is('deleted_at', null)
+        : Promise.resolve({ count: 0 as number | null, error: null as PostgrestError | null }),
+      db
+        .from('arc_requests')
+        .select('id, summary, status')
+        .eq('organization_id', orgId)
+        .eq('unit_id', unitId)
+        .not('status', 'in', '("approved","denied","withdrawn")')
+        .is('deleted_at', null)
+        .limit(5),
+      db
+        .from('tickets')
+        .select('id, subject, status')
+        .eq('organization_id', orgId)
+        .eq('unit_id', unitId)
+        .neq('status', 'closed')
+        .is('deleted_at', null)
+        .limit(5),
+      db
+        .from('communication_recipients')
+        .select('communication_id, sent_at')
+        .eq('organization_id', orgId)
+        .eq('unit_id', unitId)
+        .order('sent_at', { ascending: false, nullsFirst: false })
+        .limit(1),
+    ])
+
+  const { data: residentsData, error: residentsError } = residentsRes
+  if (residentsError) {
+    logDbError('getPropertyContext', 'property_residents', { orgId, unitId }, residentsError)
+    degraded.push('residents')
+  }
+
+  const { data: assessmentsData, error: assessmentsError } = assessmentsRes
+  let duesBalance = 0
+  let duesOverdueCount = 0
+  if (assessmentsError) {
+    logDbError('getPropertyContext', 'assessments', { orgId, unitId }, assessmentsError)
+    degraded.push('dues')
+  } else {
+    const assessments = assessmentsData ?? []
+    if (assessments.length > 0) {
+      const { data: payments, error: paymentsError } = await db
+        .from('payments')
+        .select('assessment_id, amount')
+        .in(
+          'assessment_id',
+          assessments.map((a) => a.id),
+        )
+
+      if (paymentsError) {
+        // Payments only refine the balance netting. Rather than hide the
+        // balance entirely we still show the gross outstanding amount,
+        // but flag it degraded — a partial payment not yet netted would
+        // otherwise read as still fully owed.
+        logDbError('getPropertyContext', 'payments', { orgId, unitId }, paymentsError)
+        degraded.push('dues')
+      }
+
+      const paidByAssessment = new Map<string, number>()
+      for (const p of payments ?? []) {
+        if (!p.assessment_id) continue
+        paidByAssessment.set(
+          p.assessment_id,
+          (paidByAssessment.get(p.assessment_id) ?? 0) + Number(p.amount),
+        )
+      }
+
+      const today = new Date().toISOString().slice(0, 10)
+      for (const a of assessments) {
+        const remaining = Number(a.amount) - (paidByAssessment.get(a.id) ?? 0)
+        if (remaining <= 0) continue
+        duesBalance += remaining
+        if (a.due_date && a.due_date < today) duesOverdueCount++
+      }
+      duesBalance = Math.round(duesBalance * 100) / 100
+    }
+  }
+
+  const { count: violationsCount, error: violationsError } = violationsRes
+  if (violationsError) {
+    logDbError('getPropertyContext', 'hoa_violations', { orgId, unitId }, violationsError)
+    degraded.push('violations')
+  }
+
+  const { data: arcData, error: arcError } = arcRes
+  if (arcError) {
+    logDbError('getPropertyContext', 'arc_requests', { orgId, unitId }, arcError)
+    degraded.push('arc')
+  }
+
+  const { data: ticketsData, error: ticketsError } = ticketsRes
+  if (ticketsError) {
+    logDbError('getPropertyContext', 'tickets', { orgId, unitId }, ticketsError)
+    degraded.push('tickets')
+  }
+
+  const { data: commsData, error: commsError } = commsRes
+  let lastCommunication: PropertyContext['lastCommunication'] = null
+  if (commsError) {
+    logDbError('getPropertyContext', 'communication_recipients', { orgId, unitId }, commsError)
+    degraded.push('lastCommunication')
+  } else {
+    const lastRecipient = commsData?.[0]
+    if (lastRecipient?.communication_id) {
+      const { data: communication, error: communicationError } = await db
+        .from('communications')
+        .select('subject')
+        .eq('organization_id', orgId)
+        .eq('id', lastRecipient.communication_id)
+        .is('deleted_at', null)
+        .maybeSingle()
+
+      if (communicationError) {
+        logDbError('getPropertyContext', 'communications', { orgId, unitId }, communicationError)
+        degraded.push('lastCommunication')
+      } else if (communication) {
+        lastCommunication = {
+          subject: communication.subject,
+          sentAt: lastRecipient.sent_at,
+        }
+      }
+    }
+  }
+
+  return {
+    address: unit.address_line1,
+    unitNumber: unit.unit_number,
+    residents: (residentsData ?? []).map((r) => ({
+      name: r.full_name,
+      role: r.role,
+      email: r.email,
+    })),
+    duesBalance,
+    duesOverdueCount,
+    openViolations: violationsCount ?? 0,
+    openArcRequests: (arcData ?? []).map((a) => ({
+      id: a.id,
+      summary: a.summary,
+      status: a.status,
+    })),
+    openTickets: (ticketsData ?? []).map((t) => ({
+      id: t.id,
+      subject: t.subject,
+      status: t.status,
+    })),
+    lastCommunication,
+    degraded,
+  }
+}
+
+/**
+ * Address label for a single unit — used to show what a suggested-but-
+ * unconfirmed match would file under, before a manager confirms it. Not
+ * page-defining, so a failure here degrades to no label (the assign form
+ * still works without the suggestion text) rather than failing the page.
+ */
+export async function getUnitLabel(
+  db: Db,
+  orgId: string,
+  unitId: string,
+): Promise<{ unitId: string; address: string } | null> {
+  const { data, error } = await db
+    .from('units')
+    .select('id, address_line1, unit_number')
+    .eq('organization_id', orgId)
+    .eq('id', unitId)
+    .maybeSingle()
+
+  if (error) {
+    logDbError('getUnitLabel', 'units', { orgId, unitId }, error)
+    return null
+  }
+  if (!data) return null
+
+  return {
+    unitId: data.id,
+    address: data.unit_number ? `${data.address_line1} #${data.unit_number}` : data.address_line1,
+  }
+}
