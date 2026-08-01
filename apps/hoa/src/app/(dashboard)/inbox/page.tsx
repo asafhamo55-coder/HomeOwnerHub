@@ -30,10 +30,13 @@ export default async function InboxPage({
   const params = await searchParams
   // Inbox tables are gated by auth_is_board_or_admin at the RLS layer
   // (migration 0012 + the inbox migrations); requireBoardOrAdmin matches
-  // that bar exactly. settings/mailbox/page.tsx currently uses
-  // requireAdmin (admin-only) — that's a known inconsistency being
-  // triaged separately, not a pattern to copy here.
-  const { org } = await requireBoardOrAdmin()
+  // that bar exactly. Mailbox *management* is deliberately narrower —
+  // settings/mailbox/page.tsx and /api/oauth/google/start are admin-only,
+  // because connecting or disconnecting hands Google standing access to
+  // the whole mailbox. Hence `role` below: a board member reads the inbox
+  // but must not be sent to a page that will bounce them.
+  const { org, role } = await requireBoardOrAdmin()
+  const canManageMailbox = role === 'admin'
 
   const filter = (FILTERS.find((f) => f.key === params.filter)?.key ??
     'needs_review') as InboxFilter
@@ -66,9 +69,13 @@ export default async function InboxPage({
       <main className="mx-auto max-w-2xl p-6">
         <Alert variant="info" title="No mailbox connected">
           Connect your HOA mailbox to see resident email here.{' '}
-          <Link href="/settings/mailbox" className="underline">
-            Connect
-          </Link>
+          {canManageMailbox ? (
+            <Link href="/settings/mailbox" className="underline">
+              Connect
+            </Link>
+          ) : (
+            'Ask an HOA admin to connect it.'
+          )}
         </Alert>
       </main>
     )
@@ -108,9 +115,17 @@ export default async function InboxPage({
               so it can't inject markup; it is never interpolated into an
               href, dangerouslySetInnerHTML, or any other raw sink. */}
           {status.syncError ?? 'Resident email may not be arriving.'}{' '}
-          <Link href="/settings/mailbox" className="underline">
-            Fix
-          </Link>
+          {/* Only admins can reach /settings/mailbox (requireAdmin) or
+              start an OAuth connect, so linking a board member there
+              lands them on a silent redirect to '/' with no explanation.
+              Tell them who can fix it instead of offering a dead end. */}
+          {canManageMailbox ? (
+            <Link href="/settings/mailbox" className="underline">
+              Fix
+            </Link>
+          ) : (
+            'Ask an HOA admin to fix it.'
+          )}
         </Alert>
       ) : null}
 

@@ -62,6 +62,13 @@ export const mailboxAttachmentsJob = inngest.createFunction(
 
     // One Gmail client per mailbox account, not per attachment.
     const clientCache = new Map<string, GmailClient>()
+    // Whether each account is still connected, resolved at most once per
+    // run. This queue is global across tenants and an account can be
+    // disconnected while its attachments are still pending, so the check
+    // cannot be hoisted out of the loop the way the other
+    // getAccessTokenFor callers hoist `.is('disconnected_at', null)` into
+    // their account query.
+    const liveAccountCache = new Map<string, boolean>()
     let fetched = 0
 
     for (const attachment of pending) {
@@ -127,6 +134,62 @@ export const mailboxAttachmentsJob = inngest.createFunction(
               'inbox_attachments',
               { attachmentId: attachment.id },
               missingError,
+            )
+          }
+          continue
+        }
+
+        // Disconnecting hard-deletes the mailbox_account_secrets row, so
+        // without this check getAccessTokenFor throws "No stored
+        // credentials" and the catch below stamps auth_failed onto an
+        // account that is already disconnected — noise that reads like a
+        // credential problem when nothing is wrong. Fail these attachments
+        // deliberately instead: the bytes were never downloaded and now
+        // cannot be, which is what Disconnect means. The UI already renders
+        // this state as "couldn't retrieve, open in Gmail".
+        let accountIsLive = liveAccountCache.get(thread.mailbox_account_id)
+        if (accountIsLive === undefined) {
+          const { data: account, error: accountError } = await db
+            .from('mailbox_accounts')
+            .select('disconnected_at')
+            .eq('id', thread.mailbox_account_id)
+            .maybeSingle()
+
+          if (accountError) {
+            // Soft failure is indistinguishable from "no such account".
+            // Throw so this attachment retries rather than being failed
+            // for a disconnect that may not have happened.
+            logDbError(
+              'mailboxAttachmentsJob',
+              'mailbox_accounts',
+              { attachmentId: attachment.id },
+              accountError,
+            )
+            throw new Error(
+              `mailboxAttachmentsJob: failed to read mailbox account for attachment ${attachment.id}: ${accountError.message}`,
+            )
+          }
+
+          accountIsLive = Boolean(account) && account?.disconnected_at === null
+          liveAccountCache.set(thread.mailbox_account_id, accountIsLive)
+        }
+
+        if (!accountIsLive) {
+          const { error: disconnectedError } = await db
+            .from('inbox_attachments')
+            .update({
+              fetch_status: 'failed',
+              fetch_error: 'Mailbox was disconnected before this attachment was downloaded.',
+              fetch_attempts: attachment.fetch_attempts + 1,
+            })
+            .eq('id', attachment.id)
+
+          if (disconnectedError) {
+            logDbError(
+              'mailboxAttachmentsJob',
+              'inbox_attachments',
+              { attachmentId: attachment.id },
+              disconnectedError,
             )
           }
           continue

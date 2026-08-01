@@ -23,14 +23,24 @@ export async function GET(request: Request): Promise<Response> {
   // This route is the actual security boundary for connecting a mailbox:
   // completeConnect writes mailbox_accounts via the admin (service-role)
   // client, which bypasses the board_access RLS policy that would
-  // otherwise stop a resident. Gate here with the same bar RLS sets
-  // (board or admin) rather than trusting the calling page alone.
+  // otherwise stop a resident. Gate here rather than trusting the calling
+  // page alone.
+  //
+  // Admin-only, deliberately narrower than the board-or-admin bar RLS sets
+  // on the inbox tables. Two reasons. First, consenting to this grant hands
+  // Google standing access to the HOA's entire mailbox, and the surfaces
+  // that manage it afterwards (settings/mailbox, updateScope,
+  // disconnectMailbox) are all admin-only — a board member who could
+  // *start* a connect could never see, rescope, or revoke it. Second, it
+  // closes a silent dead end: every failure path here and in the callback
+  // redirects to settings/mailbox, which requireAdmin() would bounce to '/'
+  // with no message, so a board member's refusal was invisible to them.
   const role = await getCurrentUserRoleInOrg(org.id)
-  if (role !== 'admin' && role !== 'board') {
+  if (role !== 'admin') {
     return NextResponse.redirect(
       new URL(
         `${returnTo}?error=${encodeURIComponent(
-          'You do not have permission to connect a mailbox for this organization.',
+          'Only an HOA admin can connect a mailbox for this organization.',
         )}`,
         request.url,
       ),

@@ -131,3 +131,58 @@ safe to defer rather than dangerous.
 
 Deferred because doing it before Phase A was proven meant moving files that
 were still changing every task.
+
+### Shared inbox: backfill progress is invisible on `/inbox`
+
+Deferred from the Phase A whole-branch review (2026-08-01).
+
+During a 12-month historical import the board sees a partial inbox with no
+indication that history is still arriving, and a `'failed'` backfill is
+visible only on `/settings/mailbox`. The states are all computed and stored
+(`backfill_status`, `backfill_progress`, plus 0032's watchdog) — this is
+purely a matter of rendering them on the inbox surface too.
+
+Deferred rather than fixed because it is a new UI affordance, not a
+correctness bug: nothing is lost, and the honest signal does exist one page
+away.
+
+### Shared inbox: a broken mailbox never reaches a board that isn't logged in
+
+Deferred from the Phase A whole-branch review (2026-08-01).
+
+`dailyDigestJob` already computes the broken-mailbox condition correctly
+(`packages/jobs/src/daily-digest.ts`) and then routes it to `logger.error` —
+engineer-facing only. The digest email is the one channel that reaches a
+board without them visiting a page, and every other honest signal in the
+feature requires someone to be looking at the app.
+
+Worth doing before the feature has more than a handful of tenants, since
+"nobody logged in for a week and mail stopped" is the failure this closes.
+
+### Shared inbox: attachment retry has no operator controls
+
+Deferred from the Phase A whole-branch review (2026-08-01).
+
+`MAX_ATTEMPTS = 2` in `packages/jobs/src/mailbox-attachments.ts` counts *any*
+failure, including two transient DB blips, and there is no reset path — a
+permanently `'failed'` attachment currently needs manual SQL. Separately,
+`BATCH_SIZE = 20` per 5 minutes is a **global** ceiling across all tenants,
+which a single 12-month backfill will saturate.
+
+Neither loses data (the message and its metadata are stored either way, and
+the UI tells the board to open it in Gmail), which is why this is deferred
+rather than blocking. Revisit when a second HOA connects a mailbox.
+
+### Shared inbox: reconnect re-runs the full historical backfill
+
+Deferred from the Phase A whole-branch review (2026-08-01).
+
+`callback/route.ts` emits `mailbox/backfill.requested` on every completion,
+including reconnects. That is deliberate — it is what makes a wedged
+backfill recoverable — but it means reconnecting after a *completed* backfill
+re-imports 12 months and resets the visible counter to 0. Ingest is
+idempotent, so nothing duplicates; it is wasted work and a confusing counter.
+
+Fix is to skip the emit when `backfill_status = 'complete'` and the scope
+hasn't changed. Left alone for now because the recovery path matters more
+than the redundancy, and getting the condition wrong would break it.
