@@ -115,7 +115,7 @@ describe('isInScope', () => {
 describe('buildScopeQuery', () => {
   it('scopes by deliveredto for address mode', () => {
     expect(buildScopeQuery('address', 'board@mp.org')).toBe(
-      '(to:board@mp.org OR cc:board@mp.org OR deliveredto:board@mp.org)',
+      '(to:board@mp.org OR cc:board@mp.org OR deliveredto:board@mp.org OR from:board@mp.org)',
     )
   })
 
@@ -152,14 +152,53 @@ describe('buildScopeQuery', () => {
 
   it('accepts a plus-tagged address without throwing', () => {
     expect(buildScopeQuery('address', 'board+arc@mp.org')).toBe(
-      '(to:board+arc@mp.org OR cc:board+arc@mp.org OR deliveredto:board+arc@mp.org)',
+      '(to:board+arc@mp.org OR cc:board+arc@mp.org OR deliveredto:board+arc@mp.org OR from:board+arc@mp.org)',
     )
   })
 
   it('accepts a subdomain address without throwing', () => {
     expect(buildScopeQuery('address', 'board@mail.mp.org')).toBe(
-      '(to:board@mail.mp.org OR cc:board@mail.mp.org OR deliveredto:board@mail.mp.org)',
+      '(to:board@mail.mp.org OR cc:board@mail.mp.org OR deliveredto:board@mail.mp.org OR from:board@mail.mp.org)',
     )
+  })
+})
+
+describe('buildScopeQuery — sent mail (Phase B D1)', () => {
+  it('matches mail the HOA sent, not only mail it received', () => {
+    const q = buildScopeQuery('address', 'hoa@example.com')
+    expect(q).toContain('from:hoa@example.com')
+    expect(q).toContain('to:hoa@example.com')
+  })
+
+  it('still rejects a malformed scope value rather than widening the fetch', () => {
+    expect(() => buildScopeQuery('address', 'not an email')).toThrow()
+  })
+})
+
+describe('isInScope — sent mail', () => {
+  const base = {
+    toEmails: ['resident@example.com'],
+    ccEmails: [],
+    deliveredTo: [],
+    fromEmail: 'hoa@example.com',
+  }
+
+  it('accepts a message the HOA sent', () => {
+    expect(isInScope(base as never, 'address', 'hoa@example.com')).toBe(true)
+  })
+
+  it('accepts a message the HOA received', () => {
+    const inbound = { ...base, toEmails: ['hoa@example.com'], fromEmail: 'r@example.com' }
+    expect(isInScope(inbound as never, 'address', 'hoa@example.com')).toBe(true)
+  })
+
+  it('still rejects an unrelated message', () => {
+    const other = { ...base, fromEmail: 'spam@example.com' }
+    expect(isInScope(other as never, 'address', 'hoa@example.com')).toBe(false)
+  })
+
+  it('fails closed when scopeValue is missing', () => {
+    expect(isInScope(base as never, 'address', null)).toBe(false)
   })
 })
 
