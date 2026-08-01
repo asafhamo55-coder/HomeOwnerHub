@@ -1,7 +1,6 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { Alert } from '@homeowner-portal/ui'
-import { getCurrentOrg } from '@/lib/orgs'
+import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
   getConnectPreview,
@@ -22,8 +21,11 @@ export default async function SetupPage({
   searchParams: Promise<{ error?: string; connected?: string }>
 }) {
   const params = await searchParams
-  const org = await getCurrentOrg()
-  if (!org) redirect('/onboarding')
+  // Connecting a mailbox is a board/admin action — a resident should never
+  // see the "Connect Google" button here, since clicking it would only
+  // fail at /api/oauth/google/start anyway. Matches the bar RLS already
+  // sets on the inbox tables via auth_is_board_or_admin.
+  const { org } = await requireBoardOrAdmin()
 
   const supabase = await getSupabaseServerClient()
   const [steps, status] = await Promise.all([

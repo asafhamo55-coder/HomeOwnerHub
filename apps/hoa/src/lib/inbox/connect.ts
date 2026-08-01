@@ -210,6 +210,32 @@ export async function completeConnect(
   // carried a safe value.
   const returnTo = sanitizeReturnTo(rawReturnTo)
 
+  const db = createAdminClient()
+
+  // Defense in depth: `state` is only ever minted by the /api/oauth/google/
+  // start route, which already requires board-or-admin before signing it —
+  // but the signature stays valid for STATE_TTL_MS, and this function
+  // writes mailbox_accounts through the admin (service-role) client, which
+  // bypasses the board_access RLS policy that would otherwise backstop the
+  // write. Re-checking the role here, at the point of the write, closes
+  // the narrow window where a caller's role is revoked between starting
+  // and completing the OAuth dance, and protects any future caller of
+  // completeConnect that forgets to gate itself the way /start does.
+  const { data: membership, error: roleError } = await db
+    .from('org_members')
+    .select('role')
+    .eq('org_id', orgId)
+    .eq('user_id', userId)
+    .maybeSingle<{ role: string }>()
+
+  if (roleError) {
+    logDbError('completeConnect', 'org_members', { orgId, userId }, roleError)
+    throw new Error(`completeConnect: failed to verify permissions: ${roleError.message}`)
+  }
+  if (!membership || (membership.role !== 'admin' && membership.role !== 'board')) {
+    throw new Error('You do not have permission to connect a mailbox for this organization.')
+  }
+
   const tokens = await exchangeCode(code)
   if (!tokens.refreshToken) {
     // Without a refresh token the connection dies in about an hour. This
@@ -235,8 +261,6 @@ export async function completeConnect(
     return []
   })
   const recommended = recommendScope(sendAs, profile.emailAddress)
-
-  const db = createAdminClient()
 
   // Reconnecting the same address reuses the row so ingested history and
   // its threads survive — never create a second account row for a

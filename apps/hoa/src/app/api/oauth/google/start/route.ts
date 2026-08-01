@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sanitizeReturnTo, startConnect } from '@/lib/inbox/connect'
@@ -18,6 +19,23 @@ export async function GET(request: Request): Promise<Response> {
   // screen). Validate it here, before it is ever signed into `state` —
   // signing does not "launder" a hostile value, it just certifies one.
   const returnTo = sanitizeReturnTo(new URL(request.url).searchParams.get('returnTo'))
+
+  // This route is the actual security boundary for connecting a mailbox:
+  // completeConnect writes mailbox_accounts via the admin (service-role)
+  // client, which bypasses the board_access RLS policy that would
+  // otherwise stop a resident. Gate here with the same bar RLS sets
+  // (board or admin) rather than trusting the calling page alone.
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return NextResponse.redirect(
+      new URL(
+        `${returnTo}?error=${encodeURIComponent(
+          'You do not have permission to connect a mailbox for this organization.',
+        )}`,
+        request.url,
+      ),
+    )
+  }
 
   try {
     return NextResponse.redirect(startConnect(org.id, user.id, returnTo))
