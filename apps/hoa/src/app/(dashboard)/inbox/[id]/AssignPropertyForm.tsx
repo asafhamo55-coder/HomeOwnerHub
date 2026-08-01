@@ -102,6 +102,7 @@ export function AssignPropertyForm({ threadId, suggestedProperty }: Props) {
       </label>
 
       {state.error ? <Alert variant="error">{state.error}</Alert> : null}
+      {state.warning ? <Alert variant="warning">{state.warning}</Alert> : null}
 
       <Button type="submit" size="sm" loading={pending} disabled={!selected} className="w-full">
         Assign

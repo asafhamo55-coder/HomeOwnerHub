@@ -352,6 +352,7 @@ export async function matchThread(
       .select('id, full_name, property_id')
       .eq('organization_id', orgId)
       .is('moved_out_at', null)
+      .is('deleted_at', null)
       .ilike('full_name', escapeLikePattern(first.from_name.trim()))
 
     if (residentsError) {

@@ -708,6 +708,7 @@ export async function getPropertyContext(
             .eq('organization_id', orgId)
             .eq('property_id', legacyId)
             .is('moved_out_at', null)
+            .is('deleted_at', null)
         : Promise.resolve({
             data: [] as Array<{ full_name: string; role: string; email: string | null }>,
             error: null as PostgrestError | null,
@@ -816,7 +817,7 @@ export async function getPropertyContext(
         const remaining = Number(a.amount) - (paidByAssessment.get(a.id) ?? 0)
         if (remaining <= 0) continue
         duesBalance += remaining
-        if (a.due_date && a.due_date < today) duesOverdueCount++
+        if (a.due_date && a.due_date <= today) duesOverdueCount++
       }
       duesBalance = Math.round(duesBalance * 100) / 100
     }

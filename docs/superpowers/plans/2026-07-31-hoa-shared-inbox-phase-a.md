@@ -9521,6 +9521,31 @@ Open a thread from `/inbox`. Expected: three panes on a wide window; the rail sh
 rtk git add apps/hoa/src/app/\(dashboard\)/inbox/ apps/hoa/src/lib/inbox/queries.ts && rtk git commit -m "feat(inbox): three-pane thread view with property context rail"
 ```
 
+**Amended post-review (see `.superpowers/sdd/task-22-report.md`, "Fix pass
+(soft-delete, overdue parity, warning surfacing)"):** three defects found in
+review, fixed together —
+
+1. `getPropertyContext`'s `property_residents` lookup filtered
+   `.is('moved_out_at', null)` but not `.is('deleted_at', null)`, so a
+   soft-deleted resident still rendered on the rail — matching
+   `apps/hoa/src/lib/property-residents.ts`'s own filter. The same omission
+   existed in `matchThread`'s sender-name signal
+   (`apps/hoa/src/lib/inbox/match.ts`) and was worse there: a soft-deleted
+   resident's name could produce a match. Both now also filter
+   `.is('deleted_at', null)`.
+2. `duesOverdueCount` compared `due_date < today`, while the canonical
+   `getDues` (`apps/hoa/src/lib/resident-dashboard.ts`) uses `due_date <=
+   today` — an assessment due today reads "overdue" on the resident
+   dashboard but not on the manager's property rail. Changed to `<=` to
+   match. The dollar balance arithmetic was untouched.
+3. `assignThreadToProperty` can return `{ ok: true, warning }` when the
+   assignment succeeded but the sender-alias write (the matcher's learning
+   loop) failed; `AssignPropertyForm` rendered only `state.error`, so that
+   warning never reached the manager. Now rendered as a separate
+   `<Alert variant="warning">` alongside the existing error alert, using the
+   action's own message ("Assigned, but we could not remember this sender
+   for next time.").
+
 ---
 
 ## Task 23: Attachment fetching and download
