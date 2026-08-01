@@ -333,12 +333,25 @@ export const mailboxWatchdogJob = inngest.createFunction(
     const db = createAdminClient()
     const threshold = new Date(Date.now() - 30 * 60 * 1000).toISOString()
 
+    // A never-synced account (last_synced_at IS NULL) is measured from
+    // `connected_at`, NOT treated as instantly stale. The previous
+    // condition — a bare `last_synced_at.is.null` — flagged every mailbox
+    // the moment it was connected, so the next 15-minute tick told a board
+    // that had just finished onboarding "Mail sync has stalled, resident
+    // email may not be arriving" before the first sync had any chance to
+    // run. Caught in live testing on a freshly connected mailbox.
+    //
+    // The grace period is the same 30 minutes used for a mailbox that HAS
+    // synced before: a connection that has produced no successful sync in
+    // half an hour is genuinely broken and should still be flagged.
     const { data: stalled, error: stalledError } = await db
       .from('mailbox_accounts')
       .select('id, email_address, last_synced_at')
       .is('disconnected_at', null)
       .eq('sync_status', 'ok')
-      .or(`last_synced_at.is.null,last_synced_at.lt.${threshold}`)
+      .or(
+        `last_synced_at.lt.${threshold},and(last_synced_at.is.null,connected_at.lt.${threshold})`,
+      )
 
     if (stalledError) {
       // The watchdog exists BECAUSE the most dangerous failure here is a
@@ -356,7 +369,9 @@ export const mailboxWatchdogJob = inngest.createFunction(
         .from('mailbox_accounts')
         .update({
           sync_status: 'stalled',
-          sync_error: `No successful sync since ${account.last_synced_at ?? 'connection'}.`,
+          sync_error: account.last_synced_at
+            ? `No successful sync since ${account.last_synced_at}.`
+            : 'No successful sync since this mailbox was connected.',
         })
         .eq('id', account.id)
 
