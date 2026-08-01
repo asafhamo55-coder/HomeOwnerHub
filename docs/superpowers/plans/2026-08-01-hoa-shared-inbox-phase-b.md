@@ -406,14 +406,10 @@ ALTER TABLE public.inbox_reply_embeddings ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS board_access ON public.inbox_reply_embeddings;
 CREATE POLICY board_access ON public.inbox_reply_embeddings
   FOR ALL
-  USING (
-    organization_id IN (SELECT auth_org_ids())
-    AND auth_is_board_or_admin(organization_id)
-  )
-  WITH CHECK (
-    organization_id IN (SELECT auth_org_ids())
-    AND auth_is_board_or_admin(organization_id)
-  );
+  USING       (organization_id = ANY (public.auth_org_ids())
+               AND public.auth_is_board_or_admin(organization_id))
+  WITH CHECK  (organization_id = ANY (public.auth_org_ids())
+               AND public.auth_is_board_or_admin(organization_id));
 ```
 
 - [ ] **Step 2: Apply it**
@@ -1549,14 +1545,10 @@ ALTER TABLE public.inbox_drafts ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS board_access ON public.inbox_drafts;
 CREATE POLICY board_access ON public.inbox_drafts
   FOR ALL
-  USING (
-    organization_id IN (SELECT auth_org_ids())
-    AND auth_is_board_or_admin(organization_id)
-  )
-  WITH CHECK (
-    organization_id IN (SELECT auth_org_ids())
-    AND auth_is_board_or_admin(organization_id)
-  );
+  USING       (organization_id = ANY (public.auth_org_ids())
+               AND public.auth_is_board_or_admin(organization_id))
+  WITH CHECK  (organization_id = ANY (public.auth_org_ids())
+               AND public.auth_is_board_or_admin(organization_id));
 ```
 
 - [ ] **Step 2: Apply and verify**
