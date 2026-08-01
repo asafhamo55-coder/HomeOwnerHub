@@ -105,7 +105,11 @@ export default async function InboxPage({
               ? 'Mailbox disconnected — reconnect required'
               : status.syncStatus === 'stalled'
                 ? 'Mail sync has stalled'
-                : 'Some messages were skipped'
+                : // Covers both a partially-skipped run and a run that
+                  // failed outright — mailboxSyncJob records sync_error
+                  // without touching sync_status, so 'ok' + an error means
+                  // either. See MailboxConnectCard for the full reasoning.
+                  'Last sync reported a problem'
           }
           className="m-3"
         >
