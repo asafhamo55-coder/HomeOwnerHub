@@ -2696,26 +2696,29 @@ export type Database = {
       inbox_reply_embeddings: {
         Row: {
           created_at: string
-          embedding: string
+          embedding: string | null
           id: string
           message_id: string
           organization_id: string
+          skip_reason: string | null
           text_sha256: string
         }
         Insert: {
           created_at?: string
-          embedding: string
+          embedding?: string | null
           id?: string
           message_id: string
           organization_id: string
+          skip_reason?: string | null
           text_sha256: string
         }
         Update: {
           created_at?: string
-          embedding?: string
+          embedding?: string | null
           id?: string
           message_id?: string
           organization_id?: string
+          skip_reason?: string | null
           text_sha256?: string
         }
         Relationships: [
