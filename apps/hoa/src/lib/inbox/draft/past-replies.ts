@@ -43,17 +43,12 @@ export async function findSimilarReplies(
 
   if (!embedding) return { replies: [], degraded: ['past_replies'] }
 
-  // Cast to `never`: 0034b (this function) is written but not yet applied —
-  // see the migration file — so it is absent from the generated Database
-  // types. Same pattern as other not-yet-regenerated RPCs in this codebase
-  // (see platform-admin.ts). Remove the cast once types are regenerated
-  // after the migration is applied.
-  const { data, error } = await db.rpc('search_reply_embeddings' as never, {
+  const { data, error } = await db.rpc('search_reply_embeddings', {
     p_org_id: orgId,
     p_query_embedding: toPgVector(embedding),
     p_exclude_thread_id: excludeThreadId,
     p_limit: limit,
-  } as never)
+  })
 
   if (error) {
     // Never log .details — it can echo row contents, i.e. resident PII.

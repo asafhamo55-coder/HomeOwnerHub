@@ -5746,6 +5746,22 @@ export type Database = {
           text: string
         }[]
       }
+      search_reply_embeddings: {
+        Args: {
+          p_exclude_thread_id: string
+          p_limit?: number
+          p_org_id: string
+          p_query_embedding: string
+        }
+        Returns: {
+          body: string
+          message_id: string
+          sent_at: string
+          similarity: number
+          subject: string
+          thread_id: string
+        }[]
+      }
       search_state_statute_chunks: {
         Args: {
           p_limit?: number
