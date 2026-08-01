@@ -16,6 +16,7 @@ import {
   KeyRound,
   LogOut,
   Mail,
+  AtSign,
   Megaphone,
   MessageSquare,
   Scale,
@@ -104,8 +105,15 @@ const GROUPS: NavGroup[] = [
   },
 ]
 
+// Mailbox is admin-only and deliberately absent from BOARD_ACCOUNT:
+// /settings/mailbox gates on requireAdmin, and so do updateScope,
+// disconnectMailbox, and /api/oauth/google/start. A board member sees the
+// Inbox itself (in Community above) but cannot connect, rescope, or
+// disconnect the mailbox, so linking them here would only dead-end in a
+// silent redirect to '/'.
 const ADMIN_ACCOUNT: NavLink[] = [
   { href: '/settings', icon: <Settings className="h-4 w-4" />, label: 'Settings' },
+  { href: '/settings/mailbox', icon: <AtSign className="h-4 w-4" />, label: 'HOA mailbox' },
   { href: '/settings/members', icon: <Users className="h-4 w-4" />, label: 'Members' },
   { href: '/settings/billing', icon: <CreditCard className="h-4 w-4" />, label: 'Billing' },
 ]
