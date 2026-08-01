@@ -39,6 +39,20 @@ export function MailboxConnectCard({ status, preview, scopeOptions, returnTo }: 
 
   const backfilling = status.backfillStatus === 'running'
 
+  // A PARTIAL sync: the connection is healthy and the cursor advanced, but
+  // specific messages could not be fetched or parsed and were permanently
+  // skipped (packages/jobs/src/mailbox-sync.ts writes exactly that into
+  // `sync_error` on an otherwise-successful run). Both render sites used
+  // to gate every error surface on `syncStatus !== 'ok'`, so this text was
+  // written to the database and then never shown to anyone — the board's
+  // inbox was silently missing mail while this card read "Connected".
+  //
+  // Rendered amber, not red, and deliberately NOT folded into the
+  // destructive states below: "we have your mail, minus a few messages" is
+  // a materially different situation from "we are not receiving your mail
+  // at all", and collapsing the two would teach the board to ignore both.
+  const partialSync = status.syncStatus === 'ok' && Boolean(status.syncError)
+
   // `backfillTotalEstimate` is Gmail's resultSizeEstimate — an ESTIMATE,
   // not an exact count. `backfillDone` can legitimately exceed it, so the
   // percentage is clamped to [0, 100] rather than trusted verbatim.
@@ -54,7 +68,7 @@ export function MailboxConnectCard({ status, preview, scopeOptions, returnTo }: 
           <div className="flex items-start gap-3 border-b border-border pb-4">
             <div className="flex-1">
               <p className="font-medium text-foreground">{status.emailAddress}</p>
-              <p className="text-xs text-muted">
+              <p className={partialSync ? 'text-xs text-amber-700 dark:text-amber-400' : 'text-xs text-muted'}>
                 {status.syncStatus === 'ok'
                   ? `Syncing every 2 minutes · last check ${
                       status.lastSyncedAt
@@ -64,7 +78,15 @@ export function MailboxConnectCard({ status, preview, scopeOptions, returnTo }: 
                   : status.syncError ?? 'Sync problem'}
               </p>
             </div>
-            <Badge variant={status.syncStatus === 'ok' ? 'success' : 'destructive'}>
+            <Badge
+              variant={
+                status.syncStatus !== 'ok'
+                  ? 'destructive'
+                  : partialSync
+                    ? 'warning'
+                    : 'success'
+              }
+            >
               {status.syncStatus === 'ok' ? 'Connected' : status.syncStatus}
             </Badge>
           </div>
@@ -82,6 +104,19 @@ export function MailboxConnectCard({ status, preview, scopeOptions, returnTo }: 
             <Alert variant="warning" title="Sync has stalled">
               No successful sync in over 30 minutes. Resident email may not be
               arriving. {status.syncError}
+            </Alert>
+          ) : null}
+
+          {partialSync ? (
+            <Alert variant="warning" title="Some messages were skipped">
+              {/* sync_error is operator-facing diagnostic text written by
+                  the jobs layer (packages/jobs), never user input, and it
+                  carries counts and ids only — never an address, subject,
+                  or body. React escapes it as plain text content here; it
+                  is never interpolated into an href or any raw sink. */}
+              {status.syncError}{' '}
+              Those messages will not be retried — the sync cursor has already moved
+              past them. New mail keeps arriving normally.
             </Alert>
           ) : null}
 

@@ -76,13 +76,29 @@ export default async function InboxPage({
 
   return (
     <main className="flex h-[calc(100vh-4rem)] flex-col">
-      {status.syncStatus !== 'ok' ? (
+      {/* Gated on `syncError`, NOT on `syncStatus !== 'ok'` (amended
+          post-review — final branch review, Fix 2). A run that skipped
+          messages it could not fetch or parse still finishes with
+          sync_status='ok' and records the skip count in sync_error
+          (packages/jobs/src/mailbox-sync.ts); the previous condition threw
+          that away, so the inbox was silently missing mail while every
+          surface read "Connected". Those messages are permanently skipped —
+          the cursor moved past them — so this is the only place the board
+          will ever hear about them.
+
+          Amber for a partial sync, red only for auth_failed: "we have your
+          mail, minus a few messages" and "we are not receiving your mail"
+          must stay visually distinguishable, or the board learns to ignore
+          both. */}
+      {status.syncStatus !== 'ok' || status.syncError ? (
         <Alert
           variant={status.syncStatus === 'auth_failed' ? 'error' : 'warning'}
           title={
             status.syncStatus === 'auth_failed'
               ? 'Mailbox disconnected — reconnect required'
-              : 'Mail sync has stalled'
+              : status.syncStatus === 'stalled'
+                ? 'Mail sync has stalled'
+                : 'Some messages were skipped'
           }
           className="m-3"
         >
