@@ -6,6 +6,7 @@ import {
   countThreadsByStatus,
   getMailboxStatus,
   listThreads,
+  INBOX_PAGE_SIZE,
   type InboxFilter,
 } from '@/lib/inbox/queries'
 import { ThreadList } from './ThreadList'
@@ -24,7 +25,7 @@ const FILTERS: Array<{ key: InboxFilter; label: string }> = [
 export default async function InboxPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string }>
+  searchParams: Promise<{ filter?: string; page?: string }>
 }) {
   const params = await searchParams
   // Inbox tables are gated by auth_is_board_or_admin at the RLS layer
@@ -38,11 +39,27 @@ export default async function InboxPage({
     'needs_review') as InboxFilter
 
   const supabase = await getSupabaseServerClient()
-  const [status, counts, threads] = await Promise.all([
+
+  // Counts must land before the page/offset math below — `counts[filter]`
+  // IS the total this page paginates over, so the count and the list can
+  // never disagree the way they used to (list capped at 50, count
+  // unbounded). Fetched alongside status; threads are fetched after,
+  // once we know how many pages this filter actually has.
+  const [status, counts] = await Promise.all([
     getMailboxStatus(supabase, org.id),
     countThreadsByStatus(supabase, org.id),
-    listThreads(supabase, org.id, filter),
   ])
+
+  const total = counts[filter] ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / INBOX_PAGE_SIZE))
+  const requestedPage = Number.parseInt(params.page ?? '1', 10)
+  const page =
+    Number.isFinite(requestedPage) && requestedPage >= 1
+      ? Math.min(requestedPage, totalPages)
+      : 1
+  const offset = (page - 1) * INBOX_PAGE_SIZE
+
+  const threads = await listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset)
 
   if (!status) {
     return (
@@ -98,7 +115,36 @@ export default async function InboxPage({
               </Link>
             ))}
           </nav>
-          <ThreadList threads={threads} filter={filter} />
+          <ThreadList threads={threads} filter={filter} hasAnyThreads={counts.all > 0} />
+          {total > 0 ? (
+            <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-xs text-muted">
+              <span>
+                Showing {offset + 1}–{Math.min(offset + threads.length, total)} of {total}
+              </span>
+              <div className="flex gap-3">
+                {page > 1 ? (
+                  <Link
+                    href={`/inbox?filter=${filter}&page=${page - 1}`}
+                    className="underline hover:text-foreground"
+                  >
+                    Previous
+                  </Link>
+                ) : (
+                  <span className="text-muted/50">Previous</span>
+                )}
+                {page < totalPages ? (
+                  <Link
+                    href={`/inbox?filter=${filter}&page=${page + 1}`}
+                    className="underline hover:text-foreground"
+                  >
+                    Next
+                  </Link>
+                ) : (
+                  <span className="text-muted/50">Next</span>
+                )}
+              </div>
+            </div>
+          ) : null}
         </aside>
 
         <section className="hidden flex-1 items-center justify-center text-sm text-muted lg:flex">

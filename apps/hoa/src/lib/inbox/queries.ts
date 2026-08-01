@@ -307,6 +307,14 @@ export async function getSetupProgress(db: Db, orgId: string): Promise<SetupStep
 
 export type InboxFilter = 'needs_review' | 'open' | 'waiting' | 'closed' | 'all'
 
+/**
+ * Default page size for `listThreads`. Exported so the page can compute
+ * `offset`/total-pages from the SAME number the query itself paginates
+ * with — a page-size mismatch between caller and query would make "Showing
+ * X of Y" lie.
+ */
+export const INBOX_PAGE_SIZE = 50
+
 export interface ThreadListItem {
   id: string
   subject: string | null
@@ -371,19 +379,30 @@ export async function countThreadsByStatus(
  * exist; a failure in one degrades those fields to "unknown" for this
  * page rather than hiding the whole list, matching the stakes split in
  * getConnectPreview above.
+ *
+ * Paginated via `limit`/`offset` (Supabase `.range()`) rather than an
+ * unbounded fetch — `countThreadsByStatus` counts every thread in a
+ * status, and a status with more than one page must stay reachable
+ * through repeated calls here, not silently cut off at the first page.
+ * Ordering is `last_message_at DESC NULLS LAST`; `.range()` paginates
+ * over that same fixed order on every call, so a null `last_message_at`
+ * (sorted last) can't cause a row to be skipped or duplicated across
+ * pages the way it could with a naive `WHERE last_message_at < cursor`
+ * cursor, which would drop every null-dated thread silently.
  */
 export async function listThreads(
   db: Db,
   orgId: string,
   filter: InboxFilter,
-  limit = 50,
+  limit = INBOX_PAGE_SIZE,
+  offset = 0,
 ): Promise<ThreadListItem[]> {
   let query = db
     .from('inbox_threads')
     .select('id, subject, unit_id, match_confidence, status, last_message_at')
     .eq('organization_id', orgId)
     .order('last_message_at', { ascending: false, nullsFirst: false })
-    .limit(limit)
+    .range(offset, offset + limit - 1)
 
   if (filter !== 'all') query = query.eq('status', filter)
 
@@ -412,11 +431,15 @@ export async function listThreads(
           data: [] as Array<{ id: string; address_line1: string }>,
           error: null,
         }),
+    // `hasAttachments` drives a paperclip affordance the user can click to
+    // expect a file — so it means "has an attachment that can actually be
+    // opened", not merely "one was ever referenced". `pending`/`failed`
+    // rows have no retrievable file yet (or ever); only `stored` does.
     db
       .from('inbox_attachments')
       .select('thread_id')
       .in('thread_id', threadIds)
-      .neq('fetch_status', 'skipped'),
+      .eq('fetch_status', 'stored'),
   ])
 
   const { data: messages, error: messagesError } = messagesResult

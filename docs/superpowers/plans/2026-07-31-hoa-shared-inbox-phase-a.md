@@ -8589,6 +8589,49 @@ Visit `/inbox`. With no mailbox connected you should see the connect prompt; wit
 rtk git add apps/hoa/src/app/\(dashboard\)/inbox/ apps/hoa/src/lib/inbox/queries.ts apps/hoa/src/components/layout/ && rtk git commit -m "feat(inbox): thread list with status filters and match attribution"
 ```
 
+### Post-implementation fix pass (2026-07-31)
+
+Review of the built Task 20 code (not this plan's sample code specifically,
+though the defects originated in the samples above and carried through
+verbatim) found two Important findings, both fixed in the same branch:
+
+1. **Attribution branched on the wrong field.** `confidenceTone` /
+   `attributionLabel` in the Step 2 sample key off `propertyAddress` — a
+   *derived* enrichment that `listThreads` fetches via a deliberately
+   log-and-degrade batched query. `unitId` is the ground truth (set only
+   at high confidence by `decideMatch` in `match.ts`, per the six-signal
+   matcher). Branching on `propertyAddress` meant a real match rendered as
+   "Unassigned" whenever that one enrichment query failed. Fixed by
+   branching on `unitId !== null` first in both functions; when a unit is
+   attached but its address didn't resolve, the row now reads "Matched —
+   address unavailable" instead of lying that nothing matched.
+
+2. **Counts were unbounded, the list was capped at 50, no pagination.**
+   `countThreadsByStatus` counts every thread in a status;
+   `listThreads` (Step 1 sample) hard-caps at `limit = 50` with no way to
+   see thread #51 onward. Any status exceeding 50 threads — expected for
+   Madison Park's backfilled history — showed a filter-chip count higher
+   than the visible rows, and the remainder were permanently unreachable
+   through the screen. Fixed with offset pagination: `listThreads` gained
+   an `offset` parameter (using Supabase `.range()` instead of `.limit()`),
+   `INBOX_PAGE_SIZE` (50) is now exported from `queries.ts` so the page and
+   the query paginate off the same number, and `page.tsx` reads a `page`
+   search param, clamps it against `Math.ceil(counts[filter] / pageSize)`,
+   and renders "Showing X–Y of Z" with Previous/Next links that preserve
+   the selected filter. The three batched enrichment queries in
+   `listThreads` are unchanged — no per-row regression.
+
+Minor findings fixed at the same time: `hasAttachments` now requires
+`fetch_status = 'stored'` (a `pending`/`failed` attachment is not yet
+retrievable, so the paperclip icon no longer promises a file that isn't
+there); the empty state now distinguishes "no mail in the mailbox at all"
+from "no threads match this filter" via an `hasAnyThreads` prop; and
+`ThreadListItem.snippet` — computed but previously unused — is now
+rendered as a muted preview line under the subject.
+
+See `.superpowers/sdd/task-20-report.md` for the full attribution matrix,
+verification output, and commit SHA.
+
 ---
 
 ## Task 21: Triage actions
