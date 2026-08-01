@@ -22,6 +22,15 @@ export function MessageThread({ messages }: { messages: ThreadMessage[] }) {
             <span className="font-semibold text-foreground">
               {message.fromName ?? message.fromEmail ?? 'Unknown'}
             </span>
+            {message.direction === 'outbound' ? (
+              // Phase B: threads are two-sided now that sent mail syncs.
+              // Colour alone is not enough — a manager scanning a long
+              // thread needs to know instantly which messages the HOA sent,
+              // because the whole point is not replying twice.
+              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
+                Sent by HOA
+              </span>
+            ) : null}
             <span>→ {message.toEmails.join(', ') || '—'}</span>
             <span className="ml-auto">
               {message.sentAt ? new Date(message.sentAt).toLocaleString() : ''}
@@ -41,9 +50,6 @@ export function MessageThread({ messages }: { messages: ThreadMessage[] }) {
               {message.attachments.map((file) => (
                 <li key={file.id} className="text-xs">
                   {file.fetchStatus === 'stored' ? (
-                    // /inbox/attachment/[id] doesn't exist yet — it's
-                    // Task 23. The link target will start resolving once
-                    // that route lands; nothing here needs to change.
                     <a href={`/inbox/attachment/${file.id}`} className="underline">
                       📎 {file.fileName}
                     </a>

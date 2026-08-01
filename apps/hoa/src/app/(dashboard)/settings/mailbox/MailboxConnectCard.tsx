@@ -107,18 +107,18 @@ export function MailboxConnectCard({ status, preview, scopeOptions, returnTo }: 
             </Alert>
           ) : null}
 
+          {/* Deliberately NOT "Some messages were skipped". This branch
+              fires whenever sync_error is set while sync_status is still
+              'ok', and that covers two different situations: a run that
+              succeeded but skipped a few unfetchable messages, AND a run
+              that failed outright (mailboxSyncJob records sync_error but
+              leaves sync_status alone, so one transient blip doesn't cry
+              wolf — the watchdog escalates to 'stalled' after 30 minutes
+              of no success). Naming only the first understated the
+              second: a total decryption failure in production rendered
+              as "some messages were skipped". This title is true of
+              both, and the exact diagnostic is shown below it. */}
           {partialSync ? (
-            {/* Deliberately NOT "Some messages were skipped". This branch
-                fires whenever sync_error is set while sync_status is still
-                'ok', and that covers two different situations: a run that
-                succeeded but skipped a few unfetchable messages, AND a run
-                that failed outright (mailboxSyncJob records sync_error but
-                leaves sync_status alone, so one transient blip doesn't cry
-                wolf — the watchdog escalates to 'stalled' after 30 minutes
-                of no success). Naming only the first understated the
-                second: a total decryption failure in production rendered
-                as "some messages were skipped". This title is true of
-                both, and the exact diagnostic is shown below it. */}
             <Alert variant="warning" title="Last sync reported a problem">
               {/* sync_error is operator-facing diagnostic text written by
                   the jobs layer (packages/jobs), never user input, and it
