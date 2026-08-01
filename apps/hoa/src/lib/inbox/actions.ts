@@ -74,7 +74,7 @@ import type { PostgrestError } from '@supabase/supabase-js'
 import type { Json } from '@homeowner-portal/db/types'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { escapeLikePattern, getPropertyRef } from '@/lib/properties/resolve'
+import { escapeLikePattern, getPropertyRef, type PropertyRef } from '@/lib/properties/resolve'
 
 export interface InboxActionState {
   error?: string
@@ -150,7 +150,18 @@ export async function assignThreadToProperty(
   // apps/hoa/src/lib/properties/resolve.ts); reject before writing
   // anything if it doesn't resolve, rather than relying on RLS via
   // auth_org_ids(), which returns every org a caller belongs to.
-  const propertyRef = await getPropertyRef(supabase, org.id, unitId)
+  let propertyRef: PropertyRef | null
+  try {
+    propertyRef = await getPropertyRef(supabase, org.id, unitId)
+  } catch (error) {
+    logDbError(
+      'assignThreadToProperty',
+      'units',
+      { orgId: org.id, unitId },
+      error as PostgrestError,
+    )
+    return { error: 'Could not verify the property. Try again.' }
+  }
   if (!propertyRef) return { error: 'Property not found.' }
 
   const reason: Record<string, unknown> = {

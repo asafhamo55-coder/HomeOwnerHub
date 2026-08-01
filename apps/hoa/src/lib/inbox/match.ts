@@ -424,9 +424,10 @@ function buildEmptySignals(): MatchSignals {
  * would overclaim a decision the manager never made, and would
  * permanently block auto-matching on that thread even after it's
  * reopened. Gating on `status === 'closed'` instead freezes match state
- * only while closed and lets auto-matching resume naturally the moment
- * the thread is reopened — the same "manual survives forever, status
- * guard is temporary" split the rest of this module already relies on.
+ * only while closed. Reopening makes the thread eligible for matching
+ * again; actual matching resumes on the next inbound message. This is the
+ * same "manual survives forever, status guard is temporary" split the rest
+ * of this module already relies on.
  *
  * Scoped to orgId on both the SELECT and the UPDATE — matching every other
  * query in this module — because the only caller (packages/jobs/mailbox-sync)
