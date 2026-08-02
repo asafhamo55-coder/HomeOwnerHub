@@ -641,6 +641,13 @@ AS $$
   JOIN public.inbox_messages m ON m.id = e.message_id
   JOIN public.inbox_threads  t ON t.id = m.thread_id
   WHERE e.organization_id = p_org_id
+    -- Marker rows (NULL embedding) record "considered, deliberately not
+    -- embedded" for replies too short to teach anything about voice. They
+    -- exist so a skipped message stops re-qualifying as a candidate every
+    -- run; see 0034c. They must never be returned as a similar reply, and
+    -- `<=>` against NULL would sort them unpredictably rather than exclude
+    -- them, so the filter is explicit.
+    AND e.embedding IS NOT NULL
     AND m.thread_id IS DISTINCT FROM p_exclude_thread_id
   ORDER BY e.embedding <=> p_query_embedding
   LIMIT LEAST(GREATEST(p_limit, 1), 20);
