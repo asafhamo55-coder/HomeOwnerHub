@@ -14,6 +14,7 @@ import {
   ArrowRightLeft,
   FileText,
   Clock,
+  Mail,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import {
@@ -29,6 +30,11 @@ import { getPropertyDetail, type PropertyTenure } from '@/lib/properties'
 import { getLeaseCap } from '@/lib/leases'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getCurrentUserRole } from '@/lib/auth'
+import {
+  listThreadsForUnit,
+  type CorrespondenceThreadSummary,
+} from '@/lib/inbox/queries'
+import { formatShortDate } from '@/lib/format-datetime'
 import type { PropertyResidentRow, PropertyResidentRole } from '@/lib/property-residents'
 import type { PropertyEventRow, PropertyEventKind } from '@/lib/property-events'
 import { TenureSelector } from './TenureSelector'
@@ -107,7 +113,7 @@ export default async function PropertyDetailPage({
   const isAdmin = ctx?.role === 'admin'
   const unitId = unit?.id ?? null
 
-  const [violationsRes, assessmentsRes] = await Promise.all([
+  const [violationsRes, assessmentsRes, correspondence] = await Promise.all([
     supabase
       .from('hoa_violations')
       .select('id, description, status, severity, created_at, cure_period_days, notice_sent_at')
@@ -126,6 +132,13 @@ export default async function PropertyDetailPage({
           .order('due_date', { ascending: false })
           .limit(12)
       : Promise.resolve({ data: [] }),
+    // unitId null means this property has no bridged unit row — correspondence
+    // cannot be linked to it at all, which the section below must render as a
+    // distinct state from "linked, but zero threads so far". `correspondence`
+    // stays `null` in that case; an empty array means "linked, no threads yet".
+    unitId && ctx
+      ? listThreadsForUnit(supabase, ctx.org.id, unitId)
+      : Promise.resolve(null),
   ])
 
   const violations = (violationsRes.data ?? []) as ViolationRow[]
@@ -236,6 +249,37 @@ export default async function PropertyDetailPage({
                   propertyId={p.id}
                   unitId={unitId}
                 />
+              ))}
+            </ul>
+          </Card>
+        )}
+      </section>
+
+      {/* ─── Correspondence ─── */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">Correspondence</h2>
+          <Link href="/inbox" className="text-sm font-medium text-primary hover:underline">
+            Open inbox
+          </Link>
+        </div>
+        {correspondence === null ? (
+          <EmptyState
+            icon={<Mail className="h-8 w-8" aria-hidden />}
+            title="Not linked to a mailbox unit"
+            description="This property isn't bridged to a unit yet, so incoming email can't be matched to it. Correspondence will appear here once it is."
+          />
+        ) : correspondence.length === 0 ? (
+          <EmptyState
+            icon={<Mail className="h-8 w-8" aria-hidden />}
+            title="No correspondence yet"
+            description="Emails from this household will appear here once they write in."
+          />
+        ) : (
+          <Card>
+            <ul className="divide-y divide-border">
+              {correspondence.map((t) => (
+                <CorrespondenceRow key={t.id} thread={t} />
               ))}
             </ul>
           </Card>
@@ -455,6 +499,37 @@ function ResidentRow({ resident }: { resident: PropertyResidentRow }) {
         residentName={resident.full_name}
         isActive={isActive}
       />
+    </li>
+  )
+}
+
+// Same tones the Violations section above uses (success / warning / outline),
+// extended with `neutral` for "waiting" so it reads as distinct from "open"
+// rather than reusing outline for both.
+const THREAD_STATUS_VARIANT: Record<string, 'success' | 'warning' | 'outline' | 'neutral'> = {
+  needs_review: 'warning',
+  open: 'outline',
+  waiting: 'neutral',
+  closed: 'success',
+}
+
+function CorrespondenceRow({ thread }: { thread: CorrespondenceThreadSummary }) {
+  return (
+    <li className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
+      <div className="min-w-0 flex-1">
+        <Link
+          href={`/inbox/${thread.id}`}
+          className="block truncate font-medium text-foreground hover:underline"
+        >
+          {thread.subject || '(no subject)'}
+        </Link>
+        <p className="text-xs text-muted">
+          {thread.lastMessageAt ? formatShortDate(thread.lastMessageAt) : ''}
+        </p>
+      </div>
+      <Badge variant={THREAD_STATUS_VARIANT[thread.status] ?? 'outline'} size="sm">
+        {thread.status}
+      </Badge>
     </li>
   )
 }

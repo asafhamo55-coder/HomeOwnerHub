@@ -953,6 +953,62 @@ export async function getLatestDraft(
   }
 }
 
+// ─── Correspondence summary (property detail page) ──────────────────────
+
+/**
+ * Default cap for `listThreadsForUnit`. This is a summary card on the
+ * property page, not the inbox itself, so it is deliberately small.
+ */
+export const CORRESPONDENCE_SUMMARY_LIMIT = 10
+
+export interface CorrespondenceThreadSummary {
+  id: string
+  subject: string | null
+  status: string
+  lastMessageAt: string | null
+}
+
+/**
+ * The Correspondence section on the property detail page — the only place
+ * outside the inbox that reads `inbox_threads`.
+ *
+ * This is list-defining, the same stakes as `listThreads` above: a
+ * swallowed error here would render an empty list, and an empty list on
+ * this card reads as "this household has never written in" — a specific,
+ * confident, and false claim about the resident, not a vague degradation.
+ * That is a worse failure mode than losing the rest of the property page,
+ * so this throws rather than degrading to `[]`, matching `listThreads`,
+ * `getMailboxStatus`, and `getLatestDraft` above rather than the
+ * enrichment-only reads (`getUnitLabel`, the per-row lookups inside
+ * `getConnectPreview`).
+ */
+export async function listThreadsForUnit(
+  db: Db,
+  orgId: string,
+  unitId: string,
+  limit = CORRESPONDENCE_SUMMARY_LIMIT,
+): Promise<CorrespondenceThreadSummary[]> {
+  const { data, error } = await db
+    .from('inbox_threads')
+    .select('id, subject, status, last_message_at')
+    .eq('organization_id', orgId)
+    .eq('unit_id', unitId)
+    .order('last_message_at', { ascending: false, nullsFirst: false })
+    .limit(limit)
+
+  if (error) {
+    logDbError('listThreadsForUnit', 'inbox_threads', { orgId, unitId }, error)
+    throw new Error(`listThreadsForUnit: failed to load correspondence: ${error.message}`)
+  }
+
+  return (data ?? []).map((thread) => ({
+    id: thread.id,
+    subject: thread.subject,
+    status: thread.status,
+    lastMessageAt: thread.last_message_at,
+  }))
+}
+
 /**
  * Address label for a single unit — used to show what a suggested-but-
  * unconfirmed match would file under, before a manager confirms it. Not
