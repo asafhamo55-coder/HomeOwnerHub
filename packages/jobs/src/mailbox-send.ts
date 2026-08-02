@@ -69,7 +69,29 @@ export async function runMailboxSend(
     throw new Error(`mailboxSendJob: failed to load draft: ${draftError.message}`)
   }
   if (!draft) throw new Error(`mailboxSendJob: draft ${draftId} not found`)
-  if (draft.status !== 'queued') return { sent: false, reason: draft.status }
+
+  // 'sending' must pass this guard, and that is not a widening of it.
+  //
+  // Inngest memoizes each step result and RE-INVOKES this function from the
+  // top; only code inside a step is skipped on replay. The read above is not
+  // in a step, so it re-runs every invocation — and the invocation right
+  // after `step.run('claim')` reads back the row THIS RUN just flipped to
+  // 'sending'. Rejecting 'sending' here therefore made the job return
+  // `{sent:false}` before reaching its own memoized claim, so the reply was
+  // never sent, nothing threw, no `fail()` ran, and the row sat at 'sending'
+  // until the watchdog closed it out with STUCK_SEND_REASON — which tells a
+  // board "we cannot tell whether it was delivered" about a message that
+  // provably never left. No draft ever reached 'sent'.
+  //
+  // Exclusivity does NOT come from this guard; it comes from the conditional
+  // claim below (`.eq('status','queued')`), which is the sole arbiter. A
+  // DIFFERENT run reaching here while this one holds the row still gets
+  // zero matched rows from its own claim and backs off — unchanged. So the
+  // only statuses that may short-circuit are the terminal ones this run
+  // cannot have produced.
+  if (draft.status !== 'queued' && draft.status !== 'sending') {
+    return { sent: false, reason: draft.status }
+  }
 
   if (draft.send_after) await step.sleepUntil('undo-window', new Date(draft.send_after))
 

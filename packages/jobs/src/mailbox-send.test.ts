@@ -446,3 +446,149 @@ describe('runMailboxSend', () => {
     await expect(runMailboxSend(db, step, fakeLogger(), DRAFT_ID)).rejects.toThrow(/claim failed/)
   })
 })
+
+/**
+ * Inngest does not run a function straight through. Each `step.run` /
+ * `step.sleepUntil` result is memoized and reported to the executor, which
+ * then RE-INVOKES the function from the top; memoized steps return their
+ * recorded value instead of re-running, and every line OUTSIDE a step runs
+ * again on every invocation. (See the SDK's `stepCompletionOrder` /
+ * `remainingStepsToBeSeen` execution state.)
+ *
+ * `fakeStep()` above models a single straight-through pass, so nothing in
+ * this suite exercises that replay. This harness does: `runToCompletion`
+ * drives `runMailboxSend` the way the Inngest executor actually would.
+ */
+class StepInterrupt extends Error {}
+
+function memoizingStep(): MailboxSendStep {
+  const memo = new Map<string, unknown>()
+  return {
+    sleepUntil: vi.fn(async (id: string) => {
+      if (memo.has(id)) return
+      memo.set(id, null)
+      throw new StepInterrupt(id)
+    }),
+    run: vi.fn(async (id: string, fn: () => Promise<unknown>) => {
+      if (memo.has(id)) return memo.get(id)
+      const result = await fn()
+      memo.set(id, result)
+      // Inngest ends the invocation here to record the step's result.
+      throw new StepInterrupt(id)
+    }),
+  } as unknown as MailboxSendStep
+}
+
+async function runToCompletion(
+  db: Parameters<typeof runMailboxSend>[0],
+  step: MailboxSendStep,
+  logger: MailboxSendLogger,
+): Promise<unknown> {
+  for (let invocation = 0; invocation < 20; invocation++) {
+    try {
+      return await runMailboxSend(db, step, logger, DRAFT_ID)
+    } catch (error) {
+      if (error instanceof StepInterrupt) continue
+      throw error
+    }
+  }
+  throw new Error('runToCompletion: function never settled')
+}
+
+/**
+ * A stateful `inbox_drafts`/threads/accounts/messages fake. Unlike
+ * `buildDb`'s pre-scripted queues, this one holds real mutable rows and
+ * applies `.eq(...)` filters, so it answers the SAME way on a replay that
+ * Postgres would — which is the entire point of these tests.
+ */
+function buildStatefulDb() {
+  const draft: Record<string, unknown> = {
+    id: DRAFT_ID,
+    organization_id: 'org-1',
+    thread_id: THREAD_ID,
+    subject: 'Re: Fence',
+    body_text: 'Thanks for writing.',
+    send_after: '2026-01-01T00:00:30.000Z',
+    status: 'queued',
+  }
+
+  const from = vi.fn((table: string) => {
+    const filters: Record<string, unknown> = {}
+    let pendingUpdate: Record<string, unknown> | null = null
+
+    const rowFor = (): unknown => {
+      if (table === 'inbox_threads') {
+        return { gmail_thread_id: 'gmail-thread-1', mailbox_account_id: ACCOUNT_ID }
+      }
+      if (table === 'mailbox_accounts') {
+        return { email_address: 'hoa@example.com', disconnected_at: null }
+      }
+      if (table === 'inbox_messages') {
+        return { rfc822_message_id: '<abc@mail.gmail.com>', from_email: RESIDENT_EMAIL }
+      }
+      return { ...draft }
+    }
+
+    const settle = async (): Promise<Row> => {
+      if (!pendingUpdate) return { data: rowFor(), error: null }
+      // A conditional UPDATE: apply only if every filter matches the row.
+      const matches = Object.entries(filters).every(([col, val]) =>
+        col === 'id' ? val === draft.id : draft[col] === val,
+      )
+      if (!matches) return { data: null, error: null }
+      Object.assign(draft, pendingUpdate)
+      return { data: { id: DRAFT_ID }, error: null }
+    }
+
+    const chain: Record<string, unknown> = {
+      select: vi.fn(() => chain),
+      update: vi.fn((patch: Record<string, unknown>) => {
+        pendingUpdate = patch
+        return chain
+      }),
+      eq: vi.fn((col: string, val: unknown) => {
+        filters[col] = val
+        return chain
+      }),
+      order: vi.fn(() => chain),
+      limit: vi.fn(() => chain),
+      maybeSingle: settle,
+      then: (resolve: (r: Row) => unknown) => settle().then(resolve),
+    }
+    return chain
+  })
+
+  return { db: { from } as unknown as Parameters<typeof runMailboxSend>[0], draft }
+}
+
+describe('runMailboxSend under Inngest step replay', () => {
+  beforeEach(() => {
+    vi.mocked(sendReply).mockReset()
+    vi.mocked(sendReply).mockResolvedValue({
+      messageId: 'gmail-msg-1',
+      threadId: 'gmail-thread-1',
+    })
+    vi.mocked(buildRawMessage).mockReturnValue('raw-message')
+  })
+
+  it('sends the reply even though the claim flips the row before the next invocation', async () => {
+    const { db, draft } = buildStatefulDb()
+
+    await runToCompletion(db, memoizingStep(), fakeLogger())
+
+    expect(sendReply).toHaveBeenCalledTimes(1)
+    expect(draft.status).toBe('sent')
+  })
+
+  it('does not send when a different run already claimed the row', async () => {
+    const { db, draft } = buildStatefulDb()
+    draft.status = 'sending' // claimed by another run; this run's memo is empty
+
+    const result = (await runToCompletion(db, memoizingStep(), fakeLogger())) as {
+      sent: boolean
+    }
+
+    expect(sendReply).not.toHaveBeenCalled()
+    expect(result.sent).toBe(false)
+  })
+})
