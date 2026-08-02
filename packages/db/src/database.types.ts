@@ -2595,6 +2595,93 @@ export type Database = {
           },
         ]
       }
+      inbox_drafts: {
+        Row: {
+          ai_run_id: string | null
+          approved_at: string | null
+          approved_by: string | null
+          blanks: Json
+          body_text: string
+          citations: Json
+          created_at: string
+          created_by: string | null
+          error: string | null
+          gmail_message_id: string | null
+          grounded: boolean
+          grounding_note: string | null
+          id: string
+          model: string | null
+          organization_id: string
+          prompt_version: string | null
+          send_after: string | null
+          sent_at: string | null
+          status: string
+          subject: string
+          thread_id: string
+        }
+        Insert: {
+          ai_run_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          blanks?: Json
+          body_text: string
+          citations?: Json
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          gmail_message_id?: string | null
+          grounded?: boolean
+          grounding_note?: string | null
+          id?: string
+          model?: string | null
+          organization_id: string
+          prompt_version?: string | null
+          send_after?: string | null
+          sent_at?: string | null
+          status?: string
+          subject: string
+          thread_id: string
+        }
+        Update: {
+          ai_run_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          blanks?: Json
+          body_text?: string
+          citations?: Json
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          gmail_message_id?: string | null
+          grounded?: boolean
+          grounding_note?: string | null
+          id?: string
+          model?: string | null
+          organization_id?: string
+          prompt_version?: string | null
+          send_after?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbox_drafts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_drafts_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inbox_messages: {
         Row: {
           body_html: string | null
