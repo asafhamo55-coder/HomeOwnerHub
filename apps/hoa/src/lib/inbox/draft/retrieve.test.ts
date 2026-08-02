@@ -77,6 +77,58 @@ describe('collectFragments', () => {
     })
     expect(fragments).toEqual([])
   })
+
+  // ─── I1 ───────────────────────────────────────────────────────────────
+  // `fragments` is exactly the set `validateCitations` resolves a citation
+  // against. Past replies are other residents' (and attorneys', and
+  // vendors') correspondence, pulled in with no similarity floor, so keeping
+  // them out of that set is what makes quoting them impossible rather than
+  // merely forbidden.
+  const withPastReply: SourceResults = {
+    docs: { citations: [] },
+    statutes: { citations: [] },
+    property: null,
+    pastReplies: [
+      {
+        messageId: 'm1',
+        subject: 'Re: your balance',
+        body: 'The Hendersons at 14 Oak settled their $2,300 lien last week.',
+      },
+    ],
+    degraded: [],
+  }
+
+  it('never turns a past reply into a citable fragment', () => {
+    const { fragments } = collectFragments(withPastReply)
+
+    expect(fragments).toEqual([])
+    expect(fragments.some((f) => f.refId.startsWith('reply:'))).toBe(false)
+  })
+
+  it('returns past replies as voice examples instead, with no refId or message id', () => {
+    const { voiceExamples } = collectFragments(withPastReply)
+
+    expect(voiceExamples).toEqual([
+      {
+        subject: 'Re: your balance',
+        body: 'The Hendersons at 14 Oak settled their $2,300 lien last week.',
+      },
+    ])
+    // No handle anything downstream could turn back into a citable ref.
+    expect(Object.keys(voiceExamples[0]!)).toEqual(['subject', 'body'])
+  })
+
+  it('keeps real sources citable while past replies are not', () => {
+    const { fragments, voiceExamples } = collectFragments({
+      ...withPastReply,
+      docs: {
+        citations: [{ chunkId: 'c1', label: 'CC&Rs §4.2', text: 'Fences may not exceed six feet.' }],
+      },
+    })
+
+    expect(fragments.map((f) => f.refId)).toEqual(['doc:c1'])
+    expect(voiceExamples).toHaveLength(1)
+  })
 })
 
 describe('fetchGoverningDocChunkTexts', () => {

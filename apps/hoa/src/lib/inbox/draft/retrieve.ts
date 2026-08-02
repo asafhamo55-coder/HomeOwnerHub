@@ -6,9 +6,38 @@ import { findSimilarReplies } from './past-replies'
 
 export interface RetrievedFragment {
   refId: string
-  sourceType: 'document' | 'statute' | 'property' | 'past_reply'
+  sourceType: 'document' | 'statute' | 'property'
   label: string
   text: string
+}
+
+/**
+ * A past outbound reply, carried as a TONE sample only.
+ *
+ * Deliberately has no `refId` and is deliberately NOT a `RetrievedFragment`,
+ * which is what makes it uncitable: `validateCitations` resolves a citation
+ * against `fragments` alone, so a quote lifted from one of these fails the
+ * gate and kills the whole draft.
+ *
+ * This is the I1 fix, and the reason is a disclosure risk, not a quality
+ * one. `findSimilarReplies` embeds every outbound message over 40 characters
+ * with no scope filter, and `search_reply_embeddings` returns the top 5 with
+ * no similarity floor — so five past emails are injected into every draft
+ * regardless of relevance. Now that the HOA's whole sent folder syncs, that
+ * corpus includes correspondence about other households, with attorneys and
+ * with vendors. While these were fragments, a verbatim quote from any of
+ * them passed `validateCitations` cleanly and could be shipped to a
+ * different resident with a citation label vouching for it; only a prompt
+ * rule stood in the way. Keeping them as an explicitly-uncitable section
+ * preserves the point of the corpus (drafts that sound like this
+ * association) while making that quotation structurally impossible.
+ *
+ * Mirrors the existing `aiContext` treatment — see `ThreadRetrieval.aiContext`
+ * and prompt.ts's VOICE EXAMPLES section.
+ */
+export interface VoiceExample {
+  subject: string | null
+  body: string
 }
 
 export interface SourceResults {
@@ -29,6 +58,11 @@ export interface ThreadRetrieval {
   }>
   latestInbound: string | null
   fragments: RetrievedFragment[]
+  /**
+   * Past outbound replies, for voice matching only — never citable, never
+   * given a refId. See `VoiceExample`.
+   */
+  voiceExamples: VoiceExample[]
   degraded: string[]
   hasProperty: boolean
   /**
@@ -48,7 +82,8 @@ export interface ThreadRetrieval {
 }
 
 /**
- * Flatten every source into one citable list.
+ * Flatten every CITABLE source into one list, and past replies into a
+ * separate uncitable one.
  *
  * refIds are prefixed by source type because W1 and W30 both return chunk
  * ids from their own corpora and those id spaces can collide. A collision
@@ -56,11 +91,17 @@ export interface ThreadRetrieval {
  * a citation that looks verified but points somewhere else, which is worse
  * than no citation at all.
  *
+ * Past replies deliberately do NOT become fragments and get no refId —
+ * see `VoiceExample` for why. That split is this function's whole security
+ * contribution: `fragments` is exactly the set a citation may resolve
+ * against, so anything that must never be quoted must never be in it.
+ *
  * Exported separately from retrieveForThread so it can be tested without a
  * database or four network calls.
  */
 export function collectFragments(sources: SourceResults): {
   fragments: RetrievedFragment[]
+  voiceExamples: VoiceExample[]
   degraded: string[]
 } {
   const fragments: RetrievedFragment[] = []
@@ -89,16 +130,15 @@ export function collectFragments(sources: SourceResults): {
       text: sources.property.summary,
     })
   }
-  for (const r of sources.pastReplies) {
-    fragments.push({
-      refId: `reply:${r.messageId}`,
-      sourceType: 'past_reply',
-      label: r.subject ? `Past reply — ${r.subject}` : 'Past reply',
-      text: r.body,
-    })
-  }
+  // NOT pushed into `fragments`, and no refId is minted for them. The
+  // `messageId` is dropped here on purpose: nothing downstream should have
+  // a handle it could turn back into a citable reference.
+  const voiceExamples: VoiceExample[] = sources.pastReplies.map((r) => ({
+    subject: r.subject,
+    body: r.body,
+  }))
 
-  return { fragments, degraded: sources.degraded }
+  return { fragments, voiceExamples, degraded: sources.degraded }
 }
 
 // ─── State resolution for W30 ───────────────────────────────────────────
@@ -376,6 +416,7 @@ export async function retrieveForThread(
       messages,
       latestInbound: null,
       fragments: [],
+      voiceExamples: [],
       degraded: ['no_inbound_text'],
       hasProperty: Boolean(thread.unitId),
       aiContext: { governingDocs: null, stateLaw: null },
@@ -483,6 +524,7 @@ export async function retrieveForThread(
     messages,
     latestInbound,
     fragments: collected.fragments,
+    voiceExamples: collected.voiceExamples,
     degraded: collected.degraded,
     hasProperty: Boolean(thread.unitId),
     aiContext: { governingDocs: governingDocsContext, stateLaw: stateLawContext },

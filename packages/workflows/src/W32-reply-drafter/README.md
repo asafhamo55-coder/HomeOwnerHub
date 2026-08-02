@@ -11,9 +11,10 @@ const { subject, body, citations, blanks, grounded, groundingNote, runId } = awa
   {
     threadSubject: thread.subject,
     messages: thread.messages,      // { direction, from, text }[]
-    fragments: retrieval.fragments, // { refId, sourceType, label, text }[]
+    fragments: retrieval.fragments,         // { refId, sourceType, label, text }[] — citable
+    voiceExamples: retrieval.voiceExamples, // past replies — tone only, NOT citable
     degraded: retrieval.degraded,
-    aiContext: retrieval.aiContext, // W1/W30 synthesized answers — background only
+    aiContext: retrieval.aiContext,         // W1/W30 synthesized answers — background only
   },
   { organizationId: org.id },
 )
@@ -27,11 +28,12 @@ const { subject, body, citations, blanks, grounded, groundingNote, runId } = awa
 |---|---|
 | Input.threadSubject | `string \| null` |
 | Input.messages | `{ direction: 'inbound' \| 'outbound', from: string, text: string }[]` |
-| Input.fragments | `{ refId, sourceType: 'document'\|'statute'\|'property'\|'past_reply', label, text }[]` — the ONLY citable material |
+| Input.fragments | `{ refId, sourceType: 'document'\|'statute'\|'property', label, text }[]` — the ONLY citable material |
+| Input.voiceExamples | `{ subject: string \| null, body: string }[]` — past replies, tone only. No `refId`, never citable |
 | Input.degraded | `string[]` — names of sources that failed to load; the model is told not to assume a value for them |
 | Input.aiContext | `{ governingDocs: string \| null, stateLaw: string \| null }` — W1's/W30's own synthesized answers, background orientation only |
 | Output.subject / body | `string` — `body` contains `[[BLANK: <kind>]]` markers where the model withheld content |
-| Output.citations | `{ refId, quote, label }[]` |
+| Output.citations | `{ refId, quote, label }[]` — `label` is always the retrieved fragment's own, never the model's (see below) |
 | Output.blanks | `{ kind: 'money'\|'enforcement'\|'legal'\|'other_resident', prompt: string }[]` |
 | Output.grounded | `boolean` — false for an acknowledgement-only draft |
 | Output.groundingNote | `string \| null` — required explanation when `grounded=false` |
@@ -39,6 +41,18 @@ const { subject, body, citations, blanks, grounded, groundingNote, runId } = awa
 ## `aiContext` is never a citation
 
 `ThreadRetrieval.aiContext` (Task 7) carries W1's and W30's own synthesized *answers* — unattributed AI paraphrase, not the documents themselves. `fragments` carries the actual chunk text with a `refId`; `aiContext` deliberately has none. The prompt (`prompt.ts → buildReplyDrafterUserPrompt`) renders it in its own `BACKGROUND` section, physically separated from `SOURCES`, labelled "NOT a source — do not quote, do not cite, no refId exists for this section." The system prompt (rule 3) repeats the same constraint. Passing `aiContext` to the model without this separation would reintroduce the defect Task 7's fix wave removed: the AI's paraphrase displayed as though it were the association's governing document.
+
+## Past replies are voice samples, not sources
+
+`voiceExamples` carries the association's own past outbound replies so drafts sound like this association. They are **not** `fragments`, carry no `refId`, and are rendered in their own `VOICE EXAMPLES` prompt section labelled "NOT sources… copy the style only, never the content" (system prompt rule 4).
+
+The separation is structural, not stylistic. `findSimilarReplies` embeds every outbound message over 40 characters with no scope filter, and `search_reply_embeddings` returns the top 5 with **no similarity floor** — so five past emails are injected into every draft regardless of relevance. Now that the HOA's whole sent folder syncs, that corpus includes correspondence about other households, with attorneys and with vendors. While these were fragments each had a `refId`, so a verbatim quote from one resident's correspondence passed `validateCitations` cleanly and could be shipped to a *different* resident with a citation vouching for it. Because `validateCitations` only ever resolves against `fragments`, keeping voice examples out of that array makes the quotation fail the gate instead of relying on a prompt rule to prevent it.
+
+## The citation label is never model-authored
+
+`validateCitations` checks refId membership and quote fidelity; it does not look at `label`. But `label` is the only part of a citation a reviewer sees — `DraftPanel.tsx` renders `label — "quote"` and never shows the `refId`. A model could therefore pair a real, verbatim line from the property record with `label: 'CC&Rs §4.2'`, pass every gate, and manufacture an authority with the one field that would expose it hidden from view.
+
+So `processReplyDrafterResponse` rebuilds every citation's `label` from the retrieved fragment's own label after validation succeeds. The model's label is **discarded, not compared** — there is no reason to grant a model any authorship of an attribution, and a "close enough" comparison would just be a new judgement call to get wrong. `label` remains in the output schema only because the prompt still asks for it and a missing required key would fail the parse.
 
 ## The four prohibitions (spec D3)
 

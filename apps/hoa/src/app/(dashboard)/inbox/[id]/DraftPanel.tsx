@@ -95,16 +95,44 @@ export function DraftPanel({ threadId, draft }: Props) {
     )
   }
 
-  // ── 6. Failed — the error, and an explicit "Try again". Never automatic. ──
+  // ── 6. Failed — the error, and an explicit new draft. Never automatic. ──
+  //
+  // `status='failed'` is written by exactly one place: mailbox-send.ts's
+  // `fail()` (and the watchdog in mailbox-sync.ts, for a send stuck in
+  // 'sending'). `createDraft` never writes it. So 'failed' ALWAYS means the
+  // SEND failed — never that drafting failed.
+  //
+  // This panel used to headline "Drafting failed" with a "Try again" button
+  // that called `createDraft`. Both were wrong in the same direction, and
+  // together they made this the only path in the feature that can put the
+  // same reply in front of a resident twice: `sendReply` deliberately has no
+  // retry, precisely because an ambiguous failure (a timeout where Gmail may
+  // already have accepted the message) must be a human's decision — and then
+  // the UI told that human their DRAFT failed, from which the only
+  // reasonable conclusion is that nothing was sent.
+  //
+  // So: name the send, say plainly that delivery is unknown, and label the
+  // button for what it actually does. It writes a NEW draft; it does not
+  // retry the send, and there is no way to retry the send.
   if (draft.status === 'failed') {
     return (
       <section className="mt-4 space-y-2 rounded-md border border-destructive/40 p-3">
-        <p className="text-sm font-semibold text-foreground">Drafting failed</p>
+        <p className="text-sm font-semibold text-foreground">Sending this reply failed</p>
         <p className="text-xs text-muted">{draft.error ?? 'Something went wrong.'}</p>
+        <p className={AMBER_BOX}>
+          This reply may still have reached the resident — a send can fail
+          after the message was already accepted for delivery. Check the
+          thread, or the mailbox&apos;s Sent folder, before writing another
+          one, or they may receive it twice.
+        </p>
         {actionError ? <Alert variant="error">{actionError}</Alert> : null}
         <Button size="sm" loading={pending} onClick={handleCreate}>
-          Try again
+          Write a new draft
         </Button>
+        <p className="text-xs text-muted">
+          This starts a fresh draft for you to review and approve. It does not
+          resend the reply above.
+        </p>
       </section>
     )
   }
@@ -154,7 +182,10 @@ export function DraftPanel({ threadId, draft }: Props) {
   // this is what makes filling a blank enable Approve immediately, and
   // deleting the text back re-disable it. `approveDraft` re-checks the
   // same predicate server-side; this is the affordance, not the guarantee.
-  const blocked = hasUnfilledBlanks(body)
+  // Subject as well as body — `approveDraft` checks both server-side, and an
+  // affordance that stayed enabled while the subject held a blank would just
+  // hand the reviewer a rejection at the moment they press Approve.
+  const blocked = hasUnfilledBlanks(subject) || hasUnfilledBlanks(body)
 
   return (
     <section className="mt-4 space-y-3 rounded-md border border-border p-3">

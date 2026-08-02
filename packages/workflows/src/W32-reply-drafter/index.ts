@@ -26,12 +26,30 @@ export const ReplyDrafterInputSchema = z.object({
       text: z.string(),
     }),
   ),
+  // The ONLY citable set. A citation resolves against this array and
+  // nothing else, so anything that must never be quoted must never appear
+  // here — see `voiceExamples` below.
   fragments: z.array(
     z.object({
       refId: z.string(),
-      sourceType: z.enum(['document', 'statute', 'property', 'past_reply']),
+      sourceType: z.enum(['document', 'statute', 'property']),
       label: z.string(),
       text: z.string(),
+    }),
+  ),
+  // The association's own past replies, for TONE ONLY. Never citable, and
+  // deliberately carrying no refId — the same treatment `aiContext` gets,
+  // and for a sharper reason: the sent-mail corpus these come from is
+  // unscoped, so it contains correspondence about other households, with
+  // attorneys and with vendors. While they were `fragments`, a verbatim
+  // quote from one passed the citation gate cleanly and could be shipped to
+  // a different resident under a citation label. Structure, not a prompt
+  // rule, is what prevents that now. See prompt.ts rule 4 and
+  // apps/hoa/src/lib/inbox/draft/retrieve.ts's `VoiceExample`.
+  voiceExamples: z.array(
+    z.object({
+      subject: z.string().nullable(),
+      body: z.string(),
     }),
   ),
   degraded: z.array(z.string()),
@@ -49,6 +67,12 @@ export type ReplyDrafterInput = z.infer<typeof ReplyDrafterInputSchema>
 export const ReplyDrafterOutputSchema = z.object({
   subject: z.string(),
   body: z.string(),
+  // `label` stays in the schema because the prompt still asks the model for
+  // it and a required-but-absent key would fail the parse — but the value
+  // the model puts here NEVER survives. `processReplyDrafterResponse`
+  // overwrites every label from the retrieved fragment's own label before
+  // returning. See the comment there for why it is overwritten rather than
+  // compared.
   citations: z.array(z.object({ refId: z.string(), quote: z.string(), label: z.string() })),
   blanks: z.array(
     z.object({
@@ -147,10 +171,29 @@ function parseModelJson(raw: string): unknown {
 }
 
 /**
- * Parse + schema-validate the model's raw JSON response, then enforce the
- * citation gate against the fragments this run actually retrieved — both
- * that every cited refId was retrieved, and that its quote actually occurs
- * in that fragment's text (see tools.ts / UnsupportedQuoteError).
+ * Parse + schema-validate the model's raw JSON response, enforce the
+ * citation gate against the fragments this run actually retrieved, then
+ * replace every citation label with the retrieved fragment's own.
+ *
+ * The gate (tools.ts) checks two things: that every cited refId was
+ * actually retrieved, and that the citation's `quote` really occurs in that
+ * refId's text. Neither looks at `label`, and `label` is the only part of a
+ * citation the board member actually reads — DraftPanel.tsx renders
+ * `label — "quote"` and never shows the refId. So a model could emit
+ * `{ refId: 'prop:context', quote: <a real line from the property record>,
+ * label: 'CC&Rs §4.2' }`, pass every gate, and put a fabricated authority
+ * in front of the reviewer with the one field that would expose it hidden.
+ *
+ * The fix is to stop treating `label` as model output at all. Retrieval
+ * already knows each fragment's authoritative label (retrieve.ts's
+ * `collectFragments`), so it is taken from there unconditionally. The
+ * model's label is DISCARDED, not compared: a mismatch check would have to
+ * decide what counts as "close enough", and there is no reason to grant the
+ * model any authorship of an attribution in the first place. The fallback
+ * is the refId itself, never the model's string — after `validateCitations`
+ * every refId is present in the map, so it is unreachable, but it must fail
+ * toward something non-model-authored rather than back to the value this
+ * exists to discard.
  *
  * Exported separately from `run()` so the citation gate is unit-testable
  * without a live model or database — this repo's root vitest harness is
@@ -163,10 +206,19 @@ function parseModelJson(raw: string): unknown {
  */
 export function processReplyDrafterResponse(
   raw: string,
-  retrievedFragments: Array<{ refId: string; text: string }>,
+  retrievedFragments: Array<{ refId: string; label: string; text: string }>,
 ): ReplyDrafterOutput {
   const parsed = parseModelJson(raw)
   const output = ReplyDrafterOutputSchema.parse(parsed)
   validateCitations(output.citations, retrievedFragments)
-  return output
+
+  const labelByRefId = new Map(retrievedFragments.map((f) => [f.refId, f.label]))
+  return {
+    ...output,
+    citations: output.citations.map((c) => ({
+      refId: c.refId,
+      quote: c.quote,
+      label: labelByRefId.get(c.refId) ?? c.refId,
+    })),
+  }
 }

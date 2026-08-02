@@ -53,6 +53,9 @@ export async function createDraft(
         threadSubject: retrieval.threadSubject,
         messages: retrieval.messages,
         fragments: retrieval.fragments,
+        // Tone samples, passed separately from `fragments` so they cannot be
+        // cited — see retrieve.ts's `VoiceExample`.
+        voiceExamples: retrieval.voiceExamples,
         degraded: retrieval.degraded,
         aiContext: retrieval.aiContext,
       },
@@ -100,12 +103,28 @@ export async function createDraft(
     promptVersion = runRow.prompt_version
   }
 
+  // `created_by` was declared in migration 0035 but never populated, so
+  // every draft recorded who approved it and nothing about who asked for
+  // it. `requireBoardOrAdmin()` returns only `{ role, org }`, so the user id
+  // has to come from a separate `auth.getUser()` — same reason as
+  // approveDraft's second call below.
+  //
+  // Unlike approveDraft, a missing user here does NOT refuse. Approval is
+  // the attributable act — a queued reply with no approver defeats the audit
+  // trail — whereas generating a draft ships nothing to anyone, and losing
+  // an already-validated draft over an authorship footnote is the worse
+  // trade. The column is nullable for exactly this case.
+  const {
+    data: { user: creator },
+  } = await supabase.auth.getUser()
+
   const { data, error } = await supabase
     .from('inbox_drafts')
     .insert({
       organization_id: org.id,
       thread_id: threadId,
       status: 'draft',
+      created_by: creator?.id ?? null,
       subject: generated.subject,
       body_text: generated.body,
       citations: generated.citations,
@@ -135,7 +154,11 @@ export async function approveDraft(
 ): Promise<{ ok: true; sendAfter: string } | { error: string }> {
   const { org } = await requireBoardOrAdmin()
 
-  if (hasUnfilledBlanks(body)) {
+  // BOTH fields. The subject is as editable as the body and ships in the
+  // same email, so a `[[BLANK: money]]` left in a subject line would reach
+  // the resident in the most visible place there is. Checking only the body
+  // (as this did) made the subject the one unguarded route past the gate.
+  if (hasUnfilledBlanks(subject) || hasUnfilledBlanks(body)) {
     return { error: 'Fill in or remove every highlighted blank before sending.' }
   }
   if (!subject.trim() || !body.trim()) {

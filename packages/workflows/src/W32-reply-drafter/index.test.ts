@@ -15,8 +15,16 @@ import { InvalidCitationError, UnsupportedQuoteError } from './tools'
 
 describe('processReplyDrafterResponse — citation gate', () => {
   const retrieved = [
-    { refId: 'doc:c1', text: 'The by-laws say... members must pay dues on the 1st of each month.' },
-    { refId: 'reply:m1', text: 'Thanks for your patience while we looked into this — real past reply text.' },
+    {
+      refId: 'doc:c1',
+      label: 'CC&Rs Art. VII',
+      text: 'The by-laws say... members must pay dues on the 1st of each month.',
+    },
+    {
+      refId: 'prop:context',
+      label: 'Property record',
+      text: 'Outstanding balance: $450.00. Thanks for your patience while we looked into this — real past reply text.',
+    },
   ]
 
   function draftJson(citations: Array<{ refId: string; quote: string; label: string }>) {
@@ -33,7 +41,11 @@ describe('processReplyDrafterResponse — citation gate', () => {
   it('accepts a draft that only cites retrieved refIds with quotes actually in the fragment', () => {
     const raw = draftJson([{ refId: 'doc:c1', quote: 'the by-laws say...', label: 'Bylaws' }])
     const output = processReplyDrafterResponse(raw, retrieved)
-    expect(output.citations).toEqual([{ refId: 'doc:c1', quote: 'the by-laws say...', label: 'Bylaws' }])
+    // Label comes from the fragment, never from the model — see the
+    // authoritative-label suite below.
+    expect(output.citations).toEqual([
+      { refId: 'doc:c1', quote: 'the by-laws say...', label: 'CC&Rs Art. VII' },
+    ])
   })
 
   it('FAILS the whole run on an invented refId — not a filtered-out citation', () => {
@@ -95,11 +107,108 @@ describe('processReplyDrafterResponse — citation gate', () => {
   })
 })
 
+// ─── C2: the citation label is not model-authored ───────────────────────
+//
+// `validateCitations` checks refId membership and quote fidelity. It never
+// looks at `label` — and `label` is the only part of a citation a board
+// member sees, because DraftPanel renders `label — "quote"` and never shows
+// the refId. So a model could pair a real quote from the property record
+// with `label: 'CC&Rs §4.2'`, pass every gate, and manufacture an authority
+// the reviewer has no way to catch. These tests pin the fix: the label is
+// taken from the retrieved fragment and the model's is discarded outright.
+
+describe('processReplyDrafterResponse — authoritative citation labels', () => {
+  const retrieved = [
+    { refId: 'doc:c1', label: 'CC&Rs §4.2', text: 'Fences may not exceed six feet.' },
+    {
+      refId: 'prop:context',
+      label: 'Property record',
+      text: 'Address: 12 Oak Ln\nOutstanding balance: $450.00\nOpen violations: 1',
+    },
+  ]
+
+  function draftJson(citations: Array<{ refId: string; quote: string; label: string }>) {
+    return JSON.stringify({
+      subject: 'Re: your question',
+      body: 'Thanks for reaching out.',
+      citations,
+      blanks: [],
+      grounded: true,
+      groundingNote: null,
+    })
+  }
+
+  it('overwrites a model label that contradicts its fragment — the exact attack', () => {
+    // A real, verbatim line from the PROPERTY RECORD, labelled as if it came
+    // from the CC&Rs. Both existing gates pass: the refId was retrieved, and
+    // the quote genuinely occurs in that fragment.
+    const raw = draftJson([
+      { refId: 'prop:context', quote: 'Outstanding balance: $450.00', label: 'CC&Rs §4.2' },
+    ])
+
+    const output = processReplyDrafterResponse(raw, retrieved)
+
+    expect(output.citations).toHaveLength(1)
+    expect(output.citations[0]!.label).toBe('Property record')
+    expect(output.citations[0]!.label).not.toBe('CC&Rs §4.2')
+    // The quote and refId are untouched — only the attribution is replaced.
+    expect(output.citations[0]!.quote).toBe('Outstanding balance: $450.00')
+    expect(output.citations[0]!.refId).toBe('prop:context')
+  })
+
+  it('yields the fragment label for a valid refId even when the model supplied a plausible one', () => {
+    const raw = draftJson([
+      { refId: 'doc:c1', quote: 'Fences may not exceed six feet.', label: 'Bylaws Article 9' },
+    ])
+
+    const output = processReplyDrafterResponse(raw, retrieved)
+
+    expect(output.citations[0]!.label).toBe('CC&Rs §4.2')
+  })
+
+  it('discards the model label rather than comparing it — an empty label still resolves', () => {
+    const raw = draftJson([
+      { refId: 'doc:c1', quote: 'Fences may not exceed six feet.', label: '' },
+    ])
+
+    const output = processReplyDrafterResponse(raw, retrieved)
+
+    expect(output.citations[0]!.label).toBe('CC&Rs §4.2')
+  })
+
+  it('labels every citation from its own fragment, not from the first one', () => {
+    const raw = draftJson([
+      { refId: 'doc:c1', quote: 'Fences may not exceed six feet.', label: 'wrong' },
+      { refId: 'prop:context', quote: 'Open violations: 1', label: 'also wrong' },
+    ])
+
+    const output = processReplyDrafterResponse(raw, retrieved)
+
+    expect(output.citations.map((c) => c.label)).toEqual(['CC&Rs §4.2', 'Property record'])
+  })
+
+  it('never returns a label the model authored, for any citation', () => {
+    const raw = draftJson([
+      { refId: 'doc:c1', quote: 'Fences may not exceed six feet.', label: 'FABRICATED' },
+      { refId: 'prop:context', quote: 'Address: 12 Oak Ln', label: 'FABRICATED' },
+    ])
+
+    const output = processReplyDrafterResponse(raw, retrieved)
+
+    const authoritative = new Set(retrieved.map((f) => f.label))
+    for (const citation of output.citations) {
+      expect(citation.label).not.toBe('FABRICATED')
+      expect(authoritative.has(citation.label)).toBe(true)
+    }
+  })
+})
+
 describe('buildReplyDrafterUserPrompt — fragments vs aiContext separation', () => {
   const base = {
     threadSubject: 'Question about my fence',
     messages: [{ direction: 'inbound' as const, from: 'resident@example.com', text: 'Can I build a fence?' }],
     fragments: [{ refId: 'doc:c1', label: 'CC&Rs Art. IV', text: 'Fences require ARC approval.' }],
+    voiceExamples: [],
     degraded: [],
     aiContext: { governingDocs: 'Fences generally need ARC sign-off.', stateLaw: null },
   }
@@ -131,5 +240,87 @@ describe('buildReplyDrafterUserPrompt — fragments vs aiContext separation', ()
       aiContext: { governingDocs: null, stateLaw: null },
     })
     expect(prompt).not.toContain('BACKGROUND')
+  })
+})
+
+// ─── I1: past replies are voice samples, not citable sources ────────────
+//
+// The HOA's whole sent folder syncs, so the past-reply corpus contains
+// correspondence about other households, with attorneys and with vendors.
+// `search_reply_embeddings` returns the top 5 with no similarity floor, so
+// five of them land in every draft regardless of relevance. While they were
+// fragments each carried a refId, which made a verbatim quote from one
+// resident's correspondence into a citation that passed every gate.
+
+describe('buildReplyDrafterUserPrompt — voice examples are not citable', () => {
+  const base = {
+    threadSubject: 'Question about my fence',
+    messages: [
+      { direction: 'inbound' as const, from: 'resident@example.com', text: 'Can I build a fence?' },
+    ],
+    fragments: [{ refId: 'doc:c1', label: 'CC&Rs Art. IV', text: 'Fences require ARC approval.' }],
+    voiceExamples: [
+      {
+        subject: 'Re: your balance',
+        body: 'Hi Dana — thanks for writing. The Hendersons at 14 Oak settled their $2,300 lien last week.',
+      },
+    ],
+    degraded: [],
+    aiContext: { governingDocs: null, stateLaw: null },
+  }
+
+  it('renders voice examples in their own section, never inside SOURCES', () => {
+    const prompt = buildReplyDrafterUserPrompt(base)
+
+    expect(prompt).toContain('VOICE EXAMPLES')
+
+    const sourcesBlock = prompt.slice(prompt.indexOf('SOURCES:'), prompt.indexOf('VOICE EXAMPLES'))
+    expect(sourcesBlock).not.toContain('Hendersons')
+  })
+
+  it('gives a voice example no refId — nothing a citation could resolve against', () => {
+    const prompt = buildReplyDrafterUserPrompt(base)
+
+    const voiceBlock = prompt.slice(prompt.indexOf('VOICE EXAMPLES'))
+    expect(voiceBlock).not.toContain('refId:')
+    expect(voiceBlock).not.toContain('reply:')
+  })
+
+  it('omits the section entirely when there are no past replies', () => {
+    const prompt = buildReplyDrafterUserPrompt({ ...base, voiceExamples: [] })
+    expect(prompt).not.toContain('VOICE EXAMPLES')
+  })
+
+  it('tells the model the section is style-only and must not be quoted', () => {
+    const prompt = buildReplyDrafterUserPrompt(base)
+    const header = prompt.slice(prompt.indexOf('VOICE EXAMPLES'), prompt.indexOf('Subject:'))
+    expect(header).toMatch(/NOT sources/)
+    expect(header).toMatch(/no refId/)
+  })
+})
+
+describe('processReplyDrafterResponse — a past reply can no longer be cited', () => {
+  it('rejects a citation pointing at a past reply, because none is a fragment any more', () => {
+    // Retrieval no longer mints `reply:<id>` refIds at all, so a model that
+    // tries to cite one is citing something that does not exist.
+    const retrieved = [
+      { refId: 'doc:c1', label: 'CC&Rs §4.2', text: 'Fences may not exceed six feet.' },
+    ]
+    const raw = JSON.stringify({
+      subject: 'Re: your question',
+      body: 'Thanks for reaching out.',
+      citations: [
+        {
+          refId: 'reply:m1',
+          quote: 'The Hendersons at 14 Oak settled their $2,300 lien last week.',
+          label: 'Past reply',
+        },
+      ],
+      blanks: [],
+      grounded: true,
+      groundingNote: null,
+    })
+
+    expect(() => processReplyDrafterResponse(raw, retrieved)).toThrow(InvalidCitationError)
   })
 })

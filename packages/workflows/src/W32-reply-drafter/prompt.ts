@@ -6,13 +6,13 @@
 // scrutiny than a blank page — so the dangerous content must never be
 // drafted at all.
 
-export const PROMPT_VERSION = '1.0.0'
+export const PROMPT_VERSION = '1.1.0'
 
 export const REPLY_DRAFTER_SYSTEM = `You draft replies to residents on behalf of a homeowners association.
 
 You are given: the conversation so far, numbered source fragments, optional
-background context, and the association's own past replies (as fragments)
-as examples of house voice.
+background context, and a set of the association's own past replies shown
+purely as examples of house voice.
 
 RULES
 
@@ -25,7 +25,14 @@ RULES
    the draft to it. It has no refId because it is not citable. Treat it the
    way you would treat a colleague's hallway paraphrase: useful for your own
    orientation, never repeated as fact.
-4. NEVER write any of the following. Emit a blank instead:
+4. The VOICE EXAMPLES section (if present) shows how this association
+   writes. It is NOT a source and has no refId. Those emails were sent to
+   OTHER residents and to third parties, and their contents have nothing to
+   do with the person you are writing to now. Copy their STYLE — greeting,
+   sign-off, sentence length, formality — and nothing else. Never quote
+   them, never cite them, never restate a fact, name, amount, date or
+   decision that appears in them.
+5. NEVER write any of the following. Emit a blank instead:
    - money: waiving or reducing a fee, payment plans, refunds, credits
    - enforcement: dismissing a violation, approving or denying an ARC
      request, granting an extension
@@ -33,8 +40,6 @@ RULES
      happens if the resident does not comply. You MAY quote a document
      verbatim with a citation. You MAY NOT say what it means.
    - other_resident: naming or describing any other household
-5. Match the voice of the past replies: their greeting, sign-off, sentence
-   length and formality. Do not imitate their facts.
 6. If no fragment is relevant to what the resident asked, write only a brief
    acknowledgement confirming receipt and committing to follow up, set
    grounded=false, and cite nothing.
@@ -56,6 +61,8 @@ export interface ReplyDrafterUserContext {
   threadSubject: string | null
   messages: Array<{ direction: 'inbound' | 'outbound'; from: string; text: string }>
   fragments: Array<{ refId: string; label: string; text: string }>
+  /** Tone samples only — rendered without a refId, never citable. */
+  voiceExamples: Array<{ subject: string | null; body: string }>
   degraded: string[]
   aiContext: { governingDocs: string | null; stateLaw: string | null }
 }
@@ -95,5 +102,22 @@ export function buildReplyDrafterUserPrompt(input: ReplyDrafterUserContext): str
       ? `\n\nBACKGROUND (AI-generated summary, NOT a source — do not quote, do not cite, no refId exists for this section):\n${backgroundLines.join('\n')}`
       : ''
 
-  return `SUBJECT: ${input.threadSubject ?? '(none)'}\n\nCONVERSATION:\n${conversation}\n\nSOURCES:\n${sources}${background}${missing}`
+  // Same physical separation as BACKGROUND, and for a stronger reason:
+  // these are real emails this association sent to OTHER residents and to
+  // third parties. They are rendered with no refId and no message id, so
+  // there is nothing here a citation could resolve against — retrieve.ts
+  // keeps them out of `fragments` entirely, and `validateCitations` only
+  // ever resolves against `fragments`. A quote lifted from this section
+  // therefore fails the gate and kills the draft, which is the intended
+  // outcome. Only the subject line and body are shown; recipients,
+  // addresses and message ids are never included. See REPLY_DRAFTER_SYSTEM
+  // rule 4.
+  const voice =
+    input.voiceExamples.length > 0
+      ? `\n\nVOICE EXAMPLES (how this association writes — NOT sources, no refId exists for these; copy the style only, never the content, and never quote or cite them):\n${input.voiceExamples
+          .map((v) => `Subject: ${v.subject ?? '(none)'}\n${v.body}`)
+          .join('\n\n---\n\n')}`
+      : ''
+
+  return `SUBJECT: ${input.threadSubject ?? '(none)'}\n\nCONVERSATION:\n${conversation}\n\nSOURCES:\n${sources}${background}${voice}${missing}`
 }
