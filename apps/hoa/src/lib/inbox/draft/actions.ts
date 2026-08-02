@@ -74,6 +74,32 @@ export async function createDraft(
     return { error: 'Could not draft a reply right now.' }
   }
 
+  // `model` and `prompt_version` are denormalised from the ai_runs row for
+  // cheap display (no join needed to show "which model/prompt produced
+  // this draft"). Read them off the ai_runs row itself rather than off
+  // `replyDrafter`'s static `defaultModel` — W32's run() calls
+  // `api.setModel(completion.model)` with whatever the provider actually
+  // answered with, which persistRun writes to ai_runs.model and which can
+  // differ from the model that was requested. Sourcing from the same row
+  // draftReply just wrote keeps this a single source of truth instead of a
+  // second, potentially-wrong claim. A lookup failure here is a display
+  // nicety, not a correctness issue — log it and still save the draft with
+  // both columns null rather than discard a valid, already-validated draft.
+  let model: string | null = null
+  let promptVersion: string | null = null
+  const { data: runRow, error: runError } = await supabase
+    .from('ai_runs')
+    .select('model, prompt_version')
+    .eq('id', generated.runId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (runError) {
+    console.error(`createDraft: ai_runs lookup failed: ${runError.code} ${runError.message}`)
+  } else if (runRow) {
+    model = runRow.model
+    promptVersion = runRow.prompt_version
+  }
+
   const { data, error } = await supabase
     .from('inbox_drafts')
     .insert({
@@ -87,6 +113,8 @@ export async function createDraft(
       grounded: generated.grounded,
       grounding_note: generated.groundingNote,
       ai_run_id: generated.runId,
+      model,
+      prompt_version: promptVersion,
     })
     .select('id')
     .single()
@@ -115,9 +143,19 @@ export async function approveDraft(
   }
 
   const supabase = await getSupabaseServerClient()
+  // `requireBoardOrAdmin()` only returns `{ role, org }` — it never exposes
+  // the user id it resolved internally — so this second `auth.getUser()`
+  // call is not redundant with the one above; it's the only way to get
+  // `user.id` for `approved_by`. But per the convention in
+  // `apps/hoa/src/lib/inbox/actions.ts` (assignThreadToProperty), a missing
+  // user here must refuse outright rather than fall back to null: approval
+  // is the one action in this feature whose entire purpose is attribution,
+  // and a queued reply with no recorded approver defeats the audit trail
+  // this file's own docstring exists to protect.
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not signed in.' }
 
   const sendAfter = new Date(Date.now() + UNDO_WINDOW_SECONDS * 1000).toISOString()
 
@@ -132,7 +170,7 @@ export async function approveDraft(
       status: 'queued',
       subject,
       body_text: body,
-      approved_by: user?.id ?? null,
+      approved_by: user.id,
       approved_at: new Date().toISOString(),
       send_after: sendAfter,
     })
