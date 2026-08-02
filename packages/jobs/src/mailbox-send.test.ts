@@ -333,6 +333,65 @@ describe('runMailboxSend', () => {
     // would have thrown above if the code had tried one.
   })
 
+  // ─── The post-send update THROWS, not just returns an error ───────────
+  it('never marks the row failed when the post-send status update throws (not merely returns an error)', async () => {
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'gm-3', threadId: 'gm-thread-1' })
+
+    let draftCall = 0
+    let failWriteAttempted = false
+    const from = vi.fn((table: string) => {
+      if (table === 'inbox_threads') {
+        return makeChain({
+          data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID },
+          error: null,
+        })
+      }
+      if (table === 'mailbox_accounts') {
+        return makeChain({
+          data: { email_address: 'hoa@example.com', disconnected_at: null },
+          error: null,
+        })
+      }
+      if (table === 'inbox_messages') {
+        return makeChain({
+          data: { rfc822_message_id: '<abc@mail.gmail.com>', from_email: RESIDENT_EMAIL },
+          error: null,
+        })
+      }
+
+      draftCall++
+      if (draftCall === 1) return makeChain({ data: queuedDraftRow(), error: null })
+      if (draftCall === 2) return makeChain({ data: { id: DRAFT_ID }, error: null }) // claim
+      if (draftCall === 3) {
+        // The post-send 'sent' status update — throws outright instead of
+        // resolving with `{ error }`, simulating an unexpected client
+        // exception rather than a returned PostgrestError.
+        return {
+          update: vi.fn(() => ({
+            eq: vi.fn(() => {
+              throw new Error('unexpected client throw')
+            }),
+          })),
+        }
+      }
+      // Any further inbox_drafts write would be fail()'s 'failed' write.
+      // Record that it happened but let it "succeed" so a regression here
+      // surfaces via the assertion below, not via an unrelated exception.
+      failWriteAttempted = true
+      return makeChain({ data: null, error: null })
+    })
+
+    const db = { from } as unknown as Parameters<typeof runMailboxSend>[0]
+    const step = fakeStep()
+    const logger = fakeLogger()
+
+    const result = await runMailboxSend(db, step, logger, DRAFT_ID)
+
+    // The send happened and is reported as such — a caller must not resend.
+    expect(result).toEqual({ sent: true, messageId: 'gm-3' })
+    expect(failWriteAttempted).toBe(false)
+  })
+
   it('marks the draft failed and the account auth_failed on a MailboxAuthError, then rethrows', async () => {
     vi.mocked(getAccessTokenFor).mockRejectedValueOnce(new MailboxAuthError('token revoked'))
 

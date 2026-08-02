@@ -141,6 +141,34 @@ export async function runMailboxSend(
     return { sent: false, reason: 'no_recipient' }
   }
 
+  // `sendToGmail`'s try/catch is the ONLY code path in this job allowed to
+  // call `fail()`, and its try block's body is the entire function — it has
+  // no statement after `sendReply` to widen into, by construction, because
+  // the function returns the instant `sendReply` resolves. Once this call
+  // returns, Gmail has accepted the message and no subsequent failure of any
+  // kind may ever mark the draft 'failed' again. `recordSent`, below, is
+  // deliberately a separate function with its own try/catch that only logs —
+  // it has no `fail()` call in it to begin with, so a later editor extending
+  // the *bookkeeping* update still can't reach `fail()` without visibly
+  // adding a new import/call where the surrounding code and this comment
+  // make the invariant obvious.
+  const sent = await sendToGmail(db, draftId, thread, account, draft, {
+    rfc822_message_id: last.rfc822_message_id,
+    from_email: last.from_email,
+  })
+
+  await recordSent(db, logger, draftId, sent)
+  return { sent: true, messageId: sent.messageId }
+}
+
+async function sendToGmail(
+  db: Db,
+  draftId: string,
+  thread: { gmail_thread_id: string; mailbox_account_id: string },
+  account: { email_address: string },
+  draft: { subject: string; body_text: string },
+  last: { rfc822_message_id: string | null; from_email: string },
+): Promise<{ messageId: string }> {
   try {
     const accessToken = await getAccessTokenFor(db, thread.mailbox_account_id)
     const raw = buildRawMessage({
@@ -151,8 +179,33 @@ export async function runMailboxSend(
       inReplyTo: last.rfc822_message_id,
       references: last.rfc822_message_id ? [last.rfc822_message_id] : [],
     })
-    const sent = await sendReply(accessToken, thread.gmail_thread_id, raw)
+    return await sendReply(accessToken, thread.gmail_thread_id, raw)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    await fail(db, draftId, message)
+    if (error instanceof MailboxAuthError) {
+      await markAuthFailed(db, thread.mailbox_account_id, message)
+    }
+    throw error
+  }
+}
 
+/**
+ * Post-send bookkeeping only. Gmail has already accepted the message by the
+ * time this runs, so this function must never mark the draft 'failed' — a
+ * human seeing 'failed' would resend, and the resident would get the reply
+ * twice. That holds whether the update call rejects with a returned
+ * PostgrestError (handled below) or throws outright (an unexpected
+ * `undefined` destructure, a client exception) — both are caught here and
+ * only logged, never routed to `fail()`.
+ */
+async function recordSent(
+  db: Db,
+  logger: MailboxSendLogger,
+  draftId: string,
+  sent: { messageId: string },
+): Promise<void> {
+  try {
     const { error: sentError } = await db
       .from('inbox_drafts')
       .update({
@@ -164,22 +217,16 @@ export async function runMailboxSend(
       .eq('id', draftId)
 
     if (sentError) {
-      // The email IS sent. Never mark it failed here — a human would resend
-      // and the resident would get it twice. Log loudly instead.
       logDbError('mailboxSendJob', 'inbox_drafts', { draftId }, sentError)
       logger.error(
         `[mailbox-send] ${draftId} SENT as ${sent.messageId} but the row could not be updated`,
       )
     }
-
-    return { sent: true, messageId: sent.messageId }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    await fail(db, draftId, message)
-    if (error instanceof MailboxAuthError) {
-      await markAuthFailed(db, thread.mailbox_account_id, message)
-    }
-    throw error
+    logger.error(
+      `[mailbox-send] ${draftId} SENT as ${sent.messageId} but the row update threw: ${message}`,
+    )
   }
 }
 
