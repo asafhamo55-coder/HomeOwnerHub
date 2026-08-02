@@ -12,6 +12,7 @@
  */
 
 import type { ParsedAttachment, ParsedMessage } from './types'
+import { htmlToText } from './html'
 import { stripQuotedReply } from './quote'
 
 export interface GmailHeader {
@@ -147,10 +148,32 @@ function walk(part: GmailPart | undefined, state: WalkState): void {
   }
 }
 
+/**
+ * The text/plain part when the sender provided one, otherwise the HTML
+ * part converted to text.
+ *
+ * Apple Mail on iOS sends HTML-ONLY replies — no multipart/alternative
+ * text branch at all. Leaving bodyText null for those loses the message
+ * body everywhere downstream (thread view, reply drafter, property
+ * matching), so a derived body is strictly better than none.
+ *
+ * A derived body that comes out empty stays null rather than becoming
+ * '': an image-only marketing mail genuinely has no text, and "(no body)"
+ * is the honest rendering for it.
+ */
+function resolveBodyText(state: WalkState): string | null {
+  if (state.bodyText !== null) return state.bodyText
+  if (state.bodyHtml === null) return null
+  const derived = htmlToText(state.bodyHtml)
+  return derived === '' ? null : derived
+}
+
 export function parseGmailMessage(raw: GmailApiMessage): ParsedMessage {
   const headers = raw.payload?.headers
   const state: WalkState = { bodyText: null, bodyHtml: null, attachments: [] }
   walk(raw.payload, state)
+
+  const bodyText = resolveBodyText(state)
 
   const from = parseAddress(header(headers, 'From') ?? '')
 
@@ -183,9 +206,9 @@ export function parseGmailMessage(raw: GmailApiMessage): ParsedMessage {
     deliveredTo: headerAll(headers, 'Delivered-To').flatMap((v) => addressEmails(v)),
 
     subject: header(headers, 'Subject'),
-    bodyText: state.bodyText,
+    bodyText,
     bodyHtml: state.bodyHtml,
-    strippedText: stripQuotedReply(state.bodyText),
+    strippedText: stripQuotedReply(bodyText),
 
     attachments: state.attachments,
     sentAt: sentAtMs !== null ? new Date(sentAtMs).toISOString() : null,

@@ -1,0 +1,21 @@
+{
+  "id": "19fbbb675c80c11d",
+  "threadId": "18f0a1b2c3d4e5f0",
+  "labelIds": ["INBOX", "UNREAD"],
+  "internalDate": "1785500000000",
+  "payload": {
+    "mimeType": "text/html",
+    "headers": [
+      { "name": "Message-ID", "value": "<applemail-1@mail.gmail.com>" },
+      { "name": "From", "value": "Jenna Rivera <j.rivera@gmail.com>" },
+      { "name": "To", "value": "board@madisonparkhoa.org" },
+      { "name": "Subject", "value": "Re: Guest parking space" },
+      { "name": "In-Reply-To", "value": "<parent-1@mail.gmail.com>" },
+      { "name": "Delivered-To", "value": "board@madisonparkhoa.org" }
+    ],
+    "body": {
+      "size": 569,
+      "data": "PGh0bWwgY2xhc3M9ImFwcGxlLW1haWwtc3VwcG9ydHMtZXhwbGljaXQtZGFyay1tb2RlIj48aGVhZD48bWV0YSBodHRwLWVxdWl2PSJjb250ZW50LXR5cGUiIGNvbnRlbnQ9InRleHQvaHRtbDsgY2hhcnNldD11dGYtOCI-PHN0eWxlPmJvZHl7Y29sb3I6cmVkfTwvc3R5bGU-PC9oZWFkPjxib2R5IGRpcj0iYXV0byI-WWVzJm5ic3A7PGRpdj48YnIgaWQ9ImxpbmVCcmVha0F0QmVnaW5uaW5nT2ZTaWduYXR1cmUiPjxkaXYgZGlyPSJsdHIiPkplbm5hIFJpdmVyYTwvZGl2PjxkaXYgZGlyPSJsdHIiPjxicj48YmxvY2txdW90ZSB0eXBlPSJjaXRlIj5PbiBKdWwgMzEsIDIwMjYsIGF0IDEwOjU5IFBNLCBNYWRpc29uIFBhcmsgSE9BICZsdDtib2FyZEBtYWRpc29ucGFya2hvYS5vcmcmZ3Q7IHdyb3RlOjxicj48YnI-PC9ibG9ja3F1b3RlPjwvZGl2PjxibG9ja3F1b3RlIHR5cGU9ImNpdGUiPjxkaXYgZGlyPSJsdHIiPu-7vzxkaXYgZGlyPSJhdXRvIj5JcyB0aGlzIGNhciBwYXJrZWQgaW4gZnJvbnQgb2YgeW91ciBob3VzZT88L2Rpdj48L2Rpdj48L2Jsb2NrcXVvdGU-PC9kaXY-PC9ib2R5PjwvaHRtbD4"
+    }
+  }
+}

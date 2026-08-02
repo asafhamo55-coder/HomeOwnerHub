@@ -8,6 +8,7 @@ import withAttachment from './fixtures/with-attachment.json'
 import inlineImage from './fixtures/inline-image.json'
 import nested from './fixtures/nested.json'
 import edgeCases from './fixtures/edge-cases.json'
+import htmlOnly from './fixtures/html-only.json'
 
 const as = (v: unknown): GmailApiMessage => v as GmailApiMessage
 
@@ -139,6 +140,27 @@ describe('parseGmailMessage', () => {
     expect(m.attachments).toHaveLength(1)
     expect(m.attachments[0].fileName).toBe('sig.png')
     expect(m.attachments[0].isInline).toBe(true)
+  })
+
+  // Apple Mail on iOS sends replies as text/html with NO text/plain
+  // alternative. Without a fallback the whole message body is lost: the
+  // thread view renders "(no body)", the drafter retrieves an empty
+  // string, and property matching loses the text entirely.
+  describe('HTML-only message (no text/plain alternative)', () => {
+    it('derives bodyText from the HTML part', () => {
+      const m = parseGmailMessage(as(htmlOnly))
+      expect(m.bodyText).toContain('Yes')
+    })
+
+    it('drops the quoted history from the derived body', () => {
+      const m = parseGmailMessage(as(htmlOnly))
+      expect(m.strippedText).toBe('Yes\n\nJenna Rivera')
+    })
+
+    it('keeps the raw HTML alongside the derived text', () => {
+      const m = parseGmailMessage(as(htmlOnly))
+      expect(m.bodyHtml).toContain('<blockquote')
+    })
   })
 
   describe('sentAt derivation does not throw on out-of-range internalDate', () => {
