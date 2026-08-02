@@ -895,6 +895,64 @@ export async function getPropertyContext(
   }
 }
 
+// ─── Draft panel (Task 14) ──────────────────────────────────────────────
+
+export interface ThreadDraft {
+  id: string
+  status: 'draft' | 'queued' | 'sending' | 'sent' | 'cancelled' | 'failed'
+  subject: string
+  bodyText: string
+  citations: Array<{ refId: string; quote: string; label: string }>
+  blanks: Array<{ kind: string; prompt: string }>
+  grounded: boolean
+  groundingNote: string | null
+  sendAfter: string | null
+  error: string | null
+}
+
+/**
+ * The newest draft for a thread, in whatever state it's in.
+ *
+ * A soft failure here must NOT collapse to "no draft" the way `null` would
+ * read to the panel — that would show a "Draft a reply" button beside a
+ * reply that is actually already queued to send, letting a manager fire a
+ * second, conflicting draft. Matches the throw-on-error convention used
+ * throughout this module for page-defining reads.
+ */
+export async function getLatestDraft(
+  db: Db,
+  orgId: string,
+  threadId: string,
+): Promise<ThreadDraft | null> {
+  const { data, error } = await db
+    .from('inbox_drafts')
+    .select('id, status, subject, body_text, citations, blanks, grounded, grounding_note, send_after, error')
+    .eq('organization_id', orgId)
+    .eq('thread_id', threadId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    logDbError('getLatestDraft', 'inbox_drafts', { orgId, threadId }, error)
+    throw new Error(`getLatestDraft: failed to load draft: ${error.message}`)
+  }
+  if (!data) return null
+
+  return {
+    id: data.id,
+    status: data.status as ThreadDraft['status'],
+    subject: data.subject,
+    bodyText: data.body_text,
+    citations: (data.citations ?? []) as ThreadDraft['citations'],
+    blanks: (data.blanks ?? []) as ThreadDraft['blanks'],
+    grounded: data.grounded,
+    groundingNote: data.grounding_note,
+    sendAfter: data.send_after,
+    error: data.error,
+  }
+}
+
 /**
  * Address label for a single unit — used to show what a suggested-but-
  * unconfirmed match would file under, before a manager confirms it. Not

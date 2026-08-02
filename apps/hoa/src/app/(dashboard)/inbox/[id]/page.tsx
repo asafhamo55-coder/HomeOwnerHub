@@ -4,6 +4,7 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
   countThreadsByStatus,
+  getLatestDraft,
   getPropertyContext,
   getThreadDetail,
   getUnitLabel,
@@ -13,6 +14,7 @@ import {
   type PropertyContext,
 } from '@/lib/inbox/queries'
 import { ThreadList } from '../ThreadList'
+import { DraftPanel } from './DraftPanel'
 import { MessageThread } from './MessageThread'
 import { PropertyRail } from './PropertyRail'
 
@@ -55,7 +57,7 @@ export default async function ThreadPage({
 
   const suggestedUnitId = (thread.matchReason?.candidate_unit_ids as string[] | undefined)?.[0]
 
-  const [threads, contextOutcome, suggestedProperty] = await Promise.all([
+  const [threads, contextOutcome, suggestedProperty, draft] = await Promise.all([
     listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset),
     thread.unitId
       ? getPropertyContext(supabase, org.id, thread.unitId).catch((error: unknown) => {
@@ -76,6 +78,11 @@ export default async function ThreadPage({
     !thread.unitId && suggestedUnitId
       ? getUnitLabel(supabase, org.id, suggestedUnitId)
       : Promise.resolve(null),
+    // Page-defining, same as thread/context above — a swallowed error here
+    // would show a "Draft a reply" button beside a reply already queued to
+    // send (see getLatestDraft's docstring), so this is not wrapped in a
+    // `.catch` the way the enrichment-only lookups above are.
+    getLatestDraft(supabase, org.id, id),
   ])
 
   const contextLoadFailed = contextOutcome === 'error'
@@ -112,10 +119,7 @@ export default async function ThreadPage({
 
         <MessageThread messages={thread.messages} />
 
-        <p className="mt-4 rounded-md border border-border bg-muted/5 p-3 text-xs text-muted">
-          Replying from HomeownerHub arrives in Phase B. For now, reply in Gmail —
-          the thread will sync back here within 2 minutes.
-        </p>
+        <DraftPanel threadId={thread.id} draft={draft} />
       </section>
 
       {/* pane 3 — property rail */}
