@@ -65,10 +65,38 @@ export async function createDraft(
     // A rejected draft is not persisted. Showing a partial draft that failed
     // citation validation would put invented references in front of a
     // reviewer, which is the exact failure the validator exists to prevent.
-    if (error instanceof InvalidCitationError || error instanceof UnsupportedQuoteError) {
-      console.error(`createDraft: citation validation failed for thread ${threadId}: ${error.name}`)
+    //
+    // `draftReply` -> `replyDrafter.execute` -> `defineWorkflow`'s wrapper
+    // (packages/ai/src/workflow.ts) catches whatever W32's run() throws,
+    // logs it to ai_runs, and re-throws a plain `Error` so a workflow
+    // failure always looks the same at the call site regardless of which
+    // workflow or model error caused it. That wrapper attaches the original
+    // error as `.cause` (standard `Error` option), so it must be checked
+    // here too — W32 already retries once internally (see
+    // W32-reply-drafter/index.ts) before ever throwing, so by the time this
+    // branch sees InvalidCitationError/UnsupportedQuoteError — directly or
+    // via `.cause` — both attempts failed and there is nothing left to show.
+    const cause = error instanceof Error ? error.cause : undefined
+    if (
+      error instanceof InvalidCitationError ||
+      error instanceof UnsupportedQuoteError ||
+      cause instanceof InvalidCitationError ||
+      cause instanceof UnsupportedQuoteError
+    ) {
+      // Prefer the real InvalidCitationError/UnsupportedQuoteError's own name
+      // when it's only reachable via `.cause` — logging the outer wrapper's
+      // generic "Error" there would defeat the point of checking `.cause` at
+      // all for anyone reading the logs.
+      const errorName =
+        error instanceof InvalidCitationError || error instanceof UnsupportedQuoteError
+          ? error.name
+          : cause instanceof Error
+            ? cause.name
+            : 'UnknownError'
+      console.error(`createDraft: citation validation failed for thread ${threadId}: ${errorName}`)
       return {
-        error: 'The draft cited sources that could not be verified, so it was discarded. Try again.',
+        error:
+          'A reply was drafted, but a quotation in it could not be verified against the source document, so it was discarded rather than shown to you. This is usually temporary — trying again often works.',
       }
     }
     console.error(

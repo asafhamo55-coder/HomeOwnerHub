@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { processReplyDrafterResponse } from './index'
+import type OpenAI from 'openai'
+import { processReplyDrafterResponse, generateReplyDraft, type ModelCaller } from './index'
 import { buildReplyDrafterUserPrompt } from './prompt'
 import { InvalidCitationError, UnsupportedQuoteError } from './tools'
+import type { WorkflowExecuteApi } from '@homeowner-portal/ai'
 
 // These test the two load-bearing, deterministic pieces of W32's wiring
 // without a live model or database (root vitest harness is pure-modules
@@ -322,5 +324,157 @@ describe('processReplyDrafterResponse — a past reply can no longer be cited', 
     })
 
     expect(() => processReplyDrafterResponse(raw, retrieved)).toThrow(InvalidCitationError)
+  })
+})
+
+// ─── generateReplyDraft — the corrective retry ──────────────────────────
+//
+// A real HOA hit this in production: retrieval found exactly the right
+// CC&R clause, but the model's citation `quote` was not a verbatim
+// substring of it, so `validateCitations` correctly discarded the whole
+// draft — and the board member got nothing, with no idea why. These tests
+// pin the fix: one, and only one, corrective retry naming exactly what
+// failed, through the SAME validation gate, before giving up for real.
+
+describe('generateReplyDraft — corrective retry on citation failure', () => {
+  const fragments = [
+    {
+      refId: 'doc:1e2a16d4-example',
+      sourceType: 'document' as const,
+      label: 'CC&Rs — Stormwater Retention',
+      text: 'The Association controls plant growth in and around stormwater retention ponds.',
+    },
+  ]
+
+  const input = {
+    threadSubject: 'Overgrown retention pond',
+    messages: [{ direction: 'inbound' as const, from: 'resident@example.com', text: 'The pond is overgrown.' }],
+    fragments,
+    voiceExamples: [],
+    degraded: [],
+    aiContext: { governingDocs: null, stateLaw: null },
+  }
+
+  function fakeApi(): WorkflowExecuteApi {
+    return {
+      requireHumanApproval: vi.fn(),
+      addCitations: vi.fn(),
+      setConfidence: vi.fn(),
+      setReasoning: vi.fn(),
+      setTokens: vi.fn(),
+      setModel: vi.fn(),
+    }
+  }
+
+  function fakeCompletion(raw: string): { completion: OpenAI.Chat.ChatCompletion; raw: string } {
+    return {
+      completion: {
+        model: 'test-model',
+        usage: { prompt_tokens: 10, completion_tokens: 5 },
+      } as unknown as OpenAI.Chat.ChatCompletion,
+      raw,
+    }
+  }
+
+  const goodDraft = JSON.stringify({
+    subject: 'Re: pond',
+    body: 'Thanks for flagging this.',
+    citations: [
+      {
+        refId: 'doc:1e2a16d4-example',
+        quote: 'The Association controls plant growth in and around stormwater retention ponds.',
+        label: 'anything — overwritten',
+      },
+    ],
+    blanks: [],
+    grounded: true,
+    groundingNote: null,
+  })
+
+  const badQuoteDraft = JSON.stringify({
+    subject: 'Re: pond',
+    body: 'Thanks for flagging this.',
+    citations: [
+      {
+        refId: 'doc:1e2a16d4-example',
+        quote: 'the association controls the plant growth around ponds', // paraphrased, not verbatim
+        label: 'anything',
+      },
+    ],
+    blanks: [],
+    grounded: true,
+    groundingNote: null,
+  })
+
+  it('recovers when the first attempt fails validation but the retry is a valid, verbatim quote', async () => {
+    const calls: unknown[][] = []
+    const callModel: ModelCaller = vi.fn(async (messages) => {
+      calls.push(messages)
+      return calls.length === 1 ? fakeCompletion(badQuoteDraft) : fakeCompletion(goodDraft)
+    })
+    const api = fakeApi()
+
+    const output = await generateReplyDraft(input, api, callModel)
+
+    expect(output.citations).toHaveLength(1)
+    expect(output.citations[0]!.quote).toBe(
+      'The Association controls plant growth in and around stormwater retention ponds.',
+    )
+    expect(callModel).toHaveBeenCalledTimes(2)
+    // The retry must tell the model exactly which refId failed and that the
+    // quote must be an exact substring — not a vague "try again".
+    const retryUserMessage = calls[1]!.at(-1) as { role: string; content: string }
+    expect(retryUserMessage.role).toBe('user')
+    expect(retryUserMessage.content).toContain('doc:1e2a16d4-example')
+    expect(retryUserMessage.content.toLowerCase()).toContain('exact substring')
+    // The audit row must show a retry happened.
+    expect(api.setReasoning).toHaveBeenCalledWith(expect.stringMatching(/retr/i))
+  })
+
+  it('throws when both attempts fail validation, and calls the model exactly twice — never a loop', async () => {
+    const callModel: ModelCaller = vi.fn(async () => fakeCompletion(badQuoteDraft))
+    const api = fakeApi()
+
+    await expect(generateReplyDraft(input, api, callModel)).rejects.toThrow(UnsupportedQuoteError)
+    expect(callModel).toHaveBeenCalledTimes(2)
+  })
+
+  it('makes clear in the thrown error that BOTH attempts failed, not just the second', async () => {
+    const callModel: ModelCaller = vi.fn(async () => fakeCompletion(badQuoteDraft))
+    const api = fakeApi()
+
+    await expect(generateReplyDraft(input, api, callModel)).rejects.toThrow(/retry/i)
+  })
+
+  it('does not retry at all when the first attempt succeeds', async () => {
+    const callModel: ModelCaller = vi.fn(async () => fakeCompletion(goodDraft))
+    const api = fakeApi()
+
+    const output = await generateReplyDraft(input, api, callModel)
+
+    expect(output.citations).toHaveLength(1)
+    expect(callModel).toHaveBeenCalledTimes(1)
+    expect(api.setReasoning).not.toHaveBeenCalled()
+  })
+
+  it('never retries a non-citation failure (e.g. unparseable JSON) — that is not what the retry exists for', async () => {
+    const callModel: ModelCaller = vi.fn(async () => fakeCompletion('not json'))
+    const api = fakeApi()
+
+    await expect(generateReplyDraft(input, api, callModel)).rejects.toThrow()
+    expect(callModel).toHaveBeenCalledTimes(1)
+  })
+
+  it('sums token usage across both attempts rather than reporting only the retry', async () => {
+    const callModel: ModelCaller = vi
+      .fn()
+      .mockResolvedValueOnce(fakeCompletion(badQuoteDraft))
+      .mockResolvedValueOnce(fakeCompletion(goodDraft))
+    const api = fakeApi()
+
+    await generateReplyDraft(input, api, callModel)
+
+    // Two attempts of 10 prompt / 5 completion tokens each.
+    expect(api.setTokens).toHaveBeenLastCalledWith(20, 10)
   })
 })

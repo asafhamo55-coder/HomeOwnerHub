@@ -178,11 +178,13 @@ export function defineWorkflow<
       const startedAt = Date.now()
       let output: z.infer<TOutputSchema> | null = null
       let errorCode: string | null = null
+      let caughtError: unknown = null
 
       try {
         const raw = await opts.run(input, api, ctx)
         output = opts.outputSchema.parse(raw) as z.infer<TOutputSchema>
       } catch (err) {
+        caughtError = err
         errorCode =
           err instanceof Error ? `${err.name}: ${err.message}` : String(err)
         // Still log the failure so the audit log captures it.
@@ -218,7 +220,17 @@ export function defineWorkflow<
       })
 
       if (errorCode || !output) {
-        throw new Error(`workflow_${opts.id}_failed: ${errorCode}`)
+        // `cause` preserves the original thrown value (e.g. W32's
+        // InvalidCitationError/UnsupportedQuoteError) behind this wrapper so
+        // callers can still `instanceof`-check the real failure — see
+        // apps/hoa/src/lib/inbox/draft/actions.ts's createDraft, which needs
+        // to tell a citation-validation failure apart from every other kind
+        // of workflow failure to show a useful message instead of a generic
+        // one. Standard `Error` cause option (Node 16.9+ / all modern
+        // runtimes this repo targets); no custom error-wrapping class needed.
+        throw new Error(`workflow_${opts.id}_failed: ${errorCode}`, {
+          cause: caughtError,
+        })
       }
 
       return {

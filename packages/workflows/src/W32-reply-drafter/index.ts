@@ -11,7 +11,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow } from '@homeowner-portal/ai'
+import { defineWorkflow, type WorkflowExecuteApi } from '@homeowner-portal/ai'
 import { PROMPT_VERSION, REPLY_DRAFTER_SYSTEM, buildReplyDrafterUserPrompt } from './prompt'
 import { validateCitations, InvalidCitationError, UnsupportedQuoteError } from './tools'
 
@@ -103,7 +103,10 @@ function getClient(): OpenAI {
 export const replyDrafter = defineWorkflow({
   id: 'W32',
   name: 'Reply Drafter',
-  version: '1.0.0',
+  // Bumped for the corrective-retry behavior change below (defineWorkflow's
+  // own docstring: bump `version` when prompt OR tool surface changes
+  // meaningfully — this changes how run() behaves on a citation failure).
+  version: '1.1.0',
   promptVersion: PROMPT_VERSION,
   model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
   // Declared, not merely enforced in the UI. A draft is a proposal; only a
@@ -114,31 +117,148 @@ export const replyDrafter = defineWorkflow({
   outputSchema: ReplyDrafterOutputSchema,
 
   async run(input, api, _ctx) {
-    const completion = await getClient().chat.completions.create({
-      model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
-      temperature: 0.2,
-      max_tokens: 1500,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: REPLY_DRAFTER_SYSTEM },
-        { role: 'user', content: buildReplyDrafterUserPrompt(input) },
-      ],
-    })
-
-    if (completion.usage) {
-      api.setTokens(completion.usage.prompt_tokens, completion.usage.completion_tokens)
-    }
-    api.setModel(completion.model)
-
-    const raw = completion.choices[0]?.message?.content ?? '{}'
-    const output = processReplyDrafterResponse(raw, input.fragments)
-
-    api.addCitations(output.citations.map((c) => c.refId))
-    api.setConfidence(output.grounded ? 0.8 : 0.2)
-
-    return output
+    return generateReplyDraft(input, api, callModel)
   },
 })
+
+// ─── Retry orchestration ────────────────────────────────────────────
+
+/** Injectable seam so `generateReplyDraft` is testable without a live model. */
+export type ModelCaller = (
+  messages: OpenAI.Chat.ChatCompletionMessageParam[],
+) => Promise<{ completion: OpenAI.Chat.ChatCompletion; raw: string }>
+
+/**
+ * One model call, and — only when it fails citation validation — exactly
+ * one corrective retry that names the specific refId(s) and rule that
+ * failed, before giving up.
+ *
+ * Exported separately from `run()` and takes `callModel` as a parameter for
+ * the same reason `processReplyDrafterResponse` is exported separately: the
+ * root vitest harness is pure-modules-only (no live model, no database —
+ * see vitest.config.ts), and `run()` itself can't be called in isolation
+ * because it's closed over by `defineWorkflow`. Injecting the model caller
+ * makes the retry/give-up logic itself testable with a fake that returns
+ * canned responses.
+ */
+export async function generateReplyDraft(
+  input: ReplyDrafterInput,
+  api: WorkflowExecuteApi,
+  callModel: ModelCaller,
+): Promise<ReplyDrafterOutput> {
+  const baseMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    { role: 'system', content: REPLY_DRAFTER_SYSTEM },
+    { role: 'user', content: buildReplyDrafterUserPrompt(input) },
+  ]
+
+  // Running total across attempts: a retry is a second real model call, and
+  // under-reporting the tokens actually spent would make the audit row
+  // silently wrong about cost.
+  let tokensIn = 0
+  let tokensOut = 0
+  function recordUsage(completion: OpenAI.Chat.ChatCompletion) {
+    if (completion.usage) {
+      tokensIn += completion.usage.prompt_tokens
+      tokensOut += completion.usage.completion_tokens
+      api.setTokens(tokensIn, tokensOut)
+    }
+    api.setModel(completion.model)
+  }
+
+  function finalize(output: ReplyDrafterOutput): ReplyDrafterOutput {
+    api.addCitations(output.citations.map((c) => c.refId))
+    api.setConfidence(output.grounded ? 0.8 : 0.2)
+    return output
+  }
+
+  const first = await callModel(baseMessages)
+  recordUsage(first.completion)
+
+  try {
+    return finalize(processReplyDrafterResponse(first.raw, input.fragments))
+  } catch (err) {
+    if (!(err instanceof InvalidCitationError || err instanceof UnsupportedQuoteError)) {
+      throw err
+    }
+
+    // Exactly one corrective retry, never a loop: the quote-fidelity gate
+    // (tools.ts) rejects real, on-topic drafts whose citation quote was
+    // merely re-typed rather than copied verbatim — a formatting mistake,
+    // not a fabrication. Retrying once with the SPECIFIC refId(s) and
+    // reason named gives the model a real chance to fix exactly that,
+    // instead of a board member getting nothing for a fixable slip. This
+    // note is recorded on the audit row (setReasoning) so a retried run is
+    // visible, not silent.
+    api.setReasoning(
+      `First draft rejected by citation validation (${err.name}: ${err.message}). ` +
+        'Retried once with a corrective instruction naming the exact failure.',
+    )
+
+    const retryMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+      ...baseMessages,
+      { role: 'assistant', content: first.raw },
+      { role: 'user', content: buildCorrectionMessage(err) },
+    ]
+
+    const second = await callModel(retryMessages)
+    recordUsage(second.completion)
+
+    // Same `processReplyDrafterResponse` / `validateCitations` as the first
+    // attempt — the gate is not weakened or bypassed on the retry. If the
+    // second attempt also fails, this throws uncaught (as the single
+    // -attempt path always did), but with the failure augmented to say both
+    // attempts failed rather than silently reporting only the second.
+    try {
+      return finalize(processReplyDrafterResponse(second.raw, input.fragments))
+    } catch (secondErr) {
+      if (secondErr instanceof InvalidCitationError || secondErr instanceof UnsupportedQuoteError) {
+        // Mutating `.message` (not swallowing/replacing the error) keeps
+        // `secondErr` the same InvalidCitationError/UnsupportedQuoteError
+        // instance — and therefore still `instanceof`-recognisable by
+        // createDraft (via defineWorkflow's `.cause`, see workflow.ts) —
+        // while making clear in the audit row and any log that this is the
+        // second failure, not the only one.
+        secondErr.message = `${secondErr.message} — persisted after one corrective retry (first attempt: ${err.name}: ${err.message})`
+      }
+      throw secondErr
+    }
+  }
+}
+
+const callModel: ModelCaller = async (messages) => {
+  const completion = await getClient().chat.completions.create({
+    model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+    temperature: 0.2,
+    max_tokens: 1500,
+    response_format: { type: 'json_object' },
+    messages,
+  })
+  const raw = completion.choices[0]?.message?.content ?? '{}'
+  return { completion, raw }
+}
+
+/**
+ * Names exactly what failed so the retry has a real chance of fixing it:
+ * which refId(s), and — for a quote failure — the precise rule (exact
+ * substring, no paraphrase) rather than a vague "try again".
+ */
+function buildCorrectionMessage(err: InvalidCitationError | UnsupportedQuoteError): string {
+  if (err instanceof InvalidCitationError) {
+    return (
+      `Your previous JSON response was rejected: it cited refId(s) ${err.invalidRefIds.join(', ')}, ` +
+      'which do not exist anywhere in the SOURCES block above. Only cite a refId that is printed ' +
+      'verbatim in SOURCES. Return the corrected JSON only, following the same schema as before.'
+    )
+  }
+  return (
+    `Your previous JSON response was rejected: the "quote" field for refId(s) ${err.unsupportedRefIds.join(', ')} ` +
+    "was not found as an exact substring inside that refId's own text in SOURCES. Every \"quote\" must be " +
+    'copied character-for-character from SOURCES — no paraphrasing, no reworded or reordered text, no ' +
+    'fixed punctuation, no ellipsis. Fix the quote(s) for the refId(s) named above so each one is an exact ' +
+    'substring of that refId\'s text (or drop that citation and the claim it supports if no exact quote ' +
+    'supports it). Return the corrected JSON only, following the same schema as before.'
+  )
+}
 
 /** Convenience wrapper matching queryGoverningDocs / askStateLaw. */
 export async function draftReply(
