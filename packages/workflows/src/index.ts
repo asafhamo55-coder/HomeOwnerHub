@@ -76,3 +76,7 @@ export type {
   CommComposerInput,
   CommComposerOutput,
 } from './W31-comm-composer'
+
+// Phase B — Module 9 continued: shared-inbox reply drafting
+export { replyDrafter, draftReply, InvalidCitationError } from './W32-reply-drafter'
+export type { ReplyDrafterInput, ReplyDrafterOutput } from './W32-reply-drafter'
