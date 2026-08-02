@@ -44,3 +44,19 @@ DROP POLICY IF EXISTS org_access ON public.ai_runs;
 CREATE POLICY org_access ON public.ai_runs
   USING (organization_id = ANY (public.auth_org_ids())
          AND public.auth_is_board_or_admin(organization_id));
+
+-- `ai_feedback` carries the identical role-free policy from the same
+-- migration and joins to `ai_runs` via ai_run_id. Its own contents are far
+-- lower-risk than a run's input — a rating and an optional comment — but the
+-- gap is the same shape, and leaving it open means a resident can still
+-- enumerate which runs exist for their association and read whatever a board
+-- member typed into a feedback comment.
+--
+-- Zero application references exist: searching apps/ and packages/ for
+-- `ai_feedback` returns only entries in the generated database types. No
+-- surface reads or writes it, so tightening it cannot break anything.
+DROP POLICY IF EXISTS org_access ON public.ai_feedback;
+
+CREATE POLICY org_access ON public.ai_feedback
+  USING (organization_id = ANY (public.auth_org_ids())
+         AND public.auth_is_board_or_admin(organization_id));
