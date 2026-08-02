@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { processReplyDrafterResponse } from './index'
 import { buildReplyDrafterUserPrompt } from './prompt'
-import { InvalidCitationError } from './tools'
+import { InvalidCitationError, UnsupportedQuoteError } from './tools'
 
 // These test the two load-bearing, deterministic pieces of W32's wiring
 // without a live model or database (root vitest harness is pure-modules
@@ -14,7 +14,10 @@ import { InvalidCitationError } from './tools'
 //     mistaken for a citable source.
 
 describe('processReplyDrafterResponse — citation gate', () => {
-  const retrieved = ['doc:c1', 'reply:m1']
+  const retrieved = [
+    { refId: 'doc:c1', text: 'The by-laws say... members must pay dues on the 1st of each month.' },
+    { refId: 'reply:m1', text: 'Thanks for your patience while we looked into this — real past reply text.' },
+  ]
 
   function draftJson(citations: Array<{ refId: string; quote: string; label: string }>) {
     return JSON.stringify({
@@ -27,7 +30,7 @@ describe('processReplyDrafterResponse — citation gate', () => {
     })
   }
 
-  it('accepts a draft that only cites retrieved refIds', () => {
+  it('accepts a draft that only cites retrieved refIds with quotes actually in the fragment', () => {
     const raw = draftJson([{ refId: 'doc:c1', quote: 'the by-laws say...', label: 'Bylaws' }])
     const output = processReplyDrafterResponse(raw, retrieved)
     expect(output.citations).toEqual([{ refId: 'doc:c1', quote: 'the by-laws say...', label: 'Bylaws' }])
@@ -35,7 +38,7 @@ describe('processReplyDrafterResponse — citation gate', () => {
 
   it('FAILS the whole run on an invented refId — not a filtered-out citation', () => {
     const raw = draftJson([
-      { refId: 'doc:c1', quote: 'real', label: 'Bylaws' },
+      { refId: 'doc:c1', quote: 'members must pay dues', label: 'Bylaws' },
       { refId: 'doc:invented', quote: 'fake', label: 'Nowhere' },
     ])
 
@@ -55,8 +58,40 @@ describe('processReplyDrafterResponse — citation gate', () => {
     }
   })
 
+  it('FAILS the run when a citation quotes text that is not actually in the cited fragment', () => {
+    const raw = draftJson([{ refId: 'doc:c1', quote: 'this sentence appears nowhere in the fragment', label: 'Bylaws' }])
+    expect(() => processReplyDrafterResponse(raw, retrieved)).toThrow(UnsupportedQuoteError)
+  })
+
+  it('FAILS the run when a citation quotes text lifted from a different retrieved fragment', () => {
+    // "real past reply text" only exists in reply:m1, not doc:c1.
+    const raw = draftJson([{ refId: 'doc:c1', quote: 'real past reply text', label: 'Bylaws' }])
+    expect(() => processReplyDrafterResponse(raw, retrieved)).toThrow(UnsupportedQuoteError)
+  })
+
   it('rejects unparseable JSON rather than silently proceeding', () => {
     expect(() => processReplyDrafterResponse('not json', retrieved)).toThrow()
+  })
+
+  describe('parse failure logging never leaks thread content', () => {
+    afterEach(() => vi.restoreAllMocks())
+
+    it('logs only errorName + responseLength — never the SyntaxError message, which embeds a prefix of the model output', () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      // A JSON.parse SyntaxError message embeds a prefix of this string,
+      // which here stands in for a resident's PII the model drafted.
+      const leaky = 'Sorry, resident John Smith at 123 Main St owes $450, not json'
+
+      expect(() => processReplyDrafterResponse(leaky, retrieved)).toThrow()
+
+      expect(spy).toHaveBeenCalledTimes(1)
+      const loggedArgs = spy.mock.calls[0]
+      const loggedText = JSON.stringify(loggedArgs)
+      expect(loggedText).not.toContain('John Smith')
+      expect(loggedText).not.toContain('123 Main St')
+      expect(loggedText).not.toContain('$450')
+      expect(loggedArgs[1]).toMatchObject({ errorName: 'SyntaxError', responseLength: leaky.length })
+    })
   })
 })
 

@@ -13,7 +13,7 @@ import { z } from 'zod'
 import OpenAI from 'openai'
 import { defineWorkflow } from '@homeowner-portal/ai'
 import { PROMPT_VERSION, REPLY_DRAFTER_SYSTEM, buildReplyDrafterUserPrompt } from './prompt'
-import { validateCitations, InvalidCitationError } from './tools'
+import { validateCitations, InvalidCitationError, UnsupportedQuoteError } from './tools'
 
 // ─── Public types ────────────────────────────────────────────────────
 
@@ -107,10 +107,7 @@ export const replyDrafter = defineWorkflow({
     api.setModel(completion.model)
 
     const raw = completion.choices[0]?.message?.content ?? '{}'
-    const output = processReplyDrafterResponse(
-      raw,
-      input.fragments.map((f) => f.refId),
-    )
+    const output = processReplyDrafterResponse(raw, input.fragments)
 
     api.addCitations(output.citations.map((c) => c.refId))
     api.setConfidence(output.grounded ? 0.8 : 0.2)
@@ -128,7 +125,7 @@ export async function draftReply(
   return { ...result.output, runId: result.runId }
 }
 
-export { InvalidCitationError }
+export { InvalidCitationError, UnsupportedQuoteError }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
@@ -138,15 +135,22 @@ function parseModelJson(raw: string): unknown {
     if (parsed && typeof parsed === 'object') return parsed
     throw new Error('parsed value is not an object')
   } catch (err) {
-    // Never log raw — it is the model's rendering of thread content.
-    console.error('[W32] model response parse failed', { error: String(err) })
+    // Never log raw, and never log err.message/String(err) — for a
+    // JSON.parse SyntaxError, the message embeds a prefix of the offending
+    // input, which here is the model's rendering of thread content (a
+    // resident's name, address, balance, etc). Log only the error's type
+    // and safe, non-content metadata.
+    const errorName = err instanceof Error ? err.name : 'UnknownError'
+    console.error('[W32] model response parse failed', { errorName, responseLength: raw.length })
     throw new Error('The model returned an unparseable response. Please retry.')
   }
 }
 
 /**
  * Parse + schema-validate the model's raw JSON response, then enforce the
- * citation gate against the refIds this run actually retrieved.
+ * citation gate against the fragments this run actually retrieved — both
+ * that every cited refId was retrieved, and that its quote actually occurs
+ * in that fragment's text (see tools.ts / UnsupportedQuoteError).
  *
  * Exported separately from `run()` so the citation gate is unit-testable
  * without a live model or database — this repo's root vitest harness is
@@ -154,15 +158,15 @@ function parseModelJson(raw: string): unknown {
  * can't be called in isolation because it's closed over by `defineWorkflow`.
  *
  * `validateCitations` is intentionally left to throw uncaught: a fabricated
- * refId fails the whole draft (see tools.ts / InvalidCitationError) rather
- * than being silently dropped while the rest of the draft is kept.
+ * refId, or a quote that isn't actually in the cited fragment, fails the
+ * whole draft rather than being silently dropped while the rest is kept.
  */
 export function processReplyDrafterResponse(
   raw: string,
-  retrievedRefIds: string[],
+  retrievedFragments: Array<{ refId: string; text: string }>,
 ): ReplyDrafterOutput {
   const parsed = parseModelJson(raw)
   const output = ReplyDrafterOutputSchema.parse(parsed)
-  validateCitations(output.citations, retrievedRefIds)
+  validateCitations(output.citations, retrievedFragments)
   return output
 }
