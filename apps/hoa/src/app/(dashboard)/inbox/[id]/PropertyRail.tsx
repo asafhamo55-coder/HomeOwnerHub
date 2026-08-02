@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { PropertyContext, ThreadDetail } from '@/lib/inbox/queries'
 import { AssignPropertyForm } from './AssignPropertyForm'
+import { formatShortDate } from '@/lib/format-datetime'
 
 interface Props {
   thread: ThreadDetail
@@ -143,7 +144,7 @@ export function PropertyRail({ thread, context, contextLoadFailed, suggestedProp
               : context.lastCommunication
                 ? `${context.lastCommunication.subject}${
                     context.lastCommunication.sentAt
-                      ? ` — ${new Date(context.lastCommunication.sentAt).toLocaleDateString()}`
+                      ? ` — ${formatShortDate(context.lastCommunication.sentAt)}`
                       : ''
                   }`
                 : 'Nothing sent yet'

@@ -16,6 +16,7 @@ export default defineConfig({
       'packages/jobs/src/**/*.test.ts',
       'apps/hoa/src/lib/properties/**/*.test.ts',
       'apps/hoa/src/lib/inbox/**/*.test.ts',
+      'apps/hoa/src/lib/*.test.ts',
       'apps/hoa/src/app/\\(dashboard\\)/settings/mailbox/**/*.test.ts',
     ],
     environment: 'node',

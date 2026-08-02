@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Paperclip } from 'lucide-react'
 import type { ThreadListItem } from '@/lib/inbox/queries'
+import { formatShortDate } from '@/lib/format-datetime'
 
 // `unitId` is ground truth for "did this thread actually get matched" —
 // `decideMatch` (apps/hoa/src/lib/inbox/match.ts) sets it ONLY on a high-
@@ -86,7 +87,7 @@ export function ThreadList({
               </span>
               <span className="shrink-0 text-xs text-muted">
                 {thread.lastMessageAt
-                  ? new Date(thread.lastMessageAt).toLocaleDateString()
+                  ? formatShortDate(thread.lastMessageAt)
                   : ''}
               </span>
             </div>

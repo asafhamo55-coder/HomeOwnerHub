@@ -1,4 +1,5 @@
 import type { ThreadMessage } from '@/lib/inbox/queries'
+import { formatMessageTimestamp } from '@/lib/format-datetime'
 
 // No `text-warning` utility exists in the shared Tailwind config
 // (packages/ui/tailwind.config.ts only defines primary/accent/background/
@@ -33,7 +34,7 @@ export function MessageThread({ messages }: { messages: ThreadMessage[] }) {
             ) : null}
             <span>→ {message.toEmails.join(', ') || '—'}</span>
             <span className="ml-auto">
-              {message.sentAt ? new Date(message.sentAt).toLocaleString() : ''}
+              {formatMessageTimestamp(message.sentAt)}
             </span>
           </header>
 
