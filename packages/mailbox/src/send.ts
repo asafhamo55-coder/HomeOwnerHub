@@ -56,6 +56,7 @@ export function buildRawMessage(opts: {
     `Subject: ${encodeHeader(opts.subject)}`,
     'MIME-Version: 1.0',
     'Content-Type: text/plain; charset="UTF-8"',
+    'Content-Transfer-Encoding: 8bit',
   ]
 
   // Omitted entirely when absent — an empty `In-Reply-To:` header is invalid

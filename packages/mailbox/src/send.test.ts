@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { buildRawMessage } from './send'
+import { afterEach, describe, it, expect, vi } from 'vitest'
+import { buildRawMessage, sendReply } from './send'
+import { MailboxAuthError } from './types'
 
 function decode(raw: string): string {
   return Buffer.from(raw.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')
@@ -42,5 +43,63 @@ describe('buildRawMessage', () => {
     expect(() =>
       buildRawMessage({ ...base, subject: 'Hi\r\nBcc: attacker@evil.com' }),
     ).toThrow()
+  })
+
+  it('declares an 8bit transfer encoding for the UTF-8 body', () => {
+    const decoded = decode(buildRawMessage(base))
+    expect(decoded).toContain('Content-Transfer-Encoding: 8bit')
+  })
+})
+
+describe('sendReply', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('returns the message id and thread id from the payload on success', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ id: 'msg-1', threadId: 'thread-1' }), { status: 200 }),
+    )
+
+    const result = await sendReply('at-1', 'thread-1', 'raw-message')
+    expect(result).toEqual({ messageId: 'msg-1', threadId: 'thread-1' })
+  })
+
+  it('throws MailboxAuthError on a 401', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ error: { message: 'Invalid Credentials' } }), {
+        status: 401,
+      }),
+    )
+
+    await expect(sendReply('bad', 'thread-1', 'raw-message')).rejects.toBeInstanceOf(
+      MailboxAuthError,
+    )
+  })
+
+  it('throws MailboxAuthError on a 403', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ error: { message: 'Forbidden' } }), { status: 403 }),
+    )
+
+    await expect(sendReply('at-1', 'thread-1', 'raw-message')).rejects.toBeInstanceOf(
+      MailboxAuthError,
+    )
+  })
+
+  it('throws a generic Error carrying the status on other non-OK responses', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('Internal error', { status: 500, statusText: 'Internal Server Error' }),
+    )
+
+    await expect(sendReply('at-1', 'thread-1', 'raw-message')).rejects.toThrow(/500/)
+  })
+
+  it('throws when a 200 response payload has no id', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ threadId: 'thread-1' }), { status: 200 }),
+    )
+
+    await expect(sendReply('at-1', 'thread-1', 'raw-message')).rejects.toThrow(/message id/)
   })
 })
