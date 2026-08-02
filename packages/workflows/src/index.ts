@@ -78,5 +78,15 @@ export type {
 } from './W31-comm-composer'
 
 // Phase B — Module 9 continued: shared-inbox reply drafting
-export { replyDrafter, draftReply, InvalidCitationError } from './W32-reply-drafter'
+// Both citation failures are exported: a consumer needs to tell "cited a source
+// that was never retrieved" (InvalidCitationError) apart from "cited a real
+// source but the quote is not in it" (UnsupportedQuoteError). They call for
+// different messages to a reviewer, and collapsing them would hide which one
+// the model actually did.
+export {
+  replyDrafter,
+  draftReply,
+  InvalidCitationError,
+  UnsupportedQuoteError,
+} from './W32-reply-drafter'
 export type { ReplyDrafterInput, ReplyDrafterOutput } from './W32-reply-drafter'
