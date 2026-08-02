@@ -52,10 +52,14 @@ export function isInScope(
   }
 
   const needle = trimmed.toLowerCase()
+  // Sender included per Phase B D1 — see buildScopeQuery. `fromEmail` may be
+  // null on a malformed envelope, so it is filtered rather than coerced:
+  // String(null) would produce "null" and could match a scopeValue of "null".
   const haystack = [
     ...message.toEmails,
     ...message.ccEmails,
     ...message.deliveredTo,
+    ...(message.fromEmail ? [message.fromEmail] : []),
   ].map((e) => e.toLowerCase())
 
   return haystack.includes(needle)
@@ -85,8 +89,12 @@ export function buildScopeQuery(
           `buildScopeQuery: scopeValue "${scopeValue}" is not a valid single email address`,
         )
       }
+      // `from:` added in Phase B (D1). Without it the HOA's own replies are
+      // excluded by construction: a real mailbox synced 153 inbound messages
+      // and zero outbound. That left every thread showing one side of the
+      // conversation and gave the reply corpus nothing to learn from.
       clauses.push(
-        `(to:${scopeValue} OR cc:${scopeValue} OR deliveredto:${scopeValue})`,
+        `(to:${scopeValue} OR cc:${scopeValue} OR deliveredto:${scopeValue} OR from:${scopeValue})`,
       )
     }
   } else if (scopeMode === 'label') {

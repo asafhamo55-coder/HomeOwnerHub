@@ -406,14 +406,10 @@ ALTER TABLE public.inbox_reply_embeddings ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS board_access ON public.inbox_reply_embeddings;
 CREATE POLICY board_access ON public.inbox_reply_embeddings
   FOR ALL
-  USING (
-    organization_id IN (SELECT auth_org_ids())
-    AND auth_is_board_or_admin(organization_id)
-  )
-  WITH CHECK (
-    organization_id IN (SELECT auth_org_ids())
-    AND auth_is_board_or_admin(organization_id)
-  );
+  USING       (organization_id = ANY (public.auth_org_ids())
+               AND public.auth_is_board_or_admin(organization_id))
+  WITH CHECK  (organization_id = ANY (public.auth_org_ids())
+               AND public.auth_is_board_or_admin(organization_id));
 ```
 
 - [ ] **Step 2: Apply it**
@@ -645,6 +641,13 @@ AS $$
   JOIN public.inbox_messages m ON m.id = e.message_id
   JOIN public.inbox_threads  t ON t.id = m.thread_id
   WHERE e.organization_id = p_org_id
+    -- Marker rows (NULL embedding) record "considered, deliberately not
+    -- embedded" for replies too short to teach anything about voice. They
+    -- exist so a skipped message stops re-qualifying as a candidate every
+    -- run; see 0034c. They must never be returned as a similar reply, and
+    -- `<=>` against NULL would sort them unpredictably rather than exclude
+    -- them, so the filter is explicit.
+    AND e.embedding IS NOT NULL
     AND m.thread_id IS DISTINCT FROM p_exclude_thread_id
   ORDER BY e.embedding <=> p_query_embedding
   LIMIT LEAST(GREATEST(p_limit, 1), 20);
@@ -1549,14 +1552,10 @@ ALTER TABLE public.inbox_drafts ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS board_access ON public.inbox_drafts;
 CREATE POLICY board_access ON public.inbox_drafts
   FOR ALL
-  USING (
-    organization_id IN (SELECT auth_org_ids())
-    AND auth_is_board_or_admin(organization_id)
-  )
-  WITH CHECK (
-    organization_id IN (SELECT auth_org_ids())
-    AND auth_is_board_or_admin(organization_id)
-  );
+  USING       (organization_id = ANY (public.auth_org_ids())
+               AND public.auth_is_board_or_admin(organization_id))
+  WITH CHECK  (organization_id = ANY (public.auth_org_ids())
+               AND public.auth_is_board_or_admin(organization_id));
 ```
 
 - [ ] **Step 2: Apply and verify**

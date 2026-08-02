@@ -132,7 +132,7 @@ describe('syncMailbox', () => {
     // Fallback must still be scope-constrained, or an expiry becomes a
     // privacy incident.
     expect(listMessages).toHaveBeenCalledWith(
-      '(to:board@mp.org OR cc:board@mp.org OR deliveredto:board@mp.org) after:2026/07/24',
+      '(to:board@mp.org OR cc:board@mp.org OR deliveredto:board@mp.org OR from:board@mp.org) after:2026/07/24',
       undefined,
     )
     // Cursor is refreshed from the profile so the next run is incremental.

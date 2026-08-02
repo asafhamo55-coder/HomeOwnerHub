@@ -178,7 +178,12 @@ function parseModelJson(
     if (parsed && typeof parsed === 'object') return parsed
     throw new Error('parsed value is not an object')
   } catch (err) {
-    console.error('[W30] model response parse failed', { error: String(err) })
+    // Never log err.message/String(err) — for a JSON.parse SyntaxError, the
+    // message embeds a prefix of the offending input, which here is the
+    // model's rendering of thread/legal content. Log only the error's type
+    // and safe, non-content metadata.
+    const errorName = err instanceof Error ? err.name : 'UnknownError'
+    console.error('[W30] model response parse failed', { errorName, responseLength: raw.length })
     throw new Error('The model returned an unparseable response. Please retry.')
   }
 }

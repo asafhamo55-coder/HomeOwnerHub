@@ -443,9 +443,122 @@ export const mailboxWatchdogJob = inngest.createFunction(
       logger.error(`[mailbox-watchdog] BACKFILL STALLED: ${account.email_address}`)
     }
 
+    // Third, independent check: an approved reply wedged in 'sending'.
+    const stuckSends = await reconcileStuckSends(db, logger, threshold)
+
     return {
       stalled: stalled?.length ?? 0,
       backfillStalled: stalledBackfills?.length ?? 0,
+      stuckSends,
     }
   },
 )
+
+/**
+ * The reason text written onto a reply reconciled out of 'sending'.
+ *
+ * Every word here is load-bearing. A row reaches this state in two very
+ * different ways and the watchdog CANNOT tell them apart:
+ *
+ *   1. The job died between the claim and `sendToGmail` — nothing was sent.
+ *   2. `sendToGmail` succeeded and `recordSent`'s bookkeeping update failed
+ *      or never ran — the resident HAS the email.
+ *
+ * Case 2 is exactly the state mailbox-send.ts's `recordSent` is careful to
+ * log rather than route to `fail()`, for the same reason: a human who reads
+ * "failed" resends, and the resident gets the reply twice. So this must not
+ * say the send failed, and DraftPanel's failed state must not imply nothing
+ * was sent (it no longer does — see the panel's status==='failed' branch).
+ *
+ * And nothing here auto-retries. An ambiguous send is a human's decision;
+ * that is the whole reason `sendReply` has no retry.
+ */
+export const STUCK_SEND_REASON =
+  'This reply was still marked as sending long after it should have finished, ' +
+  'so it was closed out automatically. We cannot tell whether it was delivered ' +
+  '— it may already have reached the resident. Check the thread or the ' +
+  "mailbox's Sent folder before writing another reply. Nothing was resent."
+
+/**
+ * Mark replies wedged in `'sending'` as `'failed'`, with an honest reason.
+ *
+ * `mailbox-send.ts` claims a draft by flipping it 'queued' → 'sending', and
+ * its top-of-function guard (`if (draft.status !== 'queued') return`) makes
+ * every subsequent Inngest retry early-return. That is correct — it is what
+ * guarantees a reply is sent at most once — but it means any uncaught throw
+ * between the claim and `sendToGmail` (a network-level supabase-js rejection
+ * on the thread, account or last-message reads, a platform timeout, an OOM)
+ * strands the row at 'sending' permanently: never sent, never failed, never
+ * retried. DraftPanel shows "Sending…" with Undo suppressed, forever, and no
+ * other code path can correct it. This is that missing path.
+ *
+ * Threshold is the caller's — the same 30 minutes the sync and backfill
+ * checks use, and enormously wide for this operation. Time in 'sending' is
+ * measured from `send_after` (the moment the undo window elapsed and the
+ * claim happened), and the work after the claim is three indexed reads plus
+ * one Gmail send whose client retry ladder tops out in seconds. A row in
+ * 'sending' for half an hour is not a slow send.
+ *
+ * Rows are filtered in memory rather than in the query: `status='sending'`
+ * is a transient state that normally matches zero rows, and doing the
+ * timestamp comparison here keeps the fallback chain (`send_after` →
+ * `approved_at` → `created_at`) explicit instead of encoding it as nested
+ * PostgREST `.or()` branches. A row with no usable timestamp at all is left
+ * alone rather than guessed at.
+ *
+ * Exported for testing, and separately from the job body for the same reason
+ * `runMailboxSend` is (see mailbox-send.ts).
+ */
+export async function reconcileStuckSends(
+  db: ReturnType<typeof createAdminClient>,
+  logger: { error(message: string): void },
+  thresholdIso: string,
+): Promise<number> {
+  const { data: sending, error: sendingError } = await db
+    .from('inbox_drafts')
+    .select('id, send_after, approved_at, created_at')
+    .eq('status', 'sending')
+
+  if (sendingError) {
+    // Same posture as the two checks above: a watchdog whose own read fails
+    // soft reports a clean run while the thing it exists to catch goes
+    // uncaught. Throw so the failure is visible in Inngest.
+    logDbError('mailboxWatchdogJob', 'inbox_drafts', {}, sendingError)
+    throw new Error(
+      `mailboxWatchdogJob: failed to load sending drafts: ${sendingError.message}`,
+    )
+  }
+
+  let reconciled = 0
+  for (const draft of sending ?? []) {
+    const since = draft.send_after ?? draft.approved_at ?? draft.created_at
+    if (!since || since >= thresholdIso) continue
+
+    // Conditional on `status='sending'`, never a bare update by id. If the
+    // send job is in fact alive and `recordSent` lands between this read and
+    // this write, it matches zero rows and a genuinely-sent reply is not
+    // overwritten with a failure.
+    const { data, error: flagError } = await db
+      .from('inbox_drafts')
+      .update({ status: 'failed', error: STUCK_SEND_REASON })
+      .eq('id', draft.id)
+      .eq('status', 'sending')
+      .select('id')
+      .maybeSingle()
+
+    if (flagError) {
+      logDbError('mailboxWatchdogJob', 'inbox_drafts', { draftId: draft.id }, flagError)
+      throw new Error(
+        `mailboxWatchdogJob: failed to reconcile stuck send ${draft.id}: ${flagError.message}`,
+      )
+    }
+    if (!data) continue // the send job finished first — leave its result alone
+
+    reconciled += 1
+    // Never log a subject, body or address — only the opaque draft id, same
+    // rule mailbox-send.ts follows.
+    logger.error(`[mailbox-watchdog] STUCK SEND reconciled: draft ${draft.id}`)
+  }
+
+  return reconciled
+}

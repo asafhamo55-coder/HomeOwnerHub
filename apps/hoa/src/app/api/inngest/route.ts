@@ -11,6 +11,8 @@ import {
   mailboxWatchdogJob,
   mailboxBackfillJob,
   mailboxAttachmentsJob,
+  mailboxReplyEmbeddingsJob,
+  mailboxSendJob,
 } from '@homeowner-portal/jobs'
 
 // All five crons mount in the HOA app for Phase 1. Inngest is a single
@@ -35,5 +37,7 @@ export const { GET, POST, PUT } = serve({
     mailboxWatchdogJob,
     mailboxBackfillJob,
     mailboxAttachmentsJob,
+    mailboxReplyEmbeddingsJob,
+    mailboxSendJob,
   ],
 })

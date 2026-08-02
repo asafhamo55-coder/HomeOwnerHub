@@ -46,8 +46,17 @@ export interface WorkflowResult<TOutput> {
 export interface WorkflowExecuteApi {
   /** Mark this run as needing board/manager approval before its output ships. */
   requireHumanApproval: () => void
-  /** Attach citations (governing_document_chunks.id) used to ground the answer. */
-  addCitations: (chunkIds: string[]) => void
+  /**
+   * Attach the ids of the sources used to ground the answer.
+   *
+   * These are opaque strings, NOT necessarily `governing_document_chunks.id`
+   * (as this comment used to claim). Each workflow decides its own id space:
+   * W1 passes bare chunk ids, while W32 passes prefixed composite refIds
+   * (`doc:<uuid>`, `law:<uuid>`, `prop:context`) precisely because it draws
+   * on several corpora whose id spaces would otherwise collide. Do not parse
+   * these as uuids or join them against a single table.
+   */
+  addCitations: (refIds: string[]) => void
   /** Record a 0..1 confidence score the workflow computed itself. */
   setConfidence: (value: number) => void
   /** Capture chain-of-thought / reasoning trace if the workflow returned one. */
