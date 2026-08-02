@@ -37,6 +37,7 @@ import {
 import { formatShortDate } from '@/lib/format-datetime'
 import type { PropertyResidentRow, PropertyResidentRole } from '@/lib/property-residents'
 import type { PropertyEventRow, PropertyEventKind } from '@/lib/property-events'
+import { resolveCorrespondenceState } from './correspondence-state'
 import { TenureSelector } from './TenureSelector'
 import { AddResidentForm } from './AddResidentForm'
 import { PropertyActions } from './PropertyActions'
@@ -113,7 +114,7 @@ export default async function PropertyDetailPage({
   const isAdmin = ctx?.role === 'admin'
   const unitId = unit?.id ?? null
 
-  const [violationsRes, assessmentsRes, correspondence] = await Promise.all([
+  const [violationsRes, assessmentsRes, correspondenceOutcome] = await Promise.all([
     supabase
       .from('hoa_violations')
       .select('id, description, status, severity, created_at, cure_period_days, notice_sent_at')
@@ -134,15 +135,38 @@ export default async function PropertyDetailPage({
       : Promise.resolve({ data: [] }),
     // unitId null means this property has no bridged unit row — correspondence
     // cannot be linked to it at all, which the section below must render as a
-    // distinct state from "linked, but zero threads so far". `correspondence`
-    // stays `null` in that case; an empty array means "linked, no threads yet".
+    // distinct state from "linked, but zero threads so far" AND from "linked,
+    // but the read failed". `listThreadsForUnit` throws on a soft read
+    // failure (correctly — see its docstring), but this read sits alongside
+    // five other sections in one `Promise.all`; letting it reject the whole
+    // `Promise.all` would take down residents/tenure/violations/dues too for
+    // a failure in one section of six. `Promise.allSettled` (wrapping just
+    // this one call, of one) turns that rejection into data instead —
+    // `correspondenceOutcome` is `null` when there's no unit to query, or a
+    // `PromiseSettledResult` the page can branch on otherwise.
     unitId && ctx
-      ? listThreadsForUnit(supabase, ctx.org.id, unitId)
+      ? Promise.allSettled([listThreadsForUnit(supabase, ctx.org.id, unitId)]).then(
+          ([result]) => result,
+        )
       : Promise.resolve(null),
   ])
 
   const violations = (violationsRes.data ?? []) as ViolationRow[]
   const dues = (assessmentsRes.data ?? []) as unknown as AssessmentRow[]
+
+  if (correspondenceOutcome?.status === 'rejected') {
+    const reason = correspondenceOutcome.reason
+    // `listThreadsForUnit` already logs the underlying PostgrestError's
+    // `.code`/`.message` (never `.details`) before it throws a plain Error
+    // wrapping just that message. Log again here, at the point this page
+    // chose to swallow the rejection, so "the property page degraded" is
+    // itself visible server-side — still message-only, nothing from the
+    // original row (no subject/address ever reaches this Error).
+    console.error('PropertyDetailPage: correspondence read failed', {
+      message: reason instanceof Error ? reason.message : String(reason),
+    })
+  }
+  const correspondenceState = resolveCorrespondenceState(unitId, correspondenceOutcome)
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -263,13 +287,30 @@ export default async function PropertyDetailPage({
             Open inbox
           </Link>
         </div>
-        {correspondence === null ? (
+        {correspondenceState.kind === 'unlinked' ? (
           <EmptyState
             icon={<Mail className="h-8 w-8" aria-hidden />}
             title="Not linked to a mailbox unit"
             description="This property isn't bridged to a unit yet, so incoming email can't be matched to it. Correspondence will appear here once it is."
           />
-        ) : correspondence.length === 0 ? (
+        ) : correspondenceState.kind === 'error' ? (
+          // Deliberately NOT an EmptyState: this must not look like "no
+          // correspondence" (below), because it isn't that claim — the read
+          // failed and we don't actually know what's there. Amber pair used
+          // for degraded-but-not-destructive states elsewhere in this app
+          // (PropertyRail.tsx, MailboxConnectCard.tsx, DraftPanel.tsx) —
+          // there's no `text-warning` token in the shared Tailwind config.
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-amber-300 bg-amber-50 px-6 py-12 text-center dark:border-amber-800 dark:bg-amber-950">
+            <Mail className="mb-4 h-8 w-8 text-amber-700 dark:text-amber-400" aria-hidden />
+            <h3 className="text-base font-semibold text-amber-700 dark:text-amber-400">
+              Correspondence couldn&apos;t be loaded
+            </h3>
+            <p className="mt-1 max-w-md text-sm text-amber-700 dark:text-amber-400">
+              This doesn&apos;t mean there is none — the read failed. Refresh to try
+              again, or check the inbox directly.
+            </p>
+          </div>
+        ) : correspondenceState.kind === 'empty' ? (
           <EmptyState
             icon={<Mail className="h-8 w-8" aria-hidden />}
             title="No correspondence yet"
@@ -278,7 +319,7 @@ export default async function PropertyDetailPage({
         ) : (
           <Card>
             <ul className="divide-y divide-border">
-              {correspondence.map((t) => (
+              {correspondenceState.threads.map((t) => (
                 <CorrespondenceRow key={t.id} thread={t} />
               ))}
             </ul>
