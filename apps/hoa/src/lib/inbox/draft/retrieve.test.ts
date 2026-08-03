@@ -290,6 +290,7 @@ function threadWithInboundMessage() {
     subject: 'Synthetic test subject — fence question',
     status: 'open',
     unitId: null,
+    vendorId: null,
     matchConfidence: 'none',
     matchReason: null,
     matchSource: 'unmatched',
