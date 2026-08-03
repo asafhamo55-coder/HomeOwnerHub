@@ -10,15 +10,22 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url))
 // following the scripts/test-comms.ts pattern instead.
 export default defineConfig({
   test: {
+    // Two broad patterns, deliberately NOT a per-directory allowlist.
+    //
+    // This was an allowlist of eight specific globs, and it silently
+    // excluded a whole package three separate times — packages/workflows,
+    // packages/jobs, and apps/.../properties/[id] each landed a test file
+    // that simply never ran. Every one was caught by chance, because the
+    // author happened to notice their new tests missing from the count.
+    //
+    // The failure mode is the dangerous kind: a green suite that is not
+    // running your test looks exactly like a green suite that is. An
+    // allowlist also forces regex-escaping Next's route-group parens and
+    // dynamic-segment brackets, which is where two of the three misses
+    // came from.
     include: [
-      'packages/mailbox/src/**/*.test.ts',
-      'packages/workflows/src/**/*.test.ts',
-      'packages/jobs/src/**/*.test.ts',
-      'apps/hoa/src/lib/properties/**/*.test.ts',
-      'apps/hoa/src/lib/inbox/**/*.test.ts',
-      'apps/hoa/src/lib/*.test.ts',
-      'apps/hoa/src/app/\\(dashboard\\)/settings/mailbox/**/*.test.ts',
-      'apps/hoa/src/app/\\(dashboard\\)/properties/\\[id\\]/**/*.test.ts',
+      'apps/**/src/**/*.test.{ts,tsx}',
+      'packages/**/src/**/*.test.{ts,tsx}',
     ],
     environment: 'node',
     passWithNoTests: false,
