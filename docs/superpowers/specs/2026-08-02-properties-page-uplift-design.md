@@ -110,10 +110,12 @@ islands — `TenureSelector`, `AddResidentForm`, `ResidentActions`, `ResidentRow
 ## 6. Architecture — data layer
 
 Four signals across 5,000+ properties cannot be computed per row in application
-code. A single Postgres view, `hoa_property_list_v`, added in **migration 0037**
-(`migrations/` at repo root; highest existing is `0036_ai_runs_board_only.sql`).
-Migration numbers throughout this document are indicative — take the
-next available number at implementation time.
+code. A single Postgres view, `hoa_property_list_v`, added in **migration 0039**
+(`migrations/` at repo root; highest existing is
+`0038_dashboard_daily_snapshots.sql` as of 2026-08-03). Migration numbers
+throughout this document are indicative — take the next available number at
+implementation time, since other work lands migrations concurrently. This
+document already moved 0037→0039 once for exactly that reason.
 
 ### Columns
 
@@ -156,10 +158,38 @@ balance keeps accruing predictably. Ranks 1–2 render as a red dot, 3–4 amber
 
 ### Correctness requirements
 
-- **`security_invoker = on` is mandatory.** Without it the view executes with its
-  owner's rights and bypasses RLS on `assessments`, `hoa_violations`, and
-  `inbox_threads` — cross-org data leakage. This is the single most important
-  line in the migration and is covered by a dedicated test (§10).
+- **`security_invoker = on` is mandatory, and on its own is not enough.**
+  Without it the view executes with its owner's rights and bypasses RLS on
+  `assessments`, `hoa_violations`, and `inbox_threads` — cross-org leakage.
+  But the base-table policies it would then inherit are org-scoped with **no
+  role gate**: `0000_schema.sql:398-399` defines `org_access` on both
+  `hoa_properties` and `hoa_violations` as plain
+  `org_id = ANY (public.auth_org_ids())`. Every resident of an association can
+  already read every property and violation row in it via PostgREST. A view
+  that aggregates balance, open violations, and unread mail per property would
+  hand a resident their neighbours' financial and enforcement history in one
+  convenient query — a materially worse exposure than the raw tables, because
+  it does the correlation for them.
+
+  **The view must therefore also gate on board/admin**, carrying
+  `public.auth_is_board_or_admin(org_id)` in its own `WHERE` clause alongside
+  `security_invoker = on`. This is the same role-free gap that
+  `0036_ai_runs_board_only.sql` closed on `ai_runs` and that
+  `0038_dashboard_daily_snapshots.sql` explicitly designs against — its comment
+  names the identical hazard for open-violation and dues-outstanding counts.
+  `auth_is_board_or_admin` is defined in `0012_rbac_roles.sql`.
+
+  Both halves are covered by dedicated tests (§10): one for cross-org, one for
+  same-org resident access.
+
+- **This would be the first SQL view in the repository.** `grep` over
+  `migrations/` finds no `CREATE VIEW`, no materialized view, and no existing
+  `security_invoker` usage. The established pattern for aggregates here is a
+  table with RLS (`0038`). A view is still the right call — that snapshot table
+  answers "what did yesterday look like" whereas this must be live — but it is a
+  novel construct in this codebase, so the migration carries no house style to
+  copy and the RLS reasoning above has to be got right from first principles
+  rather than by analogy.
 - **`LEFT JOIN units ON units.legacy_hoa_property_id = hoa_properties.id`.**
   A null there *is* the "no unit link" data gap. Assessments and correspondence
   key on `units`, not `hoa_properties`, so an unbridged property silently shows
@@ -281,10 +311,16 @@ adaptations:
 Unit tests run under vitest (`pnpm test:unit`); e2e under Playwright, with
 `apps/hoa/e2e/inbox.spec.ts` as the direct precedent for a split-view spec.
 
-- **RLS regression test on the view** — a user in org A must not see org B rows
-  through `hoa_property_list_v`. This is the `security_invoker` guard; if it
-  regresses it leaks silently and nothing else in the suite would notice. Highest
-  value test in the change.
+- **Two RLS regression tests on the view — the highest-value tests in the change.**
+  Both leak silently if they regress, and nothing else in the suite would notice.
+  1. *Cross-org:* a user in org A must not see org B rows through
+     `hoa_property_list_v`. This is the `security_invoker` guard.
+  2. *Same-org role:* a **resident** of org A must see **zero** rows, while a
+     board member of org A sees them. This is the `auth_is_board_or_admin`
+     guard, and it is the one a reasonable implementer is most likely to omit,
+     because the page it feeds is already board-gated at the route level and so
+     the omission is invisible through the UI. The exposure is via PostgREST,
+     not the app.
 - **`severity_rank` fixtures** covering each signal combination, including the
   precedence between a red money signal and a red violation signal.
 - **Past-cure boundary** — `notice_sent_at` null, exactly at the cure date, and
@@ -301,13 +337,13 @@ Unit tests run under vitest (`pnpm test:unit`); e2e under Playwright, with
 Two implementation plans.
 
 **Phase 1 — foundation and read.**
-Migration 0037 (view, `security_invoker`, trgm + btree indexes); the query
+Migration 0039 (view, `security_invoker` + board/admin gate, trgm + btree indexes); the query
 module; split-view routing; left pane with all four signals, search, filters,
 sort, and pagination; panel with all six tabs at parity with today's detail page;
 phone path. Ships a complete, better properties page on its own.
 
 **Phase 2 — actions.**
-Migration 0038 (`hoa_violation_attachments`, copied from
+Migration 0040 (`hoa_violation_attachments`, copied from
 `migrations/0027_submission_attachments.sql`); email owner and inline reply; log
 violation with photo upload; bulk actions beyond tenure; mobile floating action
 button.
