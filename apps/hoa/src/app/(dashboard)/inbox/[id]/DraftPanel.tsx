@@ -2,11 +2,24 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { Alert, Button } from '@homeowner-portal/ui'
-import { createDraft, createForwardDraft, approveDraft, cancelDraft } from '@/lib/inbox/draft/actions'
+import { createDraft, approveDraft, cancelDraft } from '@/lib/inbox/draft/actions'
 import { UNDO_WINDOW_SECONDS } from '@/lib/inbox/draft/blanks'
 import type { DraftAttachment, ThreadDraft } from '@/lib/inbox/queries'
 import { Composer, type ApproveInput } from './Composer'
 import { AMBER_BOX } from './draft-ui'
+
+/**
+ * All three kinds, named for what they are. This used to be a two-way
+ * `kind === 'forward' ? 'Forward sent' : 'Reply sent'`, which told someone who
+ * had just composed a brand-new message that a *reply* had been sent — there
+ * was no reply. Keyed off `ThreadDraft['kind']` so a fourth kind is a type
+ * error here rather than silently falling back to the wrong word.
+ */
+const SENT_HEADLINE: Record<ThreadDraft['kind'], string> = {
+  reply: 'Reply sent',
+  forward: 'Forward sent',
+  new: 'Message sent',
+}
 
 interface Props {
   threadId: string | null
@@ -29,15 +42,11 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
     })
   }
 
-  function handleForward() {
-    if (!threadId) return
-    setActionError(null)
-    startTransition(async () => {
-      const result = await createForwardDraft(threadId)
-      if ('error' in result) setActionError(result.error)
-    })
-  }
-
+  // No Forward handler here, deliberately. Forward lives in the thread
+  // header (ForwardButton.tsx) so it is reachable in EVERY draft state —
+  // this panel returns early on 'sent', 'queued'/'sending' and 'failed', so a
+  // button in here could never be reached on a thread that had already been
+  // replied to, which is the commonest reason to forward one.
   function handleApprove(input: ApproveInput) {
     if (!draft) return
     setActionError(null)
@@ -62,14 +71,9 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
       <section className="mt-4 space-y-2 rounded-md border border-border p-3">
         {actionError ? <Alert variant="error">{actionError}</Alert> : null}
         {threadId ? (
-          <div className="flex gap-2">
-            <Button size="sm" loading={pending} onClick={handleCreate}>
-              Draft a reply
-            </Button>
-            <Button size="sm" variant="outline" loading={pending} onClick={handleForward}>
-              Forward
-            </Button>
-          </div>
+          <Button size="sm" loading={pending} onClick={handleCreate}>
+            Draft a reply
+          </Button>
         ) : null}
       </section>
     )
@@ -79,9 +83,7 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
   if (draft.status === 'sent') {
     return (
       <section className="mt-4 rounded-md border border-primary/40 bg-primary/5 p-3 text-sm">
-        <p className="font-semibold text-foreground">
-          {draft.kind === 'forward' ? 'Forward sent' : 'Reply sent'}
-        </p>
+        <p className="font-semibold text-foreground">{SENT_HEADLINE[draft.kind]}</p>
         <p className="mt-1 text-xs text-muted">{draft.subject}</p>
       </section>
     )
@@ -118,13 +120,21 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
           one, or they may receive it twice.
         </p>
         {actionError ? <Alert variant="error">{actionError}</Alert> : null}
-        <Button size="sm" loading={pending} onClick={handleCreate}>
-          Write a new draft
-        </Button>
-        <p className="text-xs text-muted">
-          This starts a fresh draft for you to review and approve. It does not
-          resend the reply above.
-        </p>
+        {/* Guarded on threadId like the no-draft and cancelled branches:
+            `handleCreate` early-returns when it is null, so on the compose
+            page (which has no thread) an unguarded button would render and
+            then silently do nothing when pressed. */}
+        {threadId ? (
+          <>
+            <Button size="sm" loading={pending} onClick={handleCreate}>
+              Write a new draft
+            </Button>
+            <p className="text-xs text-muted">
+              This starts a fresh draft for you to review and approve. It does
+              not resend the reply above.
+            </p>
+          </>
+        ) : null}
       </section>
     )
   }
@@ -139,14 +149,9 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
         <p className="text-xs text-muted">This reply was cancelled before it sent.</p>
         {actionError ? <Alert variant="error">{actionError}</Alert> : null}
         {threadId ? (
-          <div className="flex gap-2">
-            <Button size="sm" loading={pending} onClick={handleCreate}>
-              Draft a reply
-            </Button>
-            <Button size="sm" variant="outline" loading={pending} onClick={handleForward}>
-              Forward
-            </Button>
-          </div>
+          <Button size="sm" loading={pending} onClick={handleCreate}>
+            Draft a reply
+          </Button>
         ) : null}
       </section>
     )

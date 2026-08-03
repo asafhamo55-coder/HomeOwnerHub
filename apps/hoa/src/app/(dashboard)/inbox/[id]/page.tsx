@@ -17,6 +17,7 @@ import {
 } from '@/lib/inbox/queries'
 import { ThreadList } from '../ThreadList'
 import { DraftPanel } from './DraftPanel'
+import { ForwardButton } from './ForwardButton'
 import { MessageThread } from './MessageThread'
 import { PropertyRail } from './PropertyRail'
 
@@ -128,14 +129,20 @@ export default async function ThreadPage({
 
       {/* pane 2 — conversation */}
       <section className="flex-1 overflow-y-auto p-4">
-        <header className="mb-3">
-          <h1 className="text-lg font-semibold text-foreground">
-            {thread.subject ?? '(no subject)'}
-          </h1>
-          <p className="text-xs text-muted">
-            {thread.messages.length} message
-            {thread.messages.length === 1 ? '' : 's'} · {thread.status}
-          </p>
+        <header className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-lg font-semibold text-foreground">
+              {thread.subject ?? '(no subject)'}
+            </h1>
+            <p className="text-xs text-muted">
+              {thread.messages.length} message
+              {thread.messages.length === 1 ? '' : 's'} · {thread.status}
+            </p>
+          </div>
+          {/* In the header so a forward is reachable in every draft state —
+              in particular after a reply has already been sent, which is the
+              most common case there is. See ForwardButton's docstring. */}
+          <ForwardButton threadId={thread.id} />
         </header>
 
         <MessageThread messages={thread.messages} />
