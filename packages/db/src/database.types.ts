@@ -1645,6 +1645,38 @@ export type Database = {
           },
         ]
       }
+      dashboard_daily_snapshots: {
+        Row: {
+          captured_at: string
+          captured_on: string
+          counts: Json
+          id: string
+          organization_id: string
+        }
+        Insert: {
+          captured_at?: string
+          captured_on: string
+          counts: Json
+          id?: string
+          organization_id: string
+        }
+        Update: {
+          captured_at?: string
+          captured_on?: string
+          counts?: Json
+          id?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dashboard_daily_snapshots_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eviction_cases: {
         Row: {
           balance_owed: number | null

@@ -20,7 +20,15 @@ import { ACTIVE_STATUSES } from './triage'
 
 type Db = SupabaseClient<Database>
 
-export interface DigestCounts {
+/**
+ * Declared as a `type`, not an `interface`, on purpose: this is stored in
+ * a jsonb column, and Supabase's generated `Json` type is
+ * `{ [key: string]: Json | undefined } | …`. An interface is not assignable
+ * to that — interfaces get no implicit index signature — so an interface
+ * here would force a cast at the insert and give up type checking on the
+ * very shape we care about.
+ */
+export type DigestCounts = {
   needsReply: number
   oldestWaitingDays: number | null
   untriaged: number
@@ -107,19 +115,6 @@ function logDbError(fn: string, error: PostgrestError): void {
   console.error(`${fn} failed`, { code: error.code, message: error.message })
 }
 
-/**
- * `dashboard_daily_snapshots` (migration 0037) is not in the generated
- * `Database` type yet — packages/db/src/database.types.ts is generated
- * FROM the live schema, so it only gains the table once the migration has
- * been applied and the types regenerated.
- *
- * Same escape hatch packages/jobs/src/daily-digest.ts uses for `tickets`.
- * Deliberately scoped to the two functions that touch this one table
- * rather than widening `Db` itself, so every other query in this module
- * keeps full type checking. Delete this and use `db` directly once the
- * types are regenerated.
- */
-type UntypedTable = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
 /** Today as YYYY-MM-DD, the form `captured_on` stores. */
 export function todayISO(now: Date = new Date()): string {
@@ -136,7 +131,7 @@ export async function readBaseline(
   orgId: string,
   today: string,
 ): Promise<{ capturedAt: string; counts: DigestCounts } | null> {
-  const { data, error } = await (db as unknown as UntypedTable)
+  const { data, error } = await db
     .from('dashboard_daily_snapshots')
     .select('captured_on, captured_at, counts')
     .eq('organization_id', orgId)
@@ -171,7 +166,7 @@ export async function writeSnapshot(
   today: string,
   counts: DigestCounts,
 ): Promise<void> {
-  const { error } = await (db as unknown as UntypedTable)
+  const { error } = await db
     .from('dashboard_daily_snapshots')
     .upsert(
       { organization_id: orgId, captured_on: today, counts },
