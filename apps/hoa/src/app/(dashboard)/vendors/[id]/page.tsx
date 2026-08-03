@@ -15,6 +15,7 @@ import {
   PageHeader,
 } from '@homeowner-portal/ui'
 import { getVendor, type ComplianceStatus } from '@/lib/vendors'
+import { isVendorIncomplete } from '@/lib/inbox/vendor/schema'
 import { ApproveVendorButton } from './ApproveVendorButton'
 import { VendorActions } from './VendorActions'
 
@@ -47,6 +48,29 @@ export default async function VendorDetailPage({
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <BackLink href="/vendors" label="All vendors" />
+
+      {/* A vendor fast-created from an email has no EIN and often no trade,
+          because a signature block never states them. Say so here rather
+          than letting it look fully onboarded — it cannot legitimately be
+          used for 1099 reporting, RFP invitations, or compliance until
+          both are set. Completeness is derived, never stored, so this
+          clears itself the moment the fields are filled in. */}
+      {isVendorIncomplete({ ein: vendor.ein, trades: vendor.trades ?? null }) ? (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          <p className="font-semibold">Finish setting up this vendor</p>
+          <p className="mt-1 text-xs">
+            Still missing:{' '}
+            {[
+              !vendor.ein ? 'EIN' : null,
+              !vendor.trades || vendor.trades.length === 0 ? 'trade' : null,
+            ]
+              .filter(Boolean)
+              .join(' and ')}
+            . This vendor cannot be used for 1099 reporting, RFP invitations,
+            or compliance checks until both are set.
+          </p>
+        </div>
+      ) : null}
 
       <PageHeader
         title={vendor.legal_name}
