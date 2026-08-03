@@ -29,6 +29,7 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { retrieveForThread } from './retrieve'
 import { UNDO_WINDOW_SECONDS, hasUnfilledBlanks } from './blanks'
+import { normalizeRecipients } from './recipients'
 
 export async function createDraft(
   threadId: string,
@@ -131,6 +132,30 @@ export async function createDraft(
     promptVersion = runRow.prompt_version
   }
 
+  // Resolved here, not at send time. The job used to look up the last
+  // inbound message when it ran, which meant a new message arriving during
+  // the 30-second undo window could silently redirect the reply to a
+  // different address than the approver saw. A lookup failure is not fatal:
+  // the row is saved with an empty To and the composer requires the human to
+  // supply one before Approve enables.
+  let defaultTo: string[] = []
+  const { data: lastInbound, error: lastInboundError } = await supabase
+    .from('inbox_messages')
+    .select('from_email')
+    .eq('organization_id', org.id)
+    .eq('thread_id', threadId)
+    .eq('direction', 'inbound')
+    .order('sent_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (lastInboundError) {
+    console.error(
+      `createDraft: last-inbound lookup failed: ${lastInboundError.code} ${lastInboundError.message}`,
+    )
+  } else if (lastInbound?.from_email) {
+    defaultTo = [lastInbound.from_email]
+  }
+
   // `created_by` was declared in migration 0035 but never populated, so
   // every draft recorded who approved it and nothing about who asked for
   // it. `requireBoardOrAdmin()` returns only `{ role, org }`, so the user id
@@ -152,6 +177,9 @@ export async function createDraft(
       organization_id: org.id,
       thread_id: threadId,
       status: 'draft',
+      kind: 'reply',
+      to_emails: defaultTo,
+      cc_emails: [],
       created_by: creator?.id ?? null,
       subject: generated.subject,
       body_text: generated.body,
@@ -177,10 +205,10 @@ export async function createDraft(
 
 export async function approveDraft(
   draftId: string,
-  subject: string,
-  body: string,
+  input: { subject: string; body: string; to: string[]; cc: string[] },
 ): Promise<{ ok: true; sendAfter: string } | { error: string }> {
   const { org } = await requireBoardOrAdmin()
+  const { subject, body } = input
 
   // BOTH fields. The subject is as editable as the body and ships in the
   // same email, so a `[[BLANK: money]]` left in a subject line would reach
@@ -192,6 +220,11 @@ export async function approveDraft(
   if (!subject.trim() || !body.trim()) {
     return { error: 'A reply needs both a subject and a body.' }
   }
+
+  // Recipients are validated BEFORE the status transition, so a rejected
+  // address leaves the draft exactly as it was rather than half-queued.
+  const recipients = normalizeRecipients(input.to, input.cc)
+  if (!recipients.ok) return { error: recipients.error }
 
   const supabase = await getSupabaseServerClient()
   // `requireBoardOrAdmin()` only returns `{ role, org }` — it never exposes
@@ -221,6 +254,8 @@ export async function approveDraft(
       status: 'queued',
       subject,
       body_text: body,
+      to_emails: recipients.to,
+      cc_emails: recipients.cc,
       approved_by: user.id,
       approved_at: new Date().toISOString(),
       send_after: sendAfter,

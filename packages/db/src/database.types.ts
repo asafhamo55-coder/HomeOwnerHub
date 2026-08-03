@@ -2602,6 +2602,7 @@ export type Database = {
           approved_by: string | null
           blanks: Json
           body_text: string
+          cc_emails: string[]
           citations: Json
           created_at: string
           created_by: string | null
@@ -2610,6 +2611,8 @@ export type Database = {
           grounded: boolean
           grounding_note: string | null
           id: string
+          kind: string
+          mailbox_account_id: string | null
           model: string | null
           organization_id: string
           prompt_version: string | null
@@ -2618,6 +2621,7 @@ export type Database = {
           status: string
           subject: string
           thread_id: string
+          to_emails: string[]
         }
         Insert: {
           ai_run_id?: string | null
@@ -2625,6 +2629,7 @@ export type Database = {
           approved_by?: string | null
           blanks?: Json
           body_text: string
+          cc_emails?: string[]
           citations?: Json
           created_at?: string
           created_by?: string | null
@@ -2633,6 +2638,8 @@ export type Database = {
           grounded?: boolean
           grounding_note?: string | null
           id?: string
+          kind?: string
+          mailbox_account_id?: string | null
           model?: string | null
           organization_id: string
           prompt_version?: string | null
@@ -2641,6 +2648,7 @@ export type Database = {
           status?: string
           subject: string
           thread_id: string
+          to_emails?: string[]
         }
         Update: {
           ai_run_id?: string | null
@@ -2648,6 +2656,7 @@ export type Database = {
           approved_by?: string | null
           blanks?: Json
           body_text?: string
+          cc_emails?: string[]
           citations?: Json
           created_at?: string
           created_by?: string | null
@@ -2656,6 +2665,8 @@ export type Database = {
           grounded?: boolean
           grounding_note?: string | null
           id?: string
+          kind?: string
+          mailbox_account_id?: string | null
           model?: string | null
           organization_id?: string
           prompt_version?: string | null
@@ -2664,8 +2675,16 @@ export type Database = {
           status?: string
           subject?: string
           thread_id?: string
+          to_emails?: string[]
         }
         Relationships: [
+          {
+            foreignKeyName: "inbox_drafts_mailbox_account_id_fkey"
+            columns: ["mailbox_account_id"]
+            isOneToOne: false
+            referencedRelation: "mailbox_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inbox_drafts_organization_id_fkey"
             columns: ["organization_id"]

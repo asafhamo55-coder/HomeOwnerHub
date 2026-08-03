@@ -923,9 +923,12 @@ export async function getPropertyContext(
 
 export interface ThreadDraft {
   id: string
+  kind: 'reply' | 'forward' | 'new'
   status: 'draft' | 'queued' | 'sending' | 'sent' | 'cancelled' | 'failed'
   subject: string
   bodyText: string
+  toEmails: string[]
+  ccEmails: string[]
   citations: Array<{ refId: string; quote: string; label: string }>
   blanks: Array<{ kind: string; prompt: string }>
   grounded: boolean
@@ -950,7 +953,9 @@ export async function getLatestDraft(
 ): Promise<ThreadDraft | null> {
   const { data, error } = await db
     .from('inbox_drafts')
-    .select('id, status, subject, body_text, citations, blanks, grounded, grounding_note, send_after, error')
+    .select(
+      'id, kind, status, subject, body_text, to_emails, cc_emails, citations, blanks, grounded, grounding_note, send_after, error',
+    )
     .eq('organization_id', orgId)
     .eq('thread_id', threadId)
     .order('created_at', { ascending: false })
@@ -965,9 +970,12 @@ export async function getLatestDraft(
 
   return {
     id: data.id,
+    kind: data.kind as ThreadDraft['kind'],
     status: data.status as ThreadDraft['status'],
     subject: data.subject,
     bodyText: data.body_text,
+    toEmails: data.to_emails ?? [],
+    ccEmails: data.cc_emails ?? [],
     citations: (data.citations ?? []) as ThreadDraft['citations'],
     blanks: (data.blanks ?? []) as ThreadDraft['blanks'],
     grounded: data.grounded,
