@@ -597,7 +597,7 @@ export async function getThreadDetail(
   // uses throughout. Re-running `pnpm --filter @homeowner-portal/db
   // gen:types` after 0037 is applied would let this revert to a plain
   // typed select.
-  const { data: thread, error: threadError } = await db
+  let { data: thread, error: threadError } = await db
     .from('inbox_threads' as never)
     .select(
       'id, subject, status, unit_id, vendor_id, match_confidence, match_reason, match_source',
@@ -605,6 +605,29 @@ export async function getThreadDetail(
     .eq('organization_id', orgId)
     .eq('id', threadId)
     .maybeSingle<ThreadDetailRow>()
+
+  // Schema and code deploy independently here — migrations are applied by
+  // hand (docs/DEPLOY.md), so a build can reach production before its
+  // migration does. That exact gap took every inbox thread page down with a
+  // 500 when this select began naming `vendor_id`: PostgREST answers an
+  // unknown column with 42703, and the throw below turned a decoration into
+  // a page-killer.
+  //
+  // `vendor_id` is enrichment. The thread, its messages and its property
+  // filing are all still correct without it, so a missing column degrades
+  // to "no vendor filed" instead of taking the page with it. Narrow on
+  // purpose: ONLY 42703 (undefined_column) retries — a real failure still
+  // throws. Delete this fallback once 0037 is applied everywhere.
+  if (threadError?.code === '42703') {
+    const retry = await db
+      .from('inbox_threads' as never)
+      .select('id, subject, status, unit_id, match_confidence, match_reason, match_source')
+      .eq('organization_id', orgId)
+      .eq('id', threadId)
+      .maybeSingle<Omit<ThreadDetailRow, 'vendor_id'>>()
+    thread = retry.data ? { ...retry.data, vendor_id: null } : null
+    threadError = retry.error
+  }
 
   if (threadError) {
     logDbError('getThreadDetail', 'inbox_threads', { orgId, threadId }, threadError)

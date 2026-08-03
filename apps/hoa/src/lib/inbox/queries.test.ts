@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { listThreadsForUnit } from './queries'
+import { getThreadDetail, listThreadsForUnit } from './queries'
 
 /**
  * Minimal chainable `.from().select().eq().eq().order().limit()` stand-in,
@@ -86,5 +86,79 @@ describe('listThreadsForUnit', () => {
     // matches — a regression to `return data ?? []` on the error branch
     // would still satisfy a looser assertion.
     await expect(listThreadsForUnit(db as never, 'org-1', 'unit-1')).rejects.toBeInstanceOf(Error)
+  })
+})
+
+/**
+ * Regression guard for a live production break.
+ *
+ * `getThreadDetail` began selecting `vendor_id` before migration 0037 was
+ * applied. PostgREST answers an unknown column with 42703, and this
+ * function throws on any query error — so every inbox thread page 500'd on
+ * the deployed build while the column was missing.
+ *
+ * Schema and code deploy independently here (migrations are applied by hand
+ * per docs/DEPLOY.md), so a column this feature merely *decorates* must
+ * never be able to take the page down. `vendor_id` is enrichment: the
+ * thread, its messages, and its property filing are all still correct
+ * without it.
+ */
+describe('getThreadDetail — a missing vendor_id column must not 500 the page', () => {
+  function dbMissingVendorColumn() {
+    const attempted: string[] = []
+    const from = vi.fn((table: string) => {
+      const chain: Record<string, unknown> = {
+        select: vi.fn((columns: string) => {
+          attempted.push(columns)
+          // Postgres/PostgREST's undefined_column, exactly as returned live.
+          if (table === 'inbox_threads' && columns.includes('vendor_id')) {
+            chain._result = {
+              data: null,
+              error: { code: '42703', message: 'column inbox_threads.vendor_id does not exist' },
+            }
+          } else if (table === 'inbox_threads') {
+            chain._result = {
+              data: {
+                id: 'thread-1',
+                subject: 'Retention pond',
+                status: 'open',
+                unit_id: 'unit-1',
+                match_confidence: 'high',
+                match_reason: null,
+                match_source: 'auto',
+              },
+              error: null,
+            }
+          } else {
+            chain._result = { data: [], error: null }
+          }
+          return chain
+        }),
+        eq: vi.fn(() => chain),
+        in: vi.fn(() => chain),
+        neq: vi.fn(() => chain),
+        order: vi.fn(() => chain),
+        limit: vi.fn(() => chain),
+        maybeSingle: vi.fn(async () => chain._result),
+        then: (resolve: (r: unknown) => unknown) => Promise.resolve(chain._result).then(resolve),
+      }
+      return chain
+    })
+    return { db: { from } as never, attempted }
+  }
+
+  it('falls back to a vendor-free select and still returns the thread', async () => {
+    const { db, attempted } = dbMissingVendorColumn()
+
+    const thread = await getThreadDetail(db, 'org-1', 'thread-1')
+
+    expect(thread).not.toBeNull()
+    expect(thread?.id).toBe('thread-1')
+    expect(thread?.unitId).toBe('unit-1')
+    // Degrades to "no vendor filed" rather than throwing.
+    expect(thread?.vendorId).toBeNull()
+    // And it really did retry without the column.
+    expect(attempted.some((c) => c.includes('vendor_id'))).toBe(true)
+    expect(attempted.some((c) => !c.includes('vendor_id') && c.includes('unit_id'))).toBe(true)
   })
 })
