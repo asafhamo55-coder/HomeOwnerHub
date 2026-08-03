@@ -74,3 +74,41 @@ export function validatePhotoFiles<T extends PickedFile>(
 
   return { accepted, rejected }
 }
+
+export interface PhotoUploadOutcome {
+  name: string
+  ok: boolean
+}
+
+export interface PhotoUploadSummary {
+  allSucceeded: boolean
+  failedNames: string[]
+  /** Null when there is nothing worth telling the resident. */
+  message: string | null
+}
+
+/**
+ * The report is created before its photos upload, so a photo failure never
+ * means the report was lost. The message leads with that fact — a resident
+ * who reads "did not upload" first will assume they have to start over,
+ * and will either refile a duplicate or give up.
+ */
+export function summarizePhotoUploads(
+  outcomes: readonly PhotoUploadOutcome[],
+): PhotoUploadSummary {
+  const failedNames = outcomes.filter((o) => !o.ok).map((o) => o.name)
+  if (failedNames.length === 0) {
+    return { allSucceeded: true, failedNames: [], message: null }
+  }
+
+  const count = failedNames.length
+  const noun = count === 1 ? 'photo' : 'photos'
+  const object = count === 1 ? 'it' : 'them'
+  return {
+    allSucceeded: false,
+    failedNames,
+    message:
+      `Your report was submitted. ${count} ${noun} did not upload ` +
+      `(${failedNames.join(', ')}) — you can add ${object} from the report page.`,
+  }
+}

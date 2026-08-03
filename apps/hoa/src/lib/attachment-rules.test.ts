@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ATTACHMENT_MAX_BYTES,
   PHOTO_ACCEPT,
+  summarizePhotoUploads,
   validatePhotoFiles,
 } from './attachment-rules'
 
@@ -63,5 +64,50 @@ describe('validatePhotoFiles', () => {
 
   it('PHOTO_ACCEPT lists only image types, for the file input', () => {
     expect(PHOTO_ACCEPT.split(',').every((t) => t.startsWith('image/'))).toBe(true)
+  })
+})
+
+describe('summarizePhotoUploads', () => {
+  it('says nothing when no photos were attached', () => {
+    expect(summarizePhotoUploads([])).toEqual({
+      allSucceeded: true,
+      failedNames: [],
+      message: null,
+    })
+  })
+
+  it('says nothing when every photo uploaded', () => {
+    expect(
+      summarizePhotoUploads([
+        { name: 'photo-1.jpg', ok: true },
+        { name: 'photo-2.jpg', ok: true },
+      ]),
+    ).toEqual({ allSucceeded: true, failedNames: [], message: null })
+  })
+
+  it('leads with the report being saved when one photo fails', () => {
+    const result = summarizePhotoUploads([{ name: 'photo-1.jpg', ok: false }])
+    expect(result.allSucceeded).toBe(false)
+    expect(result.failedNames).toEqual(['photo-1.jpg'])
+    expect(result.message).toBe(
+      'Your report was submitted. 1 photo did not upload (photo-1.jpg) — you can add it from the report page.',
+    )
+  })
+
+  it('pluralizes and lists every failure', () => {
+    const result = summarizePhotoUploads([
+      { name: 'photo-1.jpg', ok: true },
+      { name: 'photo-2.jpg', ok: false },
+      { name: 'photo-3.heic', ok: false },
+    ])
+    expect(result.failedNames).toEqual(['photo-2.jpg', 'photo-3.heic'])
+    expect(result.message).toBe(
+      'Your report was submitted. 2 photos did not upload (photo-2.jpg, photo-3.heic) — you can add them from the report page.',
+    )
+  })
+
+  it('never reports failure when the list is all successes, regardless of length', () => {
+    const many = Array.from({ length: 5 }, (_, i) => ({ name: `photo-${i}.jpg`, ok: true }))
+    expect(summarizePhotoUploads(many).allSucceeded).toBe(true)
   })
 })
