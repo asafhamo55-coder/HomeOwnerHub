@@ -3,8 +3,16 @@ import { generateDigestSuggestion, acceptSuggestion } from '@homeowner-portal/ai
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getTriageSnapshot } from '@/lib/dashboard/triage'
-import { buildBullets, formatNextMeeting } from '@/lib/dashboard/digest-facts'
+import {
+  buildBullets,
+  countNewSince,
+  formatNextMeeting,
+  readBaseline,
+  todayISO,
+  writeSnapshot,
+} from '@/lib/dashboard/digest-facts'
 import { getApprovalsInbox, getNextMeeting } from '@/lib/dashboard/queries'
+import { getDashboardKpis } from '@/lib/dashboard/charts'
 
 /**
  * Regenerates the digest's AI suggestion line.
@@ -27,12 +35,26 @@ export async function POST() {
     getNextMeeting(org.id),
   ])
 
+  const today = todayISO()
+  const baseline = await readBaseline(supabase, org.id, today)
+  const newSinceBaseline =
+    baseline !== null ? await countNewSince(supabase, org.id, baseline.capturedAt) : null
+
   const bullets = buildBullets({
-    // Wired to the snapshot baseline in the next task; until then the
-    // bullet is correctly omitted rather than guessed at.
-    newSinceBaseline: null,
+    newSinceBaseline,
     waitingOverThree: triage.threads.filter((t) => t.waitingDays > 3).length,
     nextMeeting: formatNextMeeting(nextMeeting),
+  })
+
+  // Record today's numbers for tomorrow's comparison. Never blocks the
+  // response — a failed write is logged inside writeSnapshot.
+  const kpis = await getDashboardKpis(org.id)
+  await writeSnapshot(supabase, org.id, today, {
+    needsReply: triage.needsReply.count,
+    oldestWaitingDays: triage.needsReply.oldestWaitingDays,
+    untriaged: triage.untriaged.count,
+    approvalsPending: approvals.totalCount,
+    duesOutstandingUsd: Math.round(kpis.duesOutstandingUsd.value),
   })
 
   let suggestion: string | null = null

@@ -14,6 +14,12 @@
  * yesterday" and, later, trend arrows.
  */
 
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@homeowner-portal/db/types'
+import { ACTIVE_STATUSES } from './triage'
+
+type Db = SupabaseClient<Database>
+
 export interface DigestCounts {
   needsReply: number
   oldestWaitingDays: number | null
@@ -93,4 +99,111 @@ export function formatNextMeeting(
  */
 export function isBaselineRow(capturedOn: string, today: string): boolean {
   return capturedOn < today
+}
+
+// ─── Snapshot IO ─────────────────────────────────────────────────────
+
+function logDbError(fn: string, error: PostgrestError): void {
+  console.error(`${fn} failed`, { code: error.code, message: error.message })
+}
+
+/**
+ * `dashboard_daily_snapshots` (migration 0037) is not in the generated
+ * `Database` type yet — packages/db/src/database.types.ts is generated
+ * FROM the live schema, so it only gains the table once the migration has
+ * been applied and the types regenerated.
+ *
+ * Same escape hatch packages/jobs/src/daily-digest.ts uses for `tickets`.
+ * Deliberately scoped to the two functions that touch this one table
+ * rather than widening `Db` itself, so every other query in this module
+ * keeps full type checking. Delete this and use `db` directly once the
+ * types are regenerated.
+ */
+type UntypedTable = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+
+/** Today as YYYY-MM-DD, the form `captured_on` stores. */
+export function todayISO(now: Date = new Date()): string {
+  return now.toISOString().slice(0, 10)
+}
+
+/**
+ * The most recent snapshot from an EARLIER day, or null if none exists.
+ * Same-day rows are filtered out in SQL so a mid-day refresh cannot walk
+ * the baseline forward.
+ */
+export async function readBaseline(
+  db: Db,
+  orgId: string,
+  today: string,
+): Promise<{ capturedAt: string; counts: DigestCounts } | null> {
+  const { data, error } = await (db as unknown as UntypedTable)
+    .from('dashboard_daily_snapshots')
+    .select('captured_on, captured_at, counts')
+    .eq('organization_id', orgId)
+    .lt('captured_on', today)
+    .order('captured_on', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    logDbError('readBaseline', error)
+    return null
+  }
+  if (!data) return null
+
+  const row = data as unknown as {
+    captured_on: string
+    captured_at: string
+    counts: DigestCounts
+  }
+  if (!isBaselineRow(row.captured_on, today)) return null
+
+  return { capturedAt: row.captured_at, counts: row.counts }
+}
+
+/**
+ * One row per org per day, first write wins. A failure is logged and
+ * swallowed — telemetry must never block the page.
+ */
+export async function writeSnapshot(
+  db: Db,
+  orgId: string,
+  today: string,
+  counts: DigestCounts,
+): Promise<void> {
+  const { error } = await (db as unknown as UntypedTable)
+    .from('dashboard_daily_snapshots')
+    .upsert(
+      { organization_id: orgId, captured_on: today, counts },
+      { onConflict: 'organization_id,captured_on', ignoreDuplicates: true },
+    )
+  if (error) logDbError('writeSnapshot', error)
+}
+
+/**
+ * Resident mail that arrived since the baseline instant. Computed live, not
+ * by subtracting stored counts — a subtraction reports "0 new" on a day
+ * when three arrived and three were answered.
+ *
+ * Returns null on failure so the bullet is omitted rather than shown as 0.
+ */
+export async function countNewSince(
+  db: Db,
+  orgId: string,
+  since: string,
+): Promise<number | null> {
+  const { count, error } = await db
+    .from('inbox_threads')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+    .not('unit_id', 'is', null)
+    .eq('last_direction', 'inbound')
+    .in('status', ACTIVE_STATUSES)
+    .gte('last_message_at', since)
+
+  if (error) {
+    logDbError('countNewSince', error)
+    return null
+  }
+  return count ?? 0
 }
