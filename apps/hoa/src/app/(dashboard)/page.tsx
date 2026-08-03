@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, Briefcase, MessageSquare, Wallet } from 'lucide-react'
+import { AlertTriangle, MessageSquare, Wallet } from 'lucide-react'
 import { Alert, Card, CardContent, Skeleton } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 // EMERGENCY ROLLBACK (v2 — second attempt) 2026-05-25: cached layer
@@ -24,6 +24,15 @@ import {
 } from '@/lib/dashboard/charts'
 import { getSetupProgress } from '@/lib/inbox/queries'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getTriageSnapshot } from '@/lib/dashboard/triage'
+import {
+  buildBullets,
+  countNewSince,
+  formatNextMeeting,
+  readBaseline,
+  todayISO,
+} from '@/lib/dashboard/digest-facts'
+import { MailTriageCard } from '@/components/dashboard/MailTriageCard'
 import { ActivityBar } from '@/components/dashboard/ActivityBar'
 import { ApprovalsInbox } from '@/components/dashboard/ApprovalsInbox'
 import { AtRiskThisWeek } from '@/components/dashboard/AtRiskThisWeek'
@@ -104,6 +113,8 @@ export default async function DashboardHome() {
 }
 
 async function DashboardContent({ orgId }: { orgId: string }) {
+  const supabase = await getSupabaseServerClient()
+
   const [
     kpis,
     violationsDonut,
@@ -115,6 +126,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     leaseSummary,
     digest,
     heatMapCells,
+    triage,
   ] = await Promise.all([
     getDashboardKpis(orgId),
     getViolationStatusDonut(orgId),
@@ -126,91 +138,73 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     getLeaseSummary(orgId),
     getLatestDigest(orgId),
     getComplianceHeatMap(orgId),
+    getTriageSnapshot(supabase, orgId),
   ])
+
+  const today = todayISO()
+  const baseline = await readBaseline(supabase, orgId, today)
+  const newSinceBaseline =
+    baseline !== null ? await countNewSince(supabase, orgId, baseline.capturedAt) : null
+
+  const bullets = buildBullets({
+    newSinceBaseline,
+    waitingOverThree: triage.threads.filter((t) => t.waitingDays > 3).length,
+    nextMeeting: formatNextMeeting(nextMeeting),
+  })
 
   return (
     <div className="space-y-6">
-      {/* Daily digest — pinned to the top so every dashboard visit
-          surfaces the AI summary of "what changed since yesterday"
-          before any other widget. Bullets render automatically when
-          content exists; the card explains how to generate one if not. */}
+      {/* Today — the AI suggestion line plus deterministic bullets. The
+          bullets deliberately never restate a tile below; they carry what
+          CHANGED, which a tile structurally cannot show. */}
       <DailyDigestCard
-        initialContent={digest.content}
+        initialSuggestion={digest.content}
+        initialBullets={bullets}
         initialGeneratedAt={digest.generatedAt}
       />
 
-      {/* KPI heroes — the four numbers that should answer "what should I
-          care about today?" before scrolling. */}
+      {/* The four numbers that are about today. "Active vendors" was cut:
+          reference data, not a daily decision. */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiHero
-          label="Dues outstanding"
+          label="Needs a reply"
+          value={triage.needsReply.count}
+          display={triage.failed ? '—' : undefined}
+          sub={triage.failed ? 'couldn’t load' : 'resident mail'}
+          href="/inbox"
+          upIsBad
+        />
+        <KpiHero
+          label="Oldest waiting"
+          value={triage.needsReply.oldestWaitingDays ?? 0}
+          display={
+            triage.failed || triage.needsReply.oldestWaitingDays === null
+              ? '—'
+              : `${triage.needsReply.oldestWaitingDays}d`
+          }
+          href="/inbox"
+          upIsBad
+        />
+        <KpiHero
+          label="Approvals pending"
+          value={approvals.totalCount}
+          href="/violations/approval-queue"
+          upIsBad
+        />
+        <KpiHero
+          label="Dues overdue"
           value={kpis.duesOutstandingUsd.value}
           display={`$${Math.round(kpis.duesOutstandingUsd.value).toLocaleString()}`}
           previous={kpis.duesOutstandingUsd.previous}
           upIsBad
           href="/dues"
-          tone={kpis.duesOutstandingUsd.value > 0 ? 'warning' : 'success'}
-        />
-        <KpiHero
-          label="Open violations"
-          value={kpis.openViolations.value}
-          previous={kpis.openViolations.previous}
-          upIsBad
-          href="/violations"
-          tone={kpis.openViolations.value > 0 ? 'warning' : 'success'}
-        />
-        <KpiHero
-          label="Active vendors"
-          value={kpis.activeVendors.value}
-          sub={
-            kpis.activeVendors.value === 0
-              ? 'no vendors on file'
-              : `${kpis.activeVendors.value} active`
-          }
-          href="/vendors"
-          tone="default"
-        />
-        <KpiHero
-          label="Open tickets"
-          value={kpis.openTickets.value}
-          sub={
-            kpis.openTickets.value === 0
-              ? 'no open tickets'
-              : 'awaiting response'
-          }
-          href="/tickets"
-          tone={kpis.openTickets.value > 0 ? 'warning' : 'success'}
         />
       </div>
 
-      {/* At-a-glance breakdowns. Three equal columns when lease summary
-          is present (org has associations); two when it isn't. */}
-      <div className={`grid gap-4 ${leaseSummary.hasAssociation ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
-        <StatusDonut
-          title="Violations by status"
-          icon={<AlertTriangle className="h-4 w-4 text-muted" />}
-          segments={violationsDonut.segments}
-          total={violationsDonut.total}
-          emptyTitle="No violations on file"
-          emptyDescription="When violations are reported, the status breakdown will show here."
-        />
-        <StatusBar
-          title="Tickets by category"
-          icon={<MessageSquare className="h-4 w-4 text-muted" />}
-          segments={ticketCategoryDonut.segments}
-          total={ticketCategoryDonut.total}
-          emptyTitle="No tickets yet"
-          emptyDescription="When residents submit tickets, the category breakdown will show here."
-        />
-        <LeaseSummaryCard summary={leaseSummary} />
-      </div>
+      <MailTriageCard snapshot={triage} />
 
-      {/* 30-day activity bar. */}
-      <ActivityBar buckets={activity.buckets} />
-
-      {/* "What needs you this week" — collapsed by default to keep the
-          chart-led layout uncluttered. Tap to expand. */}
-      <details className="rounded-xl border border-border bg-surface" open={approvals.totalCount + atRisk.totalCount > 0}>
+      {/* Open by default — a confirmed "nothing urgent" is worth seeing. */}
+      <details className="rounded-xl border border-border bg-surface" open>
         <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium hover:bg-foreground/5">
           <span>This week</span>
           <span className="text-xs text-muted">
@@ -228,7 +222,50 @@ async function DashboardContent({ orgId }: { orgId: string }) {
         </div>
       </details>
 
-      {/* Year-view heat map — collapsed. */}
+      {/* Demoted, not deleted. These stopped competing with today's work. */}
+      <details className="rounded-xl border border-border bg-surface">
+        <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium hover:bg-foreground/5">
+          <span className="flex items-center gap-2">
+            <Wallet className="h-4 w-4 text-muted" />
+            Money &amp; compliance
+          </span>
+        </summary>
+        <div className="space-y-4 border-t border-border p-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <KpiHero
+              label="Open violations"
+              value={kpis.openViolations.value}
+              previous={kpis.openViolations.previous}
+              upIsBad
+              href="/violations"
+            />
+            <KpiHero label="Open tickets" value={kpis.openTickets.value} href="/tickets" upIsBad />
+          </div>
+          <div
+            className={`grid gap-4 ${leaseSummary.hasAssociation ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}
+          >
+            <StatusDonut
+              title="Violations by status"
+              icon={<AlertTriangle className="h-4 w-4 text-muted" />}
+              segments={violationsDonut.segments}
+              total={violationsDonut.total}
+              emptyTitle="No violations on file"
+              emptyDescription="When violations are reported, the status breakdown will show here."
+            />
+            <StatusBar
+              title="Tickets by category"
+              icon={<MessageSquare className="h-4 w-4 text-muted" />}
+              segments={ticketCategoryDonut.segments}
+              total={ticketCategoryDonut.total}
+              emptyTitle="No tickets yet"
+              emptyDescription="When residents submit tickets, the category breakdown will show here."
+            />
+            <LeaseSummaryCard summary={leaseSummary} />
+          </div>
+          <ActivityBar buckets={activity.buckets} />
+        </div>
+      </details>
+
       <details className="rounded-xl border border-border bg-surface">
         <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium hover:bg-foreground/5">
           <span className="flex items-center gap-2">
