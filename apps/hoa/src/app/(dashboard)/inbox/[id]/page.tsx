@@ -17,6 +17,8 @@ import { ThreadList } from '../ThreadList'
 import { DraftPanel } from './DraftPanel'
 import { MessageThread } from './MessageThread'
 import { PropertyRail } from './PropertyRail'
+import { VendorRail, type RailVendor } from './VendorRail'
+import { isVendorIncomplete } from '@/lib/inbox/vendor/schema'
 
 export const dynamic = 'force-dynamic'
 
@@ -88,6 +90,39 @@ export default async function ThreadPage({
   const contextLoadFailed = contextOutcome === 'error'
   const context: PropertyContext | null = contextLoadFailed ? null : contextOutcome
 
+  // Vendor rail data. Org-scoped like every other read on this page — a
+  // thread's vendor_id is a real FK, but the join must still be scoped
+  // rather than trusted.
+  let railVendor: RailVendor | null = null
+  if (thread.vendorId) {
+    const { data: vendorRow } = await supabase
+      .from('vendors' as never)
+      .select('id, legal_name, trades, status, ein')
+      .eq('id', thread.vendorId)
+      .eq('organization_id', org.id)
+      .maybeSingle<{
+        id: string
+        legal_name: string
+        trades: string[] | null
+        status: string
+        ein: string | null
+      }>()
+
+    if (vendorRow) {
+      railVendor = {
+        vendorId: vendorRow.id,
+        legalName: vendorRow.legal_name,
+        trades: vendorRow.trades,
+        status: vendorRow.status,
+        incomplete: isVendorIncomplete({ ein: vendorRow.ein, trades: vendorRow.trades }),
+      }
+    }
+  }
+
+  // The sender the quick-create modal seeds from: the newest INBOUND
+  // message, matching what W33 reads server-side.
+  const lastInbound = [...thread.messages].reverse().find((m) => m.direction === 'inbound')
+
   return (
     <main className="flex h-[calc(100vh-4rem)] overflow-hidden">
       {/* pane 1 — list */}
@@ -122,13 +157,22 @@ export default async function ThreadPage({
         <DraftPanel threadId={thread.id} draft={draft} />
       </section>
 
-      {/* pane 3 — property rail */}
+      {/* pane 3 — property + vendor rail */}
       <aside className="hidden w-72 shrink-0 overflow-y-auto border-l border-border xl:block">
         <PropertyRail
           thread={thread}
           context={context}
           contextLoadFailed={contextLoadFailed}
           suggestedProperty={suggestedProperty}
+        />
+        {/* Sibling of PropertyRail, never nested: property and vendor
+            filings are independent, and PropertyRail early-returns on
+            unitId. */}
+        <VendorRail
+          thread={thread}
+          vendor={railVendor}
+          senderEmail={lastInbound?.fromEmail ?? null}
+          senderName={lastInbound?.fromName ?? null}
         />
       </aside>
     </main>
