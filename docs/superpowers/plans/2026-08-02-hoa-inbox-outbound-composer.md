@@ -77,8 +77,8 @@ Every task's requirements implicitly include this section.
 ### `migrations/`
 | File | Responsibility |
 |---|---|
-| `0036_inbox_outbound_recipients.sql` *(create)* | `kind`, `to_emails`, `cc_emails`, `mailbox_account_id`, nullable `thread_id`. |
-| `0037_inbox_draft_attachments.sql` *(create)* | `inbox_draft_attachments` + RLS. |
+| `0038_inbox_outbound_recipients.sql` *(create)* | `kind`, `to_emails`, `cc_emails`, `mailbox_account_id`, nullable `thread_id`. |
+| `0039_inbox_draft_attachments.sql` *(create)* | `inbox_draft_attachments` + RLS. |
 
 ---
 
@@ -765,17 +765,17 @@ The `uploadType=multipart` metadata contract is the one thing here that unit tes
 
 Ships a usable feature on its own: a board member can add To/Cc addresses to an AI-drafted reply.
 
-### Task 4: Migration 0036 — recipients on `inbox_drafts`
+### Task 4: Migration 0038 — recipients on `inbox_drafts`
 
 **Files:**
-- Create: `migrations/0036_inbox_outbound_recipients.sql`
+- Create: `migrations/0038_inbox_outbound_recipients.sql`
 
 **Interfaces:**
 - Produces: `inbox_drafts.kind`, `.to_emails`, `.cc_emails`, `.mailbox_account_id`; `thread_id` becomes nullable. Every later task in Phases 2–5 reads these.
 
 - [ ] **Step 1: Write the migration**
 
-Create `migrations/0036_inbox_outbound_recipients.sql`:
+Create `migrations/0038_inbox_outbound_recipients.sql`:
 
 ```sql
 -- Phase C: inbox_drafts generalizes from "an AI-suggested reply" into an
@@ -842,7 +842,7 @@ Expected: FAIL — violates `inbox_drafts_thread_or_account` (a `kind='new'` row
 - [ ] **Step 4: Commit**
 
 ```bash
-rtk git add migrations/0036_inbox_outbound_recipients.sql && rtk git commit -m "$(cat <<'EOF'
+rtk git add migrations/0038_inbox_outbound_recipients.sql && rtk git commit -m "$(cat <<'EOF'
 feat(inbox): recipients and kind on inbox_drafts
 
 Generalizes the AI-reply row into an outbound message of any kind. Moves
@@ -1303,7 +1303,7 @@ EOF
 - Consumes: the columns from Task 4.
 - Produces: `sendToGmail` now takes `draft: { subject: string; body_text: string; to_emails: string[]; cc_emails: string[] }` and `last: { rfc822_message_id: string | null; from_email: string | null }`.
 
-Backward compatibility: a draft queued **before** migration 0036 has an empty `to_emails`. Such a row falls back to the last inbound message's `from_email`, exactly as today. This is the only compatibility affordance in the plan and can be deleted once no pre-migration draft remains queued.
+Backward compatibility: a draft queued **before** migration 0038 has an empty `to_emails`. Such a row falls back to the last inbound message's `from_email`, exactly as today. This is the only compatibility affordance in the plan and can be deleted once no pre-migration draft remains queued.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1404,7 +1404,7 @@ Replace the recipient resolution after the last-inbound lookup (currently lines 
 ```ts
   // Recipients come from the ROW, resolved when a human approved it.
   //
-  // The empty-array fallback covers drafts queued before migration 0036,
+  // The empty-array fallback covers drafts queued before migration 0038,
   // which have no recipients stored. It reproduces the old behaviour exactly
   // and can be deleted once no such row remains queued.
   const to = draft.to_emails?.length ? draft.to_emails : last?.from_email ? [last.from_email] : []
@@ -1471,7 +1471,7 @@ rtk git add packages/jobs/src/mailbox-send.ts packages/jobs/src/mailbox-send.tes
 feat(jobs): send to the recipients recorded on the draft row
 
 The last-inbound lookup is demoted to supplying only In-Reply-To and
-References. Drafts queued before migration 0036 have no stored recipients
+References. Drafts queued before migration 0038 have no stored recipients
 and still fall back to the old behaviour.
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
@@ -1847,10 +1847,10 @@ EOF
 
 ## Phase 3 — Attachments
 
-### Task 9: Migration 0037 and the pure size budget
+### Task 9: Migration 0039 and the pure size budget
 
 **Files:**
-- Create: `migrations/0037_inbox_draft_attachments.sql`
+- Create: `migrations/0039_inbox_draft_attachments.sql`
 - Create: `apps/hoa/src/lib/inbox/draft/attachments.ts`
 - Test: `apps/hoa/src/lib/inbox/draft/attachments.test.ts`
 
@@ -1864,7 +1864,7 @@ EOF
 
 - [ ] **Step 1: Write the migration**
 
-Create `migrations/0037_inbox_draft_attachments.sql`:
+Create `migrations/0039_inbox_draft_attachments.sql`:
 
 ```sql
 -- Files on an outgoing message. Bytes are NEVER copied: all three sources
@@ -2027,7 +2027,7 @@ rtk npm run test:unit -- apps/hoa/src/lib/inbox/draft/attachments.test.ts
 Expected: PASS. Apply `0037` per `docs/APPLY_v1.1_MIGRATIONS.md`, then:
 
 ```bash
-rtk git add migrations/0037_inbox_draft_attachments.sql apps/hoa/src/lib/inbox/draft/attachments.ts apps/hoa/src/lib/inbox/draft/attachments.test.ts && rtk git commit -m "$(cat <<'EOF'
+rtk git add migrations/0039_inbox_draft_attachments.sql apps/hoa/src/lib/inbox/draft/attachments.ts apps/hoa/src/lib/inbox/draft/attachments.test.ts && rtk git commit -m "$(cat <<'EOF'
 feat(inbox): inbox_draft_attachments and the 15MB size budget
 
 Attachments reference a storage path rather than copying bytes — all three
@@ -4110,4 +4110,4 @@ EOF
 - **No virus scanning** of uploaded attachments (spec D9). Inbound attachments are not scanned today either.
 - **No Bcc** (spec D3).
 - **No AI drafting for forwards or new messages** (spec D2). `ai_run_id`, `model`, and `prompt_version` are nullable, so a later phase can add it without a migration.
-- **Pre-migration compatibility fallback** in `mailbox-send.ts` (Task 7) can be deleted once no draft queued before migration 0036 remains.
+- **Pre-migration compatibility fallback** in `mailbox-send.ts` (Task 7) can be deleted once no draft queued before migration 0038 remains.
