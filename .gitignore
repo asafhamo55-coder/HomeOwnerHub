@@ -57,3 +57,7 @@ Declaration*.pdf
 /tsx/
 .rtk/
 .superpowers/
+
+# Isolated worktrees for branch work — scratch checkouts, never tracked.
+.worktrees/
+.claude/worktrees/
