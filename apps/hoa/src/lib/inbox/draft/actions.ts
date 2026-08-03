@@ -27,10 +27,12 @@ import { inngest } from '@homeowner-portal/jobs'
 import { draftReply, InvalidCitationError, UnsupportedQuoteError } from '@homeowner-portal/workflows'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getThreadDetail } from '@/lib/inbox/queries'
 import { retrieveForThread } from './retrieve'
 import { UNDO_WINDOW_SECONDS, hasUnfilledBlanks } from './blanks'
 import { normalizeRecipients } from './recipients'
 import { MAX_ATTACHMENT_BYTES } from './attachments'
+import { buildForwardSubject, buildForwardBody } from './forward'
 
 export async function createDraft(
   threadId: string,
@@ -356,4 +358,105 @@ export async function cancelDraft(draftId: string): Promise<{ ok: true } | { err
 
   revalidatePath(`/inbox/${data.thread_id}`)
   return { ok: true }
+}
+
+/**
+ * A forward: the thread's latest message quoted below a blank opening, with
+ * its files carried along, addressed to nobody yet.
+ *
+ * No AI call, deliberately. The reply drafter grounds a reply to a resident
+ * in governing documents and property context; "can you quote this?" to a
+ * landscaper has nothing to ground and no citations to validate. So
+ * `citations`, `blanks`, and the ai_runs metadata stay empty — the human is
+ * the author, and `grounded=false` here means "not applicable", which is
+ * why the composer only renders the ungrounded banner for kind='reply'.
+ */
+export async function createForwardDraft(
+  threadId: string,
+): Promise<{ ok: true; draftId: string } | { error: string }> {
+  const { org } = await requireBoardOrAdmin()
+  const supabase = await getSupabaseServerClient()
+
+  const thread = await getThreadDetail(supabase, org.id, threadId)
+  if (!thread) return { error: 'That conversation no longer exists.' }
+
+  const {
+    data: { user: creator },
+  } = await supabase.auth.getUser()
+
+  const { data, error } = await supabase
+    .from('inbox_drafts')
+    .insert({
+      organization_id: org.id,
+      thread_id: threadId,
+      kind: 'forward',
+      status: 'draft',
+      created_by: creator?.id ?? null,
+      subject: buildForwardSubject(thread.subject),
+      body_text: buildForwardBody(thread.messages),
+      // Addressed to nobody: choosing who receives a resident's message is
+      // the whole decision a forward asks a board member to make, and
+      // pre-filling it would invite sending to the wrong party by reflex.
+      to_emails: [],
+      cc_emails: [],
+      // A forward is written by a human — there is nothing here for the
+      // reply drafter's citation validator or blank-filler to have produced.
+      citations: [],
+      blanks: [],
+      grounded: false,
+      grounding_note: null,
+    })
+    .select('id')
+    .single()
+
+  if (error) {
+    console.error(`createForwardDraft: insert failed: ${error.code} ${error.message}`)
+    return { error: 'Could not start a forward.' }
+  }
+
+  // Carry the thread's files along. A forward without the photos of the
+  // broken fence is half a forward — but losing them is a convenience
+  // failure, not a correctness one, so it never discards the draft. The
+  // human can re-attach from the picker.
+  const storedFiles = thread.messages.flatMap((message) =>
+    message.attachments.filter((file) => file.fetchStatus === 'stored'),
+  )
+  if (storedFiles.length > 0) {
+    const { data: sourceRows, error: sourceError } = await supabase
+      .from('inbox_attachments')
+      .select('id, storage_path, file_name, content_type, size_bytes')
+      .eq('organization_id', org.id)
+      .in(
+        'id',
+        storedFiles.map((file) => file.id),
+      )
+
+    if (sourceError) {
+      console.error(
+        `createForwardDraft: attachment read failed: ${sourceError.code} ${sourceError.message}`,
+      )
+    } else if (sourceRows && sourceRows.length > 0) {
+      const { error: copyError } = await supabase.from('inbox_draft_attachments').insert(
+        sourceRows
+          .filter((row): row is typeof row & { storage_path: string } => Boolean(row.storage_path))
+          .map((row) => ({
+            organization_id: org.id,
+            draft_id: data.id,
+            source: 'inbox' as const,
+            storage_path: row.storage_path,
+            file_name: row.file_name,
+            content_type: row.content_type,
+            size_bytes: Number(row.size_bytes ?? 0),
+          })),
+      )
+      if (copyError) {
+        console.error(
+          `createForwardDraft: attachment copy failed: ${copyError.code} ${copyError.message}`,
+        )
+      }
+    }
+  }
+
+  revalidatePath(`/inbox/${threadId}`)
+  return { ok: true, draftId: data.id }
 }
