@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Camera, ImagePlus, X } from 'lucide-react'
 import { Button } from '@homeowner-portal/ui'
 import { PHOTO_ACCEPT, validatePhotoFiles } from '@/lib/attachment-rules'
@@ -23,17 +23,14 @@ export function PhotoPicker({
   const cameraRef = useRef<HTMLInputElement>(null)
   const libraryRef = useRef<HTMLInputElement>(null)
   const [rejected, setRejected] = useState<Array<{ name: string; reason: string }>>([])
-  const [previews, setPreviews] = useState<string[]>([])
 
-  // Object URLs are leaked unless explicitly revoked. Rebuild the whole
-  // list whenever `files` changes and revoke the previous batch.
-  useEffect(() => {
-    const urls = files.map((f) => URL.createObjectURL(f))
-    setPreviews(urls)
-    return () => {
-      for (const url of urls) URL.revokeObjectURL(url)
-    }
-  }, [files])
+  // Previews are derived during render so they stay in lockstep with `files`.
+  // Object URLs are revoked in the cleanup.
+  const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files])
+
+  useEffect(() => () => {
+    for (const url of previews) URL.revokeObjectURL(url)
+  }, [previews])
 
   function handlePick(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? [])
