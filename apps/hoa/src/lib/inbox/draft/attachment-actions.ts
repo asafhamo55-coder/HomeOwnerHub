@@ -28,6 +28,26 @@ import { checkAttachmentFits } from './attachments'
 
 const BUCKET = 'hoa-documents'
 
+/**
+ * Validates that `ref` is EXACTLY `inbox-drafts/<orgId>/<draftId>/<object>`
+ * — four non-empty segments, none of them `.` or `..` — rather than merely
+ * checking a string prefix. A prefix check (`ref.startsWith(...)`) cannot
+ * see past a traversal like `inbox-drafts/org-1/draft-1/../../org-2/x`,
+ * which literally starts with the required prefix. Returns the validated
+ * path unchanged, or null if it does not match the exact shape this module
+ * mints in `createAttachmentUploadUrl`.
+ */
+function resolveUploadPath(ref: string, orgId: string, draftId: string): string | null {
+  const segments = ref.split('/')
+  if (segments.length !== 4) return null
+  if (segments.some((segment) => segment.length === 0 || segment === '.' || segment === '..')) {
+    return null
+  }
+  const [prefix, refOrgId, refDraftId] = segments
+  if (prefix !== 'inbox-drafts' || refOrgId !== orgId || refDraftId !== draftId) return null
+  return ref
+}
+
 /** Loads the draft's current attachments so the budget can be checked. */
 async function currentSizes(
   supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
@@ -129,16 +149,33 @@ export async function addDraftAttachment(
   if (source === 'upload') {
     if (!uploaded) return { error: 'Missing upload details.' }
     // `ref` is the storage path returned by createAttachmentUploadUrl. It is
-    // re-derived rather than trusted: only a path under THIS org and THIS
-    // draft may be attached, so a forged ref cannot reach another org's file.
-    if (!ref.startsWith(`inbox-drafts/${org.id}/${draftId}/`)) {
+    // re-derived rather than trusted: only a path in EXACTLY the shape this
+    // module mints for THIS org and THIS draft may be attached, so a forged
+    // ref (including a `..` traversal) cannot reach another org's file.
+    const validatedPath = resolveUploadPath(ref, org.id, draftId)
+    if (!validatedPath) {
       return { error: 'That upload does not belong to this message.' }
     }
+
+    // `uploaded.sizeBytes` is client-declared and not trustworthy — a
+    // client could under-report it to slip an oversized object past the
+    // budget check below while the actual PUT to storage carries more
+    // bytes. Read the real size off the object that actually landed in
+    // storage and use THAT for the budget check and the stored row.
+    const { data: info, error: infoError } = await supabase.storage
+      .from(BUCKET)
+      .info(validatedPath)
+    if (infoError || !info || typeof info.size !== 'number') {
+      // StorageError, not PostgrestError — no `.code`. `.message` is safe.
+      console.error(`attachments: upload stat failed: ${infoError?.message ?? 'no size returned'}`)
+      return { error: 'Could not verify that upload.' }
+    }
+
     resolved = {
-      storagePath: ref,
+      storagePath: validatedPath,
       fileName: uploaded.fileName,
       contentType: uploaded.contentType,
-      sizeBytes: uploaded.sizeBytes,
+      sizeBytes: info.size,
     }
   } else if (source === 'inbox') {
     const { data, error } = await supabase
