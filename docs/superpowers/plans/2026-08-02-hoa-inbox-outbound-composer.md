@@ -279,7 +279,7 @@ EOF
 Append to `packages/mailbox/src/send.test.ts`:
 
 ```ts
-import { buildMimeMessage } from './send'
+import { buildMimeMessage, assertNoBoundaryCollision } from './send'
 
 describe('buildMimeMessage — attachments', () => {
   const base = {
@@ -343,11 +343,10 @@ describe('buildMimeMessage — attachments', () => {
     expect(boundaryOf(a)).not.toBe(boundaryOf(b))
   })
 
-  it('throws rather than emit a message whose body contains the boundary', () => {
-    // The boundary is random, so this cannot be triggered from outside.
-    // Force it: a body containing every plausible boundary is impossible, so
-    // instead assert the guard exists by checking a body that contains the
-    // literal boundary prefix does NOT break framing.
+  it('keeps framing intact when the body merely resembles a boundary prefix', () => {
+    // A true collision cannot be forced from outside — the boundary carries
+    // 16 random bytes. What IS reachable is a body sharing the fixed prefix,
+    // which must not be mistaken for a delimiter.
     const out = buildMimeMessage({
       ...base,
       body: '----=_HH_ not a real boundary',
@@ -356,6 +355,20 @@ describe('buildMimeMessage — attachments', () => {
     const boundary = out.match(/boundary="([^"]+)"/)![1]
     // Exactly three delimiter occurrences: open, mid, close.
     expect(out.split(`--${boundary}`).length - 1).toBe(3)
+  })
+
+  // The collision guard itself, exercised directly. `assertNoBoundaryCollision`
+  // is exported for this reason and no other: the random boundary makes the
+  // branch unreachable through buildMimeMessage, and an untested throw is a
+  // throw nobody knows is broken.
+  it('assertNoBoundaryCollision throws when a part contains the delimiter', () => {
+    expect(() => assertNoBoundaryCollision(['hello --BOUND there'], 'BOUND')).toThrow(
+      /boundary collision/,
+    )
+  })
+
+  it('assertNoBoundaryCollision passes when no part contains the delimiter', () => {
+    expect(() => assertNoBoundaryCollision(['hello there'], 'BOUND')).not.toThrow()
   })
 
   it('rejects CR/LF in a filename — it lands in a header parameter', () => {
@@ -449,6 +462,24 @@ function makeBoundary(): string {
 function base64Lines(bytes: Buffer): string {
   return (bytes.toString('base64').match(/.{1,76}/g) ?? []).join('\r\n')
 }
+
+/**
+ * A part containing the delimiter would forge MIME structure — a crafted
+ * reply could append an arbitrary extra part. The boundary carries 16 random
+ * bytes, so this is astronomically unlikely and unreachable from outside;
+ * it is asserted rather than trusted because the failure mode is message
+ * forgery, not a rendering glitch.
+ *
+ * Exported ONLY so the unreachable branch can be tested directly. An
+ * untested throw is a throw nobody knows is broken.
+ */
+export function assertNoBoundaryCollision(parts: string[], boundary: string): void {
+  for (const part of parts) {
+    if (part.includes(`--${boundary}`)) {
+      throw new Error('buildMimeMessage: boundary collision in message content')
+    }
+  }
+}
 ```
 
 Then in `buildMimeMessage`, add `attachments?: OutboundAttachment[]` to the options type and replace the return with:
@@ -484,15 +515,7 @@ Then in `buildMimeMessage`, add `attachments?: OutboundAttachment[]` to the opti
     ),
   ]
 
-  // A body containing the delimiter would forge MIME structure — a crafted
-  // reply could append an arbitrary extra part. The boundary is random, so
-  // this is astronomically unlikely; it is asserted rather than trusted
-  // because the failure mode is message forgery, not a rendering glitch.
-  for (const part of parts) {
-    if (part.includes(`--${boundary}`)) {
-      throw new Error('buildMimeMessage: boundary collision in message content')
-    }
-  }
+  assertNoBoundaryCollision(parts, boundary)
 
   // Swap the single-part content headers for the multipart declaration. The
   // 8bit transfer encoding moves onto the body PART; a multipart container
@@ -1461,6 +1484,7 @@ EOF
 ### Task 8: Split `DraftPanel` into a state machine plus `Composer`
 
 **Files:**
+- Create: `apps/hoa/src/app/(dashboard)/inbox/[id]/draft-ui.ts`
 - Create: `apps/hoa/src/app/(dashboard)/inbox/[id]/RecipientFields.tsx`
 - Create: `apps/hoa/src/app/(dashboard)/inbox/[id]/Composer.tsx`
 - Modify: `apps/hoa/src/app/(dashboard)/inbox/[id]/DraftPanel.tsx`
@@ -1473,9 +1497,42 @@ EOF
 
 `DraftPanel` is 288 lines carrying six states. Adding recipients here — and an attachment picker in Task 13 — would make it the largest file in the module. The split is part of this task, not a follow-up.
 
-- [ ] **Step 1: Build `RecipientFields`**
+- [ ] **Step 1: Extract the shared draft styling, then build `RecipientFields`**
 
-Create `apps/hoa/src/app/(dashboard)/inbox/[id]/RecipientFields.tsx`:
+`AMBER_BOX` is about to be needed by both `DraftPanel` (its `failed` state) and
+`Composer` (the ungrounded banner and the blanks callouts). Copying it into the
+new file would make three copies in this directory. Extract it first.
+
+Create `apps/hoa/src/app/(dashboard)/inbox/[id]/draft-ui.ts`:
+
+```ts
+/**
+ * Presentation constants shared by DraftPanel and Composer.
+ *
+ * No `warning` token exists in the shared Tailwind config
+ * (packages/ui/tailwind.config.ts defines only primary/accent/background/
+ * surface/border/foreground/muted/destructive as CSS-variable tokens), so the
+ * "needs a human decision" tone is this literal amber + dark: pair. The same
+ * pair is used in PropertyRail.tsx and MessageThread.tsx; those are left alone
+ * here because this task has no other reason to touch them.
+ */
+export const AMBER_BOX =
+  'rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200'
+
+/**
+ * `blank.kind` is one of the four categories the model is forbidden from
+ * writing itself. This only labels the callout — `blank.prompt` is what
+ * actually tells the human what to decide, and is rendered verbatim.
+ */
+export const BLANK_KIND_LABELS: Record<string, string> = {
+  money: 'Money',
+  enforcement: 'Enforcement outcome',
+  legal: 'Legal interpretation',
+  other_resident: "Another resident's details",
+}
+```
+
+Then create `apps/hoa/src/app/(dashboard)/inbox/[id]/RecipientFields.tsx`:
 
 ```tsx
 'use client'
@@ -1607,16 +1664,7 @@ import { Alert, Button } from '@homeowner-portal/ui'
 import { hasUnfilledBlanks } from '@/lib/inbox/draft/blanks'
 import type { ThreadDraft } from '@/lib/inbox/queries'
 import { RecipientFields } from './RecipientFields'
-
-const BLANK_KIND_LABELS: Record<string, string> = {
-  money: 'Money',
-  enforcement: 'Enforcement outcome',
-  legal: 'Legal interpretation',
-  other_resident: "Another resident's details",
-}
-
-const AMBER_BOX =
-  'rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200'
+import { AMBER_BOX, BLANK_KIND_LABELS } from './draft-ui'
 
 export interface ApproveInput {
   subject: string
@@ -1741,7 +1789,7 @@ export function Composer({ draft, pending, actionError, onApprove }: Props) {
 
 - [ ] **Step 3: Reduce `DraftPanel` to the state machine**
 
-In `DraftPanel.tsx`: delete the `subject`/`body` state, the `useEffect` that syncs them, the `BLANK_KIND_LABELS` map, and the entire editable-state JSX at the bottom. Keep `AMBER_BOX` (the `failed` state still uses it), all five early-return states, and `Countdown` unchanged. Replace `handleApprove` and the final return:
+In `DraftPanel.tsx`: delete the `subject`/`body` state, the `useEffect` that syncs them, the `BLANK_KIND_LABELS` map, the local `AMBER_BOX` constant, and the entire editable-state JSX at the bottom. Import `AMBER_BOX` from `./draft-ui` instead — the `failed` state still uses it. Keep all five early-return states and `Countdown` unchanged. Replace `handleApprove` and the final return:
 
 ```tsx
   function handleApprove(input: ApproveInput) {
@@ -2010,7 +2058,111 @@ EOF
 
 A separate file from `actions.ts` on purpose: that file is already 292 lines and owns the draft lifecycle invariants. Attachment CRUD is a different responsibility.
 
-- [ ] **Step 1: Write the file**
+- [ ] **Step 1: Write the failing security tests**
+
+These come first, before the implementation. This task resolves user-supplied
+references to storage paths, so its refusal paths are the point of the task,
+not a postscript to it.
+
+Create `apps/hoa/src/lib/inbox/draft/attachment-actions.test.ts`. Mock `@/lib/auth` and `@/lib/supabase/server` the same way `approve.test.ts` does (see Task 6 Step 1 for the exact mock blocks), plus `next/cache`. Give the Supabase fake a `storage.from().createSignedUploadUrl()` returning `{ data: { path: 'p', token: 't' }, error: null }` and a `storage.from().remove()` bound to a module-level `const storageRemove = vi.fn()`. Let each `.from(table)` return a chain whose `maybeSingle()` resolves from a per-table script the test sets: module-level `let draftStatus = 'draft'` drives the `inbox_drafts` read, `let attachmentRow` drives the `inbox_draft_attachments` read, and `let inboxAttachmentRow` drives the `inbox_attachments` read. Reset all of them in `beforeEach`.
+
+```ts
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { createAttachmentUploadUrl, addDraftAttachment, removeDraftAttachment } from './attachment-actions'
+
+const insert = vi.fn()
+
+describe('addDraftAttachment — a forged ref must not reach another org', () => {
+  beforeEach(() => insert.mockClear())
+
+  it('refuses an upload path outside this org and draft prefix', async () => {
+    const result = await addDraftAttachment('draft-1', 'upload', 'inbox-drafts/other-org/x/y', {
+      fileName: 'a.pdf',
+      contentType: 'application/pdf',
+      sizeBytes: 10,
+    })
+    expect('error' in result).toBe(true)
+    expect(insert).not.toHaveBeenCalled()
+  })
+
+  it('refuses an upload whose path names a different draft in the same org', async () => {
+    const result = await addDraftAttachment('draft-1', 'upload', 'inbox-drafts/org-1/draft-2/y', {
+      fileName: 'a.pdf',
+      contentType: null,
+      sizeBytes: 10,
+    })
+    expect('error' in result).toBe(true)
+  })
+
+  it('refuses a cross-org inbox attachment — the org-scoped read returns nothing', async () => {
+    inboxAttachmentRow = null
+    const result = await addDraftAttachment('draft-1', 'inbox', 'attachment-from-another-org')
+    expect('error' in result).toBe(true)
+    expect(insert).not.toHaveBeenCalled()
+  })
+
+  it('refuses an inbox attachment that never downloaded', async () => {
+    inboxAttachmentRow = { storage_path: 'p/1', file_name: 'a.pdf', content_type: null, size_bytes: 10, fetch_status: 'failed' }
+    const result = await addDraftAttachment('draft-1', 'inbox', 'att-1')
+    expect('error' in result).toBe(true)
+  })
+})
+
+describe('attachment mutations require an editable draft', () => {
+  it.each(['queued', 'sending', 'sent', 'cancelled', 'failed'])(
+    'refuses to attach to a %s draft',
+    async (status) => {
+      draftStatus = status
+      const result = await addDraftAttachment('draft-1', 'inbox', 'att-1')
+      expect('error' in result).toBe(true)
+    },
+  )
+
+  it('refuses to mint an upload URL for a queued draft', async () => {
+    draftStatus = 'queued'
+    const result = await createAttachmentUploadUrl('draft-1', 'a.pdf', 10)
+    expect('error' in result).toBe(true)
+  })
+
+  it('refuses an upload URL for a file over the cap', async () => {
+    draftStatus = 'draft'
+    const result = await createAttachmentUploadUrl('draft-1', 'big.pdf', 16 * 1024 * 1024)
+    expect('error' in result).toBe(true)
+    if ('error' in result) expect(result.error).toContain('15 MB')
+  })
+
+  it('does not put the caller-supplied filename in the storage path', async () => {
+    draftStatus = 'draft'
+    const result = await createAttachmentUploadUrl('draft-1', '../../escape.pdf', 10)
+    expect('ok' in result).toBe(true)
+    if ('ok' in result) expect(result.path).not.toContain('escape')
+  })
+})
+
+describe('removeDraftAttachment', () => {
+  it('deletes the storage object for an upload', async () => {
+    attachmentRow = { id: 'a1', draft_id: 'draft-1', source: 'upload', storage_path: 'p/1' }
+    await removeDraftAttachment('a1')
+    expect(storageRemove).toHaveBeenCalledWith(['p/1'])
+  })
+
+  it.each(['inbox', 'document'])(
+    'never deletes the storage object for a %s reference — it is the live file',
+    async (source) => {
+      attachmentRow = { id: 'a1', draft_id: 'draft-1', source, storage_path: 'governing/ccrs.pdf' }
+      await removeDraftAttachment('a1')
+      expect(storageRemove).not.toHaveBeenCalled()
+    },
+  )
+})
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `rtk npm run test:unit -- apps/hoa/src/lib/inbox/draft/attachment-actions.test.ts`
+Expected: FAIL — cannot resolve `./attachment-actions`.
+
+- [ ] **Step 3: Write the implementation**
 
 Create `apps/hoa/src/lib/inbox/draft/attachment-actions.ts`:
 
@@ -2294,7 +2446,7 @@ function inferContentType(fileName: string): string | null {
 
 Note: `'use server'` modules may export only async functions. `EXTENSION_TYPES` and `inferContentType` are module-private (not exported), which is allowed — only *exports* are constrained.
 
-- [ ] **Step 2: Add the two read queries**
+- [ ] **Step 4: Add the two read queries**
 
 In `apps/hoa/src/lib/inbox/queries.ts`, append:
 
@@ -2370,103 +2522,17 @@ export async function listAttachableDocuments(
 }
 ```
 
-- [ ] **Step 3: Write the security tests**
-
-Create `apps/hoa/src/lib/inbox/draft/attachment-actions.test.ts`. Mock `@/lib/auth` and `@/lib/supabase/server` the same way `approve.test.ts` does (see Task 6 Step 1 for the exact mock blocks), plus `next/cache`. Give the Supabase fake a `storage.from().createSignedUploadUrl()` returning `{ data: { path: 'p', token: 't' }, error: null }`, and let each `.from(table)` return a chain whose `maybeSingle()` resolves from a per-table script the test sets.
-
-```ts
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { createAttachmentUploadUrl, addDraftAttachment, removeDraftAttachment } from './attachment-actions'
-
-const insert = vi.fn()
-
-describe('addDraftAttachment — a forged ref must not reach another org', () => {
-  beforeEach(() => insert.mockClear())
-
-  it('refuses an upload path outside this org and draft prefix', async () => {
-    const result = await addDraftAttachment('draft-1', 'upload', 'inbox-drafts/other-org/x/y', {
-      fileName: 'a.pdf',
-      contentType: 'application/pdf',
-      sizeBytes: 10,
-    })
-    expect('error' in result).toBe(true)
-    expect(insert).not.toHaveBeenCalled()
-  })
-
-  it('refuses an upload whose path names a different draft in the same org', async () => {
-    const result = await addDraftAttachment('draft-1', 'upload', 'inbox-drafts/org-1/draft-2/y', {
-      fileName: 'a.pdf',
-      contentType: null,
-      sizeBytes: 10,
-    })
-    expect('error' in result).toBe(true)
-  })
-
-  it('refuses a cross-org inbox attachment — the org-scoped read returns nothing', async () => {
-    // The scripted inbox_attachments read resolves to { data: null }.
-    const result = await addDraftAttachment('draft-1', 'inbox', 'attachment-from-another-org')
-    expect('error' in result).toBe(true)
-    expect(insert).not.toHaveBeenCalled()
-  })
-
-  it('refuses an inbox attachment that never downloaded', async () => {
-    // fetch_status: 'failed'
-    const result = await addDraftAttachment('draft-1', 'inbox', 'att-1')
-    expect('error' in result).toBe(true)
-  })
-})
-
-describe('attachment mutations require an editable draft', () => {
-  it.each(['queued', 'sending', 'sent', 'cancelled', 'failed'])(
-    'refuses to attach to a %s draft',
-    async (status) => {
-      draftStatus = status
-      const result = await addDraftAttachment('draft-1', 'inbox', 'att-1')
-      expect('error' in result).toBe(true)
-    },
-  )
-
-  it('refuses to mint an upload URL for a queued draft', async () => {
-    draftStatus = 'queued'
-    const result = await createAttachmentUploadUrl('draft-1', 'a.pdf', 10)
-    expect('error' in result).toBe(true)
-  })
-
-  it('refuses an upload URL for a file over the cap', async () => {
-    draftStatus = 'draft'
-    const result = await createAttachmentUploadUrl('draft-1', 'big.pdf', 16 * 1024 * 1024)
-    expect('error' in result).toBe(true)
-    if ('error' in result) expect(result.error).toContain('15 MB')
-  })
-})
-
-describe('removeDraftAttachment', () => {
-  it('deletes the storage object for an upload', async () => {
-    attachmentRow = { id: 'a1', draft_id: 'draft-1', source: 'upload', storage_path: 'p/1' }
-    await removeDraftAttachment('a1')
-    expect(storageRemove).toHaveBeenCalledWith(['p/1'])
-  })
-
-  it.each(['inbox', 'document'])(
-    'never deletes the storage object for a %s reference — it is the live file',
-    async (source) => {
-      attachmentRow = { id: 'a1', draft_id: 'draft-1', source, storage_path: 'governing/ccrs.pdf' }
-      await removeDraftAttachment('a1')
-      expect(storageRemove).not.toHaveBeenCalled()
-    },
-  )
-})
-```
+- [ ] **Step 5: Run the tests to verify they now pass**
 
 Run: `rtk npm run test:unit -- apps/hoa/src/lib/inbox/draft/attachment-actions.test.ts`
-Expected: PASS (the implementation from Step 1 already satisfies these; if any fail, the implementation is wrong, not the test).
+Expected: PASS. A test still failing here means the implementation is wrong, not the test.
 
-- [ ] **Step 4: Typecheck**
+- [ ] **Step 6: Typecheck**
 
 Run: `rtk npm run typecheck && rtk npm run lint`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 rtk git add apps/hoa/src/lib/inbox/draft/attachment-actions.ts apps/hoa/src/lib/inbox/draft/attachment-actions.test.ts apps/hoa/src/lib/inbox/queries.ts && rtk git commit -m "$(cat <<'EOF'
