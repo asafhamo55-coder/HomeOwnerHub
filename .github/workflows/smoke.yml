@@ -38,7 +38,11 @@ jobs:
       - name: Probe HOA /api/health
         run: |
           set -e
-          URL="https://home-owner-hub-hoa.vercel.app/api/health"
+          # www, not the apex: homeownerledger.com still points at an old
+          # host with a certificate that expired 2026-07-03. The former
+          # home-owner-hub-hoa.vercel.app no longer resolves, which made
+          # this step fail on every production deploy.
+          URL="https://www.homeownerledger.com/api/health"
           echo "::group::HOA"
           curl -fsSL --max-time 30 -w "\nHTTP %{http_code}\n" "$URL" | tee /tmp/hoa.json
           OK=$(jq -r '.ok' /tmp/hoa.json)

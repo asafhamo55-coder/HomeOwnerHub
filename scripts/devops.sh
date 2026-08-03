@@ -30,7 +30,14 @@ set -euo pipefail
 # ────────────────────────────────────────────────────────────────────
 # Config
 
-HOA_URL="${HOA_URL:-https://home-owner-hub-hoa.vercel.app}"
+# www, not the apex. `homeownerledger.com` (no www) still resolves to an old
+# Network Solutions host (74.91.138.139) serving a *.hostingplatform.com
+# certificate that expired 2026-07-03 — only the www CNAME points at Vercel.
+# The previous default here, home-owner-hub-hoa.vercel.app, no longer
+# resolves at all, and the project-scoped *.vercel.app URL sits behind
+# Vercel SSO protection (302 to vercel.com/sso-api), so neither can be
+# probed anonymously.
+HOA_URL="${HOA_URL:-https://www.homeownerledger.com}"
 EVICTION_URL="${EVICTION_URL:-https://homeowner-hub-eviction.vercel.app}"
 PM_URL="${PM_URL:-https://home-owner-hub-pm.vercel.app}"
 
