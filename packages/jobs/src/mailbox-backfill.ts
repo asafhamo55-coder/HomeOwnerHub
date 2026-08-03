@@ -225,7 +225,13 @@ export const mailboxBackfillJob = inngest.createFunction(
       // this function's outer catch below, which records backfill_status
       // and re-throws so Inngest's retry (and, ultimately, the next
       // triggered run) picks the rest back up.
-      const ingested = await ingestMessages(db, account.organization_id, accountId, messages)
+      const ingested = await ingestMessages(
+        db,
+        account.organization_id,
+        accountId,
+        account.email_address,
+        messages,
+      )
 
       if (messages.length > 0) {
         const gmailThreadIds = [...new Set(messages.map((m) => m.gmailThreadId))]

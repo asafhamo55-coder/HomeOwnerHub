@@ -137,6 +137,7 @@ export const mailboxSyncJob = inngest.createFunction(
           db,
           account.organization_id,
           account.id,
+          account.email_address,
           result.messages,
         )
 

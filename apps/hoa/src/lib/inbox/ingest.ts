@@ -123,6 +123,48 @@ const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024
 /** Postgres unique_violation. */
 const PG_UNIQUE_VIOLATION = '23505'
 
+/**
+ * A message is outbound when its From address is the mailbox's own
+ * address; otherwise inbound. Phase B widened `buildScopeQuery` to also
+ * fetch `from:<mailbox address>` so the HOA's own sent replies sync too
+ * (see packages/mailbox/src/scope.ts) — before this, ingest hardcoded
+ * every row as 'inbound', so the reply corpus that
+ * `mailboxReplyEmbeddingsJob` reads (WHERE direction = 'outbound') was
+ * permanently empty, the "Sent by HOA" badge never appeared, and
+ * inbox_threads.last_direction could never reflect who a thread was
+ * waiting on.
+ *
+ * Case-insensitive and trimmed: Gmail preserves the sender's casing on
+ * the From header as typed, and mailboxEmailAddress comes straight from
+ * the `mailbox_accounts.email_address` column.
+ *
+ * `fromEmail === null` (a malformed envelope) is NOT treated as a match.
+ * It is deliberately not coerced to a string first — `String(null)`
+ * yields `"null"`, which could accidentally equal a literal address of
+ * "null" — so a null From falls through to 'inbound', same fail-safe
+ * default as before this fix.
+ *
+ * Known limitation, not fixed here: a mailbox can have Gmail "send as"
+ * aliases (see `recommendScope` in packages/mailbox/src/scope.ts, which
+ * actively recommends scoping shared inboxes BY an alias distinct from
+ * the account's own login address). A message the HOA sent from such an
+ * alias carries that alias in From, not `mailbox_accounts.email_address`,
+ * so it would be mislabeled inbound here. Resolving that needs the
+ * account's Gmail send-as list, which isn't loaded by either caller
+ * today; a soft lookup that could silently miss would reproduce exactly
+ * the mislabeling this fix removes, so it's left as a known gap rather
+ * than guessed at.
+ */
+export function computeDirection(
+  fromEmail: string | null,
+  mailboxEmailAddress: string,
+): 'inbound' | 'outbound' {
+  if (fromEmail === null) return 'inbound'
+  return fromEmail.trim().toLowerCase() === mailboxEmailAddress.trim().toLowerCase()
+    ? 'outbound'
+    : 'inbound'
+}
+
 export interface IngestResult {
   threadsCreated: number
   messagesInserted: number
@@ -158,8 +200,13 @@ function logDbError(
  * a thread's recency (bumped to the top of the queue) is the safer
  * failure mode than understating it (a genuinely live thread going stale
  * in the queue because its newest arrival's date didn't parse).
+ *
+ * Exported (typed against just `{ sentAt }`, not the full ParsedMessage)
+ * so scripts/backfill-message-direction.ts can pick the same "newest"
+ * message a live ingest would, rather than re-deriving the tie-break rule
+ * and risking drift from this one.
  */
-function compareBySentAt(a: ParsedMessage, b: ParsedMessage): number {
+export function compareBySentAt(a: { sentAt: string | null }, b: { sentAt: string | null }): number {
   if (a.sentAt === null && b.sentAt === null) return 0
   if (a.sentAt === null) return 1
   if (b.sentAt === null) return -1
@@ -170,6 +217,7 @@ export async function ingestMessages(
   db: Db,
   orgId: string,
   mailboxAccountId: string,
+  mailboxEmailAddress: string,
   messages: ParsedMessage[],
 ): Promise<IngestResult> {
   const result: IngestResult = {
@@ -193,7 +241,15 @@ export async function ingestMessages(
 
   for (const [gmailThreadId, threadMessages] of byThread) {
     try {
-      await ingestThread(db, orgId, mailboxAccountId, gmailThreadId, threadMessages, result)
+      await ingestThread(
+        db,
+        orgId,
+        mailboxAccountId,
+        mailboxEmailAddress,
+        gmailThreadId,
+        threadMessages,
+        result,
+      )
     } catch (threadError) {
       result.threadsFailed++
       logDbError(
@@ -225,6 +281,7 @@ async function ingestThread(
   db: Db,
   orgId: string,
   mailboxAccountId: string,
+  mailboxEmailAddress: string,
   gmailThreadId: string,
   threadMessages: ParsedMessage[],
   result: IngestResult,
@@ -309,7 +366,15 @@ async function ingestThread(
   const stored: ParsedMessage[] = []
   for (const message of sorted) {
     try {
-      await ingestMessage(db, orgId, mailboxAccountId, threadId, message, result)
+      await ingestMessage(
+        db,
+        orgId,
+        mailboxAccountId,
+        mailboxEmailAddress,
+        threadId,
+        message,
+        result,
+      )
       stored.push(message)
     } catch (messageError) {
       result.messagesFailed++
@@ -344,7 +409,7 @@ async function ingestThread(
       subject: newest.subject,
       participants,
       last_message_at: newest.sentAt,
-      last_direction: 'inbound',
+      last_direction: computeDirection(newest.fromEmail, mailboxEmailAddress),
     })
     .eq('id', threadId)
 
@@ -362,6 +427,7 @@ async function ingestMessage(
   db: Db,
   orgId: string,
   mailboxAccountId: string,
+  mailboxEmailAddress: string,
   threadId: string,
   message: ParsedMessage,
   result: IngestResult,
@@ -377,7 +443,7 @@ async function ingestMessage(
         rfc822_message_id: message.rfc822MessageId,
         in_reply_to: message.inReplyTo,
         references_ids: message.references,
-        direction: 'inbound',
+        direction: computeDirection(message.fromEmail, mailboxEmailAddress),
         from_email: message.fromEmail,
         from_name: message.fromName,
         to_emails: message.toEmails,
