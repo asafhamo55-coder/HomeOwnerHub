@@ -550,7 +550,13 @@ export interface ThreadDetail {
 export interface PropertyContext {
   address: string
   unitNumber: string | null
-  residents: Array<{ name: string; role: string; email: string | null }>
+  residents: Array<{
+    id: string
+    name: string
+    role: string
+    email: string | null
+    phone: string | null
+  }>
   duesBalance: number
   duesOverdueCount: number
   openViolations: number
@@ -709,13 +715,19 @@ export async function getPropertyContext(
       legacyId
         ? db
             .from('property_residents')
-            .select('full_name, role, email')
+            .select('id, full_name, role, email, phone')
             .eq('organization_id', orgId)
             .eq('property_id', legacyId)
             .is('moved_out_at', null)
             .is('deleted_at', null)
         : Promise.resolve({
-            data: [] as Array<{ full_name: string; role: string; email: string | null }>,
+            data: [] as Array<{
+              id: string
+              full_name: string
+              role: string
+              email: string | null
+              phone: string | null
+            }>,
             error: null as PostgrestError | null,
           }),
       // Status vocabulary is the DB CHECK constraint on assessments
@@ -878,9 +890,11 @@ export async function getPropertyContext(
     address: unit.address_line1,
     unitNumber: unit.unit_number,
     residents: (residentsData ?? []).map((r) => ({
+      id: r.id,
       name: r.full_name,
       role: r.role,
       email: r.email,
+      phone: r.phone,
     })),
     duesBalance,
     duesOverdueCount,
