@@ -2617,8 +2617,12 @@ In `approveDraft`, after the recipient check and before the UPDATE:
     0,
   )
   if (totalBytes > MAX_ATTACHMENT_BYTES) {
+    // Whole-MB, derived from the constant — the SAME approach
+    // `checkAttachmentFits` already uses. `formatBytes` always keeps one
+    // decimal ("15.0 MB"), and this message's wording is asserted on.
+    const capMb = MAX_ATTACHMENT_BYTES / (1024 * 1024)
     return {
-      error: `Attachments exceed the ${formatBytes(MAX_ATTACHMENT_BYTES)} limit. Remove a file and try again.`,
+      error: `Attachments exceed the ${capMb} MB limit. Remove a file and try again.`,
     }
   }
 ```
@@ -2626,7 +2630,7 @@ In `approveDraft`, after the recipient check and before the UPDATE:
 Import at the top of `actions.ts`:
 
 ```ts
-import { MAX_ATTACHMENT_BYTES, formatBytes } from './attachments'
+import { MAX_ATTACHMENT_BYTES } from './attachments'
 ```
 
 In `apps/hoa/src/app/(dashboard)/inbox/[id]/page.tsx`, load the attachments alongside the draft. Because `listDraftAttachments` needs the draft id, it runs after the `Promise.all`:
