@@ -55,7 +55,14 @@ jobs:
           # this step fail on every production deploy.
           URL="https://www.homeownerledger.com/api/health"
           echo "::group::HOA"
-          curl -fsSL --max-time 30 -w "\nHTTP %{http_code}\n" "$URL" | tee /tmp/hoa.json
+          # -o, not `| tee`. The old form piped curl's -w status line into
+          # the same file as the body, so /tmp/hoa.json ended up as JSON
+          # followed by "HTTP 200" and every jq read died with
+          # "Invalid numeric literal at line 2". Body to the file, status
+          # to stdout.
+          CODE=$(curl -fsSL --max-time 30 -o /tmp/hoa.json -w "%{http_code}" "$URL")
+          echo "HTTP $CODE"
+          cat /tmp/hoa.json
           OK=$(jq -r '.ok' /tmp/hoa.json)
           if [ "$OK" != "true" ]; then
             echo "::error::HOA health is not ok"; cat /tmp/hoa.json
@@ -68,7 +75,14 @@ jobs:
           set -e
           URL="https://homeowner-hub-eviction.vercel.app/api/health"
           echo "::group::Eviction"
-          curl -fsSL --max-time 30 -w "\nHTTP %{http_code}\n" "$URL" | tee /tmp/eviction.json
+          # -o, not `| tee`. The old form piped curl's -w status line into
+          # the same file as the body, so /tmp/eviction.json ended up as JSON
+          # followed by "HTTP 200" and every jq read died with
+          # "Invalid numeric literal at line 2". Body to the file, status
+          # to stdout.
+          CODE=$(curl -fsSL --max-time 30 -o /tmp/eviction.json -w "%{http_code}" "$URL")
+          echo "HTTP $CODE"
+          cat /tmp/eviction.json
           OK=$(jq -r '.ok' /tmp/eviction.json)
           if [ "$OK" != "true" ]; then
             echo "::error::Eviction health is not ok"; cat /tmp/eviction.json
@@ -81,7 +95,14 @@ jobs:
           set -e
           URL="https://home-owner-hub-pm.vercel.app/api/health"
           echo "::group::PM"
-          curl -fsSL --max-time 30 -w "\nHTTP %{http_code}\n" "$URL" | tee /tmp/pm.json
+          # -o, not `| tee`. The old form piped curl's -w status line into
+          # the same file as the body, so /tmp/pm.json ended up as JSON
+          # followed by "HTTP 200" and every jq read died with
+          # "Invalid numeric literal at line 2". Body to the file, status
+          # to stdout.
+          CODE=$(curl -fsSL --max-time 30 -o /tmp/pm.json -w "%{http_code}" "$URL")
+          echo "HTTP $CODE"
+          cat /tmp/pm.json
           OK=$(jq -r '.ok' /tmp/pm.json)
           if [ "$OK" != "true" ]; then
             echo "::error::PM health is not ok"; cat /tmp/pm.json
