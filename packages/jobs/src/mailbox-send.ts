@@ -43,6 +43,52 @@ export type MailboxSendResult =
   | { sent: false; reason: string }
 
 /**
+ * Does this storage key live under the draft's own organization?
+ *
+ * THE LAST GATE BEFORE ANOTHER TENANT'S BYTES ARE MAILED OUT. Enforced here,
+ * at the send boundary, rather than only in the server action that writes the
+ * row today (apps/hoa/src/lib/inbox/draft/attachment-actions.ts):
+ * `inbox_draft_attachments`'s RLS policy constrains `organization_id` and
+ * nothing else, so a board member holding an ordinary authenticated anon-key
+ * browser client can INSERT a row for their OWN org carrying any
+ * `storage_path` they like — including another org's. `loadAttachments`
+ * downloads with the service role, which bypasses storage policies entirely,
+ * so nothing downstream would notice. Any future writer (a preview endpoint,
+ * a download route, an archive job) is covered by placing the check here.
+ *
+ * The three legitimate shapes on this branch:
+ *   - `<orgId>/…`                          document-library files
+ *                                          (apps/hoa/src/lib/documents.ts)
+ *   - `<orgId>/inbox/…`                    inbound attachment files
+ *                                          (mailbox-attachments.ts builds
+ *                                          `<orgId>/inbox/<threadId>/<messageId>/<attachmentId>/<name>`,
+ *                                          which is a special case of the
+ *                                          first shape)
+ *   - `inbox-drafts/<orgId>/<draftId>/…`   browser uploads
+ *
+ * So the org segment is the second one when the key starts with the literal
+ * `inbox-drafts`, and the first one otherwise. `.`/`..`/empty segments are
+ * refused outright — Supabase Storage keys are opaque strings today, but that
+ * is a property of the backend, not something a tenant boundary should rest
+ * on.
+ *
+ * Exported for direct unit testing.
+ */
+export function storagePathBelongsToOrg(storagePath: string, orgId: string): boolean {
+  const segments = storagePath.split('/')
+  if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) {
+    return false
+  }
+  if (segments[0] === 'inbox-drafts') {
+    // `inbox-drafts/<orgId>/<draftId>/<object>` — at least three segments, or
+    // it is not a shape this app ever mints.
+    return segments.length >= 3 && segments[1] === orgId
+  }
+  // `<orgId>/<object>` — a bare org id with no object under it is not a file.
+  return segments.length >= 2 && segments[0] === orgId
+}
+
+/**
  * Read every attached file's bytes out of storage.
  *
  * Called BEFORE sendToGmail, deliberately. A missing or unreadable object
@@ -51,7 +97,9 @@ export type MailboxSendResult =
  * attach and send is a real and expected case. Sending the message without
  * the file the approver reviewed would be worse than not sending it.
  *
- * Never log a file name — only the opaque attachment count and draft id.
+ * Never log a file name or a storage path — only the opaque attachment count
+ * and draft id. A rejected cross-org path in particular must not be echoed to
+ * the logs: it names another tenant's object.
  */
 async function loadAttachments(
   db: Db,
@@ -72,6 +120,14 @@ async function loadAttachments(
 
   const files: OutboundAttachment[] = []
   for (const row of data ?? []) {
+    if (!storagePathBelongsToOrg(row.storage_path, orgId)) {
+      // Deliberately identical handling to a storage read failure: the caller
+      // fails the draft with the same generic user-facing message and
+      // rethrows, so nothing is transmitted. The path itself is never logged.
+      throw new Error(
+        `mailboxSendJob: attachment storage path is outside the draft's organization (draft ${draftId})`,
+      )
+    }
     const { data: blob, error: downloadError } = await db.storage
       .from(BUCKET)
       .download(row.storage_path)

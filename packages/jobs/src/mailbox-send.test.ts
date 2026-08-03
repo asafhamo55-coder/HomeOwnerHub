@@ -19,7 +19,12 @@ vi.mock('./mailbox-tokens', () => ({
   markAuthFailed: vi.fn(async () => undefined),
 }))
 
-import { runMailboxSend, type MailboxSendStep, type MailboxSendLogger } from './mailbox-send'
+import {
+  runMailboxSend,
+  storagePathBelongsToOrg,
+  type MailboxSendStep,
+  type MailboxSendLogger,
+} from './mailbox-send'
 import { buildMimeMessage, sendReply, MailboxAuthError } from '@homeowner-portal/mailbox'
 import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
 
@@ -634,10 +639,10 @@ describe('runMailboxSend', () => {
         mailbox_accounts: [{ data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
         inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null }],
         inbox_draft_attachments: [
-          { data: [{ storage_path: 'p/1', file_name: 'ccrs.pdf', content_type: 'application/pdf', size_bytes: 4 }], error: null },
+          { data: [{ storage_path: 'org-1/ccrs.pdf', file_name: 'ccrs.pdf', content_type: 'application/pdf', size_bytes: 4 }], error: null },
         ],
       },
-      { 'p/1': Buffer.from('abcd') },
+      { 'org-1/ccrs.pdf': Buffer.from('abcd') },
     )
     vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
 
@@ -682,7 +687,7 @@ describe('runMailboxSend', () => {
       }
       if (table === 'inbox_draft_attachments') {
         return makeChain({
-          data: [{ storage_path: 'gone', file_name: 'ccrs.pdf', content_type: null, size_bytes: 4 }],
+          data: [{ storage_path: 'org-1/gone.pdf', file_name: 'ccrs.pdf', content_type: null, size_bytes: 4 }],
           error: null,
         })
       }
@@ -751,6 +756,162 @@ describe('runMailboxSend', () => {
     const args = vi.mocked(buildMimeMessage).mock.calls[0][0]
     expect(args.inReplyTo).toBeNull()
     expect(args.references).toEqual([])
+  })
+
+  // ─── Tenant isolation on the storage path ──────────────────────────────
+  //
+  // `inbox_draft_attachments`'s RLS policy constrains `organization_id` and
+  // nothing else, so a board member with an ordinary authenticated browser
+  // client can insert a row for their own org naming ANOTHER org's
+  // storage_path. The send job downloads with the service role, which
+  // bypasses storage policies, so this check is the last thing standing
+  // between that row and another tenant's document being mailed out.
+
+  function attachmentDb(storagePath: string, storedAt = storagePath) {
+    return buildDb(
+      {
+        inbox_drafts: [
+          { data: draftRow, error: null },
+          { data: { id: 'd1' }, error: null },
+          { data: null, error: null },
+        ],
+        inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
+        mailbox_accounts: [{ data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
+        inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null }],
+        inbox_draft_attachments: [
+          {
+            data: [
+              { storage_path: storagePath, file_name: 'f.pdf', content_type: null, size_bytes: 4 },
+            ],
+            error: null,
+          },
+        ],
+      },
+      { [storedAt]: Buffer.from('abcd') },
+    )
+  }
+
+  it('refuses a cross-org storage_path and sends nothing', async () => {
+    // The row is scoped to org-1 (RLS is satisfied) but points at org-2's
+    // document library — exactly the forged insert described above.
+    const db = attachmentDb('org-2/CCRs.pdf')
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
+
+    await expect(runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')).rejects.toThrow()
+    expect(sendReply).not.toHaveBeenCalled()
+  })
+
+  it('refuses a cross-org upload path under the inbox-drafts prefix', async () => {
+    const db = attachmentDb('inbox-drafts/org-2/draft-9/some-object')
+    await expect(runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')).rejects.toThrow()
+    expect(sendReply).not.toHaveBeenCalled()
+  })
+
+  it('refuses a traversal path that starts inside this org', async () => {
+    const db = attachmentDb('org-1/../org-2/CCRs.pdf')
+    await expect(runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')).rejects.toThrow()
+    expect(sendReply).not.toHaveBeenCalled()
+  })
+
+  it('marks the draft failed with the generic storage message, never the path', async () => {
+    // Same handling as an unreadable object: fail() writes the existing
+    // user-facing wording and the job throws, so nothing is transmitted.
+    let failWritePayload: Record<string, unknown> | undefined
+    let draftCall = 0
+    const from = vi.fn((table: string) => {
+      if (table === 'inbox_threads') {
+        return makeChain({ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null })
+      }
+      if (table === 'mailbox_accounts') {
+        return makeChain({
+          data: { email_address: 'hoa@example.com', disconnected_at: null },
+          error: null,
+        })
+      }
+      if (table === 'inbox_messages') {
+        return makeChain({
+          data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' },
+          error: null,
+        })
+      }
+      if (table === 'inbox_draft_attachments') {
+        return makeChain({
+          data: [
+            {
+              storage_path: 'org-2/CCRs.pdf',
+              file_name: 'f.pdf',
+              content_type: null,
+              size_bytes: 4,
+            },
+          ],
+          error: null,
+        })
+      }
+      draftCall++
+      if (draftCall === 1) return makeChain({ data: draftRow, error: null })
+      if (draftCall === 2) return makeChain({ data: { id: 'd1' }, error: null })
+      return {
+        update: vi.fn((patch: Record<string, unknown>) => {
+          failWritePayload = patch
+          return { eq: vi.fn(() => Promise.resolve({ data: null, error: null })) }
+        }),
+      }
+    })
+    const download = vi.fn()
+    const db = { from, storage: { from: vi.fn(() => ({ download })) } } as unknown as Parameters<
+      typeof runMailboxSend
+    >[0]
+
+    await expect(runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')).rejects.toThrow()
+    expect(sendReply).not.toHaveBeenCalled()
+    // Never even attempted to read the other org's bytes.
+    expect(download).not.toHaveBeenCalled()
+    expect(failWritePayload).toMatchObject({
+      status: 'failed',
+      error: 'A file attached to this reply is no longer available.',
+    })
+    expect(String(failWritePayload?.error)).not.toContain('org-2')
+  })
+
+  it.each([
+    ['a document-library file', 'org-1/CCRs.pdf'],
+    ['an inbound attachment file', 'org-1/inbox/t1/m1/a1/photo.jpg'],
+    ['a browser upload', 'inbox-drafts/org-1/d1/11111111-1111-1111-1111-111111111111'],
+  ])('accepts %s belonging to this org', async (_label, path) => {
+    const db = attachmentDb(path)
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
+
+    const result = await runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')
+
+    expect(result).toEqual({ sent: true, messageId: 'm1' })
+    expect(vi.mocked(buildMimeMessage).mock.calls[0][0].attachments).toHaveLength(1)
+  })
+})
+
+describe('storagePathBelongsToOrg', () => {
+  it.each([
+    'org-1/CCRs.pdf',
+    'org-1/inbox/t1/m1/a1/photo.jpg',
+    'inbox-drafts/org-1/draft-1/11111111-1111-1111-1111-111111111111',
+  ])('accepts %s', (path) => {
+    expect(storagePathBelongsToOrg(path, 'org-1')).toBe(true)
+  })
+
+  it.each([
+    ['another org, document library', 'org-2/CCRs.pdf'],
+    ['another org, inbound file', 'org-2/inbox/t1/m1/a1/photo.jpg'],
+    ['another org, upload prefix', 'inbox-drafts/org-2/draft-1/object'],
+    ['traversal out of this org', 'org-1/../org-2/CCRs.pdf'],
+    ['traversal out of an upload prefix', 'inbox-drafts/org-1/draft-1/../../org-2/x'],
+    ['a leading empty segment', '/org-1/CCRs.pdf'],
+    ['a doubled separator', 'org-1//CCRs.pdf'],
+    ['a trailing separator', 'org-1/'],
+    ['a bare org id with no object', 'org-1'],
+    ['a bare upload prefix', 'inbox-drafts/org-1'],
+    ['an org id that is only a prefix of this one', 'org-11/CCRs.pdf'],
+    ['an empty path', ''],
+  ])('refuses %s', (_label, path) => {
+    expect(storagePathBelongsToOrg(path, 'org-1')).toBe(false)
   })
 })
 
