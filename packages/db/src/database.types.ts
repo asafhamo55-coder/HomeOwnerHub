@@ -2595,6 +2595,57 @@ export type Database = {
           },
         ]
       }
+      inbox_draft_attachments: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          draft_id: string
+          file_name: string
+          id: string
+          organization_id: string
+          size_bytes: number
+          source: string
+          storage_path: string
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          draft_id: string
+          file_name: string
+          id?: string
+          organization_id: string
+          size_bytes: number
+          source: string
+          storage_path: string
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          draft_id?: string
+          file_name?: string
+          id?: string
+          organization_id?: string
+          size_bytes?: number
+          source?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbox_draft_attachments_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_draft_attachments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inbox_drafts: {
         Row: {
           ai_run_id: string | null

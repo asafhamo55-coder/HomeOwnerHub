@@ -1070,3 +1070,75 @@ export async function getUnitLabel(
     address: data.unit_number ? `${data.address_line1} #${data.unit_number}` : data.address_line1,
   }
 }
+
+// ─── Draft attachments (Task 10) ────────────────────────────────────────
+
+export interface DraftAttachment {
+  id: string
+  source: string
+  fileName: string
+  contentType: string | null
+  sizeBytes: number
+}
+
+/**
+ * Files attached to a draft. A soft failure must not read as "no
+ * attachments" — that would show an approver a message with no files beside
+ * one that is about to send three. Throws, matching the convention for
+ * page-defining reads in this module.
+ */
+export async function listDraftAttachments(
+  db: Db,
+  orgId: string,
+  draftId: string,
+): Promise<DraftAttachment[]> {
+  const { data, error } = await db
+    .from('inbox_draft_attachments')
+    .select('id, source, file_name, content_type, size_bytes')
+    .eq('organization_id', orgId)
+    .eq('draft_id', draftId)
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    logDbError('listDraftAttachments', 'inbox_draft_attachments', { orgId, draftId }, error)
+    throw new Error(`listDraftAttachments: failed to load attachments: ${error.message}`)
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    source: row.source,
+    fileName: row.file_name,
+    contentType: row.content_type,
+    sizeBytes: Number(row.size_bytes),
+  }))
+}
+
+/**
+ * The document library, for the attachment picker. Reads hoa_documents (the
+ * CURRENT file of each document); hoa_document_versions holds SUPERSEDED
+ * files and is deliberately not offered — attaching one would mail an
+ * outdated CC&R. Note the `org_id` column name, which differs from every
+ * inbox table's `organization_id`.
+ */
+export async function listAttachableDocuments(
+  db: Db,
+  orgId: string,
+): Promise<Array<{ id: string; name: string; type: string; sizeBytes: number }>> {
+  const { data, error } = await db
+    .from('hoa_documents')
+    .select('id, name, type, file_size')
+    .eq('org_id', orgId)
+    .order('name', { ascending: true })
+
+  if (error) {
+    logDbError('listAttachableDocuments', 'hoa_documents', { orgId }, error)
+    throw new Error(`listAttachableDocuments: failed to load documents: ${error.message}`)
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    sizeBytes: Number(row.file_size ?? 0),
+  }))
+}
