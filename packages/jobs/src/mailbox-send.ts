@@ -60,7 +60,9 @@ export async function runMailboxSend(
 ): Promise<MailboxSendResult> {
   const { data: draft, error: draftError } = await db
     .from('inbox_drafts')
-    .select('id, organization_id, thread_id, subject, body_text, send_after, status')
+    .select(
+      'id, organization_id, thread_id, subject, body_text, send_after, status, kind, to_emails, cc_emails, mailbox_account_id',
+    )
     .eq('id', draftId)
     .maybeSingle()
 
@@ -158,8 +160,14 @@ export async function runMailboxSend(
     await fail(db, draftId, lastError.message)
     throw new Error(`mailboxSendJob: could not load last inbound message: ${lastError.message}`)
   }
-  if (!last?.from_email) {
-    await fail(db, draftId, 'No inbound message to reply to.')
+  // Recipients come from the ROW, resolved when a human approved it.
+  //
+  // The empty-array fallback covers drafts queued before migration 0038,
+  // which have no recipients stored. It reproduces the old behaviour exactly
+  // and can be deleted once no such row remains queued.
+  const to = draft.to_emails?.length ? draft.to_emails : last?.from_email ? [last.from_email] : []
+  if (to.length === 0) {
+    await fail(db, draftId, 'No recipient for this reply.')
     return { sent: false, reason: 'no_recipient' }
   }
 
@@ -174,9 +182,8 @@ export async function runMailboxSend(
   // the *bookkeeping* update still can't reach `fail()` without visibly
   // adding a new import/call where the surrounding code and this comment
   // make the invariant obvious.
-  const sent = await sendToGmail(db, draftId, thread, account, draft, {
-    rfc822_message_id: last.rfc822_message_id,
-    from_email: last.from_email,
+  const sent = await sendToGmail(db, draftId, thread, account, draft, to, {
+    rfc822_message_id: last?.rfc822_message_id ?? null,
   })
 
   await recordSent(db, logger, draftId, sent)
@@ -188,14 +195,16 @@ async function sendToGmail(
   draftId: string,
   thread: { gmail_thread_id: string; mailbox_account_id: string },
   account: { email_address: string },
-  draft: { subject: string; body_text: string },
-  last: { rfc822_message_id: string | null; from_email: string },
+  draft: { subject: string; body_text: string; cc_emails: string[] | null },
+  to: string[],
+  last: { rfc822_message_id: string | null },
 ): Promise<{ messageId: string }> {
   try {
     const accessToken = await getAccessTokenFor(db, thread.mailbox_account_id)
     const mime = buildMimeMessage({
       from: account.email_address,
-      to: [last.from_email],
+      to,
+      cc: draft.cc_emails ?? [],
       subject: draft.subject,
       body: draft.body_text,
       inReplyTo: last.rfc822_message_id,

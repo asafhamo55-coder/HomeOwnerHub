@@ -172,6 +172,10 @@ function queuedDraftRow(overrides: Partial<Record<string, unknown>> = {}) {
     body_text: 'Thanks for writing.',
     send_after: '2026-01-01T00:00:30.000Z',
     status: 'queued',
+    kind: 'reply',
+    to_emails: [],
+    cc_emails: [],
+    mailbox_account_id: null,
     ...overrides,
   }
 }
@@ -287,6 +291,119 @@ describe('runMailboxSend', () => {
     const step = fakeStep()
 
     const result = await runMailboxSend(db, step, fakeLogger(), DRAFT_ID)
+
+    expect(result).toEqual({ sent: false, reason: 'no_recipient' })
+    expect(sendReply).not.toHaveBeenCalled()
+  })
+
+  it('sends to the recipients on the draft row, not the last inbound sender', async () => {
+    const db = buildDb({
+      inbox_drafts: [
+        {
+          data: {
+            id: 'd1',
+            organization_id: 'org-1',
+            thread_id: 't1',
+            subject: 'S',
+            body_text: 'B',
+            send_after: null,
+            status: 'queued',
+            kind: 'reply',
+            to_emails: ['vendor@example.com'],
+            cc_emails: ['pm@example.com'],
+            mailbox_account_id: null,
+          },
+          error: null,
+        },
+        { data: { id: 'd1' }, error: null }, // claim
+        { data: null, error: null }, // recordSent
+      ],
+      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
+      mailbox_accounts: [
+        { data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null },
+      ],
+      inbox_messages: [
+        { data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null },
+      ],
+    })
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
+
+    await runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')
+
+    const args = vi.mocked(buildMimeMessage).mock.calls[0][0]
+    expect(args.to).toEqual(['vendor@example.com'])
+    expect(args.cc).toEqual(['pm@example.com'])
+    // Threading headers still come from the last inbound message.
+    expect(args.inReplyTo).toBe('<x@y>')
+  })
+
+  it('falls back to the last inbound sender for a draft queued before the migration', async () => {
+    const db = buildDb({
+      inbox_drafts: [
+        {
+          data: {
+            id: 'd1',
+            organization_id: 'org-1',
+            thread_id: 't1',
+            subject: 'S',
+            body_text: 'B',
+            send_after: null,
+            status: 'queued',
+            kind: 'reply',
+            to_emails: [],
+            cc_emails: [],
+            mailbox_account_id: null,
+          },
+          error: null,
+        },
+        { data: { id: 'd1' }, error: null },
+        { data: null, error: null },
+      ],
+      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
+      mailbox_accounts: [
+        { data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null },
+      ],
+      inbox_messages: [
+        { data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null },
+      ],
+    })
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
+
+    await runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')
+
+    expect(vi.mocked(buildMimeMessage).mock.calls[0][0].to).toEqual(['resident@example.com'])
+  })
+
+  it('refuses to send when neither the row nor the thread yields a recipient', async () => {
+    const db = buildDb({
+      inbox_drafts: [
+        {
+          data: {
+            id: 'd1',
+            organization_id: 'org-1',
+            thread_id: 't1',
+            subject: 'S',
+            body_text: 'B',
+            send_after: null,
+            status: 'queued',
+            kind: 'reply',
+            to_emails: [],
+            cc_emails: [],
+            mailbox_account_id: null,
+          },
+          error: null,
+        },
+        { data: { id: 'd1' }, error: null },
+        { data: null, error: null }, // fail()
+      ],
+      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
+      mailbox_accounts: [
+        { data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null },
+      ],
+      inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: null }, error: null }],
+    })
+
+    const result = await runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')
 
     expect(result).toEqual({ sent: false, reason: 'no_recipient' })
     expect(sendReply).not.toHaveBeenCalled()
@@ -510,6 +627,10 @@ function buildStatefulDb() {
     body_text: 'Thanks for writing.',
     send_after: '2026-01-01T00:00:30.000Z',
     status: 'queued',
+    kind: 'reply',
+    to_emails: [],
+    cc_emails: [],
+    mailbox_account_id: null,
   }
 
   const from = vi.fn((table: string) => {
