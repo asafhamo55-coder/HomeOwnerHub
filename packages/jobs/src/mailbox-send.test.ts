@@ -617,25 +617,58 @@ describe('runMailboxSend', () => {
   })
 
   it('fails the draft WITHOUT sending when an attachment cannot be downloaded', async () => {
-    const db = buildDb(
-      {
-        inbox_drafts: [
-          { data: draftRow, error: null },
-          { data: { id: 'd1' }, error: null },
-          { data: null, error: null },   // fail()
-        ],
-        inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
-        mailbox_accounts: [{ data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
-        inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null }],
-        inbox_draft_attachments: [
-          { data: [{ storage_path: 'gone', file_name: 'ccrs.pdf', content_type: null, size_bytes: 4 }], error: null },
-        ],
-      },
-      {},
-    )
+    // Custom `from`, not buildDb: this test must prove `fail()` actually
+    // wrote status:'failed' to inbox_drafts, not merely that the job
+    // rejected. buildDb's queues only script return VALUES, so they can't
+    // tell a rethrow-without-fail() apart from a rethrow-after-fail() — a
+    // regression that dropped the `await fail(...)` call would still throw
+    // and still leave sendReply uncalled, and the earlier version of this
+    // test would still pass. Capturing the third write's payload closes
+    // that gap.
+    let failWritePayload: Record<string, unknown> | undefined
+    let draftCall = 0
+    const from = vi.fn((table: string) => {
+      if (table === 'inbox_threads') {
+        return makeChain({ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null })
+      }
+      if (table === 'mailbox_accounts') {
+        return makeChain({
+          data: { email_address: 'hoa@example.com', disconnected_at: null },
+          error: null,
+        })
+      }
+      if (table === 'inbox_messages') {
+        return makeChain({
+          data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' },
+          error: null,
+        })
+      }
+      if (table === 'inbox_draft_attachments') {
+        return makeChain({
+          data: [{ storage_path: 'gone', file_name: 'ccrs.pdf', content_type: null, size_bytes: 4 }],
+          error: null,
+        })
+      }
+
+      draftCall++
+      if (draftCall === 1) return makeChain({ data: draftRow, error: null })
+      if (draftCall === 2) return makeChain({ data: { id: 'd1' }, error: null }) // claim
+      // The fail() write — capture what was written instead of a canned response.
+      return {
+        update: vi.fn((patch: Record<string, unknown>) => {
+          failWritePayload = patch
+          return { eq: vi.fn(() => Promise.resolve({ data: null, error: null })) }
+        }),
+      }
+    })
+    const download = vi.fn(async () => ({ data: null, error: { message: 'Object not found' } }))
+    const db = { from, storage: { from: vi.fn(() => ({ download })) } } as unknown as Parameters<
+      typeof runMailboxSend
+    >[0]
 
     await expect(runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')).rejects.toThrow()
     expect(sendReply).not.toHaveBeenCalled()
+    expect(failWritePayload).toMatchObject({ status: 'failed' })
   })
 
   it('sends with no attachments array entry when the draft has none', async () => {
