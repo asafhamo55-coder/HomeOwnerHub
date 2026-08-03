@@ -1,10 +1,17 @@
 import { createAdminClient } from '@homeowner-portal/db'
-import { buildMimeMessage, sendReply, MailboxAuthError } from '@homeowner-portal/mailbox'
+import {
+  buildMimeMessage,
+  sendReply,
+  MailboxAuthError,
+  type OutboundAttachment,
+} from '@homeowner-portal/mailbox'
 import { inngest } from './client'
 import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
 import { logDbError } from './db-error'
 
 type Db = ReturnType<typeof createAdminClient>
+
+const BUCKET = 'hoa-documents'
 
 /**
  * Minimal structural subset of Inngest's step tools this job needs.
@@ -34,6 +41,53 @@ export interface MailboxSendLogger {
 export type MailboxSendResult =
   | { sent: true; messageId: string }
   | { sent: false; reason: string }
+
+/**
+ * Read every attached file's bytes out of storage.
+ *
+ * Called BEFORE sendToGmail, deliberately. A missing or unreadable object
+ * must fail the draft while nothing has been transmitted — attachments
+ * reference live storage paths rather than copies, so a file deleted between
+ * attach and send is a real and expected case. Sending the message without
+ * the file the approver reviewed would be worse than not sending it.
+ *
+ * Never log a file name — only the opaque attachment count and draft id.
+ */
+async function loadAttachments(
+  db: Db,
+  orgId: string,
+  draftId: string,
+): Promise<OutboundAttachment[]> {
+  const { data, error } = await db
+    .from('inbox_draft_attachments')
+    .select('storage_path, file_name, content_type, size_bytes')
+    .eq('organization_id', orgId)
+    .eq('draft_id', draftId)
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    logDbError('mailboxSendJob', 'inbox_draft_attachments', { draftId }, error)
+    throw new Error(`mailboxSendJob: could not load attachments: ${error.message}`)
+  }
+
+  const files: OutboundAttachment[] = []
+  for (const row of data ?? []) {
+    const { data: blob, error: downloadError } = await db.storage
+      .from(BUCKET)
+      .download(row.storage_path)
+    if (downloadError || !blob) {
+      throw new Error(
+        `mailboxSendJob: attachment could not be read from storage: ${downloadError?.message ?? 'no data'}`,
+      )
+    }
+    files.push({
+      fileName: row.file_name,
+      contentType: row.content_type,
+      bytes: Buffer.from(await blob.arrayBuffer()),
+    })
+  }
+  return files
+}
 
 /**
  * Send an approved reply once its undo window has elapsed.
@@ -171,6 +225,17 @@ export async function runMailboxSend(
     return { sent: false, reason: 'no_recipient' }
   }
 
+  // Before sendToGmail, so a storage failure marks the draft failed while
+  // nothing has been sent. Inside sendToGmail this would be unsafe.
+  let attachments: OutboundAttachment[]
+  try {
+    attachments = await loadAttachments(db, draft.organization_id, draftId)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    await fail(db, draftId, 'A file attached to this reply is no longer available.')
+    throw new Error(`mailboxSendJob: attachment load failed for ${draftId}: ${message}`)
+  }
+
   // `sendToGmail`'s try/catch is the ONLY code path in this job allowed to
   // call `fail()`, and its try block's body is the entire function — it has
   // no statement after `sendReply` to widen into, by construction, because
@@ -182,7 +247,7 @@ export async function runMailboxSend(
   // the *bookkeeping* update still can't reach `fail()` without visibly
   // adding a new import/call where the surrounding code and this comment
   // make the invariant obvious.
-  const sent = await sendToGmail(db, draftId, thread, account, draft, to, {
+  const sent = await sendToGmail(db, draftId, thread, account, draft, to, attachments, {
     rfc822_message_id: last?.rfc822_message_id ?? null,
   })
 
@@ -197,6 +262,7 @@ async function sendToGmail(
   account: { email_address: string },
   draft: { subject: string; body_text: string; cc_emails: string[] | null },
   to: string[],
+  attachments: OutboundAttachment[],
   last: { rfc822_message_id: string | null },
 ): Promise<{ messageId: string }> {
   try {
@@ -209,6 +275,7 @@ async function sendToGmail(
       body: draft.body_text,
       inReplyTo: last.rfc822_message_id,
       references: last.rfc822_message_id ? [last.rfc822_message_id] : [],
+      attachments,
     })
     return await sendReply(accessToken, thread.gmail_thread_id, mime)
   } catch (error) {

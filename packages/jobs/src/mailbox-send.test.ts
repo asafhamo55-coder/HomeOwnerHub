@@ -55,7 +55,7 @@ function makeChain(result: Row) {
  * test expects and no more (see the "never sends twice" test, which relies
  * on this to prove no extra `fail()` write happens).
  */
-function buildDb(queues: Record<string, Row[]>) {
+function buildDb(queues: Record<string, Row[]>, storage?: Record<string, Buffer>) {
   const from = vi.fn((table: string) => {
     const queue = queues[table]
     if (!queue || queue.length === 0) {
@@ -63,7 +63,14 @@ function buildDb(queues: Record<string, Row[]>) {
     }
     return makeChain(queue.shift()!)
   })
-  return { from } as unknown as Parameters<typeof runMailboxSend>[0]
+  const download = vi.fn(async (path: string) => {
+    const bytes = storage?.[path]
+    if (!bytes) return { data: null, error: { message: 'Object not found' } }
+    return { data: { arrayBuffer: async () => bytes }, error: null }
+  })
+  return { from, storage: { from: vi.fn(() => ({ download })) } } as unknown as Parameters<
+    typeof runMailboxSend
+  >[0]
 }
 
 function fakeStep(): MailboxSendStep {
@@ -238,6 +245,7 @@ describe('runMailboxSend', () => {
             error: null,
           },
         ],
+        inbox_draft_attachments: [{ data: [], error: null }],
       },
     })
 
@@ -325,6 +333,7 @@ describe('runMailboxSend', () => {
       inbox_messages: [
         { data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null },
       ],
+      inbox_draft_attachments: [{ data: [], error: null }],
     })
     vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
 
@@ -366,6 +375,7 @@ describe('runMailboxSend', () => {
       inbox_messages: [
         { data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null },
       ],
+      inbox_draft_attachments: [{ data: [], error: null }],
     })
     vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
 
@@ -432,6 +442,7 @@ describe('runMailboxSend', () => {
           error: null,
         },
       ],
+      inbox_draft_attachments: [{ data: [], error: null }],
     })
     const step = fakeStep()
     const logger = fakeLogger()
@@ -474,6 +485,9 @@ describe('runMailboxSend', () => {
           data: { rfc822_message_id: '<abc@mail.gmail.com>', from_email: RESIDENT_EMAIL },
           error: null,
         })
+      }
+      if (table === 'inbox_draft_attachments') {
+        return makeChain({ data: [], error: null })
       }
 
       draftCall++
@@ -530,6 +544,7 @@ describe('runMailboxSend', () => {
           error: null,
         },
       ],
+      inbox_draft_attachments: [{ data: [], error: null }],
     })
     const step = fakeStep()
 
@@ -561,6 +576,85 @@ describe('runMailboxSend', () => {
     const step = fakeStep()
 
     await expect(runMailboxSend(db, step, fakeLogger(), DRAFT_ID)).rejects.toThrow(/claim failed/)
+  })
+
+  // ─── Attachments ────────────────────────────────────────────────────────
+  const draftRow = {
+    id: 'd1', organization_id: 'org-1', thread_id: 't1', subject: 'S', body_text: 'B',
+    send_after: null, status: 'queued', kind: 'reply',
+    to_emails: ['resident@example.com'], cc_emails: [], mailbox_account_id: null,
+  }
+
+  it('passes downloaded attachment bytes to buildMimeMessage', async () => {
+    const db = buildDb(
+      {
+        inbox_drafts: [
+          { data: draftRow, error: null },
+          { data: { id: 'd1' }, error: null },
+          { data: null, error: null },
+        ],
+        inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
+        mailbox_accounts: [{ data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
+        inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null }],
+        inbox_draft_attachments: [
+          { data: [{ storage_path: 'p/1', file_name: 'ccrs.pdf', content_type: 'application/pdf', size_bytes: 4 }], error: null },
+        ],
+      },
+      { 'p/1': Buffer.from('abcd') },
+    )
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
+
+    await runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')
+
+    const args = vi.mocked(buildMimeMessage).mock.calls[0][0]
+    expect(args.attachments).toHaveLength(1)
+    // Non-null assertion: `attachments` is optional on buildMimeMessage's
+    // parameter type (mailbox-send always passes it, but the type doesn't
+    // know that) — the toHaveLength assertion above doesn't narrow it for
+    // tsc under strictNullChecks.
+    expect(args.attachments![0].fileName).toBe('ccrs.pdf')
+    expect(args.attachments![0].bytes.toString()).toBe('abcd')
+  })
+
+  it('fails the draft WITHOUT sending when an attachment cannot be downloaded', async () => {
+    const db = buildDb(
+      {
+        inbox_drafts: [
+          { data: draftRow, error: null },
+          { data: { id: 'd1' }, error: null },
+          { data: null, error: null },   // fail()
+        ],
+        inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
+        mailbox_accounts: [{ data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
+        inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null }],
+        inbox_draft_attachments: [
+          { data: [{ storage_path: 'gone', file_name: 'ccrs.pdf', content_type: null, size_bytes: 4 }], error: null },
+        ],
+      },
+      {},
+    )
+
+    await expect(runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')).rejects.toThrow()
+    expect(sendReply).not.toHaveBeenCalled()
+  })
+
+  it('sends with no attachments array entry when the draft has none', async () => {
+    const db = buildDb({
+      inbox_drafts: [
+        { data: draftRow, error: null },
+        { data: { id: 'd1' }, error: null },
+        { data: null, error: null },
+      ],
+      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
+      mailbox_accounts: [{ data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
+      inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null }],
+      inbox_draft_attachments: [{ data: [], error: null }],
+    })
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
+
+    await runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')
+
+    expect(vi.mocked(buildMimeMessage).mock.calls[0][0].attachments).toEqual([])
   })
 })
 
@@ -646,6 +740,9 @@ function buildStatefulDb() {
       }
       if (table === 'inbox_messages') {
         return { rfc822_message_id: '<abc@mail.gmail.com>', from_email: RESIDENT_EMAIL }
+      }
+      if (table === 'inbox_draft_attachments') {
+        return []
       }
       return { ...draft }
     }
