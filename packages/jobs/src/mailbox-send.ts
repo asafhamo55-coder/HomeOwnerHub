@@ -178,12 +178,19 @@ export async function runMailboxSend(
   // real thread through the normal path — the same reasoning recorded at the
   // bottom of this file for sent replies. So there is nothing to look up,
   // and the mailbox comes off the draft row instead.
+  //
+  // This branch resolves ONLY `accountId` (and, for a reply/forward,
+  // `gmailThreadId`) — it deliberately does NOT read `inbox_messages` here.
+  // The account/`disconnected_at` check below must run, and fail cleanly,
+  // BEFORE the last-inbound-message read: a disconnected mailbox with a
+  // transient `inbox_messages` failure must still fail with the actionable
+  // "reconnect your mailbox" message, not an opaque Postgrest error from a
+  // read that was never going to matter once the mailbox turned out to be
+  // disconnected. See the mailbox-send fix-round-1 note in the task report
+  // for the double-failure case this ordering exists to protect.
   let accountId: string
   let gmailThreadId: string | null = null
-  let last: { rfc822_message_id: string | null; from_email: string | null } = {
-    rfc822_message_id: null,
-    from_email: null,
-  }
+  let threadId: string | null = null
 
   if (draft.kind === 'new') {
     if (!draft.mailbox_account_id) {
@@ -201,7 +208,7 @@ export async function runMailboxSend(
       await fail(db, draftId, 'This message has no thread to send to.')
       throw new Error(`mailboxSendJob: draft ${draftId} has kind='${draft.kind}' but no thread_id`)
     }
-    const threadId = draft.thread_id
+    threadId = draft.thread_id
 
     const { data: thread, error: threadError } = await db
       .from('inbox_threads')
@@ -215,23 +222,6 @@ export async function runMailboxSend(
     }
     accountId = thread.mailbox_account_id
     gmailThreadId = thread.gmail_thread_id
-
-    // Reply to the most recent inbound message so threading is correct.
-    const { data: lastRow, error: lastError } = await db
-      .from('inbox_messages')
-      .select('rfc822_message_id, from_email')
-      .eq('thread_id', threadId)
-      .eq('direction', 'inbound')
-      .order('sent_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (lastError) {
-      logDbError('mailboxSendJob', 'inbox_messages', { draftId }, lastError)
-      await fail(db, draftId, lastError.message)
-      throw new Error(`mailboxSendJob: could not load last inbound message: ${lastError.message}`)
-    }
-    if (lastRow) last = lastRow
   }
 
   const { data: account, error: accountError } = await db
@@ -247,6 +237,32 @@ export async function runMailboxSend(
   if (account.disconnected_at) {
     await fail(db, draftId, 'The mailbox was disconnected before this reply was sent.')
     return { sent: false, reason: 'disconnected' }
+  }
+
+  // Reply to the most recent inbound message so threading is correct. Only
+  // for a reply/forward — a kind='new' draft has no thread, so `last` stays
+  // empty and no `inbox_messages` read happens. Deliberately AFTER the
+  // account/disconnected check above: see this block's opening comment.
+  let last: { rfc822_message_id: string | null; from_email: string | null } = {
+    rfc822_message_id: null,
+    from_email: null,
+  }
+  if (threadId) {
+    const { data: lastRow, error: lastError } = await db
+      .from('inbox_messages')
+      .select('rfc822_message_id, from_email')
+      .eq('thread_id', threadId)
+      .eq('direction', 'inbound')
+      .order('sent_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (lastError) {
+      logDbError('mailboxSendJob', 'inbox_messages', { draftId }, lastError)
+      await fail(db, draftId, lastError.message)
+      throw new Error(`mailboxSendJob: could not load last inbound message: ${lastError.message}`)
+    }
+    if (lastRow) last = lastRow
   }
 
   // Recipients come from the ROW, resolved when a human approved it.

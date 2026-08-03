@@ -271,13 +271,40 @@ describe('runMailboxSend', () => {
           error: null,
         },
       ],
-      // The last-inbound-message read for a kind='reply' draft now happens
-      // before the account/disconnected check (it lives inside the same
-      // thread-lookup branch — see runMailboxSend), so it must be scripted
-      // here even though this test's assertions don't touch it.
-      inbox_messages: [
+      // No inbox_messages result scripted: the disconnected check must run
+      // and fail BEFORE the last-inbound-message read, so buildDb's loud
+      // underflow throw would surface here if the job ever reached that
+      // read first — proving it doesn't.
+    })
+    const step = fakeStep()
+
+    const result = await runMailboxSend(db, step, fakeLogger(), DRAFT_ID)
+
+    expect(result).toEqual({ sent: false, reason: 'disconnected' })
+    expect(sendReply).not.toHaveBeenCalled()
+    expect(getAccessTokenFor).not.toHaveBeenCalled()
+  })
+
+  it('fails cleanly as "disconnected" even when the last-inbound-message read would also have errored — the disconnected check must run first', async () => {
+    // Double-failure case: a disconnected mailbox AND a transient
+    // inbox_messages error. The disconnected check must win — a board
+    // member needs "reconnect your mailbox", not a raw Postgrest message
+    // from a read that was never going to matter. No inbox_messages result
+    // is scripted at all: if the job read it before the disconnected
+    // check, buildDb would throw "no queued result left", not return the
+    // scripted error below — so this also proves the read never happens.
+    const db = buildDb({
+      inbox_drafts: [
+        { data: queuedDraftRow(), error: null },
+        { data: { id: DRAFT_ID }, error: null }, // claim succeeds
+        { data: null, error: null }, // fail() write
+      ],
+      inbox_threads: [
+        { data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID }, error: null },
+      ],
+      mailbox_accounts: [
         {
-          data: { rfc822_message_id: '<abc@mail.gmail.com>', from_email: RESIDENT_EMAIL },
+          data: { email_address: 'hoa@example.com', disconnected_at: '2026-01-01T00:00:00Z' },
           error: null,
         },
       ],
