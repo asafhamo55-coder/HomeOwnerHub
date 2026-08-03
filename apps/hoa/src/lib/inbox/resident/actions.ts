@@ -188,11 +188,18 @@ async function repointAlias(
   const { orgId, unitId, residentId, previousEmail, email } = args
 
   if (previousEmail) {
+    // Filter on `email_address_lower`, NOT `email_address`. The matcher
+    // finds aliases case-insensitively (`match.ts:356` uses `.ilike`), so a
+    // row stored as 'Old@Example.com' is live for matching — and a
+    // case-sensitive delete would sail straight past it, leaving exactly
+    // the stale alias this function exists to remove. `email_address_lower`
+    // is a stored generated column (migration 0033) and is the leading edge
+    // of the unique index, so this is both correct and index-backed.
     const { error } = await supabase
       .from('inbox_sender_aliases')
       .delete()
       .eq('organization_id', orgId)
-      .eq('email_address', previousEmail)
+      .eq('email_address_lower', previousEmail)
     if (error) {
       console.error(`repointAlias: delete failed: ${error.code} ${error.message}`)
       return error.message

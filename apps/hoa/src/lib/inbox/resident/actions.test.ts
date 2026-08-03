@@ -175,12 +175,35 @@ describe('updateResidentFromInbox', () => {
     expect(aliasOps.some((o) => o.kind === 'upsert')).toBe(true)
 
     const del = aliasOps.find((o) => o.kind === 'delete')
-    expect(del?.filters.email_address).toBe('old@example.com')
+    // Normalized column — see the case-insensitivity test below.
+    expect(del?.filters.email_address_lower).toBe('old@example.com')
 
     const upsert = aliasOps.find((o) => o.kind === 'upsert')
     expect(upsert?.values?.email_address).toBe('new@example.com')
     expect(upsert?.values?.resident_id).toBe('res-1')
     expect(upsert?.values?.unit_id).toBe('unit-1')
+  })
+
+  it('deletes the old alias case-insensitively, matching how the matcher reads it', async () => {
+    // match.ts:356 finds aliases with `.ilike('email_address', ...)`, so a
+    // row stored as 'Old@Example.com' IS live for matching. A
+    // case-SENSITIVE delete would miss it and leave the stale alias that
+    // this whole feature exists to remove.
+    const { ops } = harness({
+      resident: { id: 'res-1', property_id: 'legacy-1', email: 'Old@Example.com' },
+    })
+
+    await updateResidentFromInbox('thread-1', 'res-1', {
+      fullName: 'Raja Nagula',
+      email: 'new@example.com',
+      phone: null,
+    })
+
+    const del = ops.find((o) => o.table === 'inbox_sender_aliases' && o.kind === 'delete')
+    expect(del).toBeDefined()
+    // Filter on the normalized generated column, not the raw one.
+    expect(del?.filters.email_address_lower).toBe('old@example.com')
+    expect(del?.filters.email_address).toBeUndefined()
   })
 
   it('leaves the alias completely untouched when only the name changes', async () => {
