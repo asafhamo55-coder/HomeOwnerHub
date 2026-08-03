@@ -44,6 +44,25 @@ export class EmbeddingError extends Error {
   constructor(
     message: string,
     public readonly cause?: unknown,
+    /**
+     * HTTP status code from the provider response, when this error came
+     * from a non-OK HTTP response. Undefined for network/transport
+     * failures (DNS, timeout, connection reset) and for errors raised
+     * before any request was made (e.g. missing token).
+     *
+     * A status code is a small integer from a fixed, well-known set — it
+     * cannot contain resident data, unlike the message string (see the
+     * `body.slice(0, 200)` above), so callers that must not log the raw
+     * message are free to log/rethrow this field.
+     */
+    public readonly status?: number,
+    /**
+     * True when this failure is a network/transport error (fetch itself
+     * rejected — DNS, timeout, connection reset) rather than an HTTP
+     * response from the provider. Also shape-safe: a boolean, never
+     * derived from response content.
+     */
+    public readonly isNetworkError?: boolean,
   ) {
     super(message)
     this.name = 'EmbeddingError'
@@ -115,9 +134,18 @@ async function embedBatchWithRetry(
     }
   }
 
+  // Carry the last underlying failure's status/isNetworkError forward.
+  // Without this, a retried-then-exhausted failure (e.g. 404 from a
+  // retired model, or repeated network errors) loses its diagnostic shape
+  // at exactly the point a caller like mailboxReplyEmbeddingsJob reads it.
+  const lastStatus = lastError instanceof EmbeddingError ? lastError.status : undefined
+  const lastIsNetworkError =
+    lastError instanceof EmbeddingError ? lastError.isNetworkError : undefined
   throw new EmbeddingError(
     `Embedding failed after ${MAX_RETRIES} attempts`,
     lastError,
+    lastStatus,
+    lastIsNetworkError,
   )
 }
 
@@ -139,13 +167,21 @@ async function embedBatch(
       }),
     })
   } catch (networkErr) {
-    throw new EmbeddingError('Network error reaching embedding endpoint', networkErr)
+    throw new EmbeddingError(
+      'Network error reaching embedding endpoint',
+      networkErr,
+      undefined,
+      true,
+    )
   }
 
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new EmbeddingError(
       `Embedding request failed: ${res.status} ${res.statusText} ${body.slice(0, 200)}`,
+      undefined,
+      res.status,
+      false,
     )
   }
 
