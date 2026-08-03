@@ -249,6 +249,80 @@ describe('addDraftAttachment — a forged ref must not reach another org', () =>
   })
 })
 
+describe('addDraftAttachment — a filename that cannot go in a MIME header is refused here', () => {
+  // Refused at ATTACH time so it surfaces inline in the picker. Left to the
+  // MIME layer, the throw lands after the undo window and paints the draft
+  // "Sending this reply failed" beside a banner claiming the resident may
+  // already have received it — which is false, since nothing was sent.
+  const BAD_NAMES: Array<[string, string]> = [
+    ['a double quote', '2025 "Approved" Budget.pdf'],
+    ['a CR', 'a.pdf\rBcc: attacker@evil.com'],
+    ['an LF', 'a.pdf\nBcc: attacker@evil.com'],
+    ['nothing but whitespace', '   '],
+    ['an empty string', ''],
+  ]
+
+  it.each(BAD_NAMES)('refuses an upload whose name contains %s', async (_label, fileName) => {
+    const result = await addDraftAttachment('draft-1', 'upload', UPLOAD_PATH, {
+      fileName,
+      contentType: 'application/pdf',
+      sizeBytes: 10,
+    })
+    expect('error' in result).toBe(true)
+    expect(insert).not.toHaveBeenCalled()
+  })
+
+  it.each(BAD_NAMES)('refuses an inbox file whose name contains %s', async (_label, fileName) => {
+    inboxAttachmentRow = {
+      id: 'att-1',
+      organization_id: 'org-1',
+      storage_path: 'org-1/inbox/t1/m1/att-1/a.pdf',
+      file_name: fileName,
+      content_type: null,
+      size_bytes: 10,
+      fetch_status: 'stored',
+    }
+    const result = await addDraftAttachment('draft-1', 'inbox', 'att-1')
+    expect('error' in result).toBe(true)
+    expect(insert).not.toHaveBeenCalled()
+  })
+
+  it.each(BAD_NAMES)('refuses a library document whose name contains %s', async (_label, name) => {
+    documentRow = {
+      id: 'doc-1',
+      org_id: 'org-1',
+      storage_path: 'org-1/budget.pdf',
+      name,
+      file_size: 1000,
+    }
+    const result = await addDraftAttachment('draft-1', 'document', 'doc-1')
+    expect('error' in result).toBe(true)
+    expect(insert).not.toHaveBeenCalled()
+  })
+
+  it('explains the problem rather than giving a generic failure', async () => {
+    const result = await addDraftAttachment('draft-1', 'upload', UPLOAD_PATH, {
+      fileName: '2025 "Approved" Budget.pdf',
+      contentType: null,
+      sizeBytes: 10,
+    })
+    expect('error' in result && result.error).toMatch(/double quote/i)
+    // Never names the file back at the user — it is untrusted content and
+    // this string is rendered verbatim.
+    expect('error' in result && result.error).not.toContain('Approved')
+  })
+
+  it('still accepts an ordinary filename', async () => {
+    const result = await addDraftAttachment('draft-1', 'upload', UPLOAD_PATH, {
+      fileName: "Board's 2025 budget (final).pdf",
+      contentType: 'application/pdf',
+      sizeBytes: 10,
+    })
+    expect('ok' in result).toBe(true)
+    expect(insert).toHaveBeenCalled()
+  })
+})
+
 describe('addDraftAttachment — upload size is verified against storage, not the client', () => {
   it('uses the real object size from storage.info(), not the client-declared size, for the budget check', async () => {
     // Client claims a tiny file; the object actually in storage is over

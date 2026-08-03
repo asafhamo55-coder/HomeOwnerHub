@@ -31,7 +31,7 @@ import { getThreadDetail } from '@/lib/inbox/queries'
 import { retrieveForThread } from './retrieve'
 import { UNDO_WINDOW_SECONDS, hasUnfilledBlanks } from './blanks'
 import { normalizeRecipients } from './recipients'
-import { MAX_ATTACHMENT_BYTES } from './attachments'
+import { attachmentNameProblem, MAX_ATTACHMENT_BYTES } from './attachments'
 import { buildForwardSubject, buildForwardBody } from './forward'
 
 export async function createDraft(
@@ -436,10 +436,27 @@ export async function createForwardDraft(
         `createForwardDraft: attachment read failed: ${sourceError.code} ${sourceError.message}`,
       )
     } else if (sourceRows && sourceRows.length > 0) {
-      const { error: copyError } = await supabase.from('inbox_draft_attachments').insert(
-        sourceRows
-          .filter((row): row is typeof row & { storage_path: string } => Boolean(row.storage_path))
-          .map((row) => ({
+      const usable = sourceRows.filter(
+        (row): row is typeof row & { storage_path: string } => Boolean(row.storage_path),
+      )
+      // A resident-supplied filename carrying a quote or a line break cannot
+      // go in a MIME header, and letting one through here would fail the
+      // whole send later with a misleading "may already have reached the
+      // resident" warning (see attachmentNameProblem). Skip just that file —
+      // failing the entire forward over one badly-named photo would be the
+      // worse trade, and the human can still attach the rest from the picker.
+      // Log the COUNT only: the name is untrusted resident content.
+      const attachable = usable.filter((row) => attachmentNameProblem(row.file_name) === null)
+      const skipped = usable.length - attachable.length
+      if (skipped > 0) {
+        console.error(
+          `createForwardDraft: skipped ${skipped} auto-attachment(s) whose file name cannot go in an email header`,
+        )
+      }
+
+      if (attachable.length > 0) {
+        const { error: copyError } = await supabase.from('inbox_draft_attachments').insert(
+          attachable.map((row) => ({
             organization_id: org.id,
             draft_id: data.id,
             source: 'inbox' as const,
@@ -448,11 +465,12 @@ export async function createForwardDraft(
             content_type: row.content_type,
             size_bytes: Number(row.size_bytes ?? 0),
           })),
-      )
-      if (copyError) {
-        console.error(
-          `createForwardDraft: attachment copy failed: ${copyError.code} ${copyError.message}`,
         )
+        if (copyError) {
+          console.error(
+            `createForwardDraft: attachment copy failed: ${copyError.code} ${copyError.message}`,
+          )
+        }
       }
     }
   }

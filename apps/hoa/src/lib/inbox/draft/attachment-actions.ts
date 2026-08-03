@@ -24,7 +24,7 @@ import { randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { checkAttachmentFits } from './attachments'
+import { attachmentNameProblem, checkAttachmentFits } from './attachments'
 
 const BUCKET = 'hoa-documents'
 
@@ -220,6 +220,13 @@ export async function addDraftAttachment(
       sizeBytes: Number(data.file_size ?? 0),
     }
   }
+
+  // One check after `resolved`, so it covers all three sources — an upload's
+  // client-supplied name, an inbound file's resident-supplied name, and a
+  // library document's name — rather than only the branch someone remembered.
+  // See attachmentNameProblem's docstring for what this spares the approver.
+  const nameProblem = attachmentNameProblem(resolved.fileName)
+  if (nameProblem) return { error: nameProblem }
 
   const existing = await currentSizes(supabase, org.id, draftId)
   if (!existing) return { error: 'Could not check the attachment size limit.' }

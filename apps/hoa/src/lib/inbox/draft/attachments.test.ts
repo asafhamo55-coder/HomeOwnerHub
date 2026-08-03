@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   MAX_ATTACHMENT_BYTES,
+  attachmentNameProblem,
   remainingBudget,
   formatBytes,
   checkAttachmentFits,
@@ -41,6 +42,35 @@ describe('checkAttachmentFits', () => {
 
   it('refuses a zero-byte file — an empty attachment is always a mistake', () => {
     expect(checkAttachmentFits([], 0).ok).toBe(false)
+  })
+})
+
+describe('attachmentNameProblem', () => {
+  it.each([
+    ['a double quote', '2025 "Approved" Budget.pdf', /double quote/i],
+    ['a CR', 'a.pdf\rBcc: attacker@evil.com', /line break/i],
+    ['an LF', 'a.pdf\nBcc: attacker@evil.com', /line break/i],
+    ['only whitespace', '   ', /no name/i],
+    ['an empty string', '', /no name/i],
+  ])('refuses %s and says why', (_label, name, expected) => {
+    expect(attachmentNameProblem(name)).toMatch(expected)
+  })
+
+  it.each([
+    'ccrs.pdf',
+    "Board's 2025 budget (final).pdf",
+    'Grünanlage.pdf',
+    'photo 1.jpg',
+  ])('accepts %s', (name) => {
+    expect(attachmentNameProblem(name)).toBeNull()
+  })
+
+  // Every name this refuses, the MIME layer would also refuse — it is a
+  // strictly earlier gate, not a different rule.
+  it('refuses nothing that buildMimeMessage would have accepted', () => {
+    for (const name of ['a"b', 'a\rb', 'a\nb', ' ', '']) {
+      expect(attachmentNameProblem(name)).not.toBeNull()
+    }
   })
 })
 

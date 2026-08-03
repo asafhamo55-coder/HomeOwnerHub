@@ -10,6 +10,21 @@ vi.mock('@/lib/auth', () => ({
 const insert = vi.fn()
 const attachmentInsert = vi.fn()
 let attachmentInsertError: { code: string; message: string } | null = null
+// The rows the org-scoped inbox_attachments read resolves to. Mutable so a
+// test can give a stored file a name that cannot go in a MIME header.
+let sourceAttachmentRows: Array<Record<string, unknown>> = []
+
+function defaultSourceRows() {
+  return [
+    {
+      id: 'att-1',
+      storage_path: 'org-1/att-1',
+      file_name: 'photo.jpg',
+      content_type: 'image/jpeg',
+      size_bytes: 1024,
+    },
+  ]
+}
 
 vi.mock('@/lib/supabase/server', () => ({
   getSupabaseServerClient: vi.fn(async () => ({
@@ -30,20 +45,7 @@ vi.mock('@/lib/supabase/server', () => ({
         const chain: Record<string, unknown> = {
           select: vi.fn(() => chain),
           eq: vi.fn(() => chain),
-          in: vi.fn(() =>
-            Promise.resolve({
-              data: [
-                {
-                  id: 'att-1',
-                  storage_path: 'org-1/att-1',
-                  file_name: 'photo.jpg',
-                  content_type: 'image/jpeg',
-                  size_bytes: 1024,
-                },
-              ],
-              error: null,
-            }),
-          ),
+          in: vi.fn(() => Promise.resolve({ data: sourceAttachmentRows, error: null })),
         }
         return chain
       }
@@ -101,6 +103,7 @@ describe('createForwardDraft', () => {
     insert.mockClear()
     attachmentInsert.mockClear()
     attachmentInsertError = null
+    sourceAttachmentRows = defaultSourceRows()
   })
 
   it('inserts a forward draft with no recipients and no AI metadata', async () => {
@@ -130,6 +133,68 @@ describe('createForwardDraft', () => {
     await createForwardDraft('thread-1')
     const attached = attachmentInsert.mock.calls[0][0] as unknown[]
     expect(attached).toHaveLength(1)
+  })
+
+  it('skips a file whose name cannot go in a MIME header, keeping the rest', async () => {
+    // A resident-supplied filename with a quote in it would fail the whole
+    // send later — after the undo window, under a banner claiming the reply
+    // may already have reached them. Drop just that file here.
+    sourceAttachmentRows = [
+      {
+        id: 'att-1',
+        storage_path: 'org-1/att-1',
+        file_name: 'my "photo".jpg',
+        content_type: 'image/jpeg',
+        size_bytes: 1024,
+      },
+      {
+        id: 'att-3',
+        storage_path: 'org-1/att-3',
+        file_name: 'gate.jpg',
+        content_type: 'image/jpeg',
+        size_bytes: 2048,
+      },
+    ]
+    const result = await createForwardDraft('thread-1')
+    expect('ok' in result).toBe(true)
+    const attached = attachmentInsert.mock.calls[0][0] as Array<Record<string, unknown>>
+    expect(attached).toHaveLength(1)
+    expect(attached[0].file_name).toBe('gate.jpg')
+  })
+
+  it('still creates the forward when EVERY auto-attachment is unusable', async () => {
+    sourceAttachmentRows = [
+      {
+        id: 'att-1',
+        storage_path: 'org-1/att-1',
+        file_name: 'my "photo".jpg',
+        content_type: 'image/jpeg',
+        size_bytes: 1024,
+      },
+    ]
+    const result = await createForwardDraft('thread-1')
+    expect('ok' in result).toBe(true)
+    // Nothing attachable is left, so no insert is attempted at all.
+    expect(attachmentInsert).not.toHaveBeenCalled()
+  })
+
+  it('logs the count skipped, never the file name', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    sourceAttachmentRows = [
+      {
+        id: 'att-1',
+        storage_path: 'org-1/att-1',
+        file_name: 'jane smith "unit 4b".jpg',
+        content_type: 'image/jpeg',
+        size_bytes: 1024,
+      },
+    ]
+    await createForwardDraft('thread-1')
+    const logged = errorSpy.mock.calls.map((call) => String(call[0])).join('\n')
+    expect(logged).toContain('skipped 1')
+    expect(logged).not.toContain('jane')
+    expect(logged).not.toContain('unit 4b')
+    errorSpy.mockRestore()
   })
 
   it('still creates the draft when the attachment copy fails', async () => {
