@@ -14,6 +14,7 @@ function message(overrides: Partial<ThreadMessage> = {}): ThreadMessage {
     strippedText: 'The fence is broken.',
     sentAt: '2026-07-30T16:14:00.000Z',
     attachments: [],
+    forwardedTo: null,
     ...overrides,
   }
 }

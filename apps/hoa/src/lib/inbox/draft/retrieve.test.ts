@@ -306,6 +306,7 @@ function threadWithInboundMessage() {
         strippedText: 'How tall can my fence be?',
         sentAt: '2026-01-01T00:00:00Z',
         attachments: [],
+        forwardedTo: null,
       },
     ],
   }

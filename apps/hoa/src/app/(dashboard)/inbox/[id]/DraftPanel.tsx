@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { Alert, Button } from '@homeowner-portal/ui'
-import { createDraft, approveDraft, cancelDraft } from '@/lib/inbox/draft/actions'
+import { createDraft, createForwardDraft, approveDraft, cancelDraft } from '@/lib/inbox/draft/actions'
 import { UNDO_WINDOW_SECONDS } from '@/lib/inbox/draft/blanks'
 import type { DraftAttachment, ThreadDraft } from '@/lib/inbox/queries'
 import { Composer, type ApproveInput } from './Composer'
@@ -24,6 +24,14 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
     setActionError(null)
     startTransition(async () => {
       const result = await createDraft(threadId)
+      if ('error' in result) setActionError(result.error)
+    })
+  }
+
+  function handleForward() {
+    setActionError(null)
+    startTransition(async () => {
+      const result = await createForwardDraft(threadId)
       if ('error' in result) setActionError(result.error)
     })
   }
@@ -51,9 +59,14 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
     return (
       <section className="mt-4 space-y-2 rounded-md border border-border p-3">
         {actionError ? <Alert variant="error">{actionError}</Alert> : null}
-        <Button size="sm" loading={pending} onClick={handleCreate}>
-          Draft a reply
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" loading={pending} onClick={handleCreate}>
+            Draft a reply
+          </Button>
+          <Button size="sm" variant="outline" loading={pending} onClick={handleForward}>
+            Forward
+          </Button>
+        </div>
       </section>
     )
   }
@@ -62,7 +75,9 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
   if (draft.status === 'sent') {
     return (
       <section className="mt-4 rounded-md border border-primary/40 bg-primary/5 p-3 text-sm">
-        <p className="font-semibold text-foreground">Reply sent</p>
+        <p className="font-semibold text-foreground">
+          {draft.kind === 'forward' ? 'Forward sent' : 'Reply sent'}
+        </p>
         <p className="mt-1 text-xs text-muted">{draft.subject}</p>
       </section>
     )
@@ -119,9 +134,14 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
       <section className="mt-4 space-y-2 rounded-md border border-border p-3">
         <p className="text-xs text-muted">This reply was cancelled before it sent.</p>
         {actionError ? <Alert variant="error">{actionError}</Alert> : null}
-        <Button size="sm" loading={pending} onClick={handleCreate}>
-          Draft a reply
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" loading={pending} onClick={handleCreate}>
+            Draft a reply
+          </Button>
+          <Button size="sm" variant="outline" loading={pending} onClick={handleForward}>
+            Forward
+          </Button>
+        </div>
       </section>
     )
   }

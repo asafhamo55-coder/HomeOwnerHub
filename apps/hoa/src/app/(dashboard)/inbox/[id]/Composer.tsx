@@ -65,7 +65,7 @@ export function Composer({
 
   return (
     <section className="mt-4 space-y-3 rounded-md border border-border p-3">
-      {draft.grounded === false ? (
+      {draft.kind === 'reply' && draft.grounded === false ? (
         <p className={AMBER_BOX}>
           {draft.groundingNote ??
             'No governing document or property record matched this question — this draft contains no facts.'}
@@ -119,7 +119,7 @@ export function Composer({
 
       {/* Label + quote together, always — a quote shown without its source is
           what a board member is supposed to check. */}
-      {draft.citations.length > 0 ? (
+      {draft.kind === 'reply' && draft.citations.length > 0 ? (
         <ul className="space-y-1 border-t border-border pt-2 text-xs">
           {draft.citations.map((citation) => (
             <li key={citation.refId}>

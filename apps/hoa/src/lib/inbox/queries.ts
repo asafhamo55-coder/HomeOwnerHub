@@ -519,6 +519,11 @@ export interface ThreadMessage {
     sizeBytes: number | null
     fetchStatus: string
   }>
+  /**
+   * Who an outbound message was forwarded to, if it was a forward. Derived
+   * from `inbox_drafts`, not a column on this table — see `getThreadDetail`.
+   */
+  forwardedTo: string[] | null
 }
 
 export interface ThreadDetail {
@@ -615,7 +620,7 @@ export async function getThreadDetail(
   const { data: messages, error: messagesError } = await db
     .from('inbox_messages')
     .select(
-      'id, direction, from_name, from_email, to_emails, subject, body_text, stripped_text, sent_at',
+      'id, direction, from_name, from_email, to_emails, subject, body_text, stripped_text, sent_at, gmail_message_id',
     )
     .eq('thread_id', threadId)
     .order('sent_at', { ascending: true })
@@ -625,7 +630,34 @@ export async function getThreadDetail(
     throw new Error(`getThreadDetail: failed to load messages: ${messagesError.message}`)
   }
 
-  const messageIds = (messages ?? []).map((m) => m.id)
+  const messageRows = messages ?? []
+
+  // A sent forward and its synced message share a gmail_message_id, so the
+  // draft row is what tells the thread view that an outbound message went to
+  // a vendor rather than back to the resident. No column on inbox_messages
+  // is needed — and adding one would create a second source of truth for
+  // something the draft already records.
+  const sentIds = messageRows.map((row) => row.gmail_message_id).filter(Boolean)
+  const forwardedTo = new Map<string, string[]>()
+  if (sentIds.length > 0) {
+    const { data: forwardRows, error: forwardError } = await db
+      .from('inbox_drafts')
+      .select('gmail_message_id, to_emails')
+      .eq('organization_id', orgId)
+      .eq('kind', 'forward')
+      .in('gmail_message_id', sentIds)
+    if (forwardError) {
+      // Enrichment only: a missing badge is cosmetic, an unrenderable
+      // thread is not. Logged, not thrown, unlike the message read itself.
+      logDbError('getThreadDetail forwards', 'inbox_drafts', { orgId, threadId }, forwardError)
+    } else {
+      for (const row of forwardRows ?? []) {
+        if (row.gmail_message_id) forwardedTo.set(row.gmail_message_id, row.to_emails ?? [])
+      }
+    }
+  }
+
+  const messageIds = messageRows.map((m) => m.id)
   const { data: attachments, error: attachmentsError } =
     messageIds.length > 0
       ? await db
@@ -660,7 +692,7 @@ export async function getThreadDetail(
     matchConfidence: thread.match_confidence,
     matchReason: thread.match_reason as Record<string, unknown> | null,
     matchSource: thread.match_source,
-    messages: (messages ?? []).map((message) => ({
+    messages: messageRows.map((message) => ({
       id: message.id,
       direction: message.direction as 'inbound' | 'outbound',
       fromName: message.from_name,
@@ -678,6 +710,7 @@ export async function getThreadDetail(
           sizeBytes: a.size_bytes,
           fetchStatus: a.fetch_status,
         })),
+      forwardedTo: forwardedTo.get(message.gmail_message_id) ?? null,
     })),
   }
 }

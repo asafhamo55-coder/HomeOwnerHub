@@ -27,10 +27,15 @@ export function MessageThread({ messages }: { messages: ThreadMessage[] }) {
               // Phase B: threads are two-sided now that sent mail syncs.
               // Colour alone is not enough — a manager scanning a long
               // thread needs to know instantly which messages the HOA sent,
-              // because the whole point is not replying twice.
+              // because the whole point is not replying twice. Phase 4:
+              // "Forwarded by HOA" further distinguishes a message that went
+              // to a vendor from one that went back to the resident.
               <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
-                Sent by HOA
+                {message.forwardedTo ? 'Forwarded by HOA' : 'Sent by HOA'}
               </span>
+            ) : null}
+            {message.forwardedTo && message.forwardedTo.length > 0 ? (
+              <span className="text-muted">to {message.forwardedTo.join(', ')}</span>
             ) : null}
             <span>→ {message.toEmails.join(', ') || '—'}</span>
             <span className="ml-auto">
