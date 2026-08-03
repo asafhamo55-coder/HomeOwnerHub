@@ -22,10 +22,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # Only run on successful Vercel production deployments (or manual).
+    #
+    # startsWith, not equality. Vercel does not send a bare "Production" —
+    # it names the project too, e.g. "Production – home-owner-hub-hoa"
+    # (with an en-dash). The previous `== 'Production'` therefore never
+    # matched, and every Smoke run since this workflow was added completed
+    # as "skipped" — a green tick that had checked nothing.
+    #
+    # Three Vercel projects each emit their own deployment_status, so this
+    # fires up to three times per push. That is deliberate: the last run
+    # happens after all three apps are live, which is the only moment the
+    # whole fleet is actually verifiable.
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event.deployment_status.state == 'success' &&
-       github.event.deployment.environment == 'Production')
+       startsWith(github.event.deployment.environment, 'Production'))
 
     steps:
       - name: Identify deployment
