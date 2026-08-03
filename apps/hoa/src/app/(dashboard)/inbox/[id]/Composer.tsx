@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button } from '@homeowner-portal/ui'
 import { hasUnfilledBlanks } from '@/lib/inbox/draft/blanks'
-import type { ThreadDraft } from '@/lib/inbox/queries'
+import type { DraftAttachment, ThreadDraft } from '@/lib/inbox/queries'
+import { AttachmentPicker } from './AttachmentPicker'
 import { RecipientFields } from './RecipientFields'
 import { AMBER_BOX, BLANK_KIND_LABELS } from './draft-ui'
 
@@ -19,9 +20,20 @@ interface Props {
   pending: boolean
   actionError: string | null
   onApprove: (input: ApproveInput) => void
+  attachments: DraftAttachment[]
+  threadFiles: Array<{ id: string; fileName: string; sizeBytes: number }>
+  libraryFiles: Array<{ id: string; name: string; type: string; sizeBytes: number }>
 }
 
-export function Composer({ draft, pending, actionError, onApprove }: Props) {
+export function Composer({
+  draft,
+  pending,
+  actionError,
+  onApprove,
+  attachments,
+  threadFiles,
+  libraryFiles,
+}: Props) {
   const [subject, setSubject] = useState(draft.subject)
   const [body, setBody] = useState(draft.bodyText)
   const [to, setTo] = useState<string[]>(draft.toEmails)
@@ -85,6 +97,14 @@ export function Composer({ draft, pending, actionError, onApprove }: Props) {
           className="w-full rounded-md border border-border bg-background p-2 text-sm"
         />
       </div>
+
+      <AttachmentPicker
+        draftId={draft.id}
+        attachments={attachments}
+        threadFiles={threadFiles}
+        libraryFiles={libraryFiles}
+        disabled={pending}
+      />
 
       {draft.blanks.length > 0 ? (
         <ul className="space-y-1">

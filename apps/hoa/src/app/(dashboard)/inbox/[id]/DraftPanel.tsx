@@ -4,16 +4,19 @@ import { useEffect, useState, useTransition } from 'react'
 import { Alert, Button } from '@homeowner-portal/ui'
 import { createDraft, approveDraft, cancelDraft } from '@/lib/inbox/draft/actions'
 import { UNDO_WINDOW_SECONDS } from '@/lib/inbox/draft/blanks'
-import type { ThreadDraft } from '@/lib/inbox/queries'
+import type { DraftAttachment, ThreadDraft } from '@/lib/inbox/queries'
 import { Composer, type ApproveInput } from './Composer'
 import { AMBER_BOX } from './draft-ui'
 
 interface Props {
   threadId: string
   draft: ThreadDraft | null
+  attachments: DraftAttachment[]
+  threadFiles: Array<{ id: string; fileName: string; sizeBytes: number }>
+  libraryFiles: Array<{ id: string; name: string; type: string; sizeBytes: number }>
 }
 
-export function DraftPanel({ threadId, draft }: Props) {
+export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryFiles }: Props) {
   const [pending, startTransition] = useTransition()
   const [actionError, setActionError] = useState<string | null>(null)
 
@@ -135,6 +138,11 @@ export function DraftPanel({ threadId, draft }: Props) {
           {draft.ccEmails.length > 0 ? ` · Cc: ${draft.ccEmails.join(', ')}` : ''}
         </p>
         <p className="whitespace-pre-wrap text-xs text-foreground">{draft.bodyText}</p>
+        {draft.status === 'queued' && attachments.length > 0 ? (
+          <p className="text-xs text-muted">
+            {attachments.map((file) => file.fileName).join(', ')}
+          </p>
+        ) : null}
         {draft.status === 'queued' && draft.sendAfter ? (
           <Countdown sendAfter={draft.sendAfter} />
         ) : (
@@ -152,7 +160,15 @@ export function DraftPanel({ threadId, draft }: Props) {
 
   // ── 2 + 3. draft — the shared composer. ──
   return (
-    <Composer draft={draft} pending={pending} actionError={actionError} onApprove={handleApprove} />
+    <Composer
+      draft={draft}
+      pending={pending}
+      actionError={actionError}
+      onApprove={handleApprove}
+      attachments={attachments}
+      threadFiles={threadFiles}
+      libraryFiles={libraryFiles}
+    />
   )
 }
 

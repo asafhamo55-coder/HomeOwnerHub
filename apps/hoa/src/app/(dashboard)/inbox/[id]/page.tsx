@@ -8,6 +8,7 @@ import {
   getPropertyContext,
   getThreadDetail,
   getUnitLabel,
+  listAttachableDocuments,
   listDraftAttachments,
   listThreads,
   INBOX_PAGE_SIZE,
@@ -93,6 +94,21 @@ export default async function ThreadPage({
   // message that appears to have no files beside one that will send three.
   const draftAttachments = draft ? await listDraftAttachments(supabase, org.id, draft.id) : []
 
+  const libraryFiles = await listAttachableDocuments(supabase, org.id).catch((error: unknown) => {
+    // Enrichment, not page-defining: an empty picker is a smaller harm than
+    // a blank thread page, and every other attachment source still works.
+    console.error('ThreadPage: failed to load the document library', {
+      message: error instanceof Error ? error.message : 'unknown error',
+    })
+    return []
+  })
+
+  const threadFiles = thread.messages.flatMap((message) =>
+    message.attachments
+      .filter((file) => file.fetchStatus === 'stored')
+      .map((file) => ({ id: file.id, fileName: file.fileName, sizeBytes: file.sizeBytes ?? 0 })),
+  )
+
   return (
     <main className="flex h-[calc(100vh-4rem)] overflow-hidden">
       {/* pane 1 — list */}
@@ -124,7 +140,13 @@ export default async function ThreadPage({
 
         <MessageThread messages={thread.messages} />
 
-        <DraftPanel threadId={thread.id} draft={draft} attachments={draftAttachments} />
+        <DraftPanel
+          threadId={thread.id}
+          draft={draft}
+          attachments={draftAttachments}
+          threadFiles={threadFiles}
+          libraryFiles={libraryFiles}
+        />
       </section>
 
       {/* pane 3 — property rail */}
