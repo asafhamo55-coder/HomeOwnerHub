@@ -173,21 +173,71 @@ export async function runMailboxSend(
     return { sent: false, reason: 'cancelled' }
   }
 
-  const { data: thread, error: threadError } = await db
-    .from('inbox_threads')
-    .select('gmail_thread_id, mailbox_account_id')
-    .eq('id', draft.thread_id)
-    .maybeSingle()
+  // A kind='new' draft has no thread to read: it is sent with no Gmail
+  // threadId, and the ordinary 2-minute sync ingests the sent message into a
+  // real thread through the normal path — the same reasoning recorded at the
+  // bottom of this file for sent replies. So there is nothing to look up,
+  // and the mailbox comes off the draft row instead.
+  let accountId: string
+  let gmailThreadId: string | null = null
+  let last: { rfc822_message_id: string | null; from_email: string | null } = {
+    rfc822_message_id: null,
+    from_email: null,
+  }
 
-  if (threadError || !thread) {
-    await fail(db, draftId, threadError?.message ?? 'thread not found')
-    throw new Error(`mailboxSendJob: could not load thread for ${draftId}`)
+  if (draft.kind === 'new') {
+    if (!draft.mailbox_account_id) {
+      await fail(db, draftId, 'This message has no mailbox to send from.')
+      return { sent: false, reason: 'no_account' }
+    }
+    accountId = draft.mailbox_account_id
+  } else {
+    // Guaranteed by the `inbox_drafts_thread_or_account` CHECK constraint
+    // (migration 0038): any kind other than 'new' has a non-null thread_id.
+    // database.types.ts types the column `string | null` because 'new' rows
+    // are nullable, so this narrows for TS as well as catching a row that
+    // somehow violated the constraint.
+    if (!draft.thread_id) {
+      await fail(db, draftId, 'This message has no thread to send to.')
+      throw new Error(`mailboxSendJob: draft ${draftId} has kind='${draft.kind}' but no thread_id`)
+    }
+    const threadId = draft.thread_id
+
+    const { data: thread, error: threadError } = await db
+      .from('inbox_threads')
+      .select('gmail_thread_id, mailbox_account_id')
+      .eq('id', threadId)
+      .maybeSingle()
+
+    if (threadError || !thread) {
+      await fail(db, draftId, threadError?.message ?? 'thread not found')
+      throw new Error(`mailboxSendJob: could not load thread for ${draftId}`)
+    }
+    accountId = thread.mailbox_account_id
+    gmailThreadId = thread.gmail_thread_id
+
+    // Reply to the most recent inbound message so threading is correct.
+    const { data: lastRow, error: lastError } = await db
+      .from('inbox_messages')
+      .select('rfc822_message_id, from_email')
+      .eq('thread_id', threadId)
+      .eq('direction', 'inbound')
+      .order('sent_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (lastError) {
+      logDbError('mailboxSendJob', 'inbox_messages', { draftId }, lastError)
+      await fail(db, draftId, lastError.message)
+      throw new Error(`mailboxSendJob: could not load last inbound message: ${lastError.message}`)
+    }
+    if (lastRow) last = lastRow
   }
 
   const { data: account, error: accountError } = await db
     .from('mailbox_accounts')
     .select('email_address, disconnected_at')
-    .eq('id', thread.mailbox_account_id)
+    .eq('id', accountId)
     .maybeSingle()
 
   if (accountError || !account) {
@@ -199,21 +249,6 @@ export async function runMailboxSend(
     return { sent: false, reason: 'disconnected' }
   }
 
-  // Reply to the most recent inbound message so threading is correct.
-  const { data: last, error: lastError } = await db
-    .from('inbox_messages')
-    .select('rfc822_message_id, from_email')
-    .eq('thread_id', draft.thread_id)
-    .eq('direction', 'inbound')
-    .order('sent_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (lastError) {
-    logDbError('mailboxSendJob', 'inbox_messages', { draftId }, lastError)
-    await fail(db, draftId, lastError.message)
-    throw new Error(`mailboxSendJob: could not load last inbound message: ${lastError.message}`)
-  }
   // Recipients come from the ROW, resolved when a human approved it.
   //
   // The empty-array fallback covers drafts queued before migration 0038,
@@ -247,9 +282,16 @@ export async function runMailboxSend(
   // the *bookkeeping* update still can't reach `fail()` without visibly
   // adding a new import/call where the surrounding code and this comment
   // make the invariant obvious.
-  const sent = await sendToGmail(db, draftId, thread, account, draft, to, attachments, {
-    rfc822_message_id: last?.rfc822_message_id ?? null,
-  })
+  const sent = await sendToGmail(
+    db,
+    draftId,
+    { gmailThreadId, accountId },
+    account,
+    draft,
+    to,
+    attachments,
+    { rfc822_message_id: last?.rfc822_message_id ?? null },
+  )
 
   await recordSent(db, logger, draftId, sent)
   return { sent: true, messageId: sent.messageId }
@@ -258,7 +300,7 @@ export async function runMailboxSend(
 async function sendToGmail(
   db: Db,
   draftId: string,
-  thread: { gmail_thread_id: string; mailbox_account_id: string },
+  target: { gmailThreadId: string | null; accountId: string },
   account: { email_address: string },
   draft: { subject: string; body_text: string; cc_emails: string[] | null },
   to: string[],
@@ -266,7 +308,7 @@ async function sendToGmail(
   last: { rfc822_message_id: string | null },
 ): Promise<{ messageId: string }> {
   try {
-    const accessToken = await getAccessTokenFor(db, thread.mailbox_account_id)
+    const accessToken = await getAccessTokenFor(db, target.accountId)
     const mime = buildMimeMessage({
       from: account.email_address,
       to,
@@ -277,12 +319,12 @@ async function sendToGmail(
       references: last.rfc822_message_id ? [last.rfc822_message_id] : [],
       attachments,
     })
-    return await sendReply(accessToken, thread.gmail_thread_id, mime)
+    return await sendReply(accessToken, target.gmailThreadId, mime)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     await fail(db, draftId, message)
     if (error instanceof MailboxAuthError) {
-      await markAuthFailed(db, thread.mailbox_account_id, message)
+      await markAuthFailed(db, target.accountId, message)
     }
     throw error
   }

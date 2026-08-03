@@ -2671,7 +2671,7 @@ export type Database = {
           sent_at: string | null
           status: string
           subject: string
-          thread_id: string
+          thread_id: string | null
           to_emails: string[]
         }
         Insert: {
@@ -2698,7 +2698,7 @@ export type Database = {
           sent_at?: string | null
           status?: string
           subject: string
-          thread_id: string
+          thread_id?: string | null
           to_emails?: string[]
         }
         Update: {
@@ -2725,7 +2725,7 @@ export type Database = {
           sent_at?: string | null
           status?: string
           subject?: string
-          thread_id?: string
+          thread_id?: string | null
           to_emails?: string[]
         }
         Relationships: [

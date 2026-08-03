@@ -1018,6 +1018,51 @@ export async function getLatestDraft(
   }
 }
 
+/**
+ * A draft looked up directly by id, for the compose screen — a `kind='new'`
+ * draft has no thread to look it up by the way `getLatestDraft` does.
+ *
+ * Same failure-mode reasoning as `getLatestDraft`: a soft failure must not
+ * collapse to "no draft", so this throws rather than returning null on
+ * error.
+ */
+export async function getDraftById(
+  db: Db,
+  orgId: string,
+  draftId: string,
+): Promise<ThreadDraft | null> {
+  const { data, error } = await db
+    .from('inbox_drafts')
+    .select(
+      'id, kind, status, subject, body_text, to_emails, cc_emails, citations, blanks, grounded, grounding_note, send_after, error',
+    )
+    .eq('organization_id', orgId)
+    .eq('id', draftId)
+    .maybeSingle()
+
+  if (error) {
+    logDbError('getDraftById', 'inbox_drafts', { orgId, draftId }, error)
+    throw new Error(`getDraftById: failed to load draft: ${error.message}`)
+  }
+  if (!data) return null
+
+  return {
+    id: data.id,
+    kind: data.kind as ThreadDraft['kind'],
+    status: data.status as ThreadDraft['status'],
+    subject: data.subject,
+    bodyText: data.body_text,
+    toEmails: data.to_emails ?? [],
+    ccEmails: data.cc_emails ?? [],
+    citations: (data.citations ?? []) as ThreadDraft['citations'],
+    blanks: (data.blanks ?? []) as ThreadDraft['blanks'],
+    grounded: data.grounded,
+    groundingNote: data.grounding_note,
+    sendAfter: data.send_after,
+    error: data.error,
+  }
+}
+
 // ─── Correspondence summary (property detail page) ──────────────────────
 
 /**

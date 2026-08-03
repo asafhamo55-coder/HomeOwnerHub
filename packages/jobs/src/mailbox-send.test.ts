@@ -271,6 +271,16 @@ describe('runMailboxSend', () => {
           error: null,
         },
       ],
+      // The last-inbound-message read for a kind='reply' draft now happens
+      // before the account/disconnected check (it lives inside the same
+      // thread-lookup branch — see runMailboxSend), so it must be scripted
+      // here even though this test's assertions don't touch it.
+      inbox_messages: [
+        {
+          data: { rfc822_message_id: '<abc@mail.gmail.com>', from_email: RESIDENT_EMAIL },
+          error: null,
+        },
+      ],
     })
     const step = fakeStep()
 
@@ -688,6 +698,32 @@ describe('runMailboxSend', () => {
     await runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')
 
     expect(vi.mocked(buildMimeMessage).mock.calls[0][0].attachments).toEqual([])
+  })
+
+  it('sends a kind=new draft with no threadId and reads the account off the row', async () => {
+    const db = buildDb({
+      inbox_drafts: [
+        { data: { id: 'd1', organization_id: 'org-1', thread_id: null, subject: 'Annual meeting',
+                  body_text: 'Hello', send_after: null, status: 'queued', kind: 'new',
+                  to_emails: ['vendor@example.com'], cc_emails: [], mailbox_account_id: 'a1' },
+          error: null },
+        { data: { id: 'd1' }, error: null },
+        { data: null, error: null },
+      ],
+      mailbox_accounts: [{ data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
+      inbox_draft_attachments: [{ data: [], error: null }],
+    })
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt-new' })
+
+    const result = await runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')
+
+    expect(result).toEqual({ sent: true, messageId: 'm1' })
+    // No inbox_threads or inbox_messages read was scripted — buildDb throws if
+    // the job makes one, which is the assertion that it does not.
+    expect(vi.mocked(sendReply).mock.calls[0][1]).toBeNull()
+    const args = vi.mocked(buildMimeMessage).mock.calls[0][0]
+    expect(args.inReplyTo).toBeNull()
+    expect(args.references).toEqual([])
   })
 })
 

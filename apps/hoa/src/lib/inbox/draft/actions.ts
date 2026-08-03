@@ -460,3 +460,65 @@ export async function createForwardDraft(
   revalidatePath(`/inbox/${threadId}`)
   return { ok: true, draftId: data.id }
 }
+
+/**
+ * A message that starts a new conversation.
+ *
+ * Deliberately does NOT create a placeholder inbox_threads row.
+ * `inbox_threads.gmail_thread_id` is NOT NULL under a unique index, so a
+ * placeholder would need a fake id plus a merge-on-conflict path when Gmail
+ * returns a real thread id that already exists. Instead the message is sent
+ * with no threadId and the ordinary sync ingests it into a real thread. The
+ * cost is that the conversation takes up to one sync cycle to appear in the
+ * inbox list, which the compose screen states plainly.
+ */
+export async function createComposeDraft(
+  mailboxAccountId: string,
+): Promise<{ ok: true; draftId: string } | { error: string }> {
+  const { org } = await requireBoardOrAdmin()
+  const supabase = await getSupabaseServerClient()
+
+  // Scoped to the org and to a LIVE connection: a disconnected mailbox would
+  // fail at send time, after the human wrote the whole message.
+  const { data: account, error: accountError } = await supabase
+    .from('mailbox_accounts')
+    .select('id, disconnected_at')
+    .eq('id', mailboxAccountId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (accountError) {
+    console.error(`createComposeDraft: account read failed: ${accountError.code} ${accountError.message}`)
+    return { error: 'Could not load your mailbox.' }
+  }
+  if (!account || account.disconnected_at) {
+    return { error: 'That mailbox is not connected.' }
+  }
+
+  const {
+    data: { user: creator },
+  } = await supabase.auth.getUser()
+
+  const { data, error } = await supabase
+    .from('inbox_drafts')
+    .insert({
+      organization_id: org.id,
+      thread_id: null,
+      mailbox_account_id: mailboxAccountId,
+      kind: 'new',
+      status: 'draft',
+      created_by: creator?.id ?? null,
+      subject: '',
+      body_text: '',
+      to_emails: [],
+      cc_emails: [],
+    })
+    .select('id')
+    .single()
+
+  if (error) {
+    console.error(`createComposeDraft: insert failed: ${error.code} ${error.message}`)
+    return { error: 'Could not start a new message.' }
+  }
+
+  return { ok: true, draftId: data.id }
+}
