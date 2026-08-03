@@ -1,4 +1,4 @@
--- 0037_dashboard_daily_snapshots.sql
+-- 0038_dashboard_daily_snapshots.sql
 -- One row per org per day recording what the dashboard's headline numbers
 -- looked like, so the digest can say "down 4 from yesterday" and the tiles
 -- can grow trend arrows later.

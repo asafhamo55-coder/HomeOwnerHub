@@ -217,7 +217,7 @@ refresh. Deltas therefore need a table, not a column: with single-row
 storage a mid-afternoon refresh would move the baseline and the delta would
 read "0 new" for the rest of the day.
 
-**Migration `0037_dashboard_daily_snapshots.sql`:**
+**Migration `0038_dashboard_daily_snapshots.sql`:**
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.dashboard_daily_snapshots (

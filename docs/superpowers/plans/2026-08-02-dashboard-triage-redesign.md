@@ -28,7 +28,7 @@ The spec's `TriageThread` includes `fromName`. `inbox_threads` has no such colum
 
 | File | Responsibility |
 | --- | --- |
-| `migrations/0037_dashboard_daily_snapshots.sql` | Snapshot table + RLS policy |
+| `migrations/0038_dashboard_daily_snapshots.sql` | Snapshot table + RLS policy |
 | `apps/hoa/src/lib/dashboard/triage-compute.ts` | Pure date/bucket arithmetic. No IO. |
 | `apps/hoa/src/lib/dashboard/triage-compute.test.ts` | Tests for the above |
 | `apps/hoa/src/lib/dashboard/triage.ts` | Supabase reads → `TriageSnapshot`, failure posture |
@@ -46,7 +46,7 @@ The spec's `TriageThread` includes `fromName`. `inbox_threads` has no such colum
 ### Task 1: Snapshot table and RLS
 
 **Files:**
-- Create: `migrations/0037_dashboard_daily_snapshots.sql`
+- Create: `migrations/0038_dashboard_daily_snapshots.sql`
 
 **Interfaces:**
 - Consumes: nothing
@@ -55,7 +55,7 @@ The spec's `TriageThread` includes `fromName`. `inbox_threads` has no such colum
 - [ ] **Step 1: Write the migration**
 
 ```sql
--- 0037_dashboard_daily_snapshots.sql
+-- 0038_dashboard_daily_snapshots.sql
 -- One row per org per day recording what the dashboard's headline numbers
 -- looked like, so the digest can say "down 4 from yesterday" and the tiles
 -- can grow trend arrows later.
@@ -124,7 +124,7 @@ Expected: `table reachable, error: none count: 0`
 - [ ] **Step 4: Commit**
 
 ```bash
-git add migrations/0037_dashboard_daily_snapshots.sql
+git add migrations/0038_dashboard_daily_snapshots.sql
 git commit -m "feat(db): daily dashboard snapshots for point-in-time comparison"
 ```
 
