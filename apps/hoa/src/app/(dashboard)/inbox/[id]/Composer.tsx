@@ -31,12 +31,19 @@ export function Composer({ draft, pending, actionError, onApprove }: Props) {
   // to a different id) must not keep stale edits. Keyed on the fields
   // themselves, not just draft.id, so a server-side edit landing under the
   // same row still reflects in the inputs.
+  //
+  // draft.toEmails/ccEmails are rebuilt by getLatestDraft on every server
+  // render (`toEmails: data.to_emails ?? []`), so depending on the arrays
+  // themselves fires this effect on unrelated revalidations of the same
+  // page — the property rail's "File under property" is one — and silently
+  // discards in-progress edits. Depend on their VALUES so it fires only on
+  // real changes.
   useEffect(() => {
     setSubject(draft.subject)
     setBody(draft.bodyText)
     setTo(draft.toEmails)
     setCc(draft.ccEmails)
-  }, [draft.id, draft.subject, draft.bodyText, draft.toEmails, draft.ccEmails])
+  }, [draft.id, draft.subject, draft.bodyText, draft.toEmails.join(','), draft.ccEmails.join(',')])
 
   // Computed from the LIVE edits, not the stored arrays — this is what makes
   // filling a blank or adding a recipient enable Approve immediately, and
