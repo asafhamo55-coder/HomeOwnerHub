@@ -9,6 +9,9 @@ import {
   createViolationReport,
   type ViolationCategory,
 } from '@/lib/resident-submissions'
+import { summarizePhotoUploads, type PhotoUploadOutcome } from '@/lib/attachment-rules'
+import { uploadSubmissionAttachment } from '@/lib/submission-attachments'
+import { PhotoPicker } from './PhotoPicker'
 
 const CATEGORIES: Array<{ value: ViolationCategory; label: string }> = [
   { value: 'parking', label: 'Parking / vehicles' },
@@ -32,10 +35,14 @@ export function ReportViolationForm({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const descriptionRef = useRef<HTMLTextAreaElement>(null)
+  const [photos, setPhotos] = useState<File[]>([])
+  const [photoWarning, setPhotoWarning] = useState<string | null>(null)
+  const [reportId, setReportId] = useState<string | null>(null)
 
   async function handleSubmit(formData: FormData) {
     setError(null)
     setSuccess(false)
+    setPhotoWarning(null)
 
     const category = String(formData.get('category') ?? '') as ViolationCategory
     const description = String(formData.get('description') ?? '').trim()
@@ -53,10 +60,37 @@ export function ReportViolationForm({
         setError(result.error)
         return
       }
+
+      const newReportId = result.data.reportId
+      setReportId(newReportId)
+
+      // Photos upload only after the report exists — `uploadSubmissionAttachment`
+      // needs a parentId. Sequential, not parallel: a resident on mobile data
+      // uploading four photos at once is how you get four timeouts instead of
+      // four uploads.
+      const outcomes: PhotoUploadOutcome[] = []
+      for (const file of photos) {
+        const fd = new FormData()
+        fd.set('threadType', 'concern')
+        fd.set('parentId', newReportId)
+        fd.set('file', file)
+        const uploaded = await uploadSubmissionAttachment(fd)
+        outcomes.push({ name: file.name, ok: uploaded.ok })
+      }
+
+      const summary = summarizePhotoUploads(outcomes)
       setSuccess(true)
-      // Land the resident on the concern's tracking page so they can follow
-      // the board's decision and message back.
-      setTimeout(() => router.push(`/resident/violations/${result.data.reportId}`), 1200)
+
+      if (summary.allSucceeded) {
+        // Land the resident on the concern's tracking page so they can follow
+        // the board's decision and message back.
+        setTimeout(() => router.push(`/resident/violations/${newReportId}`), 1200)
+        return
+      }
+
+      // Do NOT auto-redirect past a message the resident needs to read. The
+      // report is saved either way; they choose when to move on.
+      setPhotoWarning(summary.message)
     })
   }
 
@@ -112,7 +146,14 @@ export function ReportViolationForm({
         </div>
         <Helper>
           Stick to what you observed. Avoid speculation or accusations.
-          Photos can be emailed to the board separately.
+        </Helper>
+      </Field>
+
+      <Field label="Photos">
+        <PhotoPicker files={photos} onChange={setPhotos} disabled={isPending} />
+        <Helper>
+          Optional. Photos help the board act on the report without a
+          follow-up visit. Up to 10 MB each.
         </Helper>
       </Field>
 
@@ -121,10 +162,22 @@ export function ReportViolationForm({
           {error}
         </p>
       ) : null}
-      {success ? (
+      {success && !photoWarning ? (
         <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
           Report submitted. Redirecting…
         </p>
+      ) : null}
+      {photoWarning && reportId ? (
+        <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <p>{photoWarning}</p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push(`/resident/violations/${reportId}`)}
+          >
+            Go to report
+          </Button>
+        </div>
       ) : null}
 
       <div className="flex justify-end gap-2">
