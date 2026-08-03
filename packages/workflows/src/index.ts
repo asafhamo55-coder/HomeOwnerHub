@@ -90,3 +90,9 @@ export {
   UnsupportedQuoteError,
 } from './W32-reply-drafter'
 export type { ReplyDrafterInput, ReplyDrafterOutput } from './W32-reply-drafter'
+
+export { vendorExtractor, extractVendor } from './W33-vendor-extractor'
+export type {
+  VendorExtractorInput,
+  VendorExtractorOutput,
+} from './W33-vendor-extractor'
