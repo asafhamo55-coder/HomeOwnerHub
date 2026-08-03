@@ -2901,8 +2901,11 @@ Create `apps/hoa/src/app/(dashboard)/inbox/[id]/AttachmentPicker.tsx`:
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
 import { Alert, Button } from '@homeowner-portal/ui'
+// The repo's singleton, NOT a bare createBrowserClient — one browser client
+// per page load, so we don't add duplicate auth listeners and websocket fanout
+// every time the picker mounts.
+import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
 import {
   createAttachmentUploadUrl,
   addDraftAttachment,
@@ -2968,10 +2971,7 @@ export function AttachmentPicker({
         setError(signed.error)
         return
       }
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
+      const supabase = getSupabaseBrowserClient()
       const { error: uploadError } = await supabase.storage
         .from(BUCKET)
         .uploadToSignedUrl(signed.path, signed.token, file)
