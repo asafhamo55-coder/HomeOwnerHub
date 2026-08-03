@@ -9,7 +9,7 @@ import { Composer, type ApproveInput } from './Composer'
 import { AMBER_BOX } from './draft-ui'
 
 interface Props {
-  threadId: string
+  threadId: string | null
   draft: ThreadDraft | null
   attachments: DraftAttachment[]
   threadFiles: Array<{ id: string; fileName: string; sizeBytes: number }>
@@ -21,6 +21,7 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
   const [actionError, setActionError] = useState<string | null>(null)
 
   function handleCreate() {
+    if (!threadId) return
     setActionError(null)
     startTransition(async () => {
       const result = await createDraft(threadId)
@@ -29,6 +30,7 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
   }
 
   function handleForward() {
+    if (!threadId) return
     setActionError(null)
     startTransition(async () => {
       const result = await createForwardDraft(threadId)
@@ -59,14 +61,16 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
     return (
       <section className="mt-4 space-y-2 rounded-md border border-border p-3">
         {actionError ? <Alert variant="error">{actionError}</Alert> : null}
-        <div className="flex gap-2">
-          <Button size="sm" loading={pending} onClick={handleCreate}>
-            Draft a reply
-          </Button>
-          <Button size="sm" variant="outline" loading={pending} onClick={handleForward}>
-            Forward
-          </Button>
-        </div>
+        {threadId ? (
+          <div className="flex gap-2">
+            <Button size="sm" loading={pending} onClick={handleCreate}>
+              Draft a reply
+            </Button>
+            <Button size="sm" variant="outline" loading={pending} onClick={handleForward}>
+              Forward
+            </Button>
+          </div>
+        ) : null}
       </section>
     )
   }
@@ -134,14 +138,16 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
       <section className="mt-4 space-y-2 rounded-md border border-border p-3">
         <p className="text-xs text-muted">This reply was cancelled before it sent.</p>
         {actionError ? <Alert variant="error">{actionError}</Alert> : null}
-        <div className="flex gap-2">
-          <Button size="sm" loading={pending} onClick={handleCreate}>
-            Draft a reply
-          </Button>
-          <Button size="sm" variant="outline" loading={pending} onClick={handleForward}>
-            Forward
-          </Button>
-        </div>
+        {threadId ? (
+          <div className="flex gap-2">
+            <Button size="sm" loading={pending} onClick={handleCreate}>
+              Draft a reply
+            </Button>
+            <Button size="sm" variant="outline" loading={pending} onClick={handleForward}>
+              Forward
+            </Button>
+          </div>
+        ) : null}
       </section>
     )
   }
