@@ -535,3 +535,78 @@ export async function applyMatch(
     throw updateError
   }
 }
+
+// ─── Vendor auto-match ───────────────────────────────────────────────
+
+/**
+ * File a thread under a vendor when its sender address is a vendor's
+ * `primary_email`.
+ *
+ * Vendor identity is an EXACT email match — no confidence tiers, no fuzzy
+ * name comparison. It is deliberately kept out of `decideMatch`, which is a
+ * confidence ladder for property/resident matching: folding an exact-match
+ * rule into that ladder would add a tier meaning something categorically
+ * different from every other, in a function whose ordering is load-bearing.
+ *
+ * It is also deliberately NOT called from `applyMatch`. That function owns
+ * one statement with its guard as predicates ON the UPDATE, and its tests
+ * assert structurally that it never reads `inbox_threads` first (no TOCTOU
+ * window). Vendor filing is a separate concern with its own guard, so it
+ * sits beside `applyMatch` in the ingest pipeline rather than inside it.
+ *
+ * The "never overwrite a human's assignment" guarantee is the
+ * `.is('vendor_id', null)` predicate on the UPDATE itself — not a preceding
+ * SELECT — for exactly the reason `applyMatch`'s docstring gives: a
+ * read-then-decide version passes every behavioural test against a
+ * single-threaded mock while still losing the race in production.
+ *
+ * A failure here is logged and swallowed. A vendor lookup must never fail
+ * an ingest that otherwise succeeded.
+ */
+export async function applyVendorMatch(
+  db: Db,
+  orgId: string,
+  threadId: string,
+): Promise<void> {
+  const { data: message, error: messageError } = await db
+    .from('inbox_messages')
+    .select('from_email')
+    .eq('organization_id', orgId)
+    .eq('thread_id', threadId)
+    .eq('direction', 'inbound')
+    .order('sent_at', { ascending: true })
+    .limit(1)
+    .maybeSingle<{ from_email: string | null }>()
+
+  if (messageError) {
+    logDbError('applyVendorMatch', 'inbox_messages', { orgId, threadId }, messageError)
+    return
+  }
+  if (!message?.from_email) return
+
+  const { data: vendor, error: vendorError } = await db
+    .from('vendors' as never)
+    .select('id')
+    .eq('organization_id', orgId)
+    .eq('primary_email', message.from_email.trim().toLowerCase())
+    .maybeSingle<{ id: string }>()
+
+  if (vendorError) {
+    logDbError('applyVendorMatch', 'vendors', { orgId, threadId }, vendorError)
+    return
+  }
+  if (!vendor) return
+
+  const { error: updateError } = await db
+    .from('inbox_threads')
+    .update({ vendor_id: vendor.id } as never)
+    .eq('organization_id', orgId)
+    .eq('id', threadId)
+    // THE guard. A thread already filed under a vendor — by a human or an
+    // earlier run — is never overwritten.
+    .is('vendor_id', null)
+
+  if (updateError) {
+    logDbError('applyVendorMatch', 'inbox_threads', { orgId, threadId }, updateError)
+  }
+}

@@ -61,7 +61,7 @@ import {
   parseGmailMessage,
 } from '@homeowner-portal/mailbox'
 import { ingestMessages } from '../../../apps/hoa/src/lib/inbox/ingest'
-import { applyMatch, matchThread } from '../../../apps/hoa/src/lib/inbox/match'
+import { applyMatch, applyVendorMatch, matchThread } from '../../../apps/hoa/src/lib/inbox/match'
 import { logDbError } from './db-error'
 import { inngest } from './client'
 import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
@@ -260,6 +260,8 @@ export const mailboxBackfillJob = inngest.createFunction(
             thread.id,
             await matchThread(db, account.organization_id, thread.id),
           )
+          // Independent of the property outcome — see mailbox-sync.ts.
+          await applyVendorMatch(db, account.organization_id, thread.id)
         }
       }
 
