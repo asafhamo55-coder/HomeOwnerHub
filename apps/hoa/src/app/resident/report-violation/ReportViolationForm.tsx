@@ -74,8 +74,20 @@ export function ReportViolationForm({
         fd.set('threadType', 'concern')
         fd.set('parentId', newReportId)
         fd.set('file', file)
-        const uploaded = await uploadSubmissionAttachment(fd)
-        outcomes.push({ name: file.name, ok: uploaded.ok })
+        try {
+          const uploaded = await uploadSubmissionAttachment(fd)
+          if (!uploaded.ok) {
+            console.error(`Photo upload failed for ${file.name}: ${uploaded.error}`)
+          }
+          outcomes.push({ name: file.name, ok: uploaded.ok })
+        } catch (err) {
+          // A thrown upload (network drop, 413, server exception) must still
+          // land in the same summary path as a returned failure — otherwise
+          // the resident sees no success, no warning, no error, and refiles
+          // a duplicate report.
+          console.error(`Photo upload threw for ${file.name}:`, err)
+          outcomes.push({ name: file.name, ok: false })
+        }
       }
 
       const summary = summarizePhotoUploads(outcomes)
@@ -184,7 +196,7 @@ export function ReportViolationForm({
         <Button type="button" variant="outline" onClick={() => router.back()}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isPending}>
+        <Button type="submit" disabled={isPending || success}>
           <Send className="h-4 w-4" />
           {isPending ? 'Submitting…' : 'Submit report'}
         </Button>

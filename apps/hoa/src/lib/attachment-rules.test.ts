@@ -43,6 +43,14 @@ describe('validatePhotoFiles', () => {
     })
   })
 
+  it('accepts an empty MIME type, mirroring the server it defers to', () => {
+    // Some Android pickers and Windows Chrome report `''` for `.heic`.
+    // `submission-attachments.ts` tolerates empty MIME on the server; the
+    // client must not be stricter than the server it defers to.
+    const unknownMime = { name: 'IMG_0099.HEIC', size: 3_000_000, type: '' }
+    expect(validatePhotoFiles([unknownMime]).accepted).toEqual([unknownMime])
+  })
+
   it('rejects an empty file, which the server would reject anyway', () => {
     const empty = { name: 'empty.jpg', size: 0, type: 'image/jpeg' }
     expect(validatePhotoFiles([empty]).rejected).toEqual([

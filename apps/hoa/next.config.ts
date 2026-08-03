@@ -59,6 +59,16 @@ const config: NextConfig = {
       dynamic: 30,
       static: 300,
     },
+    // Next 15 defaults server-action bodies to 1 MB, which silently rejects
+    // every real phone photo (a typical iPhone HEIC is 2-4 MB) before the
+    // app's own validation ever runs. `ATTACHMENT_MAX_BYTES`
+    // (apps/hoa/src/lib/attachment-rules.ts) is 10 MB and is what residents
+    // are told and what the server action itself enforces — raise the
+    // platform ceiling to match so it doesn't silently undercut the limit
+    // the app already agreed to.
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
   },
   // Workspace UI/AI/db packages ship raw TS — let Next compile them.
   transpilePackages: [

@@ -65,7 +65,7 @@ export function validatePhotoFiles<T extends PickedFile>(
       rejected.push({ name: file.name, reason: 'File is empty' })
     } else if (file.size > ATTACHMENT_MAX_BYTES) {
       rejected.push({ name: file.name, reason: 'Over the 10 MB limit' })
-    } else if (!PHOTO_ALLOWED_TYPES.has(file.type)) {
+    } else if (file.type && !PHOTO_ALLOWED_TYPES.has(file.type)) {
       rejected.push({ name: file.name, reason: 'Not a supported image' })
     } else {
       accepted.push(file)
