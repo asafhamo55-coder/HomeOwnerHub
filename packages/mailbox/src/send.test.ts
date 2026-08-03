@@ -1,12 +1,8 @@
 import { afterEach, describe, it, expect, vi } from 'vitest'
-import { buildRawMessage, sendReply } from './send'
+import { buildMimeMessage, sendReply } from './send'
 import { MailboxAuthError } from './types'
 
-function decode(raw: string): string {
-  return Buffer.from(raw.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')
-}
-
-describe('buildRawMessage', () => {
+describe('buildMimeMessage — single part', () => {
   const base = {
     from: 'hoa@example.com',
     to: ['resident@example.com'],
@@ -16,38 +12,65 @@ describe('buildRawMessage', () => {
     references: ['<abc@mail.gmail.com>'],
   }
 
-  it('threads the reply with In-Reply-To and References', () => {
-    const decoded = decode(buildRawMessage(base))
-    expect(decoded).toContain('In-Reply-To: <abc@mail.gmail.com>')
-    expect(decoded).toContain('References: <abc@mail.gmail.com>')
+  // GOLDEN TEST — pins the exact byte layout of the no-attachment path so a
+  // later multipart change cannot silently alter ordinary replies.
+  it('emits the exact expected RFC822 message', () => {
+    expect(buildMimeMessage(base)).toBe(
+      [
+        'From: hoa@example.com',
+        'To: resident@example.com',
+        'Subject: Re: Fence',
+        'MIME-Version: 1.0',
+        'Content-Type: text/plain; charset="UTF-8"',
+        'Content-Transfer-Encoding: 8bit',
+        'In-Reply-To: <abc@mail.gmail.com>',
+        'References: <abc@mail.gmail.com>',
+        '',
+        'Thanks for writing.',
+      ].join('\r\n'),
+    )
   })
 
   it('omits threading headers on a first message rather than emitting empty ones', () => {
-    const decoded = decode(buildRawMessage({ ...base, inReplyTo: null, references: [] }))
-    expect(decoded).not.toContain('In-Reply-To:')
-    expect(decoded).not.toContain('References:')
+    const out = buildMimeMessage({ ...base, inReplyTo: null, references: [] })
+    expect(out).not.toContain('In-Reply-To:')
+    expect(out).not.toContain('References:')
   })
 
   it('encodes a non-ASCII subject so it is not mangled', () => {
-    const decoded = decode(buildRawMessage({ ...base, subject: 'Re: Grünanlage' }))
-    expect(decoded).toContain('=?UTF-8?B?')
-    expect(decoded).not.toContain('Subject: Re: Grünanlage')
-  })
-
-  it('is base64url — no +, / or = that would break the Gmail API', () => {
-    const raw = buildRawMessage(base)
-    expect(raw).not.toMatch(/[+/=]/)
+    const out = buildMimeMessage({ ...base, subject: 'Re: Grünanlage' })
+    expect(out).toContain('=?UTF-8?B?')
+    expect(out).not.toContain('Subject: Re: Grünanlage')
   })
 
   it('rejects a header-injection attempt in the subject', () => {
-    expect(() =>
-      buildRawMessage({ ...base, subject: 'Hi\r\nBcc: attacker@evil.com' }),
-    ).toThrow()
+    expect(() => buildMimeMessage({ ...base, subject: 'Hi\r\nBcc: attacker@evil.com' })).toThrow()
+  })
+})
+
+describe('buildMimeMessage — Cc', () => {
+  const base = {
+    from: 'hoa@example.com',
+    to: ['resident@example.com'],
+    subject: 'Re: Fence',
+    body: 'Thanks.',
+    inReplyTo: null,
+    references: [],
+  }
+
+  it('emits a Cc header listing every address', () => {
+    const out = buildMimeMessage({ ...base, cc: ['pm@example.com', 'board@example.com'] })
+    expect(out).toContain('Cc: pm@example.com, board@example.com')
   })
 
-  it('declares an 8bit transfer encoding for the UTF-8 body', () => {
-    const decoded = decode(buildRawMessage(base))
-    expect(decoded).toContain('Content-Transfer-Encoding: 8bit')
+  it('omits Cc entirely when empty', () => {
+    expect(buildMimeMessage({ ...base, cc: [] })).not.toContain('Cc:')
+  })
+
+  it('rejects CR/LF in a Cc address', () => {
+    expect(() =>
+      buildMimeMessage({ ...base, cc: ['ok@example.com\r\nBcc: attacker@evil.com'] }),
+    ).toThrow()
   })
 })
 

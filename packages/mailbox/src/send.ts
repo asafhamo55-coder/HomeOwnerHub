@@ -36,43 +36,42 @@ function assertNoHeaderInjection(field: string, value: string): void {
   }
 }
 
-export function buildRawMessage(opts: {
+export function buildMimeMessage(opts: {
   from: string
   to: string[]
+  cc?: string[]
   subject: string
   body: string
   inReplyTo: string | null
   references: string[]
 }): string {
+  const cc = opts.cc ?? []
+
   assertNoHeaderInjection('subject', opts.subject)
   assertNoHeaderInjection('from', opts.from)
   for (const to of opts.to) assertNoHeaderInjection('to', to)
+  for (const address of cc) assertNoHeaderInjection('cc', address)
   if (opts.inReplyTo) assertNoHeaderInjection('inReplyTo', opts.inReplyTo)
   for (const ref of opts.references) assertNoHeaderInjection('references', ref)
 
   const headers = [
     `From: ${opts.from}`,
     `To: ${opts.to.join(', ')}`,
+  ]
+  // Omitted entirely when empty — an empty `Cc:` header is not useful and
+  // some relays treat a bare header as malformed.
+  if (cc.length > 0) headers.push(`Cc: ${cc.join(', ')}`)
+  headers.push(
     `Subject: ${encodeHeader(opts.subject)}`,
     'MIME-Version: 1.0',
     'Content-Type: text/plain; charset="UTF-8"',
     'Content-Transfer-Encoding: 8bit',
-  ]
+  )
 
-  // Omitted entirely when absent — an empty `In-Reply-To:` header is invalid
-  // and some relays reject the whole message rather than just the header.
   if (opts.inReplyTo) headers.push(`In-Reply-To: ${opts.inReplyTo}`)
   if (opts.references.length > 0) headers.push(`References: ${opts.references.join(' ')}`)
 
-  const message = `${headers.join('\r\n')}\r\n\r\n${opts.body}`
-
-  // Base64url, not base64: the Gmail API rejects `+`, `/`, and `=` in the
-  // `raw` field.
-  return Buffer.from(message, 'utf8')
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
+  return `${headers.join('\r\n')}\r\n\r\n${opts.body}`
 }
 
 /**
