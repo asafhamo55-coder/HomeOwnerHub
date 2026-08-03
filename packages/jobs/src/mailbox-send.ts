@@ -1,5 +1,5 @@
 import { createAdminClient } from '@homeowner-portal/db'
-import { buildRawMessage, sendReply, MailboxAuthError } from '@homeowner-portal/mailbox'
+import { buildMimeMessage, sendReply, MailboxAuthError } from '@homeowner-portal/mailbox'
 import { inngest } from './client'
 import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
 import { logDbError } from './db-error'
@@ -193,7 +193,7 @@ async function sendToGmail(
 ): Promise<{ messageId: string }> {
   try {
     const accessToken = await getAccessTokenFor(db, thread.mailbox_account_id)
-    const raw = buildRawMessage({
+    const mime = buildMimeMessage({
       from: account.email_address,
       to: [last.from_email],
       subject: draft.subject,
@@ -201,7 +201,7 @@ async function sendToGmail(
       inReplyTo: last.rfc822_message_id,
       references: last.rfc822_message_id ? [last.rfc822_message_id] : [],
     })
-    return await sendReply(accessToken, thread.gmail_thread_id, raw)
+    return await sendReply(accessToken, thread.gmail_thread_id, mime)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     await fail(db, draftId, message)

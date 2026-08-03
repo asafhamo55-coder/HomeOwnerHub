@@ -7,7 +7,8 @@
 import { randomBytes } from 'node:crypto'
 import { MailboxAuthError, type OutboundAttachment } from './types'
 
-const GMAIL_SEND_URL = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send'
+const GMAIL_UPLOAD_SEND_URL =
+  'https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=multipart'
 
 /**
  * Encode a header value as RFC 2047 when it contains non-ASCII, so a subject
@@ -174,34 +175,54 @@ export function buildMimeMessage(opts: {
 }
 
 /**
- * Send via the Gmail API. `threadId` files the reply into the same
- * conversation on the HOA's side; In-Reply-To/References (already baked
- * into `raw` by buildRawMessage) do the same on the resident's side. Both
- * are needed — Gmail's threadId alone does not set the RFC headers that
- * other mail clients use to thread.
+ * Send via the Gmail API's UPLOAD endpoint.
  *
- * Deliberately no retry, unlike GmailClient.request: this call is not
- * idempotent, and retrying after an ambiguous failure (e.g. a timeout where
- * the send may have already succeeded) risks sending a resident the same
- * reply twice. The caller records the failure and a human decides whether
- * to resend.
+ * The plain `messages/send` endpoint takes the message base64url-encoded in
+ * a JSON field, which caps the whole request near 5MB — less than a single
+ * phone photo. `uploadType=multipart` takes a JSON metadata part plus a
+ * `message/rfc822` part and allows 35MB.
+ *
+ * `threadId` files the message into the same conversation on the HOA's side;
+ * In-Reply-To/References (already in `mime` from buildMimeMessage) do the
+ * same on the resident's side. Both are needed. `null` omits it, which is
+ * what a brand-new conversation requires.
+ *
+ * Deliberately no retry, unchanged from before: this call is not idempotent,
+ * and retrying after an ambiguous failure (a timeout where the send may have
+ * already succeeded) risks sending a resident the same reply twice. The
+ * caller records the failure and a human decides whether to resend.
  */
 export async function sendReply(
   accessToken: string,
-  threadId: string,
-  raw: string,
-): Promise<{ messageId: string; threadId: string }> {
-  const response = await fetch(GMAIL_SEND_URL, {
+  threadId: string | null,
+  mime: string,
+): Promise<{ messageId: string; threadId: string | null }> {
+  const boundary = makeBoundary()
+  const metadata = JSON.stringify(threadId ? { threadId } : {})
+
+  const body = [
+    `--${boundary}`,
+    'Content-Type: application/json; charset=UTF-8',
+    '',
+    metadata,
+    `--${boundary}`,
+    'Content-Type: message/rfc822',
+    '',
+    mime,
+    `--${boundary}--`,
+  ].join('\r\n')
+
+  const response = await fetch(GMAIL_UPLOAD_SEND_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
+      'Content-Type': `multipart/related; boundary=${boundary}`,
     },
-    body: JSON.stringify({ raw, threadId }),
+    body,
   })
 
-  // Same mapping as GmailClient: dead credentials must surface distinctly
-  // so the caller can mark the mailbox as needing reconnection rather than
+  // Same mapping as GmailClient: dead credentials must surface distinctly so
+  // the caller can mark the mailbox as needing reconnection rather than
   // treating this as a transient blip.
   if (response.status === 401 || response.status === 403) {
     throw new MailboxAuthError(`Gmail rejected the send: ${response.status}`)

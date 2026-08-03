@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // sendReply must never actually be reachable in a test run — this suite
-// mocks it. `buildRawMessage` is mocked alongside it purely so tests don't
+// mocks it. `buildMimeMessage` is mocked alongside it purely so tests don't
 // have to supply header-valid inputs; MailboxAuthError and every other
 // export of @homeowner-portal/mailbox stay real so `instanceof` checks in
 // mailbox-send.ts still work against the classes the tests construct.
@@ -9,7 +9,7 @@ vi.mock('@homeowner-portal/mailbox', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@homeowner-portal/mailbox')>()
   return {
     ...actual,
-    buildRawMessage: vi.fn(() => 'raw-message'),
+    buildMimeMessage: vi.fn(() => 'mime-message'),
     sendReply: vi.fn(),
   }
 })
@@ -20,7 +20,7 @@ vi.mock('./mailbox-tokens', () => ({
 }))
 
 import { runMailboxSend, type MailboxSendStep, type MailboxSendLogger } from './mailbox-send'
-import { buildRawMessage, sendReply, MailboxAuthError } from '@homeowner-portal/mailbox'
+import { buildMimeMessage, sendReply, MailboxAuthError } from '@homeowner-portal/mailbox'
 import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
 
 type Row = { data: unknown; error: unknown }
@@ -208,7 +208,7 @@ describe('runMailboxSend', () => {
     expect(result).toEqual({ sent: false, reason: 'cancelled' })
     expect(step.sleepUntil).toHaveBeenCalledTimes(1)
     expect(sendReply).not.toHaveBeenCalled()
-    expect(buildRawMessage).not.toHaveBeenCalled()
+    expect(buildMimeMessage).not.toHaveBeenCalled()
     expect(getAccessTokenFor).not.toHaveBeenCalled()
   })
 
@@ -240,7 +240,7 @@ describe('runMailboxSend', () => {
     const result = await runMailboxSend(db, step, fakeLogger(), DRAFT_ID)
 
     expect(result).toEqual({ sent: true, messageId: 'gm-1' })
-    expect(sendReply).toHaveBeenCalledWith('access-token', 'gm-thread-1', 'raw-message')
+    expect(sendReply).toHaveBeenCalledWith('access-token', 'gm-thread-1', 'mime-message')
   })
 
   it('fails the draft without attempting a send when the mailbox is disconnected', async () => {
@@ -568,7 +568,7 @@ describe('runMailboxSend under Inngest step replay', () => {
       messageId: 'gmail-msg-1',
       threadId: 'gmail-thread-1',
     })
-    vi.mocked(buildRawMessage).mockReturnValue('raw-message')
+    vi.mocked(buildMimeMessage).mockReturnValue('mime-message')
   })
 
   it('sends the reply even though the claim flips the row before the next invocation', async () => {

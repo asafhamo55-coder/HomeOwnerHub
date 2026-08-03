@@ -75,55 +75,71 @@ describe('buildMimeMessage — Cc', () => {
 })
 
 describe('sendReply', () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
+  afterEach(() => vi.restoreAllMocks())
+
+  function mockOk() {
+    return vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ id: 'msg-1', threadId: 'thread-1' }), { status: 200 }),
+    )
+  }
+
+  it('posts to the upload endpoint with uploadType=multipart', async () => {
+    const fetchSpy = mockOk()
+    await sendReply('at-1', 'thread-1', 'From: a@b.c\r\n\r\nhi')
+    const url = String(fetchSpy.mock.calls[0][0])
+    expect(url).toContain('/upload/gmail/v1/users/me/messages/send')
+    expect(url).toContain('uploadType=multipart')
+  })
+
+  it('sends a related multipart carrying the threadId metadata and the rfc822 message', async () => {
+    const fetchSpy = mockOk()
+    await sendReply('at-1', 'thread-1', 'From: a@b.c\r\n\r\nhi')
+    const init = fetchSpy.mock.calls[0][1] as RequestInit
+    const contentType = String((init.headers as Record<string, string>)['Content-Type'])
+    expect(contentType).toContain('multipart/related; boundary=')
+    const body = String(init.body)
+    expect(body).toContain('Content-Type: application/json; charset=UTF-8')
+    expect(body).toContain('{"threadId":"thread-1"}')
+    expect(body).toContain('Content-Type: message/rfc822')
+    expect(body).toContain('From: a@b.c')
+  })
+
+  it('omits threadId from the metadata when null, so the message starts a new thread', async () => {
+    const fetchSpy = mockOk()
+    await sendReply('at-1', null, 'From: a@b.c\r\n\r\nhi')
+    const body = String((fetchSpy.mock.calls[0][1] as RequestInit).body)
+    expect(body).toContain('{}')
+    expect(body).not.toContain('threadId')
   })
 
   it('returns the message id and thread id from the payload on success', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ id: 'msg-1', threadId: 'thread-1' }), { status: 200 }),
-    )
-
-    const result = await sendReply('at-1', 'thread-1', 'raw-message')
+    mockOk()
+    const result = await sendReply('at-1', 'thread-1', 'raw')
     expect(result).toEqual({ messageId: 'msg-1', threadId: 'thread-1' })
   })
 
   it('throws MailboxAuthError on a 401', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ error: { message: 'Invalid Credentials' } }), {
-        status: 401,
-      }),
-    )
-
-    await expect(sendReply('bad', 'thread-1', 'raw-message')).rejects.toBeInstanceOf(
-      MailboxAuthError,
-    )
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 401 }))
+    await expect(sendReply('bad', 'thread-1', 'raw')).rejects.toBeInstanceOf(MailboxAuthError)
   })
 
   it('throws MailboxAuthError on a 403', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ error: { message: 'Forbidden' } }), { status: 403 }),
-    )
-
-    await expect(sendReply('at-1', 'thread-1', 'raw-message')).rejects.toBeInstanceOf(
-      MailboxAuthError,
-    )
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 403 }))
+    await expect(sendReply('at-1', 'thread-1', 'raw')).rejects.toBeInstanceOf(MailboxAuthError)
   })
 
   it('throws a generic Error carrying the status on other non-OK responses', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response('Internal error', { status: 500, statusText: 'Internal Server Error' }),
     )
-
-    await expect(sendReply('at-1', 'thread-1', 'raw-message')).rejects.toThrow(/500/)
+    await expect(sendReply('at-1', 'thread-1', 'raw')).rejects.toThrow(/500/)
   })
 
   it('throws when a 200 response payload has no id', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ threadId: 'thread-1' }), { status: 200 }),
     )
-
-    await expect(sendReply('at-1', 'thread-1', 'raw-message')).rejects.toThrow(/message id/)
+    await expect(sendReply('at-1', 'thread-1', 'raw')).rejects.toThrow(/message id/)
   })
 })
 
