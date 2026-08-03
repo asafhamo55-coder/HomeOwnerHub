@@ -90,48 +90,39 @@ describe('listThreadsForUnit', () => {
 })
 
 /**
- * Regression guard for a live production break.
+ * `vendor_id` is selected and surfaced as `vendorId`.
  *
- * `getThreadDetail` began selecting `vendor_id` before migration 0037 was
- * applied. PostgREST answers an unknown column with 42703, and this
- * function throws on any query error — so every inbox thread page 500'd on
- * the deployed build while the column was missing.
- *
- * Schema and code deploy independently here (migrations are applied by hand
- * per docs/DEPLOY.md), so a column this feature merely *decorates* must
- * never be able to take the page down. `vendor_id` is enrichment: the
- * thread, its messages, and its property filing are all still correct
- * without it.
+ * This replaces a fallback that briefly tolerated the column being absent:
+ * the select shipped to production before migration 0037 was applied, and
+ * because this function throws on any query error, every inbox thread page
+ * 500'd until the column existed. The fallback is gone now that 0037 is
+ * applied; what remains worth guarding is that the column is actually read
+ * and mapped, so a future edit dropping it from the select fails here
+ * rather than silently showing every thread as unfiled.
  */
-describe('getThreadDetail — a missing vendor_id column must not 500 the page', () => {
-  function dbMissingVendorColumn() {
-    const attempted: string[] = []
+describe('getThreadDetail — vendor filing', () => {
+  function dbWithThread(vendorId: string | null) {
+    const selects: string[] = []
     const from = vi.fn((table: string) => {
       const chain: Record<string, unknown> = {
         select: vi.fn((columns: string) => {
-          attempted.push(columns)
-          // Postgres/PostgREST's undefined_column, exactly as returned live.
-          if (table === 'inbox_threads' && columns.includes('vendor_id')) {
-            chain._result = {
-              data: null,
-              error: { code: '42703', message: 'column inbox_threads.vendor_id does not exist' },
-            }
-          } else if (table === 'inbox_threads') {
-            chain._result = {
-              data: {
-                id: 'thread-1',
-                subject: 'Retention pond',
-                status: 'open',
-                unit_id: 'unit-1',
-                match_confidence: 'high',
-                match_reason: null,
-                match_source: 'auto',
-              },
-              error: null,
-            }
-          } else {
-            chain._result = { data: [], error: null }
-          }
+          selects.push(columns)
+          chain._result =
+            table === 'inbox_threads'
+              ? {
+                  data: {
+                    id: 'thread-1',
+                    subject: 'Retention pond',
+                    status: 'open',
+                    unit_id: 'unit-1',
+                    vendor_id: vendorId,
+                    match_confidence: 'high',
+                    match_reason: null,
+                    match_source: 'auto',
+                  },
+                  error: null,
+                }
+              : { data: [], error: null }
           return chain
         }),
         eq: vi.fn(() => chain),
@@ -144,21 +135,23 @@ describe('getThreadDetail — a missing vendor_id column must not 500 the page',
       }
       return chain
     })
-    return { db: { from } as never, attempted }
+    return { db: { from } as never, selects }
   }
 
-  it('falls back to a vendor-free select and still returns the thread', async () => {
-    const { db, attempted } = dbMissingVendorColumn()
+  it('surfaces the filed vendor as vendorId', async () => {
+    const { db, selects } = dbWithThread('vendor-1')
 
     const thread = await getThreadDetail(db, 'org-1', 'thread-1')
 
-    expect(thread).not.toBeNull()
-    expect(thread?.id).toBe('thread-1')
-    expect(thread?.unitId).toBe('unit-1')
-    // Degrades to "no vendor filed" rather than throwing.
+    expect(thread?.vendorId).toBe('vendor-1')
+    expect(selects.some((c) => c.includes('vendor_id'))).toBe(true)
+  })
+
+  it('reports an unfiled thread as null rather than undefined', async () => {
+    const { db } = dbWithThread(null)
+
+    const thread = await getThreadDetail(db, 'org-1', 'thread-1')
+
     expect(thread?.vendorId).toBeNull()
-    // And it really did retry without the column.
-    expect(attempted.some((c) => c.includes('vendor_id'))).toBe(true)
-    expect(attempted.some((c) => !c.includes('vendor_id') && c.includes('unit_id'))).toBe(true)
   })
 })

@@ -2960,6 +2960,7 @@ export type Database = {
           status: string
           subject: string | null
           unit_id: string | null
+          vendor_id: string | null
         }
         Insert: {
           assigned_to?: string | null
@@ -2978,6 +2979,7 @@ export type Database = {
           status?: string
           subject?: string | null
           unit_id?: string | null
+          vendor_id?: string | null
         }
         Update: {
           assigned_to?: string | null
@@ -2996,6 +2998,7 @@ export type Database = {
           status?: string
           subject?: string | null
           unit_id?: string | null
+          vendor_id?: string | null
         }
         Relationships: [
           {
@@ -3031,6 +3034,13 @@ export type Database = {
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_threads_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
             referencedColumns: ["id"]
           },
         ]

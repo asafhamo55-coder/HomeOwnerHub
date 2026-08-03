@@ -573,61 +573,19 @@ export interface PropertyContext {
  * whole thread view, the same stakes split listThreads/getConnectPreview
  * use above.
  */
-/** Row shape of the `inbox_threads` select in `getThreadDetail`. */
-interface ThreadDetailRow {
-  id: string
-  subject: string | null
-  status: string
-  unit_id: string | null
-  vendor_id: string | null
-  match_confidence: string
-  match_reason: unknown
-  match_source: string
-}
-
 export async function getThreadDetail(
   db: Db,
   orgId: string,
   threadId: string,
 ): Promise<ThreadDetail | null> {
-  // `as never` on the table name plus an explicit row generic: the
-  // generated types predate migration 0037, so a typed select naming
-  // `vendor_id` collapses the whole query to SelectQueryError and every
-  // field read off it fails. This is the same workaround lib/vendors.ts
-  // uses throughout. Re-running `pnpm --filter @homeowner-portal/db
-  // gen:types` after 0037 is applied would let this revert to a plain
-  // typed select.
-  let { data: thread, error: threadError } = await db
-    .from('inbox_threads' as never)
+  const { data: thread, error: threadError } = await db
+    .from('inbox_threads')
     .select(
       'id, subject, status, unit_id, vendor_id, match_confidence, match_reason, match_source',
     )
     .eq('organization_id', orgId)
     .eq('id', threadId)
-    .maybeSingle<ThreadDetailRow>()
-
-  // Schema and code deploy independently here — migrations are applied by
-  // hand (docs/DEPLOY.md), so a build can reach production before its
-  // migration does. That exact gap took every inbox thread page down with a
-  // 500 when this select began naming `vendor_id`: PostgREST answers an
-  // unknown column with 42703, and the throw below turned a decoration into
-  // a page-killer.
-  //
-  // `vendor_id` is enrichment. The thread, its messages and its property
-  // filing are all still correct without it, so a missing column degrades
-  // to "no vendor filed" instead of taking the page with it. Narrow on
-  // purpose: ONLY 42703 (undefined_column) retries — a real failure still
-  // throws. Delete this fallback once 0037 is applied everywhere.
-  if (threadError?.code === '42703') {
-    const retry = await db
-      .from('inbox_threads' as never)
-      .select('id, subject, status, unit_id, match_confidence, match_reason, match_source')
-      .eq('organization_id', orgId)
-      .eq('id', threadId)
-      .maybeSingle<Omit<ThreadDetailRow, 'vendor_id'>>()
-    thread = retry.data ? { ...retry.data, vendor_id: null } : null
-    threadError = retry.error
-  }
+    .maybeSingle()
 
   if (threadError) {
     logDbError('getThreadDetail', 'inbox_threads', { orgId, threadId }, threadError)

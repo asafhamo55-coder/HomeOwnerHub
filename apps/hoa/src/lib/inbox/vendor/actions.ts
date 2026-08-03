@@ -97,7 +97,7 @@ export async function assignThreadToVendor(
   if (!vendor) return { error: 'Vendor not found.' }
 
   const { data, error } = await supabase
-    .from('inbox_threads' as never)
+    .from('inbox_threads')
     .update({ vendor_id: vendorId } as never)
     .eq('id', threadId)
     .eq('organization_id', org.id)
@@ -121,7 +121,7 @@ export async function unassignThreadVendor(
   const supabase = await getSupabaseServerClient()
 
   const { data, error } = await supabase
-    .from('inbox_threads' as never)
+    .from('inbox_threads')
     .update({ vendor_id: null } as never)
     .eq('id', threadId)
     .eq('organization_id', org.id)
