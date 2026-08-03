@@ -89,6 +89,90 @@ export function storagePathBelongsToOrg(storagePath: string, orgId: string): boo
 }
 
 /**
+ * A base that exists only so a storage KEY can be parsed the way `fetch`
+ * will parse it. Never contacted; `.invalid` is reserved by RFC 2606
+ * precisely so it can never resolve.
+ */
+const PATH_RESOLUTION_BASE = 'https://storage.invalid/'
+
+/**
+ * The key `fetch` will ACTUALLY request, or null if it cannot be trusted.
+ *
+ * `storagePathBelongsToOrg` reasons about a `/`-split string. The storage
+ * client does not: `@supabase/storage-js`'s `_getFinalPath` is
+ * `` `${bucketId}/${path.replace(/^\/+/,'')}` `` — no percent-encoding at all
+ * — and `download` concatenates that into a URL STRING handed to `fetch`
+ * (verified in the installed 2.105.3: `dist/index.cjs:1499` and `:1157`).
+ * The WHATWG URL parser then rewrites that string before the request leaves
+ * the process: it strips CR/LF/TAB, decodes `%2e`, treats `\` as `/`, and
+ * removes dot segments. So all of these pass a naive segment check and still
+ * fetch a DIFFERENT organization's object:
+ *
+ *     <myOrg>/%2e%2e/<victimOrg>/CCRs.pdf   ->  <victimOrg>/CCRs.pdf
+ *     <myOrg>/%2E%2E/<victimOrg>/CCRs.pdf   ->  <victimOrg>/CCRs.pdf
+ *     <myOrg>/.<LF>./<victimOrg>/x          ->  <victimOrg>/x
+ *     <myOrg>/.<CR>./<victimOrg>/x          ->  <victimOrg>/x
+ *
+ * So: resolve first, validate what will actually be requested.
+ *
+ * Deliberately NOT a blanket `%` rejection. Legitimate keys contain one —
+ * `sanitizeStorageName` (apps/hoa/src/lib/documents.ts) sanitizes only the
+ * BASE of a filename and passes the extension tail through untouched, so a
+ * stored document really can be `<org>/1770000000-summer-invoice.pdf copy`
+ * or carry a `%`. Rejecting `%` outright would make existing documents
+ * unattachable.
+ *
+ * The second condition is the important one, because it does not depend on
+ * enumerating the parser's tricks. `reEncoded` runs the raw key through the
+ * SAME parser via the `pathname` setter, which applies the identical
+ * percent-encoding but is reached without URL-string parsing. If the two
+ * disagree, the key means something different as a URL than it does as a
+ * string, and it is refused — no matter which normalization did it. That is
+ * what catches the class rather than the four instances above: a `#` or `?`
+ * truncates the string (`<org>/a#b.pdf` would fetch `<org>/a`, i.e. silently
+ * mail a different file than the approver reviewed) and is caught here even
+ * though it never leaves the org.
+ *
+ * Percent-encoding alone is NOT a disagreement: a space becoming `%20` (or
+ * `ü` becoming `%C3%BC`) round-trips to the same object on the server, and
+ * both sides of the comparison carry it identically.
+ *
+ * Exported for direct unit testing.
+ */
+export function resolveStorageFetchPath(rawPath: string): string | null {
+  let resolved: string
+  let reEncoded: string
+  try {
+    resolved = new URL(rawPath, PATH_RESOLUTION_BASE).pathname.slice(1)
+    const encoder = new URL(PATH_RESOLUTION_BASE)
+    encoder.pathname = `/${rawPath}`
+    reEncoded = encoder.pathname.slice(1)
+  } catch {
+    // `new URL` does not throw on a lone `%` ("50% off.pdf" parses fine), but
+    // refusing on any throw keeps this total rather than resting on that.
+    return null
+  }
+  return resolved === reEncoded ? resolved : null
+}
+
+/**
+ * The whole gate: the key as stored AND the key as `fetch` will resolve it
+ * must both sit inside this organization.
+ *
+ * Both, not either. The stored value is what a human reviewed and what the
+ * row claims; the resolved value is what the network will ask for. A
+ * mismatch in either direction means the row does not describe the bytes
+ * that would be sent.
+ *
+ * Exported for direct unit testing.
+ */
+export function attachmentPathIsInOrg(rawPath: string, orgId: string): boolean {
+  if (!storagePathBelongsToOrg(rawPath, orgId)) return false
+  const resolved = resolveStorageFetchPath(rawPath)
+  return resolved !== null && storagePathBelongsToOrg(resolved, orgId)
+}
+
+/**
  * Read every attached file's bytes out of storage.
  *
  * Called BEFORE sendToGmail, deliberately. A missing or unreadable object
@@ -120,7 +204,7 @@ async function loadAttachments(
 
   const files: OutboundAttachment[] = []
   for (const row of data ?? []) {
-    if (!storagePathBelongsToOrg(row.storage_path, orgId)) {
+    if (!attachmentPathIsInOrg(row.storage_path, orgId)) {
       // Deliberately identical handling to a storage read failure: the caller
       // fails the draft with the same generic user-facing message and
       // rethrows, so nothing is transmitted. The path itself is never logged.

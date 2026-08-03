@@ -34,6 +34,12 @@
 -- `starts_with()` rather than LIKE: no wildcard semantics to reason about,
 -- and it is IMMUTABLE, which a CHECK requires.
 --
+-- This file was extended (not superseded by an 0041) after review: it has
+-- never been applied to any database — 0039 itself is unapplied everywhere,
+-- since both live on this unmerged branch — so there is no
+-- migration-already-run hazard, and one constraint is better described by
+-- one file than by a file plus a patch. 0041 was free had it been needed.
+--
 -- Ordering note: this runs after 0039 CREATEs the table, and no environment
 -- has applied 0039 yet, so there are no existing rows for it to invalidate.
 -- Even on a database that had applied 0039, every row written by
@@ -53,6 +59,36 @@ ALTER TABLE public.inbox_draft_attachments
     AND storage_path NOT LIKE '%//%'
     AND storage_path NOT LIKE '/%'
     AND storage_path NOT LIKE '%/'
+
+    -- The three predicates below close the URL-normalization class.
+    --
+    -- `@supabase/storage-js` does not percent-encode: `_getFinalPath` is
+    -- `` `${bucketId}/${path.replace(/^\/+/,'')}` `` and `download`
+    -- concatenates that into a URL STRING passed to `fetch` (verified in
+    -- 2.105.3, dist/index.cjs:1499 and :1157). The WHATWG parser then
+    -- rewrites the string before the request is made — stripping CR/LF/TAB,
+    -- decoding `%2e`, reading `\` as `/`, and removing dot segments. So
+    -- `<org>/%2e%2e/<other org>/CCRs.pdf` satisfies every predicate above
+    -- and still fetches the other org's file.
+    --
+    -- A bare '%' is deliberately NOT rejected: `sanitizeStorageName`
+    -- (apps/hoa/src/lib/documents.ts) sanitizes only the BASE of a filename
+    -- and passes the extension tail through untouched, so real stored keys
+    -- contain '%', spaces and parentheses. Rejecting '%' would make existing
+    -- documents unattachable. Only the escapes that decode into a dot
+    -- segment or a separator are refused.
+    --
+    -- This is the coarse net; packages/jobs/src/mailbox-send.ts holds the
+    -- precise one (`attachmentPathIsInOrg`), which resolves the key exactly
+    -- as `fetch` will and compares.
+    AND storage_path !~ '[[:cntrl:]]'
+    AND storage_path !~* '%2[ef]'
+    -- Backslash: the WHATWG parser treats it as '/' in a special-scheme URL,
+    -- so `<org>/..\<other org>/x` escapes this org's prefix at parse time.
+    -- Beyond the letter of the review note, but the same class and one
+    -- predicate wide.
+    AND storage_path !~ '\\'
+
     AND (
       starts_with(storage_path, organization_id::text || '/')
       OR starts_with(storage_path, 'inbox-drafts/' || organization_id::text || '/')

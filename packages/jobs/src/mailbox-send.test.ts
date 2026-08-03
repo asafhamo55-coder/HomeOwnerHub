@@ -22,6 +22,8 @@ vi.mock('./mailbox-tokens', () => ({
 import {
   runMailboxSend,
   storagePathBelongsToOrg,
+  resolveStorageFetchPath,
+  attachmentPathIsInOrg,
   type MailboxSendStep,
   type MailboxSendLogger,
 } from './mailbox-send'
@@ -813,6 +815,21 @@ describe('runMailboxSend', () => {
     expect(sendReply).not.toHaveBeenCalled()
   })
 
+  it.each([
+    ['percent-encoded dot segments', 'org-1/%2e%2e/org-2/CCRs.pdf'],
+    ['an LF inside a dot segment', 'org-1/.\n./org-2/x'],
+  ])(
+    'refuses %s, which the URL parser would have resolved to the other org',
+    async (_label, path) => {
+      // The storage stub is keyed by the RAW path, so if this ever regressed
+      // to a plain segment check the download would succeed and the send
+      // would go through — the assertion below would then fail loudly.
+      const db = attachmentDb(path)
+      await expect(runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')).rejects.toThrow()
+      expect(sendReply).not.toHaveBeenCalled()
+    },
+  )
+
   it('marks the draft failed with the generic storage message, never the path', async () => {
     // Same handling as an unreadable object: fail() writes the existing
     // user-facing wording and the job throws, so nothing is transmitted.
@@ -897,6 +914,9 @@ describe('storagePathBelongsToOrg', () => {
     expect(storagePathBelongsToOrg(path, 'org-1')).toBe(true)
   })
 
+  // Segment-level only. The URL-normalization class is `attachmentPathIsInOrg`'s
+  // job and is covered in its own describe below — these strings deliberately
+  // still pass here, which is exactly why the second check exists.
   it.each([
     ['another org, document library', 'org-2/CCRs.pdf'],
     ['another org, inbound file', 'org-2/inbox/t1/m1/a1/photo.jpg'],
@@ -912,6 +932,81 @@ describe('storagePathBelongsToOrg', () => {
     ['an empty path', ''],
   ])('refuses %s', (_label, path) => {
     expect(storagePathBelongsToOrg(path, 'org-1')).toBe(false)
+  })
+})
+
+/**
+ * The storage client concatenates the key into a URL STRING and hands it to
+ * `fetch`, without percent-encoding anything. The WHATWG parser then rewrites
+ * that string — stripping CR/LF/TAB, decoding `%2e`, reading `\` as `/`, and
+ * removing dot segments — so a key can pass a `/`-split check and still
+ * request a different organization's object.
+ */
+describe('attachmentPathIsInOrg — the key fetch will actually request', () => {
+  const CROSS_ORG_VIA_NORMALIZATION: Array<[string, string]> = [
+    ['percent-encoded dot segments', 'org-1/%2e%2e/org-2/CCRs.pdf'],
+    ['percent-encoded dot segments, upper case', 'org-1/%2E%2E/org-2/CCRs.pdf'],
+    ['an LF inside a dot segment', 'org-1/.\n./org-2/x'],
+    ['a CR inside a dot segment', 'org-1/.\r./org-2/x'],
+    ['a TAB inside a dot segment', 'org-1/.\t./org-2/x'],
+    ['a backslash read as a separator', 'org-1/..\\org-2/x'],
+    ['the same trick under the upload prefix', 'inbox-drafts/org-1/d1/%2e%2e/%2e%2e/org-2/x'],
+  ]
+
+  it.each(CROSS_ORG_VIA_NORMALIZATION)('refuses %s', (_label, path) => {
+    expect(attachmentPathIsInOrg(path, 'org-1')).toBe(false)
+  })
+
+  // These are the whole reason `attachmentPathIsInOrg` exists: every one of
+  // them satisfies the segment check, so without the resolution step they
+  // would have been downloaded.
+  it.each(CROSS_ORG_VIA_NORMALIZATION)(
+    'the segment check alone would have ACCEPTED %s — pinning why the second check exists',
+    (_label, path) => {
+      const segmentsAlone = storagePathBelongsToOrg(path, 'org-1')
+      const resolved = resolveStorageFetchPath(path)
+      // Either the raw string passed the segment check (so only resolution
+      // saves us), or resolution itself refused it outright.
+      expect(segmentsAlone || resolved === null).toBe(true)
+    },
+  )
+
+  it('resolves the documented attack to the victim org, proving the mechanism', () => {
+    expect(resolveStorageFetchPath('org-1/%2e%2e/org-2/CCRs.pdf')).toBe('org-2/CCRs.pdf')
+    expect(resolveStorageFetchPath('org-1/.\n./org-2/x')).toBe('org-2/x')
+  })
+
+  it.each([
+    ['a fragment marker truncating the key', 'org-1/a#b.pdf'],
+    ['a query marker truncating the key', 'org-1/a?b.pdf'],
+  ])('refuses %s — it would fetch a different file even inside this org', (_label, path) => {
+    // Not a tenant breach, but the job would silently mail an object other
+    // than the one the row names and the approver reviewed.
+    expect(attachmentPathIsInOrg(path, 'org-1')).toBe(false)
+  })
+
+  it.each([
+    ['a document-library file', 'org-1/CCRs.pdf'],
+    ['an inbound attachment file', 'org-1/inbox/t1/m1/a1/photo.jpg'],
+    ['a browser upload', 'inbox-drafts/org-1/d1/11111111-1111-1111-1111-111111111111'],
+    // `sanitizeStorageName` sanitizes only the BASE of a filename and passes
+    // the extension tail through untouched, so all of these are real stored
+    // keys. A blanket '%' rejection would make them unattachable.
+    ['a name containing a percent sign', 'org-1/1770000000-sale.pdf 50% off'],
+    ['a name containing spaces and parentheses', 'org-1/1770000000-budget.pdf (final) copy'],
+    ['a non-ASCII name', 'org-1/1770000000-plan.pdf Grünanlage'],
+    ['a name whose percent escape is not a dot', 'org-1/a%2fb.pdf'],
+  ])('accepts %s', (_label, path) => {
+    expect(attachmentPathIsInOrg(path, 'org-1')).toBe(true)
+  })
+
+  it('does not throw on a lone percent sign', () => {
+    expect(() => resolveStorageFetchPath('org-1/100%.pdf')).not.toThrow()
+    expect(resolveStorageFetchPath('org-1/100%.pdf')).toBe('org-1/100%.pdf')
+  })
+
+  it('still refuses a plain cross-org key that needs no normalization at all', () => {
+    expect(attachmentPathIsInOrg('org-2/CCRs.pdf', 'org-1')).toBe(false)
   })
 })
 
