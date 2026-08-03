@@ -254,6 +254,36 @@ describe('buildMimeMessage — attachments', () => {
     ).toThrow()
   })
 
+  // `contentType` is client-supplied end to end — AttachmentPicker passes the
+  // browser's `file.type || null` verbatim and it is stored and forwarded
+  // unvalidated — so it needs the same guard every other interpolated header
+  // value gets.
+  it('rejects CR/LF in a contentType — it lands in a header line', () => {
+    expect(() =>
+      buildMimeMessage({
+        ...base,
+        attachments: [{ ...pdf, contentType: 'application/pdf\r\nBcc: attacker@evil.com' }],
+      }),
+    ).toThrow()
+  })
+
+  it('rejects a double quote in a contentType rather than escaping it', () => {
+    expect(() =>
+      buildMimeMessage({
+        ...base,
+        attachments: [{ ...pdf, contentType: 'application/pdf"; x="y' }],
+      }),
+    ).toThrow()
+  })
+
+  it('still accepts an ordinary parameterised contentType', () => {
+    const out = buildMimeMessage({
+      ...base,
+      attachments: [{ ...pdf, contentType: 'text/plain; charset=UTF-8' }],
+    })
+    expect(out).toContain('Content-Type: text/plain; charset=UTF-8; name="ccrs.pdf"')
+  })
+
   it('RFC 2047 encodes a non-ASCII filename', () => {
     const out = buildMimeMessage({
       ...base,

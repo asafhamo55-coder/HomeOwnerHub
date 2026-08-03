@@ -34,7 +34,7 @@ function encodeHeader(value: string): string {
  */
 function assertNoHeaderInjection(field: string, value: string): void {
   if (/[\r\n]/.test(value)) {
-    throw new Error(`buildRawMessage: ${field} must not contain CR or LF`)
+    throw new Error(`buildMimeMessage: ${field} must not contain CR or LF`)
   }
 }
 
@@ -54,6 +54,27 @@ function assertSafeFileName(name: string): void {
   }
   if (name.trim() === '') {
     throw new Error('buildMimeMessage: fileName must not be empty')
+  }
+}
+
+/**
+ * A content type is interpolated into the attachment part's `Content-Type:`
+ * line, so it is a header value like any other and must clear
+ * assertNoHeaderInjection — without it, a crafted type could inject a `Bcc:`
+ * line, which is exactly what that guard exists to stop. It IS reachable
+ * from outside: AttachmentPicker sends the browser's `file.type` verbatim
+ * (`file.type || null`), and it is stored on the row and forwarded to here
+ * unvalidated.
+ *
+ * A double quote is rejected as well, on the same reasoning as
+ * assertSafeFileName: the type sits on a line that continues into a quoted
+ * `name="…"` parameter, so a quote inside it would close that string early
+ * and let the remainder be read as further parameters.
+ */
+function assertSafeContentType(value: string): void {
+  assertNoHeaderInjection('contentType', value)
+  if (value.includes('"')) {
+    throw new Error('buildMimeMessage: contentType must not contain a double quote')
   }
 }
 
@@ -125,7 +146,10 @@ export function buildMimeMessage(opts: {
   if (opts.references.length > 0) headers.push(`References: ${opts.references.join(' ')}`)
 
   const attachments = opts.attachments ?? []
-  for (const file of attachments) assertSafeFileName(file.fileName)
+  for (const file of attachments) {
+    assertSafeFileName(file.fileName)
+    if (file.contentType) assertSafeContentType(file.contentType)
+  }
 
   // No attachments — emit the single-part message unchanged, byte for byte.
   // A golden test pins this: ordinary replies are the overwhelming majority
