@@ -30,6 +30,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { retrieveForThread } from './retrieve'
 import { UNDO_WINDOW_SECONDS, hasUnfilledBlanks } from './blanks'
 import { normalizeRecipients } from './recipients'
+import { MAX_ATTACHMENT_BYTES } from './attachments'
 
 export async function createDraft(
   threadId: string,
@@ -240,6 +241,38 @@ export async function approveDraft(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Not signed in.' }
+
+  // Re-checked server-side. The composer already refuses an over-budget
+  // file, but that is an affordance: a stale tab, a concurrent second
+  // window, or a direct action call could all reach here over the cap, and
+  // Gmail would reject the whole send after the row was already 'queued'.
+  const { data: attachmentRows, error: attachmentError } = await supabase
+    .from('inbox_draft_attachments')
+    .select('size_bytes')
+    .eq('organization_id', org.id)
+    .eq('draft_id', draftId)
+  if (attachmentError) {
+    console.error(
+      `approveDraft: attachment size read failed: ${attachmentError.code} ${attachmentError.message}`,
+    )
+    return { error: 'Could not check the attachment size limit.' }
+  }
+  // Compared against the total, NOT against `remainingBudget(...) === 0` —
+  // the budget is also exactly zero when attachments come to precisely the
+  // cap, which is allowed.
+  const totalBytes = (attachmentRows ?? []).reduce(
+    (sum, row) => sum + Number(row.size_bytes),
+    0,
+  )
+  if (totalBytes > MAX_ATTACHMENT_BYTES) {
+    // Whole-MB, derived from the constant — the SAME approach
+    // `checkAttachmentFits` already uses. `formatBytes` always keeps one
+    // decimal ("15.0 MB"), and this message's wording is asserted on.
+    const capMb = MAX_ATTACHMENT_BYTES / (1024 * 1024)
+    return {
+      error: `Attachments exceed the ${capMb} MB limit. Remove a file and try again.`,
+    }
+  }
 
   const sendAfter = new Date(Date.now() + UNDO_WINDOW_SECONDS * 1000).toISOString()
 

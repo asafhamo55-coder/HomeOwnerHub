@@ -8,6 +8,7 @@ import {
   getPropertyContext,
   getThreadDetail,
   getUnitLabel,
+  listDraftAttachments,
   listThreads,
   INBOX_PAGE_SIZE,
   type InboxFilter,
@@ -88,6 +89,10 @@ export default async function ThreadPage({
   const contextLoadFailed = contextOutcome === 'error'
   const context: PropertyContext | null = contextLoadFailed ? null : contextOutcome
 
+  // Page-defining, like the draft itself: an approver must never see a
+  // message that appears to have no files beside one that will send three.
+  const draftAttachments = draft ? await listDraftAttachments(supabase, org.id, draft.id) : []
+
   return (
     <main className="flex h-[calc(100vh-4rem)] overflow-hidden">
       {/* pane 1 — list */}
@@ -119,7 +124,7 @@ export default async function ThreadPage({
 
         <MessageThread messages={thread.messages} />
 
-        <DraftPanel threadId={thread.id} draft={draft} />
+        <DraftPanel threadId={thread.id} draft={draft} attachments={draftAttachments} />
       </section>
 
       {/* pane 3 — property rail */}

@@ -9,10 +9,21 @@ vi.mock('@/lib/auth', () => ({
 
 const update = vi.fn()
 
+let attachmentRows: Array<{ size_bytes: number }> = []
+
 vi.mock('@/lib/supabase/server', () => ({
   getSupabaseServerClient: vi.fn(async () => ({
     auth: { getUser: vi.fn(async () => ({ data: { user: { id: 'user-1' } } })) },
-    from: vi.fn(() => {
+    from: vi.fn((table: string) => {
+      if (table === 'inbox_draft_attachments') {
+        const attachmentChain: Record<string, unknown> = {
+          select: vi.fn(() => attachmentChain),
+          eq: vi.fn(() => attachmentChain),
+          then: (resolve: (value: { data: typeof attachmentRows; error: null }) => unknown) =>
+            resolve({ data: attachmentRows, error: null }),
+        }
+        return attachmentChain
+      }
       const chain: Record<string, unknown> = {
         update: vi.fn((values: unknown) => {
           update(values)
@@ -43,7 +54,10 @@ const valid = {
 }
 
 describe('approveDraft — recipient validation', () => {
-  beforeEach(() => update.mockClear())
+  beforeEach(() => {
+    update.mockClear()
+    attachmentRows = []
+  })
 
   it('queues the reply and writes both recipient lists in the same update', async () => {
     const result = await approveDraft('draft-1', { ...valid, cc: ['pm@example.com'] })
@@ -88,5 +102,20 @@ describe('approveDraft — recipient validation', () => {
     const result = await approveDraft('draft-1', { ...valid, subject: 'Re: [[BLANK: money]]' })
     expect('error' in result).toBe(true)
     expect(update).not.toHaveBeenCalled()
+  })
+
+  it('refuses to queue a message whose attachments exceed the cap', async () => {
+    // The mock's `inbox_draft_attachments` read returns one 20MB file.
+    attachmentRows = [{ size_bytes: 20 * 1024 * 1024 }]
+    const result = await approveDraft('draft-1', valid)
+    expect('error' in result).toBe(true)
+    if ('error' in result) expect(result.error).toContain('15 MB')
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('allows attachments that come to exactly the cap', async () => {
+    attachmentRows = [{ size_bytes: 15 * 1024 * 1024 }]
+    const result = await approveDraft('draft-1', valid)
+    expect('ok' in result).toBe(true)
   })
 })
