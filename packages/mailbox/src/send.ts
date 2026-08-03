@@ -4,7 +4,8 @@
  * file must not change that.
  */
 
-import { MailboxAuthError } from './types'
+import { randomBytes } from 'node:crypto'
+import { MailboxAuthError, type OutboundAttachment } from './types'
 
 const GMAIL_SEND_URL = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send'
 
@@ -36,6 +37,56 @@ function assertNoHeaderInjection(field: string, value: string): void {
   }
 }
 
+/**
+ * A filename is interpolated into two header parameters below
+ * (`name=` and `filename=`), so it is exactly as dangerous as any other
+ * header value — see assertNoHeaderInjection's docstring. A double quote
+ * would terminate the quoted-string early and let the rest of the filename
+ * be read as further parameters, so it is REJECTED rather than escaped:
+ * escaping is easy to get subtly wrong, and no legitimate HOA document is
+ * named with a quote in it.
+ */
+function assertSafeFileName(name: string): void {
+  assertNoHeaderInjection('fileName', name)
+  if (name.includes('"')) {
+    throw new Error('buildMimeMessage: fileName must not contain a double quote')
+  }
+  if (name.trim() === '') {
+    throw new Error('buildMimeMessage: fileName must not be empty')
+  }
+}
+
+/**
+ * Random per message. The `-` and `_` characters cannot appear in standard
+ * base64 output, so an attachment part can never contain the delimiter; the
+ * BODY still can, which is what the assertion in buildMimeMessage covers.
+ */
+function makeBoundary(): string {
+  return `----=_HH_${randomBytes(16).toString('hex')}`
+}
+
+function base64Lines(bytes: Buffer): string {
+  return (bytes.toString('base64').match(/.{1,76}/g) ?? []).join('\r\n')
+}
+
+/**
+ * A part containing the delimiter would forge MIME structure — a crafted
+ * reply could append an arbitrary extra part. The boundary carries 16 random
+ * bytes, so this is astronomically unlikely and unreachable from outside;
+ * it is asserted rather than trusted because the failure mode is message
+ * forgery, not a rendering glitch.
+ *
+ * Exported ONLY so the unreachable branch can be tested directly. An
+ * untested throw is a throw nobody knows is broken.
+ */
+export function assertNoBoundaryCollision(parts: string[], boundary: string): void {
+  for (const part of parts) {
+    if (part.includes(`--${boundary}`)) {
+      throw new Error('buildMimeMessage: boundary collision in message content')
+    }
+  }
+}
+
 export function buildMimeMessage(opts: {
   from: string
   to: string[]
@@ -44,6 +95,7 @@ export function buildMimeMessage(opts: {
   body: string
   inReplyTo: string | null
   references: string[]
+  attachments?: OutboundAttachment[]
 }): string {
   const cc = opts.cc ?? []
 
@@ -71,7 +123,54 @@ export function buildMimeMessage(opts: {
   if (opts.inReplyTo) headers.push(`In-Reply-To: ${opts.inReplyTo}`)
   if (opts.references.length > 0) headers.push(`References: ${opts.references.join(' ')}`)
 
-  return `${headers.join('\r\n')}\r\n\r\n${opts.body}`
+  const attachments = opts.attachments ?? []
+  for (const file of attachments) assertSafeFileName(file.fileName)
+
+  // No attachments — emit the single-part message unchanged, byte for byte.
+  // A golden test pins this: ordinary replies are the overwhelming majority
+  // of outbound mail and must not shift because attachments became possible.
+  if (attachments.length === 0) {
+    return `${headers.join('\r\n')}\r\n\r\n${opts.body}`
+  }
+
+  const boundary = makeBoundary()
+
+  const parts = [
+    [
+      'Content-Type: text/plain; charset="UTF-8"',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      opts.body,
+    ].join('\r\n'),
+    ...attachments.map((file) =>
+      [
+        `Content-Type: ${file.contentType ?? 'application/octet-stream'}; name="${encodeHeader(file.fileName)}"`,
+        `Content-Disposition: attachment; filename="${encodeHeader(file.fileName)}"`,
+        'Content-Transfer-Encoding: base64',
+        '',
+        base64Lines(file.bytes),
+      ].join('\r\n'),
+    ),
+  ]
+
+  assertNoBoundaryCollision(parts, boundary)
+
+  // Swap the single-part content headers for the multipart declaration. The
+  // 8bit transfer encoding moves onto the body PART; a multipart container
+  // must not declare one.
+  const multipartHeaders = headers.filter(
+    (h) =>
+      !h.startsWith('Content-Type: text/plain') &&
+      !h.startsWith('Content-Transfer-Encoding:'),
+  )
+  multipartHeaders.splice(
+    multipartHeaders.findIndex((h) => h === 'MIME-Version: 1.0') + 1,
+    0,
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+  )
+
+  const bodyBlock = `--${boundary}\r\n${parts.join(`\r\n--${boundary}\r\n`)}\r\n--${boundary}--`
+  return `${multipartHeaders.join('\r\n')}\r\n\r\n${bodyBlock}`
 }
 
 /**
