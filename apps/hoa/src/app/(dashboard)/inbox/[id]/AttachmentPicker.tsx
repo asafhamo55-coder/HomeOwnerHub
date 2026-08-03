@@ -56,14 +56,21 @@ export function AttachmentPicker({
   }
 
   async function upload(file: File) {
-    const fits = checkAttachmentFits(attachments, file.size)
-    if (!fits.ok) {
-      setError(fits.error)
-      return
-    }
-    setError(null)
-    setUploading(true)
+    // The whole body — including the early size-check rejection below — runs
+    // inside this try so `finally` always clears the file input, on every
+    // exit path. The browser fires no `change` event when an input's value
+    // already equals the re-selected path, so if the reset were skipped on
+    // rejection, a user who picks an oversized file, frees up budget by
+    // removing another attachment, then re-selects that SAME file would see
+    // nothing happen at all: no error, no upload, no feedback.
     try {
+      const fits = checkAttachmentFits(attachments, file.size)
+      if (!fits.ok) {
+        setError(fits.error)
+        return
+      }
+      setError(null)
+      setUploading(true)
       // Bytes go browser → storage directly. A server action caps its
       // request body at 1MB, so a 15MB file could never pass through one.
       const signed = await createAttachmentUploadUrl(draftId, file.name, file.size)
