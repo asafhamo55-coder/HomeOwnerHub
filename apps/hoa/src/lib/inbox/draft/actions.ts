@@ -27,7 +27,7 @@ import { inngest } from '@homeowner-portal/jobs'
 import { draftReply, InvalidCitationError, UnsupportedQuoteError } from '@homeowner-portal/workflows'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { getThreadDetail } from '@/lib/inbox/queries'
+import { getLatestDraft, getThreadDetail } from '@/lib/inbox/queries'
 import { retrieveForThread } from './retrieve'
 import { UNDO_WINDOW_SECONDS, hasUnfilledBlanks } from './blanks'
 import { normalizeRecipients } from './recipients'
@@ -379,6 +379,48 @@ export async function createForwardDraft(
 
   const thread = await getThreadDetail(supabase, org.id, threadId)
   if (!thread) return { error: 'That conversation no longer exists.' }
+
+  // A forward must not displace a draft that is still live.
+  //
+  // The thread page renders exactly ONE draft — `getLatestDraft`, newest
+  // first, with no status filter — so inserting a forward makes it the
+  // rendered draft and whatever was there disappears from the UI. For a
+  // 'queued' reply that is not cosmetic: `cancelDraft` has exactly one call
+  // site, the countdown panel in DraftPanel, so replacing that panel removes
+  // the only way to press Undo while the reply still sends. mailbox-send.ts
+  // calls that failure unrepairable — "this one cannot be repaired
+  // afterwards, because the resident already has the email". For a 'draft' it
+  // silently shadows unsent work with no route back to it.
+  //
+  // Terminal statuses ('sent', 'failed', 'cancelled') must still allow a
+  // forward: being able to forward a thread that has already been replied to
+  // is the entire reason Forward moved into the thread header.
+  //
+  // Reuses `getLatestDraft` (org-scoped, same read the page makes) rather
+  // than a second query that could drift from it. It THROWS on a query
+  // failure by design, which must not become an unhandled server-action
+  // rejection — and must not become "no draft, go ahead" either, since that
+  // is precisely the state this guard exists to detect.
+  let latest
+  try {
+    latest = await getLatestDraft(supabase, org.id, threadId)
+  } catch (error) {
+    console.error(
+      `createForwardDraft: latest-draft check failed for thread ${threadId}: ${error instanceof Error ? error.name : 'UnknownError'}`,
+    )
+    return { error: 'Could not check this thread for an existing draft. Nothing was started.' }
+  }
+  if (latest && (latest.status === 'queued' || latest.status === 'sending')) {
+    return {
+      error:
+        'A reply is being sent on this thread. Wait for it to finish, or press Undo, before starting a forward.',
+    }
+  }
+  if (latest && latest.status === 'draft') {
+    return {
+      error: 'You have an unsent draft on this thread. Send or cancel it before starting a forward.',
+    }
+  }
 
   const {
     data: { user: creator },

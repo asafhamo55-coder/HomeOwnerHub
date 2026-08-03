@@ -141,8 +141,10 @@ export default async function ThreadPage({
           </div>
           {/* In the header so a forward is reachable in every draft state —
               in particular after a reply has already been sent, which is the
-              most common case there is. See ForwardButton's docstring. */}
-          <ForwardButton threadId={thread.id} />
+              most common case there is. The draft's status rides along so the
+              button can explain itself while a live draft would be displaced;
+              the server action refuses regardless. See ForwardButton. */}
+          <ForwardButton threadId={thread.id} draftStatus={draft?.status ?? null} />
         </header>
 
         <MessageThread messages={thread.messages} />

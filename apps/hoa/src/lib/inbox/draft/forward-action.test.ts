@@ -66,7 +66,16 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('@homeowner-portal/jobs', () => ({ inngest: { send: vi.fn() } }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
+// The thread's latest draft, as `getLatestDraft` would return it. `null` is
+// the ordinary "no draft yet" case; `THROW` models the query failing, which
+// getLatestDraft signals by throwing rather than returning null.
+let latestDraft: { id: string; status: string } | null | 'THROW' = null
+
 vi.mock('@/lib/inbox/queries', () => ({
+  getLatestDraft: vi.fn(async () => {
+    if (latestDraft === 'THROW') throw new Error('getLatestDraft: failed to load draft')
+    return latestDraft
+  }),
   getThreadDetail: vi.fn(async () => ({
     id: 'thread-1',
     subject: 'Fence repair',
@@ -104,6 +113,7 @@ describe('createForwardDraft', () => {
     attachmentInsert.mockClear()
     attachmentInsertError = null
     sourceAttachmentRows = defaultSourceRows()
+    latestDraft = null
   })
 
   it('inserts a forward draft with no recipients and no AI metadata', async () => {
@@ -203,5 +213,68 @@ describe('createForwardDraft', () => {
     // Losing the auto-attach is a convenience; losing the draft is not. The
     // human can re-attach from the picker.
     expect('ok' in result).toBe(true)
+  })
+})
+
+/**
+ * The thread page renders exactly one draft (`getLatestDraft`, newest first,
+ * no status filter), so a forward inserted over a live draft replaces it in
+ * the UI. For a 'queued' reply that removes the countdown panel — the ONLY
+ * call site of `cancelDraft` — while the reply still sends, which
+ * mailbox-send.ts calls unrepairable.
+ */
+describe('createForwardDraft — must not displace a live draft', () => {
+  beforeEach(() => {
+    insert.mockClear()
+    attachmentInsert.mockClear()
+    attachmentInsertError = null
+    sourceAttachmentRows = defaultSourceRows()
+    latestDraft = null
+  })
+
+  it.each([
+    // 'queued' and 'sending' share one message — both mean "a reply is on its
+    // way out on this thread", which is what the user needs to know.
+    ['queued', /being sent/i],
+    ['sending', /being sent/i],
+    ['draft', /Send or cancel/i],
+  ])('refuses to start a forward over a %s draft', async (status, expected) => {
+    latestDraft = { id: 'draft-9', status }
+    const result = await createForwardDraft('thread-1')
+    expect('error' in result).toBe(true)
+    if ('error' in result) expect(result.error).toMatch(expected)
+    // Nothing written at all — not the draft, not its attachments.
+    expect(insert).not.toHaveBeenCalled()
+    expect(attachmentInsert).not.toHaveBeenCalled()
+  })
+
+  it.each(['sent', 'failed', 'cancelled'])(
+    'allows a forward when the latest draft is %s',
+    async (status) => {
+      // The whole point of moving Forward into the thread header: a thread
+      // that has already been replied to must still be forwardable.
+      latestDraft = { id: 'draft-9', status }
+      const result = await createForwardDraft('thread-1')
+      expect('ok' in result).toBe(true)
+      expect(insert).toHaveBeenCalled()
+    },
+  )
+
+  it('allows a forward when the thread has no draft at all', async () => {
+    latestDraft = null
+    const result = await createForwardDraft('thread-1')
+    expect('ok' in result).toBe(true)
+    expect(insert).toHaveBeenCalled()
+  })
+
+  it('refuses rather than assuming "no draft" when the check itself fails', async () => {
+    // getLatestDraft throws on a query failure by design. Treating that as
+    // "no draft, go ahead" would defeat this guard in exactly the situation
+    // it exists for, and letting it reject would surface an unhandled server
+    // error instead of a sentence.
+    latestDraft = 'THROW'
+    const result = await createForwardDraft('thread-1')
+    expect('error' in result).toBe(true)
+    expect(insert).not.toHaveBeenCalled()
   })
 })
