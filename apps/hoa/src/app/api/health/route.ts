@@ -67,6 +67,9 @@ function probeEnvVars(): Record<string, boolean> {
     STRIPE_WEBHOOK_SECRET: !!process.env.STRIPE_WEBHOOK_SECRET,
     INNGEST_EVENT_KEY: !!process.env.INNGEST_EVENT_KEY,
     INNGEST_SIGNING_KEY: !!process.env.INNGEST_SIGNING_KEY,
+    CRON_SECRET: !!process.env.CRON_SECRET,
+    EMBEDDING_BASE_URL_SET_BUT_EMPTY:
+      process.env.EMBEDDING_BASE_URL !== undefined && process.env.EMBEDDING_BASE_URL.trim() === '',
     NEXT_PUBLIC_APP_URL: !!process.env.NEXT_PUBLIC_APP_URL,
   }
 }
