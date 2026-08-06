@@ -270,6 +270,18 @@ export async function updateResident(
 }
 
 export async function removeResident(residentId: string): Promise<ActionResult> {
+  // Same gate as updateResident and updateProperty. Moving a resident out
+  // is a real state change — it stamps `moved_out_at` and writes a
+  // `resident_removed` audit row — and the RLS policy on
+  // property_residents is FOR ALL with no WITH CHECK, so without this any
+  // org member, including one whose role is `resident`, could do it.
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return { ok: false, error: "You don't have permission to perform this action." }
+  }
+
   const supabase = await getSupabaseServerClient()
   const { data: existing } = await supabase
     .from('property_residents' as never)
