@@ -108,10 +108,31 @@ async function probeEmbedding(): Promise<ProbeResult> {
       err && typeof err === 'object' && 'status' in err
         ? (err as { status?: number }).status
         : undefined
-    const name = err instanceof Error ? err.name : typeof err
-    // Name and status only — never err.message, which for this provider
-    // can contain a slice of the request body.
-    return { ok: false, detail: `${name} status=${status ?? 'none'}` }
+
+    // Walk the cause chain. The provider client wraps a network failure
+    // twice (retry-exhausted -> network error -> the underlying fetch
+    // rejection), so the only thing that names the real fault — a Node
+    // error code like ENOTFOUND, ECONNREFUSED, CERT_HAS_EXPIRED, or an
+    // AbortError from our own timeout — sits two or three levels down.
+    //
+    // Names and codes ONLY, never messages: a message from this provider
+    // can carry a slice of the request body. A Node error code is drawn
+    // from a fixed set and cannot.
+    const chain: string[] = []
+    let cur: unknown = err
+    for (let depth = 0; depth < 5 && cur; depth++) {
+      const name = cur instanceof Error ? cur.name : typeof cur
+      const code =
+        cur && typeof cur === 'object' && 'code' in cur
+          ? String((cur as { code?: unknown }).code)
+          : undefined
+      chain.push(code ? `${name}(${code})` : name)
+      cur = cur && typeof cur === 'object' && 'cause' in cur
+        ? (cur as { cause?: unknown }).cause
+        : undefined
+    }
+
+    return { ok: false, detail: `status=${status ?? 'none'} chain=${chain.join(' <- ')}` }
   }
 }
 
