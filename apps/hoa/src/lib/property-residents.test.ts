@@ -30,7 +30,7 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('next/cache', () => ({ revalidatePath: mockRevalidate }))
 vi.mock('./property-events', () => ({ logPropertyEvent: vi.fn(async () => ({ ok: true, id: 'e1' })) }))
 
-import { removeResident, updateResident } from './property-residents'
+import { addResident, removeResident, updateResident } from './property-residents'
 
 beforeEach(() => {
   mockGetRole.mockReset()
@@ -183,5 +183,34 @@ describe('updateResident revalidation', () => {
 
     expect(mockRevalidate).toHaveBeenCalledWith('/properties/legacy-1')
     expect(mockRevalidate).toHaveBeenCalledWith('/inbox')
+  })
+})
+
+describe('addResident authorization', () => {
+  it('refuses a caller whose role is resident', async () => {
+    mockGetRole.mockResolvedValue('resident')
+
+    const result = await addResident({
+      propertyId: '11111111-1111-4111-8111-111111111111',
+      fullName: 'New Person',
+      role: 'owner',
+    })
+
+    expect(result).toEqual({
+      ok: false,
+      error: "You don't have permission to perform this action.",
+    })
+  })
+
+  it('refuses before touching the database', async () => {
+    // Adding a resident is a real state change — it inserts a row and fires
+    // a resident_added audit event — so it needs the same gate its sibling
+    // mutations have.
+    mockGetRole.mockResolvedValue('resident')
+
+    await expect(
+      addResident({ propertyId: '11111111-1111-4111-8111-111111111111', fullName: 'New Person', role: 'owner' }),
+    ).resolves.toMatchObject({ ok: false })
+    expect(mockFrom).not.toHaveBeenCalled()
   })
 })

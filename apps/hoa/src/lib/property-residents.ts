@@ -113,6 +113,14 @@ export async function addResident(
 
   const org = await getCurrentOrg()
   if (!org) return { ok: false, error: 'No HOA selected.' }
+  // Same gate as updateResident/removeResident. Adding a resident inserts a
+  // row and fires a resident_added audit event, and the RLS policy on
+  // property_residents is FOR ALL with no WITH CHECK, so without this any
+  // org member — including one whose role is `resident` — could do it.
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return { ok: false, error: "You don't have permission to perform this action." }
+  }
 
   const supabase = await getSupabaseServerClient()
   const {
