@@ -21,8 +21,18 @@
 //
 // To check which models are currently on the free tier, see:
 // https://huggingface.co/hf-inference (look at the deployed-models list).
+// BAAI/bge-base-en-v1.5 was dropped by the hf-inference provider — the
+// router answers 400 {"error":"Model not supported by provider
+// hf-inference"} for it. all-mpnet-base-v2 is the long-standing
+// sentence-transformers default on that provider and, critically, is also
+// 768-dimensional.
+//
+// The dimension is NOT free to change: inbox_reply_embeddings.embedding is
+// vector(768) and EXPECTED_DIM below asserts it. A model of another size
+// fails loudly at EXPECTED_DIM rather than silently writing vectors that
+// can never be compared with the ones already stored.
 const DEFAULT_HF_URL =
-  'https://router.huggingface.co/hf-inference/pipeline/feature-extraction/BAAI/bge-base-en-v1.5'
+  'https://router.huggingface.co/hf-inference/pipeline/feature-extraction/sentence-transformers/all-mpnet-base-v2'
 const EXPECTED_DIM = 768
 
 const DEFAULT_BATCH_SIZE = 32

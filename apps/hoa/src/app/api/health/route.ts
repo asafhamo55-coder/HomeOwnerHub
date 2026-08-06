@@ -153,7 +153,17 @@ async function probeEmbedding(): Promise<ProbeResult> {
 
 export async function GET(request: Request): Promise<Response> {
 
-  const wantEmbedding = new URL(request.url).searchParams.get('probe') === 'embedding'
+  // Gated behind CRON_SECRET. /api/health is deliberately public, but this
+  // probe makes a BILLED provider call, so leaving it open would let anyone
+  // burn the embedding quota by hammering one URL. That was a flaw in the
+  // probe as first written. When CRON_SECRET is unset the probe is simply
+  // unavailable rather than open.
+  const url = new URL(request.url)
+  const cronSecret = process.env.CRON_SECRET
+  const wantEmbedding =
+    url.searchParams.get('probe') === 'embedding' &&
+    Boolean(cronSecret) &&
+    url.searchParams.get('key') === cronSecret
   const [db, ai, embedding] = await Promise.all([
     probeDb(),
     probeAi(),
