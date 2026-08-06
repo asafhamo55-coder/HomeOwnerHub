@@ -132,7 +132,22 @@ async function probeEmbedding(): Promise<ProbeResult> {
         : undefined
     }
 
-    return { ok: false, detail: `status=${status ?? 'none'} chain=${chain.join(' <- ')}` }
+    // The provider's own message is included HERE and nowhere else.
+    //
+    // mailboxReplyEmbeddingsJob must never log it: that job embeds a
+    // resident's correspondence, and this provider echoes a slice of the
+    // request body in its error text. This probe sends a single fixed
+    // literal ('healthcheck'), so its response provably cannot contain
+    // resident data — the reason the same string is safe here and not
+    // there is the input, not the handling.
+    //
+    // Truncated because a provider error can carry an HTML page.
+    const providerMessage = err instanceof Error ? err.message.slice(0, 300) : ''
+
+    return {
+      ok: false,
+      detail: `status=${status ?? 'none'} chain=${chain.join(' <- ')} provider=${providerMessage}`,
+    }
   }
 }
 
