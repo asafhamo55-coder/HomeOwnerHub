@@ -29,6 +29,22 @@ const DEFAULT_BATCH_SIZE = 32
 const MAX_RETRIES = 3
 const INITIAL_BACKOFF_MS = 1000
 
+/**
+ * Hard ceiling on a single embedding request.
+ *
+ * There was none, and that is why the reply corpus stayed empty in
+ * production for days. An unbounded fetch — combined with
+ * `wait_for_model`, which asks the provider to HOLD the connection open
+ * while a cold model loads — outlives the serverless function itself. The
+ * platform kills the invocation, `fetch` rejects with no HTTP response,
+ * and the failure surfaces as a bare transport error (`status=none`)
+ * carrying no clue about its own cause.
+ *
+ * Bounded, the same failure becomes a fast, legible timeout that the next
+ * scheduled run retries — by which point a cold model is usually warm.
+ */
+const REQUEST_TIMEOUT_MS = 20_000
+
 export interface EmbedOptions {
   /** Override the embedding endpoint (use for self-hosted swap). */
   baseUrl?: string
@@ -96,7 +112,15 @@ export async function embedTexts(
     const embeddings = await embedBatchWithRetry(batch, {
       baseUrl,
       apiToken,
-      waitForModel: opts.waitForModel ?? true,
+      // Default FALSE, deliberately. `wait_for_model: true` asks the
+      // provider to hold the connection open until a cold model finishes
+      // loading, which is the right trade for an interactive request a
+      // human is waiting on, and the wrong one for a background job with a
+      // hard platform ceiling: the whole batch dies instead of the caller
+      // learning anything. With it off, a cold model answers 503
+      // immediately — a legible status the job logs and the next run
+      // retries against a warmed model.
+      waitForModel: opts.waitForModel ?? false,
     })
     out.push(...embeddings)
   }
@@ -165,6 +189,8 @@ async function embedBatch(
         inputs: batch,
         options: { wait_for_model: opts.waitForModel },
       }),
+      // Without this the request can outlive the function that made it.
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
   } catch (networkErr) {
     throw new EmbeddingError(
