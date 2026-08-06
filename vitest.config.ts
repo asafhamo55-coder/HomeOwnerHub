@@ -28,6 +28,20 @@ export default defineConfig({
       'packages/**/src/**/*.test.{ts,tsx}',
     ],
     environment: 'node',
+    // Clear call history before every test.
+    //
+    // Without this, a file that resets only some of its mocks in beforeEach
+    // leaks call state between cases, and any assertion of the form "this
+    // was never called" becomes order-dependent. That produced an
+    // intermittent failure in property-residents.test.ts's authorization
+    // cases — "refuses before touching the database" passed or failed
+    // depending on what ran first.
+    //
+    // A flaky AUTHORIZATION test is worse than a missing one: it gets
+    // dismissed as noise, and a genuine regression looks identical to the
+    // flake. clearMocks resets calls only, not implementations, so
+    // vi.mock factories and mockResolvedValue set at module scope survive.
+    clearMocks: true,
     passWithNoTests: false,
   },
   resolve: {

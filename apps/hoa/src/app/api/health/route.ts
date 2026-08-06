@@ -71,8 +71,58 @@ function probeEnvVars(): Record<string, boolean> {
   }
 }
 
-export async function GET(): Promise<Response> {
-  const [db, ai] = await Promise.all([probeDb(), probeAi()])
+/**
+ * Opt-in probe for the embedding provider, behind `?probe=embedding`.
+ *
+ * Not run by default, and deliberately so: embedding calls are billed per
+ * token, and this endpoint is polled by CI smoke tests and by anyone
+ * watching a deploy. A probe that costs money on every poll is a probe
+ * someone eventually removes.
+ *
+ * It exists because the failure it diagnoses is otherwise invisible from
+ * outside. mailboxReplyEmbeddingsJob sanitises its errors down to the
+ * class name — correctly, since the provider echoes fragments of the
+ * request body and that body is a resident's correspondence — so a
+ * persistent failure shows up in Inngest as the bare word "EmbeddingError"
+ * and nowhere else. The reply corpus then stays empty with no way to tell
+ * whether the token is wrong, the model is gone, or it is rate limited.
+ *
+ * The input is a fixed literal, so nothing resident-derived is ever sent.
+ * Only the HTTP status is reported back — an integer from a fixed set,
+ * which cannot carry PII.
+ */
+async function probeEmbedding(): Promise<ProbeResult> {
+  if (!process.env.HUGGINGFACE_API_TOKEN) {
+    return { ok: false, detail: 'HUGGINGFACE_API_TOKEN not set' }
+  }
+  try {
+    const { embedTexts } = await import('@homeowner-portal/ai')
+    const [vector] = await embedTexts(['healthcheck'])
+    if (!vector) return { ok: false, detail: 'provider returned no vector' }
+    // The dimension is pinned by the inbox_reply_embeddings column. A
+    // provider silently serving a different model would fail at insert
+    // time instead of here, which is a far worse place to find out.
+    return { ok: true, detail: `dim=${vector.length}` }
+  } catch (err) {
+    const status =
+      err && typeof err === 'object' && 'status' in err
+        ? (err as { status?: number }).status
+        : undefined
+    const name = err instanceof Error ? err.name : typeof err
+    // Name and status only — never err.message, which for this provider
+    // can contain a slice of the request body.
+    return { ok: false, detail: `${name} status=${status ?? 'none'}` }
+  }
+}
+
+export async function GET(request: Request): Promise<Response> {
+
+  const wantEmbedding = new URL(request.url).searchParams.get('probe') === 'embedding'
+  const [db, ai, embedding] = await Promise.all([
+    probeDb(),
+    probeAi(),
+    wantEmbedding ? probeEmbedding() : Promise.resolve(null),
+  ])
   const env = probeEnvVars()
 
   const allRequiredEnvPresent =
@@ -90,7 +140,7 @@ export async function GET(): Promise<Response> {
       version: process.env.VERCEL_GIT_COMMIT_SHA ?? 'local',
       branch: process.env.VERCEL_GIT_COMMIT_REF ?? 'local',
       supabase_url: SUPABASE_URL,
-      probes: { db, ai },
+      probes: embedding ? { db, ai, embedding } : { db, ai },
       env,
     },
     { status: ok ? 200 : 503 },
