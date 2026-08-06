@@ -6,10 +6,13 @@
 // blank one, and this output is shown to a human for confirmation before
 // any vendor row is written.
 //
-// EIN is deliberately absent from the output schema entirely. It is never
-// present in a signature block, and an invented one would corrupt 1099
-// reporting. Zod's unknown-key strip is what enforces that — see
-// processVendorExtractorResponse.
+// EIN is conditional, not forbidden. v1 refused it outright because an EIN
+// inferred from an email body is a guess and a wrong tax id corrupts 1099
+// reporting. A W-9 attachment changes the evidence, not the risk appetite:
+// an EIN survives only when a document supplied it AND it parses to nine
+// digits, and even then it is a PROPOSAL the reviewer confirms against the
+// source before anything is written. Enforced in
+// processVendorExtractorResponse, not merely requested in the prompt.
 
 import { z } from 'zod'
 import OpenAI from 'openai'
@@ -23,11 +26,26 @@ export const VendorExtractorInputSchema = z.object({
   bodyText: z.string(),
   senderEmail: z.string(),
   senderName: z.string().nullable(),
+  /**
+   * Text extracted from the message's PDF attachments, already truncated by
+   * the caller. Null when there were none — which is also what forbids an
+   * EIN in the output (see processVendorExtractorResponse).
+   */
+  attachmentText: z.string().nullable().default(null),
 })
 export type VendorExtractorInput = z.infer<typeof VendorExtractorInputSchema>
 
 export const VendorExtractorOutputSchema = z.object({
   legalName: z.string().nullable(),
+  /**
+   * Only ever non-null when an attachment supplied it — a W-9 or similar
+   * tax form. Enforced in code, not merely asked for in the prompt.
+   *
+   * Defaulted rather than required: a model that omits the key entirely is
+   * saying "no EIN", which is the safe answer and must not hard-fail the
+   * whole extraction.
+   */
+  ein: z.string().nullable().default(null),
   dba: z.string().nullable(),
   primaryPhone: z.string().nullable(),
   trade: z.string().nullable(),
@@ -56,7 +74,10 @@ export type VendorExtractorOutput = z.infer<typeof VendorExtractorOutputSchema>
  * model volunteers — enforcement at the schema, not a manual delete
  * somewhere downstream that a later editor could remove without noticing.
  */
-export function processVendorExtractorResponse(raw: string): VendorExtractorOutput {
+export function processVendorExtractorResponse(
+  raw: string,
+  opts: { attachmentsProvided: boolean },
+): VendorExtractorOutput {
   let parsed: unknown
   try {
     parsed = JSON.parse(raw)
@@ -72,7 +93,23 @@ export function processVendorExtractorResponse(raw: string): VendorExtractorOutp
     })
     throw new Error('The model returned an unparseable response. Please retry.')
   }
-  return VendorExtractorOutputSchema.parse(parsed)
+  const output = VendorExtractorOutputSchema.parse(parsed)
+
+  // EIN provenance and format are enforced HERE, not left to the prompt.
+  //
+  // The original rule was absolute: never return an EIN, because one
+  // inferred from an email body is a guess and a wrong tax id corrupts 1099
+  // reporting. That reasoning still holds for prose — so an EIN is dropped
+  // outright unless a document was actually supplied. When one was, the
+  // value must still look like an EIN; 'see attached' or a mangled parse is
+  // an artefact, and a blank beats a wrong tax id nobody re-checks.
+  //
+  // Even a kept EIN is only ever a PROPOSAL: the caller shows it for
+  // confirmation against the source document and never writes it unasked.
+  const digits = output.ein?.replace(/\D/g, '') ?? ''
+  const ein = opts.attachmentsProvided && digits.length === 9 ? digits : null
+
+  return { ...output, ein }
 }
 
 // ─── Workflow ────────────────────────────────────────────────────────
@@ -80,7 +117,7 @@ export function processVendorExtractorResponse(raw: string): VendorExtractorOutp
 export const vendorExtractor = defineWorkflow({
   id: 'W33',
   name: 'Vendor Extractor',
-  version: '1.0.0',
+  version: '2.0.0',
   promptVersion: PROMPT_VERSION,
   model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
   // The output is proposed into a form a board member confirms before any
@@ -110,6 +147,7 @@ export const vendorExtractor = defineWorkflow({
 
     const output = processVendorExtractorResponse(
       completion.choices[0]?.message?.content ?? '{}',
+      { attachmentsProvided: Boolean(input.attachmentText) },
     )
     // Low confidence when the model found no company name — that is the
     // signal the email had no usable signature block at all.

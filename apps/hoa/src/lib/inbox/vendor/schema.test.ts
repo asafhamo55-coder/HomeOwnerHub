@@ -39,13 +39,34 @@ describe('QuickCreateVendorSchema', () => {
     expect(result.primaryEmail).toBe('jose@abclandscaping.com')
   })
 
-  it('strips an ein the caller tries to smuggle in — it must never reach a vendor row', () => {
+  it('accepts an EIN the reviewer confirmed, normalised to nine digits', () => {
+    // v1 stripped this key outright, because the only source then was model
+    // inference from prose. It now arrives from a W-9 the reviewer read and
+    // confirmed in the form, so it is human-attested input like any other
+    // field on this schema.
     const result = QuickCreateVendorSchema.parse({
       legalName: 'ABC Landscaping',
       primaryEmail: 'jose@abclandscaping.com',
       ein: '12-3456789',
     })
-    expect(result).not.toHaveProperty('ein')
+    expect(result.ein).toBe('123456789')
+  })
+
+  it('rejects an EIN that is not nine digits', () => {
+    const result = QuickCreateVendorSchema.safeParse({
+      legalName: 'ABC Landscaping',
+      primaryEmail: 'jose@abclandscaping.com',
+      ein: '123',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('still accepts no EIN at all — that is the common case', () => {
+    const result = QuickCreateVendorSchema.parse({
+      legalName: 'ABC Landscaping',
+      primaryEmail: 'jose@abclandscaping.com',
+    })
+    expect(result.ein ?? null).toBeNull()
   })
 })
 

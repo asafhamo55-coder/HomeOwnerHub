@@ -11,7 +11,7 @@ describe('processVendorExtractorResponse', () => {
       address: null,
     })
 
-    const out = processVendorExtractorResponse(raw)
+    const out = processVendorExtractorResponse(raw, { attachmentsProvided: false })
 
     expect(out.legalName).toBeNull()
     expect(out.primaryPhone).toBeNull()
@@ -28,7 +28,7 @@ describe('processVendorExtractorResponse', () => {
       address: { line1: '18 Mill Rd', city: 'Durham', state: 'NC', postal_code: '27703' },
     })
 
-    const out = processVendorExtractorResponse(raw)
+    const out = processVendorExtractorResponse(raw, { attachmentsProvided: false })
 
     expect(out.legalName).toBe('ABC Landscaping LLC')
     expect(out.dba).toBe('ABC Lawn')
@@ -36,7 +36,10 @@ describe('processVendorExtractorResponse', () => {
     expect(out.address?.city).toBe('Durham')
   })
 
-  it('drops any ein the model volunteers — it must never reach a vendor row', () => {
+  it('drops an ein when no attachment was supplied — prose is not evidence', () => {
+    // The original absolute rule existed because an EIN inferred from an
+    // email body is a guess, and a wrong tax id corrupts 1099 reporting.
+    // That reasoning still holds whenever there is no document behind it.
     const raw = JSON.stringify({
       legalName: 'ABC Landscaping LLC',
       dba: null,
@@ -46,13 +49,45 @@ describe('processVendorExtractorResponse', () => {
       ein: '12-3456789',
     })
 
-    const out = processVendorExtractorResponse(raw)
+    const out = processVendorExtractorResponse(raw, { attachmentsProvided: false })
 
-    expect(out).not.toHaveProperty('ein')
+    expect(out.ein).toBeNull()
+  })
+
+  it('keeps an ein from an attachment, normalised to nine digits', () => {
+    const raw = JSON.stringify({
+      legalName: 'ABC Landscaping LLC',
+      dba: null,
+      primaryPhone: null,
+      trade: null,
+      address: null,
+      ein: '12-3456789',
+    })
+
+    const out = processVendorExtractorResponse(raw, { attachmentsProvided: true })
+
+    expect(out.ein).toBe('123456789')
+  })
+
+  it('drops a malformed ein even when an attachment was supplied', () => {
+    // A W-9 is evidence, but a value that cannot be an EIN is a parse
+    // artefact. Better blank than a wrong tax id nobody re-checks.
+    const raw = JSON.stringify({
+      legalName: 'ABC Landscaping LLC',
+      dba: null,
+      primaryPhone: null,
+      trade: null,
+      address: null,
+      ein: 'see attached',
+    })
+
+    const out = processVendorExtractorResponse(raw, { attachmentsProvided: true })
+
+    expect(out.ein).toBeNull()
   })
 
   it('throws a non-technical error on unparseable JSON', () => {
-    expect(() => processVendorExtractorResponse('not json at all')).toThrow(/unparseable/i)
+    expect(() => processVendorExtractorResponse('not json at all', { attachmentsProvided: false })).toThrow(/unparseable/i)
   })
 
   it('throws rather than returning a partial object when a field has the wrong type', () => {
@@ -64,6 +99,8 @@ describe('processVendorExtractorResponse', () => {
       address: null,
     })
 
-    expect(() => processVendorExtractorResponse(raw)).toThrow()
+    expect(() =>
+      processVendorExtractorResponse(raw, { attachmentsProvided: false }),
+    ).toThrow()
   })
 })
