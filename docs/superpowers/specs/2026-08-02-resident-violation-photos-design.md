@@ -111,7 +111,10 @@ outcomes so one failure among four doesn't read as total failure.
   is told which photos failed and where to add them, and nothing is rolled back.
 - Impersonated session cannot submit, matching `createViolationReport`'s existing
   guard.
-- Playwright: narrow viewport, file input carries `capture` and `multiple`.
+- Narrow viewport and camera behavior are verified by hand — this repo's
+  vitest harness is node-only and pure-modules-only (`vitest.config.ts`),
+  and no Playwright runner is configured. The manual checklist lives in
+  the implementation plan, Task 4 Step 7.
 
 ## 7. Risks
 

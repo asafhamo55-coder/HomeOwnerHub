@@ -16,6 +16,7 @@
  */
 
 import { revalidatePath } from 'next/cache'
+import { extractVendor, type VendorExtractorOutput } from '@homeowner-portal/workflows'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { QuickCreateVendorSchema, isVendorIncomplete } from './schema'
@@ -96,7 +97,7 @@ export async function assignThreadToVendor(
   if (!vendor) return { error: 'Vendor not found.' }
 
   const { data, error } = await supabase
-    .from('inbox_threads' as never)
+    .from('inbox_threads')
     .update({ vendor_id: vendorId } as never)
     .eq('id', threadId)
     .eq('organization_id', org.id)
@@ -120,7 +121,7 @@ export async function unassignThreadVendor(
   const supabase = await getSupabaseServerClient()
 
   const { data, error } = await supabase
-    .from('inbox_threads' as never)
+    .from('inbox_threads')
     .update({ vendor_id: null } as never)
     .eq('id', threadId)
     .eq('organization_id', org.id)
@@ -240,4 +241,61 @@ export async function quickCreateVendor(
   revalidatePath(`/inbox/${threadId}`)
   revalidatePath('/vendors')
   return { ok: true, vendorId: row.id }
+}
+
+/**
+ * Read the newest inbound message on a thread and pull vendor details from
+ * its signature block.
+ *
+ * Every failure path returns an error rather than throwing, and the modal
+ * that calls this stays fully usable on failure with just the sender's
+ * address and display name. Extraction is an enhancement, never a gate —
+ * a board member must always be able to create the vendor by hand.
+ */
+export async function extractVendorFromThread(
+  threadId: string,
+): Promise<{ ok: true; extracted: VendorExtractorOutput } | { error: string }> {
+  const { org } = await requireBoardOrAdmin()
+  const supabase = await getSupabaseServerClient()
+
+  const { data: message, error } = await supabase
+    .from('inbox_messages')
+    .select('subject, stripped_text, body_text, from_email, from_name')
+    .eq('thread_id', threadId)
+    .eq('organization_id', org.id)
+    .eq('direction', 'inbound')
+    .order('sent_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.error(`extractVendorFromThread: message read failed: ${error.code} ${error.message}`)
+    return { error: 'Could not read this thread.' }
+  }
+  if (!message?.from_email) return { error: 'No inbound message to read.' }
+
+  // `stripped_text` already has the quoted reply chain removed at ingest;
+  // fall back to the full body for older rows where it is null.
+  const bodyText = message.stripped_text ?? message.body_text ?? ''
+  if (!bodyText.trim()) return { error: 'This message has no body to read.' }
+
+  try {
+    const extracted = await extractVendor(
+      {
+        subject: message.subject ?? null,
+        bodyText,
+        senderEmail: message.from_email,
+        senderName: message.from_name ?? null,
+      },
+      { organizationId: org.id },
+    )
+    return { ok: true, extracted }
+  } catch (err) {
+    // Log the error's type only — a model or parse failure can carry email
+    // content in its message.
+    console.error(
+      `extractVendorFromThread: extraction failed: ${err instanceof Error ? err.name : 'UnknownError'}`,
+    )
+    return { error: 'Could not read the signature block. Fill the form in manually.' }
+  }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyMatch, decideMatch, extractAddressCandidates } from './match'
+import { applyMatch, applyVendorMatch, decideMatch, extractAddressCandidates } from './match'
 import type { MatchOutcome, MatchSignals } from './match'
 import type { PropertyMatch } from '../properties/resolve'
 
@@ -339,5 +339,93 @@ describe('applyMatch — the guard is atomic, not read-then-decide', () => {
     const failure = { message: 'connection reset', code: '08006' }
     const { db } = recordingDb({ error: failure })
     await expect(applyMatch(db, 'org-1', 'thread-1', OUTCOME)).rejects.toBe(failure)
+  })
+})
+
+/**
+ * applyVendorMatch — the "never overwrite a human's filing" guard.
+ *
+ * Asserted STRUCTURALLY, for the same reason the applyMatch suite above
+ * does it that way: a read-then-decide version passes every behavioural
+ * test written against a single-threaded mock while still losing the race
+ * against a concurrent manual assignment in production. So the test is
+ * that the predicate is ON the UPDATE, not that some branch was taken.
+ */
+describe('applyVendorMatch', () => {
+  interface Recorded {
+    table: string
+    values: Record<string, unknown>
+    eq: Array<[string, unknown]>
+    is: Array<[string, unknown]>
+  }
+
+  function vendorDb(opts: { fromEmail: string | null; vendorId: string | null }) {
+    const writes: Recorded[] = []
+
+    const db = {
+      from(table: string) {
+        const eq: Array<[string, unknown]> = []
+        const is: Array<[string, unknown]> = []
+        let values: Record<string, unknown> = {}
+        let isWrite = false
+
+        const chain: Record<string, unknown> = {
+          select: () => chain,
+          update: (v: Record<string, unknown>) => {
+            isWrite = true
+            values = v
+            return chain
+          },
+          eq: (column: string, value: unknown) => {
+            eq.push([column, value])
+            return chain
+          },
+          is: (column: string, value: unknown) => {
+            is.push([column, value])
+            if (isWrite) writes.push({ table, values, eq, is })
+            return Promise.resolve({ error: null })
+          },
+          order: () => chain,
+          limit: () => chain,
+          maybeSingle: async () => {
+            if (table === 'inbox_messages') {
+              return { data: { from_email: opts.fromEmail }, error: null }
+            }
+            return { data: opts.vendorId ? { id: opts.vendorId } : null, error: null }
+          },
+        }
+        return chain
+      },
+    } as unknown as Parameters<typeof applyVendorMatch>[0]
+
+    return { db, writes }
+  }
+
+  it('guards the write with is(vendor_id, null) rather than reading first', async () => {
+    const { db, writes } = vendorDb({ fromEmail: 'jose@abclandscaping.com', vendorId: 'vendor-1' })
+
+    await applyVendorMatch(db, 'org-1', 'thread-1')
+
+    expect(writes).toHaveLength(1)
+    expect(writes[0].values).toEqual({ vendor_id: 'vendor-1' })
+    expect(writes[0].is).toContainEqual(['vendor_id', null])
+    expect(writes[0].eq).toContainEqual(['organization_id', 'org-1'])
+    expect(writes[0].eq).toContainEqual(['id', 'thread-1'])
+  })
+
+  it('writes nothing when no vendor uses the sender address', async () => {
+    const { db, writes } = vendorDb({ fromEmail: 'resident@gmail.com', vendorId: null })
+
+    await applyVendorMatch(db, 'org-1', 'thread-1')
+
+    expect(writes).toHaveLength(0)
+  })
+
+  it('writes nothing when the thread has no inbound sender', async () => {
+    const { db, writes } = vendorDb({ fromEmail: null, vendorId: 'vendor-1' })
+
+    await applyVendorMatch(db, 'org-1', 'thread-1')
+
+    expect(writes).toHaveLength(0)
   })
 })

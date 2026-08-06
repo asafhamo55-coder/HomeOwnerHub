@@ -22,7 +22,11 @@ export { parseCCRDocument } from './tasks/parse-document'
 export type { ParsedCCRDocument } from './tasks/parse-document'
 
 export { summarizeMeeting } from './tasks/meeting-summary'
-export { generateDailyDigest } from './tasks/daily-digest'
+export {
+  generateDigestSuggestion,
+  acceptSuggestion,
+  MAX_SUGGESTION_CHARS,
+} from './tasks/daily-digest'
 
 export { aiComplianceCheck } from './tasks/compliance-check'
 export type { AIComplianceFlags } from './tasks/compliance-check'

@@ -38,7 +38,9 @@ interface AppTarget {
 const TARGETS: AppTarget[] = [
   {
     id: 'hoa',
-    baseUrl: process.env.HOA_URL ?? 'https://home-owner-hub-hoa.vercel.app',
+    // www, not the apex — see scripts/devops.sh for why the apex and the
+    // old *.vercel.app host are both unusable.
+    baseUrl: process.env.HOA_URL ?? 'https://www.homeownerledger.com',
     gatedPath: '/dashboard',
   },
   {

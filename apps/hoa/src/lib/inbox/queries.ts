@@ -555,7 +555,13 @@ export interface ThreadDetail {
 export interface PropertyContext {
   address: string
   unitNumber: string | null
-  residents: Array<{ name: string; role: string; email: string | null }>
+  residents: Array<{
+    id: string
+    name: string
+    role: string
+    email: string | null
+    phone: string | null
+  }>
   duesBalance: number
   duesOverdueCount: number
   openViolations: number
@@ -578,38 +584,19 @@ export interface PropertyContext {
  * whole thread view, the same stakes split listThreads/getConnectPreview
  * use above.
  */
-/** Row shape of the `inbox_threads` select in `getThreadDetail`. */
-interface ThreadDetailRow {
-  id: string
-  subject: string | null
-  status: string
-  unit_id: string | null
-  vendor_id: string | null
-  match_confidence: string
-  match_reason: unknown
-  match_source: string
-}
-
 export async function getThreadDetail(
   db: Db,
   orgId: string,
   threadId: string,
 ): Promise<ThreadDetail | null> {
-  // `as never` on the table name plus an explicit row generic: the
-  // generated types predate migration 0037, so a typed select naming
-  // `vendor_id` collapses the whole query to SelectQueryError and every
-  // field read off it fails. This is the same workaround lib/vendors.ts
-  // uses throughout. Re-running `pnpm --filter @homeowner-portal/db
-  // gen:types` after 0037 is applied would let this revert to a plain
-  // typed select.
   const { data: thread, error: threadError } = await db
-    .from('inbox_threads' as never)
+    .from('inbox_threads')
     .select(
       'id, subject, status, unit_id, vendor_id, match_confidence, match_reason, match_source',
     )
     .eq('organization_id', orgId)
     .eq('id', threadId)
-    .maybeSingle<ThreadDetailRow>()
+    .maybeSingle()
 
   if (threadError) {
     logDbError('getThreadDetail', 'inbox_threads', { orgId, threadId }, threadError)
@@ -761,13 +748,19 @@ export async function getPropertyContext(
       legacyId
         ? db
             .from('property_residents')
-            .select('full_name, role, email')
+            .select('id, full_name, role, email, phone')
             .eq('organization_id', orgId)
             .eq('property_id', legacyId)
             .is('moved_out_at', null)
             .is('deleted_at', null)
         : Promise.resolve({
-            data: [] as Array<{ full_name: string; role: string; email: string | null }>,
+            data: [] as Array<{
+              id: string
+              full_name: string
+              role: string
+              email: string | null
+              phone: string | null
+            }>,
             error: null as PostgrestError | null,
           }),
       // Status vocabulary is the DB CHECK constraint on assessments
@@ -930,9 +923,11 @@ export async function getPropertyContext(
     address: unit.address_line1,
     unitNumber: unit.unit_number,
     residents: (residentsData ?? []).map((r) => ({
+      id: r.id,
       name: r.full_name,
       role: r.role,
       email: r.email,
+      phone: r.phone,
     })),
     duesBalance,
     duesOverdueCount,

@@ -5,24 +5,14 @@ import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
+import { ATTACHMENT_ALLOWED_TYPES, ATTACHMENT_MAX_BYTES } from '@/lib/attachment-rules'
 
 // Attachments reuse the existing private `hoa-documents` bucket (see
 // 0003_storage_policies.sql). Metadata lives in submission_attachments
 // (0027). Files are stored under {org}/submissions/{thread}/{parent}/...
+// Size and type limits live in attachment-rules.ts so the client picker
+// can share them — this module is 'use server' and cannot export them.
 const BUCKET = 'hoa-documents'
-const MAX_BYTES = 10 * 1024 * 1024 // 10 MB
-const ALLOWED_TYPES = new Set([
-  'application/pdf',
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/heic',
-  'image/gif',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-])
 
 export type ThreadType = 'arc' | 'ticket' | 'concern'
 
@@ -116,10 +106,10 @@ export async function uploadSubmissionAttachment(
   if (!(file instanceof File) || file.size === 0) {
     return { ok: false, error: 'Choose a file to attach.' }
   }
-  if (file.size > MAX_BYTES) {
+  if (file.size > ATTACHMENT_MAX_BYTES) {
     return { ok: false, error: 'File must be under 10 MB.' }
   }
-  if (file.type && !ALLOWED_TYPES.has(file.type)) {
+  if (file.type && !ATTACHMENT_ALLOWED_TYPES.has(file.type)) {
     return {
       ok: false,
       error: 'Allowed types: PDF, image, or Word/Excel document.',

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { PropertyContext, ThreadDetail } from '@/lib/inbox/queries'
 import { AssignPropertyForm } from './AssignPropertyForm'
+import { ResidentRailRow } from './ResidentRailRow'
 import { formatShortDate } from '@/lib/format-datetime'
 
 interface Props {
@@ -59,12 +60,22 @@ export function PropertyRail({ thread, context, contextLoadFailed, suggestedProp
             {context.address}
             {context.unitNumber ? ` #${context.unitNumber}` : ''}
           </p>
-          <p className="text-xs text-muted">
-            {context.degraded.includes('residents')
-              ? "Residents couldn't load"
-              : context.residents.map((r) => `${r.name} (${r.role})`).join(' · ') ||
-                'No residents on file'}
-          </p>
+          {/* The degraded branch stays FIRST. getPropertyContext defaults
+              residents to [] and pushes 'residents' onto `degraded` when the
+              query fails — without this branch an unloadable list would
+              render as an editable empty list, the same class of lie the
+              unitId-first ordering above exists to prevent. */}
+          {context.degraded.includes('residents') ? (
+            <p className="text-xs text-muted">Residents couldn&apos;t load</p>
+          ) : context.residents.length === 0 ? (
+            <p className="text-xs text-muted">No residents on file</p>
+          ) : (
+            <div className="space-y-1.5">
+              {context.residents.map((resident) => (
+                <ResidentRailRow key={resident.id} threadId={thread.id} resident={resident} />
+              ))}
+            </div>
+          )}
           <p className="mt-0.5 text-[11px] text-muted">
             Matched via {String(thread.matchReason?.rule ?? 'unknown')}
             {thread.matchSource === 'manual' ? ' (manual)' : ''}

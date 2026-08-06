@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { listThreadsForUnit } from './queries'
+import { getThreadDetail, listThreadsForUnit } from './queries'
 
 /**
  * Minimal chainable `.from().select().eq().eq().order().limit()` stand-in,
@@ -86,5 +86,72 @@ describe('listThreadsForUnit', () => {
     // matches — a regression to `return data ?? []` on the error branch
     // would still satisfy a looser assertion.
     await expect(listThreadsForUnit(db as never, 'org-1', 'unit-1')).rejects.toBeInstanceOf(Error)
+  })
+})
+
+/**
+ * `vendor_id` is selected and surfaced as `vendorId`.
+ *
+ * This replaces a fallback that briefly tolerated the column being absent:
+ * the select shipped to production before migration 0037 was applied, and
+ * because this function throws on any query error, every inbox thread page
+ * 500'd until the column existed. The fallback is gone now that 0037 is
+ * applied; what remains worth guarding is that the column is actually read
+ * and mapped, so a future edit dropping it from the select fails here
+ * rather than silently showing every thread as unfiled.
+ */
+describe('getThreadDetail — vendor filing', () => {
+  function dbWithThread(vendorId: string | null) {
+    const selects: string[] = []
+    const from = vi.fn((table: string) => {
+      const chain: Record<string, unknown> = {
+        select: vi.fn((columns: string) => {
+          selects.push(columns)
+          chain._result =
+            table === 'inbox_threads'
+              ? {
+                  data: {
+                    id: 'thread-1',
+                    subject: 'Retention pond',
+                    status: 'open',
+                    unit_id: 'unit-1',
+                    vendor_id: vendorId,
+                    match_confidence: 'high',
+                    match_reason: null,
+                    match_source: 'auto',
+                  },
+                  error: null,
+                }
+              : { data: [], error: null }
+          return chain
+        }),
+        eq: vi.fn(() => chain),
+        in: vi.fn(() => chain),
+        neq: vi.fn(() => chain),
+        order: vi.fn(() => chain),
+        limit: vi.fn(() => chain),
+        maybeSingle: vi.fn(async () => chain._result),
+        then: (resolve: (r: unknown) => unknown) => Promise.resolve(chain._result).then(resolve),
+      }
+      return chain
+    })
+    return { db: { from } as never, selects }
+  }
+
+  it('surfaces the filed vendor as vendorId', async () => {
+    const { db, selects } = dbWithThread('vendor-1')
+
+    const thread = await getThreadDetail(db, 'org-1', 'thread-1')
+
+    expect(thread?.vendorId).toBe('vendor-1')
+    expect(selects.some((c) => c.includes('vendor_id'))).toBe(true)
+  })
+
+  it('reports an unfiled thread as null rather than undefined', async () => {
+    const { db } = dbWithThread(null)
+
+    const thread = await getThreadDetail(db, 'org-1', 'thread-1')
+
+    expect(thread?.vendorId).toBeNull()
   })
 })
