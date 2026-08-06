@@ -96,8 +96,22 @@ export async function embedTexts(
 ): Promise<number[][]> {
   if (texts.length === 0) return []
 
-  const baseUrl = opts.baseUrl ?? process.env.EMBEDDING_BASE_URL ?? DEFAULT_HF_URL
-  const apiToken = opts.apiToken ?? process.env.HUGGINGFACE_API_TOKEN
+  // `||`, not `??`. An env var that exists but is EMPTY is the common case
+  // here — a dashboard row someone created and never filled, or a value
+  // cleared during a rotation — and `??` only falls back on null/undefined,
+  // so an empty string sails straight through and becomes the base URL.
+  //
+  // That is not hypothetical. EMBEDDING_BASE_URL was set to '' in
+  // production, so every request went to fetch(''), which throws
+  // ERR_INVALID_URL. Wrapped twice by the retry layer, it surfaced as a
+  // bare transport failure with no status, and the reply corpus sat empty
+  // for days while the token, the model and the endpoint were all fine.
+  // The same shape had already broken Inngest in this codebase, via an
+  // INNGEST_EVENT_KEY that was present but blank.
+  //
+  // Trimmed as well: a value that is only whitespace is not a URL either.
+  const baseUrl = opts.baseUrl?.trim() || process.env.EMBEDDING_BASE_URL?.trim() || DEFAULT_HF_URL
+  const apiToken = opts.apiToken?.trim() || process.env.HUGGINGFACE_API_TOKEN?.trim()
   if (!apiToken) {
     throw new EmbeddingError(
       'HUGGINGFACE_API_TOKEN is not set. Configure it in env or pass apiToken explicitly.',
