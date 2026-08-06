@@ -340,6 +340,13 @@ export type Database = {
             foreignKeyName: "arc_requests_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "arc_requests_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
@@ -409,6 +416,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "orgs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessments_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "assessments_unit_id_fkey"
@@ -1260,6 +1274,13 @@ export type Database = {
             foreignKeyName: "communication_recipients_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "communication_recipients_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
@@ -1514,6 +1535,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "communications"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_threads_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "communication_threads_unit_id_fkey"
@@ -2229,6 +2257,13 @@ export type Database = {
             referencedRelation: "hoa_properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "hoa_dues_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["id"]
+          },
         ]
       }
       hoa_meeting_minutes: {
@@ -2544,6 +2579,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "hoa_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hoa_violations_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
             referencedColumns: ["id"]
           },
         ]
@@ -2987,6 +3029,13 @@ export type Database = {
             foreignKeyName: "inbox_sender_aliases_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "inbox_sender_aliases_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
@@ -3130,6 +3179,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "property_residents"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_threads_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "inbox_threads_unit_id_fkey"
@@ -3390,6 +3446,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "hoa_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lease_waiting_list_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
             referencedColumns: ["id"]
           },
         ]
@@ -3828,6 +3891,13 @@ export type Database = {
             foreignKeyName: "ownerships_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "ownerships_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
@@ -3877,6 +3947,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "orgs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_methods_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "payment_methods_unit_id_fkey"
@@ -3948,6 +4025,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "orgs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_plans_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "payment_plans_unit_id_fkey"
@@ -4026,6 +4110,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "orgs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "payments_unit_id_fkey"
@@ -4391,6 +4482,13 @@ export type Database = {
             referencedRelation: "hoa_properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "property_events_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["id"]
+          },
         ]
       }
       property_residents: {
@@ -4455,6 +4553,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "hoa_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_residents_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
             referencedColumns: ["id"]
           },
         ]
@@ -4561,6 +4666,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "orgs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resident_communication_preferences_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "resident_communication_preferences_unit_id_fkey"
@@ -4679,6 +4791,13 @@ export type Database = {
           submitted_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "resident_violation_reports_about_unit_id_fkey"
+            columns: ["about_unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
           {
             foreignKeyName: "resident_violation_reports_about_unit_id_fkey"
             columns: ["about_unit_id"]
@@ -5100,6 +5219,13 @@ export type Database = {
             foreignKeyName: "tenancies_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "tenancies_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
@@ -5235,6 +5361,13 @@ export type Database = {
             foreignKeyName: "tickets_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "tickets_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
@@ -5333,6 +5466,13 @@ export type Database = {
             columns: ["legacy_hoa_property_id"]
             isOneToOne: false
             referencedRelation: "hoa_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_legacy_hoa_property_id_fkey"
+            columns: ["legacy_hoa_property_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
             referencedColumns: ["id"]
           },
           {
@@ -5893,6 +6033,13 @@ export type Database = {
             foreignKeyName: "zelle_inbound_matches_matched_unit_id_fkey"
             columns: ["matched_unit_id"]
             isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "zelle_inbound_matches_matched_unit_id_fkey"
+            columns: ["matched_unit_id"]
+            isOneToOne: false
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
@@ -5907,6 +6054,41 @@ export type Database = {
       }
     }
     Views: {
+      hoa_property_list_v: {
+        Row: {
+          address: string | null
+          balance: number | null
+          created_at: string | null
+          days_overdue: number | null
+          has_owner: boolean | null
+          has_tenure: boolean | null
+          has_unit_link: boolean | null
+          id: string | null
+          notes: string | null
+          oldest_due_date: string | null
+          open_violations: number | null
+          org_id: string | null
+          owner_email: string | null
+          owner_name: string | null
+          owner_phone: string | null
+          severity_rank: number | null
+          tenure: Database["public"]["Enums"]["property_tenure"] | null
+          threads_needing_reply: number | null
+          unit_id: string | null
+          unit_number: string | null
+          updated_at: string | null
+          violations_past_cure: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hoa_properties_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       property_bridge_gaps: {
         Row: {
           address: string | null
@@ -5997,6 +6179,8 @@ export type Database = {
         Args: { p_comm_id: string; p_count: number; p_org_id: string }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       action_item_priority: "low" | "normal" | "high"
