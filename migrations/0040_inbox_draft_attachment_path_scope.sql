@@ -78,9 +78,20 @@ ALTER TABLE public.inbox_draft_attachments
     -- documents unattachable. Only the escapes that decode into a dot
     -- segment or a separator are refused.
     --
-    -- This is the coarse net; packages/jobs/src/mailbox-send.ts holds the
-    -- precise one (`attachmentPathIsInOrg`), which resolves the key exactly
-    -- as `fetch` will and compares.
+    -- These two predicates are NOT redundant with the application check, and
+    -- for '%2f'/'%5c' this constraint is the ONLY thing that closes the case.
+    -- `attachmentPathIsInOrg` (packages/jobs/src/mailbox-send.ts) resolves the
+    -- key as `fetch` will, and the WHATWG parser does NOT decode '%2F' — so
+    -- `<org>/..%2f<other org>/x` keeps the escape literal, stays inside this
+    -- org's prefix, and PASSES that check. It is only traversal if something
+    -- server-side decodes and then re-normalizes. Supabase Storage resolves an
+    -- object by literal `objects.name` equality today, so it does not — but
+    -- that is a property of the backend, not a tenant boundary. Refusing the
+    -- row here means the question never arises.
+    --
+    -- So: the app check is the precise one for dot-segment traversal; this
+    -- constraint is the precise one for encoded separators. Neither subsumes
+    -- the other. Do not delete either believing the other covers it.
     AND storage_path !~ '[[:cntrl:]]'
     AND storage_path !~* '%2[ef]'
     -- Backslash: the WHATWG parser treats it as '/' in a special-scheme URL,

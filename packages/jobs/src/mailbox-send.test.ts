@@ -995,9 +995,22 @@ describe('attachmentPathIsInOrg — the key fetch will actually request', () => 
     ['a name containing a percent sign', 'org-1/1770000000-sale.pdf 50% off'],
     ['a name containing spaces and parentheses', 'org-1/1770000000-budget.pdf (final) copy'],
     ['a non-ASCII name', 'org-1/1770000000-plan.pdf Grünanlage'],
-    ['a name whose percent escape is not a dot', 'org-1/a%2fb.pdf'],
   ])('accepts %s', (_label, path) => {
     expect(attachmentPathIsInOrg(path, 'org-1')).toBe(true)
+  })
+
+  // NOT a legitimate key — migration 0040 forbids the row from ever existing
+  // (`storage_path !~* '%2[ef]'`). This asserts the function's REAL behaviour
+  // rather than pretending otherwise, because that behaviour is precisely why
+  // the migration has to carry that predicate: the WHATWG parser does not
+  // decode '%2F', so the escape stays literal, the key stays inside org-1's
+  // prefix, and this check has nothing to object to.
+  //
+  // Listing it among the "accepts" cases was a trap: it read as a blessing,
+  // and anyone "fixing" the migration to agree with it would reopen the
+  // encoded-separator case. Keep the two layers' disagreement explicit.
+  it('accepts an encoded separator — which is why migration 0040 must reject the row', () => {
+    expect(attachmentPathIsInOrg('org-1/..%2forg-2/CCRs.pdf', 'org-1')).toBe(true)
   })
 
   it('does not throw on a lone percent sign', () => {

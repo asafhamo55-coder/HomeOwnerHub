@@ -122,16 +122,26 @@ const PATH_RESOLUTION_BASE = 'https://storage.invalid/'
  * or carry a `%`. Rejecting `%` outright would make existing documents
  * unattachable.
  *
- * The second condition is the important one, because it does not depend on
- * enumerating the parser's tricks. `reEncoded` runs the raw key through the
- * SAME parser via the `pathname` setter, which applies the identical
- * percent-encoding but is reached without URL-string parsing. If the two
- * disagree, the key means something different as a URL than it does as a
- * string, and it is refused — no matter which normalization did it. That is
- * what catches the class rather than the four instances above: a `#` or `?`
- * truncates the string (`<org>/a#b.pdf` would fetch `<org>/a`, i.e. silently
- * mail a different file than the approver reviewed) and is caught here even
- * though it never leaves the org.
+ * Be precise about which condition does which job — an earlier version of
+ * this comment overstated the second one, and that is the kind of error that
+ * survives into someone deleting the wrong line.
+ *
+ * The TRAVERSAL class above is caught by `attachmentPathIsInOrg` re-checking
+ * that the RESOLVED key is still in-org. Dot-segment removal, `%2e` decoding,
+ * `\`→`/` and CR/LF/TAB stripping all cancel out of the equality test below
+ * (the `pathname` setter runs the same path state machine), so the equality
+ * test does NOT catch them. The resolved-in-org check does.
+ *
+ * What the equality test adds is the TRUNCATION subclass, which the in-org
+ * check cannot see because it never leaves the org: `#` and `?` cut the
+ * string short, so `<org>/a#b.pdf` would fetch `<org>/a` — silently mailing a
+ * different file than the approver reviewed. Leading/trailing C0-or-space
+ * trimming is caught the same way.
+ *
+ * `reEncoded` runs the raw key through the SAME parser via the `pathname`
+ * setter, which applies identical percent-encoding but is reached without
+ * URL-string parsing, so a disagreement means the key means something
+ * different as a URL than as a string.
  *
  * Percent-encoding alone is NOT a disagreement: a space becoming `%20` (or
  * `ü` becoming `%C3%BC`) round-trips to the same object on the server, and
