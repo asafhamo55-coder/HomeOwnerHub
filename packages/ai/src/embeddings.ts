@@ -53,6 +53,12 @@ export interface EmbedOptions {
   /** Inputs per request. HF default sweet spot is 16-32. */
   batchSize?: number
   /** Wait for cold-loaded model on HF (first call after idle). */
+  /**
+   * @deprecated No longer sent. The router.huggingface.co Inference-Providers
+   * endpoint rejects the legacy `options` object with 400, so this cannot be
+   * forwarded. Kept so existing callers still compile; it has no effect.
+   * A cold model now answers immediately and the caller's retry handles it.
+   */
   waitForModel?: boolean
 }
 
@@ -199,10 +205,16 @@ async function embedBatch(
         Authorization: `Bearer ${opts.apiToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        inputs: batch,
-        options: { wait_for_model: opts.waitForModel },
-      }),
+      // `inputs` ONLY. The legacy api-inference.huggingface.co endpoint
+      // accepted an `options` object (wait_for_model, use_cache); the
+      // router.huggingface.co Inference-Providers route this calls does
+      // not, and rejects the whole request with 400 when it is present.
+      //
+      // That 400 is what remained after fixing the empty-base-URL bug, and
+      // it is worth noting the two failures masked each other: while every
+      // request went to fetch(''), the body was never evaluated at all, so
+      // a malformed payload could not surface until the URL was correct.
+      body: JSON.stringify({ inputs: batch }),
       // Without this the request can outlive the function that made it.
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
