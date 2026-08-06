@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { mockGetCurrentOrg, mockGetRole, mockFrom } = vi.hoisted(() => ({
+const { mockGetCurrentOrg, mockGetRole, mockFrom, mockRevalidate } = vi.hoisted(() => ({
+  mockRevalidate: vi.fn(),
   mockGetCurrentOrg: vi.fn(async () => ({ id: 'org-1', name: 'Madison Park' })),
   mockGetRole: vi.fn(async () => 'resident' as string),
   // Throws by default: reaching the database before the role check is
@@ -26,7 +27,7 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }))
 
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+vi.mock('next/cache', () => ({ revalidatePath: mockRevalidate }))
 vi.mock('./property-events', () => ({ logPropertyEvent: vi.fn(async () => ({ ok: true, id: 'e1' })) }))
 
 import { removeResident, updateResident } from './property-residents'
@@ -36,6 +37,7 @@ beforeEach(() => {
   // Without this the `not.toHaveBeenCalled` assertion below only holds
   // because the one test that reaches `.from` happens to run last.
   mockFrom.mockClear()
+  mockRevalidate.mockClear()
 })
 
 describe('updateResident authorization', () => {
@@ -147,5 +149,39 @@ describe('cross-org scoping on resident mutations', () => {
     await updateResident('res-1', { full_name: 'New Name' })
 
     expect(filters.organization_id).toBe('org-1')
+  })
+})
+
+describe('updateResident revalidation', () => {
+  it('revalidates the open inbox thread as well as the property page', async () => {
+    // The rail renders residents from getPropertyContext. Without an /inbox
+    // revalidation, correcting a resident on the PROPERTY page leaves a
+    // thread open beside it showing the old name and address until a hard
+    // reload — the mirror of the gap the inbox action already closes.
+    mockGetRole.mockResolvedValue('board')
+    mockFrom.mockImplementation(() => {
+      const chain: Record<string, unknown> = {
+        select: () => chain,
+        update: () => chain,
+        eq: () => chain,
+        maybeSingle: async () => ({
+          data: {
+            id: 'res-1',
+            property_id: 'legacy-1',
+            role: 'owner',
+            moved_out_at: null,
+            full_name: 'Old Name',
+          },
+          error: null,
+        }),
+        then: (r: (v: unknown) => unknown) => Promise.resolve({ data: null, error: null }).then(r),
+      }
+      return chain
+    })
+
+    await updateResident('res-1', { full_name: 'New Name' })
+
+    expect(mockRevalidate).toHaveBeenCalledWith('/properties/legacy-1')
+    expect(mockRevalidate).toHaveBeenCalledWith('/inbox')
   })
 })

@@ -275,6 +275,12 @@ export async function updateResident(
   }
 
   revalidatePath(`/properties/${existing.property_id}`)
+  // The inbox rail renders residents via getPropertyContext, so an edit made
+  // on the property page must invalidate it too — otherwise a thread open
+  // beside it keeps showing the old name and address until a hard reload.
+  // Path-level, not per-thread: this function has no thread id, and any
+  // thread filed under this property could be displaying the row.
+  revalidatePath('/inbox')
   return { ok: true }
 }
 
@@ -342,5 +348,11 @@ export async function removeResident(residentId: string): Promise<ActionResult> 
   }
 
   revalidatePath(`/properties/${existing.property_id}`)
+  // The inbox rail renders residents via getPropertyContext, so an edit made
+  // on the property page must invalidate it too — otherwise a thread open
+  // beside it keeps showing the old name and address until a hard reload.
+  // Path-level, not per-thread: this function has no thread id, and any
+  // thread filed under this property could be displaying the row.
+  revalidatePath('/inbox')
   return { ok: true }
 }
