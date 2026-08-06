@@ -10,8 +10,9 @@ interface LoggedEvent {
   notes?: string | null
 }
 
-const { fromMock, logPropertyEventMock } = vi.hoisted(() => ({
+const { fromMock, logPropertyEventMock, revalidateMock } = vi.hoisted(() => ({
   fromMock: vi.fn(),
+  revalidateMock: vi.fn(),
   // Typed with its argument, so `mock.calls[0][0]` is inspectable — an
   // untyped `vi.fn(async () => …)` records a zero-length tuple.
   logPropertyEventMock: vi.fn(
@@ -32,7 +33,7 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 vi.mock('@/lib/property-events', () => ({ logPropertyEvent: logPropertyEventMock }))
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+vi.mock('next/cache', () => ({ revalidatePath: revalidateMock }))
 
 vi.mock('@/lib/supabase/server', () => ({
   getSupabaseServerClient: vi.fn(async () => ({
@@ -56,16 +57,33 @@ interface Op {
  * harness would have recorded a touch.
  */
 function harness(opts: {
-  resident?: { id: string; property_id: string; email: string | null } | null
+  resident?: {
+    id: string
+    property_id: string
+    email: string | null
+    moved_out_at?: string | null
+    deleted_at?: string | null
+  } | null
   /** Make every inbox_sender_aliases write fail, to exercise the warning. */
   aliasFails?: boolean
 }) {
   const ops: Op[] = []
   const residentSelectFilters: Record<string, unknown> = {}
+  // Postgres always returns these columns, so the default row carries them
+  // explicitly as null — a fixture that omitted them would make the
+  // moved-out guard refuse every edit.
   const resident =
     opts.resident === undefined
-      ? { id: 'res-1', property_id: 'legacy-1', email: 'old@example.com' }
-      : opts.resident
+      ? {
+          id: 'res-1',
+          property_id: 'legacy-1',
+          email: 'old@example.com',
+          moved_out_at: null,
+          deleted_at: null,
+        }
+      : opts.resident === null
+        ? null
+        : { moved_out_at: null, deleted_at: null, ...opts.resident }
 
   fromMock.mockImplementation((table: string) => {
     const filters: Record<string, unknown> = {}
@@ -129,6 +147,7 @@ function harness(opts: {
 beforeEach(() => {
   fromMock.mockReset()
   logPropertyEventMock.mockClear()
+  revalidateMock.mockClear()
 })
 
 describe('updateResidentFromInbox', () => {
@@ -204,6 +223,60 @@ describe('updateResidentFromInbox', () => {
     // Filter on the normalized generated column, not the raw one.
     expect(del?.filters.email_address_lower).toBe('old@example.com')
     expect(del?.filters.email_address).toBeUndefined()
+  })
+
+  it('revalidates the property page by its legacy id, the id that route actually uses', async () => {
+    // /properties/[id] resolves via getPropertyDetail -> hoa_properties.id,
+    // so revalidating with the units.id refreshes a path that does not
+    // exist and the property page keeps serving a stale resident.
+    harness({})
+
+    await updateResidentFromInbox('thread-1', 'res-1', {
+      fullName: 'Raja Nagula',
+      email: 'old@example.com',
+      phone: '555-0100',
+    })
+
+    expect(revalidateMock).toHaveBeenCalledWith('/properties/legacy-1')
+    expect(revalidateMock).not.toHaveBeenCalledWith('/properties/unit-1')
+  })
+
+  it('refuses a resident who has already moved out', async () => {
+    // The rail's own query filters these out, but two managers can race:
+    // one removes the resident on the property page while the other saves
+    // from a stale rail. Editing a moved-out resident would also
+    // re-register a sender alias routing mail for someone who is gone.
+    harness({
+      resident: {
+        id: 'res-1',
+        property_id: 'legacy-1',
+        email: 'old@example.com',
+        moved_out_at: '2026-01-01',
+      },
+    })
+
+    const result = await updateResidentFromInbox('thread-1', 'res-1', {
+      fullName: 'Raja Nagula',
+      email: 'new@example.com',
+      phone: null,
+    })
+
+    expect(result).toEqual({ error: 'Resident not found.' })
+  })
+
+  it('scopes the stale-alias delete to this unit, not the whole org', async () => {
+    // assignThreadToProperty can teach the same address to a DIFFERENT
+    // unit. Deleting org-wide would silently destroy that mapping.
+    const { ops } = harness({})
+
+    await updateResidentFromInbox('thread-1', 'res-1', {
+      fullName: 'Raja Nagula',
+      email: 'new@example.com',
+      phone: null,
+    })
+
+    const del = ops.find((o) => o.table === 'inbox_sender_aliases' && o.kind === 'delete')
+    expect(del?.filters.unit_id).toBe('unit-1')
   })
 
   it('leaves the alias completely untouched when only the name changes', async () => {

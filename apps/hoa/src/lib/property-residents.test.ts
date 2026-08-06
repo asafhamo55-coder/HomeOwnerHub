@@ -6,7 +6,7 @@ const { mockGetCurrentOrg, mockGetRole, mockFrom } = vi.hoisted(() => ({
   // Throws by default: reaching the database before the role check is
   // itself the defect these tests guard against. A test that needs a live
   // client overrides this explicitly.
-  mockFrom: vi.fn(() => {
+  mockFrom: vi.fn((): unknown => {
     throw new Error('must not query before checking the caller role')
   }),
 }))
@@ -33,6 +33,9 @@ import { removeResident, updateResident } from './property-residents'
 
 beforeEach(() => {
   mockGetRole.mockReset()
+  // Without this the `not.toHaveBeenCalled` assertion below only holds
+  // because the one test that reaches `.from` happens to run last.
+  mockFrom.mockClear()
 })
 
 describe('updateResident authorization', () => {
@@ -94,5 +97,55 @@ describe('updateResident positive path', () => {
       /must not query before checking the caller role/,
     )
     expect(mockFrom).toHaveBeenCalled()
+  })
+})
+
+describe('cross-org scoping on resident mutations', () => {
+  it('scopes the removeResident lookup to the selected org', async () => {
+    // getCurrentOrg() returns the SELECTED org, but RLS allows every org the
+    // caller belongs to. A user who is `board` in org A and a plain
+    // `resident` in org B would otherwise pass the gate and mutate B's
+    // resident — and logPropertyEvent would file the audit row under A.
+    mockGetRole.mockResolvedValue('board')
+    const filters: Record<string, unknown> = {}
+    mockFrom.mockImplementation(() => {
+      const chain: Record<string, unknown> = {
+        select: () => chain,
+        update: () => chain,
+        eq: (col: string, val: unknown) => {
+          filters[col] = val
+          return chain
+        },
+        maybeSingle: async () => ({ data: null, error: null }),
+        then: (r: (v: unknown) => unknown) => Promise.resolve({ data: null, error: null }).then(r),
+      }
+      return chain
+    })
+
+    await removeResident('res-1')
+
+    expect(filters.organization_id).toBe('org-1')
+  })
+
+  it('scopes the updateResident lookup to the selected org', async () => {
+    mockGetRole.mockResolvedValue('board')
+    const filters: Record<string, unknown> = {}
+    mockFrom.mockImplementation(() => {
+      const chain: Record<string, unknown> = {
+        select: () => chain,
+        update: () => chain,
+        eq: (col: string, val: unknown) => {
+          filters[col] = val
+          return chain
+        },
+        maybeSingle: async () => ({ data: null, error: null }),
+        then: (r: (v: unknown) => unknown) => Promise.resolve({ data: null, error: null }).then(r),
+      }
+      return chain
+    })
+
+    await updateResident('res-1', { full_name: 'New Name' })
+
+    expect(filters.organization_id).toBe('org-1')
   })
 })

@@ -11,11 +11,19 @@
  * would look successful and change nothing about where that resident's mail
  * files — nothing else in the repo ever invalidates an alias.
  *
- * Two different property ids are in play. `inbox_threads.unit_id` is a
- * `units.id` and keys the /properties/[id] route;
- * `property_residents.property_id` is `units.legacy_hoa_property_id`, an
- * `hoa_properties.id`. The ownership check uses the legacy id; the
- * revalidation uses the unit id.
+ * Two different property ids are in play, and BOTH the ownership check and
+ * the revalidation use the legacy one. `inbox_threads.unit_id` is a
+ * `units.id`; `property_residents.property_id` is
+ * `units.legacy_hoa_property_id`, an `hoa_properties.id` — and
+ * `/properties/[id]` is keyed by THAT, because the page resolves it through
+ * `getPropertyDetail` -> `.from('hoa_properties').eq('id', …)`. Every other
+ * writer to this record revalidates the legacy id too
+ * (property-residents.ts:268, :328).
+ *
+ * An earlier version of this file claimed the route took the unit id,
+ * inferred from PropertyRail's "Open property →" link. That link is itself
+ * a pre-existing bug (it 404s); it was evidence of a defect, not of the
+ * routing contract.
  *
  * Never log an email address, subject, or body — resident PII.
  * `PostgrestError.code`/`.message` only, never `.details`.
@@ -83,10 +91,16 @@ export async function updateResidentFromInbox(
   //    the same hazard linkThreadToResource had to be patched for.
   const { data: resident, error: residentError } = await supabase
     .from('property_residents' as never)
-    .select('id, property_id, email')
+    .select('id, property_id, email, moved_out_at, deleted_at')
     .eq('id', residentId)
     .eq('organization_id', org.id)
-    .maybeSingle<{ id: string; property_id: string; email: string | null }>()
+    .maybeSingle<{
+      id: string
+      property_id: string
+      email: string | null
+      moved_out_at: string | null
+      deleted_at: string | null
+    }>()
 
   if (residentError) {
     console.error(
@@ -94,7 +108,17 @@ export async function updateResidentFromInbox(
     )
     return { error: 'Could not update this resident. Try again.' }
   }
-  if (!resident || resident.property_id !== unit.legacy_hoa_property_id) {
+  // `moved_out_at`/`deleted_at` mirror the filters on the query that built
+  // the rail list (queries.ts:721-722). Without them two managers can race:
+  // one removes the resident on the property page while the other saves
+  // from a stale rail, which would also re-register a sender alias routing
+  // mail to a unit for someone who has gone.
+  if (
+    !resident ||
+    resident.property_id !== unit.legacy_hoa_property_id ||
+    resident.moved_out_at !== null ||
+    resident.deleted_at !== null
+  ) {
     // One message for both "absent" and "belongs to someone else" — telling
     // them apart would leak the existence of another tenant's row.
     return { error: 'Resident not found.' }
@@ -155,8 +179,8 @@ export async function updateResidentFromInbox(
   }
 
   revalidatePath(`/inbox/${threadId}`)
-  // The /properties route is keyed by UNIT id, not the legacy property id.
-  revalidatePath(`/properties/${thread.unit_id}`)
+  // Legacy hoa_properties id — that is what /properties/[id] resolves.
+  revalidatePath(`/properties/${unit.legacy_hoa_property_id}`)
 
   return warning ? { ok: true, warning } : { ok: true }
 }
@@ -200,6 +224,11 @@ async function repointAlias(
       .delete()
       .eq('organization_id', orgId)
       .eq('email_address_lower', previousEmail)
+      // Scoped to THIS unit. `assignThreadToProperty` can teach the same
+      // address to a different unit; an org-wide delete would silently
+      // destroy that unrelated mapping and drop its mail to lower-
+      // confidence matching.
+      .eq('unit_id', unitId)
     if (error) {
       console.error(`repointAlias: delete failed: ${error.code} ${error.message}`)
       return error.message

@@ -38,10 +38,12 @@ export function ResidentRailRow({
   const [email, setEmail] = useState(resident.email ?? '')
   const [phone, setPhone] = useState(resident.phone ?? '')
 
-  // Normalised both sides, so '' vs null and a case change do not read as an
-  // edit — the same comparison the server action uses to decide whether to
-  // repoint the sender alias.
-  const emailChanged = (email.trim().toLowerCase() || null) !== (resident.email ?? null)
+  // BOTH sides normalised, matching what the server action compares
+  // (actions.ts lowercases the stored value too). Normalising only the input
+  // made a resident stored as 'Old@Example.com' show the amber banner the
+  // moment the row opened, and never clear it.
+  const emailChanged =
+    (email.trim().toLowerCase() || null) !== (resident.email?.trim().toLowerCase() || null)
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()

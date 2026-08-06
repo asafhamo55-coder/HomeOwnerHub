@@ -212,6 +212,12 @@ export async function updateResident(
     .from('property_residents' as never)
     .select('id, property_id, role, moved_out_at, full_name')
     .eq('id', residentId)
+    // Org-scoped, not just by id. getCurrentOrg() returns the SELECTED org
+    // while RLS (`org_access`) admits every org the caller belongs to, so a
+    // user who is board in one org and a plain resident in another could
+    // otherwise pass the role gate and mutate the other org's row — and
+    // logPropertyEvent would file the audit under the selected org.
+    .eq('organization_id', org.id)
     .maybeSingle<{
       id: string
       property_id: string
@@ -237,6 +243,9 @@ export async function updateResident(
     .from('property_residents' as never)
     .update(patch as never)
     .eq('id', residentId)
+    // Scoped on the write too, so the guard above staying correct is not
+    // the only thing standing between a caller and another org's row.
+    .eq('organization_id', org.id)
   if (error) return { ok: false, error: error.message }
 
   // Only log on the changes that materially change the resident's
@@ -287,6 +296,12 @@ export async function removeResident(residentId: string): Promise<ActionResult> 
     .from('property_residents' as never)
     .select('id, property_id, full_name, role, moved_out_at')
     .eq('id', residentId)
+    // Org-scoped, not just by id. getCurrentOrg() returns the SELECTED org
+    // while RLS (`org_access`) admits every org the caller belongs to, so a
+    // user who is board in one org and a plain resident in another could
+    // otherwise pass the role gate and mutate the other org's row — and
+    // logPropertyEvent would file the audit under the selected org.
+    .eq('organization_id', org.id)
     .maybeSingle<{
       id: string
       property_id: string
@@ -308,6 +323,7 @@ export async function removeResident(residentId: string): Promise<ActionResult> 
     .from('property_residents' as never)
     .update({ moved_out_at: today } as never)
     .eq('id', residentId)
+    .eq('organization_id', org.id)
     .is('moved_out_at', null)
   if (error) return { ok: false, error: error.message }
 
