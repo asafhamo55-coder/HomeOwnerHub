@@ -6,6 +6,15 @@
 
 export const ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024 // 10 MB
 
+/**
+ * Private Supabase Storage bucket holding every submission attachment
+ * (see 0003_storage_policies.sql). Lives here rather than in
+ * submission-attachments.ts because that module is 'use server' and Next
+ * permits only async function exports from it — the browser needs this
+ * name to upload directly.
+ */
+export const ATTACHMENT_BUCKET = 'hoa-documents'
+
 /** Everything the submission-attachment server action accepts. */
 export const ATTACHMENT_ALLOWED_TYPES: ReadonlySet<string> = new Set([
   'application/pdf',
