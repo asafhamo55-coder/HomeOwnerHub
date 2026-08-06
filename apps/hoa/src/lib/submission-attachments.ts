@@ -116,17 +116,34 @@ export async function uploadSubmissionAttachment(
     }
   }
 
+  // Diagnostic breadcrumb. A resident reported "1 photo did not upload" with
+  // no way to see why — the action returns a message to the browser but left
+  // no server-side trace, so the real reason was unrecoverable from Vercel's
+  // logs. Size and MIME only; never the file name or any body content.
+  console.log(
+    `[attach] start thread=${parsed.data.threadType} bytes=${file.size} type=${file.type || 'none'}`,
+  )
+
   const supabase = await getSupabaseServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: 'Not signed in.' }
+  if (!user) {
+    console.error('[attach] reject: not signed in')
+    return { ok: false, error: 'Not signed in.' }
+  }
 
   const org = await getCurrentOrg()
-  if (!org) return { ok: false, error: 'No HOA selected.' }
+  if (!org) {
+    console.error('[attach] reject: no current org for user')
+    return { ok: false, error: 'No HOA selected.' }
+  }
 
   const role = await getCurrentUserRoleInOrg(org.id)
-  if (!role) return { ok: false, error: 'You do not have access to this HOA.' }
+  if (!role) {
+    console.error(`[attach] reject: no role in org ${org.id}`)
+    return { ok: false, error: 'You do not have access to this HOA.' }
+  }
 
   const storagePath = `${org.id}/submissions/${parsed.data.threadType}/${parsed.data.parentId}/${safeName(file.name)}`
 
@@ -138,6 +155,7 @@ export async function uploadSubmissionAttachment(
       contentType: file.type || 'application/octet-stream',
     })
   if (uploadError) {
+    console.error(`[attach] storage upload failed: ${uploadError.message}`)
     if (uploadError.message?.toLowerCase().includes('not found')) {
       return {
         ok: false,
@@ -164,6 +182,9 @@ export async function uploadSubmissionAttachment(
 
   if (insertError) {
     // Roll back the orphaned object so a failed insert doesn't leave a file.
+    console.error(
+      `[attach] metadata insert failed (RLS or constraint): ${insertError.message}`,
+    )
     await supabase.storage.from(BUCKET).remove([storagePath])
     return { ok: false, error: insertError.message }
   }
@@ -171,6 +192,7 @@ export async function uploadSubmissionAttachment(
   for (const p of pathsFor(parsed.data.threadType, parsed.data.parentId)) {
     revalidatePath(p)
   }
+  console.log(`[attach] ok bytes=${file.size}`)
   return { ok: true }
 }
 
