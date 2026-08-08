@@ -67,12 +67,111 @@ function probeEnvVars(): Record<string, boolean> {
     STRIPE_WEBHOOK_SECRET: !!process.env.STRIPE_WEBHOOK_SECRET,
     INNGEST_EVENT_KEY: !!process.env.INNGEST_EVENT_KEY,
     INNGEST_SIGNING_KEY: !!process.env.INNGEST_SIGNING_KEY,
+    CRON_SECRET: !!process.env.CRON_SECRET,
+    EMBEDDING_BASE_URL_SET_BUT_EMPTY:
+      process.env.EMBEDDING_BASE_URL !== undefined && process.env.EMBEDDING_BASE_URL.trim() === '',
     NEXT_PUBLIC_APP_URL: !!process.env.NEXT_PUBLIC_APP_URL,
   }
 }
 
-export async function GET(): Promise<Response> {
-  const [db, ai] = await Promise.all([probeDb(), probeAi()])
+/**
+ * Opt-in probe for the embedding provider, behind `?probe=embedding`.
+ *
+ * Not run by default, and deliberately so: embedding calls are billed per
+ * token, and this endpoint is polled by CI smoke tests and by anyone
+ * watching a deploy. A probe that costs money on every poll is a probe
+ * someone eventually removes.
+ *
+ * It exists because the failure it diagnoses is otherwise invisible from
+ * outside. mailboxReplyEmbeddingsJob sanitises its errors down to the
+ * class name — correctly, since the provider echoes fragments of the
+ * request body and that body is a resident's correspondence — so a
+ * persistent failure shows up in Inngest as the bare word "EmbeddingError"
+ * and nowhere else. The reply corpus then stays empty with no way to tell
+ * whether the token is wrong, the model is gone, or it is rate limited.
+ *
+ * The input is a fixed literal, so nothing resident-derived is ever sent.
+ * Only the HTTP status is reported back — an integer from a fixed set,
+ * which cannot carry PII.
+ */
+async function probeEmbedding(): Promise<ProbeResult> {
+  if (!process.env.HUGGINGFACE_API_TOKEN) {
+    return { ok: false, detail: 'HUGGINGFACE_API_TOKEN not set' }
+  }
+  try {
+    const { embedTexts } = await import('@homeowner-portal/ai')
+    const [vector] = await embedTexts(['healthcheck'])
+    if (!vector) return { ok: false, detail: 'provider returned no vector' }
+    // The dimension is pinned by the inbox_reply_embeddings column. A
+    // provider silently serving a different model would fail at insert
+    // time instead of here, which is a far worse place to find out.
+    return { ok: true, detail: `dim=${vector.length}` }
+  } catch (err) {
+    const status =
+      err && typeof err === 'object' && 'status' in err
+        ? (err as { status?: number }).status
+        : undefined
+
+    // Walk the cause chain. The provider client wraps a network failure
+    // twice (retry-exhausted -> network error -> the underlying fetch
+    // rejection), so the only thing that names the real fault — a Node
+    // error code like ENOTFOUND, ECONNREFUSED, CERT_HAS_EXPIRED, or an
+    // AbortError from our own timeout — sits two or three levels down.
+    //
+    // Names and codes ONLY, never messages: a message from this provider
+    // can carry a slice of the request body. A Node error code is drawn
+    // from a fixed set and cannot.
+    const chain: string[] = []
+    let cur: unknown = err
+    for (let depth = 0; depth < 5 && cur; depth++) {
+      const name = cur instanceof Error ? cur.name : typeof cur
+      const code =
+        cur && typeof cur === 'object' && 'code' in cur
+          ? String((cur as { code?: unknown }).code)
+          : undefined
+      chain.push(code ? `${name}(${code})` : name)
+      cur = cur && typeof cur === 'object' && 'cause' in cur
+        ? (cur as { cause?: unknown }).cause
+        : undefined
+    }
+
+    // The provider's own message is included HERE and nowhere else.
+    //
+    // mailboxReplyEmbeddingsJob must never log it: that job embeds a
+    // resident's correspondence, and this provider echoes a slice of the
+    // request body in its error text. This probe sends a single fixed
+    // literal ('healthcheck'), so its response provably cannot contain
+    // resident data — the reason the same string is safe here and not
+    // there is the input, not the handling.
+    //
+    // Truncated because a provider error can carry an HTML page.
+    const providerMessage = err instanceof Error ? err.message.slice(0, 300) : ''
+
+    return {
+      ok: false,
+      detail: `status=${status ?? 'none'} chain=${chain.join(' <- ')} provider=${providerMessage}`,
+    }
+  }
+}
+
+export async function GET(request: Request): Promise<Response> {
+
+  // Gated behind CRON_SECRET. /api/health is deliberately public, but this
+  // probe makes a BILLED provider call, so leaving it open would let anyone
+  // burn the embedding quota by hammering one URL. That was a flaw in the
+  // probe as first written. When CRON_SECRET is unset the probe is simply
+  // unavailable rather than open.
+  const url = new URL(request.url)
+  const cronSecret = process.env.CRON_SECRET
+  const wantEmbedding =
+    url.searchParams.get('probe') === 'embedding' &&
+    Boolean(cronSecret) &&
+    url.searchParams.get('key') === cronSecret
+  const [db, ai, embedding] = await Promise.all([
+    probeDb(),
+    probeAi(),
+    wantEmbedding ? probeEmbedding() : Promise.resolve(null),
+  ])
   const env = probeEnvVars()
 
   const allRequiredEnvPresent =
@@ -90,7 +189,7 @@ export async function GET(): Promise<Response> {
       version: process.env.VERCEL_GIT_COMMIT_SHA ?? 'local',
       branch: process.env.VERCEL_GIT_COMMIT_REF ?? 'local',
       supabase_url: SUPABASE_URL,
-      probes: { db, ai },
+      probes: embedding ? { db, ai, embedding } : { db, ai },
       env,
     },
     { status: ok ? 200 : 503 },

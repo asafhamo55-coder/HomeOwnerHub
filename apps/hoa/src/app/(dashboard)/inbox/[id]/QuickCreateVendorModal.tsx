@@ -21,8 +21,9 @@ interface Props {
  * display name, free and deterministic — then fills the rest from the
  * signature block.
  *
- * Every model-filled field carries a "from signature" chip that clears once
- * edited. That chip is what makes "you confirm" real rather than decorative:
+ * Every model-filled field carries a provenance chip that clears once
+ * edited — "from signature" for the body, "from W-9" for anything an
+ * attached document supplied. That chip is what makes "you confirm" real rather than decorative:
  * the reviewer can see at a glance what was guessed versus what came from
  * the header. Extraction failure leaves the form fully usable.
  */
@@ -43,6 +44,7 @@ export function QuickCreateVendorModal({
   const [primaryEmail, setPrimaryEmail] = useState(senderEmail ?? '')
   const [primaryPhone, setPrimaryPhone] = useState('')
   const [trade, setTrade] = useState('')
+  const [ein, setEin] = useState('')
   const [aiFields, setAiFields] = useState<Set<string>>(new Set())
   const [extracting, setExtracting] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -74,6 +76,13 @@ export function QuickCreateVendorModal({
         setTrade(extracted.trade)
         filled.add('trade')
       }
+      // Only ever set when a W-9 (or similar) supplied it — W33 drops an EIN
+      // that had no document behind it. Chipped separately from the
+      // signature fields so the reviewer knows to check it against the doc.
+      if (extracted.ein) {
+        setEin(extracted.ein)
+        filled.add('ein')
+      }
       setAiFields(filled)
     })()
     return () => {
@@ -99,6 +108,7 @@ export function QuickCreateVendorModal({
         primaryEmail,
         primaryPhone: primaryPhone || null,
         trade: trade || null,
+        ein: ein.trim() || null,
         aiGenerated: aiFields.size > 0,
       })
       if ('ok' in result) {
@@ -144,10 +154,27 @@ export function QuickCreateVendorModal({
             clearChip('trade')
           }}
         />
+        <VendorField
+          label="EIN"
+          value={ein}
+          ai={aiFields.has('ein')}
+          aiLabel="from W-9"
+          onChange={(value) => {
+            setEin(value)
+            clearChip('ein')
+          }}
+        />
+        {aiFields.has('ein') ? (
+          <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            Read from an attached document. Check it against the W-9 before
+            saving — this feeds 1099 reporting.
+          </p>
+        ) : null}
 
         <p className="text-xs text-muted">
-          Created as a prospect. Add an EIN and trade on the vendor page before
-          using it for 1099s, RFPs, or compliance checks.
+          Created as a prospect. Anything left blank here — an EIN especially —
+          must be filled in on the vendor page before this vendor can be used
+          for 1099s, RFPs, or compliance checks.
         </p>
 
         {error ? <Alert variant="error">{error}</Alert> : null}
@@ -190,11 +217,13 @@ function VendorField({
   value,
   ai,
   onChange,
+  aiLabel = 'from signature',
 }: {
   label: string
   value: string
   ai: boolean
   onChange: (value: string) => void
+  aiLabel?: string
 }) {
   return (
     <div>
@@ -202,7 +231,7 @@ function VendorField({
         {label}
         {ai ? (
           <span className="rounded bg-primary/10 px-1 py-0.5 text-[10px] font-normal normal-case text-primary">
-            from signature
+            {aiLabel}
           </span>
         ) : null}
       </label>

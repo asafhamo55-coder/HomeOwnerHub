@@ -6,10 +6,10 @@ import { Download, FileText, Image as ImageIcon, Paperclip, Trash2 } from 'lucid
 import { Button } from '@homeowner-portal/ui'
 import {
   deleteSubmissionAttachment,
-  uploadSubmissionAttachment,
   type SubmissionAttachment,
   type ThreadType,
 } from '@/lib/submission-attachments'
+import { uploadAttachmentDirect } from '@/lib/upload-attachment'
 
 const ACCEPT =
   '.pdf,.jpg,.jpeg,.png,.webp,.heic,.gif,.doc,.docx,.xls,.xlsx,application/pdf,image/*'
@@ -41,12 +41,11 @@ export function SubmissionAttachments({
     const file = e.target.files?.[0]
     if (!file) return
     setError(null)
-    const formData = new FormData()
-    formData.set('threadType', threadType)
-    formData.set('parentId', parentId)
-    formData.set('file', file)
     startTransition(async () => {
-      const result = await uploadSubmissionAttachment(formData)
+      // Browser-to-Supabase, not through a server action: Vercel caps
+      // server-action request bodies at 4.5 MB, which silently rejected
+      // every real phone photo attached here.
+      const result = await uploadAttachmentDirect(threadType, parentId, file)
       if (inputRef.current) inputRef.current.value = ''
       if (!result.ok) {
         setError(result.error)

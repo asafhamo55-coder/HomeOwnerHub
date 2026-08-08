@@ -31,18 +31,28 @@ interface CronSummary {
 }
 
 export async function GET(request: Request): Promise<Response> {
+  // Fail CLOSED when CRON_SECRET is absent.
+  //
+  // This previously read `if (secret) { ...check... }` with a TODO noting
+  // it allowed everything through for dev. CRON_SECRET was not set in
+  // production, so the check never ran: this route walks events and SENDS
+  // EMAIL, and anyone who knew the URL could trigger it at will, repeatedly.
+  //
+  // An auth guard whose absence disables the guard is the wrong default —
+  // a misconfiguration should stop the job, not silently publish it.
   const secret = process.env.CRON_SECRET
-  if (secret) {
-    const authHeader = request.headers.get('authorization') ?? ''
-    const url = new URL(request.url)
-    const keyParam = url.searchParams.get('key')
-    const hasBearer = authHeader === `Bearer ${secret}`
-    const hasQueryKey = keyParam === secret
-    if (!hasBearer && !hasQueryKey) {
-      return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-    }
+  if (!secret) {
+    return NextResponse.json({ error: 'cron_secret_not_configured' }, { status: 503 })
   }
-  // else: TODO — CRON_SECRET not configured; allowing through for dev.
+
+  const authHeader = request.headers.get('authorization') ?? ''
+  const url = new URL(request.url)
+  const keyParam = url.searchParams.get('key')
+  const hasBearer = authHeader === `Bearer ${secret}`
+  const hasQueryKey = keyParam === secret
+  if (!hasBearer && !hasQueryKey) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
 
   const admin = createAdminClient()
   const summary: CronSummary = { processed: 0, alertsSent: 0, errors: [] }

@@ -113,6 +113,14 @@ export async function addResident(
 
   const org = await getCurrentOrg()
   if (!org) return { ok: false, error: 'No HOA selected.' }
+  // Same gate as updateResident/removeResident. Adding a resident inserts a
+  // row and fires a resident_added audit event, and the RLS policy on
+  // property_residents is FOR ALL with no WITH CHECK, so without this any
+  // org member — including one whose role is `resident` — could do it.
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return { ok: false, error: "You don't have permission to perform this action." }
+  }
 
   const supabase = await getSupabaseServerClient()
   const {
@@ -212,6 +220,12 @@ export async function updateResident(
     .from('property_residents' as never)
     .select('id, property_id, role, moved_out_at, full_name')
     .eq('id', residentId)
+    // Org-scoped, not just by id. getCurrentOrg() returns the SELECTED org
+    // while RLS (`org_access`) admits every org the caller belongs to, so a
+    // user who is board in one org and a plain resident in another could
+    // otherwise pass the role gate and mutate the other org's row — and
+    // logPropertyEvent would file the audit under the selected org.
+    .eq('organization_id', org.id)
     .maybeSingle<{
       id: string
       property_id: string
@@ -237,6 +251,9 @@ export async function updateResident(
     .from('property_residents' as never)
     .update(patch as never)
     .eq('id', residentId)
+    // Scoped on the write too, so the guard above staying correct is not
+    // the only thing standing between a caller and another org's row.
+    .eq('organization_id', org.id)
   if (error) return { ok: false, error: error.message }
 
   // Only log on the changes that materially change the resident's
@@ -266,15 +283,39 @@ export async function updateResident(
   }
 
   revalidatePath(`/properties/${existing.property_id}`)
+  // The inbox rail renders residents via getPropertyContext, so an edit made
+  // on the property page must invalidate it too — otherwise a thread open
+  // beside it keeps showing the old name and address until a hard reload.
+  // Path-level, not per-thread: this function has no thread id, and any
+  // thread filed under this property could be displaying the row.
+  revalidatePath('/inbox')
   return { ok: true }
 }
 
 export async function removeResident(residentId: string): Promise<ActionResult> {
+  // Same gate as updateResident and updateProperty. Moving a resident out
+  // is a real state change — it stamps `moved_out_at` and writes a
+  // `resident_removed` audit row — and the RLS policy on
+  // property_residents is FOR ALL with no WITH CHECK, so without this any
+  // org member, including one whose role is `resident`, could do it.
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return { ok: false, error: "You don't have permission to perform this action." }
+  }
+
   const supabase = await getSupabaseServerClient()
   const { data: existing } = await supabase
     .from('property_residents' as never)
     .select('id, property_id, full_name, role, moved_out_at')
     .eq('id', residentId)
+    // Org-scoped, not just by id. getCurrentOrg() returns the SELECTED org
+    // while RLS (`org_access`) admits every org the caller belongs to, so a
+    // user who is board in one org and a plain resident in another could
+    // otherwise pass the role gate and mutate the other org's row — and
+    // logPropertyEvent would file the audit under the selected org.
+    .eq('organization_id', org.id)
     .maybeSingle<{
       id: string
       property_id: string
@@ -296,6 +337,7 @@ export async function removeResident(residentId: string): Promise<ActionResult> 
     .from('property_residents' as never)
     .update({ moved_out_at: today } as never)
     .eq('id', residentId)
+    .eq('organization_id', org.id)
     .is('moved_out_at', null)
   if (error) return { ok: false, error: error.message }
 
@@ -314,5 +356,11 @@ export async function removeResident(residentId: string): Promise<ActionResult> 
   }
 
   revalidatePath(`/properties/${existing.property_id}`)
+  // The inbox rail renders residents via getPropertyContext, so an edit made
+  // on the property page must invalidate it too — otherwise a thread open
+  // beside it keeps showing the old name and address until a hard reload.
+  // Path-level, not per-thread: this function has no thread id, and any
+  // thread filed under this property could be displaying the row.
+  revalidatePath('/inbox')
   return { ok: true }
 }

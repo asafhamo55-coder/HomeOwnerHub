@@ -16,10 +16,18 @@
  */
 
 import { revalidatePath } from 'next/cache'
+
+/** Same bucket the attachment download route reads from. */
+const ATTACHMENT_BUCKET = 'hoa-documents'
 import { extractVendor, type VendorExtractorOutput } from '@homeowner-portal/workflows'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { QuickCreateVendorSchema, isVendorIncomplete } from './schema'
+import {
+  selectParsableAttachments,
+  joinAttachmentText,
+  type CandidateAttachment,
+} from './attachment-text'
 
 export interface VendorOption {
   vendorId: string
@@ -205,11 +213,12 @@ export async function quickCreateVendor(
       organization_id: org.id,
       legal_name: vendor.legalName,
       dba: vendor.dba ?? null,
-      // EIN is deliberately absent, not merely unset: it is never present in
-      // a signature block, and an invented one would corrupt 1099 reporting.
-      // A human enters it on the vendor page, which is what clears the
-      // "setup incomplete" banner.
-      ein: null,
+      // Written when present, which v1 could not do. It only ever arrives
+      // from a W-9 the reviewer read and confirmed in the form — W33 drops
+      // any EIN that had no document behind it — so this is human-attested,
+      // not an inference. Absent stays null and the vendor stays flagged
+      // "setup incomplete", exactly as before.
+      ein: vendor.ein ?? null,
       primary_email: vendor.primaryEmail,
       primary_phone: vendor.primaryPhone ?? null,
       // Single extracted trade -> the table's text[] column.
@@ -260,7 +269,7 @@ export async function extractVendorFromThread(
 
   const { data: message, error } = await supabase
     .from('inbox_messages')
-    .select('subject, stripped_text, body_text, from_email, from_name')
+    .select('id, subject, stripped_text, body_text, from_email, from_name')
     .eq('thread_id', threadId)
     .eq('organization_id', org.id)
     .eq('direction', 'inbound')
@@ -279,6 +288,8 @@ export async function extractVendorFromThread(
   const bodyText = message.stripped_text ?? message.body_text ?? ''
   if (!bodyText.trim()) return { error: 'This message has no body to read.' }
 
+  const attachmentText = await readAttachmentText(supabase, org.id, message.id)
+
   try {
     const extracted = await extractVendor(
       {
@@ -286,6 +297,7 @@ export async function extractVendorFromThread(
         bodyText,
         senderEmail: message.from_email,
         senderName: message.from_name ?? null,
+        attachmentText,
       },
       { organizationId: org.id },
     )
@@ -298,4 +310,76 @@ export async function extractVendorFromThread(
     )
     return { error: 'Could not read the signature block. Fill the form in manually.' }
   }
+}
+
+/**
+ * Pull text out of the message's stored PDF attachments.
+ *
+ * Returns null when there is nothing readable — and that null is
+ * load-bearing, not cosmetic: W33 drops any EIN it produces unless
+ * attachment text was actually supplied, so a silent failure here degrades
+ * to "no EIN" rather than to "an EIN from who-knows-where".
+ *
+ * Every failure is swallowed per-file. An unreadable or corrupt PDF must
+ * not fail the whole extraction, which must not fail the create form.
+ *
+ * Never log a file name, storage path, or extracted text — an attachment on
+ * a resident thread can be a lease, a violation photo, or a tax form.
+ */
+async function readAttachmentText(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  orgId: string,
+  messageId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('inbox_attachments')
+    .select('id, file_name, content_type, size_bytes, storage_path, fetch_status')
+    .eq('organization_id', orgId)
+    .eq('message_id', messageId)
+    .returns<CandidateAttachment[]>()
+
+  if (error) {
+    console.error(`readAttachmentText: read failed: ${error.code} ${error.message}`)
+    return null
+  }
+
+  const parsable = selectParsableAttachments(data ?? [])
+  if (parsable.length === 0) return null
+
+  // Dynamic import: pdf-parse pulls a heavy native chain, and the two
+  // existing call sites in this app import it the same way rather than
+  // paying for it on the cold start of unrelated routes.
+  let pdfParse: (buffer: Buffer) => Promise<{ text: string }>
+  try {
+    pdfParse = (await import('pdf-parse')).default as typeof pdfParse
+  } catch (err) {
+    console.error(
+      `readAttachmentText: pdf-parse unavailable: ${err instanceof Error ? err.name : 'UnknownError'}`,
+    )
+    return null
+  }
+
+  const texts: Array<{ fileName: string; text: string }> = []
+  for (const attachment of parsable) {
+    try {
+      const { data: blob, error: dlError } = await supabase.storage
+        .from(ATTACHMENT_BUCKET)
+        .download(attachment.storagePath)
+      if (dlError || !blob) {
+        console.error(
+          `readAttachmentText: download failed for attachment ${attachment.id}: ${dlError?.message ?? 'no body'}`,
+        )
+        continue
+      }
+      const parsed = await pdfParse(Buffer.from(await blob.arrayBuffer()))
+      texts.push({ fileName: attachment.fileName, text: parsed.text ?? '' })
+    } catch (err) {
+      // A corrupt or password-protected PDF is common and not exceptional.
+      console.error(
+        `readAttachmentText: parse failed for attachment ${attachment.id}: ${err instanceof Error ? err.name : 'UnknownError'}`,
+      )
+    }
+  }
+
+  return joinAttachmentText(texts)
 }

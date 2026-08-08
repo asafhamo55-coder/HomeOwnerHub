@@ -21,13 +21,39 @@
 //
 // To check which models are currently on the free tier, see:
 // https://huggingface.co/hf-inference (look at the deployed-models list).
+// BAAI/bge-base-en-v1.5 was dropped by the hf-inference provider — the
+// router answers 400 {"error":"Model not supported by provider
+// hf-inference"} for it. all-mpnet-base-v2 is the long-standing
+// sentence-transformers default on that provider and, critically, is also
+// 768-dimensional.
+//
+// The dimension is NOT free to change: inbox_reply_embeddings.embedding is
+// vector(768) and EXPECTED_DIM below asserts it. A model of another size
+// fails loudly at EXPECTED_DIM rather than silently writing vectors that
+// can never be compared with the ones already stored.
 const DEFAULT_HF_URL =
-  'https://router.huggingface.co/hf-inference/pipeline/feature-extraction/BAAI/bge-base-en-v1.5'
+  'https://router.huggingface.co/hf-inference/pipeline/feature-extraction/sentence-transformers/all-mpnet-base-v2'
 const EXPECTED_DIM = 768
 
 const DEFAULT_BATCH_SIZE = 32
 const MAX_RETRIES = 3
 const INITIAL_BACKOFF_MS = 1000
+
+/**
+ * Hard ceiling on a single embedding request.
+ *
+ * There was none, and that is why the reply corpus stayed empty in
+ * production for days. An unbounded fetch — combined with
+ * `wait_for_model`, which asks the provider to HOLD the connection open
+ * while a cold model loads — outlives the serverless function itself. The
+ * platform kills the invocation, `fetch` rejects with no HTTP response,
+ * and the failure surfaces as a bare transport error (`status=none`)
+ * carrying no clue about its own cause.
+ *
+ * Bounded, the same failure becomes a fast, legible timeout that the next
+ * scheduled run retries — by which point a cold model is usually warm.
+ */
+const REQUEST_TIMEOUT_MS = 20_000
 
 export interface EmbedOptions {
   /** Override the embedding endpoint (use for self-hosted swap). */
@@ -37,6 +63,12 @@ export interface EmbedOptions {
   /** Inputs per request. HF default sweet spot is 16-32. */
   batchSize?: number
   /** Wait for cold-loaded model on HF (first call after idle). */
+  /**
+   * @deprecated No longer sent. The router.huggingface.co Inference-Providers
+   * endpoint rejects the legacy `options` object with 400, so this cannot be
+   * forwarded. Kept so existing callers still compile; it has no effect.
+   * A cold model now answers immediately and the caller's retry handles it.
+   */
   waitForModel?: boolean
 }
 
@@ -80,8 +112,22 @@ export async function embedTexts(
 ): Promise<number[][]> {
   if (texts.length === 0) return []
 
-  const baseUrl = opts.baseUrl ?? process.env.EMBEDDING_BASE_URL ?? DEFAULT_HF_URL
-  const apiToken = opts.apiToken ?? process.env.HUGGINGFACE_API_TOKEN
+  // `||`, not `??`. An env var that exists but is EMPTY is the common case
+  // here — a dashboard row someone created and never filled, or a value
+  // cleared during a rotation — and `??` only falls back on null/undefined,
+  // so an empty string sails straight through and becomes the base URL.
+  //
+  // That is not hypothetical. EMBEDDING_BASE_URL was set to '' in
+  // production, so every request went to fetch(''), which throws
+  // ERR_INVALID_URL. Wrapped twice by the retry layer, it surfaced as a
+  // bare transport failure with no status, and the reply corpus sat empty
+  // for days while the token, the model and the endpoint were all fine.
+  // The same shape had already broken Inngest in this codebase, via an
+  // INNGEST_EVENT_KEY that was present but blank.
+  //
+  // Trimmed as well: a value that is only whitespace is not a URL either.
+  const baseUrl = opts.baseUrl?.trim() || process.env.EMBEDDING_BASE_URL?.trim() || DEFAULT_HF_URL
+  const apiToken = opts.apiToken?.trim() || process.env.HUGGINGFACE_API_TOKEN?.trim()
   if (!apiToken) {
     throw new EmbeddingError(
       'HUGGINGFACE_API_TOKEN is not set. Configure it in env or pass apiToken explicitly.',
@@ -96,7 +142,15 @@ export async function embedTexts(
     const embeddings = await embedBatchWithRetry(batch, {
       baseUrl,
       apiToken,
-      waitForModel: opts.waitForModel ?? true,
+      // Default FALSE, deliberately. `wait_for_model: true` asks the
+      // provider to hold the connection open until a cold model finishes
+      // loading, which is the right trade for an interactive request a
+      // human is waiting on, and the wrong one for a background job with a
+      // hard platform ceiling: the whole batch dies instead of the caller
+      // learning anything. With it off, a cold model answers 503
+      // immediately — a legible status the job logs and the next run
+      // retries against a warmed model.
+      waitForModel: opts.waitForModel ?? false,
     })
     out.push(...embeddings)
   }
@@ -161,10 +215,18 @@ async function embedBatch(
         Authorization: `Bearer ${opts.apiToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        inputs: batch,
-        options: { wait_for_model: opts.waitForModel },
-      }),
+      // `inputs` ONLY. The legacy api-inference.huggingface.co endpoint
+      // accepted an `options` object (wait_for_model, use_cache); the
+      // router.huggingface.co Inference-Providers route this calls does
+      // not, and rejects the whole request with 400 when it is present.
+      //
+      // That 400 is what remained after fixing the empty-base-URL bug, and
+      // it is worth noting the two failures masked each other: while every
+      // request went to fetch(''), the body was never evaluated at all, so
+      // a malformed payload could not surface until the URL was correct.
+      body: JSON.stringify({ inputs: batch }),
+      // Without this the request can outlive the function that made it.
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
   } catch (networkErr) {
     throw new EmbeddingError(

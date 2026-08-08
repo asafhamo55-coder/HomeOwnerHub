@@ -5,14 +5,18 @@ import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
-import { ATTACHMENT_ALLOWED_TYPES, ATTACHMENT_MAX_BYTES } from '@/lib/attachment-rules'
+import {
+  ATTACHMENT_ALLOWED_TYPES,
+  ATTACHMENT_BUCKET,
+  ATTACHMENT_MAX_BYTES,
+} from '@/lib/attachment-rules'
 
 // Attachments reuse the existing private `hoa-documents` bucket (see
 // 0003_storage_policies.sql). Metadata lives in submission_attachments
 // (0027). Files are stored under {org}/submissions/{thread}/{parent}/...
 // Size and type limits live in attachment-rules.ts so the client picker
 // can share them — this module is 'use server' and cannot export them.
-const BUCKET = 'hoa-documents'
+const BUCKET = ATTACHMENT_BUCKET
 
 export type ThreadType = 'arc' | 'ticket' | 'concern'
 
@@ -28,6 +32,7 @@ export interface SubmissionAttachment {
 }
 
 type ActionResult = { ok: true } | { ok: false; error: string }
+type ActionResultOf<T> = { ok: true; data: T } | { ok: false; error: string }
 
 const TargetSchema = z.object({
   threadType: z.enum(['arc', 'ticket', 'concern']),
@@ -93,23 +98,46 @@ export async function listSubmissionAttachments(
   return out
 }
 
-export async function uploadSubmissionAttachment(
-  formData: FormData,
-): Promise<ActionResult> {
+/**
+ * Step 1 of 2 for a browser-direct upload.
+ *
+ * WHY THIS EXISTS. This replaced a single `uploadSubmissionAttachment`
+ * action that streamed the whole file through the server. Vercel caps a
+ * serverless function's request body at 4.5 MB regardless of Next's
+ * `serverActions.bodySizeLimit`, and a resident photographing a violation
+ * produces a 3-6 MB image — so that path failed in production with "1 photo
+ * did not upload" and no way for the resident to succeed by retrying.
+ * Raising the Next limit could not fix it; the ceiling is the platform's.
+ * The old action was deleted rather than left in place, because anything
+ * still routing bytes through a server action reintroduces the bug.
+ *
+ * Here the server only *authorises* and hands back a path. The browser then
+ * PUTs the bytes straight to Supabase Storage with the user's own session,
+ * so nothing large ever transits Vercel. Permissions are unchanged: the
+ * server client and the browser client are the same user, and
+ * `auth_can_insert_hoa_documents` (0003_storage_policies.sql) already
+ * governs the write either way.
+ */
+export async function prepareAttachmentUpload(input: {
+  threadType: string
+  parentId: string
+  fileName: string
+  contentType: string
+  sizeBytes: number
+}): Promise<ActionResultOf<{ storagePath: string }>> {
   const parsed = TargetSchema.safeParse({
-    threadType: formData.get('threadType'),
-    parentId: formData.get('parentId'),
+    threadType: input.threadType,
+    parentId: input.parentId,
   })
   if (!parsed.success) return { ok: false, error: 'Invalid attachment target.' }
 
-  const file = formData.get('file')
-  if (!(file instanceof File) || file.size === 0) {
+  if (!Number.isFinite(input.sizeBytes) || input.sizeBytes <= 0) {
     return { ok: false, error: 'Choose a file to attach.' }
   }
-  if (file.size > ATTACHMENT_MAX_BYTES) {
+  if (input.sizeBytes > ATTACHMENT_MAX_BYTES) {
     return { ok: false, error: 'File must be under 10 MB.' }
   }
-  if (file.type && !ATTACHMENT_ALLOWED_TYPES.has(file.type)) {
+  if (input.contentType && !ATTACHMENT_ALLOWED_TYPES.has(input.contentType)) {
     return {
       ok: false,
       error: 'Allowed types: PDF, image, or Word/Excel document.',
@@ -128,24 +156,50 @@ export async function uploadSubmissionAttachment(
   const role = await getCurrentUserRoleInOrg(org.id)
   if (!role) return { ok: false, error: 'You do not have access to this HOA.' }
 
-  const storagePath = `${org.id}/submissions/${parsed.data.threadType}/${parsed.data.parentId}/${safeName(file.name)}`
+  const storagePath = `${org.id}/submissions/${parsed.data.threadType}/${parsed.data.parentId}/${safeName(input.fileName)}`
+  console.log(
+    `[attach] prepared thread=${parsed.data.threadType} bytes=${input.sizeBytes} type=${input.contentType || 'none'}`,
+  )
+  return { ok: true, data: { storagePath } }
+}
 
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(storagePath, file, {
-      cacheControl: '3600',
-      upsert: false,
-      contentType: file.type || 'application/octet-stream',
-    })
-  if (uploadError) {
-    if (uploadError.message?.toLowerCase().includes('not found')) {
-      return {
-        ok: false,
-        error:
-          "The 'hoa-documents' storage bucket is missing. Create it (Private) in Supabase, then retry.",
-      }
-    }
-    return { ok: false, error: uploadError.message }
+/**
+ * Step 2 of 2. Records the metadata row after the browser has uploaded the
+ * bytes. The insert is still RLS-governed (`sa_resident_insert` /
+ * `sa_board_or_admin_all`), so authorisation is enforced here even though
+ * the object already exists — and if it fails we delete the orphan.
+ */
+export async function recordAttachmentUpload(input: {
+  threadType: string
+  parentId: string
+  storagePath: string
+  fileName: string
+  contentType: string
+  sizeBytes: number
+}): Promise<ActionResult> {
+  const parsed = TargetSchema.safeParse({
+    threadType: input.threadType,
+    parentId: input.parentId,
+  })
+  if (!parsed.success) return { ok: false, error: 'Invalid attachment target.' }
+
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Not signed in.' }
+
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (!role) return { ok: false, error: 'You do not have access to this HOA.' }
+
+  // Refuse a path outside this org's prefix, so a tampered client cannot
+  // attach a row pointing at another organisation's object.
+  if (!input.storagePath.startsWith(`${org.id}/submissions/`)) {
+    console.error('[attach] reject: storage path outside org prefix')
+    return { ok: false, error: 'Invalid upload path.' }
   }
 
   const { error: insertError } = await supabase
@@ -154,23 +208,24 @@ export async function uploadSubmissionAttachment(
       organization_id: org.id,
       thread_type: parsed.data.threadType,
       parent_id: parsed.data.parentId,
-      storage_path: storagePath,
-      file_name: file.name.slice(0, 200),
-      content_type: file.type || null,
-      size_bytes: file.size,
+      storage_path: input.storagePath,
+      file_name: input.fileName.slice(0, 200),
+      content_type: input.contentType || null,
+      size_bytes: input.sizeBytes,
       uploaded_by: user.id,
       uploaded_by_role: role,
     } as never)
 
   if (insertError) {
-    // Roll back the orphaned object so a failed insert doesn't leave a file.
-    await supabase.storage.from(BUCKET).remove([storagePath])
+    console.error(`[attach] metadata insert failed: ${insertError.message}`)
+    await supabase.storage.from(BUCKET).remove([input.storagePath])
     return { ok: false, error: insertError.message }
   }
 
-  for (const p of pathsFor(parsed.data.threadType, parsed.data.parentId)) {
+  for (const p of pathsFor(parsed.data.threadType, input.parentId)) {
     revalidatePath(p)
   }
+  console.log(`[attach] ok bytes=${input.sizeBytes}`)
   return { ok: true }
 }
 

@@ -10,7 +10,7 @@ import {
   type ViolationCategory,
 } from '@/lib/resident-submissions'
 import { summarizePhotoUploads, type PhotoUploadOutcome } from '@/lib/attachment-rules'
-import { uploadSubmissionAttachment } from '@/lib/submission-attachments'
+import { uploadAttachmentDirect } from '@/lib/upload-attachment'
 import { PhotoPicker } from './PhotoPicker'
 
 const CATEGORIES: Array<{ value: ViolationCategory; label: string }> = [
@@ -64,18 +64,19 @@ export function ReportViolationForm({
       const newReportId = result.data.reportId
       setReportId(newReportId)
 
-      // Photos upload only after the report exists — `uploadSubmissionAttachment`
+      // Photos upload only after the report exists — the attachment row
       // needs a parentId. Sequential, not parallel: a resident on mobile data
       // uploading four photos at once is how you get four timeouts instead of
       // four uploads.
+      //
+      // `uploadAttachmentDirect` sends the bytes browser-to-Supabase rather
+      // than through a server action. Vercel caps server-action bodies at
+      // 4.5 MB and a phone photo is 3-6 MB, which is why the original
+      // implementation failed in production on real camera photos.
       const outcomes: PhotoUploadOutcome[] = []
       for (const file of photos) {
-        const fd = new FormData()
-        fd.set('threadType', 'concern')
-        fd.set('parentId', newReportId)
-        fd.set('file', file)
         try {
-          const uploaded = await uploadSubmissionAttachment(fd)
+          const uploaded = await uploadAttachmentDirect('concern', newReportId, file)
           if (!uploaded.ok) {
             console.error(`Photo upload failed for ${file.name}: ${uploaded.error}`)
           }

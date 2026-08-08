@@ -226,6 +226,39 @@ it, in this order: materialized view with a refresh job → denormalized counter
 columns maintained by triggers. Correctness first; the escalation path stays
 open and documented rather than pre-emptively taken.
 
+**Measured 2026-08-06 — the plain view holds; no escalation needed.** Against a
+5,000-property fixture on the production database, running the real page query
+(org scope + `severity_rank < 6` + severity ordering + `LIMIT 50`):
+
+| | Execution | Base-scan node |
+| --- | --- | --- |
+| `0039` as first written | 136.9 ms | 94.5 ms |
+| `0040`, board gate hoisted out of the row loop | **40.9 ms** | **3.2 ms** |
+
+The first measurement found that `auth_is_board_or_admin` is `SECURITY DEFINER`
+and therefore un-inlinable, so it ran once per candidate row — 69% of the whole
+query. `0040` expresses the same membership test as a subquery the planner
+evaluates once. See that migration's header for why this is strictly more
+restrictive, never less.
+
+Three caveats recorded so the number is not over-read:
+
+- The fixture's properties carry no assessments, violations, or threads, so each
+  of the 5,000 aggregate probes finds nothing. Probe cost — the dominant term —
+  is measured honestly; real rows add heap fetches on top.
+- Planning time is 25.6 ms, roughly 60% of execution again, and PostgREST does
+  not reliably reuse plans. Budget for it per request.
+- `severity_rank` is computed for every matching row before the filter discards
+  them (4,072 of 5,000 in the fixture). That is structural to ordering by a
+  computed column and is fine at 5,000; it would resurface around 50,000.
+
+An earlier run reported 7 ms and was discarded as meaningless: the SQL editor has
+no `auth.uid()`, so every row failed the board predicate and no aggregate ran. A
+second run reported 136 ms with the dues aggregate showing `Memoize … Hits: 4999`
+— every fixture property lacked a unit, so the cache key was a constant `NULL`
+and the lookup collapsed to one execution. Only the third run, with a unit per
+property, exercised the aggregates 5,000 times.
+
 ### Pagination
 
 Offset pagination, page size 50, rendered as `Showing 1–50 of 312` with

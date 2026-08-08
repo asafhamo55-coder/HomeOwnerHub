@@ -34,15 +34,28 @@ export const QuickCreateVendorSchema = z.object({
     .nullable()
     .optional(),
   notes: z.string().trim().min(1).nullable().optional(),
+  ein: z
+    .string()
+    .trim()
+    .transform((value) => value.replace(/\D/g, ''))
+    .refine((digits) => digits.length === 9, 'EIN must contain exactly 9 digits.')
+    .nullable()
+    .optional(),
   // True when any field was filled by W33 rather than typed by a human.
   aiGenerated: z.boolean().default(false),
 })
 
-// No `ein` key, by design. Zod strips unknown keys on parse, so an EIN
-// arriving from a caller — or volunteered by a model — is dropped here
-// rather than being deleted by hand somewhere downstream. An EIN is never
-// present in a signature block and an invented one would corrupt 1099
-// reporting, so it stays a human-entered field on the vendor page.
+// `ein` is now accepted, where v1 stripped it.
+//
+// v1's reasoning was that the only possible source was model inference from
+// prose, and an invented tax id corrupts 1099 reporting. That is still true
+// of prose — W33 drops any EIN unless an attachment supplied it. What
+// reaches this schema has been through a W-9 AND been confirmed by a
+// reviewer looking at the document, so it is human-attested input like the
+// phone number beside it.
+//
+// Validated to nine digits: a value that cannot be an EIN is a parse
+// artefact, and a blank is better than a wrong tax id nobody re-checks.
 
 export type QuickCreateVendorInput = z.infer<typeof QuickCreateVendorSchema>
 
