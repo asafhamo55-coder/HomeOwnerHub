@@ -1,7 +1,8 @@
 # Inbox — Vendor Request Composer (W34)
 
-**Status:** Approved design
+**Status:** Built and deployed (slices 1–4). Slice 5 (vision) not started.
 **Date:** 2026-08-08
+**Shipped:** commit `da1d02d`
 **Predecessor:** [Phase C — Outbound Composer](./2026-08-02-hoa-inbox-outbound-composer-design.md)
 
 ---
@@ -194,6 +195,24 @@ current row has a `kind` that both CHECK constraints still admit.
 
 ---
 
+## Two modules this work extracted
+
+Neither was in the original design; both came out of building it.
+
+**`lib/inbox/attachment-pdf.ts`** — the download-and-parse loop. W33 already
+had it message-scoped and private inside `vendor/actions.ts`; W34 needs the
+same loop thread-scoped. Two copies would have been two places for "a corrupt
+PDF must not fail the whole extraction" to stop being true. `readPdfTexts` now
+serves both. `selectParsableAttachments` and `joinAttachmentText` stay pure in
+`vendor/attachment-text.ts`, as that file's docstring intends.
+
+**`lib/inbox/vendor-request-links.ts`** — `getOutgoingVendorRequests` and
+`getIncomingVendorRequest`, the two directions of D5's join. Kept out of
+`queries.ts`, which is already 42KB. Both return empty/null on a failed read
+rather than throwing: a missing cross-reference in a header is cosmetic where
+an unrenderable thread is not — the same stakes split `getThreadDetail`
+applies to its own enrichment reads.
+
 ## Retrieval — `lib/inbox/draft/vendor-request-retrieve.ts`
 
 New module, deliberately not folded into `retrieve.ts`. That file is 20KB and
@@ -206,16 +225,25 @@ export interface VendorRequestRetrieval {
   threadSubject: string | null
   messages: Array<{ direction: 'inbound' | 'outbound'; from: string; text: string }>
   property: { addressLine1: string; unitNumber: string | null } | null
-  vendor: { legalName: string; trades: string[]; contactName: string | null } | null
+  vendor: { legalName: string; dba: string | null; trades: string[] } | null
   attachmentText: string | null
   photoFindings: PhotoFinding[]   // always [] this phase — see D9
-  degraded: string[]
+  degraded: VendorRequestDegradedSource[]
+  vendorId: string | null
+  mailboxAccountId: string | null
+  attachments: Array<{ id: string; fileName: string; sizeBytes: number }>
 }
 
 export async function retrieveForVendorRequest(
+  db: Db,
+  orgId: string,
   threadId: string,
-): Promise<VendorRequestRetrieval>
+): Promise<VendorRequestRetrieval | null>   // null = thread not in this org
 ```
+
+The vendor shape carries `dba`, not the `contactName` an earlier draft of
+this spec assumed: `vendors` has no contact-name column (`legal_name`, `dba`,
+`trades`, `primary_email`, `primary_phone`, `ein`, `status`, `address`).
 
 Sources, each independently degradable:
 
@@ -254,7 +282,7 @@ Structure mirrors W32 and W30: own OpenAI-compatible client,
   threadSubject: string | null,
   messages: Array<{ direction: 'inbound' | 'outbound'; from: string; text: string }>,
   property: { addressLine1: string; unitNumber: string | null } | null,
-  vendor: { legalName: string; trades: string[]; contactName: string | null } | null,
+  vendor: { legalName: string; dba: string | null; trades: string[] } | null,
   attachmentText: string | null,
   photoFindings: Array<{ fileName: string; finding: string }>,
   degraded: string[],
@@ -306,6 +334,15 @@ in.
 real drafts over a re-typed quote — a fixable formatting slip. W34 has no
 such gate; a Zod parse failure is a malformed response, and retrying it is a
 second bill for the same likely outcome. One call.
+
+**`blanks[]` is not reconciled against the markers in the text.** The two can
+disagree in both directions, and each disagreement is absorbed where it does
+least damage rather than by discarding the draft. A marker with no `blanks`
+entry still blocks approve, because `hasUnfilledBlanks` reads the body text,
+not this array — the board member sees a blank to resolve, just without an
+explanatory prompt beside it. A `blanks` entry with no marker renders one
+stray callout. A strict check would fail closed on the model's most common
+formatting slip and throw away a usable work order.
 
 ---
 
@@ -362,10 +399,20 @@ export async function draftVendorRequest(input: {
   intent: VendorRequestIntent
   freeTextInstruction: string | null
   neededBy: string | null
-  vendorId: string | null
   toEmails: string[]
-}): Promise<{ draftId: string } | { error: string }>
+}): Promise<
+  { ok: true; draftId: string; skippedAttachments: string[] } | { error: string }
+>
 ```
+
+No `vendorId` parameter: it comes off the source thread's own `vendor_id`
+during retrieval. Taking it from the caller would mean validating that a
+form-supplied vendor id belongs to this org — a hazard the thread lookup
+already closes.
+
+`skippedAttachments` is returned rather than logged so the dialog can name
+the files that did not fit. A board member who is not told is a board member
+who thinks the vendor has the photo.
 
 Sequence:
 
@@ -392,9 +439,14 @@ would let a two-mailbox org send a work order from the wrong address.
 
 `packages/jobs/src/mailbox-send.ts` treats `kind='vendor_request'` exactly as
 `kind='new'`: no `threadId`, mailbox account read off the draft row. The
-three existing predicates that test `kind === 'new'` become
-`isThreadless(kind)`, a single exported helper, so a fifth kind later cannot
-be added to one predicate and missed in another.
+`kind === 'new'` test becomes `isThreadless(kind)`, a single exported helper.
+
+An earlier draft of this spec said there were three such predicates. There is
+one — the other two `'new'` mentions in that file are comments, and the
+remaining branches key off the `threadId` local it sets. The helper is still
+worth having for the reason the comment on it gives: the branches downstream
+consume that one decision, and the symptom of getting it wrong is a vendor
+request silently threading onto the resident's conversation.
 
 No other change. `recordSent` is untouched. The rule that no code after
 `sendReply` returns may mark a draft `failed` is untouched.
@@ -448,6 +500,17 @@ harder to review than one that shows what the model actually wrote.
 
 ## Testing
 
+**What actually shipped in `da1d02d`:** the first three suites below, 40 new
+tests (W34 20, body 8, retrieval 12). The whole repo suite is 789 green.
+
+**Not written, and a real gap:** the `actions` and `mailbox-send` suites
+listed below, and the Playwright end-to-end. `draft/actions.ts` already has an
+`actions.test.ts`, so `draftVendorRequest` is testable by the same means and
+simply was not covered — the cross-org refusal and the attachment-budget
+skip path are the two worth adding first, since both are security- or
+correctness-relevant and neither is exercised today.
+
+
 **`W34` (unit, no live model — the root vitest harness is pure-modules-only):**
 - `buildVendorRequestUserPrompt` renders each intent, and `UNAVAILABLE` when
   `degraded` is non-empty.
@@ -485,10 +548,10 @@ harder to review than one that shows what the model actually wrote.
 
 ## Build order
 
-Each step is independently shippable.
+Each step is independently shippable. Slices 1–4 shipped in `da1d02d`.
 
-1. **Migration + `isThreadless`.** 0042, and the send job's three `kind ===
-   'new'` predicates collapsed into one helper. No behavior change.
+1. **Migration + `isThreadless`.** 0042, and the send job's `kind === 'new'`
+   test collapsed into one helper. No behavior change.
 2. **W34 + body assembly.** Pure, fully unit-testable, no database.
 3. **Retrieval + server action.** `retrieveForVendorRequest`,
    `draftVendorRequest`, attachment copying.
