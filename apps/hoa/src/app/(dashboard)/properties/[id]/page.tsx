@@ -42,6 +42,7 @@ import type { PropertyResidentRow, PropertyResidentRole } from '@/lib/property-r
 import type { PropertyEventRow, PropertyEventKind } from '@/lib/property-events'
 import { PropertyList } from '../PropertyList'
 import { PropertyListFilters } from '../PropertyListFilters'
+import { PropertiesHeader } from '../PropertiesHeader'
 import {
   resolveCorrespondenceState,
   type CorrespondenceSectionState,
@@ -291,103 +292,115 @@ export default async function PropertyDetailPage({
     })}`
 
   return (
-    <main className="flex h-[calc(100vh-4rem)] overflow-hidden">
-      {/* The aside mirrors /properties so the list survives navigation;
-          hidden below lg so the panel is the whole page on a phone — the
-          same structure inbox/[id]/page.tsx uses. */}
-      <aside className="hidden w-full max-w-sm shrink-0 overflow-y-auto border-r border-border lg:block xl:max-w-xs">
-        <PropertyListFilters params={listParams} counts={counts} />
-        {listError ? (
-          <Alert variant="error" title="Could not load properties" className="m-3">
-            {listError}
-          </Alert>
-        ) : (
-          <>
-            <PropertyList rows={rows} selectedId={id} params={listParams} />
-            {total > listParams.limit ? (
-              <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-xs text-muted">
-                <span>
-                  Showing {listParams.offset + 1}–
-                  {Math.min(listParams.offset + rows.length, total)} of {total}
-                </span>
-                <div className="flex gap-3">
-                  {listParams.page > 1 ? (
-                    <Link href={pageHref(listParams.page - 1)} className="underline hover:text-foreground">
-                      Previous
-                    </Link>
-                  ) : (
-                    <span className="text-muted/50">Previous</span>
-                  )}
-                  {listParams.offset + rows.length < total ? (
-                    <Link href={pageHref(listParams.page + 1)} className="underline hover:text-foreground">
-                      Next
-                    </Link>
-                  ) : (
-                    <span className="text-muted/50">Next</span>
-                  )}
+    <main className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden">
+      {/* Same header /properties renders, so Export and Add property don't
+          disappear the moment a property is opened on desktop. */}
+      <PropertiesHeader
+        orgName={ctx?.org.name ?? ''}
+        filter={listParams.filter}
+        total={total}
+        allCount={counts.all}
+        search={listParams.search}
+      />
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* The aside mirrors /properties so the list survives navigation;
+            hidden below lg so the panel is the whole page on a phone — the
+            same structure inbox/[id]/page.tsx uses. */}
+        <aside className="hidden w-full max-w-sm shrink-0 overflow-y-auto border-r border-border lg:block xl:max-w-xs">
+          <PropertyListFilters params={listParams} counts={counts} />
+          {listError ? (
+            <Alert variant="error" title="Could not load properties" className="m-3">
+              {listError}
+            </Alert>
+          ) : (
+            <>
+              <PropertyList rows={rows} selectedId={id} params={listParams} />
+              {total > listParams.limit ? (
+                <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-xs text-muted">
+                  <span>
+                    Showing {listParams.offset + 1}–
+                    {Math.min(listParams.offset + rows.length, total)} of {total}
+                  </span>
+                  <div className="flex gap-3">
+                    {listParams.page > 1 ? (
+                      <Link href={pageHref(listParams.page - 1)} className="underline hover:text-foreground">
+                        Previous
+                      </Link>
+                    ) : (
+                      <span className="text-muted/50">Previous</span>
+                    )}
+                    {listParams.offset + rows.length < total ? (
+                      <Link href={pageHref(listParams.page + 1)} className="underline hover:text-foreground">
+                        Next
+                      </Link>
+                    ) : (
+                      <span className="text-muted/50">Next</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ) : null}
-          </>
-        )}
-      </aside>
+              ) : null}
+            </>
+          )}
+        </aside>
 
-      <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {/* Edit/Delete sit above the tabs so they're reachable from every
-            tab, exactly as they were reachable from the old single page. */}
-        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2">
-          <div className="lg:hidden">
-            <BackLink href={listHref} label="All properties" />
+        <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {/* Edit/Delete sit above the tabs so they're reachable from every
+              tab, exactly as they were reachable from the old single page. */}
+          <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2">
+            <div className="lg:hidden">
+              <BackLink href={listHref} label="All properties" />
+            </div>
+            <div className="ml-auto">
+              <PropertyActions propertyId={p.id} />
+            </div>
           </div>
-          <div className="ml-auto">
-            <PropertyActions propertyId={p.id} />
-          </div>
-        </div>
 
-        <div className="min-h-0 flex-1">
-          <PropertyPanel
-            propertyId={id}
-            address={p.address}
-            unitNumber={p.unit_number}
-            ownerName={p.owner_name}
-            ownerEmail={p.owner_email}
-            ownerPhone={p.owner_phone}
-            tenure={tenure}
-            stats={stats}
-            currentTab={tab}
-            query={query}
-          >
-            {tab === 'overview' ? (
-              <OverviewTab
-                property={p}
-                tenureUpdatedAt={detail.property.tenure_updated_at}
-                tenure={tenure}
-                capInPlace={capInPlace}
-                isAdmin={isAdmin}
-                unitId={unitId}
-                violationCount={violations.length}
-                duesCount={dues.length}
-                residents={residents}
-                events={events}
-                historyHref={historyHref}
-                residentsHref={residentsHref}
-              />
-            ) : null}
-            {tab === 'residents' ? (
-              <ResidentsSection
-                residents={residents}
-                isAdmin={isAdmin}
-                propertyId={p.id}
-                unitId={unitId}
-              />
-            ) : null}
-            {tab === 'mail' ? <CorrespondenceSection state={correspondenceState} /> : null}
-            {tab === 'violations' ? <ViolationsSection violations={violations} /> : null}
-            {tab === 'dues' ? <DuesSection dues={dues} /> : null}
-            {tab === 'history' ? <HistorySection events={events} /> : null}
-          </PropertyPanel>
-        </div>
-      </section>
+          <div className="min-h-0 flex-1">
+            <PropertyPanel
+              propertyId={id}
+              address={p.address}
+              unitNumber={p.unit_number}
+              ownerName={p.owner_name}
+              ownerEmail={p.owner_email}
+              ownerPhone={p.owner_phone}
+              tenure={tenure}
+              stats={stats}
+              currentTab={tab}
+              query={query}
+            >
+              {tab === 'overview' ? (
+                <OverviewTab
+                  property={p}
+                  tenureUpdatedAt={detail.property.tenure_updated_at}
+                  tenure={tenure}
+                  capInPlace={capInPlace}
+                  isAdmin={isAdmin}
+                  unitId={unitId}
+                  violationCount={violations.length}
+                  duesCount={dues.length}
+                  residents={residents}
+                  events={events}
+                  historyHref={historyHref}
+                  residentsHref={residentsHref}
+                />
+              ) : null}
+              {tab === 'residents' ? (
+                <ResidentsSection
+                  residents={residents}
+                  isAdmin={isAdmin}
+                  propertyId={p.id}
+                  unitId={unitId}
+                />
+              ) : null}
+              {tab === 'mail' ? <CorrespondenceSection state={correspondenceState} /> : null}
+              {tab === 'violations' ? <ViolationsSection violations={violations} /> : null}
+              {tab === 'dues' ? <DuesSection dues={dues} /> : null}
+              {tab === 'history' ? <HistorySection events={events} /> : null}
+            </PropertyPanel>
+          </div>
+        </section>
+      </div>
     </main>
   )
 }

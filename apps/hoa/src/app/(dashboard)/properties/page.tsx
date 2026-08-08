@@ -1,12 +1,12 @@
 import Link from 'next/link'
-import { Download, Plus } from 'lucide-react'
-import { Alert, Button } from '@homeowner-portal/ui'
+import { Alert } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { listProperties } from '@/lib/properties/list'
 import { parsePropertyListParams } from '@/lib/properties/list-params'
 import { PropertyList } from './PropertyList'
 import { PropertyListFilters } from './PropertyListFilters'
+import { PropertiesHeader } from './PropertiesHeader'
 
 export const metadata = { title: 'Properties' }
 export const dynamic = 'force-dynamic'
@@ -62,29 +62,13 @@ export default async function PropertiesPage({
 
   return (
     <main className="flex h-[calc(100vh-4rem)] flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">Properties</h1>
-          <p className="text-xs text-muted">
-            {total} {total === 1 ? 'home' : 'homes'} in {org.name}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            {/* Plain anchor — Link would prefetch the CSV. */}
-            <a href="/properties/export">
-              <Download className="h-4 w-4" />
-              Export
-            </a>
-          </Button>
-          <Button asChild size="sm">
-            <Link href="/properties/new">
-              <Plus className="h-4 w-4" />
-              Add property
-            </Link>
-          </Button>
-        </div>
-      </header>
+      <PropertiesHeader
+        orgName={org.name}
+        filter={params.filter}
+        total={total}
+        allCount={counts.all}
+        search={params.search}
+      />
 
       <div className="flex flex-1 overflow-hidden">
         <aside className="w-full max-w-sm shrink-0 overflow-y-auto border-r border-border xl:max-w-xs">

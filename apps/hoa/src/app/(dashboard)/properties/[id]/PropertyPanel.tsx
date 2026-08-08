@@ -81,7 +81,7 @@ export function PropertyPanel({
     <div className="flex h-full flex-col overflow-y-auto">
       <div className="border-b border-border px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-base font-semibold text-foreground">{address}</h2>
+          <h1 className="text-base font-semibold text-foreground">{address}</h1>
           {unitNumber ? <span className="text-sm text-muted">Unit {unitNumber}</span> : null}
           {tenure ? (
             <Badge variant={tenure === 'leased' ? 'warning' : tenure === 'owner_occupied' ? 'success' : 'neutral'} size="sm">

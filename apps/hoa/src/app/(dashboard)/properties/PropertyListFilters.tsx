@@ -30,6 +30,17 @@ function hrefWith(params: PropertyListParams, patch: Partial<Record<string, stri
   return s ? `/properties?${s}` : '/properties'
 }
 
+/** Same filter/sort, with the search term dropped — the escape hatch for a
+ * zero-result search, since every chip and sort link otherwise carries the
+ * search forward and stays empty too. */
+function clearSearchHref(params: PropertyListParams): string {
+  const q = new URLSearchParams()
+  if (params.filter !== 'attention') q.set('filter', params.filter)
+  if (params.sort !== 'severity') q.set('sort', params.sort)
+  const s = q.toString()
+  return s ? `/properties?${s}` : '/properties'
+}
+
 export function PropertyListFilters({
   params,
   counts,
@@ -60,6 +71,14 @@ export function PropertyListFilters({
             className="pl-8 text-sm"
           />
         </div>
+        {params.search ? (
+          <Link
+            href={clearSearchHref(params)}
+            className="shrink-0 text-xs font-medium text-muted hover:text-foreground"
+          >
+            Clear
+          </Link>
+        ) : null}
       </form>
 
       <nav aria-label="Filter properties" className="flex flex-wrap gap-1 text-xs">
