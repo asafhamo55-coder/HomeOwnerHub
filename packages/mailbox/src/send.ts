@@ -4,9 +4,11 @@
  * file must not change that.
  */
 
-import { MailboxAuthError } from './types'
+import { randomBytes } from 'node:crypto'
+import { MailboxAuthError, type OutboundAttachment } from './types'
 
-const GMAIL_SEND_URL = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send'
+const GMAIL_UPLOAD_SEND_URL =
+  'https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=multipart'
 
 /**
  * Encode a header value as RFC 2047 when it contains non-ASCII, so a subject
@@ -32,78 +34,219 @@ function encodeHeader(value: string): string {
  */
 function assertNoHeaderInjection(field: string, value: string): void {
   if (/[\r\n]/.test(value)) {
-    throw new Error(`buildRawMessage: ${field} must not contain CR or LF`)
+    throw new Error(`buildMimeMessage: ${field} must not contain CR or LF`)
   }
 }
 
-export function buildRawMessage(opts: {
+/**
+ * A filename is interpolated into two header parameters below
+ * (`name=` and `filename=`), so it is exactly as dangerous as any other
+ * header value — see assertNoHeaderInjection's docstring. A double quote
+ * would terminate the quoted-string early and let the rest of the filename
+ * be read as further parameters, so it is REJECTED rather than escaped:
+ * escaping is easy to get subtly wrong, and no legitimate HOA document is
+ * named with a quote in it.
+ */
+function assertSafeFileName(name: string): void {
+  assertNoHeaderInjection('fileName', name)
+  if (name.includes('"')) {
+    throw new Error('buildMimeMessage: fileName must not contain a double quote')
+  }
+  if (name.trim() === '') {
+    throw new Error('buildMimeMessage: fileName must not be empty')
+  }
+}
+
+/**
+ * A content type is interpolated into the attachment part's `Content-Type:`
+ * line, so it is a header value like any other and must clear
+ * assertNoHeaderInjection — without it, a crafted type could inject a `Bcc:`
+ * line, which is exactly what that guard exists to stop. It IS reachable
+ * from outside: AttachmentPicker sends the browser's `file.type` verbatim
+ * (`file.type || null`), and it is stored on the row and forwarded to here
+ * unvalidated.
+ *
+ * A double quote is rejected as well, on the same reasoning as
+ * assertSafeFileName: the type sits on a line that continues into a quoted
+ * `name="…"` parameter, so a quote inside it would close that string early
+ * and let the remainder be read as further parameters.
+ */
+function assertSafeContentType(value: string): void {
+  assertNoHeaderInjection('contentType', value)
+  if (value.includes('"')) {
+    throw new Error('buildMimeMessage: contentType must not contain a double quote')
+  }
+}
+
+/**
+ * Random per message. The `-` and `_` characters cannot appear in standard
+ * base64 output, so an attachment part can never contain the delimiter; the
+ * BODY still can, which is what the assertion in buildMimeMessage covers.
+ */
+function makeBoundary(): string {
+  return `----=_HH_${randomBytes(16).toString('hex')}`
+}
+
+function base64Lines(bytes: Buffer): string {
+  return (bytes.toString('base64').match(/.{1,76}/g) ?? []).join('\r\n')
+}
+
+/**
+ * A part containing the delimiter would forge MIME structure — a crafted
+ * reply could append an arbitrary extra part. The boundary carries 16 random
+ * bytes, so this is astronomically unlikely and unreachable from outside;
+ * it is asserted rather than trusted because the failure mode is message
+ * forgery, not a rendering glitch.
+ *
+ * Exported ONLY so the unreachable branch can be tested directly. An
+ * untested throw is a throw nobody knows is broken.
+ */
+export function assertNoBoundaryCollision(parts: string[], boundary: string): void {
+  for (const part of parts) {
+    if (part.includes(`--${boundary}`)) {
+      throw new Error('buildMimeMessage: boundary collision in message content')
+    }
+  }
+}
+
+export function buildMimeMessage(opts: {
   from: string
   to: string[]
+  cc?: string[]
   subject: string
   body: string
   inReplyTo: string | null
   references: string[]
+  attachments?: OutboundAttachment[]
 }): string {
+  const cc = opts.cc ?? []
+
   assertNoHeaderInjection('subject', opts.subject)
   assertNoHeaderInjection('from', opts.from)
   for (const to of opts.to) assertNoHeaderInjection('to', to)
+  for (const address of cc) assertNoHeaderInjection('cc', address)
   if (opts.inReplyTo) assertNoHeaderInjection('inReplyTo', opts.inReplyTo)
   for (const ref of opts.references) assertNoHeaderInjection('references', ref)
 
   const headers = [
     `From: ${opts.from}`,
     `To: ${opts.to.join(', ')}`,
+  ]
+  // Omitted entirely when empty — an empty `Cc:` header is not useful and
+  // some relays treat a bare header as malformed.
+  if (cc.length > 0) headers.push(`Cc: ${cc.join(', ')}`)
+  headers.push(
     `Subject: ${encodeHeader(opts.subject)}`,
     'MIME-Version: 1.0',
     'Content-Type: text/plain; charset="UTF-8"',
     'Content-Transfer-Encoding: 8bit',
-  ]
+  )
 
-  // Omitted entirely when absent — an empty `In-Reply-To:` header is invalid
-  // and some relays reject the whole message rather than just the header.
   if (opts.inReplyTo) headers.push(`In-Reply-To: ${opts.inReplyTo}`)
   if (opts.references.length > 0) headers.push(`References: ${opts.references.join(' ')}`)
 
-  const message = `${headers.join('\r\n')}\r\n\r\n${opts.body}`
+  const attachments = opts.attachments ?? []
+  for (const file of attachments) {
+    assertSafeFileName(file.fileName)
+    if (file.contentType) assertSafeContentType(file.contentType)
+  }
 
-  // Base64url, not base64: the Gmail API rejects `+`, `/`, and `=` in the
-  // `raw` field.
-  return Buffer.from(message, 'utf8')
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
+  // No attachments — emit the single-part message unchanged, byte for byte.
+  // A golden test pins this: ordinary replies are the overwhelming majority
+  // of outbound mail and must not shift because attachments became possible.
+  if (attachments.length === 0) {
+    return `${headers.join('\r\n')}\r\n\r\n${opts.body}`
+  }
+
+  const boundary = makeBoundary()
+
+  const parts = [
+    [
+      'Content-Type: text/plain; charset="UTF-8"',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      opts.body,
+    ].join('\r\n'),
+    ...attachments.map((file) =>
+      [
+        `Content-Type: ${file.contentType ?? 'application/octet-stream'}; name="${encodeHeader(file.fileName)}"`,
+        `Content-Disposition: attachment; filename="${encodeHeader(file.fileName)}"`,
+        'Content-Transfer-Encoding: base64',
+        '',
+        base64Lines(file.bytes),
+      ].join('\r\n'),
+    ),
+  ]
+
+  assertNoBoundaryCollision(parts, boundary)
+
+  // Swap the single-part content headers for the multipart declaration. The
+  // 8bit transfer encoding moves onto the body PART; a multipart container
+  // must not declare one.
+  const multipartHeaders = headers.filter(
+    (h) =>
+      !h.startsWith('Content-Type: text/plain') &&
+      !h.startsWith('Content-Transfer-Encoding:'),
+  )
+  multipartHeaders.splice(
+    multipartHeaders.findIndex((h) => h === 'MIME-Version: 1.0') + 1,
+    0,
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+  )
+
+  const bodyBlock = `--${boundary}\r\n${parts.join(`\r\n--${boundary}\r\n`)}\r\n--${boundary}--`
+  return `${multipartHeaders.join('\r\n')}\r\n\r\n${bodyBlock}`
 }
 
 /**
- * Send via the Gmail API. `threadId` files the reply into the same
- * conversation on the HOA's side; In-Reply-To/References (already baked
- * into `raw` by buildRawMessage) do the same on the resident's side. Both
- * are needed — Gmail's threadId alone does not set the RFC headers that
- * other mail clients use to thread.
+ * Send via the Gmail API's UPLOAD endpoint.
  *
- * Deliberately no retry, unlike GmailClient.request: this call is not
- * idempotent, and retrying after an ambiguous failure (e.g. a timeout where
- * the send may have already succeeded) risks sending a resident the same
- * reply twice. The caller records the failure and a human decides whether
- * to resend.
+ * The plain `messages/send` endpoint takes the message base64url-encoded in
+ * a JSON field, which caps the whole request near 5MB — less than a single
+ * phone photo. `uploadType=multipart` takes a JSON metadata part plus a
+ * `message/rfc822` part and allows 35MB.
+ *
+ * `threadId` files the message into the same conversation on the HOA's side;
+ * In-Reply-To/References (already in `mime` from buildMimeMessage) do the
+ * same on the resident's side. Both are needed. `null` omits it, which is
+ * what a brand-new conversation requires.
+ *
+ * Deliberately no retry, unchanged from before: this call is not idempotent,
+ * and retrying after an ambiguous failure (a timeout where the send may have
+ * already succeeded) risks sending a resident the same reply twice. The
+ * caller records the failure and a human decides whether to resend.
  */
 export async function sendReply(
   accessToken: string,
-  threadId: string,
-  raw: string,
-): Promise<{ messageId: string; threadId: string }> {
-  const response = await fetch(GMAIL_SEND_URL, {
+  threadId: string | null,
+  mime: string,
+): Promise<{ messageId: string; threadId: string | null }> {
+  const boundary = makeBoundary()
+  const metadata = JSON.stringify(threadId ? { threadId } : {})
+
+  const body = [
+    `--${boundary}`,
+    'Content-Type: application/json; charset=UTF-8',
+    '',
+    metadata,
+    `--${boundary}`,
+    'Content-Type: message/rfc822',
+    '',
+    mime,
+    `--${boundary}--`,
+  ].join('\r\n')
+
+  const response = await fetch(GMAIL_UPLOAD_SEND_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
+      'Content-Type': `multipart/related; boundary=${boundary}`,
     },
-    body: JSON.stringify({ raw, threadId }),
+    body,
   })
 
-  // Same mapping as GmailClient: dead credentials must surface distinctly
-  // so the caller can mark the mailbox as needing reconnection rather than
+  // Same mapping as GmailClient: dead credentials must surface distinctly so
+  // the caller can mark the mailbox as needing reconnection rather than
   // treating this as a transient blip.
   if (response.status === 401 || response.status === 403) {
     throw new MailboxAuthError(`Gmail rejected the send: ${response.status}`)

@@ -340,6 +340,13 @@ export type Database = {
             foreignKeyName: "arc_requests_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "arc_requests_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
@@ -409,6 +416,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "orgs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessments_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "assessments_unit_id_fkey"
@@ -1260,6 +1274,13 @@ export type Database = {
             foreignKeyName: "communication_recipients_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "communication_recipients_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
@@ -1514,6 +1535,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "communications"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_threads_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "communication_threads_unit_id_fkey"
@@ -2229,6 +2257,13 @@ export type Database = {
             referencedRelation: "hoa_properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "hoa_dues_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["id"]
+          },
         ]
       }
       hoa_meeting_minutes: {
@@ -2546,6 +2581,13 @@ export type Database = {
             referencedRelation: "hoa_properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "hoa_violations_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["id"]
+          },
         ]
       }
       inbox_attachments: {
@@ -2627,6 +2669,57 @@ export type Database = {
           },
         ]
       }
+      inbox_draft_attachments: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          draft_id: string
+          file_name: string
+          id: string
+          organization_id: string
+          size_bytes: number
+          source: string
+          storage_path: string
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          draft_id: string
+          file_name: string
+          id?: string
+          organization_id: string
+          size_bytes: number
+          source: string
+          storage_path: string
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          draft_id?: string
+          file_name?: string
+          id?: string
+          organization_id?: string
+          size_bytes?: number
+          source?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbox_draft_attachments_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_draft_attachments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inbox_drafts: {
         Row: {
           ai_run_id: string | null
@@ -2634,6 +2727,7 @@ export type Database = {
           approved_by: string | null
           blanks: Json
           body_text: string
+          cc_emails: string[]
           citations: Json
           created_at: string
           created_by: string | null
@@ -2642,6 +2736,8 @@ export type Database = {
           grounded: boolean
           grounding_note: string | null
           id: string
+          kind: string
+          mailbox_account_id: string | null
           model: string | null
           organization_id: string
           prompt_version: string | null
@@ -2649,7 +2745,8 @@ export type Database = {
           sent_at: string | null
           status: string
           subject: string
-          thread_id: string
+          thread_id: string | null
+          to_emails: string[]
         }
         Insert: {
           ai_run_id?: string | null
@@ -2657,6 +2754,7 @@ export type Database = {
           approved_by?: string | null
           blanks?: Json
           body_text: string
+          cc_emails?: string[]
           citations?: Json
           created_at?: string
           created_by?: string | null
@@ -2665,6 +2763,8 @@ export type Database = {
           grounded?: boolean
           grounding_note?: string | null
           id?: string
+          kind?: string
+          mailbox_account_id?: string | null
           model?: string | null
           organization_id: string
           prompt_version?: string | null
@@ -2672,7 +2772,8 @@ export type Database = {
           sent_at?: string | null
           status?: string
           subject: string
-          thread_id: string
+          thread_id?: string | null
+          to_emails?: string[]
         }
         Update: {
           ai_run_id?: string | null
@@ -2680,6 +2781,7 @@ export type Database = {
           approved_by?: string | null
           blanks?: Json
           body_text?: string
+          cc_emails?: string[]
           citations?: Json
           created_at?: string
           created_by?: string | null
@@ -2688,6 +2790,8 @@ export type Database = {
           grounded?: boolean
           grounding_note?: string | null
           id?: string
+          kind?: string
+          mailbox_account_id?: string | null
           model?: string | null
           organization_id?: string
           prompt_version?: string | null
@@ -2695,9 +2799,17 @@ export type Database = {
           sent_at?: string | null
           status?: string
           subject?: string
-          thread_id?: string
+          thread_id?: string | null
+          to_emails?: string[]
         }
         Relationships: [
+          {
+            foreignKeyName: "inbox_drafts_mailbox_account_id_fkey"
+            columns: ["mailbox_account_id"]
+            isOneToOne: false
+            referencedRelation: "mailbox_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inbox_drafts_organization_id_fkey"
             columns: ["organization_id"]
@@ -2917,6 +3029,13 @@ export type Database = {
             foreignKeyName: "inbox_sender_aliases_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "inbox_sender_aliases_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
@@ -3060,6 +3179,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "property_residents"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_threads_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "inbox_threads_unit_id_fkey"
@@ -3320,6 +3446,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "hoa_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lease_waiting_list_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
             referencedColumns: ["id"]
           },
         ]
@@ -3758,6 +3891,13 @@ export type Database = {
             foreignKeyName: "ownerships_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "ownerships_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
@@ -3807,6 +3947,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "orgs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_methods_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "payment_methods_unit_id_fkey"
@@ -3878,6 +4025,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "orgs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_plans_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "payment_plans_unit_id_fkey"
@@ -3956,6 +4110,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "orgs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "payments_unit_id_fkey"
@@ -4321,6 +4482,13 @@ export type Database = {
             referencedRelation: "hoa_properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "property_events_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["id"]
+          },
         ]
       }
       property_residents: {
@@ -4385,6 +4553,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "hoa_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_residents_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
             referencedColumns: ["id"]
           },
         ]
@@ -4491,6 +4666,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "orgs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resident_communication_preferences_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "resident_communication_preferences_unit_id_fkey"
@@ -4609,6 +4791,13 @@ export type Database = {
           submitted_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "resident_violation_reports_about_unit_id_fkey"
+            columns: ["about_unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
           {
             foreignKeyName: "resident_violation_reports_about_unit_id_fkey"
             columns: ["about_unit_id"]
@@ -5030,6 +5219,13 @@ export type Database = {
             foreignKeyName: "tenancies_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "tenancies_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
@@ -5165,6 +5361,13 @@ export type Database = {
             foreignKeyName: "tickets_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "tickets_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
@@ -5263,6 +5466,13 @@ export type Database = {
             columns: ["legacy_hoa_property_id"]
             isOneToOne: false
             referencedRelation: "hoa_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_legacy_hoa_property_id_fkey"
+            columns: ["legacy_hoa_property_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
             referencedColumns: ["id"]
           },
           {
@@ -5823,6 +6033,13 @@ export type Database = {
             foreignKeyName: "zelle_inbound_matches_matched_unit_id_fkey"
             columns: ["matched_unit_id"]
             isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "zelle_inbound_matches_matched_unit_id_fkey"
+            columns: ["matched_unit_id"]
+            isOneToOne: false
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
@@ -5837,6 +6054,41 @@ export type Database = {
       }
     }
     Views: {
+      hoa_property_list_v: {
+        Row: {
+          address: string | null
+          balance: number | null
+          created_at: string | null
+          days_overdue: number | null
+          has_owner: boolean | null
+          has_tenure: boolean | null
+          has_unit_link: boolean | null
+          id: string | null
+          notes: string | null
+          oldest_due_date: string | null
+          open_violations: number | null
+          org_id: string | null
+          owner_email: string | null
+          owner_name: string | null
+          owner_phone: string | null
+          severity_rank: number | null
+          tenure: Database["public"]["Enums"]["property_tenure"] | null
+          threads_needing_reply: number | null
+          unit_id: string | null
+          unit_number: string | null
+          updated_at: string | null
+          violations_past_cure: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hoa_properties_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       property_bridge_gaps: {
         Row: {
           address: string | null
@@ -5927,6 +6179,8 @@ export type Database = {
         Args: { p_comm_id: string; p_count: number; p_org_id: string }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       action_item_priority: "low" | "normal" | "high"

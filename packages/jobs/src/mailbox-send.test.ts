@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // sendReply must never actually be reachable in a test run — this suite
-// mocks it. `buildRawMessage` is mocked alongside it purely so tests don't
+// mocks it. `buildMimeMessage` is mocked alongside it purely so tests don't
 // have to supply header-valid inputs; MailboxAuthError and every other
 // export of @homeowner-portal/mailbox stay real so `instanceof` checks in
 // mailbox-send.ts still work against the classes the tests construct.
@@ -9,7 +9,7 @@ vi.mock('@homeowner-portal/mailbox', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@homeowner-portal/mailbox')>()
   return {
     ...actual,
-    buildRawMessage: vi.fn(() => 'raw-message'),
+    buildMimeMessage: vi.fn(() => 'mime-message'),
     sendReply: vi.fn(),
   }
 })
@@ -19,8 +19,15 @@ vi.mock('./mailbox-tokens', () => ({
   markAuthFailed: vi.fn(async () => undefined),
 }))
 
-import { runMailboxSend, type MailboxSendStep, type MailboxSendLogger } from './mailbox-send'
-import { buildRawMessage, sendReply, MailboxAuthError } from '@homeowner-portal/mailbox'
+import {
+  runMailboxSend,
+  storagePathBelongsToOrg,
+  resolveStorageFetchPath,
+  attachmentPathIsInOrg,
+  type MailboxSendStep,
+  type MailboxSendLogger,
+} from './mailbox-send'
+import { buildMimeMessage, sendReply, MailboxAuthError } from '@homeowner-portal/mailbox'
 import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
 
 type Row = { data: unknown; error: unknown }
@@ -55,7 +62,7 @@ function makeChain(result: Row) {
  * test expects and no more (see the "never sends twice" test, which relies
  * on this to prove no extra `fail()` write happens).
  */
-function buildDb(queues: Record<string, Row[]>) {
+function buildDb(queues: Record<string, Row[]>, storage?: Record<string, Buffer>) {
   const from = vi.fn((table: string) => {
     const queue = queues[table]
     if (!queue || queue.length === 0) {
@@ -63,7 +70,14 @@ function buildDb(queues: Record<string, Row[]>) {
     }
     return makeChain(queue.shift()!)
   })
-  return { from } as unknown as Parameters<typeof runMailboxSend>[0]
+  const download = vi.fn(async (path: string) => {
+    const bytes = storage?.[path]
+    if (!bytes) return { data: null, error: { message: 'Object not found' } }
+    return { data: { arrayBuffer: async () => bytes }, error: null }
+  })
+  return { from, storage: { from: vi.fn(() => ({ download })) } } as unknown as Parameters<
+    typeof runMailboxSend
+  >[0]
 }
 
 function fakeStep(): MailboxSendStep {
@@ -172,6 +186,10 @@ function queuedDraftRow(overrides: Partial<Record<string, unknown>> = {}) {
     body_text: 'Thanks for writing.',
     send_after: '2026-01-01T00:00:30.000Z',
     status: 'queued',
+    kind: 'reply',
+    to_emails: [],
+    cc_emails: [],
+    mailbox_account_id: null,
     ...overrides,
   }
 }
@@ -208,7 +226,7 @@ describe('runMailboxSend', () => {
     expect(result).toEqual({ sent: false, reason: 'cancelled' })
     expect(step.sleepUntil).toHaveBeenCalledTimes(1)
     expect(sendReply).not.toHaveBeenCalled()
-    expect(buildRawMessage).not.toHaveBeenCalled()
+    expect(buildMimeMessage).not.toHaveBeenCalled()
     expect(getAccessTokenFor).not.toHaveBeenCalled()
   })
 
@@ -234,16 +252,54 @@ describe('runMailboxSend', () => {
             error: null,
           },
         ],
+        inbox_draft_attachments: [{ data: [], error: null }],
       },
     })
 
     const result = await runMailboxSend(db, step, fakeLogger(), DRAFT_ID)
 
     expect(result).toEqual({ sent: true, messageId: 'gm-1' })
-    expect(sendReply).toHaveBeenCalledWith('access-token', 'gm-thread-1', 'raw-message')
+    expect(sendReply).toHaveBeenCalledWith('access-token', 'gm-thread-1', 'mime-message')
   })
 
   it('fails the draft without attempting a send when the mailbox is disconnected', async () => {
+    const db = buildDb({
+      inbox_drafts: [
+        { data: queuedDraftRow(), error: null },
+        { data: { id: DRAFT_ID }, error: null }, // claim succeeds
+        { data: null, error: null }, // fail() write
+      ],
+      inbox_threads: [
+        { data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID }, error: null },
+      ],
+      mailbox_accounts: [
+        {
+          data: { email_address: 'hoa@example.com', disconnected_at: '2026-01-01T00:00:00Z' },
+          error: null,
+        },
+      ],
+      // No inbox_messages result scripted: the disconnected check must run
+      // and fail BEFORE the last-inbound-message read, so buildDb's loud
+      // underflow throw would surface here if the job ever reached that
+      // read first — proving it doesn't.
+    })
+    const step = fakeStep()
+
+    const result = await runMailboxSend(db, step, fakeLogger(), DRAFT_ID)
+
+    expect(result).toEqual({ sent: false, reason: 'disconnected' })
+    expect(sendReply).not.toHaveBeenCalled()
+    expect(getAccessTokenFor).not.toHaveBeenCalled()
+  })
+
+  it('fails cleanly as "disconnected" even when the last-inbound-message read would also have errored — the disconnected check must run first', async () => {
+    // Double-failure case: a disconnected mailbox AND a transient
+    // inbox_messages error. The disconnected check must win — a board
+    // member needs "reconnect your mailbox", not a raw Postgrest message
+    // from a read that was never going to matter. No inbox_messages result
+    // is scripted at all: if the job read it before the disconnected
+    // check, buildDb would throw "no queued result left", not return the
+    // scripted error below — so this also proves the read never happens.
     const db = buildDb({
       inbox_drafts: [
         { data: queuedDraftRow(), error: null },
@@ -292,6 +348,121 @@ describe('runMailboxSend', () => {
     expect(sendReply).not.toHaveBeenCalled()
   })
 
+  it('sends to the recipients on the draft row, not the last inbound sender', async () => {
+    const db = buildDb({
+      inbox_drafts: [
+        {
+          data: {
+            id: 'd1',
+            organization_id: 'org-1',
+            thread_id: 't1',
+            subject: 'S',
+            body_text: 'B',
+            send_after: null,
+            status: 'queued',
+            kind: 'reply',
+            to_emails: ['vendor@example.com'],
+            cc_emails: ['pm@example.com'],
+            mailbox_account_id: null,
+          },
+          error: null,
+        },
+        { data: { id: 'd1' }, error: null }, // claim
+        { data: null, error: null }, // recordSent
+      ],
+      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
+      mailbox_accounts: [
+        { data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null },
+      ],
+      inbox_messages: [
+        { data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null },
+      ],
+      inbox_draft_attachments: [{ data: [], error: null }],
+    })
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
+
+    await runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')
+
+    const args = vi.mocked(buildMimeMessage).mock.calls[0][0]
+    expect(args.to).toEqual(['vendor@example.com'])
+    expect(args.cc).toEqual(['pm@example.com'])
+    // Threading headers still come from the last inbound message.
+    expect(args.inReplyTo).toBe('<x@y>')
+  })
+
+  it('falls back to the last inbound sender for a draft queued before the migration', async () => {
+    const db = buildDb({
+      inbox_drafts: [
+        {
+          data: {
+            id: 'd1',
+            organization_id: 'org-1',
+            thread_id: 't1',
+            subject: 'S',
+            body_text: 'B',
+            send_after: null,
+            status: 'queued',
+            kind: 'reply',
+            to_emails: [],
+            cc_emails: [],
+            mailbox_account_id: null,
+          },
+          error: null,
+        },
+        { data: { id: 'd1' }, error: null },
+        { data: null, error: null },
+      ],
+      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
+      mailbox_accounts: [
+        { data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null },
+      ],
+      inbox_messages: [
+        { data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null },
+      ],
+      inbox_draft_attachments: [{ data: [], error: null }],
+    })
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
+
+    await runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')
+
+    expect(vi.mocked(buildMimeMessage).mock.calls[0][0].to).toEqual(['resident@example.com'])
+  })
+
+  it('refuses to send when neither the row nor the thread yields a recipient', async () => {
+    const db = buildDb({
+      inbox_drafts: [
+        {
+          data: {
+            id: 'd1',
+            organization_id: 'org-1',
+            thread_id: 't1',
+            subject: 'S',
+            body_text: 'B',
+            send_after: null,
+            status: 'queued',
+            kind: 'reply',
+            to_emails: [],
+            cc_emails: [],
+            mailbox_account_id: null,
+          },
+          error: null,
+        },
+        { data: { id: 'd1' }, error: null },
+        { data: null, error: null }, // fail()
+      ],
+      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
+      mailbox_accounts: [
+        { data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null },
+      ],
+      inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: null }, error: null }],
+    })
+
+    const result = await runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')
+
+    expect(result).toEqual({ sent: false, reason: 'no_recipient' })
+    expect(sendReply).not.toHaveBeenCalled()
+  })
+
   // ─── The other irreversibility trap ────────────────────────────────────
   it('never marks the row failed when Gmail send succeeded but the status update failed — no second send', async () => {
     vi.mocked(sendReply).mockResolvedValue({ messageId: 'gm-2', threadId: 'gm-thread-1' })
@@ -315,6 +486,7 @@ describe('runMailboxSend', () => {
           error: null,
         },
       ],
+      inbox_draft_attachments: [{ data: [], error: null }],
     })
     const step = fakeStep()
     const logger = fakeLogger()
@@ -357,6 +529,9 @@ describe('runMailboxSend', () => {
           data: { rfc822_message_id: '<abc@mail.gmail.com>', from_email: RESIDENT_EMAIL },
           error: null,
         })
+      }
+      if (table === 'inbox_draft_attachments') {
+        return makeChain({ data: [], error: null })
       }
 
       draftCall++
@@ -413,6 +588,7 @@ describe('runMailboxSend', () => {
           error: null,
         },
       ],
+      inbox_draft_attachments: [{ data: [], error: null }],
     })
     const step = fakeStep()
 
@@ -444,6 +620,406 @@ describe('runMailboxSend', () => {
     const step = fakeStep()
 
     await expect(runMailboxSend(db, step, fakeLogger(), DRAFT_ID)).rejects.toThrow(/claim failed/)
+  })
+
+  // ─── Attachments ────────────────────────────────────────────────────────
+  const draftRow = {
+    id: 'd1', organization_id: 'org-1', thread_id: 't1', subject: 'S', body_text: 'B',
+    send_after: null, status: 'queued', kind: 'reply',
+    to_emails: ['resident@example.com'], cc_emails: [], mailbox_account_id: null,
+  }
+
+  it('passes downloaded attachment bytes to buildMimeMessage', async () => {
+    const db = buildDb(
+      {
+        inbox_drafts: [
+          { data: draftRow, error: null },
+          { data: { id: 'd1' }, error: null },
+          { data: null, error: null },
+        ],
+        inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
+        mailbox_accounts: [{ data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
+        inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null }],
+        inbox_draft_attachments: [
+          { data: [{ storage_path: 'org-1/ccrs.pdf', file_name: 'ccrs.pdf', content_type: 'application/pdf', size_bytes: 4 }], error: null },
+        ],
+      },
+      { 'org-1/ccrs.pdf': Buffer.from('abcd') },
+    )
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
+
+    await runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')
+
+    const args = vi.mocked(buildMimeMessage).mock.calls[0][0]
+    expect(args.attachments).toHaveLength(1)
+    // Non-null assertion: `attachments` is optional on buildMimeMessage's
+    // parameter type (mailbox-send always passes it, but the type doesn't
+    // know that) — the toHaveLength assertion above doesn't narrow it for
+    // tsc under strictNullChecks.
+    expect(args.attachments![0].fileName).toBe('ccrs.pdf')
+    expect(args.attachments![0].bytes.toString()).toBe('abcd')
+  })
+
+  it('fails the draft WITHOUT sending when an attachment cannot be downloaded', async () => {
+    // Custom `from`, not buildDb: this test must prove `fail()` actually
+    // wrote status:'failed' to inbox_drafts, not merely that the job
+    // rejected. buildDb's queues only script return VALUES, so they can't
+    // tell a rethrow-without-fail() apart from a rethrow-after-fail() — a
+    // regression that dropped the `await fail(...)` call would still throw
+    // and still leave sendReply uncalled, and the earlier version of this
+    // test would still pass. Capturing the third write's payload closes
+    // that gap.
+    let failWritePayload: Record<string, unknown> | undefined
+    let draftCall = 0
+    const from = vi.fn((table: string) => {
+      if (table === 'inbox_threads') {
+        return makeChain({ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null })
+      }
+      if (table === 'mailbox_accounts') {
+        return makeChain({
+          data: { email_address: 'hoa@example.com', disconnected_at: null },
+          error: null,
+        })
+      }
+      if (table === 'inbox_messages') {
+        return makeChain({
+          data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' },
+          error: null,
+        })
+      }
+      if (table === 'inbox_draft_attachments') {
+        return makeChain({
+          data: [{ storage_path: 'org-1/gone.pdf', file_name: 'ccrs.pdf', content_type: null, size_bytes: 4 }],
+          error: null,
+        })
+      }
+
+      draftCall++
+      if (draftCall === 1) return makeChain({ data: draftRow, error: null })
+      if (draftCall === 2) return makeChain({ data: { id: 'd1' }, error: null }) // claim
+      // The fail() write — capture what was written instead of a canned response.
+      return {
+        update: vi.fn((patch: Record<string, unknown>) => {
+          failWritePayload = patch
+          return { eq: vi.fn(() => Promise.resolve({ data: null, error: null })) }
+        }),
+      }
+    })
+    const download = vi.fn(async () => ({ data: null, error: { message: 'Object not found' } }))
+    const db = { from, storage: { from: vi.fn(() => ({ download })) } } as unknown as Parameters<
+      typeof runMailboxSend
+    >[0]
+
+    await expect(runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')).rejects.toThrow()
+    expect(sendReply).not.toHaveBeenCalled()
+    expect(failWritePayload).toMatchObject({ status: 'failed' })
+  })
+
+  it('sends with no attachments array entry when the draft has none', async () => {
+    const db = buildDb({
+      inbox_drafts: [
+        { data: draftRow, error: null },
+        { data: { id: 'd1' }, error: null },
+        { data: null, error: null },
+      ],
+      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
+      mailbox_accounts: [{ data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
+      inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null }],
+      inbox_draft_attachments: [{ data: [], error: null }],
+    })
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
+
+    await runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')
+
+    expect(vi.mocked(buildMimeMessage).mock.calls[0][0].attachments).toEqual([])
+  })
+
+  it('sends a kind=new draft with no threadId and reads the account off the row', async () => {
+    const db = buildDb({
+      inbox_drafts: [
+        { data: { id: 'd1', organization_id: 'org-1', thread_id: null, subject: 'Annual meeting',
+                  body_text: 'Hello', send_after: null, status: 'queued', kind: 'new',
+                  to_emails: ['vendor@example.com'], cc_emails: [], mailbox_account_id: 'a1' },
+          error: null },
+        { data: { id: 'd1' }, error: null },
+        { data: null, error: null },
+      ],
+      mailbox_accounts: [{ data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
+      inbox_draft_attachments: [{ data: [], error: null }],
+    })
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt-new' })
+
+    const result = await runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')
+
+    expect(result).toEqual({ sent: true, messageId: 'm1' })
+    // No inbox_threads or inbox_messages read was scripted — buildDb throws if
+    // the job makes one, which is the assertion that it does not.
+    expect(vi.mocked(sendReply).mock.calls[0][1]).toBeNull()
+    const args = vi.mocked(buildMimeMessage).mock.calls[0][0]
+    expect(args.inReplyTo).toBeNull()
+    expect(args.references).toEqual([])
+  })
+
+  // ─── Tenant isolation on the storage path ──────────────────────────────
+  //
+  // `inbox_draft_attachments`'s RLS policy constrains `organization_id` and
+  // nothing else, so a board member with an ordinary authenticated browser
+  // client can insert a row for their own org naming ANOTHER org's
+  // storage_path. The send job downloads with the service role, which
+  // bypasses storage policies, so this check is the last thing standing
+  // between that row and another tenant's document being mailed out.
+
+  function attachmentDb(storagePath: string, storedAt = storagePath) {
+    return buildDb(
+      {
+        inbox_drafts: [
+          { data: draftRow, error: null },
+          { data: { id: 'd1' }, error: null },
+          { data: null, error: null },
+        ],
+        inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
+        mailbox_accounts: [{ data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
+        inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null }],
+        inbox_draft_attachments: [
+          {
+            data: [
+              { storage_path: storagePath, file_name: 'f.pdf', content_type: null, size_bytes: 4 },
+            ],
+            error: null,
+          },
+        ],
+      },
+      { [storedAt]: Buffer.from('abcd') },
+    )
+  }
+
+  it('refuses a cross-org storage_path and sends nothing', async () => {
+    // The row is scoped to org-1 (RLS is satisfied) but points at org-2's
+    // document library — exactly the forged insert described above.
+    const db = attachmentDb('org-2/CCRs.pdf')
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
+
+    await expect(runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')).rejects.toThrow()
+    expect(sendReply).not.toHaveBeenCalled()
+  })
+
+  it('refuses a cross-org upload path under the inbox-drafts prefix', async () => {
+    const db = attachmentDb('inbox-drafts/org-2/draft-9/some-object')
+    await expect(runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')).rejects.toThrow()
+    expect(sendReply).not.toHaveBeenCalled()
+  })
+
+  it('refuses a traversal path that starts inside this org', async () => {
+    const db = attachmentDb('org-1/../org-2/CCRs.pdf')
+    await expect(runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')).rejects.toThrow()
+    expect(sendReply).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['percent-encoded dot segments', 'org-1/%2e%2e/org-2/CCRs.pdf'],
+    ['an LF inside a dot segment', 'org-1/.\n./org-2/x'],
+  ])(
+    'refuses %s, which the URL parser would have resolved to the other org',
+    async (_label, path) => {
+      // The storage stub is keyed by the RAW path, so if this ever regressed
+      // to a plain segment check the download would succeed and the send
+      // would go through — the assertion below would then fail loudly.
+      const db = attachmentDb(path)
+      await expect(runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')).rejects.toThrow()
+      expect(sendReply).not.toHaveBeenCalled()
+    },
+  )
+
+  it('marks the draft failed with the generic storage message, never the path', async () => {
+    // Same handling as an unreadable object: fail() writes the existing
+    // user-facing wording and the job throws, so nothing is transmitted.
+    let failWritePayload: Record<string, unknown> | undefined
+    let draftCall = 0
+    const from = vi.fn((table: string) => {
+      if (table === 'inbox_threads') {
+        return makeChain({ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null })
+      }
+      if (table === 'mailbox_accounts') {
+        return makeChain({
+          data: { email_address: 'hoa@example.com', disconnected_at: null },
+          error: null,
+        })
+      }
+      if (table === 'inbox_messages') {
+        return makeChain({
+          data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' },
+          error: null,
+        })
+      }
+      if (table === 'inbox_draft_attachments') {
+        return makeChain({
+          data: [
+            {
+              storage_path: 'org-2/CCRs.pdf',
+              file_name: 'f.pdf',
+              content_type: null,
+              size_bytes: 4,
+            },
+          ],
+          error: null,
+        })
+      }
+      draftCall++
+      if (draftCall === 1) return makeChain({ data: draftRow, error: null })
+      if (draftCall === 2) return makeChain({ data: { id: 'd1' }, error: null })
+      return {
+        update: vi.fn((patch: Record<string, unknown>) => {
+          failWritePayload = patch
+          return { eq: vi.fn(() => Promise.resolve({ data: null, error: null })) }
+        }),
+      }
+    })
+    const download = vi.fn()
+    const db = { from, storage: { from: vi.fn(() => ({ download })) } } as unknown as Parameters<
+      typeof runMailboxSend
+    >[0]
+
+    await expect(runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')).rejects.toThrow()
+    expect(sendReply).not.toHaveBeenCalled()
+    // Never even attempted to read the other org's bytes.
+    expect(download).not.toHaveBeenCalled()
+    expect(failWritePayload).toMatchObject({
+      status: 'failed',
+      error: 'A file attached to this reply is no longer available.',
+    })
+    expect(String(failWritePayload?.error)).not.toContain('org-2')
+  })
+
+  it.each([
+    ['a document-library file', 'org-1/CCRs.pdf'],
+    ['an inbound attachment file', 'org-1/inbox/t1/m1/a1/photo.jpg'],
+    ['a browser upload', 'inbox-drafts/org-1/d1/11111111-1111-1111-1111-111111111111'],
+  ])('accepts %s belonging to this org', async (_label, path) => {
+    const db = attachmentDb(path)
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
+
+    const result = await runMailboxSend(db, fakeStep(), fakeLogger(), 'd1')
+
+    expect(result).toEqual({ sent: true, messageId: 'm1' })
+    expect(vi.mocked(buildMimeMessage).mock.calls[0][0].attachments).toHaveLength(1)
+  })
+})
+
+describe('storagePathBelongsToOrg', () => {
+  it.each([
+    'org-1/CCRs.pdf',
+    'org-1/inbox/t1/m1/a1/photo.jpg',
+    'inbox-drafts/org-1/draft-1/11111111-1111-1111-1111-111111111111',
+  ])('accepts %s', (path) => {
+    expect(storagePathBelongsToOrg(path, 'org-1')).toBe(true)
+  })
+
+  // Segment-level only. The URL-normalization class is `attachmentPathIsInOrg`'s
+  // job and is covered in its own describe below — these strings deliberately
+  // still pass here, which is exactly why the second check exists.
+  it.each([
+    ['another org, document library', 'org-2/CCRs.pdf'],
+    ['another org, inbound file', 'org-2/inbox/t1/m1/a1/photo.jpg'],
+    ['another org, upload prefix', 'inbox-drafts/org-2/draft-1/object'],
+    ['traversal out of this org', 'org-1/../org-2/CCRs.pdf'],
+    ['traversal out of an upload prefix', 'inbox-drafts/org-1/draft-1/../../org-2/x'],
+    ['a leading empty segment', '/org-1/CCRs.pdf'],
+    ['a doubled separator', 'org-1//CCRs.pdf'],
+    ['a trailing separator', 'org-1/'],
+    ['a bare org id with no object', 'org-1'],
+    ['a bare upload prefix', 'inbox-drafts/org-1'],
+    ['an org id that is only a prefix of this one', 'org-11/CCRs.pdf'],
+    ['an empty path', ''],
+  ])('refuses %s', (_label, path) => {
+    expect(storagePathBelongsToOrg(path, 'org-1')).toBe(false)
+  })
+})
+
+/**
+ * The storage client concatenates the key into a URL STRING and hands it to
+ * `fetch`, without percent-encoding anything. The WHATWG parser then rewrites
+ * that string — stripping CR/LF/TAB, decoding `%2e`, reading `\` as `/`, and
+ * removing dot segments — so a key can pass a `/`-split check and still
+ * request a different organization's object.
+ */
+describe('attachmentPathIsInOrg — the key fetch will actually request', () => {
+  const CROSS_ORG_VIA_NORMALIZATION: Array<[string, string]> = [
+    ['percent-encoded dot segments', 'org-1/%2e%2e/org-2/CCRs.pdf'],
+    ['percent-encoded dot segments, upper case', 'org-1/%2E%2E/org-2/CCRs.pdf'],
+    ['an LF inside a dot segment', 'org-1/.\n./org-2/x'],
+    ['a CR inside a dot segment', 'org-1/.\r./org-2/x'],
+    ['a TAB inside a dot segment', 'org-1/.\t./org-2/x'],
+    ['a backslash read as a separator', 'org-1/..\\org-2/x'],
+    ['the same trick under the upload prefix', 'inbox-drafts/org-1/d1/%2e%2e/%2e%2e/org-2/x'],
+  ]
+
+  it.each(CROSS_ORG_VIA_NORMALIZATION)('refuses %s', (_label, path) => {
+    expect(attachmentPathIsInOrg(path, 'org-1')).toBe(false)
+  })
+
+  // These are the whole reason `attachmentPathIsInOrg` exists: every one of
+  // them satisfies the segment check, so without the resolution step they
+  // would have been downloaded.
+  it.each(CROSS_ORG_VIA_NORMALIZATION)(
+    'the segment check alone would have ACCEPTED %s — pinning why the second check exists',
+    (_label, path) => {
+      const segmentsAlone = storagePathBelongsToOrg(path, 'org-1')
+      const resolved = resolveStorageFetchPath(path)
+      // Either the raw string passed the segment check (so only resolution
+      // saves us), or resolution itself refused it outright.
+      expect(segmentsAlone || resolved === null).toBe(true)
+    },
+  )
+
+  it('resolves the documented attack to the victim org, proving the mechanism', () => {
+    expect(resolveStorageFetchPath('org-1/%2e%2e/org-2/CCRs.pdf')).toBe('org-2/CCRs.pdf')
+    expect(resolveStorageFetchPath('org-1/.\n./org-2/x')).toBe('org-2/x')
+  })
+
+  it.each([
+    ['a fragment marker truncating the key', 'org-1/a#b.pdf'],
+    ['a query marker truncating the key', 'org-1/a?b.pdf'],
+  ])('refuses %s — it would fetch a different file even inside this org', (_label, path) => {
+    // Not a tenant breach, but the job would silently mail an object other
+    // than the one the row names and the approver reviewed.
+    expect(attachmentPathIsInOrg(path, 'org-1')).toBe(false)
+  })
+
+  it.each([
+    ['a document-library file', 'org-1/CCRs.pdf'],
+    ['an inbound attachment file', 'org-1/inbox/t1/m1/a1/photo.jpg'],
+    ['a browser upload', 'inbox-drafts/org-1/d1/11111111-1111-1111-1111-111111111111'],
+    // `sanitizeStorageName` sanitizes only the BASE of a filename and passes
+    // the extension tail through untouched, so all of these are real stored
+    // keys. A blanket '%' rejection would make them unattachable.
+    ['a name containing a percent sign', 'org-1/1770000000-sale.pdf 50% off'],
+    ['a name containing spaces and parentheses', 'org-1/1770000000-budget.pdf (final) copy'],
+    ['a non-ASCII name', 'org-1/1770000000-plan.pdf Grünanlage'],
+  ])('accepts %s', (_label, path) => {
+    expect(attachmentPathIsInOrg(path, 'org-1')).toBe(true)
+  })
+
+  // NOT a legitimate key — migration 0040 forbids the row from ever existing
+  // (`storage_path !~* '%2[ef]'`). This asserts the function's REAL behaviour
+  // rather than pretending otherwise, because that behaviour is precisely why
+  // the migration has to carry that predicate: the WHATWG parser does not
+  // decode '%2F', so the escape stays literal, the key stays inside org-1's
+  // prefix, and this check has nothing to object to.
+  //
+  // Listing it among the "accepts" cases was a trap: it read as a blessing,
+  // and anyone "fixing" the migration to agree with it would reopen the
+  // encoded-separator case. Keep the two layers' disagreement explicit.
+  it('accepts an encoded separator — which is why migration 0040 must reject the row', () => {
+    expect(attachmentPathIsInOrg('org-1/..%2forg-2/CCRs.pdf', 'org-1')).toBe(true)
+  })
+
+  it('does not throw on a lone percent sign', () => {
+    expect(() => resolveStorageFetchPath('org-1/100%.pdf')).not.toThrow()
+    expect(resolveStorageFetchPath('org-1/100%.pdf')).toBe('org-1/100%.pdf')
+  })
+
+  it('still refuses a plain cross-org key that needs no normalization at all', () => {
+    expect(attachmentPathIsInOrg('org-2/CCRs.pdf', 'org-1')).toBe(false)
   })
 })
 
@@ -510,6 +1086,10 @@ function buildStatefulDb() {
     body_text: 'Thanks for writing.',
     send_after: '2026-01-01T00:00:30.000Z',
     status: 'queued',
+    kind: 'reply',
+    to_emails: [],
+    cc_emails: [],
+    mailbox_account_id: null,
   }
 
   const from = vi.fn((table: string) => {
@@ -525,6 +1105,9 @@ function buildStatefulDb() {
       }
       if (table === 'inbox_messages') {
         return { rfc822_message_id: '<abc@mail.gmail.com>', from_email: RESIDENT_EMAIL }
+      }
+      if (table === 'inbox_draft_attachments') {
+        return []
       }
       return { ...draft }
     }
@@ -568,7 +1151,7 @@ describe('runMailboxSend under Inngest step replay', () => {
       messageId: 'gmail-msg-1',
       threadId: 'gmail-thread-1',
     })
-    vi.mocked(buildRawMessage).mockReturnValue('raw-message')
+    vi.mocked(buildMimeMessage).mockReturnValue('mime-message')
   })
 
   it('sends the reply even though the claim flips the row before the next invocation', async () => {

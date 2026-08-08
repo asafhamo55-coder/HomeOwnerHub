@@ -135,7 +135,7 @@ export default async function InboxPage({
 
       <div className="flex flex-1 overflow-hidden">
         <aside className="w-full max-w-sm shrink-0 overflow-y-auto border-r border-border xl:max-w-xs">
-          <nav className="flex flex-wrap gap-1 border-b border-border p-2 text-xs">
+          <nav className="flex flex-wrap items-center gap-1 border-b border-border p-2 text-xs">
             {FILTERS.map((option) => (
               <Link
                 key={option.key}
@@ -149,6 +149,12 @@ export default async function InboxPage({
                 {option.label} {counts[option.key] ?? 0}
               </Link>
             ))}
+            <Link
+              href="/inbox/compose"
+              className="rounded-md border border-border px-3 py-1 text-xs text-foreground"
+            >
+              New email
+            </Link>
           </nav>
           <ThreadList threads={threads} filter={filter} hasAnyThreads={counts.all > 0} />
           {total > 0 ? (

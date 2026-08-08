@@ -519,6 +519,11 @@ export interface ThreadMessage {
     sizeBytes: number | null
     fetchStatus: string
   }>
+  /**
+   * Who an outbound message was forwarded to, if it was a forward. Derived
+   * from `inbox_drafts`, not a column on this table — see `getThreadDetail`.
+   */
+  forwardedTo: string[] | null
 }
 
 export interface ThreadDetail {
@@ -602,7 +607,7 @@ export async function getThreadDetail(
   const { data: messages, error: messagesError } = await db
     .from('inbox_messages')
     .select(
-      'id, direction, from_name, from_email, to_emails, subject, body_text, stripped_text, sent_at',
+      'id, direction, from_name, from_email, to_emails, subject, body_text, stripped_text, sent_at, gmail_message_id',
     )
     .eq('thread_id', threadId)
     .order('sent_at', { ascending: true })
@@ -612,7 +617,34 @@ export async function getThreadDetail(
     throw new Error(`getThreadDetail: failed to load messages: ${messagesError.message}`)
   }
 
-  const messageIds = (messages ?? []).map((m) => m.id)
+  const messageRows = messages ?? []
+
+  // A sent forward and its synced message share a gmail_message_id, so the
+  // draft row is what tells the thread view that an outbound message went to
+  // a vendor rather than back to the resident. No column on inbox_messages
+  // is needed — and adding one would create a second source of truth for
+  // something the draft already records.
+  const sentIds = messageRows.map((row) => row.gmail_message_id).filter(Boolean)
+  const forwardedTo = new Map<string, string[]>()
+  if (sentIds.length > 0) {
+    const { data: forwardRows, error: forwardError } = await db
+      .from('inbox_drafts')
+      .select('gmail_message_id, to_emails')
+      .eq('organization_id', orgId)
+      .eq('kind', 'forward')
+      .in('gmail_message_id', sentIds)
+    if (forwardError) {
+      // Enrichment only: a missing badge is cosmetic, an unrenderable
+      // thread is not. Logged, not thrown, unlike the message read itself.
+      logDbError('getThreadDetail forwards', 'inbox_drafts', { orgId, threadId }, forwardError)
+    } else {
+      for (const row of forwardRows ?? []) {
+        if (row.gmail_message_id) forwardedTo.set(row.gmail_message_id, row.to_emails ?? [])
+      }
+    }
+  }
+
+  const messageIds = messageRows.map((m) => m.id)
   const { data: attachments, error: attachmentsError } =
     messageIds.length > 0
       ? await db
@@ -647,7 +679,7 @@ export async function getThreadDetail(
     matchConfidence: thread.match_confidence,
     matchReason: thread.match_reason as Record<string, unknown> | null,
     matchSource: thread.match_source,
-    messages: (messages ?? []).map((message) => ({
+    messages: messageRows.map((message) => ({
       id: message.id,
       direction: message.direction as 'inbound' | 'outbound',
       fromName: message.from_name,
@@ -665,6 +697,7 @@ export async function getThreadDetail(
           sizeBytes: a.size_bytes,
           fetchStatus: a.fetch_status,
         })),
+      forwardedTo: forwardedTo.get(message.gmail_message_id) ?? null,
     })),
   }
 }
@@ -918,9 +951,12 @@ export async function getPropertyContext(
 
 export interface ThreadDraft {
   id: string
+  kind: 'reply' | 'forward' | 'new'
   status: 'draft' | 'queued' | 'sending' | 'sent' | 'cancelled' | 'failed'
   subject: string
   bodyText: string
+  toEmails: string[]
+  ccEmails: string[]
   citations: Array<{ refId: string; quote: string; label: string }>
   blanks: Array<{ kind: string; prompt: string }>
   grounded: boolean
@@ -945,7 +981,9 @@ export async function getLatestDraft(
 ): Promise<ThreadDraft | null> {
   const { data, error } = await db
     .from('inbox_drafts')
-    .select('id, status, subject, body_text, citations, blanks, grounded, grounding_note, send_after, error')
+    .select(
+      'id, kind, status, subject, body_text, to_emails, cc_emails, citations, blanks, grounded, grounding_note, send_after, error',
+    )
     .eq('organization_id', orgId)
     .eq('thread_id', threadId)
     .order('created_at', { ascending: false })
@@ -960,9 +998,57 @@ export async function getLatestDraft(
 
   return {
     id: data.id,
+    kind: data.kind as ThreadDraft['kind'],
     status: data.status as ThreadDraft['status'],
     subject: data.subject,
     bodyText: data.body_text,
+    toEmails: data.to_emails ?? [],
+    ccEmails: data.cc_emails ?? [],
+    citations: (data.citations ?? []) as ThreadDraft['citations'],
+    blanks: (data.blanks ?? []) as ThreadDraft['blanks'],
+    grounded: data.grounded,
+    groundingNote: data.grounding_note,
+    sendAfter: data.send_after,
+    error: data.error,
+  }
+}
+
+/**
+ * A draft looked up directly by id, for the compose screen — a `kind='new'`
+ * draft has no thread to look it up by the way `getLatestDraft` does.
+ *
+ * Same failure-mode reasoning as `getLatestDraft`: a soft failure must not
+ * collapse to "no draft", so this throws rather than returning null on
+ * error.
+ */
+export async function getDraftById(
+  db: Db,
+  orgId: string,
+  draftId: string,
+): Promise<ThreadDraft | null> {
+  const { data, error } = await db
+    .from('inbox_drafts')
+    .select(
+      'id, kind, status, subject, body_text, to_emails, cc_emails, citations, blanks, grounded, grounding_note, send_after, error',
+    )
+    .eq('organization_id', orgId)
+    .eq('id', draftId)
+    .maybeSingle()
+
+  if (error) {
+    logDbError('getDraftById', 'inbox_drafts', { orgId, draftId }, error)
+    throw new Error(`getDraftById: failed to load draft: ${error.message}`)
+  }
+  if (!data) return null
+
+  return {
+    id: data.id,
+    kind: data.kind as ThreadDraft['kind'],
+    status: data.status as ThreadDraft['status'],
+    subject: data.subject,
+    bodyText: data.body_text,
+    toEmails: data.to_emails ?? [],
+    ccEmails: data.cc_emails ?? [],
     citations: (data.citations ?? []) as ThreadDraft['citations'],
     blanks: (data.blanks ?? []) as ThreadDraft['blanks'],
     grounded: data.grounded,
@@ -1056,4 +1142,76 @@ export async function getUnitLabel(
     unitId: data.id,
     address: data.unit_number ? `${data.address_line1} #${data.unit_number}` : data.address_line1,
   }
+}
+
+// ─── Draft attachments (Task 10) ────────────────────────────────────────
+
+export interface DraftAttachment {
+  id: string
+  source: string
+  fileName: string
+  contentType: string | null
+  sizeBytes: number
+}
+
+/**
+ * Files attached to a draft. A soft failure must not read as "no
+ * attachments" — that would show an approver a message with no files beside
+ * one that is about to send three. Throws, matching the convention for
+ * page-defining reads in this module.
+ */
+export async function listDraftAttachments(
+  db: Db,
+  orgId: string,
+  draftId: string,
+): Promise<DraftAttachment[]> {
+  const { data, error } = await db
+    .from('inbox_draft_attachments')
+    .select('id, source, file_name, content_type, size_bytes')
+    .eq('organization_id', orgId)
+    .eq('draft_id', draftId)
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    logDbError('listDraftAttachments', 'inbox_draft_attachments', { orgId, draftId }, error)
+    throw new Error(`listDraftAttachments: failed to load attachments: ${error.message}`)
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    source: row.source,
+    fileName: row.file_name,
+    contentType: row.content_type,
+    sizeBytes: Number(row.size_bytes),
+  }))
+}
+
+/**
+ * The document library, for the attachment picker. Reads hoa_documents (the
+ * CURRENT file of each document); hoa_document_versions holds SUPERSEDED
+ * files and is deliberately not offered — attaching one would mail an
+ * outdated CC&R. Note the `org_id` column name, which differs from every
+ * inbox table's `organization_id`.
+ */
+export async function listAttachableDocuments(
+  db: Db,
+  orgId: string,
+): Promise<Array<{ id: string; name: string; type: string; sizeBytes: number }>> {
+  const { data, error } = await db
+    .from('hoa_documents')
+    .select('id, name, type, file_size')
+    .eq('org_id', orgId)
+    .order('name', { ascending: true })
+
+  if (error) {
+    logDbError('listAttachableDocuments', 'hoa_documents', { orgId }, error)
+    throw new Error(`listAttachableDocuments: failed to load documents: ${error.message}`)
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    sizeBytes: Number(row.file_size ?? 0),
+  }))
 }

@@ -8,6 +8,8 @@ import {
   getPropertyContext,
   getThreadDetail,
   getUnitLabel,
+  listAttachableDocuments,
+  listDraftAttachments,
   listThreads,
   INBOX_PAGE_SIZE,
   type InboxFilter,
@@ -15,6 +17,7 @@ import {
 } from '@/lib/inbox/queries'
 import { ThreadList } from '../ThreadList'
 import { DraftPanel } from './DraftPanel'
+import { ForwardButton } from './ForwardButton'
 import { MessageThread } from './MessageThread'
 import { PropertyRail } from './PropertyRail'
 import { VendorRail, type RailVendor } from './VendorRail'
@@ -90,6 +93,25 @@ export default async function ThreadPage({
   const contextLoadFailed = contextOutcome === 'error'
   const context: PropertyContext | null = contextLoadFailed ? null : contextOutcome
 
+  // Page-defining, like the draft itself: an approver must never see a
+  // message that appears to have no files beside one that will send three.
+  const draftAttachments = draft ? await listDraftAttachments(supabase, org.id, draft.id) : []
+
+  const libraryFiles = await listAttachableDocuments(supabase, org.id).catch((error: unknown) => {
+    // Enrichment, not page-defining: an empty picker is a smaller harm than
+    // a blank thread page, and every other attachment source still works.
+    console.error('ThreadPage: failed to load the document library', {
+      message: error instanceof Error ? error.message : 'unknown error',
+    })
+    return []
+  })
+
+  const threadFiles = thread.messages.flatMap((message) =>
+    message.attachments
+      .filter((file) => file.fetchStatus === 'stored')
+      .map((file) => ({ id: file.id, fileName: file.fileName, sizeBytes: file.sizeBytes ?? 0 })),
+  )
+
   // Vendor rail data. Org-scoped like every other read on this page — a
   // thread's vendor_id is a real FK, but the join must still be scoped
   // rather than trusted.
@@ -142,19 +164,33 @@ export default async function ThreadPage({
 
       {/* pane 2 — conversation */}
       <section className="flex-1 overflow-y-auto p-4">
-        <header className="mb-3">
-          <h1 className="text-lg font-semibold text-foreground">
-            {thread.subject ?? '(no subject)'}
-          </h1>
-          <p className="text-xs text-muted">
-            {thread.messages.length} message
-            {thread.messages.length === 1 ? '' : 's'} · {thread.status}
-          </p>
+        <header className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-lg font-semibold text-foreground">
+              {thread.subject ?? '(no subject)'}
+            </h1>
+            <p className="text-xs text-muted">
+              {thread.messages.length} message
+              {thread.messages.length === 1 ? '' : 's'} · {thread.status}
+            </p>
+          </div>
+          {/* In the header so a forward is reachable in every draft state —
+              in particular after a reply has already been sent, which is the
+              most common case there is. The draft's status rides along so the
+              button can explain itself while a live draft would be displaced;
+              the server action refuses regardless. See ForwardButton. */}
+          <ForwardButton threadId={thread.id} draftStatus={draft?.status ?? null} />
         </header>
 
         <MessageThread messages={thread.messages} />
 
-        <DraftPanel threadId={thread.id} draft={draft} />
+        <DraftPanel
+          threadId={thread.id}
+          draft={draft}
+          attachments={draftAttachments}
+          threadFiles={threadFiles}
+          libraryFiles={libraryFiles}
+        />
       </section>
 
       {/* pane 3 — property + vendor rail */}

@@ -12,6 +12,17 @@ export interface ParsedAttachment {
   isInline: boolean
 }
 
+/**
+ * One file on an outgoing message. `bytes` is the decoded file content —
+ * the caller is responsible for having already enforced any size budget,
+ * because this layer has no notion of a per-message cap.
+ */
+export interface OutboundAttachment {
+  fileName: string
+  contentType: string | null
+  bytes: Buffer
+}
+
 export interface ParsedMessage {
   gmailMessageId: string
   gmailThreadId: string
