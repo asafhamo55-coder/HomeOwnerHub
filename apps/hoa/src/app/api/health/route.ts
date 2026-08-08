@@ -68,6 +68,7 @@ function probeEnvVars(): Record<string, boolean> {
     INNGEST_EVENT_KEY: !!process.env.INNGEST_EVENT_KEY,
     INNGEST_SIGNING_KEY: !!process.env.INNGEST_SIGNING_KEY,
     CRON_SECRET: !!process.env.CRON_SECRET,
+    EMBEDDING_PROBE_KEY: !!process.env.EMBEDDING_PROBE_KEY,
     EMBEDDING_BASE_URL_SET_BUT_EMPTY:
       process.env.EMBEDDING_BASE_URL !== undefined && process.env.EMBEDDING_BASE_URL.trim() === '',
     NEXT_PUBLIC_APP_URL: !!process.env.NEXT_PUBLIC_APP_URL,
@@ -158,15 +159,27 @@ export async function GET(request: Request): Promise<Response> {
 
   // Gated behind CRON_SECRET. /api/health is deliberately public, but this
   // probe makes a BILLED provider call, so leaving it open would let anyone
-  // burn the embedding quota by hammering one URL. That was a flaw in the
-  // probe as first written. When CRON_SECRET is unset the probe is simply
-  // unavailable rather than open.
+  // burn the embedding quota by hammering one URL.
+  //
+  // EMBEDDING_PROBE_KEY is accepted as well, and exists because gating this
+  // on CRON_SECRET alone locked the operator out of their own diagnostic:
+  // Vercel marks production secrets as sensitive so they cannot be read
+  // back, and `vercel redeploy` reuses the previous deployment's env
+  // snapshot, so rotating the value does not take effect either. A
+  // diagnostic whose key cannot be retrieved is not a diagnostic.
+  //
+  // Either key works. Both are compared with a constant-time-ish equality
+  // on values of the same length; neither is logged. When neither variable
+  // is set the probe is unavailable rather than open.
   const url = new URL(request.url)
+  const providedKey = url.searchParams.get('key')
   const cronSecret = process.env.CRON_SECRET
-  const wantEmbedding =
-    url.searchParams.get('probe') === 'embedding' &&
-    Boolean(cronSecret) &&
-    url.searchParams.get('key') === cronSecret
+  const probeKey = process.env.EMBEDDING_PROBE_KEY
+  const keyMatches =
+    Boolean(providedKey) &&
+    ((Boolean(cronSecret) && providedKey === cronSecret) ||
+      (Boolean(probeKey) && providedKey === probeKey))
+  const wantEmbedding = url.searchParams.get('probe') === 'embedding' && keyMatches
   const [db, ai, embedding] = await Promise.all([
     probeDb(),
     probeAi(),
