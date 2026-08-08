@@ -24,15 +24,24 @@
 
 import { revalidatePath } from 'next/cache'
 import { inngest } from '@homeowner-portal/jobs'
-import { draftReply, InvalidCitationError, UnsupportedQuoteError } from '@homeowner-portal/workflows'
+import {
+  draftReply,
+  composeVendorRequest,
+  InvalidCitationError,
+  UnsupportedQuoteError,
+  type VendorRequestIntent,
+} from '@homeowner-portal/workflows'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getLatestDraft, getThreadDetail } from '@/lib/inbox/queries'
 import { retrieveForThread } from './retrieve'
+import { retrieveForVendorRequest } from './vendor-request-retrieve'
+import { buildVendorRequestBody } from './vendor-request-body'
 import { UNDO_WINDOW_SECONDS, hasUnfilledBlanks } from './blanks'
 import { normalizeRecipients } from './recipients'
 import { attachmentNameProblem, MAX_ATTACHMENT_BYTES } from './attachments'
 import { buildForwardSubject, buildForwardBody } from './forward'
+import { addDraftAttachment } from './attachment-actions'
 
 export async function createDraft(
   threadId: string,
@@ -204,6 +213,138 @@ export async function createDraft(
 
   revalidatePath(`/inbox/${threadId}`)
   return { ok: true, draftId: data.id }
+}
+
+/**
+ * Drafts a work order to a vendor from a resident's thread (W34).
+ *
+ * The resulting row is threadless — `thread_id` NULL, `mailbox_account_id`
+ * set — so the request starts its OWN Gmail conversation. That is the whole
+ * point: the resident is a party to their own thread, and a board member
+ * hitting reply-all on a vendor's pricing there would send it to the owner.
+ * The `inbox_drafts_thread_or_account` CHECK (migration 0042) enforces the
+ * shape; `isThreadless` in mailbox-send.ts is the send-side half.
+ *
+ * `source_thread_id` is what ties the two conversations back together. Both
+ * link directions resolve from it — see the spec's D5.
+ *
+ * Never log an email address, subject, body, or file name.
+ */
+export async function draftVendorRequest(input: {
+  threadId: string
+  intent: VendorRequestIntent
+  freeTextInstruction: string | null
+  neededBy: string | null
+  toEmails: string[]
+}): Promise<
+  { ok: true; draftId: string; skippedAttachments: string[] } | { error: string }
+> {
+  const { org } = await requireBoardOrAdmin()
+  const supabase = await getSupabaseServerClient()
+
+  // Same validation the approve path uses — syntax, CR/LF, dedup, the
+  // 25-recipient cap. Run BEFORE the model call so a typo costs nothing.
+  const recipients = normalizeRecipients(input.toEmails, [])
+  if (!recipients.ok) return { error: recipients.error }
+
+  let retrieval
+  try {
+    retrieval = await retrieveForVendorRequest(supabase, org.id, input.threadId)
+  } catch (error) {
+    console.error(
+      `draftVendorRequest: retrieval failed for thread ${input.threadId}: ${error instanceof Error ? error.message : String(error)}`,
+    )
+    return { error: 'Could not gather context for this thread. Nothing was drafted.' }
+  }
+
+  // Null means the thread is not in this org (or does not exist). Same
+  // response either way — telling the two apart would confirm the existence
+  // of another tenant's thread id.
+  if (!retrieval) return { error: 'Thread not found.' }
+
+  // Without a mailbox there is nothing to send from, and unlike a reply
+  // there is no thread to fall back to at send time. Refuse before spending
+  // a model call.
+  if (!retrieval.mailboxAccountId) {
+    return { error: 'This conversation has no mailbox to send from.' }
+  }
+
+  let generated
+  try {
+    generated = await composeVendorRequest(
+      {
+        intent: input.intent,
+        freeTextInstruction: input.freeTextInstruction,
+        neededBy: input.neededBy,
+        threadSubject: retrieval.threadSubject,
+        messages: retrieval.messages,
+        property: retrieval.property,
+        vendor: retrieval.vendor,
+        attachmentText: retrieval.attachmentText,
+        photoFindings: retrieval.photoFindings,
+        degraded: retrieval.degraded,
+      },
+      { organizationId: org.id },
+    )
+  } catch (error) {
+    console.error(
+      `draftVendorRequest: W34 failed for thread ${input.threadId}: ${error instanceof Error ? error.name : 'UnknownError'}`,
+    )
+    return { error: 'Could not draft this request. Try again.' }
+  }
+
+  const {
+    data: { user: creator },
+  } = await supabase.auth.getUser()
+
+  const { data, error } = await supabase
+    .from('inbox_drafts')
+    .insert({
+      organization_id: org.id,
+      // Threadless by design — see this function's docstring.
+      thread_id: null,
+      mailbox_account_id: retrieval.mailboxAccountId,
+      source_thread_id: input.threadId,
+      status: 'draft',
+      kind: 'vendor_request',
+      request_intent: input.intent,
+      vendor_id: retrieval.vendorId,
+      to_emails: recipients.to,
+      cc_emails: [],
+      created_by: creator?.id ?? null,
+      subject: generated.subject,
+      body_text: buildVendorRequestBody(generated, `— ${org.name} Board`),
+      // Empty, not omitted. A vendor email has nothing citable in it (spec
+      // D7); `attachmentDigest` is rendered into the body as the review aid
+      // instead. An absent column here would read as "citations were lost".
+      citations: [],
+      blanks: generated.blanks,
+      grounded: true,
+      grounding_note: null,
+      ai_run_id: generated.runId,
+      model: process.env.AI_MODEL ?? null,
+      prompt_version: null,
+    })
+    .select('id')
+    .single()
+
+  if (error) {
+    console.error(`draftVendorRequest: insert failed: ${error.code} ${error.message}`)
+    return { error: 'Could not save the draft.' }
+  }
+
+  // Attach the thread's stored inbound files, smallest first so a single
+  // oversized scan cannot crowd out three small ones that would all have
+  // fit. Whatever does not fit is REPORTED, never silently dropped — the
+  // board member has to know the vendor is not getting the photo.
+  const skippedAttachments: string[] = []
+  for (const attachment of [...retrieval.attachments].sort((a, b) => a.sizeBytes - b.sizeBytes)) {
+    const result = await addDraftAttachment(data.id, 'inbox', attachment.id)
+    if ('error' in result) skippedAttachments.push(attachment.fileName)
+  }
+
+  revalidatePath(`/inbox/${input.threadId}`)
+  return { ok: true, draftId: data.id, skippedAttachments }
 }
 
 export async function approveDraft(

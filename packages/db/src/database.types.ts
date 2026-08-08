@@ -2741,12 +2741,15 @@ export type Database = {
           model: string | null
           organization_id: string
           prompt_version: string | null
+          request_intent: string | null
           send_after: string | null
           sent_at: string | null
+          source_thread_id: string | null
           status: string
           subject: string
           thread_id: string | null
           to_emails: string[]
+          vendor_id: string | null
         }
         Insert: {
           ai_run_id?: string | null
@@ -2768,12 +2771,15 @@ export type Database = {
           model?: string | null
           organization_id: string
           prompt_version?: string | null
+          request_intent?: string | null
           send_after?: string | null
           sent_at?: string | null
+          source_thread_id?: string | null
           status?: string
           subject: string
           thread_id?: string | null
           to_emails?: string[]
+          vendor_id?: string | null
         }
         Update: {
           ai_run_id?: string | null
@@ -2795,12 +2801,15 @@ export type Database = {
           model?: string | null
           organization_id?: string
           prompt_version?: string | null
+          request_intent?: string | null
           send_after?: string | null
           sent_at?: string | null
+          source_thread_id?: string | null
           status?: string
           subject?: string
           thread_id?: string | null
           to_emails?: string[]
+          vendor_id?: string | null
         }
         Relationships: [
           {
@@ -2818,10 +2827,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inbox_drafts_source_thread_id_fkey"
+            columns: ["source_thread_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_threads"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inbox_drafts_thread_id_fkey"
             columns: ["thread_id"]
             isOneToOne: false
             referencedRelation: "inbox_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_drafts_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
             referencedColumns: ["id"]
           },
         ]
@@ -5153,6 +5176,63 @@ export type Database = {
           title?: string
         }
         Relationships: []
+      }
+      submission_attachments: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          file_name: string
+          id: string
+          organization_id: string
+          parent_id: string
+          size_bytes: number | null
+          storage_path: string
+          thread_type: string
+          uploaded_by: string | null
+          uploaded_by_role: string
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          file_name: string
+          id?: string
+          organization_id: string
+          parent_id: string
+          size_bytes?: number | null
+          storage_path: string
+          thread_type: string
+          uploaded_by?: string | null
+          uploaded_by_role: string
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          file_name?: string
+          id?: string
+          organization_id?: string
+          parent_id?: string
+          size_bytes?: number | null
+          storage_path?: string
+          thread_type?: string
+          uploaded_by?: string | null
+          uploaded_by_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_attachments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submission_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenancies: {
         Row: {

@@ -21,6 +21,12 @@ import { ForwardButton } from './ForwardButton'
 import { MessageThread } from './MessageThread'
 import { PropertyRail } from './PropertyRail'
 import { VendorRail, type RailVendor } from './VendorRail'
+import { VendorRequestButton } from './VendorRequestButton'
+import { VendorRequestLinks } from './VendorRequestLinks'
+import {
+  getOutgoingVendorRequests,
+  getIncomingVendorRequest,
+} from '@/lib/inbox/vendor-request-links'
 import { isVendorIncomplete } from '@/lib/inbox/vendor/schema'
 
 export const dynamic = 'force-dynamic'
@@ -116,10 +122,14 @@ export default async function ThreadPage({
   // thread's vendor_id is a real FK, but the join must still be scoped
   // rather than trusted.
   let railVendor: RailVendor | null = null
+  // Kept beside railVendor rather than added to it: RailVendor is the shape
+  // VendorRail renders, and the rail has no reason to know an address it
+  // never displays. This one prefills the vendor-request composer's "Send to".
+  let vendorEmail: string | null = null
   if (thread.vendorId) {
     const { data: vendorRow } = await supabase
       .from('vendors' as never)
-      .select('id, legal_name, trades, status, ein')
+      .select('id, legal_name, trades, status, ein, primary_email')
       .eq('id', thread.vendorId)
       .eq('organization_id', org.id)
       .maybeSingle<{
@@ -128,6 +138,7 @@ export default async function ThreadPage({
         trades: string[] | null
         status: string
         ein: string | null
+        primary_email: string | null
       }>()
 
     if (vendorRow) {
@@ -138,8 +149,18 @@ export default async function ThreadPage({
         status: vendorRow.status,
         incomplete: isVendorIncomplete({ ein: vendorRow.ein, trades: vendorRow.trades }),
       }
+      vendorEmail = vendorRow.primary_email
     }
   }
+
+  // Both link directions, resolved through inbox_drafts.source_thread_id and
+  // gmail_message_id. Each returns empty/null on a failed read rather than
+  // throwing — a missing cross-reference is cosmetic, an unrenderable thread
+  // is not.
+  const [outgoingRequests, incomingRequest] = await Promise.all([
+    getOutgoingVendorRequests(supabase as never, org.id, thread.id),
+    getIncomingVendorRequest(supabase as never, org.id, thread.id),
+  ])
 
   // The sender the quick-create modal seeds from: the newest INBOUND
   // message, matching what W33 reads server-side.
@@ -179,8 +200,20 @@ export default async function ThreadPage({
               most common case there is. The draft's status rides along so the
               button can explain itself while a live draft would be displaced;
               the server action refuses regardless. See ForwardButton. */}
-          <ForwardButton threadId={thread.id} draftStatus={draft?.status ?? null} />
+          <div className="flex items-start gap-2">
+            <ForwardButton threadId={thread.id} draftStatus={draft?.status ?? null} />
+            {/* Forward sends the resident's own email onward, quoted. This
+                writes a fresh work order instead and starts its own thread —
+                see the vendor request composer spec, D1 and D3. */}
+            <VendorRequestButton
+              threadId={thread.id}
+              vendorEmail={vendorEmail}
+              draftStatus={draft?.status ?? null}
+            />
+          </div>
         </header>
+
+        <VendorRequestLinks outgoing={outgoingRequests} incoming={incomingRequest} />
 
         <MessageThread messages={thread.messages} />
 

@@ -28,6 +28,7 @@ import {
   joinAttachmentText,
   type CandidateAttachment,
 } from './attachment-text'
+import { readPdfTexts } from '../attachment-pdf'
 
 export interface VendorOption {
   vendorId: string
@@ -346,40 +347,9 @@ async function readAttachmentText(
   const parsable = selectParsableAttachments(data ?? [])
   if (parsable.length === 0) return null
 
-  // Dynamic import: pdf-parse pulls a heavy native chain, and the two
-  // existing call sites in this app import it the same way rather than
-  // paying for it on the cold start of unrelated routes.
-  let pdfParse: (buffer: Buffer) => Promise<{ text: string }>
-  try {
-    pdfParse = (await import('pdf-parse')).default as typeof pdfParse
-  } catch (err) {
-    console.error(
-      `readAttachmentText: pdf-parse unavailable: ${err instanceof Error ? err.name : 'UnknownError'}`,
-    )
-    return null
-  }
-
-  const texts: Array<{ fileName: string; text: string }> = []
-  for (const attachment of parsable) {
-    try {
-      const { data: blob, error: dlError } = await supabase.storage
-        .from(ATTACHMENT_BUCKET)
-        .download(attachment.storagePath)
-      if (dlError || !blob) {
-        console.error(
-          `readAttachmentText: download failed for attachment ${attachment.id}: ${dlError?.message ?? 'no body'}`,
-        )
-        continue
-      }
-      const parsed = await pdfParse(Buffer.from(await blob.arrayBuffer()))
-      texts.push({ fileName: attachment.fileName, text: parsed.text ?? '' })
-    } catch (err) {
-      // A corrupt or password-protected PDF is common and not exceptional.
-      console.error(
-        `readAttachmentText: parse failed for attachment ${attachment.id}: ${err instanceof Error ? err.name : 'UnknownError'}`,
-      )
-    }
-  }
-
-  return joinAttachmentText(texts)
+  // Download + parse loop lives in attachment-pdf.ts, shared with W34's
+  // thread-scoped retrieval. Failures are swallowed per-file there: a
+  // corrupt or password-protected PDF is common and must not fail the whole
+  // extraction, which must not fail the create form.
+  return joinAttachmentText(await readPdfTexts(supabase, ATTACHMENT_BUCKET, parsable))
 }

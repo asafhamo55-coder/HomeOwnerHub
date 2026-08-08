@@ -43,6 +43,26 @@ export type MailboxSendResult =
   | { sent: false; reason: string }
 
 /**
+ * Draft kinds that send with no Gmail `threadId` and therefore carry their
+ * mailbox on the draft row rather than through a thread.
+ *
+ * One predicate rather than an inline `kind === 'new'`, because this
+ * question is asked at three points in `runMailboxSend` — which mailbox to
+ * send from, whether `thread_id` is required, and whether to read the last
+ * inbound message for `In-Reply-To`. When `vendor_request` joined `new` in
+ * migration 0042, a per-site literal would have made "added to one predicate
+ * and missed in another" the natural failure, and the symptom of missing the
+ * third site is a vendor request that silently threads onto the resident's
+ * conversation — exactly the leak the separate thread exists to prevent.
+ *
+ * Kept in sync with the `inbox_drafts_thread_or_account` CHECK constraint;
+ * the two must always name the same set.
+ */
+export function isThreadless(kind: string): boolean {
+  return kind === 'new' || kind === 'vendor_request'
+}
+
+/**
  * Does this storage key live under the draft's own organization?
  *
  * THE LAST GATE BEFORE ANOTHER TENANT'S BYTES ARE MAILED OUT. Enforced here,
@@ -323,7 +343,7 @@ export async function runMailboxSend(
     return { sent: false, reason: 'cancelled' }
   }
 
-  // A kind='new' draft has no thread to read: it is sent with no Gmail
+  // A threadless draft has no thread to read: it is sent with no Gmail
   // threadId, and the ordinary 2-minute sync ingests the sent message into a
   // real thread through the normal path — the same reasoning recorded at the
   // bottom of this file for sent replies. So there is nothing to look up,
@@ -342,7 +362,7 @@ export async function runMailboxSend(
   let gmailThreadId: string | null = null
   let threadId: string | null = null
 
-  if (draft.kind === 'new') {
+  if (isThreadless(draft.kind)) {
     if (!draft.mailbox_account_id) {
       await fail(db, draftId, 'This message has no mailbox to send from.')
       return { sent: false, reason: 'no_account' }
@@ -350,10 +370,10 @@ export async function runMailboxSend(
     accountId = draft.mailbox_account_id
   } else {
     // Guaranteed by the `inbox_drafts_thread_or_account` CHECK constraint
-    // (migration 0038): any kind other than 'new' has a non-null thread_id.
-    // database.types.ts types the column `string | null` because 'new' rows
-    // are nullable, so this narrows for TS as well as catching a row that
-    // somehow violated the constraint.
+    // (migrations 0038 and 0042): any threaded kind has a non-null thread_id.
+    // database.types.ts types the column `string | null` because threadless
+    // rows are nullable, so this narrows for TS as well as catching a row
+    // that somehow violated the constraint.
     if (!draft.thread_id) {
       await fail(db, draftId, 'This message has no thread to send to.')
       throw new Error(`mailboxSendJob: draft ${draftId} has kind='${draft.kind}' but no thread_id`)
@@ -390,7 +410,7 @@ export async function runMailboxSend(
   }
 
   // Reply to the most recent inbound message so threading is correct. Only
-  // for a reply/forward — a kind='new' draft has no thread, so `last` stays
+  // for a reply/forward — a threadless draft has no thread, so `last` stays
   // empty and no `inbox_messages` read happens. Deliberately AFTER the
   // account/disconnected check above: see this block's opening comment.
   let last: { rfc822_message_id: string | null; from_email: string | null } = {

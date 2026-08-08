@@ -96,3 +96,23 @@ export type {
   VendorExtractorInput,
   VendorExtractorOutput,
 } from './W33-vendor-extractor'
+
+// Phase D — an AI-drafted work order to a vendor, from a resident's thread.
+// `processVendorRequestResponse` is exported alongside the workflow for the
+// same reason W32 exports its own processor: the root vitest harness is
+// pure-modules-only, and `run()` cannot be called in isolation because
+// defineWorkflow closes over it.
+export {
+  vendorRequestComposer,
+  composeVendorRequest,
+  processVendorRequestResponse,
+  VENDOR_REQUEST_INTENTS,
+  VENDOR_REQUEST_BLANK_KINDS,
+} from './W34-vendor-request-composer'
+export type {
+  VendorRequestComposerInput,
+  VendorRequestComposerOutput,
+  VendorRequestIntent,
+  VendorRequestBlankKind,
+  PhotoFinding,
+} from './W34-vendor-request-composer'
