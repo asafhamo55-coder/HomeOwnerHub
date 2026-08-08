@@ -1,118 +1,83 @@
 import Link from 'next/link'
-import { Building2, Download, Plus, Search, X } from 'lucide-react'
-import { Button, Card, CardContent, EmptyState, Input } from '@homeowner-portal/ui'
+import { Download, Plus } from 'lucide-react'
+import { Alert, Button } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { PropertiesBulkActions } from './PropertiesBulkActions'
+import { listProperties } from '@/lib/properties/list'
+import { parsePropertyListParams } from '@/lib/properties/list-params'
+import { PropertyList } from './PropertyList'
+import { PropertyListFilters } from './PropertyListFilters'
 
 export const metadata = { title: 'Properties' }
 export const dynamic = 'force-dynamic'
 
-type Tenure = 'owner_occupied' | 'leased' | 'unknown'
+// The view is new in 0039 and is not in the generated Database types until
+// the next `supabase gen types` pass — same reasoning as list.ts, which
+// this mirrors for the count-only queries below.
+const VIEW = 'hoa_property_list_v'
 
-interface PropertyRow {
-  id: string
-  address: string
-  unit_number: string | null
-  owner_name: string | null
-  owner_email: string | null
-  owner_phone: string | null
-  tenure: Tenure | null
-  notes: string | null
-  created_at: string | null
-  updated_at: string | null
-}
-
-const TENURE_LABEL: Record<Tenure, string> = {
-  owner_occupied: 'Owner-occupied',
-  leased: 'Leased',
-  unknown: 'Unknown',
-}
-
-const TENURE_FILTERS: Array<{ key: 'all' | Tenure; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'owner_occupied', label: 'Owner-occupied' },
-  { key: 'leased', label: 'Leased' },
-  { key: 'unknown', label: 'Unknown' },
-]
-
-export default async function PropertiesListPage({
+export default async function PropertiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tenure?: string; q?: string }>
+  searchParams: Promise<{ filter?: string; sort?: string; q?: string; page?: string }>
 }) {
   const org = await getCurrentOrg()
   if (!org) return null
 
-  const { tenure: tenureParam, q: qParam } = await searchParams
-  const activeTenure: 'all' | Tenure =
-    tenureParam === 'owner_occupied' || tenureParam === 'leased' || tenureParam === 'unknown'
-      ? tenureParam
-      : 'all'
-  const search = (qParam ?? '').trim()
-
+  const params = parsePropertyListParams(await searchParams)
   const supabase = await getSupabaseServerClient()
-  let query = supabase
-    .from('hoa_properties')
-    .select(
-      'id, address, unit_number, owner_name, owner_email, owner_phone, tenure, notes, created_at, updated_at',
-    )
-    .eq('org_id', org.id)
-    .is('deleted_at', null)
-    .order('address', { ascending: true })
-  if (activeTenure !== 'all') {
-    // `tenure` was added in migration 0017; DB types are stale until the
-    // next gen pass. Cast to `never` keeps tsc happy without changing
-    // behavior.
-    query = query.eq('tenure' as never, activeTenure)
-  }
-  if (search.length > 0) {
-    // Cap length to prevent pathological inputs, escape LIKE wildcards
-    // (`%`, `_`, `\`) so a stray `%` doesn't match every property, and
-    // strip PostgREST `.or()` separators (`,`, `(`, `)`). Match on
-    // address, unit_number, owner_name, or owner_email.
-    const safe = search
-      .slice(0, 100)
-      .replace(/[%_\\]/g, '\\$&')
-      .replace(/[,()]/g, ' ')
-    query = query.or(
-      `address.ilike.%${safe}%,unit_number.ilike.%${safe}%,owner_name.ilike.%${safe}%,owner_email.ilike.%${safe}%`,
-    )
-  }
-  const { data, error } = await query
 
-  const properties = (data ?? []) as unknown as PropertyRow[]
+  let rows: Awaited<ReturnType<typeof listProperties>>['rows'] = []
+  let total = 0
+  let counts = { attention: 0, all: 0 }
+  let error: string | null = null
+  try {
+    const result = await listProperties(supabase, org.id, params)
+    rows = result.rows
+    total = result.total
+
+    // Count-only queries (`head: true`) so no rows are transferred — these
+    // drive the filter-chip counts, not the paginated list above.
+    const [attentionCount, allCount] = await Promise.all([
+      supabase
+        .from(VIEW as never)
+        .select('*', { count: 'exact', head: true })
+        .eq('org_id' as never, org.id)
+        .lt('severity_rank' as never, 6),
+      supabase
+        .from(VIEW as never)
+        .select('*', { count: 'exact', head: true })
+        .eq('org_id' as never, org.id),
+    ])
+    counts = {
+      attention: attentionCount.count ?? 0,
+      all: allCount.count ?? 0,
+    }
+  } catch (e) {
+    // Surfaced in the list pane rather than crashing the route, so the
+    // rest of the page stays usable — the old page rendered a raw
+    // error.message into a bare Card.
+    error = e instanceof Error ? e.message : 'Could not load properties.'
+  }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <main className="flex h-[calc(100vh-4rem)] flex-col">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div>
-          <h1>Properties</h1>
-          <p className="text-sm text-muted">
-            {properties.length} {properties.length === 1 ? 'home' : 'homes'}
-            {activeTenure !== 'all' ? ` · ${TENURE_LABEL[activeTenure]}` : ''}
-            {search ? ` · matching “${search}”` : ''} in {org.name}
+          <h1 className="text-lg font-semibold text-foreground">Properties</h1>
+          <p className="text-xs text-muted">
+            {total} {total === 1 ? 'home' : 'homes'} in {org.name}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button asChild variant="outline">
-            {/* Plain anchor — Next Link would prefetch the CSV. We want a
-                straight GET request that triggers the browser download. */}
-            <a
-              href={`/properties/export${
-                activeTenure !== 'all' || search
-                  ? `?${new URLSearchParams({
-                      ...(activeTenure !== 'all' ? { tenure: activeTenure } : {}),
-                      ...(search ? { q: search } : {}),
-                    }).toString()}`
-                  : ''
-              }`}
-            >
+          <Button asChild variant="outline" size="sm">
+            {/* Plain anchor — Link would prefetch the CSV. */}
+            <a href="/properties/export">
               <Download className="h-4 w-4" />
-              Export CSV
+              Export
             </a>
           </Button>
-          <Button asChild>
+          <Button asChild size="sm">
             <Link href="/properties/new">
               <Plus className="h-4 w-4" />
               Add property
@@ -121,116 +86,54 @@ export default async function PropertiesListPage({
         </div>
       </header>
 
-      {/* Search + tenure filters. Server-form GET to /properties preserves
-          the tenure filter via a hidden input. */}
-      <div className="flex flex-wrap items-end gap-3">
-        <form action="/properties" method="get" className="flex flex-1 items-center gap-2 sm:max-w-md">
-          {activeTenure !== 'all' ? (
-            <input type="hidden" name="tenure" value={activeTenure} />
-          ) : null}
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden />
-            <Input
-              type="search"
-              name="q"
-              defaultValue={search}
-              placeholder="Search address, unit, owner, or email"
-              className="pl-9"
-              aria-label="Search properties"
-            />
-          </div>
-          <Button type="submit" size="sm">Search</Button>
-          {search ? (
-            <Button asChild variant="ghost" size="sm">
-              <Link href={activeTenure === 'all' ? '/properties' : `/properties?tenure=${activeTenure}`}>
-                <X className="h-3.5 w-3.5" />
-                Clear
-              </Link>
-            </Button>
-          ) : null}
-        </form>
+      <div className="flex flex-1 overflow-hidden">
+        <aside className="w-full max-w-sm shrink-0 overflow-y-auto border-r border-border xl:max-w-xs">
+          <PropertyListFilters params={params} counts={counts} />
+          {error ? (
+            <Alert variant="error" title="Could not load properties" className="m-3">
+              {error}
+            </Alert>
+          ) : (
+            <>
+              <PropertyList rows={rows} params={params} />
+              {total > params.limit ? (
+                <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-xs text-muted">
+                  <span>
+                    Showing {params.offset + 1}–{Math.min(params.offset + rows.length, total)} of{' '}
+                    {total}
+                  </span>
+                  <div className="flex gap-3">
+                    {params.page > 1 ? (
+                      <Link
+                        href={`/properties?${new URLSearchParams({ filter: params.filter, sort: params.sort, ...(params.search ? { q: params.search } : {}), page: String(params.page - 1) })}`}
+                        className="underline hover:text-foreground"
+                      >
+                        Previous
+                      </Link>
+                    ) : (
+                      <span className="text-muted/50">Previous</span>
+                    )}
+                    {params.offset + rows.length < total ? (
+                      <Link
+                        href={`/properties?${new URLSearchParams({ filter: params.filter, sort: params.sort, ...(params.search ? { q: params.search } : {}), page: String(params.page + 1) })}`}
+                        className="underline hover:text-foreground"
+                      >
+                        Next
+                      </Link>
+                    ) : (
+                      <span className="text-muted/50">Next</span>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
+        </aside>
+
+        <section className="hidden flex-1 items-center justify-center text-sm text-muted lg:flex">
+          Select a property
+        </section>
       </div>
-
-      {/* Tenure filter chips — server-side URL-driven so it survives reloads + share. */}
-      <nav aria-label="Filter by tenure" className="flex flex-wrap items-center gap-2">
-        <span className="text-xs uppercase tracking-wide text-muted">Tenure</span>
-        {TENURE_FILTERS.map((f) => {
-          const active = activeTenure === f.key
-          const params = new URLSearchParams()
-          if (f.key !== 'all') params.set('tenure', f.key)
-          if (search) params.set('q', search)
-          const qs = params.toString()
-          const href = qs ? `/properties?${qs}` : '/properties'
-          return (
-            <Link
-              key={f.key}
-              href={href}
-              aria-current={active ? 'page' : undefined}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                active
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border text-muted hover:bg-foreground/5 hover:text-foreground'
-              }`}
-            >
-              {f.label}
-            </Link>
-          )
-        })}
-      </nav>
-
-      {error ? (
-        <Card>
-          <CardContent className="p-6 text-sm text-destructive">{error.message}</CardContent>
-        </Card>
-      ) : properties.length === 0 ? (
-        search ? (
-          <EmptyState
-            icon={<Search className="h-10 w-10" aria-hidden />}
-            title={`No properties match “${search}”`}
-            description="Try a shorter or different search term, or clear the filter."
-            action={
-              <Button asChild variant="outline">
-                <Link href={activeTenure === 'all' ? '/properties' : `/properties?tenure=${activeTenure}`}>
-                  Clear search
-                </Link>
-              </Button>
-            }
-          />
-        ) : activeTenure !== 'all' ? (
-          <EmptyState
-            icon={<Building2 className="h-10 w-10" aria-hidden />}
-            title={`No ${TENURE_LABEL[activeTenure].toLowerCase()} properties`}
-            description="Adjust the tenure filter to see other properties."
-            action={
-              <Button asChild variant="outline">
-                <Link href="/properties">Show all</Link>
-              </Button>
-            }
-          />
-        ) : (
-          <EmptyState
-            icon={<Building2 className="h-10 w-10" aria-hidden />}
-            title="No properties yet"
-            description="Add your first home to start tracking violations, dues, and meetings."
-            action={
-              <Button asChild>
-                <Link href="/properties/new">
-                  <Plus className="h-4 w-4" />
-                  Add property
-                </Link>
-              </Button>
-            }
-          />
-        )
-      ) : (
-        <Card>
-          {/* Rows + checkboxes + bulk-action bar live in one client island
-              so selection state is co-located with the bar that consumes
-              it. The server still drives the row data (search/filter
-              run on the URL via the form above). */}
-          <PropertiesBulkActions properties={properties} />
-        </Card>
-      )}
-    </div>
+    </main>
   )
 }

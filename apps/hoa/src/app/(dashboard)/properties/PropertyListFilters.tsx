@@ -30,7 +30,13 @@ function hrefWith(params: PropertyListParams, patch: Partial<Record<string, stri
   return s ? `/properties?${s}` : '/properties'
 }
 
-export function PropertyListFilters({ params }: { params: PropertyListParams }) {
+export function PropertyListFilters({
+  params,
+  counts,
+}: {
+  params: PropertyListParams
+  counts: { attention: number; all: number }
+}) {
   return (
     <div className="space-y-2 border-b border-border p-2">
       <form action="/properties" method="get" className="flex items-center gap-2">
@@ -68,7 +74,7 @@ export function PropertyListFilters({ params }: { params: PropertyListParams }) 
                 : 'text-muted hover:bg-muted/10'
             }`}
           >
-            {f.label}
+            {f.key === 'attention' || f.key === 'all' ? `${f.label} ${counts[f.key] ?? 0}` : f.label}
           </Link>
         ))}
       </nav>
