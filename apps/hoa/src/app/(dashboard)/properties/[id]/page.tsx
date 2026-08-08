@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import {
-  ArrowLeft,
   AlertTriangle,
   Wallet,
   Home,
@@ -18,6 +17,8 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import {
+  Alert,
+  BackLink,
   Badge,
   Card,
   CardContent,
@@ -27,6 +28,8 @@ import {
 } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPropertyDetail, type PropertyTenure } from '@/lib/properties'
+import { listProperties } from '@/lib/properties/list'
+import { parsePropertyListParams } from '@/lib/properties/list-params'
 import { getLeaseCap } from '@/lib/leases'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getCurrentUserRole } from '@/lib/auth'
@@ -37,7 +40,13 @@ import {
 import { formatShortDate } from '@/lib/format-datetime'
 import type { PropertyResidentRow, PropertyResidentRole } from '@/lib/property-residents'
 import type { PropertyEventRow, PropertyEventKind } from '@/lib/property-events'
-import { resolveCorrespondenceState } from './correspondence-state'
+import { PropertyList } from '../PropertyList'
+import { PropertyListFilters } from '../PropertyListFilters'
+import {
+  resolveCorrespondenceState,
+  type CorrespondenceSectionState,
+} from './correspondence-state'
+import { PropertyPanel, parsePanelTab, type PanelStats } from './PropertyPanel'
 import { TenureSelector } from './TenureSelector'
 import { AddResidentForm } from './AddResidentForm'
 import { PropertyActions } from './PropertyActions'
@@ -79,12 +88,39 @@ interface AssessmentRow {
   payments: { amount: number }[]
 }
 
+// Same view the list pane reads (migration 0039), queried here for the one
+// property so the panel's stat strip carries exactly the numbers the row in
+// the aside was ranked by. Not derived from `violations`/`dues` below —
+// those are capped at 20/12 rows for display and would undercount.
+// Cast for the same reason list.ts casts: the view postdates the last
+// `supabase gen types` pass.
+const LIST_VIEW = 'hoa_property_list_v'
+
+interface PanelStatsRow {
+  balance: number | string | null
+  days_overdue: number | null
+  open_violations: number | null
+  violations_past_cure: number | null
+  threads_needing_reply: number | null
+}
+
 export default async function PropertyDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{
+    tab?: string
+    filter?: string
+    sort?: string
+    q?: string
+    page?: string
+  }>
 }) {
   const { id } = await params
+  const sp = await searchParams
+  const tab = parsePanelTab(sp.tab)
+  const listParams = parsePropertyListParams(sp)
   const supabase = await getSupabaseServerClient()
 
   const detail = await getPropertyDetail(id)
@@ -114,42 +150,57 @@ export default async function PropertyDetailPage({
   const isAdmin = ctx?.role === 'admin'
   const unitId = unit?.id ?? null
 
-  const [violationsRes, assessmentsRes, correspondenceOutcome] = await Promise.all([
-    supabase
-      .from('hoa_violations')
-      .select('id, description, status, severity, created_at, cure_period_days, notice_sent_at')
-      .eq('property_id', id)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .limit(20),
-    unit
-      ? supabase
-          .from('assessments')
-          .select(
-            'id, due_date, amount, status, assessment_type, fiscal_period:fiscal_period_id(start_date), payments(amount)',
+  const [violationsRes, assessmentsRes, correspondenceOutcome, statsRow] =
+    await Promise.all([
+      supabase
+        .from('hoa_violations')
+        .select('id, description, status, severity, created_at, cure_period_days, notice_sent_at')
+        .eq('property_id', id)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(20),
+      unit
+        ? supabase
+            .from('assessments')
+            .select(
+              'id, due_date, amount, status, assessment_type, fiscal_period:fiscal_period_id(start_date), payments(amount)',
+            )
+            .eq('unit_id', unit.id)
+            .is('deleted_at', null)
+            .order('due_date', { ascending: false })
+            .limit(12)
+        : Promise.resolve({ data: [] }),
+      // unitId null means this property has no bridged unit row — correspondence
+      // cannot be linked to it at all, which the Mail tab must render as a
+      // distinct state from "linked, but zero threads so far" AND from "linked,
+      // but the read failed". `listThreadsForUnit` throws on a soft read
+      // failure (correctly — see its docstring), but this read sits alongside
+      // the other tabs' reads in one `Promise.all`; letting it reject the whole
+      // `Promise.all` would take down residents/tenure/violations/dues too for
+      // a failure in one section of six. `Promise.allSettled` (wrapping just
+      // this one call, of one) turns that rejection into data instead —
+      // `correspondenceOutcome` is `null` when there's no unit to query, or a
+      // `PromiseSettledResult` the page can branch on otherwise.
+      unitId && ctx
+        ? Promise.allSettled([listThreadsForUnit(supabase, ctx.org.id, unitId)]).then(
+            ([result]) => result,
           )
-          .eq('unit_id', unit.id)
-          .is('deleted_at', null)
-          .order('due_date', { ascending: false })
-          .limit(12)
-      : Promise.resolve({ data: [] }),
-    // unitId null means this property has no bridged unit row — correspondence
-    // cannot be linked to it at all, which the section below must render as a
-    // distinct state from "linked, but zero threads so far" AND from "linked,
-    // but the read failed". `listThreadsForUnit` throws on a soft read
-    // failure (correctly — see its docstring), but this read sits alongside
-    // five other sections in one `Promise.all`; letting it reject the whole
-    // `Promise.all` would take down residents/tenure/violations/dues too for
-    // a failure in one section of six. `Promise.allSettled` (wrapping just
-    // this one call, of one) turns that rejection into data instead —
-    // `correspondenceOutcome` is `null` when there's no unit to query, or a
-    // `PromiseSettledResult` the page can branch on otherwise.
-    unitId && ctx
-      ? Promise.allSettled([listThreadsForUnit(supabase, ctx.org.id, unitId)]).then(
-          ([result]) => result,
-        )
-      : Promise.resolve(null),
-  ])
+        : Promise.resolve(null),
+      // Stat-strip numbers. Enrichment, not page-defining: a failure here
+      // shows zeros in four tiles rather than blanking the property.
+      (async (): Promise<PanelStatsRow | null> => {
+        if (!ctx) return null
+        const { data } = await supabase
+          .from(LIST_VIEW as never)
+          .select(
+            'balance, days_overdue, open_violations, violations_past_cure, threads_needing_reply',
+          )
+          .eq('id' as never, id)
+          .eq('org_id' as never, ctx.org.id)
+          .maybeSingle<PanelStatsRow>()
+        return data ?? null
+      })(),
+    ])
 
   const violations = (violationsRes.data ?? []) as ViolationRow[]
   const dues = (assessmentsRes.data ?? []) as unknown as AssessmentRow[]
@@ -168,27 +219,217 @@ export default async function PropertyDetailPage({
   }
   const correspondenceState = resolveCorrespondenceState(unitId, correspondenceOutcome)
 
+  const stats: PanelStats = {
+    balance: Number(statsRow?.balance ?? 0),
+    daysOverdue: Number(statsRow?.days_overdue ?? 0),
+    openViolations: Number(statsRow?.open_violations ?? 0),
+    violationsPastCure: Number(statsRow?.violations_past_cure ?? 0),
+    residents: residents.length,
+    threadsNeedingReply: Number(statsRow?.threads_needing_reply ?? 0),
+  }
+
+  // The list beside the panel. Its read is wrapped the same way
+  // /properties/page.tsx wraps it: a list failure narrows the page to the
+  // panel rather than throwing the whole route away.
+  let rows: Awaited<ReturnType<typeof listProperties>>['rows'] = []
+  let total = 0
+  let counts = { attention: 0, all: 0 }
+  let listError: string | null = null
+  if (ctx) {
+    try {
+      const result = await listProperties(supabase, ctx.org.id, listParams)
+      rows = result.rows
+      total = result.total
+
+      // Count-only queries (`head: true`) so no rows are transferred — these
+      // drive the filter-chip counts, not the paginated list above. Same two
+      // queries /properties/page.tsx runs; PropertyListFilters requires them.
+      const [attentionCount, allCount] = await Promise.all([
+        supabase
+          .from(LIST_VIEW as never)
+          .select('*', { count: 'exact', head: true })
+          .eq('org_id' as never, ctx.org.id)
+          .lt('severity_rank' as never, 6),
+        supabase
+          .from(LIST_VIEW as never)
+          .select('*', { count: 'exact', head: true })
+          .eq('org_id' as never, ctx.org.id),
+      ])
+      counts = {
+        attention: attentionCount.count ?? 0,
+        all: allCount.count ?? 0,
+      }
+    } catch (e) {
+      listError = e instanceof Error ? e.message : 'Could not load properties.'
+    }
+  }
+
+  // The list state this property was opened from, carried on every tab link
+  // and on the mobile back link so filter/sort/search/page survive.
+  const listQuery = new URLSearchParams()
+  if (listParams.filter !== 'attention') listQuery.set('filter', listParams.filter)
+  if (listParams.sort !== 'severity') listQuery.set('sort', listParams.sort)
+  if (listParams.search) listQuery.set('q', listParams.search)
+  if (listParams.page > 1) listQuery.set('page', String(listParams.page))
+  const query = listQuery.toString()
+  const listHref = query ? `/properties?${query}` : '/properties'
+  const historyHref = `/properties/${id}?${new URLSearchParams({
+    ...Object.fromEntries(listQuery),
+    tab: 'history',
+  })}`
+  const residentsHref = `/properties/${id}?${new URLSearchParams({
+    ...Object.fromEntries(listQuery),
+    tab: 'residents',
+  })}`
+
+  const pageHref = (n: number) =>
+    `/properties?${new URLSearchParams({
+      filter: listParams.filter,
+      sort: listParams.sort,
+      ...(listParams.search ? { q: listParams.search } : {}),
+      page: String(n),
+    })}`
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <Link
-        href="/properties"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to properties
-      </Link>
+    <main className="flex h-[calc(100vh-4rem)] overflow-hidden">
+      {/* The aside mirrors /properties so the list survives navigation;
+          hidden below lg so the panel is the whole page on a phone — the
+          same structure inbox/[id]/page.tsx uses. */}
+      <aside className="hidden w-full max-w-sm shrink-0 overflow-y-auto border-r border-border lg:block xl:max-w-xs">
+        <PropertyListFilters params={listParams} counts={counts} />
+        {listError ? (
+          <Alert variant="error" title="Could not load properties" className="m-3">
+            {listError}
+          </Alert>
+        ) : (
+          <>
+            <PropertyList rows={rows} selectedId={id} params={listParams} />
+            {total > listParams.limit ? (
+              <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-xs text-muted">
+                <span>
+                  Showing {listParams.offset + 1}–
+                  {Math.min(listParams.offset + rows.length, total)} of {total}
+                </span>
+                <div className="flex gap-3">
+                  {listParams.page > 1 ? (
+                    <Link href={pageHref(listParams.page - 1)} className="underline hover:text-foreground">
+                      Previous
+                    </Link>
+                  ) : (
+                    <span className="text-muted/50">Previous</span>
+                  )}
+                  {listParams.offset + rows.length < total ? (
+                    <Link href={pageHref(listParams.page + 1)} className="underline hover:text-foreground">
+                      Next
+                    </Link>
+                  ) : (
+                    <span className="text-muted/50">Next</span>
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
+      </aside>
 
-      <header className="space-y-1">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="text-2xl font-bold text-foreground">{p.address}</h1>
-          <PropertyActions propertyId={p.id} />
+      <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {/* Edit/Delete sit above the tabs so they're reachable from every
+            tab, exactly as they were reachable from the old single page. */}
+        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2">
+          <div className="lg:hidden">
+            <BackLink href={listHref} label="All properties" />
+          </div>
+          <div className="ml-auto">
+            <PropertyActions propertyId={p.id} />
+          </div>
         </div>
-        <p className="text-sm text-muted">
-          {[p.unit_number ? `Unit ${p.unit_number}` : null, p.owner_name].filter(Boolean).join(' · ') ||
-            'No additional details'}
-        </p>
-      </header>
 
+        <div className="min-h-0 flex-1">
+          <PropertyPanel
+            propertyId={id}
+            address={p.address}
+            unitNumber={p.unit_number}
+            ownerName={p.owner_name}
+            ownerEmail={p.owner_email}
+            ownerPhone={p.owner_phone}
+            tenure={tenure}
+            stats={stats}
+            currentTab={tab}
+            query={query}
+          >
+            {tab === 'overview' ? (
+              <OverviewTab
+                property={p}
+                tenureUpdatedAt={detail.property.tenure_updated_at}
+                tenure={tenure}
+                capInPlace={capInPlace}
+                isAdmin={isAdmin}
+                unitId={unitId}
+                violationCount={violations.length}
+                duesCount={dues.length}
+                residents={residents}
+                events={events}
+                historyHref={historyHref}
+                residentsHref={residentsHref}
+              />
+            ) : null}
+            {tab === 'residents' ? (
+              <ResidentsSection
+                residents={residents}
+                isAdmin={isAdmin}
+                propertyId={p.id}
+                unitId={unitId}
+              />
+            ) : null}
+            {tab === 'mail' ? <CorrespondenceSection state={correspondenceState} /> : null}
+            {tab === 'violations' ? <ViolationsSection violations={violations} /> : null}
+            {tab === 'dues' ? <DuesSection dues={dues} /> : null}
+            {tab === 'history' ? <HistorySection events={events} /> : null}
+          </PropertyPanel>
+        </div>
+      </section>
+    </main>
+  )
+}
+
+// ─── Tabs ────────────────────────────────────────────────────────────
+// Each of these is the body of one of the six <section> blocks the old
+// single-scroll page stacked. The markup inside is unchanged; only the
+// wrapper heading rows moved, because the panel's tab strip names them now.
+
+function OverviewTab({
+  property: p,
+  tenureUpdatedAt,
+  tenure,
+  capInPlace,
+  isAdmin,
+  unitId,
+  violationCount,
+  duesCount,
+  residents,
+  events,
+  historyHref,
+  residentsHref,
+}: {
+  property: PropertyDetailRow
+  tenureUpdatedAt: string | null
+  tenure: PropertyTenure
+  capInPlace: boolean
+  isAdmin: boolean
+  unitId: string | null
+  violationCount: number
+  duesCount: number
+  residents: PropertyResidentRow[]
+  events: PropertyEventRow[]
+  historyHref: string
+  residentsHref: string
+}) {
+  const recent = events.slice(0, 4)
+  const active = residents.filter((r) => r.moved_out_at === null)
+  const primary = active.find((r) => r.is_primary) ?? active[0] ?? null
+
+  return (
+    <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="md:col-span-2">
           <CardHeader>
@@ -226,8 +467,8 @@ export default async function PropertyDetailPage({
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <p className="text-xs text-muted">
-              {detail.property.tenure_updated_at
-                ? `Updated ${format(new Date(detail.property.tenure_updated_at), 'PP')}`
+              {tenureUpdatedAt
+                ? `Updated ${format(new Date(tenureUpdatedAt), 'PP')}`
                 : 'Never recorded — set the current state below.'}
             </p>
             <TenureSelector
@@ -237,10 +478,10 @@ export default async function PropertyDetailPage({
             />
             <div className="pt-2 text-xs text-muted">
               <p>
-                {violations.length}{' '}
-                {violations.length === 1 ? 'violation' : 'violations'} ·{' '}
-                {dues.length}{' '}
-                {dues.length === 1 ? 'assessment' : 'assessments'}
+                {violationCount}{' '}
+                {violationCount === 1 ? 'violation' : 'violations'} ·{' '}
+                {duesCount}{' '}
+                {duesCount === 1 ? 'assessment' : 'assessments'}
               </p>
               {p.created_at ? (
                 <p>Added {format(new Date(p.created_at), 'PP')}</p>
@@ -250,164 +491,238 @@ export default async function PropertyDetailPage({
         </Card>
       </div>
 
-      {/* ─── Residents ─── */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Residents</h2>
-          <AddResidentForm propertyId={p.id} />
-        </div>
-        {residents.length === 0 ? (
-          <EmptyState
-            icon={<Users className="h-8 w-8" aria-hidden />}
-            title="No residents on file"
-            description="Add the owners, tenants, and family members living here so notices and outreach reach the right people."
-          />
-        ) : (
-          <Card>
-            <ul className="divide-y divide-border">
-              {residents.map((r) => (
-                <ResidentRowClient
-                  key={r.id}
-                  resident={r}
-                  isAdmin={isAdmin}
-                  propertyId={p.id}
-                  unitId={unitId}
-                />
-              ))}
-            </ul>
-          </Card>
-        )}
-      </section>
-
-      {/* ─── Correspondence ─── */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Correspondence</h2>
-          <Link href="/inbox" className="text-sm font-medium text-primary hover:underline">
-            Open inbox
-          </Link>
-        </div>
-        {correspondenceState.kind === 'unlinked' ? (
-          <EmptyState
-            icon={<Mail className="h-8 w-8" aria-hidden />}
-            title="Not linked to a mailbox unit"
-            description="This property isn't bridged to a unit yet, so incoming email can't be matched to it. Correspondence will appear here once it is."
-          />
-        ) : correspondenceState.kind === 'error' ? (
-          // Deliberately NOT an EmptyState: this must not look like "no
-          // correspondence" (below), because it isn't that claim — the read
-          // failed and we don't actually know what's there. Amber pair used
-          // for degraded-but-not-destructive states elsewhere in this app
-          // (PropertyRail.tsx, MailboxConnectCard.tsx, DraftPanel.tsx) —
-          // there's no `text-warning` token in the shared Tailwind config.
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-amber-300 bg-amber-50 px-6 py-12 text-center dark:border-amber-800 dark:bg-amber-950">
-            <Mail className="mb-4 h-8 w-8 text-amber-700 dark:text-amber-400" aria-hidden />
-            <h3 className="text-base font-semibold text-amber-700 dark:text-amber-400">
-              Correspondence couldn&apos;t be loaded
-            </h3>
-            <p className="mt-1 max-w-md text-sm text-amber-700 dark:text-amber-400">
-              This doesn&apos;t mean there is none — the read failed. Refresh to try
-              again, or check the inbox directly.
-            </p>
+      <div className="grid gap-4 md:grid-cols-2">
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Residents</h3>
+            <Link href={residentsHref} className="text-xs font-medium text-primary hover:underline">
+              Manage
+            </Link>
           </div>
-        ) : correspondenceState.kind === 'empty' ? (
-          <EmptyState
-            icon={<Mail className="h-8 w-8" aria-hidden />}
-            title="No correspondence yet"
-            description="Emails from this household will appear here once they write in."
-          />
-        ) : (
-          <Card>
-            <ul className="divide-y divide-border">
-              {correspondenceState.threads.map((t) => (
-                <CorrespondenceRow key={t.id} thread={t} />
-              ))}
-            </ul>
-          </Card>
-        )}
-      </section>
+          {residents.length === 0 ? (
+            <p className="text-sm text-muted">No residents on file.</p>
+          ) : (
+            <Card>
+              <CardContent className="space-y-1 py-3 text-sm">
+                <p className="text-foreground">
+                  {active.length} {active.length === 1 ? 'person' : 'people'} living here
+                  {residents.length !== active.length
+                    ? ` · ${residents.length - active.length} moved out`
+                    : ''}
+                </p>
+                {primary ? (
+                  <p className="text-xs text-muted">
+                    {primary.full_name} · {ROLE_LABEL[primary.role]}
+                    {primary.email ? ` · ${primary.email}` : ''}
+                  </p>
+                ) : null}
+              </CardContent>
+            </Card>
+          )}
+        </section>
 
-      {/* ─── History ─── */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">History</h2>
-          {events.length === 25 ? (
-            <span className="text-xs text-muted">Showing latest 25 events</span>
-          ) : null}
-        </div>
-        {events.length === 0 ? (
-          <EmptyState
-            icon={<History className="h-8 w-8" aria-hidden />}
-            title="No history yet"
-            description="Tenure changes, resident moves, lease starts/ends, and waiting-list activity will appear here."
-          />
-        ) : (
-          <Card>
-            <ul className="divide-y divide-border">
-              {events.map((e) => (
-                <EventRow key={e.id} event={e} />
-              ))}
-            </ul>
-          </Card>
-        )}
-      </section>
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Recent activity</h3>
+            <Link href={historyHref} className="text-xs font-medium text-primary hover:underline">
+              Full history
+            </Link>
+          </div>
+          {recent.length === 0 ? (
+            <p className="text-sm text-muted">Nothing recorded yet.</p>
+          ) : (
+            <Card>
+              <ul className="divide-y divide-border">
+                {recent.map((e) => (
+                  <EventRow key={e.id} event={e} />
+                ))}
+              </ul>
+            </Card>
+          )}
+        </section>
+      </div>
+    </div>
+  )
+}
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Violations</h2>
-          <Link href="/violations" className="text-sm font-medium text-primary hover:underline">
-            All violations
-          </Link>
-        </div>
-        {violations.length === 0 ? (
-          <EmptyState
-            icon={<AlertTriangle className="h-8 w-8" aria-hidden />}
-            title="No violations"
-            description="This property has a clean record."
-          />
-        ) : (
-          <Card>
-            <ul className="divide-y divide-border">
-              {violations.map((v) => (
-                <li key={v.id} className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-foreground">{v.description}</p>
-                    <p className="text-xs text-muted">
-                      {v.created_at ? format(new Date(v.created_at), 'PP') : ''}
-                      {v.severity ? ` · ${v.severity} severity` : ''}
-                    </p>
-                  </div>
-                  <Badge
-                    variant={v.status === 'resolved' ? 'success' : v.status === 'notice_sent' ? 'warning' : 'outline'}
-                    size="sm"
-                  >
-                    {v.status}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        )}
-      </section>
+function ResidentsSection({
+  residents,
+  isAdmin,
+  propertyId,
+  unitId,
+}: {
+  residents: PropertyResidentRow[]
+  isAdmin: boolean
+  propertyId: string
+  unitId: string | null
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-end">
+        <AddResidentForm propertyId={propertyId} />
+      </div>
+      {residents.length === 0 ? (
+        <EmptyState
+          icon={<Users className="h-8 w-8" aria-hidden />}
+          title="No residents on file"
+          description="Add the owners, tenants, and family members living here so notices and outreach reach the right people."
+        />
+      ) : (
+        <Card>
+          <ul className="divide-y divide-border">
+            {residents.map((r) => (
+              <ResidentRowClient
+                key={r.id}
+                resident={r}
+                isAdmin={isAdmin}
+                propertyId={propertyId}
+                unitId={unitId}
+              />
+            ))}
+          </ul>
+        </Card>
+      )}
+    </section>
+  )
+}
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Dues history</h2>
-          <Link href="/dues" className="text-sm font-medium text-primary hover:underline">
-            Full ledger
-          </Link>
+function CorrespondenceSection({ state }: { state: CorrespondenceSectionState }) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-end">
+        <Link href="/inbox" className="text-sm font-medium text-primary hover:underline">
+          Open inbox
+        </Link>
+      </div>
+      {state.kind === 'unlinked' ? (
+        <EmptyState
+          icon={<Mail className="h-8 w-8" aria-hidden />}
+          title="Not linked to a mailbox unit"
+          description="This property isn't bridged to a unit yet, so incoming email can't be matched to it. Correspondence will appear here once it is."
+        />
+      ) : state.kind === 'error' ? (
+        // Deliberately NOT an EmptyState: this must not look like "no
+        // correspondence" (below), because it isn't that claim — the read
+        // failed and we don't actually know what's there. Amber pair used
+        // for degraded-but-not-destructive states elsewhere in this app
+        // (PropertyRail.tsx, MailboxConnectCard.tsx, DraftPanel.tsx) —
+        // there's no `text-warning` token in the shared Tailwind config.
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-amber-300 bg-amber-50 px-6 py-12 text-center dark:border-amber-800 dark:bg-amber-950">
+          <Mail className="mb-4 h-8 w-8 text-amber-700 dark:text-amber-400" aria-hidden />
+          <h3 className="text-base font-semibold text-amber-700 dark:text-amber-400">
+            Correspondence couldn&apos;t be loaded
+          </h3>
+          <p className="mt-1 max-w-md text-sm text-amber-700 dark:text-amber-400">
+            This doesn&apos;t mean there is none — the read failed. Refresh to try
+            again, or check the inbox directly.
+          </p>
         </div>
-        {dues.length === 0 ? (
-          <EmptyState
-            icon={<Wallet className="h-8 w-8" aria-hidden />}
-            title="No dues records"
-            description="Dues for this property will appear here once they're invoiced."
-          />
-        ) : (
-          <Card>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-border bg-background/50 text-xs uppercase tracking-wide text-muted">
+      ) : state.kind === 'empty' ? (
+        <EmptyState
+          icon={<Mail className="h-8 w-8" aria-hidden />}
+          title="No correspondence yet"
+          description="Emails from this household will appear here once they write in."
+        />
+      ) : (
+        <Card>
+          <ul className="divide-y divide-border">
+            {state.threads.map((t) => (
+              <CorrespondenceRow key={t.id} thread={t} />
+            ))}
+          </ul>
+        </Card>
+      )}
+    </section>
+  )
+}
+
+function HistorySection({ events }: { events: PropertyEventRow[] }) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-end">
+        {events.length === 25 ? (
+          <span className="text-xs text-muted">Showing latest 25 events</span>
+        ) : null}
+      </div>
+      {events.length === 0 ? (
+        <EmptyState
+          icon={<History className="h-8 w-8" aria-hidden />}
+          title="No history yet"
+          description="Tenure changes, resident moves, lease starts/ends, and waiting-list activity will appear here."
+        />
+      ) : (
+        <Card>
+          <ul className="divide-y divide-border">
+            {events.map((e) => (
+              <EventRow key={e.id} event={e} />
+            ))}
+          </ul>
+        </Card>
+      )}
+    </section>
+  )
+}
+
+function ViolationsSection({ violations }: { violations: ViolationRow[] }) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-end">
+        <Link href="/violations" className="text-sm font-medium text-primary hover:underline">
+          All violations
+        </Link>
+      </div>
+      {violations.length === 0 ? (
+        <EmptyState
+          icon={<AlertTriangle className="h-8 w-8" aria-hidden />}
+          title="No violations"
+          description="This property has a clean record."
+        />
+      ) : (
+        <Card>
+          <ul className="divide-y divide-border">
+            {violations.map((v) => (
+              <li key={v.id} className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-foreground">{v.description}</p>
+                  <p className="text-xs text-muted">
+                    {v.created_at ? format(new Date(v.created_at), 'PP') : ''}
+                    {v.severity ? ` · ${v.severity} severity` : ''}
+                  </p>
+                </div>
+                <Badge
+                  variant={v.status === 'resolved' ? 'success' : v.status === 'notice_sent' ? 'warning' : 'outline'}
+                  size="sm"
+                >
+                  {v.status}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+    </section>
+  )
+}
+
+function DuesSection({ dues }: { dues: AssessmentRow[] }) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-end">
+        <Link href="/dues" className="text-sm font-medium text-primary hover:underline">
+          Full ledger
+        </Link>
+      </div>
+      {dues.length === 0 ? (
+        <EmptyState
+          icon={<Wallet className="h-8 w-8" aria-hidden />}
+          title="No dues records"
+          description="Dues for this property will appear here once they're invoiced."
+        />
+      ) : (
+        <Card>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-border bg-background/50 text-xs uppercase tracking-wide text-muted">
                 <tr>
                   <th className="px-4 py-2 font-medium">Period</th>
                   <th className="px-4 py-2 font-medium">Due</th>
@@ -446,12 +761,11 @@ export default async function PropertyDetailPage({
                   )
                 })}
               </tbody>
-              </table>
-            </div>
-          </Card>
-        )}
-      </section>
-    </div>
+            </table>
+          </div>
+        </Card>
+      )}
+    </section>
   )
 }
 
