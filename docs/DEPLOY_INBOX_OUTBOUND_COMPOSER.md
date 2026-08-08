@@ -33,6 +33,35 @@ databases.
 
 `0040` is load-bearing for tenant isolation, not just hygiene. See §4.
 
+### ⚠️ Numbers 0038, 0039 and 0040 are each used TWICE
+
+Two branches picked migration numbers concurrently. After the merge the
+directory contains:
+
+| number | this feature | landed separately |
+|---|---|---|
+| 0038 | `0038_inbox_outbound_recipients.sql` | `0038_dashboard_daily_snapshots.sql` |
+| 0039 | `0039_inbox_draft_attachments.sql` | `0039_property_list_view.sql` |
+| 0040 | `0040_inbox_draft_attachment_path_scope.sql` | `0040_property_list_view_board_predicate.sql` |
+
+**Nothing was renamed, deliberately.** These three were applied to Supabase
+under exactly these filenames, and renaming an already-applied migration
+breaks the link between what was run and what the repo says was run.
+
+Practically this is safe: the two sets are independent (drafts/attachments
+vs. dashboard snapshots and the property list view), so only the order
+*within* each chain matters, and `0038 → 0039 → 0040` of this feature is
+preserved by any sort. The trap to avoid is assuming a single `0038` exists
+and applying only one of the pair.
+
+If you rebuild an environment from scratch, apply **both** files at each of
+0038/0039/0040. `migrations/apply-inbox-outbound-composer.sql` bundles this
+feature's three; the others must be applied alongside.
+
+The same collision hit earlier in this feature's life at 0036/0037 and was
+resolved by renumbering — possible only because nothing had been applied yet.
+That option is gone once a migration is live.
+
 ## 2. Regenerate the database types and diff them
 
 `packages/db/src/database.types.ts` is generated from the deployed Supabase, so
