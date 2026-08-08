@@ -62,7 +62,7 @@ function probeEnvVars(): Record<string, boolean> {
     AI_BASE_URL: !!process.env.AI_BASE_URL,
     AI_API_KEY: !!process.env.AI_API_KEY,
     AI_MODEL: !!process.env.AI_MODEL,
-    HUGGINGFACE_API_TOKEN: !!process.env.HUGGINGFACE_API_TOKEN,
+    OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
     STRIPE_SECRET_KEY: !!process.env.STRIPE_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET: !!process.env.STRIPE_WEBHOOK_SECRET,
     INNGEST_EVENT_KEY: !!process.env.INNGEST_EVENT_KEY,
@@ -96,8 +96,8 @@ function probeEnvVars(): Record<string, boolean> {
  * which cannot carry PII.
  */
 async function probeEmbedding(): Promise<ProbeResult> {
-  if (!process.env.HUGGINGFACE_API_TOKEN) {
-    return { ok: false, detail: 'HUGGINGFACE_API_TOKEN not set' }
+  if (!process.env.OPENAI_API_KEY) {
+    return { ok: false, detail: 'OPENAI_API_KEY not set' }
   }
   try {
     const { embedTexts } = await import('@homeowner-portal/ai')

@@ -21,18 +21,25 @@
 //
 // To check which models are currently on the free tier, see:
 // https://huggingface.co/hf-inference (look at the deployed-models list).
-// BAAI/bge-base-en-v1.5 was dropped by the hf-inference provider — the
-// router answers 400 {"error":"Model not supported by provider
-// hf-inference"} for it. all-mpnet-base-v2 is the long-standing
-// sentence-transformers default on that provider and, critically, is also
-// 768-dimensional.
+// OpenAI's embeddings endpoint, reached after HuggingFace's free
+// hf-inference provider stopped serving sentence-transformer models. Both
+// BAAI/bge-base-en-v1.5 and sentence-transformers/all-mpnet-base-v2 answer
+// 400 {"error":"Model not supported by provider hf-inference"}, and the
+// legacy api-inference host returns nothing at all, so no further model
+// substitution was going to work.
 //
-// The dimension is NOT free to change: inbox_reply_embeddings.embedding is
-// vector(768) and EXPECTED_DIM below asserts it. A model of another size
-// fails loudly at EXPECTED_DIM rather than silently writing vectors that
-// can never be compared with the ones already stored.
-const DEFAULT_HF_URL =
-  'https://router.huggingface.co/hf-inference/pipeline/feature-extraction/sentence-transformers/all-mpnet-base-v2'
+// text-embedding-3-small is natively 1536-dimensional and supports
+// Matryoshka truncation via the `dimensions` parameter. We request 768
+// because inbox_reply_embeddings.embedding is vector(768) and EXPECTED_DIM
+// asserts it — a different size would fail loudly here rather than write
+// vectors that could never be compared against the ones already stored.
+//
+// The URL is overridable so any OpenAI-compatible embeddings endpoint
+// (Azure OpenAI, a proxy, a self-hosted server) can be swapped in without
+// touching this file.
+const DEFAULT_EMBEDDING_URL = 'https://api.openai.com/v1/embeddings'
+const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small'
+
 const EXPECTED_DIM = 768
 
 const DEFAULT_BATCH_SIZE = 32
@@ -95,6 +102,19 @@ export class EmbeddingError extends Error {
      * derived from response content.
      */
     public readonly isNetworkError?: boolean,
+    /**
+     * True when retrying cannot change the outcome: the provider answered
+     * successfully and the answer itself was wrong — wrong count, wrong
+     * dimension, unparseable shape.
+     *
+     * Kept separate from `status` because these failures carry no HTTP
+     * status: the request succeeded. Without this flag they fell into the
+     * retry path, so a model returning 1536 dimensions against a
+     * vector(768) column paid for the same wrong answer three times and
+     * then reported "failed after 3 attempts" instead of naming the
+     * mismatch.
+     */
+    public readonly deterministic?: boolean,
   ) {
     super(message)
     this.name = 'EmbeddingError'
@@ -126,11 +146,13 @@ export async function embedTexts(
   // INNGEST_EVENT_KEY that was present but blank.
   //
   // Trimmed as well: a value that is only whitespace is not a URL either.
-  const baseUrl = opts.baseUrl?.trim() || process.env.EMBEDDING_BASE_URL?.trim() || DEFAULT_HF_URL
-  const apiToken = opts.apiToken?.trim() || process.env.HUGGINGFACE_API_TOKEN?.trim()
+  const baseUrl =
+    opts.baseUrl?.trim() || process.env.EMBEDDING_BASE_URL?.trim() || DEFAULT_EMBEDDING_URL
+  const model = process.env.EMBEDDING_MODEL?.trim() || DEFAULT_EMBEDDING_MODEL
+  const apiToken = opts.apiToken?.trim() || process.env.OPENAI_API_KEY?.trim()
   if (!apiToken) {
     throw new EmbeddingError(
-      'HUGGINGFACE_API_TOKEN is not set. Configure it in env or pass apiToken explicitly.',
+      'OPENAI_API_KEY is not set. Configure it in env or pass apiToken explicitly.',
     )
   }
 
@@ -142,6 +164,7 @@ export async function embedTexts(
     const embeddings = await embedBatchWithRetry(batch, {
       baseUrl,
       apiToken,
+      model,
       // Default FALSE, deliberately. `wait_for_model: true` asks the
       // provider to hold the connection open until a cold model finishes
       // loading, which is the right trade for an interactive request a
@@ -161,6 +184,7 @@ export async function embedTexts(
 interface BatchOpts {
   baseUrl: string
   apiToken: string
+  model: string
   waitForModel: boolean
 }
 
@@ -175,11 +199,21 @@ async function embedBatchWithRetry(
       return await embedBatch(batch, opts)
     } catch (err) {
       lastError = err
-      // Non-retryable: auth, bad request, malformed input.
-      if (err instanceof EmbeddingError && err.message.includes('401')) {
+
+      // Non-retryable, by STATUS where we have one rather than by
+      // substring: a body echoed into the message could contain "400" and
+      // wrongly suppress a retry, or omit it and wrongly cause three.
+      if (err instanceof EmbeddingError && (err.status === 400 || err.status === 401 || err.status === 403)) {
         throw err
       }
-      if (err instanceof EmbeddingError && err.message.includes('400')) {
+
+      // Non-retryable, deterministic: the provider answered successfully
+      // and the answer was the wrong shape or the wrong dimension. Retrying
+      // pays for the same wrong answer twice more and delays a failure that
+      // cannot resolve itself. This is how a model returning 1536 dims
+      // against a vector(768) column should surface — immediately, naming
+      // the mismatch, not as "failed after 3 attempts".
+      if (err instanceof EmbeddingError && err.deterministic) {
         throw err
       }
       // Backoff and retry on 429 / 503 / network errors.
@@ -215,16 +249,14 @@ async function embedBatch(
         Authorization: `Bearer ${opts.apiToken}`,
         'Content-Type': 'application/json',
       },
-      // `inputs` ONLY. The legacy api-inference.huggingface.co endpoint
-      // accepted an `options` object (wait_for_model, use_cache); the
-      // router.huggingface.co Inference-Providers route this calls does
-      // not, and rejects the whole request with 400 when it is present.
-      //
-      // That 400 is what remained after fixing the empty-base-URL bug, and
-      // it is worth noting the two failures masked each other: while every
-      // request went to fetch(''), the body was never evaluated at all, so
-      // a malformed payload could not surface until the URL was correct.
-      body: JSON.stringify({ inputs: batch }),
+      // OpenAI embeddings shape. `dimensions` truncates the native 1536
+      // down to the 768 the schema stores; omitting it would produce
+      // vectors that fail EXPECTED_DIM below.
+      body: JSON.stringify({
+        input: batch,
+        model: opts.model,
+        dimensions: EXPECTED_DIM,
+      }),
       // Without this the request can outlive the function that made it.
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
@@ -253,6 +285,10 @@ async function embedBatch(
   if (vectors.length !== batch.length) {
     throw new EmbeddingError(
       `Expected ${batch.length} embeddings, got ${vectors.length}`,
+      undefined,
+      undefined,
+      undefined,
+      true,
     )
   }
 
@@ -260,6 +296,10 @@ async function embedBatch(
     if (v.length !== EXPECTED_DIM) {
       throw new EmbeddingError(
         `Expected ${EXPECTED_DIM}-dim vectors, got ${v.length}. Model mismatch?`,
+        undefined,
+        undefined,
+        undefined,
+        true,
       )
     }
   }
@@ -268,11 +308,31 @@ async function embedBatch(
 }
 
 /**
- * HuggingFace returns shape `number[][]` for batched feature-extraction
- * with BGE-M3. Some self-hosted servers wrap it differently — accept the
- * canonical shape, with a fallback for `{ embeddings: ... }` envelopes.
+ * Accepts the OpenAI envelope plus the shapes older/self-hosted servers
+ * return, so swapping EMBEDDING_BASE_URL to a compatible endpoint does not
+ * require editing this file.
+ *
+ * OpenAI returns `{ data: [{ index, embedding }, ...] }` and does NOT
+ * guarantee `data` is ordered by index. The caller pairs vectors back to
+ * messages positionally, so an out-of-order response would attach each
+ * reply's embedding to the wrong message — a silent corruption that no
+ * test with a single input could ever catch. Hence the explicit sort.
  */
 function normalizeResponse(json: unknown, expectedCount: number): number[][] {
+  if (
+    typeof json === 'object' &&
+    json !== null &&
+    'data' in json &&
+    Array.isArray((json as { data: unknown }).data)
+  ) {
+    const rows = (json as { data: Array<{ index?: number; embedding?: unknown }> }).data
+    const ordered = [...rows].sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+    const vectors = ordered.map((r) => r.embedding)
+    if (vectors.every((v) => Array.isArray(v) && v.every((n) => typeof n === 'number'))) {
+      return vectors as number[][]
+    }
+  }
+
   if (Array.isArray(json) && json.every((v) => Array.isArray(v))) {
     return json as number[][]
   }
@@ -293,6 +353,10 @@ function normalizeResponse(json: unknown, expectedCount: number): number[][] {
   }
   throw new EmbeddingError(
     `Unexpected embedding response shape: ${JSON.stringify(json).slice(0, 200)}`,
+    undefined,
+    undefined,
+    undefined,
+    true,
   )
 }
 
