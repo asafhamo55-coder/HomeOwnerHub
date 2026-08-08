@@ -1,0 +1,113 @@
+import Link from 'next/link'
+import type { PropertyListRow } from '@/lib/properties/list'
+import type { PropertyListParams } from '@/lib/properties/list-params'
+import {
+  reasonPills,
+  severityDotClass,
+  severityLabel,
+  severityTone,
+} from '@/lib/properties/severity'
+
+function money(n: number): string {
+  return n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+}
+
+/** Preserves the current filter/sort/search/page when linking to a property. */
+function queryFor(params: PropertyListParams): string {
+  const q = new URLSearchParams()
+  if (params.filter !== 'attention') q.set('filter', params.filter)
+  if (params.sort !== 'severity') q.set('sort', params.sort)
+  if (params.search) q.set('q', params.search)
+  if (params.page > 1) q.set('page', String(params.page))
+  const s = q.toString()
+  return s ? `?${s}` : ''
+}
+
+export function PropertyList({
+  rows,
+  selectedId,
+  params,
+}: {
+  rows: PropertyListRow[]
+  selectedId?: string
+  params: PropertyListParams
+}) {
+  if (rows.length === 0) {
+    return (
+      <div className="p-6 text-center text-sm text-muted">
+        {params.search
+          ? `No properties match "${params.search}".`
+          : params.filter === 'attention'
+            ? 'Nothing needs attention right now.'
+            : 'No properties yet.'}
+      </div>
+    )
+  }
+
+  const qs = queryFor(params)
+
+  return (
+    <ul className="divide-y divide-border">
+      {rows.map((row) => {
+        const tone = severityTone(row.severityRank)
+        const pills = reasonPills(row)
+        const selected = row.id === selectedId
+        return (
+          <li key={row.id}>
+            <Link
+              href={`/properties/${row.id}${qs}`}
+              className={`block px-3 py-2.5 transition-colors hover:bg-muted/10 ${
+                selected ? 'border-l-4 border-primary bg-primary/5' : ''
+              }`}
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full ${severityDotClass(tone)}`}
+                    title={severityLabel(row.severityRank)}
+                    aria-hidden
+                  />
+                  <span className="sr-only">{severityLabel(row.severityRank)}</span>
+                  <span className="truncate text-sm font-semibold text-foreground">
+                    {row.address}
+                    {row.unitNumber ? (
+                      <span className="font-normal text-muted"> · {row.unitNumber}</span>
+                    ) : null}
+                  </span>
+                </span>
+                {row.balance > 0 ? (
+                  <span className="shrink-0 text-xs font-bold tabular-nums text-destructive">
+                    {money(row.balance)}
+                  </span>
+                ) : null}
+              </div>
+              <p className="truncate pl-4 text-xs text-muted">
+                {[row.ownerName ?? 'No owner on file', row.tenure ? row.tenure.replace(/_/g, '-') : null]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
+              {pills.length > 0 ? (
+                <div className="flex flex-wrap gap-1 pl-4 pt-1">
+                  {pills.map((p) => (
+                    <span
+                      key={p.text}
+                      className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
+                        p.tone === 'red'
+                          ? 'bg-destructive/10 text-destructive'
+                          : p.tone === 'amber'
+                            ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                            : 'bg-muted/10 text-muted'
+                      }`}
+                    >
+                      {p.text}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </Link>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
