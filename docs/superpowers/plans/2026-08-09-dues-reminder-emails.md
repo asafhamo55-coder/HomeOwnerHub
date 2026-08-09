@@ -680,6 +680,7 @@ Pure functions, no I/O. This is where the coverage concentrates.
   - `amountSummary(packet: ReminderPacket): string`
   - `renderDuesTableHtml(packet: ReminderPacket): string`
   - `renderDuesTableText(packet: ReminderPacket): string`
+  - `renderNoteHtml(note: string | undefined): string`
   - `renderShellHtml(opts: { note?: string; portalUrl: string }): string`
   - `renderShellText(opts: { note?: string; portalUrl: string }): string`
   - `SUBJECT_TEMPLATE: string`
@@ -698,6 +699,7 @@ import {
   formatUsd,
   renderDuesTableHtml,
   renderDuesTableText,
+  renderNoteHtml,
   renderShellHtml,
   renderShellText,
 } from './render'
@@ -874,7 +876,8 @@ describe('renderShellHtml', () => {
   })
 
   it('omits the note block entirely when no note is given', () => {
-    expect(renderShellHtml({ portalUrl: 'https://app.test' })).not.toContain('note-block')
+    expect(renderNoteHtml(undefined)).toBe('')
+    expect(renderNoteHtml('   ')).toBe('')
   })
 
   it('escapes a note so a manager cannot inject markup into every resident inbox', () => {
@@ -1042,11 +1045,14 @@ export function renderDuesTableText(packet: ReminderPacket): string {
   return lines.join('\n')
 }
 
-function noteHtml(note: string | undefined): string {
+/** Exported so its empty case is testable directly — the alternative is a
+ *  marker attribute in production email markup that exists only for a
+ *  test assertion. */
+export function renderNoteHtml(note: string | undefined): string {
   const trimmed = note?.trim()
   if (!trimmed) return ''
   const body = escapeHtml(trimmed).replace(/\r?\n/g, '<br>')
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" data-block="note-block" style="background:#f4f5f7;border-radius:8px;margin-bottom:18px;">
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;border-radius:8px;margin-bottom:18px;">
 <tr><td style="padding:12px 14px;font-size:13px;line-height:1.5;color:${TEXT};">${body}</td></tr></table>`
 }
 
@@ -1057,7 +1063,7 @@ export function renderShellHtml(opts: { note?: string; portalUrl: string }): str
 <div style="padding:0 22px 22px;">
 <p style="margin:0 0 4px;font-size:15px;font-weight:700;">Hi {{owner_name}},</p>
 <p style="margin:0 0 18px;font-size:13px;line-height:1.5;color:#4b5563;">Here&rsquo;s everything currently outstanding on your account.</p>
-${noteHtml(opts.note)}
+${renderNoteHtml(opts.note)}
 {{dues_table}}
 <div style="text-align:center;"><a href="${escapeHtml(opts.portalUrl)}" style="display:inline-block;background:#111827;color:#ffffff;font-size:13px;font-weight:700;padding:12px 28px;border-radius:8px;text-decoration:none;">View my dues</a></div>
 <p style="margin:16px 0 0;font-size:11px;line-height:1.6;color:${MUTED};text-align:center;">To pay or request a detailed statement, reply to this email or contact your community manager.</p>
