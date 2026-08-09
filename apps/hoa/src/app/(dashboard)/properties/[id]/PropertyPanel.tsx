@@ -94,7 +94,11 @@ export function PropertyPanel({
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-px border-b border-border bg-border sm:grid-cols-4">
+      {/* Separators come from `divide-*`, not from a coloured container showing
+          through 1px gaps — StatCard renders a transparent div, so a `bg-border`
+          parent with `gap-px` paints the whole strip grey instead of drawing
+          hairlines between the tiles. */}
+      <div className="grid grid-cols-2 divide-x divide-y divide-border border-b border-border sm:grid-cols-4 sm:divide-y-0">
         <StatCard
           label="Balance"
           value={stats.balance > 0 ? `$${stats.balance.toFixed(2)}` : '$0'}
