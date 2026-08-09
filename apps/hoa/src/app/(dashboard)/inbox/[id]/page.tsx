@@ -31,7 +31,14 @@ import { isVendorIncomplete } from '@/lib/inbox/vendor/schema'
 
 export const dynamic = 'force-dynamic'
 
-const FILTER_KEYS: InboxFilter[] = ['needs_review', 'open', 'waiting', 'closed', 'all']
+const FILTER_KEYS: InboxFilter[] = [
+  'needs_review',
+  'awaiting_resident',
+  'open',
+  'waiting',
+  'closed',
+  'all',
+]
 
 export default async function ThreadPage({
   params,

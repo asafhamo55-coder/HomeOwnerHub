@@ -320,7 +320,57 @@ export async function getSetupProgress(db: Db, orgId: string): Promise<SetupStep
 
 // ─── Inbox list (Task 20) ───────────────────────────────────────────────
 
-export type InboxFilter = 'needs_review' | 'open' | 'waiting' | 'closed' | 'all'
+export type InboxFilter =
+  | 'needs_review'
+  | 'awaiting_resident'
+  | 'open'
+  | 'waiting'
+  | 'closed'
+  | 'all'
+
+/**
+ * The `needs_review` / `awaiting_resident` split, shared by
+ * `countThreadsByStatus` and `listThreads` so the two can never apply
+ * different rules — see the comment on `countThreadsByStatus` for why a
+ * count/list disagreement here is a correctness bug, not a cosmetic one.
+ *
+ * Both filters sit under the SAME underlying `status = 'needs_review'` row
+ * set; this only decides which half of it a thread falls into:
+ *
+ *   - `awaiting_resident`: the HOA sent the most recent message
+ *     (`last_direction = 'outbound'`) — the ball is in the resident's
+ *     court, so it drops out of the triage queue.
+ *   - `needs_review`: everything else with `status = 'needs_review'`,
+ *     INCLUDING a NULL `last_direction`. NULL means either a thread with
+ *     no messages synced yet, or one that predates the message-direction
+ *     backfill (see scripts/backfill-message-direction.ts) — absence of
+ *     evidence that the HOA replied is not evidence that it did, so those
+ *     threads stay in the queue rather than being assumed answered.
+ *     Written as `.or('last_direction.is.null,last_direction.neq.outbound')`
+ *     rather than `.neq('last_direction', 'outbound')` alone because SQL's
+ *     three-valued logic makes `NULL <> 'outbound'` evaluate to NULL (i.e.
+ *     excluded), which would silently drop every NULL-direction thread out
+ *     of `needs_review` entirely — visible nowhere, until someone asks
+ *     where a thread went.
+ *
+ * A thread returns to `needs_review` on its own the moment a resident
+ * writes back and `last_direction` flips to `'inbound'` — nothing here
+ * mutates the database, so the split is fully reversible by construction.
+ */
+function applyStatusFilter<Q extends { eq: (...args: any[]) => Q; or: (...args: any[]) => Q }>(
+  query: Q,
+  filter: Exclude<InboxFilter, 'all'>,
+): Q {
+  if (filter === 'awaiting_resident') {
+    return query.eq('status', 'needs_review').eq('last_direction', 'outbound')
+  }
+  if (filter === 'needs_review') {
+    return query
+      .eq('status', 'needs_review')
+      .or('last_direction.is.null,last_direction.neq.outbound')
+  }
+  return query.eq('status', filter)
+}
 
 /**
  * Default page size for `listThreads`. Exported so the page can compute
@@ -351,38 +401,47 @@ export interface ThreadListItem {
  * queue entirely — the same failure mode `error` handling in this module
  * exists to prevent everywhere else, so each per-status count throws
  * rather than defaulting.
+ *
+ * `needs_review` and `awaiting_resident` both filter on the underlying
+ * `status = 'needs_review'` rows and are mutually exclusive partitions of
+ * that set (see `applyStatusFilter`), so summing all five below into
+ * `all` still equals the true total — it neither double-counts nor
+ * undercounts what used to be a single "needs_review" bucket.
  */
 export async function countThreadsByStatus(
   db: Db,
   orgId: string,
 ): Promise<Record<InboxFilter, number>> {
-  const statuses: Array<Exclude<InboxFilter, 'all'>> = [
+  const filters: Array<Exclude<InboxFilter, 'all'>> = [
     'needs_review',
+    'awaiting_resident',
     'open',
     'waiting',
     'closed',
   ]
 
   const counts = await Promise.all(
-    statuses.map((status) =>
-      db
-        .from('inbox_threads')
-        .select('id', { count: 'exact', head: true })
-        .eq('organization_id', orgId)
-        .eq('status', status),
+    filters.map((filter) =>
+      applyStatusFilter(
+        db
+          .from('inbox_threads')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', orgId),
+        filter,
+      ),
     ),
   )
 
   const result = {} as Record<InboxFilter, number>
-  statuses.forEach((status, index) => {
+  filters.forEach((filter, index) => {
     const { count, error } = counts[index]
     if (error) {
-      logDbError('countThreadsByStatus', 'inbox_threads', { orgId, status }, error)
-      throw new Error(`countThreadsByStatus: failed to count "${status}" threads: ${error.message}`)
+      logDbError('countThreadsByStatus', 'inbox_threads', { orgId, filter }, error)
+      throw new Error(`countThreadsByStatus: failed to count "${filter}" threads: ${error.message}`)
     }
-    result[status] = count ?? 0
+    result[filter] = count ?? 0
   })
-  result.all = statuses.reduce((sum, status) => sum + result[status], 0)
+  result.all = filters.reduce((sum, filter) => sum + result[filter], 0)
   return result
 }
 
@@ -419,7 +478,7 @@ export async function listThreads(
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .range(offset, offset + limit - 1)
 
-  if (filter !== 'all') query = query.eq('status', filter)
+  if (filter !== 'all') query = applyStatusFilter(query, filter)
 
   const { data: threads, error: threadsError } = await query
   if (threadsError) {

@@ -16,6 +16,7 @@ export const dynamic = 'force-dynamic'
 
 const FILTERS: Array<{ key: InboxFilter; label: string }> = [
   { key: 'needs_review', label: 'Needs review' },
+  { key: 'awaiting_resident', label: 'Awaiting resident' },
   { key: 'open', label: 'Open' },
   { key: 'waiting', label: 'Waiting' },
   { key: 'closed', label: 'Closed' },

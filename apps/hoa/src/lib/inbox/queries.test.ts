@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { getThreadDetail, listThreadsForUnit } from './queries'
+import { countThreadsByStatus, getThreadDetail, listThreads, listThreadsForUnit } from './queries'
 
 /**
  * Minimal chainable `.from().select().eq().eq().order().limit()` stand-in,
@@ -153,5 +153,192 @@ describe('getThreadDetail — vendor filing', () => {
     const thread = await getThreadDetail(db, 'org-1', 'thread-1')
 
     expect(thread?.vendorId).toBeNull()
+  })
+})
+
+/**
+ * The `needs_review` / `awaiting_resident` split. Madison Park measured
+ * 72 `needs_review` threads, 33 of which are `last_direction = 'outbound'`
+ * — the HOA already replied — so those 33 belong in `awaiting_resident`
+ * instead, leaving 39 genuinely unanswered in `needs_review`.
+ *
+ * These tests assert on the QUERY ARGUMENTS passed to `.eq()`/`.or()`, not
+ * just the returned counts/rows. A version that dropped the
+ * `last_direction` predicate from the count while keeping it in the list
+ * would still return plausible-looking numbers here — see the "count and
+ * list predicates match" tests below, which are the ones that actually
+ * catch that class of bug (confirmed via mutation: removing the predicate
+ * from `countThreadsByStatus` only fails those two).
+ */
+describe('needs_review / awaiting_resident split', () => {
+  type Calls = { eq: unknown[][]; or: unknown[][] }
+
+  function makeChain(result: { data?: unknown; error: unknown; count?: number | null }) {
+    const calls: Calls = { eq: [], or: [] }
+    const chain: Record<string, unknown> = {
+      select: vi.fn(() => chain),
+      eq: vi.fn((...args: unknown[]) => {
+        calls.eq.push(args)
+        return chain
+      }),
+      or: vi.fn((...args: unknown[]) => {
+        calls.or.push(args)
+        return chain
+      }),
+      order: vi.fn(() => chain),
+      range: vi.fn(() => chain),
+      then: (resolve: (r: unknown) => unknown) => Promise.resolve(result).then(resolve),
+    }
+    return { chain, calls }
+  }
+
+  /** One fresh chain per `.from()` call, in call order — matches the
+   * `filters.map(...)` order inside `countThreadsByStatus`:
+   * needs_review, awaiting_resident, open, waiting, closed. */
+  function dbForCounts(counts: number[]) {
+    const perCallCalls: Calls[] = []
+    let i = 0
+    const from = vi.fn(() => {
+      const { chain, calls } = makeChain({ count: counts[i] ?? 0, error: null })
+      perCallCalls.push(calls)
+      i += 1
+      return chain
+    })
+    return { db: { from } as never, perCallCalls }
+  }
+
+  function dbForList(result: { data: unknown; error: unknown }) {
+    const { chain, calls } = makeChain(result)
+    const db = { from: vi.fn(() => chain) }
+    return { db: db as never, calls }
+  }
+
+  describe('countThreadsByStatus', () => {
+    it('counts needs_review, awaiting_resident, open, waiting, closed and sums them into all', async () => {
+      const { db } = dbForCounts([39, 33, 3, 2, 1])
+
+      const result = await countThreadsByStatus(db, 'org-1')
+
+      expect(result).toEqual({
+        needs_review: 39,
+        awaiting_resident: 33,
+        open: 3,
+        waiting: 2,
+        closed: 1,
+        all: 78,
+      })
+      // The measured Madison Park split: 72 needs_review threads before
+      // the split, 33 outbound-last + 39 not — `all` must reflect the
+      // true total, not double-count the shared needs_review status.
+      expect(result.needs_review + result.awaiting_resident).toBe(72)
+    })
+
+    it('needs_review filters status=needs_review AND an OR that excludes outbound but ADMITS null', async () => {
+      const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1])
+      await countThreadsByStatus(db, 'org-1')
+
+      const needsReview = perCallCalls[0]
+      expect(needsReview.eq).toContainEqual(['organization_id', 'org-1'])
+      expect(needsReview.eq).toContainEqual(['status', 'needs_review'])
+      // Written as an OR admitting NULL rather than `.neq('last_direction',
+      // 'outbound')` alone: in SQL, `NULL <> 'outbound'` is NULL (not
+      // true), so a bare neq would silently drop every thread with no
+      // recorded direction out of needs_review. This string form is what
+      // keeps them in.
+      expect(needsReview.or).toContainEqual([
+        'last_direction.is.null,last_direction.neq.outbound',
+      ])
+    })
+
+    it('awaiting_resident filters status=needs_review AND last_direction=outbound, with no OR', async () => {
+      const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1])
+      await countThreadsByStatus(db, 'org-1')
+
+      const awaitingResident = perCallCalls[1]
+      expect(awaitingResident.eq).toContainEqual(['status', 'needs_review'])
+      expect(awaitingResident.eq).toContainEqual(['last_direction', 'outbound'])
+      expect(awaitingResident.or).toHaveLength(0)
+    })
+
+    it('open/waiting/closed are untouched — plain status equality, no last_direction predicate', async () => {
+      const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1])
+      await countThreadsByStatus(db, 'org-1')
+
+      const [, , open, waiting, closed] = perCallCalls
+      expect(open.eq).toContainEqual(['status', 'open'])
+      expect(waiting.eq).toContainEqual(['status', 'waiting'])
+      expect(closed.eq).toContainEqual(['status', 'closed'])
+      for (const c of [open, waiting, closed]) {
+        expect(c.eq.some(([col]) => col === 'last_direction')).toBe(false)
+        expect(c.or).toHaveLength(0)
+      }
+    })
+  })
+
+  describe('listThreads', () => {
+    it('needs_review applies status=needs_review AND the same null-admitting OR as the count', async () => {
+      const { db, calls } = dbForList({ data: [], error: null })
+      await listThreads(db, 'org-1', 'needs_review')
+
+      expect(calls.eq).toContainEqual(['status', 'needs_review'])
+      expect(calls.or).toContainEqual([
+        'last_direction.is.null,last_direction.neq.outbound',
+      ])
+    })
+
+    it('awaiting_resident applies status=needs_review AND last_direction=outbound', async () => {
+      const { db, calls } = dbForList({ data: [], error: null })
+      await listThreads(db, 'org-1', 'awaiting_resident')
+
+      expect(calls.eq).toContainEqual(['status', 'needs_review'])
+      expect(calls.eq).toContainEqual(['last_direction', 'outbound'])
+      expect(calls.or).toHaveLength(0)
+    })
+
+    it('open is unchanged — plain status equality', async () => {
+      const { db, calls } = dbForList({ data: [], error: null })
+      await listThreads(db, 'org-1', 'open')
+
+      expect(calls.eq).toContainEqual(['status', 'open'])
+      expect(calls.or).toHaveLength(0)
+    })
+
+    it('all applies no status/last_direction predicate at all', async () => {
+      const { db, calls } = dbForList({ data: [], error: null })
+      await listThreads(db, 'org-1', 'all')
+
+      expect(calls.eq.some(([col]) => col === 'status')).toBe(false)
+      expect(calls.or).toHaveLength(0)
+    })
+  })
+
+  describe('count/list predicate parity', () => {
+    it('needs_review: the count and the list apply an identical predicate', async () => {
+      const { db: countDb, perCallCalls } = dbForCounts([39, 33, 3, 2, 1])
+      await countThreadsByStatus(countDb, 'org-1')
+      const countArgs = perCallCalls[0]
+
+      const { db: listDb, calls: listArgs } = dbForList({ data: [], error: null })
+      await listThreads(listDb, 'org-1', 'needs_review')
+
+      expect(listArgs.eq.filter(([col]) => col === 'status')).toEqual(
+        countArgs.eq.filter(([col]) => col === 'status'),
+      )
+      expect(listArgs.or).toEqual(countArgs.or)
+    })
+
+    it('awaiting_resident: the count and the list apply an identical predicate', async () => {
+      const { db: countDb, perCallCalls } = dbForCounts([39, 33, 3, 2, 1])
+      await countThreadsByStatus(countDb, 'org-1')
+      const countArgs = perCallCalls[1]
+
+      const { db: listDb, calls: listArgs } = dbForList({ data: [], error: null })
+      await listThreads(listDb, 'org-1', 'awaiting_resident')
+
+      expect(listArgs.eq.filter(([col]) => col === 'status' || col === 'last_direction')).toEqual(
+        countArgs.eq.filter(([col]) => col === 'status' || col === 'last_direction'),
+      )
+      expect(listArgs.or).toEqual(countArgs.or)
+    })
   })
 })
