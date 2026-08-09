@@ -157,7 +157,7 @@ improvement reaches every org at once instead of requiring a seed run per tenant
 ### 7.1 Shell
 
 `<table width="600">` with `role="presentation"`, not a `max-width` div. This is Bug A's fix, and it
-lands **before** any template work so the six phase-1 templates do not inherit it.
+lands **before** any template work so the phase-1 templates do not inherit it.
 
 ### 7.2 Visual block rendering — image-based blocks
 
@@ -347,13 +347,27 @@ tracking pixel.
 
 ## 11. Phase 1 scope
 
-**Seven** broadcast templates spanning at least three shapes, so the shape abstraction is proven
-rather than assumed. Illustration, map and meter blocks.
+**Seven** broadcast templates covering **all four shapes** and three block kinds.
 
-The seventh is the lease cap notice (§8.2), added after the six were chosen. It earns the scope
-increase: the query layer already exists, it proves the meter block — the only visual that is
-immune to image blocking — and it is the highest-stakes template in the library, because the
-consequence it explains is units becoming unmortgageable.
+| Template | Shape | Block |
+|---|---|---|
+| `dog-leash-and-waste` | reminder | map |
+| `guest-parking` | reminder | map |
+| `trash-and-recycling-bins` | reminder | illustration |
+| `work-on-site` | notice | map |
+| `community-cleanup-day` | invitation | illustration |
+| `pool-pass-renewal` | submission_request | illustration |
+| `lease-cap-status` | notice | **meter** |
+
+Two deviations from the catalogue's own phase-1 selection, both deliberate:
+
+- **`amenity-outage` out, `dog-leash-and-waste` in.** The `notice` shape is already proven by
+  `work-on-site`, so the second notice bought nothing. Pet waste is `very_common`, is the example
+  the customer led with, and is what every design mockup was built against — shipping the first
+  slice without it would be strange.
+- **`lease-cap-status` added** (§8.2). The query layer already exists, it proves the meter block —
+  the only visual immune to image blocking — and it is the highest-stakes template in the library,
+  because the consequence it explains is units becoming unmortgageable.
 
 Ordered:
 
@@ -387,6 +401,42 @@ familial-status exposure).
 permission to drop table layout: enterprise installs persist to roughly 2028–29, and Outlook
 concentrates exactly where HOA **board members** sit, even though residents mostly do not.
 
+### 12.1 Raised by the catalogue merge
+
+**Promote the three protective templates on risk, not volume.** Frequency-driven phasing puts
+`assistance-animal-policy`, `accessibility-accommodation-request` and `raising-a-concern` in phase 3
+because boards send them rarely. They are also the templates that prevent the complaints every other
+caution in the library is written around, and two of them *state the law* rather than merely
+avoiding breaking it — wrong copy is itself the violation. Recommend phase 2.
+
+**`age-verification-55plus` needs a hard product gate.** It must be un-sendable unless the
+association is flagged as a registered 55+/62+ community. Sending it otherwise is affirmative
+evidence of familial-status screening. This is a product constraint, not a copy caution.
+
+**Make single-property nudges structurally hard to send as enforcement.** Six templates
+(`yard-and-tree-upkeep`, `porch-driveway-clutter`, `exterior-repair-request`, `drainage-runoff`,
+`blocked-vehicle`, `new-owner-intake`) sit beside the existing violation cure notice and every one
+carries "do not use violation/fine/cure language". If a board sends a courtesy nudge that reads as a
+formal notice, it can lose the later enforcement action as defective. The deliberate
+`cure_window` / `deadline_date` split in Appendix B is the first line of defence; the product needs
+a second.
+
+**`noise-quiet-hours` lost its single-household variant.** Round 1 defined it as both broadcast and
+one-to-one. Decide whether that becomes a second template or whether the composer supports
+audience-switching within one template — this generalises beyond noise.
+
+**Five templates depend on the chart block** (`community-newsletter`, `holiday-trash-shift`,
+`proxy-and-ballot-return`, `insurance-and-occupancy-documentation`, `age-verification-55plus`).
+That is the phase-2 blocker list.
+
+**`theft-prevention` was dropped reluctantly** as overlapping the existing *emergency security
+incident* template. If that template is a single-incident alert only, the pattern-and-prevention
+roundup should come back.
+
+**Five templates warrant counsel review of the body copy**, not just the caution:
+`age-verification-55plus`, `raising-a-concern`, `family-requested-awareness`,
+`assistance-animal-policy`, `accessibility-accommodation-request`.
+
 ## 13. Testing
 
 | Check | Asserts |
@@ -405,4 +455,113 @@ concentrates exactly where HOA **board members** sit, even though residents most
 
 ## Appendix A — Catalogue
 
-_Pending: final merged catalogue from 88 raw candidates._
+**60 topics** merged from 88 raw candidates across seven research lenses; 28 dropped or absorbed.
+
+Shapes: 21 notice · 18 reminder · 17 submission_request · 4 invitation. Audience: 51 broadcast · 6 single-property · 3 segment. 59 of 60 carry a legal caution.
+
+`sub` = submission_request · `1-prop` = concerns one household, not a broadcast
+
+
+### conduct (12)
+
+| Topic | Shape | To | Visual | Freq | Ph |
+|---|---|---|---|---|---|
+| `guest-parking` | rem | all | map | very common | 1 |
+| `trash-and-recycling-bins` | rem | all | illustration | very common | 1 |
+| `amenity-rules` | rem | all | illustration | common | 2 |
+| `common-area-litter` | rem | all | photo | common | 2 |
+| `dog-leash-and-waste` | rem | all | map | very common | 2 |
+| `dog-park-etiquette` | rem | segment | illustration | common | 2 |
+| `holiday-decorations` | rem | all | illustration | common | 2 |
+| `noise-quiet-hours` | rem | all | illustration | very common | 2 |
+| `pet-registration` | **sub** | all | illustration | common | 2 |
+| `shared-space-clutter` | rem | all | photo | common | 2 |
+| `vehicle-and-plate-registration` | **sub** | all | illustration | common | 2 |
+| `smoking-and-vaping` | rem | all | map | occasional | 3 |
+
+### maintenance (11)
+
+| Topic | Shape | To | Visual | Freq | Ph |
+|---|---|---|---|---|---|
+| `amenity-outage` | not | all | illustration | very common | 1 |
+| `work-on-site` | not | all | map | very common | 1 |
+| `exterior-repair-request` | rem | **1-prop** | photo | common | 2 |
+| `landscaping-crew-schedule` | not | all | map | very common | 2 |
+| `leaf-collection` | not | all | map | common | 2 |
+| `mowing-season-kickoff` | rem | all | illustration | very common | 2 |
+| `porch-driveway-clutter` | rem | **1-prop** | photo | common | 2 |
+| `winter-prep-and-snow-plan` | not | all | map | common | 2 |
+| `yard-and-tree-upkeep` | rem | **1-prop** | photo | very common | 2 |
+| `drainage-runoff` | not | **1-prop** | map | occasional | 3 |
+| `watering-restrictions` | not | all | illustration | occasional | 3 |
+
+### safety (10)
+
+| Topic | Shape | To | Visual | Freq | Ph |
+|---|---|---|---|---|---|
+| `back-to-school-traffic` | not | all | map | common | 2 |
+| `blocked-vehicle` | not | **1-prop** | photo | common | 2 |
+| `fire-lane-access` | rem | all | map | common | 2 |
+| `gate-access-change` | not | all | illustration | common | 2 |
+| `pool-season-rules` | not | all | illustration | very common | 2 |
+| `storm-season-prep` | rem | all | illustration | common | 2 |
+| `traffic-safety` | rem | all | map | very common | 2 |
+| `emergency-contact-and-absence` | **sub** | all | illustration | occasional | 3 |
+| `family-requested-awareness` | not | all | none | rare | 3 |
+| `storm-damage-self-report` | **sub** | all | illustration | occasional | 3 |
+
+### community-life (6)
+
+| Topic | Shape | To | Visual | Freq | Ph |
+|---|---|---|---|---|---|
+| `community-cleanup-day` | inv | all | illustration | common | 1 |
+| `community-event` | inv | all | map | common | 2 |
+| `community-newsletter` | not | all | chart | very common | 2 |
+| `lost-pet-alert` | not | all | photo | very common | 2 |
+| `neighbour-support-signup` | **sub** | all | illustration | occasional | 3 |
+| `veterans-honor-roll` | **sub** | all | photo | occasional | 3 |
+
+### seasonal (7)
+
+| Topic | Shape | To | Visual | Freq | Ph |
+|---|---|---|---|---|---|
+| `pool-pass-renewal` | **sub** | all | illustration | common | 1 |
+| `community-garage-sale` | **sub** | all | map | common | 2 |
+| `halloween-trick-or-treat` | not | all | map | common | 2 |
+| `holiday-lights-contest` | **sub** | all | photo | common | 2 |
+| `holiday-trash-shift` | not | all | chart | very common | 2 |
+| `pool-closing` | not | segment | illustration | common | 2 |
+| `july-fourth-parade` | inv | all | map | occasional | 3 |
+
+### family (2)
+
+| Topic | Shape | To | Visual | Freq | Ph |
+|---|---|---|---|---|---|
+| `graduation-sign-names` | **sub** | all | illustration | common | 2 |
+| `playground-rules` | rem | all | illustration | common | 2 |
+
+### governance (12)
+
+| Topic | Shape | To | Visual | Freq | Ph |
+|---|---|---|---|---|---|
+| `get-involved` | inv | all | illustration | common | 2 |
+| `insurance-and-occupancy-documentation` | **sub** | all | chart | common | 2 |
+| `lease-and-tenant-registration` | **sub** | segment | none | common | 2 |
+| `new-owner-intake` | **sub** | **1-prop** | illustration | very common | 2 |
+| `proxy-and-ballot-return` | **sub** | all | chart | very common | 2 |
+| `resident-records-and-directory` | **sub** | all | illustration | common | 2 |
+| `walk-through-notice` | not | all | map | common | 2 |
+| `accessibility-accommodation-request` | not | all | illustration | occasional | 3 |
+| `age-verification-55plus` | **sub** | all | chart | rare | 3 |
+| `assistance-animal-policy` | not | all | illustration | occasional | 3 |
+| `electronic-notice-consent` | **sub** | all | none | occasional | 3 |
+| `raising-a-concern` | not | all | illustration | occasional | 3 |
+
+## Appendix B — Shared merge-field vocabulary
+
+One vocabulary across all templates so the composer sees consistent field names:
+
+`deadline_date` · `start_date` / `end_date` / `event_date` / `effective_date` · `start_time` / `end_time` / `hours_window` · `affected_areas` (always the multi-location picker) · `contact_name` / `contact_phone` / `report_contact` · `reason` · `submission_method` · `required_items` · `vendor_name` · `fee_amount` · `policy_reference` · `consequence_note` · `tone`
+
+Single-property templates use **`cure_window`** rather than `deadline_date` deliberately. It is a soft window, and naming it differently keeps courtesy nudges linguistically separate from enforcement deadlines.
+
