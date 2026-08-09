@@ -16,6 +16,7 @@ export function PropertiesHeader({
   total,
   allCount,
   search,
+  onDetailRoute = false,
 }: {
   orgName: string
   filter: PropertyFilter
@@ -24,6 +25,16 @@ export function PropertiesHeader({
   /** Row count across the whole org, unfiltered. */
   allCount: number
   search: string
+  /**
+   * True on /properties/[id]. There, the open property's address is the
+   * page's subject and owns the `h1` (PropertyPanel), so this title steps
+   * down to a link back to the unfiltered list — which also gives desktop
+   * users a way out that previously only existed below `lg` via BackLink.
+   * Two `h1`s on one route is valid HTML but breaks heading navigation for
+   * screen-reader users, who get a generic "Properties" competing with the
+   * actual subject.
+   */
+  onDetailRoute?: boolean
 }) {
   // Export must see exactly what the list pane is showing: forward the
   // search term, and forward tenure only for the three filters the export
@@ -44,7 +55,16 @@ export function PropertiesHeader({
   return (
     <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
       <div>
-        <h1 className="text-lg font-semibold text-foreground">Properties</h1>
+        {onDetailRoute ? (
+          <Link
+            href="/properties"
+            className="text-lg font-semibold text-foreground hover:text-primary"
+          >
+            Properties
+          </Link>
+        ) : (
+          <h1 className="text-lg font-semibold text-foreground">Properties</h1>
+        )}
         <p className="text-xs text-muted">
           {countLabel} in {orgName}
         </p>

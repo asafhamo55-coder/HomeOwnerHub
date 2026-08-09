@@ -301,6 +301,7 @@ export default async function PropertyDetailPage({
         total={total}
         allCount={counts.all}
         search={listParams.search}
+        onDetailRoute
       />
 
       <div className="flex flex-1 overflow-hidden">
