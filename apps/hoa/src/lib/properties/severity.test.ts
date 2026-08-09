@@ -4,6 +4,7 @@ import {
   severityDotClass,
   severityLabel,
   severityTone,
+  streetOf,
   type SeveritySource,
 } from './severity'
 
@@ -100,5 +101,28 @@ describe('reasonPills', () => {
   it('does not emit a balance pill — balance renders in its own column', () => {
     const pills = reasonPills({ ...clean, balance: 1340, daysOverdue: 92 })
     expect(pills.every((p) => !/\$/.test(p.text))).toBe(true)
+  })
+})
+
+describe('streetOf', () => {
+  it('drops the city/state/zip that every row in an association repeats', () => {
+    expect(streetOf('105 Springwood Pkwy, Atlanta, GA 30067')).toBe('105 Springwood Pkwy')
+  })
+
+  it('returns an address with no comma untouched', () => {
+    expect(streetOf('105 Springwood Pkwy')).toBe('105 Springwood Pkwy')
+  })
+
+  it('splits on the FIRST comma, not the last', () => {
+    // A second comma belongs to the city/state tail, never the street line.
+    expect(streetOf('12 Elm St, Apt 4, Atlanta, GA 30067')).toBe('12 Elm St')
+  })
+
+  it('trims surrounding whitespace', () => {
+    expect(streetOf('  105 Springwood Pkwy , Atlanta')).toBe('105 Springwood Pkwy')
+  })
+
+  it('survives an empty string rather than throwing', () => {
+    expect(streetOf('')).toBe('')
   })
 })

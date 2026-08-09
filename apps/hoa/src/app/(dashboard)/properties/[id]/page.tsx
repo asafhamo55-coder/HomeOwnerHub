@@ -308,7 +308,9 @@ export default async function PropertyDetailPage({
         {/* The aside mirrors /properties so the list survives navigation;
             hidden below lg so the panel is the whole page on a phone — the
             same structure inbox/[id]/page.tsx uses. */}
-        <aside className="hidden w-full max-w-sm shrink-0 overflow-y-auto border-r border-border lg:block xl:max-w-xs">
+        {/* Must match /properties' list pane exactly — a different max-width
+            here makes the list jump width the moment a property is opened. */}
+        <aside className="hidden w-full max-w-sm shrink-0 overflow-y-auto border-r border-border lg:block xl:max-w-md 2xl:max-w-lg">
           <PropertyListFilters params={listParams} counts={counts} />
           {listError ? (
             <Alert variant="error" title="Could not load properties" className="m-3">

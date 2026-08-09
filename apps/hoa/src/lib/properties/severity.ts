@@ -99,3 +99,22 @@ export function reasonPills(row: SeveritySource): ReasonPill[] {
 
   return pills
 }
+
+/**
+ * The street part of an address, for list rows.
+ *
+ * Every property in one association shares a city/state/ZIP, so printing
+ * "105 Springwood Pkwy, Atlanta, GA 30067" on all 135 rows spends the row's
+ * width on the identical part and truncates the only part that
+ * distinguishes it — observed live as "105 Springwood Pkwy, Atlanta, GA
+ * 300…". Callers keep the full address in `title` for hover, and the detail
+ * panel still shows it in full.
+ *
+ * Splits on the FIRST comma only: a US street line does not contain one,
+ * and an address with no comma at all is returned untouched.
+ */
+export function streetOf(address: string): string {
+  const comma = address.indexOf(',')
+  return (comma === -1 ? address : address.slice(0, comma)).trim()
+}
+

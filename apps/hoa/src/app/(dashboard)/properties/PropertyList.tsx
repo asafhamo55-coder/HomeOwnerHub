@@ -6,6 +6,7 @@ import {
   severityDotClass,
   severityLabel,
   severityTone,
+  streetOf,
 } from '@/lib/properties/severity'
 
 function money(n: number): string {
@@ -68,8 +69,11 @@ export function PropertyList({
                     aria-hidden
                   />
                   <span className="sr-only">{severityLabel(row.severityRank)}</span>
-                  <span className="truncate text-sm font-semibold text-foreground">
-                    {row.address}
+                  <span
+                    className="truncate text-sm font-semibold text-foreground"
+                    title={row.address}
+                  >
+                    {streetOf(row.address)}
                     {row.unitNumber ? (
                       <span className="font-normal text-muted"> · {row.unitNumber}</span>
                     ) : null}
@@ -82,7 +86,17 @@ export function PropertyList({
                 ) : null}
               </div>
               <p className="truncate pl-4 text-xs text-muted">
-                {[row.ownerName ?? 'No owner on file', row.tenure ? row.tenure.replace(/_/g, '-') : null]
+                {/* `tenure` is an enum whose values include the literal
+                    'unknown'. Rendering it printed the word "unknown"
+                    beside every owner name on every row, which reads as
+                    broken software rather than as absent data. An unknown
+                    tenure now simply shows nothing. */}
+                {[
+                  row.ownerName ?? 'No owner on file',
+                  row.tenure && row.tenure !== 'unknown'
+                    ? row.tenure.replace(/_/g, '-')
+                    : null,
+                ]
                   .filter(Boolean)
                   .join(' · ')}
               </p>

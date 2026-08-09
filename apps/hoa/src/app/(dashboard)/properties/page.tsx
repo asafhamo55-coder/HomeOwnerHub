@@ -71,7 +71,11 @@ export default async function PropertiesPage({
       />
 
       <div className="flex flex-1 overflow-hidden">
-        <aside className="w-full max-w-sm shrink-0 overflow-y-auto border-r border-border xl:max-w-xs">
+        {/* Widens with the viewport. This was `xl:max-w-xs`, which SHRANK the
+            list to 320px on exactly the large screens that have room to
+            spare — leaving ~1050px of empty panel beside a cramped,
+            truncating list. */}
+        <aside className="w-full max-w-sm shrink-0 overflow-y-auto border-r border-border xl:max-w-md 2xl:max-w-lg">
           <PropertyListFilters params={params} counts={counts} />
           {error ? (
             <Alert variant="error" title="Could not load properties" className="m-3">
