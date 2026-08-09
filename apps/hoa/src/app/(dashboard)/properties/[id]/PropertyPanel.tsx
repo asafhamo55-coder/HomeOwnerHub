@@ -94,11 +94,13 @@ export function PropertyPanel({
         </p>
       </div>
 
-      {/* Separators come from `divide-*`, not from a coloured container showing
-          through 1px gaps — StatCard renders a transparent div, so a `bg-border`
-          parent with `gap-px` paints the whole strip grey instead of drawing
-          hairlines between the tiles. */}
-      <div className="grid grid-cols-2 divide-x divide-y divide-border border-b border-border sm:grid-cols-4 sm:divide-y-0">
+      {/* No fills and no rules between the tiles — whitespace separates them.
+          An earlier version used `bg-border` + `gap-px` to draw hairlines, but
+          StatCard renders a transparent div so the parent colour showed through
+          as a grey slab; replacing that with `divide-*` then drew a visible grid
+          instead. The single bottom border is kept only to part the strip from
+          the tabs beneath it. */}
+      <div className="grid grid-cols-2 border-b border-border sm:grid-cols-4">
         <StatCard
           label="Balance"
           value={stats.balance > 0 ? `$${stats.balance.toFixed(2)}` : '$0'}
