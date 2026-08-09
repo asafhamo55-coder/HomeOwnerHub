@@ -8,10 +8,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // empty one.
 vi.mock('@/lib/inbox/queries', () => ({ getThreadDetail: vi.fn() }))
 vi.mock('@/lib/inbox/attachment-pdf', () => ({ readPdfTexts: vi.fn(async () => []) }))
+// Mocked so no test can reach a real vision endpoint. `selectPhotoAttachments`
+// keeps its real implementation — the degradation rule below depends on what
+// it actually selects.
+vi.mock('./photo-findings', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./photo-findings')>()),
+  readPhotoFindings: vi.fn(async () => []),
+}))
 
 import { retrieveForVendorRequest } from './vendor-request-retrieve'
 import { getThreadDetail } from '@/lib/inbox/queries'
 import { readPdfTexts } from '@/lib/inbox/attachment-pdf'
+import { readPhotoFindings } from './photo-findings'
 
 const ORG = 'org-1'
 const THREAD = 'thread-1'
@@ -85,7 +93,21 @@ const NO_ATTACHMENTS = { data: [], error: null }
 beforeEach(() => {
   vi.mocked(getThreadDetail).mockResolvedValue(threadDetail() as never)
   vi.mocked(readPdfTexts).mockResolvedValue([])
+  vi.mocked(readPhotoFindings).mockResolvedValue([])
 })
+
+/** One stored JPEG, small enough to pass every cap. */
+function photoRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'photo-1',
+    file_name: 'ceiling.jpg',
+    content_type: 'image/jpeg',
+    size_bytes: 900_000,
+    storage_path: 'org/ceiling.jpg',
+    fetch_status: 'stored',
+    ...overrides,
+  }
+}
 
 describe('retrieveForVendorRequest', () => {
   it('returns null when the thread is not in this org', async () => {
@@ -297,9 +319,32 @@ describe('retrieveForVendorRequest', () => {
     expect(result?.attachments.map((a) => a.id)).toEqual(['att-1'])
   })
 
-  // The vision producer does not exist yet (spec D9); the field must still
-  // be present and empty so W34's schema validates.
-  it('always returns an empty photoFindings array this phase', async () => {
+  it('passes the vision producer’s findings through', async () => {
+    vi.mocked(readPhotoFindings).mockResolvedValue([
+      { fileName: 'ceiling.jpg', finding: 'Brown staining across a ceiling panel.' },
+    ])
+
+    const result = await retrieveForVendorRequest(
+      dbWith({
+        units: UNIT,
+        vendors: VENDOR,
+        inbox_attachments: { data: [photoRow()], error: null },
+        inbox_threads: ACCOUNT,
+      }),
+      ORG,
+      THREAD,
+    )
+
+    expect(result?.photoFindings).toEqual([
+      { fileName: 'ceiling.jpg', finding: 'Brown staining across a ceiling panel.' },
+    ])
+    expect(result?.degraded).not.toContain('photos')
+  })
+
+  // A thread with no images is the ordinary case, not a degradation — telling
+  // the model a source was unavailable would have it hedge (prompt rule 8)
+  // about something that never existed.
+  it('does not degrade photos when the thread has no images at all', async () => {
     const result = await retrieveForVendorRequest(
       dbWith({ units: UNIT, vendors: VENDOR, inbox_attachments: NO_ATTACHMENTS, inbox_threads: ACCOUNT }),
       ORG,
@@ -307,5 +352,53 @@ describe('retrieveForVendorRequest', () => {
     )
 
     expect(result?.photoFindings).toEqual([])
+    expect(result?.degraded).not.toContain('photos')
+  })
+
+  it('degrades photos when images were selected but nothing came back', async () => {
+    vi.mocked(readPhotoFindings).mockResolvedValue([])
+
+    const result = await retrieveForVendorRequest(
+      dbWith({
+        units: UNIT,
+        vendors: VENDOR,
+        inbox_attachments: { data: [photoRow()], error: null },
+        inbox_threads: ACCOUNT,
+      }),
+      ORG,
+      THREAD,
+    )
+
+    expect(result?.degraded).toContain('photos')
+  })
+
+  // A PDF-only thread must not spend a vision request. The producer is still
+  // invoked — it early-returns on an empty list — so what matters is that it
+  // is handed nothing to look at.
+  it('selects no photos from a thread of PDFs', async () => {
+    await retrieveForVendorRequest(
+      dbWith({
+        units: UNIT,
+        vendors: VENDOR,
+        inbox_attachments: {
+          data: [
+            {
+              id: 'att-1',
+              file_name: 'estimate.pdf',
+              content_type: 'application/pdf',
+              size_bytes: 340_000,
+              storage_path: 'org/att-1.pdf',
+              fetch_status: 'stored',
+            },
+          ],
+          error: null,
+        },
+        inbox_threads: ACCOUNT,
+      }),
+      ORG,
+      THREAD,
+    )
+
+    expect(readPhotoFindings).toHaveBeenCalledWith(expect.anything(), expect.any(String), [])
   })
 })

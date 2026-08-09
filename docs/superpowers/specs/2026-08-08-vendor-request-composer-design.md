@@ -1,8 +1,8 @@
 # Inbox — Vendor Request Composer (W34)
 
-**Status:** Built and deployed (slices 1–4). Slice 5 (vision) not started.
+**Status:** Built and deployed — all five slices, vision included.
 **Date:** 2026-08-08
-**Shipped:** commit `da1d02d`
+**Shipped:** slices 1–4 in `da1d02d`; slice 5 (vision) 2026-08-09
 **Predecessor:** [Phase C — Outbound Composer](./2026-08-02-hoa-inbox-outbound-composer-design.md)
 
 ---
@@ -134,16 +134,38 @@ to proceed" must be emitted as `[[BLANK: money]]` / `[[BLANK: authority]]`.
 approve gate needs no change at all — only the W34 output enum and the UI
 callout labels learn the new kinds.
 
-**D9 — Photo reading (vision) is out of scope for this phase.** The board's
-intent is to have the AI read ceiling photos as well as PDFs. It cannot yet:
-`AI_MODEL` defaults to `llama-3.3-70b-versatile`, which is text-only, and no
-workflow in the repo has a vision path — W3's header still reads *"Phase 2.0:
-text-only. The spec calls for a vision step."*
+**D9 — Photo reading (vision). Deferred at design time; SHIPPED 2026-08-09.**
 
-The W34 input schema carries `photoFindings: PhotoFinding[]` from day one and
-the prompt handles it being empty, so adding vision later is a new producer
-feeding an existing field rather than a schema change. Choosing a
-vision-capable model and accepting its per-draft cost is a separate decision.
+Originally out of scope: `AI_MODEL` is `llama-3.3-70b-versatile`, text-only,
+and no *workflow* had a vision path. That reasoning was half wrong —
+`packages/ai/src/agents/vision.ts` already had a working `analyzeImage`, with
+`tasks/photo-analysis.ts` on top of it. What was broken was configuration,
+not code:
+
+- `AI_BASE_URL_VISION` was never set, because ADR-002 planned a **separate
+  self-hosted vision box** (vLLM serving Qwen2-VL) that was never built. An
+  unset base URL sends every image to `api.openai.com` authenticated with a
+  Groq key — a guaranteed 401.
+- `AI_MODEL_VISION` held `Qwen/Qwen2-VL-7B-Instruct`, a HuggingFace repo id
+  for that same unbuilt box. No hosted provider here serves it.
+
+Fixed by falling back `AI_BASE_URL_VISION → AI_BASE_URL`, treating blank and
+whitespace-only values as absent (the `82e1a20` trap, which the live health
+probe still reports for `EMBEDDING_BASE_URL` today), and by pointing
+`AI_MODEL_VISION` at `qwen/qwen3.6-27b` — the model Groq actually serves for
+vision as of August 2026.
+
+The `photoFindings` field carried in the schema from day one meant this was a
+new producer feeding an existing field, exactly as intended. W34's prompt,
+output schema, and body renderer are unchanged.
+
+**Cost:** ~⅓ of a cent per request with photos. The model bills output at 5×
+input ($0.60/$3.00 per 1M), so `max_tokens` is scaled tightly to the batch and
+the prompt asks for one or two sentences per image.
+
+**Privacy:** images are sent as base64 data URLs, never as signed storage
+URLs. A signed URL is publicly fetchable by anyone holding it for its whole
+lifetime, and these are photos of the inside of somebody's home.
 
 **D10 — No new virus scanning, no rich text, no Bcc.** Unchanged from Phase
 C's D3 and D9 and its out-of-scope list. This phase attaches files that are
@@ -557,12 +579,15 @@ Each step is independently shippable. Slices 1–4 shipped in `da1d02d`.
    `draftVendorRequest`, attachment copying.
 4. **UI.** `VendorRequestDialog`, the thread-header entry point, blank
    callouts for the new kinds, `attachmentDigest` display, cross-links.
-5. **Vision (deferred, D9).** A photo-findings producer feeding
-   `photoFindings`. Requires a vision-capable model and its cost accepted.
+5. **Vision (D9).** `lib/inbox/draft/photo-findings.ts` — a pure
+   `selectPhotoAttachments` (5-image / 3MB-per-file / 12MB-batch caps, HEIC
+   excluded because nothing here decodes it) plus `readPhotoFindings`, which
+   base64s the images, asks one batched question, and maps indexed answers
+   back onto file names. An out-of-range or duplicate index is dropped rather
+   than mapped to a neighbouring file: attributing a finding to the wrong
+   photo is the one error a reviewer cannot catch by opening the file.
 
 ## Out of scope
-
-- Photo/vision reading (D9) — the field exists; the producer does not.
 - Work orders as a first-class tracked object with quotes and status. This
   design leaves it open: a `work_orders` row can later hang off the draft.
 - Automatically telling the resident that a vendor was engaged.

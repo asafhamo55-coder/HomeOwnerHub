@@ -6,7 +6,7 @@ export type { TaskType, AgentId } from './router'
 export { runFast, MODEL_FAST } from './agents/fast'
 export { runMain, MODEL_MAIN } from './agents/main'
 export { runReason } from './agents/reason'
-export { analyzeImage } from './agents/vision'
+export { analyzeImage, analyzeImages, MODEL_VISION, MAX_IMAGES_PER_REQUEST } from './agents/vision'
 export { runCPU } from './agents/cpu'
 export { runCloud } from './agents/cloud'
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { embedTexts } from './embeddings'
+import { resolveVisionBaseUrl } from './agents/vision'
 
 describe('empty env vars fall through to the default endpoint', () => {
   const saved = { url: process.env.EMBEDDING_BASE_URL, tok: process.env.OPENAI_API_KEY }
@@ -34,5 +35,57 @@ describe('empty env vars fall through to the default endpoint', () => {
   it('treats an EMPTY token as missing rather than sending "Bearer "', async () => {
     process.env.OPENAI_API_KEY = ''
     await expect(embedTexts(['x'])).rejects.toThrow(/OPENAI_API_KEY is not set/)
+  })
+})
+
+/**
+ * AI_BASE_URL_VISION was never set — ADR-002 planned a separate self-hosted
+ * vision box that was never built — so an unguarded read sent every image to
+ * api.openai.com with a Groq key.
+ */
+describe('vision base URL falls back to the shared endpoint', () => {
+  const saved = {
+    vision: process.env.AI_BASE_URL_VISION,
+    shared: process.env.AI_BASE_URL,
+  }
+  afterEach(() => {
+    process.env.AI_BASE_URL_VISION = saved.vision
+    process.env.AI_BASE_URL = saved.shared
+  })
+
+  it('prefers a real AI_BASE_URL_VISION when one is set', () => {
+    process.env.AI_BASE_URL_VISION = 'https://vision.example/v1'
+    process.env.AI_BASE_URL = 'https://shared.example/v1'
+
+    expect(resolveVisionBaseUrl()).toBe('https://vision.example/v1')
+  })
+
+  it('falls back to AI_BASE_URL when the vision-specific one is unset', () => {
+    delete process.env.AI_BASE_URL_VISION
+    process.env.AI_BASE_URL = 'https://shared.example/v1'
+
+    expect(resolveVisionBaseUrl()).toBe('https://shared.example/v1')
+  })
+
+  it('treats an EMPTY AI_BASE_URL_VISION as absent, not as a base URL of ""', () => {
+    process.env.AI_BASE_URL_VISION = ''
+    process.env.AI_BASE_URL = 'https://shared.example/v1'
+
+    expect(resolveVisionBaseUrl()).toBe('https://shared.example/v1')
+  })
+
+  it('treats a whitespace-only AI_BASE_URL_VISION as absent', () => {
+    process.env.AI_BASE_URL_VISION = '   '
+    process.env.AI_BASE_URL = 'https://shared.example/v1'
+
+    expect(resolveVisionBaseUrl()).toBe('https://shared.example/v1')
+  })
+
+  // undefined lets the SDK apply its own default; '' makes it fetch "".
+  it('returns undefined, never an empty string, when neither is usable', () => {
+    process.env.AI_BASE_URL_VISION = ''
+    process.env.AI_BASE_URL = '  '
+
+    expect(resolveVisionBaseUrl()).toBeUndefined()
   })
 })

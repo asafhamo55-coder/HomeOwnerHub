@@ -19,6 +19,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { PhotoFinding } from '@homeowner-portal/workflows'
 import { getThreadDetail } from '@/lib/inbox/queries'
 import { readPdfTexts } from '@/lib/inbox/attachment-pdf'
+import { selectPhotoAttachments, readPhotoFindings } from './photo-findings'
 import {
   selectParsableAttachments,
   joinAttachmentText,
@@ -28,7 +29,7 @@ import {
 /** Same bucket the attachment download route and W33 read from. */
 const ATTACHMENT_BUCKET = 'hoa-documents'
 
-export type VendorRequestDegradedSource = 'property' | 'vendor' | 'attachments'
+export type VendorRequestDegradedSource = 'property' | 'vendor' | 'attachments' | 'photos'
 
 export interface VendorRequestRetrieval {
   threadSubject: string | null
@@ -36,10 +37,7 @@ export interface VendorRequestRetrieval {
   property: { addressLine1: string; unitNumber: string | null } | null
   vendor: { legalName: string; dba: string | null; trades: string[] } | null
   attachmentText: string | null
-  /**
-   * Always `[]` this phase — no vision producer exists (spec D9). Carried so
-   * that adding one later is a new producer feeding an existing field.
-   */
+  /** What the vision model saw in the thread's attached images. */
   photoFindings: PhotoFinding[]
   degraded: VendorRequestDegradedSource[]
   /**
@@ -95,11 +93,28 @@ export async function retrieveForVendorRequest(
   if (!vendor) degraded.push('vendor')
 
   let attachmentText: string | null = null
+  let photoFindings: PhotoFinding[] = []
   if (attachmentRows === null) {
     degraded.push('attachments')
   } else {
     const parsable = selectParsableAttachments(attachmentRows)
-    attachmentText = joinAttachmentText(await readPdfTexts(db, ATTACHMENT_BUCKET, parsable))
+    const photos = selectPhotoAttachments(attachmentRows)
+
+    // Documents and photos read concurrently: they hit different providers
+    // and neither result feeds the other.
+    const [text, findings] = await Promise.all([
+      readPdfTexts(db, ATTACHMENT_BUCKET, parsable).then(joinAttachmentText),
+      readPhotoFindings(db, ATTACHMENT_BUCKET, photos),
+    ])
+
+    attachmentText = text
+    photoFindings = findings
+
+    // Only a photo we TRIED and failed to read is a degradation. A thread
+    // with no images at all is the ordinary case and must not tell the model
+    // that something was unavailable — rule 8 would then have it hedge about
+    // a source that never existed.
+    if (photos.length > 0 && findings.length === 0) degraded.push('photos')
   }
 
   return {
@@ -108,7 +123,7 @@ export async function retrieveForVendorRequest(
     property,
     vendor,
     attachmentText,
-    photoFindings: [],
+    photoFindings,
     degraded,
     vendorId: thread.vendorId,
     mailboxAccountId: await loadMailboxAccountId(db, orgId, threadId),
