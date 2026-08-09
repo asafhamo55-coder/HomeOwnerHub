@@ -90,11 +90,14 @@ since `sendCommunication` already runs the subject through `renderTemplate`.
 replace with no escaping, so injecting pre-rendered HTML through a merge field works.
 
 Three merge fields are supplied per recipient: `dues_table` (that person's rendered
-property blocks), `total_due` (formatted, used in both subject and body), and
-`note_block` (the manager's escaped note wrapped in its styled container, or the empty
-string when there is no note). `sendCommunication` uses the non-strict `renderTemplate`,
-so an empty `note_block` renders as nothing rather than throwing — which is exactly the
-desired behaviour for an optional note.
+property blocks as HTML), `dues_text` (the same content as plain text), and
+`amount_summary` (e.g. `$1,240.00 due, $420.00 past due`, or just `$310.00 due` when
+nothing is late — used in the subject line, which avoids needing conditionals in the
+template engine).
+
+The manager's note is **not** a merge field. It is identical for every recipient in a
+send, so it is escaped once and baked into the shell body at build time. `owner_name` and
+`association_name` come from the merge bag `sendCommunication` already builds.
 
 ### Logging and "last reminded"
 
@@ -160,12 +163,17 @@ date, not stored.
 Each charge's balance is `amount − Σ payments`, floored at zero. Charges landing at
 ≤ 0 are dropped entirely.
 
-> **Adjacent bug fix (in scope, flagged for review).** `resident-dashboard.ts:187`
-> selects `amount` and never subtracts payments, so a partially-paid charge currently
-> displays at full value in the resident portal. The reminder computes real balances
-> instead. Dunning someone for money they already paid is the worst way this feature
-> could fail, so the same fix is applied to `resident-dashboard.ts`. This is the one
-> change outside the dues module; strike it if you'd rather it ship separately.
+This mirrors what `resident-dashboard.ts:202-225` already does — it fetches payments in a
+second query, computes `remaining`, and skips charges at `remaining <= 0`. The reminder
+must produce the **same** number the resident sees in the portal, or a manager chasing
+$310 will get a reply quoting $150. Correctness here is not optional: dunning someone for
+money they already paid is the worst way this feature could fail.
+
+> **Correction to an earlier draft of this spec.** A previous revision claimed
+> `resident-dashboard.ts` failed to subtract payments and scheduled a fix for it. That was
+> wrong — it was read from the `select` at line 187 without noticing the separate payments
+> query below it. There is no bug there and no fix is needed. Nothing outside the dues
+> module changes.
 
 ### Grouping into people
 
@@ -203,6 +211,15 @@ dropped.
 "Today" is `new Date().toISOString().slice(0, 10)`, matching `audience.ts:139`. This means
 the past-due boundary flips at UTC midnight rather than local midnight — consistent with
 existing behaviour, and noted here so it is a known choice rather than a surprise.
+
+**The two existing past-due boundaries disagree with each other.** `audience.ts:139` uses
+`.lt('due_date', today)` — strictly before today. `resident-dashboard.ts:226` uses
+`due_date <= today` — a charge due *today* is already past due. This design uses
+**`dueDate < today`**: a charge due today is not late, which is both defensible to a
+resident and consistent with the audience resolver that currently decides who counts as
+delinquent. The discrepancy is recorded here rather than fixed, because changing
+`resident-dashboard.ts` would shift what residents see in the portal and deserves its own
+decision.
 
 ## Email design
 
@@ -335,3 +352,5 @@ explicitly rather than quietly skipping it.
 - SMS and portal channels (the recipient shape supports both later at no extra cost)
 - Online payment — the CTA links to the portal, it does not collect money
 - Changes to the `/communications` composer UI
+- Reconciling `resident-dashboard.ts`'s `<= today` past-due boundary with
+  `audience.ts`'s `< today` (recorded above; needs its own decision)
