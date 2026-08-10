@@ -1,4 +1,4 @@
-import { Badge, Button, Card } from '@homeowner-portal/ui'
+import { Alert, Badge, Button, Card } from '@homeowner-portal/ui'
 import { buildReminderPackets } from '@/lib/dues-reminders/packets'
 import { getLastRemindedByEmail, RECENT_REMINDER_DAYS } from '@/lib/dues-reminders/queries'
 import { SendRemindersDialog } from './SendRemindersDialog'
@@ -36,7 +36,20 @@ export async function WhoOwesPanel({ associationId }: { associationId: string })
     console.error('WhoOwesPanel: buildReminderPackets failed', {
       message: errorMessage(packetsResult.reason),
     })
-    return null
+    // Not `return null`: null is what "nobody owes anything" also renders
+    // as, and a manager can't tell "clean" apart from "we couldn't check"
+    // if both look like an empty page. The heading stays up so the section
+    // reads as present-but-broken, not absent.
+    return (
+      <Card>
+        <div className="border-b border-border bg-background/50 px-4 py-3">
+          <p className="text-sm font-semibold text-foreground">Who owes</p>
+        </div>
+        <div className="p-4">
+          <Alert variant="error">Couldn&rsquo;t load who owes — refresh to try again.</Alert>
+        </div>
+      </Card>
+    )
   }
 
   const { packets, skipped } = packetsResult.value
