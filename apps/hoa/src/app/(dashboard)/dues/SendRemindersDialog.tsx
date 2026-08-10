@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AlertTriangle, Loader2, Mail } from 'lucide-react'
 import { Alert, Button, Textarea } from '@homeowner-portal/ui'
@@ -38,6 +38,10 @@ export function SendRemindersDialog({
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
+  // Not state: bumping it must not itself cause a render, and load() needs
+  // to read the *current* value at the moment its awaited call resolves,
+  // not the value captured in its own closure.
+  const loadGeneration = useRef(0)
 
   useEffect(() => setMounted(true), [])
 
@@ -67,6 +71,14 @@ export function SendRemindersDialog({
   }, [open, close, sending])
 
   async function load() {
+    // Escape/backdrop are deliberately allowed to close the dialog while
+    // this fetch is outstanding (unlike send() — see the guard below), so
+    // a close-then-reopen can start a second load() before the first one's
+    // previewDuesReminders() has resolved. Without this generation check,
+    // whichever call lands second in wall-clock time — not necessarily the
+    // most recent one — would win and could paint a stale preview/error
+    // over the newer request's state.
+    const generation = ++loadGeneration.current
     setOpen(true)
     setLoading(true)
     setError(null)
@@ -76,6 +88,7 @@ export function SendRemindersDialog({
     setDone(null)
     setPreview(null)
     const result = await previewDuesReminders(emails ? { emails } : undefined)
+    if (generation !== loadGeneration.current) return
     setLoading(false)
     if (!result.ok) {
       setError(result.error)
