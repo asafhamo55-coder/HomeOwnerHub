@@ -226,3 +226,19 @@ describe('renderShellText', () => {
     expect(text).not.toContain('<')
   })
 })
+
+describe('renderShellHtml — Outlook width (Bug A regression)', () => {
+  it('uses a table width attribute rather than a CSS max-width', () => {
+    const html = renderShellHtml({ portalUrl: 'https://example.com/dues' })
+    expect(html).toContain('width="600"')
+    expect(html).not.toContain('max-width')
+  })
+
+  it('still carries both merge placeholders and the portal link', () => {
+    const html = renderShellHtml({ portalUrl: 'https://example.com/dues' })
+    expect(html).toContain('{{association_name}}')
+    expect(html).toContain('{{owner_name}}')
+    expect(html).toContain('{{dues_table}}')
+    expect(html).toContain('https://example.com/dues')
+  })
+})

@@ -11,6 +11,7 @@
  */
 
 import { chargeTypeLabel } from '@/lib/assessment-labels'
+import { renderEmailDocument } from '@/lib/email/shell'
 import type { ReminderPacket } from './types'
 
 const USD = new Intl.NumberFormat('en-US', {
@@ -143,19 +144,20 @@ export function renderNoteHtml(note: string | undefined): string {
 }
 
 export function renderShellHtml(opts: { note?: string; portalUrl: string }): string {
-  return `<div style="background:#f4f5f7;padding:18px;">
-<div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;font-family:Helvetica,Arial,sans-serif;color:${TEXT};">
-<div style="padding:18px 22px;"><div style="font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:${MUTED};font-weight:700;">{{association_name}}</div></div>
-<div style="padding:0 22px 22px;">
-<p style="margin:0 0 4px;font-size:15px;font-weight:700;">Hi {{owner_name}},</p>
+  const body = `<div style="font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:${MUTED};font-weight:700;">{{association_name}}</div>
+<p style="margin:12px 0 4px;font-size:15px;font-weight:700;color:${TEXT};">Hi {{owner_name}},</p>
 <p style="margin:0 0 18px;font-size:13px;line-height:1.5;color:#4b5563;">Here&rsquo;s everything currently outstanding on your account.</p>
 ${renderNoteHtml(opts.note)}
 {{dues_table}}
-<div style="text-align:center;"><a href="${escapeHtml(opts.portalUrl)}" style="display:inline-block;background:#111827;color:#ffffff;font-size:13px;font-weight:700;padding:12px 28px;border-radius:8px;text-decoration:none;">View my dues</a></div>
-<p style="margin:16px 0 0;font-size:11px;line-height:1.6;color:${MUTED};text-align:center;">To pay or request a detailed statement, reply to this email or contact your community manager.</p>
-</div>
-<div style="padding:14px 22px;background:#fafafa;border-top:1px solid ${LINE};font-size:10px;line-height:1.6;color:#9ca3af;">Sent by {{association_name}} because you are an owner of record.</div>
-</div></div>`
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:4px 0 0;">
+<a href="${escapeHtml(opts.portalUrl)}" style="display:inline-block;background-color:#111827;color:#ffffff;font-size:13px;font-weight:700;padding:12px 28px;text-decoration:none;">View my dues</a>
+</td></tr></table>
+<p style="margin:16px 0 0;font-size:11px;line-height:1.6;color:${MUTED};text-align:center;">To pay or request a detailed statement, reply to this email or contact your community manager.</p>`
+
+  return renderEmailDocument({
+    bodyHtml: body,
+    footerHtml: 'Sent by {{association_name}} because you are an owner of record.',
+  })
 }
 
 export function renderShellText(opts: { note?: string; portalUrl: string }): string {
