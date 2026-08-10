@@ -2032,7 +2032,14 @@ function placeholdersIn(t: CommunityTemplate): Set<string> {
 }
 
 export function validateTemplate(t: CommunityTemplate): void {
-  assertAccent(t.accentColor)
+  // assertAccent knows the colour but not whose it is. With seven templates
+  // "accent #A8E6C4 has luminance 0.85" does not tell you where to look, and
+  // every other error in this function is slug-prefixed.
+  try {
+    assertAccent(t.accentColor)
+  } catch (err) {
+    throw new Error(`${t.slug}: ${(err as Error).message}`)
+  }
 
   if (t.questions.length > MAX_QUESTIONS) {
     throw new Error(
