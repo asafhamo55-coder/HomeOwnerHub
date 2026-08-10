@@ -22,25 +22,31 @@ export interface PictogramSpec {
 
 const WIDTH = 1200
 const HEIGHT = 400
-/** Glyph box in the 1200x400 canvas. The source paths are 24x24. */
+/** Glyph box in the 1200x400 canvas, independent of the source grid. */
 const GLYPH_SIZE = 180
-const SCALE = GLYPH_SIZE / 24
 
 export function renderPictogramSvg(spec: PictogramSpec): string {
-  const path = GLYPHS[spec.glyph]
-  if (!path) {
+  const glyph = GLYPHS[spec.glyph]
+  if (!glyph) {
     throw new Error(`unknown glyph: ${spec.glyph}. Add it to email/glyphs.ts.`)
   }
   assertAccent(spec.accentColor)
 
   const panel = tintOver(spec.accentColor, 0.08)
   const halo = tintOver(spec.accentColor, 0.16)
-  const tx = (WIDTH - GLYPH_SIZE) / 2
-  const ty = (HEIGHT - GLYPH_SIZE) / 2
+
+  // Derive the transform from the glyph's own source box rather than
+  // assuming a grid — Material Symbols ships both the legacy 24x24 viewBox
+  // and the current 0 -960 960 960 viewBox. For a 24x24 glyph this reduces
+  // to the original hardcoded scale = GLYPH_SIZE / 24 = 7.5.
+  const [minX, minY, bw, bh] = glyph.box
+  const scale = GLYPH_SIZE / Math.max(bw, bh)
+  const tx = (WIDTH - bw * scale) / 2 - minX * scale
+  const ty = (HEIGHT - bh * scale) / 2 - minY * scale
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
 <rect width="${WIDTH}" height="${HEIGHT}" fill="${panel}"/>
 <circle cx="${WIDTH / 2}" cy="${HEIGHT / 2}" r="150" fill="${halo}"/>
-<g transform="translate(${tx} ${ty}) scale(${SCALE})"><path d="${path}" fill="${spec.accentColor}"/></g>
+<g transform="translate(${tx} ${ty}) scale(${scale})"><path d="${glyph.d}" fill="${spec.accentColor}"/></g>
 </svg>`
 }

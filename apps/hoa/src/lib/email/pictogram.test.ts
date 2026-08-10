@@ -8,7 +8,8 @@ describe('GLYPHS', () => {
   it('covers every phase-1 topic glyph', () => {
     for (const name of ['pets', 'parking', 'recycling', 'construction', 'cleanup', 'pool', 'apartment'] as const) {
       expect(GLYPHS[name], `missing glyph: ${name}`).toBeTruthy()
-      expect(GLYPHS[name]).toMatch(/^[Mm]/) // an SVG path starts with a moveto
+      expect(GLYPHS[name].d).toMatch(/^[Mm]/) // an SVG path starts with a moveto
+      expect(GLYPHS[name].box).toHaveLength(4)
     }
   })
 })
@@ -39,6 +40,42 @@ describe('renderPictogramSvg', () => {
   it('throws a helpful error for an unknown glyph', () => {
     // @ts-expect-error deliberately invalid
     expect(() => renderPictogramSvg({ glyph: 'nope', accentColor: '#2F8F5B' })).toThrow(/unknown glyph/i)
+  })
+
+  it('places a 960-grid glyph inside the canvas, derived from its own box', () => {
+    // pool and cleanup are on the current 0 -960 960 960 Material Symbols
+    // grid, not the legacy 24x24 grid the other five glyphs use.
+    const svg = renderPictogramSvg({ glyph: 'pool', accentColor: '#2F8F5B' })
+    const match = svg.match(/translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)\)/)
+    expect(match, 'expected a translate(...) scale(...) transform').toBeTruthy()
+    const [, txStr, tyStr, scaleStr] = match!
+    const tx = Number(txStr)
+    const ty = Number(tyStr)
+    const scale = Number(scaleStr)
+
+    // box is [0, -960, 960, 960] → scale = 180 / 960
+    expect(scale).toBeCloseTo(180 / 960)
+
+    // The transformed bounding box (x in [0, 960], y in [-960, 0] locally)
+    // must land fully inside the 1200x400 canvas.
+    const minCanvasX = tx + 0 * scale
+    const maxCanvasX = tx + 960 * scale
+    const minCanvasY = ty + -960 * scale
+    const maxCanvasY = ty + 0 * scale
+    expect(minCanvasX).toBeGreaterThanOrEqual(0)
+    expect(maxCanvasX).toBeLessThanOrEqual(1200)
+    expect(minCanvasY).toBeGreaterThanOrEqual(0)
+    expect(maxCanvasY).toBeLessThanOrEqual(400)
+  })
+
+  it('still uses scale = 7.5 for a legacy 24x24 glyph, centred as before', () => {
+    const svg = renderPictogramSvg({ glyph: 'pets', accentColor: '#2F8F5B' })
+    const match = svg.match(/translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)\)/)
+    expect(match).toBeTruthy()
+    const [, txStr, tyStr, scaleStr] = match!
+    expect(Number(scaleStr)).toBeCloseTo(7.5)
+    expect(Number(txStr)).toBeCloseTo(510) // (1200 - 24*7.5) / 2
+    expect(Number(tyStr)).toBeCloseTo(110) // (400 - 24*7.5) / 2
   })
 })
 
