@@ -53,7 +53,7 @@
 - `apps/hoa/src/lib/dues-reminders/render.ts:151` — `renderShellHtml` uses the shared shell (Bug A)
 - `apps/hoa/src/app/(dashboard)/communications/new/NewCommunicationWizard.tsx` — audience block extracted, `QuestionStep` added
 - `apps/hoa/src/lib/communications/send.ts:247` — per-template merge bag, strict render
-- `migrations/0031_community_templates.sql` — new
+- `migrations/0044_community_templates.sql` — new
 - `apps/hoa/public/email/v1/` — generated PNGs
 
 ---
@@ -308,7 +308,21 @@ describe('renderEmailDocument', () => {
   })
 
   it('omits the band entirely when not supplied', () => {
-    expect(renderEmailDocument(BASE)).not.toContain('bgcolor="#')
+    const withBand = renderEmailDocument({ ...BASE, band: { text: 'Madison Park', color: '#2F8F5B' } })
+    const without = renderEmailDocument(BASE)
+    expect(withBand).toContain('bgcolor="#2F8F5B"')
+    expect(without).not.toContain('bgcolor="#2F8F5B"')
+    expect(without).not.toContain('Madison Park')
+  })
+
+  it('keeps bgcolor attributes on the structural cells — Outlook needs them', () => {
+    // The Word engine honours the ATTRIBUTE, not the inline style. Asserting
+    // "no bgcolor anywhere" to prove the band is absent would forbid these
+    // and silently degrade every email in Outlook.
+    const html = renderEmailDocument(BASE)
+    expect(html).toContain('bgcolor="#F1F3F5"') // page background
+    expect(html).toContain('bgcolor="#FFFFFF"') // card
+    expect(html).toContain('bgcolor="#FAFAFA"') // footer
   })
 
   it('escapes band text', () => {
@@ -505,8 +519,8 @@ wrapper that sets width as a table attribute."
 ### Task 3: Migration — global templates, community category, new columns
 
 **Files:**
-- Create: `migrations/0031_community_templates.sql`
-- Create: `migrations/verify-0031-community-templates.sql`
+- Create: `migrations/0044_community_templates.sql`
+- Create: `migrations/verify-0044-community-templates.sql`
 
 **Interfaces:**
 - Consumes: nothing
@@ -515,7 +529,7 @@ wrapper that sets width as a table attribute."
 - [ ] **Step 1: Write the migration**
 
 ```sql
--- migrations/0031_community_templates.sql
+-- migrations/0044_community_templates.sql
 --
 -- Global community email template library.
 --
@@ -637,8 +651,8 @@ COMMIT;
 - [ ] **Step 2: Write the verification script**
 
 ```sql
--- migrations/verify-0031-community-templates.sql
--- Run after 0031. Every row must report PASS.
+-- migrations/verify-0044-community-templates.sql
+-- Run after 0044. Every row must report PASS.
 
 SELECT 'organization_id nullable' AS check,
        CASE WHEN is_nullable = 'YES' THEN 'PASS' ELSE 'FAIL' END AS result
@@ -653,7 +667,7 @@ SELECT 'community category on communications' AS check,
        CASE WHEN pg_get_constraintdef(oid) LIKE '%community%' THEN 'PASS' ELSE 'FAIL' END AS result
 FROM pg_constraint WHERE conname = 'communications_category_check';
 
-SELECT 'five new columns present' AS check,
+SELECT 'six new columns present' AS check,
        CASE WHEN count(*) = 6 THEN 'PASS' ELSE 'FAIL — got ' || count(*) END AS result
 FROM information_schema.columns
 WHERE table_name = 'communication_templates'
@@ -676,7 +690,7 @@ FROM pg_policies WHERE tablename = 'communication_templates' AND policyname = 't
 
 - [ ] **Step 3: Apply and verify**
 
-Paste `0031_community_templates.sql` into the Supabase SQL editor and run it. Then run `verify-0031-community-templates.sql`.
+Paste `0044_community_templates.sql` into the Supabase SQL editor and run it. Then run `verify-0044-community-templates.sql`.
 Expected: seven rows, all `PASS`.
 
 - [ ] **Step 4: Regenerate the database types**
@@ -692,8 +706,8 @@ Expected: matches inside the `communication_templates` block.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add migrations/0031_community_templates.sql \
-        migrations/verify-0031-community-templates.sql \
+git add migrations/0044_community_templates.sql \
+        migrations/verify-0044-community-templates.sql \
         packages/db/src/database.types.ts
 git commit -m "feat(db): global community templates — nullable org, split RLS, new columns
 
@@ -2351,7 +2365,7 @@ git commit -m "feat(comms): seven phase-1 community templates"
  * Compiles the typed registry into an idempotent seed migration.
  *
  * Global rows: organization_id IS NULL. Keyed on topic_slug via the partial
- * unique index from 0031, so re-running updates rather than duplicating.
+ * unique index from 0044, so re-running updates rather than duplicating.
  *
  * Run: pnpm generate:community-sql
  */
@@ -2414,10 +2428,10 @@ async function main(): Promise<void> {
 -- Regenerate: pnpm generate:community-sql
 --
 -- Global community templates (organization_id IS NULL). Idempotent: keyed
--- on topic_slug against the partial unique index from 0031, so re-running
+-- on topic_slug against the partial unique index from 0044, so re-running
 -- updates the copy in place rather than duplicating rows.
 --
--- Requires 0031_community_templates.sql to have been applied first.
+-- Requires 0044_community_templates.sql to have been applied first.
 
 BEGIN;
 
