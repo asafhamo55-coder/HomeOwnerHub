@@ -29,7 +29,24 @@ describe('renderEmailDocument', () => {
   })
 
   it('omits the band entirely when not supplied', () => {
-    expect(renderEmailDocument(BASE)).not.toContain('bgcolor="#')
+    // Band text deliberately distinct from BASE.footerHtml ("Sent by Madison
+    // Park") — reusing "Madison Park" here would make the no-band case
+    // contain that string anyway (via the footer) regardless of band logic.
+    const withBand = renderEmailDocument({ ...BASE, band: { text: 'Riverside Commons', color: '#2F8F5B' } })
+    const without = renderEmailDocument(BASE)
+    expect(withBand).toContain('bgcolor="#2F8F5B"')
+    expect(without).not.toContain('bgcolor="#2F8F5B"')
+    expect(without).not.toContain('Riverside Commons')
+  })
+
+  it('keeps bgcolor attributes on the structural cells — Outlook needs them', () => {
+    // The Word engine honours the ATTRIBUTE, not the inline style. Asserting
+    // "no bgcolor anywhere" to prove the band is absent would forbid these
+    // and silently degrade every email in Outlook.
+    const html = renderEmailDocument(BASE)
+    expect(html).toContain('bgcolor="#F1F3F5"') // page background
+    expect(html).toContain('bgcolor="#FFFFFF"') // card
+    expect(html).toContain('bgcolor="#FAFAFA"') // footer
   })
 
   it('escapes band text', () => {
