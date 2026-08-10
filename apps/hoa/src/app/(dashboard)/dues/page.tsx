@@ -7,6 +7,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { MarkPaidButton } from './MarkPaidButton'
 import { MaterializeButton } from './MaterializeButton'
 import { DeleteAssessmentButton } from './DeleteAssessmentButton'
+import { WhoOwesPanel } from './WhoOwesPanel'
 
 export const metadata = { title: 'Dues' }
 export const dynamic = 'force-dynamic'
@@ -123,6 +124,8 @@ export default async function DuesPage() {
           <MaterializeButton monthLabel={currentMonthLabel} />
         </div>
       </header>
+
+      <WhoOwesPanel associationId={assoc.id} />
 
       {error ? (
         <Card>
