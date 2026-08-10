@@ -852,7 +852,7 @@ export const PICTOGRAMS: readonly PictogramEntry[] = [
   { slug: 'guest-parking', glyph: 'parking', accent: '#2C6FAF' },
   { slug: 'trash-and-recycling-bins', glyph: 'recycling', accent: '#268298' },
   { slug: 'work-on-site', glyph: 'construction', accent: '#7A6A1D' },
-  { slug: 'community-cleanup-day', glyph: 'cleanup', accent: '#8A3070' },
+  { slug: 'community-cleanup-day', glyph: 'cleanup', accent: '#A63A87' },
   { slug: 'pool-pass-renewal', glyph: 'pool', accent: '#1C6F31' },
   { slug: 'lease-cap-status', glyph: 'apartment', accent: '#3A5AA8' },
 ]
@@ -2245,7 +2245,7 @@ Follow the same structure. Required values:
 | `guest-parking.ts` | `guest-parking` | reminder | `#2C6FAF` | `guest-parking.png` | map |
 | `trash-and-recycling-bins.ts` | `trash-and-recycling-bins` | reminder | `#268298` | `trash-and-recycling-bins.png` | illustration |
 | `work-on-site.ts` | `work-on-site` | notice | `#7A6A1D` | `work-on-site.png` | map |
-| `community-cleanup-day.ts` | `community-cleanup-day` | invitation | `#8A3070` | `community-cleanup-day.png` | illustration |
+| `community-cleanup-day.ts` | `community-cleanup-day` | invitation | `#A63A87` | `community-cleanup-day.png` | illustration |
 | `pool-pass-renewal.ts` | `pool-pass-renewal` | submission_request | `#1C6F31` | `pool-pass-renewal.png` | illustration |
 | `lease-cap-status.ts` | `lease-cap-status` | notice | `#3A5AA8` | — | **meter** |
 
