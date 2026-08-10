@@ -7,7 +7,7 @@ import { sendEmail } from '@/lib/email'
 import { sendSms, htmlToSmsBody } from '@/lib/sms'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
-import { resolveAudience, type AudienceDefinition } from './audience'
+import { resolveAudience, stripAudienceForPersist, type AudienceDefinition } from './audience'
 import { renderTemplate } from './templates'
 
 type CommInsert = Database['public']['Tables']['communications']['Insert']
@@ -159,12 +159,14 @@ export async function sendCommunication(
     body_html: value.bodyHtml,
     body_text: value.bodyText ?? null,
     channels: value.channels,
-    // Strip the recipient array for precomputed audiences — names and
-    // emails live in communication_recipients, and copying them here
-    // would scatter PII across two tables for no benefit.
-    audience_definition: (value.audience.kind === 'precomputed'
-      ? { kind: 'precomputed', summary: value.audience.summary }
-      : value.audience) as never,
+    // Cast to satisfy Supabase's strict `Json` type — `audience.extra` is
+    // typed `Record<string, unknown>` which TS doesn't narrow to Json
+    // automatically. Runtime payload is JSON-safe.
+    //
+    // stripAudienceForPersist drops the recipient array for precomputed
+    // audiences — names and emails live in communication_recipients, and
+    // copying them here would scatter PII across two tables for no benefit.
+    audience_definition: stripAudienceForPersist(value.audience as AudienceDefinition) as never,
     audience_summary: audience.summary,
     status: initialStatus,
     source: 'manual',
@@ -276,7 +278,10 @@ export async function sendCommunication(
       // Caller-supplied per-recipient values win over the defaults above.
       // Keyed by email because that is the only identifier a precomputed
       // audience is guaranteed to share with the persisted recipient row.
-      ...(value.extraMergeFields?.[recipient.email ?? ''] ?? {}),
+      // Guard the lookup on a real email — SMS/portal recipients can have
+      // `email: null`, and without this every one of them would collapse
+      // onto the same '' key and share a stranger's merge data.
+      ...(recipient.email ? (value.extraMergeFields?.[recipient.email] ?? {}) : {}),
     }
     const subject = renderTemplate(value.subject, bag).rendered
     const html = renderTemplate(value.bodyHtml, bag).rendered

@@ -93,6 +93,19 @@ export interface ResolvedAudience {
   summary: string             // "All owners in Madison Park (82)"
 }
 
+/**
+ * Strips `recipients` from a `precomputed` audience before it is persisted
+ * to the `communications.audience_definition` jsonb column — see the NOTE
+ * on `AudienceDefinition.recipients` above. Names, emails, and phone
+ * numbers belong in `communication_recipients`; copying them into the
+ * campaign row would duplicate PII across two tables for no benefit.
+ * Every other audience kind passes through unchanged.
+ */
+export function stripAudienceForPersist(audience: AudienceDefinition): AudienceDefinition {
+  if (audience.kind !== 'precomputed') return audience
+  return { kind: 'precomputed', summary: audience.summary }
+}
+
 type Db = SupabaseClient<Database>
 
 /**

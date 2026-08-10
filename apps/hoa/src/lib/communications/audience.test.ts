@@ -8,7 +8,7 @@ const { mockFrom } = vi.hoisted(() => ({
   }),
 }))
 
-import { resolveAudience, type ResolvedRecipient } from './audience'
+import { resolveAudience, stripAudienceForPersist, type ResolvedRecipient } from './audience'
 
 const db = { from: mockFrom } as never
 
@@ -60,5 +60,36 @@ describe('resolveAudience — precomputed', () => {
 
     expect(result.recipients).toEqual([])
     expect(result.summary).toBe('0 recipients')
+  })
+})
+
+describe('stripAudienceForPersist', () => {
+  it('persists only kind and summary for a precomputed audience — no recipients key at all', () => {
+    const result = stripAudienceForPersist({
+      kind: 'precomputed',
+      recipients: RECIPIENTS,
+      summary: '1 owner with outstanding dues',
+    })
+
+    expect(result).toEqual({ kind: 'precomputed', summary: '1 owner with outstanding dues' })
+    expect('recipients' in result).toBe(false)
+  })
+
+  it('does not leak any recipient field through', () => {
+    const result = stripAudienceForPersist({
+      kind: 'precomputed',
+      recipients: RECIPIENTS,
+    })
+
+    const serialized = JSON.stringify(result)
+    expect(serialized).not.toContain('dana@example.com')
+    expect(serialized).not.toContain('Dana')
+    expect(serialized).not.toContain('unit-a')
+  })
+
+  it('passes a non-precomputed kind through unchanged', () => {
+    const audience = { kind: 'late_on_dues' as const, unitIds: ['unit-a'] }
+
+    expect(stripAudienceForPersist(audience)).toEqual(audience)
   })
 })
