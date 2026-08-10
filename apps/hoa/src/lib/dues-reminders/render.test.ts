@@ -137,8 +137,26 @@ describe('renderDuesTableHtml', () => {
   })
 
   it('escapes a property label so a crafted address cannot inject markup', () => {
+    // Multi-property so the heading actually renders (renderDuesTableHtml
+    // only emits a property heading — the sole place a label reaches
+    // visible markup — when there is more than one property).
     const nasty = packet({
-      properties: [{ ...packet().properties[0], label: '<script>x</script>' }],
+      properties: [
+        { ...packet().properties[0], label: '<script>x</script>' },
+        {
+          unitId: 'unit-b',
+          label: '22 Oak St · Unit B',
+          subtotal: 200,
+          charges: [
+            {
+              id: 'b1', assessmentType: 'special', dueDate: '2026-09-01',
+              amount: 200, paid: 0, balance: 200, pastDue: false, daysLate: 0,
+            },
+          ],
+        },
+      ],
+      totalDue: 620,
+      chargeCount: 3,
     })
     const html = renderDuesTableHtml(nasty)
     expect(html).not.toContain('<script>')

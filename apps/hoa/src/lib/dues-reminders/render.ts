@@ -101,12 +101,7 @@ ${
       const subtotal = multi
         ? `<tr><td style="padding:10px 14px;border-top:1px solid ${LINE};font-size:12px;color:${MUTED};">Subtotal <span style="float:right;font-weight:700;color:${TEXT};">${formatUsd(property.subtotal)}</span></td></tr>`
         : ''
-      // aria-label carries the (escaped) property address even when the
-      // visible heading is suppressed for a single-property packet — a
-      // role="presentation" table otherwise has no accessible name, and
-      // this keeps the label passing through escapeHtml on every path
-      // rather than only the multi-property one.
-      return `${heading}<table role="presentation" aria-label="${escapeHtml(property.label)}" width="100%" cellpadding="0" cellspacing="0" style="background:${PANEL};border:1px solid ${LINE};border-radius:10px;margin-bottom:14px;">${rows}${subtotal}</table>`
+      return `${heading}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PANEL};border:1px solid ${LINE};border-radius:10px;margin-bottom:14px;">${rows}${subtotal}</table>`
     })
     .join('')
 
