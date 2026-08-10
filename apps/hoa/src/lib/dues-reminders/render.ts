@@ -163,7 +163,7 @@ export function renderShellText(opts: { note?: string; portalUrl: string }): str
   return [
     '{{association_name}}',
     '',
-    'Hi {{owner_name}},',
+    'Hi {{owner_name_text}},',
     '',
     "Here's everything currently outstanding on your account.",
     '',

@@ -225,4 +225,14 @@ describe('renderShellText', () => {
     expect(text).toContain('Pool assessment included.')
     expect(text).not.toContain('<')
   })
+
+  it('uses the raw owner_name_text placeholder, not the escaped HTML one', () => {
+    // The send pipeline's renderTemplate does not escape merge fields, so
+    // the plain-text body must reference a separate, unescaped placeholder
+    // — using {{owner_name}} here would let an HTML-escaped value leak
+    // into a text email as literal "&amp;" etc.
+    const text = renderShellText({ portalUrl: 'https://app.test' })
+    expect(text).toContain('{{owner_name_text}}')
+    expect(text).not.toContain('{{owner_name}}')
+  })
 })
