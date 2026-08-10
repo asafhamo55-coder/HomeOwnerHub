@@ -2883,7 +2883,10 @@ export type Database = {
           direction: string
           from_email: string | null
           from_name: string | null
+          gmail_labels: string[] | null
           gmail_message_id: string
+          gmail_state: string
+          gmail_state_at: string | null
           id: string
           in_reply_to: string | null
           ingested_at: string
@@ -2905,7 +2908,10 @@ export type Database = {
           direction: string
           from_email?: string | null
           from_name?: string | null
+          gmail_labels?: string[] | null
           gmail_message_id: string
+          gmail_state?: string
+          gmail_state_at?: string | null
           id?: string
           in_reply_to?: string | null
           ingested_at?: string
@@ -2927,7 +2933,10 @@ export type Database = {
           direction?: string
           from_email?: string | null
           from_name?: string | null
+          gmail_labels?: string[] | null
           gmail_message_id?: string
+          gmail_state?: string
+          gmail_state_at?: string | null
           id?: string
           in_reply_to?: string | null
           ingested_at?: string
@@ -3145,6 +3154,7 @@ export type Database = {
         Row: {
           assigned_to: string | null
           created_at: string
+          gmail_state: string
           gmail_thread_id: string
           id: string
           last_direction: string | null
@@ -3164,6 +3174,7 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           created_at?: string
+          gmail_state?: string
           gmail_thread_id: string
           id?: string
           last_direction?: string | null
@@ -3183,6 +3194,7 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           created_at?: string
+          gmail_state?: string
           gmail_thread_id?: string
           id?: string
           last_direction?: string | null
