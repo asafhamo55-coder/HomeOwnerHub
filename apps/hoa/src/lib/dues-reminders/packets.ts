@@ -9,6 +9,17 @@ import type {
 
 const MS_PER_DAY = 86_400_000
 
+/** Explicit ceilings so PostgREST's server-side max-rows can never silently
+ *  truncate the sweep — a truncated read here understates what somebody
+ *  owes, which is worse than an obviously-too-small page of history. The
+ *  dues page lists 500 rows because it is a screenful; this is every open
+ *  charge in the association, so it is set an order of magnitude higher
+ *  than any association we serve could plausibly have outstanding. */
+const MAX_ASSESSMENTS = 5000
+/** Ownerships are fetched for units that already made the cut above, and
+ *  a unit rarely has more than two or three active owners. */
+const MAX_OWNERSHIPS = 5000
+
 /** Whole days between two 'YYYY-MM-DD' dates. Both parse as UTC midnight,
  *  so this is timezone-stable — unlike a local-time date difference. */
 export function daysBetween(fromIso: string, toIso: string): number {
@@ -25,6 +36,19 @@ export function unitLabel(u: {
 
 function round(n: number): number {
   return Math.round(n * 100) / 100
+}
+
+function toProperty(
+  unitId: string,
+  label: string,
+  charges: ReminderCharge[],
+): ReminderProperty {
+  return {
+    unitId,
+    label,
+    charges,
+    subtotal: round(charges.reduce((s, c) => s + c.balance, 0)),
+  }
 }
 
 interface AssessmentRow {
@@ -60,7 +84,7 @@ export async function buildReminderPackets(
 ): Promise<PacketBuildResult> {
   const supabase = await getSupabaseServerClient()
 
-  const { data: assessmentData } = await supabase
+  const { data: assessmentData, error: assessmentError } = await supabase
     .from('assessments')
     .select(
       'id, unit_id, amount, due_date, assessment_type, payments(amount), unit:unit_id(id, address_line1, unit_number)',
@@ -68,6 +92,16 @@ export async function buildReminderPackets(
     .eq('association_id', associationId)
     .in('status', ['open', 'partial'])
     .is('deleted_at', null)
+    .limit(MAX_ASSESSMENTS)
+
+  // supabase-js RESOLVES on a query error rather than rejecting, so an
+  // unread `error` turns an RLS change or a dropped column into `data:
+  // null` — which reads downstream as "nobody owes anything", the exact
+  // shape of the healthy empty case. Throw so the caller's error path
+  // (WhoOwesPanel's allSettled branch) actually runs.
+  if (assessmentError) {
+    throw new Error(`Failed to load assessments: ${assessmentError.message}`)
+  }
 
   const assessments = (assessmentData ?? []) as unknown as AssessmentRow[]
   const today = new Date().toISOString().slice(0, 10)
@@ -109,11 +143,18 @@ export async function buildReminderPackets(
     })
   }
 
-  const { data: ownershipData } = await supabase
+  const { data: ownershipData, error: ownershipError } = await supabase
     .from('ownerships')
     .select('unit_id, owner_name, owner_email, owner_user_id')
     .in('unit_id', unitIds)
     .is('valid_to', null)
+    .limit(MAX_OWNERSHIPS)
+
+  // Same reasoning as the assessments read above: swallowing this error
+  // would mail nobody and report it as "all caught up".
+  if (ownershipError) {
+    throw new Error(`Failed to load ownerships: ${ownershipError.message}`)
+  }
 
   const ownerships = (ownershipData ?? []) as unknown as OwnershipRow[]
 
@@ -131,25 +172,29 @@ export async function buildReminderPackets(
       continue
     }
 
-    const property: ReminderProperty = {
-      unitId: o.unit_id,
-      label,
-      charges,
-      subtotal: round(charges.reduce((s, c) => s + c.balance, 0)),
-    }
-
     const existing = byEmail.get(email)
     if (existing) {
-      existing.properties.push(property)
-      // Prefer a real name over the "Owner" placeholder.
+      // Prefer a real name over the "Owner" placeholder. Done before the
+      // duplicate check below so a second row for a unit we already have
+      // can still contribute the details the first row was missing.
       if (existing.ownerName === 'Owner' && o.owner_name) existing.ownerName = o.owner_name
       if (!existing.userId && o.owner_user_id) existing.userId = o.owner_user_id
+
+      // `ownerships` has no unique constraint on active rows — a re-run
+      // csv_import, or two rows whose emails differ only by case and get
+      // merged by the lowercasing above, can hand us the same unit twice
+      // for the same person. Adding it again would double their totalDue
+      // and flip on the multi-property layout, printing the identical
+      // property block twice.
+      if (existing.properties.some((p) => p.unitId === o.unit_id)) continue
+
+      existing.properties.push(toProperty(o.unit_id, label, charges))
     } else {
       byEmail.set(email, {
         email,
         ownerName: o.owner_name ?? 'Owner',
         userId: o.owner_user_id,
-        properties: [property],
+        properties: [toProperty(o.unit_id, label, charges)],
         totalDue: 0,
         pastDueTotal: 0,
         oldestDaysLate: 0,

@@ -155,6 +155,53 @@ describe('previewDuesReminders', () => {
     expect(result.recentlyRemindedCount).toBe(1)
   })
 
+  it('leaves no merge placeholder unsubstituted — the preview is what gets sent', async () => {
+    const result = await previewDuesReminders()
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.previewHtml).toContain('Madison Park')
+    expect(result.previewHtml).not.toMatch(/\{\{[a-z_]+\}\}/)
+  })
+
+  it('escapes the association name in the preview body', async () => {
+    mockGetAssoc.mockResolvedValue({ id: 'assoc-1', name: '<b>Madison</b>' })
+
+    const result = await previewDuesReminders()
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.previewHtml).toContain('&lt;b&gt;Madison&lt;/b&gt;')
+    expect(result.previewHtml).not.toContain('<b>Madison</b>')
+  })
+
+  it('renders the note, so the one hand-written part of the email is reviewable', async () => {
+    const result = await previewDuesReminders({ note: 'Pool assessment included.' })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.previewHtml).toContain('Pool assessment included.')
+  })
+
+  it('previews the note with merge syntax already neutralised, matching the send', async () => {
+    const result = await previewDuesReminders({ note: 'your {{balance}} is due' })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.previewHtml).toContain('your {balance} is due')
+  })
+
+  it('selects nobody for an explicitly empty email list', async () => {
+    // Not reachable from the UI, but a server action is directly
+    // invocable: falling through to "everyone past due" would turn an
+    // empty selection into a bulk mailout.
+    const result = await previewDuesReminders({ emails: [] })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.packets).toEqual([])
+  })
+
   it('escapes an owner name containing markup in the preview body', async () => {
     mockBuild.mockResolvedValue({
       packets: [{ ...PACKET, ownerName: '<b>Dana</b>' }, CURRENT],
@@ -253,5 +300,38 @@ describe('sendDuesReminders', () => {
     const input = mockSend.mock.calls[0][0]
     expect(input.extraMergeFields!['dana@example.com'].owner_name).toBe('&lt;b&gt;Dana&lt;/b&gt;')
     expect(input.extraMergeFields!['dana@example.com'].owner_name_text).toBe('<b>Dana</b>')
+  })
+
+  it('escapes the association name for HTML and provides it unescaped for text', async () => {
+    // renderTemplate injects merge values raw, so the association name gets
+    // the same two-field treatment as the owner name: escaped for the HTML
+    // body, raw for the plain-text body and the subject line. Supplying
+    // both here overrides the pipeline's base bag for this campaign only.
+    mockGetAssoc.mockResolvedValue({ id: 'assoc-1', name: 'Oak & <b>Vine</b>' })
+
+    await sendDuesReminders({ emails: ['dana@example.com'] })
+
+    const fields = mockSend.mock.calls[0][0].extraMergeFields!['dana@example.com']
+    expect(fields.association_name).toBe('Oak &amp; &lt;b&gt;Vine&lt;/b&gt;')
+    expect(fields.association_name_text).toBe('Oak & <b>Vine</b>')
+  })
+
+  it('sends to nobody when handed an explicitly empty email list', async () => {
+    const result = await sendDuesReminders({ emails: [] })
+
+    expect(result.ok).toBe(false)
+    expect(mockSend).not.toHaveBeenCalled()
+  })
+
+  it('neutralises merge syntax in the note so a manager cannot lose their own words', async () => {
+    // The note is baked into bodyHtml, which the pipeline then runs
+    // through renderTemplate — {{balance}} is not a field it knows, so it
+    // would be replaced with nothing.
+    await sendDuesReminders({ emails: ['dana@example.com'], note: 'your {{balance}} is due' })
+
+    const input = mockSend.mock.calls[0][0]
+    expect(input.bodyHtml).toContain('your {balance} is due')
+    expect(input.bodyText).toContain('your {balance} is due')
+    expect(input.bodyHtml).not.toContain('{{balance}}')
   })
 })

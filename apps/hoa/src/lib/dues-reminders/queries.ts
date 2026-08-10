@@ -24,7 +24,7 @@ export async function getLastRemindedByEmail(
 ): Promise<Map<string, string>> {
   const supabase = await getSupabaseServerClient()
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('communications')
     .select('sent_at, communication_recipients(email)')
     .eq('association_id', associationId)
@@ -41,6 +41,18 @@ export async function getLastRemindedByEmail(
     .not('sent_at', 'is', null)
     .order('sent_at', { ascending: false })
     .limit(200)
+
+  // Deliberately NOT thrown, unlike the reads in packets.ts. What this
+  // map feeds is advisory: the "Reminded 3d ago" annotation and the
+  // dialog's repeat warning. Both call sites already degrade to an empty
+  // map when it fails (WhoOwesPanel's allSettled branch), because losing
+  // an annotation is not a reason to hide who owes money. Throwing would
+  // also take down previewDuesReminders, which does not degrade — so the
+  // honest behaviour here is to return what we have and record why it is
+  // thin. Message only, never the row data: those rows carry emails.
+  if (error) {
+    console.error('getLastRemindedByEmail: lookup failed', { message: error.message })
+  }
 
   const rows = (data ?? []) as unknown as CommRow[]
   const latest = new Map<string, string>()

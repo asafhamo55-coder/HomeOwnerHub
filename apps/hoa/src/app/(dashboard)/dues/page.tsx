@@ -91,17 +91,21 @@ export default async function DuesPage() {
   const today = new Date()
   const currentMonthLabel = format(today, 'MMM yyyy')
 
-  const totalOverdue = rows
-    .filter((r) => r.status !== 'paid' && r.status !== 'waived' && new Date(r.due_date) < today)
-    .reduce((sum, r) => {
-      const paid = (r.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
-      return sum + Math.max(Number(r.amount) - paid, 0)
-    }, 0)
-  const overdueUnitCount = new Set(
-    rows
-      .filter((r) => r.status !== 'paid' && r.status !== 'waived' && new Date(r.due_date) < today)
-      .map((r) => r.unit?.id),
-  ).size
+  // Compared as date strings, not Dates: `new Date('2026-08-09') < today`
+  // is true from 00:00:01 onward, because `today` carries a time — so a
+  // charge due TODAY counted as overdue here while the Who owes panel
+  // directly below, which compares 'YYYY-MM-DD' strings, called it current.
+  // Due today is not late; this is the boundary both now use.
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const overdueRows = rows.filter(
+    (r) => r.status !== 'paid' && r.status !== 'waived' && r.due_date < todayIso,
+  )
+
+  const totalOverdue = overdueRows.reduce((sum, r) => {
+    const paid = (r.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
+    return sum + Math.max(Number(r.amount) - paid, 0)
+  }, 0)
+  const overdueUnitCount = new Set(overdueRows.map((r) => r.unit?.id)).size
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">

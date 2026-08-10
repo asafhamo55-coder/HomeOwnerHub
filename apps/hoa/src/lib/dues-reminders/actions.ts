@@ -11,6 +11,7 @@ import {
   SUBJECT_TEMPLATE,
   amountSummary,
   escapeHtml,
+  neutralizeMergeSyntax,
   renderDuesTableHtml,
   renderDuesTableText,
   renderShellHtml,
@@ -60,7 +61,7 @@ function portalUrl(): string {
 }
 
 async function loadContext(): Promise<
-  { ok: true; associationId: string } | { ok: false; error: string }
+  { ok: true; associationId: string; associationName: string } | { ok: false; error: string }
 > {
   const org = await getCurrentOrg()
   if (!org) return { ok: false, error: 'No organization found.' }
@@ -71,21 +72,35 @@ async function loadContext(): Promise<
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 
-  return { ok: true, associationId: assoc.id }
+  return { ok: true, associationId: assoc.id, associationName: assoc.name }
 }
 
 /** Bulk targets past-due owners only; an explicit email list targets
- *  exactly those people, past due or not — the manager picked them. */
+ *  exactly those people, past due or not — the manager picked them.
+ *
+ *  An empty array is an explicit list that happens to name nobody, and
+ *  selects nobody. Only an absent list means "everyone past due" — the UI
+ *  never sends `[]`, but a server action is directly invocable and the
+ *  fallthrough would have quietly mailed the whole association. */
 function selectPackets(packets: ReminderPacket[], emails?: string[]): ReminderPacket[] {
-  if (emails && emails.length > 0) {
+  if (emails) {
     const wanted = new Set(emails.map((e) => e.trim().toLowerCase()))
     return packets.filter((p) => wanted.has(p.email))
   }
   return packets.filter((p) => p.pastDueTotal > 0)
 }
 
+/** The note is free text the manager typed, and it is baked into a shell
+ *  that the send pipeline then runs through renderTemplate — so it has to
+ *  be made inert first, or a note containing {{anything}} loses those
+ *  words on the way out. Trimmed and capped to match the textarea. */
+function prepareNote(note: string | undefined): string | undefined {
+  const trimmed = note?.trim().slice(0, 500)
+  return trimmed ? neutralizeMergeSyntax(trimmed) : undefined
+}
+
 export async function previewDuesReminders(
-  input?: { emails?: string[] },
+  input?: { emails?: string[]; note?: string },
 ): Promise<PreviewResult> {
   const ctx = await loadContext()
   if (!ctx.ok) return ctx
@@ -110,15 +125,19 @@ export async function previewDuesReminders(
   })
 
   const first = selected[0]
-  // {{owner_name}} appears twice in the shell (greeting + footer isn't
-  // owner_name, but the greeting line alone can still recur if the shell
-  // changes) — use a global regex so the preview can't silently diverge
-  // from what the send pipeline actually renders, which also uses a
-  // global replace via renderTemplate.
+  // Substitute exactly what the send pipeline substitutes, from the same
+  // shell and the same note — a preview that omits a placeholder shows the
+  // manager a literal "{{association_name}}", and one that omits the note
+  // hides the only hand-written part of the email from review.
+  //
+  // Replacements are functions, not strings, because a string replacement
+  // interprets `$&` and friends — and these values carry currency and
+  // escaped entities.
   const previewHtml = first
-    ? renderShellHtml({ portalUrl: portalUrl() })
-        .replace('{{dues_table}}', renderDuesTableHtml(first))
-        .replace(/\{\{owner_name\}\}/g, escapeHtml(first.ownerName))
+    ? renderShellHtml({ note: prepareNote(input?.note), portalUrl: portalUrl() })
+        .replace(/\{\{dues_table\}\}/g, () => renderDuesTableHtml(first))
+        .replace(/\{\{owner_name\}\}/g, () => escapeHtml(first.ownerName))
+        .replace(/\{\{association_name\}\}/g, () => escapeHtml(ctx.associationName))
     : ''
 
   return {
@@ -148,7 +167,7 @@ export async function sendDuesReminders(
     return { ok: false, error: 'None of the selected owners currently owe anything.' }
   }
 
-  const note = input.note?.trim().slice(0, 500)
+  const note = prepareNote(input.note)
 
   const recipients = selected.map((p) => ({
     unitId: p.properties[0].unitId,
@@ -177,6 +196,12 @@ export async function sendDuesReminders(
       // (an owner named "Smith & Sons" must not read "Smith &amp; Sons").
       owner_name: escapeHtml(p.ownerName),
       owner_name_text: p.ownerName,
+      // The association name is staff-entered too and reaches the same two
+      // contexts, so it gets the same split. Supplying it here overrides
+      // the pipeline's own base bag for THIS campaign only — no other
+      // communication template's rendering changes.
+      association_name: escapeHtml(ctx.associationName),
+      association_name_text: ctx.associationName,
     }
   }
 

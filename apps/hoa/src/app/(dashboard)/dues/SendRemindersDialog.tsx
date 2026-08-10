@@ -42,6 +42,13 @@ export function SendRemindersDialog({
   // to read the *current* value at the moment its awaited call resolves,
   // not the value captured in its own closure.
   const loadGeneration = useRef(0)
+  // Also not state: `sending` only becomes true on the render that follows
+  // setSending, so two clicks dispatched before that render would both see
+  // the old value. React 18 flushes discrete events synchronously, which
+  // makes that unreachable in practice — but "we email residents twice
+  // about money" should not rest on a scheduling guarantee. A ref is
+  // written and read synchronously, so the second click always loses.
+  const sendInFlight = useRef(false)
 
   useEffect(() => setMounted(true), [])
 
@@ -87,37 +94,69 @@ export function SendRemindersDialog({
     // closed) so this fetch can't render alongside leftover state.
     setDone(null)
     setPreview(null)
-    const result = await previewDuesReminders(emails ? { emails } : undefined)
-    if (generation !== loadGeneration.current) return
-    setLoading(false)
-    if (!result.ok) {
-      setError(result.error)
-      return
+    try {
+      // The note goes with the request so the iframe shows the manager's
+      // own words in place — it is the one hand-written part of the email,
+      // and previewing the shell without it previews the wrong message.
+      const result = await previewDuesReminders({
+        ...(emails ? { emails } : {}),
+        note: note.trim() || undefined,
+      })
+      if (generation !== loadGeneration.current) return
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+      setPreview(result)
+    } catch {
+      // A rejected server action (a network drop, a redeploy mid-request)
+      // never returns a result object, so without this the dialog would
+      // sit on its spinner forever. The message stays generic: the
+      // rejection value can carry server detail we don't want on screen.
+      if (generation !== loadGeneration.current) return
+      setError("Couldn't work out who owes what. Close this and try again.")
+    } finally {
+      // Guarded like the branches above: a superseded load must not clear
+      // the spinner belonging to the load that replaced it.
+      if (generation === loadGeneration.current) setLoading(false)
     }
-    setPreview(result)
   }
 
   async function send() {
     if (!preview) return
+    if (sendInFlight.current) return
+    sendInFlight.current = true
     setSending(true)
     setError(null)
-    const result = await sendDuesReminders({
-      emails: preview.packets.map((p) => p.email),
-      note: note.trim() || undefined,
-    })
-    setSending(false)
-    if (!result.ok) {
-      setError(result.error)
-      return
+    try {
+      const result = await sendDuesReminders({
+        emails: preview.packets.map((p) => p.email),
+        note: note.trim() || undefined,
+      })
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+      setDone(
+        result.failedCount > 0
+          ? `Sent ${result.sentCount}, ${result.failedCount} failed.`
+          : `Sent ${result.sentCount} reminder${result.sentCount === 1 ? '' : 's'}.`,
+      )
+      // Clear the preview so a re-render after a successful send can't offer
+      // "Send N reminders" again against packets that were already mailed.
+      setPreview(null)
+    } catch {
+      // Every exit from this dialog is gated on `sending`, so leaving it
+      // set would trap the manager behind a spinner. The wording refuses
+      // to guess: a rejection can land either side of the actual send.
+      setError(
+        "Something went wrong sending the reminders, and we can't tell how far it got. " +
+          'Check Communications before sending again.',
+      )
+    } finally {
+      sendInFlight.current = false
+      setSending(false)
     }
-    setDone(
-      result.failedCount > 0
-        ? `Sent ${result.sentCount}, ${result.failedCount} failed.`
-        : `Sent ${result.sentCount} reminder${result.sentCount === 1 ? '' : 's'}.`,
-    )
-    // Clear the preview so a re-render after a successful send can't offer
-    // "Send N reminders" again against packets that were already mailed.
-    setPreview(null)
   }
 
   const count = preview?.packets.length ?? 0
@@ -214,6 +253,18 @@ export function SendRemindersDialog({
                 onChange={(e) => setNote(e.target.value)}
                 className="mt-1"
               />
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <p className="text-xs text-muted">
+                  The note appears above the charges in every email.
+                </p>
+                {/* An explicit refresh rather than re-rendering as the
+                    manager types: the preview costs a server round-trip
+                    that reads every open assessment, and a keystroke-driven
+                    one would hammer it. */}
+                <Button variant="ghost" size="sm" onClick={load} disabled={sending || loading}>
+                  Update preview
+                </Button>
+              </div>
             </div>
 
             {preview.previewHtml ? (

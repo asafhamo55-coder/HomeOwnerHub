@@ -9,14 +9,17 @@ vi.mock('@/lib/supabase/server', () => ({
 import { buildReminderPackets, daysBetween, unitLabel } from './packets'
 
 // The real client returns a thenable builder; every filter method returns
-// `this` and awaiting it yields { data }. This fake does the same so the
-// production code can chain freely without the test knowing the order.
-function table(data: unknown[]) {
+// `this` and awaiting it yields { data, error }. This fake does the same so
+// the production code can chain freely without the test knowing the order.
+// Note it RESOLVES with an error rather than rejecting — that is what
+// supabase-js does, and the whole point of the error tests below.
+function table(data: unknown[], error: { message: string } | null = null) {
   const builder: Record<string, unknown> = {}
   for (const m of ['select', 'eq', 'in', 'is', 'not', 'lt', 'order', 'limit']) {
     builder[m] = () => builder
   }
-  builder.then = (resolve: (v: { data: unknown[] }) => unknown) => resolve({ data })
+  builder.then = (resolve: (v: { data: unknown[] | null; error: unknown }) => unknown) =>
+    resolve({ data: error ? null : data, error })
   return builder
 }
 
@@ -28,10 +31,15 @@ beforeEach(() => {
   vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`))
 })
 
-function setupTables(opts: { assessments?: unknown[]; ownerships?: unknown[] }) {
+function setupTables(opts: {
+  assessments?: unknown[]
+  ownerships?: unknown[]
+  assessmentsError?: { message: string }
+  ownershipsError?: { message: string }
+}) {
   mockFrom.mockImplementation((name: string) => {
-    if (name === 'assessments') return table(opts.assessments ?? [])
-    if (name === 'ownerships') return table(opts.ownerships ?? [])
+    if (name === 'assessments') return table(opts.assessments ?? [], opts.assessmentsError ?? null)
+    if (name === 'ownerships') return table(opts.ownerships ?? [], opts.ownershipsError ?? null)
     throw new Error(`unexpected table: ${name}`)
   })
 }
@@ -173,6 +181,48 @@ describe('buildReminderPackets', () => {
     expect(skipped).toEqual([{ ownerName: 'Priya', unitLabel: '14 Oak St' }])
   })
 
+  it('counts a unit once when the same owner holds two active ownership rows for it', async () => {
+    // `ownerships` has no unique constraint on active rows, so a re-run
+    // csv_import leaves two. Emails differing only by case land on the same
+    // packet key too. Either way the unit must be counted once — otherwise
+    // the resident is told they owe twice what they owe.
+    setupTables({
+      assessments: [
+        { id: 'a1', unit_id: 'unit-a', amount: 310, due_date: '2026-07-01', assessment_type: 'regular', payments: [], unit: UNIT_A },
+      ],
+      ownerships: [
+        { unit_id: 'unit-a', owner_name: 'Dana', owner_email: 'dana@example.com', owner_user_id: null },
+        { unit_id: 'unit-a', owner_name: 'Dana', owner_email: 'DANA@example.com', owner_user_id: 'u1' },
+      ],
+    })
+
+    const { packets } = await buildReminderPackets('assoc-1')
+
+    expect(packets).toHaveLength(1)
+    expect(packets[0].properties).toHaveLength(1)
+    expect(packets[0].totalDue).toBe(310)
+    expect(packets[0].pastDueTotal).toBe(310)
+    expect(packets[0].chargeCount).toBe(1)
+  })
+
+  it('still takes the user id from a duplicate row that carries one', async () => {
+    setupTables({
+      assessments: [
+        { id: 'a1', unit_id: 'unit-a', amount: 310, due_date: '2026-07-01', assessment_type: 'regular', payments: [], unit: UNIT_A },
+      ],
+      ownerships: [
+        { unit_id: 'unit-a', owner_name: null, owner_email: 'dana@example.com', owner_user_id: null },
+        { unit_id: 'unit-a', owner_name: 'Dana', owner_email: 'dana@example.com', owner_user_id: 'u1' },
+      ],
+    })
+
+    const { packets } = await buildReminderPackets('assoc-1')
+
+    expect(packets[0].properties).toHaveLength(1)
+    expect(packets[0].ownerName).toBe('Dana')
+    expect(packets[0].userId).toBe('u1')
+  })
+
   it('sorts packets by past-due total descending', async () => {
     setupTables({
       assessments: [
@@ -205,5 +255,33 @@ describe('buildReminderPackets', () => {
     const { packets } = await buildReminderPackets('assoc-1')
 
     expect(packets[0].properties[0].charges.map((c) => c.id)).toEqual(['old', 'new', 'up'])
+  })
+})
+
+describe('buildReminderPackets query failures', () => {
+  // supabase-js resolves — it does not reject — when a query fails, so an
+  // unread `error` would turn an RLS change into an empty packet list. The
+  // panel renders an empty list as "nobody owes anything", which is the one
+  // wrong answer a dues page must never give. These prove it rejects
+  // instead, which is what the panel's error card is wired to.
+  it('rejects instead of reporting nobody owes when the assessments read fails', async () => {
+    setupTables({ assessmentsError: { message: 'permission denied for table assessments' } })
+
+    await expect(buildReminderPackets('assoc-1')).rejects.toThrow(
+      /permission denied for table assessments/,
+    )
+  })
+
+  it('rejects instead of reporting nobody owes when the ownerships read fails', async () => {
+    setupTables({
+      assessments: [
+        { id: 'a1', unit_id: 'unit-a', amount: 310, due_date: '2026-07-01', assessment_type: 'regular', payments: [], unit: UNIT_A },
+      ],
+      ownershipsError: { message: 'column ownerships.valid_to does not exist' },
+    })
+
+    await expect(buildReminderPackets('assoc-1')).rejects.toThrow(
+      /column ownerships.valid_to does not exist/,
+    )
   })
 })
