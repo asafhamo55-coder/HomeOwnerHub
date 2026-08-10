@@ -145,7 +145,7 @@ describe('assertAccent', () => {
 describe('tintOver', () => {
   it('composites the accent over the panel base at the given alpha', () => {
     // 8% of #2F8F5B over #FAFAFA
-    expect(tintOver('#2F8F5B', 0.08)).toBe('#eef6f1')
+    expect(tintOver('#2F8F5B', 0.08)).toBe('#eaf1ed')
   })
 
   it('returns the base unchanged at alpha 0', () => {
@@ -749,7 +749,7 @@ describe('renderPictogramSvg', () => {
   it('paints an opaque tinted panel — email cannot do transparency', () => {
     const svg = renderPictogramSvg(spec)
     // accent at 8% over #FAFAFA
-    expect(svg).toContain('#eef6f1')
+    expect(svg).toContain('#eaf1ed')
     expect(svg).not.toContain('fill-opacity="0"')
     expect(svg).not.toContain('transparent')
   })
@@ -1444,7 +1444,7 @@ describe('renderVisualBlock', () => {
 
   it('paints the containing cell so a blocked image looks deliberate', () => {
     const html = renderVisualBlock({ kind: 'illustration', asset: 'x.png', alt: 'A real description' }, ACCENT)
-    expect(html).toContain('bgcolor="#eef6f1"')
+    expect(html).toContain('bgcolor="#eaf1ed"')
   })
 
   it('delegates the meter kind and emits no image', () => {
