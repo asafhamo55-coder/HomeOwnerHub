@@ -103,6 +103,19 @@ export function ThreadList({
             <p className={`truncate text-xs ${confidenceTone(thread)}`}>
               {attributionLabel(thread)}
             </p>
+            {/* Only rendered where it is load-bearing — in the "Filed in
+                Gmail" view, where every row is hidden from the working
+                inbox and the manager's next question is *why*. "Filed" and
+                "Trashed" are different enough decisions to be worth
+                distinguishing: one is where the board put it, the other is
+                the board throwing it away. Everywhere else the state is
+                'active' or 'unknown' and a badge would be noise on every
+                row. */}
+            {thread.gmailState === 'archived' || thread.gmailState === 'trashed' ? (
+              <p className="truncate text-xs text-muted">
+                {thread.gmailState === 'trashed' ? 'Trashed in Gmail' : 'Filed in Gmail'}
+              </p>
+            ) : null}
           </Link>
         </li>
       ))}

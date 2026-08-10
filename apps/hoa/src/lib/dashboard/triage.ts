@@ -33,6 +33,23 @@ type Db = SupabaseClient<Database>
  */
 export const ACTIVE_STATUSES = ['needs_review', 'open'] as const
 
+/**
+ * Thread states that have left the Gmail inbox, as a PostgREST `in` list.
+ *
+ * The dashboard triage card and the daily digest have to apply the same
+ * Gmail-filing exclusion the inbox list does (see
+ * apps/hoa/src/lib/inbox/queries.ts). Without it, mail the board filed away
+ * in Gmail keeps driving "N threads need a reply" on the dashboard and
+ * keeps arriving in the digest email — telling a board it has unanswered
+ * mail that its own inbox no longer shows, which is worse than the
+ * original divergence because it actively nags.
+ *
+ * `gmail_state` is NOT NULL defaulting to 'unknown' (migration 0043), so
+ * this is a plain two-valued comparison and 'unknown' — never observed —
+ * stays counted. Same fail-open choice as the inbox list.
+ */
+export const HIDDEN_GMAIL_STATES_SQL = '("archived","trashed")'
+
 /** How many thread rows the card lists. */
 const THREAD_LIMIT = 5
 
@@ -63,14 +80,16 @@ export async function getTriageSnapshot(
       .eq('organization_id', orgId)
       .not('unit_id', 'is', null)
       .eq('last_direction', 'inbound')
-      .in('status', ACTIVE_STATUSES),
+      .in('status', ACTIVE_STATUSES)
+      .not('gmail_state', 'in', HIDDEN_GMAIL_STATES_SQL),
 
     db
       .from('inbox_threads')
       .select('id', { count: 'exact', head: true })
       .eq('organization_id', orgId)
       .is('unit_id', null)
-      .in('status', ACTIVE_STATUSES),
+      .in('status', ACTIVE_STATUSES)
+      .not('gmail_state', 'in', HIDDEN_GMAIL_STATES_SQL),
 
     db
       .from('inbox_threads')
@@ -79,6 +98,7 @@ export async function getTriageSnapshot(
       .not('unit_id', 'is', null)
       .eq('last_direction', 'inbound')
       .in('status', ACTIVE_STATUSES)
+      .not('gmail_state', 'in', HIDDEN_GMAIL_STATES_SQL)
       // Oldest first: a triage queue that buries the six-day-old thread
       // under this morning's arrivals defeats its own purpose.
       .order('last_message_at', { ascending: true })

@@ -40,6 +40,7 @@
 
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
+import type { GmailThreadState } from '@homeowner-portal/mailbox'
 
 type Db = SupabaseClient<Database>
 
@@ -327,6 +328,42 @@ export type InboxFilter =
   | 'waiting'
   | 'closed'
   | 'all'
+  | 'archived_in_gmail'
+
+/** Status filters, i.e. everything except the Gmail-filing view. */
+export type StatusFilter = Exclude<InboxFilter, 'all' | 'archived_in_gmail'>
+
+/**
+ * Thread states that have left the Gmail inbox, as a PostgREST `in` list.
+ *
+ * Kept as a literal rather than built from HIDDEN_GMAIL_THREAD_STATES at
+ * runtime: PostgREST wants this exact quoted-tuple syntax, and a template
+ * that produced a subtly wrong string would silently match zero rows —
+ * i.e. show everything and look like the bug was never fixed. The
+ * companion unit test pins the two in sync.
+ */
+const HIDDEN_STATES_SQL = '("archived","trashed")'
+
+/**
+ * Restrict a thread query to what is (or is not) still live in Gmail.
+ *
+ * `inbox_threads.gmail_state` is NOT NULL with a default of 'unknown'
+ * (migration 0043), so this is a plain two-valued comparison — unlike
+ * `last_direction` below, where NULL forced the `.or(...)` workaround. That
+ * default is load-bearing: 'unknown' means "we have never observed this
+ * thread in Gmail", and it deliberately falls on the VISIBLE side. Mail
+ * whose filing state we have never checked must not be hidden on the
+ * assumption that the board probably filed it — that would make a
+ * migration silently empty someone's inbox.
+ */
+function applyGmailVisibility<Q extends { in: (...args: any[]) => Q; not: (...args: any[]) => Q }>(
+  query: Q,
+  visible: boolean,
+): Q {
+  return visible
+    ? query.not('gmail_state', 'in', HIDDEN_STATES_SQL)
+    : query.in('gmail_state', ['archived', 'trashed'])
+}
 
 /**
  * The `needs_review` / `awaiting_resident` split, shared by
@@ -359,7 +396,7 @@ export type InboxFilter =
  */
 function applyStatusFilter<Q extends { eq: (...args: any[]) => Q; or: (...args: any[]) => Q }>(
   query: Q,
-  filter: Exclude<InboxFilter, 'all'>,
+  filter: StatusFilter,
 ): Q {
   if (filter === 'awaiting_resident') {
     return query.eq('status', 'needs_review').eq('last_direction', 'outbound')
@@ -370,6 +407,35 @@ function applyStatusFilter<Q extends { eq: (...args: any[]) => Q; or: (...args: 
       .or('last_direction.is.null,last_direction.neq.outbound')
   }
   return query.eq('status', filter)
+}
+
+/**
+ * The single place a filter name turns into a query, shared by
+ * `countThreadsByStatus` and `listThreads`.
+ *
+ * Both the status split AND the Gmail-visibility split have to be applied
+ * identically in the two functions, and the count/list disagreement that
+ * `countThreadsByStatus`'s comment warns about is now possible in two
+ * independent ways rather than one. Routing both through here is what
+ * makes that structurally impossible instead of merely intended.
+ *
+ * `archived_in_gmail` deliberately carries NO status predicate. It is a
+ * view of what the board filed away in Gmail, and filing has nothing to do
+ * with HomeownerHub's own triage state — a thread can be filed while still
+ * marked `needs_review`, and that combination is precisely the one a
+ * manager comes to this chip looking for.
+ */
+function applyInboxFilter<
+  Q extends {
+    eq: (...args: any[]) => Q
+    or: (...args: any[]) => Q
+    in: (...args: any[]) => Q
+    not: (...args: any[]) => Q
+  },
+>(query: Q, filter: InboxFilter): Q {
+  if (filter === 'archived_in_gmail') return applyGmailVisibility(query, false)
+  const visible = applyGmailVisibility(query, true)
+  return filter === 'all' ? visible : applyStatusFilter(visible, filter)
 }
 
 /**
@@ -392,6 +458,13 @@ export interface ThreadListItem {
   matchConfidence: string
   status: string
   hasAttachments: boolean
+  /**
+   * Where the thread sits in Gmail. Surfaced so the `archived_in_gmail`
+   * view can say WHICH kind of filing it is showing — "the board put this
+   * in a folder" and "the board threw this away" are different enough that
+   * a single "not in your inbox" label would leave a manager guessing.
+   */
+  gmailState: GmailThreadState
 }
 
 /**
@@ -412,7 +485,7 @@ export async function countThreadsByStatus(
   db: Db,
   orgId: string,
 ): Promise<Record<InboxFilter, number>> {
-  const filters: Array<Exclude<InboxFilter, 'all'>> = [
+  const statusFilters: StatusFilter[] = [
     'needs_review',
     'awaiting_resident',
     'open',
@@ -420,9 +493,18 @@ export async function countThreadsByStatus(
     'closed',
   ]
 
+  // `archived_in_gmail` is counted with its own query rather than derived,
+  // because it is not a partition of the five above — it spans every
+  // status and is disjoint from all of them by construction (they exclude
+  // the hidden states, it selects only them). Summing it into `all` would
+  // therefore double-report nothing, but it would also make `all` mean
+  // "everything including what you filed away", which is the opposite of
+  // what the chip promises.
+  const filters: InboxFilter[] = [...statusFilters, 'archived_in_gmail']
+
   const counts = await Promise.all(
     filters.map((filter) =>
-      applyStatusFilter(
+      applyInboxFilter(
         db
           .from('inbox_threads')
           .select('id', { count: 'exact', head: true })
@@ -441,7 +523,7 @@ export async function countThreadsByStatus(
     }
     result[filter] = count ?? 0
   })
-  result.all = filters.reduce((sum, filter) => sum + result[filter], 0)
+  result.all = statusFilters.reduce((sum, filter) => sum + result[filter], 0)
   return result
 }
 
@@ -471,14 +553,15 @@ export async function listThreads(
   limit = INBOX_PAGE_SIZE,
   offset = 0,
 ): Promise<ThreadListItem[]> {
-  let query = db
-    .from('inbox_threads')
-    .select('id, subject, unit_id, match_confidence, status, last_message_at')
-    .eq('organization_id', orgId)
-    .order('last_message_at', { ascending: false, nullsFirst: false })
-    .range(offset, offset + limit - 1)
-
-  if (filter !== 'all') query = applyStatusFilter(query, filter)
+  const query = applyInboxFilter(
+    db
+      .from('inbox_threads')
+      .select('id, subject, unit_id, match_confidence, status, last_message_at, gmail_state')
+      .eq('organization_id', orgId)
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .range(offset, offset + limit - 1),
+    filter,
+  )
 
   const { data: threads, error: threadsError } = await query
   if (threadsError) {
@@ -556,6 +639,7 @@ export async function listThreads(
       matchConfidence: thread.match_confidence,
       status: thread.status,
       hasAttachments: threadsWithFiles.has(thread.id),
+      gmailState: (thread.gmail_state ?? 'unknown') as GmailThreadState,
     }
   })
 }
@@ -1152,11 +1236,21 @@ export async function listThreadsForUnit(
   unitId: string,
   limit = CORRESPONDENCE_SUMMARY_LIMIT,
 ): Promise<CorrespondenceThreadSummary[]> {
-  const { data, error } = await db
-    .from('inbox_threads')
-    .select('id, subject, status, last_message_at')
-    .eq('organization_id', orgId)
-    .eq('unit_id', unitId)
+  // Same Gmail-filing exclusion the inbox list applies. There is a real
+  // argument the other way — this card is a correspondence RECORD, and a
+  // record that hides things is a worse record — but consistency wins:
+  // "matched to Gmail" has to mean one thing on every surface, or a
+  // manager who files a thread and then still sees it on the property page
+  // cannot tell which screen is lying. Nothing is deleted; the thread stays
+  // reachable from the inbox's "Filed in Gmail" chip and by direct link.
+  const { data, error } = await applyGmailVisibility(
+    db
+      .from('inbox_threads')
+      .select('id, subject, status, last_message_at')
+      .eq('organization_id', orgId)
+      .eq('unit_id', unitId),
+    true,
+  )
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .limit(limit)
 

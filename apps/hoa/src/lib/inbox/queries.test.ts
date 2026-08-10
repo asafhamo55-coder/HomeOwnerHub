@@ -13,6 +13,9 @@ function dbWithChain(result: { data: unknown; error: unknown }) {
   const chain = {
     select: vi.fn(() => chain),
     eq: vi.fn(() => chain),
+    // Carries the Gmail-filing exclusion, so the property page's
+    // correspondence card hides exactly what the inbox hides.
+    not: vi.fn(() => chain),
     order: vi.fn(() => chain),
     limit: vi.fn(() => result),
   }
@@ -28,6 +31,17 @@ describe('listThreadsForUnit', () => {
     expect(db.from).toHaveBeenCalledWith('inbox_threads')
     expect(db._chain.eq).toHaveBeenCalledWith('organization_id', 'org-1')
     expect(db._chain.eq).toHaveBeenCalledWith('unit_id', 'unit-1')
+  })
+
+  it('hides threads the board filed away in Gmail, exactly as the inbox list does', async () => {
+    // Consistency across surfaces: a manager who files a thread in Gmail
+    // must not find it gone from the inbox but still listed here, with no
+    // way to tell which screen is right.
+    const db = dbWithChain({ data: [], error: null })
+
+    await listThreadsForUnit(db as never, 'org-1', 'unit-1')
+
+    expect(db._chain.not).toHaveBeenCalledWith('gmail_state', 'in', '("archived","trashed")')
   })
 
   it('orders by last_message_at descending and caps with the given limit', async () => {
@@ -171,10 +185,10 @@ describe('getThreadDetail — vendor filing', () => {
  * from `countThreadsByStatus` only fails those two).
  */
 describe('needs_review / awaiting_resident split', () => {
-  type Calls = { eq: unknown[][]; or: unknown[][] }
+  type Calls = { eq: unknown[][]; or: unknown[][]; not: unknown[][]; in: unknown[][] }
 
   function makeChain(result: { data?: unknown; error: unknown; count?: number | null }) {
-    const calls: Calls = { eq: [], or: [] }
+    const calls: Calls = { eq: [], or: [], not: [], in: [] }
     const chain: Record<string, unknown> = {
       select: vi.fn(() => chain),
       eq: vi.fn((...args: unknown[]) => {
@@ -185,6 +199,18 @@ describe('needs_review / awaiting_resident split', () => {
         calls.or.push(args)
         return chain
       }),
+      // `.not` and `.in` carry the Gmail-filing predicate. A double that
+      // omitted them would not merely fail — it would make every filter
+      // look correct while the predicate that hides filed mail went
+      // unasserted, which is the exact defect this feature exists to fix.
+      not: vi.fn((...args: unknown[]) => {
+        calls.not.push(args)
+        return chain
+      }),
+      in: vi.fn((...args: unknown[]) => {
+        calls.in.push(args)
+        return chain
+      }),
       order: vi.fn(() => chain),
       range: vi.fn(() => chain),
       then: (resolve: (r: unknown) => unknown) => Promise.resolve(result).then(resolve),
@@ -192,9 +218,13 @@ describe('needs_review / awaiting_resident split', () => {
     return { chain, calls }
   }
 
+  /** The exact PostgREST predicate that hides mail filed away in Gmail. */
+  const HIDDEN = ['gmail_state', 'in', '("archived","trashed")']
+
   /** One fresh chain per `.from()` call, in call order — matches the
    * `filters.map(...)` order inside `countThreadsByStatus`:
-   * needs_review, awaiting_resident, open, waiting, closed. */
+   * needs_review, awaiting_resident, open, waiting, closed,
+   * archived_in_gmail. */
   function dbForCounts(counts: number[]) {
     const perCallCalls: Calls[] = []
     let i = 0
@@ -215,7 +245,7 @@ describe('needs_review / awaiting_resident split', () => {
 
   describe('countThreadsByStatus', () => {
     it('counts needs_review, awaiting_resident, open, waiting, closed and sums them into all', async () => {
-      const { db } = dbForCounts([39, 33, 3, 2, 1])
+      const { db } = dbForCounts([39, 33, 3, 2, 1, 26])
 
       const result = await countThreadsByStatus(db, 'org-1')
 
@@ -225,8 +255,15 @@ describe('needs_review / awaiting_resident split', () => {
         open: 3,
         waiting: 2,
         closed: 1,
+        archived_in_gmail: 26,
         all: 78,
       })
+      // `all` deliberately EXCLUDES archived_in_gmail. The five status
+      // buckets already exclude filed mail, so folding it in would make
+      // "All" mean "everything including what you filed away in Gmail" —
+      // the opposite of what the chip promises, and a silent re-run of the
+      // original divergence right in the headline number.
+      expect(result.all).toBe(78)
       // The measured Madison Park split: 72 needs_review threads before
       // the split, 33 outbound-last + 39 not — `all` must reflect the
       // true total, not double-count the shared needs_review status.
@@ -234,7 +271,7 @@ describe('needs_review / awaiting_resident split', () => {
     })
 
     it('needs_review filters status=needs_review AND an OR that excludes outbound but ADMITS null', async () => {
-      const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1])
+      const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 26])
       await countThreadsByStatus(db, 'org-1')
 
       const needsReview = perCallCalls[0]
@@ -251,7 +288,7 @@ describe('needs_review / awaiting_resident split', () => {
     })
 
     it('awaiting_resident filters status=needs_review AND last_direction=outbound, with no OR', async () => {
-      const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1])
+      const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 26])
       await countThreadsByStatus(db, 'org-1')
 
       const awaitingResident = perCallCalls[1]
@@ -261,7 +298,7 @@ describe('needs_review / awaiting_resident split', () => {
     })
 
     it('open/waiting/closed are untouched — plain status equality, no last_direction predicate', async () => {
-      const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1])
+      const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 26])
       await countThreadsByStatus(db, 'org-1')
 
       const [, , open, waiting, closed] = perCallCalls
@@ -312,9 +349,120 @@ describe('needs_review / awaiting_resident split', () => {
     })
   })
 
+  /**
+   * Mirroring the board's own Gmail filing.
+   *
+   * Before this, the mailbox integration was append-only — sync captured a
+   * message once and nothing ever reconciled it — so mail the board
+   * archived, filed into a folder, or trashed in Gmail stayed in the
+   * HomeownerHub inbox forever. These assert the read side of the fix.
+   */
+  describe('Gmail filing visibility', () => {
+    it('excludes filed and trashed threads from every status filter', async () => {
+      for (const filter of ['needs_review', 'awaiting_resident', 'open', 'waiting', 'closed'] as const) {
+        const { db, calls } = dbForList({ data: [], error: null })
+        await listThreads(db, 'org-1', filter)
+
+        expect(calls.not).toContainEqual(HIDDEN)
+      }
+    })
+
+    it('excludes filed and trashed threads from the "all" view too', async () => {
+      // "All" means all of the board's OPEN WORK, not all rows. A version
+      // that skipped the predicate here would leave the headline chip
+      // showing exactly the mail the board just cleaned up.
+      const { db, calls } = dbForList({ data: [], error: null })
+      await listThreads(db, 'org-1', 'all')
+
+      expect(calls.not).toContainEqual(HIDDEN)
+    })
+
+    it('archived_in_gmail selects ONLY filed and trashed threads, with no status predicate', async () => {
+      const { db, calls } = dbForList({ data: [], error: null })
+      await listThreads(db, 'org-1', 'archived_in_gmail')
+
+      expect(calls.in).toContainEqual(['gmail_state', ['archived', 'trashed']])
+      // No status predicate: filing in Gmail is independent of
+      // HomeownerHub's own triage state, and a thread that is both filed
+      // AND still marked needs_review is precisely what a manager opens
+      // this chip to find.
+      expect(calls.eq.some(([col]) => col === 'status')).toBe(false)
+      expect(calls.not).not.toContainEqual(HIDDEN)
+    })
+
+    it('the count and the list agree on the visibility predicate', async () => {
+      // The count/list divergence this file already guards for the
+      // last_direction split, now for the filing predicate: a version that
+      // filtered the list but not the count would render "Showing 1–12 of
+      // 74" over twelve rows.
+      const { db: countDb, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 26])
+      await countThreadsByStatus(countDb, 'org-1')
+
+      const { db: listDb, calls: listArgs } = dbForList({ data: [], error: null })
+      await listThreads(listDb, 'org-1', 'needs_review')
+
+      expect(perCallCalls[0].not).toContainEqual(HIDDEN)
+      expect(listArgs.not).toEqual(perCallCalls[0].not)
+    })
+
+    it('counts archived_in_gmail with its own inverted query', async () => {
+      const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 26])
+      await countThreadsByStatus(db, 'org-1')
+
+      const archived = perCallCalls[5]
+      expect(archived.in).toContainEqual(['gmail_state', ['archived', 'trashed']])
+      expect(archived.not).not.toContainEqual(HIDDEN)
+    })
+
+    it('surfaces gmail_state on each row so the filed view can say which kind of filing', async () => {
+      const { db } = dbForList({
+        data: [
+          {
+            id: 't1',
+            subject: 'Pool gate',
+            unit_id: null,
+            match_confidence: 'none',
+            status: 'needs_review',
+            last_message_at: '2026-07-02T00:00:00Z',
+            gmail_state: 'trashed',
+          },
+        ],
+        error: null,
+      })
+
+      const rows = await listThreads(db, 'org-1', 'archived_in_gmail')
+
+      expect(rows[0].gmailState).toBe('trashed')
+    })
+
+    it('reports a thread with no stored gmail_state as unknown, never as filed', async () => {
+      // The fail-open default. 'unknown' means "never observed", and every
+      // read path treats it as visible — hiding mail whose Gmail state has
+      // never been checked would invent a cleanup the board never did.
+      const { db } = dbForList({
+        data: [
+          {
+            id: 't1',
+            subject: 'Pool gate',
+            unit_id: null,
+            match_confidence: 'none',
+            status: 'needs_review',
+            last_message_at: '2026-07-02T00:00:00Z',
+            gmail_state: null,
+          },
+        ],
+        error: null,
+      })
+
+      const rows = await listThreads(db, 'org-1', 'needs_review')
+
+      expect(rows[0].gmailState).toBe('unknown')
+    })
+  })
+
   describe('count/list predicate parity', () => {
     it('needs_review: the count and the list apply an identical predicate', async () => {
-      const { db: countDb, perCallCalls } = dbForCounts([39, 33, 3, 2, 1])
+      const { db: countDb, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 26])
       await countThreadsByStatus(countDb, 'org-1')
       const countArgs = perCallCalls[0]
 
@@ -328,7 +476,7 @@ describe('needs_review / awaiting_resident split', () => {
     })
 
     it('awaiting_resident: the count and the list apply an identical predicate', async () => {
-      const { db: countDb, perCallCalls } = dbForCounts([39, 33, 3, 2, 1])
+      const { db: countDb, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 26])
       await countThreadsByStatus(countDb, 'org-1')
       const countArgs = perCallCalls[1]
 

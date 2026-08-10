@@ -21,6 +21,11 @@ const FILTERS: Array<{ key: InboxFilter; label: string }> = [
   { key: 'waiting', label: 'Waiting' },
   { key: 'closed', label: 'Closed' },
   { key: 'all', label: 'All' },
+  // Everything the board filed away or trashed in Gmail. Kept reachable
+  // rather than merely hidden: the whole point of mirroring Gmail is that
+  // the board's own filing decides what is in the queue, and a filing
+  // decision a manager cannot review or undo is one they cannot trust.
+  { key: 'archived_in_gmail', label: 'Filed in Gmail' },
 ]
 
 export default async function InboxPage({

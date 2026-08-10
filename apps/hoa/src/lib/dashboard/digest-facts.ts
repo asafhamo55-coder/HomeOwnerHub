@@ -16,7 +16,7 @@
 
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
-import { ACTIVE_STATUSES } from './triage'
+import { ACTIVE_STATUSES, HIDDEN_GMAIL_STATES_SQL } from './triage'
 
 type Db = SupabaseClient<Database>
 
@@ -194,6 +194,7 @@ export async function countNewSince(
     .not('unit_id', 'is', null)
     .eq('last_direction', 'inbound')
     .in('status', ACTIVE_STATUSES)
+    .not('gmail_state', 'in', HIDDEN_GMAIL_STATES_SQL)
     .gte('last_message_at', since)
 
   if (error) {

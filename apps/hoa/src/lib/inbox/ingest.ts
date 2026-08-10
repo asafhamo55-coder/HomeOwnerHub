@@ -110,7 +110,15 @@
 
 import type { SupabaseClient, PostgrestError } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
-import type { ParsedMessage } from '@homeowner-portal/mailbox'
+import type {
+  GmailMessageState,
+  GmailThreadState,
+  ParsedMessage,
+} from '@homeowner-portal/mailbox'
+// Value imports, permitted by the cross-package constraint above:
+// packages/jobs already depends on @homeowner-portal/mailbox, so these
+// resolve under its tsconfig as well as the hoa app's.
+import { messageStateFromLabels, threadStateFromMessages } from '@homeowner-portal/mailbox'
 
 type Db = SupabaseClient<Database>
 
@@ -211,6 +219,61 @@ export function compareBySentAt(a: { sentAt: string | null }, b: { sentAt: strin
   if (a.sentAt === null) return 1
   if (b.sentAt === null) return -1
   return a.sentAt.localeCompare(b.sentAt)
+}
+
+/**
+ * Recompute and persist a thread's `gmail_state` from its own messages.
+ *
+ * Reads EVERY message on the thread, never just the ones a caller happens
+ * to be holding. `threadStateFromMessages` answers "is any inbound message
+ * still in the Gmail inbox", which a partial view cannot decide: a batch
+ * containing one archived message says nothing about the sibling that is
+ * still sitting in the board's inbox, and archiving the thread on that
+ * basis would hide live mail.
+ *
+ * This is the per-thread path, used by live ingest. The reconcile job
+ * deliberately does NOT call it — it would mean one round trip per thread
+ * across a whole mailbox — and instead rolls messages up in bulk. What
+ * keeps the two honest is that both derive the answer from the same
+ * `threadStateFromMessages`, which is where the rule actually lives; only
+ * the read strategy differs.
+ *
+ * Returns the state it wrote, or null if it could not be determined (the
+ * caller logs; leaving the previous value in place is the safe outcome,
+ * since both the column default and the fail-open value are 'unknown').
+ */
+export async function recomputeThreadGmailState(
+  db: Db,
+  threadId: string,
+): Promise<GmailThreadState | null> {
+  const { data, error } = await db
+    .from('inbox_messages')
+    .select('direction, gmail_state')
+    .eq('thread_id', threadId)
+
+  if (error) {
+    logDbError('recomputeThreadGmailState', 'inbox_messages', { threadId }, error)
+    return null
+  }
+
+  const state = threadStateFromMessages(
+    (data ?? []).map((row) => ({
+      direction: row.direction === 'outbound' ? 'outbound' : 'inbound',
+      gmailState: (row.gmail_state ?? 'unknown') as GmailMessageState,
+    })),
+  )
+
+  const { error: writeError } = await db
+    .from('inbox_threads')
+    .update({ gmail_state: state })
+    .eq('id', threadId)
+
+  if (writeError) {
+    logDbError('recomputeThreadGmailState', 'inbox_threads', { threadId }, writeError)
+    return null
+  }
+
+  return state
 }
 
 export async function ingestMessages(
@@ -417,6 +480,40 @@ async function ingestThread(
     logDbError('ingestMessages', 'inbox_threads', { orgId, mailboxAccountId, threadId }, updateError)
     throw updateError
   }
+
+  // ── Gmail filing state ───────────────────────────────────────────────
+  // Fast path: if anything just stored is inbound mail still carrying
+  // INBOX, the thread is live by definition and no sibling can outvote
+  // that — `threadStateFromMessages` returns 'active' on ANY such message.
+  // This is the overwhelmingly common case (new mail arriving), and it
+  // matters because it also un-hides a thread the board had filed away
+  // the moment a resident writes back.
+  //
+  // Anything else — an archived message arriving via a fallback re-fetch,
+  // an outbound-only batch — cannot be decided from this batch alone and
+  // falls through to the full recompute.
+  const revivesThread = stored.some(
+    (message) =>
+      computeDirection(message.fromEmail, mailboxEmailAddress) === 'inbound' &&
+      messageStateFromLabels(message.labelIds) === 'inbox',
+  )
+
+  if (revivesThread) {
+    const { error: stateError } = await db
+      .from('inbox_threads')
+      .update({ gmail_state: 'active' })
+      .eq('id', threadId)
+
+    if (stateError) {
+      // Not fatal: the reconcile job recomputes this on its next pass, and
+      // a stale 'archived' hides a thread rather than losing it. Logged so
+      // a persistent failure is still visible.
+      logDbError('ingestMessages', 'inbox_threads', { orgId, mailboxAccountId, threadId }, stateError)
+    }
+    return
+  }
+
+  await recomputeThreadGmailState(db, threadId)
 }
 
 /**
@@ -432,6 +529,11 @@ async function ingestMessage(
   message: ParsedMessage,
   result: IngestResult,
 ): Promise<void> {
+  // Stamped once and reused on both the insert and the already-present
+  // branch below, so a row's labels and the time they were observed can
+  // never disagree.
+  const observedAt = new Date().toISOString()
+
   const { data: inserted, error: upsertError } = await db
     .from('inbox_messages')
     .upsert(
@@ -453,6 +555,9 @@ async function ingestMessage(
         body_html: message.bodyHtml,
         stripped_text: message.strippedText,
         sent_at: message.sentAt,
+        gmail_labels: message.labelIds,
+        gmail_state: messageStateFromLabels(message.labelIds),
+        gmail_state_at: observedAt,
       },
       { onConflict: 'mailbox_account_id,gmail_message_id', ignoreDuplicates: true },
     )
@@ -496,6 +601,27 @@ async function ingestMessage(
 
     messageId = existingMessage.id
     result.messagesSkipped++
+
+    // `ignoreDuplicates` left the stored row untouched, INCLUDING its
+    // label columns — but this fetch is a fresh observation from Gmail
+    // and is strictly newer than whatever is on the row. This is the path
+    // a history-expiry fallback or a backfill re-fetch takes, so skipping
+    // it would mean a re-synced message keeps label state from its
+    // original ingest forever. Not fatal on its own (the reconcile job
+    // would correct it on its next pass), so a failure here is logged and
+    // the message still counts as stored rather than aborting it.
+    const { error: labelError } = await db
+      .from('inbox_messages')
+      .update({
+        gmail_labels: message.labelIds,
+        gmail_state: messageStateFromLabels(message.labelIds),
+        gmail_state_at: observedAt,
+      })
+      .eq('id', messageId)
+
+    if (labelError) {
+      logDbError('ingestMessages', 'inbox_messages', { orgId, mailboxAccountId, threadId }, labelError)
+    }
   }
 
   await ingestAttachments(db, orgId, mailboxAccountId, threadId, messageId, message, result)
