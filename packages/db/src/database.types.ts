@@ -1378,6 +1378,7 @@ export type Database = {
       }
       communication_templates: {
         Row: {
+          accent_color: string | null
           ai_generated: boolean
           ai_workflow_id: string | null
           association_id: string | null
@@ -1393,12 +1394,18 @@ export type Database = {
           is_active: boolean
           language: string
           name: string
-          organization_id: string
+          organization_id: string | null
+          questions: Json
+          shape: string | null
+          source_template_id: string | null
           subject: string
+          topic_slug: string | null
           updated_at: string
           variables: Json
+          visual_block: Json | null
         }
         Insert: {
+          accent_color?: string | null
           ai_generated?: boolean
           ai_workflow_id?: string | null
           association_id?: string | null
@@ -1414,12 +1421,18 @@ export type Database = {
           is_active?: boolean
           language?: string
           name: string
-          organization_id: string
+          organization_id?: string | null
+          questions?: Json
+          shape?: string | null
+          source_template_id?: string | null
           subject: string
+          topic_slug?: string | null
           updated_at?: string
           variables?: Json
+          visual_block?: Json | null
         }
         Update: {
+          accent_color?: string | null
           ai_generated?: boolean
           ai_workflow_id?: string | null
           association_id?: string | null
@@ -1435,10 +1448,15 @@ export type Database = {
           is_active?: boolean
           language?: string
           name?: string
-          organization_id?: string
+          organization_id?: string | null
+          questions?: Json
+          shape?: string | null
+          source_template_id?: string | null
           subject?: string
+          topic_slug?: string | null
           updated_at?: string
           variables?: Json
+          visual_block?: Json | null
         }
         Relationships: [
           {
@@ -1460,6 +1478,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_templates_source_template_id_fkey"
+            columns: ["source_template_id"]
+            isOneToOne: false
+            referencedRelation: "communication_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -2858,10 +2883,7 @@ export type Database = {
           direction: string
           from_email: string | null
           from_name: string | null
-          gmail_labels: string[] | null
           gmail_message_id: string
-          gmail_state: string
-          gmail_state_at: string | null
           id: string
           in_reply_to: string | null
           ingested_at: string
@@ -2883,10 +2905,7 @@ export type Database = {
           direction: string
           from_email?: string | null
           from_name?: string | null
-          gmail_labels?: string[] | null
           gmail_message_id: string
-          gmail_state?: string
-          gmail_state_at?: string | null
           id?: string
           in_reply_to?: string | null
           ingested_at?: string
@@ -2908,10 +2927,7 @@ export type Database = {
           direction?: string
           from_email?: string | null
           from_name?: string | null
-          gmail_labels?: string[] | null
           gmail_message_id?: string
-          gmail_state?: string
-          gmail_state_at?: string | null
           id?: string
           in_reply_to?: string | null
           ingested_at?: string
@@ -3129,7 +3145,6 @@ export type Database = {
         Row: {
           assigned_to: string | null
           created_at: string
-          gmail_state: string
           gmail_thread_id: string
           id: string
           last_direction: string | null
@@ -3149,7 +3164,6 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           created_at?: string
-          gmail_state?: string
           gmail_thread_id: string
           id?: string
           last_direction?: string | null
@@ -3169,7 +3183,6 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           created_at?: string
-          gmail_state?: string
           gmail_thread_id?: string
           id?: string
           last_direction?: string | null
