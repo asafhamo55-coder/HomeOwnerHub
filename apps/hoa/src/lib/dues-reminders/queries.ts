@@ -28,6 +28,15 @@ export async function getLastRemindedByEmail(
     .from('communications')
     .select('sent_at, communication_recipients(email)')
     .eq('association_id', associationId)
+    // related_resource->>type is a PostgREST JSON-path operator. The unit tests
+    // mock the Supabase client, so they don't prove the real database accepts
+    // this filter. Verify against a live database before merge — Task 10 covers
+    // this by sending one reminder and confirming "Reminded today" appears.
+    // If the filter is rejected, fall back to selecting related_resource
+    // unfiltered and narrow in JS:
+    //   const rows = (data ?? []).filter(
+    //     (r) => (r.related_resource as { type?: string } | null)?.type === DUES_REMINDER_RESOURCE_TYPE,
+    //   )
     .eq('related_resource->>type', DUES_REMINDER_RESOURCE_TYPE)
     .not('sent_at', 'is', null)
     .order('sent_at', { ascending: false })
