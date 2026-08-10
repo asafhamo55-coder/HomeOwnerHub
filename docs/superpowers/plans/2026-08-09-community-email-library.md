@@ -709,16 +709,14 @@ own-org id."
 ### Task 4: Pictogram SVG composition
 
 **Files:**
-- Create: `scripts/email-assets/glyphs.ts`
-- Create: `scripts/email-assets/pictogram.ts`
-- Test: `scripts/email-assets/pictogram.test.ts`
-
-**Note on test location:** the vitest include globs are `apps/**/src/**` and `packages/**/src/**`, so a test under `scripts/` will not run. Put the pictogram module under `apps/hoa/src/lib/email/pictogram.ts` instead and import it from the build script. Paths below reflect that.
-
-**Files (corrected):**
 - Create: `apps/hoa/src/lib/email/glyphs.ts`
 - Create: `apps/hoa/src/lib/email/pictogram.ts`
+- Create: `apps/hoa/src/lib/email/pictogram-manifest.ts`
 - Test: `apps/hoa/src/lib/email/pictogram.test.ts`
+
+**Why not under `scripts/`:** the vitest include globs are `apps/**/src/**` and `packages/**/src/**`, so a test under `scripts/` would silently never run. The modules live under `apps/hoa/src/lib/email/` and the build script imports them.
+
+**Why the manifest is its own module:** `scripts/build-email-assets.ts` calls `main()` at module scope. Anything importing the slug/accent list *from the build script* would launch Chromium as a side effect of the import — which would hang the test suite. The manifest is therefore a plain data module that both the build script and the tests import.
 
 **Interfaces:**
 - Consumes: `tintOver`, `assertAccent` from `./palette`
@@ -811,7 +809,66 @@ export const GLYPHS = {
 export type GlyphName = keyof typeof GLYPHS
 ```
 
-- [ ] **Step 4: Write the composer**
+- [ ] **Step 4: Write the pictogram manifest**
+
+```ts
+// apps/hoa/src/lib/email/pictogram-manifest.ts
+/**
+ * Which pictogram each phase-1 template uses.
+ *
+ * A plain data module with no side effects, deliberately separate from
+ * scripts/build-email-assets.ts — that script calls main() at module scope,
+ * so importing this list from it would launch Chromium during the test run.
+ *
+ * The slug is both the template slug and the generated PNG's filename, and
+ * the accent must match the template's accentColor. Task 11's coverage test
+ * asserts both, so the two cannot drift.
+ */
+
+import type { GlyphName } from './glyphs'
+
+export interface PictogramEntry {
+  slug: string
+  glyph: GlyphName
+  accent: string
+}
+
+export const PICTOGRAMS: readonly PictogramEntry[] = [
+  { slug: 'dog-leash-and-waste', glyph: 'pets', accent: '#1C6772' },
+  { slug: 'guest-parking', glyph: 'parking', accent: '#2C6FAF' },
+  { slug: 'trash-and-recycling-bins', glyph: 'recycling', accent: '#268298' },
+  { slug: 'work-on-site', glyph: 'construction', accent: '#7A6A1D' },
+  { slug: 'community-cleanup-day', glyph: 'cleanup', accent: '#8A3070' },
+  { slug: 'pool-pass-renewal', glyph: 'pool', accent: '#1C6F31' },
+  { slug: 'lease-cap-status', glyph: 'apartment', accent: '#3A5AA8' },
+]
+```
+
+Add to `apps/hoa/src/lib/email/pictogram.test.ts`:
+
+```ts
+import { PICTOGRAMS } from './pictogram-manifest'
+import { isValidAccent } from './palette'
+
+describe('PICTOGRAMS manifest', () => {
+  it('has seven entries with unique slugs', () => {
+    expect(PICTOGRAMS).toHaveLength(7)
+    expect(new Set(PICTOGRAMS.map((p) => p.slug)).size).toBe(7)
+  })
+
+  it('every accent survives dark-mode inversion', () => {
+    for (const p of PICTOGRAMS) {
+      expect(isValidAccent(p.accent), `${p.slug}: ${p.accent}`).toBe(true)
+    }
+  })
+
+  it('every glyph exists', () => {
+    for (const p of PICTOGRAMS) expect(GLYPHS[p.glyph], p.slug).toBeTruthy()
+  })
+})
+```
+
+- [ ] **Step 5: Write the composer**
 
 ```ts
 // apps/hoa/src/lib/email/pictogram.ts
@@ -863,12 +920,12 @@ export function renderPictogramSvg(spec: PictogramSpec): string {
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [ ] **Step 6: Run test to verify it passes**
 
 Run: `pnpm test:unit apps/hoa/src/lib/email/pictogram.test.ts`
-Expected: PASS, 6 tests
+Expected: PASS, 9 tests
 
-- [ ] **Step 6: Save the licence**
+- [ ] **Step 7: Save the licence**
 
 ```bash
 mkdir -p docs/licenses
@@ -879,10 +936,11 @@ head -3 docs/licenses/material-symbols-APACHE-2.0.txt
 
 Expected: the Apache License 2.0 header. If the fetch fails, copy the licence text manually — shipping vendored glyphs without the licence file on disk is not acceptable.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add apps/hoa/src/lib/email/glyphs.ts apps/hoa/src/lib/email/pictogram.ts \
+        apps/hoa/src/lib/email/pictogram-manifest.ts \
         apps/hoa/src/lib/email/pictogram.test.ts docs/licenses/
 git commit -m "feat(email): pictogram composer over vendored Material Symbols glyphs"
 ```
@@ -923,19 +981,7 @@ import { mkdir, writeFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
 import { renderPictogramSvg } from '../apps/hoa/src/lib/email/pictogram'
-import type { GlyphName } from '../apps/hoa/src/lib/email/glyphs'
-
-/** One entry per phase-1 template that uses a pictogram. The slug becomes
- *  the filename and is what a template's visual.asset references. */
-export const PICTOGRAMS: Array<{ slug: string; glyph: GlyphName; accent: string }> = [
-  { slug: 'dog-leash-and-waste', glyph: 'pets', accent: '#1C6772' },
-  { slug: 'guest-parking', glyph: 'parking', accent: '#2C6FAF' },
-  { slug: 'trash-and-recycling-bins', glyph: 'recycling', accent: '#268298' },
-  { slug: 'work-on-site', glyph: 'construction', accent: '#7A6A1D' },
-  { slug: 'community-cleanup-day', glyph: 'cleanup', accent: '#8A3070' },
-  { slug: 'pool-pass-renewal', glyph: 'pool', accent: '#1C6F31' },
-  { slug: 'lease-cap-status', glyph: 'apartment', accent: '#3A5AA8' },
-]
+import { PICTOGRAMS } from '../apps/hoa/src/lib/email/pictogram-manifest'
 
 const OUT_DIR = path.join(process.cwd(), 'apps/hoa/public/email/v1')
 const WIDTH = 1200
@@ -2219,7 +2265,7 @@ const ALL: CommunityTemplate[] = [
 // apps/hoa/src/lib/community-templates/coverage.test.ts
 import { describe, it, expect } from 'vitest'
 import { COMMUNITY_TEMPLATES } from './registry'
-import { PICTOGRAMS } from '../../../../../scripts/build-email-assets'
+import { PICTOGRAMS } from '@/lib/email/pictogram-manifest'
 
 describe('phase 1 library', () => {
   it('ships exactly seven templates', () => {
@@ -3217,19 +3263,44 @@ async function main(): Promise<void> {
   } as never)
   check('D2. tenant cannot insert a global', insertErr !== null, insertErr?.message ?? 'INSERT SUCCEEDED')
 
-  // E. The communications CHECK must accept 'community' too — widening only
-  // the templates table fails here, after the user has clicked Send.
-  const { error: catErr } = await admin.rpc('pg_typeof' as never, {} as never).then(
-    () => ({ error: null }),
-    () => ({ error: null }),
-  )
-  void catErr
-  const { data: con } = await admin
-    .from('communication_templates')
-    .select('topic_slug')
-    .eq('category', 'community')
+  // E. The communications CHECK must accept 'community' too. Widening only
+  // communication_templates passes every check above and then blows up at
+  // the communications INSERT in send.ts — after the audience has resolved
+  // and the board member has clicked Send. Prove it by actually inserting
+  // a communications row with category 'community' and rolling it back.
+  const { data: assoc } = await admin
+    .from('associations')
+    .select('id, organization_id')
     .limit(1)
-  check('E. category community accepted', (con?.length ?? 0) > 0)
+    .maybeSingle()
+
+  if (!assoc) {
+    check('E. communications accepts community', false, 'no association to test against')
+  } else {
+    const probe = {
+      organization_id: assoc.organization_id,
+      association_id: assoc.id,
+      category: 'community',
+      subject: 'rls/check probe',
+      body_html: '<p>probe</p>',
+      status: 'draft',
+    }
+    const { data: inserted, error: commErr } = await admin
+      .from('communications')
+      .insert(probe as never)
+      .select('id')
+      .maybeSingle()
+
+    check(
+      'E. communications CHECK accepts category community',
+      commErr === null,
+      commErr?.message,
+    )
+
+    if (inserted?.id) {
+      await admin.from('communications').delete().eq('id', inserted.id)
+    }
+  }
 
   console.log(failures === 0 ? '\nAll checks passed.' : `\n${failures} check(s) failed.`)
   process.exit(failures === 0 ? 0 : 1)
