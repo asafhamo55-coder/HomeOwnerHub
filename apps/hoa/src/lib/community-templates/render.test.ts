@@ -80,3 +80,48 @@ describe('renderCommunityEmailText', () => {
     expect(text).not.toContain('<')
   })
 })
+
+const T_LIST: CommunityTemplate = {
+  ...T,
+  body: [
+    { type: 'paragraph', text: 'Hi {{recipient_name}},' },
+    {
+      type: 'list',
+      items: ['Bag stations at {{station_locations}}', 'Report violations <here> & now'],
+    },
+  ],
+}
+
+const T_CTA: CommunityTemplate = {
+  ...T,
+  cta: { label: 'See the station map', urlField: 'station_map_url' },
+}
+
+describe('list blocks', () => {
+  it('renders list items as escaped <li> elements in HTML, placeholders intact', () => {
+    const html = renderCommunityEmailHtml(T_LIST)
+    expect(html).toContain('<li')
+    expect(html).toContain('Bag stations at {{station_locations}}')
+    expect(html).toContain('Report violations &lt;here&gt; &amp; now')
+  })
+
+  it('renders list items in the text output', () => {
+    const text = renderCommunityEmailText(T_LIST)
+    expect(text).toContain('Bag stations at {{station_locations}}')
+    expect(text).toContain('Report violations <here> & now')
+  })
+})
+
+describe('cta', () => {
+  it('carries the CTA url placeholder and label in the HTML output', () => {
+    const html = renderCommunityEmailHtml(T_CTA)
+    expect(html).toContain('{{station_map_url}}')
+    expect(html).toContain('See the station map')
+  })
+
+  it('carries the CTA url placeholder and label in the text output', () => {
+    const text = renderCommunityEmailText(T_CTA)
+    expect(text).toContain('{{station_map_url}}')
+    expect(text).toContain('See the station map')
+  })
+})

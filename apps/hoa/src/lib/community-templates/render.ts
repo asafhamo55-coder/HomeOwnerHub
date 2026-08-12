@@ -20,10 +20,21 @@ const TEXT = '#1A1D21'
 const BODY = '#3D454D'
 const FONT = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
 
-/** Placeholders must survive escaping — they are our own syntax, not user
- *  input — so we escape the literal text and then restore the braces. */
+/** Placeholders must survive escaping untouched — they are our own syntax,
+ *  not user input. `escapeHtml` never touches `{` or `}`, so the merge
+ *  syntax already passes through unharmed with no special-casing needed;
+ *  the regex here just normalizes `{{ field }}` (with internal whitespace)
+ *  down to the compact `{{field}}` form the strict renderer expects. */
 function escapePreservingMerge(s: string): string {
   return escapeHtml(s).replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, '{{$1}}')
+}
+
+/** Compile-time exhaustiveness check: if a new BodyBlock variant is added
+ *  without a case in every switch over `block.type`, TypeScript will refuse
+ *  to narrow it to `never` here and the build fails — instead of the new
+ *  variant silently rendering as nothing. */
+function assertNeverBlock(block: never): never {
+  throw new Error(`unhandled BodyBlock type: ${JSON.stringify(block)}`)
 }
 
 function renderBlock(block: BodyBlock, t: CommunityTemplate): string {
@@ -41,6 +52,8 @@ function renderBlock(block: BodyBlock, t: CommunityTemplate): string {
       return `<ul style="margin:0 0 11px;padding-left:20px;font-size:14px;line-height:1.6;color:${BODY};font-family:${FONT};">${block.items
         .map((i) => `<li style="margin-bottom:4px;color:${BODY};">${escapePreservingMerge(i)}</li>`)
         .join('')}</ul>`
+    default:
+      return assertNeverBlock(block)
   }
 }
 
@@ -80,7 +93,15 @@ export function renderCommunityEmailText(t: CommunityTemplate): string {
         break
       case 'visual':
         break // no visual in the text part
+      default:
+        assertNeverBlock(block)
     }
+  }
+  // Mirrors the HTML path's CTA button: same urlField, wrapped in braces so
+  // it substitutes at send time exactly as the HTML anchor's href does. The
+  // HTML part is actionable via the CTA; the text part must be too.
+  if (t.cta) {
+    lines.push(`${t.cta.label}: {{${t.cta.urlField}}}`, '')
   }
   return lines.join('\n').trimEnd()
 }
