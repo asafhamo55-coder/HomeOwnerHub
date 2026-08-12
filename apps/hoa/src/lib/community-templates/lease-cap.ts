@@ -63,9 +63,22 @@ function round1(n: number): string {
  * can never make an under-cap association read as at-cap, while a genuinely
  * at-cap 15.0 still floors to "15%" untouched. Do not change this back to
  * Math.round — that reintroduces the false "at cap" reading.
+ *
+ * The `+ 1e-9` below is not noise — do not delete it. leasedPct comes from
+ * leases.ts:118 as (leasedCount/totalUnits)*100 with no rounding, and that
+ * division routinely lands a hair below the true tenth in floating point:
+ * 23/40 is exactly 57.5%, but (23/40)*100 computes as 57.49999999999999.
+ * A bare Math.floor(n*10)/10 would print "57.4%" — wrong, and for reasons
+ * that have nothing to do with the floor-vs-round policy above; a sweep of
+ * every count/total pair for totals 1..3000 found 768 ordinary HOA-sized
+ * pairs (23/40, 29/50, 46/80, 29/100, ...) affected. Nudging by 1e-9 before
+ * flooring absorbs that representation error — it's far below any tenth of
+ * a percentage point that could matter here, and far above the ~1e-14
+ * error floating-point division actually produces — while still flooring
+ * genuine mid-tenth values (14.96 -> "14.9%" is unaffected).
  */
 function floor1(n: number): string {
-  return `${Math.floor(n * 10) / 10}`
+  return `${Math.floor(n * 10 + 1e-9) / 10}`
 }
 
 export function buildLeaseCapVisual(stats: LeaseCapStats, _waitingCount: number): VisualBlockSpec {

@@ -75,4 +75,22 @@ describe('buildLeaseCapFields', () => {
     const exact = { leasedCount: 20, totalUnits: 100, leasedPct: 20, capPct: 25 }
     expect(buildLeaseCapFields(exact, 0).leased_pct).toBe('20%')
   })
+
+  it('does not drop a tenth when the count/total division lands just under it in floating point', () => {
+    // 23/40 is exactly 57.5%, but (23/40)*100 computes as 57.49999999999999
+    // in floating point — a bare Math.floor(n*10)/10 prints "57.4%". Compute
+    // leasedPct via the actual division (the way leases.ts:118 does it), not
+    // a literal — a literal 57.5 doesn't reproduce the representation error
+    // this guards against.
+    const leasedPct = (23 / 40) * 100
+    const f = buildLeaseCapFields({ leasedCount: 23, totalUnits: 40, leasedPct, capPct: 60 }, 0)
+    expect(f.leased_pct).toBe('57.5%')
+  })
+
+  it('does not drop a tenth for another division landing just under it', () => {
+    // 29/50 is exactly 58% — (29/50)*100 computes as 57.99999999999999.
+    const leasedPct = (29 / 50) * 100
+    const f = buildLeaseCapFields({ leasedCount: 29, totalUnits: 50, leasedPct, capPct: 60 }, 0)
+    expect(f.leased_pct).toBe('58%')
+  })
 })
