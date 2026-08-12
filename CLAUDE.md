@@ -136,3 +136,49 @@ rtk init --global       # Add RTK to ~/.claude/CLAUDE.md
 
 Overall average: **60-90% token reduction** on common development operations.
 <!-- /rtk-instructions -->
+
+<!-- Hand-written. Keep below the rtk-instructions marker so `rtk init` cannot overwrite it. -->
+
+# Known footguns in this repo
+
+Three ways to get a confident, wrong answer. Each has been hit at least once by
+someone following the instructions above in good faith.
+
+## 1. `rtk pnpm typecheck` does not typecheck
+
+It prints `TypeScript: No errors found` while its own tee log
+(`~/Library/Application Support/rtk/tee/*_tsc.log`) shows it ran `tsc --help`.
+It reports success on a help page.
+
+## 2. `pnpm --filter <pkg> typecheck` does not typecheck either
+
+rtk ignores `--filter` for tsc, then prints `No errors found` having checked
+nothing.
+
+**So, for typecheck only, drop the rtk prefix and the filter:**
+
+```bash
+pnpm typecheck        # ✅ turbo across all 11 packages — the only trustworthy form
+rtk pnpm typecheck    # ❌ runs tsc --help, always "passes"
+pnpm --filter hoa typecheck  # ❌ filter dropped, checks nothing
+```
+
+This is a deliberate exception to the "always prefix with rtk" rule above.
+`rtk git`, `rtk vitest` and the rest are still correct — it is `tsc` that
+misbehaves. If a typecheck passes suspiciously fast or prints
+`TypeScript: No errors found` rather than turbo's `Tasks: N successful`, you
+ran the wrong one.
+
+## 3. `pnpm gen:types` silently reverts unapplied migrations
+
+`supabase gen types` reads the **live** database, so any migration that is
+committed but not yet applied to prod is invisible to it. Regenerating wipes
+whatever hand-written types someone added in anticipation of that migration.
+
+It fails in the **consuming** package — `packages/jobs`, `apps/hoa` — nowhere
+near `packages/db`, which makes it read like someone else's breakage.
+
+Before regenerating, confirm every migration in `migrations/` is actually
+applied. Afterwards, diff the result rather than assuming: compare **columns**,
+not table names. A table-level comparison cannot detect deleted columns inside
+an existing table, and will hand you a false pass.
