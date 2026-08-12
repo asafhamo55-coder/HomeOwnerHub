@@ -17,6 +17,7 @@
     "seed:sample-ccr": "tsx scripts/seed-sample-ccr.ts",
     "seed:accounting": "tsx scripts/seed-accounting.ts",
     "seed:comm-templates": "tsx scripts/seed-comm-templates.ts",
+    "generate:community-sql": "tsx --tsconfig apps/hoa/tsconfig.json scripts/generate-community-templates-sql.ts",
     "seed:demo-comms": "tsx scripts/seed-demo-comms.ts",
     "test:accounting": "tsx scripts/test-accounting.ts",
     "test:ar": "tsx scripts/test-ar.ts",
