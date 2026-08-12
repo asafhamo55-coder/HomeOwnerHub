@@ -56,7 +56,7 @@ FROM (VALUES
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">It&#39;s time for our annual Community Cleanup Day! Grab a pair of gloves and join your neighbors on {{event_date}} from {{start_time}} to {{end_time}} — we&#39;ll spend the morning tidying up our shared spaces, and there&#39;s a roll-off dumpster on site for bulk items you&#39;ve been meaning to get rid of.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:13px 0;">
 <tr><td align="center" bgcolor="#f3ebf1" style="background-color:#f3ebf1;color:#1A1D21;">
-<img src="https://app.homeownerhub.com/email/v1/community-cleanup-day.png" alt="A broom with bright bristles sweeping leaves and yard debris off a pathway" width="600" height="200" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />
+<img src="https://www.homeownerledger.com/email/v1/community-cleanup-day.png" alt="A broom with bright bristles sweeping leaves and yard debris off a pathway" width="600" height="200" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />
 </td></tr></table>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Meet us at {{meeting_location}}. We&#39;ll form small teams and split up the common areas, so however much time you can spare — an hour or the whole morning — makes a real difference.</p>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">We&#39;ll have trash bags, work gloves, and refreshments on hand to keep everyone going. Just bring closed-toe shoes, sun protection, and a water bottle — and your own gloves too, if you&#39;ve got a favorite pair.</p>
@@ -116,7 +116,7 @@ Bring a neighbor, bring the kids, and let's make {{association_name}} look its b
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">We&#39;ve had a number of reports about {{issue_type}} over the past few weeks, most often around {{affected_areas}}.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:13px 0;">
 <tr><td align="center" bgcolor="#e8eeef" style="background-color:#e8eeef;color:#1A1D21;">
-<img src="https://app.homeownerhub.com/email/v1/dog-leash-and-waste.png" alt="A resident walking a leashed dog past a waste bag station" width="600" height="200" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />
+<img src="https://www.homeownerledger.com/email/v1/dog-leash-and-waste.png" alt="A resident walking a leashed dog past a waste bag station" width="600" height="200" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />
 </td></tr></table>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">The overwhelming majority of dog owners here already clean up and keep their dogs leashed in shared spaces. This is just a nudge for everyone to keep at it.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#e6edee" style="background-color:#e6edee;color:#1A1D21;margin:13px 0;">
@@ -170,7 +170,7 @@ Thanks for helping keep the neighborhood pleasant for everyone — including the
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">With {{reason}}, we want to make sure every guest knows where to park. Visitor vehicles may stay in the marked guest spaces for {{max_guest_stay}}.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:13px 0;">
 <tr><td align="center" bgcolor="#eaeff4" style="background-color:#eaeff4;color:#1A1D21;">
-<img src="https://app.homeownerhub.com/email/v1/guest-parking.png" alt="A community map with visitor parking spaces highlighted along the main loop road, and resident-reserved spaces and fire lanes near the clubhouse and mailboxes marked off-limits" width="600" height="200" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />
+<img src="https://www.homeownerledger.com/email/v1/guest-parking.png" alt="A community map with visitor parking spaces highlighted along the main loop road, and resident-reserved spaces and fire lanes near the clubhouse and mailboxes marked off-limits" width="600" height="200" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />
 </td></tr></table>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Most guests already park in the right spots without a second thought — this is just a reminder while shared parking is tighter than usual.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#e7edf3" style="background-color:#e7edf3;color:#1A1D21;margin:13px 0;">
@@ -288,7 +288,7 @@ Questions about the cap, the waiting list, or how it applies to your home? Reach
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">To have your pass ready before opening day, every household needs to turn in {{required_items}} by {{deadline_date}}. Submit via {{submission_method}}.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:13px 0;">
 <tr><td align="center" bgcolor="#e8efea" style="background-color:#e8efea;color:#1A1D21;">
-<img src="https://app.homeownerhub.com/email/v1/pool-pass-renewal.png" alt="A swimmer doing front crawl across sunlit pool water lines" width="600" height="200" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />
+<img src="https://www.homeownerledger.com/email/v1/pool-pass-renewal.png" alt="A swimmer doing front crawl across sunlit pool water lines" width="600" height="200" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />
 </td></tr></table>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">This is the same paperwork we ask for every season — nothing new, just a reminder to get it in early rather than at the gate on a busy opening weekend.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#e6ede8" style="background-color:#e6ede8;color:#1A1D21;margin:13px 0;">
@@ -342,7 +342,7 @@ Questions about what's needed or how to submit it? Reach out to {{contact_name}}
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Trash and recycling are collected on {{collection_day}}. Bins may go out to the curb starting at {{early_out_time}} the evening before, and need to be back out of sight by {{late_in_time}} that same day.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:13px 0;">
 <tr><td align="center" bgcolor="#e9f0f2" style="background-color:#e9f0f2;color:#1A1D21;">
-<img src="https://app.homeownerhub.com/email/v1/trash-and-recycling-bins.png" alt="A single trash bin with its lid closed, standing at the curb" width="600" height="200" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />
+<img src="https://www.homeownerledger.com/email/v1/trash-and-recycling-bins.png" alt="A single trash bin with its lid closed, standing at the curb" width="600" height="200" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />
 </td></tr></table>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">For the rest of the week, please keep bins {{storage_location}} rather than out on the driveway — it keeps the street looking its best for everyone.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#e7eff1" style="background-color:#e7eff1;color:#1A1D21;margin:13px 0;">
@@ -396,7 +396,7 @@ Thanks for keeping the curb clear between pickups — most of us already do, and
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">{{association_name}} has scheduled {{reason}} at {{affected_areas}}, expected to run from {{start_date}} through {{end_date}}. {{parking_instructions}}</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:13px 0;">
 <tr><td align="center" bgcolor="#f0eee8" style="background-color:#f0eee8;color:#1A1D21;">
-<img src="https://app.homeownerhub.com/email/v1/work-on-site.png" alt="An orange traffic cone marking off a work area on a community roadway" width="600" height="200" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />
+<img src="https://www.homeownerledger.com/email/v1/work-on-site.png" alt="An orange traffic cone marking off a work area on a community roadway" width="600" height="200" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />
 </td></tr></table>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Expect crews, equipment, and some noise in the area during work hours. Access to {{affected_areas}} may be limited while the work is underway.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eeede6" style="background-color:#eeede6;color:#1A1D21;margin:13px 0;">
