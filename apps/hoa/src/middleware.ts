@@ -68,6 +68,23 @@ export const config = {
     //     by bouncing to /login instead of letting the route redirect to
     //     /settings/mailbox with a readable error. The route verifies its own
     //     signed OAuth `state` — it doesn't need middleware's auth gate.)
-    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|api/inngest|api/health|api/cron|api/admin/setup-stripe-pricing|api/oauth).*)',
+    //   - public/ assets. Next runs middleware over files served from public/
+    //     unless they are excluded here, and everything below was 307-ing to
+    //     /login in production:
+    //       email/  — pictograms embedded in outgoing community emails. Mail
+    //                 clients fetch images unauthenticated, so a redirect means
+    //                 the image never loads for any recipient. Decorative only;
+    //                 no resident data. Trailing slash so a future /email page
+    //                 is not accidentally un-gated, and unversioned so email/v2
+    //                 keeps working.
+    //       sw.js, manifest.webmanifest, icon, apple-icon — the PWA. The service
+    //                 worker registration was failing silently, which is why
+    //                 nobody noticed. icon/apple-icon are anchored so they
+    //                 cannot match a future /icons-admin style route.
+    //       robots.txt — crawlers do not log in.
+    //     Deliberately NOT a catch-all like (?!.*\..*): that would be safe today
+    //     but would silently un-gate any future authenticated route whose
+    //     parameter can contain a dot.
+    '/((?!_next/static|_next/image|favicon.ico|email/|sw\\.js$|manifest\\.webmanifest$|icon$|apple-icon$|robots\\.txt$|api/webhooks|api/inngest|api/health|api/cron|api/admin/setup-stripe-pricing|api/oauth).*)',
   ],
 }
