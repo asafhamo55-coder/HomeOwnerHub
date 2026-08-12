@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, CreditCard, Home, Wallet } from 'lucide-re
 import { Badge } from '@homeowner-portal/ui'
 import { getResidentDashboard, type ResidentCharge } from '@/lib/resident-dashboard'
 import type { ResidentUnit } from '@/lib/resident'
+import { chargeTypeLabel } from '@/lib/assessment-labels'
 import { IconTile, Panel, ScreenHeader, SectionLabel, TappableRow } from '@/components/resident/screen'
 
 export const metadata = { title: 'Dues' }
@@ -112,19 +113,6 @@ export default async function ResidentDuesPage() {
       </p>
     </div>
   )
-}
-
-// Friendly names for the assessment_type enum (regular | special |
-// late_fee | fine). Unknown types fall back to a humanized slug.
-const CHARGE_TYPE_LABELS: Record<string, string> = {
-  regular: 'Regular dues',
-  special: 'Special assessment',
-  late_fee: 'Late fee',
-  fine: 'Fine',
-}
-
-function chargeTypeLabel(type: string): string {
-  return CHARGE_TYPE_LABELS[type] ?? type.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
 }
 
 function unitLabel(units: ResidentUnit[], unitId: string): string | null {

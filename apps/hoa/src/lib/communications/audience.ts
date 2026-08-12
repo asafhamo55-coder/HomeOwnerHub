@@ -28,6 +28,7 @@ export type AudienceKind =
   | 'specific_residents'      // explicit property_resident_id list
   | 'board'                   // HOA board members (org_members role='board')
   | 'manual_emails'           // typed-in email addresses (vendors, attorneys, etc.)
+  | 'precomputed'             // caller-resolved recipients (dues reminders)
 
 export interface AudienceDefinition {
   kind: AudienceKind
@@ -55,12 +56,28 @@ export interface AudienceDefinition {
    *  raw digits) paired by index with `emails`. Enables SMS delivery to
    *  manually-entered contacts alongside email. */
   phones?: string[]
+  /** Populated when kind = 'precomputed'. The caller has already worked
+   *  out exactly who should receive this and supplies the list directly.
+   *  Used by dues reminders, where "who" depends on outstanding balances
+   *  that this module has no business knowing about.
+   *
+   *  NOTE: send.ts strips this before persisting audience_definition —
+   *  names and emails belong in communication_recipients, not duplicated
+   *  into the campaign row. */
+  recipients?: ResolvedRecipient[]
+  /** Human summary for kind = 'precomputed'. Only the caller knows what
+   *  the list means, so only the caller can describe it. */
+  summary?: string
   /** Future filters land here without breaking the shape. */
   extra?: Record<string, unknown>
 }
 
 export interface ResolvedRecipient {
   unitId: string
+  /** Every unit this recipient is responsible for. Present only for
+   *  audiences that consolidate across properties; `unitId` stays the
+   *  primary for the recipient row's FK. */
+  unitIds?: string[]
   unitAddress: string | null
   unitNumber: string | null
   /** Best display name we have — owner / tenant / "Resident". */
@@ -74,6 +91,19 @@ export interface ResolvedRecipient {
 export interface ResolvedAudience {
   recipients: ResolvedRecipient[]
   summary: string             // "All owners in Madison Park (82)"
+}
+
+/**
+ * Strips `recipients` from a `precomputed` audience before it is persisted
+ * to the `communications.audience_definition` jsonb column — see the NOTE
+ * on `AudienceDefinition.recipients` above. Names, emails, and phone
+ * numbers belong in `communication_recipients`; copying them into the
+ * campaign row would duplicate PII across two tables for no benefit.
+ * Every other audience kind passes through unchanged.
+ */
+export function stripAudienceForPersist(audience: AudienceDefinition): AudienceDefinition {
+  if (audience.kind !== 'precomputed') return audience
+  return { kind: 'precomputed', summary: audience.summary }
 }
 
 type Db = SupabaseClient<Database>
@@ -109,6 +139,14 @@ export async function resolveAudience(
   // constructed in-memory from the typed-in list. No unit binding.
   if (def.kind === 'manual_emails') {
     return resolveManualContacts(def.emails ?? [], def.emailNames ?? [], def.phones ?? [])
+  }
+
+  // Precomputed — the caller already resolved this. No DB work at all,
+  // and deliberately no validation: this path is server-only and its one
+  // caller builds the list from its own queries.
+  if (def.kind === 'precomputed') {
+    const recipients = def.recipients ?? []
+    return { recipients, summary: summaryFor(def, recipients.length) }
   }
 
   // Pull the unit roster first; every filter narrows from this set.
@@ -325,6 +363,8 @@ function summaryFor(def: AudienceDefinition, count: number): string {
       const n = (def.emails ?? []).length
       return `${n} manually-entered email${n === 1 ? '' : 's'} (${count} ${noun})`
     }
+    case 'precomputed':
+      return def.summary ?? `${count} ${noun}`
   }
 }
 

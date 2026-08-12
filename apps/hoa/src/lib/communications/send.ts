@@ -7,7 +7,7 @@ import { sendEmail } from '@/lib/email'
 import { sendSms, htmlToSmsBody } from '@/lib/sms'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
-import { resolveAudience, type AudienceDefinition } from './audience'
+import { resolveAudience, stripAudienceForPersist, type AudienceDefinition } from './audience'
 import { renderTemplate } from './templates'
 
 type CommInsert = Database['public']['Tables']['communications']['Insert']
@@ -54,6 +54,7 @@ const SendSchema = z.object({
       'specific_residents',
       'board',
       'manual_emails',
+      'precomputed',
     ]),
     unitIds: z.array(z.string().uuid()).optional(),
     residentIds: z.array(z.string().uuid()).optional(),
@@ -61,6 +62,21 @@ const SendSchema = z.object({
     emails: z.array(z.string()).optional(),
     emailNames: z.array(z.string().max(120)).optional(),
     phones: z.array(z.string().max(20)).optional(),
+    recipients: z
+      .array(
+        z.object({
+          unitId: z.string(),
+          unitIds: z.array(z.string()).optional(),
+          unitAddress: z.string().nullable(),
+          unitNumber: z.string().nullable(),
+          recipientName: z.string().nullable(),
+          email: z.string().nullable(),
+          phone: z.string().nullable(),
+          userId: z.string().nullable(),
+        }),
+      )
+      .optional(),
+    summary: z.string().max(200).optional(),
     extra: z.record(z.string(), z.unknown()).optional(),
   }),
   templateId: z.string().uuid().optional(),
@@ -74,6 +90,12 @@ const SendSchema = z.object({
       type: z.string(),
       id: z.string(),
     })
+    .optional(),
+  /** Per-recipient merge values, keyed by recipient email. Lets a caller
+   *  give every recipient a different body — dues reminders send each
+   *  owner their own charge table through {{dues_table}}. */
+  extraMergeFields: z
+    .record(z.string(), z.record(z.string(), z.union([z.string(), z.number()])))
     .optional(),
 })
 
@@ -140,7 +162,11 @@ export async function sendCommunication(
     // Cast to satisfy Supabase's strict `Json` type — `audience.extra` is
     // typed `Record<string, unknown>` which TS doesn't narrow to Json
     // automatically. Runtime payload is JSON-safe.
-    audience_definition: value.audience as never,
+    //
+    // stripAudienceForPersist drops the recipient array for precomputed
+    // audiences — names and emails live in communication_recipients, and
+    // copying them here would scatter PII across two tables for no benefit.
+    audience_definition: stripAudienceForPersist(value.audience as AudienceDefinition) as never,
     audience_summary: audience.summary,
     status: initialStatus,
     source: 'manual',
@@ -249,6 +275,13 @@ export async function sendCommunication(
       recipient_name: recipient.recipient_name ?? 'Resident',
       association_name: associationName,
       unit_id: recipient.unit_id ?? '',
+      // Caller-supplied per-recipient values win over the defaults above.
+      // Keyed by email because that is the only identifier a precomputed
+      // audience is guaranteed to share with the persisted recipient row.
+      // Guard the lookup on a real email — SMS/portal recipients can have
+      // `email: null`, and without this every one of them would collapse
+      // onto the same '' key and share a stranger's merge data.
+      ...(recipient.email ? (value.extraMergeFields?.[recipient.email] ?? {}) : {}),
     }
     const subject = renderTemplate(value.subject, bag).rendered
     const html = renderTemplate(value.bodyHtml, bag).rendered
