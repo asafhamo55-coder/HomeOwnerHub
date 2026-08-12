@@ -48,6 +48,11 @@ export interface CommunityTemplate {
   /** Ordered body blocks. */
   body: BodyBlock[]
   questions: readonly TemplateQuestion[]
+  /** Placeholders supplied by code at render time rather than by a question —
+   *  e.g. the lease-cap occupancy figures, which come from the database. Listing
+   *  a field here satisfies the validator without asking a board member for data
+   *  the application already holds. */
+  providedFields?: readonly string[]
   /** Rendered as a highlighted panel. The practical detail a resident needs. */
   callout?: string
   cta?: { label: string; urlField: string }

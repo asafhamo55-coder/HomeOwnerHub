@@ -17,6 +17,13 @@
 
 import { assertAccent } from '@/lib/email/palette'
 import type { CommunityTemplate, BodyBlock } from './types'
+import communityCleanupDay from './templates/community-cleanup-day'
+import dogLeashAndWaste from './templates/dog-leash-and-waste'
+import guestParking from './templates/guest-parking'
+import leaseCapStatus from './templates/lease-cap-status'
+import poolPassRenewal from './templates/pool-pass-renewal'
+import trashAndRecyclingBins from './templates/trash-and-recycling-bins'
+import workOnSite from './templates/work-on-site'
 
 /** Fields the send pipeline supplies for every message. */
 export const AMBIENT_FIELDS = new Set([
@@ -82,9 +89,19 @@ export function validateTemplate(t: CommunityTemplate): void {
 
   const used = placeholdersIn(t)
   const answered = new Set(t.questions.map((q) => q.id))
+  const provided = new Set(t.providedFields ?? [])
+
+  for (const field of provided) {
+    if (answered.has(field)) {
+      throw new Error(
+        `${t.slug}: "${field}" is listed in both providedFields and questions — ` +
+          'a placeholder must have exactly one source of truth.',
+      )
+    }
+  }
 
   for (const field of used) {
-    if (!answered.has(field) && !AMBIENT_FIELDS.has(field)) {
+    if (!answered.has(field) && !AMBIENT_FIELDS.has(field) && !provided.has(field)) {
       throw new Error(
         `${t.slug}: body uses {{${field}}} but no question produces it and it is not ambient. ` +
           'It would render as empty string.',
@@ -99,8 +116,15 @@ export function validateTemplate(t: CommunityTemplate): void {
   }
 }
 
-// Task 11 populates this array.
-const ALL: CommunityTemplate[] = []
+const ALL: CommunityTemplate[] = [
+  communityCleanupDay,
+  dogLeashAndWaste,
+  guestParking,
+  leaseCapStatus,
+  poolPassRenewal,
+  trashAndRecyclingBins,
+  workOnSite,
+]
 
 for (const t of ALL) validateTemplate(t)
 
