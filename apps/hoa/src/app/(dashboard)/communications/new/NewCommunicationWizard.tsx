@@ -49,6 +49,7 @@ const CATEGORIES = [
   'financial',
   'emergency',
   'announcement',
+  'community',
   'custom',
 ] as const
 
@@ -61,6 +62,7 @@ const CATEGORY_LABEL: Record<(typeof CATEGORIES)[number], string> = {
   financial: 'Financial',
   emergency: 'Emergency',
   announcement: 'Announcement',
+  community: 'Community',
   custom: 'Custom',
 }
 
