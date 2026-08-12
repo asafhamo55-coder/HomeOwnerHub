@@ -144,30 +144,32 @@ Overall average: **60-90% token reduction** on common development operations.
 Three ways to get a confident, wrong answer. Each has been hit at least once by
 someone following the instructions above in good faith.
 
-## 1. `rtk pnpm typecheck` does not typecheck
-
-It prints `TypeScript: No errors found` while its own tee log
-(`~/Library/Application Support/rtk/tee/*_tsc.log`) shows it ran `tsc --help`.
-It reports success on a help page.
-
-## 2. `pnpm --filter <pkg> typecheck` does not typecheck either
-
-rtk ignores `--filter` for tsc, then prints `No errors found` having checked
-nothing.
-
-**So, for typecheck only, drop the rtk prefix and the filter:**
+## 1 & 2. Two typecheck invocations silently check nothing
 
 ```bash
-pnpm typecheck        # ✅ turbo across all 11 packages — the only trustworthy form
-rtk pnpm typecheck    # ❌ runs tsc --help, always "passes"
-pnpm --filter hoa typecheck  # ❌ filter dropped, checks nothing
+pnpm typecheck               # ✅ turbo across all 11 packages
+rtk pnpm -r typecheck        # ✅ per-package `tsc --noEmit` — equally trustworthy
+rtk pnpm typecheck           # ❌ runs `tsc --help`, always "passes"
+pnpm --filter hoa typecheck  # ❌ filter dropped for tsc, checks nothing
 ```
 
-This is a deliberate exception to the "always prefix with rtk" rule above.
-`rtk git`, `rtk vitest` and the rest are still correct — it is `tsc` that
-misbehaves. If a typecheck passes suspiciously fast or prints
-`TypeScript: No errors found` rather than turbo's `Tasks: N successful`, you
-ran the wrong one.
+The discriminator is **not** the `rtk` prefix — rtk passes `-r` through fine.
+It is whether the invocation actually reaches per-package `tsc --noEmit`. The
+*bare* and *`--filter`* forms are the ones that get intercepted.
+
+For the bare form, rtk's own tee log
+(`~/Library/Application Support/rtk/tee/*_tsc.log`) contains tsc's `--help`
+output: it reports success on a help page.
+
+**The tell.** A real run prints turbo's `Tasks: N successful` or per-package
+`<pkg> typecheck$ tsc --noEmit`. If all you see is `TypeScript: No errors found`,
+you ran a broken form and know nothing about your types.
+
+Positive proof the working forms work, rather than just looking right:
+`rtk pnpm -r typecheck` caught six `TS2339`/`TS2353` errors in `packages/jobs`
+when a regen wiped `gmail_state` (see §3), and separately caught a
+`TS2307: Cannot find module` in a half-written module. A command running
+`tsc --help` cannot emit either.
 
 ## 3. `pnpm gen:types` silently reverts unapplied migrations
 
