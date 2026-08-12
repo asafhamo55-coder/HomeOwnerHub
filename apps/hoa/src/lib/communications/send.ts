@@ -8,7 +8,7 @@ import { sendSms, htmlToSmsBody } from '@/lib/sms'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { resolveAudience, type AudienceDefinition } from './audience'
-import { renderTemplate } from './templates'
+import { renderTemplateStrict, type MergeBag } from './templates'
 
 type CommInsert = Database['public']['Tables']['communications']['Insert']
 type RecipientInsert = Database['public']['Tables']['communication_recipients']['Insert']
@@ -243,18 +243,30 @@ export async function sendCommunication(
   const associationName = assocRow.name
   const commId = comm.id
 
-  async function deliverOne(recipient: RecipientRow): Promise<Outcome> {
-    const bag = {
+  // extraFields is the caller-supplied bag built from the template's
+  // declared questions via buildMergeBag. Ambient recipient fields are
+  // merged in per recipient, then rendering is strict — a template whose
+  // fields are not all supplied must fail loudly before Resend is called.
+  async function deliverOne(recipient: RecipientRow, extraFields: MergeBag): Promise<Outcome> {
+    const bag: MergeBag = {
+      ...extraFields,
       owner_name: recipient.recipient_name ?? 'Resident',
       recipient_name: recipient.recipient_name ?? 'Resident',
       association_name: associationName,
       unit_id: recipient.unit_id ?? '',
     }
-    const subject = renderTemplate(value.subject, bag).rendered
-    const html = renderTemplate(value.bodyHtml, bag).rendered
-    const text = value.bodyText
-      ? renderTemplate(value.bodyText, bag).rendered
-      : undefined
+
+    let subject: string
+    let html: string
+    let text: string | undefined
+    try {
+      subject = renderTemplateStrict(value.subject, bag)
+      html = renderTemplateStrict(value.bodyHtml, bag)
+      text = value.bodyText ? renderTemplateStrict(value.bodyText, bag) : undefined
+    } catch (err) {
+      await markFailed(supabase, recipient.id, (err as Error).message)
+      return 'skipped'
+    }
 
     if (recipient.channel === 'email') {
       if (!recipient.email) {
@@ -334,7 +346,7 @@ export async function sendCommunication(
     return 'skipped'
   }
 
-  const outcomes = await Promise.all(recipientRows.map(deliverOne))
+  const outcomes = await Promise.all(recipientRows.map((r) => deliverOne(r, {})))
   let sentCount = 0
   let failedCount = 0
   let skippedCount = 0
