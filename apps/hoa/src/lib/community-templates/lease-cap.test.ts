@@ -50,4 +50,29 @@ describe('buildLeaseCapFields', () => {
     expect(buildLeaseCapFields(STATS, 3).waiting_phrase).toBe('3 households are on the waiting list')
     expect(buildLeaseCapFields(STATS, 0).waiting_phrase).toBe('no households are on the waiting list')
   })
+
+  it('floors leased_pct so a near-cap association never reads as at-cap', () => {
+    // 374 of 2500 homes = 14.96% — a realistic mid-size association just
+    // under a 15% cap. round1 would print "15%" for both fields, making
+    // the sentence "that's 15% against a cap of 15%" — self-contradictory
+    // with the meter bar, which correctly shows ~99.7% of the way to cap.
+    const nearCap = { leasedCount: 374, totalUnits: 2500, leasedPct: 14.96, capPct: 15 }
+    const f = buildLeaseCapFields(nearCap, 0)
+    expect(f.leased_pct).toBe('14.9%')
+    expect(f.cap_pct).toBe('15%')
+    expect(f.leased_pct).not.toBe(f.cap_pct)
+  })
+
+  it('still reads leased_pct and cap_pct as equal when genuinely at cap', () => {
+    const atCap = { leasedCount: 12, totalUnits: 80, leasedPct: 15, capPct: 15 }
+    const f = buildLeaseCapFields(atCap, 0)
+    expect(f.leased_pct).toBe('15%')
+    expect(f.cap_pct).toBe('15%')
+  })
+
+  it('leaves an exact one-decimal value undistorted by the floor', () => {
+    // 20 of 100 = 20% exactly — no rounding or flooring should kick in.
+    const exact = { leasedCount: 20, totalUnits: 100, leasedPct: 20, capPct: 25 }
+    expect(buildLeaseCapFields(exact, 0).leased_pct).toBe('20%')
+  })
 })

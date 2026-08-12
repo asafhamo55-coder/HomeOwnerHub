@@ -47,6 +47,27 @@ function round1(n: number): string {
   return `${Math.round(n * 10) / 10}`
 }
 
+/**
+ * Same one-decimal precision as round1, but floors instead of rounding
+ * half-up. Used only for the occupancy figure (leased_pct), never for the
+ * cap.
+ *
+ * The meter bar renders the RATIO valuePct/capPct, not leasedPct in
+ * isolation — so a true leasedPct of 14.96% against a 15% cap draws a bar
+ * that is visibly short of full. round1(14.96) would print "15%", making
+ * the sentence read "that's 15% against a cap of 15%" — self-contradictory
+ * with the bar, and worse, it reads as "at cap" when the association is
+ * still under it. For an email about mortgageability risk, overstating how
+ * close a community is to its cap is the wrong error to make; understating
+ * it by a tenth of a point is not. Flooring can only ever round DOWN, so it
+ * can never make an under-cap association read as at-cap, while a genuinely
+ * at-cap 15.0 still floors to "15%" untouched. Do not change this back to
+ * Math.round — that reintroduces the false "at cap" reading.
+ */
+function floor1(n: number): string {
+  return `${Math.floor(n * 10) / 10}`
+}
+
 export function buildLeaseCapVisual(stats: LeaseCapStats, _waitingCount: number): VisualBlockSpec {
   const cap = requireCap(stats)
   return {
@@ -77,7 +98,7 @@ export function buildLeaseCapFields(
   return {
     leased_count: String(stats.leasedCount),
     total_units: String(stats.totalUnits),
-    leased_pct: `${round1(stats.leasedPct)}%`,
+    leased_pct: `${floor1(stats.leasedPct)}%`,
     cap_pct: `${round1(cap)}%`,
     permitted_count: String(permitted),
     remaining_slots: String(remaining),
