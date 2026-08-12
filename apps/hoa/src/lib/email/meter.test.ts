@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { renderMeterHtml } from './meter'
+import { findBackgroundWithoutColor } from './test-helpers'
 
 const BASE = {
   label: 'Homes currently leased',
@@ -43,9 +44,8 @@ describe('renderMeterHtml', () => {
     const html = renderMeterHtml(BASE)
     const bgs = html.match(/background-color:[^;"]+/g) ?? []
     expect(bgs.length).toBeGreaterThan(0)
-    for (const m of html.matchAll(/style="([^"]*background-color:[^"]*)"/g)) {
-      expect(m[1], `background without color: ${m[1]}`).toContain('color:')
-    }
+    const violations = findBackgroundWithoutColor(html)
+    expect(violations, `background without color:\n${violations.join('\n')}`).toEqual([])
   })
 
   it('escapes the labels', () => {

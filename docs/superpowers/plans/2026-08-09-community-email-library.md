@@ -2941,6 +2941,7 @@ The spec calls for a lint rule. A test is the same enforcement with less machine
 import { describe, it, expect, beforeAll } from 'vitest'
 import { COMMUNITY_TEMPLATES } from './registry'
 import { renderCommunityEmailHtml } from './render'
+import { findBackgroundWithoutColor } from '@/lib/email/test-helpers'
 
 beforeAll(() => {
   process.env.EMAIL_ASSET_BASE_URL = 'https://app.homeownerhub.com'
@@ -2982,9 +2983,10 @@ describe.each(COMMUNITY_TEMPLATES.map((t) => [t.slug, t] as const))(
     })
 
     it('sets a foreground on every background', () => {
-      for (const m of html.matchAll(/style="([^"]*background-color:[^"]*)"/g)) {
-        expect(m[1], `background without color in ${t.slug}: ${m[1]}`).toContain('color:')
-      }
+      // Uses the shared helper, NOT `toContain('color:')` — that assertion is
+      // vacuous, because "background-color:" itself contains "color:".
+      const violations = findBackgroundWithoutColor(html)
+      expect(violations, `background without color in ${t.slug}`).toEqual([])
     })
 
     it('uses no gradient, flexbox or grid', () => {

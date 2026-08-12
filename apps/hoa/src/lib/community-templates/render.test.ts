@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { renderCommunityEmailHtml, renderCommunityEmailText } from './render'
+import { findBackgroundWithoutColor } from '@/lib/email/test-helpers'
 import type { CommunityTemplate } from './types'
 
 beforeAll(() => {
@@ -66,9 +67,8 @@ describe('renderCommunityEmailHtml', () => {
 
   it('sets a foreground on every background', () => {
     const html = renderCommunityEmailHtml(T)
-    for (const m of html.matchAll(/style="([^"]*background-color:[^"]*)"/g)) {
-      expect(m[1], `background without color: ${m[1]}`).toContain('color:')
-    }
+    const violations = findBackgroundWithoutColor(html)
+    expect(violations, `background without color:\n${violations.join('\n')}`).toEqual([])
   })
 })
 
