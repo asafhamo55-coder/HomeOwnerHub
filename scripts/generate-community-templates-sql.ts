@@ -26,15 +26,27 @@ import {
   renderCommunityEmailText,
 } from '../apps/hoa/src/lib/community-templates/render'
 
-// The generator runs at build time and only needs a syntactically valid
-// origin — the real value is read at send time in the app. Because the
-// visual block bakes emailAssetUrl() output into body_html at generation
-// time, this placeholder host ends up stored in the database. If the
-// production asset host ever changes, this seed must be regenerated (with
-// the real EMAIL_ASSET_BASE_URL, or after updating this default) and
-// re-applied — existing stored rows will not pick up the new host on
-// their own.
-process.env.EMAIL_ASSET_BASE_URL ??= 'https://app.homeownerhub.com'
+// The visual block bakes emailAssetUrl() output into body_html AT GENERATION
+// TIME, so whatever host is set here is stored in the database and shipped in
+// every send. That makes a default actively dangerous: this script previously
+// defaulted to a placeholder host that did not match .env.example, so a
+// regeneration without the variable set would have silently re-baked six image
+// URLs onto the wrong domain — and the SQL would have looked completely normal.
+//
+// So: require it explicitly. No default, no fallback.
+//
+// Note the consequence either way — if the production asset host ever changes,
+// this seed must be regenerated and re-applied. Stored rows do not pick up a
+// new host on their own.
+if (!process.env.EMAIL_ASSET_BASE_URL) {
+  console.error(
+    'EMAIL_ASSET_BASE_URL is required.\n' +
+      'It is baked into the stored template bodies, so it must be the real\n' +
+      'production origin — see .env.example.\n\n' +
+      '  EMAIL_ASSET_BASE_URL=https://www.homeownerledger.com pnpm generate:community-sql\n',
+  )
+  process.exit(1)
+}
 
 /** Dollar-quoted so bodies containing quotes need no escaping. The tag is
  *  checked against the content to guarantee it cannot appear inside. */
