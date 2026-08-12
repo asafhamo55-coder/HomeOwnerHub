@@ -2,16 +2,27 @@
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState, useTransition } from 'react'
-import { Loader2, Mail, Phone, Plus, Send, Users2, X } from 'lucide-react'
+import { Loader2, Send } from 'lucide-react'
 import { Alert, Button, Input, Select } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { sendCommunication } from '@/lib/communications/send'
+import { renderTemplate } from '@/lib/communications/templates'
 import {
   listPropertyResidents,
   listBoardMembers,
   type ResidentOption,
   type BoardMemberOption,
 } from '@/lib/communications/actions'
+import { buildMergeBag, type AnswerMap } from '@/lib/community-templates/merge-bag'
+import type { TemplateQuestion } from '@/lib/community-templates/types'
+import {
+  AudienceStep,
+  type AudienceCounts,
+  type AudienceKind,
+  type ManualContact,
+  type PropertyOption,
+} from './AudienceStep'
+import { QuestionStep } from './QuestionStep'
 
 interface TemplateOption {
   id: string
@@ -22,40 +33,11 @@ interface TemplateOption {
   bodyHtml: string
   bodyText: string
   channels: string[]
-}
-
-interface AudienceCounts {
-  everyone: number
-  owners_only: number
-  tenants_only: number
-  late_on_dues: number
-  open_violations: number
-  board: number
-}
-
-interface PropertyOption {
-  id: string
-  label: string
-}
-
-// 'specific_property' drives the property + resident-picker UI; on
-// submit it converts to the resolver's 'specific_residents' shape.
-// 'manual_emails' drives a free-form email entry list — also passes
-// through to the resolver as-is.
-type AudienceKind =
-  | keyof AudienceCounts
-  | 'specific_property'
-  | 'manual_emails'
-
-const AUDIENCE_LABELS: Record<AudienceKind, string> = {
-  everyone: 'Everyone',
-  owners_only: 'Owners only',
-  tenants_only: 'Tenants only',
-  late_on_dues: 'Late on dues',
-  open_violations: 'Units with open violations',
-  specific_property: 'Specific property',
-  board: 'Board',
-  manual_emails: 'Custom contacts',
+  // Optional because not every caller of this component supplies it yet
+  // (the community-template library's questions are wired in separately).
+  // QuestionStep and handleSubmit both treat a missing array as "no
+  // declared questions" rather than crashing.
+  questions?: readonly TemplateQuestion[]
 }
 
 const CATEGORIES = [
@@ -97,6 +79,7 @@ export function NewCommunicationWizard({
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>('announcement')
   const [audience, setAudience] = useState<AudienceKind>('everyone')
   const [templateId, setTemplateId] = useState<string>('')
+  const [answers, setAnswers] = useState<AnswerMap>({})
   const [subject, setSubject] = useState('')
   const [bodyHtml, setBodyHtml] = useState('')
   const [channels, setChannels] = useState<string[]>(['email', 'portal'])
@@ -122,7 +105,6 @@ export function NewCommunicationWizard({
   const [checkedBoardIds, setCheckedBoardIds] = useState<Set<string>>(new Set())
 
   // Manual contacts audience state.
-  interface ManualContact { email: string; phone: string; name: string }
   const [manualContacts, setManualContacts] = useState<ManualContact[]>([])
   const [draftEmail, setDraftEmail] = useState('')
   const [draftPhone, setDraftPhone] = useState('')
@@ -245,6 +227,17 @@ export function NewCommunicationWizard({
       ),
     [templates, category],
   )
+  const selectedTemplate = templates.find((t) => t.id === templateId)
+
+  // Answers are keyed by question id, and question ids are only unique
+  // *within* a template — reset on every templateId change (picking a
+  // template, switching back to Custom, or switching category, which
+  // clears templateId too) so a stale answer never leaks into a
+  // differently-shaped template and trips buildMergeBag's "undeclared
+  // question" guard.
+  useEffect(() => {
+    setAnswers({})
+  }, [templateId])
 
   function pickTemplate(id: string) {
     setTemplateId(id)
@@ -271,6 +264,28 @@ export function NewCommunicationWizard({
     if (!subject.trim() || !bodyHtml.trim() || channels.length === 0) {
       setError('Subject, body, and at least one channel are required.')
       return
+    }
+
+    // Fill in the template's declared-question merge fields now, before
+    // the audience is even resolved. buildMergeBag throws on a missing
+    // required answer — surfacing that here, as a named error, is what
+    // stands between the board member and a wall of per-recipient send
+    // failures (renderTemplateStrict throws in send.ts for every
+    // recipient otherwise). Ambient fields (recipient_name,
+    // association_name, owner_name, unit_id) are deliberately left as
+    // placeholders — send.ts fills those in per recipient.
+    let finalSubject = subject.trim()
+    let finalBodyHtml = bodyHtml
+    if (selectedTemplate?.questions?.length) {
+      let bag
+      try {
+        bag = buildMergeBag(selectedTemplate.questions, answers, {})
+      } catch (err) {
+        setError((err as Error).message)
+        return
+      }
+      finalSubject = renderTemplate(finalSubject, bag).rendered
+      finalBodyHtml = renderTemplate(finalBodyHtml, bag).rendered
     }
 
     // Translate the wizard-local 'specific_property' kind into the
@@ -341,9 +356,9 @@ export function NewCommunicationWizard({
     startTransition(async () => {
       const result = await sendCommunication({
         category,
-        subject: subject.trim(),
-        bodyHtml,
-        bodyText: stripHtml(bodyHtml),
+        subject: finalSubject,
+        bodyHtml: finalBodyHtml,
+        bodyText: stripHtml(finalBodyHtml),
         channels: channels as ('email' | 'portal' | 'sms' | 'mail')[],
         audience: audienceDef,
         templateId: templateId || undefined,
@@ -389,355 +404,38 @@ export function NewCommunicationWizard({
 
       {/* Step 2 — audience */}
       <Section number={2} title="Audience" hint="Who receives this?">
-        <div className="grid gap-2 sm:grid-cols-2">
-          {(Object.keys(AUDIENCE_LABELS) as AudienceKind[]).map((kind) => {
-            const selected = audience === kind
-            const count =
-              kind === 'specific_property'
-                ? properties.length
-                : kind === 'manual_emails'
-                  ? manualContacts.length
-                  : audienceCounts[kind as keyof AudienceCounts]
-            const disabled =
-              pending ||
-              (kind !== 'specific_property' &&
-                kind !== 'manual_emails' &&
-                count === 0)
-            return (
-              <label
-                key={kind}
-                className={`flex cursor-pointer items-center justify-between rounded-md border px-3 py-2 text-sm ${
-                  selected
-                    ? 'border-primary bg-primary/5 text-foreground'
-                    : 'border-border text-muted hover:bg-background'
-                } ${disabled ? 'opacity-50' : ''}`}
-              >
-                <span className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="audience"
-                    value={kind}
-                    checked={selected}
-                    onChange={() => setAudience(kind)}
-                    disabled={disabled}
-                  />
-                  {AUDIENCE_LABELS[kind]}
-                </span>
-                <span className="font-mono text-xs text-muted">{count}</span>
-              </label>
-            )
-          })}
-        </div>
-
-        {/* Property picker + resident checkboxes — only when
-            "Specific property" is the chosen audience. */}
-        {/* Manual email entry — typed-in addresses for one-off
-            recipients (vendor, attorney, anyone not in the roster). */}
-        {audience === 'manual_emails' ? (
-          <div className="mt-4 space-y-3 rounded-md border border-border bg-background/40 p-4">
-            <p className="text-xs text-muted">
-              Add contacts by email and/or US phone number. At least one is
-              required per contact. Useful for one-off messages to people not
-              in the resident list — vendors, attorneys, contractors.
-            </p>
-            <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
-              <Input
-                type="text"
-                value={draftName}
-                onChange={(e) => setDraftName(e.target.value)}
-                placeholder="Name (optional)"
-                disabled={pending}
-              />
-              <Input
-                type="email"
-                value={draftEmail}
-                onChange={(e) => setDraftEmail(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    const result = addManualContact()
-                    if (!result.ok) setError(result.error)
-                  }
-                }}
-                placeholder="email@example.com"
-                disabled={pending}
-              />
-              <Input
-                type="tel"
-                value={draftPhone}
-                onChange={(e) => setDraftPhone(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    const result = addManualContact()
-                    if (!result.ok) setError(result.error)
-                  }
-                }}
-                placeholder="(555) 123-4567"
-                disabled={pending}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  const result = addManualContact()
-                  if (!result.ok) setError(result.error)
-                }}
-                disabled={pending || (!draftEmail.trim() && !draftPhone.trim())}
-              >
-                <Plus className="h-4 w-4" />
-                Add
-              </Button>
-            </div>
-
-            {manualContacts.length === 0 ? (
-              <p className="flex items-center gap-2 text-xs italic text-muted">
-                <Users2 className="h-3.5 w-3.5" />
-                No contacts added yet.
-              </p>
-            ) : (
-              <ul className="space-y-1.5">
-                {manualContacts.map((c, i) => (
-                  <li
-                    key={i}
-                    className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm"
-                  >
-                    <div className="min-w-0 flex-1">
-                      {c.name ? <span className="font-medium text-foreground">{c.name}</span> : null}
-                      <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted">
-                        {c.email ? (
-                          <span className="inline-flex items-center gap-1">
-                            <Mail className="h-3 w-3" />
-                            {c.email}
-                          </span>
-                        ) : null}
-                        {c.phone ? (
-                          <span className="inline-flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            {c.phone}
-                          </span>
-                        ) : null}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeContact(i)}
-                      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted hover:bg-destructive/10 hover:text-destructive"
-                      aria-label={`Remove ${c.name || c.email || c.phone}`}
-                      disabled={pending}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : null}
-
-        {audience === 'specific_property' ? (
-          <div className="mt-4 space-y-3 rounded-md border border-border bg-background/40 p-4">
-            <div>
-              <label className="text-xs font-medium text-foreground" htmlFor="comm-property">
-                Property
-              </label>
-              <Select
-                id="comm-property"
-                value={selectedPropertyId}
-                onValueChange={setSelectedPropertyId}
-                disabled={pending}
-                placeholder="Choose a property"
-                className="mt-1"
-              >
-                <option value="" disabled>
-                  — pick one —
-                </option>
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            {selectedPropertyId ? (
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs font-medium text-foreground">
-                    Who at this property?{' '}
-                    <span className="font-normal text-muted">
-                      ({checkedResidentIds.size} selected)
-                    </span>
-                  </p>
-                  {residents.length > 0 ? (
-                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                      <button
-                        type="button"
-                        className="rounded-full border border-border bg-surface px-2 py-0.5 hover:bg-background"
-                        onClick={selectAllResidents}
-                      >
-                        All
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-full border border-border bg-surface px-2 py-0.5 hover:bg-background"
-                        onClick={() => selectByRole('owner')}
-                      >
-                        Owners
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-full border border-border bg-surface px-2 py-0.5 hover:bg-background"
-                        onClick={() => selectByRole('tenant')}
-                      >
-                        Tenants
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-full border border-border bg-surface px-2 py-0.5 hover:bg-background"
-                        onClick={clearResidents}
-                      >
-                        None
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-
-                {residentsLoading ? (
-                  <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Loading residents…
-                  </p>
-                ) : residents.length === 0 ? (
-                  <p className="mt-3 flex items-center gap-2 text-xs italic text-muted">
-                    <Users2 className="h-3.5 w-3.5" />
-                    No active residents recorded for this property.
-                    Add residents on the property detail page first.
-                  </p>
-                ) : (
-                  <ul className="mt-2 divide-y divide-border rounded-md border border-border bg-surface">
-                    {residents.map((r) => {
-                      const checked = checkedResidentIds.has(r.id)
-                      return (
-                        <li key={r.id}>
-                          <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-background/50">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleResident(r.id)}
-                              disabled={pending}
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm text-foreground">
-                                {r.fullName}
-                                {r.isPrimary ? (
-                                  <span className="ml-2 rounded-full bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-primary">
-                                    primary
-                                  </span>
-                                ) : null}
-                              </p>
-                              <p className="text-xs text-muted">
-                                {roleHumanLabel(r.role)}
-                                {r.email ? ` · ${r.email}` : ' · no email on file'}
-                              </p>
-                            </div>
-                          </label>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-        {/* Board picker — checkbox list of board members, defaulting
-            to all selected. "Board" is reached by email + in-app portal;
-            there's no phone on file so SMS is a no-op for this audience. */}
-        {audience === 'board' ? (
-          <div className="mt-4 space-y-3 rounded-md border border-border bg-background/40 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-medium text-foreground">
-                Which board members?{' '}
-                <span className="font-normal text-muted">
-                  ({checkedBoardIds.size} selected)
-                </span>
-              </p>
-              {boardMembers.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                  <button
-                    type="button"
-                    className="rounded-full border border-border bg-surface px-2 py-0.5 hover:bg-background"
-                    onClick={selectAllBoard}
-                  >
-                    All
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-full border border-border bg-surface px-2 py-0.5 hover:bg-background"
-                    onClick={clearBoard}
-                  >
-                    None
-                  </button>
-                </div>
-              ) : null}
-            </div>
-
-            {boardLoading ? (
-              <p className="inline-flex items-center gap-1.5 text-xs text-muted">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Loading board members…
-              </p>
-            ) : boardMembers.length === 0 ? (
-              <p className="flex items-center gap-2 text-xs italic text-muted">
-                <Users2 className="h-3.5 w-3.5" />
-                No board members yet. Invite members with the Board role
-                on the Members page first.
-              </p>
-            ) : (
-              <>
-                <ul className="divide-y divide-border rounded-md border border-border bg-surface">
-                  {boardMembers.map((m) => {
-                    const checked = checkedBoardIds.has(m.userId)
-                    return (
-                      <li key={m.userId}>
-                        <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-background/50">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleBoardMember(m.userId)}
-                            disabled={pending}
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm text-foreground">
-                              {m.fullName}
-                              <span
-                                className={`ml-2 rounded-full px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide ${
-                                  m.role === 'admin'
-                                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                    : 'bg-primary/10 text-primary'
-                                }`}
-                              >
-                                {m.role}
-                              </span>
-                            </p>
-                            <p className="text-xs text-muted">
-                              {m.email ?? 'no email on file'}
-                            </p>
-                          </div>
-                        </label>
-                      </li>
-                    )
-                  })}
-                </ul>
-                <p className="text-xs italic text-muted">
-                  Board members are reached by email and the in-app portal.
-                  SMS is skipped — there is no phone number on file for board roles.
-                </p>
-              </>
-            )}
-          </div>
-        ) : null}
+        <AudienceStep
+          pending={pending}
+          audience={audience}
+          setAudience={setAudience}
+          audienceCounts={audienceCounts}
+          properties={properties}
+          manualContacts={manualContacts}
+          draftName={draftName}
+          setDraftName={setDraftName}
+          draftEmail={draftEmail}
+          setDraftEmail={setDraftEmail}
+          draftPhone={draftPhone}
+          setDraftPhone={setDraftPhone}
+          addManualContact={addManualContact}
+          setError={setError}
+          removeContact={removeContact}
+          selectedPropertyId={selectedPropertyId}
+          setSelectedPropertyId={setSelectedPropertyId}
+          residents={residents}
+          residentsLoading={residentsLoading}
+          checkedResidentIds={checkedResidentIds}
+          toggleResident={toggleResident}
+          selectAllResidents={selectAllResidents}
+          selectByRole={selectByRole}
+          clearResidents={clearResidents}
+          boardMembers={boardMembers}
+          boardLoading={boardLoading}
+          checkedBoardIds={checkedBoardIds}
+          toggleBoardMember={toggleBoardMember}
+          selectAllBoard={selectAllBoard}
+          clearBoard={clearBoard}
+        />
       </Section>
 
       {/* Step 3 — template */}
@@ -764,8 +462,25 @@ export function NewCommunicationWizard({
         )}
       </Section>
 
-      {/* Step 4 — subject + body */}
-      <Section number={4} title="Message" hint="Edit before sending. {{ variables }} render per recipient.">
+      {/* Step 4 — declared questions, only shown when the chosen template
+          has any. Answers become the merge bag for its {{ fields }} —
+          see handleSubmit, which builds and substitutes it before send. */}
+      {selectedTemplate?.questions && selectedTemplate.questions.length > 0 ? (
+        <Section
+          number={4}
+          title="Details"
+          hint="Answers fill in this template's {{ merge fields }}."
+        >
+          <QuestionStep
+            questions={selectedTemplate.questions}
+            answers={answers}
+            onChange={(id, v) => setAnswers((a) => ({ ...a, [id]: v }))}
+          />
+        </Section>
+      ) : null}
+
+      {/* Step 5 — subject + body */}
+      <Section number={5} title="Message" hint="Edit before sending. {{ variables }} render per recipient.">
         <label className="block text-sm">
           <span className="text-muted">Subject</span>
           <Input
@@ -803,8 +518,8 @@ export function NewCommunicationWizard({
         </div>
       </Section>
 
-      {/* Step 5 — channels + schedule */}
-      <Section number={5} title="Channels & schedule" hint="Pick where this lands. Portal messages show in the resident's in-app inbox.">
+      {/* Step 6 — channels + schedule */}
+      <Section number={6} title="Channels & schedule" hint="Pick where this lands. Portal messages show in the resident's in-app inbox.">
         <div className="flex flex-wrap gap-4">
           {CHANNELS.map((c) => (
             <label key={c} className="flex items-center gap-2 text-sm text-foreground">
@@ -872,15 +587,6 @@ function Section({
       <div className="ml-7">{children}</div>
     </div>
   )
-}
-
-function roleHumanLabel(role: ResidentOption['role']): string {
-  switch (role) {
-    case 'owner': return 'Owner'
-    case 'tenant': return 'Tenant'
-    case 'family_member': return 'Family member'
-    case 'other': return 'Resident'
-  }
 }
 
 /** Strip HTML tags for the plain-text fallback we hand to Resend. Not
