@@ -20,7 +20,7 @@
  *     a mass email reads as a rule change.
  */
 
-import type { VisualBlockSpec } from '@/lib/email/visual-block'
+import { renderMeterHtml } from '@/lib/email/meter'
 
 export interface LeaseCapStats {
   leasedCount: number
@@ -81,16 +81,27 @@ function floor1(n: number): string {
   return `${Math.floor(n * 10 + 1e-9) / 10}`
 }
 
-export function buildLeaseCapVisual(stats: LeaseCapStats, _waitingCount: number): VisualBlockSpec {
+/**
+ * Renders the occupancy meter as HTML, for merge substitution into the
+ * template's `{{lease_meter_html}}` placeholder.
+ *
+ * This cannot be baked into the template at registry/seed time the way the
+ * image-kind visuals are: it needs live data, so `visual` on the
+ * lease-cap-status template is `{ kind: 'none' }` and the meter is produced
+ * here instead, at send time, from the association's current lease stats.
+ * Merge substitution (renderTemplateStrict) is raw, not HTML-escaped, so
+ * this markup passes through into the sent email intact.
+ */
+export function buildLeaseCapMeterHtml(stats: LeaseCapStats, accentColor: string): string {
   const cap = requireCap(stats)
-  return {
-    kind: 'meter',
+  return renderMeterHtml({
     label: 'Homes currently leased',
     valuePct: stats.leasedPct,
     capPct: cap,
+    accentColor,
     valueLabel: `${stats.leasedCount} of ${stats.totalUnits} homes`,
     capLabel: `${round1(cap)}% cap`,
-  }
+  })
 }
 
 export function buildLeaseCapFields(

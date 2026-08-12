@@ -43,6 +43,8 @@ function blockText(b: BodyBlock): string {
       return b.text
     case 'list':
       return b.items.join(' ')
+    case 'raw':
+      return b.html
     case 'visual':
       return ''
   }
@@ -75,6 +77,12 @@ export function validateTemplate(t: CommunityTemplate): void {
   for (const q of t.questions) {
     if (!SNAKE.test(q.id)) {
       throw new Error(`${t.slug}: question id "${q.id}" must be snake_case`)
+    }
+    if (AMBIENT_FIELDS.has(q.id)) {
+      throw new Error(
+        `${t.slug}: question id "${q.id}" shadows an ambient field — ` +
+          "deliverOne's ambient-wins merge order would silently discard the board member's answer.",
+      )
     }
     if ((q.type === 'select' || q.type === 'multiselect') && !q.options?.length) {
       throw new Error(`${t.slug}: question "${q.id}" is ${q.type} and needs options`)

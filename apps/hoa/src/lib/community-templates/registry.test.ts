@@ -77,6 +77,15 @@ describe('validateTemplate', () => {
     }))).toThrow(/five/i)
   })
 
+  it('rejects a question id that shadows an ambient field', () => {
+    expect(() => validateTemplate(tpl({
+      body: [{ type: 'paragraph', text: 'Hi {{recipient_name}}, see {{association_name}}.' }],
+      questions: [
+        { id: 'association_name', label: 'Association?', type: 'text', required: true },
+      ],
+    }))).toThrow(/association_name.*shadows an ambient field/)
+  })
+
   it('rejects deadline_date on a single-property template', () => {
     expect(() => validateTemplate(tpl({
       audience: 'single_property',
@@ -99,6 +108,9 @@ describe('COMMUNITY_TEMPLATES', () => {
   })
 
   it('getTemplate finds by slug and returns undefined otherwise', () => {
+    const found = getTemplate('lease-cap-status')
+    expect(found).toBeDefined()
+    expect(found?.slug).toBe('lease-cap-status')
     expect(getTemplate('definitely-not-a-slug')).toBeUndefined()
   })
 })

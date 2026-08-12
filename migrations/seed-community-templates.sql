@@ -51,7 +51,7 @@ FROM (VALUES
 <tr><td align="center" bgcolor="#F1F3F5" style="padding:18px;background-color:#F1F3F5;color:#1A1D21;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width:600px;background-color:#FFFFFF;color:#1A1D21;border:1px solid #E8EBED;">
 <tr><td bgcolor="#A63A87" style="background-color:#A63A87;color:#ffffff;padding:13px 22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">{{association_name}}</td></tr>
-<tr><td style="padding:22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1A1D21;background-color:#FFFFFF;">
+<tr><td bgcolor="#FFFFFF" style="padding:22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1A1D21;background-color:#FFFFFF;">
 <h1 style="margin:0 0 12px;font-size:20px;line-height:1.25;color:#1A1D21;font-weight:700;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Volunteer Invitation</h1><p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Hi {{recipient_name}},</p>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">It&#39;s time for our annual Community Cleanup Day! Grab a pair of gloves and join your neighbors on {{event_date}} from {{start_time}} to {{end_time}} — we&#39;ll spend the morning tidying up our shared spaces, and there&#39;s a roll-off dumpster on site for bulk items you&#39;ve been meaning to get rid of.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:13px 0;">
@@ -111,7 +111,7 @@ Bring a neighbor, bring the kids, and let's make {{association_name}} look its b
 <tr><td align="center" bgcolor="#F1F3F5" style="padding:18px;background-color:#F1F3F5;color:#1A1D21;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width:600px;background-color:#FFFFFF;color:#1A1D21;border:1px solid #E8EBED;">
 <tr><td bgcolor="#1C6772" style="background-color:#1C6772;color:#ffffff;padding:13px 22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">{{association_name}}</td></tr>
-<tr><td style="padding:22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1A1D21;background-color:#FFFFFF;">
+<tr><td bgcolor="#FFFFFF" style="padding:22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1A1D21;background-color:#FFFFFF;">
 <h1 style="margin:0 0 12px;font-size:20px;line-height:1.25;color:#1A1D21;font-weight:700;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Leash Rules and Picking Up After Your Pet</h1><p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Hi {{recipient_name}},</p>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">We&#39;ve had a number of reports about {{issue_type}} over the past few weeks, most often around {{affected_areas}}.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:13px 0;">
@@ -165,7 +165,7 @@ Thanks for helping keep the neighborhood pleasant for everyone — including the
 <tr><td align="center" bgcolor="#F1F3F5" style="padding:18px;background-color:#F1F3F5;color:#1A1D21;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width:600px;background-color:#FFFFFF;color:#1A1D21;border:1px solid #E8EBED;">
 <tr><td bgcolor="#2C6FAF" style="background-color:#2C6FAF;color:#ffffff;padding:13px 22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">{{association_name}}</td></tr>
-<tr><td style="padding:22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1A1D21;background-color:#FFFFFF;">
+<tr><td bgcolor="#FFFFFF" style="padding:22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1A1D21;background-color:#FFFFFF;">
 <h1 style="margin:0 0 12px;font-size:20px;line-height:1.25;color:#1A1D21;font-weight:700;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Where to Park and For How Long</h1><p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Hi {{recipient_name}},</p>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">With {{reason}}, we want to make sure every guest knows where to park. Visitor vehicles may stay in the marked guest spaces for {{max_guest_stay}}.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:13px 0;">
@@ -219,23 +219,10 @@ Questions about where guests can park? Reach out to {{report_contact}} and we ar
 <tr><td align="center" bgcolor="#F1F3F5" style="padding:18px;background-color:#F1F3F5;color:#1A1D21;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width:600px;background-color:#FFFFFF;color:#1A1D21;border:1px solid #E8EBED;">
 <tr><td bgcolor="#3A5AA8" style="background-color:#3A5AA8;color:#ffffff;padding:13px 22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">{{association_name}}</td></tr>
-<tr><td style="padding:22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1A1D21;background-color:#FFFFFF;">
+<tr><td bgcolor="#FFFFFF" style="padding:22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1A1D21;background-color:#FFFFFF;">
 <h1 style="margin:0 0 12px;font-size:20px;line-height:1.25;color:#1A1D21;font-weight:700;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Where the Community Stands</h1><p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Hi {{recipient_name}},</p>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">This is a periodic update on the community’s rental cap, set under {{policy_reference}}. Right now {{leased_count}} of {{total_units}} homes are leased — that’s {{leased_pct}} against a cap of {{cap_pct}}. {{remaining_slots}} more homes may still be leased, and {{waiting_phrase}}.</p>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eef0f5" style="background-color:#eef0f5;color:#1A1D21;margin:14px 0;">
-<tr><td style="padding:15px 17px;background-color:#eef0f5;color:#1A1D21;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">
-<div style="font-size:12px;font-weight:700;color:#1A1D21;">Homes currently leased</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:9px 0 7px;">
-<tr>
-<td width="0%" bgcolor="#3A5AA8" style="width:0%;background-color:#3A5AA8;color:#3A5AA8;font-size:1px;line-height:18px;">&nbsp;</td>
-<td bgcolor="#E8EBED" style="background-color:#E8EBED;color:#E8EBED;font-size:1px;line-height:18px;">&nbsp;</td>
-</tr></table>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td style="font-size:11px;color:#5C6670;background-color:#eef0f5;"></td>
-<td align="right" style="font-size:11px;font-weight:700;color:#1A1D21;background-color:#eef0f5;"></td>
-</tr></table>
-
-</td></tr></table>
+{{lease_meter_html}}
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">This cap exists for a reason that affects every owner, not just those who rent out their home: once an association exceeds its allowed share of leased homes, FHA and Fannie Mae owner-occupancy rules can make homes here unmortgageable. That can make it harder for any owner — renter or not — to sell, and harder for a buyer to get financing. Staying under the cap protects resale value for the whole community.</p>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">If you are on the waiting list, we will contact you in order as slots open up. {{waiting_list_status}}</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#e9ecf3" style="background-color:#e9ecf3;color:#1A1D21;margin:13px 0;">
@@ -259,8 +246,8 @@ If you are on the waiting list, we will contact you in order as slots open up. {
 
 Questions about the cap, the waiting list, or how it applies to your home? Reach out to {{contact_name}}.$tpl$,
     $tpl$[{"id":"policy_reference","label":"Which section of the governing documents sets the lease cap?","type":"text","required":true,"help":"e.g. \"Article VII, Section 3 of the Declaration\" — quote it exactly, do not paraphrase."},{"id":"waiting_list_status","label":"Any update on how the waiting list works right now?","type":"select","options":["The waiting list is open and working as usual.","The waiting list is temporarily paused while we confirm current numbers.","We are changing how the waiting list is managed — details to follow separately."],"required":true,"help":"Pick the one that matches what is actually happening today."},{"id":"contact_name","label":"Who should residents contact with questions about the cap or waiting list?","type":"text","required":true,"help":"e.g. \"the management office\" or a board member’s name."}]$tpl$::jsonb,
-    $tpl${"kind":"meter","label":"Homes currently leased","valuePct":0,"capPct":1,"valueLabel":"","capLabel":""}$tpl$::jsonb,
-    $tpl$["association_name","cap_pct","contact_name","leased_count","leased_pct","policy_reference","recipient_name","remaining_slots","total_units","waiting_list_status","waiting_phrase"]$tpl$::jsonb
+    $tpl${"kind":"none"}$tpl$::jsonb,
+    $tpl$["association_name","cap_pct","contact_name","lease_meter_html","leased_count","leased_pct","policy_reference","recipient_name","remaining_slots","total_units","waiting_list_status","waiting_phrase"]$tpl$::jsonb
   ),
   (
     'pool-pass-renewal',
@@ -283,7 +270,7 @@ Questions about the cap, the waiting list, or how it applies to your home? Reach
 <tr><td align="center" bgcolor="#F1F3F5" style="padding:18px;background-color:#F1F3F5;color:#1A1D21;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width:600px;background-color:#FFFFFF;color:#1A1D21;border:1px solid #E8EBED;">
 <tr><td bgcolor="#1C6F31" style="background-color:#1C6F31;color:#ffffff;padding:13px 22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">{{association_name}}</td></tr>
-<tr><td style="padding:22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1A1D21;background-color:#FFFFFF;">
+<tr><td bgcolor="#FFFFFF" style="padding:22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1A1D21;background-color:#FFFFFF;">
 <h1 style="margin:0 0 12px;font-size:20px;line-height:1.25;color:#1A1D21;font-weight:700;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Paperwork Needed Before Opening Day</h1><p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Hi {{recipient_name}},</p>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">To have your pass ready before opening day, every household needs to turn in {{required_items}} by {{deadline_date}}. Submit via {{submission_method}}.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:13px 0;">
@@ -337,7 +324,7 @@ Questions about what's needed or how to submit it? Reach out to {{contact_name}}
 <tr><td align="center" bgcolor="#F1F3F5" style="padding:18px;background-color:#F1F3F5;color:#1A1D21;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width:600px;background-color:#FFFFFF;color:#1A1D21;border:1px solid #E8EBED;">
 <tr><td bgcolor="#268298" style="background-color:#268298;color:#ffffff;padding:13px 22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">{{association_name}}</td></tr>
-<tr><td style="padding:22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1A1D21;background-color:#FFFFFF;">
+<tr><td bgcolor="#FFFFFF" style="padding:22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1A1D21;background-color:#FFFFFF;">
 <h1 style="margin:0 0 12px;font-size:20px;line-height:1.25;color:#1A1D21;font-weight:700;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Curb Timing and Storage</h1><p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Hi {{recipient_name}},</p>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Trash and recycling are collected on {{collection_day}}. Bins may go out to the curb starting at {{early_out_time}} the evening before, and need to be back out of sight by {{late_in_time}} that same day.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:13px 0;">
@@ -391,7 +378,7 @@ Thanks for keeping the curb clear between pickups — most of us already do, and
 <tr><td align="center" bgcolor="#F1F3F5" style="padding:18px;background-color:#F1F3F5;color:#1A1D21;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width:600px;background-color:#FFFFFF;color:#1A1D21;border:1px solid #E8EBED;">
 <tr><td bgcolor="#7A6A1D" style="background-color:#7A6A1D;color:#ffffff;padding:13px 22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">{{association_name}}</td></tr>
-<tr><td style="padding:22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1A1D21;background-color:#FFFFFF;">
+<tr><td bgcolor="#FFFFFF" style="padding:22px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1A1D21;background-color:#FFFFFF;">
 <h1 style="margin:0 0 12px;font-size:20px;line-height:1.25;color:#1A1D21;font-weight:700;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Paving, Landscaping, Roof or Utility Work</h1><p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Hi {{recipient_name}},</p>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">{{association_name}} has scheduled {{reason}} at {{affected_areas}}, expected to run from {{start_date}} through {{end_date}}. {{parking_instructions}}</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:13px 0;">

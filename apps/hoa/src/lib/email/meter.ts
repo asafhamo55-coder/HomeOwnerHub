@@ -42,8 +42,13 @@ export function renderMeterHtml(o: MeterOptions): string {
 
   const over = o.valuePct > o.capPct
   const ratio = Math.min(100, Math.max(0, (o.valuePct / o.capPct) * 100))
-  // One decimal: enough to be honest, not so much it looks computed.
-  const width = `${Math.round(ratio * 10) / 10}%`
+  // One decimal: enough to be honest, not so much it looks computed. The
+  // HTML `width` ATTRIBUTE is specified as an integer percentage though,
+  // and the Word rendering engine is the least tolerant of a decimal
+  // there — so the attribute gets a separate, rounded-to-integer value
+  // while the inline style keeps the honest one-decimal figure.
+  const widthStyle = `${Math.round(ratio * 10) / 10}%`
+  const widthAttr = `${Math.round(ratio)}%`
   const fill = over ? OVER : o.accentColor
   const panel = tintOver(o.accentColor, 0.06)
 
@@ -58,8 +63,8 @@ export function renderMeterHtml(o: MeterOptions): string {
 <div style="font-size:12px;font-weight:700;color:${TEXT};">${escapeHtml(o.label)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:9px 0 7px;">
 <tr>
-<td width="${width}" bgcolor="${fill}" style="width:${width};background-color:${fill};color:${fill};font-size:1px;line-height:18px;">&nbsp;</td>
-<td bgcolor="${TRACK}" style="background-color:${TRACK};color:${TRACK};font-size:1px;line-height:18px;">&nbsp;</td>
+<td width="${widthAttr}" bgcolor="${fill}" style="width:${widthStyle};background-color:${fill};color:${fill};font-size:1px;line-height:18px;mso-line-height-rule:exactly;">&nbsp;</td>
+<td bgcolor="${TRACK}" style="background-color:${TRACK};color:${TRACK};font-size:1px;line-height:18px;mso-line-height-rule:exactly;">&nbsp;</td>
 </tr></table>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
 <td style="font-size:11px;color:${MUTED};background-color:${panel};">${escapeHtml(o.valueLabel)}</td>

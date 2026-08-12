@@ -66,3 +66,7 @@ export type BodyBlock =
   | { type: 'visual' }
   | { type: 'callout'; text: string }
   | { type: 'list'; items: string[] }
+  /** Emitted verbatim, unescaped and unwrapped — for a merge placeholder
+   *  whose substituted value is itself block-level HTML (e.g. the
+   *  lease-cap meter's `<table>`), which a `<p>` cannot legally contain. */
+  | { type: 'raw'; html: string }

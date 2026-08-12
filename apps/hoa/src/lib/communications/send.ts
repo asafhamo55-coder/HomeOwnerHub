@@ -7,6 +7,9 @@ import { sendEmail } from '@/lib/email'
 import { sendSms, htmlToSmsBody } from '@/lib/sms'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { getLeaseStats } from '@/lib/leases'
+import { buildLeaseCapFields, buildLeaseCapMeterHtml } from '@/lib/community-templates/lease-cap'
+import { getTemplate } from '@/lib/community-templates/registry'
 import { resolveAudience, type AudienceDefinition } from './audience'
 import { renderTemplateStrict, type MergeBag } from './templates'
 
@@ -65,6 +68,15 @@ const SendSchema = z.object({
     extra: z.record(z.string(), z.unknown()).optional(),
   }),
   templateId: z.string().uuid().optional(),
+  // Merge fields the caller already resolved — e.g. the wizard's declared-
+  // question answers. Merged underneath the ambient per-recipient fields
+  // in deliverOne, which is the precedence that makes {{association_name}}
+  // etc. survive: ambient always wins, so a question can't shadow it.
+  // Value union matches MergeBag exactly (./templates.ts) so this schema's
+  // inferred type and MergeBag stay structurally identical.
+  extraFields: z
+    .record(z.string(), z.union([z.string(), z.number(), z.null(), z.undefined()]))
+    .optional(),
   scheduledFor: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/, 'scheduledFor must be ISO datetime')
@@ -119,6 +131,49 @@ export async function sendCommunication(
   )
   if (audience.recipients.length === 0) {
     return { ok: false, error: `Audience resolved to zero recipients (${audience.summary}).` }
+  }
+
+  // 1.5. Lease-cap-status special case. This template's occupancy meter and
+  //      six text fields (leased_count, total_units, leased_pct, cap_pct,
+  //      remaining_slots, waiting_phrase) come from live lease data, not a
+  //      board-entered answer — they are declared as `providedFields`, not
+  //      `questions`, precisely because nobody types "how many homes are
+  //      leased" into a form. Resolve them here, before any row is written,
+  //      so a missing cap policy (requireCap throws) fails the whole send
+  //      with its message intact rather than leaving a half-sent
+  //      communication behind.
+  let leaseCapExtra: MergeBag = {}
+  if (value.templateId) {
+    const { data: templateRow } = await supabase
+      .from('communication_templates')
+      .select('topic_slug')
+      .eq('id', value.templateId)
+      .maybeSingle()
+    if (templateRow?.topic_slug === 'lease-cap-status') {
+      const leaseCapTemplate = getTemplate('lease-cap-status')
+      if (!leaseCapTemplate) {
+        return { ok: false, error: 'lease-cap-status template is not registered.' }
+      }
+      const stats = await getLeaseStats(assoc.id)
+      const { count: waitingCount, error: waitingErr } = await supabase
+        .from('lease_waiting_list')
+        .select('id', { count: 'exact', head: true })
+        .eq('association_id', assoc.id)
+        .eq('status', 'waiting')
+      if (waitingErr) {
+        return { ok: false, error: `waiting list lookup: ${waitingErr.message}` }
+      }
+      try {
+        leaseCapExtra = {
+          ...buildLeaseCapFields(stats, waitingCount ?? 0),
+          lease_meter_html: buildLeaseCapMeterHtml(stats, leaseCapTemplate.accentColor),
+        }
+      } catch (err) {
+        // requireCap's "lease cap is not set" message, propagated verbatim —
+        // refusing to send rather than guessing or blanking the field.
+        return { ok: false, error: (err as Error).message }
+      }
+    }
   }
 
   // 2. Insert communications row. scheduled_for > now() ⇒ status='scheduled';
@@ -266,7 +321,7 @@ export async function sendCommunication(
       text = value.bodyText ? renderTemplateStrict(value.bodyText, bag) : undefined
     } catch (err) {
       await markFailed(supabase, recipient.id, (err as Error).message)
-      return 'skipped'
+      return 'failed'
     }
 
     if (recipient.channel === 'email') {
@@ -347,7 +402,14 @@ export async function sendCommunication(
     return 'skipped'
   }
 
-  const outcomes = await Promise.all(recipientRows.map((r) => deliverOne(r, {})))
+  // The wizard's declared-question answers (value.extraFields) and, for the
+  // lease-cap-status template, the server-resolved occupancy fields both
+  // flow in here — merged once, ahead of the per-recipient fan-out, rather
+  // than re-merged inside deliverOne per recipient.
+  const mergedExtraFields: MergeBag = { ...value.extraFields, ...leaseCapExtra }
+  const outcomes = await Promise.all(
+    recipientRows.map((r) => deliverOne(r, mergedExtraFields)),
+  )
   let sentCount = 0
   let failedCount = 0
   let skippedCount = 0

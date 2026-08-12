@@ -28,7 +28,7 @@ describe('emailAssetUrl', () => {
   })
 
   it('refuses a localhost base — that would ship broken images forever', () => {
-    process.env.EMAIL_ASSET_BASE_URL = 'http://localhost:3000'
+    process.env.EMAIL_ASSET_BASE_URL = 'https://localhost:3000'
     expect(() => emailAssetUrl('x.png')).toThrow(/localhost/i)
   })
 

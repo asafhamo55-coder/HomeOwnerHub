@@ -57,3 +57,39 @@ describe('buildMergeBag', () => {
       .toThrow(/sneaky/)
   })
 })
+
+describe('buildMergeBag — date and time formatting', () => {
+  const DATE_QS: TemplateQuestion[] = [
+    { id: 'event_date', label: 'When?', type: 'date', required: true },
+  ]
+  const TIME_QS: TemplateQuestion[] = [
+    { id: 'start_time', label: 'Start?', type: 'time', required: true },
+  ]
+
+  it('formats a raw <input type="date"> value into a human date', () => {
+    const bag = buildMergeBag(DATE_QS, { event_date: '2026-08-17' }, AMBIENT)
+    expect(bag.event_date).toBe('Monday, August 17')
+  })
+
+  it('formats midnight and noon boundary times correctly', () => {
+    expect(buildMergeBag(TIME_QS, { start_time: '00:00' }, AMBIENT).start_time).toBe('12:00 AM')
+    expect(buildMergeBag(TIME_QS, { start_time: '12:00' }, AMBIENT).start_time).toBe('12:00 PM')
+  })
+
+  it('formats a morning and an afternoon time', () => {
+    expect(buildMergeBag(TIME_QS, { start_time: '08:00' }, AMBIENT).start_time).toBe('8:00 AM')
+    expect(buildMergeBag(TIME_QS, { start_time: '17:00' }, AMBIENT).start_time).toBe('5:00 PM')
+  })
+
+  it('is not affected by the host timezone — pure string/UTC arithmetic only', () => {
+    // A date-only value has no time component; formatting must not shift
+    // the day based on where the process happens to run.
+    const bag = buildMergeBag(DATE_QS, { event_date: '2026-01-01' }, AMBIENT)
+    expect(bag.event_date).toBe('Thursday, January 1')
+  })
+
+  it('leaves a non-date/time question type unformatted', () => {
+    const bag = buildMergeBag(QS, { issue_type: 'pet waste', affected_areas: ['A'] }, AMBIENT)
+    expect(bag.issue_type).toBe('pet waste')
+  })
+})

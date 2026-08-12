@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest'
+import { existsSync } from 'node:fs'
+import path from 'node:path'
 import { COMMUNITY_TEMPLATES } from './registry'
 import type { TemplateShape } from './types'
 import { PICTOGRAMS } from '@/lib/email/pictogram-manifest'
+
+const ASSET_DIR = path.join(process.cwd(), 'apps/hoa/public/email/v1')
 
 describe('community template library coverage', () => {
   it('has exactly seven templates with unique slugs', () => {
@@ -52,6 +56,13 @@ describe('community template library coverage', () => {
     for (const t of COMMUNITY_TEMPLATES) {
       expect(t.legalNote, `${t.slug} legalNote`).toBeTruthy()
       expect(t.legalNote!.trim().length, `${t.slug} legalNote length`).toBeGreaterThan(0)
+    }
+  })
+
+  it('has a generated PNG for every PICTOGRAMS entry — run pnpm build:email-assets', () => {
+    for (const p of PICTOGRAMS) {
+      const file = path.join(ASSET_DIR, `${p.slug}.png`)
+      expect(existsSync(file), `missing ${file}`).toBe(true)
     }
   })
 

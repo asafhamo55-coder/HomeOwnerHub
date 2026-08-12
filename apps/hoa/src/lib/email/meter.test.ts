@@ -17,8 +17,24 @@ describe('renderMeterHtml', () => {
   })
 
   it('renders the fill as a percentage of the cap, not of 100', () => {
-    // 12.5 of a 15 cap = 83.33% of the bar
-    expect(renderMeterHtml(BASE)).toContain('width="83.3%"')
+    // 12.5 of a 15 cap = 83.33% of the bar. The inline style keeps the
+    // honest one-decimal figure; the width ATTRIBUTE is rounded to an
+    // integer — the Word engine is strict about a decimal there.
+    const html = renderMeterHtml(BASE)
+    expect(html).toContain('width:83.3%')
+    expect(html).toContain('width="83%"')
+  })
+
+  it('rounds the width attribute to an integer while keeping the style decimal', () => {
+    // 10 of a 15 cap = 66.67% -> style keeps one decimal, attribute rounds up.
+    const html = renderMeterHtml({ ...BASE, valuePct: 10 })
+    expect(html).toContain('width:66.7%')
+    expect(html).toContain('width="67%"')
+  })
+
+  it('sets mso-line-height-rule:exactly on the bar cells', () => {
+    const html = renderMeterHtml(BASE)
+    expect(html.match(/mso-line-height-rule:exactly/g)?.length).toBe(2)
   })
 
   it('renders an empty bar at zero without dividing by zero', () => {

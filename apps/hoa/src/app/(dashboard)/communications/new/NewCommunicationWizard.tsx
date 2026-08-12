@@ -6,7 +6,6 @@ import { Loader2, Send } from 'lucide-react'
 import { Alert, Button, Input, Select } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { sendCommunication } from '@/lib/communications/send'
-import { renderTemplate } from '@/lib/communications/templates'
 import {
   listPropertyResidents,
   listBoardMembers,
@@ -268,26 +267,33 @@ export function NewCommunicationWizard({
       return
     }
 
-    // Fill in the template's declared-question merge fields now, before
-    // the audience is even resolved. buildMergeBag throws on a missing
+    // Validate the template's declared-question answers now, before the
+    // audience is even resolved. buildMergeBag throws on a missing
     // required answer — surfacing that here, as a named error, is what
     // stands between the board member and a wall of per-recipient send
     // failures (renderTemplateStrict throws in send.ts for every
-    // recipient otherwise). Ambient fields (recipient_name,
-    // association_name, owner_name, unit_id) are deliberately left as
-    // placeholders — send.ts fills those in per recipient.
-    let finalSubject = subject.trim()
-    let finalBodyHtml = bodyHtml
+    // recipient otherwise).
+    //
+    // The resulting bag is passed to sendCommunication as `extraFields`
+    // rather than substituted here. Subject/body are sent as-is, still
+    // carrying every {{ placeholder }} — including the ambient ones
+    // (recipient_name, association_name, owner_name, unit_id), which this
+    // step deliberately does not touch. deliverOne (send.ts) merges this
+    // bag UNDER the ambient, per-recipient values and renders strictly.
+    // Substituting here first would run renderTemplate — which blanks any
+    // placeholder not in `bag`, and the ambient ones never are — wiping
+    // {{association_name}} and {{recipient_name}} before send.ts ever
+    // sees them.
+    const finalSubject = subject.trim()
+    const finalBodyHtml = bodyHtml
+    let extraFields: ReturnType<typeof buildMergeBag> | undefined
     if (selectedTemplate?.questions?.length) {
-      let bag
       try {
-        bag = buildMergeBag(selectedTemplate.questions, answers, {})
+        extraFields = buildMergeBag(selectedTemplate.questions, answers, {})
       } catch (err) {
         setError((err as Error).message)
         return
       }
-      finalSubject = renderTemplate(finalSubject, bag).rendered
-      finalBodyHtml = renderTemplate(finalBodyHtml, bag).rendered
     }
 
     // Translate the wizard-local 'specific_property' kind into the
@@ -365,6 +371,7 @@ export function NewCommunicationWizard({
         audience: audienceDef,
         templateId: templateId || undefined,
         scheduledFor: scheduledFor || undefined,
+        extraFields,
       })
       if (!result.ok) {
         setError(result.error)

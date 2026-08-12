@@ -1,27 +1,41 @@
 import { describe, it, expect } from 'vitest'
-import { buildLeaseCapVisual, buildLeaseCapFields } from './lease-cap'
+import { buildLeaseCapMeterHtml, buildLeaseCapFields } from './lease-cap'
+import { getTemplate } from './registry'
 
 const STATS = { leasedCount: 10, totalUnits: 80, leasedPct: 12.5, capPct: 15 }
+const ACCENT = '#3A5AA8'
 
-describe('buildLeaseCapVisual', () => {
+describe('buildLeaseCapMeterHtml', () => {
   it('builds a meter against the cap', () => {
-    const v = buildLeaseCapVisual(STATS, 3)
-    expect(v).toMatchObject({ kind: 'meter', valuePct: 12.5, capPct: 15 })
+    const html = buildLeaseCapMeterHtml(STATS, ACCENT)
+    expect(html).toContain('width:83.3%') // 12.5 of 15 cap
+    expect(html).not.toContain('<img')
   })
 
   it('labels the count without naming anyone', () => {
-    const v = buildLeaseCapVisual(STATS, 3)
-    if (v.kind !== 'meter') throw new Error('expected meter')
-    expect(v.valueLabel).toBe('10 of 80 homes')
-    expect(v.capLabel).toBe('15% cap')
+    const html = buildLeaseCapMeterHtml(STATS, ACCENT)
+    expect(html).toContain('10 of 80 homes')
+    expect(html).toContain('15% cap')
   })
 
   it('refuses to render when the cap is unset rather than guessing', () => {
-    expect(() => buildLeaseCapVisual({ ...STATS, capPct: null }, 0)).toThrow(/cap is not set/i)
+    expect(() => buildLeaseCapMeterHtml({ ...STATS, capPct: null }, ACCENT)).toThrow(/cap is not set/i)
   })
 
   it('refuses a zero cap', () => {
-    expect(() => buildLeaseCapVisual({ ...STATS, capPct: 0 }, 0)).toThrow(/cap/i)
+    expect(() => buildLeaseCapMeterHtml({ ...STATS, capPct: 0 }, ACCENT)).toThrow(/cap/i)
+  })
+})
+
+describe('lease-cap.ts adapter output vs. lease-cap-status providedFields', () => {
+  it('produces every field the template declares as providedFields', () => {
+    const t = getTemplate('lease-cap-status')
+    if (!t) throw new Error('lease-cap-status template not registered')
+    const fields = buildLeaseCapFields(STATS, 3)
+    const produced = new Set([...Object.keys(fields), 'lease_meter_html'])
+    for (const field of t.providedFields ?? []) {
+      expect(produced.has(field), `adapter does not produce "${field}"`).toBe(true)
+    }
   })
 })
 

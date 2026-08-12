@@ -52,6 +52,12 @@ function renderBlock(block: BodyBlock, t: CommunityTemplate): string {
       return `<ul style="margin:0 0 11px;padding-left:20px;font-size:14px;line-height:1.6;color:${BODY};font-family:${FONT};">${block.items
         .map((i) => `<li style="margin-bottom:4px;color:${BODY};">${escapePreservingMerge(i)}</li>`)
         .join('')}</ul>`
+    case 'raw':
+      // Emitted verbatim: unescaped, unwrapped. The merge placeholder this
+      // carries (e.g. {{lease_meter_html}}) substitutes to block-level HTML
+      // at send time — a <p> cannot legally contain a <table>, so this
+      // block exists specifically to not wrap it in one.
+      return block.html
     default:
       return assertNeverBlock(block)
   }
@@ -93,6 +99,8 @@ export function renderCommunityEmailText(t: CommunityTemplate): string {
         break
       case 'visual':
         break // no visual in the text part
+      case 'raw':
+        break // block-level HTML (the meter) has no plain-text rendering
       default:
         assertNeverBlock(block)
     }

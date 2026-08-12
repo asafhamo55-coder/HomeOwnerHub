@@ -9,14 +9,11 @@ const template: CommunityTemplate = {
   shape: 'notice',
   audience: 'broadcast',
   accentColor: '#3A5AA8',
-  visual: {
-    kind: 'meter',
-    label: 'Homes currently leased',
-    valuePct: 0,
-    capPct: 1,
-    valueLabel: '',
-    capLabel: '',
-  },
+  // The meter needs live occupancy data, which does not exist at
+  // registry/seed time — it is resolved server-side at send time
+  // (apps/hoa/src/lib/community-templates/lease-cap.ts) and substituted
+  // into the {{lease_meter_html}} placeholder below via a `raw` body block.
+  visual: { kind: 'none' },
   subject: 'Lease cap update for {{association_name}}',
   preview: 'Where we stand against the rental cap, and what it means for owners.',
   body: [
@@ -25,7 +22,7 @@ const template: CommunityTemplate = {
       type: 'paragraph',
       text: 'This is a periodic update on the community’s rental cap, set under {{policy_reference}}. Right now {{leased_count}} of {{total_units}} homes are leased — that’s {{leased_pct}} against a cap of {{cap_pct}}. {{remaining_slots}} more homes may still be leased, and {{waiting_phrase}}.',
     },
-    { type: 'visual' },
+    { type: 'raw', html: '{{lease_meter_html}}' },
     {
       type: 'paragraph',
       text: 'This cap exists for a reason that affects every owner, not just those who rent out their home: once an association exceeds its allowed share of leased homes, FHA and Fannie Mae owner-occupancy rules can make homes here unmortgageable. That can make it harder for any owner — renter or not — to sell, and harder for a buyer to get financing. Staying under the cap protects resale value for the whole community.',
@@ -67,7 +64,10 @@ const template: CommunityTemplate = {
       help: 'e.g. "the management office" or a board member’s name.',
     },
   ],
-  providedFields: ['cap_pct', 'leased_count', 'total_units', 'leased_pct', 'remaining_slots', 'waiting_phrase'],
+  providedFields: [
+    'cap_pct', 'leased_count', 'total_units', 'leased_pct', 'remaining_slots',
+    'waiting_phrase', 'lease_meter_html',
+  ],
   legalNote:
     'Do not name who is currently leasing, who is on the waiting list, or any unit number — report totals only. State the cap exactly as the governing documents state it, citing the section given above; do not paraphrase or round it. If the lease cap has not been set in the system, do not send this email — do not guess a figure and never substitute an AI-suggested value. The occupancy totals and cap percentage in the body are populated from the association’s live records at send time, not estimated.',
 }

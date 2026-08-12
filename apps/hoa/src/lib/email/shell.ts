@@ -67,7 +67,7 @@ ${opts.previewText ? preheader(opts.previewText) : ''}
 <tr><td align="center" bgcolor="${PAGE_BG}" style="padding:18px;background-color:${PAGE_BG};color:${TEXT};">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${CARD_BG}" style="width:600px;background-color:${CARD_BG};color:${TEXT};border:1px solid ${LINE};">
 ${opts.band ? bandRow(opts.band) : ''}
-<tr><td style="padding:22px;font-family:${FONT};color:${TEXT};background-color:${CARD_BG};">
+<tr><td bgcolor="${CARD_BG}" style="padding:22px;font-family:${FONT};color:${TEXT};background-color:${CARD_BG};">
 ${opts.bodyHtml}
 </td></tr>
 <tr><td bgcolor="#FAFAFA" style="background-color:#FAFAFA;color:${MUTED};padding:14px 22px;border-top:1px solid ${LINE};font-family:${FONT};font-size:10px;line-height:1.6;">
