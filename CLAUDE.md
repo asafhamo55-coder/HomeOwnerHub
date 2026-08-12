@@ -154,12 +154,32 @@ pnpm --filter hoa typecheck  # ❌ filter dropped for tsc, checks nothing
 ```
 
 The discriminator is **not** the `rtk` prefix — rtk passes `-r` through fine.
-It is whether the invocation actually reaches per-package `tsc --noEmit`. The
-*bare* and *`--filter`* forms are the ones that get intercepted.
+It is whether the invocation reaches per-package `tsc --noEmit` **and** whether
+its failures are ones rtk's output filter can see.
 
-For the bare form, rtk's own tee log
-(`~/Library/Application Support/rtk/tee/*_tsc.log`) contains tsc's `--help`
-output: it reports success on a help page.
+**The actual root cause is rtk's tsc output parser.** It only recognises
+diagnostics carrying a `file(line,col):` prefix and prints
+`TypeScript: No errors found` for anything else — including real compiler
+failures. Two non-mutating repros:
+
+```bash
+rtk tsc --noEmit /tmp/definitely-not-here.ts
+# "TypeScript: No errors found"   (exit 2)
+rtk proxy pnpm exec tsc --noEmit /tmp/definitely-not-here.ts
+# error TS6053: File '/tmp/definitely-not-here.ts' not found.
+```
+
+So config-not-found (TS5058), no-inputs (TS18003) and compiler crashes all read
+as a pass **even when tsc genuinely ran**. Errors it *can* locate are reported
+correctly, so the filter looks reliable right up until it isn't.
+
+The bare-form `--help` behaviour is just how this manifests at the repo root:
+there's no `tsconfig.json` there, only `tsconfig.base.json`, so bare `tsc`
+prints help — which the parser then declares clean.
+
+**The exit code is honest even when the text is not.** These failures exit
+nonzero, so `cmd && next` still short-circuits correctly. It is a *reader* —
+human or model — trusting the summary line who gets misled.
 
 **The tell.** A real run prints turbo's `Tasks: N successful` or per-package
 `<pkg> typecheck$ tsc --noEmit`. If all you see is `TypeScript: No errors found`,
@@ -184,3 +204,40 @@ Before regenerating, confirm every migration in `migrations/` is actually
 applied. Afterwards, diff the result rather than assuming: compare **columns**,
 not table names. A table-level comparison cannot detect deleted columns inside
 an existing table, and will hand you a false pass.
+
+## 4. `pnpm lint` has never worked here, and says the wrong thing
+
+The Bash hook rewrites `pnpm lint` to rtk's own root ESLint invocation, which
+reports:
+
+```
+[warn] Linter process terminated abnormally (possibly out of memory)   exit 254
+```
+
+That is not out of memory. `rtk pnpm lint` tells the truth: all four apps run
+`next lint`, no ESLint config exists, so each drops into next's interactive
+"How would you like to configure ESLint?" prompt and dies. Tasks: 0 successful,
+4 total.
+
+Nobody has ever successfully linted this repo. Do not read `pnpm lint` output.
+
+## 5. CI runs neither tests nor lint
+
+`.github/workflows/ci.yml` runs exactly two things: `pnpm turbo run typecheck`
+and `pnpm turbo run build`.
+
+The vitest suite — 1100+ tests — gates nothing. A PR can go green with every
+test failing. Run `pnpm test:unit` yourself before merging; nothing else will.
+
+## Commands you can actually trust
+
+Verified by deliberately forcing each one to fail and confirming it reported
+the failure:
+
+```
+pnpm typecheck          rtk pnpm -r typecheck
+pnpm test:unit          rtk pnpm vitest run
+rtk pnpm build          rtk pnpm lint   (truthfully reports that lint is unconfigured)
+```
+
+Distrust anything routing through rtk's tsc filter.
