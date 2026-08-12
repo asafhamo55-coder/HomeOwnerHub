@@ -34,6 +34,7 @@ const CATEGORY_VALUES = [
   'emergency',
   'announcement',
   'custom',
+  'community',
 ] as const
 const CHANNEL_VALUES = ['email', 'sms', 'portal', 'mail'] as const
 

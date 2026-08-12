@@ -251,10 +251,18 @@ export async function listTemplates(
   const { data } = await supabase
     .from('communication_templates')
     .select('*')
-    .eq('organization_id', organizationId)
+    // organization_id is nullable as of migration 0044: NULL means a global
+    // template shipped with the product and visible to every org, so this
+    // must be "own org OR global", not an .eq() that hides globals.
+    .or(`organization_id.eq.${organizationId},organization_id.is.null`)
     .or(`association_id.is.null,association_id.eq.${associationId}`)
     .eq('is_active', true)
     .order('category')
+    // Group org-authored templates ahead of the shared global library within
+    // each category (nulls last), then alphabetize within each group. Without
+    // this, org-specific and global rows would interleave by name and read as
+    // shuffled once the seven global community templates are visible.
+    .order('organization_id', { ascending: true, nullsFirst: false })
     .order('name')
   return data ?? []
 }

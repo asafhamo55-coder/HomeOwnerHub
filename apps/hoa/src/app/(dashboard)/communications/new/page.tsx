@@ -5,9 +5,21 @@ import { createAdminClient } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { listTemplates } from '@/lib/communications/queries'
+import type { TemplateQuestion } from '@/lib/community-templates/types'
 import { NewCommunicationWizard } from './NewCommunicationWizard'
 
 export const metadata = { title: 'New message' }
+
+/**
+ * The `questions` column is jsonb, so Supabase types it as bare `Json`.
+ * Seeded/authored rows always hold a TemplateQuestion[] shape (enforced by
+ * the community-templates registry validator at authoring time), but the
+ * column type itself doesn't know that — narrow to "is it an array" at
+ * runtime before trusting the element shape, rather than casting blindly.
+ */
+function toTemplateQuestions(questions: unknown): readonly TemplateQuestion[] {
+  return Array.isArray(questions) ? (questions as unknown as TemplateQuestion[]) : []
+}
 
 export default async function NewCommunicationPage() {
   const assoc = await getPrimaryAssociation()
@@ -174,6 +186,7 @@ export default async function NewCommunicationPage() {
               bodyHtml: t.body_html,
               bodyText: t.body_text ?? '',
               channels: t.channels,
+              questions: toTemplateQuestions(t.questions),
             }))}
             audienceCounts={counts}
             properties={properties}
