@@ -31,6 +31,27 @@ describe('renderVisualBlock', () => {
       .toThrow(/alt/i)
   })
 
+  it('rejects alt text under the length floor', () => {
+    for (const alt of ['x', '.', 'N/A', 'photo.']) {
+      expect(() => renderVisualBlock({ kind: 'illustration', asset: 'x.png', alt }, ACCENT))
+        .toThrow(/alt/i)
+    }
+  })
+
+  it('rejects alt text that is just the asset filename', () => {
+    for (const alt of ['IMG_1234.jpg', 'banner-image.png']) {
+      expect(() => renderVisualBlock({ kind: 'illustration', asset: 'x.png', alt }, ACCENT))
+        .toThrow(/alt/i)
+    }
+  })
+
+  it('rejects a stoplist word wrapped in a leading article or trailing "of", even past the length floor', () => {
+    for (const alt of ['an image', 'photo of', 'an illustration', 'illustration of']) {
+      expect(() => renderVisualBlock({ kind: 'illustration', asset: 'x.png', alt }, ACCENT))
+        .toThrow(/alt/i)
+    }
+  })
+
   it('sets explicit width and height so a blocked image reserves its space', () => {
     const html = renderVisualBlock({ kind: 'illustration', asset: 'x.png', alt: 'A real description' }, ACCENT)
     expect(html).toContain('width="600"')
@@ -60,5 +81,14 @@ describe('renderVisualBlock', () => {
 
   it('renders nothing for the none kind', () => {
     expect(renderVisualBlock({ kind: 'none' }, ACCENT)).toBe('')
+  })
+
+  it('rejects an accent color outside the required luminance window for image kinds', () => {
+    expect(() =>
+      renderVisualBlock(
+        { kind: 'illustration', asset: 'x.png', alt: 'A real description here' },
+        '#FFFFFF',
+      ),
+    ).toThrow(/luminance/i)
   })
 })

@@ -12,7 +12,7 @@
 
 import { emailAssetUrl } from './asset-url'
 import { renderMeterHtml } from './meter'
-import { tintOver } from './palette'
+import { assertAccent, tintOver } from './palette'
 import { escapeHtml } from './shell'
 
 export type VisualBlockSpec =
@@ -30,9 +30,36 @@ export type VisualBlockSpec =
 const WIDTH = 600
 const HEIGHT = 200
 
-/** Alt text that describes the medium rather than the content is worse than
- *  none — it tells a screen-reader user and a blocked-image reader nothing. */
-const USELESS_ALT = /^(image|illustration|photo|picture|graphic|banner|icon)$/i
+/**
+ * Alt text that describes the medium rather than the content is worse than
+ * none — it tells a screen-reader user and a blocked-image reader nothing.
+ * Three independent checks, each catching a different way authors phone
+ * this in:
+ *
+ * 1. Length floor. A genuine description of a 600x200 banner is never
+ *    under 12 characters — this alone catches "x", ".", "N/A", "photo.".
+ * 2. Filename pattern. Authors sometimes paste the asset's own filename
+ *    into the alt field ("IMG_1234.jpg") — that names the file, not the
+ *    content, so it's rejected regardless of length.
+ * 3. Stoplist match, tolerant of a leading article ("a"/"an"/"the") and a
+ *    trailing "of" ("an image", "photo of") — the laziest phrasings tend
+ *    to wrap the bare noun this way rather than typing it standalone.
+ *
+ * This will not catch everything ("graphic design" still passes) — the
+ * goal is raising the bar past the single-word case, not perfect coverage.
+ */
+const MIN_ALT_LENGTH = 12
+const ALT_FILENAME_PATTERN = /\.(png|jpe?g|gif|webp|svg)$/i
+const ALT_STOPLIST_WORDS = ['image', 'illustration', 'photo', 'picture', 'graphic', 'banner', 'icon']
+const ALT_STOPLIST_PATTERN = new RegExp(`^(?:${ALT_STOPLIST_WORDS.join('|')})(?:\\s+of)?$`, 'i')
+const ALT_LEADING_ARTICLE = /^(?:a|an|the)\s+/i
+
+function isUselessAlt(trimmed: string): boolean {
+  if (trimmed.length < MIN_ALT_LENGTH) return true
+  if (ALT_FILENAME_PATTERN.test(trimmed)) return true
+  const withoutArticle = trimmed.replace(ALT_LEADING_ARTICLE, '')
+  return ALT_STOPLIST_PATTERN.test(withoutArticle)
+}
 
 function renderImageBlock(
   asset: string,
@@ -40,12 +67,13 @@ function renderImageBlock(
   accentColor: string,
 ): string {
   const trimmed = alt.trim()
-  if (!trimmed || USELESS_ALT.test(trimmed)) {
+  if (!trimmed || isUselessAlt(trimmed)) {
     throw new Error(
       `visual block alt text must describe the content, got: "${alt}". ` +
         'With images blocked the alt text is the whole block.',
     )
   }
+  assertAccent(accentColor)
   const panel = tintOver(accentColor, 0.08)
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:13px 0;">
 <tr><td align="center" bgcolor="${panel}" style="background-color:${panel};color:#1A1D21;">
