@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { ReminderPacket } from './types'
+import type { LastRemindedResult } from './queries'
 import type { SendCommunicationInput, SendCommunicationResult } from '@/lib/communications/send'
 
 const {
@@ -9,7 +10,9 @@ const {
   mockGetRole: vi.fn(async () => 'admin' as string | null),
   mockGetAssoc: vi.fn(async () => ({ id: 'assoc-1', name: 'Madison Park' })),
   mockBuild: vi.fn(),
-  mockLastReminded: vi.fn(async () => new Map<string, string>()),
+  mockLastReminded: vi.fn(
+    async (): Promise<LastRemindedResult> => ({ ok: true, lastReminded: new Map() }),
+  ),
   // The mock's parameter and return types are declared explicitly rather
   // than left to inference — vi.fn(async () => …) infers a zero-argument
   // signature, which would make `mockSend.mock.calls[0][0]` type as
@@ -75,7 +78,7 @@ beforeEach(() => {
   mockGetRole.mockResolvedValue('admin')
   mockGetAssoc.mockResolvedValue({ id: 'assoc-1', name: 'Madison Park' })
   mockBuild.mockResolvedValue({ packets: [PACKET, CURRENT], skipped: [] })
-  mockLastReminded.mockResolvedValue(new Map())
+  mockLastReminded.mockResolvedValue({ ok: true, lastReminded: new Map() })
   mockSend.mockResolvedValue({
     ok: true, communicationId: 'comm-1', recipientCount: 1,
     sentCount: 1, failedCount: 0, skippedCount: 0,
@@ -145,7 +148,10 @@ describe('previewDuesReminders', () => {
 
   it('flags owners reminded inside the recent window', async () => {
     const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000).toISOString()
-    mockLastReminded.mockResolvedValue(new Map([['dana@example.com', twoDaysAgo]]))
+    mockLastReminded.mockResolvedValue({
+      ok: true,
+      lastReminded: new Map([['dana@example.com', twoDaysAgo]]),
+    })
 
     const result = await previewDuesReminders()
 
@@ -153,6 +159,33 @@ describe('previewDuesReminders', () => {
     if (!result.ok) return
     expect(result.packets[0].recentlyReminded).toBe(true)
     expect(result.recentlyRemindedCount).toBe(1)
+    expect(result.reminderHistoryUnavailable).toBe(false)
+  })
+
+  it('degrades to an unknown reminder history instead of asserting a clean one', async () => {
+    mockLastReminded.mockResolvedValue({ ok: false })
+
+    const result = await previewDuesReminders()
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.reminderHistoryUnavailable).toBe(true)
+    // Not asserted clean: no lastRemindedAt, no recentlyReminded — but the
+    // caller must consult reminderHistoryUnavailable before reading these
+    // as "confirmed no recent reminder".
+    expect(result.packets[0].lastRemindedAt).toBeNull()
+    expect(result.packets[0].recentlyReminded).toBe(false)
+    expect(result.recentlyRemindedCount).toBe(0)
+  })
+
+  it('never blocks a preview when the reminder-history lookup fails', async () => {
+    mockLastReminded.mockResolvedValue({ ok: false })
+
+    const result = await previewDuesReminders()
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.packets.map((p) => p.email)).toEqual(['dana@example.com'])
   })
 
   it('leaves no merge placeholder unsubstituted — the preview is what gets sent', async () => {

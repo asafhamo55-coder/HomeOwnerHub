@@ -13,7 +13,18 @@ function table(data: unknown[]) {
   for (const m of ['select', 'eq', 'in', 'is', 'not', 'order', 'limit']) {
     builder[m] = () => builder
   }
-  builder.then = (resolve: (v: { data: unknown[] }) => unknown) => resolve({ data })
+  builder.then = (resolve: (v: { data: unknown[]; error: null }) => unknown) =>
+    resolve({ data, error: null })
+  return builder
+}
+
+function errorTable(message: string) {
+  const builder: Record<string, unknown> = {}
+  for (const m of ['select', 'eq', 'in', 'is', 'not', 'order', 'limit']) {
+    builder[m] = () => builder
+  }
+  builder.then = (resolve: (v: { data: null; error: { message: string } }) => unknown) =>
+    resolve({ data: null, error: { message } })
   return builder
 }
 
@@ -35,10 +46,12 @@ describe('getLastRemindedByEmail', () => {
       ]),
     )
 
-    const map = await getLastRemindedByEmail('assoc-1')
+    const result = await getLastRemindedByEmail('assoc-1')
 
-    expect(map.get('dana@example.com')).toBe('2026-08-06T10:00:00Z')
-    expect(map.get('sam@example.com')).toBe('2026-07-02T10:00:00Z')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.lastReminded.get('dana@example.com')).toBe('2026-08-06T10:00:00Z')
+    expect(result.lastReminded.get('sam@example.com')).toBe('2026-07-02T10:00:00Z')
   })
 
   it('normalizes email case so lookups match packet keys', async () => {
@@ -48,15 +61,21 @@ describe('getLastRemindedByEmail', () => {
       ]),
     )
 
-    const map = await getLastRemindedByEmail('assoc-1')
+    const result = await getLastRemindedByEmail('assoc-1')
 
-    expect(map.get('dana@example.com')).toBe('2026-08-06T10:00:00Z')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.lastReminded.get('dana@example.com')).toBe('2026-08-06T10:00:00Z')
   })
 
   it('returns an empty map when nothing has been sent', async () => {
     mockFrom.mockReturnValue(table([]))
 
-    expect((await getLastRemindedByEmail('assoc-1')).size).toBe(0)
+    const result = await getLastRemindedByEmail('assoc-1')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.lastReminded.size).toBe(0)
   })
 
   it('ignores rows with a null sent_at', async () => {
@@ -64,6 +83,32 @@ describe('getLastRemindedByEmail', () => {
       table([{ sent_at: null, communication_recipients: [{ email: 'dana@example.com' }] }]),
     )
 
-    expect((await getLastRemindedByEmail('assoc-1')).size).toBe(0)
+    const result = await getLastRemindedByEmail('assoc-1')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.lastReminded.size).toBe(0)
+  })
+
+  it('returns ok:false, not an empty-but-successful map, when the query errors', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockFrom.mockReturnValue(errorTable('permission denied for table communications'))
+
+    const result = await getLastRemindedByEmail('assoc-1')
+
+    expect(result).toEqual({ ok: false })
+    spy.mockRestore()
+  })
+
+  it('logs only the error message on failure, never row data', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockFrom.mockReturnValue(errorTable('permission denied for table communications'))
+
+    await getLastRemindedByEmail('assoc-1')
+
+    expect(spy).toHaveBeenCalledWith('getLastRemindedByEmail: lookup failed', {
+      message: 'permission denied for table communications',
+    })
+    spy.mockRestore()
   })
 })

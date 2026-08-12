@@ -56,15 +56,24 @@ export async function WhoOwesPanel({ associationId }: { associationId: string })
   if (packets.length === 0) return null
 
   // Degrade rather than disappear: losing the last-reminded lookup only
-  // costs the "Reminded Xd ago" annotations, not the whole panel.
-  let lastReminded: Map<string, string>
-  if (lastRemindedResult.status === 'fulfilled') {
-    lastReminded = lastRemindedResult.value
+  // costs the "Reminded Xd ago" annotations, not the whole panel. But an
+  // empty map here must not be read as "confirmed nobody was reminded
+  // recently" — reminderHistoryUnavailable is what keeps the per-row
+  // labels below from asserting a clean history they don't actually have.
+  let lastReminded = new Map<string, string>()
+  let reminderHistoryUnavailable = false
+  if (lastRemindedResult.status === 'fulfilled' && lastRemindedResult.value.ok) {
+    lastReminded = lastRemindedResult.value.lastReminded
   } else {
-    console.error('WhoOwesPanel: getLastRemindedByEmail failed', {
-      message: errorMessage(lastRemindedResult.reason),
-    })
-    lastReminded = new Map()
+    reminderHistoryUnavailable = true
+    // queries.ts already logs the query error on its own ok:false path;
+    // only a promise rejection (thrown outside that function) is unlogged
+    // so far and needs recording here.
+    if (lastRemindedResult.status === 'rejected') {
+      console.error('WhoOwesPanel: getLastRemindedByEmail failed', {
+        message: errorMessage(lastRemindedResult.reason),
+      })
+    }
   }
 
   const pastDueCount = packets.filter((p) => p.pastDueTotal > 0).length
@@ -96,6 +105,15 @@ export async function WhoOwesPanel({ associationId }: { associationId: string })
         )}
       </div>
 
+      {reminderHistoryUnavailable ? (
+        <div className="border-b border-border px-4 py-2">
+          <Alert variant="warning">
+            Couldn&rsquo;t check reminder history — the labels below may not reflect reminders
+            already sent.
+          </Alert>
+        </div>
+      ) : null}
+
       <ul className="divide-y divide-border">
         {packets.map((p) => {
           const at = lastReminded.get(p.email) ?? null
@@ -107,7 +125,11 @@ export async function WhoOwesPanel({ associationId }: { associationId: string })
                 <p className="text-xs text-muted">
                   {p.properties.length}{' '}
                   {p.properties.length === 1 ? 'property' : 'properties'}
-                  {at ? ` · ${agoLabel(at)}` : ''}
+                  {at
+                    ? ` · ${agoLabel(at)}`
+                    : reminderHistoryUnavailable
+                      ? ' · Reminder history unknown'
+                      : ''}
                 </p>
               </div>
               <span className="font-mono text-sm text-foreground">{usd.format(p.totalDue)}</span>
@@ -122,7 +144,7 @@ export async function WhoOwesPanel({ associationId }: { associationId: string })
               )}
               <SendRemindersDialog
                 emails={[p.email]}
-                label={recent ? 'Remind again' : 'Remind'}
+                label={reminderHistoryUnavailable ? 'Remind — history unknown' : recent ? 'Remind again' : 'Remind'}
               />
             </li>
           )

@@ -14,14 +14,20 @@ interface CommRow {
   communication_recipients: { email: string | null }[] | null
 }
 
-/**
- * email (lowercased) → ISO timestamp of the most recent reminder sent to
- * them. Bounded to the last 200 campaigns; reminders are infrequent and
- * the panel only cares about the recent past.
- */
+/** `ok: true` carries email (lowercased) → ISO timestamp of the most
+ *  recent reminder sent to them, bounded to the last 200 campaigns —
+ *  reminders are infrequent and the panel only cares about the recent
+ *  past. `ok: false` means the lookup itself failed: deliberately a
+ *  distinct shape from `{ ok: true, lastReminded: <empty map> } ` so a
+ *  callsite can't mistake "we don't know" for "clean, nobody reminded
+ *  recently" — see the comment on the `error` branch below. */
+export type LastRemindedResult =
+  | { ok: true; lastReminded: Map<string, string> }
+  | { ok: false }
+
 export async function getLastRemindedByEmail(
   associationId: string,
-): Promise<Map<string, string>> {
+): Promise<LastRemindedResult> {
   const supabase = await getSupabaseServerClient()
 
   const { data, error } = await supabase
@@ -44,14 +50,16 @@ export async function getLastRemindedByEmail(
 
   // Deliberately NOT thrown, unlike the reads in packets.ts. What this
   // map feeds is advisory: the "Reminded 3d ago" annotation and the
-  // dialog's repeat warning. Both call sites already degrade to an empty
-  // map when it fails (WhoOwesPanel's allSettled branch), because losing
-  // an annotation is not a reason to hide who owes money. Throwing would
-  // also take down previewDuesReminders, which does not degrade — so the
-  // honest behaviour here is to return what we have and record why it is
-  // thin. Message only, never the row data: those rows carry emails.
+  // dialog's repeat warning. Both call sites degrade on `ok: false`
+  // (WhoOwesPanel's allSettled branch, and previewDuesReminders), because
+  // losing an annotation is not a reason to hide who owes money. Throwing
+  // would also take down previewDuesReminders, which does not otherwise
+  // degrade — so the honest behaviour here is to report that the lookup
+  // failed rather than pretend an empty result is a clean one. Message
+  // only, never the row data: those rows carry emails.
   if (error) {
     console.error('getLastRemindedByEmail: lookup failed', { message: error.message })
+    return { ok: false }
   }
 
   const rows = (data ?? []) as unknown as CommRow[]
@@ -67,5 +75,5 @@ export async function getLastRemindedByEmail(
     }
   }
 
-  return latest
+  return { ok: true, lastReminded: latest }
 }

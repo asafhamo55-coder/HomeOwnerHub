@@ -41,6 +41,12 @@ export type PreviewResult =
       recentlyRemindedCount: number
       emailConfigured: boolean
       previewHtml: string
+      /** True when getLastRemindedByEmail's lookup failed. Every packet's
+       *  lastRemindedAt/recentlyReminded still reads as "no recent
+       *  reminder" in that case — this flag is what tells the UI that
+       *  reading is unknown, not confirmed clean, so it doesn't get
+       *  rendered as if it were a real answer. */
+      reminderHistoryUnavailable: boolean
     }
   | { ok: false; error: string }
 
@@ -107,7 +113,14 @@ export async function previewDuesReminders(
 
   const { packets: all, skipped } = await buildReminderPackets(ctx.associationId)
   const selected = selectPackets(all, input?.emails)
-  const lastReminded = await getLastRemindedByEmail(ctx.associationId)
+  const lastRemindedResult = await getLastRemindedByEmail(ctx.associationId)
+  // A failed lookup degrades to "we don't know" (empty map, flag set)
+  // rather than blocking the preview — see queries.ts. The flag is what
+  // keeps the empty map from being read downstream as "confirmed clean".
+  const reminderHistoryUnavailable = !lastRemindedResult.ok
+  const lastReminded = lastRemindedResult.ok
+    ? lastRemindedResult.lastReminded
+    : new Map<string, string>()
 
   const cutoff = Date.now() - RECENT_REMINDER_DAYS * 86_400_000
   const summaries: PacketSummary[] = selected.map((p) => {
@@ -148,6 +161,7 @@ export async function previewDuesReminders(
     recentlyRemindedCount: summaries.filter((s) => s.recentlyReminded).length,
     emailConfigured: emailConfigured(),
     previewHtml,
+    reminderHistoryUnavailable,
   }
 }
 

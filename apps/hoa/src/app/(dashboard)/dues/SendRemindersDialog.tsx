@@ -19,6 +19,7 @@ interface PreviewState {
   recentlyRemindedCount: number
   emailConfigured: boolean
   previewHtml: string
+  reminderHistoryUnavailable: boolean
 }
 
 export function SendRemindersDialog({
@@ -233,7 +234,12 @@ export function SendRemindersDialog({
               </Alert>
             ) : null}
 
-            {preview.recentlyRemindedCount > 0 ? (
+            {preview.reminderHistoryUnavailable ? (
+              <Alert variant="warning">
+                Couldn&rsquo;t check reminder history &mdash; some of these owners may have already
+                been reminded recently.
+              </Alert>
+            ) : preview.recentlyRemindedCount > 0 ? (
               <Alert variant="warning">
                 {preview.recentlyRemindedCount} of these {count === 1 ? 'was' : 'were'} reminded in
                 the last 7 days.
