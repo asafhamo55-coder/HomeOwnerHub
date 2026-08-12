@@ -9,12 +9,16 @@ import type {
 
 const MS_PER_DAY = 86_400_000
 
-/** Explicit ceilings so PostgREST's server-side max-rows can never silently
- *  truncate the sweep — a truncated read here understates what somebody
- *  owes, which is worse than an obviously-too-small page of history. The
- *  dues page lists 500 rows because it is a screenful; this is every open
- *  charge in the association, so it is set an order of magnitude higher
- *  than any association we serve could plausibly have outstanding. */
+/** Explicit ceiling on the client's own request. This can only ever LOWER
+ *  what comes back, never raise it — PostgREST's server-side db-max-rows
+ *  cap still applies independently, underneath this, and a response
+ *  truncated by either one is silent either way (no error, just fewer
+ *  rows). This value is set an order of magnitude above any association
+ *  we serve could plausibly have outstanding, so it's not expected to be
+ *  the one that bites — but a very large association could still hit the
+ *  server's cap and understate what somebody owes without either limit
+ *  saying so. The dues page lists 500 rows because it is a screenful;
+ *  this is meant to be every open charge in the association. */
 const MAX_ASSESSMENTS = 5000
 /** Ownerships are fetched for units that already made the cut above, and
  *  a unit rarely has more than two or three active owners. */
