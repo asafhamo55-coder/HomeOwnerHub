@@ -49,6 +49,12 @@ import {
   type CorrespondenceSectionState,
 } from './correspondence-state'
 import { PropertyPanel, parsePanelTab, type PanelStats } from './PropertyPanel'
+import { CollectionsSection } from './CollectionsSection'
+import {
+  getOpenCaseForUnit,
+  listCasesForUnit,
+  listEventsForCase,
+} from '@/lib/collections/queries'
 import { TenureSelector } from './TenureSelector'
 import { AddResidentForm } from './AddResidentForm'
 import { PropertyActions } from './PropertyActions'
@@ -220,6 +226,27 @@ export default async function PropertyDetailPage({
   }
   const correspondenceState = resolveCorrespondenceState(unitId, correspondenceOutcome)
 
+  // Collections. Read only when the tab is open — most property views never
+  // touch it, and this is two extra round trips. A failure narrows to an
+  // empty file rather than throwing the route away, matching how the
+  // correspondence read above degrades; the error is logged so a broken
+  // read is not indistinguishable from "no collections case".
+  let openCase: Awaited<ReturnType<typeof getOpenCaseForUnit>> = null
+  let collectionEvents: Awaited<ReturnType<typeof listEventsForCase>> = []
+  let closedCases: Awaited<ReturnType<typeof listCasesForUnit>> = []
+  if (tab === 'collections' && unitId) {
+    try {
+      const all = await listCasesForUnit(supabase, unitId)
+      openCase = all.find((c) => c.status !== 'resolved' && c.status !== 'written_off') ?? null
+      closedCases = all.filter((c) => c.id !== openCase?.id)
+      if (openCase) collectionEvents = await listEventsForCase(supabase, openCase.id)
+    } catch (e) {
+      console.error('PropertyDetailPage: collections read failed', {
+        message: e instanceof Error ? e.message : String(e),
+      })
+    }
+  }
+
   const stats: PanelStats = {
     balance: Number(statsRow?.balance ?? 0),
     daysOverdue: Number(statsRow?.days_overdue ?? 0),
@@ -376,6 +403,14 @@ export default async function PropertyDetailPage({
               {tab === 'mail' ? <CorrespondenceSection state={correspondenceState} /> : null}
               {tab === 'violations' ? <ViolationsSection violations={violations} /> : null}
               {tab === 'dues' ? <DuesSection dues={dues} /> : null}
+              {tab === 'collections' ? (
+                <CollectionsSection
+                  unitId={unitId}
+                  openCase={openCase}
+                  events={collectionEvents}
+                  closedCases={closedCases}
+                />
+              ) : null}
               {tab === 'history' ? <HistorySection events={events} /> : null}
             </PropertyPanel>
           </div>

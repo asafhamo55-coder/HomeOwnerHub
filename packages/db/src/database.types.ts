@@ -1191,6 +1191,164 @@ export type Database = {
           },
         ]
       }
+      collection_cases: {
+        Row: {
+          association_id: string
+          attorney_firm: string | null
+          attorney_reference: string | null
+          closed_on: string | null
+          closed_reason: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          opened_on: string
+          organization_id: string
+          status: string
+          unit_id: string
+          updated_at: string
+        }
+        Insert: {
+          association_id: string
+          attorney_firm?: string | null
+          attorney_reference?: string | null
+          closed_on?: string | null
+          closed_reason?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          opened_on?: string
+          organization_id: string
+          status?: string
+          unit_id: string
+          updated_at?: string
+        }
+        Update: {
+          association_id?: string
+          attorney_firm?: string | null
+          attorney_reference?: string | null
+          closed_on?: string | null
+          closed_reason?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          opened_on?: string
+          organization_id?: string
+          status?: string
+          unit_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collection_cases_association_id_fkey"
+            columns: ["association_id"]
+            isOneToOne: false
+            referencedRelation: "associations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_cases_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_cases_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_cases_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "collection_cases_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collection_events: {
+        Row: {
+          actor_initials: string | null
+          amount: number | null
+          collection_case_id: string
+          communication_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          note: string | null
+          occurred_on: string
+          organization_id: string
+          recorded_by: string | null
+        }
+        Insert: {
+          actor_initials?: string | null
+          amount?: number | null
+          collection_case_id: string
+          communication_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          note?: string | null
+          occurred_on: string
+          organization_id: string
+          recorded_by?: string | null
+        }
+        Update: {
+          actor_initials?: string | null
+          amount?: number | null
+          collection_case_id?: string
+          communication_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          note?: string | null
+          occurred_on?: string
+          organization_id?: string
+          recorded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collection_events_collection_case_id_fkey"
+            columns: ["collection_case_id"]
+            isOneToOne: false
+            referencedRelation: "collection_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_events_communication_id_fkey"
+            columns: ["communication_id"]
+            isOneToOne: false
+            referencedRelation: "communications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_events_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       communication_recipients: {
         Row: {
           channel: string
@@ -6181,6 +6339,8 @@ export type Database = {
           has_tenure: boolean | null
           has_unit_link: boolean | null
           id: string | null
+          is_incomplete: boolean | null
+          needs_attention: boolean | null
           notes: string | null
           oldest_due_date: string | null
           open_violations: number | null

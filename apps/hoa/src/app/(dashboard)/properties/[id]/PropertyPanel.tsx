@@ -1,13 +1,23 @@
 import { Badge, StatCard, Tabs } from '@homeowner-portal/ui'
 
-export type PanelTab = 'overview' | 'residents' | 'mail' | 'violations' | 'dues' | 'history'
+export type PanelTab =
+  | 'overview'
+  | 'residents'
+  | 'mail'
+  | 'violations'
+  | 'dues'
+  | 'collections'
+  | 'history'
 
+// Collections sits after Dues because it is what happens when dues go
+// unpaid, and before History because History is the whole-property log.
 const TABS: readonly PanelTab[] = [
   'overview',
   'residents',
   'mail',
   'violations',
   'dues',
+  'collections',
   'history',
 ]
 
@@ -30,6 +40,7 @@ const LABELS: Record<PanelTab, string> = {
   mail: 'Mail',
   violations: 'Violations',
   dues: 'Dues',
+  collections: 'Collections',
   history: 'History',
 }
 
