@@ -120,7 +120,7 @@ Bring a neighbor, bring the kids, and let's make {{association_name}} look its b
 </td></tr></table>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">The overwhelming majority of dog owners here already clean up and keep their dogs leashed in shared spaces. This is just a nudge for everyone to keep at it.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#e6edee" style="background-color:#e6edee;color:#1A1D21;margin:13px 0;">
-<tr><td style="padding:11px 14px;font-size:13px;line-height:1.55;color:#1A1D21;background-color:#e6edee;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;border-left:4px solid #1C6772;">Bag stations are at {{station_locations}}. If you find one empty or damaged, reply to this email and we will restock it.</td></tr></table>
+<tr><td style="padding:11px 14px;font-size:13px;line-height:1.55;color:#1A1D21;background-color:#e6edee;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;border-left:4px solid #1C6772;">You&#39;ll find bag stations at {{station_locations}}. If one is empty or damaged, reply to this email and we will restock it.</td></tr></table>
 <p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:#3D454D;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Thanks for helping keep the neighborhood pleasant for everyone — including the neighbors who are nervous around dogs they do not know.</p>
 </td></tr>
 <tr><td bgcolor="#FAFAFA" style="background-color:#FAFAFA;color:#8A939B;padding:14px 22px;border-top:1px solid #E8EBED;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:10px;line-height:1.6;">
@@ -137,10 +137,10 @@ We've had a number of reports about {{issue_type}} over the past few weeks, most
 
 The overwhelming majority of dog owners here already clean up and keep their dogs leashed in shared spaces. This is just a nudge for everyone to keep at it.
 
-Bag stations are at {{station_locations}}. If you find one empty or damaged, reply to this email and we will restock it.
+You'll find bag stations at {{station_locations}}. If one is empty or damaged, reply to this email and we will restock it.
 
 Thanks for helping keep the neighborhood pleasant for everyone — including the neighbors who are nervous around dogs they do not know.$tpl$,
-    $tpl$[{"id":"issue_type","label":"What is the problem right now?","type":"select","options":["pet waste left on lawns and paths","dogs off leash in shared spaces","both pet waste and off-leash dogs"],"required":true},{"id":"affected_areas","label":"Where is it worst?","type":"multiselect","options":["the east entrance","the main walking path","the mailboxes","the playground","the clubhouse lawn","the north cul-de-sac"],"required":true,"help":"Naming the actual spots is what makes people recognize themselves."},{"id":"station_locations","label":"Where are the bag stations?","type":"text","required":true,"help":"e.g. \"the clubhouse, the east entrance, and the playground\""}]$tpl$::jsonb,
+    $tpl$[{"id":"issue_type","label":"What is the problem right now?","type":"select","options":["pet waste left on lawns and paths","dogs off leash in shared spaces","both pet waste and off-leash dogs"],"required":true},{"id":"affected_areas","label":"Where is it worst?","type":"multiselect","options":["the east entrance","the main walking path","the mailboxes","the playground","the clubhouse lawn","the north cul-de-sac"],"required":true,"help":"Naming the actual spots is what makes people recognize themselves."},{"id":"station_locations","label":"Where are the bag stations? (optional)","type":"text","required":false,"fallback":"the marked points around the community","help":"Optional. Naming the actual spots gets more use out of them, but leave it blank if you would rather not commit to a list."}]$tpl$::jsonb,
     $tpl${"kind":"illustration","asset":"dog-leash-and-waste.png","alt":"A resident walking a leashed dog past a waste bag station"}$tpl$::jsonb,
     $tpl$["affected_areas","association_name","issue_type","recipient_name","station_locations"]$tpl$::jsonb
   ),

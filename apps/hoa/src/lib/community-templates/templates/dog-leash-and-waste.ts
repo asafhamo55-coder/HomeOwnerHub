@@ -29,7 +29,7 @@ const template: CommunityTemplate = {
     },
     {
       type: 'callout',
-      text: 'Bag stations are at {{station_locations}}. If you find one empty or damaged, reply to this email and we will restock it.',
+      text: "You'll find bag stations at {{station_locations}}. If one is empty or damaged, reply to this email and we will restock it.",
     },
     {
       type: 'paragraph',
@@ -65,10 +65,17 @@ const template: CommunityTemplate = {
     },
     {
       id: 'station_locations',
-      label: 'Where are the bag stations?',
+      label: 'Where are the bag stations? (optional)',
       type: 'text',
-      required: true,
-      help: 'e.g. "the clubhouse, the east entrance, and the playground"',
+      required: false,
+      // Optional questions MUST carry a fallback: buildMergeBag writes
+      // `q.fallback ?? ''` when unanswered, and an empty string reads as a
+      // missing field to renderTemplateStrict, which fails the send. The
+      // wording is deliberately non-specific — inventing station locations
+      // in a fallback would assert something about the community that may
+      // not be true.
+      fallback: 'the marked points around the community',
+      help: 'Optional. Naming the actual spots gets more use out of them, but leave it blank if you would rather not commit to a list.',
     },
   ],
   legalNote:
