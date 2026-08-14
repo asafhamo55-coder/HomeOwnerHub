@@ -49,8 +49,16 @@ export function PropertiesHeader({
   const exportHref = exportQuery ? `/properties/export?${exportQuery}` : '/properties/export'
 
   const homesLabel = `${allCount} ${allCount === 1 ? 'home' : 'homes'}`
+  // Both subset filters name what they selected, so the number is never
+  // mistaken for the association's size. 'incomplete' says "record" rather
+  // than "needing attention": an unfilled tenure field is data-entry
+  // backlog, not something the board owes anyone work on.
   const countLabel =
-    filter === 'attention' ? `${total} needing attention · ${homesLabel}` : homesLabel
+    filter === 'attention'
+      ? `${total} needing attention · ${homesLabel}`
+      : filter === 'incomplete'
+        ? `${total} incomplete ${total === 1 ? 'record' : 'records'} · ${homesLabel}`
+        : homesLabel
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">

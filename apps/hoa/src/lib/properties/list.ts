@@ -20,6 +20,12 @@ export interface PropertyListRow {
   hasTenure: boolean
   hasUnitLink: boolean
   severityRank: number
+  /** Ranks 1-4 — something a person must act on. Not `severityRank < 6`:
+   *  that also sweeps in rank 5, missing data, which is most of the org. */
+  needsAttention: boolean
+  /** Missing owner, tenure or unit link. Independent of needsAttention —
+   *  a property can be both. */
+  isIncomplete: boolean
 }
 
 export interface PropertyListResult {
@@ -41,14 +47,20 @@ export async function listProperties(
   let query = supabase
     .from(VIEW as never)
     .select(
-      'id, address, unit_number, owner_name, owner_email, owner_phone, tenure, unit_id, balance, oldest_due_date, days_overdue, open_violations, violations_past_cure, threads_needing_reply, has_owner, has_tenure, has_unit_link, severity_rank',
+      'id, address, unit_number, owner_name, owner_email, owner_phone, tenure, unit_id, balance, oldest_due_date, days_overdue, open_violations, violations_past_cure, threads_needing_reply, has_owner, has_tenure, has_unit_link, severity_rank, needs_attention, is_incomplete',
       { count: 'exact' },
     )
     .eq('org_id' as never, orgId)
 
-  // 'attention' is severity_rank < 6 — anything the board owes work on.
+  // 'attention' is the work queue: a violation, a past-due balance, or mail
+  // awaiting reply. This was `severity_rank < 6`, which also selected rank
+  // 5 (missing data) — 116 of 184 properties on live data, so the filter
+  // returned 71% of the association and the 15 rows that needed a human
+  // were buried in data-entry backlog. Missing data now has its own filter.
   if (params.filter === 'attention') {
-    query = query.lt('severity_rank' as never, 6)
+    query = query.eq('needs_attention' as never, true)
+  } else if (params.filter === 'incomplete') {
+    query = query.eq('is_incomplete' as never, true)
   } else if (params.filter === 'unknown') {
     // `tenure` is nullable — a property whose tenure was never recorded has
     // NULL, not the string 'unknown'. `.eq('tenure','unknown')` would
@@ -109,6 +121,8 @@ export async function listProperties(
       hasTenure: Boolean(r.has_tenure),
       hasUnitLink: Boolean(r.has_unit_link),
       severityRank: Number(r.severity_rank ?? 6),
+      needsAttention: Boolean(r.needs_attention),
+      isIncomplete: Boolean(r.is_incomplete),
     })),
     total: count ?? 0,
   }

@@ -4,6 +4,7 @@
 
 export type PropertyFilter =
   | 'attention'
+  | 'incomplete'
   | 'all'
   | 'owner_occupied'
   | 'leased'
@@ -25,6 +26,7 @@ export const PROPERTY_PAGE_SIZE = 50
 
 const FILTERS: readonly PropertyFilter[] = [
   'attention',
+  'incomplete',
   'all',
   'owner_occupied',
   'leased',

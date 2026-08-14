@@ -5,11 +5,21 @@ import type { PropertyListParams, PropertyFilter, PropertySort } from '@/lib/pro
 
 const FILTERS: Array<{ key: PropertyFilter; label: string }> = [
   { key: 'attention', label: 'Needs attention' },
+  { key: 'incomplete', label: 'Incomplete' },
   { key: 'all', label: 'All' },
   { key: 'owner_occupied', label: 'Owner-occupied' },
   { key: 'leased', label: 'Leased' },
   { key: 'unknown', label: 'Unknown' },
 ]
+
+/** Chips that show a count. The tenure chips deliberately don't — their
+ *  counts would need three more head-only queries per render for numbers
+ *  nobody triages by. */
+const COUNTED: ReadonlySet<PropertyFilter> = new Set<PropertyFilter>([
+  'attention',
+  'incomplete',
+  'all',
+])
 
 const SORTS: Array<{ key: PropertySort; label: string }> = [
   { key: 'severity', label: 'Severity' },
@@ -46,7 +56,7 @@ export function PropertyListFilters({
   counts,
 }: {
   params: PropertyListParams
-  counts: { attention: number; all: number }
+  counts: { attention: number; incomplete: number; all: number }
 }) {
   return (
     <div className="space-y-2 border-b border-border p-2">
@@ -93,7 +103,9 @@ export function PropertyListFilters({
                 : 'text-muted hover:bg-muted/10'
             }`}
           >
-            {f.key === 'attention' || f.key === 'all' ? `${f.label} ${counts[f.key] ?? 0}` : f.label}
+            {COUNTED.has(f.key)
+              ? `${f.label} ${counts[f.key as keyof typeof counts] ?? 0}`
+              : f.label}
           </Link>
         ))}
       </nav>

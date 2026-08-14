@@ -234,7 +234,7 @@ export default async function PropertyDetailPage({
   // panel rather than throwing the whole route away.
   let rows: Awaited<ReturnType<typeof listProperties>>['rows'] = []
   let total = 0
-  let counts = { attention: 0, all: 0 }
+  let counts = { attention: 0, incomplete: 0, all: 0 }
   let listError: string | null = null
   if (ctx) {
     try {
@@ -243,14 +243,21 @@ export default async function PropertyDetailPage({
       total = result.total
 
       // Count-only queries (`head: true`) so no rows are transferred — these
-      // drive the filter-chip counts, not the paginated list above. Same two
-      // queries /properties/page.tsx runs; PropertyListFilters requires them.
-      const [attentionCount, allCount] = await Promise.all([
+      // drive the filter-chip counts, not the paginated list above. Same
+      // three queries /properties/page.tsx runs; PropertyListFilters
+      // requires them, and the two pages must agree or the chip counts jump
+      // when you open a property.
+      const [attentionCount, incompleteCount, allCount] = await Promise.all([
         supabase
           .from(LIST_VIEW as never)
           .select('*', { count: 'exact', head: true })
           .eq('org_id' as never, ctx.org.id)
-          .lt('severity_rank' as never, 6),
+          .eq('needs_attention' as never, true),
+        supabase
+          .from(LIST_VIEW as never)
+          .select('*', { count: 'exact', head: true })
+          .eq('org_id' as never, ctx.org.id)
+          .eq('is_incomplete' as never, true),
         supabase
           .from(LIST_VIEW as never)
           .select('*', { count: 'exact', head: true })
@@ -258,6 +265,7 @@ export default async function PropertyDetailPage({
       ])
       counts = {
         attention: attentionCount.count ?? 0,
+        incomplete: incompleteCount.count ?? 0,
         all: allCount.count ?? 0,
       }
     } catch (e) {

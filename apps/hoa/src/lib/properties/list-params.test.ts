@@ -18,7 +18,14 @@ describe('parsePropertyListParams', () => {
   })
 
   it('accepts every valid filter', () => {
-    for (const f of ['attention', 'all', 'owner_occupied', 'leased', 'unknown'] as const) {
+    for (const f of [
+      'attention',
+      'incomplete',
+      'all',
+      'owner_occupied',
+      'leased',
+      'unknown',
+    ] as const) {
       expect(parsePropertyListParams({ filter: f }).filter).toBe(f)
     }
   })

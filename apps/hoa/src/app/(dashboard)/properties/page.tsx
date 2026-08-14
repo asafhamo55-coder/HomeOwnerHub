@@ -29,7 +29,7 @@ export default async function PropertiesPage({
 
   let rows: Awaited<ReturnType<typeof listProperties>>['rows'] = []
   let total = 0
-  let counts = { attention: 0, all: 0 }
+  let counts = { attention: 0, incomplete: 0, all: 0 }
   let error: string | null = null
   try {
     const result = await listProperties(supabase, org.id, params)
@@ -38,12 +38,20 @@ export default async function PropertiesPage({
 
     // Count-only queries (`head: true`) so no rows are transferred — these
     // drive the filter-chip counts, not the paginated list above.
-    const [attentionCount, allCount] = await Promise.all([
+    // `needs_attention` rather than `severity_rank < 6` — see list.ts. The
+    // old predicate counted missing-data rows as work, which put "131
+    // needing attention" beside 184 homes and made the number meaningless.
+    const [attentionCount, incompleteCount, allCount] = await Promise.all([
       supabase
         .from(VIEW as never)
         .select('*', { count: 'exact', head: true })
         .eq('org_id' as never, org.id)
-        .lt('severity_rank' as never, 6),
+        .eq('needs_attention' as never, true),
+      supabase
+        .from(VIEW as never)
+        .select('*', { count: 'exact', head: true })
+        .eq('org_id' as never, org.id)
+        .eq('is_incomplete' as never, true),
       supabase
         .from(VIEW as never)
         .select('*', { count: 'exact', head: true })
@@ -51,6 +59,7 @@ export default async function PropertiesPage({
     ])
     counts = {
       attention: attentionCount.count ?? 0,
+      incomplete: incompleteCount.count ?? 0,
       all: allCount.count ?? 0,
     }
   } catch (e) {
