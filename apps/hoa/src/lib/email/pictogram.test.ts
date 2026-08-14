@@ -80,9 +80,13 @@ describe('renderPictogramSvg', () => {
 })
 
 describe('PICTOGRAMS manifest', () => {
-  it('has seven entries with unique slugs', () => {
-    expect(PICTOGRAMS).toHaveLength(7)
-    expect(new Set(PICTOGRAMS.map((p) => p.slug)).size).toBe(7)
+  it('has unique slugs', () => {
+    // Was `toHaveLength(7)`. The count is not the invariant; uniqueness is —
+    // the slug is the generated PNG's filename, so a duplicate would have
+    // one template silently overwrite another's artwork at build time.
+    const slugs = PICTOGRAMS.map((p) => p.slug)
+    expect(new Set(slugs).size).toBe(slugs.length)
+    expect(slugs.length).toBeGreaterThan(0)
   })
 
   it('every accent survives dark-mode inversion', () => {

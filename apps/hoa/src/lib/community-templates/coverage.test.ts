@@ -8,10 +8,15 @@ import { PICTOGRAMS } from '@/lib/email/pictogram-manifest'
 const ASSET_DIR = path.join(process.cwd(), 'apps/hoa/public/email/v1')
 
 describe('community template library coverage', () => {
-  it('has exactly seven templates with unique slugs', () => {
-    expect(COMMUNITY_TEMPLATES.length).toBe(7)
+  it('has unique slugs', () => {
+    // Was `toBe(7)`. The library size is not an invariant — it went stale
+    // the first time a template was added — but slug uniqueness is: the
+    // slug is the seed's idempotency key against comm_templates_global_slug_idx
+    // and the generated PNG's filename, so a collision would silently
+    // overwrite another template's row and its artwork.
     const slugs = COMMUNITY_TEMPLATES.map((t) => t.slug)
     expect(new Set(slugs).size).toBe(slugs.length)
+    expect(slugs.length).toBeGreaterThan(0)
   })
 
   it('covers all four template shapes', () => {

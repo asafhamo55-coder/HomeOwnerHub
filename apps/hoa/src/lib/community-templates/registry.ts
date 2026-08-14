@@ -24,6 +24,19 @@ import leaseCapStatus from './templates/lease-cap-status'
 import poolPassRenewal from './templates/pool-pass-renewal'
 import trashAndRecyclingBins from './templates/trash-and-recycling-bins'
 import workOnSite from './templates/work-on-site'
+// Phase 2 — conduct, upkeep, safety, governance.
+import annualMeetingNotice from './templates/annual-meeting-notice'
+import architecturalReviewReminder from './templates/architectural-review-reminder'
+import holidayDecorationTiming from './templates/holiday-decoration-timing'
+import lawnAndLandscaping from './templates/lawn-and-landscaping'
+import mailboxAndExteriorUpkeep from './templates/mailbox-and-exterior-upkeep'
+import noiseAndQuietHours from './templates/noise-and-quiet-hours'
+import playEquipmentInRoadway from './templates/play-equipment-in-roadway'
+import poolRulesAndGuests from './templates/pool-rules-and-guests'
+import severeWeatherPrep from './templates/severe-weather-prep'
+import shortTermRentalPolicy from './templates/short-term-rental-policy'
+import speedingAndTrafficSafety from './templates/speeding-and-traffic-safety'
+import streetParkingAndVehicles from './templates/street-parking-and-vehicles'
 
 /** Fields the send pipeline supplies for every message. */
 export const AMBIENT_FIELDS = new Set([
@@ -125,6 +138,7 @@ export function validateTemplate(t: CommunityTemplate): void {
 }
 
 const ALL: CommunityTemplate[] = [
+  // Phase 1
   communityCleanupDay,
   dogLeashAndWaste,
   guestParking,
@@ -132,6 +146,19 @@ const ALL: CommunityTemplate[] = [
   poolPassRenewal,
   trashAndRecyclingBins,
   workOnSite,
+  // Phase 2
+  annualMeetingNotice,
+  architecturalReviewReminder,
+  holidayDecorationTiming,
+  lawnAndLandscaping,
+  mailboxAndExteriorUpkeep,
+  noiseAndQuietHours,
+  playEquipmentInRoadway,
+  poolRulesAndGuests,
+  severeWeatherPrep,
+  shortTermRentalPolicy,
+  speedingAndTrafficSafety,
+  streetParkingAndVehicles,
 ]
 
 for (const t of ALL) validateTemplate(t)
