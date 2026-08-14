@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import type { ReminderPacket } from './types'
 import {
+  SUBJECT_TEMPLATE,
   amountSummary,
   escapeHtml,
   formatDueDate,
   formatUsd,
+  neutralizeMergeSyntax,
   renderDuesTableHtml,
   renderDuesTableText,
   renderNoteHtml,
@@ -224,6 +226,54 @@ describe('renderShellText', () => {
     expect(text).toContain('{{dues_text}}')
     expect(text).toContain('Pool assessment included.')
     expect(text).not.toContain('<')
+  })
+
+  it('uses the raw owner_name_text placeholder, not the escaped HTML one', () => {
+    // The send pipeline's renderTemplate does not escape merge fields, so
+    // the plain-text body must reference a separate, unescaped placeholder
+    // — using {{owner_name}} here would let an HTML-escaped value leak
+    // into a text email as literal "&amp;" etc.
+    const text = renderShellText({ portalUrl: 'https://app.test' })
+    expect(text).toContain('{{owner_name_text}}')
+    expect(text).not.toContain('{{owner_name}}')
+  })
+
+  it('uses the raw association_name_text placeholder in both the header and the footer', () => {
+    const text = renderShellText({ portalUrl: 'https://app.test' })
+    expect(text.match(/\{\{association_name_text\}\}/g)).toHaveLength(2)
+    expect(text).not.toContain('{{association_name}}')
+  })
+})
+
+describe('SUBJECT_TEMPLATE', () => {
+  it('takes the unescaped association name — a subject line is not HTML', () => {
+    expect(SUBJECT_TEMPLATE).toContain('{{association_name_text}}')
+    expect(SUBJECT_TEMPLATE).not.toContain('{{association_name}}')
+  })
+})
+
+describe('neutralizeMergeSyntax', () => {
+  // The note is baked into the shell, and the shell is then run through
+  // the send pipeline's renderTemplate — which replaces an unknown
+  // {{placeholder}} with an empty string. Left alone, a note mentioning a
+  // merge field would silently lose those words in every resident's inbox.
+  it('leaves ordinary prose untouched', () => {
+    expect(neutralizeMergeSyntax('The pool fee is due with September dues.')).toBe(
+      'The pool fee is due with September dues.',
+    )
+  })
+
+  it('breaks a merge placeholder while keeping the words readable', () => {
+    expect(neutralizeMergeSyntax('your {{balance}} is due')).toBe('your {balance} is due')
+  })
+
+  it('cannot leave a doubled brace behind, even from a longer run', () => {
+    expect(neutralizeMergeSyntax('{{{balance}}}')).toBe('{balance}')
+    expect(neutralizeMergeSyntax('{{{{x}}}}')).not.toContain('{{')
+  })
+
+  it('keeps a single brace as-is — renderTemplate needs two to match', () => {
+    expect(neutralizeMergeSyntax('use {curly} braces')).toBe('use {curly} braces')
   })
 })
 

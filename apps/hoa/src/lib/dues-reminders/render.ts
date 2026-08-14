@@ -23,7 +23,10 @@ const USD = new Intl.NumberFormat('en-US', {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-export const SUBJECT_TEMPLATE = '{{association_name}} dues — {{amount_summary}}'
+/** The subject line is plain text, so it takes the unescaped variant for
+ *  the same reason the plain-text body does — an association called
+ *  "Oak & Vine" must not arrive as "Oak &amp; Vine" in the inbox list. */
+export const SUBJECT_TEMPLATE = '{{association_name_text}} dues — {{amount_summary}}'
 
 export function formatUsd(n: number): string {
   return USD.format(n)
@@ -43,6 +46,21 @@ export function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
+}
+
+/**
+ * Make free text inert against the send pipeline's merge renderer.
+ *
+ * The manager's note is baked into the shell, and the whole shell is then
+ * run through renderTemplate — which substitutes any `{{word}}` it finds
+ * and replaces an unknown one with an empty string. A note reading "your
+ * {{balance}} is due" would silently lose those two words on the way to
+ * every resident. Collapsing every run of two-or-more braces to a single
+ * brace leaves the note readable and can never leave a `{{` behind (a
+ * naive `{{` → `{` pass would turn `{{{x}}}` back into `{{x}}`).
+ */
+export function neutralizeMergeSyntax(s: string): string {
+  return s.replace(/\{{2,}/g, '{').replace(/\}{2,}/g, '}')
 }
 
 export function amountSummary(packet: ReminderPacket): string {
@@ -163,9 +181,12 @@ ${renderNoteHtml(opts.note)}
 export function renderShellText(opts: { note?: string; portalUrl: string }): string {
   const note = opts.note?.trim()
   return [
-    '{{association_name}}',
+    // The raw variant, not {{association_name}}: renderTemplate does not
+    // escape, and the HTML-escaped value would read as literal "&amp;" in
+    // a plain-text inbox. Same split as owner_name / owner_name_text.
+    '{{association_name_text}}',
     '',
-    'Hi {{owner_name}},',
+    'Hi {{owner_name_text}},',
     '',
     "Here's everything currently outstanding on your account.",
     '',
@@ -176,6 +197,6 @@ export function renderShellText(opts: { note?: string; portalUrl: string }): str
     '',
     'To pay or request a detailed statement, reply to this email or contact your community manager.',
     '',
-    'Sent by {{association_name}} because you are an owner of record.',
+    'Sent by {{association_name_text}} because you are an owner of record.',
   ].join('\n')
 }

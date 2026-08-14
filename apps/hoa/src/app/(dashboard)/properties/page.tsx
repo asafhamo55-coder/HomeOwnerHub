@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { Alert } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -6,6 +5,7 @@ import { listProperties } from '@/lib/properties/list'
 import { parsePropertyListParams } from '@/lib/properties/list-params'
 import { PropertyList } from './PropertyList'
 import { PropertyListFilters } from './PropertyListFilters'
+import { PropertyListPager } from './PropertyListPager'
 import { PropertiesHeader } from './PropertiesHeader'
 
 export const metadata = { title: 'Properties' }
@@ -84,36 +84,7 @@ export default async function PropertiesPage({
           ) : (
             <>
               <PropertyList rows={rows} params={params} />
-              {total > params.limit ? (
-                <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-xs text-muted">
-                  <span>
-                    Showing {params.offset + 1}–{Math.min(params.offset + rows.length, total)} of{' '}
-                    {total}
-                  </span>
-                  <div className="flex gap-3">
-                    {params.page > 1 ? (
-                      <Link
-                        href={`/properties?${new URLSearchParams({ filter: params.filter, sort: params.sort, ...(params.search ? { q: params.search } : {}), page: String(params.page - 1) })}`}
-                        className="underline hover:text-foreground"
-                      >
-                        Previous
-                      </Link>
-                    ) : (
-                      <span className="text-muted/50">Previous</span>
-                    )}
-                    {params.offset + rows.length < total ? (
-                      <Link
-                        href={`/properties?${new URLSearchParams({ filter: params.filter, sort: params.sort, ...(params.search ? { q: params.search } : {}), page: String(params.page + 1) })}`}
-                        className="underline hover:text-foreground"
-                      >
-                        Next
-                      </Link>
-                    ) : (
-                      <span className="text-muted/50">Next</span>
-                    )}
-                  </div>
-                </div>
-              ) : null}
+              <PropertyListPager params={params} rowCount={rows.length} total={total} />
             </>
           )}
         </aside>

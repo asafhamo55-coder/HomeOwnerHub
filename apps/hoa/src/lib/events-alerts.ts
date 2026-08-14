@@ -4,6 +4,7 @@ import { sendSms, htmlToSmsBody } from '@/lib/sms'
 import {
   resolveAudience,
   fetchBoardMembers,
+  stripAudienceForPersist,
   type AudienceDefinition,
   type ResolvedRecipient,
 } from '@/lib/communications/audience'
@@ -203,7 +204,14 @@ async function deliverViaCommunications(
       body_html: html,
       body_text: text,
       channels,
-      audience_definition: audienceDef as never,
+      // stripAudienceForPersist drops the recipient array for a
+      // 'precomputed' audience before it hits the jsonb column (the same
+      // helper send.ts uses) — unreachable today since audienceDef here is
+      // always 'board' or a resolveAudience() kind, never 'precomputed',
+      // but the privacy guarantee belongs to the column, not to each
+      // writer having to remember it. Every other kind passes through
+      // unchanged.
+      audience_definition: stripAudienceForPersist(audienceDef) as never,
       audience_summary: summary,
       status: 'sending',
       source: 'cron',

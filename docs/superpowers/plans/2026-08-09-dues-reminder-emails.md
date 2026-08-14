@@ -149,7 +149,7 @@ Leave every call site alone — the function name and behaviour are identical.
 
 - [ ] **Step 6: Typecheck**
 
-Run: `rtk pnpm --filter @homeowner-portal/hoa exec tsc --noEmit`
+Run: `rtk pnpm --filter hoa exec tsc --noEmit`
 Expected: no errors
 
 - [ ] **Step 7: Commit**
@@ -1259,7 +1259,7 @@ Expected: PASS, 4 tests
 
 - [ ] **Step 8: Verify no existing behaviour regressed**
 
-Run: `rtk pnpm vitest run apps/hoa/src/lib && rtk pnpm --filter @homeowner-portal/hoa exec tsc --noEmit`
+Run: `rtk pnpm vitest run apps/hoa/src/lib && rtk pnpm --filter hoa exec tsc --noEmit`
 Expected: all pass, no type errors
 
 - [ ] **Step 9: Commit**
@@ -1383,7 +1383,7 @@ In `deliverOne`, replace the `bag` definition:
 
 - [ ] **Step 6: Typecheck and run the full lib suite**
 
-Run: `rtk pnpm --filter @homeowner-portal/hoa exec tsc --noEmit && rtk pnpm vitest run apps/hoa/src/lib`
+Run: `rtk pnpm --filter hoa exec tsc --noEmit && rtk pnpm vitest run apps/hoa/src/lib`
 Expected: no type errors, all tests pass
 
 - [ ] **Step 7: Commit**
@@ -2017,7 +2017,7 @@ Expected: PASS, 14 tests
 
 - [ ] **Step 5: Typecheck**
 
-Run: `rtk pnpm --filter @homeowner-portal/hoa exec tsc --noEmit`
+Run: `rtk pnpm --filter hoa exec tsc --noEmit`
 Expected: no errors.
 
 If `tsc` rejects `mockSend.mock.calls[0][0]` as `never`, it is because `vi.fn(async () => …)` infers a zero-argument signature. Fix it by declaring the parameter type on the mock rather than casting the assertion:
@@ -2285,7 +2285,7 @@ export function SendRemindersDialog({
 
 - [ ] **Step 2: Typecheck**
 
-Run: `rtk pnpm --filter @homeowner-portal/hoa exec tsc --noEmit`
+Run: `rtk pnpm --filter hoa exec tsc --noEmit`
 Expected: no errors. If `Alert` rejects `variant="success"` or `variant="warning"`, open `packages/ui/src/components/Alert.tsx`, read the actual variant union, and use the closest available one rather than adding a variant.
 
 - [ ] **Step 3: Commit**
@@ -2430,12 +2430,12 @@ Then render it immediately before the `{error ? (` block, so it sits above the p
 
 - [ ] **Step 3: Typecheck and run the full suite**
 
-Run: `rtk pnpm --filter @homeowner-portal/hoa exec tsc --noEmit && rtk pnpm vitest run apps/hoa/src`
+Run: `rtk pnpm --filter hoa exec tsc --noEmit && rtk pnpm vitest run apps/hoa/src`
 Expected: no type errors, all tests pass
 
 - [ ] **Step 4: Build**
 
-Run: `rtk pnpm --filter @homeowner-portal/hoa build`
+Run: `rtk pnpm --filter hoa build`
 Expected: build succeeds. A `'use server'` export error here means a non-async export leaked into `actions.ts` — every export in that file must be an async function or a type.
 
 - [ ] **Step 5: Commit**

@@ -42,6 +42,7 @@ import type { PropertyResidentRow, PropertyResidentRole } from '@/lib/property-r
 import type { PropertyEventRow, PropertyEventKind } from '@/lib/property-events'
 import { PropertyList } from '../PropertyList'
 import { PropertyListFilters } from '../PropertyListFilters'
+import { PropertyListPager } from '../PropertyListPager'
 import { PropertiesHeader } from '../PropertiesHeader'
 import {
   resolveCorrespondenceState,
@@ -51,7 +52,6 @@ import { PropertyPanel, parsePanelTab, type PanelStats } from './PropertyPanel'
 import { TenureSelector } from './TenureSelector'
 import { AddResidentForm } from './AddResidentForm'
 import { PropertyActions } from './PropertyActions'
-import { ResidentActions } from './ResidentActions'
 import { ResidentRow as ResidentRowClient } from './ResidentRow'
 import { EnterPortalButton } from './EnterPortalButton'
 
@@ -283,14 +283,6 @@ export default async function PropertyDetailPage({
     tab: 'residents',
   })}`
 
-  const pageHref = (n: number) =>
-    `/properties?${new URLSearchParams({
-      filter: listParams.filter,
-      sort: listParams.sort,
-      ...(listParams.search ? { q: listParams.search } : {}),
-      page: String(n),
-    })}`
-
   return (
     <main className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden">
       {/* Same header /properties renders, so Export and Add property don't
@@ -319,30 +311,7 @@ export default async function PropertyDetailPage({
           ) : (
             <>
               <PropertyList rows={rows} selectedId={id} params={listParams} />
-              {total > listParams.limit ? (
-                <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-xs text-muted">
-                  <span>
-                    Showing {listParams.offset + 1}–
-                    {Math.min(listParams.offset + rows.length, total)} of {total}
-                  </span>
-                  <div className="flex gap-3">
-                    {listParams.page > 1 ? (
-                      <Link href={pageHref(listParams.page - 1)} className="underline hover:text-foreground">
-                        Previous
-                      </Link>
-                    ) : (
-                      <span className="text-muted/50">Previous</span>
-                    )}
-                    {listParams.offset + rows.length < total ? (
-                      <Link href={pageHref(listParams.page + 1)} className="underline hover:text-foreground">
-                        Next
-                      </Link>
-                    ) : (
-                      <span className="text-muted/50">Next</span>
-                    )}
-                  </div>
-                </div>
-              ) : null}
+              <PropertyListPager params={listParams} rowCount={rows.length} total={total} />
             </>
           )}
         </aside>
@@ -817,61 +786,6 @@ const ROLE_LABEL: Record<PropertyResidentRole, string> = {
   tenant: 'Tenant',
   family_member: 'Family',
   other: 'Other',
-}
-
-function ResidentRow({ resident }: { resident: PropertyResidentRow }) {
-  const isActive = resident.moved_out_at === null
-  const roleVariant: 'success' | 'info' | 'neutral' | 'outline' =
-    resident.role === 'owner'
-      ? 'success'
-      : resident.role === 'tenant'
-        ? 'info'
-        : 'neutral'
-  return (
-    <li
-      className={`flex items-center justify-between gap-3 px-4 py-3 text-sm ${
-        isActive ? '' : 'opacity-60'
-      }`}
-    >
-      <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-2 truncate font-medium text-foreground">
-          {resident.full_name}
-          {resident.is_primary ? (
-            <Badge variant="outline" size="sm">
-              Primary
-            </Badge>
-          ) : null}
-        </p>
-        <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
-          <Badge variant={roleVariant} size="sm">
-            {ROLE_LABEL[resident.role]}
-          </Badge>
-          {resident.email ? (
-            <a
-              href={`mailto:${resident.email}`}
-              className="hover:text-foreground hover:underline"
-            >
-              {resident.email}
-            </a>
-          ) : null}
-          {resident.phone ? <span>{resident.phone}</span> : null}
-          {resident.moved_in_at ? (
-            <span>moved in {format(new Date(resident.moved_in_at), 'PP')}</span>
-          ) : null}
-          {resident.moved_out_at ? (
-            <span className="text-destructive/80">
-              moved out {format(new Date(resident.moved_out_at), 'PP')}
-            </span>
-          ) : null}
-        </div>
-      </div>
-      <ResidentActions
-        residentId={resident.id}
-        residentName={resident.full_name}
-        isActive={isActive}
-      />
-    </li>
-  )
 }
 
 // Same tones the Violations section above uses (success / warning / outline),
