@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { PropertyListRow } from '@/lib/properties/list'
 import type { PropertyListParams } from '@/lib/properties/list-params'
 import {
+  emptyListMessage,
   reasonPills,
   severityDotClass,
   severityLabel,
@@ -38,9 +39,7 @@ export function PropertyList({
       <div className="p-6 text-center text-sm text-muted">
         {params.search
           ? `No properties match "${params.search}".`
-          : params.filter === 'attention'
-            ? 'Nothing needs attention right now.'
-            : 'No properties yet.'}
+          : emptyListMessage(params.filter)}
       </div>
     )
   }

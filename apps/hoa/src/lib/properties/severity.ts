@@ -5,7 +5,39 @@
 // so ordering can be a plain indexed column sort. This module only decides
 // how a rank *reads*.
 
+import type { PropertyFilter } from './list-params'
+
 export type SeverityTone = 'red' | 'amber' | 'slate' | 'clear'
+
+/**
+ * Empty-state copy for the list pane, per filter.
+ *
+ * Every filter except 'all' selects a subset, so an empty result means
+ * "nothing matched this filter" — not "there are no properties". The list
+ * previously fell back to "No properties yet." for everything except
+ * 'attention', which told a manager whose records are all complete, or who
+ * filtered to Leased in an owner-occupied association, that their
+ * association has no homes at all.
+ *
+ * Exhaustive over PropertyFilter with no `default`, so adding a filter is
+ * a type error here rather than a silently wrong message.
+ */
+export function emptyListMessage(filter: PropertyFilter): string {
+  switch (filter) {
+    case 'attention':
+      return 'Nothing needs attention right now.'
+    case 'incomplete':
+      return 'Every property record is complete.'
+    case 'owner_occupied':
+      return 'No owner-occupied properties.'
+    case 'leased':
+      return 'No leased properties.'
+    case 'unknown':
+      return 'Every property has its tenure recorded.'
+    case 'all':
+      return 'No properties yet.'
+  }
+}
 
 export interface SeveritySource {
   balance: number

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  emptyListMessage,
   reasonPills,
   severityDotClass,
   severityLabel,
@@ -124,5 +125,39 @@ describe('streetOf', () => {
 
   it('survives an empty string rather than throwing', () => {
     expect(streetOf('')).toBe('')
+  })
+})
+
+describe('emptyListMessage', () => {
+  // The bug this replaced: every filter except 'attention' fell through to
+  // "No properties yet.", so a manager who had just finished filling in
+  // every record — or who filtered to Leased in an owner-occupied
+  // association — was told their association has no homes.
+  it('never claims the association is empty for a subset filter', () => {
+    for (const f of ['attention', 'incomplete', 'owner_occupied', 'leased', 'unknown'] as const) {
+      expect(emptyListMessage(f)).not.toBe('No properties yet.')
+    }
+  })
+
+  it('reads as success for the two "you are done" filters', () => {
+    expect(emptyListMessage('attention')).toBe('Nothing needs attention right now.')
+    expect(emptyListMessage('incomplete')).toBe('Every property record is complete.')
+  })
+
+  it("only 'all' being empty means there are genuinely no properties", () => {
+    expect(emptyListMessage('all')).toBe('No properties yet.')
+  })
+
+  it('returns a non-empty message for every filter', () => {
+    for (const f of [
+      'attention',
+      'incomplete',
+      'all',
+      'owner_occupied',
+      'leased',
+      'unknown',
+    ] as const) {
+      expect(emptyListMessage(f).length).toBeGreaterThan(0)
+    }
   })
 })
