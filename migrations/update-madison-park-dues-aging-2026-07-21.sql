@@ -29,6 +29,7 @@ DECLARE
   v_assoc_id uuid;
   v_fp_id    uuid;
   v_unit_id  uuid;
+  v_total    numeric;
 BEGIN
   -- Resolve association
   SELECT id INTO v_assoc_id
@@ -113,35 +114,36 @@ BEGIN
     RAISE WARNING 'Unit not found: 904 Urban Ash Court (Aswani)';
   END IF;
 
-  RAISE NOTICE 'Done. Madison Park AR reconciled to the 07/21/2026 aging report.';
-END $$;
-
--- ─── Assert the result matches the report, or fail loudly ───────────
--- This script is a DELTA against seed-madison-park-dues-aging.sql
--- (the 5/27/2026 report). Applied on its own to a database that never
--- received that seed, every insert above still succeeds -- they are
--- unconditional NOT EXISTS guards -- and the association total lands
--- somewhere plausible but wrong. A wrong AR total is not the kind of
--- thing to discover from a resident's email, so assert it here.
---
--- $9,475.88 is the "AR Total" printed on the 07/21/2026 report.
-DO $$
-DECLARE
-  v_total numeric;
-BEGIN
+  -- ─── Assert the result matches the report, or roll everything back ──
+  -- This script is a DELTA against seed-madison-park-dues-aging.sql
+  -- (the 5/27/2026 report). Applied on its own to a database that never
+  -- received that seed, every insert above still succeeds -- they are
+  -- unconditional NOT EXISTS guards -- and the association total lands
+  -- somewhere plausible but wrong. A wrong AR total is not the kind of
+  -- thing to discover from a resident's dues reminder, so assert it.
+  --
+  -- This check lives INSIDE the same DO block as the writes above, on
+  -- purpose. A DO block is a single statement, so it is a single
+  -- transaction: raising here rolls back this script's own inserts and
+  -- the Aswani update along with it, leaving the database exactly as it
+  -- was. As a separate statement it would not -- the inserts would have
+  -- committed already and the exception would strand a half-applied
+  -- reconciliation.
+  --
+  -- $9,475.88 is the "AR Total" printed on the 07/21/2026 report.
   SELECT COALESCE(SUM(a.amount), 0) INTO v_total
   FROM public.assessments a
-  WHERE a.organization_id = 'a4906f16-baf3-4232-a2bd-a78ea432ad86'
+  WHERE a.organization_id = v_org_id
     AND a.status = 'open'
     AND a.deleted_at IS NULL;
 
   IF v_total <> 9475.88 THEN
     RAISE EXCEPTION
-      'Madison Park AR is %, expected 9475.88 per the 07/21/2026 aging report. Run seed-madison-park-dues-aging.sql first (it is idempotent), then re-run this file.',
-      to_char(v_total, 'FM9,999,990.00');
+      'Madison Park AR is %, expected $9,475.88 per the 07/21/2026 aging report. Nothing was changed. Run seed-madison-park-dues-aging.sql first (it is idempotent), then re-run this file.',
+      to_char(v_total, 'FM$9,999,990.00');
   END IF;
 
-  RAISE NOTICE 'Verified: Madison Park AR = $9,475.88, matching the 07/21/2026 report.';
+  RAISE NOTICE 'Done. Madison Park AR reconciled to the 07/21/2026 aging report: $9,475.88.';
 END $$;
 
 -- ─── Verify: per-owner balances should match the report ─────────────
