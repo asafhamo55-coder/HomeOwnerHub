@@ -11,6 +11,7 @@ import { getLeaseStats } from '@/lib/leases'
 import { buildLeaseCapFields, buildLeaseCapMeterHtml } from '@/lib/community-templates/lease-cap'
 import { getTemplate } from '@/lib/community-templates/registry'
 import { resolveAudience, stripAudienceForPersist, type AudienceDefinition } from './audience'
+import { buildRecipientBag } from './merge-bag'
 import { renderTemplateStrict, type MergeBag } from './templates'
 
 type CommInsert = Database['public']['Tables']['communications']['Insert']
@@ -330,20 +331,12 @@ export async function sendCommunication(
   // merged in per recipient, then rendering is strict — a template whose
   // fields are not all supplied must fail loudly before Resend is called.
   async function deliverOne(recipient: RecipientRow, extraFields: MergeBag): Promise<Outcome> {
-    const bag: MergeBag = {
-      ...extraFields,
-      owner_name: recipient.recipient_name ?? 'Resident',
-      recipient_name: recipient.recipient_name ?? 'Resident',
-      association_name: associationName,
-      unit_id: recipient.unit_id ?? '',
-      // Caller-supplied per-recipient values win over the defaults above.
-      // Keyed by email because that is the only identifier a precomputed
-      // audience is guaranteed to share with the persisted recipient row.
-      // Guard the lookup on a real email — SMS/portal recipients can have
-      // `email: null`, and without this every one of them would collapse
-      // onto the same '' key and share a stranger's merge data.
-      ...(recipient.email ? (value.extraMergeFields?.[recipient.email] ?? {}) : {}),
-    }
+    const bag = buildRecipientBag({
+      extraFields,
+      recipient,
+      associationName,
+      extraMergeFields: value.extraMergeFields,
+    })
 
     let subject: string
     let html: string
