@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { Loader2, Send } from 'lucide-react'
 import { Alert, Button, Input, Select } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
@@ -22,6 +22,7 @@ import {
   type PropertyOption,
 } from './AudienceStep'
 import { QuestionStep } from './QuestionStep'
+import { SectionToggles } from './SectionToggles'
 
 interface TemplateOption {
   id: string
@@ -37,6 +38,10 @@ interface TemplateOption {
   // QuestionStep and handleSubmit both treat a missing array as "no
   // declared questions" rather than crashing.
   questions?: readonly TemplateQuestion[]
+  /** Community-library slug, or null for an org-authored template. When
+   *  present the composer can offer per-section toggles; when null it falls
+   *  back to the stored body_html, which is the pre-sections behaviour. */
+  topicSlug?: string | null
 }
 
 const CATEGORIES = [
@@ -238,7 +243,14 @@ export function NewCommunicationWizard({
   // question" guard.
   useEffect(() => {
     setAnswers({})
+    setActiveQuestions(null)
   }, [templateId])
+
+  // Questions still referenced by an included section. null means "no
+  // section filtering in play" — either a non-community template or the
+  // toggles have not reported yet — in which case the template's full list
+  // applies, which is the pre-sections behaviour.
+  const [activeQuestions, setActiveQuestions] = useState<readonly TemplateQuestion[] | null>(null)
 
   function pickTemplate(id: string) {
     setTemplateId(id)
@@ -251,6 +263,19 @@ export function NewCommunicationWizard({
       setChannels(t.channels.filter((c) => CHANNELS.includes(c as (typeof CHANNELS)[number])))
     }
   }
+
+  const effectiveQuestions: readonly TemplateQuestion[] =
+    activeQuestions ?? selectedTemplate?.questions ?? []
+
+  // useCallback so SectionToggles' effect, which intentionally omits this
+  // from its dep list, is nonetheless given a stable identity.
+  const handleSectionsRendered = useCallback(
+    (r: { bodyHtml: string; questions: readonly TemplateQuestion[] }) => {
+      setBodyHtml(r.bodyHtml)
+      setActiveQuestions(r.questions)
+    },
+    [],
+  )
 
   function toggleChannel(c: string) {
     setChannels((prev) =>
@@ -287,9 +312,12 @@ export function NewCommunicationWizard({
     const finalSubject = subject.trim()
     const finalBodyHtml = bodyHtml
     let extraFields: ReturnType<typeof buildMergeBag> | undefined
-    if (selectedTemplate?.questions?.length) {
+    if (effectiveQuestions.length) {
       try {
-        extraFields = buildMergeBag(selectedTemplate.questions, answers, {})
+        // effectiveQuestions, not the template's full list: a question whose
+        // only section was switched off is no longer asked, so requiring an
+        // answer for it would block the send on data that cannot appear.
+        extraFields = buildMergeBag(effectiveQuestions, answers, {})
       } catch (err) {
         setError((err as Error).message)
         return
@@ -474,14 +502,14 @@ export function NewCommunicationWizard({
       {/* Step 4 — declared questions, only shown when the chosen template
           has any. Answers become the merge bag for its {{ fields }} —
           see handleSubmit, which builds and substitutes it before send. */}
-      {selectedTemplate?.questions && selectedTemplate.questions.length > 0 ? (
+      {effectiveQuestions.length > 0 ? (
         <Section
           number={4}
           title="Details"
           hint="Answers fill in this template's {{ merge fields }}."
         >
           <QuestionStep
-            questions={selectedTemplate.questions}
+            questions={effectiveQuestions}
             answers={answers}
             onChange={(id, v) => setAnswers((a) => ({ ...a, [id]: v }))}
           />
@@ -502,6 +530,14 @@ export function NewCommunicationWizard({
             className="mt-1"
           />
         </label>
+        {selectedTemplate?.topicSlug ? (
+          <SectionToggles
+            topicSlug={selectedTemplate.topicSlug}
+            disabled={pending}
+            onRendered={handleSectionsRendered}
+          />
+        ) : null}
+
         <div className="mt-3">
           <div className="mb-1 flex items-center justify-between gap-2">
             <label htmlFor="comm-body" className="text-sm text-muted">

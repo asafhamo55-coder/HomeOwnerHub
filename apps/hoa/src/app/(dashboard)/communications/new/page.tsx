@@ -187,6 +187,9 @@ export default async function NewCommunicationPage() {
               bodyText: t.body_text ?? '',
               channels: t.channels,
               questions: toTemplateQuestions(t.questions),
+              // Drives the per-section toggles: the composer looks the
+              // template up in the community registry by this slug.
+              topicSlug: t.topic_slug ?? null,
             }))}
             audienceCounts={counts}
             properties={properties}
