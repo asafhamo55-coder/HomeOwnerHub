@@ -68,6 +68,13 @@ function probeEnvVars(): Record<string, boolean> {
     INNGEST_EVENT_KEY: !!process.env.INNGEST_EVENT_KEY,
     INNGEST_SIGNING_KEY: !!process.env.INNGEST_SIGNING_KEY,
     CRON_SECRET: !!process.env.CRON_SECRET,
+    // Reported because its absence is invisible until someone opens the
+    // composer: emailAssetUrl throws rather than defaulting (deliberately —
+    // sent mail needs a permanent origin, not a preview host), so a missing
+    // value surfaces as a runtime error in the section renderer rather than
+    // at boot. It was in fact missing in production when the section
+    // toggles shipped, and this line is how that becomes visible next time.
+    EMAIL_ASSET_BASE_URL: !!process.env.EMAIL_ASSET_BASE_URL,
     EMBEDDING_PROBE_KEY: !!process.env.EMBEDDING_PROBE_KEY,
     EMBEDDING_BASE_URL_SET_BUT_EMPTY:
       process.env.EMBEDDING_BASE_URL !== undefined && process.env.EMBEDDING_BASE_URL.trim() === '',
