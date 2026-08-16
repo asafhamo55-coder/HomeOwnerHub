@@ -647,3 +647,118 @@ async function resolveBoard(
     summary: summaryFor({ kind: 'board', boardUserIds }, recipients.length),
   }
 }
+
+// ─── Counts ──────────────────────────────────────────────────────────
+
+export interface AudienceCountMap {
+  everyone: number
+  owners_only: number
+  tenants_only: number
+  late_on_dues: number
+  open_violations: number
+}
+
+/**
+ * How many recipients each audience would actually produce.
+ *
+ * Lives here, beside resolveAudience, because it previously lived in the
+ * composer page as a set of independent `count: 'exact'` queries — and they
+ * counted different things than the resolver produced:
+ *
+ *   late_on_dues   counted ASSESSMENT ROWS; the resolver sends to DISTINCT
+ *                  UNITS. Madison Park has 24 overdue assessments across 5
+ *                  units, so the chip read 24 and the send went to 5.
+ *   owners_only    counted OWNERSHIP ROWS; the resolver keys recipients by
+ *                  unit_id, so a co-owned property counted twice and
+ *                  received one email.
+ *   tenants_only   same, for tenancies.
+ *
+ * Every count below is derived from the same predicate the matching branch
+ * of resolveAudience uses. Keeping them in one file is what stops them
+ * drifting apart again — hoa_violations has four different definitions of
+ * "open" scattered across this codebase for exactly that reason.
+ *
+ * Deliberately mirrors the resolver's quirks rather than improving on them,
+ * including that neither filters soft-deleted assessments or violations. A
+ * count that disagrees with the send is a bug; a count that agrees with a
+ * send both of which include a soft-deleted row is a separate, honest
+ * question about the resolver.
+ */
+export async function countAudiences(
+  db: Db,
+  associationId: string,
+): Promise<AudienceCountMap> {
+  const { data: units } = await db
+    .from('units')
+    .select('id, legacy_hoa_property_id')
+    .eq('association_id', associationId)
+
+  const unitRows = (units ?? []) as Array<{ id: string; legacy_hoa_property_id: string | null }>
+  const unitIds = unitRows.map((u) => u.id)
+  const unitIdSet = new Set(unitIds)
+
+  if (unitIds.length === 0) {
+    return {
+      everyone: 0,
+      owners_only: 0,
+      tenants_only: 0,
+      late_on_dues: 0,
+      open_violations: 0,
+    }
+  }
+
+  const today = new Date().toISOString().slice(0, 10)
+  const legacyIds = unitRows
+    .map((u) => u.legacy_hoa_property_id)
+    .filter((id): id is string => !!id)
+
+  const [ownerships, tenancies, late, violations] = await Promise.all([
+    db.from('ownerships').select('unit_id').in('unit_id', unitIds).is('valid_to', null),
+    db.from('tenancies').select('unit_id').in('unit_id', unitIds).eq('status', 'active'),
+    db
+      .from('assessments')
+      .select('unit_id')
+      .eq('association_id', associationId)
+      .in('status', ['open', 'partial'])
+      .lt('due_date', today),
+    legacyIds.length > 0
+      ? db
+          .from('hoa_violations')
+          .select('property_id')
+          .in('property_id', legacyIds)
+          .in('status', ['open', 'notice_sent'])
+      : Promise.resolve({ data: [] as Array<{ property_id: string }> }),
+  ])
+
+  // Distinct units throughout — one unit is one recipient, however many
+  // ownership, tenancy or assessment rows point at it.
+  const ownerUnits = new Set(
+    ((ownerships.data ?? []) as Array<{ unit_id: string }>).map((r) => r.unit_id),
+  )
+  const tenantUnits = new Set(
+    ((tenancies.data ?? []) as Array<{ unit_id: string }>).map((r) => r.unit_id),
+  )
+  const lateUnits = new Set(
+    ((late.data ?? []) as Array<{ unit_id: string }>)
+      .map((r) => r.unit_id)
+      .filter((id) => unitIdSet.has(id)),
+  )
+  const violatingProperties = new Set(
+    ((violations.data ?? []) as Array<{ property_id: string }>).map((v) => v.property_id),
+  )
+  const violatingUnits = unitRows.filter(
+    (u) => u.legacy_hoa_property_id && violatingProperties.has(u.legacy_hoa_property_id),
+  )
+
+  return {
+    // Every unit yields exactly one recipient, even with no contact on
+    // file — the resolver includes it so the manager sees the gap.
+    everyone: unitIds.length,
+    owners_only: ownerUnits.size,
+    tenants_only: tenantUnits.size,
+    late_on_dues: lateUnits.size,
+    // Units, not properties: the resolver maps violating properties back
+    // through legacy_hoa_property_id and emits one recipient per unit.
+    open_violations: violatingUnits.length,
+  }
+}

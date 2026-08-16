@@ -5,6 +5,7 @@ import { createAdminClient } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { listTemplates } from '@/lib/communications/queries'
+import { countAudiences } from '@/lib/communications/audience'
 import type { TemplateQuestion } from '@/lib/community-templates/types'
 import { NewCommunicationWizard } from './NewCommunicationWizard'
 
@@ -73,78 +74,20 @@ export default async function NewCommunicationPage() {
   }))
 
   // Pre-compute audience counts so the wizard can show "All owners (82)"
-  // without a roundtrip per selection. Cheap counts via Postgres.
-  const today = new Date().toISOString().slice(0, 10)
-  const [unitsCount, ownersCount, tenantsCount, lateCount] = await Promise.all([
-    supabase
-      .from('units')
-      .select('id', { count: 'exact', head: true })
-      .eq('association_id', assoc.id),
-    supabase
-      .from('ownerships')
-      .select('id', { count: 'exact', head: true })
-      .is('valid_to', null)
-      .in(
-        'unit_id',
-        (
-          await supabase
-            .from('units')
-            .select('id')
-            .eq('association_id', assoc.id)
-        ).data?.map((u) => u.id) ?? [],
-      ),
-    supabase
-      .from('tenancies')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'active')
-      .in(
-        'unit_id',
-        (
-          await supabase
-            .from('units')
-            .select('id')
-            .eq('association_id', assoc.id)
-        ).data?.map((u) => u.id) ?? [],
-      ),
-    supabase
-      .from('assessments')
-      .select('id', { count: 'exact', head: true })
-      .eq('association_id', assoc.id)
-      .in('status', ['open', 'partial'])
-      .lt('due_date', today),
-  ])
+  // without a roundtrip per selection.
+  //
+  // These used to be independent `count: 'exact'` queries written here, and
+  // they counted different things than resolveAudience sends to:
+  // late_on_dues counted assessment ROWS against a resolver that sends to
+  // distinct UNITS (Madison Park: 24 overdue assessments across 5 units, so
+  // the chip read 24 and the send went to 5), and owners_only/tenants_only
+  // counted ownership/tenancy rows against a resolver that emits one
+  // recipient per unit. countAudiences lives next to resolveAudience so the
+  // two cannot drift again.
+  const audienceCounts = await countAudiences(supabase, assoc.id)
 
-  const audienceCounts = {
-    everyone: unitsCount.count ?? 0,
-    owners_only: ownersCount.count ?? 0,
-    tenants_only: tenantsCount.count ?? 0,
-    late_on_dues: lateCount.count ?? 0,
-  }
-
-  // Open-violations count requires the same legacy_hoa_property_id join
-  // the audience resolver does. Cheap — keep it inline rather than
-  // duplicating into the wizard.
-  const { data: legacyUnits } = await supabase
-    .from('units')
-    .select('legacy_hoa_property_id')
-    .eq('association_id', assoc.id)
-    .not('legacy_hoa_property_id', 'is', null)
-  const legacyIds = (legacyUnits ?? [])
-    .map((u) => u.legacy_hoa_property_id)
-    .filter((id): id is string => !!id)
-  let openViolationsCount = 0
-  if (legacyIds.length > 0) {
-    const { data: vios } = await supabase
-      .from('hoa_violations')
-      .select('property_id')
-      .in('property_id', legacyIds)
-      .in('status', ['open', 'notice_sent'])
-    openViolationsCount = new Set((vios ?? []).map((v) => v.property_id)).size
-  }
-  // Board-member count for the "Board" audience option. org_members
-  // emails are read via the service-role client elsewhere, but a plain
-  // role='board' headcount only needs the org id. Service-role keeps it
-  // immune to org_members RLS variations.
+  // Board headcount is org-scoped rather than association-scoped, and needs
+  // the service-role client to see past org_members RLS, so it stays here.
   const { count: boardCount } = await createAdminClient()
     .from('org_members')
     .select('user_id', { count: 'exact', head: true })
@@ -153,7 +96,6 @@ export default async function NewCommunicationPage() {
 
   const counts = {
     ...audienceCounts,
-    open_violations: openViolationsCount,
     board: boardCount ?? 0,
   }
 
