@@ -8,6 +8,7 @@
 // Pure and free of React, Next and Supabase imports so it runs under
 // vitest's node-only harness, same as severity.ts and merge-bag.ts.
 
+import { AMBIENT_FIELDS } from './registry'
 import type { BodyBlock, CommunityTemplate, TemplateQuestion } from './types'
 
 export interface TemplateSection {
@@ -107,28 +108,70 @@ export function hasContent(t: CommunityTemplate, excluded: readonly number[]): b
   return withoutSections(t, excluded).body.length > 0
 }
 
-/** Merge placeholders referenced by a template's subject and body. */
-export function placeholdersUsed(t: CommunityTemplate): Set<string> {
-  const source = [
-    t.subject,
-    ...t.body.map((b) => {
-      switch (b.type) {
-        case 'paragraph':
-        case 'callout':
-          return b.text
-        case 'list':
-          return b.items.join(' ')
-        case 'raw':
-          return b.html
-        case 'visual':
-          return ''
-      }
-    }),
-  ].join(' ')
+/** The merge-bearing text of one block. A visual carries no copy. */
+function blockSource(b: BodyBlock): string {
+  switch (b.type) {
+    case 'paragraph':
+    case 'callout':
+      return b.text
+    case 'list':
+      return b.items.join(' ')
+    case 'raw':
+      return b.html
+    case 'visual':
+      return ''
+  }
+}
+
+function placeholdersIn(source: string): Set<string> {
   const found = new Set<string>()
   for (const m of source.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)) found.add(m[1])
+  return found
+}
+
+/** Merge placeholders referenced by a template's subject and body. */
+export function placeholdersUsed(t: CommunityTemplate): Set<string> {
+  const found = placeholdersIn([t.subject, ...t.body.map(blockSource)].join(' '))
   if (t.cta) found.add(t.cta.urlField)
   return found
+}
+
+/**
+ * Sections that cannot render because a field they use has no answer.
+ *
+ * This is what makes every question optional. Rather than substituting
+ * generic filler for a blank — "Quiet hours run from the hours in the
+ * community rules to the hours in the community rules" — the section that
+ * needed the answer is simply left out. Blank means "don't send this part".
+ *
+ * Ambient fields (recipient_name and friends) and providedFields (the
+ * lease-cap figures, resolved server-side in send.ts) are never missing, so
+ * they never drop a section.
+ *
+ * Subject placeholders are deliberately NOT considered here: the subject is
+ * not a section and cannot be dropped, which is why the handful of
+ * questions feeding it stay required.
+ */
+export function sectionsMissingAnswers(
+  t: CommunityTemplate,
+  answered: readonly string[],
+): number[] {
+  const have = new Set<string>([...answered, ...AMBIENT_FIELDS, ...(t.providedFields ?? [])])
+  const askable = new Set(t.questions.map((q) => q.id))
+
+  const out: number[] = []
+  t.body.forEach((block, index) => {
+    const fields = placeholdersIn(blockSource(block))
+    for (const f of fields) {
+      // Only a question can be unanswered. An unknown placeholder is a
+      // registry-validation problem, not a reason to hide a section.
+      if (askable.has(f) && !have.has(f)) {
+        out.push(index)
+        return
+      }
+    }
+  })
+  return out
 }
 
 /**

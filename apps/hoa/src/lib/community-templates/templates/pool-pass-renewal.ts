@@ -54,7 +54,7 @@ const template: CommunityTemplate = {
         'a fob or key request form',
         'a current emergency contact card',
       ],
-      required: true,
+      required: false,
       help: 'Select everything you need back before you can issue a pass.',
     },
     {
@@ -67,7 +67,7 @@ const template: CommunityTemplate = {
         'upload through the resident portal',
         'mail to the management office',
       ],
-      required: true,
+      required: false,
     },
     {
       id: 'contact_name',

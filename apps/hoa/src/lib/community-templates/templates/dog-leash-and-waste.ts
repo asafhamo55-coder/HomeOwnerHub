@@ -46,7 +46,7 @@ const template: CommunityTemplate = {
         'dogs off leash in shared spaces',
         'both pet waste and off-leash dogs',
       ],
-      required: true,
+      required: false,
     },
     {
       id: 'affected_areas',
@@ -60,7 +60,7 @@ const template: CommunityTemplate = {
         'the clubhouse lawn',
         'the north cul-de-sac',
       ],
-      required: true,
+      required: false,
       help: 'Naming the actual spots is what makes people recognize themselves.',
     },
     {

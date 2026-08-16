@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { getTemplate } from '@/lib/community-templates/registry'
 import { buildMergeBag } from '@/lib/community-templates/merge-bag'
+import {
+  placeholdersUsed,
+  sectionsMissingAnswers,
+  withoutSections,
+} from '@/lib/community-templates/sections'
 
 // The ambient fields send.ts supplies per recipient (AMBIENT_FIELDS in
 // registry.ts). Passing them keeps these calls identical to the real one.
@@ -33,8 +38,25 @@ describe('station_locations is optional', () => {
     expect(bag.station_locations).toBe('the clubhouse and the playground')
   })
 
-  it('still throws for the genuinely required ones', () => {
-    expect(() => buildMergeBag(t.questions, { affected_areas: ['the mailboxes'] }, AMBIENT)).toThrow(/issue_type/)
+  it('no longer throws for anything — every dog-template question is optional', () => {
+    // This previously asserted that a missing issue_type threw. That
+    // changed deliberately: the dog template has no subject placeholders,
+    // so all three questions became optional and a blank now drops the
+    // section that needed it rather than blocking the send.
+    expect(t.questions.every((q) => !q.required)).toBe(true)
+    expect(() => buildMergeBag(t.questions, {}, AMBIENT)).not.toThrow()
+  })
+
+  it('an unanswered field never survives into the rendered body', () => {
+    // The safety property that replaces the old throw: whatever is left in
+    // the body after auto-dropping has every one of its question fields
+    // answered, so renderTemplateStrict cannot meet an empty placeholder.
+    const dropped = sectionsMissingAnswers(t, [])
+    const body = withoutSections(t, dropped)
+    const stillNeeded = placeholdersUsed(body)
+    for (const q of t.questions) {
+      expect(stillNeeded.has(q.id), `${q.id} survived unanswered`).toBe(false)
+    }
   })
 })
 

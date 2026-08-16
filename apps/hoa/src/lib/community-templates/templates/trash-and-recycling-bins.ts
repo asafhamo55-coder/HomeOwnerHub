@@ -42,20 +42,20 @@ const template: CommunityTemplate = {
       label: 'What day is trash and recycling collected?',
       type: 'select',
       options: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-      required: true,
+      required: false,
     },
     {
       id: 'early_out_time',
       label: 'How early may bins go out to the curb?',
       type: 'time',
-      required: true,
+      required: false,
       help: 'The earliest time on the evening before pickup, e.g. 6:00 PM.',
     },
     {
       id: 'late_in_time',
       label: 'By when must bins be back out of sight?',
       type: 'time',
-      required: true,
+      required: false,
       help: 'The deadline on collection day itself, e.g. 8:00 PM.',
     },
     {
@@ -68,7 +68,7 @@ const template: CommunityTemplate = {
         'behind a fence or screen',
         'in a designated enclosure or pad',
       ],
-      required: true,
+      required: false,
       help: 'Pick whichever matches your community rule.',
     },
     {

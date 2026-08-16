@@ -1,10 +1,11 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { getTemplate } from './registry'
+import { COMMUNITY_TEMPLATES, getTemplate } from './registry'
 import {
   describeSections,
   hasContent,
   placeholdersUsed,
   questionsFor,
+  sectionsMissingAnswers,
   withoutSections,
 } from './sections'
 import { renderCommunityEmailHtml, renderCommunityEmailText } from './render'
@@ -165,5 +166,78 @@ describe('rendering a filtered template', () => {
     const calloutIdx = dog.body.findIndex((b) => b.type === 'callout')
     const html = renderCommunityEmailHtml(withoutSections(dog, [calloutIdx]))
     expect(html).not.toContain('{{station_locations}}')
+  })
+})
+
+describe('sectionsMissingAnswers — blank means "do not send this part"', () => {
+  it('drops a section whose question is unanswered', () => {
+    const calloutIdx = dog.body.findIndex((b) => b.type === 'callout')
+    // Nothing answered at all.
+    expect(sectionsMissingAnswers(dog, [])).toContain(calloutIdx)
+  })
+
+  it('keeps it once the answer arrives', () => {
+    const calloutIdx = dog.body.findIndex((b) => b.type === 'callout')
+    expect(sectionsMissingAnswers(dog, ['station_locations'])).not.toContain(calloutIdx)
+  })
+
+  it('never drops a section that only uses ambient fields', () => {
+    // "Hi {{recipient_name}}," is supplied per recipient by send.ts, so it
+    // must survive with nothing answered.
+    const greeting = dog.body.findIndex(
+      (b) => b.type === 'paragraph' && b.text.includes('recipient_name'),
+    )
+    expect(greeting).toBeGreaterThanOrEqual(0)
+    expect(sectionsMissingAnswers(dog, [])).not.toContain(greeting)
+  })
+
+  it('never drops a section with no placeholders at all', () => {
+    const plain = dog.body.findIndex((b) => b.type === 'paragraph' && !b.text.includes('{{'))
+    if (plain >= 0) expect(sectionsMissingAnswers(dog, [])).not.toContain(plain)
+  })
+
+  it('never drops the illustration, which carries no copy', () => {
+    const visualIdx = dog.body.findIndex((b) => b.type === 'visual')
+    expect(sectionsMissingAnswers(dog, [])).not.toContain(visualIdx)
+  })
+
+  it('treats providedFields as answered', () => {
+    // lease-cap-status resolves its occupancy figures server-side in
+    // send.ts, so they must never drop a section — nobody can answer them.
+    //
+    // Asserting "no dropped section mentions a providedField" would be
+    // wrong: its blocks mix provided figures with question fields, so a
+    // block legitimately drops for the QUESTION while still containing a
+    // provided one. The real invariant is that with every question
+    // answered, nothing is dropped at all.
+    const leaseCap = getTemplate('lease-cap-status')!
+    expect((leaseCap.providedFields ?? []).length).toBeGreaterThan(0)
+
+    const allAnswered = leaseCap.questions.map((q) => q.id)
+    expect(sectionsMissingAnswers(leaseCap, allAnswered)).toEqual([])
+  })
+
+  it('leaves something sendable for every template with nothing answered', () => {
+    // The greeting and the closing paragraph carry no question fields in
+    // these templates, so an untouched form still has a message.
+    for (const t of COMMUNITY_TEMPLATES) {
+      const dropped = sectionsMissingAnswers(t, [])
+      expect(hasContent(t, dropped), `${t.slug} has nothing left`).toBe(true)
+    }
+  })
+})
+
+describe('required questions are only the ones the subject needs', () => {
+  it('every remaining required question appears in its subject', () => {
+    // A subject cannot be dropped the way a section can, so a blank there
+    // would ship a broken subject line. Everything else is optional.
+    for (const t of COMMUNITY_TEMPLATES) {
+      const subjectFields = [...t.subject.matchAll(/\{\{\s*([a-z0-9_]+)\s*\}\}/g)].map((m) => m[1])
+      for (const q of t.questions.filter((x) => x.required)) {
+        expect(subjectFields, `${t.slug}: "${q.id}" is required but not in the subject`).toContain(
+          q.id,
+        )
+      }
+    }
   })
 })

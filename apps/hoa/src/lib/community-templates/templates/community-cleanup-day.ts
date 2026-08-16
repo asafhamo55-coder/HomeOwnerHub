@@ -55,19 +55,19 @@ const template: CommunityTemplate = {
       id: 'start_time',
       label: 'What time does it start?',
       type: 'time',
-      required: true,
+      required: false,
     },
     {
       id: 'end_time',
       label: 'What time does it wrap up?',
       type: 'time',
-      required: true,
+      required: false,
     },
     {
       id: 'meeting_location',
       label: 'Where should volunteers meet?',
       type: 'text',
-      required: true,
+      required: false,
       help: 'e.g. "the clubhouse parking lot"',
     },
     {
@@ -80,7 +80,7 @@ const template: CommunityTemplate = {
         'Sign up at the clubhouse front desk',
         'Sign up using the community app',
       ],
-      required: true,
+      required: false,
     },
   ],
   legalNote:

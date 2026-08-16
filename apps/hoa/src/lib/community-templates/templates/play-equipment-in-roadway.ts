@@ -41,7 +41,7 @@ const template: CommunityTemplate = {
       id: 'storage_guidance',
       label: 'What are you asking residents to do?',
       type: 'textarea',
-      required: true,
+      required: false,
       help: 'Be concrete and achievable — e.g. "Please move portable hoops back onto your driveway at the end of the day."',
     },
     {

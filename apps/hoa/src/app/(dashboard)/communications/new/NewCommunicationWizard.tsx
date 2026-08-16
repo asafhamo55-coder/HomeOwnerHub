@@ -267,6 +267,16 @@ export function NewCommunicationWizard({
   const effectiveQuestions: readonly TemplateQuestion[] =
     activeQuestions ?? selectedTemplate?.questions ?? []
 
+  // Which questions currently hold a real answer, as a sorted stable string.
+  // A multiselect answers as an array, so an empty array counts as blank.
+  const answeredKey = useMemo(() => {
+    const ids = Object.entries(answers)
+      .filter(([, v]) => (Array.isArray(v) ? v.length > 0 : String(v ?? '').trim() !== ''))
+      .map(([k]) => k)
+      .sort()
+    return ids.join(',')
+  }, [answers])
+
   // useCallback so SectionToggles' effect, which intentionally omits this
   // from its dep list, is nonetheless given a stable identity.
   const handleSectionsRendered = useCallback(
@@ -533,6 +543,7 @@ export function NewCommunicationWizard({
         {selectedTemplate?.topicSlug ? (
           <SectionToggles
             topicSlug={selectedTemplate.topicSlug}
+            answeredKey={answeredKey}
             disabled={pending}
             onRendered={handleSectionsRendered}
           />

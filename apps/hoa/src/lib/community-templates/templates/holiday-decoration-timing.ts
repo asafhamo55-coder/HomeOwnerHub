@@ -41,13 +41,13 @@ const template: CommunityTemplate = {
       id: 'display_start',
       label: 'Decorations may go up from',
       type: 'date',
-      required: true,
+      required: false,
     },
     {
       id: 'display_end',
       label: 'And should come down by',
       type: 'date',
-      required: true,
+      required: false,
     },
     {
       id: 'additional_guidance',

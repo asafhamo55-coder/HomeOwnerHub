@@ -48,7 +48,7 @@ const template: CommunityTemplate = {
       id: 'affected_areas',
       label: 'Which area is affected?',
       type: 'text',
-      required: true,
+      required: false,
       help: 'Name the exact spot — e.g. "the visitor lot and the north driveway" — specifics are what tell someone whether this affects them.',
     },
     {
@@ -68,7 +68,7 @@ const template: CommunityTemplate = {
       id: 'parking_instructions',
       label: 'What do residents need to do before work starts?',
       type: 'textarea',
-      required: true,
+      required: false,
       help: 'Be specific: which vehicles need to move, where to park instead, and by what date or time. This is the single most useful line in the email.',
     },
   ],

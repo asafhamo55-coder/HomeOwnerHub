@@ -48,7 +48,7 @@ const template: CommunityTemplate = {
         'distracted driving near the playground',
         'speeding during school drop-off and pickup',
       ],
-      required: true,
+      required: false,
     },
     {
       id: 'affected_areas',
@@ -61,13 +61,13 @@ const template: CommunityTemplate = {
         'the clubhouse and pool area',
         'the school bus stop',
       ],
-      required: true,
+      required: false,
     },
     {
       id: 'speed_limit',
       label: 'Posted speed limit',
       type: 'text',
-      required: true,
+      required: false,
       help: 'e.g. "25 mph". Use what is actually posted, not what the board wishes it were.',
     },
     {

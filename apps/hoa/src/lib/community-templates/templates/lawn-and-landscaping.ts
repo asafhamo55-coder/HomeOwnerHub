@@ -47,7 +47,7 @@ const template: CommunityTemplate = {
         'fall leaf drop',
         'the annual property walk-through',
       ],
-      required: true,
+      required: false,
     },
     {
       id: 'upkeep_items',
@@ -61,7 +61,7 @@ const template: CommunityTemplate = {
         'leaves left in gutters and drains',
         'bare or eroding areas of lawn',
       ],
-      required: true,
+      required: false,
     },
     {
       id: 'deadline_date',
