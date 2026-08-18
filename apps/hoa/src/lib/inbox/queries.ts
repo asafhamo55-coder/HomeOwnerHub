@@ -41,6 +41,7 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import type { GmailThreadState } from '@homeowner-portal/mailbox'
+import { resolveForDisplay } from '@/lib/communications/display'
 
 type Db = SupabaseClient<Database>
 
@@ -862,9 +863,14 @@ export async function getPropertyContext(
   orgId: string,
   unitId: string,
 ): Promise<PropertyContext | null> {
+  // `association:associations(name)` rides the existing unit lookup (a
+  // Supabase embed over units_association_id_fkey, same pattern as
+  // bank-rec.ts's `bank_account:bank_account_id(...)`) rather than a
+  // second round-trip — it exists solely to give the lastCommunication
+  // fallback below a real association name instead of inventing a query.
   const { data: unit, error: unitError } = await db
     .from('units')
-    .select('id, address_line1, unit_number, legacy_hoa_property_id')
+    .select('id, address_line1, unit_number, legacy_hoa_property_id, association:associations(name)')
     .eq('organization_id', orgId)
     .eq('id', unitId)
     .maybeSingle()
@@ -876,6 +882,10 @@ export async function getPropertyContext(
   if (!unit) return null
 
   const legacyId = unit.legacy_hoa_property_id
+  // Best-effort — a unit with no association_id (or an association row
+  // that's gone) just falls back to an empty name in resolveForDisplay,
+  // which never throws on it.
+  const associationName = (unit.association as { name: string | null } | null)?.name ?? ''
   const degraded: PropertyContext['degraded'] = []
 
   const [residentsRes, assessmentsRes, violationsRes, arcRes, ticketsRes, commsRes] =
@@ -949,7 +959,7 @@ export async function getPropertyContext(
         .limit(5),
       db
         .from('communication_recipients')
-        .select('communication_id, sent_at')
+        .select('communication_id, sent_at, rendered_subject')
         .eq('organization_id', orgId)
         .eq('unit_id', unitId)
         .order('sent_at', { ascending: false, nullsFirst: false })
@@ -1046,8 +1056,23 @@ export async function getPropertyContext(
         logDbError('getPropertyContext', 'communications', { orgId, unitId }, communicationError)
         degraded.push('lastCommunication')
       } else if (communication) {
+        // `communications.subject` is the SEND-TIME TEMPLATE (e.g.
+        // `{{association_name_text}} dues — {{amount_summary}}`), not what
+        // this recipient actually received — resolved per recipient only
+        // at delivery time. `rendered_subject` is the exact delivered
+        // line and is preferred whenever present; NULL there does not
+        // mean "no subject", it means the row predates the column, its
+        // render threw, or the send is still queued (see the column's own
+        // comment), so we fall back to resolving the template ourselves
+        // rather than showing staff raw `{{...}}` merge syntax. This rail
+        // is read by staff directly and is also quoted verbatim into
+        // manager-reviewed outbound replies by the W32 draft model (see
+        // apps/hoa/src/lib/inbox/draft/retrieve.ts:375), so either path
+        // must produce a human-readable line.
+        const rendered = lastRecipient.rendered_subject
         lastCommunication = {
-          subject: communication.subject,
+          subject:
+            rendered ?? resolveForDisplay(communication.subject, { associationName }).text,
           sentAt: lastRecipient.sent_at,
         }
       }
