@@ -21,11 +21,12 @@ const FILTERS: Array<{ key: InboxFilter; label: string }> = [
   { key: 'waiting', label: 'Waiting' },
   { key: 'closed', label: 'Closed' },
   { key: 'all', label: 'All' },
-  // Everything the board filed away or trashed in Gmail. Kept reachable
-  // rather than merely hidden: the whole point of mirroring Gmail is that
-  // the board's own filing decides what is in the queue, and a filing
-  // decision a manager cannot review or undo is one they cannot trust.
-  { key: 'archived_in_gmail', label: 'Filed in Gmail' },
+  // No "Filed in Gmail" chip. Mail the board filed or trashed in Gmail is
+  // hidden and stays hidden: the count was noise in a work queue — it only
+  // grows, and sitting beside "Needs review" it read as comparable work.
+  // Madison Park showed 89 there against 2 threads actually in the Gmail
+  // inbox. The rows are untouched and still queryable; they are just not
+  // something the board is asked to look at.
 ]
 
 export default async function InboxPage({

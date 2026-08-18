@@ -328,10 +328,9 @@ export type InboxFilter =
   | 'waiting'
   | 'closed'
   | 'all'
-  | 'archived_in_gmail'
 
-/** Status filters, i.e. everything except the Gmail-filing view. */
-export type StatusFilter = Exclude<InboxFilter, 'all' | 'archived_in_gmail'>
+/** Status filters, i.e. everything except the catch-all `all`. */
+export type StatusFilter = Exclude<InboxFilter, 'all'>
 
 /**
  * Thread states that have left the Gmail inbox, as a PostgREST `in` list.
@@ -419,11 +418,12 @@ function applyStatusFilter<Q extends { eq: (...args: any[]) => Q; or: (...args: 
  * independent ways rather than one. Routing both through here is what
  * makes that structurally impossible instead of merely intended.
  *
- * `archived_in_gmail` deliberately carries NO status predicate. It is a
- * view of what the board filed away in Gmail, and filing has nothing to do
- * with HomeownerHub's own triage state — a thread can be filed while still
- * marked `needs_review`, and that combination is precisely the one a
- * manager comes to this chip looking for.
+ * Threads the board filed or trashed in Gmail are hidden from every
+ * filter, with no view that reaches them. There used to be a "Filed in
+ * Gmail" chip; it was removed because its count was noise in a work queue
+ * — a number that only grows, sitting beside "Needs review" as though it
+ * were comparable work. The rows are still here and still queryable; they
+ * are simply not a thing the board is asked to look at.
  */
 function applyInboxFilter<
   Q extends {
@@ -433,7 +433,6 @@ function applyInboxFilter<
     not: (...args: any[]) => Q
   },
 >(query: Q, filter: InboxFilter): Q {
-  if (filter === 'archived_in_gmail') return applyGmailVisibility(query, false)
   const visible = applyGmailVisibility(query, true)
   return filter === 'all' ? visible : applyStatusFilter(visible, filter)
 }
@@ -493,14 +492,7 @@ export async function countThreadsByStatus(
     'closed',
   ]
 
-  // `archived_in_gmail` is counted with its own query rather than derived,
-  // because it is not a partition of the five above — it spans every
-  // status and is disjoint from all of them by construction (they exclude
-  // the hidden states, it selects only them). Summing it into `all` would
-  // therefore double-report nothing, but it would also make `all` mean
-  // "everything including what you filed away", which is the opposite of
-  // what the chip promises.
-  const filters: InboxFilter[] = [...statusFilters, 'archived_in_gmail']
+  const filters: InboxFilter[] = [...statusFilters]
 
   const counts = await Promise.all(
     filters.map((filter) =>
