@@ -91,16 +91,16 @@ SET LOCAL statement_timeout = '120s';
 -- (org + Gmail id), never in row ids -- half the row ids are about to be
 -- deleted by design.
 
-DROP TABLE IF EXISTS pg_temp.mig0048_msg_keys;
-CREATE TEMP TABLE mig0048_msg_keys ON COMMIT DROP AS
+DROP TABLE IF EXISTS public.mig0048_msg_keys;
+CREATE TABLE public.mig0048_msg_keys AS
   SELECT DISTINCT organization_id, gmail_message_id
     FROM public.inbox_messages;
 
 -- One row per logical attachment: the file as identified by the same
 -- natural key 0031 made unique per message, lifted to the message's Gmail
 -- identity so it does not matter which duplicate copy holds it today.
-DROP TABLE IF EXISTS pg_temp.mig0048_attach_keys;
-CREATE TEMP TABLE mig0048_attach_keys ON COMMIT DROP AS
+DROP TABLE IF EXISTS public.mig0048_attach_keys;
+CREATE TABLE public.mig0048_attach_keys AS
   SELECT DISTINCT m.organization_id,
                   m.gmail_message_id,
                   a.file_name,
@@ -111,8 +111,8 @@ CREATE TEMP TABLE mig0048_attach_keys ON COMMIT DROP AS
 -- How many messages each Gmail thread had, summed across its duplicate
 -- copies. A thread that had messages and ends with none means a re-point
 -- was missed and a cascade ate them.
-DROP TABLE IF EXISTS pg_temp.mig0048_thread_msgs;
-CREATE TEMP TABLE mig0048_thread_msgs ON COMMIT DROP AS
+DROP TABLE IF EXISTS public.mig0048_thread_msgs;
+CREATE TABLE public.mig0048_thread_msgs AS
   SELECT t.organization_id, t.gmail_thread_id, count(m.id) AS msg_count
     FROM public.inbox_threads t
     LEFT JOIN public.inbox_messages m ON m.thread_id = t.id
@@ -162,8 +162,8 @@ END$$;
 --   3. unit_id set
 --   4. oldest created_at  -- the copy the board has been looking at
 --   5. id                 -- deterministic, so a re-run picks the same row
-DROP TABLE IF EXISTS pg_temp.mig0048_thread_map;
-CREATE TEMP TABLE mig0048_thread_map ON COMMIT DROP AS
+DROP TABLE IF EXISTS public.mig0048_thread_map;
+CREATE TABLE public.mig0048_thread_map AS
 WITH dups AS (
   SELECT organization_id, gmail_thread_id
     FROM public.inbox_threads
@@ -198,8 +198,8 @@ SELECT l.id        AS loser_id,
                AND s.rn = 1
  WHERE l.rn > 1;
 
-CREATE INDEX ON mig0048_thread_map (loser_id);
-CREATE INDEX ON mig0048_thread_map (survivor_id);
+CREATE INDEX ON public.mig0048_thread_map (loser_id);
+CREATE INDEX ON public.mig0048_thread_map (survivor_id);
 
 -- Carry over any triage field the survivor lacks. Losing a duplicate row
 -- must never lose a fact: if the newer copy got filed to a unit and the
@@ -244,7 +244,7 @@ UPDATE public.inbox_threads s
            (array_remove(array_agg(nullif(l.match_source,     'auto')         ORDER BY m.loser_rank), NULL))[1] AS match_source,
            (array_remove(array_agg(nullif(l.match_confidence, 'none')         ORDER BY m.loser_rank), NULL))[1] AS match_confidence,
            (array_remove(array_agg(nullif(l.gmail_state,      'unknown')      ORDER BY m.loser_rank), NULL))[1] AS gmail_state
-      FROM mig0048_thread_map m
+      FROM public.mig0048_thread_map m
       JOIN public.inbox_threads l ON l.id = m.loser_id
      GROUP BY m.survivor_id
   ) p
@@ -258,22 +258,22 @@ UPDATE public.inbox_threads s
 -- inbox_thread_links, inbox_drafts.thread_id, inbox_drafts.source_thread_id.
 UPDATE public.inbox_messages c
    SET thread_id = m.survivor_id
-  FROM mig0048_thread_map m
+  FROM public.mig0048_thread_map m
  WHERE c.thread_id = m.loser_id;
 
 UPDATE public.inbox_attachments c
    SET thread_id = m.survivor_id
-  FROM mig0048_thread_map m
+  FROM public.mig0048_thread_map m
  WHERE c.thread_id = m.loser_id;
 
 UPDATE public.inbox_drafts c
    SET thread_id = m.survivor_id
-  FROM mig0048_thread_map m
+  FROM public.mig0048_thread_map m
  WHERE c.thread_id = m.loser_id;
 
 UPDATE public.inbox_drafts c
    SET source_thread_id = m.survivor_id
-  FROM mig0048_thread_map m
+  FROM public.mig0048_thread_map m
  WHERE c.source_thread_id = m.loser_id;
 
 -- inbox_thread_links is UNIQUE (thread_id, resource_type, resource_id)
@@ -290,7 +290,7 @@ WITH movable AS (
            ORDER BY l.created_at, l.id
          ) AS rn
     FROM public.inbox_thread_links l
-    JOIN mig0048_thread_map m ON m.loser_id = l.thread_id
+    JOIN public.mig0048_thread_map m ON m.loser_id = l.thread_id
    WHERE NOT EXISTS (
      SELECT 1 FROM public.inbox_thread_links e
       WHERE e.thread_id     = m.survivor_id
@@ -305,7 +305,7 @@ UPDATE public.inbox_thread_links l
    AND movable.rn = 1;
 
 DELETE FROM public.inbox_threads t
- USING mig0048_thread_map m
+ USING public.mig0048_thread_map m
  WHERE t.id = m.loser_id;
 
 
@@ -316,8 +316,8 @@ DELETE FROM public.inbox_threads t
 -- inbox_reply_embeddings both cascade from inbox_messages. Picking wrong
 -- deletes files with no error and no log line.
 -- Tie-break: oldest ingested_at, then id (deterministic on re-run).
-DROP TABLE IF EXISTS pg_temp.mig0048_message_map;
-CREATE TEMP TABLE mig0048_message_map ON COMMIT DROP AS
+DROP TABLE IF EXISTS public.mig0048_message_map;
+CREATE TABLE public.mig0048_message_map AS
 WITH dups AS (
   SELECT organization_id, gmail_message_id
     FROM public.inbox_messages
@@ -353,8 +353,8 @@ SELECT l.id  AS loser_id,
                AND s.rn = 1
  WHERE l.rn > 1;
 
-CREATE INDEX ON mig0048_message_map (loser_id);
-CREATE INDEX ON mig0048_message_map (survivor_id);
+CREATE INDEX ON public.mig0048_message_map (loser_id);
+CREATE INDEX ON public.mig0048_message_map (survivor_id);
 
 -- Same principle as threads: a field present on a loser and null on the
 -- survivor is a fact, and deleting the row must not delete the fact. The
@@ -376,13 +376,13 @@ UPDATE public.inbox_messages s
        -- arrays of different dimensionality". Correlated pick instead.
        references_ids    = COALESCE(s.references_ids, (
          SELECT l.references_ids
-           FROM mig0048_message_map mm
+           FROM public.mig0048_message_map mm
            JOIN public.inbox_messages l ON l.id = mm.loser_id
           WHERE mm.survivor_id = s.id AND l.references_ids IS NOT NULL
           ORDER BY mm.loser_rank LIMIT 1)),
        gmail_labels      = COALESCE(s.gmail_labels, (
          SELECT l.gmail_labels
-           FROM mig0048_message_map mm
+           FROM public.mig0048_message_map mm
            JOIN public.inbox_messages l ON l.id = mm.loser_id
           WHERE mm.survivor_id = s.id AND l.gmail_labels IS NOT NULL
           ORDER BY mm.loser_rank LIMIT 1)),
@@ -403,7 +403,7 @@ UPDATE public.inbox_messages s
            (array_remove(array_agg(l.in_reply_to       ORDER BY m.loser_rank), NULL))[1] AS in_reply_to,
            (array_remove(array_agg(nullif(l.gmail_state, 'unknown') ORDER BY m.loser_rank), NULL))[1] AS gmail_state,
            (array_remove(array_agg(l.gmail_state_at    ORDER BY m.loser_rank), NULL))[1] AS gmail_state_at
-      FROM mig0048_message_map m
+      FROM public.mig0048_message_map m
       JOIN public.inbox_messages l ON l.id = m.loser_id
      GROUP BY m.survivor_id
   ) p
@@ -423,7 +423,7 @@ WITH stored_loser AS (
          COALESCE(a.gmail_attachment_id, '') AS attach_key,
          a.storage_path, a.sha256, a.size_bytes, a.content_type
     FROM public.inbox_attachments a
-    JOIN mig0048_message_map m ON m.loser_id = a.message_id
+    JOIN public.mig0048_message_map m ON m.loser_id = a.message_id
    WHERE a.fetch_status = 'stored'
      AND a.storage_path IS NOT NULL
    ORDER BY m.survivor_id, a.file_name, COALESCE(a.gmail_attachment_id, ''),
@@ -468,7 +468,7 @@ WITH movable AS (
            ORDER BY (a.fetch_status = 'stored') DESC, a.created_at, a.id
          ) AS rn
     FROM public.inbox_attachments a
-    JOIN mig0048_message_map m  ON m.loser_id = a.message_id
+    JOIN public.mig0048_message_map m  ON m.loser_id = a.message_id
     JOIN public.inbox_messages sm ON sm.id = m.survivor_id
    WHERE NOT EXISTS (
      SELECT 1 FROM public.inbox_attachments e
@@ -496,7 +496,7 @@ WITH movable AS (
            ORDER BY (e.embedding IS NULL), e.created_at, e.id
          ) AS rn
     FROM public.inbox_reply_embeddings e
-    JOIN mig0048_message_map m ON m.loser_id = e.message_id
+    JOIN public.mig0048_message_map m ON m.loser_id = e.message_id
    WHERE NOT EXISTS (
      SELECT 1 FROM public.inbox_reply_embeddings x
       WHERE x.message_id = m.survivor_id
@@ -509,7 +509,7 @@ UPDATE public.inbox_reply_embeddings e
    AND movable.rn = 1;
 
 DELETE FROM public.inbox_messages m
- USING mig0048_message_map map
+ USING public.mig0048_message_map map
  WHERE m.id = map.loser_id;
 
 
@@ -524,8 +524,8 @@ DELETE FROM public.inbox_messages m
 -- disconnected_at IS NULL, so an org may legitimately have two live
 -- accounts for two different addresses -- "the live account" is not
 -- defined there and guessing would move mail into the wrong mailbox.
-DROP TABLE IF EXISTS pg_temp.mig0048_live_account;
-CREATE TEMP TABLE mig0048_live_account ON COMMIT DROP AS
+DROP TABLE IF EXISTS public.mig0048_live_account;
+CREATE TABLE public.mig0048_live_account AS
   -- (array_agg)[1] rather than min(id): min(uuid) does not exist before
   -- Postgres 17 and this is applied by hand against whatever Supabase is
   -- running. HAVING count(*) = 1 makes the choice moot anyway.
@@ -560,7 +560,7 @@ END$$;
 -- (mailbox_account_id, gmail_*_id) collision.
 UPDATE public.inbox_threads t
    SET mailbox_account_id = l.live_id
-  FROM mig0048_live_account l
+  FROM public.mig0048_live_account l
  WHERE t.organization_id = l.organization_id
    AND t.mailbox_account_id <> l.live_id
    AND EXISTS (SELECT 1 FROM public.mailbox_accounts a
@@ -569,7 +569,7 @@ UPDATE public.inbox_threads t
 
 UPDATE public.inbox_messages m
    SET mailbox_account_id = l.live_id
-  FROM mig0048_live_account l
+  FROM public.mig0048_live_account l
  WHERE m.organization_id = l.organization_id
    AND m.mailbox_account_id <> l.live_id
    AND EXISTS (SELECT 1 FROM public.mailbox_accounts a
@@ -581,7 +581,7 @@ UPDATE public.inbox_messages m
 -- has no usable credentials and the send fails.
 UPDATE public.inbox_drafts d
    SET mailbox_account_id = l.live_id
-  FROM mig0048_live_account l
+  FROM public.mig0048_live_account l
  WHERE d.organization_id = l.organization_id
    AND d.mailbox_account_id IS NOT NULL
    AND d.mailbox_account_id <> l.live_id
@@ -654,7 +654,7 @@ BEGIN
 
   -- (b) no email disappeared -- merged, yes; gone, no
   SELECT count(*) INTO lost_messages
-    FROM (SELECT organization_id, gmail_message_id FROM mig0048_msg_keys
+    FROM (SELECT organization_id, gmail_message_id FROM public.mig0048_msg_keys
           EXCEPT
           SELECT organization_id, gmail_message_id FROM public.inbox_messages) x;
   IF lost_messages > 0 THEN
@@ -668,7 +668,7 @@ BEGIN
   -- duplicate of one kept on the survivor, and never anything else.
   SELECT count(*) INTO lost_attach
     FROM (SELECT organization_id, gmail_message_id, file_name, attach_key
-            FROM mig0048_attach_keys
+            FROM public.mig0048_attach_keys
           EXCEPT
           SELECT m.organization_id, m.gmail_message_id, a.file_name,
                  COALESCE(a.gmail_attachment_id, '')
@@ -686,7 +686,7 @@ BEGIN
   -- the only possible count. A shortfall means rows were dropped; an
   -- excess means the re-point duplicated something.
   SELECT count(*) INTO attach_now    FROM public.inbox_attachments;
-  SELECT count(*) INTO attach_expect FROM mig0048_attach_keys;
+  SELECT count(*) INTO attach_expect FROM public.mig0048_attach_keys;
   IF attach_now <> attach_expect THEN
     RAISE EXCEPTION
       '0048 assertion failed: % attachment row(s) after the merge, expected '
@@ -695,7 +695,7 @@ BEGIN
 
   -- (e) no thread lost its mail to a cascade
   SELECT count(*) INTO emptied
-    FROM mig0048_thread_msgs b
+    FROM public.mig0048_thread_msgs b
     JOIN public.inbox_threads t ON t.organization_id = b.organization_id
                                AND t.gmail_thread_id = b.gmail_thread_id
    WHERE b.msg_count > 0
@@ -731,6 +731,20 @@ BEGIN
     '0048 ok: % message row(s), % attachment row(s), no duplicates under '
     'the org-scoped keys.', msg_now, attach_now;
 END$$;
+
+-- ─── Scratch teardown ────────────────────────────────────────────────
+-- These were TEMP tables with ON COMMIT DROP. Supabase's SQL editor does
+-- not preserve session-scoped temp tables across the statements of one
+-- script, so the first reference to them failed there with 42P01 while
+-- passing under psql. Plain tables in public behave identically for our
+-- purposes and are dropped explicitly here; the DROP IF EXISTS at the top
+-- of each section keeps a re-run clean if a previous attempt aborted.
+DROP TABLE IF EXISTS public.mig0048_attach_keys;
+DROP TABLE IF EXISTS public.mig0048_live_account;
+DROP TABLE IF EXISTS public.mig0048_message_map;
+DROP TABLE IF EXISTS public.mig0048_msg_keys;
+DROP TABLE IF EXISTS public.mig0048_thread_map;
+DROP TABLE IF EXISTS public.mig0048_thread_msgs;
 
 COMMIT;
 
