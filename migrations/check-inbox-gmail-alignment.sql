@@ -123,7 +123,12 @@ SELECT 11, 'B. messages never reconciled (gmail_state_at IS NULL)',
 UNION ALL
 -- inbox_threads has no gmail_state_at column — only inbox_messages does —
 -- so the freshest message reconcile IS the freshest reconcile there is.
-SELECT 12, 'B. last successful reconcile (max gmail_state_at)',
+-- NOT a reconcile timestamp. ingest.ts:637-638 stamps gmail_state and
+-- gmail_state_at at CAPTURE time, so this is the most recently
+-- INGESTED message. It advances whenever new mail arrives, even if
+-- reconciliation has never run — which is exactly how it misled us:
+-- it read 17:24 while reconcile_ran_at was still NEVER. Use R.45.
+SELECT 12, 'B. newest message state stamp (INGEST, not reconcile — see R.45)',
        COALESCE((SELECT max(gmail_state_at)::text FROM msg), 'NEVER — reconciliation has never run')
 
 UNION ALL
