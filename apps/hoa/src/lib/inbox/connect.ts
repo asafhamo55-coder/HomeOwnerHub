@@ -38,6 +38,13 @@ import {
 
 const STATE_TTL_MS = 10 * 60 * 1000
 
+/**
+ * Postgres `unique_violation`. Surfaces here when reactivating a
+ * disconnected mailbox row races another connect for the same
+ * (organization_id, email_address) — see `mailbox_accounts_live_uniq`.
+ */
+const UNIQUE_VIOLATION = '23505'
+
 /** Default landing page when `returnTo` is missing or fails validation. */
 export const DEFAULT_RETURN_TO = '/settings/mailbox'
 
@@ -263,13 +270,28 @@ export async function completeConnect(
   })
   const recommended = recommendScope(sendAs, profile.emailAddress)
 
-  // Every LIVE account for this org, not just one matching this address
-  // (amended post-review — final branch review, Fix 4). Two things depend
-  // on seeing the whole set:
+  // Every account row for this org — LIVE **and** DISCONNECTED — not just
+  // one matching this address (amended post-review — final branch review,
+  // Fix 4; widened again to include disconnected rows, see 1a below).
+  // Three things depend on seeing the whole set:
   //
   //   1. Reconnecting the SAME address reuses its row so ingested history
   //      and its threads survive — never create a second account row for
   //      a reconnect. (Unchanged.)
+  //   1a. That reuse must also find a row whose connection was
+  //      DISCONNECTED. This lookup used to be `.is('disconnected_at',
+  //      null)` — live rows only — so the ordinary disconnect-then-
+  //      reconnect-the-same-address flow found nothing and inserted a
+  //      SECOND row for the same (organization_id, email_address). The
+  //      partial unique index permits that (it only covers live rows), and
+  //      the OAuth callback then fires `mailbox/backfill.requested` against
+  //      the brand-new account id — whose sync_cursor is null and whose
+  //      thread dedupe key (`inbox_threads_gmail_uniq` is on
+  //      (mailbox_account_id, gmail_thread_id)) shares nothing with the old
+  //      row's. The entire mailbox history re-imported under the new id:
+  //      Madison Park, 2026-08-12, 437 duplicate messages and 229 duplicate
+  //      threads. Same org + same address = the same mailbox, so a
+  //      disconnected row is REACTIVATED (disconnected_at cleared) instead.
   //   2. A DIFFERENT address is refused outright. `mailbox_accounts_live_uniq`
   //      is a partial unique index on (organization_id, email_address), so
   //      the database happily allows several live accounts per org, and
@@ -289,12 +311,19 @@ export async function completeConnect(
   // existing row at the new address: the existing row owns ingested
   // threads and messages belonging to the OLD mailbox, and rewriting its
   // email_address would relabel that correspondence as having come from
-  // an address it never came from.
-  const { data: liveAccounts, error: lookupError } = await db
+  // an address it never came from. Reactivation in 1a never touches
+  // email_address — it only ever reuses a row that ALREADY carries
+  // exactly `profile.emailAddress`, so that refusal is untouched by it.
+  //
+  // Ordered newest-connection-first so that an address with several
+  // historical disconnected rows (connect/disconnect/connect over the
+  // years) deterministically reactivates the most recent one rather than
+  // whatever order PostgREST happened to return.
+  const { data: allAccounts, error: lookupError } = await db
     .from('mailbox_accounts')
-    .select('id, email_address')
+    .select('id, email_address, disconnected_at')
     .eq('organization_id', orgId)
-    .is('disconnected_at', null)
+    .order('connected_at', { ascending: false })
 
   if (lookupError) {
     logDbError('completeConnect', 'mailbox_accounts', { orgId }, lookupError)
@@ -303,13 +332,31 @@ export async function completeConnect(
     )
   }
 
-  const existing =
-    (liveAccounts ?? []).find((a) => a.email_address === profile.emailAddress) ?? null
-  const otherLive = (liveAccounts ?? []).find(
-    (a) => a.email_address !== profile.emailAddress,
+  const accounts = allAccounts ?? []
+  const sameAddress = accounts.filter((a) => a.email_address === profile.emailAddress)
+
+  // A live row wins over a disconnected one for the same address. Both can
+  // exist: `mailbox_accounts_live_uniq` is partial (WHERE disconnected_at
+  // IS NULL), so any number of disconnected rows may sit alongside the one
+  // live row. The live row is the mailbox that is actually syncing, so it
+  // is the one to reuse; reactivating a disconnected sibling instead would
+  // collide with that index.
+  const liveSameAddress = sameAddress.find((a) => a.disconnected_at === null) ?? null
+  const disconnectedSameAddress = sameAddress.find((a) => a.disconnected_at !== null) ?? null
+  const existing = liveSameAddress ?? disconnectedSameAddress
+  const reactivating = existing !== null && existing.disconnected_at !== null
+
+  const otherLive = accounts.find(
+    (a) => a.email_address !== profile.emailAddress && a.disconnected_at === null,
   )
 
-  if (!existing && otherLive) {
+  // Keyed on the LIVE same-address row, deliberately not on `existing`.
+  // Having a disconnected row for this address is not a licence to add a
+  // second LIVE mailbox next to a different address that is still
+  // connected — that is precisely the two-live-rows state described above,
+  // and it is refused whether the second row would be created by an INSERT
+  // or by clearing some old row's disconnected_at.
+  if (!liveSameAddress && otherLive) {
     // The refresh token we just minted is for a mailbox we are refusing to
     // store. Dropping it on the floor would leave a live Google-side grant
     // over someone's (quite possibly personal) mailbox with nothing on our
@@ -350,11 +397,55 @@ export async function completeConnect(
     // silently overwriting that on every reconnect would be a privacy
     // regression disguised as a bug fix. If Google's recommendation
     // should ever win on reconnect, that needs an explicit signal (e.g.
-    // "reset to recommended" in the UI), not an implicit one here.
-    const { error: updateError } = await db
+    // "reset to recommended" in the UI), not an implicit one here. That
+    // holds for reactivation too: a row coming back from disconnected
+    // keeps whatever scope its tenant last chose.
+    const reuseFields = { sync_status: 'ok', sync_error: null, connected_by: userId } as const
+
+    // `connected_at` is refreshed alongside `disconnected_at` only when
+    // the row is genuinely coming back to life: getMailboxStatus renders
+    // `.order('connected_at', desc).limit(1)` and mailboxSyncJob treats a
+    // never-synced row as fresh for a grace period measured from
+    // connected_at, so a reactivated row must date from now, not from the
+    // connection that was torn down.
+    const { error: reactivateError } = await db
       .from('mailbox_accounts')
-      .update({ sync_status: 'ok', sync_error: null, connected_by: userId })
+      .update(
+        reactivating
+          ? { ...reuseFields, disconnected_at: null, connected_at: new Date().toISOString() }
+          : reuseFields,
+      )
       .eq('id', accountId)
+
+    let updateError = reactivateError
+
+    if (updateError && reactivating && updateError.code === UNIQUE_VIOLATION) {
+      // Lost a race: between the lookup above and this write, a concurrent
+      // connect made some row for this (org, address) live, so clearing
+      // disconnected_at here would be a second live row and
+      // `mailbox_accounts_live_uniq` rejected it. The winner is the row to
+      // reuse — same rule as `liveSameAddress` above, just resolved a
+      // moment later. Re-read it and reuse it rather than failing a
+      // connect that has, in substance, already succeeded.
+      const { data: raced, error: raceError } = await db
+        .from('mailbox_accounts')
+        .select('id')
+        .eq('organization_id', orgId)
+        .eq('email_address', profile.emailAddress)
+        .is('disconnected_at', null)
+        .maybeSingle<{ id: string }>()
+
+      if (raceError) {
+        logDbError('completeConnect', 'mailbox_accounts', { orgId, accountId }, raceError)
+      } else if (raced) {
+        accountId = raced.id
+        const { error: retryError } = await db
+          .from('mailbox_accounts')
+          .update(reuseFields)
+          .eq('id', accountId)
+        updateError = retryError
+      }
+    }
 
     if (updateError) {
       logDbError('completeConnect', 'mailbox_accounts', { orgId, accountId }, updateError)

@@ -37,13 +37,13 @@
  * Persist parsed Gmail messages.
  *
  * Idempotency is the contract. A history-expiry fallback (or an Inngest
- * retry, or an overlapping run) re-delivers messages we already have, and
- * every one of those paths must be a no-op. Three mechanisms, one per
- * table:
+ * retry, or an overlapping run, or a DISCONNECT/RECONNECT of the mailbox)
+ * re-delivers messages we already have, and every one of those paths must
+ * be a no-op. Three mechanisms, one per table:
  *
- *   - inbox_threads      upsert on (mailbox_account_id, gmail_thread_id)
+ *   - inbox_threads      lookup/insert on (organization_id, gmail_thread_id)
  *   - inbox_messages     upsert ... on conflict
- *                        (mailbox_account_id, gmail_message_id) ignore
+ *                        (organization_id, gmail_message_id) ignore
  *   - inbox_attachments  upsert ... on conflict
  *                        (message_id, file_name, gmail_attachment_key)
  *                        ignore — migration 0031. gmail_attachment_key is
@@ -54,11 +54,46 @@
  *                        and NULL never collides with NULL in a plain
  *                        unique index.
  *
- * The conflict target on inbox_messages is scoped by mailbox_account_id
- * (migration 0030), not global. Gmail only guarantees message-id
- * uniqueness WITHIN a mailbox — a global unique index let a second
- * tenant's genuinely-new email be silently discarded as a "duplicate" of
- * a first tenant's message with the same id. See 0030 for the full story.
+ * ── Why the conflict targets are ORGANIZATION-scoped ─────────────────
+ *
+ * They are scoped by organization_id (migration 0048). This is NOT the
+ * same thing as global, and the difference is load-bearing in both
+ * directions. Do not "simplify" it to either extreme:
+ *
+ *   NOT GLOBAL — the original 0029 indexes keyed on gmail_message_id /
+ *   gmail_thread_id alone. Gmail only guarantees message-id uniqueness
+ *   WITHIN a mailbox; Google documents no cross-account guarantee. With a
+ *   global unique index, if two different HOA tenants' mailboxes ever
+ *   produce the same message id, the SECOND tenant's genuinely-new email
+ *   is silently discarded as a "duplicate" of the first tenant's — no
+ *   error, no log line, the mail simply never appears. That is invisible
+ *   cross-tenant data loss, and migration 0030 exists specifically to
+ *   stop it. Organization scoping preserves that protection in full: two
+ *   organizations colliding on an id still get two rows.
+ *
+ *   NOT PER-ACCOUNT EITHER — 0030 scoped by mailbox_account_id, which is
+ *   the row in mailbox_accounts, not the mailbox. Disconnecting and
+ *   reconnecting a Gmail mailbox mints a NEW account row for the SAME
+ *   Google mailbox, so identity moved out from under every message we had
+ *   already stored and the reconnect's backfill re-imported the entire
+ *   history as "new". Madison Park: 437 duplicate messages, 229 duplicate
+ *   threads, from one reconnect. Organization scoping makes a reconnect a
+ *   no-op, because an org's mail is the same mail no matter which account
+ *   row is currently carrying the OAuth token.
+ *
+ * Organization is the correct grain because it is exactly as wide as the
+ * tenancy boundary that the cross-tenant protection needs, and no wider.
+ * The one thing it gives up is per-mailbox scoping WITHIN one org: if a
+ * single HOA connects two mailboxes that collide on a Gmail message id,
+ * the second copy is treated as a duplicate. That is the same tenant's
+ * own mail, visible to the same board, and a same-org collision is
+ * astronomically less likely than the reconnect it fixes — a trade taken
+ * deliberately, not overlooked. See 0030 and 0048 for the full story.
+ *
+ * mailbox_account_id remains ON both rows as provenance ("which live
+ * connection is carrying this today") and is re-stamped to the current
+ * account on every re-import — see `ingestThread` / `ingestMessage`. It
+ * is simply no longer part of identity.
  *
  * A message row's existence is NOT, by itself, sufficient evidence that
  * ingestion of that message finished. Before migration 0031, it was: a
@@ -356,10 +391,16 @@ async function ingestThread(
   // last_direction) are deliberately NOT set here. They are set below,
   // once we know which messages in this batch actually made it to disk
   // — never guessed from the raw input array.
+  //
+  // Looked up by (organization_id, gmail_thread_id), matching the
+  // inbox_threads_org_gmail_uniq index from 0048. Deliberately NOT by
+  // mailbox_account_id: that column changes on every disconnect/reconnect
+  // and keying on it made a reconnect re-import the whole history. See
+  // the module doc comment for why org — and not global — is the grain.
   const { data: existing, error: lookupError } = await db
     .from('inbox_threads')
-    .select('id')
-    .eq('mailbox_account_id', mailboxAccountId)
+    .select('id, mailbox_account_id')
+    .eq('organization_id', orgId)
     .eq('gmail_thread_id', gmailThreadId)
     .maybeSingle()
 
@@ -372,6 +413,40 @@ async function ingestThread(
 
   if (existing) {
     threadId = existing.id
+
+    // Provenance follows the live connection. The thread was first stored
+    // under whatever mailbox_accounts row existed then; after a
+    // reconnect that row is gone (or stale) and this one is carrying the
+    // token. Re-stamp it so "which connection is this thread's mail
+    // coming from" stays answerable.
+    //
+    // This UPDATE touches mailbox_account_id and NOTHING else. The triage
+    // columns — status, assigned_to, unit_id, resident_id, vendor_id,
+    // match_confidence, match_reason, match_source — belong to the board,
+    // not to Gmail. A re-import must never reset a manager's filing back
+    // to 'needs_review' / 'none'. That is also why this stays a
+    // targeted UPDATE on an existing row rather than an `upsert` of the
+    // full insert payload: an upsert with a DO UPDATE would write the
+    // insert branch's `status: 'needs_review', match_confidence: 'none'`
+    // over the board's work on every single re-sync.
+    if (existing.mailbox_account_id !== mailboxAccountId) {
+      const { error: provenanceError } = await db
+        .from('inbox_threads')
+        .update({ mailbox_account_id: mailboxAccountId })
+        .eq('id', threadId)
+
+      if (provenanceError) {
+        // Not fatal: identity is org-scoped, so ingest is still correct
+        // with a stale provenance column. Logged so a persistent failure
+        // is visible rather than silent.
+        logDbError(
+          'ingestMessages',
+          'inbox_threads',
+          { orgId, mailboxAccountId, gmailThreadId },
+          provenanceError,
+        )
+      }
+    }
   } else {
     const { data: created, error: insertError } = await db
       .from('inbox_threads')
@@ -392,13 +467,16 @@ async function ingestThread(
         throw insertError
       }
 
-      // Expected: a concurrent run won the unique index on
-      // (mailbox_account_id, gmail_thread_id). Re-read and continue —
-      // this is not an error.
+      // Expected: a concurrent run won the unique index
+      // inbox_threads_org_gmail_uniq on
+      // (organization_id, gmail_thread_id). Re-read and continue — this
+      // is not an error. The re-read predicate MUST match the index the
+      // violation came from, or the row that already exists is invisible
+      // here and we throw the "no row found on re-read" error below.
       const { data: raced, error: racedError } = await db
         .from('inbox_threads')
         .select('id')
-        .eq('mailbox_account_id', mailboxAccountId)
+        .eq('organization_id', orgId)
         .eq('gmail_thread_id', gmailThreadId)
         .maybeSingle()
 
@@ -559,7 +637,12 @@ async function ingestMessage(
         gmail_state: messageStateFromLabels(message.labelIds),
         gmail_state_at: observedAt,
       },
-      { onConflict: 'mailbox_account_id,gmail_message_id', ignoreDuplicates: true },
+      // Conflict target = inbox_messages_org_gmail_uniq from 0048.
+      // Org-scoped, NOT account-scoped (a reconnect mints a new
+      // mailbox_accounts row and would re-import everything) and NOT
+      // global (a second tenant's genuinely-new mail would be silently
+      // dropped as a duplicate). See the module doc comment.
+      { onConflict: 'organization_id,gmail_message_id', ignoreDuplicates: true },
     )
     .select('id')
 
@@ -578,10 +661,13 @@ async function ingestMessage(
   if (messageId) {
     result.messagesInserted++
   } else {
+    // Same predicate as the conflict target above. If these two ever
+    // disagree, the upsert reports a duplicate and this re-read finds
+    // nothing, and the message throws instead of being skipped.
     const { data: existingMessage, error: fetchError } = await db
       .from('inbox_messages')
       .select('id')
-      .eq('mailbox_account_id', mailboxAccountId)
+      .eq('organization_id', orgId)
       .eq('gmail_message_id', message.gmailMessageId)
       .maybeSingle()
 
@@ -610,9 +696,23 @@ async function ingestMessage(
     // original ingest forever. Not fatal on its own (the reconcile job
     // would correct it on its next pass), so a failure here is logged and
     // the message still counts as stored rather than aborting it.
+    //
+    // mailbox_account_id and thread_id ride along for the same reason the
+    // thread's provenance is re-stamped above: after a reconnect the row
+    // still names the disconnected account, and (for rows written before
+    // 0048 de-duplicated them) may still point at a superseded thread
+    // row. Re-stamping both makes the message converge on the live
+    // connection and the surviving thread instead of stranding it where
+    // `recomputeThreadGmailState` will never read it.
+    //
+    // Everything else on the row is Gmail-derived and immutable per
+    // message id, so nothing here can clobber board-owned state — the
+    // message table has no triage columns; those live on inbox_threads.
     const { error: labelError } = await db
       .from('inbox_messages')
       .update({
+        mailbox_account_id: mailboxAccountId,
+        thread_id: threadId,
         gmail_labels: message.labelIds,
         gmail_state: messageStateFromLabels(message.labelIds),
         gmail_state_at: observedAt,
