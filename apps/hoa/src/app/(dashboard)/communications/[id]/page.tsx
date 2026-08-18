@@ -14,6 +14,7 @@ import { Badge, Card } from '@homeowner-portal/ui'
 import { LocalDateTime } from '@/components/ui/LocalDateTime'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getCommunication } from '@/lib/communications/queries'
+import { pickDisplaySubject, resolveHtmlForDisplay } from '@/lib/communications/display'
 import { CommunicationActions } from './CommunicationActions'
 
 export const metadata = { title: 'Message' }
@@ -50,6 +51,15 @@ export default async function CommunicationDetailPage({ params }: PageProps) {
   const comm = await getCommunication(assoc.id, id)
   if (!comm) notFound()
 
+  // Subject/body are stored as templates ({{amount_summary}}, ...); resolve them
+  // to what recipients actually saw before rendering, per communications/display.ts.
+  const displaySubject = pickDisplaySubject({
+    subject: comm.subject,
+    associationName: assoc.name,
+    renderedSubjects: comm.renderedSubjects,
+  })
+  const displayBody = resolveHtmlForDisplay(comm.body_html, { associationName: assoc.name })
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <header className="space-y-1">
@@ -61,8 +71,19 @@ export default async function CommunicationDetailPage({ params }: PageProps) {
           Communications
         </Link>
         <div className="flex flex-wrap items-baseline gap-3">
-          <h1 className="text-2xl font-bold text-foreground">{comm.subject}</h1>
+          <h1 className="text-2xl font-bold text-foreground">{displaySubject.text}</h1>
           <Badge variant={STATUS_VARIANT[comm.status] ?? 'outline'}>{comm.status}</Badge>
+          {!displaySubject.exact && displaySubject.personalizedFields.length > 0 ? (
+            <Badge
+              variant="neutral"
+              size="sm"
+              title={`Each recipient saw their own ${displaySubject.personalizedFields
+                .join(', ')
+                .replace(/_/g, ' ')} here`}
+            >
+              Personalized
+            </Badge>
+          ) : null}
           <CommunicationActions commId={comm.id} />
           {comm.ai_generated ? (
             <Badge variant="outline">
@@ -124,7 +145,7 @@ export default async function CommunicationDetailPage({ params }: PageProps) {
           Message body
         </div>
         <div className="prose prose-sm max-w-none p-4 text-foreground">
-          <div dangerouslySetInnerHTML={{ __html: comm.body_html }} />
+          <div dangerouslySetInnerHTML={{ __html: displayBody.html }} />
         </div>
       </Card>
 
@@ -163,6 +184,13 @@ export default async function CommunicationDetailPage({ params }: PageProps) {
                             ? r.phone ?? '—'
                             : 'portal'}
                       </p>
+                      {/* Null means unknown (pre-dates rendered_subject, or the render
+                          threw) — not empty, so it stays silent rather than showing "—". */}
+                      {r.rendered_subject && r.rendered_subject !== displaySubject.text ? (
+                        <p className="mt-0.5 max-w-xs truncate text-xs text-muted" title={r.rendered_subject}>
+                          {r.rendered_subject}
+                        </p>
+                      ) : null}
                     </td>
                     <td className="px-4 py-2 font-mono text-xs uppercase tracking-wide text-muted">
                       {r.channel}

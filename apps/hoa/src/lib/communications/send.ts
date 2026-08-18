@@ -352,7 +352,7 @@ export async function sendCommunication(
 
     if (recipient.channel === 'email') {
       if (!recipient.email) {
-        await markFailed(supabase, recipient.id, 'no email address')
+        await markFailed(supabase, recipient.id, 'no email address', subject)
         return 'skipped'
       }
       const result = await sendEmail({ to: recipient.email, subject, html, text })
@@ -363,18 +363,19 @@ export async function sendCommunication(
             delivery_status: 'sent',
             sent_at: new Date().toISOString(),
             external_id: result.messageId,
+            rendered_subject: subject,
           })
           .eq('id', recipient.id)
         return 'sent'
       }
-      await markFailed(supabase, recipient.id, result.error)
+      await markFailed(supabase, recipient.id, result.error, subject)
       return 'failed'
     }
 
     if (recipient.channel === 'sms') {
       const phone = recipient.phone
       if (!phone) {
-        await markFailed(supabase, recipient.id, 'no phone number')
+        await markFailed(supabase, recipient.id, 'no phone number', subject)
         return 'skipped'
       }
       // SMS body — squash to plain text and cap aggressively (one or
@@ -398,11 +399,12 @@ export async function sendCommunication(
             delivery_status: 'sent',
             sent_at: new Date().toISOString(),
             external_id: result.messageSid,
+            rendered_subject: subject,
           })
           .eq('id', recipient.id)
         return 'sent'
       }
-      await markFailed(supabase, recipient.id, result.error)
+      await markFailed(supabase, recipient.id, result.error, subject)
       return 'failed'
     }
 
@@ -414,6 +416,7 @@ export async function sendCommunication(
         .update({
           delivery_status: 'sent',
           sent_at: new Date().toISOString(),
+          rendered_subject: subject,
         })
         .eq('id', recipient.id)
       return 'sent'
@@ -424,6 +427,7 @@ export async function sendCommunication(
       supabase,
       recipient.id,
       `${recipient.channel} channel not yet implemented`,
+      subject,
     )
     return 'skipped'
   }
@@ -468,10 +472,18 @@ export async function sendCommunication(
   }
 }
 
+/**
+ * `renderedSubject` is optional because there are two kinds of failure:
+ * one where the merge fields resolved and the provider refused, and one
+ * where rendering itself threw. Only the first has a subject to record.
+ * Omitting it leaves the column NULL, which migration 0050 defines as
+ * "unknown" — distinct from an empty subject.
+ */
 async function markFailed(
   supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
   recipientId: string,
   error: string,
+  renderedSubject?: string,
 ): Promise<void> {
   await supabase
     .from('communication_recipients')
@@ -479,6 +491,7 @@ async function markFailed(
       delivery_status: 'failed',
       failed_at: new Date().toISOString(),
       error_message: error,
+      ...(renderedSubject === undefined ? {} : { rendered_subject: renderedSubject }),
     })
     .eq('id', recipientId)
 }

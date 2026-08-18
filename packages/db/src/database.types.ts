@@ -1366,6 +1366,7 @@ export type Database = {
           phone: string | null
           queued_at: string
           recipient_name: string | null
+          rendered_subject: string | null
           replied_at: string | null
           sent_at: string | null
           unit_id: string | null
@@ -1387,6 +1388,7 @@ export type Database = {
           phone?: string | null
           queued_at?: string
           recipient_name?: string | null
+          rendered_subject?: string | null
           replied_at?: string | null
           sent_at?: string | null
           unit_id?: string | null
@@ -1408,6 +1410,7 @@ export type Database = {
           phone?: string | null
           queued_at?: string
           recipient_name?: string | null
+          rendered_subject?: string | null
           replied_at?: string | null
           sent_at?: string | null
           unit_id?: string | null

@@ -18,6 +18,10 @@ export interface CommunicationSummary {
   scheduled_for: string | null
   sent_at: string | null
   created_at: string
+  /** Every recipient's `rendered_subject`, nulls included. Feeds
+   *  pickDisplaySubject — the caller decides what to show, because only
+   *  it knows the association name needed for the fallback. */
+  renderedSubjects: (string | null)[]
   /** Aggregate counts over communication_recipients for this comm. */
   totalRecipients: number
   sentCount: number
@@ -46,7 +50,7 @@ export async function listCommunications(
     .from('communications')
     .select(
       'id, category, subject, status, channels, audience_summary, scheduled_for, sent_at, created_at, ' +
-        'recipients:communication_recipients(delivery_status)',
+        'recipients:communication_recipients(delivery_status, rendered_subject)',
     )
     .eq('association_id', associationId)
     .is('deleted_at', null)
@@ -68,7 +72,7 @@ export async function listCommunications(
     scheduled_for: string | null
     sent_at: string | null
     created_at: string
-    recipients: { delivery_status: string }[]
+    recipients: { delivery_status: string; rendered_subject: string | null }[]
   }
 
   return ((data ?? []) as unknown as Shape[]).map((c) => {
@@ -108,6 +112,7 @@ export async function listCommunications(
       scheduled_for: c.scheduled_for,
       sent_at: c.sent_at,
       created_at: c.created_at,
+      renderedSubjects: recipients.map((r) => r.rendered_subject),
       totalRecipients: recipients.length,
       sentCount: counts.sent,
       openedCount: counts.opened,
@@ -132,6 +137,7 @@ export interface CommunicationDetail extends CommunicationSummary {
     phone: string | null
     channel: string
     delivery_status: string
+    rendered_subject: string | null
     sent_at: string | null
     delivered_at: string | null
     opened_at: string | null
@@ -163,7 +169,7 @@ export async function getCommunication(
       'id, category, subject, status, channels, audience_summary, scheduled_for, sent_at, created_at, ' +
         'body_html, body_text, audience_definition, related_resource, ai_generated, ' +
         'template:template_id(id, name, category), ' +
-        'recipients:communication_recipients(id, unit_id, recipient_name, email, phone, channel, delivery_status, sent_at, delivered_at, opened_at, replied_at, failed_at, error_message), ' +
+        'recipients:communication_recipients(id, unit_id, recipient_name, email, phone, channel, delivery_status, rendered_subject, sent_at, delivered_at, opened_at, replied_at, failed_at, error_message), ' +
         'replies:communication_replies(id, channel, from_email, from_phone, subject, body, ai_summary, received_at, read_at)',
     )
     .eq('association_id', associationId)
@@ -233,6 +239,7 @@ export async function getCommunication(
     related_resource: d.related_resource,
     ai_generated: d.ai_generated,
     template: d.template,
+    renderedSubjects: recipients.map((r) => r.rendered_subject),
     totalRecipients: recipients.length,
     sentCount: counts.sent,
     openedCount: counts.opened,

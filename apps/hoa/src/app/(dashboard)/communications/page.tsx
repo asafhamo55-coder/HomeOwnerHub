@@ -1,9 +1,19 @@
 import Link from 'next/link'
-import { CheckCheck, Eye, Mail, MessageSquare, Plus, Reply, Send } from 'lucide-react'
+import {
+  Bell,
+  CheckCheck,
+  Eye,
+  Mail,
+  MessageSquare,
+  Plus,
+  Reply,
+  Send,
+} from 'lucide-react'
 import { Badge, Button, Card, EmptyState, Select } from '@homeowner-portal/ui'
 import { LocalDateTime } from '@/components/ui/LocalDateTime'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { listCommunications } from '@/lib/communications/queries'
+import { pickDisplaySubject } from '@/lib/communications/display'
 
 export const metadata = { title: 'Communications' }
 export const dynamic = 'force-dynamic'
@@ -36,6 +46,21 @@ const STATUS_LABEL: Record<string, string> = {
   sent: 'Sent',
   failed: 'Failed',
   cancelled: 'Cancelled',
+}
+
+/** Icon per channel, so the row is scannable without reading the word
+ *  "EMAIL" in every line. Ordered — a multi-channel comm shows the icon
+ *  of the first channel it actually used. */
+const CHANNEL_ICON: Record<string, typeof Mail> = {
+  email: Mail,
+  sms: MessageSquare,
+  portal: Bell,
+}
+
+const CHANNEL_LABEL: Record<string, string> = {
+  email: 'Email',
+  sms: 'SMS',
+  portal: 'Portal',
 }
 
 interface PageProps {
@@ -180,56 +205,176 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
       ) : (
         <Card>
           <ul className="divide-y divide-border">
-            {comms.map((c) => (
-              <li key={c.id}>
-                <Link
-                  href={`/communications/${c.id}`}
-                  className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-background/50"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-foreground">{c.subject}</p>
-                    <p className="text-xs text-muted">
-                      {CATEGORY_LABEL[c.category] ?? c.category}
-                      {c.audience_summary ? ` · ${c.audience_summary}` : ''}
-                      {' · '}
-                      {c.sent_at ? (
-                        <LocalDateTime iso={c.sent_at} variant="short" prefix="sent" />
-                      ) : c.scheduled_for ? (
-                        <LocalDateTime
-                          iso={c.scheduled_for}
-                          variant="short"
-                          prefix="scheduled"
-                        />
-                      ) : (
-                        <LocalDateTime iso={c.created_at} variant="date-only" />
-                      )}
-                    </p>
-                    {c.totalRecipients > 0 ? (
-                      <p className="mt-1 text-xs text-muted">
-                        <Send className="mr-1 inline h-3 w-3" />
-                        {c.sentCount}/{c.totalRecipients} sent
-                        {c.openedCount > 0 ? <> · <Eye className="mr-1 inline h-3 w-3" />{c.openedCount} opened</> : null}
-                        {c.repliedCount > 0 ? <> · <Reply className="mr-1 inline h-3 w-3" />{c.repliedCount} replied</> : null}
-                        {c.failedCount > 0 ? (
-                          <> · <span className="text-destructive">{c.failedCount} failed</span></>
+            {comms.map((c) => {
+              // What a resident actually received, not the template. Exact
+              // when every recipient got the same rendered subject;
+              // otherwise per-recipient fields fall back to labels and the
+              // row is marked personalized rather than implying one value.
+              const subject = pickDisplaySubject({
+                subject: c.subject,
+                associationName: assoc.name,
+                renderedSubjects: c.renderedSubjects,
+              })
+              const failed = c.failedCount > 0
+
+              return (
+                <li key={c.id}>
+                  <Link
+                    href={`/communications/${c.id}`}
+                    className="flex items-start gap-3 px-4 py-3.5 transition-colors hover:bg-background/50"
+                  >
+                    <ChannelTile channels={c.channels} failed={failed} />
+
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="truncate font-medium text-foreground">
+                          {subject.text}
+                        </p>
+                        <div className="flex flex-shrink-0 items-center gap-1.5">
+                          {subject.personalizedFields.length > 0 ? (
+                            <Badge
+                              variant="neutral"
+                              size="sm"
+                              title={`Each recipient saw their own ${subject.personalizedFields
+                                .map((f) => f.replace(/_/g, ' '))
+                                .join(', ')}.`}
+                            >
+                              Personalized
+                            </Badge>
+                          ) : null}
+                          <Badge variant={STATUS_VARIANT[c.status] ?? 'outline'} size="sm">
+                            {STATUS_LABEL[c.status] ?? c.status}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted">
+                        <span className="font-medium text-foreground/70">
+                          {CATEGORY_LABEL[c.category] ?? c.category}
+                        </span>
+                        <span aria-hidden>·</span>
+                        <span>{c.channels.map((ch) => CHANNEL_LABEL[ch] ?? ch).join(' + ')}</span>
+                        {c.audience_summary ? (
+                          <>
+                            <span aria-hidden>·</span>
+                            <span className="truncate">{c.audience_summary}</span>
+                          </>
                         ) : null}
+                        <span aria-hidden>·</span>
+                        {c.sent_at ? (
+                          <LocalDateTime iso={c.sent_at} variant="short" prefix="sent" />
+                        ) : c.scheduled_for ? (
+                          <LocalDateTime
+                            iso={c.scheduled_for}
+                            variant="short"
+                            prefix="scheduled"
+                          />
+                        ) : (
+                          <LocalDateTime iso={c.created_at} variant="date-only" />
+                        )}
                       </p>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-shrink-0 items-center gap-2">
-                    <span className="font-mono text-[11px] uppercase tracking-wide text-muted">
-                      {c.channels.join(' · ')}
-                    </span>
-                    <Badge variant={STATUS_VARIANT[c.status] ?? 'outline'} size="sm">
-                      {STATUS_LABEL[c.status] ?? c.status}
-                    </Badge>
-                  </div>
-                </Link>
-              </li>
-            ))}
+
+                      {c.totalRecipients > 0 ? (
+                        <DeliveryBar
+                          sent={c.sentCount}
+                          failed={c.failedCount}
+                          total={c.totalRecipients}
+                          opened={c.openedCount}
+                          replied={c.repliedCount}
+                        />
+                      ) : null}
+                    </div>
+                  </Link>
+                </li>
+              )
+            })}
           </ul>
         </Card>
       )}
+    </div>
+  )
+}
+
+/**
+ * The channel glyph, tinted red when any recipient failed. The tint is
+ * the point: a row reading "10 of 47 delivered · 37 failed" used to sit
+ * at exactly the same visual weight as one that reached everybody.
+ */
+function ChannelTile({ channels, failed }: { channels: string[]; failed: boolean }) {
+  const Icon = CHANNEL_ICON[channels[0]] ?? Mail
+  return (
+    <span
+      className={
+        failed
+          ? 'mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-700'
+          : 'mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600'
+      }
+      aria-hidden
+    >
+      <Icon className="h-4 w-4" />
+    </span>
+  )
+}
+
+/**
+ * Delivery as a proportion rather than a fraction to be parsed.
+ *
+ * `total` is the number of communication_recipients rows, which can be
+ * lower than the headline audience count: send.ts skips a recipient with
+ * no address on the chosen channel. Percentages are therefore of what was
+ * attempted, and the counts are shown alongside so the bar is never the
+ * only source of the number.
+ */
+function DeliveryBar({
+  sent,
+  failed,
+  total,
+  opened,
+  replied,
+}: {
+  sent: number
+  failed: number
+  total: number
+  opened: number
+  replied: number
+}) {
+  const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0)
+  return (
+    <div className="space-y-1">
+      <div
+        className="flex h-1 w-full overflow-hidden rounded-full bg-border"
+        role="img"
+        aria-label={`${sent} of ${total} delivered, ${failed} failed`}
+      >
+        <span className="bg-emerald-500" style={{ width: `${pct(sent)}%` }} />
+        <span className="bg-red-500" style={{ width: `${pct(failed)}%` }} />
+      </div>
+      <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted">
+        <Send className="h-3 w-3" aria-hidden />
+        <span>
+          {sent} of {total} delivered
+        </span>
+        {opened > 0 ? (
+          <>
+            <span aria-hidden>·</span>
+            <Eye className="h-3 w-3" aria-hidden />
+            <span>{opened} opened</span>
+          </>
+        ) : null}
+        {replied > 0 ? (
+          <>
+            <span aria-hidden>·</span>
+            <Reply className="h-3 w-3" aria-hidden />
+            <span>{replied} replied</span>
+          </>
+        ) : null}
+        {failed > 0 ? (
+          <>
+            <span aria-hidden>·</span>
+            <span className="font-medium text-destructive">{failed} failed</span>
+          </>
+        ) : null}
+      </p>
     </div>
   )
 }
