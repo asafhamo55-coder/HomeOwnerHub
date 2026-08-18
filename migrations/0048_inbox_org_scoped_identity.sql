@@ -76,13 +76,41 @@
 -- mailbox_accounts row is KEPT, because 0029 keeps disconnected accounts
 -- for audit and this migration is not the place to change that.
 
-BEGIN;
+-- ─── Runs as ONE statement, deliberately ─────────────────────────────
+-- This was a plain BEGIN; ... COMMIT; script with several statements.
+-- Supabase's SQL editor does not hold an explicit transaction across the
+-- statements of a script: the connection goes back to the pool and the
+-- work is discarded, so a later statement reading a table an earlier one
+-- created failed with 42P01 ("relation ... does not exist") -- twice,
+-- first as a TEMP table and then as a plain one. Worse than the error:
+-- the BEGIN/COMMIT was buying no atomicity there either, which for a
+-- migration that deletes mail is the real hazard.
+--
+-- A DO block is a SINGLE statement, so it runs in one implicit
+-- transaction on one backend. Cross-statement visibility stops mattering
+-- and the assertions at the end can genuinely roll everything back.
+-- 0047 worked in that editor for the same reason.
+
+DO $mig$
+DECLARE
+  bad_groups integer;
+  ambiguous integer;
+  dup_messages   integer;
+  dup_threads    integer;
+  lost_messages  integer;
+  lost_attach    integer;
+  attach_now     integer;
+  attach_expect  integer;
+  msg_now        integer;
+  emptied        integer;
+  idx_missing    integer;
+BEGIN
 
 -- The SQL editor applies a 60s statement timeout. Every statement here
 -- touches only rows in duplicate groups (656 messages / 458 threads in
 -- the org that has them), so this is a safety valve for the two CREATE
 -- UNIQUE INDEX statements, not an expectation of slowness.
-SET LOCAL statement_timeout = '120s';
+PERFORM set_config('statement_timeout', '120s', true);
 
 
 -- ─── 0. Snapshot what must still exist at the end ────────────────────
@@ -130,10 +158,7 @@ CREATE TABLE public.mig0048_thread_msgs AS
 -- Subject and body are deliberately NOT compared: a partial re-backfill
 -- legitimately produces a truncated body or a missing body_html, and
 -- refusing over that would block the fix for the actual incident.
-DO $$
-DECLARE
-  bad_groups integer;
-BEGIN
+
   SELECT count(*) INTO bad_groups
     FROM (
       SELECT organization_id, gmail_message_id
@@ -151,7 +176,7 @@ BEGIN
       'same email and merging them would delete real mail. Investigate before '
       're-running.', bad_groups;
   END IF;
-END$$;
+
 
 
 -- ─── 2. Merge duplicate THREADS on (organization_id, gmail_thread_id) ─
@@ -535,10 +560,7 @@ CREATE TABLE public.mig0048_live_account AS
    GROUP BY organization_id
   HAVING count(*) = 1;
 
-DO $$
-DECLARE
-  ambiguous integer;
-BEGIN
+
   SELECT count(*) INTO ambiguous
     FROM (
       SELECT organization_id
@@ -552,7 +574,7 @@ BEGIN
       '0048: % org(s) have more than one live mailbox account; their rows were '
       'left on their current account (see section 4).', ambiguous;
   END IF;
-END$$;
+
 
 -- Safe under the OLD per-account unique indexes, which are still in place
 -- at this point: sections 2 and 3 made (organization_id, gmail_*_id)
@@ -626,18 +648,7 @@ COMMENT ON INDEX public.inbox_threads_org_gmail_uniq IS
 -- Everything above is one transaction, so a RAISE here undoes all of it.
 -- These checks compare against the section 0 snapshot; they are not
 -- tautologies over post-merge state.
-DO $$
-DECLARE
-  dup_messages   integer;
-  dup_threads    integer;
-  lost_messages  integer;
-  lost_attach    integer;
-  attach_now     integer;
-  attach_expect  integer;
-  msg_now        integer;
-  emptied        integer;
-  idx_missing    integer;
-BEGIN
+
   -- (a) the new keys actually hold
   SELECT count(*) INTO dup_messages FROM (
     SELECT 1 FROM public.inbox_messages
@@ -730,7 +741,7 @@ BEGIN
   RAISE NOTICE
     '0048 ok: % message row(s), % attachment row(s), no duplicates under '
     'the org-scoped keys.', msg_now, attach_now;
-END$$;
+
 
 -- ─── Scratch teardown ────────────────────────────────────────────────
 -- These were TEMP tables with ON COMMIT DROP. Supabase's SQL editor does
@@ -746,7 +757,8 @@ DROP TABLE IF EXISTS public.mig0048_msg_keys;
 DROP TABLE IF EXISTS public.mig0048_thread_map;
 DROP TABLE IF EXISTS public.mig0048_thread_msgs;
 
-COMMIT;
+END
+$mig$;
 
 
 -- ─── Deliberately not done here ──────────────────────────────────────
