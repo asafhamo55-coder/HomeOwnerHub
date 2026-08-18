@@ -151,6 +151,29 @@ SELECT 41, 'C. disconnected accounts still holding messages (expected 0)',
 
 UNION ALL
 -- ─── D. Duplicates under the org-scoped identity key (0048) ──────────────
+-- ─── Reconciliation health (0049) ───────────────────────────────────
+-- reconcile used to write its skip reason to sync_error, which
+-- mailboxSyncJob blanks every 2 minutes on a clean run. An account could
+-- refuse to reconcile on every pass and still report no error at all.
+-- 0049 gave reconciliation its own columns; nothing else writes them.
+--
+-- R.45 is the row that separates the two failures which look identical
+-- from outside: a job that never runs, and one that runs and legitimately
+-- has nothing to change.
+SELECT 45, 'R. reconciliation last ran',
+       COALESCE(
+         (SELECT max(reconcile_ran_at)::text FROM public.mailbox_accounts
+           WHERE organization_id = 'a4906f16-baf3-4232-a2bd-a78ea432ad86'),
+         'NEVER - no completed pass for this mailbox')
+UNION ALL
+SELECT 46, 'R. reconciliation refusing?',
+       COALESCE(
+         (SELECT left(reconcile_error, 200) FROM public.mailbox_accounts
+           WHERE organization_id = 'a4906f16-baf3-4232-a2bd-a78ea432ad86'
+             AND reconcile_error IS NOT NULL
+           ORDER BY reconcile_skipped_at DESC NULLS LAST LIMIT 1),
+         'no - last pass applied, or it has never run (see R.45)')
+UNION ALL
 SELECT 50, 'D. duplicate (organization_id, gmail_message_id) groups (expected 0)',
        (SELECT groups::text || ' group(s), ' || excess::text || ' excess row(s)' FROM dup_msg)
 

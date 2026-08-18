@@ -373,13 +373,29 @@ export const mailboxReconcileJob = inngest.createFunction(
           // A mailbox too large to snapshot is a real, persistent
           // limitation the board should see rather than a silent no-op —
           // otherwise "my Gmail cleanup isn't showing up" has no visible
-          // cause anywhere in the product. Surfaced the same way a
-          // partially-skipped sync is (mailbox-sync.ts), on sync_error.
+          // cause anywhere in the product.
+          //
+          // This used to be written to sync_error, which made it invisible:
+          // mailboxSyncJob runs every 2 minutes and writes sync_error=null
+          // on any clean run (mailbox-sync.ts:186-196), so a skip reason
+          // recorded here survived at most two minutes. At Madison Park
+          // that produced an account reporting no error at all while 103 of
+          // 108 threads sat unreconciled. 0049 gives reconciliation its own
+          // columns; nothing else writes them.
           logger.warn(`[mailbox-reconcile] ${account.email_address}: ${summary.skipReason}`)
 
           const { error: noteError } = await db
             .from('mailbox_accounts')
-            .update({ sync_error: summary.skipReason })
+            .update({
+            // `as never` until 0049 is applied and types are regenerated:
+            // database.types.ts is generated FROM the live database, so a
+            // committed-but-unapplied column does not exist to the compiler
+            // yet (CLAUDE.md §3). Same pattern the properties view used.
+            // Remove the cast on the next `pnpm gen:types` after 0049.
+              reconcile_error: summary.skipReason,
+              reconcile_skipped_at: new Date().toISOString(),
+              reconcile_ran_at: new Date().toISOString(),
+            } as never)
             .eq('id', account.id)
 
           if (noteError) {
@@ -394,6 +410,39 @@ export const mailboxReconcileJob = inngest.createFunction(
         }
 
         reconciled++
+
+        // Stamp the successful pass. Without this, "reconciliation has
+        // never run for this account" and "it runs every 15 minutes and
+        // legitimately has nothing to change" are indistinguishable from
+        // outside, and they call for completely different responses. The
+        // clearing of reconcile_error matters too: a mailbox that drops
+        // back under the snapshot cap must stop reporting the old refusal.
+        const { error: okError } = await db
+          .from('mailbox_accounts')
+          .update({
+            // `as never` until 0049 is applied and types are regenerated:
+            // database.types.ts is generated FROM the live database, so a
+            // committed-but-unapplied column does not exist to the compiler
+            // yet (CLAUDE.md §3). Same pattern the properties view used.
+            // Remove the cast on the next `pnpm gen:types` after 0049.
+            reconcile_ran_at: new Date().toISOString(),
+            reconcile_error: null,
+            reconcile_skipped_at: null,
+          } as never)
+          .eq('id', account.id)
+
+        if (okError) {
+          // Non-fatal: the reconciliation itself already committed, and
+          // failing the run here would re-do that work for a bookkeeping
+          // write.
+          logDbError(
+            'mailboxReconcileJob',
+            'mailbox_accounts',
+            { accountId: account.id },
+            okError,
+          )
+        }
+
         // Counts only — never a subject, address, or body. Same rule the
         // rest of the mailbox jobs follow.
         logger.info(
