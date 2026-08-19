@@ -179,14 +179,14 @@ async function DashboardContent({ orgId }: { orgId: string }) {
           upIsBad
         />
         <KpiHero
-          label="Residents"
-          value={community.residentCount}
+          label="Properties"
+          value={community.propertyCount}
           sub={
             community.propertyCount === 0
-              ? 'no properties on file'
-              : `across ${community.propertyCount.toLocaleString()} ${
-                  community.propertyCount === 1 ? 'property' : 'properties'
-                }`
+              ? 'none on file yet'
+              : `${community.residentCount.toLocaleString()} ${
+                  community.residentCount === 1 ? 'resident' : 'residents'
+                } in residence`
           }
           href="/properties"
         />
