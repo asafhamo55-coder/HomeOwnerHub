@@ -190,23 +190,28 @@ async function DashboardContent({ orgId }: { orgId: string }) {
           }
           href="/properties"
         />
-        {/* Occupancy, not leased-%: `tenure` cannot express "empty", so a
-            lease-based figure sits at 100% for any filled-in roster. This
-            counts properties with at least one current resident. */}
+        {/* Same figure the /leases page headlines — leasedPct off
+            getLeaseSummary — so the dashboard and the lease section can
+            never disagree. Labelled "Leased" rather than "Occupancy"
+            because it is not one: 16% leased means 84% owner-occupied,
+            not 84% empty. */}
         <KpiHero
-          label="Occupancy"
-          value={community.occupiedPct ?? 0}
+          label="Leased"
+          value={leaseSummary.leasedPct}
           display={
-            community.occupiedPct === null
+            !leaseSummary.hasAssociation || leaseSummary.totalUnits === 0
               ? '—'
-              : `${Math.round(community.occupiedPct)}%`
+              : `${Math.round(leaseSummary.leasedPct)}%`
           }
           sub={
-            community.propertyCount === 0
-              ? 'no properties on file'
-              : `${community.occupiedCount} of ${community.propertyCount} occupied · ${community.waitingListCount} on waitlist`
+            !leaseSummary.hasAssociation
+              ? 'no association set up'
+              : leaseSummary.totalUnits === 0
+                ? 'no units on file'
+                : `${leaseSummary.leasedCount} of ${leaseSummary.totalUnits} leased · ${leaseSummary.waitingListCount} on waitlist`
           }
           href="/leases"
+          upIsBad
         />
         <KpiHero
           label="Dues overdue"

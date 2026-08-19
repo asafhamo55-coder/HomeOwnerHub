@@ -455,38 +455,29 @@ export async function getLeaseSummary(
 }
 
 export interface CommunitySnapshot {
-  /**
-   * People currently in residence across the org — property_residents rows
-   * with moved_out_at NULL. A moved-out resident stays on file for the
-   * property history, so counting every row would inflate the community
-   * size with people who left.
-   */
-  residentCount: number
   /** Properties on file (soft-deleted excluded). */
   propertyCount: number
-  /** Properties with at least one current resident. */
-  occupiedCount: number
   /**
-   * occupiedCount / propertyCount, 0–100. Null when there are no
-   * properties yet: a community with no roster is UNKNOWN occupancy, and
-   * rendering it as 0% reads like every unit is empty.
+   * People currently in residence — property_residents rows with
+   * moved_out_at NULL. A moved-out resident stays on file for the
+   * property history, so counting every row would inflate the community
+   * size with people who have left.
    */
-  occupiedPct: number | null
-  /** lease_waiting_list entries still waiting, across the org's associations. */
-  waitingListCount: number
+  residentCount: number
 }
 
 /**
- * Roster-level facts for the dashboard's top row: how many people live
- * here, how full the community is, and how many are queued for a lease.
+ * Roster size for the dashboard's top row: how many properties the
+ * community has and how many people currently live in them.
  *
- * Occupancy is derived from residents, not from `tenure`. `tenure` only
- * distinguishes owner-occupied from leased (plus 'unknown'), so it can
- * never say a unit is empty — an occupancy computed from it would be
- * pinned at 100% for any community that has filled tenure in.
+ * Deliberately does NOT compute occupancy or lease figures. The leased
+ * percentage and the lease waiting list come from getLeaseSummary, which
+ * is what the /leases page renders — two independent derivations of the
+ * same number would eventually disagree, and the dashboard would be the
+ * one people stopped trusting.
  *
- * Resident rows are intersected with the live property set so a
- * soft-deleted property cannot push occupiedCount above propertyCount.
+ * Resident rows are intersected with the live property set so residents
+ * still attached to a soft-deleted property are not counted.
  */
 export async function getCommunitySnapshot(
   orgId: string,
@@ -494,7 +485,7 @@ export async function getCommunitySnapshot(
 ): Promise<CommunitySnapshot> {
   const supabase = await resolveClient(client)
 
-  const [propsResult, residentsResult, assocsResult] = await Promise.all([
+  const [propsResult, residentsResult] = await Promise.all([
     supabase
       .from('hoa_properties')
       .select('id')
@@ -509,13 +500,8 @@ export async function getCommunitySnapshot(
       .is('moved_out_at', null)
       // PostgREST caps rows at 1000 by default. An HOA with more than
       // 20k people in residence does not exist; the explicit range just
-      // stops the silent default cap from quietly halving the count.
+      // stops the silent default cap from quietly truncating the count.
       .range(0, 19_999),
-
-    supabase
-      .from('associations' as never)
-      .select('id')
-      .eq('organization_id', orgId),
   ])
 
   const propertyIds = new Set(
@@ -525,30 +511,10 @@ export async function getCommunitySnapshot(
     id: string
     property_id: string
   }>
-  const live = residentRows.filter((r) => propertyIds.has(r.property_id))
-  const occupiedCount = new Set(live.map((r) => r.property_id)).size
-  const propertyCount = propertyIds.size
-
-  const assocIds = ((assocsResult.data ?? []) as unknown as Array<{ id: string }>).map(
-    (a) => a.id,
-  )
-  let waitingListCount = 0
-  if (assocIds.length > 0) {
-    const { count } = await supabase
-      .from('lease_waiting_list' as never)
-      .select('id', { count: 'exact', head: true })
-      .in('association_id', assocIds)
-      .eq('status', 'waiting')
-    waitingListCount = count ?? 0
-  }
 
   return {
-    residentCount: live.length,
-    propertyCount,
-    occupiedCount,
-    occupiedPct:
-      propertyCount === 0 ? null : (occupiedCount / propertyCount) * 100,
-    waitingListCount,
+    propertyCount: propertyIds.size,
+    residentCount: residentRows.filter((r) => propertyIds.has(r.property_id)).length,
   }
 }
 
