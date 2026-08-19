@@ -88,6 +88,21 @@ facts AS (
     (SELECT count(*) FROM thr WHERE gmail_state NOT IN ('archived','trashed')) AS visible,
     (SELECT count(*) FROM thr WHERE gmail_state IN ('archived','trashed'))     AS hidden,
     (SELECT count(*) FROM thr WHERE gmail_state = 'unknown')                   AS unknown_thr,
+    -- An outbound-only thread is 'unknown' BY DESIGN, not by failure.
+    -- threadStateFromMessages (packages/mailbox/src/labels.ts:94-121)
+    -- resolves a thread with no observed INBOUND message to 'unknown'
+    -- rather than 'archived', because a sent message carries SENT and
+    -- never INBOX — counting it would hide every thread the HOA started
+    -- the instant it was sent, gutting the awaiting_resident queue.
+    -- Splitting these out is what stops the verdict crying wolf.
+    (SELECT count(*) FROM thr t WHERE t.gmail_state = 'unknown'
+        AND NOT EXISTS (SELECT 1 FROM msg m
+                         WHERE m.thread_id = t.id AND m.direction = 'inbound')) AS unknown_outbound,
+    (SELECT count(*) FROM thr t WHERE t.gmail_state = 'unknown'
+        AND EXISTS (SELECT 1 FROM msg m
+                     WHERE m.thread_id = t.id AND m.direction = 'inbound'))     AS unknown_inbound,
+    (SELECT max(reconcile_ran_at) FROM public.mailbox_accounts
+      WHERE organization_id = 'a4906f16-baf3-4232-a2bd-a78ea432ad86')           AS reconciled_at,
     (SELECT count(*) FROM msg)                                                 AS msgs,
     (SELECT count(*) FROM msg WHERE gmail_state_at IS NULL)                    AS msgs_unreconciled,
     (SELECT count(*) FROM acct_load WHERE disconnected_at IS NULL)             AS live_accts,
@@ -111,6 +126,15 @@ UNION ALL
 -- of the visible number the app is guessing at.
 SELECT 3, 'A. of which never reconciled (gmail_state=''unknown'', SHOWN by UI)',
        (SELECT unknown_thr::text FROM facts)
+
+UNION ALL
+-- The split that decides whether A.3 is a problem at all.
+SELECT 4, 'A.   ...of those, outbound-only (unknown BY DESIGN, not a fault)',
+       (SELECT unknown_outbound::text FROM facts)
+
+UNION ALL
+SELECT 5, 'A.   ...of those, WITH inbound mail (genuinely unreconciled)',
+       (SELECT unknown_inbound::text FROM facts)
 
 UNION ALL
 -- ─── B. Messages ─────────────────────────────────────────────────────────
@@ -209,15 +233,28 @@ SELECT 99, 'E. VERDICT',
             THEN 'NOT ALIGNED — a disconnected mailbox still holds ' || zombie_msgs::text
                  || ' message(s). Those are stranded: no sync will ever reconcile them, so their '
                  || 'threads stay ''unknown'' and stay visible forever.'
-          WHEN unknown_thr > 0
-            THEN 'NOT ALIGNED — ' || unknown_thr::text || ' of ' || visible::text
-                 || ' visible threads have gmail_state=''unknown'' (never reconciled). The UI shows '
-                 || 'unknown threads, so the app is over-reporting by up to that many. '
-                 || 'Reconciliation has not applied — fix the sync, do not delete rows.'
+          WHEN unknown_thr > 0 AND reconciled_at IS NULL
+            THEN 'NOT ALIGNED — reconciliation has NEVER run for this mailbox, and '
+                 || unknown_thr::text || ' of ' || visible::text || ' visible threads are still '
+                 || '''unknown''. The UI shows unknown threads, so the app is over-reporting by up '
+                 || 'to that many. Check the job is registered with Inngest before touching data — '
+                 || 'fix the sync, do not delete rows.'
+          WHEN unknown_inbound > 0
+            THEN 'NOT ALIGNED — reconciliation last ran ' || reconciled_at::text || ', but '
+                 || unknown_inbound::text || ' thread(s) with INBOUND mail are still ''unknown''. '
+                 || 'Those should have been resolved against Gmail and were not, so the pass is '
+                 || 'incomplete — check R.46 for a refusal.'
           WHEN msgs_unreconciled > 0
             THEN 'MOSTLY ALIGNED — thread states are all reconciled, but ' || msgs_unreconciled::text
                  || ' message(s) still have gmail_state_at IS NULL. Thread counts are trustworthy; '
                  || 'per-message Gmail state is not.'
+          WHEN unknown_outbound > 0
+            THEN 'ALIGNED — one live mailbox, no duplicates, and every thread carrying inbound mail '
+                 || 'is reconciled. ' || unknown_outbound::text || ' outbound-only thread(s) remain '
+                 || 'visible BY DESIGN: mail the board sent with no reply yet. Gmail does not show '
+                 || 'them in its inbox either (they are in Sent), so row A ('
+                 || visible::text || ') will exceed the Gmail inbox by that many. This is a work '
+                 || 'queue, and unanswered outbound mail is open work.'
           ELSE 'ALIGNED — one live mailbox, no duplicates, every thread reconciled against Gmail. '
                || 'Row A''s visible-thread count (' || visible::text
                || ') should match the Gmail inbox.'

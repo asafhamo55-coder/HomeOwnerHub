@@ -387,15 +387,10 @@ export const mailboxReconcileJob = inngest.createFunction(
           const { error: noteError } = await db
             .from('mailbox_accounts')
             .update({
-            // `as never` until 0049 is applied and types are regenerated:
-            // database.types.ts is generated FROM the live database, so a
-            // committed-but-unapplied column does not exist to the compiler
-            // yet (CLAUDE.md §3). Same pattern the properties view used.
-            // Remove the cast on the next `pnpm gen:types` after 0049.
               reconcile_error: summary.skipReason,
               reconcile_skipped_at: new Date().toISOString(),
               reconcile_ran_at: new Date().toISOString(),
-            } as never)
+            })
             .eq('id', account.id)
 
           if (noteError) {
@@ -420,15 +415,10 @@ export const mailboxReconcileJob = inngest.createFunction(
         const { error: okError } = await db
           .from('mailbox_accounts')
           .update({
-            // `as never` until 0049 is applied and types are regenerated:
-            // database.types.ts is generated FROM the live database, so a
-            // committed-but-unapplied column does not exist to the compiler
-            // yet (CLAUDE.md §3). Same pattern the properties view used.
-            // Remove the cast on the next `pnpm gen:types` after 0049.
             reconcile_ran_at: new Date().toISOString(),
             reconcile_error: null,
             reconcile_skipped_at: null,
-          } as never)
+          })
           .eq('id', account.id)
 
         if (okError) {

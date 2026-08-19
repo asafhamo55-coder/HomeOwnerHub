@@ -3790,6 +3790,9 @@ export type Database = {
           last_synced_at: string | null
           organization_id: string
           provider: string
+          reconcile_error: string | null
+          reconcile_ran_at: string | null
+          reconcile_skipped_at: string | null
           scope_mode: string
           scope_value: string | null
           sync_cursor: string | null
@@ -3810,6 +3813,9 @@ export type Database = {
           last_synced_at?: string | null
           organization_id: string
           provider?: string
+          reconcile_error?: string | null
+          reconcile_ran_at?: string | null
+          reconcile_skipped_at?: string | null
           scope_mode?: string
           scope_value?: string | null
           sync_cursor?: string | null
@@ -3830,6 +3836,9 @@ export type Database = {
           last_synced_at?: string | null
           organization_id?: string
           provider?: string
+          reconcile_error?: string | null
+          reconcile_ran_at?: string | null
+          reconcile_skipped_at?: string | null
           scope_mode?: string
           scope_value?: string | null
           sync_cursor?: string | null
