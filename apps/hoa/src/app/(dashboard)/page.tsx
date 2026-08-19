@@ -11,6 +11,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import {
   getApprovalsInbox,
   getAtRiskThisWeek,
+  getCommunitySnapshot,
   getComplianceHeatMap,
   getLatestDigest,
   getLeaseSummary,
@@ -127,6 +128,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     digest,
     heatMapCells,
     triage,
+    community,
   ] = await Promise.all([
     getDashboardKpis(orgId),
     getViolationStatusDonut(orgId),
@@ -139,6 +141,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     getLatestDigest(orgId),
     getComplianceHeatMap(orgId),
     getTriageSnapshot(supabase, orgId),
+    getCommunitySnapshot(orgId),
   ])
 
   const today = todayISO()
@@ -164,32 +167,46 @@ async function DashboardContent({ orgId }: { orgId: string }) {
       />
 
       {/* The four numbers that are about today. "Active vendors" was cut:
-          reference data, not a daily decision. */}
+          reference data, not a daily decision. The two mail tiles that used
+          to sit here ("Needs a reply", "Oldest waiting") were cut too — the
+          MailTriageCard directly below already carries both, per-thread. */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiHero
-          label="Needs a reply"
-          value={triage.needsReply.count}
-          display={triage.failed ? '—' : undefined}
-          sub={triage.failed ? 'couldn’t load' : 'resident mail'}
-          href="/inbox"
+          label="Open tickets"
+          value={kpis.openTickets.value}
+          sub="awaiting work"
+          href="/tickets"
           upIsBad
         />
         <KpiHero
-          label="Oldest waiting"
-          value={triage.needsReply.oldestWaitingDays ?? 0}
-          display={
-            triage.failed || triage.needsReply.oldestWaitingDays === null
-              ? '—'
-              : `${triage.needsReply.oldestWaitingDays}d`
+          label="Residents"
+          value={community.residentCount}
+          sub={
+            community.propertyCount === 0
+              ? 'no properties on file'
+              : `across ${community.propertyCount.toLocaleString()} ${
+                  community.propertyCount === 1 ? 'property' : 'properties'
+                }`
           }
-          href="/inbox"
-          upIsBad
+          href="/properties"
         />
+        {/* Occupancy, not leased-%: `tenure` cannot express "empty", so a
+            lease-based figure sits at 100% for any filled-in roster. This
+            counts properties with at least one current resident. */}
         <KpiHero
-          label="Approvals pending"
-          value={approvals.totalCount}
-          href="/violations/approval-queue"
-          upIsBad
+          label="Occupancy"
+          value={community.occupiedPct ?? 0}
+          display={
+            community.occupiedPct === null
+              ? '—'
+              : `${Math.round(community.occupiedPct)}%`
+          }
+          sub={
+            community.propertyCount === 0
+              ? 'no properties on file'
+              : `${community.occupiedCount} of ${community.propertyCount} occupied · ${community.waitingListCount} on waitlist`
+          }
+          href="/leases"
         />
         <KpiHero
           label="Dues overdue"
@@ -231,16 +248,15 @@ async function DashboardContent({ orgId }: { orgId: string }) {
           </span>
         </summary>
         <div className="space-y-4 border-t border-border p-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <KpiHero
-              label="Open violations"
-              value={kpis.openViolations.value}
-              previous={kpis.openViolations.previous}
-              upIsBad
-              href="/violations"
-            />
-            <KpiHero label="Open tickets" value={kpis.openTickets.value} href="/tickets" upIsBad />
-          </div>
+          {/* "Open tickets" was promoted to the top KPI row; repeating it
+              here would show the same number twice on one page. */}
+          <KpiHero
+            label="Open violations"
+            value={kpis.openViolations.value}
+            previous={kpis.openViolations.previous}
+            upIsBad
+            href="/violations"
+          />
           <div
             className={`grid gap-4 ${leaseSummary.hasAssociation ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}
           >

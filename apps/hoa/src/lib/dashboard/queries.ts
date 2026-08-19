@@ -454,6 +454,104 @@ export async function getLeaseSummary(
   }
 }
 
+export interface CommunitySnapshot {
+  /**
+   * People currently in residence across the org — property_residents rows
+   * with moved_out_at NULL. A moved-out resident stays on file for the
+   * property history, so counting every row would inflate the community
+   * size with people who left.
+   */
+  residentCount: number
+  /** Properties on file (soft-deleted excluded). */
+  propertyCount: number
+  /** Properties with at least one current resident. */
+  occupiedCount: number
+  /**
+   * occupiedCount / propertyCount, 0–100. Null when there are no
+   * properties yet: a community with no roster is UNKNOWN occupancy, and
+   * rendering it as 0% reads like every unit is empty.
+   */
+  occupiedPct: number | null
+  /** lease_waiting_list entries still waiting, across the org's associations. */
+  waitingListCount: number
+}
+
+/**
+ * Roster-level facts for the dashboard's top row: how many people live
+ * here, how full the community is, and how many are queued for a lease.
+ *
+ * Occupancy is derived from residents, not from `tenure`. `tenure` only
+ * distinguishes owner-occupied from leased (plus 'unknown'), so it can
+ * never say a unit is empty — an occupancy computed from it would be
+ * pinned at 100% for any community that has filled tenure in.
+ *
+ * Resident rows are intersected with the live property set so a
+ * soft-deleted property cannot push occupiedCount above propertyCount.
+ */
+export async function getCommunitySnapshot(
+  orgId: string,
+  client?: AnyClient,
+): Promise<CommunitySnapshot> {
+  const supabase = await resolveClient(client)
+
+  const [propsResult, residentsResult, assocsResult] = await Promise.all([
+    supabase
+      .from('hoa_properties')
+      .select('id')
+      .eq('org_id', orgId)
+      .is('deleted_at', null),
+
+    supabase
+      .from('property_residents' as never)
+      .select('id, property_id')
+      .eq('organization_id', orgId)
+      .is('deleted_at', null)
+      .is('moved_out_at', null)
+      // PostgREST caps rows at 1000 by default. An HOA with more than
+      // 20k people in residence does not exist; the explicit range just
+      // stops the silent default cap from quietly halving the count.
+      .range(0, 19_999),
+
+    supabase
+      .from('associations' as never)
+      .select('id')
+      .eq('organization_id', orgId),
+  ])
+
+  const propertyIds = new Set(
+    ((propsResult.data ?? []) as unknown as Array<{ id: string }>).map((p) => p.id),
+  )
+  const residentRows = (residentsResult.data ?? []) as unknown as Array<{
+    id: string
+    property_id: string
+  }>
+  const live = residentRows.filter((r) => propertyIds.has(r.property_id))
+  const occupiedCount = new Set(live.map((r) => r.property_id)).size
+  const propertyCount = propertyIds.size
+
+  const assocIds = ((assocsResult.data ?? []) as unknown as Array<{ id: string }>).map(
+    (a) => a.id,
+  )
+  let waitingListCount = 0
+  if (assocIds.length > 0) {
+    const { count } = await supabase
+      .from('lease_waiting_list' as never)
+      .select('id', { count: 'exact', head: true })
+      .in('association_id', assocIds)
+      .eq('status', 'waiting')
+    waitingListCount = count ?? 0
+  }
+
+  return {
+    residentCount: live.length,
+    propertyCount,
+    occupiedCount,
+    occupiedPct:
+      propertyCount === 0 ? null : (occupiedCount / propertyCount) * 100,
+    waitingListCount,
+  }
+}
+
 export interface ResidentQueueCounts {
   /** Support tickets still open or in progress. */
   openTickets: number
