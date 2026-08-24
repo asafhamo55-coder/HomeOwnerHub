@@ -22,15 +22,21 @@ export function WaitingListActions({
   const toast = useToast()
   const [pending, startTransition] = useTransition()
 
-  function handleApprove() {
+  // The confirm() modal MUST be awaited outside startTransition. Opening
+  // it is a setState in ConfirmProvider; scheduled inside a transition
+  // that is itself awaiting the modal's answer, React defers that commit
+  // behind the in-flight action and the dialog never opens — the button
+  // just greys out forever. Same reason the delete buttons moved to
+  // <TwoClickDelete>. Confirm first, transition second.
+  async function handleApprove() {
+    const ok = await confirm({
+      title: `Approve lease for ${propertyLabel}?`,
+      description:
+        "We'll mark the property as leased and record the approval in its history. This counts against the cap.",
+      confirmLabel: 'Approve',
+    })
+    if (!ok) return
     startTransition(async () => {
-      const ok = await confirm({
-        title: `Approve lease for ${propertyLabel}?`,
-        description:
-          "We'll mark the property as leased and record the approval in its history. This counts against the cap.",
-        confirmLabel: 'Approve',
-      })
-      if (!ok) return
       const result = await approveWaitingListEntry(entryId)
       if (!result.ok) {
         toast({ tone: 'error', message: result.error })
@@ -41,16 +47,16 @@ export function WaitingListActions({
     })
   }
 
-  function handleDeny() {
+  async function handleDeny() {
+    const ok = await confirm({
+      title: `Deny lease request for ${propertyLabel}?`,
+      description:
+        'The owner will need to be notified separately. This is recorded in the property history.',
+      confirmLabel: 'Deny request',
+      destructive: true,
+    })
+    if (!ok) return
     startTransition(async () => {
-      const ok = await confirm({
-        title: `Deny lease request for ${propertyLabel}?`,
-        description:
-          'The owner will need to be notified separately. This is recorded in the property history.',
-        confirmLabel: 'Deny request',
-        destructive: true,
-      })
-      if (!ok) return
       // Reason capture happens elsewhere (or via property notes). v1
       // takes a generic "denied by board" reason — extend with a prompt
       // when product feedback asks for it.
@@ -64,14 +70,14 @@ export function WaitingListActions({
     })
   }
 
-  function handleWithdraw() {
+  async function handleWithdraw() {
+    const ok = await confirm({
+      title: `Withdraw ${propertyLabel} from the waiting list?`,
+      description: "The owner can rejoin later if they're still interested.",
+      confirmLabel: 'Withdraw',
+    })
+    if (!ok) return
     startTransition(async () => {
-      const ok = await confirm({
-        title: `Withdraw ${propertyLabel} from the waiting list?`,
-        description: "The owner can rejoin later if they're still interested.",
-        confirmLabel: 'Withdraw',
-      })
-      if (!ok) return
       const result = await withdrawWaitingListEntry(entryId)
       if (!result.ok) {
         toast({ tone: 'error', message: result.error })

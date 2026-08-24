@@ -613,7 +613,11 @@ export async function denyWaitingListEntry(
   }
 
   const nowIso = new Date().toISOString()
-  const { error } = await supabase
+  // Conditional UPDATE + .select() for the same TOCTOU reason as
+  // approveWaitingListEntry: a concurrent resolve between the SELECT
+  // above and this write would otherwise leave us reporting success
+  // while nothing changed.
+  const { data: updatedRows, error } = await supabase
     .from('lease_waiting_list' as never)
     .update({
       status: 'denied',
@@ -621,7 +625,16 @@ export async function denyWaitingListEntry(
       status_updated_by: user.id,
     } as never)
     .eq('id', entryId)
+    .eq('status', 'waiting')
+    .select('id')
   if (error) return { ok: false, error: error.message }
+  if (!updatedRows || (updatedRows as unknown as Array<unknown>).length === 0) {
+    return {
+      ok: false,
+      error:
+        'This entry was already resolved by another action — refresh and try again.',
+    }
+  }
 
   const ev = await logPropertyEvent({
     propertyId: entry.property_id,
@@ -666,7 +679,11 @@ export async function withdrawWaitingListEntry(
   }
 
   const nowIso = new Date().toISOString()
-  const { error } = await supabase
+  // Conditional UPDATE + .select() for the same TOCTOU reason as
+  // approveWaitingListEntry: a concurrent resolve between the SELECT
+  // above and this write would otherwise leave us reporting success
+  // while nothing changed.
+  const { data: updatedRows, error } = await supabase
     .from('lease_waiting_list' as never)
     .update({
       status: 'withdrawn',
@@ -674,7 +691,16 @@ export async function withdrawWaitingListEntry(
       status_updated_by: user.id,
     } as never)
     .eq('id', entryId)
+    .eq('status', 'waiting')
+    .select('id')
   if (error) return { ok: false, error: error.message }
+  if (!updatedRows || (updatedRows as unknown as Array<unknown>).length === 0) {
+    return {
+      ok: false,
+      error:
+        'This entry was already resolved by another action — refresh and try again.',
+    }
+  }
 
   const ev = await logPropertyEvent({
     propertyId: entry.property_id,
