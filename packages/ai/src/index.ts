@@ -26,7 +26,12 @@ export {
   generateDigestSuggestion,
   acceptSuggestion,
   MAX_SUGGESTION_CHARS,
+  generateBoardInsights,
+  acceptInsights,
+  MAX_INSIGHTS,
+  MAX_INSIGHT_WHY_CHARS,
 } from './tasks/daily-digest'
+export type { DigestInsight } from './tasks/daily-digest'
 
 export { aiComplianceCheck } from './tasks/compliance-check'
 export type { AIComplianceFlags } from './tasks/compliance-check'

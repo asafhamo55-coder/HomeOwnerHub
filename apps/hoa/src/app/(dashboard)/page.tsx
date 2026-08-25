@@ -16,7 +16,10 @@ import {
   getLatestDigest,
   getLeaseSummary,
   getNextMeeting,
+  getResidentQueueCounts,
 } from '@/lib/dashboard/queries'
+import { buildBoardSignals } from '@/lib/dashboard/board-signals'
+import { MAX_INSIGHTS } from '@homeowner-portal/ai'
 import {
   getDashboardKpis,
   getThirtyDayActivity,
@@ -129,6 +132,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     heatMapCells,
     triage,
     community,
+    residentQueues,
   ] = await Promise.all([
     getDashboardKpis(orgId),
     getViolationStatusDonut(orgId),
@@ -142,6 +146,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     getComplianceHeatMap(orgId),
     getTriageSnapshot(supabase, orgId),
     getCommunitySnapshot(orgId),
+    getResidentQueueCounts(orgId),
   ])
 
   const today = todayISO()
@@ -155,6 +160,22 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     nextMeeting: formatNextMeeting(nextMeeting),
   })
 
+  // The insights the server renders carry no `why`: writing one costs an AI
+  // round trip, and putting that in the critical path of the dashboard
+  // would make every page load wait on a model. The card's once-a-day
+  // refresh fills the reasoning in. Until it does, the findings are already
+  // on screen and already true.
+  const initialInsights = buildBoardSignals({
+    atRisk,
+    approvals,
+    lease: leaseSummary,
+    residentQueues,
+    kpis,
+    triage,
+  })
+    .slice(0, MAX_INSIGHTS)
+    .map((signal) => ({ ...signal, why: null }))
+
   return (
     <div className="space-y-6">
       {/* Today — the AI suggestion line plus deterministic bullets. The
@@ -163,6 +184,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
       <DailyDigestCard
         initialSuggestion={digest.content}
         initialBullets={bullets}
+        initialInsights={initialInsights}
         initialGeneratedAt={digest.generatedAt}
       />
 

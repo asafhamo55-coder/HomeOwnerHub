@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/orgs', () => ({
   getCurrentOrg: vi.fn(async () => ({ id: 'org-1', name: 'Madison Park' })),
@@ -24,6 +24,29 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('@/lib/dashboard/queries', () => ({
   getApprovalsInbox: vi.fn(async () => ({ items: [], totalCount: 3 })),
   getNextMeeting: vi.fn(async () => null),
+  getAtRiskThisWeek: vi.fn(async () => ({
+    items: [
+      { kind: 'dues_overdue', id: 'a', title: 'x', severity: 'red', daysOffset: -45, href: '/x' },
+      { kind: 'cure_deadline', id: 'b', title: 'y', severity: 'red', daysOffset: -2, href: '/y' },
+      { kind: 'coi_expiring', id: 'c', title: 'z', severity: 'amber', daysOffset: 9, href: '/z' },
+    ],
+    totalCount: 3,
+  })),
+  getLeaseSummary: vi.fn(async () => ({
+    hasAssociation: true,
+    capPct: 15,
+    totalUnits: 100,
+    leasedCount: 15,
+    leasedPct: 15,
+    headroom: 0,
+    waitingListCount: 2,
+    capIsMixed: false,
+  })),
+  getResidentQueueCounts: vi.fn(async () => ({
+    openTickets: 20,
+    pendingArcRequests: 5,
+    openConcerns: 2,
+  })),
 }))
 
 vi.mock('@/lib/dashboard/charts', () => ({
@@ -51,11 +74,16 @@ vi.mock('@homeowner-portal/ai', async () => {
   const actual = await vi.importActual<typeof import('@homeowner-portal/ai')>(
     '@homeowner-portal/ai',
   )
-  return { ...actual, generateDigestSuggestion: vi.fn() }
+  return { ...actual, generateDigestSuggestion: vi.fn(), generateBoardInsights: vi.fn() }
 })
 
 import { POST } from './route'
-import { generateDigestSuggestion } from '@homeowner-portal/ai'
+import { generateBoardInsights, generateDigestSuggestion } from '@homeowner-portal/ai'
+
+/** The AI half is not under test in the suggestion cases; keep it quiet. */
+beforeEach(() => {
+  vi.mocked(generateBoardInsights).mockResolvedValue('[]')
+})
 
 describe('POST /api/ai/daily-digest', () => {
   it('returns 200 with the facts when the AI call fails', async () => {
@@ -97,5 +125,61 @@ describe('POST /api/ai/daily-digest', () => {
 
     const body = await response.json()
     expect(body.bullets).toContain('1 has now waited over 3 days')
+  })
+})
+
+describe('POST /api/ai/daily-digest board insights', () => {
+  it('renders our headline and link, never the model\'s', async () => {
+    // The model is given a kind and returns a kind. Everything the board
+    // reads as fact — the count, the link — comes from our own query.
+    vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
+    vi.mocked(generateBoardInsights).mockResolvedValueOnce(
+      JSON.stringify([
+        { kind: 'untriaged_mail', why: 'Unmapped mail hides owner complaints from the board.' },
+      ]),
+    )
+
+    const body = await (await POST()).json()
+
+    const insight = body.insights.find((i: { kind: string }) => i.kind === 'untriaged_mail')
+    expect(insight.headline).toContain('365')
+    expect(insight.href).toBe('/inbox')
+    expect(insight.why).toBe('Unmapped mail hides owner complaints from the board.')
+  })
+
+  it('falls back to deterministic signals when the insight call fails', async () => {
+    vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
+    vi.mocked(generateBoardInsights).mockRejectedValueOnce(new Error('model down'))
+
+    const response = await POST()
+
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body.insights.length).toBe(4)
+    expect(body.insights.every((i: { why: string | null }) => i.why === null)).toBe(true)
+    // Most severe first, so a fallback still leads with what is on fire.
+    expect(body.insights[0].severity).toBe('red')
+  })
+
+  it('never returns more than four insights', async () => {
+    vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
+    vi.mocked(generateBoardInsights).mockResolvedValueOnce('[]')
+
+    const body = await (await POST()).json()
+
+    expect(body.insights.length).toBeLessThanOrEqual(4)
+  })
+
+  it('ignores an insight for a signal that is not firing', async () => {
+    vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
+    vi.mocked(generateBoardInsights).mockResolvedValueOnce(
+      JSON.stringify([{ kind: 'reserve_study_overdue', why: 'Invented out of thin air.' }]),
+    )
+
+    const body = await (await POST()).json()
+
+    expect(
+      body.insights.some((i: { kind: string }) => i.kind === 'reserve_study_overdue'),
+    ).toBe(false)
   })
 })

@@ -1,14 +1,37 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { RefreshCw, Sparkles } from 'lucide-react'
+import Link from 'next/link'
+import { ChevronRight, RefreshCw, Sparkles } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import { formatDistanceToNow } from 'date-fns'
+
+/**
+ * One thing in the community that needs the board. `headline`, `href` and
+ * `severity` are computed in SQL; only `why` is model-authored, and it is
+ * null whenever the model was unavailable or said nothing usable.
+ */
+interface BoardInsight {
+  kind: string
+  headline: string
+  href: string
+  severity: 'red' | 'amber' | 'info'
+  why: string | null
+}
 
 interface DailyDigestCardProps {
   initialSuggestion: string | null
   initialBullets: string[]
+  initialInsights: BoardInsight[]
   initialGeneratedAt: string | null
+}
+
+// Same three colours the At-Risk card uses, so red means the same thing in
+// both places on one dashboard.
+const SEVERITY_DOT: Record<BoardInsight['severity'], string> = {
+  red: 'bg-red-500',
+  amber: 'bg-amber-500',
+  info: 'bg-primary',
 }
 
 /**
@@ -21,10 +44,12 @@ const AUTO_REFRESH_AFTER_MS = 24 * 60 * 60 * 1000
 export function DailyDigestCard({
   initialSuggestion,
   initialBullets,
+  initialInsights,
   initialGeneratedAt,
 }: DailyDigestCardProps) {
   const [suggestion, setSuggestion] = useState(initialSuggestion)
   const [bullets, setBullets] = useState(initialBullets)
+  const [insights, setInsights] = useState(initialInsights)
   const [generatedAt, setGeneratedAt] = useState(initialGeneratedAt)
   const [loading, setLoading] = useState(false)
   const autoRefreshFired = useRef(false)
@@ -37,6 +62,7 @@ export function DailyDigestCard({
       const body = await res.json()
       setSuggestion(body.suggestion ?? null)
       setBullets(Array.isArray(body.bullets) ? body.bullets : [])
+      setInsights(Array.isArray(body.insights) ? body.insights : [])
       setGeneratedAt(body.generatedAt ?? null)
     } catch {
       // No error state. The bullets on screen are server-rendered and
@@ -56,7 +82,7 @@ export function DailyDigestCard({
     refresh()
   }, [generatedAt, refresh])
 
-  const hasContent = suggestion !== null || bullets.length > 0
+  const hasContent = suggestion !== null || bullets.length > 0 || insights.length > 0
 
   return (
     <Card variant="elevated">
@@ -97,6 +123,43 @@ export function DailyDigestCard({
               </li>
             ))}
           </ul>
+        ) : null}
+
+        {insights.length > 0 ? (
+          <div className="space-y-2 border-t border-border pt-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+              Needs the board
+            </p>
+            <ul className="space-y-2">
+              {insights.map((insight) => (
+                <li key={insight.kind}>
+                  <Link
+                    href={insight.href}
+                    className="group flex gap-2 rounded-md px-1 py-1 -mx-1 hover:bg-muted/10"
+                  >
+                    <span
+                      className={`mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${SEVERITY_DOT[insight.severity]}`}
+                      aria-hidden
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-foreground">
+                        {insight.headline}
+                      </span>
+                      {/* Null whenever the model was unavailable. The
+                          finding still stands on its own. */}
+                      {insight.why ? (
+                        <span className="block text-sm text-muted">{insight.why}</span>
+                      ) : null}
+                    </span>
+                    <ChevronRight
+                      className="mt-0.5 h-4 w-4 shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100"
+                      aria-hidden
+                    />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
 
         {!hasContent ? (
