@@ -24,7 +24,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow } from '@homeowner-portal/ai'
+import { defineWorkflow, resolveModel } from '@homeowner-portal/ai'
 import {
   PROMPT_VERSION,
   VENDOR_REQUEST_SYSTEM,
@@ -48,7 +48,7 @@ export type VendorRequestIntent = (typeof VENDOR_REQUEST_INTENTS)[number]
  * A finding drawn from an attached image.
  *
  * Present in the schema from day one, and always `[]` in this phase — the
- * default `AI_MODEL` (llama-3.3-70b-versatile) is text-only and no vision
+ * default `AI_MODEL` (see DEFAULT_MODEL) is text-only and no vision
  * producer exists yet (spec D9, and W3's own "Phase 2.0: text-only" note).
  * Carrying the field now means adding vision later is a new producer feeding
  * an existing field rather than a schema migration through every caller.
@@ -144,7 +144,7 @@ export const vendorRequestComposer = defineWorkflow({
   name: 'Vendor Request Composer',
   version: '1.0.0',
   promptVersion: PROMPT_VERSION,
-  model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+  model: resolveModel(),
   // A work order is a proposal until a board member approves it. Static, as
   // in W3/W21/W22/W23/W32 — never flipped conditionally in run().
   humanApprovalRequired: true,
@@ -153,7 +153,7 @@ export const vendorRequestComposer = defineWorkflow({
 
   async run(input, api, _ctx) {
     const completion = await getClient().chat.completions.create({
-      model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+      model: resolveModel(),
       temperature: 0.2,
       max_tokens: 1500,
       response_format: { type: 'json_object' },

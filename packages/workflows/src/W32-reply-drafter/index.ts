@@ -11,7 +11,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow, type WorkflowExecuteApi } from '@homeowner-portal/ai'
+import { defineWorkflow, type WorkflowExecuteApi, resolveModel } from '@homeowner-portal/ai'
 import { PROMPT_VERSION, REPLY_DRAFTER_SYSTEM, buildReplyDrafterUserPrompt } from './prompt'
 import { validateCitations, InvalidCitationError, UnsupportedQuoteError } from './tools'
 
@@ -108,7 +108,7 @@ export const replyDrafter = defineWorkflow({
   // meaningfully — this changes how run() behaves on a citation failure).
   version: '1.1.0',
   promptVersion: PROMPT_VERSION,
-  model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+  model: resolveModel(),
   // Declared, not merely enforced in the UI. A draft is a proposal; only a
   // board member can send it. Static per spec §5 W32 (matches W3/W21/W22/W23,
   // which also set this directly rather than flip it conditionally in run()).
@@ -227,7 +227,7 @@ export async function generateReplyDraft(
 
 const callModel: ModelCaller = async (messages) => {
   const completion = await getClient().chat.completions.create({
-    model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+    model: resolveModel(),
     temperature: 0.2,
     max_tokens: 1500,
     response_format: { type: 'json_object' },

@@ -13,7 +13,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow } from '@homeowner-portal/ai'
+import { defineWorkflow, resolveModel } from '@homeowner-portal/ai'
 import { createAdminClient } from '@homeowner-portal/db'
 import {
   PROMPT_VERSION,
@@ -102,7 +102,7 @@ export const rfpComposer = defineWorkflow({
   name: 'RFP Composer',
   version: '0.2.0',
   promptVersion: PROMPT_VERSION,
-  model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+  model: resolveModel(),
   // Drafts are never auto-published. Board approval mandatory.
   humanApprovalRequired: true,
   inputSchema: RfpComposerInputSchema,
@@ -147,7 +147,7 @@ export const rfpComposer = defineWorkflow({
     })
 
     const completion = await getClient().chat.completions.create({
-      model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+      model: resolveModel(),
       response_format: { type: 'json_object' },
       temperature: 0.2,
       messages: [

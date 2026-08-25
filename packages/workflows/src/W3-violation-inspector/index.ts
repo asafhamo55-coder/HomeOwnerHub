@@ -19,7 +19,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow } from '@homeowner-portal/ai'
+import { defineWorkflow, resolveModel } from '@homeowner-portal/ai'
 import { createAdminClient } from '@homeowner-portal/db'
 import { retrieveChunks } from '../W1-governing-docs-brain/tools'
 import { PROMPT_VERSION, SYSTEM_PROMPT, userPromptFor } from './prompt'
@@ -78,7 +78,7 @@ export const violationInspector = defineWorkflow({
   name: 'Violation Inspector',
   version: '1.0.0',
   promptVersion: PROMPT_VERSION,
-  model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+  model: resolveModel(),
   humanApprovalRequired: true, // spec §5 W3: mandatory board approval
   inputSchema: ViolationInspectorInputSchema,
   outputSchema: ViolationInspectorOutputSchema,
@@ -127,7 +127,7 @@ export const violationInspector = defineWorkflow({
     api.addCitations(retrieved.map((c) => c.id))
 
     const completion = await getClient().chat.completions.create({
-      model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+      model: resolveModel(),
       temperature: 0.2, // some variability is OK in the prose; not the citation
       max_tokens: 1200,
       response_format: { type: 'json_object' },
