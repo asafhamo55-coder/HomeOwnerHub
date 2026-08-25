@@ -8,7 +8,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow } from '@homeowner-portal/ai'
+import { defineWorkflow, resolveModel } from '@homeowner-portal/ai'
 import {
   PROMPT_VERSION,
   SYSTEM_PROMPT,
@@ -58,13 +58,13 @@ export const commComposer = defineWorkflow({
   name: 'Communication Composer',
   version: '1.0.0',
   promptVersion: PROMPT_VERSION,
-  model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+  model: resolveModel(),
   humanApprovalRequired: false, // AI drafts; manager always reviews before sending
   inputSchema: CommComposerInputSchema,
   outputSchema: CommComposerOutputSchema,
 
   async run(input, api, _ctx) {
-    const modelId = process.env.AI_MODEL ?? 'llama-3.3-70b-versatile'
+    const modelId = resolveModel()
     api.setModel(modelId)
 
     // No LLM configured? Return a placeholder variant so the UI doesn't

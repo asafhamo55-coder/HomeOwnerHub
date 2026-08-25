@@ -9,7 +9,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow } from '@homeowner-portal/ai'
+import { defineWorkflow, resolveModel } from '@homeowner-portal/ai'
 import { createAdminClient } from '@homeowner-portal/db'
 import { PROMPT_VERSION, SYSTEM_PROMPT, userPromptFor } from './prompt'
 import { retrieveChunks } from './tools'
@@ -91,7 +91,7 @@ export const governingDocsBrain = defineWorkflow({
   name: 'Governing Docs Brain',
   version: '1.0.0',
   promptVersion: PROMPT_VERSION,
-  model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+  model: resolveModel(),
   humanApprovalRequired: false,
   inputSchema: GoverningDocsBrainInputSchema,
   outputSchema: GoverningDocsBrainOutputSchema,
@@ -131,7 +131,7 @@ export const governingDocsBrain = defineWorkflow({
 
     const client = getClient()
     const completion = await client.chat.completions.create({
-      model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+      model: resolveModel(),
       temperature: 0.1, // grounded RAG — keep it tight
       max_tokens: 600,
       response_format: { type: 'json_object' },

@@ -15,6 +15,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
+import { resolveModel } from '@homeowner-portal/ai'
 import { TOOLS, TOOL_BY_NAME, type DocsCitation, type DocsToolResult } from './tools'
 
 type Db = SupabaseClient<Database>
@@ -86,7 +87,7 @@ export async function askCommunity(
 ): Promise<AgentResult> {
   const apiKey = process.env.AI_API_KEY
   const baseUrl = process.env.AI_BASE_URL ?? 'https://api.groq.com/openai/v1'
-  const model = process.env.AI_MODEL ?? 'llama-3.3-70b-versatile'
+  const model = resolveModel()
   if (!apiKey) {
     throw new Error('AI_API_KEY not set on the server.')
   }

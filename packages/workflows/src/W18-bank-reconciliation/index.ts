@@ -16,7 +16,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow } from '@homeowner-portal/ai'
+import { defineWorkflow, resolveModel } from '@homeowner-portal/ai'
 import {
   createAdminClient,
   loadAccountingRefs,
@@ -77,7 +77,7 @@ export const bankReconciliationAgent = defineWorkflow({
   name: 'Bank Reconciliation Agent',
   version: '1.0.0',
   promptVersion: PROMPT_VERSION,
-  model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+  model: resolveModel(),
   // Step A's auto-post does NOT require human approval. B/C/D do; the
   // body flips this per-run via api.requireHumanApproval().
   humanApprovalRequired: false,
@@ -292,7 +292,7 @@ async function runStepD(
     vendors,
   })
 
-  const modelId = process.env.AI_MODEL ?? 'llama-3.3-70b-versatile'
+  const modelId = resolveModel()
   input.api.setModel(modelId)
 
   let llmResponse: {

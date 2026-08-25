@@ -16,7 +16,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow } from '@homeowner-portal/ai'
+import { defineWorkflow, resolveModel } from '@homeowner-portal/ai'
 import { createAdminClient } from '@homeowner-portal/db'
 import {
   PROMPT_VERSION,
@@ -142,7 +142,7 @@ export const vendorOnboarder = defineWorkflow({
   name: 'Vendor Onboarder',
   version: '0.2.0',
   promptVersion: PROMPT_VERSION,
-  model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+  model: resolveModel(),
   // Compliance status is advisory — a board/manager flips vendors.status
   // to 'active'. The workflow never does.
   humanApprovalRequired: true,
@@ -208,7 +208,7 @@ export const vendorOnboarder = defineWorkflow({
     })
 
     const completion = await getClient().chat.completions.create({
-      model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+      model: resolveModel(),
       response_format: { type: 'json_object' },
       temperature: 0.1,
       messages: [

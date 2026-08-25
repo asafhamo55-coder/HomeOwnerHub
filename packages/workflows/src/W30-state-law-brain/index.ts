@@ -15,7 +15,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow } from '@homeowner-portal/ai'
+import { defineWorkflow, resolveModel } from '@homeowner-portal/ai'
 import { PROMPT_VERSION, SYSTEM_PROMPT, userPromptFor } from './prompt'
 import { retrieveStatuteChunks } from './tools'
 
@@ -69,7 +69,7 @@ export const stateLawBrain = defineWorkflow({
   name: 'State Law Brain',
   version: '1.0.0',
   promptVersion: PROMPT_VERSION,
-  model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+  model: resolveModel(),
   // Q&A is read-only; no human approval needed for the answer. The
   // disclaimer carries the "this isn't legal advice" load.
   humanApprovalRequired: false,
@@ -100,7 +100,7 @@ export const stateLawBrain = defineWorkflow({
     api.addCitations(retrieved.map((c) => c.id))
 
     const completion = await getClient().chat.completions.create({
-      model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+      model: resolveModel(),
       temperature: 0.1,
       max_tokens: 800,
       response_format: { type: 'json_object' },

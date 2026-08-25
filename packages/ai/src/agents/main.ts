@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { resolveModel } from '../model'
 
 let _client: OpenAI | null = null
 function getClient(): OpenAI {
@@ -10,7 +11,7 @@ function getClient(): OpenAI {
   return _client
 }
 
-export const MODEL_MAIN = process.env.AI_MODEL ?? 'Qwen/Qwen2.5-14B-Instruct'
+export const MODEL_MAIN = resolveModel()
 
 export async function runMain(
   messages: OpenAI.ChatCompletionMessageParam[],

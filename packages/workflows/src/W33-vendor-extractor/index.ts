@@ -16,7 +16,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow } from '@homeowner-portal/ai'
+import { defineWorkflow, resolveModel } from '@homeowner-portal/ai'
 import { PROMPT_VERSION, SYSTEM_PROMPT, userPromptFor } from './prompt'
 
 // ─── Schemas ─────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ export const vendorExtractor = defineWorkflow({
   name: 'Vendor Extractor',
   version: '2.0.0',
   promptVersion: PROMPT_VERSION,
-  model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+  model: resolveModel(),
   // The output is proposed into a form a board member confirms before any
   // vendor row is written — the same posture as W32's drafts.
   humanApprovalRequired: true,
@@ -128,7 +128,7 @@ export const vendorExtractor = defineWorkflow({
 
   async run(input, api, _ctx) {
     const completion = await getClient().chat.completions.create({
-      model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile',
+      model: resolveModel(),
       // Zero temperature: this is extraction, not composition. Any
       // creativity here is, by definition, invention.
       temperature: 0,
