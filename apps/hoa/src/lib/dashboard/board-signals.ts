@@ -14,12 +14,7 @@
  * pure function is the only way to test them without a database.
  */
 
-import type {
-  ApprovalsInbox,
-  AtRiskResult,
-  LeaseSummary,
-  ResidentQueueCounts,
-} from './queries'
+import type { AtRiskResult, LeaseSummary, ResidentQueueCounts, StaleApprovalCount } from './queries'
 import type { DashboardKpis } from './charts'
 import type { TriageSnapshot } from './triage'
 
@@ -48,8 +43,6 @@ export const STALE_APPROVAL_DAYS = 14
 /** Unmatched inbox threads before the property mapping needs attention. */
 export const UNTRIAGED_THRESHOLD = 5
 
-const MS_PER_DAY = 86_400_000
-
 export type SignalKind =
   | 'dues_overdue'
   | 'dues_trend'
@@ -76,13 +69,19 @@ export interface BoardSignal {
 }
 
 export interface BoardSignalsInput {
-  atRisk: AtRiskResult
-  approvals: ApprovalsInbox
+  /**
+   * Counts only — deliberately NOT the whole AtRiskResult. `items` is a
+   * six-row render list sliced after a sort that runs across all three
+   * kinds, and counting it is exactly the bug this narrowing makes
+   * unrepresentable: it under-reported every headline and could drop a
+   * red legal-exposure signal entirely.
+   */
+  atRisk: Pick<AtRiskResult, 'counts' | 'failed'>
+  staleApprovals: StaleApprovalCount
   lease: LeaseSummary
   residentQueues: ResidentQueueCounts
   kpis: DashboardKpis
   triage: TriageSnapshot
-  now?: Date
 }
 
 const SEVERITY_ORDER: Record<SignalSeverity, number> = { red: 0, amber: 1, info: 2 }
@@ -110,33 +109,43 @@ function pctChange(value: number, previous: number | null): number | null {
  * the caller decides how many reach the card, and the model decides which.
  */
 export function buildBoardSignals(input: BoardSignalsInput): BoardSignal[] {
-  const now = input.now ?? new Date()
   const signals: BoardSignal[] = []
+
+  // Every block below is guarded by its source's `failed` flag. A query
+  // that errored returns zeros, and a zero from a failed query means
+  // UNKNOWN — rendering it as "nothing is overdue" is the one kind of
+  // false reassurance a board card must never give. Only `triage` used to
+  // carry this flag; the rest were added when this feature promoted them
+  // into a card whose entire premise is that silence means all clear.
 
   // ─── Money ─────────────────────────────────────────────────────────
 
-  const duesOverdue = input.atRisk.items.filter((i) => i.kind === 'dues_overdue')
-  if (duesOverdue.length > 0) {
+  const atRisk = input.atRisk.failed ? null : input.atRisk.counts
+
+  if (atRisk !== null && atRisk.duesOverdueUnits > 0) {
     signals.push({
       kind: 'dues_overdue',
-      headline: `${duesOverdue.length} ${plural(duesOverdue.length, 'unit is', 'units are')} more than 30 days behind on dues`,
+      headline: `${atRisk.duesOverdueUnits} ${plural(atRisk.duesOverdueUnits, 'unit is', 'units are')} more than 30 days behind on dues`,
       href: '/dues',
       severity: 'red',
     })
   }
 
-  const duesPct = pctChange(
-    input.kpis.duesOutstandingUsd.value,
-    input.kpis.duesOutstandingUsd.previous,
-  )
+  const kpis = input.kpis.failed ? null : input.kpis
+
+  const duesPct =
+    kpis === null
+      ? null
+      : pctChange(kpis.duesOutstandingUsd.value, kpis.duesOutstandingUsd.previous)
   if (
+    kpis !== null &&
     duesPct !== null &&
     duesPct >= DUES_TREND_MIN_PCT &&
-    input.kpis.duesOutstandingUsd.value >= DUES_TREND_MIN_USD
+    kpis.duesOutstandingUsd.value >= DUES_TREND_MIN_USD
   ) {
     signals.push({
       kind: 'dues_trend',
-      headline: `Dues outstanding up ${duesPct}% over the last 30 days, now ${usd(input.kpis.duesOutstandingUsd.value)}`,
+      headline: `Dues outstanding up ${duesPct}% over the last 30 days, now ${usd(kpis.duesOutstandingUsd.value)}`,
       href: '/dues',
       severity: 'amber',
     })
@@ -144,50 +153,45 @@ export function buildBoardSignals(input: BoardSignalsInput): BoardSignal[] {
 
   // ─── Compliance ────────────────────────────────────────────────────
 
-  const cureDeadlines = input.atRisk.items.filter((i) => i.kind === 'cure_deadline')
-  if (cureDeadlines.length > 0) {
-    // daysOffset is negative once the deadline has passed. A deadline the
-    // association let slip is a different conversation from one coming up.
-    const elapsed = cureDeadlines.filter((i) => i.daysOffset < 0).length
-    signals.push(
-      elapsed > 0
-        ? {
-            kind: 'cure_deadline',
-            headline: `${elapsed} violation cure ${plural(elapsed, 'deadline has', 'deadlines have')} already elapsed`,
-            href: '/violations',
-            severity: 'red',
-          }
-        : {
-            kind: 'cure_deadline',
-            headline: `${cureDeadlines.length} violation cure ${plural(cureDeadlines.length, 'deadline falls', 'deadlines fall')} within the week`,
-            href: '/violations',
-            severity: 'amber',
-          },
-    )
+  if (atRisk !== null && atRisk.cureDeadlinesElapsed > 0) {
+    // A deadline the association let slip is a different conversation from
+    // one coming up, so the elapsed count wins the slot outright rather
+    // than being folded into a combined total.
+    signals.push({
+      kind: 'cure_deadline',
+      headline: `${atRisk.cureDeadlinesElapsed} violation cure ${plural(atRisk.cureDeadlinesElapsed, 'deadline has', 'deadlines have')} already elapsed`,
+      href: '/violations',
+      severity: 'red',
+    })
+  } else if (atRisk !== null && atRisk.cureDeadlinesUpcoming > 0) {
+    signals.push({
+      kind: 'cure_deadline',
+      headline: `${atRisk.cureDeadlinesUpcoming} violation cure ${plural(atRisk.cureDeadlinesUpcoming, 'deadline falls', 'deadlines fall')} within the week`,
+      href: '/violations',
+      severity: 'amber',
+    })
   }
 
-  const cois = input.atRisk.items.filter((i) => i.kind === 'coi_expiring')
-  if (cois.length > 0) {
+  if (atRisk !== null && atRisk.coiExpiring > 0) {
     signals.push({
       kind: 'coi_expiring',
-      headline: `${cois.length} vendor ${plural(cois.length, 'certificate of insurance expires', 'certificates of insurance expire')} within 30 days`,
+      headline: `${atRisk.coiExpiring} vendor ${plural(atRisk.coiExpiring, 'certificate of insurance expires', 'certificates of insurance expire')} within 30 days`,
       href: '/vendors',
       severity: 'amber',
     })
   }
 
-  const violationPct = pctChange(
-    input.kpis.openViolations.value,
-    input.kpis.openViolations.previous,
-  )
+  const violationPct =
+    kpis === null ? null : pctChange(kpis.openViolations.value, kpis.openViolations.previous)
   if (
+    kpis !== null &&
     violationPct !== null &&
     violationPct >= VIOLATION_TREND_MIN_PCT &&
-    input.kpis.openViolations.value >= VIOLATION_TREND_MIN_COUNT
+    kpis.openViolations.value >= VIOLATION_TREND_MIN_COUNT
   ) {
     signals.push({
       kind: 'violations_trend',
-      headline: `Open violations up ${violationPct}% over the last 30 days, now ${input.kpis.openViolations.value}`,
+      headline: `Open violations up ${violationPct}% over the last 30 days, now ${kpis.openViolations.value}`,
       href: '/violations',
       severity: 'amber',
     })
@@ -196,7 +200,11 @@ export function buildBoardSignals(input: BoardSignalsInput): BoardSignal[] {
   // ─── Leasing ───────────────────────────────────────────────────────
 
   const { lease } = input
+  // A failed leased-count query returns 0, which computes as MAXIMUM
+  // headroom — the signal would go quiet on exactly the day the community
+  // breaches its cap.
   if (
+    !lease.failed &&
     lease.hasAssociation &&
     lease.capPct !== null &&
     lease.headroom !== null &&
@@ -208,13 +216,13 @@ export function buildBoardSignals(input: BoardSignalsInput): BoardSignal[] {
       headline:
         lease.headroom === 0
           ? `Lease cap reached: ${lease.leasedCount} of ${lease.totalUnits} units leased against a ${lease.capPct}% cap${mixed}`
-          : `Lease cap nearly reached: ${lease.headroom} slot left under the ${lease.capPct}% cap${mixed}`,
+          : `Lease cap nearly reached: ${lease.headroom} ${plural(lease.headroom, 'slot', 'slots')} left under the ${lease.capPct}% cap${mixed}`,
       href: '/leases',
       severity: lease.headroom === 0 ? 'red' : 'amber',
     })
   }
 
-  if (lease.waitingListCount > 0) {
+  if (!lease.failed && lease.waitingListCount > 0) {
     signals.push({
       kind: 'waiting_list',
       headline: `${lease.waitingListCount} ${plural(lease.waitingListCount, 'property is', 'properties are')} queued on the lease waiting list`,
@@ -225,7 +233,10 @@ export function buildBoardSignals(input: BoardSignalsInput): BoardSignal[] {
 
   // ─── Resident queues ───────────────────────────────────────────────
 
-  const { residentQueues } = input
+  const residentQueues = input.residentQueues.failed
+    ? { openTickets: 0, pendingArcRequests: 0, openConcerns: 0 }
+    : input.residentQueues
+
   if (residentQueues.pendingArcRequests >= ARC_BACKLOG_THRESHOLD) {
     signals.push({
       kind: 'arc_backlog',
@@ -255,16 +266,15 @@ export function buildBoardSignals(input: BoardSignalsInput): BoardSignal[] {
 
   // ─── Board process ─────────────────────────────────────────────────
 
-  const stale = input.approvals.items.filter((i) => {
-    if (i.pendingSince === null) return false
-    const since = new Date(i.pendingSince).getTime()
-    if (Number.isNaN(since)) return false
-    return (now.getTime() - since) / MS_PER_DAY > STALE_APPROVAL_DAYS
-  })
-  if (stale.length > 0) {
+  // Counted by a dedicated query rather than by filtering the approvals
+  // inbox: that inbox takes the NEWEST 10 rows per source, and stale
+  // approvals are by definition the oldest — so the worse the backlog got,
+  // the closer the old implementation reported to zero.
+  const { staleApprovals } = input
+  if (!staleApprovals.failed && staleApprovals.count > 0) {
     signals.push({
       kind: 'stale_approvals',
-      headline: `${stale.length} board ${plural(stale.length, 'approval has', 'approvals have')} been pending over ${STALE_APPROVAL_DAYS} days`,
+      headline: `${staleApprovals.count} board ${plural(staleApprovals.count, 'approval has', 'approvals have')} been pending over ${STALE_APPROVAL_DAYS} days`,
       href: '/',
       severity: 'red',
     })

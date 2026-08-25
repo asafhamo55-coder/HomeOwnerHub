@@ -124,6 +124,14 @@ export function acceptInsights(
 
     const trimmed = why.trim()
     if (trimmed === '' || trimmed.length > MAX_INSIGHT_WHY_CHARS) continue
+    // No digit, ever. `why` renders directly beneath a headline whose
+    // figures came from SQL, so a model-authored number there reads as
+    // equally authoritative and is indistinguishable from a checked one.
+    // The prompt asks for no numbers; this is what makes it true. A real
+    // clause that cites "section 4.2" is collateral, and losing it costs
+    // one line of prose — far less than one wrong figure quoted in a
+    // board meeting.
+    if (/\d/.test(trimmed)) continue
 
     seen.add(kind)
     accepted.push({ kind, why: trimmed })

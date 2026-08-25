@@ -25,13 +25,17 @@ vi.mock('@/lib/dashboard/queries', () => ({
   getApprovalsInbox: vi.fn(async () => ({ items: [], totalCount: 3 })),
   getNextMeeting: vi.fn(async () => null),
   getAtRiskThisWeek: vi.fn(async () => ({
-    items: [
-      { kind: 'dues_overdue', id: 'a', title: 'x', severity: 'red', daysOffset: -45, href: '/x' },
-      { kind: 'cure_deadline', id: 'b', title: 'y', severity: 'red', daysOffset: -2, href: '/y' },
-      { kind: 'coi_expiring', id: 'c', title: 'z', severity: 'amber', daysOffset: 9, href: '/z' },
-    ],
+    items: [],
     totalCount: 3,
+    counts: {
+      duesOverdueUnits: 22,
+      cureDeadlinesElapsed: 4,
+      cureDeadlinesUpcoming: 0,
+      coiExpiring: 2,
+    },
+    failed: false,
   })),
+  getStaleApprovalCount: vi.fn(async () => ({ count: 25, failed: false })),
   getLeaseSummary: vi.fn(async () => ({
     hasAssociation: true,
     capPct: 15,
@@ -41,11 +45,13 @@ vi.mock('@/lib/dashboard/queries', () => ({
     headroom: 0,
     waitingListCount: 2,
     capIsMixed: false,
+    failed: false,
   })),
   getResidentQueueCounts: vi.fn(async () => ({
     openTickets: 20,
     pendingArcRequests: 5,
     openConcerns: 2,
+    failed: false,
   })),
 }))
 
@@ -55,6 +61,7 @@ vi.mock('@/lib/dashboard/charts', () => ({
     openViolations: { value: 0, previous: null },
     activeVendors: { value: 0, previous: null },
     openTickets: { value: 0, previous: null },
+    failed: false,
   })),
 }))
 
@@ -129,22 +136,102 @@ describe('POST /api/ai/daily-digest', () => {
 })
 
 describe('POST /api/ai/daily-digest board insights', () => {
-  it('renders our headline and link, never the model\'s', async () => {
-    // The model is given a kind and returns a kind. Everything the board
-    // reads as fact — the count, the link — comes from our own query.
+  it('renders our headline, link and severity even when the model supplies its own', async () => {
+    // The adversarial case: a model that returns a full-looking insight
+    // object. Everything the board reads as fact must still come from our
+    // query — the model contributes one clause and nothing else.
     vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
     vi.mocked(generateBoardInsights).mockResolvedValueOnce(
       JSON.stringify([
-        { kind: 'untriaged_mail', why: 'Unmapped mail hides owner complaints from the board.' },
+        {
+          kind: 'dues_overdue',
+          why: 'Collections are slipping ahead of the budget vote.',
+          headline: '2 units are behind on dues',
+          href: 'https://evil.example/phish',
+          severity: 'info',
+        },
       ]),
     )
 
     const body = await (await POST()).json()
 
-    const insight = body.insights.find((i: { kind: string }) => i.kind === 'untriaged_mail')
-    expect(insight.headline).toContain('365')
-    expect(insight.href).toBe('/inbox')
-    expect(insight.why).toBe('Unmapped mail hides owner complaints from the board.')
+    const insight = body.insights.find((i: { kind: string }) => i.kind === 'dues_overdue')
+    expect(insight.headline).toContain('22')
+    expect(insight.href).toBe('/dues')
+    expect(insight.severity).toBe('red')
+    expect(insight.why).toBe('Collections are slipping ahead of the budget vote.')
+  })
+
+  it('sends the model only a kind and a headline', async () => {
+    // Nothing pinned the OUTBOUND half: handing the model href/severity
+    // invites it to echo them back as if authoritative.
+    vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
+    vi.mocked(generateBoardInsights).mockResolvedValueOnce('[]')
+
+    await POST()
+
+    const sent = vi.mocked(generateBoardInsights).mock.calls.at(-1)![0].signals
+    expect(sent.length).toBeGreaterThan(0)
+    for (const signal of sent) {
+      expect(Object.keys(signal).sort()).toEqual(['headline', 'kind'])
+    }
+  })
+
+  it('does not call the model at all for a community with nothing firing', async () => {
+    const { getAtRiskThisWeek, getLeaseSummary, getResidentQueueCounts, getStaleApprovalCount } =
+      await import('@/lib/dashboard/queries')
+    const { getDashboardKpis } = await import('@/lib/dashboard/charts')
+    const { getTriageSnapshot } = await import('@/lib/dashboard/triage')
+
+    vi.mocked(getAtRiskThisWeek).mockResolvedValueOnce({
+      items: [],
+      totalCount: 0,
+      counts: {
+        duesOverdueUnits: 0,
+        cureDeadlinesElapsed: 0,
+        cureDeadlinesUpcoming: 0,
+        coiExpiring: 0,
+      },
+      failed: false,
+    })
+    vi.mocked(getStaleApprovalCount).mockResolvedValueOnce({ count: 0, failed: false })
+    vi.mocked(getLeaseSummary).mockResolvedValueOnce({
+      hasAssociation: true,
+      capPct: 15,
+      totalUnits: 100,
+      leasedCount: 2,
+      leasedPct: 2,
+      headroom: 13,
+      waitingListCount: 0,
+      capIsMixed: false,
+      failed: false,
+    })
+    vi.mocked(getResidentQueueCounts).mockResolvedValueOnce({
+      openTickets: 0,
+      pendingArcRequests: 0,
+      openConcerns: 0,
+      failed: false,
+    })
+    vi.mocked(getDashboardKpis).mockResolvedValueOnce({
+      duesOutstandingUsd: { value: 100, previous: 100 },
+      openViolations: { value: 0, previous: 0 },
+      activeVendors: { value: 0, previous: 0 },
+      openTickets: { value: 0, previous: 0 },
+      failed: false,
+    })
+    vi.mocked(getTriageSnapshot).mockResolvedValueOnce({
+      needsReply: { count: 0, oldestWaitingDays: null },
+      untriaged: { count: 0 },
+      threads: [],
+      failed: false,
+    })
+    vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('All quiet')
+    vi.mocked(generateBoardInsights).mockClear()
+
+    const body = await (await POST()).json()
+
+    expect(body.insights).toEqual([])
+    expect(generateBoardInsights).not.toHaveBeenCalled()
   })
 
   it('falls back to deterministic signals when the insight call fails', async () => {
@@ -181,5 +268,62 @@ describe('POST /api/ai/daily-digest board insights', () => {
     expect(
       body.insights.some((i: { kind: string }) => i.kind === 'reserve_study_overdue'),
     ).toBe(false)
+  })
+})
+
+describe('POST /api/ai/daily-digest insight safety', () => {
+  it('never lets the model delete a red finding', async () => {
+    // The model is allowed to select and explain. It is NOT allowed to
+    // decide the board should not hear about an elapsed cure deadline
+    // because it found the lease waiting list more interesting.
+    vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
+    vi.mocked(generateBoardInsights).mockResolvedValueOnce(
+      JSON.stringify([{ kind: 'waiting_list', why: 'Owners are queued behind the cap.' }]),
+    )
+
+    const body = await (await POST()).json()
+
+    const kinds = body.insights.map((i: { kind: string }) => i.kind)
+    expect(kinds).toContain('dues_overdue')
+    expect(kinds).toContain('cure_deadline')
+    expect(kinds).toContain('stale_approvals')
+  })
+
+  it('shows red findings before the model\'s own ordering', async () => {
+    vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
+    vi.mocked(generateBoardInsights).mockResolvedValueOnce(
+      JSON.stringify([
+        { kind: 'waiting_list', why: 'Owners are queued behind the cap.' },
+        { kind: 'dues_overdue', why: 'Collections are slipping before the vote.' },
+      ]),
+    )
+
+    const body = await (await POST()).json()
+
+    expect(body.insights[0].severity).toBe('red')
+  })
+
+  it('keeps the reds even when every model clause is rejected', async () => {
+    // A model that writes four good insights but runs long on all of them
+    // yields zero accepted entries. That must not blank the section.
+    vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
+    vi.mocked(generateBoardInsights).mockResolvedValueOnce(
+      JSON.stringify([{ kind: 'dues_overdue', why: 'x'.repeat(500) }]),
+    )
+
+    const body = await (await POST()).json()
+
+    expect(body.insights.length).toBe(4)
+    expect(body.insights[0].severity).toBe('red')
+  })
+
+  it('states the true unit count, not a display slice', async () => {
+    vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
+    vi.mocked(generateBoardInsights).mockResolvedValueOnce('[]')
+
+    const body = await (await POST()).json()
+
+    const dues = body.insights.find((i: { kind: string }) => i.kind === 'dues_overdue')
+    expect(dues.headline).toContain('22')
   })
 })

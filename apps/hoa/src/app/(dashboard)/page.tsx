@@ -17,8 +17,9 @@ import {
   getLeaseSummary,
   getNextMeeting,
   getResidentQueueCounts,
+  getStaleApprovalCount,
 } from '@/lib/dashboard/queries'
-import { buildBoardSignals } from '@/lib/dashboard/board-signals'
+import { buildBoardSignals, STALE_APPROVAL_DAYS } from '@/lib/dashboard/board-signals'
 import { MAX_INSIGHTS } from '@homeowner-portal/ai'
 import {
   getDashboardKpis,
@@ -133,6 +134,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     triage,
     community,
     residentQueues,
+    staleApprovals,
   ] = await Promise.all([
     getDashboardKpis(orgId),
     getViolationStatusDonut(orgId),
@@ -147,6 +149,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     getTriageSnapshot(supabase, orgId),
     getCommunitySnapshot(orgId),
     getResidentQueueCounts(orgId),
+    getStaleApprovalCount(orgId, STALE_APPROVAL_DAYS),
   ])
 
   const today = todayISO()
@@ -167,7 +170,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
   // on screen and already true.
   const initialInsights = buildBoardSignals({
     atRisk,
-    approvals,
+    staleApprovals,
     lease: leaseSummary,
     residentQueues,
     kpis,

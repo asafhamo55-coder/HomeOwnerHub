@@ -141,6 +141,46 @@ describe('acceptInsights', () => {
     ).toEqual([{ kind: 'lease_cap', why: 'Real.' }])
   })
 
+  it('discards every field but kind and why, even ones we would render', () => {
+    // This reconstruction IS the enforcement point for the whole design.
+    // Spreading the model's entry instead would let it supply a headline
+    // and an href that render as though they came from SQL.
+    expect(
+      acceptInsights(
+        json([
+          {
+            kind: 'lease_cap',
+            why: 'Needs a vote.',
+            headline: 'Two of a hundred units leased',
+            href: 'https://evil.example/phish',
+            severity: 'info',
+          },
+        ]),
+        ALLOWED,
+      ),
+    ).toEqual([{ kind: 'lease_cap', why: 'Needs a vote.' }])
+  })
+
+  it('drops a why containing a digit', () => {
+    // The whole design rests on "no number the board reads came from the
+    // model". `why` renders directly beneath the SQL headline, where it
+    // reads as equally authoritative, so the rule has to be enforced here
+    // rather than merely requested in the prompt.
+    expect(
+      acceptInsights(
+        json([
+          { kind: 'dues_trend', why: 'Roughly 3 units drive the whole balance.' },
+          { kind: 'lease_cap', why: 'Approving another lease would breach the CC&Rs.' },
+        ]),
+        ALLOWED,
+      ),
+    ).toEqual([{ kind: 'lease_cap', why: 'Approving another lease would breach the CC&Rs.' }])
+  })
+
+  it('drops a why containing a spelled-out figure written as digits inside a word', () => {
+    expect(acceptInsights(json([{ kind: 'lease_cap', why: 'Section 4.2 requires a vote.' }]), ALLOWED)).toEqual([])
+  })
+
   it('caps the list at MAX_INSIGHTS', () => {
     const five = ALLOWED.map((kind) => ({ kind, why: `Why ${kind}.` }))
     expect(five.length).toBeGreaterThan(MAX_INSIGHTS)

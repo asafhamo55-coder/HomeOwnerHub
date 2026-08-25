@@ -58,16 +58,26 @@ export function DailyDigestCard({
     setLoading(true)
     try {
       const res = await fetch('/api/ai/daily-digest', { method: 'POST' })
-      if (!res.ok) return
+      if (!res.ok) {
+        // No banner — see below — but the endpoint failing every time
+        // must leave a trace somewhere. Silent on screen is a deliberate
+        // choice; silent everywhere is a blind spot.
+        console.error('[daily-digest] refresh failed', res.status)
+        return
+      }
       const body = await res.json()
       setSuggestion(body.suggestion ?? null)
       setBullets(Array.isArray(body.bullets) ? body.bullets : [])
       setInsights(Array.isArray(body.insights) ? body.insights : [])
       setGeneratedAt(body.generatedAt ?? null)
-    } catch {
-      // No error state. The bullets on screen are server-rendered and
-      // still correct; a failed refresh costs at most a stale suggestion
-      // line, which is not worth an alarm banner.
+    } catch (err) {
+      // No error state. The bullets and insights on screen are
+      // server-rendered and still correct; a failed refresh costs at most
+      // a stale suggestion line, which is not worth an alarm banner.
+      console.error(
+        '[daily-digest] refresh threw',
+        err instanceof Error ? err.name : 'UnknownError',
+      )
     } finally {
       setLoading(false)
     }

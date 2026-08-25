@@ -62,6 +62,12 @@ export interface DashboardKpis {
   openViolations: KpiTrend
   activeVendors: KpiTrend
   openTickets: KpiTrend
+  /**
+   * True when any source query errored. Each KPI falls back to 0 on
+   * failure, and a 0 that means "the query broke" is indistinguishable
+   * from a 0 that means "nothing is outstanding" without this.
+   */
+  failed: boolean
 }
 
 // ─── Donut: violations by status ────────────────────────────────────
@@ -224,9 +230,20 @@ export async function getDashboardKpis(
   //
   // "Previous" = balance that was outstanding 30+ days ago, used by
   // the KPI trend arrow.
+  // A KPI that falls back to 0 on error reads as "nothing is outstanding".
+  // Consumers that state these numbers to a board need to tell the two
+  // apart. Code and message only — PostgrestError.details can carry row
+  // values.
+  let failed = false
+  const note = (error: { code?: string; message?: string } | null): void => {
+    if (!error) return
+    console.error('getDashboardKpis failed', { code: error.code, message: error.message })
+    failed = true
+  }
+
   let duesNow = 0
   let duesPrev = 0
-  const { data: assessmentRows } = await supabase
+  const { data: assessmentRows, error: assessmentsError } = await supabase
     .from('assessments')
     .select('amount, status, due_date, payments(amount)')
     .eq('organization_id', orgId)
@@ -234,6 +251,7 @@ export async function getDashboardKpis(
     .neq('status', 'paid')
     .neq('status', 'waived')
     .neq('status', 'written_off')
+  note(assessmentsError)
   if (assessmentRows) {
     for (const r of assessmentRows as Array<{
       amount: number | string | null
@@ -253,32 +271,36 @@ export async function getDashboardKpis(
   }
 
   // Open violations (current count).
-  const { count: violationsNow } = await supabase
+  const { count: violationsNow, error: violationsNowError } = await supabase
     .from('hoa_violations')
     .select('id', { count: 'exact', head: true })
     .eq('org_id', orgId)
     .is('deleted_at', null)
     .in('status', ['open', 'notice_sent'])
-  const { count: violationsPrev } = await supabase
+  note(violationsNowError)
+  const { count: violationsPrev, error: violationsPrevError } = await supabase
     .from('hoa_violations')
     .select('id', { count: 'exact', head: true })
     .eq('org_id', orgId)
     .is('deleted_at', null)
     .in('status', ['open', 'notice_sent'])
     .lt('created_at', thirtyDaysAgo.toISOString())
+  note(violationsPrevError)
 
-  const { count: activeVendors } = await supabase
+  const { count: activeVendors, error: vendorsError } = await supabase
     .from('vendors' as never)
     .select('id', { count: 'exact', head: true })
     .eq('organization_id', orgId)
     .eq('status', 'active')
+  note(vendorsError)
 
-  const { count: openTickets } = await supabase
+  const { count: openTickets, error: ticketsError } = await supabase
     .from('tickets' as never)
     .select('id', { count: 'exact', head: true })
     .eq('organization_id', orgId)
     .in('status', ['open', 'in_progress'])
     .is('deleted_at', null)
+  note(ticketsError)
 
   return {
     duesOutstandingUsd: { value: duesNow, previous: duesPrev || null },
@@ -288,5 +310,6 @@ export async function getDashboardKpis(
     },
     activeVendors: { value: activeVendors ?? 0, previous: null },
     openTickets: { value: openTickets ?? 0, previous: null },
+    failed,
   }
 }

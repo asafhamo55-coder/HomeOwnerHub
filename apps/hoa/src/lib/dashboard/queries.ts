@@ -62,9 +62,36 @@ export interface AtRiskItem {
   href: string
 }
 
+/**
+ * True totals, counted BEFORE `items` is sliced for display.
+ *
+ * `items` is a 6-row render list chosen by a sort that runs across all
+ * three kinds at once, so counting it under-reports every kind and can
+ * drop a kind entirely. Anything that states a number to a user must read
+ * these instead.
+ */
+export interface AtRiskCounts {
+  /** DISTINCT units behind, not assessment rows — one unit three months
+   *  behind is one unit, not three. */
+  duesOverdueUnits: number
+  cureDeadlinesElapsed: number
+  cureDeadlinesUpcoming: number
+  coiExpiring: number
+}
+
 export interface AtRiskResult {
   items: AtRiskItem[]
   totalCount: number
+  counts: AtRiskCounts
+  /** True when any source query errored — the counts are UNKNOWN, not 0. */
+  failed: boolean
+}
+
+/** Board approvals that have sat pending longer than the caller's window. */
+export interface StaleApprovalCount {
+  count: number
+  /** True when any source query errored — the count is UNKNOWN, not 0. */
+  failed: boolean
 }
 
 export interface NextMeetingInfo {
@@ -101,6 +128,21 @@ export interface LeaseSummary {
    * this so the manager doesn't assume the cap is uniform.
    */
   capIsMixed: boolean
+  /**
+   * True when any source query errored. Matters more here than elsewhere:
+   * a failed leased-count returns 0, which computes as MAXIMUM headroom,
+   * so a consumer that trusts it goes quiet on the day the cap breaks.
+   */
+  failed: boolean
+}
+
+/**
+ * Log a failed dashboard query. Code and message only: PostgrestError's
+ * `details` can carry row values, and nothing on this dashboard may put
+ * community data into a log line. Same convention as triage.ts.
+ */
+function logQueryError(fn: string, error: { code?: string; message?: string }): void {
+  console.error(`${fn} failed`, { code: error.code, message: error.message })
 }
 
 export async function getDashboardStats(
@@ -362,11 +404,19 @@ export async function getLeaseSummary(
 ): Promise<LeaseSummary> {
   const supabase = await resolveClient(client)
 
+  let failed = false
+  const note = (error: { code?: string; message?: string } | null): void => {
+    if (!error) return
+    logQueryError('getLeaseSummary', error)
+    failed = true
+  }
+
   // 1. Resolve associations + their caps in one query.
-  const { data: assocs } = await supabase
+  const { data: assocs, error: assocsError } = await supabase
     .from('associations' as never)
     .select('id, lease_cap_pct')
     .eq('organization_id', orgId)
+  note(assocsError)
   const assocRows = ((assocs ?? []) as unknown as Array<{
     id: string
     lease_cap_pct: number | string | null
@@ -381,6 +431,7 @@ export async function getLeaseSummary(
       headroom: null,
       waitingListCount: 0,
       capIsMixed: false,
+      failed,
     }
   }
   const assocIds = assocRows.map((a) => a.id)
@@ -406,11 +457,15 @@ export async function getLeaseSummary(
   }
 
   // 2. Resolve the units → properties for tenure roll-up.
-  const { data: unitsRows } = await supabase
+  const { data: unitsRows, error: unitsError } = await supabase
     .from('units' as never)
     .select('legacy_hoa_property_id')
     .in('association_id', assocIds)
     .not('legacy_hoa_property_id', 'is', null)
+    // PostgREST caps rows at 1000 by default. Without this the denominator
+    // in "N of M units leased" is a paging artefact, not the community.
+    .range(0, 49_999)
+  note(unitsError)
   const propertyIds = ((unitsRows ?? []) as unknown as Array<{
     legacy_hoa_property_id: string | null
   }>)
@@ -419,22 +474,24 @@ export async function getLeaseSummary(
 
   let leasedCount = 0
   if (propertyIds.length > 0) {
-    const { count } = await supabase
+    const { count, error: leasedError } = await supabase
       .from('hoa_properties')
       .select('id', { count: 'exact', head: true })
       .in('id', propertyIds)
       .is('deleted_at', null)
       .eq('tenure' as never, 'leased')
+    note(leasedError)
     leasedCount = count ?? 0
   }
   const totalUnits = propertyIds.length
 
   // 3. Waiting-list count (status='waiting' across all associations).
-  const { count: waitingListCount } = await supabase
+  const { count: waitingListCount, error: waitingError } = await supabase
     .from('lease_waiting_list' as never)
     .select('id', { count: 'exact', head: true })
     .in('association_id', assocIds)
     .eq('status', 'waiting')
+  note(waitingError)
 
   const leasedPct = totalUnits === 0 ? 0 : (leasedCount / totalUnits) * 100
   const headroom =
@@ -451,6 +508,7 @@ export async function getLeaseSummary(
     headroom,
     waitingListCount: waitingListCount ?? 0,
     capIsMixed,
+    failed,
   }
 }
 
@@ -525,6 +583,8 @@ export interface ResidentQueueCounts {
   pendingArcRequests: number
   /** Resident-reported concerns submitted or under review. */
   openConcerns: number
+  /** True when any of the three counts errored — they are UNKNOWN, not 0. */
+  failed: boolean
 }
 
 // Counts of the three resident-submitted queues the board must action.
@@ -557,10 +617,83 @@ export async function getResidentQueueCounts(
       .in('status', ['submitted', 'under_review']),
   ])
 
+  const failed = [tickets, arc, concerns].some((r) => {
+    if (!r.error) return false
+    logQueryError('getResidentQueueCounts', r.error)
+    return true
+  })
+
   return {
     openTickets: tickets.count ?? 0,
     pendingArcRequests: arc.count ?? 0,
     openConcerns: concerns.count ?? 0,
+    failed,
+  }
+}
+
+/**
+ * How many board approvals have been pending longer than `days`.
+ *
+ * Deliberately NOT derived from getApprovalsInbox: that function takes the
+ * newest 10 rows per source for display, and stale approvals are by
+ * definition the oldest, so filtering its output reports closer to zero the
+ * worse the backlog gets. These are `head: true` counts — no row transfer.
+ *
+ * Meeting minutes are matched on `updated_at`, mirroring the `pendingSince`
+ * that getApprovalsInbox reports for that kind.
+ */
+export async function getStaleApprovalCount(
+  orgId: string,
+  days: number,
+  client?: AnyClient,
+): Promise<StaleApprovalCount> {
+  const supabase = await resolveClient(client)
+  const cutoff = new Date(Date.now() - days * 86_400_000).toISOString()
+
+  const [violations, minutes, invoices, rfps] = await Promise.all([
+    supabase
+      .from('hoa_violations')
+      .select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId)
+      .is('deleted_at', null)
+      .not('ai_draft_letter', 'is', null)
+      .is('approved_at', null)
+      .lt('created_at', cutoff),
+
+    supabase
+      .from('hoa_meeting_minutes')
+      .select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId)
+      .is('deleted_at', null)
+      .neq('status', 'approved')
+      .lt('updated_at', cutoff),
+
+    supabase
+      .from('invoices')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgId)
+      .eq('status', 'coded')
+      .lt('created_at', cutoff),
+
+    supabase
+      .from('rfps')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgId)
+      .eq('status', 'draft')
+      .eq('ai_generated', true)
+      .lt('created_at', cutoff),
+  ])
+
+  const sources = [violations, minutes, invoices, rfps]
+  const failed = sources.some((r) => {
+    if (!r.error) return false
+    logQueryError('getStaleApprovalCount', r.error)
+    return true
+  })
+
+  return {
+    count: sources.reduce((sum, r) => sum + (r.count ?? 0), 0),
+    failed,
   }
 }
 
@@ -716,7 +849,7 @@ export async function getAtRiskThisWeek(
       ? supabase
           .from('assessments')
           .select(
-            'id, due_date, amount, status, unit:units(unit_number)',
+            'id, due_date, amount, status, unit_id, unit:units(unit_number)',
           )
           .in('association_id', assocIds)
           .is('deleted_at', null)
@@ -728,8 +861,10 @@ export async function getAtRiskThisWeek(
             due_date: string
             amount: number
             status: string
+            unit_id: string | null
             unit: { unit_number: string | null } | null
           }[],
+          error: null,
         })
 
   const [violations, assessments, cois] = await Promise.all([
@@ -791,8 +926,13 @@ export async function getAtRiskThisWeek(
     due_date: string
     amount: number
     status: string
+    unit_id: string | null
     unit: { unit_number: string | null } | null
   }
+  // DISTINCT units, not assessment rows: one unit three months behind is
+  // one delinquent unit. Rows with no unit_id count individually rather
+  // than collapsing into one phantom unit.
+  const overdueUnitIds = new Set<string>()
   for (const a of (assessments.data ?? []) as unknown as ARow[]) {
     if (!a.due_date) continue
     const dueMs = new Date(a.due_date).getTime()
@@ -803,6 +943,7 @@ export async function getAtRiskThisWeek(
       maximumFractionDigits: 0,
     })
     const unitLabel = a.unit?.unit_number ? `Unit ${a.unit.unit_number}` : 'Unit'
+    overdueUnitIds.add(a.unit_id ?? `assessment:${a.id}`)
     items.push({
       kind: 'dues_overdue',
       id: a.id,
@@ -838,7 +979,28 @@ export async function getAtRiskThisWeek(
   // Most-overdue first.
   items.sort((a, b) => a.daysOffset - b.daysOffset)
 
-  return { items: items.slice(0, 6), totalCount: items.length }
+  // Counted here, BEFORE the slice below. The slice is a render budget for
+  // the At-Risk card; a caller that states a number to a board member must
+  // read `counts`. The sort above runs across all three kinds at once, so
+  // counting the sliced array both under-reports and can silently drop a
+  // whole kind — a community with six badly overdue assessments would
+  // report zero elapsed cure deadlines.
+  const cureRows = items.filter((i) => i.kind === 'cure_deadline')
+  const counts: AtRiskCounts = {
+    duesOverdueUnits: overdueUnitIds.size,
+    cureDeadlinesElapsed: cureRows.filter((i) => i.daysOffset < 0).length,
+    cureDeadlinesUpcoming: cureRows.filter((i) => i.daysOffset >= 0).length,
+    coiExpiring: items.filter((i) => i.kind === 'coi_expiring').length,
+  }
+
+  const failed = [violations, assessments, cois].some((r) => {
+    const error = (r as { error?: { code?: string; message?: string } | null }).error
+    if (!error) return false
+    logQueryError('getAtRiskThisWeek', error)
+    return true
+  })
+
+  return { items: items.slice(0, 6), totalCount: items.length, counts, failed }
 }
 
 /**
