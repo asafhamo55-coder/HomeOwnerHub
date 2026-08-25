@@ -30,7 +30,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPropertyDetail, type PropertyTenure } from '@/lib/properties'
 import { listProperties } from '@/lib/properties/list'
 import { parsePropertyListParams } from '@/lib/properties/list-params'
-import { getLeaseCap } from '@/lib/leases'
+import { getLeaseCap, getOpenWaitingListEntries } from '@/lib/leases'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getCurrentUserRole } from '@/lib/auth'
 import {
@@ -142,6 +142,11 @@ export default async function PropertyDetailPage({
   const [assoc] = await Promise.all([getPrimaryAssociation()])
   const cap = assoc ? await getLeaseCap(assoc.id) : null
   const capInPlace = cap?.capPct !== null && cap?.capPct !== undefined
+
+  // Whether this property is already queued to lease. Drives the Tenure
+  // card's badge and suppresses a second "Add to waiting list" button
+  // that the action would only reject as a duplicate.
+  const openWaitingEntry = (await getOpenWaitingListEntries([id])).get(id) ?? null
 
   // Resolve the v1 unit row for this legacy property (migration 0005
   // backfills `units.legacy_hoa_property_id`). Assessments live keyed
@@ -262,6 +267,7 @@ export default async function PropertyDetailPage({
   let rows: Awaited<ReturnType<typeof listProperties>>['rows'] = []
   let total = 0
   let counts = { attention: 0, incomplete: 0, all: 0 }
+  let listWaitingIds = new Set<string>()
   let listError: string | null = null
   if (ctx) {
     try {
@@ -295,6 +301,11 @@ export default async function PropertyDetailPage({
         incomplete: incompleteCount.count ?? 0,
         all: allCount.count ?? 0,
       }
+      // Same enrichment /properties/page.tsx does, so the "Waiting list"
+      // pill doesn't vanish from the aside the moment you open a property.
+      listWaitingIds = new Set(
+        (await getOpenWaitingListEntries(rows.map((r) => r.id))).keys(),
+      )
     } catch (e) {
       listError = e instanceof Error ? e.message : 'Could not load properties.'
     }
@@ -345,7 +356,12 @@ export default async function PropertyDetailPage({
             </Alert>
           ) : (
             <>
-              <PropertyList rows={rows} selectedId={id} params={listParams} />
+              <PropertyList
+                rows={rows}
+                selectedId={id}
+                params={listParams}
+                waitingIds={listWaitingIds}
+              />
               <PropertyListPager params={listParams} rowCount={rows.length} total={total} />
             </>
           )}
@@ -372,6 +388,7 @@ export default async function PropertyDetailPage({
               ownerEmail={p.owner_email}
               ownerPhone={p.owner_phone}
               tenure={tenure}
+              onWaitingList={openWaitingEntry !== null}
               stats={stats}
               currentTab={tab}
               query={query}
@@ -382,6 +399,7 @@ export default async function PropertyDetailPage({
                   tenureUpdatedAt={detail.property.tenure_updated_at}
                   tenure={tenure}
                   capInPlace={capInPlace}
+                  waitingSince={openWaitingEntry?.requested_at ?? null}
                   isAdmin={isAdmin}
                   unitId={unitId}
                   violationCount={violations.length}
@@ -430,6 +448,7 @@ function OverviewTab({
   tenureUpdatedAt,
   tenure,
   capInPlace,
+  waitingSince,
   isAdmin,
   unitId,
   violationCount,
@@ -443,6 +462,8 @@ function OverviewTab({
   tenureUpdatedAt: string | null
   tenure: PropertyTenure
   capInPlace: boolean
+  /** requested_at of this property's open waiting-list entry, or null. */
+  waitingSince: string | null
   isAdmin: boolean
   unitId: string | null
   violationCount: number
@@ -488,9 +509,17 @@ function OverviewTab({
         </Card>
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <CardTitle className="text-base">Tenure</CardTitle>
-              <TenureBadge tenure={tenure} />
+              <div className="flex flex-wrap items-center gap-1.5">
+                <TenureBadge tenure={tenure} />
+                {waitingSince ? (
+                  <Badge variant="info" size="sm">
+                    <Clock className="mr-1 h-3 w-3" />
+                    On waiting list
+                  </Badge>
+                ) : null}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
@@ -499,10 +528,20 @@ function OverviewTab({
                 ? `Updated ${format(new Date(tenureUpdatedAt), 'PP')}`
                 : 'Never recorded — set the current state below.'}
             </p>
+            {waitingSince ? (
+              <p className="text-xs text-muted">
+                Queued to lease since {format(new Date(waitingSince), 'PP')} —{' '}
+                <Link href="/leases" className="text-primary hover:underline">
+                  approve or withdraw on Leases
+                </Link>
+                .
+              </p>
+            ) : null}
             <TenureSelector
               propertyId={p.id}
               currentTenure={tenure}
               capInPlace={capInPlace}
+              alreadyWaiting={waitingSince !== null}
             />
             <div className="pt-2 text-xs text-muted">
               <p>

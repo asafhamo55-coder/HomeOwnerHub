@@ -17,9 +17,11 @@ import {
   getLeaseStats,
   getLeaseCap,
   listWaitingList,
+  listWaitingListCandidates,
 } from '@/lib/leases'
 import { LeaseCapEditor } from './LeaseCapEditor'
 import { WaitingListActions } from './WaitingListActions'
+import { AddToWaitingList } from './AddToWaitingList'
 
 export const metadata = { title: 'Leases' }
 export const dynamic = 'force-dynamic'
@@ -42,10 +44,11 @@ export default async function LeasesPage() {
     )
   }
 
-  const [stats, cap, waiting] = await Promise.all([
+  const [stats, cap, waiting, candidates] = await Promise.all([
     getLeaseStats(assoc.id),
     getLeaseCap(assoc.id),
     listWaitingList(assoc.id),
+    listWaitingListCandidates(assoc.id),
   ])
 
   const waitingCount = waiting.filter((w) => w.status === 'waiting').length
@@ -155,7 +158,10 @@ export default async function LeasesPage() {
 
       {/* ─── Waiting list ─── */}
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
+        {/* flex-wrap + a w-full card: the trigger sits beside the heading
+            while collapsed, and the expanded form wraps onto its own
+            full-width line rather than being squeezed into the gutter. */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
             Waiting list{' '}
             {waitingCount > 0 ? (
@@ -164,6 +170,7 @@ export default async function LeasesPage() {
               </span>
             ) : null}
           </h2>
+          <AddToWaitingList candidates={candidates} />
         </div>
 
         {openWaiting.length === 0 ? (
@@ -172,8 +179,8 @@ export default async function LeasesPage() {
             title="No one waiting"
             description={
               cap?.capPct === null || cap?.capPct === undefined
-                ? "There's no cap yet, so nobody needs to wait. Set a cap above if your declaration imposes one."
-                : 'When owners can’t lease because the cap is full, they’ll appear here in the order they asked.'
+                ? "There's no cap yet, so nobody needs to wait. Set a cap above if your declaration imposes one. You can still queue a property with “Add property” above."
+                : 'When owners can’t lease because the cap is full, they’ll appear here in the order they asked. Use “Add property” above to queue one yourself.'
             }
           />
         ) : (

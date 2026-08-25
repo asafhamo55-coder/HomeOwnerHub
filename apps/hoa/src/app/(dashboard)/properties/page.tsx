@@ -2,6 +2,7 @@ import { Alert } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { listProperties } from '@/lib/properties/list'
+import { getOpenWaitingListEntries } from '@/lib/leases'
 import { parsePropertyListParams } from '@/lib/properties/list-params'
 import { PropertyList } from './PropertyList'
 import { PropertyListFilters } from './PropertyListFilters'
@@ -30,6 +31,7 @@ export default async function PropertiesPage({
   let rows: Awaited<ReturnType<typeof listProperties>>['rows'] = []
   let total = 0
   let counts = { attention: 0, incomplete: 0, all: 0 }
+  let waitingIds = new Set<string>()
   let error: string | null = null
   try {
     const result = await listProperties(supabase, org.id, params)
@@ -62,6 +64,14 @@ export default async function PropertiesPage({
       incomplete: incompleteCount.count ?? 0,
       all: allCount.count ?? 0,
     }
+
+    // Which of the rows on THIS page are queued to lease. Scoped to the
+    // 50 visible ids rather than joined into hoa_property_list_v: the
+    // view would need a migration applied before the read worked at all,
+    // and a waiting-list flag is enrichment, not a sort key.
+    waitingIds = new Set(
+      (await getOpenWaitingListEntries(rows.map((r) => r.id))).keys(),
+    )
   } catch (e) {
     // Surfaced in the list pane rather than crashing the route, so the
     // rest of the page stays usable — the old page rendered a raw
@@ -92,7 +102,7 @@ export default async function PropertiesPage({
             </Alert>
           ) : (
             <>
-              <PropertyList rows={rows} params={params} />
+              <PropertyList rows={rows} params={params} waitingIds={waitingIds} />
               <PropertyListPager params={params} rowCount={rows.length} total={total} />
             </>
           )}

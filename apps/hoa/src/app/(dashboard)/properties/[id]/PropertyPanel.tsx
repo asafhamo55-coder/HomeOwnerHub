@@ -1,3 +1,4 @@
+import { Clock } from 'lucide-react'
 import { Badge, StatCard, Tabs } from '@homeowner-portal/ui'
 
 export type PanelTab =
@@ -52,6 +53,7 @@ export function PropertyPanel({
   ownerEmail,
   ownerPhone,
   tenure,
+  onWaitingList = false,
   stats,
   currentTab,
   query,
@@ -64,6 +66,11 @@ export function PropertyPanel({
   ownerEmail: string | null
   ownerPhone: string | null
   tenure: string | null
+  /** Property holds an open lease-waiting-list entry. Shown here as well
+   *  as in the Overview tab's Tenure card: this header is sticky across
+   *  every tab, and the state would otherwise vanish the moment someone
+   *  clicked Mail or Dues. */
+  onWaitingList?: boolean
   stats: PanelStats
   currentTab: PanelTab
   query: string
@@ -97,6 +104,12 @@ export function PropertyPanel({
           {tenure ? (
             <Badge variant={tenure === 'leased' ? 'warning' : tenure === 'owner_occupied' ? 'success' : 'neutral'} size="sm">
               {tenure.replace(/_/g, '-')}
+            </Badge>
+          ) : null}
+          {onWaitingList ? (
+            <Badge variant="info" size="sm">
+              <Clock className="mr-1 h-3 w-3" />
+              On waiting list
             </Badge>
           ) : null}
         </div>

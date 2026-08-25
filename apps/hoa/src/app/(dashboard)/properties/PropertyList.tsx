@@ -29,10 +29,14 @@ export function PropertyList({
   rows,
   selectedId,
   params,
+  waitingIds,
 }: {
   rows: PropertyListRow[]
   selectedId?: string
   params: PropertyListParams
+  /** Ids with an open lease-waiting-list entry. Optional so the panel's
+   *  own render of this list doesn't have to thread it through. */
+  waitingIds?: Set<string>
 }) {
   if (rows.length === 0) {
     return (
@@ -52,6 +56,7 @@ export function PropertyList({
         const tone = severityTone(row.severityRank)
         const pills = reasonPills(row)
         const selected = row.id === selectedId
+        const onWaitingList = waitingIds?.has(row.id) ?? false
         return (
           <li key={row.id}>
             <Link
@@ -99,7 +104,7 @@ export function PropertyList({
                   .filter(Boolean)
                   .join(' · ')}
               </p>
-              {pills.length > 0 ? (
+              {pills.length > 0 || onWaitingList ? (
                 <div className="flex flex-wrap gap-1 pl-4 pt-1">
                   {pills.map((p) => (
                     <span
@@ -115,6 +120,15 @@ export function PropertyList({
                       {p.text}
                     </span>
                   ))}
+                  {/* Deliberately not a reasonPill: the severity pills all
+                      mean "someone must act on this property", and sitting
+                      in a queue is a state, not a problem. Primary tint
+                      keeps it visually separate from red/amber work. */}
+                  {onWaitingList ? (
+                    <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+                      Waiting list
+                    </span>
+                  ) : null}
                 </div>
               ) : null}
             </Link>

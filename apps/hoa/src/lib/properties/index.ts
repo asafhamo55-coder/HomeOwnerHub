@@ -288,6 +288,51 @@ export async function setPropertyTenure(
     if (!evStart.ok) {
       console.error('[properties.setPropertyTenure] event log failed', evStart.error)
     }
+
+    // Setting tenure by hand is the other way a queued property starts
+    // leasing — approveWaitingListEntry is the first, and it flips tenure
+    // from the entry's side. Without this, the entry sits at 'waiting'
+    // forever: the property shows a "Waiting list" pill while reading as
+    // leased, /leases keeps offering Approve/Deny on it, the dashboard
+    // count overstates, and listWaitingListCandidates won't re-offer it
+    // (it excludes leased properties) so nobody can clear it from the UI.
+    //
+    // Recorded as 'approved' because that is what materially happened,
+    // with `via` naming the route so the audit trail never implies a
+    // board vote that didn't take place. Conditional on status='waiting'
+    // for the same TOCTOU reason approveWaitingListEntry is.
+    const { data: resolved, error: wlErr } = await supabase
+      .from('lease_waiting_list' as never)
+      .update({
+        status: 'approved',
+        status_updated_at: new Date().toISOString(),
+        status_updated_by: user.id,
+      } as never)
+      .eq('property_id', parsed.data.property_id)
+      .eq('status', 'waiting')
+      .select('id')
+
+    if (wlErr) {
+      // Non-fatal: the tenure change itself already committed, and
+      // failing the action here would report "couldn't set tenure" for a
+      // write that succeeded. The stale entry is recoverable by hand.
+      console.error('[properties.setPropertyTenure] waiting list', wlErr.message)
+    } else {
+      for (const row of (resolved ?? []) as unknown as Array<{ id: string }>) {
+        const evWl = await logPropertyEvent({
+          propertyId: parsed.data.property_id,
+          kind: 'waiting_list_resolved',
+          payload: {
+            outcome: 'approved',
+            entryId: row.id,
+            via: 'manual_tenure_change',
+          },
+        })
+        if (!evWl.ok) {
+          console.error('[properties.setPropertyTenure] event log failed', evWl.error)
+        }
+      }
+    }
   }
   if (parsed.data.tenure !== 'leased' && prev === 'leased') {
     const evEnd = await logPropertyEvent({
@@ -301,6 +346,7 @@ export async function setPropertyTenure(
   }
 
   revalidatePath(`/properties/${parsed.data.property_id}`)
+  revalidatePath('/properties')
   revalidatePath('/leases')
   return { ok: true }
 }

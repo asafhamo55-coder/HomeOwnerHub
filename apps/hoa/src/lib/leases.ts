@@ -58,6 +58,20 @@ export interface WaitingListEntry {
   notes: string | null
 }
 
+export interface WaitingListCandidate {
+  id: string
+  address: string
+  unit_number: string | null
+  owner_name: string | null
+  tenure: PropertyTenure
+}
+
+/** The open ('waiting') entry a property currently sits on, if any. */
+export interface OpenWaitingListEntry {
+  id: string
+  requested_at: string
+}
+
 export interface SuggestCapResult {
   suggestedPct: number | null
   source: string | null
@@ -374,6 +388,150 @@ export async function listWaitingList(
   }))
 }
 
+/**
+ * Properties in this association that can still be queued: anything not
+ * already leased and not already holding an open entry.
+ *
+ * Walks the same units → hoa_properties bridge as getLeaseStats —
+ * hoa_properties carries no association_id of its own, so the unit row
+ * is what scopes a property to an association.
+ */
+export async function listWaitingListCandidates(
+  associationId: string,
+): Promise<WaitingListCandidate[] | null> {
+  // Board/admin only. RLS on hoa_properties/units is membership-scoped,
+  // not role-scoped (auth_org_ids() is every org you belong to), so a
+  // resident passes it — and this returns address + owner_name for
+  // essentially every non-leased property in the association. The
+  // (dashboard) layout already bounces residents off /leases, but a
+  // 'use server' export is POST-able regardless of which page rendered
+  // it, exactly as addToWaitingList notes below.
+  const org = await getCurrentOrg()
+  if (!org) return null
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') return null
+
+  const supabase = await getSupabaseServerClient()
+
+  const { data: unitRows, error: unitsErr } = await supabase
+    .from('units' as never)
+    .select('legacy_hoa_property_id')
+    .eq('association_id', associationId)
+    .not('legacy_hoa_property_id', 'is', null)
+
+  // `null` (couldn't load) is a different answer from `[]` (nothing is
+  // eligible), and the caller renders a different sentence for each. An
+  // earlier version collapsed both to `[]`, which told the user
+  // "everything is leased or already listed" whenever a query failed —
+  // a confident, specific claim about their data that happened to be false.
+  if (unitsErr) {
+    console.error('[leases.listWaitingListCandidates] units', unitsErr.message)
+    return null
+  }
+
+  const propertyIds = ((unitRows ?? []) as unknown as Array<{
+    legacy_hoa_property_id: string | null
+  }>)
+    .map((r) => r.legacy_hoa_property_id)
+    .filter((id): id is string => !!id)
+
+  if (propertyIds.length === 0) return []
+
+  const [propsRes, queued] = await Promise.all([
+    supabase
+      .from('hoa_properties')
+      .select('id, address, unit_number, owner_name, tenure')
+      .in('id', propertyIds)
+      .is('deleted_at', null)
+      // `.neq('tenure','leased')` alone would drop rows whose tenure is
+      // NULL, since `NULL <> 'leased'` is NULL rather than true — and an
+      // unrecorded tenure is exactly a property someone may want to queue.
+      .or('tenure.is.null,tenure.neq.leased')
+      .order('address', { ascending: true }),
+    // Excluded by PROPERTY, not by association. The index this models —
+    // lease_waiting_list_one_open_per_property_idx (0017) — is partial on
+    // (property_id) alone, so an open entry stamped with a different
+    // association_id still collides. That is reachable in one hop:
+    // addToWaitingList stamps getPrimaryAssociation(), which is just the
+    // org's alphabetically-first association, so renaming or adding one
+    // re-points it and strands older rows. Filtering by association here
+    // would offer those properties as candidates and then bounce the
+    // insert off the unique index.
+    getOpenWaitingListEntries(propertyIds),
+  ])
+
+  if (propsRes.error) {
+    console.error(
+      '[leases.listWaitingListCandidates] properties',
+      propsRes.error.message,
+    )
+    return null
+  }
+
+  return ((propsRes.data ?? []) as unknown as Array<{
+    id: string
+    address: string | null
+    unit_number: string | null
+    owner_name: string | null
+    tenure: PropertyTenure | null
+  }>)
+    .filter((r) => !queued.has(r.id))
+    .map((r) => ({
+      id: r.id,
+      address: r.address ?? '(unknown address)',
+      unit_number: r.unit_number,
+      owner_name: r.owner_name,
+      tenure: (r.tenure ?? 'unknown') as PropertyTenure,
+    }))
+}
+
+/**
+ * property_id → its open waiting-list entry, for the properties asked
+ * about. Lets /properties and /properties/[id] show "on the waiting
+ * list" without the hoa_property_list_v view having to carry a column
+ * for it (which would need a migration to land before the read works).
+ *
+ * RLS on lease_waiting_list scopes this to the caller's orgs — but only
+ * by membership, so the board/admin check is done here for the same
+ * reason listWaitingListCandidates does it: a 'use server' export is a
+ * POST-able endpoint no matter which page rendered it.
+ */
+export async function getOpenWaitingListEntries(
+  propertyIds: string[],
+): Promise<Map<string, OpenWaitingListEntry>> {
+  const ids = [...new Set(propertyIds)]
+  if (ids.length === 0) return new Map()
+
+  const org = await getCurrentOrg()
+  if (!org) return new Map()
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') return new Map()
+
+  const supabase = await getSupabaseServerClient()
+  const { data, error } = await supabase
+    .from('lease_waiting_list' as never)
+    .select('id, property_id, requested_at')
+    .in('property_id', ids)
+    .eq('status', 'waiting')
+
+  if (error) {
+    // Enrichment, not page-defining: a failed read shows no waiting-list
+    // pills rather than blanking the property list.
+    console.error('[leases.getOpenWaitingListEntries]', error.message)
+    return new Map()
+  }
+
+  const map = new Map<string, OpenWaitingListEntry>()
+  for (const row of (data ?? []) as unknown as Array<{
+    id: string
+    property_id: string
+    requested_at: string
+  }>) {
+    map.set(row.property_id, { id: row.id, requested_at: row.requested_at })
+  }
+  return map
+}
+
 const AddWaitingListSchema = z.object({
   property_id: z.string().uuid(),
   notes: z.string().trim().max(2000, 'Notes must be 2000 characters or fewer.').optional(),
@@ -452,6 +610,7 @@ export async function addToWaitingList(
   }
 
   revalidatePath('/leases')
+  revalidatePath('/properties')
   revalidatePath(`/properties/${parsed.data.property_id}`)
   return { ok: true, data: { entryId: data.id } }
 }
@@ -580,6 +739,7 @@ export async function approveWaitingListEntry(
   }
 
   revalidatePath('/leases')
+  revalidatePath('/properties')
   revalidatePath(`/properties/${entry.property_id}`)
   return { ok: true }
 }
@@ -647,6 +807,7 @@ export async function denyWaitingListEntry(
   }
 
   revalidatePath('/leases')
+  revalidatePath('/properties')
   revalidatePath(`/properties/${entry.property_id}`)
   return { ok: true }
 }
@@ -715,6 +876,7 @@ export async function withdrawWaitingListEntry(
   }
 
   revalidatePath('/leases')
+  revalidatePath('/properties')
   revalidatePath(`/properties/${entry.property_id}`)
   return { ok: true }
 }

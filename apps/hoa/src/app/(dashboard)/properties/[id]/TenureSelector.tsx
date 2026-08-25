@@ -17,12 +17,17 @@ interface Props {
   propertyId: string
   currentTenure: PropertyTenure
   capInPlace: boolean
+  /** Already holds an open waiting-list entry. The partial unique index
+   *  on (property_id WHERE status='waiting') means a second add can only
+   *  fail, so the button is hidden rather than offered and rejected. */
+  alreadyWaiting?: boolean
 }
 
 export function TenureSelector({
   propertyId,
   currentTenure,
   capInPlace,
+  alreadyWaiting = false,
 }: Props) {
   const router = useRouter()
   const toast = useToast()
@@ -66,7 +71,7 @@ export function TenureSelector({
           <Pencil className="h-3.5 w-3.5" />
           Change tenure
         </Button>
-        {currentTenure === 'owner_occupied' && capInPlace ? (
+        {currentTenure === 'owner_occupied' && capInPlace && !alreadyWaiting ? (
           <Button
             size="sm"
             variant="outline"
