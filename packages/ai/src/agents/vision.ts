@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { resolveVisionModel } from '../model'
 
 /**
  * Image understanding, via whichever OpenAI-compatible endpoint serves a
@@ -51,7 +52,7 @@ function getClient(): OpenAI {
  * is a HuggingFace repo id for the self-hosted plan, and no hosted provider
  * here serves it. The id below is the one Groq actually routes.
  */
-export const MODEL_VISION = process.env.AI_MODEL_VISION || 'qwen/qwen3.6-27b'
+export const MODEL_VISION = resolveVisionModel()
 
 /** Groq rejects a request carrying more than this many images. */
 export const MAX_IMAGES_PER_REQUEST = 5

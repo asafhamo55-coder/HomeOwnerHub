@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { resolveModel } from '../model'
 
 let _client: OpenAI | null = null
 function getClient(): OpenAI {
@@ -10,7 +11,7 @@ function getClient(): OpenAI {
   return _client
 }
 
-const MODEL_REASON = process.env.AI_MODEL ?? 'Qwen/Qwen2.5-14B-Instruct'
+const MODEL_REASON = resolveModel()
 
 // Temperature 0 + JSON mode = deterministic structured output for compliance
 // checks, CC&R matching, and other places we cannot tolerate hallucination.

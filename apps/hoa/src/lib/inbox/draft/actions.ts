@@ -31,6 +31,7 @@ import {
   UnsupportedQuoteError,
   type VendorRequestIntent,
 } from '@homeowner-portal/workflows'
+import { resolveModel } from '@homeowner-portal/ai'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getLatestDraft, getThreadDetail } from '@/lib/inbox/queries'
@@ -322,7 +323,7 @@ export async function draftVendorRequest(input: {
       grounded: true,
       grounding_note: null,
       ai_run_id: generated.runId,
-      model: process.env.AI_MODEL ?? null,
+      model: resolveModel(),
       prompt_version: null,
     })
     .select('id')

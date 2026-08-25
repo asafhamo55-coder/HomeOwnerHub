@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, SUPABASE_URL } from '@homeowner-portal/db'
+import { resolveModel, resolveFastModel, resolveVisionModel } from '@homeowner-portal/ai'
 
 // GET /api/health
 //
@@ -51,6 +52,25 @@ async function probeAi(): Promise<ProbeResult> {
     return { ok: true }
   } catch (err) {
     return { ok: false, detail: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/**
+ * The model ids actually in effect, not merely whether a var is set.
+ *
+ * `AI_MODEL: true` was reported throughout the 2026-08-16-to-08-25 outage
+ * while every call 404'd, because a boolean cannot distinguish "configured"
+ * from "configured to something the provider retired". These are resolved
+ * values, so a dead id is visible here the moment you look.
+ *
+ * Safe to expose: model ids are already public constants in
+ * packages/ai/src/model.ts. No key or endpoint is echoed.
+ */
+function probeModels(): Record<string, string> {
+  return {
+    chat: resolveModel(),
+    fast: resolveFastModel(),
+    vision: resolveVisionModel(),
   }
 }
 
@@ -210,6 +230,7 @@ export async function GET(request: Request): Promise<Response> {
       branch: process.env.VERCEL_GIT_COMMIT_REF ?? 'local',
       supabase_url: SUPABASE_URL,
       probes: embedding ? { db, ai, embedding } : { db, ai },
+      models: probeModels(),
       env,
     },
     { status: ok ? 200 : 503 },

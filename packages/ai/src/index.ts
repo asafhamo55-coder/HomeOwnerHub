@@ -1,5 +1,14 @@
 // Model selection (single source of truth for the default chat model)
-export { DEFAULT_MODEL, DECOMMISSIONED_MODELS, resolveModel } from './model'
+export {
+  DEFAULT_MODEL,
+  DEFAULT_FAST_MODEL,
+  DEFAULT_VISION_MODEL,
+  DECOMMISSIONED_MODELS,
+  NEVER_SERVED_MODELS,
+  resolveModel,
+  resolveFastModel,
+  resolveVisionModel,
+} from './model'
 
 // Router / agent registry
 export { TASK_ROUTING, agentFor } from './router'

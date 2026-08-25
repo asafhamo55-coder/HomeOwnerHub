@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { resolveFastModel } from '../model'
 
 // Lazy init: never construct the OpenAI client at module-load. Apps may
 // import this file's exports (or sibling exports from packages/ai/index)
@@ -13,7 +14,7 @@ function getClient(): OpenAI {
   return _client
 }
 
-export const MODEL_FAST = process.env.AI_MODEL_FAST ?? 'Qwen/Qwen2.5-3B-Instruct'
+export const MODEL_FAST = resolveFastModel()
 
 export async function runFast(
   messages: OpenAI.ChatCompletionMessageParam[],
