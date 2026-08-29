@@ -2,7 +2,6 @@ import { Alert } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { listProperties } from '@/lib/properties/list'
-import { getOpenWaitingListEntries } from '@/lib/leases'
 import { parsePropertyListParams } from '@/lib/properties/list-params'
 import { PropertyList } from './PropertyList'
 import { PropertyListFilters } from './PropertyListFilters'
@@ -30,8 +29,7 @@ export default async function PropertiesPage({
 
   let rows: Awaited<ReturnType<typeof listProperties>>['rows'] = []
   let total = 0
-  let counts = { attention: 0, incomplete: 0, all: 0 }
-  let waitingIds = new Set<string>()
+  let counts = { attention: 0, incomplete: 0, all: 0, waiting: 0 }
   let error: string | null = null
   try {
     const result = await listProperties(supabase, org.id, params)
@@ -43,7 +41,7 @@ export default async function PropertiesPage({
     // `needs_attention` rather than `severity_rank < 6` — see list.ts. The
     // old predicate counted missing-data rows as work, which put "131
     // needing attention" beside 184 homes and made the number meaningless.
-    const [attentionCount, incompleteCount, allCount] = await Promise.all([
+    const [attentionCount, incompleteCount, allCount, waitingCount] = await Promise.all([
       supabase
         .from(VIEW as never)
         .select('*', { count: 'exact', head: true })
@@ -58,20 +56,18 @@ export default async function PropertiesPage({
         .from(VIEW as never)
         .select('*', { count: 'exact', head: true })
         .eq('org_id' as never, org.id),
+      supabase
+        .from(VIEW as never)
+        .select('*', { count: 'exact', head: true })
+        .eq('org_id' as never, org.id)
+        .eq('on_waiting_list' as never, true),
     ])
     counts = {
       attention: attentionCount.count ?? 0,
       incomplete: incompleteCount.count ?? 0,
       all: allCount.count ?? 0,
+      waiting: waitingCount.count ?? 0,
     }
-
-    // Which of the rows on THIS page are queued to lease. Scoped to the
-    // 50 visible ids rather than joined into hoa_property_list_v: the
-    // view would need a migration applied before the read worked at all,
-    // and a waiting-list flag is enrichment, not a sort key.
-    waitingIds = new Set(
-      (await getOpenWaitingListEntries(rows.map((r) => r.id))).keys(),
-    )
   } catch (e) {
     // Surfaced in the list pane rather than crashing the route, so the
     // rest of the page stays usable — the old page rendered a raw
@@ -102,7 +98,7 @@ export default async function PropertiesPage({
             </Alert>
           ) : (
             <>
-              <PropertyList rows={rows} params={params} waitingIds={waitingIds} />
+              <PropertyList rows={rows} params={params} />
               <PropertyListPager params={params} rowCount={rows.length} total={total} />
             </>
           )}

@@ -9,6 +9,7 @@ const FILTERS: Array<{ key: PropertyFilter; label: string }> = [
   { key: 'all', label: 'All' },
   { key: 'owner_occupied', label: 'Owner-occupied' },
   { key: 'leased', label: 'Leased' },
+  { key: 'waiting', label: 'Waiting list' },
   { key: 'unknown', label: 'Unknown' },
 ]
 
@@ -19,6 +20,10 @@ const COUNTED: ReadonlySet<PropertyFilter> = new Set<PropertyFilter>([
   'attention',
   'incomplete',
   'all',
+  // Counted, unlike the tenure chips: the queue length is a number boards
+  // actually triage by — the dashboard already headlines it — and it costs
+  // the same single head-only query the three above cost.
+  'waiting',
 ])
 
 const SORTS: Array<{ key: PropertySort; label: string }> = [
@@ -56,7 +61,7 @@ export function PropertyListFilters({
   counts,
 }: {
   params: PropertyListParams
-  counts: { attention: number; incomplete: number; all: number }
+  counts: { attention: number; incomplete: number; all: number; waiting: number }
 }) {
   return (
     <div className="space-y-2 border-b border-border p-2">

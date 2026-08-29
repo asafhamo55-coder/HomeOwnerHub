@@ -8,6 +8,11 @@ export type PropertyFilter =
   | 'all'
   | 'owner_occupied'
   | 'leased'
+  // Not a tenure, despite sitting beside the three that are: a property is
+  // on the waiting list *and* owner-occupied. listProperties therefore
+  // branches on it before the tenure fall-through, which maps the filter
+  // string straight onto hoa_properties.tenure.
+  | 'waiting'
   | 'unknown'
 
 export type PropertySort = 'severity' | 'address' | 'balance'
@@ -30,6 +35,7 @@ const FILTERS: readonly PropertyFilter[] = [
   'all',
   'owner_occupied',
   'leased',
+  'waiting',
   'unknown',
 ]
 

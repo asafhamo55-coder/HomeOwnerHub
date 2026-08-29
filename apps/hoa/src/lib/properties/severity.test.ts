@@ -134,7 +134,14 @@ describe('emptyListMessage', () => {
   // every record — or who filtered to Leased in an owner-occupied
   // association — was told their association has no homes.
   it('never claims the association is empty for a subset filter', () => {
-    for (const f of ['attention', 'incomplete', 'owner_occupied', 'leased', 'unknown'] as const) {
+    for (const f of [
+      'attention',
+      'incomplete',
+      'owner_occupied',
+      'leased',
+      'waiting',
+      'unknown',
+    ] as const) {
       expect(emptyListMessage(f)).not.toBe('No properties yet.')
     }
   })
@@ -155,6 +162,7 @@ describe('emptyListMessage', () => {
       'all',
       'owner_occupied',
       'leased',
+      'waiting',
       'unknown',
     ] as const) {
       expect(emptyListMessage(f).length).toBeGreaterThan(0)

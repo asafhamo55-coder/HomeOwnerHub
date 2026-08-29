@@ -26,6 +26,10 @@ export interface PropertyListRow {
   /** Missing owner, tenure or unit link. Independent of needsAttention —
    *  a property can be both. */
   isIncomplete: boolean
+  /** Holds an open ('waiting') lease_waiting_list entry. Added to the view
+   *  in 0051 rather than looked up per page, because the filter below runs
+   *  inside this paginated query and its `count: 'exact'` drives the pager. */
+  onWaitingList: boolean
 }
 
 export interface PropertyListResult {
@@ -47,7 +51,7 @@ export async function listProperties(
   let query = supabase
     .from(VIEW as never)
     .select(
-      'id, address, unit_number, owner_name, owner_email, owner_phone, tenure, unit_id, balance, oldest_due_date, days_overdue, open_violations, violations_past_cure, threads_needing_reply, has_owner, has_tenure, has_unit_link, severity_rank, needs_attention, is_incomplete',
+      'id, address, unit_number, owner_name, owner_email, owner_phone, tenure, unit_id, balance, oldest_due_date, days_overdue, open_violations, violations_past_cure, threads_needing_reply, has_owner, has_tenure, has_unit_link, severity_rank, needs_attention, is_incomplete, on_waiting_list',
       { count: 'exact' },
     )
     .eq('org_id' as never, orgId)
@@ -61,6 +65,11 @@ export async function listProperties(
     query = query.eq('needs_attention' as never, true)
   } else if (params.filter === 'incomplete') {
     query = query.eq('is_incomplete' as never, true)
+  } else if (params.filter === 'waiting') {
+    // Must precede the tenure fall-through below — 'waiting' is not a
+    // tenure value, so `.eq('tenure', 'waiting')` would match nothing and
+    // silently return an empty list rather than the queue.
+    query = query.eq('on_waiting_list' as never, true)
   } else if (params.filter === 'unknown') {
     // `tenure` is nullable — a property whose tenure was never recorded has
     // NULL, not the string 'unknown'. `.eq('tenure','unknown')` would
@@ -123,6 +132,7 @@ export async function listProperties(
       severityRank: Number(r.severity_rank ?? 6),
       needsAttention: Boolean(r.needs_attention),
       isIncomplete: Boolean(r.is_incomplete),
+      onWaitingList: Boolean(r.on_waiting_list),
     })),
     total: count ?? 0,
   }

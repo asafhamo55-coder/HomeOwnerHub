@@ -29,14 +29,10 @@ export function PropertyList({
   rows,
   selectedId,
   params,
-  waitingIds,
 }: {
   rows: PropertyListRow[]
   selectedId?: string
   params: PropertyListParams
-  /** Ids with an open lease-waiting-list entry. Optional so the panel's
-   *  own render of this list doesn't have to thread it through. */
-  waitingIds?: Set<string>
 }) {
   if (rows.length === 0) {
     return (
@@ -56,7 +52,10 @@ export function PropertyList({
         const tone = severityTone(row.severityRank)
         const pills = reasonPills(row)
         const selected = row.id === selectedId
-        const onWaitingList = waitingIds?.has(row.id) ?? false
+        // Straight off the view (0051) rather than a side lookup, so the
+        // pill and the "Waiting list" filter chip can never disagree about
+        // which rows are queued.
+        const onWaitingList = row.onWaitingList
         return (
           <li key={row.id}>
             <Link

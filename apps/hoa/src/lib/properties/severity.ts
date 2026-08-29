@@ -32,6 +32,8 @@ export function emptyListMessage(filter: PropertyFilter): string {
       return 'No owner-occupied properties.'
     case 'leased':
       return 'No leased properties.'
+    case 'waiting':
+      return 'Nobody is waiting to lease.'
     case 'unknown':
       return 'Every property has its tenure recorded.'
     case 'all':

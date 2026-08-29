@@ -266,8 +266,7 @@ export default async function PropertyDetailPage({
   // panel rather than throwing the whole route away.
   let rows: Awaited<ReturnType<typeof listProperties>>['rows'] = []
   let total = 0
-  let counts = { attention: 0, incomplete: 0, all: 0 }
-  let listWaitingIds = new Set<string>()
+  let counts = { attention: 0, incomplete: 0, all: 0, waiting: 0 }
   let listError: string | null = null
   if (ctx) {
     try {
@@ -280,7 +279,7 @@ export default async function PropertyDetailPage({
       // three queries /properties/page.tsx runs; PropertyListFilters
       // requires them, and the two pages must agree or the chip counts jump
       // when you open a property.
-      const [attentionCount, incompleteCount, allCount] = await Promise.all([
+      const [attentionCount, incompleteCount, allCount, waitingCount] = await Promise.all([
         supabase
           .from(LIST_VIEW as never)
           .select('*', { count: 'exact', head: true })
@@ -295,17 +294,18 @@ export default async function PropertyDetailPage({
           .from(LIST_VIEW as never)
           .select('*', { count: 'exact', head: true })
           .eq('org_id' as never, ctx.org.id),
+        supabase
+          .from(LIST_VIEW as never)
+          .select('*', { count: 'exact', head: true })
+          .eq('org_id' as never, ctx.org.id)
+          .eq('on_waiting_list' as never, true),
       ])
       counts = {
         attention: attentionCount.count ?? 0,
         incomplete: incompleteCount.count ?? 0,
         all: allCount.count ?? 0,
+        waiting: waitingCount.count ?? 0,
       }
-      // Same enrichment /properties/page.tsx does, so the "Waiting list"
-      // pill doesn't vanish from the aside the moment you open a property.
-      listWaitingIds = new Set(
-        (await getOpenWaitingListEntries(rows.map((r) => r.id))).keys(),
-      )
     } catch (e) {
       listError = e instanceof Error ? e.message : 'Could not load properties.'
     }
@@ -356,12 +356,7 @@ export default async function PropertyDetailPage({
             </Alert>
           ) : (
             <>
-              <PropertyList
-                rows={rows}
-                selectedId={id}
-                params={listParams}
-                waitingIds={listWaitingIds}
-              />
+              <PropertyList rows={rows} selectedId={id} params={listParams} />
               <PropertyListPager params={listParams} rowCount={rows.length} total={total} />
             </>
           )}
