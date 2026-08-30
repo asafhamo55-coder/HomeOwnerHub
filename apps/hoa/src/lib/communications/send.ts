@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
 import { sendEmail } from '@/lib/email'
+import { buildSenderName } from '@/lib/email/sender-name'
 import { sendSms, htmlToSmsBody } from '@/lib/sms'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
@@ -141,7 +142,7 @@ export async function sendCommunication(
 
   const { data: assocRow } = await supabase
     .from('associations')
-    .select('organization_id, name')
+    .select('organization_id, name, type')
     .eq('id', assoc.id)
     .single()
   if (!assocRow) return { ok: false, error: 'Association not found.' }
@@ -324,6 +325,9 @@ export async function sendCommunication(
   // Capture closed-over values OUTSIDE the async fn so TS doesn't lose
   // the prior null-narrowing across the await boundary.
   const associationName = assocRow.name
+  // From-header name only — merge fields keep the bare `associationName`, so
+  // "Madison Park HOA" in the inbox doesn't leak into {{association_name}}.
+  const senderName = buildSenderName(associationName, assocRow.type)
   const commId = comm.id
 
   // extraFields is the caller-supplied bag built from the template's
@@ -355,7 +359,7 @@ export async function sendCommunication(
         await markFailed(supabase, recipient.id, 'no email address', subject)
         return 'skipped'
       }
-      const result = await sendEmail({ to: recipient.email, subject, html, text })
+      const result = await sendEmail({ to: recipient.email, subject, html, text, senderName })
       if (result.ok) {
         await supabase
           .from('communication_recipients')

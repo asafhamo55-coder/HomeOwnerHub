@@ -1,5 +1,6 @@
 import { createAdminClient } from '@homeowner-portal/db'
 import { sendEmail, appUrl } from '@/lib/email'
+import { buildSenderName } from '@/lib/email/sender-name'
 import { sendSms, htmlToSmsBody } from '@/lib/sms'
 import {
   resolveAudience,
@@ -55,6 +56,12 @@ export async function sendEventAlertEmail(
   //    satisfy communications.association_id (NOT NULL). Org-wide events
   //    fall back to the org's first association.
   const associationId = await resolveAssociationId(admin, event, organizationId)
+
+  // 1b. From-header name, resolved once and shared by both delivery paths.
+  //     '' is a deliberate answer, not a failure: an org-wide board event has
+  //     no community to speak for, and sendEmail reads '' as "leave
+  //     EMAIL_FROM alone", so those notices keep arriving as HomeownerHub.
+  const senderName = await resolveSenderName(admin, associationId)
 
   // 2. Resolve recipients.
   let recipients: ResolvedRecipient[]
@@ -122,8 +129,9 @@ export async function sendEventAlertEmail(
         subject,
         html,
         text,
+        senderName,
       })
-    : await deliverDirect({ channels, recipients, subject, html, text })
+    : await deliverDirect({ channels, recipients, subject, html, text, senderName })
 
   // 5. Stamp the event so the cron skips this occurrence next run — only
   //    when at least one message went out (unchanged from before).
@@ -159,6 +167,24 @@ async function resolveAssociationId(
   return (data as { id: string } | null)?.id ?? null
 }
 
+// The community's display name for the From header ("Madison Park HOA").
+// Returns '' when there is no association, or none is found under that id —
+// both mean "no community to send as", which sendEmail turns back into the
+// unchanged EMAIL_FROM rather than a half-built sender.
+async function resolveSenderName(
+  admin: Admin,
+  associationId: string | null,
+): Promise<string> {
+  if (!associationId) return ''
+  const { data } = await admin
+    .from('associations')
+    .select('name, type')
+    .eq('id', associationId)
+    .maybeSingle()
+  const row = data as { name: string | null; type: string | null } | null
+  return row?.name ? buildSenderName(row.name, row.type) : ''
+}
+
 // ─── Delivery: through the communications pipeline ───────────────────
 
 interface DeliverViaCommsArgs {
@@ -173,6 +199,7 @@ interface DeliverViaCommsArgs {
   subject: string
   html: string
   text: string
+  senderName: string
 }
 
 async function deliverViaCommunications(
@@ -190,6 +217,7 @@ async function deliverViaCommunications(
     subject,
     html,
     text,
+    senderName,
   } = args
 
   // Audit row. source='cron' is the closest allowed enum value for an
@@ -223,7 +251,7 @@ async function deliverViaCommunications(
   if (commErr || !comm) {
     // Couldn't persist the audit row — still try a direct send so the
     // alert isn't silently dropped.
-    return deliverDirect({ channels, recipients, subject, html, text })
+    return deliverDirect({ channels, recipients, subject, html, text, senderName })
   }
 
   // One recipient row per (person × channel) the person can receive on.
@@ -277,7 +305,7 @@ async function deliverViaCommunications(
     rows.map(async (row) => {
       if (row.channel === 'email') {
         if (!row.email) return
-        const res = await sendEmail({ to: row.email, subject, html, text })
+        const res = await sendEmail({ to: row.email, subject, html, text, senderName })
         if (res.ok) {
           sent += 1
           await markRecipient(admin, row.id, 'sent', res.messageId)
@@ -324,16 +352,17 @@ interface DeliverDirectArgs {
   subject: string
   html: string
   text: string
+  senderName: string
 }
 
 async function deliverDirect(args: DeliverDirectArgs): Promise<SendEventAlertResult> {
-  const { channels, recipients, subject, html, text } = args
+  const { channels, recipients, subject, html, text, senderName } = args
   let sent = 0
   const failed: SendEventAlertResult['failed'] = []
 
   for (const r of recipients) {
     if (channels.includes('email') && r.email) {
-      const res = await sendEmail({ to: r.email, subject, html, text })
+      const res = await sendEmail({ to: r.email, subject, html, text, senderName })
       if (res.ok) sent += 1
       else failed.push({ email: r.email, reason: res.error })
     }
