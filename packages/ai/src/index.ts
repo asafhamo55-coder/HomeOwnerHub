@@ -8,6 +8,7 @@ export {
   resolveModel,
   resolveFastModel,
   resolveVisionModel,
+  resolveCloudModel,
 } from './model'
 
 // Router / agent registry

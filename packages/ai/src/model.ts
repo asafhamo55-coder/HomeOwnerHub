@@ -91,6 +91,23 @@ export function resolveFastModel(): string {
 }
 
 /**
+ * The `cloud` agent's model — the daily digest and the dashboard's board
+ * insights run through it. Same chain as the chat path with its own
+ * override first, and it shares DEFAULT_MODEL rather than owning one:
+ * cloud is the same text path, just a different call site.
+ *
+ * Exists as a named function so /api/health can report what the cloud
+ * client will actually use. agents/cloud.ts previously inlined
+ * `resolveModel(process.env.AI_MODEL_CLOUD)`, which health could only
+ * mirror by duplicating the chain — and a duplicated chain drifts, which
+ * is exactly how a health endpoint starts reassuring you about a model
+ * nothing is calling.
+ */
+export function resolveCloudModel(): string {
+  return firstUsable(process.env.AI_MODEL_CLOUD, process.env.AI_MODEL) ?? DEFAULT_MODEL
+}
+
+/**
  * The vision model. Note the deliberately SHORT chain — AI_MODEL is not
  * consulted, for the reason on DEFAULT_VISION_MODEL above.
  */

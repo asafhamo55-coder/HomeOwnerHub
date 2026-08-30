@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import { resolveModel } from '../model'
+import { resolveCloudModel } from '../model'
 
 // "Cloud" agent — naming kept for backwards compatibility with callers.
 // Now points at the same Qwen 2.5 14B OpenAI-compatible endpoint as
@@ -23,7 +23,7 @@ function getClient(): OpenAI {
   return _client
 }
 
-const MODEL_CLOUD = resolveModel(process.env.AI_MODEL_CLOUD)
+const MODEL_CLOUD = resolveCloudModel()
 
 export async function runCloud(
   systemPrompt: string,

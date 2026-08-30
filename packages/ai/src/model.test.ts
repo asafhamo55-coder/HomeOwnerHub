@@ -8,6 +8,7 @@ import {
   resolveModel,
   resolveFastModel,
   resolveVisionModel,
+  resolveCloudModel,
 } from './model'
 
 /**
@@ -163,5 +164,70 @@ describe('resolveVisionModel', () => {
   it('treats an EMPTY AI_MODEL_VISION as absent', () => {
     process.env.AI_MODEL_VISION = ''
     expect(resolveVisionModel()).toBe(DEFAULT_VISION_MODEL)
+  })
+})
+
+/**
+ * The `cloud` agent is what the daily digest and the dashboard's board
+ * insights actually call. It resolved through an inline
+ * `resolveModel(process.env.AI_MODEL_CLOUD)` in agents/cloud.ts, so
+ * /api/health could not report it without duplicating the chain — and a
+ * duplicated chain drifts. Named here so health reads the same function
+ * the client does.
+ */
+describe('resolveCloudModel', () => {
+  const saved = { cloud: process.env.AI_MODEL_CLOUD, shared: process.env.AI_MODEL }
+  afterEach(() => {
+    for (const [k, v] of [
+      ['AI_MODEL_CLOUD', saved.cloud],
+      ['AI_MODEL', saved.shared],
+    ] as const) {
+      if (v === undefined) delete process.env[k]
+      else process.env[k] = v
+    }
+  })
+
+  it('prefers AI_MODEL_CLOUD', () => {
+    process.env.AI_MODEL_CLOUD = 'cloud/one'
+    process.env.AI_MODEL = 'shared/one'
+    expect(resolveCloudModel()).toBe('cloud/one')
+  })
+
+  it('falls back to the shared AI_MODEL so a partial config still works', () => {
+    delete process.env.AI_MODEL_CLOUD
+    process.env.AI_MODEL = 'shared/one'
+    expect(resolveCloudModel()).toBe('shared/one')
+  })
+
+  it('treats an EMPTY AI_MODEL_CLOUD as absent', () => {
+    // The case that matters operationally: Vercel writes "" for Sensitive
+    // vars, and the stale homeowner-hub project still carries an
+    // AI_MODEL_CLOUD that could be pulled into a local env file.
+    process.env.AI_MODEL_CLOUD = ''
+    delete process.env.AI_MODEL
+    expect(resolveCloudModel()).toBe(DEFAULT_MODEL)
+  })
+
+  it('treats a whitespace-only AI_MODEL_CLOUD as absent', () => {
+    process.env.AI_MODEL_CLOUD = '   '
+    delete process.env.AI_MODEL
+    expect(resolveCloudModel()).toBe(DEFAULT_MODEL)
+  })
+
+  it('uses the shared text default when nothing is set', () => {
+    // Cloud shares DEFAULT_MODEL rather than owning one: it is the same
+    // text path, just a different call site.
+    delete process.env.AI_MODEL_CLOUD
+    delete process.env.AI_MODEL
+    expect(resolveCloudModel()).toBe(DEFAULT_MODEL)
+  })
+
+  it('never returns an empty string', () => {
+    for (const value of ['', '   ', undefined]) {
+      if (value === undefined) delete process.env.AI_MODEL_CLOUD
+      else process.env.AI_MODEL_CLOUD = value
+      delete process.env.AI_MODEL
+      expect(resolveCloudModel()).not.toBe('')
+    }
   })
 })

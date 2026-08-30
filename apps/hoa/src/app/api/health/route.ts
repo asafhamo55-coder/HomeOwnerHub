@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, SUPABASE_URL } from '@homeowner-portal/db'
-import { resolveModel, resolveFastModel, resolveVisionModel } from '@homeowner-portal/ai'
+import {
+  resolveModel,
+  resolveFastModel,
+  resolveVisionModel,
+  resolveCloudModel,
+} from '@homeowner-portal/ai'
 
 // GET /api/health
 //
@@ -66,10 +71,22 @@ async function probeAi(): Promise<ProbeResult> {
  * Safe to expose: model ids are already public constants in
  * packages/ai/src/model.ts. No key or endpoint is echoed.
  */
+/**
+ * The model ids that will actually be used, resolved through the same
+ * functions the clients call — never re-derived here.
+ *
+ * `cloud` is the one the daily digest and the dashboard's board insights
+ * run on. It was missing until 2026-08-30, so the only model those two
+ * features depend on was the one model this endpoint could not show. That
+ * matters because AI_MODEL_CLOUD is a real override in this account (the
+ * stale `homeowner-hub` project still carries one), so cloud can diverge
+ * from `chat` without any of the other three moving.
+ */
 function probeModels(): Record<string, string> {
   return {
     chat: resolveModel(),
     fast: resolveFastModel(),
+    cloud: resolveCloudModel(),
     vision: resolveVisionModel(),
   }
 }
