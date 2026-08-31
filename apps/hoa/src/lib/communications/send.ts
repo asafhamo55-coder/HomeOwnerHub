@@ -15,6 +15,8 @@ import { getTemplate } from '@/lib/community-templates/registry'
 import { resolveAudience, stripAudienceForPersist, type AudienceDefinition } from './audience'
 import { buildEmailPayloads } from './email-payloads'
 import { buildRecipientBag } from './merge-bag'
+import { recoverFromRenderedSubject, unresolvedFields } from './merge-recovery'
+import { normalizeSuppliedFields } from './supplied-fields'
 import { renderTemplateStrict, type MergeBag } from './templates'
 
 type CommInsert = Database['public']['Tables']['communications']['Insert']
@@ -516,6 +518,134 @@ export async function sendCommunication(
   }
 }
 
+export interface ResendPreflightField {
+  /** Placeholder name exactly as the template spells it, e.g. deadline_date. */
+  name: string
+  /** Recovered from the stored rendered subject, or '' when nothing could
+   *  be reconstructed and the user has to retype it. */
+  value: string
+}
+
+export type ResendPreflightResult =
+  | { ok: true; failedCount: number; fields: ResendPreflightField[] }
+  | { ok: false; error: string }
+
+/** Statuses that mean the row actually reached the provider, so its
+ *  `rendered_subject` holds a fully substituted subject line. 'queued' and
+ *  'suppressed' never rendered; 'failed' sometimes did (markFailed records
+ *  it when the provider, not the render, was the problem) but is excluded
+ *  so a recovered value always comes from a subject a resident really saw. */
+const RENDERED_DELIVERY_STATUSES = ['sent', 'delivered', 'opened', 'clicked', 'replied']
+
+/**
+ * Work out what `resendFailedRecipients` will not be able to render, and
+ * pre-fill whatever can be reconstructed.
+ *
+ * The resend rebuilds each recipient's merge bag from the recipient row
+ * alone, because `extraFields` — the wizard's answers — were never
+ * persisted anywhere on the communication. For the yard-upkeep blast that
+ * meant deadline_date, season_context and upkeep_items were simply gone,
+ * and all 37 retries died at "missing merge fields: deadline_date".
+ *
+ * So the UI asks first. This returns the exact field list the resend cannot
+ * satisfy, with `deadline_date` already filled in: it appears in the
+ * subject, and `communication_recipients.rendered_subject` IS stored for the
+ * 10 recipients who received the original. There is no rendered-body
+ * column, so a body-only field comes back '' and has to be retyped.
+ *
+ * An empty `fields` array means the resend needs nothing and the caller can
+ * fire it straight away — the common case, since a plain announcement uses
+ * only ambient fields.
+ */
+export async function getResendPreflight(
+  communicationId: string,
+): Promise<ResendPreflightResult> {
+  // Same org discipline as resendFailedRecipients below: the id is
+  // browser-supplied, so every statement repeats the filter, and every
+  // "not found" message is identical whether the row is missing or belongs
+  // to someone else. A preflight that answered differently would turn this
+  // into an existence oracle for other orgs' communications.
+  const { org } = await requireBoardOrAdmin()
+  const supabase = await getSupabaseServerClient()
+
+  const { data: comm, error: commErr } = await supabase
+    .from('communications')
+    .select('id, association_id, subject, body_html, body_text')
+    .eq('id', communicationId)
+    .eq('organization_id', org.id)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (commErr) return { ok: false, error: `communication lookup: ${commErr.message}` }
+  if (!comm) return { ok: false, error: 'Communication not found.' }
+
+  const { data: assocRow } = await supabase
+    .from('associations')
+    .select('name, type')
+    .eq('id', comm.association_id)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (!assocRow) return { ok: false, error: 'Association not found.' }
+
+  const { data: failedRows, error: recErr } = await supabase
+    .from('communication_recipients')
+    .select('id, email, recipient_name, unit_id')
+    .eq('communication_id', comm.id)
+    .eq('organization_id', org.id)
+    .eq('channel', 'email')
+    .eq('delivery_status', 'failed')
+  if (recErr) return { ok: false, error: `recipient lookup: ${recErr.message}` }
+
+  // Mirrors the resend's own filter and refusal, so the button never opens
+  // a form for a send that would then be rejected as having no targets.
+  const targets = (failedRows ?? []).filter((r) => r.email)
+  if (targets.length === 0) {
+    return { ok: false, error: 'No failed email recipients to resend to.' }
+  }
+
+  // Any target will do: unresolvedFields only asks which KEYS the bag
+  // carries, and buildRecipientBag gives every recipient the same ambient
+  // key set. Building it through buildRecipientBag rather than listing the
+  // keys here is what keeps this answer honest — the resend renders against
+  // that same function, so the two cannot drift apart.
+  const known = buildRecipientBag({
+    recipient: targets[0],
+    associationName: assocRow.name,
+  })
+
+  const fields = unresolvedFields({
+    subject: comm.subject,
+    bodyHtml: comm.body_html,
+    bodyText: comm.body_text,
+    known,
+  })
+  if (fields.length === 0) return { ok: true, failedCount: targets.length, fields: [] }
+
+  const { data: renderedRow } = await supabase
+    .from('communication_recipients')
+    .select('rendered_subject')
+    .eq('communication_id', comm.id)
+    .eq('organization_id', org.id)
+    .eq('channel', 'email')
+    .in('delivery_status', RENDERED_DELIVERY_STATUSES)
+    .not('rendered_subject', 'is', null)
+    .limit(1)
+    .maybeSingle()
+
+  // One row is enough: the subject template is campaign-wide, so every
+  // delivered copy pins the same values for the fields it contains.
+  const recovered = recoverFromRenderedSubject({
+    subjectTemplate: comm.subject,
+    renderedSubject: renderedRow?.rendered_subject ?? null,
+    known,
+  })
+
+  return {
+    ok: true,
+    failedCount: targets.length,
+    fields: fields.map((name) => ({ name, value: recovered[name] ?? '' })),
+  }
+}
+
 export type ResendFailedResult =
   | { ok: true; sentCount: number; failedCount: number }
   | { ok: false; error: string }
@@ -540,15 +670,21 @@ export type ResendFailedResult =
  * Merge-field caveat: `extraFields` / `extraMergeFields` are send-time
  * arguments and are never persisted, so a resend rebuilds the bag from what
  * the recipient row itself carries (name, unit, association). For a body
- * that only used ambient fields — every plain announcement, including the
- * one that motivated this — the render is identical. For one that used a
- * wizard answer or a per-recipient dues table, renderTemplateStrict throws
- * and that recipient stays 'failed' with "missing merge fields: …". That is
- * the intended outcome: a resend must never quietly deliver a body with the
- * personalized parts blanked out.
+ * that only used ambient fields — every plain announcement — the render is
+ * identical and `suppliedFields` can be left empty. For one that used a
+ * wizard answer, the caller runs getResendPreflight first and hands the
+ * answers back here; anything still unresolved is refused up front rather
+ * than thrown per recipient, because a resend must never quietly deliver a
+ * body with the personalized parts blanked out. Per-recipient values (a
+ * dues table) remain unrecoverable — they are not campaign-wide, so there
+ * is nothing a single form could ask for.
  */
 export async function resendFailedRecipients(
   communicationId: string,
+  /** The wizard answers retyped on the resend form, keyed by placeholder
+   *  name — see getResendPreflight. Defaults to none so the messages that
+   *  need nothing keep their original one-argument call. */
+  suppliedFields: Record<string, string> = {},
 ): Promise<ResendFailedResult> {
   // `communicationId` arrives straight from the browser, so the org gate is
   // repeated on every statement below rather than established once and
@@ -596,6 +732,38 @@ export async function resendFailedRecipients(
     return { ok: false, error: 'No failed email recipients to resend to.' }
   }
 
+  // Blank answers are dropped here, not treated as values: an empty string
+  // satisfies unresolvedFields (the key exists) but throws in
+  // renderTemplateStrict (the value is empty), so keeping one would let a
+  // half-filled form pass the check below and fail every row instead.
+  const supplied = normalizeSuppliedFields(suppliedFields)
+
+  // Campaign-wide check before anything is sent. buildEmailPayloads would
+  // catch an unresolved field too, but only per recipient and only after
+  // the batch call — leaving all 37 rows marked failed again with the same
+  // "missing merge fields: …" they already carried. Refusing here names the
+  // fields back to the form and leaves the rows untouched.
+  const stillMissing = unresolvedFields({
+    subject: comm.subject,
+    bodyHtml: comm.body_html,
+    bodyText: comm.body_text,
+    // `supplied` goes in as extraFields, the lowest precedence in
+    // buildRecipientBag, so a supplied value can never shadow
+    // {{association_name}} or {{recipient_name}}. Same representative-row
+    // reasoning as getResendPreflight.
+    known: buildRecipientBag({
+      extraFields: supplied,
+      recipient: targets[0],
+      associationName: assocRow.name,
+    }),
+  })
+  if (stillMissing.length > 0) {
+    return {
+      ok: false,
+      error: `Still missing ${stillMissing.join(', ')}. Fill every field in — a blank one would send with that part of the message missing.`,
+    }
+  }
+
   const { payloads, owners, failures } = buildEmailPayloads({
     recipients: targets,
     subject: comm.subject,
@@ -603,6 +771,7 @@ export async function resendFailedRecipients(
     bodyText: comm.body_text,
     associationName: assocRow.name,
     senderName: buildSenderName(assocRow.name, assocRow.type),
+    extraFields: supplied,
   })
 
   const results = await sendEmailBatch(payloads)
