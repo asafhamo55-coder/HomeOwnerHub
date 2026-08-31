@@ -9,6 +9,7 @@ export {
   resolveFastModel,
   resolveVisionModel,
   resolveCloudModel,
+  JSON_MODE_PARAMS,
 } from './model'
 
 // Router / agent registry

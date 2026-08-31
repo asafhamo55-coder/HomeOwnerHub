@@ -16,7 +16,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow, resolveModel } from '@homeowner-portal/ai'
+import { defineWorkflow, resolveModel, JSON_MODE_PARAMS } from '@homeowner-portal/ai'
 import { PROMPT_VERSION, SYSTEM_PROMPT, userPromptFor } from './prompt'
 
 // ─── Schemas ─────────────────────────────────────────────────────────
@@ -132,8 +132,9 @@ export const vendorExtractor = defineWorkflow({
       // Zero temperature: this is extraction, not composition. Any
       // creativity here is, by definition, invention.
       temperature: 0,
-      max_tokens: 500,
+      max_completion_tokens: 2000,
       response_format: { type: 'json_object' },
+      ...JSON_MODE_PARAMS,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userPromptFor(input) },

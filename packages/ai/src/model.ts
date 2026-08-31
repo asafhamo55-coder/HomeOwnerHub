@@ -114,3 +114,30 @@ export function resolveCloudModel(): string {
 export function resolveVisionModel(): string {
   return firstUsable(process.env.AI_MODEL_VISION) ?? DEFAULT_VISION_MODEL
 }
+
+/**
+ * Extra parameters every `response_format: { type: 'json_object' }` call
+ * must carry now that the default model is a reasoning model.
+ *
+ * `reasoning_format` is REQUIRED to be 'parsed' or 'hidden' in JSON mode
+ * (console.groq.com/docs/reasoning). Left unset, gpt-oss emits its chain of
+ * thought into `content` alongside the answer, the result is not valid
+ * JSON, and Groq rejects the whole request with
+ * `400 Failed to generate JSON. Please adjust your prompt.` — which is what
+ * broke "Ask the Docs" (W1) on 2026-08-31. It is intermittent, because it
+ * depends on whether the model chose to think out loud that turn, so two
+ * runs succeeded either side of the failure.
+ *
+ * 'hidden' rather than 'parsed': none of these workflows read the trace,
+ * and the audit row's reasoning field is populated from the workflow's own
+ * output, not the provider's.
+ *
+ * `reasoning_effort` defaults to 'medium' for gpt-oss. Those tokens are
+ * billed and counted against the completion budget while contributing
+ * nothing to a grounded extract-and-cite task, so these calls opt down to
+ * 'low' instead of paying for deliberation they discard.
+ */
+export const JSON_MODE_PARAMS = {
+  reasoning_format: 'hidden',
+  reasoning_effort: 'low',
+} as const

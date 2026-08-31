@@ -16,7 +16,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow, resolveModel } from '@homeowner-portal/ai'
+import { defineWorkflow, resolveModel, JSON_MODE_PARAMS } from '@homeowner-portal/ai'
 import {
   createAdminClient,
   loadAccountingRefs,
@@ -313,6 +313,7 @@ async function runStepD(
         { role: 'user', content: userPrompt },
       ],
       response_format: { type: 'json_object' },
+      ...JSON_MODE_PARAMS,
       temperature: 0.1,
     })
     const raw = completion.choices[0]?.message?.content ?? null

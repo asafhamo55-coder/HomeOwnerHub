@@ -9,6 +9,7 @@ import {
   resolveFastModel,
   resolveVisionModel,
   resolveCloudModel,
+  JSON_MODE_PARAMS,
 } from './model'
 
 /**
@@ -229,5 +230,21 @@ describe('resolveCloudModel', () => {
       delete process.env.AI_MODEL
       expect(resolveCloudModel()).not.toBe('')
     }
+  })
+})
+
+describe('JSON_MODE_PARAMS', () => {
+  // 'raw' is the value that broke "Ask the Docs" on 2026-08-31: gpt-oss put
+  // its chain of thought in `content` next to the answer, the payload was no
+  // longer valid JSON, and Groq rejected the request outright with
+  // "400 Failed to generate JSON". Only 'parsed' and 'hidden' are legal in
+  // JSON mode, so this asserts the value can never drift back.
+  it('never uses a reasoning_format that is illegal in JSON mode', () => {
+    expect(JSON_MODE_PARAMS.reasoning_format).not.toBe('raw')
+    expect(['parsed', 'hidden']).toContain(JSON_MODE_PARAMS.reasoning_format)
+  })
+
+  it('opts reasoning effort down from the gpt-oss default of medium', () => {
+    expect(JSON_MODE_PARAMS.reasoning_effort).toBe('low')
   })
 })

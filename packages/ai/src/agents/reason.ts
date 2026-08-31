@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import { resolveModel } from '../model'
+import { resolveModel, JSON_MODE_PARAMS } from '../model'
 
 let _client: OpenAI | null = null
 function getClient(): OpenAI {
@@ -23,8 +23,9 @@ export async function runReason<T = unknown>(
     model: MODEL_REASON,
     messages,
     temperature: 0.0,
-    max_tokens: opts?.max_tokens ?? 512,
+    max_completion_tokens: opts?.max_tokens ?? 2000,
     response_format: { type: 'json_object' },
+    ...JSON_MODE_PARAMS,
   })
   const text = res.choices[0]?.message?.content ?? '{}'
   return JSON.parse(text) as T

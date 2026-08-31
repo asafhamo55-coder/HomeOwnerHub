@@ -9,7 +9,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow, resolveModel } from '@homeowner-portal/ai'
+import { JSON_MODE_PARAMS, defineWorkflow, resolveModel } from '@homeowner-portal/ai'
 import { createAdminClient } from '@homeowner-portal/db'
 import { PROMPT_VERSION, SYSTEM_PROMPT, userPromptFor } from './prompt'
 import { retrieveChunks } from './tools'
@@ -133,8 +133,12 @@ export const governingDocsBrain = defineWorkflow({
     const completion = await client.chat.completions.create({
       model: resolveModel(),
       temperature: 0.1, // grounded RAG — keep it tight
-      max_tokens: 600,
+      // Was 600, tuned for llama-3.3. Two successful runs came back at 435
+      // and 489 completion tokens — 81% of that ceiling — so any slightly
+      // longer answer truncated mid-JSON.
+      max_completion_tokens: 2000,
       response_format: { type: 'json_object' },
+      ...JSON_MODE_PARAMS,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userPromptFor(input.question, retrieved) },

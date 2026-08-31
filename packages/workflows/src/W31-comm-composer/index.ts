@@ -8,7 +8,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow, resolveModel } from '@homeowner-portal/ai'
+import { defineWorkflow, resolveModel, JSON_MODE_PARAMS } from '@homeowner-portal/ai'
 import {
   PROMPT_VERSION,
   SYSTEM_PROMPT,
@@ -85,8 +85,9 @@ export const commComposer = defineWorkflow({
       const completion = await client.chat.completions.create({
         model: modelId,
         temperature: 0.4,
-        max_tokens: 1200,
+        max_completion_tokens: 3000,
         response_format: { type: 'json_object' },
+        ...JSON_MODE_PARAMS,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPromptFor(input as ComposeUserContext) },

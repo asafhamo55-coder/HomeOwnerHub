@@ -24,7 +24,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow, resolveModel } from '@homeowner-portal/ai'
+import { defineWorkflow, resolveModel, JSON_MODE_PARAMS } from '@homeowner-portal/ai'
 import {
   PROMPT_VERSION,
   VENDOR_REQUEST_SYSTEM,
@@ -155,8 +155,9 @@ export const vendorRequestComposer = defineWorkflow({
     const completion = await getClient().chat.completions.create({
       model: resolveModel(),
       temperature: 0.2,
-      max_tokens: 1500,
+      max_completion_tokens: 4000,
       response_format: { type: 'json_object' },
+      ...JSON_MODE_PARAMS,
       messages: [
         { role: 'system', content: VENDOR_REQUEST_SYSTEM },
         { role: 'user', content: buildVendorRequestUserPrompt(input) },

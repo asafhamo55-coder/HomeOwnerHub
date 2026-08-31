@@ -15,7 +15,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow, resolveModel } from '@homeowner-portal/ai'
+import { defineWorkflow, resolveModel, JSON_MODE_PARAMS } from '@homeowner-portal/ai'
 import { createAdminClient } from '@homeowner-portal/db'
 import {
   PROMPT_VERSION,
@@ -274,6 +274,7 @@ export const bidComparator = defineWorkflow({
     const completion = await getClient().chat.completions.create({
       model: resolveModel(),
       response_format: { type: 'json_object' },
+      ...JSON_MODE_PARAMS,
       temperature: 0.2,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
