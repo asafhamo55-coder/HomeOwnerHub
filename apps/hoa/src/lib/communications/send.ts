@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
-import { sendEmail } from '@/lib/email'
+import { sendEmailBatch, type BatchSendResult, type SendEmailInput } from '@/lib/email'
 import { buildSenderName } from '@/lib/email/sender-name'
 import { sendSms, htmlToSmsBody } from '@/lib/sms'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -307,11 +307,16 @@ export async function sendCommunication(
     }
   }
 
-  // 5. Send-now: per-recipient delivery, parallelized via Promise.all
-  //    so a 20-recipient blast finishes in ~500ms wall-clock (slowest
-  //    single provider call) instead of N × 500ms sequential. Each
-  //    recipient resolves to a 'sent' | 'failed' | 'skipped' outcome
-  //    independently — a single bad address never blocks the others.
+  // 5. Send-now: per-recipient delivery. Each recipient still resolves to a
+  //    'sent' | 'failed' | 'skipped' outcome independently — a single bad
+  //    address never blocks the others.
+  //
+  //    Email is sent as ONE batched call per 100 recipients, ahead of the
+  //    fan-out below, because Resend's limit is 10 requests/second per team.
+  //    This used to be a Promise.all of one request per recipient, and a
+  //    real 47-recipient announcement on 2026-08-31 delivered 10 and failed
+  //    37 — the burst spent the whole team's per-second budget at once.
+  //    SMS still goes one at a time: different provider, different limits.
   type Outcome = 'sent' | 'failed' | 'skipped'
   type RecipientRow = {
     id: string
@@ -328,6 +333,9 @@ export async function sendCommunication(
   // From-header name only — merge fields keep the bare `associationName`, so
   // "Madison Park HOA" in the inbox doesn't leak into {{association_name}}.
   const senderName = buildSenderName(associationName, assocRow.type)
+  // Filled by the batched pre-send below; deliverOne reads its recipient's
+  // outcome out of here instead of issuing its own request.
+  const emailBatchResults = new Map<string, BatchSendResult>()
   const commId = comm.id
 
   // extraFields is the caller-supplied bag built from the template's
@@ -359,7 +367,13 @@ export async function sendCommunication(
         await markFailed(supabase, recipient.id, 'no email address', subject)
         return 'skipped'
       }
-      const result = await sendEmail({ to: recipient.email, subject, html, text, senderName })
+      // Already sent by the batched pre-send. A missing entry means the
+      // batch never saw this recipient, which only happens when rendering
+      // threw — and the same throw above has already returned 'failed'.
+      const result = emailBatchResults.get(recipient.id) ?? {
+        ok: false as const,
+        error: 'not included in the send batch',
+      }
       if (result.ok) {
         await supabase
           .from('communication_recipients')
@@ -441,6 +455,41 @@ export async function sendCommunication(
   // flow in here — merged once, ahead of the per-recipient fan-out, rather
   // than re-merged inside deliverOne per recipient.
   const mergedExtraFields: MergeBag = { ...value.extraFields, ...leaseCapExtra }
+
+  // Batched email pre-send. Rendering is repeated inside deliverOne rather
+  // than threaded through: it is pure and deterministic, so the second pass
+  // produces identical output, and keeping deliverOne's own render means the
+  // failure path and its error message stay in one place. A recipient whose
+  // render throws is simply left out of the batch here.
+  const emailTargets = recipientRows.filter((r) => r.channel === 'email' && r.email)
+  if (emailTargets.length > 0) {
+    const payloads: SendEmailInput[] = []
+    const payloadOwners: string[] = []
+    for (const r of emailTargets) {
+      const bag = buildRecipientBag({
+        extraFields: mergedExtraFields,
+        recipient: r,
+        associationName,
+        extraMergeFields: value.extraMergeFields,
+      })
+      try {
+        payloads.push({
+          to: r.email as string,
+          subject: renderTemplateStrict(value.subject, bag),
+          html: renderTemplateStrict(value.bodyHtml, bag),
+          text: value.bodyText ? renderTemplateStrict(value.bodyText, bag) : undefined,
+          senderName,
+        })
+        payloadOwners.push(r.id)
+      } catch {
+        // deliverOne re-renders, throws identically, and records the real
+        // message — no need to duplicate that handling here.
+      }
+    }
+    const batchResults = await sendEmailBatch(payloads)
+    batchResults.forEach((result, i) => emailBatchResults.set(payloadOwners[i], result))
+  }
+
   const outcomes = await Promise.all(
     recipientRows.map((r) => deliverOne(r, mergedExtraFields)),
   )
