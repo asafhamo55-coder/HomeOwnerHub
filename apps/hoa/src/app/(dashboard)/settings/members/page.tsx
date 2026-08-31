@@ -1,14 +1,17 @@
-import { Users } from 'lucide-react'
+import { Bell, Users } from 'lucide-react'
 import {
   Alert,
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from '@homeowner-portal/ui'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { listMembers, listOrgProperties } from '@/lib/members'
+import { countMyPushDevices } from '@/lib/push-subscriptions'
+import { EnablePushButton } from '@/components/notifications/EnablePushButton'
 import { InviteMemberForm } from './InviteMemberForm'
 import { MemberRow } from './MemberRow'
 
@@ -22,10 +25,20 @@ export default async function MembersPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [members, properties] = await Promise.all([
+  const [members, properties, pushDevices] = await Promise.all([
     listMembers(),
     listOrgProperties(),
+    // Board members are the people ticket notifications go to, and this
+    // is the only settings page they can reach — /settings and
+    // /settings/mailbox both gate on requireAdmin. Hence the opt-in card
+    // living here rather than on the main Settings page.
+    countMyPushDevices(),
   ])
+
+  // null = the server could not read push_subscriptions at all (0053 not
+  // applied yet). The card renders "not available yet" for that, which is
+  // a different thing from "you have zero devices".
+  const storedDeviceCount = pushDevices.ok ? pushDevices.data.count : null
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -68,6 +81,23 @@ export default async function MembersPage() {
               <MemberRow key={m.user_id} member={m} isSelf={m.user_id === user?.id} />
             ))}
           </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Bell className="h-4 w-4 text-muted" />
+            Ticket notifications
+          </CardTitle>
+          <CardDescription>
+            Get an alert on this device the moment a resident opens a ticket —
+            with the app closed, like a text message. This is per-device, so
+            turn it on separately on your phone and your laptop.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <EnablePushButton storedDeviceCount={storedDeviceCount} />
         </CardContent>
       </Card>
     </div>

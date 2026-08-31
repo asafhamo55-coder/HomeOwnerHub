@@ -18,9 +18,11 @@
     "@homeowner-portal/mailbox": "workspace:*",
     "@homeowner-portal/workflows": "workspace:*",
     "inngest": "^3.20.0",
-    "plaid": "^42.2.0"
+    "plaid": "^42.2.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@types/web-push": "^3.6.4",
     "typescript": "^5"
   }
 }

@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import {
   AppShell,
@@ -16,6 +17,7 @@ import { HoaHubSwitcher } from '@/components/layout/HoaHubSwitcher'
 import { DashboardProviders } from '@/components/layout/DashboardProviders'
 import { NavigationProgress } from '@/components/layout/NavigationProgress'
 import { PlatformAdminLink } from '@/components/layout/PlatformAdminLink'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { RoleSwitcherMount } from '@/components/dev/RoleSwitcherMount'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -79,6 +81,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <AppShellHeader>
             <div className="ml-auto flex items-center gap-2">
               {role === 'admin' && <PlatformAdminLink />}
+              {/* Wrapped in Suspense so two extra queries on the shared
+                  dashboard chrome cannot delay first paint of the page
+                  itself — the header streams the bell in when it resolves.
+                  The fallback is deliberately nothing rather than a
+                  skeleton: a bell that appears is less distracting in a
+                  14px-tall header than a placeholder that swaps. */}
+              <Suspense fallback={null}>
+                <NotificationBell />
+              </Suspense>
               {role === 'admin' && <HoaHubSwitcher userHubs={userHubs} />}
             </div>
           </AppShellHeader>

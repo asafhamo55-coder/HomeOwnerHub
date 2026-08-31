@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { inngest } from '@homeowner-portal/jobs'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -169,6 +170,24 @@ export async function createTicket(
 
   if (error || !row) {
     return { ok: false, error: error?.message ?? 'Could not create ticket.' }
+  }
+
+  // Tell the board. Deliberately after the insert and deliberately
+  // swallowed: the resident's ticket is already saved, and Inngest being
+  // unreachable must not turn a successful submission into an error they
+  // are asked to retry. The job itself writes the notification rows and
+  // sends any pushes — see packages/jobs/src/ticket-notifications.ts.
+  try {
+    await inngest.send({
+      name: 'ticket/created',
+      data: { ticketId: row.id, organizationId: org.id },
+    })
+  } catch (err) {
+    console.error(
+      `createResidentTicket: could not queue board notification for ticket ${row.id}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
   }
 
   revalidatePath('/')
