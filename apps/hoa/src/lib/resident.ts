@@ -8,6 +8,11 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getResidentActor, type ResidentActor } from '@/lib/impersonation'
+import {
+  countNewAnnouncements,
+  fetchMyAnnouncementRows,
+  getAnnouncementsLastViewedAt,
+} from '@/lib/resident-announcements'
 
 export interface ResidentUnit {
   unit_id: string
@@ -187,17 +192,20 @@ export async function getResidentSummary(): Promise<ResidentSummary> {
   ]
   const associationName = associationNames[0] ?? null
 
+  // Same reach-through the announcements page uses — this was the second
+  // copy of the org-wide count that told a reader "15 new" over a list of 3.
   let recentAnnouncements = 0
   if (org) {
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    const { count } = await supabase
-      .from('communications' as never)
-      .select('id', { count: 'exact', head: true })
-      .eq('organization_id', org.id)
-      .eq('status', 'sent')
-      .gte('sent_at', thirtyDaysAgo.toISOString())
-    recentAnnouncements = count ?? 0
+    const identity = {
+      unitIds: units.map((u) => u.unit_id).filter(Boolean),
+      userId: actor.id,
+      email: actor.email,
+    }
+    const [rows, lastViewedAt] = await Promise.all([
+      fetchMyAnnouncementRows(supabase as never, org.id, identity),
+      getAnnouncementsLastViewedAt(supabase as never, identity.userId),
+    ])
+    recentAnnouncements = countNewAnnouncements(rows, lastViewedAt)
   }
 
   return {

@@ -15,6 +15,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getResidentActor } from '@/lib/impersonation'
+import {
+  countNewAnnouncements,
+  fetchMyAnnouncementRows,
+  getAnnouncementsLastViewedAt,
+  type ReaderIdentity,
+} from '@/lib/resident-announcements'
 import { getResidentUnits, type ResidentUnit } from '@/lib/resident'
 import { listMyTickets, type TicketRow } from '@/lib/resident-tickets'
 import { listMyArcRequests, type ArcRequestRow } from '@/lib/resident-submissions'
@@ -109,7 +115,11 @@ export async function getResidentDashboard(): Promise<ResidentDashboard> {
     getDues(supabase, unitIds),
     listMyTickets(),
     listMyArcRequests(),
-    getRecentAnnouncements(supabase, org?.id ?? null),
+    getRecentAnnouncements(supabase, org?.id ?? null, {
+      unitIds,
+      userId: actor.id,
+      email: actor.email,
+    }),
   ])
 
   const associationName =
@@ -248,15 +258,21 @@ async function getDues(supabase: Supabase, unitIds: string[]): Promise<ResidentD
   return { balance: Math.round(balance * 100) / 100, openCount, pastDueCount, nextDueDate, charges }
 }
 
-async function getRecentAnnouncements(supabase: Supabase, orgId: string | null): Promise<number> {
+/**
+ * Announcements addressed to THIS reader that arrived since they last
+ * opened the page. Was a count of every communication the org sent in 30
+ * days, which showed a Madison Park owner "15 new" above a list of 3 — see
+ * resident-announcements.ts.
+ */
+async function getRecentAnnouncements(
+  supabase: Supabase,
+  orgId: string | null,
+  identity: ReaderIdentity,
+): Promise<number> {
   if (!orgId) return 0
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-  const { count } = await supabase
-    .from('communications' as never)
-    .select('id', { count: 'exact', head: true })
-    .eq('organization_id', orgId)
-    .eq('status', 'sent')
-    .gte('sent_at', thirtyDaysAgo.toISOString())
-  return count ?? 0
+  const [rows, lastViewedAt] = await Promise.all([
+    fetchMyAnnouncementRows(supabase as never, orgId, identity),
+    getAnnouncementsLastViewedAt(supabase as never, identity.userId),
+  ])
+  return countNewAnnouncements(rows, lastViewedAt)
 }

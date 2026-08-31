@@ -1,4 +1,5 @@
 import { Megaphone } from 'lucide-react'
+import { markAnnouncementsViewed } from '@/lib/resident-announcements'
 import { format } from 'date-fns'
 import { Badge } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
@@ -106,6 +107,12 @@ export default async function ResidentAnnouncementsPage() {
             // reader on several channels has several rows per message.
             .limit(300)
         ).data ?? []) as unknown as RecipientRow[])
+
+  // Reading IS opening this page: every body renders inline below, so
+  // there is no per-announcement view to hang a finer read receipt on.
+  // Stamped after the rows are fetched so a reader who loads the page sees
+  // this visit's announcements listed, and only the NEXT one is counted new.
+  await markAnnouncementsViewed(supabase as never, actor.id)
 
   const byComm = pickRowPerCommunication(recipientRows)
   const commIds = [...byComm.keys()].slice(0, 50)
