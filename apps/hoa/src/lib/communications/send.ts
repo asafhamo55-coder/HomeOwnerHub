@@ -3,15 +3,17 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
-import { sendEmailBatch, type BatchSendResult, type SendEmailInput } from '@/lib/email'
+import { sendEmailBatch, type BatchSendResult } from '@/lib/email'
 import { buildSenderName } from '@/lib/email/sender-name'
 import { sendSms, htmlToSmsBody } from '@/lib/sms'
+import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getLeaseStats } from '@/lib/leases'
 import { buildLeaseCapFields, buildLeaseCapMeterHtml } from '@/lib/community-templates/lease-cap'
 import { getTemplate } from '@/lib/community-templates/registry'
 import { resolveAudience, stripAudienceForPersist, type AudienceDefinition } from './audience'
+import { buildEmailPayloads } from './email-payloads'
 import { buildRecipientBag } from './merge-bag'
 import { renderTemplateStrict, type MergeBag } from './templates'
 
@@ -463,31 +465,20 @@ export async function sendCommunication(
   // render throws is simply left out of the batch here.
   const emailTargets = recipientRows.filter((r) => r.channel === 'email' && r.email)
   if (emailTargets.length > 0) {
-    const payloads: SendEmailInput[] = []
-    const payloadOwners: string[] = []
-    for (const r of emailTargets) {
-      const bag = buildRecipientBag({
-        extraFields: mergedExtraFields,
-        recipient: r,
-        associationName,
-        extraMergeFields: value.extraMergeFields,
-      })
-      try {
-        payloads.push({
-          to: r.email as string,
-          subject: renderTemplateStrict(value.subject, bag),
-          html: renderTemplateStrict(value.bodyHtml, bag),
-          text: value.bodyText ? renderTemplateStrict(value.bodyText, bag) : undefined,
-          senderName,
-        })
-        payloadOwners.push(r.id)
-      } catch {
-        // deliverOne re-renders, throws identically, and records the real
-        // message — no need to duplicate that handling here.
-      }
-    }
+    const { payloads, owners } = buildEmailPayloads({
+      recipients: emailTargets,
+      subject: value.subject,
+      bodyHtml: value.bodyHtml,
+      bodyText: value.bodyText,
+      associationName,
+      senderName,
+      extraFields: mergedExtraFields,
+      extraMergeFields: value.extraMergeFields,
+    })
+    // `failures` is ignored here on purpose: deliverOne re-renders, throws
+    // identically, and records the real message against the row.
     const batchResults = await sendEmailBatch(payloads)
-    batchResults.forEach((result, i) => emailBatchResults.set(payloadOwners[i], result))
+    batchResults.forEach((result, i) => emailBatchResults.set(owners[i], result))
   }
 
   const outcomes = await Promise.all(
@@ -525,20 +516,177 @@ export async function sendCommunication(
   }
 }
 
+export type ResendFailedResult =
+  | { ok: true; sentCount: number; failedCount: number }
+  | { ok: false; error: string }
+
+/**
+ * Retry delivery to only the email recipients of `communicationId` that are
+ * currently sitting in `delivery_status = 'failed'`.
+ *
+ * Exists because of the 47-recipient announcement on 2026-08-31: Resend's
+ * limit is 10 requests/second per team, the old fan-out issued one request
+ * per recipient at once, and 37 came back "Too many requests". The burst is
+ * fixed (sendEmailBatch), but those 37 rows stayed failed with no way to
+ * retry that did not also re-mail the 10 residents who had already read it.
+ * Selecting on 'failed' is what makes the retry safe to press twice: a row
+ * that succeeded is no longer in the set.
+ *
+ * Email only. SMS is excluded because a Twilio failure is usually a carrier
+ * or landline rejection that a blind retry simply re-earns, and 'portal'
+ * rows have no external send to retry at all — a failed one failed at
+ * render, which re-running with the same inputs reproduces exactly.
+ *
+ * Merge-field caveat: `extraFields` / `extraMergeFields` are send-time
+ * arguments and are never persisted, so a resend rebuilds the bag from what
+ * the recipient row itself carries (name, unit, association). For a body
+ * that only used ambient fields — every plain announcement, including the
+ * one that motivated this — the render is identical. For one that used a
+ * wizard answer or a per-recipient dues table, renderTemplateStrict throws
+ * and that recipient stays 'failed' with "missing merge fields: …". That is
+ * the intended outcome: a resend must never quietly deliver a body with the
+ * personalized parts blanked out.
+ */
+export async function resendFailedRecipients(
+  communicationId: string,
+): Promise<ResendFailedResult> {
+  // `communicationId` arrives straight from the browser, so the org gate is
+  // repeated on every statement below rather than established once and
+  // trusted downstream. RLS is the backstop, not the first line of defense.
+  const { org } = await requireBoardOrAdmin()
+  const supabase = await getSupabaseServerClient()
+
+  const { data: comm, error: commErr } = await supabase
+    .from('communications')
+    .select('id, association_id, subject, body_html, body_text')
+    .eq('id', communicationId)
+    .eq('organization_id', org.id)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (commErr) return { ok: false, error: `communication lookup: ${commErr.message}` }
+  // Deliberately the same message whether the id is unknown or belongs to
+  // another org — the response must not confirm that someone else's
+  // communication exists.
+  if (!comm) return { ok: false, error: 'Communication not found.' }
+
+  const { data: assocRow } = await supabase
+    .from('associations')
+    .select('name, type')
+    .eq('id', comm.association_id)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (!assocRow) return { ok: false, error: 'Association not found.' }
+
+  const { data: failedRows, error: recErr } = await supabase
+    .from('communication_recipients')
+    .select('id, email, recipient_name, unit_id')
+    .eq('communication_id', comm.id)
+    .eq('organization_id', org.id)
+    // email only — SMS and portal are out of scope (see the doc comment).
+    .eq('channel', 'email')
+    // 'failed' only, never 'bounced': a hard bounce means the address is
+    // wrong, and re-mailing it damages the sending domain's reputation.
+    .eq('delivery_status', 'failed')
+  if (recErr) return { ok: false, error: `recipient lookup: ${recErr.message}` }
+
+  // A row with no address failed for a reason a resend cannot fix; leave it
+  // as it is rather than churning it through the batch to fail again.
+  const targets = (failedRows ?? []).filter((r) => r.email)
+  if (targets.length === 0) {
+    return { ok: false, error: 'No failed email recipients to resend to.' }
+  }
+
+  const { payloads, owners, failures } = buildEmailPayloads({
+    recipients: targets,
+    subject: comm.subject,
+    bodyHtml: comm.body_html,
+    bodyText: comm.body_text,
+    associationName: assocRow.name,
+    senderName: buildSenderName(assocRow.name, assocRow.type),
+  })
+
+  const results = await sendEmailBatch(payloads)
+
+  let sentCount = 0
+  let failedCount = 0
+
+  await Promise.all([
+    ...owners.map(async (recipientId, i) => {
+      const result = results[i] ?? {
+        ok: false as const,
+        error: 'no batch result returned for this recipient',
+      }
+      if (!result.ok) {
+        failedCount += 1
+        await markFailed(supabase, recipientId, result.error, payloads[i].subject, org.id)
+        return
+      }
+      sentCount += 1
+      await supabase
+        .from('communication_recipients')
+        .update({
+          delivery_status: 'sent',
+          sent_at: new Date().toISOString(),
+          external_id: result.messageId,
+          rendered_subject: payloads[i].subject,
+          // Clear the failure the retry just undid. sendCommunication never
+          // needs this (its rows go queued → sent), but here the row already
+          // carries "Too many requests" and a failed_at, and the detail page
+          // renders both underneath the status badge — a 'sent' row still
+          // showing a red error reads like the resend didn't work.
+          error_message: null,
+          failed_at: null,
+        })
+        .eq('id', recipientId)
+        .eq('organization_id', org.id)
+    }),
+    // Recipients whose merge fields no longer resolve. They never reached
+    // the provider, so overwrite the stale error with the render failure —
+    // that, not the original rate-limit message, is why they are still red.
+    ...failures.map(async ({ recipientId, error }) => {
+      failedCount += 1
+      await markFailed(supabase, recipientId, error, undefined, org.id)
+    }),
+  ])
+
+  // Lift the parent row out of 'failed' when the retry landed. Guarded on
+  // the current status so a partial resend on an already-'sent' parent
+  // doesn't rewrite it; sent_at is left alone so the page keeps showing
+  // when the message originally went out.
+  if (sentCount > 0) {
+    await supabase
+      .from('communications')
+      .update({ status: 'sent' })
+      .eq('id', comm.id)
+      .eq('organization_id', org.id)
+      .eq('status', 'failed')
+  }
+
+  revalidatePath('/communications')
+  revalidatePath(`/communications/${comm.id}`)
+  return { ok: true, sentCount, failedCount }
+}
+
 /**
  * `renderedSubject` is optional because there are two kinds of failure:
  * one where the merge fields resolved and the provider refused, and one
  * where rendering itself threw. Only the first has a subject to record.
  * Omitting it leaves the column NULL, which migration 0050 defines as
  * "unknown" — distinct from an empty subject.
+ *
+ * `organizationId` is likewise optional. sendCommunication owns the rows it
+ * just inserted and omits it; resendFailedRecipients passes it so that every
+ * statement it issues off a client-supplied id carries the org filter, even
+ * though the id came out of an already-scoped select.
  */
 async function markFailed(
   supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
   recipientId: string,
   error: string,
   renderedSubject?: string,
+  organizationId?: string,
 ): Promise<void> {
-  await supabase
+  let q = supabase
     .from('communication_recipients')
     .update({
       delivery_status: 'failed',
@@ -547,4 +695,6 @@ async function markFailed(
       ...(renderedSubject === undefined ? {} : { rendered_subject: renderedSubject }),
     })
     .eq('id', recipientId)
+  if (organizationId) q = q.eq('organization_id', organizationId)
+  await q
 }

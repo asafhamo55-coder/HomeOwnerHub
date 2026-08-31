@@ -60,6 +60,14 @@ export default async function CommunicationDetailPage({ params }: PageProps) {
   })
   const displayBody = resolveHtmlForDisplay(comm.body_html, { associationName: assoc.name })
 
+  // Drives the resend button. Narrower than comm.failedCount, which also
+  // counts bounces and non-email channels — neither of which
+  // resendFailedRecipients will act on, so counting them here would label
+  // the button with a number it cannot deliver.
+  const failedEmailCount = comm.recipients.filter(
+    (r) => r.channel === 'email' && r.delivery_status === 'failed',
+  ).length
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <header className="space-y-1">
@@ -84,7 +92,7 @@ export default async function CommunicationDetailPage({ params }: PageProps) {
               Personalized
             </Badge>
           ) : null}
-          <CommunicationActions commId={comm.id} />
+          <CommunicationActions commId={comm.id} failedEmailCount={failedEmailCount} />
           {comm.ai_generated ? (
             <Badge variant="outline">
               <Sparkles className="mr-1 h-3 w-3" />
