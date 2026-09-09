@@ -169,8 +169,27 @@ export const ticketNotificationsJob = inngest.createFunction(
     // unique index on (user_id, kind, entity_id) makes an Inngest retry
     // idempotent rather than duplicating every row.
     await step.run('write-notifications', async () => {
-      const { error } = await db.from('notifications' as never).upsert(
-        recipients.map((userId) => ({
+      // Dedupe by reading first rather than ON CONFLICT. The unique index
+      // guarding this is PARTIAL (`WHERE entity_id IS NOT NULL`), and
+      // Postgres will only infer a partial index for ON CONFLICT if the
+      // statement repeats that predicate — which PostgREST cannot emit. An
+      // upsert here fails outright with "no unique or exclusion constraint
+      // matching the ON CONFLICT specification", so every board
+      // notification would be lost, silently, because this step logs and
+      // continues by design.
+      const { data: existing } = await db
+        .from('notifications' as never)
+        .select('user_id')
+        .eq('kind', 'ticket.created')
+        .eq('entity_id', ticket.id)
+      const already = new Set(
+        ((existing ?? []) as { user_id: string }[]).map((r) => r.user_id),
+      )
+      const fresh = recipients.filter((userId) => !already.has(userId))
+      if (fresh.length === 0) return
+
+      const { error } = await db.from('notifications' as never).insert(
+        fresh.map((userId) => ({
           organization_id: organizationId,
           user_id: userId,
           kind: 'ticket.created',
@@ -180,11 +199,14 @@ export const ticketNotificationsJob = inngest.createFunction(
           entity_type: 'ticket',
           entity_id: ticket.id,
         })) as never,
-        { onConflict: 'user_id,kind,entity_id', ignoreDuplicates: true } as never,
       )
-      // Migration 0053 may not be applied yet. Log and continue to push
-      // rather than failing the job — see the spec's degradation section.
-      if (error) logger.warn(`ticket-notifications: notifications insert: ${error.message}`)
+      // 23505 here means a concurrent retry inserted the same rows between
+      // the read and the write — the desired end state either way. Anything
+      // else (including 0053 not being applied) is logged and the job
+      // continues to push; see the spec's degradation section.
+      if (error && error.code !== '23505') {
+        logger.warn(`ticket-notifications: notifications insert: ${error.message}`)
+      }
     })
 
     const pushed = await step.run('send-push', async () => {
