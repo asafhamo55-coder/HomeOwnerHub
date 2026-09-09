@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect as nextRedirect } from 'next/navigation'
+import { Alert } from '@homeowner-portal/ui'
 import { LoginMethods } from './LoginMethods'
 
 export const metadata = { title: 'Sign in' }
@@ -7,9 +8,9 @@ export const metadata = { title: 'Sign in' }
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect?: string }>
+  searchParams: Promise<{ redirect?: string; reason?: string }>
 }) {
-  const { redirect } = await searchParams
+  const { redirect, reason } = await searchParams
 
   // Dev-only: if DEV_AUTOLOGIN is on, skip the magic-link form entirely
   // and route through the auto-login handler. Keeps direct /login visits
@@ -23,6 +24,13 @@ export default async function LoginPage({
 
   return (
     <div className="space-y-5">
+      {reason === 'session-expired' ? (
+        <Alert variant="warning" title="Your session expired">
+          Sessions stay open for up to 24 hours. Please sign in again to pick up
+          where you left off.
+        </Alert>
+      ) : null}
+
       <div className="space-y-1">
         <h2 className="text-lg font-semibold text-foreground">Sign in</h2>
         <p className="text-sm text-muted">

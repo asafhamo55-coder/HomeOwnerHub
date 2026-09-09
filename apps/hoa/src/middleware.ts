@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { updateSession } from '@/lib/supabase/middleware'
+import { clearAuthCookies, updateSession } from '@/lib/supabase/middleware'
 
 // Routes a signed-out user is allowed to hit. The /onboarding page handles
 // its own "already onboarded? bounce home" check, so we don't gate on
@@ -35,10 +35,25 @@ export async function middleware(request: NextRequest) {
     return new NextResponse(null, { status: 204 })
   }
 
-  const { user, response } = await updateSession(request)
+  const { user, response, sessionExpired } = await updateSession(request)
 
   const path = request.nextUrl.pathname
   const isPublic = PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))
+
+  // Sessions are capped at 24h from sign-in (lib/session-cap.ts). Past that
+  // the user is treated as signed out and has to enter their credentials
+  // again. Clearing the auth cookies here is mandatory: leave them and the
+  // "already signed in" branch below bounces the user straight back into the
+  // app, which expires again — an infinite redirect.
+  if (sessionExpired) {
+    if (isPublic) return clearAuthCookies(request, NextResponse.next({ request }))
+
+    const target = DEV_AUTOLOGIN ? '/auth/dev-login' : '/login'
+    const expiredUrl = new URL(target, request.url)
+    if (!DEV_AUTOLOGIN) expiredUrl.searchParams.set('reason', 'session-expired')
+    if (path !== '/') expiredUrl.searchParams.set('redirect', path)
+    return clearAuthCookies(request, NextResponse.redirect(expiredUrl))
+  }
 
   if (!user && !isPublic) {
     const target = DEV_AUTOLOGIN ? '/auth/dev-login' : '/login'
