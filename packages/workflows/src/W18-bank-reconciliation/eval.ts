@@ -83,7 +83,7 @@ export interface ReconciliationCase {
   id: string
   /** Description of what the bank transaction looks like. */
   scenario: string
-  expectedMatchMethod: 'auto_exact' | 'auto_fuzzy' | 'duplicate_je' | 'unmatched'
+  expectedMatchMethod: 'proposed_exact' | 'auto_fuzzy' | 'duplicate_je' | 'unmatched'
   expectedMinConfidence: number
 }
 
@@ -92,7 +92,7 @@ export const RECONCILIATION_CASES: ReconciliationCase[] = [
   {
     id: 'placeholder-exact-zelle',
     scenario: 'Inbound deposit $345.00, memo MP-1247-DUES, matching open assessment exists',
-    expectedMatchMethod: 'auto_exact',
+    expectedMatchMethod: 'proposed_exact',
     expectedMinConfidence: 0.99,
   },
   {

@@ -116,3 +116,19 @@ export type {
   VendorRequestBlankKind,
   PhotoFinding,
 } from './W34-vendor-request-composer'
+
+// Sub-project D — approval layer (first consumer: W18 cash receipts).
+export {
+  proposeApproval,
+  approveRequest,
+  rejectRequest,
+  APPROVAL_EXECUTORS,
+  W18_CASH_RECEIPT,
+} from './approvals'
+export type {
+  ApprovalExecutor,
+  ApprovalRequestRow,
+  ApprovalStatus,
+  DecisionResult,
+  CashReceiptPayload,
+} from './approvals'

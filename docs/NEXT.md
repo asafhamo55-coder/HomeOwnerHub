@@ -36,9 +36,13 @@ by the session's permission classifier; Asaf pushes it manually.
 
 ## Decisions that are the owner's, not an agent's
 
-- **Decided 2026-10-15:** W18 postings will require board/admin approval
-  (sub-project D, branch `claude/approval-layer`). Ordering of B–F delegated:
-  D first (it gates W18 and F), E plan, B and F specs in parallel.
+- **Decided and built 2026-10-15 (sub-project D):** W18 Step A now *proposes*;
+  board/admin approval in `/accounting/bank/queue` posts it exactly once. Spec:
+  `docs/specs/2026-10-15-approval-layer.md`. Migration `0060` applied to
+  production by Asaf 2026-10-15.
+- **Open, found by D:** accounting tables (journal entries, payments,
+  assessments, bank transactions) are writable by any org member including
+  residents — being fixed as `0061` on `claude/accounting-rls`.
 
 ## Open work, in the order I would take it
 
@@ -52,9 +56,8 @@ by the session's permission classifier; Asaf pushes it manually.
    set.** Sentry in all four apps + one Inngest middleware for all 16 jobs.
    Owner's manual steps are in `docs/OBSERVABILITY.md`.
 3. **B** (24/7 autonomous loop), **D** (approval layer), **E** (enterprise UI/UX
-   across 115 pages), **F** (law → bylaw pipeline). Started 2026-10-15: D being built on
-   `claude/approval-layer`; E audit on `claude/ux-audit`; B and F specs on
-   `claude/specs-b-f`.
+   across 115 pages), **F** (law → bylaw pipeline). D built and merged; E audit merged, phase 1 on `claude/ux-phase1`;
+   B and F specs merged (`docs/specs/`).
 
 ## The recurring lesson from this work
 

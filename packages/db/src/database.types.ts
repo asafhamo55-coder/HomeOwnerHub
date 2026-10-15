@@ -201,6 +201,81 @@ export type Database = {
           },
         ]
       }
+      approval_requests: {
+        Row: {
+          action_type: string
+          amount: number | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          error: string | null
+          id: string
+          organization_id: string
+          payload: Json
+          posted_at: string | null
+          proposed_at: string
+          result_ref: string | null
+          status: string
+          subject_id: string
+          subject_type: string
+          summary: string
+          workflow_id: string
+        }
+        Insert: {
+          action_type: string
+          amount?: number | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          error?: string | null
+          id?: string
+          organization_id: string
+          payload: Json
+          posted_at?: string | null
+          proposed_at?: string
+          result_ref?: string | null
+          status?: string
+          subject_id: string
+          subject_type: string
+          summary: string
+          workflow_id: string
+        }
+        Update: {
+          action_type?: string
+          amount?: number | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          error?: string | null
+          id?: string
+          organization_id?: string
+          payload?: Json
+          posted_at?: string | null
+          proposed_at?: string
+          result_ref?: string | null
+          status?: string
+          subject_id?: string
+          subject_type?: string
+          summary?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       arc_request_messages: {
         Row: {
           arc_request_id: string
@@ -6496,6 +6571,10 @@ export type Database = {
       auth_org_ids: { Args: never; Returns: string[] }
       auth_owner_unit_ids: { Args: never; Returns: string[] }
       auth_role_in_org: { Args: { p_org_id: string }; Returns: string }
+      decide_approval_request: {
+        Args: { p_decision: string; p_id: string; p_reason?: string }
+        Returns: Json
+      }
       normalize_address: { Args: { raw: string }; Returns: string }
       search_governing_chunks: {
         Args: {

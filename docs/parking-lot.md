@@ -244,3 +244,30 @@ than the redundancy, and getting the condition wrong would break it.
   deleted" as a failure; `deleteDocument` deletes files before the row and
   throws if they could not be removed. Covered by
   `tests/integration/security/storage-isolation.test.ts`.
+
+- 2026-10-15 — **Accounting tables are writable by any org member, residents
+  included** — Found while building the approval layer (sub-project D,
+  `docs/specs/2026-10-15-approval-layer.md`). `journal_entries`,
+  `ledger_entries`, `payments`, `assessments`, `bank_transactions` and
+  `zelle_inbound_matches` still carry 0006's role-free
+  `org_access USING (organization_id = ANY(auth_org_ids()))` policy (FOR ALL).
+  A resident with the anon key and their own session can therefore post a JE or
+  mark their own assessment `paid` directly through PostgREST. Separately, the
+  `bank-rec.ts` server actions (`confirmFuzzyMatch`, `categorizeAsExpense`,
+  `ignoreTransaction`) don't check role, so only the `(dashboard)` layout
+  redirect stands between a resident and them. The approval layer gates the
+  *automated* W18 path. It does not and cannot close this hole. Not verified
+  with a live resident JWT against these tables; inferred from the policy text,
+  which is unambiguous. Parked because tightening it means auditing every
+  resident-facing read of those tables (the resident portal shows balances and
+  payments) and every write path. That is 0012-sized work. — **Revisit trigger:
+  before a real bank account is connected, alongside 0060's production apply.**
+- 2026-10-15 — **DB-level guard against double bank_rec postings** — A partial
+  unique index `journal_entries(source_id) WHERE source = 'bank_rec' AND status
+  = 'posted'` would make two posted JEs for one bank transaction impossible from
+  *any* path. Today the approval executor and `confirmFuzzyMatch` each check
+  `matched_journal_entry_id` in application code, so a millisecond race between
+  them can still post twice (the executor detects this and records it in
+  `approval_requests.error`). Parked because adding it needs a production audit
+  for existing duplicates first, or the index build fails. — **Revisit trigger:
+  with the accounting-RLS item above.**
