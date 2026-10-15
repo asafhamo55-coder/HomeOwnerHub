@@ -212,3 +212,32 @@ You're done with infra. Move on to **MADISON_PARK_DEMO.md** for the demo run-thr
 | Inngest sync fails | `INNGEST_SIGNING_KEY` env var missing on the HOA Vercel project |
 | Magic link 404s after click | Redirect URL not allowlisted in Supabase auth settings |
 | Hub switcher shows "Sign in to set up" for own hub | `NEXT_PUBLIC_*_URL` env vars missing or wrong |
+
+## 2026-10-15 — migrations 0054 and 0055 applied to production
+
+Both cross-tenant RLS holes found by the quality-oracle work are closed in
+production as of this date. Verified by Asaf against the live database:
+
+- `public.org_members` carries exactly one policy, `org_member_access`
+  (`cmd=ALL`, `with_check` null so its `qual` is the implicit INSERT check).
+  The `auth_can_self_insert_org_members` policy — `WITH CHECK (auth.uid() =
+  user_id)` with no `org_id` or `role` constraint, which let any authenticated
+  user join any org as admin — is gone.
+- `storage.objects` carries six `org_can_*` policies and zero `auth_can_*`.
+- `storage_object_org_id` resolves both path shapes: `<org>/<file>` and
+  `inbox-drafts/<org>/<draft>/<obj>`, and returns NULL for a non-UUID prefix.
+- Zero unreachable objects: all 1,334 across two orgs (1,092 + 242) map to an
+  org that exists, with 5 and 3 members respectively.
+
+Pre-apply audit that made this safe, worth repeating before any future storage
+policy change: every object's first path segment was confirmed to be a
+canonical UUID **and** to correspond to a real org. A well-formed UUID naming a
+deleted org resolves through the helper and then fails `= ANY(auth_org_ids())`
+forever, because nobody is a member of an org that does not exist.
+
+Still open, deliberately — see `docs/parking-lot.md`:
+- Any same-org member, including a plain resident, can still grant themselves
+  `admin` in their own org. Only the application-layer `requireBoardOrAdmin()`
+  gate prevents it; RLS does not.
+- `storage.objects` has no DELETE or UPDATE policy, so every
+  `.storage.remove()` through a user-scoped client has always failed silently.

@@ -203,6 +203,8 @@ than the redundancy, and getting the condition wrong would break it.
   `WITH CHECK (user_id = auth.uid())` would break production invite acceptance.
   `tests/integration/security/org-membership.test.ts` already has a test covering
   that invite shape, which will fail if the policy is tightened carelessly.
+  **Status 2026-10-15: `0054` is applied to production, so the cross-tenant half
+  is closed. This same-org half remains open.**
   Same-org, not cross-tenant, so strictly less severe than the two holes closed in
   `0054`/`0055` — but residents are the population most likely to attempt it, and
   org-admin exposes financials, neighbours' personal data, governing documents and
@@ -225,5 +227,6 @@ than the redundancy, and getting the condition wrong would break it.
   `0003` never granted DELETE either.
   Parked because it needs new policy surface plus fixing the swallowed errors at
   six call sites, and storage policy changes are where unreviewed scope creep
-  causes outages. — **Revisit trigger: alongside the `org_members` item in
+  causes outages. **Status 2026-10-15: `0055` is applied, so SELECT and INSERT
+  are now org-scoped; DELETE and UPDATE still have no policy at all.** — **Revisit trigger: alongside the `org_members` item in
   sub-project C; sooner if storage cost or a deletion request forces it.**
