@@ -3,7 +3,7 @@
 import { useActionState, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Upload } from 'lucide-react'
-import { Alert, Button, Input, Select, Textarea } from '@homeowner-portal/ui'
+import { Alert, Button, Field, Input, Select, Textarea } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { uploadDocument, type UploadActionState } from '@/lib/documents'
 
@@ -39,107 +39,76 @@ export function UploadForm() {
 
   return (
     <form action={action} className="space-y-5">
-      <div className="space-y-1.5">
-        <label htmlFor="file" className="text-sm font-medium text-foreground">
-          File <span className="text-destructive">*</span>
-        </label>
-        <label
-          htmlFor="file"
-          className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-background px-6 py-8 text-center transition-colors hover:border-primary"
-        >
-          <Upload className="h-6 w-6 text-muted" aria-hidden />
-          <span className="text-sm font-medium text-foreground">
-            {fileName ? fileName : 'Click to select a PDF, DOCX, or text file'}
-          </span>
-          <span className="text-xs text-muted">Up to 50 MB</span>
-        </label>
-        <input
-          id="file"
-          name="file"
-          type="file"
-          required
-          className="sr-only"
-          accept=".pdf,.docx,.doc,.txt,.md"
-          onChange={handleFileChange}
-        />
-        {f.file ? <p className="text-xs text-destructive">{f.file}</p> : null}
-      </div>
+      <Field label="File" required error={f.file} hint="PDF, DOCX or text, up to 50 MB.">
+        {(control) => (
+          <label
+            className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border-strong bg-subtle px-6 py-8 text-center transition-colors duration-fast hover:border-primary focus-within:ring-2 focus-within:ring-ring"
+          >
+            <Upload className="size-6 text-muted" aria-hidden />
+            <span className="text-sm font-medium text-foreground">
+              {fileName ? fileName : 'Choose a file to upload'}
+            </span>
+            <input
+              {...control}
+              name="file"
+              type="file"
+              required
+              className="sr-only"
+              accept=".pdf,.docx,.doc,.txt,.md"
+              onChange={handleFileChange}
+            />
+          </label>
+        )}
+      </Field>
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <label htmlFor="name" className="text-sm font-medium text-foreground">
-            Display name <span className="text-destructive">*</span>
-          </label>
+        <Field label="Display name" required error={f.name}>
           <Input
-            id="name"
             name="name"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="CC&Rs (2018 amended)"
-            error={Boolean(f.name)}
             disabled={pending}
           />
-          {f.name ? <p className="text-xs text-destructive">{f.name}</p> : null}
-        </div>
-
-        <div className="space-y-1.5">
-          <label htmlFor="type" className="text-sm font-medium text-foreground">
-            Type <span className="text-destructive">*</span>
-          </label>
-          <Select
-            id="type"
-            name="type"
-            required
-            defaultValue="ccr"
-            disabled={pending}
-          >
+        </Field>
+        <Field label="Type" required error={f.type}>
+          <Select name="type" required defaultValue="ccr" disabled={pending}>
             {DOC_TYPES.map((t) => (
               <option key={t.value} value={t.value}>
                 {t.label}
               </option>
             ))}
           </Select>
-          {f.type ? <p className="text-xs text-destructive">{f.type}</p> : null}
-        </div>
+        </Field>
       </div>
 
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <label htmlFor="parsed_text" className="text-sm font-medium text-foreground">
-            Plain text (optional)
-          </label>
+      <Field
+        label="Document text"
+        optional
+        hint="Paste the text so violations can cite specific sections. You can also add it later from the document page."
+        labelAside={
           <AiRewriteButton
             textareaRef={parsedTextRef}
             context="Plain text extracted from a governing document — preserve every section number and legal clause exactly"
             disabled={pending}
           />
-        </div>
-        <Textarea
-          ref={parsedTextRef}
-          id="parsed_text"
-          name="parsed_text"
-          rows={6}
-          placeholder="Paste the document's text here so the AI can match violations to specific CC&R sections. You can also fill this in later from the document detail page."
-          disabled={pending}
-        />
-        <p className="text-xs text-muted">
-          Phase 1 doesn&apos;t auto-extract text from PDFs. Pasting the contents here unlocks
-          Covenant Brain matching in the violation wizard.
-        </p>
-      </div>
+        }
+      >
+        <Textarea ref={parsedTextRef} name="parsed_text" rows={6} disabled={pending} />
+      </Field>
 
       {state.error ? (
-        <Alert variant="error" title="Couldn't upload">
+        <Alert variant="error" title="Couldn’t upload">
           {state.error}
         </Alert>
       ) : null}
 
       <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-        <Button asChild variant="outline" disabled={pending}>
+        <Button asChild variant="ghost" disabled={pending}>
           <Link href="/documents">Cancel</Link>
         </Button>
-        <Button type="submit" loading={pending}>
+        <Button type="submit" loading={pending} icon={<Upload aria-hidden />}>
           Upload
         </Button>
       </div>

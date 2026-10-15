@@ -120,8 +120,8 @@ export function GoverningDocsUploader({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Upload className="h-4 w-4 text-primary" />
+        <CardTitle as="h2" className="flex items-center gap-2">
+          <Upload className="size-4 text-muted" aria-hidden />
           Upload a document
         </CardTitle>
       </CardHeader>
@@ -191,7 +191,7 @@ export function GoverningDocsUploader({
                 htmlFor="effectiveDate"
                 className="text-sm font-medium text-foreground"
               >
-                Effective date <span className="text-muted/70">(optional)</span>
+                Effective date <span className="text-muted">(optional)</span>
               </label>
               <Input
                 id="effectiveDate"
@@ -204,7 +204,7 @@ export function GoverningDocsUploader({
           </div>
 
           <div className="space-y-2">
-            <div role="tablist" className="flex gap-1 rounded-md bg-foreground/30 p-1">
+            <div role="tablist" className="flex gap-1 rounded-lg border border-border bg-subtle p-1">
               <button
                 type="button"
                 role="tab"
@@ -213,7 +213,7 @@ export function GoverningDocsUploader({
                 className={
                   'flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors ' +
                   (mode === 'file'
-                    ? 'bg-background text-foreground shadow-sm'
+                    ? 'bg-surface text-foreground shadow-xs'
                     : 'text-muted hover:text-foreground')
                 }
               >
@@ -227,7 +227,7 @@ export function GoverningDocsUploader({
                 className={
                   'flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors ' +
                   (mode === 'paste'
-                    ? 'bg-background text-foreground shadow-sm'
+                    ? 'bg-surface text-foreground shadow-xs'
                     : 'text-muted hover:text-foreground')
                 }
               >

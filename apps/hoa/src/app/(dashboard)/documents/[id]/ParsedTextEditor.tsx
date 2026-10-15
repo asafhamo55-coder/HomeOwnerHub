@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Save, Sparkles } from 'lucide-react'
-import { Alert, Button, Textarea } from '@homeowner-portal/ui'
+import { Alert, Button, Field, Textarea } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { updateParsedText } from '@/lib/documents'
 
@@ -56,50 +56,54 @@ export function ParsedTextEditor({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <div className="flex justify-end">
-          <AiRewriteButton
+        <Field
+          label="Document text"
+          labelAside={
+            <AiRewriteButton
+              value={text}
+              onChange={setText}
+              context="Plain text extracted from a governing document — preserve every section number, citation, and clause"
+              disabled={savingTransition || parsingTransition}
+            />
+          }
+        >
+          <Textarea
             value={text}
-            onChange={setText}
-            context="Plain text extracted from a governing document — preserve every section number, citation, and clause"
+            onChange={(e) => setText(e.target.value)}
+            rows={12}
+            placeholder="Paste the document's plain text here. It is used to match violations to specific sections."
+            className="text-sm leading-relaxed"
             disabled={savingTransition || parsingTransition}
           />
-        </div>
-        <Textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={12}
-          placeholder="Paste the document's plain text here. The AI uses this to match violations to specific sections."
-          className="font-mono text-xs"
-          disabled={savingTransition || parsingTransition}
-        />
+        </Field>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-muted">{text.length.toLocaleString()} characters</p>
+          <p className="num text-xs text-muted">{text.length.toLocaleString()} characters</p>
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSave}
-              loading={savingTransition}
-              disabled={!text.trim()}
-            >
-              <Save className="h-4 w-4" />
-              Save text
-            </Button>
-            <Button
+              variant="secondary"
               size="sm"
               onClick={handleAIParse}
               loading={parsingTransition}
               disabled={!text.trim() || text.length < 200}
+              icon={<Sparkles aria-hidden />}
             >
-              <Sparkles className="h-4 w-4" />
               Extract sections
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              loading={savingTransition}
+              disabled={!text.trim()}
+              icon={<Save aria-hidden />}
+            >
+              Save text
             </Button>
           </div>
         </div>
       </div>
 
       {error ? (
-        <Alert variant="error" title="Couldn't save">
+        <Alert variant="error" title="Couldn’t save">
           {error}
         </Alert>
       ) : null}
