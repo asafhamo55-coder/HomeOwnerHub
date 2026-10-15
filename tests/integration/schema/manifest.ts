@@ -74,7 +74,13 @@ export const MIGRATION_MANIFEST: string[] = [
   '0044_community_templates.sql',
   '0045_property_list_view_review_fixes.sql',
   '0046_property_list_attention_split.sql',
-  '0047_collections.sql',
+  // 0047_collections.sql embeds one-tenant data remediation (a hardcoded
+  // Madison Park AR assertion of exactly $9,475.88) that can never hold on
+  // an empty database. The historical file is unchanged; this replay-only
+  // variant omits just that DO block. See migrations/replay/0047_collections.schema-only.sql
+  // and migrations/0047_collections.sql for the full reasoning. Do not
+  // "fix" this back to '0047_collections.sql' — it will break the replay.
+  'replay/0047_collections.schema-only.sql',
   '0048_inbox_org_scoped_identity.sql',
   '0049_mailbox_reconcile_error.sql',
   '0050_communication_rendered_subject.sql',
