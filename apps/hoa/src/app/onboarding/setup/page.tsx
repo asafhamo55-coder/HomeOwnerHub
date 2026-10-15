@@ -1,5 +1,7 @@
 import Link from 'next/link'
-import { Alert } from '@homeowner-portal/ui'
+import { Alert, WizardStepper } from '@homeowner-portal/ui'
+import { AuthShell } from '@/components/auth/AuthShell'
+import { ONBOARDING_STEPS } from '../steps'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
@@ -66,41 +68,38 @@ export default async function SetupPage({
   }
 
   return (
-    <main className="mx-auto max-w-2xl space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Welcome to {org.name}</h1>
-        <p className="text-sm text-muted">
-          A few steps to get set up. You can come back to this any time.
-        </p>
+    <AuthShell
+      width="md"
+      footer={
+        <Link href="/" className="font-medium text-primary hover:underline">
+          Skip for now and go to the dashboard
+        </Link>
+      }
+    >
+      <WizardStepper
+        steps={ONBOARDING_STEPS.map((s, i) => ({ ...s, status: i === 0 ? 'done' : 'current' }))}
+        currentIndex={1}
+        vertical={false}
+      />
+      <div className="space-y-1 text-center">
+        <h1 className="text-xl font-semibold tracking-[-0.015em] text-foreground">Welcome to {org.name}</h1>
+        <p className="text-sm text-muted">A few steps to get set up. You can come back to this any time.</p>
       </div>
 
       {params.error ? (
-        <Alert variant="error" title="Could not connect">
+        <Alert variant="error" title="Couldn’t connect the mailbox">
           {params.error}
         </Alert>
       ) : null}
       {params.connected ? (
         <Alert variant="success" title="Mailbox connected">
-          We are importing your history now. Counts below fill in as it runs.
+          We’re importing your history now. The counts below fill in as it runs.
         </Alert>
       ) : null}
 
       <SetupChecklist steps={steps} highlightKey="mailbox" />
 
-      <div className="pt-2">
-        <MailboxConnectCard
-          status={status}
-          preview={preview}
-          scopeOptions={scopeOptions}
-          returnTo="/onboarding/setup"
-        />
-      </div>
-
-      <p className="text-center text-xs text-muted">
-        <Link href="/" className="underline">
-          Skip for now — go to dashboard
-        </Link>
-      </p>
-    </main>
+      <MailboxConnectCard status={status} preview={preview} scopeOptions={scopeOptions} returnTo="/onboarding/setup" />
+    </AuthShell>
   )
 }

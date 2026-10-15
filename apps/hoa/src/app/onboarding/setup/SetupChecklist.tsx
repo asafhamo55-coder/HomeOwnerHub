@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Button, Card, CardContent } from '@homeowner-portal/ui'
+import { Check } from 'lucide-react'
+import { Button, Card, cn } from '@homeowner-portal/ui'
 import type { SetupStep } from '@/lib/inbox/queries'
 
 export function SetupChecklist({
@@ -10,48 +11,61 @@ export function SetupChecklist({
   highlightKey?: SetupStep['key']
 }) {
   const doneCount = steps.filter((s) => s.done).length
+  const pct = steps.length === 0 ? 0 : Math.round((doneCount / steps.length) * 100)
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <p className="text-sm text-muted">
-          {doneCount} of {steps.length} done
-        </p>
-        <div className="h-1.5 w-32 overflow-hidden rounded-full bg-border">
+    <Card>
+      <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
+        <h2 className="text-base font-semibold text-foreground">Setup checklist</h2>
+        <div className="flex items-center gap-3">
+          <span className="num text-sm text-muted">
+            {doneCount} of {steps.length} done
+          </span>
           <div
-            className="h-full bg-success transition-all"
-            style={{ width: `${(doneCount / steps.length) * 100}%` }}
-          />
+            className="h-1.5 w-24 overflow-hidden rounded-full bg-subtle"
+            role="progressbar"
+            aria-valuenow={pct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Setup progress"
+          >
+            <div className="h-full rounded-full bg-success-solid" style={{ width: `${pct}%` }} />
+          </div>
         </div>
       </div>
-
-      {steps.map((step) => {
-        const highlighted = !step.done && step.key === highlightKey
-        return (
-          <Card
-            key={step.key}
-            variant={highlighted ? 'elevated' : 'default'}
-            className={highlighted ? 'border-2 border-primary' : step.done ? 'opacity-60' : ''}
-          >
-            <CardContent className="flex items-center gap-3 p-4">
-              <span aria-hidden className="text-lg">
-                {step.done ? '✅' : step.key === 'mailbox' ? '✉️' : '•'}
+      <ol className="divide-y divide-border">
+        {steps.map((step, i) => {
+          const highlighted = !step.done && step.key === highlightKey
+          return (
+            <li key={step.key} className={cn('flex items-center gap-4 px-5 py-4', highlighted && 'bg-primary-subtle/50')}>
+              <span
+                className={cn(
+                  'num flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
+                  step.done
+                    ? 'bg-success-solid text-on-solid'
+                    : highlighted
+                      ? 'bg-primary text-primary-fg'
+                      : 'border border-border-strong text-muted',
+                )}
+              >
+                {step.done ? <Check className="size-4" aria-hidden /> : i + 1}
+                <span className="sr-only">{step.done ? ' (done)' : ''}</span>
               </span>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-foreground">{step.title}</p>
-                {!step.done ? (
-                  <p className="text-xs text-muted">{step.description}</p>
-                ) : null}
+              <div className="min-w-0 flex-1">
+                <p className={cn('text-sm font-medium', step.done ? 'text-muted line-through' : 'text-foreground')}>
+                  {step.title}
+                </p>
+                {!step.done ? <p className="text-xs text-muted">{step.description}</p> : null}
               </div>
               {!step.done ? (
-                <Button asChild size="sm" variant={highlighted ? 'default' : 'outline'}>
+                <Button asChild size="sm" variant={highlighted ? 'primary' : 'secondary'}>
                   <Link href={step.href}>{step.cta}</Link>
                 </Button>
               ) : null}
-            </CardContent>
-          </Card>
-        )
-      })}
-    </div>
+            </li>
+          )
+        })}
+      </ol>
+    </Card>
   )
 }

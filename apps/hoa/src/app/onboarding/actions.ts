@@ -12,6 +12,8 @@ const Schema = z.object({
 
 export interface OnboardingActionState {
   error?: string
+  /** Per-field validation messages keyed by form field name. */
+  fieldErrors?: Partial<Record<'name' | 'doors_count', string>>
 }
 
 // Onboarding is a privileged founder operation: the user is creating the
@@ -31,7 +33,15 @@ export async function createHoaOrg(
   })
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    const fieldErrors: OnboardingActionState['fieldErrors'] = {}
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0]
+      if ((key === 'name' || key === 'doors_count') && !fieldErrors[key]) {
+        fieldErrors[key] =
+          key === 'doors_count' ? 'Enter a whole number between 1 and 10,000.' : issue.message
+      }
+    }
+    return { error: parsed.error.issues[0]?.message ?? 'Invalid input.', fieldErrors }
   }
 
   const userClient = await getSupabaseServerClient()
