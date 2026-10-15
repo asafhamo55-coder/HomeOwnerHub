@@ -7,7 +7,7 @@
  * email bodies — ids and counts only.
  *
  * Cases:
- *   A. Seven global rows exist with category 'community'
+ *   A. Nineteen global rows exist with category 'community'
  *   B. Every one has questions, visual_block and accent_color populated
  *   C. Every merge field in body_html is covered by a question, is ambient,
  *      or (lease-cap-status only) is a code-provided field per the in-code
@@ -71,7 +71,7 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  check('A. seven global community templates', rows!.length === 7, `got ${rows!.length}`)
+  check('A. nineteen global community templates', rows!.length === 19, `got ${rows!.length}`)
 
   for (const r of rows!) {
     const qs = (r.questions ?? []) as Array<{ id: string }>

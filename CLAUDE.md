@@ -191,6 +191,15 @@ when a regen wiped `gmail_state` (see §3), and separately caught a
 `TS2307: Cannot find module` in a half-written module. A command running
 `tsc --help` cannot emit either.
 
+**Related, now resolved:** until recently, no `tsconfig.json` in this repo
+included `tests/integration/`, so every "typecheck clean" claim about those
+files only proved their type-only `Database` import didn't break
+`packages/db`'s own compile — a real type error inside an integration test
+sat there invisibly, caught by nothing. `tsconfig.integration.json` plus
+`pnpm typecheck:integration` (wired into CI, see §5) now actually compiles
+those files. The lesson still generalizes: a green summary proves only what
+the invocation actually looked at, nothing more.
+
 ## 3. `pnpm gen:types` silently reverts unapplied migrations
 
 `supabase gen types` reads the **live** database, so any migration that is
@@ -221,13 +230,19 @@ That is not out of memory. `rtk pnpm lint` tells the truth: all four apps run
 
 Nobody has ever successfully linted this repo. Do not read `pnpm lint` output.
 
-## 5. CI runs neither tests nor lint
+## 5. CI now runs tests, but lint is still unconfigured
 
-`.github/workflows/ci.yml` runs exactly two things: `pnpm turbo run typecheck`
-and `pnpm turbo run build`.
+`.github/workflows/ci.yml` runs `pnpm turbo run typecheck`,
+`pnpm typecheck:integration`, `pnpm turbo run build`, `pnpm test:unit`, and
+(after starting Supabase and replaying the schema) `pnpm test:integration`.
+Both suites — unit and integration — now gate merges.
 
-The vitest suite — 1100+ tests — gates nothing. A PR can go green with every
-test failing. Run `pnpm test:unit` yourself before merging; nothing else will.
+Lint is the one thing CI still does not run. See §4: `next lint` has no
+ESLint config in any app and drops into an interactive prompt, so it was
+never wired in. That has not changed.
+
+(This section previously said "CI runs neither tests nor lint." That was
+true before both suites were wired in; it no longer is for tests.)
 
 ## Commands you can actually trust
 
@@ -238,6 +253,7 @@ the failure:
 pnpm typecheck          rtk pnpm -r typecheck
 pnpm test:unit          rtk pnpm vitest run
 rtk pnpm build          rtk pnpm lint   (truthfully reports that lint is unconfigured)
+pnpm typecheck:integration
 ```
 
 Distrust anything routing through rtk's tsc filter.

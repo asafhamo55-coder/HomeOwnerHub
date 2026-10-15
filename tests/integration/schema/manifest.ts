@@ -115,7 +115,7 @@ export const STORAGE_BUCKETS = [
 
 /**
  * Seeds that are schema prerequisites rather than per-test fixtures.
- * The 7 global community templates (organization_id IS NULL) are asserted
+ * The 19 global community templates (organization_id IS NULL) are asserted
  * on by scripts/test-community-templates.ts.
  */
 export const SCHEMA_SEEDS: string[] = ['seed-community-templates.sql']

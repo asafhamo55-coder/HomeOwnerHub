@@ -116,19 +116,6 @@ ALTER TABLE public.assessments
   ));
 
 
--- ─── 2. Reclassify Madison Park's existing collection costs ──────────
---
--- Eight rows currently sitting in 'special'. Amounts and due dates are
--- untouched, so the association AR total must not move: it stays
--- $9,475.88, matching the 07/21/2026 aging report.
---
--- Deliberately NOT reclassified: 914 Urban Ash's $49.50, which is a Gate
--- Opener charge and a genuine special assessment. It is the discriminator
--- that proves this block targets collection costs rather than every
--- 'special' row.
-
-
-
 -- ─── 3. collection_cases ─────────────────────────────────────────────
 --
 -- One case per unit, not per owner. Two independent reasons agree:

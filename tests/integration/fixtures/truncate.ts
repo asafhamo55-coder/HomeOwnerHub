@@ -10,13 +10,24 @@
  * to auth.users.
  */
 import { execFileSync } from 'node:child_process'
+import { resolve } from 'node:path'
 import { LOCAL_DB_URL, assertLoopbackOrDie } from '../setup/env'
+
+const SEED_COMMUNITY_TEMPLATES = resolve(__dirname, '../../../migrations/seed-community-templates.sql')
 
 export async function truncateAll(): Promise<void> {
   assertLoopbackOrDie(LOCAL_DB_URL.replace(/^postgresql/, 'http'))
 
-  // Global templates (organization_id IS NULL) are schema seeds, not
-  // fixtures — preserve them. Everything tenant-scoped goes.
+  // `TRUNCATE ... CASCADE` on `orgs` does NOT respect the WHERE below, or
+  // any ON DELETE semantics: Postgres truncates every table that
+  // references `orgs` (including communication_templates) IN FULL,
+  // regardless of whether a given row's organization_id is NULL. So the
+  // global community templates (organization_id IS NULL), which are a
+  // schema seed rather than a per-test fixture, get wiped along with
+  // everything else — the DELETE's WHERE clause never gets a chance to
+  // matter, because by the time it runs the table is already empty.
+  // Re-applying the idempotent seed below (same file local-db-reset.ts
+  // uses) is what actually preserves them across a reset.
   //
   // DEVIATION from brief: `storage.objects` carries a `protect_delete()`
   // BEFORE DELETE trigger (not visible in migrations/ — it's part of the
@@ -33,7 +44,12 @@ export async function truncateAll(): Promise<void> {
     DELETE FROM auth.users;
     DELETE FROM storage.objects;
   `
-  execFileSync('psql', [LOCAL_DB_URL, '-v', 'ON_ERROR_STOP=1', '-q', '-c', sql], {
-    stdio: ['ignore', 'ignore', 'inherit'],
-  })
+  // Both statements run in one psql invocation (not two execFileSync
+  // calls) so a second process isn't spawned per test — the reseed would
+  // otherwise double truncateAll's per-call overhead across the suite.
+  execFileSync(
+    'psql',
+    [LOCAL_DB_URL, '-v', 'ON_ERROR_STOP=1', '-q', '-c', sql, '-f', SEED_COMMUNITY_TEMPLATES],
+    { stdio: ['ignore', 'ignore', 'inherit'] },
+  )
 }
