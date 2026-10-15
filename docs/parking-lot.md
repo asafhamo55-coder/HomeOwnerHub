@@ -186,3 +186,44 @@ idempotent, so nothing duplicates; it is wasted work and a confusing counter.
 Fix is to skip the emit when `backfill_status = 'complete'` and the scope
 hasn't changed. Left alone for now because the recovery path matters more
 than the redundancy, and getting the condition wrong would break it.
+
+- 2026-10-15 — **RLS gate on `org_members` role escalation (same-org)** — Found
+  while closing the cross-tenant escalation in migration `0054`. The surviving
+  `org_member_access` policy (`migrations/0000_schema.sql:402`) is
+  `FOR ALL USING (org_id = ANY(auth_org_ids()))` with no explicit `WITH CHECK`, so
+  Postgres uses that expression for INSERT. It constrains `org_id` and nothing
+  else — not `user_id`, not `role`. Any member of an org, **including a plain
+  resident**, can therefore `INSERT` an `org_members` row granting themselves
+  `admin` in their own org through a direct anon-key + session call. Only the
+  application-layer `requireBoardOrAdmin()` gate prevents it; nothing in RLS does.
+  Verified against a live database, not inferred.
+  Parked because closing it needs a new migration plus an audit of every
+  `org_members` write path — `apps/hoa/src/lib/members.ts:277` (`attachToOrg`)
+  inserts through a *user-bound* client as the inviting admin, so a naive
+  `WITH CHECK (user_id = auth.uid())` would break production invite acceptance.
+  `tests/integration/security/org-membership.test.ts` already has a test covering
+  that invite shape, which will fail if the policy is tightened carelessly.
+  Same-org, not cross-tenant, so strictly less severe than the two holes closed in
+  `0054`/`0055` — but residents are the population most likely to attempt it, and
+  org-admin exposes financials, neighbours' personal data, governing documents and
+  bank reconciliation. — **Revisit trigger: first item of sub-project C, and
+  unconditionally before a second real HOA is onboarded.**
+
+- 2026-10-15 — **`storage.objects` DELETE and UPDATE policies** — `storage.objects`
+  has only INSERT and SELECT policies (3 each), from
+  `migrations/0003_storage_policies.sql`; `0055` replaced those six with org-scoped
+  equivalents but added no DELETE or UPDATE. RLS is enabled and under RLS "no
+  policy" means deny, so **every `.storage.remove()` issued through a user-scoped
+  client has always failed silently** — `apps/hoa/src/lib/documents.ts:98` (a
+  "best-effort cleanup" that never happens), `:144`, `:281`,
+  `apps/hoa/src/lib/submission-attachments.ts:221,260`,
+  `apps/hoa/src/lib/inbox/draft/attachment-actions.ts:290` (commented "Not fatal"),
+  `apps/hoa/src/app/api/vendors/[id]/documents/route.ts:114`. All swallow the error.
+  Consequence is orphan accumulation rather than exposure, so it is not a leak —
+  but a document a board "deletes" remains on disk, which for retention and
+  disposal obligations is a compliance matter rather than housekeeping. Pre-existing;
+  `0003` never granted DELETE either.
+  Parked because it needs new policy surface plus fixing the swallowed errors at
+  six call sites, and storage policy changes are where unreviewed scope creep
+  causes outages. — **Revisit trigger: alongside the `org_members` item in
+  sub-project C; sooner if storage cost or a deletion request forces it.**
