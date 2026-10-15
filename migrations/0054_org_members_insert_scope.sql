@@ -1,0 +1,35 @@
+-- 0054_org_members_insert_scope.sql
+--
+-- Closes a cross-tenant privilege escalation.
+--
+-- 0001_auth_fixes.sql created:
+--
+--   CREATE POLICY "auth_can_self_insert_org_members"
+--   ON public.org_members FOR INSERT
+--   WITH CHECK (auth.uid() = user_id);
+--
+-- which constrains user_id and nothing else — not org_id, not role.
+-- Since almost every policy in this schema reads
+-- `organization_id = ANY(public.auth_org_ids())`, and auth_org_ids() is
+-- defined as the caller's own org_members rows, any authenticated user
+-- who learned another org's UUID could run
+--
+--   insert into org_members (org_id, user_id, role)
+--   values ('<victim-org>', auth.uid(), 'admin');
+--
+-- and open every tenant-scoped table in the database.
+--
+-- Dropped rather than tightened. 0001's own header says the founder flow
+-- uses the service-role key and these policies are only a fallback;
+-- service-role bypasses RLS, so removing this costs nothing real.
+-- Membership is granted by service-role paths (founder bootstrap, invite
+-- acceptance), never by a client asserting it into existence.
+--
+-- auth_can_insert_orgs is tightened in the same spirit: creating an org
+-- is still allowed for any signed-in user (the founder flow), but it was
+-- WITH CHECK (auth.uid() IS NOT NULL), which is what FOR INSERT TO
+-- authenticated already means. Left as-is deliberately: narrowing org
+-- creation is a product decision, not a security fix, and conflating the
+-- two in one migration makes both harder to review.
+
+DROP POLICY IF EXISTS "auth_can_self_insert_org_members" ON public.org_members;

@@ -87,6 +87,7 @@ export const MIGRATION_MANIFEST: string[] = [
   '0051_property_list_waiting_list.sql',
   '0052_announcements_last_viewed.sql',
   '0053_ticket_notifications.sql',
+  '0054_org_members_insert_scope.sql',
 ]
 
 /**
