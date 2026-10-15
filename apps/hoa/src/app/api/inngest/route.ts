@@ -15,9 +15,11 @@ import {
   mailboxReplyEmbeddingsJob,
   mailboxSendJob,
   ticketNotificationsJob,
+  recurringJeJob,
+  plaidSyncJob,
 } from '@homeowner-portal/jobs'
 
-// All five crons mount in the HOA app for Phase 1. Inngest is a single
+// Sixteen crons mount in the HOA app. Inngest is a single
 // app-id ("homeownerhub") so it doesn't matter where the handler lives —
 // scheduled invocations target the function id, not the host. Apps/eviction
 // and apps/pm could mount the same handler if they need their own
@@ -49,10 +51,12 @@ export const { GET, POST, PUT } = serve({
     mailboxSyncJob,
     mailboxWatchdogJob,
     mailboxBackfillJob,
-  mailboxReconcileJob,
+    mailboxReconcileJob,
     mailboxAttachmentsJob,
     mailboxReplyEmbeddingsJob,
     mailboxSendJob,
-  ticketNotificationsJob,
+    ticketNotificationsJob,
+    recurringJeJob,
+    plaidSyncJob,
   ],
 })
