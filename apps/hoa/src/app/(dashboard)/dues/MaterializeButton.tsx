@@ -1,70 +1,68 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { Plus, Loader2 } from 'lucide-react'
-import { Alert, Button, Input } from '@homeowner-portal/ui'
+import { CalendarPlus } from 'lucide-react'
+import { Button, Dialog, DialogContent, DialogTrigger, Field, Input, useToast } from '@homeowner-portal/ui'
 import { materializeCurrentPeriodAssessments } from '@/lib/assessments'
 
-interface Props {
-  monthLabel: string
-}
-
-export function MaterializeButton({ monthLabel }: Props) {
+/** Generate this month's regular dues for every property, in a dialog. */
+export function MaterializeButton({ monthLabel, variant = 'secondary' }: { monthLabel: string; variant?: 'default' | 'secondary' }) {
+  const router = useRouter()
+  const toast = useToast()
   const [open, setOpen] = useState(false)
-  const [amount, setAmount] = useState(250)
-  const [error, setError] = useState<string | null>(null)
+  const [amount, setAmount] = useState('250')
+  const [error, setError] = useState<string | undefined>()
   const [pending, startTransition] = useTransition()
 
-  function handleSubmit() {
-    setError(null)
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    const n = Number(amount.replace(/[$,\s]/g, ''))
+    if (!Number.isFinite(n) || n <= 0) {
+      setError('Enter the monthly dues per property, greater than $0.')
+      return
+    }
+    setError(undefined)
     startTransition(async () => {
-      const result = await materializeCurrentPeriodAssessments({ amountPerUnit: amount })
+      const result = await materializeCurrentPeriodAssessments({ amountPerUnit: n })
       if (!result.ok) {
-        setError(result.error)
-      } else {
-        setOpen(false)
+        if (result.fieldErrors?.amountPerUnit) setError(result.fieldErrors.amountPerUnit)
+        else toast({ tone: 'error', title: 'Couldn’t generate dues', message: result.error })
+        return
       }
+      setOpen(false)
+      toast({ tone: 'success', message: `${monthLabel} dues generated.` })
+      router.refresh()
     })
   }
 
-  if (!open) {
-    return (
-      <Button onClick={() => setOpen(true)} variant="outline" size="sm">
-        <Plus className="h-3.5 w-3.5" />
-        Generate {monthLabel} dues
-      </Button>
-    )
-  }
-
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3 sm:flex-row sm:items-center">
-      <label className="text-sm font-medium text-foreground">
-        Amount per unit:
-        <Input
-          type="number"
-          min={0}
-          step={25}
-          value={amount}
-          onChange={(e) => setAmount(Number(e.target.value) || 0)}
-          prefix={<span className="text-xs">$</span>}
-          className="ml-2 inline-block w-32"
-          disabled={pending}
-        />
-      </label>
-      <div className="flex items-center gap-2">
-        <Button onClick={handleSubmit} disabled={pending} size="sm">
-          {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-          Generate dues
+    <Dialog open={open} onOpenChange={(next) => !pending && setOpen(next)}>
+      <DialogTrigger asChild>
+        <Button variant={variant} icon={<CalendarPlus aria-hidden />}>
+          Generate {monthLabel} dues
         </Button>
-        <Button onClick={() => setOpen(false)} variant="ghost" size="sm" disabled={pending}>
-          Cancel
-        </Button>
-      </div>
-      {error ? (
-        <Alert variant="error" className="w-full">
-          {error}
-        </Alert>
-      ) : null}
-    </div>
+      </DialogTrigger>
+      <DialogContent
+        title={`Generate ${monthLabel} dues`}
+        description="Creates one regular charge per property for this month and posts it to the ledger. Properties that already have regular dues in the current fiscal period are skipped."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setOpen(false)} disabled={pending}>
+              Cancel
+            </Button>
+            <Button type="submit" form="materialize-dues" loading={pending}>
+              Generate dues
+            </Button>
+          </>
+        }
+      >
+        <form id="materialize-dues" onSubmit={submit}>
+          <Field label="Amount per property" required error={error}>
+            <Input inputMode="decimal" prefix="$" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={pending} />
+          </Field>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

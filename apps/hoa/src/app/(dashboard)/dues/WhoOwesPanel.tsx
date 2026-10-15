@@ -1,9 +1,9 @@
-import { Alert, Badge, Button, Card } from '@homeowner-portal/ui'
+import { Alert, Button, Card, CardDescription, CardHeader, CardTitle, DataTable, StatusPill } from '@homeowner-portal/ui'
 import { buildReminderPackets } from '@/lib/dues-reminders/packets'
 import { getLastRemindedByEmail, RECENT_REMINDER_DAYS } from '@/lib/dues-reminders/queries'
 import { SendRemindersDialog } from './SendRemindersDialog'
 
-const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+import { usd } from '@/lib/money/format'
 
 function agoLabel(iso: string): string {
   const days = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000)
@@ -42,10 +42,10 @@ export async function WhoOwesPanel({ associationId }: { associationId: string })
     // reads as present-but-broken, not absent.
     return (
       <Card>
-        <div className="border-b border-border bg-background/50 px-4 py-3">
-          <p className="text-sm font-semibold text-foreground">Who owes</p>
-        </div>
-        <div className="p-4">
+        <CardHeader>
+          <CardTitle as="h2">Who owes</CardTitle>
+        </CardHeader>
+        <div className="px-5 pb-5">
           <Alert variant="error">Couldn&rsquo;t load who owes — refresh to try again.</Alert>
         </div>
       </Card>
@@ -81,32 +81,37 @@ export async function WhoOwesPanel({ associationId }: { associationId: string })
   const totalPastDue = packets.reduce((s, p) => s + p.pastDueTotal, 0)
   const cutoff = Date.now() - RECENT_REMINDER_DAYS * 86_400_000
 
+  type Packet = (typeof packets)[number]
   return (
-    <Card>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background/50 px-4 py-3">
-        <div>
-          <p className="text-sm font-semibold text-foreground">Who owes</p>
-          <p className="text-xs text-muted">
-            {packets.length} {packets.length === 1 ? 'owner' : 'owners'} ·{' '}
-            {usd.format(totalOutstanding)} outstanding
-            {totalPastDue > 0 ? ` · ${usd.format(totalPastDue)} past due` : ''}
-          </p>
-        </div>
-        {pastDueCount > 0 ? (
-          <SendRemindersDialog
-            emails={null}
-            variant="primary"
-            label={`Send ${pastDueCount} reminder${pastDueCount === 1 ? '' : 's'}`}
-          />
-        ) : (
-          // Disabled rather than hidden: everyone here owes something, so a
-          // vanishing button reads as a bug. The label says why it is off.
-          <Button disabled>No one is past due</Button>
-        )}
-      </div>
+    <Card className="overflow-hidden">
+      <CardHeader
+        actions={
+          pastDueCount > 0 ? (
+            <SendRemindersDialog
+              emails={null}
+              variant="primary"
+              label={`Send ${pastDueCount} reminder${pastDueCount === 1 ? '' : 's'}`}
+            />
+          ) : (
+            // Disabled rather than hidden: everyone here owes something, so a
+            // vanishing button reads as a bug. The label says why it is off.
+            <Button variant="secondary" disabled>
+              No one is past due
+            </Button>
+          )
+        }
+      >
+        <CardTitle as="h2">Who owes</CardTitle>
+        <CardDescription>
+          <span className="num">
+            {packets.length} {packets.length === 1 ? 'owner' : 'owners'} · {usd(totalOutstanding)} outstanding
+            {totalPastDue > 0 ? ` · ${usd(totalPastDue)} past due` : ''}
+          </span>
+        </CardDescription>
+      </CardHeader>
 
       {reminderHistoryUnavailable ? (
-        <div className="border-b border-border px-4 py-2">
+        <div className="px-5 pb-4">
           <Alert variant="warning">
             Couldn&rsquo;t check reminder history — the labels below may not reflect reminders
             already sent.
@@ -114,45 +119,62 @@ export async function WhoOwesPanel({ associationId }: { associationId: string })
         </div>
       ) : null}
 
-      <ul className="divide-y divide-border">
-        {packets.map((p) => {
-          const at = lastReminded.get(p.email) ?? null
-          const recent = at !== null && Date.parse(at) >= cutoff
-          return (
-            <li key={p.email} className="flex flex-wrap items-center gap-3 px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">{p.ownerName}</p>
-                <p className="text-xs text-muted">
-                  {p.properties.length}{' '}
-                  {p.properties.length === 1 ? 'property' : 'properties'}
-                  {at
-                    ? ` · ${agoLabel(at)}`
-                    : reminderHistoryUnavailable
-                      ? ' · Reminder history unknown'
-                      : ''}
-                </p>
-              </div>
-              <span className="font-mono text-sm text-foreground">{usd.format(p.totalDue)}</span>
-              {p.pastDueTotal > 0 ? (
-                <Badge variant="destructive" size="sm">
-                  {p.oldestDaysLate}d late
-                </Badge>
+      <DataTable<Packet>
+        framed={false}
+        density="compact"
+        mobile="cards"
+        caption="Owners with a balance"
+        rows={packets}
+        rowKey={(p) => p.email}
+        columns={[
+          {
+            key: 'owner',
+            header: 'Owner',
+            mobilePrimary: true,
+            cell: (p) => {
+              const at = lastReminded.get(p.email) ?? null
+              return (
+                <span className="block min-w-0">
+                  <span className="block truncate font-medium text-foreground">{p.ownerName}</span>
+                  <span className="block text-xs text-muted">
+                    {p.properties.length} {p.properties.length === 1 ? 'property' : 'properties'}
+                    {at ? ` · ${agoLabel(at)}` : reminderHistoryUnavailable ? ' · Reminder history unknown' : ''}
+                  </span>
+                </span>
+              )
+            },
+          },
+          { key: 'due', header: 'Balance', numeric: true, cell: (p) => usd(p.totalDue) },
+          {
+            key: 'status',
+            header: 'Status',
+            cell: (p) =>
+              p.pastDueTotal > 0 ? (
+                <StatusPill tone="danger" label={`${p.oldestDaysLate}d late`} size="sm" />
               ) : (
-                <Badge variant="outline" size="sm">
-                  current
-                </Badge>
-              )}
-              <SendRemindersDialog
-                emails={[p.email]}
-                label={reminderHistoryUnavailable ? 'Remind — history unknown' : recent ? 'Remind again' : 'Remind'}
-              />
-            </li>
-          )
-        })}
-      </ul>
+                <StatusPill tone="neutral" label="Current" size="sm" />
+              ),
+          },
+          {
+            key: 'remind',
+            header: <span className="sr-only">Remind</span>,
+            className: 'text-right',
+            cell: (p) => {
+              const at = lastReminded.get(p.email) ?? null
+              const recent = at !== null && Date.parse(at) >= cutoff
+              return (
+                <SendRemindersDialog
+                  emails={[p.email]}
+                  label={reminderHistoryUnavailable ? 'Remind — history unknown' : recent ? 'Remind again' : 'Remind'}
+                />
+              )
+            },
+          },
+        ]}
+      />
 
       {skipped.length > 0 ? (
-        <p className="border-t border-border px-4 py-2 text-xs text-muted">
+        <p className="border-t border-border px-5 py-3 text-xs text-muted">
           {skipped.length} {skipped.length === 1 ? 'owner has' : 'owners have'} no email on file and
           cannot be reminded: {skipped.map((s) => s.ownerName).join(', ')}
         </p>

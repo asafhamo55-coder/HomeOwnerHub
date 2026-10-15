@@ -1,16 +1,15 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { AlertTriangle, Loader2, Mail } from 'lucide-react'
-import { Alert, Button, Textarea } from '@homeowner-portal/ui'
+import { useCallback, useRef, useState } from 'react'
+import { Loader2, Mail } from 'lucide-react'
+import { Alert, Button, Dialog, DialogContent, Field, Textarea } from '@homeowner-portal/ui'
+import { usd } from '@/lib/money/format'
 import {
   previewDuesReminders,
   sendDuesReminders,
   type PacketSummary,
 } from '@/lib/dues-reminders/actions'
 
-const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
 interface PreviewState {
   packets: PacketSummary[]
@@ -31,7 +30,6 @@ export function SendRemindersDialog({
   label: string
   variant?: 'primary' | 'row'
 }) {
-  const [mounted, setMounted] = useState(false)
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
@@ -51,32 +49,12 @@ export function SendRemindersDialog({
   // written and read synchronously, so the second click always loses.
   const sendInFlight = useRef(false)
 
-  useEffect(() => setMounted(true), [])
-
   const close = useCallback(() => {
     setOpen(false)
     setPreview(null)
     setError(null)
     setDone(null)
   }, [])
-
-  useEffect(() => {
-    if (!open) return
-    function onKey(e: KeyboardEvent) {
-      // A send in flight must not be abandoned mid-request: closing here
-      // while sendDuesReminders() is still pending would let its eventual
-      // setDone/setError land after the dialog reopens, showing a stale
-      // result instead of a fresh preview.
-      if (e.key === 'Escape' && !sending) close()
-    }
-    document.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
-    }
-  }, [open, close, sending])
 
   async function load() {
     // Escape/backdrop are deliberately allowed to close the dialog while
@@ -163,55 +141,53 @@ export function SendRemindersDialog({
   const count = preview?.packets.length ?? 0
   const canSend = Boolean(preview && count > 0 && preview.emailConfigured && !sending)
 
+  // Kit Dialog (Radix): focus trap, Esc, focus return, scroll lock, and a
+  // bottom sheet on phones. Closing is refused while a send is in flight —
+  // see the comments on `sending` above.
+  const footer =
+    preview && !done ? (
+      <>
+        <Button variant="ghost" onClick={close} disabled={sending}>
+          Cancel
+        </Button>
+        <Button onClick={send} disabled={!canSend} loading={sending} icon={<Mail aria-hidden />}>
+          Send {count} reminder{count === 1 ? '' : 's'}
+        </Button>
+      </>
+    ) : done || (error && !preview) ? (
+      <Button variant={done ? 'default' : 'ghost'} onClick={close}>
+        Close
+      </Button>
+    ) : undefined
+
   const dialog = (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Send dues reminders"
-      // z-[100] keeps the dialog above every other fixed overlay in the
-      // app (sticky header z-20, sidebar z-40, dev role-switcher z-50) so
-      // nothing can sit over its close controls.
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
-      onClick={(e) => {
-        if (sending) return
-        if (e.target === e.currentTarget) close()
+    <DialogContent
+      title="Send dues reminders"
+      description="Each owner gets one email listing every open charge on their properties."
+      size="lg"
+      footer={footer}
+      onEscapeKeyDown={(e) => {
+        if (sending) e.preventDefault()
+      }}
+      onInteractOutside={(e) => {
+        if (sending) e.preventDefault()
       }}
     >
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-background p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-foreground">Send dues reminders</h2>
-
+      <div className="space-y-4">
         {loading ? (
-          <p className="mt-6 flex items-center gap-2 text-sm text-muted">
-            <Loader2 className="h-4 w-4 animate-spin" /> Working out who owes what&hellip;
+          <p className="flex items-center gap-2 text-sm text-muted">
+            <Loader2 className="size-4 animate-spin" aria-hidden /> Working out who owes what&hellip;
           </p>
         ) : null}
 
-        {error ? (
-          <div className="mt-4 space-y-4">
-            <Alert variant="error">{error}</Alert>
-            {/* A load failure leaves preview null, so the send-form footer
-                below never renders — without this the dialog would have no
-                close control besides Escape/backdrop. */}
-            {!preview ? (
-              <Button variant="ghost" onClick={close}>
-                Close
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
-
-        {done ? (
-          <div className="mt-4 space-y-4">
-            <Alert variant="success">{done}</Alert>
-            <Button onClick={close}>Close</Button>
-          </div>
-        ) : null}
+        {error ? <Alert variant="error">{error}</Alert> : null}
+        {done ? <Alert variant="success">{done}</Alert> : null}
 
         {preview && !done ? (
-          <div className="mt-4 space-y-4">
+          <>
             <p className="text-sm text-foreground">
               <strong>{count}</strong> {count === 1 ? 'owner' : 'owners'} &middot;{' '}
-              {usd.format(preview.totalOutstanding)} outstanding
+              <span className="num">{usd(preview.totalOutstanding)}</span> outstanding
             </p>
 
             {!preview.emailConfigured ? (
@@ -223,14 +199,8 @@ export function SendRemindersDialog({
 
             {preview.skipped.length > 0 ? (
               <Alert variant="warning">
-                <span className="flex items-start gap-2">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                  <span>
-                    {preview.skipped.length}{' '}
-                    {preview.skipped.length === 1 ? 'owner' : 'owners'} skipped &mdash; no email on
-                    file: {preview.skipped.map((s) => s.ownerName).join(', ')}
-                  </span>
-                </span>
+                {preview.skipped.length} {preview.skipped.length === 1 ? 'owner' : 'owners'} skipped &mdash; no email on
+                file: {preview.skipped.map((s) => s.ownerName).join(', ')}
               </Alert>
             ) : null}
 
@@ -246,75 +216,66 @@ export function SendRemindersDialog({
               </Alert>
             ) : null}
 
-            <div>
-              <label htmlFor="reminder-note" className="text-sm font-medium text-foreground">
-                Add a note (optional)
-              </label>
+            <Field
+              label="Add a note"
+              optional
+              hint="Appears above the charges in every email."
+              labelAside={
+                // An explicit refresh rather than re-rendering as the manager
+                // types: the preview costs a server round-trip that reads
+                // every open assessment.
+                <Button variant="link" size="sm" onClick={load} disabled={sending || loading}>
+                  Update preview
+                </Button>
+              }
+            >
               <Textarea
-                id="reminder-note"
                 value={note}
                 maxLength={500}
                 rows={3}
                 placeholder="The pool assessment is due with September dues."
                 onChange={(e) => setNote(e.target.value)}
-                className="mt-1"
               />
-              <div className="mt-2 flex items-center justify-between gap-3">
-                <p className="text-xs text-muted">
-                  The note appears above the charges in every email.
-                </p>
-                {/* An explicit refresh rather than re-rendering as the
-                    manager types: the preview costs a server round-trip
-                    that reads every open assessment, and a keystroke-driven
-                    one would hammer it. */}
-                <Button variant="ghost" size="sm" onClick={load} disabled={sending || loading}>
-                  Update preview
-                </Button>
-              </div>
-            </div>
+            </Field>
 
             {preview.previewHtml ? (
               <div>
-                <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted">
-                  Preview &mdash; {preview.packets[0]?.ownerName}
-                </p>
-                {/* srcdoc isolates the email's inline styles from the app's CSS. */}
+                <p className="mb-1.5 text-xs font-medium text-muted">Preview &mdash; {preview.packets[0]?.ownerName}</p>
+                {/* srcdoc isolates the email's inline styles from the app's
+                    CSS. The email is designed on white, so the frame keeps a
+                    light colour scheme even in dark mode. */}
                 <iframe
                   title="Email preview"
                   srcDoc={preview.previewHtml}
-                  className="h-80 w-full rounded-lg border border-border bg-white"
+                  className="h-80 w-full rounded-lg border border-border [color-scheme:light]"
                 />
               </div>
             ) : null}
-
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={close} disabled={sending}>
-                Cancel
-              </Button>
-              <Button onClick={send} disabled={!canSend}>
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                Send {count} reminder{count === 1 ? '' : 's'}
-              </Button>
-            </div>
-          </div>
+          </>
         ) : null}
       </div>
-    </div>
+    </DialogContent>
   )
 
   return (
     <>
       {variant === 'primary' ? (
-        <Button onClick={load}>
-          <Mail className="h-4 w-4" />
+        <Button onClick={load} icon={<Mail aria-hidden />}>
           {label}
         </Button>
       ) : (
-        <Button size="sm" variant="ghost" onClick={load}>
+        <Button size="sm" variant="secondary" onClick={load}>
           {label}
         </Button>
       )}
-      {mounted && open ? createPortal(dialog, document.body) : null}
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (!next && !sending) close()
+        }}
+      >
+        {dialog}
+      </Dialog>
     </>
   )
 }

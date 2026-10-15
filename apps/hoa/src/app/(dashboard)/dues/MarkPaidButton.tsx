@@ -1,54 +1,37 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { Check, Loader2 } from 'lucide-react'
-import { Alert, cn } from '@homeowner-portal/ui'
+import { useRouter } from 'next/navigation'
+import { Check } from 'lucide-react'
+import { Button, ConfirmDialog, useToast } from '@homeowner-portal/ui'
 import { markAssessmentPaid } from '@/lib/assessments'
+import { usd } from '@/lib/money/format'
 
-export function MarkPaidButton({
-  assessmentId,
-  balance,
-}: {
-  assessmentId: string
-  balance: number
-}) {
-  const [pending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
-
-  function handleClick() {
-    setError(null)
-    startTransition(async () => {
-      const result = await markAssessmentPaid({
-        assessmentId,
-        amountPaid: balance,
-        paymentMethod: 'other',
-      })
-      if (!result.ok) setError(result.error)
-    })
-  }
-
+/**
+ * Record the remaining balance as paid. It posts a payment journal entry,
+ * so it asks first — one stray tap used to record money nobody received.
+ */
+export function MarkPaidButton({ assessmentId, balance, unitLabel }: { assessmentId: string; balance: number; unitLabel: string }) {
+  const router = useRouter()
+  const toast = useToast()
   return (
-    <div className="flex flex-col items-end gap-1">
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={pending}
-        className={cn(
-          'inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-800 transition-colors hover:bg-emerald-200 disabled:opacity-50',
-        )}
-      >
-        {pending ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
-        ) : (
-          <Check className="h-3 w-3" />
-        )}
-        Mark paid
-      </button>
-      {error ? (
-        <Alert variant="error" className="text-xs">
-          {error}
-        </Alert>
-      ) : null}
-    </div>
+    <ConfirmDialog
+      title={`Record ${usd(balance)} paid?`}
+      description={`Marks this charge for ${unitLabel} paid in full and posts the payment to the ledger. Use it when money arrived outside the portal (check, cash).`}
+      confirmLabel="Record payment"
+      trigger={
+        <Button size="xs" variant="secondary" icon={<Check aria-hidden />}>
+          Mark paid
+        </Button>
+      }
+      onConfirm={async () => {
+        const result = await markAssessmentPaid({ assessmentId, amountPaid: balance, paymentMethod: 'other' })
+        if (!result.ok) {
+          toast({ tone: 'error', title: 'Couldn’t record the payment', message: result.error })
+          throw new Error(result.error)
+        }
+        toast({ tone: 'success', message: `${usd(balance)} recorded for ${unitLabel}.` })
+        router.refresh()
+      }}
+    />
   )
 }

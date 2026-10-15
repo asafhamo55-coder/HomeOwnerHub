@@ -3,46 +3,50 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Wallet } from 'lucide-react'
-import { Button, Input, Select } from '@homeowner-portal/ui'
+import { Button, ChoiceGroup, Field, Fieldset, Input, Radio, Select, useToast } from '@homeowner-portal/ui'
 import { createDues } from '@/lib/assessments'
+import { todayIso, usd } from '@/lib/money/format'
 
 interface UnitOption {
   id: string
   label: string
 }
 
-interface Props {
-  units: UnitOption[]
-}
+type Errors = Partial<Record<'scope' | 'unitId' | 'frequency' | 'assessmentType' | 'amount' | 'firstDueDate' | 'memo', string>>
 
-export function NewDueForm({ units }: Props): React.ReactElement {
+const FREQUENCIES = [
+  { value: 'one_time', label: 'Once', description: 'One charge per property.' },
+  { value: 'monthly', label: 'Monthly', description: '12 charges, one a month for a year.' },
+  { value: 'annual', label: 'Annually', description: 'One charge per property for the year.' },
+] as const
+
+export function NewDueForm({ units }: { units: UnitOption[] }): React.ReactElement {
   const router = useRouter()
+  const toast = useToast()
   const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<{ created: number } | null>(null)
+  const [errors, setErrors] = useState<Errors>({})
 
   const [scope, setScope] = useState<'all' | 'unit'>('all')
-  const [unitId, setUnitId] = useState<string>('')
+  const [unitId, setUnitId] = useState('')
   const [frequency, setFrequency] = useState<'one_time' | 'monthly' | 'annual'>('one_time')
   const [assessmentType, setAssessmentType] = useState<'regular' | 'special'>('regular')
-  const [amount, setAmount] = useState<string>('')
-  const [firstDueDate, setFirstDueDate] = useState<string>(new Date().toISOString().slice(0, 10))
-  const [memo, setMemo] = useState<string>('')
+  const [amount, setAmount] = useState('')
+  const [firstDueDate, setFirstDueDate] = useState(todayIso())
+  const [memo, setMemo] = useState('')
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>): Promise<void> {
+  const amt = Number(amount.replace(/[$,\s]/g, ''))
+  const perProperty = frequency === 'monthly' ? 12 : 1
+  const expectedRows = (scope === 'all' ? units.length : 1) * perProperty
+  const expectedTotal = Number.isFinite(amt) && amt > 0 ? amt * expectedRows : null
+
+  function submit(e: React.FormEvent<HTMLFormElement>): void {
     e.preventDefault()
-    setError(null)
-    setSuccess(null)
-
-    const amt = Number(amount.replace(/[^0-9.]/g, ''))
-    if (!Number.isFinite(amt) || amt <= 0) {
-      setError('Amount must be a positive number.')
-      return
-    }
-    if (scope === 'unit' && !unitId) {
-      setError('Pick a property.')
-      return
-    }
+    const next: Errors = {}
+    if (!Number.isFinite(amt) || amt <= 0) next.amount = 'Enter an amount greater than $0.'
+    if (scope === 'unit' && !unitId) next.unitId = 'Pick the property to bill.'
+    if (!firstDueDate) next.firstDueDate = 'Pick a due date.'
+    setErrors(next)
+    if (Object.keys(next).length > 0) return
 
     startTransition(async () => {
       const res = await createDues({
@@ -55,151 +59,91 @@ export function NewDueForm({ units }: Props): React.ReactElement {
         memo: memo.trim() || undefined,
       })
       if (!res.ok) {
-        setError(res.error)
+        if (res.fieldErrors && Object.keys(res.fieldErrors).some((k) => k !== '_')) setErrors(res.fieldErrors as Errors)
+        else toast({ tone: 'error', title: 'Couldn’t add the due', message: res.error })
         return
       }
-      setSuccess({ created: res.created ?? 0 })
-      // brief pause so the success message is visible, then redirect
-      setTimeout(() => router.push('/dues'), 1500)
+      const created = res.created ?? 0
+      toast({ tone: 'success', message: `Created ${created} charge${created === 1 ? '' : 's'}.` })
+      router.push('/dues')
+      router.refresh()
     })
   }
 
-  const expectedRows =
-    scope === 'all'
-      ? units.length * (frequency === 'monthly' ? 12 : 1)
-      : (frequency === 'monthly' ? 12 : 1)
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-          Scope
-        </h2>
+    <form onSubmit={submit} noValidate className="space-y-6">
+      <Fieldset legend="Who to bill" error={errors.scope}>
+        <ChoiceGroup>
+          <Radio name="scope" value="all" checked={scope === 'all'} onChange={() => setScope('all')} label={`Every property (${units.length})`} />
+          <Radio name="scope" value="unit" checked={scope === 'unit'} onChange={() => setScope('unit')} label="One property" />
+        </ChoiceGroup>
+      </Fieldset>
 
-        <Field label="Bill which properties?" required>
-          <Select value={scope} onValueChange={(v) => setScope(v as 'all' | 'unit')}>
-            <option value="all">All properties ({units.length})</option>
-            <option value="unit">Single property</option>
+      {scope === 'unit' ? (
+        <Field label="Property" required error={errors.unitId}>
+          <Select value={unitId || undefined} onValueChange={setUnitId} placeholder="Choose a property" disabled={isPending}>
+            {units.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.label}
+              </option>
+            ))}
           </Select>
         </Field>
+      ) : null}
 
-        {scope === 'unit' ? (
-          <Field label="Property" required>
-            <Select value={unitId} onValueChange={setUnitId}>
-              <option value="">— pick a property —</option>
-              {units.map((u) => (
-                <option key={u.id} value={u.id}>{u.label}</option>
-              ))}
-            </Select>
-          </Field>
-        ) : null}
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-          Frequency
-        </h2>
-
-        <Field label="Billing pattern" required>
-          <Select value={frequency} onValueChange={(v) => setFrequency(v as 'one_time' | 'monthly' | 'annual')}>
-            <option value="one_time">One-time (1 charge per property)</option>
-            <option value="monthly">Monthly (12 charges, 1 per month for a year)</option>
-            <option value="annual">Annual (1 charge per property per year)</option>
-          </Select>
-        </Field>
-
-        <Field label="Type">
-          <Select value={assessmentType} onValueChange={(v) => setAssessmentType(v as 'regular' | 'special')}>
-            <option value="regular">Regular (recurring dues)</option>
-            <option value="special">Special assessment (one-off)</option>
-          </Select>
-        </Field>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-          Amount &amp; date
-        </h2>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Amount per charge ($)" required>
-            <Input
-              type="text"
-              inputMode="decimal"
-              value={amount}
-              onChange={(e) => setAmount(e.currentTarget.value)}
-              placeholder="200"
-              required
+      <Fieldset legend="How often" error={errors.frequency}>
+        <ChoiceGroup>
+          {FREQUENCIES.map((f) => (
+            <Radio
+              key={f.value}
+              name="frequency"
+              value={f.value}
+              checked={frequency === f.value}
+              onChange={() => setFrequency(f.value)}
+              label={f.label}
+              description={f.description}
             />
-          </Field>
+          ))}
+        </ChoiceGroup>
+      </Fieldset>
 
-          <Field label={frequency === 'monthly' ? 'First due date' : 'Due date'} required>
-            <Input
-              type="date"
-              value={firstDueDate}
-              onChange={(e) => setFirstDueDate(e.currentTarget.value)}
-              required
-            />
-          </Field>
-        </div>
-
-        <Field label="Memo (optional)">
-          <Input
-            type="text"
-            value={memo}
-            onChange={(e) => setMemo(e.currentTarget.value)}
-            placeholder="Q3 2026 dues"
-            maxLength={140}
-          />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field label="Amount per charge" required error={errors.amount}>
+          <Input inputMode="decimal" prefix="$" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.currentTarget.value)} disabled={isPending} />
         </Field>
-      </section>
-
-      <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted">
-        Will create <strong className="text-foreground">{expectedRows}</strong> assessment{expectedRows === 1 ? '' : 's'}
-        {expectedRows > 100 ? ' — this may take 30–60 seconds.' : '.'}
+        <Field label={frequency === 'monthly' ? 'First due date' : 'Due date'} required error={errors.firstDueDate}>
+          <Input type="date" value={firstDueDate} onChange={(e) => setFirstDueDate(e.currentTarget.value)} disabled={isPending} />
+        </Field>
+        <Field label="Kind" error={errors.assessmentType}>
+          <Select value={assessmentType} onValueChange={(v) => setAssessmentType(v as 'regular' | 'special')} disabled={isPending}>
+            <option value="regular">Regular dues</option>
+            <option value="special">Special assessment</option>
+          </Select>
+        </Field>
+        <Field label="Memo" optional hint="Shown to owners on the charge." error={errors.memo}>
+          <Input value={memo} onChange={(e) => setMemo(e.currentTarget.value)} placeholder="Q4 2026 dues" maxLength={140} disabled={isPending} />
+        </Field>
       </div>
 
-      {error ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
+      <div className="rounded-lg border border-border bg-subtle px-4 py-3 text-sm" aria-live="polite">
+        Creates <strong className="num text-foreground">{expectedRows}</strong> charge{expectedRows === 1 ? '' : 's'}
+        {expectedTotal !== null ? (
+          <>
+            {' '}
+            totalling <strong className="num text-foreground">{usd(expectedTotal)}</strong>
+          </>
+        ) : null}
+        .{expectedRows > 100 ? ' This can take up to a minute.' : ''}
+      </div>
 
-      {success ? (
-        <p className="rounded-md border border-success/30 bg-success/5 px-3 py-2 text-sm text-success">
-          Created {success.created} assessment{success.created === 1 ? '' : 's'}. Redirecting…
-        </p>
-      ) : null}
-
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={() => router.push('/dues')}>
+      <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">
+        <Button type="button" variant="ghost" onClick={() => router.push('/dues')} disabled={isPending}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isPending}>
-          <Wallet className="h-4 w-4" />
-          {isPending ? 'Creating…' : 'Add due'}
+        <Button type="submit" loading={isPending} icon={<Wallet aria-hidden />}>
+          Add {expectedRows === 1 ? 'due' : `${expectedRows} dues`}
         </Button>
       </div>
     </form>
-  )
-}
-
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string
-  required?: boolean
-  children: React.ReactNode
-}): React.ReactElement {
-  return (
-    <label className="block space-y-1">
-      <span className="text-sm font-medium">
-        {label}
-        {required ? <span className="ml-0.5 text-destructive">*</span> : null}
-      </span>
-      {children}
-    </label>
   )
 }

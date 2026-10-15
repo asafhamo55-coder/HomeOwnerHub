@@ -1,25 +1,32 @@
-import { BackLink, Card, CardContent, CardHeader, CardTitle, PageHeader } from '@homeowner-portal/ui'
+import Link from 'next/link'
+import { Card, CardContent, LoadFailed, Page } from '@homeowner-portal/ui'
 import { listUnitsForDues } from '@/lib/assessments'
+import { tryLoad } from '@/lib/load-or-fail'
 import { NewDueForm } from './NewDueForm'
 
 export const metadata = { title: 'Add due' }
 
 export default async function NewDuePage(): Promise<React.ReactElement> {
-  const units = await listUnitsForDues()
+  const units = await tryLoad('properties', () => listUnitsForDues())
+  const crumbs = [{ label: 'Dues', href: '/dues' }, { label: 'Add a due' }]
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <BackLink href="/dues" label="Back to dues" />
-      <PageHeader title="Add a due" />
-
-      <Card variant="elevated">
-        <CardHeader>
-          <CardTitle>Billing details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <NewDueForm units={units} />
-        </CardContent>
-      </Card>
-    </div>
+    <Page
+      width="narrow"
+      linkAs={Link}
+      breadcrumbs={crumbs}
+      title="Add a due"
+      description="Bill every property or just one — once, monthly for a year, or annually. Each charge posts to the ledger as money owed."
+    >
+      {!units.ok ? (
+        <LoadFailed what="properties" />
+      ) : (
+        <Card>
+          <CardContent className="pt-5">
+            <NewDueForm units={units.data} />
+          </CardContent>
+        </Card>
+      )}
+    </Page>
   )
 }
