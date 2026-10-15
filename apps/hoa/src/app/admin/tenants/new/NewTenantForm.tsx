@@ -1,158 +1,118 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Building2 } from 'lucide-react'
-import { Button, Input, Select } from '@homeowner-portal/ui'
-import { createTenant } from '@/lib/platform-admin'
+import { Alert, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Field, Input, Select, useToast } from '@homeowner-portal/ui'
 import { US_STATES } from '@/lib/us-states'
+import { createTenantFromForm, type FieldErrors } from '../../_components/form-actions'
 
 export function NewTenantForm() {
   const router = useRouter()
+  const toast = useToast()
   const [isPending, startTransition] = useTransition()
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [error, setError] = useState<string | null>(null)
 
-  async function handleSubmit(formData: FormData) {
+  function handleSubmit(formData: FormData) {
     setError(null)
-
-    const name = String(formData.get('name') ?? '').trim()
-    const plan = String(formData.get('plan') ?? 'free') as 'free' | 'pro' | 'enterprise'
-    const doorsRaw = String(formData.get('doors_count') ?? '').trim()
-    const doorsCount = doorsRaw ? Number(doorsRaw.replace(/[^0-9]/g, '')) : null
-
-    const associationName = String(formData.get('association_name') ?? '').trim()
-    const state = String(formData.get('state') ?? 'GA')
-    const associationType = String(formData.get('association_type') ?? 'hoa') as 'hoa' | 'condo' | 'coop'
-    const inviteAdminEmail = String(formData.get('invite_admin_email') ?? '').trim() || null
-
+    setFieldErrors({})
     startTransition(async () => {
-      const result = await createTenant({
-        name,
-        plan,
-        doorsCount,
-        associationName,
-        state,
-        associationType,
-        inviteAdminEmail,
-      })
+      const result = await createTenantFromForm(formData)
       if (!result.ok) {
-        setError(result.error)
+        setFieldErrors(result.fieldErrors ?? {})
+        if (result.error) setError(result.error)
         return
       }
+      toast({ tone: 'success', message: 'Tenant created.' })
       router.push(`/admin/tenants/${result.data.orgId}`)
     })
   }
 
   return (
-    <form action={handleSubmit} className="space-y-5">
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-          Organization
-        </h2>
-
-        <Field label="HOA / community name" required>
-          <Input name="name" required maxLength={200} placeholder="Madison Park" />
-        </Field>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Plan">
-            <Select name="plan" defaultValue="free">
-              <option value="free">Free</option>
-              <option value="pro">Pro</option>
-              <option value="enterprise">Enterprise</option>
-            </Select>
+    <form action={handleSubmit} noValidate className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Organization</CardTitle>
+          <CardDescription>The tenant record people sign in to.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Field label="HOA or community name" required error={fieldErrors.name}>
+            <Input name="name" required maxLength={200} placeholder="Sample Ridge HOA" autoComplete="off" />
           </Field>
-          <Field label="Doors / units (optional)">
-            <Input name="doors_count" inputMode="numeric" placeholder="125" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Plan" required error={fieldErrors.plan}>
+              <Select name="plan" defaultValue="free">
+                <option value="free">Free</option>
+                <option value="pro">Pro</option>
+                <option value="enterprise">Enterprise</option>
+              </Select>
+            </Field>
+            <Field label="Doors / units" optional hint="Declared size, used for billing." error={fieldErrors.doors_count}>
+              <Input name="doors_count" inputMode="numeric" placeholder="125" />
+            </Field>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Initial association</CardTitle>
+          <CardDescription>Every tenant starts with one association; more can be added inside the tenant.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Field label="Association name" required error={fieldErrors.association_name}>
+            <Input name="association_name" required maxLength={200} placeholder="Sample Ridge Homeowners Association" />
           </Field>
-        </div>
-      </section>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="State" required error={fieldErrors.state}>
+              <Select name="state" defaultValue="GA">
+                {US_STATES.map((s) => (
+                  <option key={s.code} value={s.code}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Type" required error={fieldErrors.association_type}>
+              <Select name="association_type" defaultValue="hoa">
+                <option value="hoa">HOA</option>
+                <option value="condo">Condo</option>
+                <option value="coop">Co-op</option>
+              </Select>
+            </Field>
+          </div>
+        </CardContent>
+      </Card>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-          Initial association
-        </h2>
-        <p className="text-xs text-muted">
-          Each tenant has at least one association. You can add more later from inside the tenant.
-        </p>
-
-        <Field label="Association name" required>
-          <Input name="association_name" required placeholder="Madison Park HOA" />
-        </Field>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="State" required>
-            <Select name="state" required defaultValue="GA">
-              {US_STATES.map((s) => (
-                <option key={s.code} value={s.code}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">First admin</CardTitle>
+          <CardDescription>We email this person an invitation to administer the tenant. Leave blank to let them sign up later.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Field label="Admin email" optional error={fieldErrors.invite_admin_email}>
+            <Input name="invite_admin_email" type="email" placeholder="board@example.org" autoComplete="off" />
           </Field>
-          <Field label="Type">
-            <Select name="association_type" defaultValue="hoa">
-              <option value="hoa">HOA</option>
-              <option value="condo">Condo</option>
-              <option value="coop">Co-op</option>
-            </Select>
-          </Field>
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-          Initial admin (optional)
-        </h2>
-        <p className="text-xs text-muted">
-          If you provide an email, we invite that person as the tenant's first admin.
-          You can also skip and let the admin sign up themselves.
-        </p>
-
-        <Field label="Email">
-          <Input
-            name="invite_admin_email"
-            type="email"
-            placeholder="board@madisonparkhoa.com"
-          />
-        </Field>
-      </section>
+        </CardContent>
+      </Card>
 
       {error ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <Alert variant="error" title="Couldn’t create the tenant">
           {error}
-        </p>
+        </Alert>
       ) : null}
 
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={() => router.back()}>
-          Cancel
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <Button asChild variant="ghost">
+          <Link href="/admin/tenants" className="no-underline">
+            Cancel
+          </Link>
         </Button>
-        <Button type="submit" disabled={isPending}>
-          <Building2 className="h-4 w-4" />
-          {isPending ? 'Creating…' : 'Create tenant'}
+        <Button type="submit" loading={isPending}>
+          Create tenant
         </Button>
       </div>
     </form>
-  )
-}
-
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string
-  required?: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <label className="block space-y-1">
-      <span className="text-sm font-medium">
-        {label}
-        {required ? <span className="ml-0.5 text-destructive">*</span> : null}
-      </span>
-      {children}
-    </label>
   )
 }

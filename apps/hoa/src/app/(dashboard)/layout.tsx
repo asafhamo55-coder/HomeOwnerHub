@@ -21,6 +21,7 @@ import { NavigationProgress } from '@/components/layout/NavigationProgress'
 import { PlatformAdminLink } from '@/components/layout/PlatformAdminLink'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { RoleSwitcherMount } from '@/components/dev/RoleSwitcherMount'
+import { Copilot, CopilotTrigger } from '@/components/copilot/Copilot'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await getSupabaseServerClient()
@@ -82,7 +83,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <AppShellHeader>
             <AppShellSearchTrigger />
             <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
+              {/* Dev-only role switcher, docked in the top bar so it never
+                  floats over page content. Renders nothing for non-admins. */}
+              <RoleSwitcherMount placement="toolbar" />
               {role === 'admin' && <PlatformAdminLink />}
+              <CopilotTrigger />
               {/* Wrapped in Suspense so two extra queries on the shared
                   dashboard chrome cannot delay first paint of the page
                   itself — the header streams the bell in when it resolves.
@@ -98,11 +103,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </AppShellHeader>
           <AppShellContent>{children}</AppShellContent>
         </AppShellMain>
+        {/* Docked copilot panel: an in-flow column at lg+ (the page narrows
+            rather than being covered), an overlay below. Toggled from the
+            top bar. */}
+        <Copilot />
         <HoaCommandPalette role={role} />
       </AppShell>
-      {/* Dev-only role switcher. Renders nothing for non-admins.
-          Remove this line when you no longer want the switcher. */}
-      <RoleSwitcherMount />
     </DashboardProviders>
   )
 }

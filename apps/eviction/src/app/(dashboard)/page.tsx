@@ -1,11 +1,12 @@
 import Link from 'next/link'
-import { ScrollText, Plus, AlertCircle } from 'lucide-react'
+import { AlertCircle, Clock, Plus, ScrollText } from 'lucide-react'
 import { format, differenceInCalendarDays } from 'date-fns'
-import { Badge, Button, Card, EmptyState, NoOrgSelected } from '@homeowner-portal/ui'
+import { Badge, Button, EmptyState, LoadFailed, NoOrgSelected, Page } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { listUnfinishedDrafts } from '@/lib/drafts'
 import { formatCounty } from '@/lib/county-labels'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadOrFail } from '@/lib/load-or-fail'
 import { UnfinishedWorkflowsCard } from '@/components/dashboard/UnfinishedWorkflowsCard'
 
 export const metadata = { title: 'Cases' }
@@ -38,15 +39,25 @@ export default async function CasesHomePage() {
 
   const supabase = await getSupabaseServerClient()
   const [casesRes, drafts] = await Promise.all([
-    supabase
-      .from('eviction_cases')
-      .select(
-        'id, property_address, tenant_name, status, county, state, created_at, filing_eligible_date, notice_sent_at',
-      )
-      .order('created_at', { ascending: false }),
+    loadOrFail(
+      'your cases',
+      supabase
+        .from('eviction_cases')
+        .select(
+          'id, property_address, tenant_name, status, county, state, created_at, filing_eligible_date, notice_sent_at',
+        )
+        .order('created_at', { ascending: false }),
+    ),
     listUnfinishedDrafts(),
   ])
 
+  if (!casesRes.ok) {
+    return (
+      <Page width="wide" title="Cases">
+        <LoadFailed what="your cases" />
+      </Page>
+    )
+  }
   const cases = (casesRes.data ?? []) as CaseRow[]
 
   // Apply derived status: notice_sent rows whose filing_eligible_date <= today
@@ -69,63 +80,72 @@ export default async function CasesHomePage() {
   }))
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Cases</h1>
-          <p className="text-sm text-muted">
-            {cases.length} {cases.length === 1 ? 'case' : 'cases'} in {org.name}
-          </p>
-        </div>
+    <Page
+      width="wide"
+      title="Cases"
+      description={`${cases.length} ${cases.length === 1 ? 'case' : 'cases'} in ${org.name}`}
+      actions={
         <Button asChild>
           <Link href="/cases/new">
-            <Plus className="h-4 w-4" />
+            <Plus aria-hidden />
             New case
           </Link>
         </Button>
-      </header>
+      }
+    >
+      <div className="space-y-6">
+        <UnfinishedWorkflowsCard drafts={drafts} />
 
-      <UnfinishedWorkflowsCard drafts={drafts} />
-
-      {cases.length === 0 ? (
-        <EmptyState
-          icon={<ScrollText className="h-10 w-10" aria-hidden />}
-          title="No cases yet"
-          description="Start a new case to run a compliance check, generate a legal notice, and track the filing date."
-          action={
-            <Button asChild>
-              <Link href="/cases/new">
-                <Plus className="h-4 w-4" />
-                Start first case
-              </Link>
-            </Button>
-          }
-        />
-      ) : (
-        <div className="-mx-4 overflow-x-auto px-4 pb-2 md:mx-0 md:px-0">
-          <div className="flex min-w-max gap-4 md:grid md:min-w-0 md:grid-cols-5">
-            {byColumn.map((col) => (
-              <div key={col.id} className="w-72 flex-shrink-0 md:w-auto">
-                <div className="mb-2 flex items-center justify-between px-1">
-                  <h2 className="text-sm font-semibold text-foreground">{col.label}</h2>
-                  <span className="text-xs text-muted">{col.cases.length}</span>
-                </div>
-                <p className="mb-3 px-1 text-[11px] text-muted">{col.description}</p>
-                <div className="space-y-2">
-                  {col.cases.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-border bg-surface px-3 py-4 text-center text-xs text-muted">
-                      Empty
+        {cases.length === 0 ? (
+          <EmptyState
+            icon={<ScrollText aria-hidden />}
+            title="No cases yet"
+            description="Start a case to run the compliance check, generate the notice and track the filing date."
+            action={
+              <Button asChild>
+                <Link href="/cases/new">
+                  <Plus aria-hidden />
+                  Start your first case
+                </Link>
+              </Button>
+            }
+          />
+        ) : (
+          <div className="-mx-4 overflow-x-auto px-4 pb-2 lg:mx-0 lg:px-0">
+            <div className="flex min-w-max gap-3 lg:grid lg:min-w-0 lg:grid-cols-5">
+              {byColumn.map((col) => (
+                <section
+                  key={col.id}
+                  aria-labelledby={`col-${col.id}`}
+                  className="w-72 shrink-0 rounded-xl border border-border bg-subtle p-2 lg:w-auto"
+                >
+                  <header className="px-2 pb-2 pt-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <h2 id={`col-${col.id}`} className="text-sm font-semibold text-foreground">
+                        {col.label}
+                      </h2>
+                      <Badge variant="neutral" size="sm">
+                        {col.cases.length}
+                      </Badge>
                     </div>
-                  ) : (
-                    col.cases.map((c) => <CaseCard key={c.id} c={c} />)
-                  )}
-                </div>
-              </div>
-            ))}
+                    <p className="mt-0.5 text-xs text-muted">{col.description}</p>
+                  </header>
+                  <div className="space-y-2">
+                    {col.cases.length === 0 ? (
+                      <p className="rounded-lg border border-dashed border-border-strong px-3 py-5 text-center text-xs text-muted">
+                        No cases
+                      </p>
+                    ) : (
+                      col.cases.map((c) => <CaseCard key={c.id} c={c} />)
+                    )}
+                  </div>
+                </section>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </Page>
   )
 }
 
@@ -143,31 +163,32 @@ function CaseCard({
   return (
     <Link
       href={`/cases/${c.id}`}
-      className="block rounded-lg border border-border bg-surface p-3 transition-colors hover:border-primary/40 hover:bg-primary/5"
+      className="block rounded-lg border border-border bg-surface p-3 no-underline shadow-xs transition-[border-color,box-shadow] duration-fast hover:border-border-strong hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <p className="truncate text-sm font-medium text-foreground">{c.property_address}</p>
-      <p className="mt-0.5 truncate text-xs text-muted">
-        {c.tenant_name ?? 'Tenant unknown'}
-      </p>
-      <div className="mt-2 flex items-center gap-2 text-xs text-muted">
-        <Badge variant="outline" size="sm">
+      <p className="mt-0.5 truncate text-xs text-muted">{c.tenant_name ?? 'Tenant unknown'}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+        <span>
           {formatCounty(c.county)}, {c.state}
-        </Badge>
+        </span>
         {filingDate ? (
-          <span className="flex items-center gap-1">
-            {isOverdue ? (
-              <span className="inline-flex items-center gap-0.5 font-medium text-destructive">
-                <AlertCircle className="h-3 w-3" />
-                file now
-              </span>
-            ) : daysUntilFiling !== null && daysUntilFiling <= 1 ? (
-              <span className="font-medium text-amber-700">
-                files {format(filingDate, 'MMM d')}
-              </span>
-            ) : (
-              <span>files {format(filingDate, 'MMM d')}</span>
-            )}
-          </span>
+          isOverdue && c.derivedStatus !== 'filed' && c.derivedStatus !== 'resolved' ? (
+            <span className="inline-flex items-center gap-1 font-medium text-danger">
+              <AlertCircle className="size-3.5" aria-hidden />
+              File now
+            </span>
+          ) : c.derivedStatus === 'notice_sent' ? (
+            <span
+              className={
+                daysUntilFiling !== null && daysUntilFiling <= 1
+                  ? 'inline-flex items-center gap-1 font-medium text-warning'
+                  : 'inline-flex items-center gap-1'
+              }
+            >
+              <Clock className="size-3.5" aria-hidden />
+              Files {format(filingDate, 'MMM d')}
+            </span>
+          ) : null
         ) : null}
       </div>
     </Link>

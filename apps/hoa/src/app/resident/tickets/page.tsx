@@ -1,80 +1,63 @@
 import Link from 'next/link'
 import { MessageSquarePlus, Plus } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Button } from '@homeowner-portal/ui'
-import { listMyTickets, type TicketStatus } from '@/lib/resident-tickets'
-import { ScreenEmpty, ScreenHeader, TappableRow } from '@/components/resident/screen'
+import { Button, LoadFailed } from '@homeowner-portal/ui'
+import { loadMyTickets } from '@/lib/resident-tickets'
+import { RowGroup, ScreenEmpty, ScreenHeader, TappableRow } from '@/components/resident/screen'
+import { ResidentStatus, TICKET_CATEGORY_LABEL } from '@/components/resident/status'
 
-export const metadata = { title: 'My Tickets' }
+export const metadata = { title: 'Support requests' }
 export const dynamic = 'force-dynamic'
 
-const STATUS_VARIANT: Record<TicketStatus, 'success' | 'warning' | 'outline'> = {
-  open: 'outline',
-  in_progress: 'warning',
-  closed: 'success',
-}
-
-const CATEGORY_LABEL: Record<string, string> = {
-  maintenance: 'Maintenance',
-  noise: 'Noise',
-  parking: 'Parking',
-  common_area: 'Common area',
-  billing: 'Billing',
-  access: 'Access',
-  safety: 'Safety',
-  general: 'General',
-  other: 'Other',
-}
-
 export default async function MyTicketsPage() {
-  const tickets = await listMyTickets()
+  const result = await loadMyTickets()
 
   return (
     <div className="space-y-6">
       <ScreenHeader
-        title="Support tickets"
+        back={{ href: '/resident/requests', label: 'Requests' }}
+        title="Support requests"
         subtitle="Your requests and the board's responses."
         action={
           <Button asChild size="sm">
             <Link href="/resident/tickets/new">
-              <Plus className="h-4 w-4" />
+              <Plus aria-hidden />
               New
             </Link>
           </Button>
         }
       />
 
-      {tickets.length === 0 ? (
+      {!result.ok ? (
+        <LoadFailed what="your support requests" />
+      ) : result.data.length === 0 ? (
         <ScreenEmpty
-          icon={<MessageSquarePlus className="h-6 w-6" />}
-          title="No tickets yet"
-          description="When you submit a support request, it will appear here with its current status."
+          icon={<MessageSquarePlus />}
+          title="No requests yet"
+          description="When you send the board a support request, it shows up here with its current status."
           action={
             <Button asChild>
               <Link href="/resident/tickets/new">
-                <Plus className="h-4 w-4" />
-                Open your first ticket
+                <Plus aria-hidden />
+                New request
               </Link>
             </Button>
           }
         />
       ) : (
-        <div className="space-y-2.5">
-          {tickets.map((t) => (
+        <RowGroup>
+          {result.data.map((t) => (
             <TappableRow
               key={t.id}
               href={`/resident/tickets/${t.id}`}
-              icon={<MessageSquarePlus className="h-5 w-5" />}
+              icon={<MessageSquarePlus />}
+              tone={t.status === 'closed' ? 'slate' : 'primary'}
               title={t.subject}
-              subtitle={`${CATEGORY_LABEL[t.category] ?? t.category} · opened ${format(new Date(t.created_at), 'PP')}`}
-              trailing={
-                <Badge variant={STATUS_VARIANT[t.status]} size="sm">
-                  {t.status.replace('_', ' ')}
-                </Badge>
-              }
+              subtitle={`${TICKET_CATEGORY_LABEL[t.category] ?? t.category} · opened ${format(new Date(t.created_at), 'PP')}`}
+              status={<ResidentStatus kind="ticket" status={t.status} />}
             />
           ))}
-        </div>
+        </RowGroup>
       )}
     </div>
   )

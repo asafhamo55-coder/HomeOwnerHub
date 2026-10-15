@@ -16,13 +16,13 @@ export function Communities() {
     <section className="py-24 md:py-32">
       <div className="container-page">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-brand-600">
+          <p className="text-sm font-semibold uppercase tracking-wider text-primary">
             Built for the homes you actually run
           </p>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-5xl">
+          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
             Suburban Atlanta, not a SaaS demo deck.
           </h2>
-          <p className="mt-5 text-lg leading-relaxed text-ink-500">
+          <p className="mt-5 text-lg leading-relaxed text-muted">
             Ledger is built for the communities you can drive through on
             a Saturday morning. Volunteer boards. Brick-and-Hardie homes.
             Mature trees. Real residents.
@@ -47,10 +47,10 @@ export function Communities() {
                 sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
                 rounded=""
               />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink-900/85 via-ink-900/20 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-foreground/85 via-foreground/20 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-5 text-background">
                 <p className="text-sm font-semibold tracking-tight">{item.label}</p>
-                <p className="mt-1 text-xs text-white/80">{item.sub}</p>
+                <p className="mt-1 text-xs text-background/80">{item.sub}</p>
               </div>
             </motion.div>
           ))}

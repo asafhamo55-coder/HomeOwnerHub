@@ -1,16 +1,27 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Archive, CheckCircle2, Pause, RotateCcw } from 'lucide-react'
-import { Button, useConfirm } from '@homeowner-portal/ui'
+import { Archive, CheckCircle2, Eye, MoreHorizontal, Pause, Pencil, RotateCcw } from 'lucide-react'
 import {
-  suspendTenant,
-  resumeTenant,
-  archiveTenant,
-  restoreTenant,
-} from '@/lib/platform-admin'
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  useConfirm,
+  useToast,
+} from '@homeowner-portal/ui'
+import { suspendTenant, resumeTenant, archiveTenant, restoreTenant } from '@/lib/platform-admin'
 
+/**
+ * Page-header actions for a tenant. Edit and Preview are visible; the
+ * lifecycle actions (suspend / archive) live in the ⋯ menu so the header
+ * never shows two loud buttons. When the tenant is suspended or archived,
+ * the way back (Resume / Restore) is the one primary action.
+ */
 export function TenantActions({
   orgId,
   orgName,
@@ -24,131 +35,114 @@ export function TenantActions({
 }) {
   const router = useRouter()
   const confirm = useConfirm()
+  const toast = useToast()
   const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
+
+  function run(action: () => Promise<{ ok: true } | { ok: false; error: string }>, done: string) {
+    startTransition(async () => {
+      const result = await action()
+      if (!result.ok) {
+        toast({ tone: 'error', title: 'That didn’t work', message: result.error })
+        return
+      }
+      toast({ tone: 'success', message: done })
+      router.refresh()
+    })
+  }
 
   async function handleSuspend() {
     const ok = await confirm({
-      title: `Suspend "${orgName}"?`,
+      title: `Suspend “${orgName}”?`,
       description:
-        'Members of this tenant will not be able to sign in until you resume them. This action is logged in the audit trail.',
+        'Members of this tenant will not be able to sign in until you resume them. This is logged in the audit trail.',
       confirmLabel: 'Suspend tenant',
       destructive: true,
     })
-    if (!ok) return
-
-    setError(null)
-    startTransition(async () => {
-      const result = await suspendTenant(orgId)
-      if (!result.ok) {
-        setError(result.error)
-        return
-      }
-      router.refresh()
-    })
+    if (ok) run(() => suspendTenant(orgId), `${orgName} suspended.`)
   }
 
   async function handleResume() {
     const ok = await confirm({
-      title: `Resume "${orgName}"?`,
-      description: 'This will re-enable sign-in for all members of this tenant.',
+      title: `Resume “${orgName}”?`,
+      description: 'Sign-in is re-enabled for every member of this tenant.',
       confirmLabel: 'Resume tenant',
     })
-    if (!ok) return
-
-    setError(null)
-    startTransition(async () => {
-      const result = await resumeTenant(orgId)
-      if (!result.ok) {
-        setError(result.error)
-        return
-      }
-      router.refresh()
-    })
+    if (ok) run(() => resumeTenant(orgId), `${orgName} resumed.`)
   }
 
   async function handleArchive() {
     const first = await confirm({
-      title: `Archive "${orgName}"?`,
+      title: `Archive “${orgName}”?`,
       description:
-        'Archiving hides this tenant from active lists and blocks all member sign-ins. Their data will be preserved and you can restore them later.',
-      confirmLabel: 'Continue to archive',
+        'Archiving hides this tenant from active lists and blocks every member sign-in. Data is preserved and the tenant can be restored later.',
+      confirmLabel: 'Continue',
       destructive: true,
     })
     if (!first) return
-
     const second = await confirm({
-      title: 'Are you absolutely sure?',
-      description: `You are about to archive "${orgName}". All members will immediately lose access. This is reversible — a platform admin can restore the tenant later.`,
-      confirmLabel: 'Yes, archive this tenant',
+      title: 'Archive this tenant now?',
+      description: `All members of “${orgName}” lose access immediately. A platform admin can restore the tenant later.`,
+      confirmLabel: 'Archive tenant',
       cancelLabel: 'Go back',
       destructive: true,
     })
-    if (!second) return
-
-    setError(null)
-    startTransition(async () => {
-      const result = await archiveTenant(orgId)
-      if (!result.ok) {
-        setError(result.error)
-        return
-      }
-      router.refresh()
-    })
+    if (second) run(() => archiveTenant(orgId), `${orgName} archived.`)
   }
 
   async function handleRestore() {
     const ok = await confirm({
-      title: `Restore "${orgName}"?`,
-      description:
-        'This will un-archive the tenant, re-enable sign-in for all members, and make it visible in active lists again.',
+      title: `Restore “${orgName}”?`,
+      description: 'The tenant is un-archived, sign-in is re-enabled and it reappears in active lists.',
       confirmLabel: 'Restore tenant',
     })
-    if (!ok) return
-
-    setError(null)
-    startTransition(async () => {
-      const result = await restoreTenant(orgId)
-      if (!result.ok) {
-        setError(result.error)
-        return
-      }
-      router.refresh()
-    })
-  }
-
-  if (archivedAt) {
-    return (
-      <div className="flex flex-col items-end gap-1">
-        <Button size="sm" onClick={handleRestore} disabled={isPending}>
-          <RotateCcw className="h-4 w-4" />
-          {isPending ? 'Restoring…' : 'Restore tenant'}
-        </Button>
-        {error ? <p className="text-xs text-destructive" role="alert">{error}</p> : null}
-      </div>
-    )
+    if (ok) run(() => restoreTenant(orgId), `${orgName} restored.`)
   }
 
   return (
-    <div className="flex flex-col items-end gap-2">
-      <div className="flex items-center gap-2">
-        {suspendedAt ? (
-          <Button size="sm" onClick={handleResume} disabled={isPending}>
-            <CheckCircle2 className="h-4 w-4" />
-            {isPending ? 'Resuming…' : 'Resume tenant'}
-          </Button>
-        ) : (
-          <Button variant="outline" size="sm" onClick={handleSuspend} disabled={isPending}>
-            <Pause className="h-4 w-4" />
-            {isPending ? 'Suspending…' : 'Suspend tenant'}
-          </Button>
-        )}
-        <Button variant="destructive" size="sm" onClick={handleArchive} disabled={isPending}>
-          <Archive className="h-4 w-4" />
-          {isPending ? 'Archiving…' : 'Archive tenant'}
+    <div className="flex flex-wrap items-center gap-2">
+      <Button asChild variant="secondary">
+        <Link href={`/admin/tenants/${orgId}/preview`} className="no-underline">
+          <Eye aria-hidden />
+          Preview
+        </Link>
+      </Button>
+      {!archivedAt ? (
+        <Button asChild variant={suspendedAt ? 'secondary' : 'primary'}>
+          <Link href={`/admin/tenants/${orgId}/edit`} className="no-underline">
+            <Pencil aria-hidden />
+            Edit
+          </Link>
         </Button>
-      </div>
-      {error ? <p className="text-xs text-destructive" role="alert">{error}</p> : null}
+      ) : null}
+      {archivedAt ? (
+        <Button onClick={handleRestore} loading={isPending} icon={<RotateCcw aria-hidden />}>
+          Restore tenant
+        </Button>
+      ) : suspendedAt ? (
+        <Button onClick={handleResume} loading={isPending} icon={<CheckCircle2 aria-hidden />}>
+          Resume tenant
+        </Button>
+      ) : null}
+      {!archivedAt ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="More tenant actions" disabled={isPending}>
+              <MoreHorizontal aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {!suspendedAt ? (
+              <DropdownMenuItem icon={<Pause aria-hidden />} onSelect={() => void handleSuspend()}>
+                Suspend tenant
+              </DropdownMenuItem>
+            ) : null}
+            {!suspendedAt ? <DropdownMenuSeparator /> : null}
+            <DropdownMenuItem destructive icon={<Archive aria-hidden />} onSelect={() => void handleArchive()}>
+              Archive tenant
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
     </div>
   )
 }

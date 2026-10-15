@@ -5,7 +5,7 @@ import { getResidentUnits } from '@/lib/resident'
 import { getResidentActor } from '@/lib/impersonation'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { SignOutButton } from '@/components/resident/SignOutButton'
-import { IconTile, Panel, ScreenHeader, SectionLabel, TappableRow } from '@/components/resident/screen'
+import { Panel, RowGroup, ScreenHeader, SectionLabel, TappableRow } from '@/components/resident/screen'
 
 export const metadata = { title: 'Account' }
 export const dynamic = 'force-dynamic'
@@ -33,12 +33,14 @@ export default async function ResidentAccountPage() {
   // email local-part so there's always something friendly to show.
   let fullName: string | null = null
   if (!actor.impersonating && user) {
-    const { data } = await supabase
+    // A failed read only costs the friendly name — we fall back to the
+    // email local-part below, which is still correct, so no error state.
+    const { data, error } = await supabase
       .from('profiles')
       .select('full_name')
       .eq('id', user.id)
       .maybeSingle<{ full_name: string | null }>()
-    fullName = data?.full_name?.trim() || null
+    fullName = error ? null : data?.full_name?.trim() || null
   }
   const displayName = fullName || email.split('@')[0] || 'Resident'
 
@@ -47,16 +49,16 @@ export default async function ResidentAccountPage() {
   ]
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-8">
       <ScreenHeader title="Account" />
 
       {/* Identity */}
       <Panel className="flex items-center gap-4">
-        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-lg font-semibold text-primary">
           {initialsFrom(fullName || email || 'R')}
         </span>
         <div className="min-w-0">
-          <p className="truncate text-lg font-bold text-foreground">{displayName}</p>
+          <p className="truncate text-lg font-semibold text-foreground">{displayName}</p>
           {email ? <p className="truncate text-sm text-muted">{email}</p> : null}
           {communities.length > 0 ? (
             <p className="mt-0.5 truncate text-xs text-muted">{communities.join(' · ')}</p>
@@ -68,38 +70,43 @@ export default async function ResidentAccountPage() {
       {units.length > 0 ? (
         <section className="space-y-2.5">
           <SectionLabel>My {units.length === 1 ? 'home' : 'homes'}</SectionLabel>
+          <RowGroup>
           {units.map((u) => (
             <TappableRow
               key={u.unit_id}
-              icon={<Home className="h-5 w-5" />}
+              icon={<Home />}
               tone="slate"
               title={u.unit_number ?? u.address ?? 'Your unit'}
               subtitle={u.unit_number && u.address ? u.address : u.association_name ?? undefined}
               trailing={
-                <Badge variant="outline" size="sm">
+                <Badge variant="neutral" size="sm">
                   {u.ownership_pct ? `${u.ownership_pct}% owner` : 'Owner'}
                 </Badge>
               }
             />
           ))}
+          </RowGroup>
         </section>
       ) : null}
 
       {/* Community */}
       <section className="space-y-2.5">
         <SectionLabel>Community</SectionLabel>
+        <RowGroup>
         <TappableRow
           href="/resident/announcements"
-          icon={<Megaphone className="h-5 w-5" />}
+          icon={<Megaphone />}
           title="Announcements"
           subtitle="Updates from your board"
         />
         <TappableRow
           href="/resident/ask"
-          icon={<Sparkles className="h-5 w-5" />}
+          icon={<Sparkles />}
           title="Ask the Docs"
           subtitle="Cited answers from your governing documents"
+          tone="ai"
         />
+        </RowGroup>
       </section>
 
       {/* Preferences */}
@@ -107,8 +114,8 @@ export default async function ResidentAccountPage() {
         <SectionLabel>Preferences</SectionLabel>
         <Panel className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-[15px] font-semibold text-foreground">Appearance</p>
-            <p className="text-[13px] text-muted">Light, dark, or match your device</p>
+            <p className="text-sm font-semibold text-foreground">Appearance</p>
+            <p className="text-xs text-muted">Light, dark, or match your device</p>
           </div>
           <ThemeToggle />
         </Panel>

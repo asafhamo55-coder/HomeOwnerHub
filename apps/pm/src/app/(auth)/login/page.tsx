@@ -13,7 +13,7 @@ export default async function LoginPage({
   return (
     <div className="space-y-5">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-foreground">Sign in</h2>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">Sign in</h1>
         <p className="text-sm text-muted">
           Enter your email to receive a magic link. New here?{' '}
           <Link href="/signup" className="font-medium text-primary hover:underline">

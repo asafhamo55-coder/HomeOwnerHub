@@ -11,14 +11,14 @@ export function ProductsBento() {
       <div className="container-page">
         <header className="mb-12 md:mb-16 md:flex md:items-end md:justify-between md:gap-12">
           <div className="max-w-2xl">
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-700">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
               Three products · one platform
             </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.02em] text-ink-900 md:text-4xl">
+            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.02em] text-foreground md:text-4xl">
               One operator. Three life stages. One platform.
             </h2>
           </div>
-          <p className="mt-4 max-w-md text-base leading-relaxed text-ink-500 md:mt-0">
+          <p className="mt-4 max-w-md text-base leading-relaxed text-muted md:mt-0">
             Most people who serve on an HOA board also rent out a property — and
             when a tenancy breaks down, they need the legal piece too. We
             follow them through every stage.
@@ -29,21 +29,21 @@ export function ProductsBento() {
           {/* HOA — wide hero card */}
           <Link
             href="/hoa"
-            className="group relative flex flex-col overflow-hidden rounded-2xl border border-ink-200/70 bg-white p-7 ring-card md:col-span-2 md:row-span-2 md:p-10"
+            className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-surface p-7 ring-card md:col-span-2 md:row-span-2 md:p-10"
           >
             <div className="flex items-start justify-between gap-4">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-success-subtle text-success">
                 <Building2 className="h-5 w-5" />
               </div>
-              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-success">
                 HOA Hub
               </span>
             </div>
 
-            <h3 className="mt-8 text-2xl font-semibold tracking-tight text-ink-900 md:text-[32px] md:leading-tight">
+            <h3 className="mt-8 text-2xl font-semibold tracking-tight text-foreground md:text-[32px] md:leading-tight">
               Run a self-managed HOA without a management company.
             </h3>
-            <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-ink-600">
+            <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-foreground-secondary">
               Nine AI workflows — Covenant Brain, Violation Drafter, Minutes
               Engine, Reserve Live, ARC Recommender, Vendor Oracle, Multilingual
               Comms, Resident Portal, Board Copilot.
@@ -56,7 +56,7 @@ export function ProductsBento() {
               <Feature Icon={AlertCircle} label="Violation drafter · tap to approve" />
             </ul>
 
-            <span className="mt-auto inline-flex items-center gap-1.5 pt-10 text-sm font-semibold text-ink-900 transition-colors group-hover:text-brand-700">
+            <span className="mt-auto inline-flex items-center gap-1.5 pt-10 text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
               Tour HOA Hub
               <ArrowUpRight className="h-4 w-4" />
             </span>
@@ -65,28 +65,28 @@ export function ProductsBento() {
           {/* PM */}
           <Link
             href="/landlords"
-            className="group relative flex flex-col overflow-hidden rounded-2xl border border-ink-200/70 bg-white p-7 ring-card"
+            className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-surface p-7 ring-card"
           >
             <div className="flex items-start justify-between gap-4">
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-ember-50 text-ember-700">
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-accent-subtle text-accent-fg">
                 <Home className="h-5 w-5" />
               </div>
-              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ember-700">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-fg">
                 PM Hub
               </span>
             </div>
-            <h3 className="mt-6 text-lg font-semibold tracking-tight text-ink-900">
+            <h3 className="mt-6 text-lg font-semibold tracking-tight text-foreground">
               For 2–50 unit landlords.
             </h3>
-            <p className="mt-2 text-sm leading-relaxed text-ink-600">
+            <p className="mt-2 text-sm leading-relaxed text-foreground-secondary">
               Zero-touch rent collection. Delinquency Coach that catches late
               rent before it spirals.
             </p>
-            <div className="mt-6 flex items-center gap-2 text-xs text-ink-500">
+            <div className="mt-6 flex items-center gap-2 text-xs text-muted">
               <Wallet className="h-3.5 w-3.5" />
-              <span>From <strong className="font-mono font-semibold text-ink-900">$0</strong>/mo</span>
+              <span>From <strong className="font-mono font-semibold text-foreground">$0</strong>/mo</span>
             </div>
-            <span className="mt-auto inline-flex items-center gap-1.5 pt-6 text-sm font-semibold text-ink-900 transition-colors group-hover:text-brand-700">
+            <span className="mt-auto inline-flex items-center gap-1.5 pt-6 text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
               Tour PM Hub
               <ArrowUpRight className="h-4 w-4" />
             </span>
@@ -95,28 +95,28 @@ export function ProductsBento() {
           {/* Eviction */}
           <Link
             href="/eviction"
-            className="group relative flex flex-col overflow-hidden rounded-2xl border border-ink-200/70 bg-white p-7 ring-card"
+            className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-surface p-7 ring-card"
           >
             <div className="flex items-start justify-between gap-4">
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700">
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-eviction-subtle text-eviction">
                 <Scale className="h-5 w-5" />
               </div>
-              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-eviction">
                 Eviction
               </span>
             </div>
-            <h3 className="mt-6 text-lg font-semibold tracking-tight text-ink-900">
+            <h3 className="mt-6 text-lg font-semibold tracking-tight text-foreground">
               When a tenancy goes wrong.
             </h3>
-            <p className="mt-2 text-sm leading-relaxed text-ink-600">
+            <p className="mt-2 text-sm leading-relaxed text-foreground-secondary">
               County-correct notices. Every template reviewed by a Georgia
               attorney. Demo-only filings.
             </p>
-            <div className="mt-6 flex items-center gap-2 text-xs text-ink-500">
+            <div className="mt-6 flex items-center gap-2 text-xs text-muted">
               <ShieldCheck className="h-3.5 w-3.5" />
-              <span><strong className="font-mono font-semibold text-ink-900">98%</strong> compliance rate</span>
+              <span><strong className="font-mono font-semibold text-foreground">98%</strong> compliance rate</span>
             </div>
-            <span className="mt-auto inline-flex items-center gap-1.5 pt-6 text-sm font-semibold text-ink-900 transition-colors group-hover:text-brand-700">
+            <span className="mt-auto inline-flex items-center gap-1.5 pt-6 text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
               Tour Eviction Hub
               <ArrowUpRight className="h-4 w-4" />
             </span>
@@ -129,8 +129,8 @@ export function ProductsBento() {
 
 function Feature({ Icon, label }: { Icon: typeof FileText; label: string }) {
   return (
-    <li className="flex items-start gap-2 text-sm text-ink-700">
-      <Icon className={cn('mt-0.5 h-4 w-4 shrink-0 text-emerald-600')} />
+    <li className="flex items-start gap-2 text-sm text-foreground-secondary">
+      <Icon className={cn('mt-0.5 h-4 w-4 shrink-0 text-success')} />
       <span>{label}</span>
     </li>
   )

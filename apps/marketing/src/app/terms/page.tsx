@@ -16,8 +16,8 @@ export default function TermsPage() {
 
       <section className="pb-24">
         <div className="container-page">
-          <article className="prose prose-ink mx-auto max-w-3xl text-base leading-relaxed text-ink-700">
-            <p className="text-sm text-ink-500">Last updated: May 15, 2026</p>
+          <article className="prose prose-ink mx-auto max-w-3xl text-base leading-relaxed text-foreground-secondary">
+            <p className="text-sm text-muted">Last updated: May 15, 2026</p>
 
             <h2>1. Service description</h2>
             <p>
@@ -73,7 +73,7 @@ export default function TermsPage() {
               These terms are governed by the laws of the State of Georgia.
             </p>
 
-            <p className="mt-12 text-xs text-ink-500">
+            <p className="mt-12 text-xs text-muted">
               This is a working draft — the production terms are being reviewed
               by counsel and will replace this page before public launch.
             </p>

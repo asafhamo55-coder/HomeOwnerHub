@@ -13,7 +13,7 @@ export async function PlatformAdminLink() {
   return (
     <Link
       href="/admin"
-      className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/5 px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/10"
+      className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-destructive/40 bg-destructive/5 px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/10"
       title="Open platform-admin tools"
     >
       <Shield className="h-3 w-3" aria-hidden />

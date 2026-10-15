@@ -45,7 +45,17 @@ const ICON_COLOR = {
   warning: 'text-warning',
 } as const
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
+export function ToastProvider({
+  children,
+  viewportClassName,
+}: {
+  children: React.ReactNode
+  /**
+   * Extra classes for the toast stack, e.g. `bottom-24` to sit above a
+   * bottom tab bar (resident portal) instead of covering it.
+   */
+  viewportClassName?: string
+}) {
   const [toasts, setToasts] = React.useState<ToastRow[]>([])
 
   const dismiss = React.useCallback((id: number) => {
@@ -70,7 +80,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastCtx.Provider value={push}>
       {children}
       <div
-        className="pointer-events-none fixed inset-x-4 bottom-4 z-toast flex flex-col items-center gap-2 sm:inset-x-auto sm:right-4 sm:items-end"
+        className={cn(
+          'pointer-events-none fixed inset-x-4 bottom-4 z-toast flex flex-col items-center gap-2 sm:inset-x-auto sm:right-4 sm:items-end',
+          viewportClassName,
+        )}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         role="region"
         aria-label="Notifications"

@@ -11,7 +11,7 @@ const heroBgUrl = `${PHOTOS.suburbanAerial.src}?w=2400&q=80&auto=format&fit=crop
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden pt-24 md:pt-28">
+    <section className="relative overflow-hidden pb-16 pt-24 md:pb-20 md:pt-28">
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-20 h-[600px] [mask-image:linear-gradient(to_bottom,black_0%,black_50%,transparent_100%)]">
         <Image
           src={heroBgUrl}
@@ -31,15 +31,15 @@ export function Hero() {
           className="grid items-center gap-12 lg:grid-cols-[minmax(0,500px)_minmax(0,1fr)] lg:gap-16"
         >
           <div>
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-700">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
               Built with Madison Park HOA · 180 doors
             </p>
 
-            <h1 className="mt-5 text-balance text-[44px] font-semibold leading-[1.02] tracking-[-0.02em] text-ink-900 md:text-[52px] lg:text-[60px]">
+            <h1 className="mt-5 text-balance text-[44px] font-semibold leading-[1.02] tracking-[-0.02em] text-foreground md:text-[52px] lg:text-[60px]">
               AI that runs the paperwork. The board still runs the HOA.
             </h1>
 
-            <p className="mt-6 max-w-lg text-lg leading-relaxed text-ink-600">
+            <p className="mt-6 max-w-lg text-lg leading-relaxed text-foreground-secondary">
               Ask any rule question — get the answer in 4 seconds with the
               CC&amp;R section cited. Approve notices, minutes, and reserve
               updates in one tap.
@@ -48,25 +48,25 @@ export function Hero() {
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
                 href="/demo"
-                className="group inline-flex items-center gap-2 rounded-xl bg-ink-900 px-6 py-3.5 text-base font-semibold text-white transition-colors hover:bg-ink-800"
+                className="group inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-base font-semibold text-primary-fg transition-colors hover:bg-primary-hover"
               >
                 Book a demo
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
               <Link
                 href="#demo"
-                className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-700 underline-offset-4 transition-colors hover:text-ink-900 hover:underline"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground-secondary underline-offset-4 transition-colors hover:text-foreground hover:underline"
               >
                 or watch it answer a CC&amp;R question
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
 
-            <p className="mt-4 text-xs text-ink-500">
+            <p className="mt-4 text-xs text-muted">
               Six-month free pilot · No auto-conversion · No data migration · Cancel anytime
             </p>
 
-            <dl className="mt-10 grid max-w-md grid-cols-3 divide-x divide-ink-200 border-t border-ink-200/80 pt-6">
+            <dl className="mt-10 grid max-w-md grid-cols-3 divide-x divide-border border-t border-border/80 pt-6">
               <Stat value="17" label="AI workflows" />
               <Stat value="<1%" label="Hallucination" />
               <Stat value="15 min" label="Onboarding" />
@@ -80,16 +80,16 @@ export function Hero() {
             className="relative"
             id="demo"
           >
-            <div className="overflow-hidden rounded-2xl border border-ink-200/80 bg-white ring-hero">
-              <div className="flex items-center gap-1.5 border-b border-ink-200/70 bg-ink-50/60 px-4 py-3">
-                <span className="h-2.5 w-2.5 rounded-full bg-ink-200" />
-                <span className="h-2.5 w-2.5 rounded-full bg-ink-200" />
-                <span className="h-2.5 w-2.5 rounded-full bg-ink-200" />
-                <div className="ml-3 flex items-center gap-2 rounded-md bg-white px-2.5 py-1 text-xs text-ink-500 ring-1 ring-ink-200/70">
+            <div className="overflow-hidden rounded-2xl border border-border/80 bg-surface ring-hero">
+              <div className="flex items-center gap-1.5 border-b border-border/70 bg-subtle/60 px-4 py-3">
+                <span className="h-2.5 w-2.5 rounded-full bg-border" />
+                <span className="h-2.5 w-2.5 rounded-full bg-border" />
+                <span className="h-2.5 w-2.5 rounded-full bg-border" />
+                <div className="ml-3 flex items-center gap-2 rounded-md bg-surface px-2.5 py-1 text-xs text-muted ring-1 ring-border/70">
                   <FileText className="h-3 w-3" />
                   <span className="font-mono">app.ledger.ai/covenant-brain</span>
                 </div>
-                <span className="ml-auto hidden items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-emerald-700 ring-1 ring-emerald-100 sm:inline-flex">
+                <span className="ml-auto hidden items-center gap-1 rounded-md bg-success-subtle px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-success ring-1 ring-success/15 sm:inline-flex">
                   <ShieldCheck className="h-3 w-3" />
                   Bar C
                 </span>
@@ -98,7 +98,7 @@ export function Hero() {
               <CovenantBrainDemo />
             </div>
 
-            <p className="mt-4 text-xs text-ink-500">
+            <p className="mt-4 text-xs text-muted">
               Every answer cited back to the document. Audit-logged. No hallucinations.
             </p>
           </motion.div>
@@ -111,10 +111,10 @@ export function Hero() {
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <div className="px-4 first:pl-0 last:pr-0">
-      <dt className="font-mono text-[22px] font-semibold tracking-tight text-ink-900">
+      <dt className="num text-[26px] font-semibold tracking-tight text-foreground">
         {value}
       </dt>
-      <dd className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-ink-500">
+      <dd className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
         {label}
       </dd>
     </div>

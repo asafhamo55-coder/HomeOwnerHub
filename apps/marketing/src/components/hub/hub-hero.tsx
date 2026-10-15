@@ -59,11 +59,11 @@ export function HubHero({
               {eyebrow}
             </p>
 
-            <h1 className="mt-5 text-balance text-4xl font-semibold tracking-tight text-ink-900 md:text-5xl lg:text-[56px] lg:leading-[1.04]">
+            <h1 className="mt-5 text-balance text-4xl font-semibold tracking-tight text-foreground md:text-5xl lg:text-[56px] lg:leading-[1.04]">
               {title}
             </h1>
 
-            <p className="mt-6 max-w-lg text-lg leading-relaxed text-ink-600">
+            <p className="mt-6 max-w-lg text-lg leading-relaxed text-foreground-secondary">
               {subtitle}
             </p>
 
@@ -71,7 +71,7 @@ export function HubHero({
               <Link
                 href={primaryCta.href}
                 className={cn(
-                  'group inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white transition-colors',
+                  'group inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-colors',
                   theme.buttonClass,
                 )}
               >
@@ -81,7 +81,7 @@ export function HubHero({
               {secondaryCta && (
                 <Link
                   href={secondaryCta.href}
-                  className="inline-flex items-center gap-2 rounded-xl border border-ink-200 bg-white px-5 py-3 text-sm font-semibold text-ink-800 transition-colors hover:bg-ink-50"
+                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-subtle"
                 >
                   {secondaryCta.label}
                 </Link>
@@ -89,13 +89,13 @@ export function HubHero({
             </div>
 
             {stats && stats.length > 0 && (
-              <dl className="mt-10 grid max-w-md grid-cols-3 gap-x-5 gap-y-2 border-t border-ink-200/80 pt-6">
+              <dl className="mt-10 grid max-w-md grid-cols-3 gap-x-5 gap-y-2 border-t border-border/80 pt-6">
                 {stats.map((s) => (
                   <div key={s.label}>
-                    <dt className="font-mono text-2xl font-semibold tracking-tight text-ink-900">
+                    <dt className="font-mono text-2xl font-semibold tracking-tight text-foreground">
                       {s.value}
                     </dt>
-                    <dd className="mt-1 text-[11px] uppercase tracking-wider text-ink-500">
+                    <dd className="mt-1 text-[11px] uppercase tracking-wider text-muted">
                       {s.label}
                     </dd>
                   </div>
@@ -110,7 +110,7 @@ export function HubHero({
             transition={{ duration: 0.7, delay: 0.15 }}
             className="relative"
           >
-            <div className="overflow-hidden rounded-2xl border border-ink-200/80 bg-white ring-hero">
+            <div className="overflow-hidden rounded-2xl border border-border/80 bg-surface ring-hero">
               {visual}
             </div>
           </motion.div>

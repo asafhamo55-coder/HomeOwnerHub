@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState } from 'react'
-import { Alert, Button, Input } from '@homeowner-portal/ui'
+import { Alert, Button, Field, Input } from '@homeowner-portal/ui'
 import { createOrUpdateProperty, type PropertyActionState } from '@/lib/properties'
 
 const initial: PropertyActionState = {}
@@ -19,37 +19,6 @@ interface PropertyFormProps {
   } | null
 }
 
-function Field({
-  label,
-  htmlFor,
-  required,
-  hint,
-  error,
-  children,
-}: {
-  label: string
-  htmlFor: string
-  required?: boolean
-  hint?: string
-  error?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="text-sm font-medium text-foreground">
-        {label}
-        {required ? <span className="ml-0.5 text-destructive">*</span> : null}
-      </label>
-      {children}
-      {error ? (
-        <p className="text-xs text-destructive">{error}</p>
-      ) : hint ? (
-        <p className="text-xs text-muted">{hint}</p>
-      ) : null}
-    </div>
-  )
-}
-
 export function PropertyForm({ existing }: PropertyFormProps) {
   const [state, action, pending] = useActionState(createOrUpdateProperty, initial)
   const f = state.fieldErrors ?? {}
@@ -59,41 +28,37 @@ export function PropertyForm({ existing }: PropertyFormProps) {
       {existing ? <input type="hidden" name="id" value={existing.id} /> : null}
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Property address" htmlFor="address" required error={f.address}>
+        <Field label="Property address" required error={f.address}>
           <Input
-            id="address"
             name="address"
             required
             autoFocus={!existing}
             defaultValue={existing?.address ?? ''}
             placeholder="789 Buffalo Bayou Dr, Houston, TX"
-            error={Boolean(f.address)}
             disabled={pending}
           />
         </Field>
 
         <Field
           label="Monthly rent"
-          htmlFor="monthly_rent"
+         
           required
           error={f.monthly_rent}
         >
           <Input
-            id="monthly_rent"
             name="monthly_rent"
             type="number"
             inputMode="decimal"
             min={0}
             step={50}
             defaultValue={existing?.monthly_rent ?? 1500}
-            prefix={<span className="text-xs">$</span>}
+            prefix="$"
             disabled={pending}
           />
         </Field>
 
-        <Field label="Tenant name" htmlFor="tenant_name" hint="Optional">
+        <Field label="Tenant name" optional>
           <Input
-            id="tenant_name"
             name="tenant_name"
             defaultValue={existing?.tenant_name ?? ''}
             placeholder="Jane Doe"
@@ -101,21 +66,18 @@ export function PropertyForm({ existing }: PropertyFormProps) {
           />
         </Field>
 
-        <Field label="Tenant email" htmlFor="tenant_email" hint="Optional" error={f.tenant_email}>
+        <Field label="Tenant email" optional error={f.tenant_email}>
           <Input
-            id="tenant_email"
             name="tenant_email"
             type="email"
             defaultValue={existing?.tenant_email ?? ''}
             placeholder="jane@example.com"
-            error={Boolean(f.tenant_email)}
             disabled={pending}
           />
         </Field>
 
-        <Field label="Tenant phone" htmlFor="tenant_phone" hint="Optional">
+        <Field label="Tenant phone" optional>
           <Input
-            id="tenant_phone"
             name="tenant_phone"
             type="tel"
             defaultValue={existing?.tenant_phone ?? ''}
@@ -124,9 +86,8 @@ export function PropertyForm({ existing }: PropertyFormProps) {
           />
         </Field>
 
-        <Field label="Lease start" htmlFor="lease_start" hint="Optional">
+        <Field label="Lease start" optional>
           <Input
-            id="lease_start"
             name="lease_start"
             type="date"
             defaultValue={existing?.lease_start ?? ''}
@@ -134,9 +95,8 @@ export function PropertyForm({ existing }: PropertyFormProps) {
           />
         </Field>
 
-        <Field label="Lease end" htmlFor="lease_end" hint="Optional">
+        <Field label="Lease end" optional>
           <Input
-            id="lease_end"
             name="lease_end"
             type="date"
             defaultValue={existing?.lease_end ?? ''}

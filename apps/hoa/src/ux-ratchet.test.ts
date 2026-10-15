@@ -194,15 +194,7 @@ describe('phase-1 pages stay migrated', () => {
  * Shrink-only. Use `loadOrFail` (apps/hoa/src/lib/load-or-fail.ts).
  */
 const DISCARDS_ERROR_ALLOWLIST = [
-  'apps/eviction/src/app/(dashboard)/cases/[id]/page.tsx',
-  'apps/eviction/src/app/(dashboard)/settings/billing/page.tsx',
-  'apps/hoa/src/app/admin/admins/page.tsx',
-  'apps/hoa/src/app/resident/account/page.tsx',
   'apps/hoa/src/app/vendor-onboard/[token]/page.tsx',
-  'apps/pm/src/app/(dashboard)/page.tsx',
-  'apps/pm/src/app/(dashboard)/rent/page.tsx',
-  'apps/pm/src/app/(dashboard)/settings/billing/page.tsx',
-  'apps/pm/src/app/(dashboard)/setup/page.tsx',
 ]
 
 /** Exported for the self-test below. */
@@ -415,6 +407,33 @@ describe('semantic tokens in restyled areas', () => {
         const src = readFileSync(f, 'utf8')
         return usesRawPalette(src) || usesNativeConfirm(src)
       })
+      .map((f) => path.relative(repoRoot, f))
+    expect(offenders).toEqual([])
+  })
+})
+
+// ── Rule 7: restyled areas stay on semantic tokens ────────────────────────
+
+describe('semantic colour tokens (design-system v2 §5)', () => {
+  // Areas already migrated to v2. A raw palette class (`bg-emerald-50`,
+  // `text-gray-500`) or a `dark:` variant here means a colour that does not
+  // theme and whose contrast nobody checked. Extend this list as other
+  // areas are restyled; never shrink it.
+  const MIGRATED = [
+    'apps/hoa/src/app/resident',
+    'apps/hoa/src/app/admin',
+    'apps/hoa/src/components/resident',
+    'apps/hoa/src/components/admin',
+    'apps/pm/src',
+    'apps/eviction/src',
+    'apps/marketing/src',
+  ]
+  const PALETTE =
+    /\b(?:bg|text|border|ring|from|to|via|fill|stroke|divide|outline|decoration|placeholder|shadow)-(?:white|black|gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(?:-\d+)?\b|\bdark:[a-z]/
+
+  it('no palette classes or dark: variants in migrated areas', () => {
+    const offenders = MIGRATED.flatMap((d) => walkSource(path.join(repoRoot, d)))
+      .filter((f) => PALETTE.test(readFileSync(f, 'utf8')))
       .map((f) => path.relative(repoRoot, f))
     expect(offenders).toEqual([])
   })

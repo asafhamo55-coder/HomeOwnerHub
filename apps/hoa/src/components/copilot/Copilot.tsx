@@ -5,8 +5,17 @@ import { Send, Sparkles, X } from 'lucide-react'
 import { Button, Textarea, cn } from '@homeowner-portal/ui'
 import { CopilotMessage, type Citation, type Confidence, type Message } from './CopilotMessage'
 
-// Right-side persistent copilot. Mounted once in DashboardProviders so it
-// survives soft navigations across all (dashboard)/* routes.
+// Board copilot. Three pieces share one open/closed state:
+//
+//   <CopilotProvider>  — in DashboardProviders, so the conversation and the
+//                        open state survive soft navigations.
+//   <CopilotTrigger/>  — a button in the AppShell top bar (no more floating
+//                        side tab covering the right edge of the page).
+//   <Copilot/>         — the panel, rendered INSIDE <AppShell> after
+//                        <AppShellMain>. AppShell is a flex row, so at lg+
+//                        the panel is an in-flow column and the page narrows
+//                        to make room; it never covers content. Below lg it
+//                        is an overlay (full-screen on phones).
 //
 // Backend: /api/ai/ask-community — the tool-using agent that can both
 // (a) search the governing docs via W1 RAG and (b) query the live HOA
@@ -38,35 +47,90 @@ const SAMPLE_QUESTIONS = [
   'How long can I park a guest car on the street?',
 ]
 
-export function Copilot() {
-  // Default to closed so existing users aren't surprised. We hydrate the
-  // persisted preference in a useEffect to avoid an SSR/CSR mismatch.
-  const [open, setOpen] = React.useState(false)
+interface CopilotState {
+  open: boolean
+  setOpen: (v: boolean) => void
+  messages: Message[]
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>
+}
+
+const CopilotContext = React.createContext<CopilotState | null>(null)
+
+export function CopilotProvider({ children }: { children: React.ReactNode }) {
+  // Default to closed; the persisted preference is hydrated in an effect
+  // to avoid an SSR/CSR mismatch.
+  const [open, setOpenState] = React.useState(false)
   const [messages, setMessages] = React.useState<Message[]>([])
-  const [draft, setDraft] = React.useState('')
-  const [sending, setSending] = React.useState(false)
 
-  const listRef = React.useRef<HTMLDivElement | null>(null)
-  const textareaRef = React.useRef<HTMLTextAreaElement | null>(null)
-
-  // Hydrate persisted open state.
+  // Reopen on load only on desktop, where the panel sits beside the page.
+  // On a phone it is full-screen, so auto-reopening would hide the page.
   React.useEffect(() => {
     try {
-      const v = window.localStorage.getItem(STORAGE_KEY)
-      if (v === '1') setOpen(true)
+      if (
+        window.localStorage.getItem(STORAGE_KEY) === '1' &&
+        window.matchMedia('(min-width: 1024px)').matches
+      ) {
+        setOpenState(true)
+      }
     } catch {
       // ignore — private mode etc.
     }
   }, [])
 
-  // Persist open state.
-  React.useEffect(() => {
+  const setOpen = React.useCallback((v: boolean) => {
+    setOpenState(v)
     try {
-      window.localStorage.setItem(STORAGE_KEY, open ? '1' : '0')
+      window.localStorage.setItem(STORAGE_KEY, v ? '1' : '0')
     } catch {
       // ignore
     }
-  }, [open])
+  }, [])
+
+  const value = React.useMemo(
+    () => ({ open, setOpen, messages, setMessages }),
+    [open, setOpen, messages],
+  )
+  return <CopilotContext.Provider value={value}>{children}</CopilotContext.Provider>
+}
+
+function useCopilot(): CopilotState {
+  const ctx = React.useContext(CopilotContext)
+  if (!ctx) throw new Error('Copilot components must be rendered inside <CopilotProvider>')
+  return ctx
+}
+
+/** Top-bar toggle. Icon-only below xl, labelled from xl. */
+export function CopilotTrigger() {
+  const { open, setOpen } = useCopilot()
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen(!open)}
+      aria-expanded={open}
+      aria-controls="copilot-panel"
+      aria-label={open ? 'Close copilot' : 'Open copilot'}
+      title="Copilot"
+      className={cn(
+        'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-sm font-medium transition-colors duration-fast',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        open
+          ? 'bg-accent-subtle text-accent-fg'
+          : 'text-foreground-secondary hover:bg-subtle hover:text-foreground',
+      )}
+    >
+      <Sparkles className="size-4 shrink-0" aria-hidden />
+      <span className="hidden xl:inline">Copilot</span>
+    </button>
+  )
+}
+
+export function Copilot() {
+  const { open, setOpen, messages, setMessages } = useCopilot()
+  const [draft, setDraft] = React.useState('')
+  const [sending, setSending] = React.useState(false)
+
+  const listRef = React.useRef<HTMLDivElement | null>(null)
+  const textareaRef = React.useRef<HTMLTextAreaElement | null>(null)
 
   // Auto-scroll to the bottom whenever the message list grows or a pending
   // bubble flips state.
@@ -74,7 +138,19 @@ export function Copilot() {
     const el = listRef.current
     if (!el) return
     el.scrollTop = el.scrollHeight
-  }, [messages])
+  }, [messages, open])
+
+  // Focus the composer when the panel opens; Esc closes it (unless a menu
+  // or dialog already handled the key).
+  React.useEffect(() => {
+    if (!open) return
+    textareaRef.current?.focus({ preventScroll: true })
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented) setOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, setOpen])
 
   const canSend = draft.trim().length >= MIN_QUESTION_LENGTH && !sending
 
@@ -148,125 +224,98 @@ export function Copilot() {
     }
   }
 
-  function handleClear() {
-    setMessages([])
-  }
-
-  // Collapsed strip — narrow vertical rail. Mirrors the right-anchored
-  // floating-UI pattern used by Toast (`fixed right-4 z-50`), but one z-layer
-  // below the toast viewport so toasts always win.
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Open copilot"
-        title="Open copilot"
-        className={cn(
-          'group fixed right-3 top-1/2 z-30 hidden -translate-y-1/2 md:flex',
-          'h-24 w-10 flex-col items-center justify-center gap-2 rounded-l-xl rounded-r-md',
-          'border border-border bg-surface text-muted shadow-md',
-          'transition-all hover:text-foreground hover:shadow-lg hover:w-11',
-        )}
-      >
-        <Sparkles className="h-4 w-4 text-primary" aria-hidden />
-        <span className="text-[10px] font-medium uppercase tracking-wider [writing-mode:vertical-rl]">
-          Copilot
-        </span>
-      </button>
-    )
-  }
+  if (!open) return null
 
   return (
     <aside
-      role="complementary"
+      id="copilot-panel"
       aria-label="Copilot"
       className={cn(
-        'fixed right-3 top-3 bottom-3 z-30 hidden w-96 md:flex',
-        'flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-xl',
-        'animate-slide-in-right',
+        // Phone: full-screen. Tablet: right overlay. lg+: in-flow column
+        // stretched to the page height (surface + border never stop short).
+        'fixed inset-0 z-modal flex flex-col bg-surface',
+        'md:inset-y-0 md:left-auto md:w-96 md:border-l md:border-border md:shadow-xl',
+        'lg:relative lg:inset-auto lg:z-20 lg:shrink-0 lg:self-stretch lg:shadow-none',
+        'animate-slide-in-right print:hidden',
       )}
     >
-      {/* Header */}
-      <header className="flex items-start justify-between gap-2 border-b border-border px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-            <h2 className="text-sm font-semibold text-foreground">Copilot</h2>
+      {/* At lg+ this wrapper sticks to the viewport while the page scrolls. */}
+      <div className="flex h-full min-h-0 flex-col pb-[env(safe-area-inset-bottom)] lg:sticky lg:top-0 lg:h-dvh">
+        <header className="flex h-topbar shrink-0 items-center justify-between gap-2 border-b border-border px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-accent-subtle text-accent-fg">
+              <Sparkles className="size-4" aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold leading-tight text-foreground">Copilot</h2>
+              <p className="truncate text-xs text-muted">Rules, records and numbers for your community</p>
+            </div>
           </div>
-          <p className="mt-0.5 text-xs text-muted">
-            Ask anything about your community&apos;s rules.
-          </p>
-        </div>
-        <div className="flex items-center gap-1">
-          {messages.length > 0 ? (
-            <button
+          <div className="flex shrink-0 items-center gap-1">
+            {messages.length > 0 ? (
+              <Button type="button" variant="ghost" size="xs" onClick={() => setMessages([])}>
+                Clear
+              </Button>
+            ) : null}
+            <Button
               type="button"
-              onClick={handleClear}
-              className="rounded px-1.5 py-0.5 text-[11px] font-medium text-muted hover:bg-background hover:text-foreground"
-            >
-              Clear
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label="Close copilot"
-            className="rounded p-1 text-muted hover:bg-background hover:text-foreground"
-          >
-            <X className="h-4 w-4" aria-hidden />
-          </button>
-        </div>
-      </header>
-
-      {/* Message list */}
-      <div
-        ref={listRef}
-        className="flex-1 overflow-y-auto px-3 py-3"
-      >
-        {messages.length === 0 ? (
-          <EmptyState
-            onPick={(q) => {
-              setDraft(q)
-              textareaRef.current?.focus()
-            }}
-          />
-        ) : (
-          <div className="space-y-3">
-            {messages.map((m) => (
-              <CopilotMessage key={m.id} message={m} />
-            ))}
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setOpen(false)}
+              aria-label="Close copilot"
+              icon={<X aria-hidden />}
+            />
           </div>
-        )}
-      </div>
+        </header>
 
-      {/* Composer */}
-      <div className="border-t border-border bg-surface p-3">
-        <Textarea
-          ref={textareaRef}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask about your rules… (Enter to send, Shift+Enter for newline)"
-          rows={MIN_TEXTAREA_ROWS}
-          className="resize-none"
-          style={{ maxHeight: `${MAX_TEXTAREA_ROWS * 1.6}rem` }}
-          disabled={sending}
-        />
-        <div className="mt-2 flex items-center justify-between">
-          <p className="text-[10px] text-muted">
-            Answers cite your community&apos;s docs.
-          </p>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => void send(draft)}
-            disabled={!canSend}
-            loading={sending}
-          >
-            <Send className="h-3.5 w-3.5" aria-hidden />
-            Send
-          </Button>
+        {/* Message list */}
+        <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+          {messages.length === 0 ? (
+            <EmptyState
+              onPick={(q) => {
+                setDraft(q)
+                textareaRef.current?.focus()
+              }}
+            />
+          ) : (
+            <div className="space-y-3">
+              {messages.map((m) => (
+                <CopilotMessage key={m.id} message={m} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Composer */}
+        <div className="shrink-0 border-t border-border bg-surface p-3">
+          <label htmlFor="copilot-composer" className="sr-only">
+            Ask Copilot
+          </label>
+          <Textarea
+            id="copilot-composer"
+            ref={textareaRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask about your rules or records…"
+            rows={MIN_TEXTAREA_ROWS}
+            className="resize-none"
+            style={{ maxHeight: `${MAX_TEXTAREA_ROWS * 1.6}rem` }}
+            disabled={sending}
+          />
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <p className="text-xs text-muted">Enter to send · Shift+Enter for a new line</p>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void send(draft)}
+              disabled={!canSend}
+              loading={sending}
+              icon={<Send aria-hidden />}
+            >
+              Send
+            </Button>
+          </div>
         </div>
       </div>
     </aside>
@@ -276,12 +325,12 @@ export function Copilot() {
 function EmptyState({ onPick }: { onPick: (q: string) => void }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-4 text-center">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-        <Sparkles className="h-5 w-5 text-primary" aria-hidden />
+      <div className="flex size-10 items-center justify-center rounded-full bg-accent-subtle text-accent-fg">
+        <Sparkles className="size-5" aria-hidden />
       </div>
       <p className="text-sm text-muted">
-        Ask a question about your community&apos;s rules. I&apos;ll cite the
-        section.
+        Ask a question about your community&apos;s rules or records. Answers from the governing
+        documents cite the section.
       </p>
       <div className="flex w-full flex-col gap-1.5">
         {SAMPLE_QUESTIONS.slice(0, 3).map((q) => (
@@ -290,8 +339,9 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
             type="button"
             onClick={() => onPick(q)}
             className={cn(
-              'w-full rounded-lg border border-border bg-background px-3 py-2 text-left text-xs text-foreground',
-              'transition-colors hover:border-primary/40 hover:bg-surface',
+              'w-full rounded-lg border border-border bg-background px-3 py-2 text-left text-sm text-foreground',
+              'transition-colors duration-fast hover:border-border-strong hover:bg-subtle',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             )}
           >
             {q}

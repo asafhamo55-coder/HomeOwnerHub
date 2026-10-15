@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react'
 import { Check } from 'lucide-react'
-import { Alert, Badge, Button, Card, CardContent, cn } from '@homeowner-portal/ui'
+import { Alert, Badge, Button, Card, CardContent, StatusPill, cn } from '@homeowner-portal/ui'
 import { startPmCheckout, type BillingActionResult } from '@/lib/billing'
 
 const initial: BillingActionResult = {}
@@ -50,36 +50,34 @@ export function PlanPicker({ currentPlan }: { currentPlan: string }) {
           return (
             <Card
               key={plan.id}
-              variant={plan.highlight ? 'elevated' : 'default'}
+              variant="default"
               className={cn(
                 'relative flex flex-col',
                 plan.highlight && 'border-primary',
-                isCurrent && 'ring-2 ring-primary ring-offset-2',
+                isCurrent && 'ring-2 ring-ring ring-offset-2 ring-offset-background',
               )}
             >
-              <CardContent className="flex flex-1 flex-col gap-3 p-5">
+              <CardContent className="flex flex-1 flex-col gap-4 p-6">
                 <header className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-base font-semibold text-foreground">{plan.label}</p>
-                    <p className="text-2xl font-bold text-foreground">
+                    <p className="num mt-1 text-3xl font-semibold tracking-tight text-foreground">
                       {plan.price}{' '}
-                      <span className="text-xs font-normal text-muted">/ month</span>
+                      <span className="text-sm font-normal text-muted">/ month</span>
                     </p>
                   </div>
                   {isCurrent ? (
-                    <Badge variant="success" size="sm">
-                      Current
-                    </Badge>
+                    <StatusPill tone="success" label="Current" />
                   ) : plan.highlight ? (
                     <Badge variant="default" size="sm">
                       Best value
                     </Badge>
                   ) : null}
                 </header>
-                <ul className="flex-1 space-y-1.5 text-sm text-muted">
+                <ul className="flex-1 space-y-2 border-t border-border pt-4 text-sm text-foreground-secondary">
                   {plan.bullets.map((b) => (
                     <li key={b} className="flex items-start gap-2">
-                      <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-primary" />
+                      <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
                       <span>{b}</span>
                     </li>
                   ))}
@@ -88,7 +86,7 @@ export function PlanPicker({ currentPlan }: { currentPlan: string }) {
                   <input type="hidden" name="plan" value={plan.id} />
                   <Button
                     type="submit"
-                    variant={plan.highlight ? 'default' : 'outline'}
+                    variant={plan.highlight ? 'primary' : 'secondary'}
                     size="md"
                     className="w-full"
                     loading={pending}

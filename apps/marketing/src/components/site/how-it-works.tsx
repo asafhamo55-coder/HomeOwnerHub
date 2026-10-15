@@ -36,16 +36,16 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section className="bg-ink-900 py-24 text-white md:py-32" id="how-it-works">
+    <section className="bg-foreground py-24 text-background md:py-32" id="how-it-works">
       <div className="container-page">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-ember-400">
+          <p className="text-sm font-semibold uppercase tracking-wider text-accent">
             How it works
           </p>
           <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight md:text-5xl">
             From PDF pile to working AI in an afternoon.
           </h2>
-          <p className="mt-5 text-lg leading-relaxed text-ink-300">
+          <p className="mt-5 text-lg leading-relaxed text-background/70">
             No migration, no implementation team. The four steps are designed
             for a volunteer board on a Tuesday night.
           </p>
@@ -59,18 +59,18 @@ export function HowItWorks() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-80px' }}
               transition={{ duration: 0.5, delay: i * 0.08 }}
-              className="relative rounded-2xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-sm"
+              className="relative rounded-2xl border border-background/10 bg-surface/[0.04] p-6 backdrop-blur-sm"
             >
               <div className="flex items-center justify-between">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-ember-500 text-white">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-fg">
                   <s.Icon className="h-5 w-5" />
                 </span>
-                <span className="font-mono text-xs text-ink-400">{s.n}</span>
+                <span className="font-mono text-xs text-muted">{s.n}</span>
               </div>
               <h3 className="mt-5 text-lg font-semibold tracking-tight">
                 {s.title}
               </h3>
-              <p className="mt-2 text-sm leading-relaxed text-ink-300">
+              <p className="mt-2 text-sm leading-relaxed text-background/70">
                 {s.body}
               </p>
             </motion.div>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Mail } from 'lucide-react'
-import { Button, Input, Alert } from '@homeowner-portal/ui'
+import { Alert, Button, Field, Input } from '@homeowner-portal/ui'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 export function MagicLinkForm({
@@ -20,7 +20,11 @@ export function MagicLinkForm({
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!email.trim()) return
+    if (!email.trim()) {
+      setStatus('error')
+      setErrorMessage('Enter your email address.')
+      return
+    }
 
     setStatus('sending')
     setErrorMessage(null)
@@ -52,42 +56,34 @@ export function MagicLinkForm({
 
   if (status === 'sent') {
     return (
-      <Alert variant="success" title="Check your email">
-        <p>
-          We sent a magic link to <strong>{email}</strong>. Open it on this device to sign in.
-        </p>
+      <Alert
+        variant="success"
+        title="Check your email"
+        actions={
+          <Button type="button" variant="link" size="sm" onClick={() => setStatus('idle')}>
+            Use a different address
+          </Button>
+        }
+      >
+        We sent a magic link to <strong>{email}</strong>. Open it on this device to sign in.
       </Alert>
     )
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-1.5">
-        <label htmlFor="email" className="text-sm font-medium text-foreground">
-          Email address
-        </label>
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <Field label="Email address" hint={helperText} error={status === 'error' ? errorMessage : null}>
         <Input
-          id="email"
           name="email"
           type="email"
-          required
           autoComplete="email"
           autoFocus
-          placeholder="you@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          prefix={<Mail className="h-4 w-4" aria-hidden />}
-          error={status === 'error'}
+          prefix={<Mail className="size-4" aria-hidden />}
           disabled={status === 'sending'}
         />
-        {status !== 'error' ? <p className="text-xs text-muted">{helperText}</p> : null}
-      </div>
-
-      {status === 'error' && errorMessage ? (
-        <Alert variant="error" title="Couldn't send the link">
-          {errorMessage}
-        </Alert>
-      ) : null}
+      </Field>
 
       <Button type="submit" size="lg" className="w-full" loading={status === 'sending'}>
         {submitLabel}

@@ -1,13 +1,30 @@
 import type { Config } from 'tailwindcss'
 import defaultTheme from 'tailwindcss/defaultTheme'
 import { createTailwindConfig } from '@homeowner-portal/ui/tailwind.config'
+import { BRANDS } from '@homeowner-portal/ui/tokens'
 
 // Marketing takes the shared colour tokens, shadows and motion from the
 // design-system preset (docs/specs/2026-10-15-design-system-v2.md) but keeps
 // its own brochure type scale and larger radii — it is a static site with a
 // different visual brief (UX plan decision 6), and the app scale (15px `sm`,
 // 12px cards) would reflow every hero.
+//
+// No raw palette scales (ink/brand/ember) any more: every colour is a
+// semantic token. The only additions are the two product sub-brands, read
+// from the same token source the PM and Eviction apps use, so the site and
+// the hubs cannot drift. HOA is the default `primary` (indigo).
 const sharedConfig = createTailwindConfig('hoa')
+
+function rgbChannels(hex: string): string {
+  const n = parseInt(hex.slice(1), 16)
+  return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`
+}
+
+function hubColor(hub: 'pm' | 'eviction') {
+  const p = BRANDS[hub].light
+  const c = (hex: string) => `rgb(${rgbChannels(hex)} / <alpha-value>)`
+  return { DEFAULT: c(p.primary), hover: c(p['primary-hover']), subtle: c(p['primary-subtle']) }
+}
 
 const config: Config = {
   ...sharedConfig,
@@ -28,42 +45,8 @@ const config: Config = {
       },
       colors: {
         ...(sharedConfig.theme?.extend as Record<string, unknown>)?.colors as Record<string, unknown>,
-        brand: {
-          50: '#EFF6FF',
-          100: '#DBEAFE',
-          200: '#BFDBFE',
-          300: '#93C5FD',
-          400: '#60A5FA',
-          500: '#3B82F6',
-          600: '#2563EB',
-          700: '#1D4ED8',
-          800: '#1E40AF',
-          900: '#1E3A8A',
-          950: '#172554',
-        },
-        ember: {
-          50: '#FFF7ED',
-          100: '#FFEDD5',
-          200: '#FED7AA',
-          300: '#FDBA74',
-          400: '#FB923C',
-          500: '#F97316',
-          600: '#EA580C',
-          700: '#C2410C',
-        },
-        ink: {
-          50: '#F9FAFB',
-          100: '#F3F4F6',
-          200: '#E5E7EB',
-          300: '#D1D5DB',
-          400: '#9CA3AF',
-          500: '#6B7280',
-          600: '#4B5563',
-          700: '#374151',
-          800: '#1F2937',
-          900: '#111827',
-          950: '#030712',
-        },
+        pm: hubColor('pm'),
+        eviction: hubColor('eviction'),
       },
       fontFamily: {
         display: ['var(--font-inter)', 'system-ui', 'sans-serif'],
@@ -72,9 +55,9 @@ const config: Config = {
       },
       backgroundImage: {
         'grid-faint':
-          'linear-gradient(to right, rgba(31,41,55,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(31,41,55,0.05) 1px, transparent 1px)',
+          'linear-gradient(to right, hsl(var(--foreground) / 0.05) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--foreground) / 0.05) 1px, transparent 1px)',
         'radial-spot':
-          'radial-gradient(60% 50% at 50% 0%, rgba(37,99,235,0.12) 0%, rgba(249,115,22,0.05) 40%, transparent 70%)',
+          'radial-gradient(60% 50% at 50% 0%, hsl(var(--primary) / 0.12) 0%, hsl(var(--accent) / 0.06) 40%, transparent 70%)',
       },
       animation: {
         ...(sharedConfig.theme?.extend as Record<string, unknown>)?.animation as Record<string, unknown>,

@@ -1,6 +1,4 @@
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, Alert, NoOrgSelected } from '@homeowner-portal/ui'
+import { Alert, Card, CardContent, NoOrgSelected, Page } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { loadDraft } from '@/lib/drafts'
 import { Wizard } from './Wizard'
@@ -44,41 +42,32 @@ export default async function NewCasePage({
       : null
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to cases
-      </Link>
+    <Page
+      width="narrow"
+      breadcrumbs={[{ label: 'Cases', href: '/' }, { label: usableDraft ? 'Resume case' : 'New case' }]}
+      title={usableDraft ? 'Resume case' : 'Open a new case'}
+      description="Run the compliance check, approve the notice, and we track the filing date."
+    >
+      <div className="space-y-6">
+        {handoffSource && !usableDraft ? (
+          <Alert variant="info" title={`Pre-filled from ${handoffSource}`}>
+            Address, tenant, rent and days unpaid came over from {handoffSource}. Check them before
+            running the compliance check.
+          </Alert>
+        ) : null}
 
-      {handoffSource && !usableDraft ? (
-        <Alert variant="info" title={`Pre-filled from ${handoffSource}`}>
-          Address, tenant, rent, and days unpaid came over from {handoffSource}. Verify and edit
-          anything that&apos;s wrong before running the compliance check.
-        </Alert>
-      ) : null}
+        {usableDraft ? (
+          <Alert variant="info" title="Resumed your unfinished draft">
+            The wizard autosaves as you go — close the tab any time and pick up again from Cases.
+          </Alert>
+        ) : null}
 
-      {usableDraft ? (
-        <Alert variant="info" title="Resumed unfinished draft">
-          Your previous intake is restored. The wizard autosaves as you progress; you can close
-          the tab any time and pick up again from the dashboard.
-        </Alert>
-      ) : null}
-
-      <Card variant="elevated">
-        <CardHeader>
-          <CardTitle>{usableDraft ? 'Resume case' : 'Open a new case'}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Wizard
-            workspaceName={org.name}
-            initial={initial}
-            initialDraft={usableDraft}
-          />
-        </CardContent>
-      </Card>
-    </div>
+        <Card>
+          <CardContent className="p-6">
+            <Wizard workspaceName={org.name} initial={initial} initialDraft={usableDraft} />
+          </CardContent>
+        </Card>
+      </div>
+    </Page>
   )
 }

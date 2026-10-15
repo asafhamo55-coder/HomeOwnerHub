@@ -40,10 +40,10 @@ export default function EvictionPage() {
 
       <CaseProgressLive />
 
-      <section className="border-y border-violet-100 bg-violet-50/30 py-6">
+      <section className="border-y border-eviction/15 bg-eviction-subtle/30 py-6">
         <div className="container-page">
           <div className="flex flex-col items-center gap-3 text-center md:flex-row md:justify-center md:gap-6">
-            <span className="inline-flex items-center gap-2 text-xs font-medium text-violet-800">
+            <span className="inline-flex items-center gap-2 text-xs font-medium text-eviction">
               <Lock className="h-4 w-4" />
               Bar A in v1 — court filings are demo-only, watermarked, and gated behind attorney review
             </span>

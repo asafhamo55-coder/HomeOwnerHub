@@ -1,13 +1,17 @@
 import Link from 'next/link'
-import { Briefcase, CreditCard } from 'lucide-react'
+import { ArrowRight, Briefcase, CreditCard } from 'lucide-react'
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  KeyValue,
+  KeyValueList,
   NoOrgSelected,
+  Page,
 } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 
@@ -18,63 +22,55 @@ export default async function SettingsPage() {
   if (!org) return <NoOrgSelected noun="workspace" />
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-        <p className="mt-1 text-sm text-muted">
-          Manage your workspace and subscription.
-        </p>
-      </header>
+    <Page width="narrow" title="Settings" description="Your workspace and subscription.">
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2" className="flex items-center gap-2">
+              <Briefcase className="size-4 text-muted" aria-hidden />
+              Workspace
+            </CardTitle>
+            <CardDescription>Contact support to rename your workspace.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <KeyValueList>
+              <KeyValue label="Name" value={org.name} />
+              <KeyValue
+                label="Plan"
+                value={
+                  <Badge variant="neutral" size="sm">
+                    {planLabel(org.plan)}
+                  </Badge>
+                }
+              />
+            </KeyValueList>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Briefcase className="h-4 w-4 text-muted" />
-            Workspace
-          </CardTitle>
-          <CardDescription>
-            Editing these values will be added in a later checkpoint.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <Row label="Name">{org.name}</Row>
-          <Row label="Plan">
-            <Badge variant="outline" size="sm">
-              {org.plan}
-            </Badge>
-          </Row>
-          <Row label="Hub type">{org.hub_type}</Row>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <CreditCard className="h-4 w-4 text-muted" />
-            Billing
-          </CardTitle>
-          <CardDescription>
-            Per-case ($249) or unlimited ($99/mo). Card on file in Stripe.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/settings/billing"
-            className="text-sm font-medium text-primary hover:underline"
+        <Card>
+          <CardHeader
+            actions={
+              <Button asChild variant="secondary" size="sm">
+                <Link href="/settings/billing">
+                  Open billing
+                  <ArrowRight aria-hidden />
+                </Link>
+              </Button>
+            }
           >
-            Open billing →
-          </Link>
-        </CardContent>
-      </Card>
-    </div>
+            <CardTitle as="h2" className="flex items-center gap-2">
+              <CreditCard className="size-4 text-muted" aria-hidden />
+              Billing
+            </CardTitle>
+            <CardDescription>Per case ($249) or Unlimited ($99/mo).</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    </Page>
   )
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-xs uppercase tracking-wide text-muted">{label}</span>
-      <span className="text-foreground">{children}</span>
-    </div>
-  )
+function planLabel(plan: string): string {
+  if (plan === 'per_case') return 'Per case'
+  return plan.charAt(0).toUpperCase() + plan.slice(1)
 }

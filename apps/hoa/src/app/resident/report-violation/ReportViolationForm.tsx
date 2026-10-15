@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Send } from 'lucide-react'
-import { Button, Input, Select, Textarea } from '@homeowner-portal/ui'
+import { Alert, Button, Field, Input, Select, Textarea } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import {
   createViolationReport,
@@ -33,6 +33,7 @@ export function ReportViolationForm({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [success, setSuccess] = useState(false)
   const descriptionRef = useRef<HTMLTextAreaElement>(null)
   const [photos, setPhotos] = useState<File[]>([])
@@ -41,6 +42,7 @@ export function ReportViolationForm({
 
   async function handleSubmit(formData: FormData) {
     setError(null)
+    setFieldErrors({})
     setSuccess(false)
     setPhotoWarning(null)
 
@@ -57,7 +59,8 @@ export function ReportViolationForm({
         occurredAt,
       })
       if (!result.ok) {
-        setError(result.error)
+        if (result.fieldErrors && Object.keys(result.fieldErrors).length > 0) setFieldErrors(result.fieldErrors)
+        else setError(result.error)
         return
       }
 
@@ -108,9 +111,11 @@ export function ReportViolationForm({
   }
 
   return (
-    <form action={handleSubmit} className="space-y-5">
-      <Field label="What kind of issue?" required>
-        <Select name="category" required placeholder="Choose one…">
+    <form action={handleSubmit} className="space-y-5" noValidate>
+      {error ? <Alert variant="error" title="Couldn’t send your report">{error}</Alert> : null}
+
+      <Field label="What kind of issue?" required error={fieldErrors.category}>
+        <Select name="category" placeholder="Choose one…">
           {CATEGORIES.map((c) => (
             <option key={c.value} value={c.value}>
               {c.label}
@@ -119,113 +124,70 @@ export function ReportViolationForm({
         </Select>
       </Field>
 
-      <Field label="Address or location" required>
-        <Input
-          name="about_address"
-          required
-          maxLength={300}
-          placeholder="123 Madison Park Drive (or 'common area near pool')"
-        />
-        <Helper>
-          The street address, unit number, or location where you observed
-          the issue. If you only know roughly where, describe it.
-        </Helper>
+      <Field
+        label="Address or location"
+        required
+        error={fieldErrors.about_address}
+        hint="Street address, unit, or a description like “common area near the pool”."
+      >
+        <Input name="about_address" maxLength={300} />
       </Field>
 
-      <Field label="When did it happen?">
+      <Field label="When did it happen?" optional hint="Approximate is fine." error={fieldErrors.occurred_at}>
         <Input name="occurred_at" type="datetime-local" />
-        <Helper>Approximate is fine.</Helper>
       </Field>
 
-      <Field label="What did you observe?" required>
-        <div className="space-y-1.5">
-          <div className="flex justify-end">
-            <AiRewriteButton
-              textareaRef={descriptionRef}
-              context="Resident-submitted violation report — preserve facts, dates, and times exactly; avoid speculation or accusations"
-              disabled={isPending}
-            />
-          </div>
-          <Textarea
-            ref={descriptionRef}
-            name="description"
-            rows={6}
-            required
-            minLength={20}
-            maxLength={4000}
-            defaultValue={defaultDescription}
-            placeholder="Just the facts — what, when, how often. The board will follow up if more info is needed."
+      <Field
+        label="What did you observe?"
+        required
+        error={fieldErrors.description}
+        hint="Just the facts — what, when, how often. Avoid speculation. At least 20 characters."
+        labelAside={
+          <AiRewriteButton
+            textareaRef={descriptionRef}
+            context="Resident-submitted violation report — preserve facts, dates, and times exactly; avoid speculation or accusations"
+            disabled={isPending}
           />
-        </div>
-        <Helper>
-          Stick to what you observed. Avoid speculation or accusations.
-        </Helper>
+        }
+      >
+        <Textarea ref={descriptionRef} name="description" rows={6} maxLength={4000} defaultValue={defaultDescription} />
       </Field>
 
-      <Field label="Photos">
-        <PhotoPicker files={photos} onChange={setPhotos} disabled={isPending} />
-        <Helper>
-          Optional. Photos help the board act on the report without a
-          follow-up visit. Up to 10 MB each.
-        </Helper>
+      <Field label="Photos" optional hint="Photos help the board act without a follow-up visit. Up to 10 MB each.">
+        {(control) => (
+          <div id={control.id} aria-describedby={control['aria-describedby']}>
+            <PhotoPicker files={photos} onChange={setPhotos} disabled={isPending} />
+          </div>
+        )}
       </Field>
 
-      {error ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
       {success && !photoWarning ? (
-        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          Report submitted. Redirecting…
-        </p>
+        <Alert variant="success" title="Report sent">
+          Taking you to your report…
+        </Alert>
       ) : null}
       {photoWarning && reportId ? (
-        <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          <p>{photoWarning}</p>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push(`/resident/violations/${reportId}`)}
-          >
-            Go to report
-          </Button>
-        </div>
+        <Alert
+          variant="warning"
+          title="Report saved, but some photos didn’t upload"
+          actions={
+            <Button type="button" variant="secondary" size="sm" onClick={() => router.push(`/resident/violations/${reportId}`)}>
+              Go to report
+            </Button>
+          }
+        >
+          {photoWarning}
+        </Alert>
       ) : null}
 
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={() => router.back()}>
+      <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">
+        <Button type="button" variant="ghost" onClick={() => router.back()} disabled={isPending}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isPending || success}>
-          <Send className="h-4 w-4" />
-          {isPending ? 'Submitting…' : 'Submit report'}
+        <Button type="submit" loading={isPending} disabled={success} icon={<Send aria-hidden />}>
+          Send report
         </Button>
       </div>
     </form>
   )
-}
-
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string
-  required?: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <label className="block space-y-1">
-      <span className="text-sm font-medium">
-        {label}
-        {required ? <span className="ml-0.5 text-destructive">*</span> : null}
-      </span>
-      {children}
-    </label>
-  )
-}
-
-function Helper({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs text-muted">{children}</p>
 }

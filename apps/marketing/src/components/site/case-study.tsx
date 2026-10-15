@@ -20,16 +20,16 @@ export function CaseStudy() {
             viewport={{ once: true, margin: '-80px' }}
             transition={{ duration: 0.5 }}
           >
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-700">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
               Case study · Madison Park HOA · 180 doors
             </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.02em] text-ink-900 md:text-[44px] md:leading-[1.05]">
-              Madison Park found a <span className="text-emerald-700">$4,200 reserve error</span> in week three. The platform paid for itself.
+            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.02em] text-foreground md:text-[44px] md:leading-[1.05]">
+              Madison Park found a <span className="text-success">$4,200 reserve error</span> in week three. The platform paid for itself.
             </h2>
 
-            <div className="mt-7 rounded-2xl border border-ink-200/70 bg-white p-7 ring-card">
-              <Quote className="h-6 w-6 text-ember-500" />
-              <p className="mt-3 text-base leading-relaxed text-ink-700">
+            <div className="mt-7 rounded-2xl border border-border/70 bg-surface p-7 ring-card">
+              <Quote className="h-6 w-6 text-accent-fg" />
+              <p className="mt-3 text-base leading-relaxed text-foreground-secondary">
                 We're 180 homes, all volunteer. I was the treasurer carrying
                 eight to twelve unpaid hours a week. Ledger answers
                 covenant questions in seconds with the exact section cited,
@@ -37,13 +37,13 @@ export function CaseStudy() {
                 our meeting minutes the night of. The first month, we caught a
                 reserve fund discrepancy nobody had noticed in three years.
               </p>
-              <div className="mt-6 flex items-center gap-3 border-t border-ink-200/70 pt-5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-ember-500 text-sm font-semibold text-white">
+              <div className="mt-6 flex items-center gap-3 border-t border-border/70 pt-5">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-fg">
                   LJ
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-ink-900">Linda Jackson</p>
-                  <p className="text-xs text-ink-500">Treasurer, Madison Park HOA · Johns Creek, GA</p>
+                  <p className="text-sm font-semibold text-foreground">Linda Jackson</p>
+                  <p className="text-xs text-muted">Treasurer, Madison Park HOA · Johns Creek, GA</p>
                 </div>
               </div>
             </div>
@@ -59,22 +59,22 @@ export function CaseStudy() {
             {stats.map((s) => (
               <div
                 key={s.label}
-                className="flex items-baseline justify-between rounded-2xl border border-ink-200/70 bg-gradient-to-br from-white to-ink-50/50 p-6 ring-card"
+                className="flex items-baseline justify-between rounded-2xl border border-border/70 bg-gradient-to-br from-surface to-subtle/50 p-6 ring-card"
               >
                 <div>
-                  <p className="text-sm font-medium text-ink-700">{s.label}</p>
-                  <p className="mt-1 text-xs text-ink-500">{s.sub}</p>
+                  <p className="text-sm font-medium text-foreground-secondary">{s.label}</p>
+                  <p className="mt-1 text-xs text-muted">{s.sub}</p>
                 </div>
-                <p className="text-4xl font-semibold tracking-tight text-ink-900">
+                <p className="text-4xl font-semibold tracking-tight text-foreground">
                   {s.value}
                 </p>
               </div>
             ))}
-            <div className="rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-50 via-white to-ember-50/40 p-6 ring-card">
-              <p className="text-sm font-semibold text-ink-900">
+            <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-primary-subtle via-surface to-accent-subtle/40 p-6 ring-card">
+              <p className="text-sm font-semibold text-foreground">
                 Madison Park, in their words
               </p>
-              <p className="mt-2 text-xs text-ink-600">
+              <p className="mt-2 text-xs text-foreground-secondary">
                 "We caught a $4,200 reserve discrepancy our spreadsheet had been
                 wrong about since 2023. Ledger paid for itself in week
                 three."

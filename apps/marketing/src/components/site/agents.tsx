@@ -28,9 +28,9 @@ const AGENTS: Agent[] = [
     name: 'Covenant Brain',
     role: 'Rule librarian',
     Icon: BookOpen,
-    ring: 'from-brand-400 to-brand-700',
-    fill: 'bg-brand-50',
-    pulse: 'bg-emerald-500',
+    ring: 'from-primary to-primary',
+    fill: 'bg-primary-subtle',
+    pulse: 'bg-success-solid',
     bar: 'C',
     blurb: 'Answers any rule question in 4s, cited to the CC&R section.',
   },
@@ -38,9 +38,9 @@ const AGENTS: Agent[] = [
     name: 'Violation Drafter',
     role: 'Notice writer',
     Icon: FileText,
-    ring: 'from-emerald-400 to-emerald-700',
-    fill: 'bg-emerald-50',
-    pulse: 'bg-amber-500',
+    ring: 'from-success-solid to-success-solid',
+    fill: 'bg-success-subtle',
+    pulse: 'bg-warning-solid',
     bar: 'B',
     blurb: 'Photo + caption in. Legally formatted notice out. Board approves.',
   },
@@ -48,9 +48,9 @@ const AGENTS: Agent[] = [
     name: 'Minutes Engine',
     role: 'Meeting scribe',
     Icon: Calendar,
-    ring: 'from-violet-400 to-violet-700',
-    fill: 'bg-violet-50',
-    pulse: 'bg-amber-500',
+    ring: 'from-eviction to-eviction',
+    fill: 'bg-eviction-subtle',
+    pulse: 'bg-warning-solid',
     bar: 'B',
     blurb: 'Records the meeting. Drafts board-ready minutes the night of.',
   },
@@ -58,9 +58,9 @@ const AGENTS: Agent[] = [
     name: 'Reserve Live',
     role: 'Fund watcher',
     Icon: PiggyBank,
-    ring: 'from-ember-400 to-ember-700',
-    fill: 'bg-ember-50',
-    pulse: 'bg-amber-500',
+    ring: 'from-accent to-accent',
+    fill: 'bg-accent-subtle',
+    pulse: 'bg-warning-solid',
     bar: 'B',
     blurb: 'Real-time reserve projection. Flags variance before it hurts.',
   },
@@ -68,9 +68,9 @@ const AGENTS: Agent[] = [
     name: 'Delinquency Coach',
     role: 'Late-rent diplomat',
     Icon: Wallet,
-    ring: 'from-amber-400 to-amber-700',
-    fill: 'bg-amber-50',
-    pulse: 'bg-amber-500',
+    ring: 'from-warning-solid to-warning-solid',
+    fill: 'bg-warning-subtle',
+    pulse: 'bg-warning-solid',
     bar: 'B',
     blurb: 'Reads tenant history. Suggests check-in, not escalation, first.',
   },
@@ -78,9 +78,9 @@ const AGENTS: Agent[] = [
     name: 'Multilingual Comms',
     role: 'Translator',
     Icon: Globe,
-    ring: 'from-cyan-400 to-brand-600',
-    fill: 'bg-cyan-50',
-    pulse: 'bg-emerald-500',
+    ring: 'from-info-solid to-primary',
+    fill: 'bg-info-subtle',
+    pulse: 'bg-success-solid',
     bar: 'C',
     blurb: 'Every outbound message auto-translated to recipient preference.',
   },
@@ -88,9 +88,9 @@ const AGENTS: Agent[] = [
     name: 'Resident Portal',
     role: 'Front desk',
     Icon: MessageSquare,
-    ring: 'from-pink-400 to-rose-600',
-    fill: 'bg-rose-50',
-    pulse: 'bg-emerald-500',
+    ring: 'from-danger-solid to-danger-solid',
+    fill: 'bg-danger-subtle',
+    pulse: 'bg-success-solid',
     bar: 'C',
     blurb: 'Residents ask the AI before they email the board.',
   },
@@ -98,34 +98,34 @@ const AGENTS: Agent[] = [
     name: 'Court Filing',
     role: 'Eviction template',
     Icon: Scale,
-    ring: 'from-slate-400 to-slate-700',
-    fill: 'bg-slate-50',
-    pulse: 'bg-slate-400',
+    ring: 'from-muted to-foreground/90',
+    fill: 'bg-subtle',
+    pulse: 'bg-muted',
     bar: 'A',
     blurb: 'County-correct templates. Demo only — your attorney files.',
   },
 ]
 
 const barChip: Record<'C' | 'B' | 'A', string> = {
-  C: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
-  B: 'bg-amber-50 text-amber-700 ring-amber-100',
-  A: 'bg-slate-50 text-slate-700 ring-slate-200',
+  C: 'bg-success-subtle text-success ring-success/15',
+  B: 'bg-warning-subtle text-warning ring-warning/15',
+  A: 'bg-subtle text-foreground-secondary ring-border',
 }
 
 export function Agents() {
   return (
-    <section className="border-y border-ink-200/60 bg-ink-50/30 py-24 md:py-28">
+    <section className="border-y border-border/60 bg-subtle/30 py-24 md:py-28">
       <div className="container-page">
         <header className="mb-12 md:flex md:items-end md:justify-between md:gap-12 md:mb-16">
           <div className="max-w-xl">
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-700">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
               Meet the agents
             </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
+            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
               Eight AI workers your board gets to delegate to.
             </h2>
           </div>
-          <p className="mt-4 max-w-md text-base leading-relaxed text-ink-500 md:mt-0">
+          <p className="mt-4 max-w-md text-base leading-relaxed text-muted md:mt-0">
             Each agent does one job. Each ships with a Bar A/B/C label so you
             know what it can do unsupervised. Together they replace what
             volunteers shouldn't have to do.
@@ -140,7 +140,7 @@ export function Agents() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-60px' }}
               transition={{ duration: 0.4, delay: (i % 4) * 0.06 }}
-              className="rounded-2xl border border-ink-200/70 bg-white p-5 transition-colors hover:border-ink-300"
+              className="rounded-2xl border border-border/70 bg-surface p-5 transition-colors hover:border-border-strong"
             >
               <div className="flex items-start justify-between">
                 <AgentAvatar agent={a} />
@@ -154,14 +154,14 @@ export function Agents() {
                 </span>
               </div>
               <div className="mt-5">
-                <p className="text-base font-semibold tracking-tight text-ink-900">
+                <p className="text-base font-semibold tracking-tight text-foreground">
                   {a.name}
                 </p>
-                <p className="font-mono text-[11px] uppercase tracking-wider text-ink-500">
+                <p className="font-mono text-[11px] uppercase tracking-wider text-muted">
                   {a.role}
                 </p>
               </div>
-              <p className="mt-3 text-sm leading-relaxed text-ink-600">{a.blurb}</p>
+              <p className="mt-3 text-sm leading-relaxed text-foreground-secondary">{a.blurb}</p>
             </motion.li>
           ))}
         </ul>
@@ -179,15 +179,15 @@ export function AgentAvatar({ agent }: { agent: Agent }) {
     <div className="relative">
       <div
         className={cn(
-          'flex h-11 w-11 items-center justify-center rounded-xl ring-1 ring-ink-200',
+          'flex h-11 w-11 items-center justify-center rounded-xl ring-1 ring-border',
           agent.fill,
         )}
       >
-        <Icon className="h-5 w-5 text-ink-900" />
+        <Icon className="h-5 w-5 text-foreground" />
       </div>
       <span
         className={cn(
-          'absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full ring-2 ring-white',
+          'absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full ring-2 ring-surface',
           agent.pulse,
         )}
       >

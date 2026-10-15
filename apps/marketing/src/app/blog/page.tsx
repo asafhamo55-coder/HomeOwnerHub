@@ -56,23 +56,23 @@ export default function BlogPage() {
 
       <section className="py-12">
         <div className="container-page">
-          <div className="mx-auto max-w-2xl rounded-2xl border border-ink-200/70 bg-white p-8 ring-card">
+          <div className="mx-auto max-w-2xl rounded-2xl border border-border/70 bg-surface p-8 ring-card">
             <div className="flex items-center gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary-subtle text-primary">
                 <Mail className="h-5 w-5" />
               </span>
               <div>
-                <h2 className="text-lg font-semibold tracking-tight text-ink-900">
+                <h2 className="text-lg font-semibold tracking-tight text-foreground">
                   Want the first post when it lands?
                 </h2>
-                <p className="text-sm text-ink-500">
+                <p className="text-sm text-muted">
                   Email us and we'll add you to the launch list.
                 </p>
               </div>
             </div>
             <Link
               href="mailto:hello@ledger.ai?subject=Add%20me%20to%20the%20blog%20launch%20list"
-              className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-ink-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink-800"
+              className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-fg hover:bg-primary-hover"
             >
               hello@ledger.ai
               <ArrowRight className="h-4 w-4" />
@@ -84,10 +84,10 @@ export default function BlogPage() {
       <section className="pb-24">
         <div className="container-page">
           <div className="mx-auto max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-wider text-brand-600">
+            <p className="text-sm font-semibold uppercase tracking-wider text-primary">
               On the editorial roadmap
             </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
+            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
               Five posts already drafted.
             </h2>
 
@@ -95,15 +95,15 @@ export default function BlogPage() {
               {planned.map((p) => (
                 <div
                   key={p.title}
-                  className="rounded-2xl border border-ink-200/70 bg-white p-6 transition-colors hover:border-ink-300 ring-card"
+                  className="rounded-2xl border border-border/70 bg-surface p-6 transition-colors hover:border-border-strong ring-card"
                 >
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-600">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
                     {p.category}
                   </p>
-                  <h3 className="mt-2 text-lg font-semibold tracking-tight text-ink-900">
+                  <h3 className="mt-2 text-lg font-semibold tracking-tight text-foreground">
                     {p.title}
                   </h3>
-                  <p className="mt-2 text-sm text-ink-600">{p.note}</p>
+                  <p className="mt-2 text-sm text-foreground-secondary">{p.note}</p>
                 </div>
               ))}
             </div>

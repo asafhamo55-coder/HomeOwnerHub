@@ -43,7 +43,7 @@ Source: `packages/ui/src/tokens.ts`. Wiring: `packages/ui/tailwind.config.ts` �
 | AI | `bg-accent-subtle text-accent-fg`, `bg-accent` (decorative) | AI affordances only |
 | legacy | `text-destructive`, `bg-destructive/10` | alias of `danger`; keep working, prefer `danger` in new code |
 
-Dark mode: `.dark` on `<html>` (HOA only — pm/eviction ship light). The pre-paint script is `THEME_INIT_SCRIPT` (`packages/ui/src/lib/theme-script.ts`), which also restores a collapsed sidebar without a flash. Theme is chosen in the top-bar user menu or the ⌘K palette (`useTheme()`).
+Dark mode: `.dark` on `<html>` in HOA, PM and Eviction (pm/eviction enabled after their area pass; marketing is light-only). The pre-paint script is `THEME_INIT_SCRIPT` (`packages/ui/src/lib/theme-script.ts`), which also restores a collapsed sidebar without a flash. Theme is chosen in the top-bar user menu or the ⌘K palette (`useTheme()`).
 
 **Contrast test:** `packages/ui/src/tokens.test.ts` — every pair in `CONTRAST_PAIRS` × 3 hubs × 2 modes (≈330 assertions), measured on the emitted HSL values. Adding a token means adding its pairs.
 
@@ -173,6 +173,9 @@ Flags: `--only=<substr>`, `--gallery-only`; `UI_SHOTS_BROWSER=webkit` for the Sa
 8. **cmdk** added to `packages/ui` for the palette (already in the lockfile via apps/hoa; no new package).
 9. **Toast kept custom** (not Radix Toast) — the API is used in 23 files; it gained tone/title/action/pause rather than a rewrite.
 10. **Collapsible rail is opt-in per sidebar** (`collapsible`) via the `in-rail:` variant scoped to `[data-collapsible]`, so platform-admin (same origin, same localStorage) is unaffected.
-11. **pm/eviction stay light-only** for now: their pages still contain hard-coded palette classes; flipping dark on would expose them. The tokens support it; enable after their area pass.
+11. **pm/eviction dark mode is on** (area pass, `claude/ui-area-shell`): their pages are palette-free (ratchet rule 7) and the theme lives in a top-bar `UserMenu`, same as HOA.
 12. **Marketing** takes colours/shadows/motion from the preset but keeps default Tailwind type and its 14–30px radii.
 13. **Ratchet tightened:** rule 6 bans `window.confirm` in all app source (the three survivors were migrated to `useConfirm`).
+14. **Shell placement rules** (area pass): nothing floats over page content. The dev role switcher is docked in the board top bar and is an in-flow strip above the resident top bar; the Copilot trigger is in the top bar and its panel is an in-flow column beside the page at lg+ (overlay below lg); the resident tab bar is `sticky bottom-0` as the last flow child (with safe-area padding), so content always clears it; the desktop sidebar `<aside>` stretches to page height and only its inner wrapper sticks.
+15. **Ratchet rule 7:** migrated areas (resident, platform admin, pm, eviction, marketing) may not use palette classes or `dark:` variants. Add areas as they are restyled.
+16. **`ui:shots` full-page shots grow the viewport to document height first**, so sticky/fixed chrome renders where a user sees it rather than at its first-viewport position mid-page. `viewport: true` shots exist for scroll-position checks.

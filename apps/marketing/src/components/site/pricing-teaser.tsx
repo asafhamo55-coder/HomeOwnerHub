@@ -38,13 +38,13 @@ export function PricingTeaser() {
     <section className="py-24 md:py-32" id="pricing">
       <div className="container-page">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-brand-600">
+          <p className="text-sm font-semibold uppercase tracking-wider text-primary">
             Pricing built for volunteers
           </p>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-5xl">
+          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
             Less than a management company. By a lot.
           </h2>
-          <p className="mt-5 text-lg leading-relaxed text-ink-500">
+          <p className="mt-5 text-lg leading-relaxed text-muted">
             HOAs pay between $40 and $150 a month. Landlords start free. Eviction is per-case. Every pilot gets six months free.
           </p>
         </div>
@@ -60,25 +60,25 @@ export function PricingTeaser() {
               className={cn(
                 'relative flex flex-col rounded-2xl border p-7 ring-card transition-all',
                 t.featured
-                  ? 'border-brand-200 bg-gradient-to-br from-brand-50/70 via-white to-ember-50/40'
-                  : 'border-ink-200/70 bg-white',
+                  ? 'border-primary/25 bg-gradient-to-br from-primary-subtle/70 via-surface to-accent-subtle/40'
+                  : 'border-border/70 bg-surface',
               )}
             >
               {t.featured && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-ink-900 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary-fg">
                   Most boards
                 </span>
               )}
-              <p className="text-sm font-semibold text-ink-900">{t.name}</p>
-              <p className="mt-1 text-xs text-ink-500">{t.sub}</p>
+              <p className="text-sm font-semibold text-foreground">{t.name}</p>
+              <p className="mt-1 text-xs text-muted">{t.sub}</p>
               <div className="mt-5 flex items-baseline gap-1">
-                <span className="text-4xl font-semibold tracking-tight text-ink-900">{t.price}</span>
-                <span className="text-sm text-ink-500">{t.period}</span>
+                <span className="text-4xl font-semibold tracking-tight text-foreground">{t.price}</span>
+                <span className="text-sm text-muted">{t.period}</span>
               </div>
               <ul className="mt-6 flex-1 space-y-2.5">
                 {t.bullets.map((b) => (
-                  <li key={b} className="flex gap-2 text-sm text-ink-700">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                  <li key={b} className="flex gap-2 text-sm text-foreground-secondary">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                     {b}
                   </li>
                 ))}
@@ -88,8 +88,8 @@ export function PricingTeaser() {
                 className={cn(
                   'mt-7 inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all',
                   t.featured
-                    ? 'bg-ink-900 text-white hover:bg-ink-800'
-                    : 'border border-ink-200 bg-white text-ink-800 hover:bg-ink-50',
+                    ? 'bg-primary text-primary-fg hover:bg-primary-hover'
+                    : 'border border-border bg-surface text-foreground hover:bg-subtle',
                 )}
               >
                 {t.cta}
@@ -99,9 +99,9 @@ export function PricingTeaser() {
           ))}
         </div>
 
-        <p className="mt-10 text-center text-xs text-ink-500">
+        <p className="mt-10 text-center text-xs text-muted">
           PM Hub free tier (1 property). Eviction $99–199 per case. Full pricing →{' '}
-          <Link href="/pricing" className="font-semibold text-ink-800 underline-offset-4 hover:underline">
+          <Link href="/pricing" className="font-semibold text-foreground underline-offset-4 hover:underline">
             see all plans
           </Link>
         </p>

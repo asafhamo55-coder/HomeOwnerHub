@@ -7,7 +7,7 @@ export default function SignupPage() {
   return (
     <div className="space-y-5">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-foreground">Create your PM Hub account</h2>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">Create your PM Hub account</h1>
         <p className="text-sm text-muted">
           We&apos;ll set up your workspace after you verify your email. Already have an account?{' '}
           <Link href="/login" className="font-medium text-primary hover:underline">

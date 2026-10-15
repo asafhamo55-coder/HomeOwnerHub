@@ -1,19 +1,24 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, CheckCircle2, CreditCard } from 'lucide-react'
+import { Clock, CreditCard } from 'lucide-react'
 import { format, differenceInCalendarDays } from 'date-fns'
 import {
   Alert,
-  Badge,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  KeyValue,
+  KeyValueList,
+  LoadFailed,
+  Page,
+  StatusPill,
+  type StatusTone,
 } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { formatCounty } from '@/lib/county-labels'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadOrFail } from '@/lib/load-or-fail'
 import { CaseStatusFlips } from '@/components/cases/CaseStatusFlips'
 import { PerCasePayButton } from '@/components/cases/PerCasePayButton'
 
@@ -47,14 +52,24 @@ export default async function CaseDetailPage({
   const { id } = await params
   const supabase = await getSupabaseServerClient()
 
-  const { data } = await supabase
-    .from('eviction_cases')
-    .select(
-      'id, property_address, tenant_name, tenant_email, county, state, monthly_rent, days_unpaid, notice_type, notice_draft, notice_sent_at, notice_served_method, filing_eligible_date, status, case_notes, outcome, stripe_payment_id, compliance_flags, created_at',
+  const res = await loadOrFail(
+    'this case',
+    supabase
+      .from('eviction_cases')
+      .select(
+        'id, property_address, tenant_name, tenant_email, county, state, monthly_rent, days_unpaid, notice_type, notice_draft, notice_sent_at, notice_served_method, filing_eligible_date, status, case_notes, outcome, stripe_payment_id, compliance_flags, created_at',
+      )
+      .eq('id', id)
+      .maybeSingle(),
+  )
+  if (!res.ok) {
+    return (
+      <Page width="default" title="Case" back={{ href: '/', label: 'Cases' }}>
+        <LoadFailed what="this case" />
+      </Page>
     )
-    .eq('id', id)
-    .maybeSingle()
-
+  }
+  const data = res.data
   if (!data) notFound()
   const c = data as unknown as CaseDetail
 
@@ -69,49 +84,22 @@ export default async function CaseDetailPage({
   const daysUntilFiling = filingDate ? differenceInCalendarDays(filingDate, today) : null
   const filingReady = filingDate ? filingDate <= today : false
 
+  const status = caseStatus(c.status, filingReady)
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to cases
-      </Link>
-
-      <header className="space-y-2">
-        <h1 className="text-2xl font-bold text-foreground">{c.property_address}</h1>
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-          <span>{c.tenant_name ?? 'Tenant unknown'}</span>
-          <span>·</span>
-          <span>
-            {formatCounty(c.county)}, {c.state}
-          </span>
-          <Badge
-            variant={
-              c.status === 'resolved'
-                ? 'success'
-                : filingReady && c.status !== 'filed'
-                  ? 'destructive'
-                  : 'warning'
-            }
-            size="sm"
-          >
-            {c.status === 'resolved'
-              ? 'resolved'
-              : filingReady && c.status === 'notice_sent'
-                ? 'filing ready'
-                : (c.status ?? 'unknown').replace('_', ' ')}
-          </Badge>
-          {c.stripe_payment_id ? (
-            <Badge variant="success" size="sm">
-              <CheckCircle2 className="mr-1 h-3 w-3" />
-              Paid
-            </Badge>
-          ) : null}
-        </div>
-      </header>
-
+    <Page
+      width="default"
+      breadcrumbs={[{ label: 'Cases', href: '/' }, { label: c.property_address }]}
+      title={c.property_address}
+      description={`${c.tenant_name ?? 'Tenant unknown'} · ${formatCounty(c.county)}, ${c.state}`}
+      meta={
+        <>
+          <StatusPill tone={status.tone} label={status.label} />
+          {c.stripe_payment_id ? <StatusPill tone="success" label="Filing fee paid" /> : null}
+        </>
+      }
+    >
+      <div className="space-y-6">
       {filingReady && c.status !== 'filed' && c.status !== 'resolved' ? (
         <Alert variant="error" title="Filing eligible — file in JP court today">
           The 3-day cure period has elapsed. Texas Property Code Section 24.005 lets you file the
@@ -119,13 +107,9 @@ export default async function CaseDetailPage({
           approved notice and proof of service.
         </Alert>
       ) : !filingReady && daysUntilFiling !== null && daysUntilFiling > 0 ? (
-        <Alert variant="info" hideIcon>
-          <span className="flex items-center gap-2 text-sm">
-            <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-            Cure period running. Earliest filing date:{' '}
-            <strong>{format(filingDate!, 'EEEE, MMMM d, yyyy')}</strong> ·{' '}
-            {daysUntilFiling} {daysUntilFiling === 1 ? 'day' : 'days'} from today
-          </span>
+        <Alert variant="info" title="Cure period running">
+          Earliest filing date: <strong>{format(filingDate!, 'EEEE, MMMM d, yyyy')}</strong> ·{' '}
+          {daysUntilFiling} {daysUntilFiling === 1 ? 'day' : 'days'} from today.
         </Alert>
       ) : null}
 
@@ -146,7 +130,7 @@ export default async function CaseDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Status</CardTitle>
+          <CardTitle as="h2">Status</CardTitle>
           <CardDescription>
             Move the case forward as you progress in JP court.
           </CardDescription>
@@ -163,8 +147,8 @@ export default async function CaseDetailPage({
       {showPerCaseButton ? (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <CreditCard className="h-4 w-4 text-muted" />
+            <CardTitle as="h2" className="flex items-center gap-2">
+              <CreditCard className="size-4 text-muted" aria-hidden />
               Filing fee
             </CardTitle>
             <CardDescription>
@@ -181,11 +165,11 @@ export default async function CaseDetailPage({
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Approved notice</CardTitle>
+            <CardTitle as="h2">Approved notice</CardTitle>
           </CardHeader>
           <CardContent>
             {c.notice_draft ? (
-              <pre className="whitespace-pre-wrap rounded-lg border border-border bg-background p-4 font-mono text-xs leading-relaxed text-foreground">
+              <pre className="max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-subtle p-4 font-mono text-xs leading-relaxed text-foreground">
                 {c.notice_draft}
               </pre>
             ) : (
@@ -196,31 +180,41 @@ export default async function CaseDetailPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Timeline</CardTitle>
+            <CardTitle as="h2">Timeline</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <Row label="Opened">
-              {c.created_at ? format(new Date(c.created_at), 'PPp') : '—'}
-            </Row>
-            <Row label="Notice served">
-              {c.notice_sent_at ? format(new Date(c.notice_sent_at), 'PPp') : '—'}
-            </Row>
-            <Row label="Service method">
-              {c.notice_served_method ? c.notice_served_method.replace(/_/g, ' ') : '—'}
-            </Row>
-            <Row label="Earliest filing">{filingDate ? format(filingDate, 'PP') : '—'}</Row>
-            <Row label="Days unpaid">{c.days_unpaid ?? '—'}</Row>
-            <Row label="Monthly rent">
-              {c.monthly_rent != null ? `$${c.monthly_rent.toLocaleString()}` : '—'}
-            </Row>
-            {c.outcome ? <Row label="Outcome">{c.outcome}</Row> : null}
-            {c.tenant_email ? (
-              <Row label="Tenant email">
-                <a href={`mailto:${c.tenant_email}`} className="text-primary hover:underline">
-                  {c.tenant_email}
-                </a>
-              </Row>
-            ) : null}
+          <CardContent>
+            <KeyValueList className="sm:grid-cols-1">
+              <KeyValue label="Opened" value={c.created_at ? format(new Date(c.created_at), 'PPp') : null} />
+              <KeyValue label="Notice served" value={c.notice_sent_at ? format(new Date(c.notice_sent_at), 'PPp') : null} />
+              <KeyValue label="Service method" value={c.notice_served_method ? c.notice_served_method.replace(/_/g, ' ') : null} />
+              <KeyValue
+                label="Earliest filing"
+                value={
+                  filingDate ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock className="size-3.5 text-muted" aria-hidden />
+                      {format(filingDate, 'PP')}
+                    </span>
+                  ) : null
+                }
+              />
+              <KeyValue label="Days unpaid" value={c.days_unpaid != null ? <span className="num">{c.days_unpaid}</span> : null} />
+              <KeyValue
+                label="Monthly rent"
+                value={c.monthly_rent != null ? <span className="num">${c.monthly_rent.toLocaleString()}</span> : null}
+              />
+              {c.outcome ? <KeyValue label="Outcome" value={c.outcome} /> : null}
+              {c.tenant_email ? (
+                <KeyValue
+                  label="Tenant email"
+                  value={
+                    <a href={`mailto:${c.tenant_email}`} className="break-all text-primary hover:underline">
+                      {c.tenant_email}
+                    </a>
+                  }
+                />
+              ) : null}
+            </KeyValueList>
           </CardContent>
         </Card>
       </div>
@@ -228,22 +222,23 @@ export default async function CaseDetailPage({
       {c.case_notes ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Notes from intake</CardTitle>
+            <CardTitle as="h2">Notes from intake</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="whitespace-pre-wrap text-sm text-foreground">{c.case_notes}</p>
           </CardContent>
         </Card>
       ) : null}
-    </div>
+      </div>
+    </Page>
   )
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-xs uppercase tracking-wide text-muted">{label}</span>
-      <span className="text-right text-foreground">{children}</span>
-    </div>
-  )
+function caseStatus(status: string | null, filingReady: boolean): { tone: StatusTone; label: string } {
+  if (status === 'resolved') return { tone: 'success', label: 'Resolved' }
+  if (status === 'filed') return { tone: 'info', label: 'Filed' }
+  if (status === 'notice_sent' && filingReady) return { tone: 'danger', label: 'Filing ready' }
+  if (status === 'notice_sent') return { tone: 'warning', label: 'Notice sent' }
+  if (status === 'filing_ready') return { tone: 'danger', label: 'Filing ready' }
+  return { tone: 'neutral', label: (status ?? 'intake').replace(/_/g, ' ').replace(/^\w/, (ch) => ch.toUpperCase()) }
 }

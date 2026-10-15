@@ -1,9 +1,21 @@
-import { Shield } from 'lucide-react'
 import { format } from 'date-fns'
-import { Alert, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import {
+  Alert,
+  Avatar,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  DataTable,
+  EmptyState,
+  LoadFailed,
+  Page,
+} from '@homeowner-portal/ui'
 import { createAdminClient } from '@homeowner-portal/db'
 import { requirePlatformAdmin } from '@/lib/platform-admin'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadOrFail } from '@/lib/load-or-fail'
 import { InvitePlatformAdminForm } from './InvitePlatformAdminForm'
 import { RevokeButton } from './RevokeButton'
 
@@ -17,6 +29,15 @@ interface AdminRow {
   note: string | null
 }
 
+type RawRow = {
+  user_id: string
+  granted_at: string
+  note: string | null
+  granted_by: string | null
+  user: { email: string | null } | null
+  granter: { email: string | null } | null
+}
+
 export default async function PlatformAdminsPage() {
   await requirePlatformAdmin()
 
@@ -26,91 +47,112 @@ export default async function PlatformAdminsPage() {
   } = await supabase.auth.getUser()
 
   const db = createAdminClient()
-  const { data } = await db
-    .from('platform_admins' as never)
-    .select(
-      'user_id, granted_at, note, granted_by, user:profiles!platform_admins_user_id_fkey(email), granter:profiles!platform_admins_granted_by_fkey(email)',
-    )
-    .is('revoked_at', null)
-    .order('granted_at', { ascending: true })
+  const res = await loadOrFail(
+    'platform admins',
+    db
+      .from('platform_admins' as never)
+      .select(
+        'user_id, granted_at, note, granted_by, user:profiles!platform_admins_user_id_fkey(email), granter:profiles!platform_admins_granted_by_fkey(email)',
+      )
+      .is('revoked_at', null)
+      .order('granted_at', { ascending: true }) as unknown as PromiseLike<{
+      data: RawRow[] | null
+      error: { code?: string; message?: string } | null
+    }>,
+  )
 
-  const rows = ((data ?? []) as unknown as Array<{
-    user_id: string
-    granted_at: string
-    note: string | null
-    granted_by: string | null
-    user: { email: string | null } | null
-    granter: { email: string | null } | null
-  }>).map<AdminRow>((r) => ({
-    user_id: r.user_id,
-    email: r.user?.email ?? null,
-    granted_at: r.granted_at,
-    granted_by_email: r.granter?.email ?? null,
-    note: r.note,
-  }))
+  const rows: AdminRow[] = res.ok
+    ? (res.data ?? []).map((r) => ({
+        user_id: r.user_id,
+        email: r.user?.email ?? null,
+        granted_at: r.granted_at,
+        granted_by_email: r.granter?.email ?? null,
+        note: r.note,
+      }))
+    : []
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <header className="space-y-1">
-        <div className="flex items-center gap-2">
-          <Shield className="h-5 w-5" />
-          <h1 className="text-2xl font-bold">Platform admins</h1>
-        </div>
-        <p className="text-sm text-muted">
-          {rows.length} active platform admin{rows.length === 1 ? '' : 's'}. Platform admins
-          have cross-tenant superuser access — every action is logged.
-        </p>
-      </header>
-
-      <Alert variant="warning" title="Treat this list carefully">
-        <span className="block text-sm">
-          Platform admins can view and modify data across every tenant. Grant only to
-          HomeownerHub staff. You can't revoke the last active platform admin — grant
-          someone else first.
-        </span>
+    <Page
+      width="default"
+      title="Platform admins"
+      description={
+        res.ok
+          ? `${rows.length} active platform admin${rows.length === 1 ? '' : 's'} with cross-tenant access. Every action they take is logged.`
+          : 'Staff with cross-tenant access. Every action they take is logged.'
+      }
+    >
+      <Alert variant="warning" title="Grant this only to HomeownerHub staff">
+        Platform admins can view and change data in every tenant. The last active platform admin can’t be
+        revoked — grant someone else first.
       </Alert>
 
-      <Card variant="elevated">
+      <section className="space-y-3" aria-labelledby="active-admins">
+        <h2 id="active-admins" className="text-lg">
+          Active admins
+        </h2>
+        {res.ok ? (
+          <DataTable
+            caption="Active platform admins"
+            mobile="cards"
+            rows={rows}
+            rowKey={(r) => r.user_id}
+            empty={<EmptyState variant="compact" title="No active platform admins" />}
+            columns={[
+              {
+                key: 'admin',
+                header: 'Admin',
+                mobilePrimary: true,
+                cell: (r) => (
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar name={r.email ?? r.user_id} size="sm" />
+                    <span className="min-w-0 truncate font-medium text-foreground">
+                      {r.email ?? r.user_id}
+                      {r.user_id === currentUser?.id ? <span className="ml-2 text-xs font-normal text-muted">(you)</span> : null}
+                    </span>
+                  </div>
+                ),
+              },
+              {
+                key: 'granted',
+                header: 'Granted',
+                cell: (r) => (
+                  <span className="text-foreground-secondary">
+                    {format(new Date(r.granted_at), 'PP')}
+                    {r.granted_by_email ? <span className="block text-xs text-muted">by {r.granted_by_email}</span> : null}
+                  </span>
+                ),
+              },
+              {
+                key: 'note',
+                header: 'Note',
+                hideBelowLg: true,
+                cell: (r) => <span className="text-foreground-secondary">{r.note ?? '—'}</span>,
+              },
+              {
+                key: 'actions',
+                header: <span className="sr-only">Actions</span>,
+                className: 'w-px text-right',
+                cell: (r) =>
+                  r.user_id !== currentUser?.id ? <RevokeButton userId={r.user_id} email={r.email ?? r.user_id} /> : null,
+              },
+            ]}
+          />
+        ) : (
+          <LoadFailed what="platform admins" retryHref="/admin/admins" />
+        )}
+      </section>
+
+      <Card>
         <CardHeader>
-          <CardTitle>Grant platform admin</CardTitle>
+          <CardTitle as="h2">Grant platform admin</CardTitle>
+          <CardDescription>
+            Existing accounts are promoted immediately; anyone else gets an invitation email.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <InvitePlatformAdminForm />
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Active admins</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="divide-y divide-border">
-            {rows.map((r) => (
-              <li
-                key={r.user_id}
-                className="flex flex-wrap items-center justify-between gap-3 py-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">
-                    {r.email ?? r.user_id}
-                    {r.user_id === currentUser?.id ? (
-                      <span className="ml-2 text-xs text-muted">(you)</span>
-                    ) : null}
-                  </p>
-                  <p className="text-xs text-muted">
-                    Granted {format(new Date(r.granted_at), 'PP')}
-                    {r.granted_by_email ? ` by ${r.granted_by_email}` : ''}
-                    {r.note ? ` · ${r.note}` : ''}
-                  </p>
-                </div>
-                {r.user_id !== currentUser?.id ? (
-                  <RevokeButton userId={r.user_id} email={r.email ?? r.user_id} />
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-    </div>
+    </Page>
   )
 }

@@ -84,23 +84,23 @@ const sections: { title: string; rows: Row[] }[] = [
 function CellIcon({ value }: { value: Cell }) {
   if (value === 'partial') {
     return (
-      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-50 text-amber-600 ring-1 ring-amber-100">
+      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-warning-subtle text-warning ring-1 ring-warning/15">
         <Minus className="h-4 w-4" />
       </span>
     )
   }
   if (typeof value === 'string') {
-    return <span className="text-sm font-medium text-ink-800">{value}</span>
+    return <span className="text-sm font-medium text-foreground">{value}</span>
   }
   if (value === true) {
     return (
-      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-success-subtle text-success ring-1 ring-success/15">
         <Check className="h-4 w-4" />
       </span>
     )
   }
   return (
-    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-ink-50 text-ink-400 ring-1 ring-ink-200">
+    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-subtle text-muted ring-1 ring-border">
       <X className="h-4 w-4" />
     </span>
   )
@@ -123,9 +123,9 @@ export default function ComparePage() {
 
       <section className="py-8">
         <div className="container-page">
-          <div className="overflow-hidden rounded-2xl border border-ink-200/70 bg-white ring-card">
-            <div className="grid grid-cols-[2fr,1fr,1fr,1fr,1fr] border-b border-ink-200/70 bg-ink-50/40">
-              <div className="px-5 py-4 text-[11px] font-semibold uppercase tracking-wider text-ink-500">
+          <div className="overflow-hidden rounded-2xl border border-border/70 bg-surface ring-card">
+            <div className="grid grid-cols-[2fr,1fr,1fr,1fr,1fr] border-b border-border/70 bg-subtle/40">
+              <div className="px-5 py-4 text-[11px] font-semibold uppercase tracking-wider text-muted">
                 Capability
               </div>
               {columns.map((c) => (
@@ -133,31 +133,31 @@ export default function ComparePage() {
                   key={c.key}
                   className={cn(
                     'px-5 py-4 text-center',
-                    c.key === 'hh' && 'bg-brand-50/60',
+                    c.key === 'hh' && 'bg-primary-subtle/60',
                   )}
                 >
-                  <p className={cn('text-sm font-semibold', c.key === 'hh' ? 'text-brand-700' : 'text-ink-900')}>
+                  <p className={cn('text-sm font-semibold', c.key === 'hh' ? 'text-primary' : 'text-foreground')}>
                     {c.name}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-ink-500">{c.sub}</p>
+                  <p className="mt-0.5 text-[11px] text-muted">{c.sub}</p>
                 </div>
               ))}
             </div>
 
             {sections.map((s) => (
               <div key={s.title}>
-                <div className="border-t border-ink-200/70 bg-ink-50/40 px-5 py-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-700">
+                <div className="border-t border-border/70 bg-subtle/40 px-5 py-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
                     {s.title}
                   </p>
                 </div>
                 {s.rows.map((r) => (
                   <div
                     key={r.label}
-                    className="grid grid-cols-[2fr,1fr,1fr,1fr,1fr] border-t border-ink-100"
+                    className="grid grid-cols-[2fr,1fr,1fr,1fr,1fr] border-t border-border"
                   >
-                    <div className="px-5 py-4 text-sm text-ink-800">{r.label}</div>
-                    <div className="flex items-center justify-center bg-brand-50/40 px-5 py-4">
+                    <div className="px-5 py-4 text-sm text-foreground">{r.label}</div>
+                    <div className="flex items-center justify-center bg-primary-subtle/40 px-5 py-4">
                       <CellIcon value={r.hh} />
                     </div>
                     <div className="flex items-center justify-center px-5 py-4">
@@ -199,17 +199,17 @@ export default function ComparePage() {
         </div>
       </section>
 
-      <section className="bg-ink-50/40 py-20">
+      <section className="bg-subtle/40 py-20">
         <div className="container-page text-center">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-700">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
             Next step
           </p>
-          <h2 className="mx-auto mt-3 max-w-2xl text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
+          <h2 className="mx-auto mt-3 max-w-2xl text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
             Ten minutes. Your CC&R. Your board.
           </h2>
           <Link
             href="/demo"
-            className="mt-7 inline-flex items-center gap-2 rounded-xl bg-ink-900 px-6 py-3.5 text-base font-semibold text-white shadow-sm transition-all hover:bg-ink-800 hover:shadow-md"
+            className="mt-7 inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-base font-semibold text-primary-fg shadow-sm transition-all hover:bg-primary-hover hover:shadow-md"
           >
             Book a demo
             <ArrowRight className="h-4 w-4" />
@@ -224,11 +224,11 @@ export default function ComparePage() {
 
 function SummaryCard({ title, body, note }: { title: string; body: string; note: string }) {
   return (
-    <div className="rounded-2xl border border-ink-200/70 bg-white p-7 ring-card">
-      <h3 className="text-lg font-semibold tracking-tight text-ink-900">{title}</h3>
-      <p className="mt-3 text-sm leading-relaxed text-ink-700">{body}</p>
-      <div className="mt-5 rounded-xl border border-brand-200 bg-brand-50/40 p-3">
-        <p className="text-xs font-medium text-brand-800">{note}</p>
+    <div className="rounded-2xl border border-border/70 bg-surface p-7 ring-card">
+      <h3 className="text-lg font-semibold tracking-tight text-foreground">{title}</h3>
+      <p className="mt-3 text-sm leading-relaxed text-foreground-secondary">{body}</p>
+      <div className="mt-5 rounded-xl border border-primary/25 bg-primary-subtle/40 p-3">
+        <p className="text-xs font-medium text-primary">{note}</p>
       </div>
     </div>
   )

@@ -80,15 +80,15 @@ export default function SecurityPage() {
             {pillars.map((p) => (
               <div
                 key={p.title}
-                className="rounded-2xl border border-ink-200/70 bg-white p-7 ring-card"
+                className="rounded-2xl border border-border/70 bg-surface p-7 ring-card"
               >
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+                <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary-subtle text-primary">
                   <p.Icon className="h-5 w-5" />
                 </div>
-                <h3 className="mt-5 text-lg font-semibold tracking-tight text-ink-900">
+                <h3 className="mt-5 text-lg font-semibold tracking-tight text-foreground">
                   {p.title}
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-ink-600">{p.body}</p>
+                <p className="mt-2 text-sm leading-relaxed text-foreground-secondary">{p.body}</p>
               </div>
             ))}
           </div>
@@ -97,25 +97,25 @@ export default function SecurityPage() {
 
       <section className="py-20">
         <div className="container-page">
-          <div className="mx-auto max-w-3xl rounded-2xl border border-ink-200/70 bg-white p-8 ring-card md:p-10">
-            <h2 className="text-xl font-semibold tracking-tight text-ink-900">
+          <div className="mx-auto max-w-3xl rounded-2xl border border-border/70 bg-surface p-8 ring-card md:p-10">
+            <h2 className="text-xl font-semibold tracking-tight text-foreground">
               Security posture at a glance
             </h2>
-            <p className="mt-2 text-sm text-ink-600">
+            <p className="mt-2 text-sm text-foreground-secondary">
               For your security team, your insurance carrier, or your own peace of mind.
             </p>
             <dl className="mt-8 grid gap-x-8 gap-y-5 sm:grid-cols-2">
               {policies.map((p) => (
-                <div key={p.label} className="flex items-baseline justify-between gap-4 border-b border-ink-200/70 pb-3">
-                  <dt className="text-sm text-ink-500">{p.label}</dt>
-                  <dd className="text-sm font-semibold text-ink-900">{p.value}</dd>
+                <div key={p.label} className="flex items-baseline justify-between gap-4 border-b border-border/70 pb-3">
+                  <dt className="text-sm text-muted">{p.label}</dt>
+                  <dd className="text-sm font-semibold text-foreground">{p.value}</dd>
                 </div>
               ))}
             </dl>
-            <p className="mt-8 text-xs text-ink-500">
+            <p className="mt-8 text-xs text-muted">
               Have a security question, vendor risk assessment form, or DPA
               request? Email{' '}
-              <a className="font-semibold text-ink-800 underline-offset-4 hover:underline" href="mailto:security@ledger.ai">
+              <a className="font-semibold text-foreground underline-offset-4 hover:underline" href="mailto:security@ledger.ai">
                 security@ledger.ai
               </a>
               . We reply within one business day.

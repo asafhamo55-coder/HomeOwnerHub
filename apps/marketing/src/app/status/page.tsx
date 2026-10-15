@@ -51,31 +51,31 @@ export default function StatusPage() {
           <div className="mx-auto max-w-3xl">
             <div className={`flex items-center gap-3 rounded-2xl border p-5 ring-card ${
               allUp
-                ? 'border-emerald-200 bg-emerald-50/40'
-                : 'border-amber-200 bg-amber-50/40'
+                ? 'border-success/25 bg-success-subtle/40'
+                : 'border-warning/25 bg-warning-subtle/40'
             }`}>
               {allUp ? (
-                <CheckCircle2 className="h-7 w-7 text-emerald-600" />
+                <CheckCircle2 className="h-7 w-7 text-success" />
               ) : (
-                <Activity className="h-7 w-7 text-amber-600" />
+                <Activity className="h-7 w-7 text-warning" />
               )}
               <div>
-                <p className="text-base font-semibold text-ink-900">
+                <p className="text-base font-semibold text-foreground">
                   {allUp ? 'All systems operational' : 'Investigating an issue'}
                 </p>
-                <p className="text-xs text-ink-500">
+                <p className="text-xs text-muted">
                   Last refreshed {new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
                 </p>
               </div>
             </div>
 
-            <div className="mt-8 overflow-hidden rounded-2xl border border-ink-200/70 bg-white ring-card">
-              <ul className="divide-y divide-ink-200/70">
+            <div className="mt-8 overflow-hidden rounded-2xl border border-border/70 bg-surface ring-card">
+              <ul className="divide-y divide-border/70">
                 {services.map((s) => (
                   <li key={s.name} className="flex items-center justify-between gap-4 px-5 py-4">
-                    <span className="text-sm font-medium text-ink-900">{s.name}</span>
-                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    <span className="text-sm font-medium text-foreground">{s.name}</span>
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-success">
+                      <span className="h-2 w-2 rounded-full bg-success-solid" />
                       Operational
                     </span>
                   </li>
@@ -83,27 +83,27 @@ export default function StatusPage() {
               </ul>
             </div>
 
-            <h2 className="mt-12 text-base font-semibold tracking-tight text-ink-900">
+            <h2 className="mt-12 text-base font-semibold tracking-tight text-foreground">
               Recent updates
             </h2>
             <div className="mt-4 space-y-3">
               {incidents.map((i) => (
                 <div
                   key={i.date}
-                  className="rounded-2xl border border-ink-200/70 bg-white p-5 ring-card"
+                  className="rounded-2xl border border-border/70 bg-surface p-5 ring-card"
                 >
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-ink-900">{i.title}</p>
-                    <span className="text-xs text-ink-500">{i.date}</span>
+                    <p className="text-sm font-semibold text-foreground">{i.title}</p>
+                    <span className="text-xs text-muted">{i.date}</span>
                   </div>
-                  <p className="mt-2 text-sm text-ink-600">{i.body}</p>
+                  <p className="mt-2 text-sm text-foreground-secondary">{i.body}</p>
                 </div>
               ))}
             </div>
 
-            <p className="mt-10 text-center text-xs text-ink-500">
+            <p className="mt-10 text-center text-xs text-muted">
               For production incidents, subscribe to updates at{' '}
-              <a className="font-semibold text-ink-800 underline-offset-4 hover:underline" href="mailto:status@ledger.ai">
+              <a className="font-semibold text-foreground underline-offset-4 hover:underline" href="mailto:status@ledger.ai">
                 status@ledger.ai
               </a>
               .

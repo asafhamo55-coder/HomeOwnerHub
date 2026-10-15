@@ -1,125 +1,102 @@
-'use client'
-
-import { useState } from 'react'
 import Link from 'next/link'
-import { Badge, Card, cn } from '@homeowner-portal/ui'
+import { DataTable, EmptyState, StatusPill, cn, type SortDirection } from '@homeowner-portal/ui'
 import type { TenantHealthRow } from '@/lib/platform-admin'
 
-type SortField = 'name' | 'members' | 'units' | 'vendors_at_risk' | 'open_violations' | 'ai_runs_30d' | 'outstanding_dues_usd'
-type SortDir = 'asc' | 'desc'
+// Tenant health scoreboard (platform analytics). Server-rendered; sorting
+// is a URL concern (?sort=&dir=) like every other DataTable.
 
-interface TenantHealthTableProps {
+export const HEALTH_SORT_KEYS = [
+  'name',
+  'members',
+  'units',
+  'vendors_at_risk',
+  'open_violations',
+  'ai_runs_30d',
+  'outstanding_dues_usd',
+] as const
+export type HealthSortKey = (typeof HEALTH_SORT_KEYS)[number]
+
+export function TenantHealthTable({
+  rows,
+  sort,
+  sortHref,
+}: {
   rows: TenantHealthRow[]
-}
-
-export function TenantHealthTable({ rows }: TenantHealthTableProps) {
-  const [sortField, setSortField] = useState<SortField>('outstanding_dues_usd')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
-
-  function toggleSort(field: SortField) {
-    if (sortField === field) {
-      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortField(field)
-      setSortDir('desc')
-    }
-  }
-
+  sort: { key: HealthSortKey; direction: SortDirection }
+  sortHref: (key: string, direction: SortDirection) => string
+}) {
   const sorted = [...rows].sort((a, b) => {
-    const aVal = a[sortField]
-    const bVal = b[sortField]
-    if (typeof aVal === 'string' && typeof bVal === 'string') {
-      return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
-    }
-    const diff = (aVal as number) - (bVal as number)
-    return sortDir === 'asc' ? diff : -diff
+    const av = a[sort.key]
+    const bv = b[sort.key]
+    const cmp =
+      typeof av === 'string' && typeof bv === 'string' ? av.localeCompare(bv) : (av as number) - (bv as number)
+    return sort.direction === 'asc' ? cmp : -cmp
   })
 
-  function SortHeader({ field, label, align }: { field: SortField; label: string; align?: 'right' }) {
-    const active = sortField === field
-    return (
-      <th
-        className={cn(
-          'px-3 py-2 cursor-pointer select-none hover:text-foreground transition-colors',
-          align === 'right' && 'text-right',
-        )}
-        tabIndex={0}
-        role="columnheader"
-        aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-        onClick={() => toggleSort(field)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort(field) } }}
-      >
-        <span className="inline-flex items-center gap-1">
-          {label}
-          {active && <span className="text-[10px]">{sortDir === 'asc' ? '▲' : '▼'}</span>}
-        </span>
-      </th>
-    )
-  }
-
   return (
-    <Card>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
-              <SortHeader field="name" label="Tenant" />
-              <th className="px-3 py-2">Plan</th>
-              <SortHeader field="members" label="Members" align="right" />
-              <SortHeader field="units" label="Units" align="right" />
-              <SortHeader field="vendors_at_risk" label="Vendors at risk" align="right" />
-              <SortHeader field="open_violations" label="Open violations" align="right" />
-              <SortHeader field="ai_runs_30d" label="AI runs (30d)" align="right" />
-              <SortHeader field="outstanding_dues_usd" label="Outstanding dues" align="right" />
-              <th className="px-3 py-2">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((t) => (
-              <tr
-                key={t.id}
-                className="border-b border-border last:border-0 hover:bg-foreground/5"
-              >
-                <td className="px-3 py-2">
-                  <Link href={`/admin/tenants/${t.id}`} className="font-medium hover:text-primary">
-                    {t.name}
-                  </Link>
-                </td>
-                <td className="px-3 py-2">
-                  <Badge variant="outline" size="sm" className="capitalize">{t.plan}</Badge>
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums">{t.members}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{t.units}</td>
-                <td className="px-3 py-2 text-right tabular-nums">
-                  <span className={cn(t.vendors_at_risk > 0 && 'text-destructive font-medium')}>
-                    {t.vendors_at_risk}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums">
-                  <span className={cn(t.open_violations > 0 && 'text-amber-600 font-medium')}>
-                    {t.open_violations}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums">{t.ai_runs_30d}</td>
-                <td className="px-3 py-2 text-right tabular-nums">
-                  {t.outstanding_dues_usd > 0 ? (
-                    <span className="font-medium">${t.outstanding_dues_usd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                  ) : (
-                    <span className="text-muted">$0</span>
-                  )}
-                </td>
-                <td className="px-3 py-2">
-                  {t.suspended_at ? (
-                    <Badge variant="destructive" size="sm">Suspended</Badge>
-                  ) : (
-                    <Badge variant="success" size="sm">Active</Badge>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+    <DataTable
+      caption="Tenant health scoreboard"
+      mobile="cards"
+      rows={sorted}
+      rowKey={(t) => t.id}
+      sort={sort}
+      sortHref={sortHref}
+      linkAs={Link}
+      empty={<EmptyState variant="compact" title="No tenants yet" />}
+      columns={[
+        {
+          key: 'name',
+          header: 'Tenant',
+          sortable: true,
+          mobilePrimary: true,
+          cell: (t) => (
+            <Link href={`/admin/tenants/${t.id}`} className="font-medium text-foreground no-underline hover:text-primary">
+              {t.name}
+            </Link>
+          ),
+        },
+        { key: 'members', header: 'Members', numeric: true, sortable: true, cell: (t) => t.members.toLocaleString() },
+        { key: 'units', header: 'Units', numeric: true, sortable: true, cell: (t) => t.units.toLocaleString() },
+        {
+          key: 'vendors_at_risk',
+          header: 'Vendors at risk',
+          numeric: true,
+          sortable: true,
+          hideBelowLg: true,
+          cell: (t) => <span className={cn(t.vendors_at_risk > 0 && 'font-medium text-danger')}>{t.vendors_at_risk}</span>,
+        },
+        {
+          key: 'open_violations',
+          header: 'Open violations',
+          numeric: true,
+          sortable: true,
+          cell: (t) => <span className={cn(t.open_violations > 0 && 'font-medium text-warning')}>{t.open_violations}</span>,
+        },
+        {
+          key: 'ai_runs_30d',
+          header: 'AI runs (30d)',
+          numeric: true,
+          sortable: true,
+          hideBelowLg: true,
+          cell: (t) => t.ai_runs_30d.toLocaleString(),
+        },
+        {
+          key: 'outstanding_dues_usd',
+          header: 'Dues outstanding',
+          numeric: true,
+          sortable: true,
+          cell: (t) => (
+            <span className={cn(t.outstanding_dues_usd > 0 ? 'font-medium text-foreground' : 'text-muted')}>
+              ${Math.round(t.outstanding_dues_usd).toLocaleString()}
+            </span>
+          ),
+        },
+        {
+          key: 'status',
+          header: 'Status',
+          cell: (t) => (t.suspended_at ? <StatusPill tone="danger" label="Suspended" /> : <StatusPill tone="success" label="Active" />),
+        },
+      ]}
+    />
   )
 }

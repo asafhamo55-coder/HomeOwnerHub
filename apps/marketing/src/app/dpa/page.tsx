@@ -22,13 +22,13 @@ export default function DpaPage() {
 
       <section className="pb-24">
         <div className="container-page">
-          <div className="mx-auto max-w-2xl rounded-2xl border border-ink-200/70 bg-white p-8 text-center ring-card">
-            <h2 className="text-xl font-semibold tracking-tight text-ink-900">
+          <div className="mx-auto max-w-2xl rounded-2xl border border-border/70 bg-surface p-8 text-center ring-card">
+            <h2 className="text-xl font-semibold tracking-tight text-foreground">
               Request our standard DPA
             </h2>
-            <p className="mt-3 text-sm text-ink-600">
+            <p className="mt-3 text-sm text-foreground-secondary">
               Email{' '}
-              <a className="font-semibold text-ink-800 underline-offset-4 hover:underline" href="mailto:legal@ledger.ai">
+              <a className="font-semibold text-foreground underline-offset-4 hover:underline" href="mailto:legal@ledger.ai">
                 legal@ledger.ai
               </a>
               {' '}with your entity name and we'll send the DPA within one
@@ -37,7 +37,7 @@ export default function DpaPage() {
             </p>
             <Link
               href="/security"
-              className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-ink-900 hover:text-brand-700"
+              className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-foreground hover:text-primary"
             >
               Read our security posture →
             </Link>

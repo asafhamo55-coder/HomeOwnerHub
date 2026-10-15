@@ -1,7 +1,10 @@
-// Sub-brand color dialects per the design strategy.
-// HOA: emerald (governance / compliance)
-// PM: ember (warmth for landlords)
-// Eviction: violet (calm, serious, AAA contrast)
+// Sub-brand colour dialects — the same tints the products ship
+// (packages/ui/src/tokens.ts BRANDS), so a visitor who clicks through
+// lands in an app that looks like the page they left:
+//   HOA: indigo (`primary`, the Ledger brand)
+//   PM: blue (`pm`)
+//   Eviction: violet (`eviction`)
+// Status colours (success/warning/danger) stay reserved for status.
 
 export type HubKey = 'hoa' | 'pm' | 'eviction'
 
@@ -15,9 +18,9 @@ export interface HubTheme {
   accentBg: string          // chip bg
   accentText: string
   accentRing: string
-  accentSolid: string       // 600-tone solid
+  accentSolid: string       // solid fill (avatars, progress)
   dotClass: string
-  buttonClass: string       // primary button background
+  buttonClass: string       // primary button background + text
   badgeClass: string
 }
 
@@ -27,44 +30,44 @@ export const HUBS: Record<HubKey, HubTheme> = {
     name: 'HOA Hub',
     tagline: 'For volunteer boards.',
     audience: 'Built for self-managed HOAs',
-    bgGradient: 'from-emerald-50/70 via-white to-brand-50/40',
-    ringGradient: 'from-emerald-100/60 via-white to-brand-100/40',
-    accentBg: 'bg-emerald-50',
-    accentText: 'text-emerald-700',
-    accentRing: 'ring-emerald-100',
-    accentSolid: 'bg-emerald-600',
-    dotClass: 'bg-emerald-500',
-    buttonClass: 'bg-ink-900 hover:bg-ink-800',
-    badgeClass: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+    bgGradient: 'from-primary-subtle/80 via-surface to-accent-subtle/40',
+    ringGradient: 'from-primary-subtle/70 via-surface to-subtle/40',
+    accentBg: 'bg-primary-subtle',
+    accentText: 'text-primary',
+    accentRing: 'ring-primary/15',
+    accentSolid: 'bg-primary',
+    dotClass: 'bg-primary',
+    buttonClass: 'bg-primary text-primary-fg hover:bg-primary-hover',
+    badgeClass: 'bg-primary-subtle text-primary ring-primary/15',
   },
   pm: {
     key: 'pm',
     name: 'PM Hub',
     tagline: 'For small landlords.',
     audience: 'Built for 2–50 unit landlords',
-    bgGradient: 'from-ember-50/70 via-white to-brand-50/40',
-    ringGradient: 'from-ember-100/60 via-white to-brand-100/40',
-    accentBg: 'bg-ember-50',
-    accentText: 'text-ember-700',
-    accentRing: 'ring-ember-100',
-    accentSolid: 'bg-ember-600',
-    dotClass: 'bg-ember-500',
-    buttonClass: 'bg-ink-900 hover:bg-ink-800',
-    badgeClass: 'bg-ember-50 text-ember-700 ring-ember-100',
+    bgGradient: 'from-pm-subtle/80 via-surface to-accent-subtle/40',
+    ringGradient: 'from-pm-subtle/70 via-surface to-subtle/40',
+    accentBg: 'bg-pm-subtle',
+    accentText: 'text-pm',
+    accentRing: 'ring-pm/15',
+    accentSolid: 'bg-pm',
+    dotClass: 'bg-pm',
+    buttonClass: 'bg-pm text-primary-fg hover:bg-pm-hover',
+    badgeClass: 'bg-pm-subtle text-pm ring-pm/15',
   },
   eviction: {
     key: 'eviction',
     name: 'Eviction Hub',
     tagline: 'For when it goes wrong.',
     audience: 'Attorney-reviewed, demo-only filings',
-    bgGradient: 'from-violet-50/70 via-white to-slate-50/40',
-    ringGradient: 'from-violet-100/60 via-white to-slate-100/40',
-    accentBg: 'bg-violet-50',
-    accentText: 'text-violet-700',
-    accentRing: 'ring-violet-100',
-    accentSolid: 'bg-violet-600',
-    dotClass: 'bg-violet-500',
-    buttonClass: 'bg-ink-900 hover:bg-ink-800',
-    badgeClass: 'bg-violet-50 text-violet-700 ring-violet-100',
+    bgGradient: 'from-eviction-subtle/80 via-surface to-subtle/40',
+    ringGradient: 'from-eviction-subtle/70 via-surface to-subtle/40',
+    accentBg: 'bg-eviction-subtle',
+    accentText: 'text-eviction',
+    accentRing: 'ring-eviction/15',
+    accentSolid: 'bg-eviction',
+    dotClass: 'bg-eviction',
+    buttonClass: 'bg-eviction text-primary-fg hover:bg-eviction-hover',
+    badgeClass: 'bg-eviction-subtle text-eviction ring-eviction/15',
   },
 }

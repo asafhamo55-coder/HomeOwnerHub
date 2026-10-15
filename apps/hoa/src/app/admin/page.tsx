@@ -1,120 +1,116 @@
 import Link from 'next/link'
-import { Building2, Sparkles, Users, Wallet } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
-import { KpiHero } from '@/components/dashboard/KpiHero'
-import { getPlatformStats } from '@/lib/platform-admin'
+import { format } from 'date-fns'
+import { Building2, Plus, Sparkles } from 'lucide-react'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  DataTable,
+  EmptyState,
+  Kpi,
+  Page,
+} from '@homeowner-portal/ui'
+import { getPlatformStats, listTenants } from '@/lib/platform-admin'
+import { BarList } from './_components/BarList'
+import { MonthBars } from './_components/MonthBars'
+import { TenantStatusPill, planLabel } from './_components/tenant-status'
 
 export const metadata = { title: 'Platform overview' }
 
 export default async function AdminOverviewPage() {
-  const stats = await getPlatformStats()
+  const [stats, tenants] = await Promise.all([getPlatformStats(), listTenants()])
+  const recent = tenants.slice(0, 5)
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold">Platform overview</h1>
-        <p className="text-sm text-muted">
-          Cross-tenant snapshot of HomeownerHub. {stats.total_tenants} tenants ·{' '}
-          {stats.total_members.toLocaleString()} accounts ·{' '}
-          {stats.total_units.toLocaleString()} units under management.
-        </p>
-      </header>
-
+    <Page
+      width="wide"
+      title="Platform overview"
+      description={`Cross-tenant snapshot of HomeownerHub · ${stats.total_tenants.toLocaleString()} tenants · ${stats.total_members.toLocaleString()} accounts · ${stats.total_units.toLocaleString()} units`}
+      actions={
+        <Button asChild>
+          <Link href="/admin/tenants/new" className="no-underline">
+            <Plus aria-hidden />
+            Create tenant
+          </Link>
+        </Button>
+      }
+    >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiHero
-          label="Total tenants"
-          value={stats.total_tenants}
-          sub={`${stats.active_tenants} active${stats.suspended_tenants ? ` · ${stats.suspended_tenants} suspended` : ''}`}
+        <Kpi
+          label="Tenants"
+          value={stats.total_tenants.toLocaleString()}
+          hint={`${stats.active_tenants} active${stats.suspended_tenants ? ` · ${stats.suspended_tenants} suspended` : ''}`}
           href="/admin/tenants"
+          linkAs={Link}
         />
-        <KpiHero
-          label="Total accounts"
-          value={stats.total_members}
-          sub="across all tenants"
-        />
-        <KpiHero
-          label="Units under management"
-          value={stats.total_units}
-        />
-        <KpiHero
-          label="AI runs (30d)"
-          value={stats.ai_runs_30d}
-          sub={`${stats.workflows_30d.length} active workflow${stats.workflows_30d.length === 1 ? '' : 's'}`}
+        <Kpi label="Accounts" value={stats.total_members.toLocaleString()} hint="Across all tenants" />
+        <Kpi label="Units under management" value={stats.total_units.toLocaleString()} />
+        <Kpi
+          label="AI runs (30 days)"
+          value={stats.ai_runs_30d.toLocaleString()}
+          hint={`${stats.workflows_30d.length} active workflow${stats.workflows_30d.length === 1 ? '' : 's'}`}
+          href="/admin/analytics"
+          linkAs={Link}
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Building2 className="h-4 w-4 text-muted" />
+            <CardTitle as="h2" className="flex items-center gap-2">
+              <Building2 className="size-4 text-muted" aria-hidden />
               Plan distribution
             </CardTitle>
           </CardHeader>
           <CardContent>
             {stats.tenants_by_plan.length === 0 ? (
-              <p className="text-sm text-muted">No tenants yet.</p>
+              <EmptyState variant="compact" title="No tenants yet" description="Plans appear once a tenant exists." />
             ) : (
-              <ul className="space-y-2">
-                {stats.tenants_by_plan
+              <BarList
+                max={stats.total_tenants}
+                items={[...stats.tenants_by_plan]
                   .sort((a, b) => b.count - a.count)
-                  .map((p) => {
-                    const pct = stats.total_tenants > 0 ? (p.count / stats.total_tenants) * 100 : 0
-                    return (
-                      <li key={p.plan} className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="capitalize text-muted">{p.plan}</span>
-                          <span className="font-medium tabular-nums">
-                            {p.count} · {pct.toFixed(0)}%
-                          </span>
-                        </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-foreground/5">
-                          <div
-                            className="h-full bg-primary"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </li>
-                    )
-                  })}
-              </ul>
+                  .map((p) => ({
+                    key: p.plan,
+                    label: planLabel(p.plan),
+                    value: p.count,
+                    display: (
+                      <>
+                        {p.count}{' '}
+                        <span className="font-normal text-muted">
+                          ({stats.total_tenants > 0 ? Math.round((p.count / stats.total_tenants) * 100) : 0}%)
+                        </span>
+                      </>
+                    ),
+                  }))}
+              />
             )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="h-4 w-4 text-muted" />
-              Workflow usage — last 30 days
+            <CardTitle as="h2" className="flex items-center gap-2">
+              <Sparkles className="size-4 text-muted" aria-hidden />
+              AI workflow usage
             </CardTitle>
+            <CardDescription>Runs per workflow, last 30 days</CardDescription>
           </CardHeader>
           <CardContent>
             {stats.workflows_30d.length === 0 ? (
-              <p className="text-sm text-muted">
-                No AI workflow runs yet in the last 30 days.
-              </p>
+              <EmptyState
+                variant="compact"
+                title="No AI runs in the last 30 days"
+                description="Runs from every tenant are counted here."
+              />
             ) : (
-              <ul className="space-y-2">
-                {stats.workflows_30d.slice(0, 8).map((w) => {
-                  const max = stats.workflows_30d[0]?.runs ?? 1
-                  const pct = max > 0 ? (w.runs / max) * 100 : 0
-                  return (
-                    <li key={w.workflow_id} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-mono text-xs text-muted">{w.workflow_id}</span>
-                        <span className="font-medium tabular-nums">{w.runs}</span>
-                      </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-foreground/5">
-                        <div
-                          className="h-full bg-primary"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
+              <BarList
+                mono
+                items={stats.workflows_30d.slice(0, 8).map((w) => ({ key: w.workflow_id, label: w.workflow_id, value: w.runs }))}
+              />
             )}
           </CardContent>
         </Card>
@@ -122,59 +118,60 @@ export default async function AdminOverviewPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Tenants over time</CardTitle>
-          <p className="text-xs text-muted">Created per month, last 12 months.</p>
+          <CardTitle as="h2">Tenants created</CardTitle>
+          <CardDescription>Per month, last 12 months</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-end gap-1.5 h-24">
-            {stats.tenants_over_time.map((m) => {
-              const max = Math.max(...stats.tenants_over_time.map((x) => x.count), 1)
-              const height = (m.count / max) * 100
-              return (
-                <div
-                  key={m.month}
-                  className="flex flex-1 flex-col items-center gap-1"
-                  title={`${m.month}: ${m.count}`}
-                >
-                  <div
-                    className="w-full rounded-t bg-primary/70 hover:bg-primary"
-                    style={{ height: `${height}%`, minHeight: m.count > 0 ? '2px' : '0' }}
-                  />
-                  <span className="text-[9px] text-muted">{m.month.slice(5)}</span>
-                </div>
-              )
-            })}
-          </div>
+          <MonthBars months={stats.tenants_over_time} label="tenants created" />
         </CardContent>
       </Card>
 
-      <Card variant="elevated">
-        <CardHeader>
-          <CardTitle className="text-base">Quick actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/admin/tenants/new"
-              className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-fg hover:bg-primary/90"
-            >
-              + Create tenant
+      <section className="space-y-3" aria-labelledby="recent-tenants">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="recent-tenants" className="text-lg">
+            Newest tenants
+          </h2>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/admin/tenants" className="no-underline">
+              View all
             </Link>
-            <Link
-              href="/admin/tenants"
-              className="rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-foreground/5"
-            >
-              All tenants
-            </Link>
-            <Link
-              href="/admin/audit"
-              className="rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-foreground/5"
-            >
-              Audit log
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          </Button>
+        </div>
+        <DataTable
+          caption="Newest tenants"
+          mobile="cards"
+          rows={recent}
+          rowKey={(t) => t.id}
+          empty={
+            <EmptyState
+              variant="compact"
+              title="No tenants yet"
+              description="Create the first tenant to onboard an HOA."
+            />
+          }
+          columns={[
+            {
+              key: 'name',
+              header: 'Tenant',
+              mobilePrimary: true,
+              cell: (t) => (
+                <Link href={`/admin/tenants/${t.id}`} className="font-medium text-foreground no-underline hover:text-primary">
+                  {t.name}
+                </Link>
+              ),
+            },
+            { key: 'plan', header: 'Plan', cell: (t) => planLabel(t.plan) },
+            { key: 'units', header: 'Units', numeric: true, cell: (t) => t.units_count.toLocaleString() },
+            {
+              key: 'created',
+              header: 'Created',
+              hideBelowLg: true,
+              cell: (t) => (t.created_at ? format(new Date(t.created_at), 'PP') : '—'),
+            },
+            { key: 'status', header: 'Status', cell: (t) => <TenantStatusPill tenant={t} /> },
+          ]}
+        />
+      </section>
+    </Page>
   )
 }
