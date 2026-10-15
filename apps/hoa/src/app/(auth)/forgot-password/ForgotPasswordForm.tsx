@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Mail } from 'lucide-react'
-import { Button, Input, Alert } from '@homeowner-portal/ui'
+import { Mail, MailCheck } from 'lucide-react'
+import { Alert, Button, Field, Input } from '@homeowner-portal/ui'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { emailProblem } from '@/components/auth/auth-fields'
 
 // Sends a password-reset link. The link routes through /auth/callback (which
 // exchanges the code for a recovery session) and on to /reset-password.
@@ -14,10 +15,13 @@ export function ForgotPasswordForm() {
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!email.trim()) return
+    const problem = emailProblem(email)
+    setEmailError(problem)
+    if (problem) return
 
     setStatus('sending')
     setErrorMessage(null)
@@ -43,23 +47,28 @@ export function ForgotPasswordForm() {
 
   if (status === 'sent') {
     return (
-      <Alert variant="success" title="Check your email">
-        <p>
-          If an account exists for <strong>{email}</strong>, we sent a link to
-          reset your password. Open it on this device.
-        </p>
-      </Alert>
+      <div className="space-y-4 text-center" role="status">
+        <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-success-subtle text-success">
+          <MailCheck className="size-6" aria-hidden />
+        </span>
+        <div className="space-y-1">
+          <p className="text-base font-semibold text-foreground">Check your email</p>
+          <p className="text-sm text-muted">
+            If an account exists for{' '}
+            <span className="font-medium text-foreground">{email.trim()}</span>, we sent a link to reset
+            your password. Open it on this device.
+          </p>
+        </div>
+      </div>
     )
   }
 
+  const busy = status === 'sending'
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-1.5">
-        <label htmlFor="email" className="text-sm font-medium text-foreground">
-          Email address
-        </label>
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <Field label="Email address" error={emailError}>
         <Input
-          id="email"
           name="email"
           type="email"
           required
@@ -67,21 +76,27 @@ export function ForgotPasswordForm() {
           autoFocus
           placeholder="you@example.com"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          prefix={<Mail className="h-4 w-4" aria-hidden />}
+          onChange={(e) => {
+            setEmail(e.target.value)
+            if (emailError) setEmailError(null)
+          }}
+          onBlur={() => {
+            if (email.trim()) setEmailError(emailProblem(email))
+          }}
+          prefix={<Mail aria-hidden />}
           error={status === 'error'}
-          disabled={status === 'sending'}
+          disabled={busy}
         />
-      </div>
+      </Field>
 
       {status === 'error' && errorMessage ? (
-        <Alert variant="error" title="Couldn't send the link">
+        <Alert variant="error" title="Couldn’t send the link">
           {errorMessage}
         </Alert>
       ) : null}
 
-      <Button type="submit" size="lg" className="w-full" loading={status === 'sending'}>
-        Send reset link
+      <Button type="submit" size="lg" className="w-full" loading={busy}>
+        {busy ? 'Sending…' : 'Send reset link'}
       </Button>
     </form>
   )

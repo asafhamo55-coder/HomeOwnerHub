@@ -1,49 +1,40 @@
 'use client'
 
 import { useState } from 'react'
-import { Button } from '@homeowner-portal/ui'
+import { KeyRound, Mail } from 'lucide-react'
+import { Tab, TabGroup, TabList, TabPanel } from '@homeowner-portal/ui'
 import { MagicLinkForm } from '../login/MagicLinkForm'
 import { SignupForm } from './SignupForm'
 
-type Method = 'password' | 'magic-link'
-
 // Signup mirrors the login toggle: password by default, magic link as the
 // no-password alternative. The magic-link form handles signup transparently
-// (signInWithOtp with shouldCreateUser=true).
+// (signInWithOtp with shouldCreateUser=true). Email carries across tabs.
 export function SignupMethods() {
-  const [method, setMethod] = useState<Method>('password')
+  const [email, setEmail] = useState('')
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-1 rounded-lg bg-surface p-1">
-        <Button
-          type="button"
-          variant={method === 'password' ? 'default' : 'ghost'}
-          size="sm"
-          className="w-full"
-          onClick={() => setMethod('password')}
-        >
+    <TabGroup variant="segmented" defaultValue="password" className="gap-5">
+      <TabList aria-label="Sign-up method" className="grid w-full grid-cols-2">
+        <Tab value="password" className="justify-center">
+          <KeyRound aria-hidden />
           Use a password
-        </Button>
-        <Button
-          type="button"
-          variant={method === 'magic-link' ? 'default' : 'ghost'}
-          size="sm"
-          className="w-full"
-          onClick={() => setMethod('magic-link')}
-        >
+        </Tab>
+        <Tab value="magic-link" className="justify-center">
+          <Mail aria-hidden />
           No password
-        </Button>
-      </div>
-
-      {method === 'password' ? (
-        <SignupForm />
-      ) : (
+        </Tab>
+      </TabList>
+      <TabPanel value="password">
+        <SignupForm email={email} onEmailChange={setEmail} />
+      </TabPanel>
+      <TabPanel value="magic-link">
         <MagicLinkForm
-          submitLabel="Send magic link"
-          helperText="No password needed. We'll set up your HOA on the next step."
+          submitLabel="Email me a sign-up link"
+          helperText="No password needed. We’ll set up your HOA on the next step."
+          email={email}
+          onEmailChange={setEmail}
         />
-      )}
-    </div>
+      </TabPanel>
+    </TabGroup>
   )
 }

@@ -1,46 +1,36 @@
 'use client'
 
 import { useState } from 'react'
-import { Button } from '@homeowner-portal/ui'
+import { KeyRound, Mail } from 'lucide-react'
+import { Tab, TabGroup, TabList, TabPanel } from '@homeowner-portal/ui'
 import { MagicLinkForm } from './MagicLinkForm'
 import { PasswordForm } from './PasswordForm'
 
-type Method = 'password' | 'magic-link'
-
 // Toggles between the two sign-in methods. Password is the default; the
-// magic-link form is kept verbatim for users who prefer it (and for the
-// existing magic-link-only accounts).
+// magic-link form is kept for users who prefer it (and for the existing
+// magic-link-only accounts). The email typed into one method carries over
+// to the other, so switching never costs the user their input.
 export function LoginMethods({ redirectTo }: { redirectTo?: string }) {
-  const [method, setMethod] = useState<Method>('password')
+  const [email, setEmail] = useState('')
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-1 rounded-lg bg-surface p-1">
-        <Button
-          type="button"
-          variant={method === 'password' ? 'default' : 'ghost'}
-          size="sm"
-          className="w-full"
-          onClick={() => setMethod('password')}
-        >
+    <TabGroup variant="segmented" defaultValue="password" className="gap-5">
+      <TabList aria-label="Sign-in method" className="grid w-full grid-cols-2">
+        <Tab value="password" className="justify-center">
+          <KeyRound aria-hidden />
           Password
-        </Button>
-        <Button
-          type="button"
-          variant={method === 'magic-link' ? 'default' : 'ghost'}
-          size="sm"
-          className="w-full"
-          onClick={() => setMethod('magic-link')}
-        >
+        </Tab>
+        <Tab value="magic-link" className="justify-center">
+          <Mail aria-hidden />
           Email me a link
-        </Button>
-      </div>
-
-      {method === 'password' ? (
-        <PasswordForm redirectTo={redirectTo} />
-      ) : (
-        <MagicLinkForm redirectTo={redirectTo} />
-      )}
-    </div>
+        </Tab>
+      </TabList>
+      <TabPanel value="password">
+        <PasswordForm redirectTo={redirectTo} email={email} onEmailChange={setEmail} />
+      </TabPanel>
+      <TabPanel value="magic-link">
+        <MagicLinkForm redirectTo={redirectTo} email={email} onEmailChange={setEmail} />
+      </TabPanel>
+    </TabGroup>
   )
 }
