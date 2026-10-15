@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ArrowRight, FileEdit } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { Badge, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import type { WizardDraft } from '@/lib/drafts'
 
 const KIND_LABEL: Record<string, string> = {
@@ -20,18 +20,20 @@ interface Props {
   drafts: WizardDraft[]
 }
 
-export function UnfinishedWorkflowsCard({ drafts }: Props) {
+export function UnfinishedWorkflowsCard({ drafts: all }: Props) {
+  // wizard_drafts is shared across hubs; only eviction-case drafts can be
+  // resumed in this app (the meeting/violation wizards live in HOA Hub, so
+  // their links 404'd here).
+  const drafts = all.filter((d) => d.kind === 'eviction_case')
   if (drafts.length === 0) return null
 
   return (
-    <Card variant="elevated">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <FileEdit className="h-4 w-4 text-primary" />
+    <Card>
+      <CardHeader>
+        <CardTitle as="h2" className="flex items-center gap-2">
+          <FileEdit className="size-4 text-primary" aria-hidden />
           Unfinished workflows
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-            {drafts.length}
-          </span>
+          <Badge size="sm">{drafts.length}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -46,14 +48,14 @@ export function UnfinishedWorkflowsCard({ drafts }: Props) {
               <li key={d.id}>
                 <Link
                   href={`${path}?draft=${d.id}`}
-                  className="flex items-center gap-3 py-3 transition-colors hover:bg-background/50"
+                  className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-3 no-underline transition-colors duration-fast hover:bg-subtle"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-foreground">
                       {KIND_LABEL[d.kind] ?? d.kind}
                     </p>
                     <div className="mt-1 flex items-center gap-2 text-xs text-muted">
-                      <div className="h-1 w-24 rounded-full bg-border">
+                      <div className="h-1 w-24 rounded-full bg-border" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label="Progress">
                         <div
                           className="h-full rounded-full bg-primary"
                           style={{ width: `${percent}%` }}
@@ -68,7 +70,7 @@ export function UnfinishedWorkflowsCard({ drafts }: Props) {
                       </span>
                     </div>
                   </div>
-                  <ArrowRight className="h-4 w-4 flex-shrink-0 text-muted" aria-hidden />
+                  <ArrowRight className="size-4 shrink-0 text-muted" aria-hidden />
                 </Link>
               </li>
             )

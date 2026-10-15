@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react'
 import { Briefcase } from 'lucide-react'
-import { Button, Input, Alert } from '@homeowner-portal/ui'
+import { Alert, Button, Field, Input } from '@homeowner-portal/ui'
 import { createPmOrg, type OnboardingActionState } from './actions'
 
 const initial: OnboardingActionState = {}
@@ -12,23 +12,16 @@ export function OnboardingForm() {
 
   return (
     <form action={action} className="space-y-5">
-      <div className="space-y-1.5">
-        <label htmlFor="name" className="text-sm font-medium text-foreground">
-          Workspace name
-        </label>
+      <Field label="Workspace name" hint={<>Usually your name or LLC. You&apos;ll add your first property next.</>}>
         <Input
-          id="name"
           name="name"
           required
           autoFocus
           placeholder="My Rentals"
-          prefix={<Briefcase className="h-4 w-4" aria-hidden />}
+          prefix={<Briefcase className="size-4" aria-hidden />}
           disabled={pending}
         />
-        <p className="text-xs text-muted">
-          Usually your name or LLC. You&apos;ll add your first property next.
-        </p>
-      </div>
+      </Field>
 
       {state.error ? (
         <Alert variant="error" title="Couldn't create the workspace">

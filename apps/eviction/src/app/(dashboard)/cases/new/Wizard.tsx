@@ -19,6 +19,7 @@ import {
   Textarea,
   WizardStepper,
   type WizardStep as StepperStep,
+  Field as KitField,
 } from '@homeowner-portal/ui'
 import { humanizeNoticeType } from '@homeowner-portal/ai'
 import { ComplianceBlock } from '@/components/cases/ComplianceBlock'
@@ -442,7 +443,7 @@ export function Wizard({ workspaceName, initial, initialDraft }: WizardProps) {
             {aiResponse.aiFlags.recommendation ? (
               <p className="mt-2 text-sm">{aiResponse.aiFlags.recommendation}</p>
             ) : null}
-            <p className="mt-2 text-xs text-amber-700">
+            <p className="mt-2 text-xs text-warning">
               Confidence: {aiResponse.aiFlags.confidence}. Verify with counsel before filing.
             </p>
           </Alert>
@@ -505,7 +506,7 @@ export function Wizard({ workspaceName, initial, initialDraft }: WizardProps) {
       <div className="space-y-5">
         {stepperHeader}
         <div className="py-8 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success-subtle text-success">
             <CheckCircle2 className="h-7 w-7" />
           </div>
           <div className="mt-4 space-y-1">
@@ -553,22 +554,25 @@ function Field({
   hint?: string
   children: React.ReactNode
 }) {
+  // Thin adapter over the kit Field (label/hint wiring, aria-describedby).
+  // The control keeps its own id, so the label targets it explicitly.
   return (
-    <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="text-sm font-medium text-foreground">
-        {label}
-        {required ? <span className="ml-0.5 text-destructive">*</span> : null}
-      </label>
+    <KitField
+      id={htmlFor}
+      label={label}
+      required={required}
+      optional={hint === 'Optional'}
+      hint={hint === 'Optional' ? undefined : hint}
+    >
       {children}
-      {hint ? <p className="text-xs text-muted">{hint}</p> : null}
-    </div>
+    </KitField>
   )
 }
 
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</p>
+      <p className="text-2xs font-medium uppercase tracking-wide text-muted">{label}</p>
       <p className="mt-0.5 text-sm text-foreground">{children}</p>
     </div>
   )

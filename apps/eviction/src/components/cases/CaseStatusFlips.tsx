@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Loader2, Check, ChevronRight } from 'lucide-react'
-import { Alert, Button, cn } from '@homeowner-portal/ui'
+import { Alert, Button, cn, Field, Input } from '@homeowner-portal/ui'
 import { updateCaseStatus } from '@/lib/case-actions'
 
 interface CaseStatusFlipsProps {
@@ -50,17 +50,17 @@ export function CaseStatusFlips({
 
   return (
     <div className="space-y-3">
-      <ol className="flex items-center gap-1 text-sm">
+      <ol className="flex flex-wrap items-center gap-x-1 gap-y-2 text-sm">
         {PIPELINE.map((stage, i) => {
           const isPast = i < currentIndex
           const isCurrent = i === currentIndex
           return (
-            <li key={stage.id} className="flex items-center gap-1">
+            <li key={stage.id} className="flex shrink-0 items-center gap-1 whitespace-nowrap">
               <span
                 className={cn(
                   'flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold',
                   isPast
-                    ? 'bg-emerald-100 text-emerald-700'
+                    ? 'bg-success-subtle text-success'
                     : isCurrent
                       ? 'bg-primary text-primary-fg'
                       : 'bg-muted/10 text-muted',
@@ -92,14 +92,14 @@ export function CaseStatusFlips({
         ) : null}
         {currentStatus === 'filed' ? (
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
-            <input
-              type="text"
-              value={outcomeText}
-              onChange={(e) => setOutcomeText(e.target.value)}
-              placeholder="Outcome (e.g. judgment for landlord, settled, dismissed)"
-              className="h-10 flex-1 rounded-lg border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              disabled={pending}
-            />
+            <Field label="Outcome" hideLabel className="flex-1">
+              <Input
+                value={outcomeText}
+                onChange={(e) => setOutcomeText(e.target.value)}
+                placeholder="Outcome, e.g. judgment for landlord, settled, dismissed"
+                disabled={pending}
+              />
+            </Field>
             <Button
               onClick={() => flipTo('resolved')}
               loading={pending}

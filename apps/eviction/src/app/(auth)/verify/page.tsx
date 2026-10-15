@@ -6,11 +6,11 @@ export const metadata = { title: 'Check your email' }
 export default function VerifyPage() {
   return (
     <div className="space-y-4 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-        <Mail className="h-6 w-6" aria-hidden />
+      <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-primary-subtle text-primary">
+        <Mail className="size-6" aria-hidden />
       </div>
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-foreground">Check your email</h2>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">Check your email</h1>
         <p className="text-sm text-muted">
           Open the magic link we sent you to finish signing in.
         </p>

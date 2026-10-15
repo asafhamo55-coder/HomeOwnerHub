@@ -34,8 +34,7 @@ export function StartEvictionButton({
   }
 
   return (
-    <Button size="lg" variant="destructive" onClick={handleClick}>
-      <Gavel className="h-4 w-4" />
+    <Button variant="destructive" onClick={handleClick} icon={<Gavel aria-hidden />}>
       Start eviction
     </Button>
   )

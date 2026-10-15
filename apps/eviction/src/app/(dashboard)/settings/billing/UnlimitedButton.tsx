@@ -18,7 +18,7 @@ export function UnlimitedButton({ disabled }: { disabled?: boolean }) {
 
   return (
     <div className="space-y-3">
-      <Button onClick={handleClick} loading={pending} disabled={disabled}>
+      <Button onClick={handleClick} loading={pending} disabled={disabled} className="w-full">
         Upgrade to Unlimited
       </Button>
       {error ? (

@@ -2,100 +2,87 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  CreditCard,
-  Gavel,
-  LogOut,
-  ScrollText,
-  Settings,
-} from 'lucide-react'
+import { CreditCard, Gavel, ScrollText, Settings } from 'lucide-react'
 import {
   NavItem,
   SidebarBrand,
+  SidebarCollapseToggle,
   SidebarFooter,
   SidebarNav,
   SidebarSection,
 } from '@homeowner-portal/ui'
-import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
-
-interface EvictionSidebarProps {
-  orgName: string
-  userEmail: string
-}
 
 interface NavLink {
   href: string
   icon: React.ReactNode
   label: string
-  soon?: boolean
 }
 
 const PRIMARY: NavLink[] = [
-  { href: '/', icon: <ScrollText className="h-4 w-4" />, label: 'Cases' },
+  { href: '/', icon: <ScrollText aria-hidden />, label: 'Cases' },
 ]
 
 const SECONDARY: NavLink[] = [
-  { href: '/settings', icon: <Settings className="h-4 w-4" />, label: 'Settings' },
-  { href: '/settings/billing', icon: <CreditCard className="h-4 w-4" />, label: 'Billing' },
+  { href: '/settings', icon: <Settings aria-hidden />, label: 'Settings' },
+  { href: '/settings/billing', icon: <CreditCard aria-hidden />, label: 'Billing' },
 ]
 
 function isActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/' || pathname.startsWith('/cases')
+  // /settings must not light up while on /settings/billing.
+  if (href === '/settings') return pathname === '/settings'
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 
-function NavLink({ link, active }: { link: NavLink; active: boolean }) {
-  return <NavItem href={link.href} linkAs={Link} icon={link.icon} label={link.label} active={active} />
-}
-
-export function EvictionSidebar({ orgName, userEmail }: EvictionSidebarProps) {
+// Identity, theme and sign-out live in the top-bar user menu
+// (EvictionUserMenu); the sidebar is navigation only, so it can collapse to a rail.
+export function EvictionSidebar({ orgName }: { orgName: string }) {
   const pathname = usePathname()
-
-  async function handleSignOut() {
-    const supabase = getSupabaseBrowserClient()
-    await supabase.auth.signOut()
-    window.location.href = '/login'
-  }
 
   return (
     <>
-      <SidebarBrand>
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-fg">
-          <Gavel className="h-4 w-4" />
-        </div>
-        <span className="truncate">{orgName}</span>
+      <SidebarBrand
+        logo={
+          <span className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-fg">
+            <Gavel className="size-4" aria-hidden />
+          </span>
+        }
+      >
+        <span className="min-w-0">
+          <span className="block truncate leading-tight">Eviction Hub</span>
+          <span className="block truncate text-xs font-normal text-muted">{orgName}</span>
+        </span>
       </SidebarBrand>
 
       <SidebarNav>
         <SidebarSection>
           {PRIMARY.map((link) => (
-            <NavLink key={link.href} link={link} active={isActive(pathname, link.href)} />
+            <NavItem
+              key={link.href}
+              href={link.href}
+              linkAs={Link}
+              icon={link.icon}
+              label={link.label}
+              active={isActive(pathname, link.href)}
+            />
           ))}
         </SidebarSection>
-
         <SidebarSection label="Account">
           {SECONDARY.map((link) => (
-            <NavLink key={link.href} link={link} active={isActive(pathname, link.href)} />
+            <NavItem
+              key={link.href}
+              href={link.href}
+              linkAs={Link}
+              icon={link.icon}
+              label={link.label}
+              active={isActive(pathname, link.href)}
+            />
           ))}
         </SidebarSection>
       </SidebarNav>
 
       <SidebarFooter>
-        <div className="flex w-full items-center justify-between gap-2 px-1">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-foreground">{userEmail}</p>
-            <p className="text-[11px] text-muted">Eviction Hub · {orgName}</p>
-          </div>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="rounded-md p-1.5 text-muted hover:bg-subtle hover:text-foreground"
-            aria-label="Sign out"
-            title="Sign out"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
+        <SidebarCollapseToggle className="ml-auto" />
       </SidebarFooter>
     </>
   )

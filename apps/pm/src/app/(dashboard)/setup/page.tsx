@@ -1,5 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@homeowner-portal/ui'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, LoadFailed, Page } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadOrFail } from '@/lib/load-or-fail'
 import { PropertyForm } from './PropertyForm'
 
 export const metadata = { title: 'Property' }
@@ -17,39 +18,43 @@ interface ExistingProperty {
 
 export default async function PropertySetupPage() {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
-    .from('pm_properties')
-    .select(
-      'id, address, monthly_rent, tenant_name, tenant_email, tenant_phone, lease_start, lease_end',
-    )
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
+  // One property per workspace on the free plan — the first one added.
+  const res = await loadOrFail(
+    'your property',
+    supabase
+      .from('pm_properties')
+      .select('id, address, monthly_rent, tenant_name, tenant_email, tenant_phone, lease_start, lease_end')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+  )
 
-  const existing = (data ?? null) as ExistingProperty | null
+  if (!res.ok) {
+    return (
+      <Page width="narrow" title="Property" back={{ href: '/', label: 'Dashboard' }}>
+        <LoadFailed what="your property" hint="Saving now could create a duplicate, so the form is hidden until it loads." />
+      </Page>
+    )
+  }
+
+  const existing = (res.data ?? null) as ExistingProperty | null
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-foreground">
-          {existing ? 'Edit property' : 'Add your property'}
-        </h1>
-        <p className="text-sm text-muted">
-          PM Hub on the free plan tracks one property. Upgrade for unlimited.
-        </p>
-      </header>
-
-      <Card variant="elevated">
+    <Page
+      width="narrow"
+      back={{ href: '/', label: 'Dashboard' }}
+      title={existing ? 'Edit property' : 'Add your property'}
+      description="The free plan tracks one property. Upgrade for unlimited."
+    >
+      <Card>
         <CardHeader>
-          <CardTitle>{existing ? existing.address : 'Property details'}</CardTitle>
-          <CardDescription>
-            We&apos;ll auto-create monthly rent rows from this lease so you can mark them paid.
-          </CardDescription>
+          <CardTitle as="h2">{existing ? existing.address : 'Property details'}</CardTitle>
+          <CardDescription>We create a rent row for each month of this lease so you can mark it paid.</CardDescription>
         </CardHeader>
         <CardContent>
           <PropertyForm existing={existing} />
         </CardContent>
       </Card>
-    </div>
+    </Page>
   )
 }

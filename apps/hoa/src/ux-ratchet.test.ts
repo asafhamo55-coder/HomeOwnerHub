@@ -155,8 +155,6 @@ describe('phase-1 pages stay migrated', () => {
  * Shrink-only. Use `loadOrFail` (apps/hoa/src/lib/load-or-fail.ts).
  */
 const DISCARDS_ERROR_ALLOWLIST = [
-  'apps/eviction/src/app/(dashboard)/cases/[id]/page.tsx',
-  'apps/eviction/src/app/(dashboard)/settings/billing/page.tsx',
   'apps/hoa/src/app/(dashboard)/accounting/bank/[accountId]/reconcile/page.tsx',
   'apps/hoa/src/app/(dashboard)/accounting/bank/queue/page.tsx',
   'apps/hoa/src/app/(dashboard)/accounting/payment-plans/new/page.tsx',
@@ -173,13 +171,7 @@ const DISCARDS_ERROR_ALLOWLIST = [
   'apps/hoa/src/app/(dashboard)/violations/[id]/edit/page.tsx',
   'apps/hoa/src/app/(dashboard)/violations/[id]/page.tsx',
   'apps/hoa/src/app/(dashboard)/violations/approval-queue/page.tsx',
-  'apps/hoa/src/app/admin/admins/page.tsx',
-  'apps/hoa/src/app/resident/account/page.tsx',
   'apps/hoa/src/app/vendor-onboard/[token]/page.tsx',
-  'apps/pm/src/app/(dashboard)/page.tsx',
-  'apps/pm/src/app/(dashboard)/rent/page.tsx',
-  'apps/pm/src/app/(dashboard)/settings/billing/page.tsx',
-  'apps/pm/src/app/(dashboard)/setup/page.tsx',
 ]
 
 /** Exported for the self-test below. */

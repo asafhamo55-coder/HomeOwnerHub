@@ -1,19 +1,24 @@
 import Link from 'next/link'
-import { Building2, CheckCircle2, Plus, Wallet } from 'lucide-react'
+import { Building2, Info, Pencil, Plus, Wallet } from 'lucide-react'
 import { format, differenceInCalendarDays } from 'date-fns'
 import {
-  Badge,
   Button,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   EmptyState,
+  KeyValue,
+  KeyValueList,
+  LoadFailed,
   NoOrgSelected,
+  Page,
+  StatusPill,
 } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ensureLeaseLedger } from '@/lib/rent'
+import { loadOrFail } from '@/lib/load-or-fail'
 import { StartEvictionButton } from './StartEvictionButton'
 
 export const metadata = { title: 'Dashboard' }
@@ -50,36 +55,44 @@ export default async function PMDashboard() {
   if (!org) return <NoOrgSelected noun="workspace" />
 
   const supabase = await getSupabaseServerClient()
-  const { data: propData } = await supabase
-    .from('pm_properties')
-    .select('id, address, monthly_rent, tenant_name, tenant_email')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
+  // PM Hub v1 tracks one property per workspace (the first one added).
+  const propRes = await loadOrFail(
+    'your property',
+    supabase
+      .from('pm_properties')
+      .select('id, address, monthly_rent, tenant_name, tenant_email')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+  )
 
-  const property = (propData ?? null) as PropertyRow | null
+  if (!propRes.ok) {
+    return (
+      <Page width="default" title="Dashboard">
+        <LoadFailed what="your property" />
+      </Page>
+    )
+  }
+
+  const property = (propRes.data ?? null) as PropertyRow | null
 
   if (!property) {
     return (
-      <div className="mx-auto max-w-3xl space-y-6">
-        <header>
-          <h1 className="text-2xl font-bold text-foreground">Welcome to {org.name}</h1>
-          <p className="text-sm text-muted">Add your first property to start tracking rent.</p>
-        </header>
+      <Page width="default" title={`Welcome to ${org.name}`} description="Add your first property to start tracking rent.">
         <EmptyState
-          icon={<Building2 className="h-10 w-10" aria-hidden />}
+          icon={<Building2 aria-hidden />}
           title="No property yet"
-          description="Add your rental, the tenant's contact info, and we'll auto-track each month's rent."
+          description="Add your rental and your tenant's contact details — we'll track each month's rent automatically."
           action={
             <Button asChild>
               <Link href="/setup">
-                <Plus className="h-4 w-4" />
+                <Plus aria-hidden />
                 Add property
               </Link>
             </Button>
           }
         />
-      </div>
+      </Page>
     )
   }
 
@@ -90,18 +103,20 @@ export default async function PMDashboard() {
   const today = new Date()
   const todayISO = today.toISOString().slice(0, 10)
 
-  const { data: currentLedger } = await supabase
-    .from('pm_rent_ledger')
-    .select('id, period, due_date, amount_due, amount_paid, late_fee, late_fee_rate, status')
-    .eq('property_id', property.id)
-    .lte('due_date', todayISO)
-    .order('due_date', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  const ledgerRes = await loadOrFail(
+    "this month's rent",
+    supabase
+      .from('pm_rent_ledger')
+      .select('id, period, due_date, amount_due, amount_paid, late_fee, late_fee_rate, status')
+      .eq('property_id', property.id)
+      .lte('due_date', todayISO)
+      .order('due_date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  )
 
-  const current = (currentLedger ?? null) as LedgerRow | null
+  const current = ledgerRes.ok ? ((ledgerRes.data ?? null) as LedgerRow | null) : null
 
-  // Derived figures
   const daysUnpaid =
     current && current.status !== 'paid' && current.due_date
       ? Math.max(0, differenceInCalendarDays(today, new Date(current.due_date)))
@@ -117,93 +132,114 @@ export default async function PMDashboard() {
   const isOverdue = !isPaid && daysUnpaid > 0
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{property.address}</h1>
-          <p className="text-sm text-muted">
-            {property.tenant_name ?? 'No tenant on file'}
-            {property.tenant_email ? ` · ${property.tenant_email}` : ''}
-          </p>
-        </div>
-        <Button asChild variant="outline" size="sm">
-          <Link href="/setup">Edit property</Link>
+    <Page
+      width="default"
+      eyebrow="Property"
+      title={property.address}
+      description={
+        property.tenant_name
+          ? `${property.tenant_name}${property.tenant_email ? ` · ${property.tenant_email}` : ''}`
+          : 'No tenant on file'
+      }
+      actions={
+        <Button asChild variant="secondary">
+          <Link href="/setup">
+            <Pencil aria-hidden />
+            Edit property
+          </Link>
         </Button>
-      </header>
-
-      <Card variant="elevated">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Wallet className="h-4 w-4 text-muted" />
-            This month&apos;s rent
-            {current ? (
-              <span className="text-sm font-normal text-muted">
-                · {format(new Date(current.due_date), 'MMM yyyy')}
-              </span>
-            ) : null}
-          </CardTitle>
-          {isPaid ? (
-            <Badge variant="success" size="md">
-              <CheckCircle2 className="mr-1 h-3 w-3" /> Paid
-            </Badge>
-          ) : isOverdue ? (
-            <Badge variant="destructive" size="md">
-              {daysUnpaid} {daysUnpaid === 1 ? 'day' : 'days'} late
-            </Badge>
-          ) : (
-            <Badge variant="outline" size="md">
-              Pending
-            </Badge>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-end gap-6">
-            <div>
-              <p className="text-3xl font-bold text-foreground">
-                {current ? currency(current.amount_due) : currency(property.monthly_rent ?? 0)}
-              </p>
-              <p className="text-xs text-muted">
-                Due {current ? format(new Date(current.due_date), 'MMM d, yyyy') : '—'}
-              </p>
-            </div>
-            {lateFee > 0 && !isPaid ? (
-              <div>
-                <p className="text-xl font-semibold text-destructive">+ {currency(lateFee)}</p>
-                <p className="text-xs text-muted">
-                  Late fee ({current?.late_fee_rate ?? 5}% of rent)
-                </p>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {isOverdue ? (
-              <StartEvictionButton
-                address={property.address}
-                monthlyRent={property.monthly_rent ?? 0}
-                tenantName={property.tenant_name}
-                daysUnpaid={daysUnpaid}
-              />
-            ) : null}
-            <Button asChild variant="outline">
-              <Link href="/rent">View ledger</Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {isOverdue ? (
+      }
+    >
+      <div className="space-y-6">
         <Card>
-          <CardContent className="space-y-1 p-4 text-sm">
-            <p className="font-medium text-foreground">Why &quot;Start eviction&quot; opens a new tab</p>
-            <p className="text-muted">
-              Eviction filings happen in a separate tool — Eviction Hub — so the legal workflow
-              stays isolated from rent tracking. The button pre-fills the address, tenant, rent,
-              and days unpaid for you. You only have to confirm and approve the notice.
-            </p>
+          <CardHeader
+            actions={
+              !ledgerRes.ok ? null : isPaid ? (
+                <StatusPill tone="success" label="Paid" />
+              ) : isOverdue ? (
+                <StatusPill tone="danger" label={`${daysUnpaid} ${daysUnpaid === 1 ? 'day' : 'days'} late`} />
+              ) : (
+                <StatusPill tone="neutral" label="Not due yet" />
+              )
+            }
+          >
+            <CardTitle as="h2" className="flex items-center gap-2">
+              <Wallet className="size-4 text-muted" aria-hidden />
+              This month&apos;s rent
+              {current ? (
+                <span className="text-sm font-normal text-muted">· {format(new Date(current.due_date), 'MMMM yyyy')}</span>
+              ) : null}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {!ledgerRes.ok ? (
+              <LoadFailed what="this month's rent" />
+            ) : (
+              <>
+                <div className="flex flex-wrap items-end gap-x-10 gap-y-4">
+                  <div>
+                    <p className="num text-3xl font-semibold tracking-tight text-foreground">
+                      {current ? currency(current.amount_due) : currency(property.monthly_rent ?? 0)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      Due {current ? format(new Date(current.due_date), 'MMM d, yyyy') : '—'}
+                    </p>
+                  </div>
+                  {lateFee > 0 && !isPaid ? (
+                    <div>
+                      <p className="num text-xl font-semibold text-danger">+ {currency(lateFee)}</p>
+                      <p className="mt-1 text-xs text-muted">Late fee ({current?.late_fee_rate ?? 5}% of rent)</p>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 border-t border-border pt-5">
+                  {isOverdue ? (
+                    <StartEvictionButton
+                      address={property.address}
+                      monthlyRent={property.monthly_rent ?? 0}
+                      tenantName={property.tenant_name}
+                      daysUnpaid={daysUnpaid}
+                    />
+                  ) : null}
+                  <Button asChild variant={isOverdue ? 'secondary' : 'primary'}>
+                    <Link href="/rent">View rent ledger</Link>
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
-      ) : null}
-    </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">Lease</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <KeyValueList>
+              <KeyValue label="Monthly rent" value={property.monthly_rent != null ? currency(property.monthly_rent) : null} />
+              <KeyValue label="Tenant" value={property.tenant_name} />
+              <KeyValue label="Tenant email" value={property.tenant_email} />
+            </KeyValueList>
+          </CardContent>
+        </Card>
+
+        {isOverdue ? (
+          <Card variant="subtle">
+            <CardContent className="flex items-start gap-3 p-5 text-sm">
+              <Info className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">Why “Start eviction” opens a new tab</p>
+                <p className="text-foreground-secondary">
+                  Filings happen in Eviction Hub so the legal workflow stays separate from rent
+                  tracking. The address, tenant, rent and days unpaid are pre-filled — you only confirm
+                  and approve the notice.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+      </div>
+    </Page>
   )
 }

@@ -18,12 +18,9 @@ export function PerCasePayButton({ caseId }: { caseId: string }) {
 
   return (
     <div className="space-y-2">
-      <Button onClick={handleClick} loading={pending} variant="default">
+      <Button onClick={handleClick} loading={pending} variant="primary">
         Pay $249 to file
       </Button>
-      <p className="text-xs text-muted">
-        Per-case billing. Skip this if your workspace is on the Unlimited plan.
-      </p>
       {error ? (
         <Alert variant="error" title="Couldn't start checkout">
           {error}

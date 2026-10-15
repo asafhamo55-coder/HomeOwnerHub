@@ -30,23 +30,23 @@ export function ComplianceBlock({ result }: ComplianceBlockProps) {
     return (
       <section
         role="status"
-        className="overflow-hidden rounded-xl border-l-4 border-emerald-500 bg-emerald-50/50"
+        className="overflow-hidden rounded-xl border-l-4 border-success bg-success-subtle"
         aria-labelledby="compliance-heading"
       >
         <div className="flex items-start gap-3 p-5">
           <ShieldCheck
-            className="mt-0.5 h-6 w-6 flex-shrink-0 text-emerald-700"
+            className="mt-0.5 h-6 w-6 flex-shrink-0 text-success"
             aria-hidden
           />
           <div className="flex-1 space-y-3">
             <div>
               <h3
                 id="compliance-heading"
-                className="text-lg font-bold text-emerald-900"
+                className="text-lg font-semibold text-foreground"
               >
                 Filing eligible
               </h3>
-              <p className="text-sm text-emerald-900/80">{result.reason}</p>
+              <p className="text-sm text-foreground-secondary">{result.reason}</p>
             </div>
             <LegalBasis text={result.legalBasis} variant="success" />
           </div>
@@ -117,11 +117,11 @@ function LegalBasis({
 }) {
   const tint =
     variant === 'success'
-      ? 'border-emerald-200 bg-emerald-50/60'
+      ? 'border-success/20 bg-surface'
       : 'border-destructive/15 bg-surface'
   return (
     <div className={`rounded-lg border ${tint} p-3`}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+      <p className="text-2xs font-semibold uppercase tracking-wide text-muted">
         Legal basis
       </p>
       <p className="mt-1 font-mono text-xs leading-relaxed text-foreground">{text}</p>
