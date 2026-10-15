@@ -61,3 +61,7 @@ Declaration*.pdf
 # Isolated worktrees for branch work — scratch checkouts, never tracked.
 .worktrees/
 .claude/worktrees/
+
+# Resident PII exports — never commit (secrets audit 2026-10-15)
+3552 Violation Sid/
+migrations/seed-*-collections-*.sql
