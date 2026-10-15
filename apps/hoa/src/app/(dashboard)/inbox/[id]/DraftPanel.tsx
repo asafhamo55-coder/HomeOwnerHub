@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
+import { CheckCircle2, Sparkles, Undo2, XCircle } from 'lucide-react'
 import { Alert, Button } from '@homeowner-portal/ui'
 import { createDraft, approveDraft, cancelDraft } from '@/lib/inbox/draft/actions'
 import { UNDO_WINDOW_SECONDS } from '@/lib/inbox/draft/blanks'
@@ -68,13 +69,25 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
   // ── 1. No draft yet ──
   if (!draft) {
     return (
-      <section className="mt-4 space-y-2 rounded-md border border-border p-3">
+      <section
+        aria-label="Reply"
+        className="space-y-3 rounded-xl border border-dashed border-border-strong bg-surface p-4"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-sm font-medium text-foreground">Reply to this conversation</p>
+            <p className="text-xs text-muted">
+              AI drafts a reply grounded in your documents and this property&apos;s record. You review
+              and approve it before anything is sent.
+            </p>
+          </div>
+          {threadId ? (
+            <Button loading={pending} onClick={handleCreate} icon={<Sparkles aria-hidden />}>
+              Draft a reply
+            </Button>
+          ) : null}
+        </div>
         {actionError ? <Alert variant="error">{actionError}</Alert> : null}
-        {threadId ? (
-          <Button size="sm" loading={pending} onClick={handleCreate}>
-            Draft a reply
-          </Button>
-        ) : null}
       </section>
     )
   }
@@ -82,9 +95,15 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
   // ── 5. Sent — confirmation, no controls ──
   if (draft.status === 'sent') {
     return (
-      <section className="mt-4 rounded-md border border-primary/40 bg-primary/5 p-3 text-sm">
-        <p className="font-semibold text-foreground">{SENT_HEADLINE[draft.kind]}</p>
-        <p className="mt-1 text-xs text-muted">{draft.subject}</p>
+      <section
+        aria-label="Reply"
+        className="flex items-start gap-3 rounded-xl border border-success/25 bg-success-subtle p-4 text-sm"
+      >
+        <CheckCircle2 className="mt-0.5 size-[18px] shrink-0 text-success" aria-hidden />
+        <div className="min-w-0">
+          <p className="font-semibold text-foreground">{SENT_HEADLINE[draft.kind]}</p>
+          <p className="mt-0.5 truncate text-xs text-foreground-secondary">{draft.subject}</p>
+        </div>
       </section>
     )
   }
@@ -110,9 +129,14 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
   // retry the send, and there is no way to retry the send.
   if (draft.status === 'failed') {
     return (
-      <section className="mt-4 space-y-2 rounded-md border border-destructive/40 p-3">
-        <p className="text-sm font-semibold text-foreground">Sending this reply failed</p>
-        <p className="text-xs text-muted">{draft.error ?? 'Something went wrong.'}</p>
+      <section aria-label="Reply" className="space-y-3 rounded-xl border border-danger/25 bg-surface p-4">
+        <div className="flex items-start gap-2">
+          <XCircle className="mt-0.5 size-[18px] shrink-0 text-danger" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">Sending this reply failed</p>
+            <p className="text-xs text-muted">{draft.error ?? 'Something went wrong.'}</p>
+          </div>
+        </div>
         <p className={AMBER_BOX}>
           This reply may still have reached the resident — a send can fail
           after the message was already accepted for delivery. Check the
@@ -145,14 +169,19 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
   // "no draft".
   if (draft.status === 'cancelled') {
     return (
-      <section className="mt-4 space-y-2 rounded-md border border-border p-3">
-        <p className="text-xs text-muted">This reply was cancelled before it sent.</p>
+      <section
+        aria-label="Reply"
+        className="space-y-3 rounded-xl border border-dashed border-border-strong bg-surface p-4"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted">This reply was cancelled before it sent.</p>
+          {threadId ? (
+            <Button loading={pending} onClick={handleCreate} icon={<Sparkles aria-hidden />}>
+              Draft a reply
+            </Button>
+          ) : null}
+        </div>
         {actionError ? <Alert variant="error">{actionError}</Alert> : null}
-        {threadId ? (
-          <Button size="sm" loading={pending} onClick={handleCreate}>
-            Draft a reply
-          </Button>
-        ) : null}
       </section>
     )
   }
@@ -162,13 +191,15 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
   // as "no more undo" rather than invented as a 7th top-level state. ──
   if (draft.status === 'queued' || draft.status === 'sending') {
     return (
-      <section className="mt-4 space-y-2 rounded-md border border-primary/40 bg-primary/5 p-3 text-sm">
+      <section aria-label="Reply" className="space-y-2 rounded-xl border border-primary/30 bg-primary-subtle/60 p-4 text-sm">
         <p className="font-semibold text-foreground">{draft.subject}</p>
         <p className="text-xs text-muted">
           To: {draft.toEmails.join(', ')}
           {draft.ccEmails.length > 0 ? ` · Cc: ${draft.ccEmails.join(', ')}` : ''}
         </p>
-        <p className="whitespace-pre-wrap text-xs text-foreground">{draft.bodyText}</p>
+        <p className="whitespace-pre-wrap rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground">
+          {draft.bodyText}
+        </p>
         {draft.status === 'queued' && attachments.length > 0 ? (
           <p className="text-xs text-muted">
             {attachments.map((file) => file.fileName).join(', ')}
@@ -181,7 +212,7 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
         )}
         {actionError ? <Alert variant="error">{actionError}</Alert> : null}
         {draft.status === 'queued' ? (
-          <Button size="sm" variant="outline" loading={pending} onClick={handleCancel}>
+          <Button size="sm" variant="secondary" loading={pending} onClick={handleCancel} icon={<Undo2 aria-hidden />}>
             Undo
           </Button>
         ) : null}
@@ -220,7 +251,7 @@ function Countdown({ sendAfter }: { sendAfter: string }) {
   }, [target])
 
   return (
-    <p className="text-xs text-muted">
+    <p className="num text-xs font-medium text-foreground-secondary">
       {remaining > 0 ? `Sending in ${remaining}s — Undo to cancel` : 'Sending…'}
     </p>
   )

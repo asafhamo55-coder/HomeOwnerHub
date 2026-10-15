@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { LoadFailed, Page } from '@homeowner-portal/ui'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
@@ -10,7 +11,13 @@ import {
 import { DraftPanel } from '../[id]/DraftPanel'
 import { ComposeStarter } from './ComposeStarter'
 
+export const metadata = { title: 'New email' }
 export const dynamic = 'force-dynamic'
+
+const BREADCRUMBS = [{ label: 'Inbox', href: '/inbox' }, { label: 'New email' }]
+// Stated plainly: the conversation is created by the next sync, not by the
+// send, so it will not appear in the list immediately.
+const DESCRIPTION = 'Once sent, this conversation appears in your inbox within a couple of minutes.'
 
 export default async function ComposePage({
   searchParams,
@@ -29,7 +36,14 @@ export default async function ComposePage({
     .order('email_address', { ascending: true })
 
   if (error) {
-    console.error(`ComposePage: mailbox read failed: ${error.code} ${error.message}`)
+    // A failed read is not "no mailbox": it used to fall through to the
+    // redirect below and send the user to connect a mailbox they already have.
+    console.error(`ComposePage: mailbox read failed: ${error.code}`)
+    return (
+      <Page title="New email" width="narrow" breadcrumbs={BREADCRUMBS} linkAs={Link}>
+        <LoadFailed what="your mailbox" />
+      </Page>
+    )
   }
   if (!accounts || accounts.length === 0) {
     redirect('/settings/mailbox')
@@ -39,10 +53,9 @@ export default async function ComposePage({
   // composer renders, because attachments are keyed on its id.
   if (!draftId) {
     return (
-      <main className="mx-auto max-w-2xl p-4">
-        <Header />
+      <Page title="New email" width="narrow" breadcrumbs={BREADCRUMBS} linkAs={Link} description={DESCRIPTION}>
         <ComposeStarter accounts={accounts} />
-      </main>
+      </Page>
     )
   }
 
@@ -55,8 +68,7 @@ export default async function ComposePage({
   ])
 
   return (
-    <main className="mx-auto max-w-2xl p-4">
-      <Header />
+    <Page title="New email" width="narrow" breadcrumbs={BREADCRUMBS} linkAs={Link} description={DESCRIPTION}>
       <DraftPanel
         threadId={null}
         draft={draft}
@@ -64,22 +76,6 @@ export default async function ComposePage({
         threadFiles={[]}
         libraryFiles={libraryFiles}
       />
-    </main>
-  )
-}
-
-function Header() {
-  return (
-    <header className="mb-3">
-      <Link href="/inbox" className="text-xs text-muted underline">
-        ← Back to the inbox
-      </Link>
-      <h1 className="mt-1 text-lg font-semibold text-foreground">New email</h1>
-      {/* Stated plainly: the conversation is created by the next sync, not
-          by the send, so it will not appear in the list immediately. */}
-      <p className="text-xs text-muted">
-        Once sent, this conversation appears in your inbox within a couple of minutes.
-      </p>
-    </header>
+    </Page>
   )
 }

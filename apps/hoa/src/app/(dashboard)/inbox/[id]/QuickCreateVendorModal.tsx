@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import { Alert, Button } from '@homeowner-portal/ui'
+import { Sparkles } from 'lucide-react'
+import { Alert, Badge, Button, Dialog, DialogContent, Field, Input } from '@homeowner-portal/ui'
 import {
   quickCreateVendor,
   assignThreadToVendor,
@@ -121,94 +122,94 @@ export function QuickCreateVendorModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md space-y-3 rounded-md border border-border bg-background p-4">
-        <p className="text-sm font-semibold text-foreground">Create vendor from this email</p>
-        {extracting ? <p className="text-xs text-muted">Reading the signature…</p> : null}
-
-        <VendorField
-          label="Company name"
-          value={legalName}
-          ai={aiFields.has('legalName')}
-          onChange={(value) => {
-            setLegalName(value)
-            clearChip('legalName')
-          }}
-        />
-        <VendorField label="Email" value={primaryEmail} ai={false} onChange={setPrimaryEmail} />
-        <VendorField
-          label="Phone"
-          value={primaryPhone}
-          ai={aiFields.has('primaryPhone')}
-          onChange={(value) => {
-            setPrimaryPhone(value)
-            clearChip('primaryPhone')
-          }}
-        />
-        <VendorField
-          label="Trade"
-          value={trade}
-          ai={aiFields.has('trade')}
-          onChange={(value) => {
-            setTrade(value)
-            clearChip('trade')
-          }}
-        />
-        <VendorField
-          label="EIN"
-          value={ein}
-          ai={aiFields.has('ein')}
-          aiLabel="from W-9"
-          onChange={(value) => {
-            setEin(value)
-            clearChip('ein')
-          }}
-        />
-        {aiFields.has('ein') ? (
-          <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-            Read from an attached document. Check it against the W-9 before
-            saving — this feeds 1099 reporting.
-          </p>
-        ) : null}
-
-        <p className="text-xs text-muted">
-          Created as a prospect. Anything left blank here — an EIN especially —
-          must be filled in on the vendor page before this vendor can be used
-          for 1099s, RFPs, or compliance checks.
-        </p>
-
-        {error ? <Alert variant="error">{error}</Alert> : null}
-        {duplicateId ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="w-full"
-            onClick={() =>
-              start(async () => {
-                await assignThreadToVendor(threadId, duplicateId)
-                onClose()
-              })
+    <Dialog open onOpenChange={(next) => (next ? null : onClose())}>
+      <DialogContent
+        title="Create vendor from this email"
+        description={extracting ? 'Reading the signature…' : 'Check what was read from the email before saving.'}
+        footer={
+          <>
+            <Button variant="secondary" onClick={onClose} disabled={pending}>
+              Cancel
+            </Button>
+            <Button loading={pending} onClick={submit} disabled={!legalName.trim() || !primaryEmail.trim()}>
+              Create &amp; file
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <VendorField
+            label="Company name"
+            required
+            value={legalName}
+            ai={aiFields.has('legalName')}
+            onChange={(value) => {
+              setLegalName(value)
+              clearChip('legalName')
+            }}
+          />
+          <VendorField label="Email" required type="email" value={primaryEmail} ai={false} onChange={setPrimaryEmail} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <VendorField
+              label="Phone"
+              type="tel"
+              value={primaryPhone}
+              ai={aiFields.has('primaryPhone')}
+              onChange={(value) => {
+                setPrimaryPhone(value)
+                clearChip('primaryPhone')
+              }}
+            />
+            <VendorField
+              label="Trade"
+              value={trade}
+              ai={aiFields.has('trade')}
+              onChange={(value) => {
+                setTrade(value)
+                clearChip('trade')
+              }}
+            />
+          </div>
+          <VendorField
+            label="EIN"
+            value={ein}
+            ai={aiFields.has('ein')}
+            aiLabel="from W-9"
+            hint={
+              aiFields.has('ein')
+                ? 'Read from an attached document. Check it against the W-9 before saving — this feeds 1099 reporting.'
+                : undefined
             }
-          >
-            File this thread under the existing vendor instead
-          </Button>
-        ) : null}
+            onChange={(value) => {
+              setEin(value)
+              clearChip('ein')
+            }}
+          />
 
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            loading={pending}
-            onClick={submit}
-            disabled={!legalName.trim() || !primaryEmail.trim()}
-          >
-            Create &amp; file
-          </Button>
-          <Button size="sm" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
+          <p className="text-xs text-muted">
+            Created as a prospect. Anything left blank here — an EIN especially — must be filled in
+            on the vendor page before this vendor can be used for 1099s, RFPs, or compliance checks.
+          </p>
+
+          {error ? <Alert variant="error">{error}</Alert> : null}
+          {duplicateId ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-full"
+              onClick={() =>
+                start(async () => {
+                  await assignThreadToVendor(threadId, duplicateId)
+                  onClose()
+                })
+              }
+            >
+              File this thread under the existing vendor instead
+            </Button>
+          ) : null}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -218,30 +219,33 @@ function VendorField({
   ai,
   onChange,
   aiLabel = 'from signature',
+  required,
+  type = 'text',
+  hint,
 }: {
   label: string
   value: string
   ai: boolean
   onChange: (value: string) => void
   aiLabel?: string
+  required?: boolean
+  type?: string
+  hint?: string
 }) {
   return (
-    <div>
-      <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
-        {label}
-        {ai ? (
-          <span className="rounded bg-primary/10 px-1 py-0.5 text-[10px] font-normal normal-case text-primary">
+    <Field
+      label={label}
+      required={required}
+      hint={hint}
+      labelAside={
+        ai ? (
+          <Badge variant="ai" size="sm" icon={<Sparkles aria-hidden />}>
             {aiLabel}
-          </span>
-        ) : null}
-      </label>
-      <input
-        type="text"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-md border border-border bg-background p-2 text-sm"
-        autoComplete="off"
-      />
-    </div>
+          </Badge>
+        ) : null
+      }
+    >
+      <Input type={type} value={value} onChange={(event) => onChange(event.target.value)} autoComplete="off" />
+    </Field>
   )
 }

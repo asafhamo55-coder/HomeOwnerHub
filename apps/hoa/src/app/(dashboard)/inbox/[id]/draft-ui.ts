@@ -1,15 +1,12 @@
 /**
  * Presentation constants shared by DraftPanel and Composer.
  *
- * No `warning` token exists in the shared Tailwind config
- * (packages/ui/tailwind.config.ts defines only primary/accent/background/
- * surface/border/foreground/muted/destructive as CSS-variable tokens), so the
- * "needs a human decision" tone is this literal amber + dark: pair. The same
- * pair is used in PropertyRail.tsx and MessageThread.tsx; those are left alone
- * here because this task has no other reason to touch them.
+ * The "needs a human decision" well: warning tokens (design system v2), so
+ * it themes in dark mode without a `dark:` pair and its text is AA on its
+ * own background (packages/ui tokens.test.ts).
  */
 export const AMBER_BOX =
-  'rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200'
+  'rounded-lg border border-warning/30 bg-warning-subtle px-3 py-2 text-xs text-foreground'
 
 /**
  * `blank.kind` names a category the model is forbidden from writing itself.

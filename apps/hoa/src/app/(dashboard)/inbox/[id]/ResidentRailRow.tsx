@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Pencil } from 'lucide-react'
-import { Alert, Button, Input, useToast } from '@homeowner-portal/ui'
+import { Alert, Button, Field, Input, useToast } from '@homeowner-portal/ui'
 import { updateResidentFromInbox } from '@/lib/inbox/resident/actions'
 
 interface RailResident {
@@ -15,11 +15,10 @@ interface RailResident {
 }
 
 /**
- * Inline edit, not a modal: `packages/ui` exports no Dialog/Modal/Sheet
- * (only the confirm-only Confirm.tsx, which cannot host children), and
- * inline is the convention this record type already uses on the property
- * page — see properties/[id]/ResidentRow.tsx, whose useTransition + toast +
- * router.refresh() shape this mirrors.
+ * Inline edit, not a modal: the rail is narrow and the edit is three
+ * fields, and inline is the convention this record type uses on the
+ * property page too — see properties/[id]/ResidentRow.tsx, whose
+ * useTransition + toast + router.refresh() shape this mirrors.
  */
 export function ResidentRailRow({
   threadId,
@@ -33,6 +32,7 @@ export function ResidentRailRow({
   const [editing, setEditing] = useState(false)
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [nameError, setNameError] = useState<string | null>(null)
 
   const [fullName, setFullName] = useState(resident.name)
   const [email, setEmail] = useState(resident.email ?? '')
@@ -49,9 +49,10 @@ export function ResidentRailRow({
     event.preventDefault()
     setError(null)
     if (fullName.trim().length === 0) {
-      setError('Name is required.')
+      setNameError('Name is required.')
       return
     }
+    setNameError(null)
 
     startTransition(async () => {
       const result = await updateResidentFromInbox(threadId, resident.id, {
@@ -64,11 +65,11 @@ export function ResidentRailRow({
         return
       }
       // A warning means the record WAS corrected but the alias repoint
-      // failed. Tone is 'info', not 'error' — ToastTone has no 'warning',
+      // failed. Tone is 'warning', not 'error':
       // and signalling an error for a save that succeeded would invite a
       // retry. The message text carries the caveat.
       toast({
-        tone: result.warning ? 'info' : 'success',
+        tone: result.warning ? 'warning' : 'success',
         message: result.warning ?? 'Resident updated.',
       })
       setEditing(false)
@@ -79,6 +80,7 @@ export function ResidentRailRow({
   function cancel() {
     setEditing(false)
     setError(null)
+    setNameError(null)
     setFullName(resident.name)
     setEmail(resident.email ?? '')
     setPhone(resident.phone ?? '')
@@ -88,74 +90,53 @@ export function ResidentRailRow({
     return (
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-xs text-foreground">
-            {resident.name} <span className="text-muted">({resident.role})</span>
+          <p className="truncate text-sm text-foreground">
+            {resident.name} <span className="text-xs text-muted">· {resident.role.replace(/_/g, ' ')}</span>
           </p>
-          {resident.email ? (
-            <p className="truncate text-[11px] text-muted">{resident.email}</p>
-          ) : null}
+          {resident.email ? <p className="truncate text-xs text-muted">{resident.email}</p> : null}
         </div>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           onClick={() => setEditing(true)}
           aria-label={`Edit ${resident.name}`}
-          className="shrink-0 rounded p-1 text-muted hover:bg-muted/10 hover:text-foreground"
-        >
-          <Pencil className="h-3 w-3" />
-        </button>
+          icon={<Pencil aria-hidden />}
+        />
       </div>
     )
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-2 rounded-md border border-border p-2">
-      <RailField label="Name" value={fullName} onChange={setFullName} />
-      <RailField label="Email" value={email} onChange={setEmail} type="email" />
-      <RailField label="Phone" value={phone} onChange={setPhone} />
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-border bg-subtle/60 p-3">
+      <Field label="Name" error={nameError} required>
+        <Input value={fullName} onChange={(event) => setFullName(event.target.value)} autoComplete="off" />
+      </Field>
+      <Field label="Email">
+        <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="off" />
+      </Field>
+      <Field label="Phone">
+        <Input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} autoComplete="off" />
+      </Field>
 
       {emailChanged ? (
-        <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-          Changing the email re-points where their mail files. It does not
-          update their resident-portal sign-in or the mailing lists used for
-          announcements — those still hold the old address.
-        </p>
+        <Alert variant="warning" hideIcon className="p-3 text-xs">
+          Changing the email re-points where their mail files. It does not update their
+          resident-portal sign-in or the mailing lists used for announcements — those still hold
+          the old address.
+        </Alert>
       ) : null}
 
       {error ? <Alert variant="error">{error}</Alert> : null}
 
-      <div className="flex gap-2">
+      <div className="flex justify-end gap-2">
+        <Button type="button" size="sm" variant="ghost" onClick={cancel} disabled={pending}>
+          Cancel
+        </Button>
         <Button type="submit" size="sm" loading={pending}>
           Save
         </Button>
-        <Button type="button" size="sm" variant="outline" onClick={cancel}>
-          Cancel
-        </Button>
       </div>
     </form>
-  )
-}
-
-function RailField({
-  label,
-  value,
-  onChange,
-  type = 'text',
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  type?: string
-}) {
-  return (
-    <label className="block">
-      <span className="block text-[10px] uppercase tracking-wide text-muted">{label}</span>
-      <Input
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="text-xs"
-        autoComplete="off"
-      />
-    </label>
   )
 }

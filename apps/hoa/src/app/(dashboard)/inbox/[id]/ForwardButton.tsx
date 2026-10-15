@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { Forward } from 'lucide-react'
 import { Alert, Button } from '@homeowner-portal/ui'
 import { createForwardDraft } from '@/lib/inbox/draft/actions'
 import type { ThreadDraft } from '@/lib/inbox/queries'
@@ -60,8 +61,8 @@ export function ForwardButton({
   return (
     <div className="max-w-56 space-y-1 text-right">
       <Button
-        size="sm"
-        variant="outline"
+        variant="secondary"
+        icon={<Forward aria-hidden />}
         loading={pending}
         disabled={blockedReason !== null}
         onClick={handleForward}

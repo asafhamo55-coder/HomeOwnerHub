@@ -2,7 +2,16 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { Alert, Button } from '@homeowner-portal/ui'
+import { PenSquare } from 'lucide-react'
+import {
+  Alert,
+  Button,
+  Card,
+  CardContent,
+  CardFooter,
+  Field,
+  Select,
+} from '@homeowner-portal/ui'
 import { createComposeDraft } from '@/lib/inbox/draft/actions'
 
 export function ComposeStarter({
@@ -28,33 +37,33 @@ export function ComposeStarter({
   }
 
   return (
-    <section className="space-y-3 rounded-md border border-border p-3">
-      {accounts.length > 1 ? (
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wide text-muted">
-            Send from
-          </label>
-          <select
-            value={accountId}
-            onChange={(event) => setAccountId(event.target.value)}
-            className="w-full rounded-md border border-border bg-background p-2 text-sm"
-          >
-            {accounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.email_address}
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : (
-        <p className="text-xs text-muted">Sending from {accounts[0].email_address}</p>
-      )}
-
-      {error ? <Alert variant="error">{error}</Alert> : null}
-
-      <Button size="sm" loading={pending} onClick={start}>
-        Start writing
-      </Button>
-    </section>
+    <Card>
+      <CardContent className="space-y-4 pt-5">
+        {accounts.length > 1 ? (
+          <Field label="Send from">
+            <Select value={accountId} onValueChange={setAccountId}>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.email_address}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : (
+          <p className="text-sm text-foreground-secondary">
+            Sending from <span className="font-medium text-foreground">{accounts[0].email_address}</span>
+          </p>
+        )}
+        <p className="text-xs text-muted">
+          You&apos;ll add recipients, a subject and attachments next. Nothing sends until you approve it.
+        </p>
+        {error ? <Alert variant="error">{error}</Alert> : null}
+      </CardContent>
+      <CardFooter className="justify-end">
+        <Button loading={pending} onClick={start} icon={<PenSquare aria-hidden />}>
+          Start writing
+        </Button>
+      </CardFooter>
+    </Card>
   )
 }

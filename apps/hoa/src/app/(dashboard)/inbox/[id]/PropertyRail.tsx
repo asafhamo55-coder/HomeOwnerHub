@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import { ArrowRight, Home } from 'lucide-react'
+import { Alert, StatusPill, cn } from '@homeowner-portal/ui'
 import type { PropertyContext, ThreadDetail } from '@/lib/inbox/queries'
 import { AssignPropertyForm } from './AssignPropertyForm'
 import { ResidentRailRow } from './ResidentRailRow'
@@ -18,6 +20,11 @@ interface Props {
   suggestedProperty: { unitId: string; address: string } | null
 }
 
+/** Section label shared by the property and vendor rails. */
+export function RailLabel({ children }: { children: React.ReactNode }) {
+  return <h2 className="text-xs font-semibold uppercase tracking-[0.06em] text-muted">{children}</h2>
+}
+
 export function PropertyRail({ thread, context, contextLoadFailed, suggestedProperty }: Props) {
   // Branch on unitId (ground truth) first, before anything derived from
   // the context fetch — the exact ordering ThreadList.tsx's attribution
@@ -26,12 +33,12 @@ export function PropertyRail({ thread, context, contextLoadFailed, suggestedProp
   if (thread.unitId) {
     if (contextLoadFailed) {
       return (
-        <div className="space-y-3 p-3">
-          <p className="text-sm font-semibold text-foreground">Property context unavailable</p>
-          <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-            This thread is filed, but dues/violations/tickets couldn&apos;t be loaded
-            right now. Refresh to try again — the thread is still correctly matched.
-          </p>
+        <div className="space-y-3 p-4">
+          <RailLabel>Property</RailLabel>
+          <Alert variant="warning" title="Property context unavailable">
+            This thread is filed, but dues, violations and tickets couldn&apos;t be loaded right
+            now. Refresh to try again — the thread is still correctly matched.
+          </Alert>
         </div>
       )
     }
@@ -43,147 +50,147 @@ export function PropertyRail({ thread, context, contextLoadFailed, suggestedProp
       // assign-form branch below, which would misrepresent a filed thread
       // as unmatched.
       return (
-        <div className="space-y-3 p-3">
-          <p className="text-sm font-semibold text-foreground">Property record missing</p>
+        <div className="space-y-3 p-4">
+          <RailLabel>Property</RailLabel>
+          <p className="text-sm font-medium text-foreground">Property record missing</p>
           <p className="text-xs text-muted">
-            This thread is filed under a property that no longer exists. Contact an
-            admin to fix the assignment.
+            This thread is filed under a property that no longer exists. Contact an admin to fix
+            the assignment.
           </p>
         </div>
       )
     }
 
+    const failed = (k: PropertyContext['degraded'][number]) => context.degraded.includes(k)
+
     return (
-      <div className="space-y-2.5 p-3">
-        <div>
-          <p className="font-semibold text-foreground">
-            {context.address}
-            {context.unitNumber ? ` #${context.unitNumber}` : ''}
-          </p>
-          {/* The degraded branch stays FIRST. getPropertyContext defaults
-              residents to [] and pushes 'residents' onto `degraded` when the
-              query fails — without this branch an unloadable list would
-              render as an editable empty list, the same class of lie the
-              unitId-first ordering above exists to prevent. */}
-          {context.degraded.includes('residents') ? (
-            <p className="text-xs text-muted">Residents couldn&apos;t load</p>
-          ) : context.residents.length === 0 ? (
-            <p className="text-xs text-muted">No residents on file</p>
-          ) : (
-            <div className="space-y-1.5">
-              {context.residents.map((resident) => (
-                <ResidentRailRow key={resident.id} threadId={thread.id} resident={resident} />
-              ))}
-            </div>
-          )}
-          <p className="mt-0.5 text-[11px] text-muted">
+      <div className="space-y-4 p-4">
+        <div className="space-y-2">
+          <RailLabel>Property</RailLabel>
+          <Link
+            href={`/properties/${thread.unitId}`}
+            className="group flex items-start gap-2 rounded-lg no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Home className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />
+            <span className="min-w-0 flex-1 text-sm font-semibold text-foreground group-hover:text-primary">
+              {context.address}
+              {context.unitNumber ? ` #${context.unitNumber}` : ''}
+            </span>
+            <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted group-hover:text-primary" aria-hidden />
+          </Link>
+          <p className="text-xs text-muted">
             Matched via {String(thread.matchReason?.rule ?? 'unknown')}
             {thread.matchSource === 'manual' ? ' (manual)' : ''}
           </p>
         </div>
 
-        <RailBox
-          label="Dues"
-          tone={
-            context.degraded.includes('dues')
-              ? 'warn'
-              : context.duesBalance > 0
-                ? 'danger'
-                : 'ok'
-          }
-          value={
-            context.degraded.includes('dues')
-              ? "Couldn't load"
-              : context.duesBalance > 0
-                ? `$${context.duesBalance.toFixed(2)}${
-                    context.duesOverdueCount > 0
-                      ? ` · ${context.duesOverdueCount} overdue`
-                      : ''
-                  }`
-                : 'Current'
-          }
-        />
-
-        <RailBox
-          label="Open violations"
-          tone={
-            context.degraded.includes('violations')
-              ? 'warn'
-              : context.openViolations > 0
-                ? 'warn'
-                : 'plain'
-          }
-          value={
-            context.degraded.includes('violations')
-              ? "Couldn't load"
-              : context.openViolations > 0
-                ? String(context.openViolations)
-                : 'None'
-          }
-        />
-
-        <RailBox
-          label="Open ARC"
-          tone={context.degraded.includes('arc') ? 'warn' : 'plain'}
-          value={
-            context.degraded.includes('arc')
-              ? "Couldn't load"
-              : context.openArcRequests.length > 0
-                ? context.openArcRequests.map((a) => `${a.summary} (${a.status})`).join(', ')
-                : 'None'
-          }
-        />
-
-        <RailBox
-          label="Open tickets"
-          tone={context.degraded.includes('tickets') ? 'warn' : 'plain'}
-          value={
-            context.degraded.includes('tickets')
-              ? "Couldn't load"
-              : context.openTickets.length > 0
-                ? context.openTickets.map((t) => t.subject).join(', ')
-                : 'None'
-          }
-        />
-
-        <RailBox
-          label="Last sent"
-          tone={context.degraded.includes('lastCommunication') ? 'warn' : 'plain'}
-          value={
-            context.degraded.includes('lastCommunication')
-              ? "Couldn't load"
-              : context.lastCommunication
-                ? `${context.lastCommunication.subject}${
-                    context.lastCommunication.sentAt
-                      ? ` — ${formatShortDate(context.lastCommunication.sentAt)}`
-                      : ''
-                  }`
-                : 'Nothing sent yet'
-          }
-        />
-
-        <div className="space-y-1 border-t border-border pt-2 text-xs">
-          <Link href={`/properties/${thread.unitId}`} className="block underline">
-            Open property →
-          </Link>
+        <div className="space-y-2">
+          <RailLabel>Residents</RailLabel>
+          {/* The degraded branch stays FIRST. getPropertyContext defaults
+              residents to [] and pushes 'residents' onto `degraded` when the
+              query fails — without this branch an unloadable list would
+              render as an editable empty list, the same class of lie the
+              unitId-first ordering above exists to prevent. */}
+          {failed('residents') ? (
+            <p className="text-xs font-medium text-warning">Residents couldn&apos;t load</p>
+          ) : context.residents.length === 0 ? (
+            <p className="text-xs text-muted">No residents on file</p>
+          ) : (
+            <div className="space-y-2">
+              {context.residents.map((resident) => (
+                <ResidentRailRow key={resident.id} threadId={thread.id} resident={resident} />
+              ))}
+            </div>
+          )}
         </div>
+
+        <dl className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+          <RailFact
+            label="Dues"
+            failed={failed('dues')}
+            value={
+              context.duesBalance > 0 ? (
+                <StatusPill
+                  tone="danger"
+                  label={`$${context.duesBalance.toFixed(2)}${
+                    context.duesOverdueCount > 0 ? ` · ${context.duesOverdueCount} overdue` : ''
+                  }`}
+                />
+              ) : (
+                <StatusPill tone="success" label="Current" />
+              )
+            }
+          />
+          <RailFact
+            label="Open violations"
+            failed={failed('violations')}
+            value={
+              context.openViolations > 0 ? (
+                <StatusPill tone="warning" label={String(context.openViolations)} />
+              ) : (
+                <span className="text-muted">None</span>
+              )
+            }
+          />
+          <RailFact
+            label="Open ARC"
+            failed={failed('arc')}
+            stacked={context.openArcRequests.length > 0}
+            value={
+              context.openArcRequests.length > 0 ? (
+                context.openArcRequests.map((a) => `${a.summary} (${a.status.replace(/_/g, ' ')})`).join(', ')
+              ) : (
+                <span className="text-muted">None</span>
+              )
+            }
+          />
+          <RailFact
+            label="Open tickets"
+            failed={failed('tickets')}
+            stacked={context.openTickets.length > 0}
+            value={
+              context.openTickets.length > 0 ? (
+                context.openTickets.map((t) => t.subject).join(', ')
+              ) : (
+                <span className="text-muted">None</span>
+              )
+            }
+          />
+          <RailFact
+            label="Last sent"
+            failed={failed('lastCommunication')}
+            stacked={Boolean(context.lastCommunication)}
+            value={
+              context.lastCommunication ? (
+                `${context.lastCommunication.subject}${
+                  context.lastCommunication.sentAt
+                    ? ` — ${formatShortDate(context.lastCommunication.sentAt)}`
+                    : ''
+                }`
+              ) : (
+                <span className="text-muted">Nothing sent yet</span>
+              )
+            }
+          />
+        </dl>
       </div>
     )
   }
 
   // No unitId — genuinely not filed yet.
   return (
-    <div className="space-y-3 p-3">
-      <p className="text-sm font-semibold text-foreground">Not filed yet</p>
+    <div className="space-y-3 p-4">
+      <RailLabel>Property</RailLabel>
+      <p className="text-sm font-medium text-foreground">Not filed under a property yet</p>
       {suggestedProperty ? (
-        <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-          Suggested: {suggestedProperty.address} — matched via{' '}
-          {String(thread.matchReason?.rule ?? 'unknown')}. Confirm below.
-        </p>
+        <Alert variant="warning" hideIcon>
+          Suggested: <strong className="font-semibold text-foreground">{suggestedProperty.address}</strong> —
+          matched via {String(thread.matchReason?.rule ?? 'unknown')}. Confirm below.
+        </Alert>
       ) : (
         <p className="text-xs text-muted">
-          No property matched this sender. File it manually, or leave it if it
-          isn&apos;t about a specific home.
+          No property matched this sender. File it manually, or leave it if it isn&apos;t about a
+          specific home.
         </p>
       )}
       <AssignPropertyForm threadId={thread.id} suggestedProperty={suggestedProperty} />
@@ -191,31 +198,34 @@ export function PropertyRail({ thread, context, contextLoadFailed, suggestedProp
   )
 }
 
-function RailBox({
+/**
+ * One fact row. A section that failed to load says so in warning text —
+ * never its numeric default ("None", "Current"), which would be a lie.
+ */
+function RailFact({
   label,
   value,
-  tone,
+  failed,
+  stacked = false,
 }: {
   label: string
-  value: string
-  tone: 'ok' | 'warn' | 'danger' | 'plain'
+  value: React.ReactNode
+  failed: boolean
+  /** Long text values go under the label instead of beside it. */
+  stacked?: boolean
 }) {
-  // `border-warning` doesn't exist in the shared Tailwind config
-  // (packages/ui/tailwind.config.ts) — literal amber with a dark:
-  // variant, same pair used throughout this task for the "needs
-  // attention but isn't destructive" tone. `border-destructive` is a
-  // real token (used by Button/Alert), so that one is untouched.
-  const border =
-    tone === 'danger'
-      ? 'border-destructive'
-      : tone === 'warn'
-        ? 'border-amber-400 dark:border-amber-700'
-        : 'border-border'
-
   return (
-    <div className={`rounded-md border ${border} p-2`}>
-      <p className="text-[10px] uppercase tracking-wide text-muted">{label}</p>
-      <p className="text-sm text-foreground">{value}</p>
+    <div
+      className={cn(
+        'bg-surface px-3 py-2.5 text-sm',
+        stacked && !failed ? 'space-y-1' : 'flex items-center justify-between gap-3',
+      )}
+    >
+      <dt className="shrink-0 text-xs text-muted">{label}</dt>
+      <dd className={cn('min-w-0 text-foreground', stacked && !failed ? 'text-xs' : 'text-right')}>
+        {failed ? <span className="text-xs font-medium text-warning">Couldn&apos;t load</span> : value}
+      </dd>
     </div>
   )
 }
+

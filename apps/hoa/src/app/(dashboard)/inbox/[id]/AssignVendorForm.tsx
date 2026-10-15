@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import { Alert, Button } from '@homeowner-portal/ui'
+import { Plus, Search } from 'lucide-react'
+import { Alert, Button, Field, Input } from '@homeowner-portal/ui'
 import {
   searchVendors,
   assignThreadToVendor,
@@ -60,31 +61,33 @@ export function AssignVendorForm({ threadId, senderEmail, senderName }: Props) {
   const noMatches = searched && !searchPending && results.length === 0
 
   return (
-    <div className="space-y-2">
-      <label className="block text-xs font-semibold uppercase tracking-wide text-muted">
-        File under vendor
-      </label>
-      <input
-        type="text"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Search vendors by name or email…"
-        className="w-full rounded-md border border-border bg-background p-2 text-sm"
-        autoComplete="off"
-      />
+    <div className="space-y-3">
+      <Field label="File under vendor">
+        <Input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search vendors by name or email…"
+          prefix={<Search aria-hidden />}
+          autoComplete="off"
+        />
+      </Field>
 
       {results.length > 0 ? (
-        <ul className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-border">
+        <ul
+          aria-label="Matching vendors"
+          className="max-h-44 divide-y divide-border overflow-y-auto rounded-lg border border-border bg-surface"
+        >
           {results.map((vendor) => (
             <li key={vendor.vendorId}>
               <button
                 type="button"
                 disabled={assignPending}
                 onClick={() => assign(vendor.vendorId)}
-                className="block w-full px-2 py-1.5 text-left text-sm hover:bg-muted/10"
+                className="block w-full px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-subtle focus-visible:bg-subtle focus-visible:outline-none disabled:opacity-50"
               >
                 {vendor.legalName}
-                {vendor.incomplete ? ' — setup incomplete' : ''}
+                {vendor.incomplete ? <span className="text-xs text-warning"> — setup incomplete</span> : null}
               </button>
             </li>
           ))}
@@ -92,12 +95,13 @@ export function AssignVendorForm({ threadId, senderEmail, senderName }: Props) {
       ) : null}
 
       {noMatches ? (
-        <div className="space-y-1">
+        <div className="space-y-2">
           <p className="text-xs text-muted">No matching vendors.</p>
           <Button
             size="sm"
-            variant="outline"
+            variant="secondary"
             onClick={() => setModalOpen(true)}
+            icon={<Plus aria-hidden />}
             className="w-full"
           >
             Create new vendor
@@ -107,6 +111,8 @@ export function AssignVendorForm({ threadId, senderEmail, senderName }: Props) {
 
       {error ? <Alert variant="error">{error}</Alert> : null}
 
+      {/* Mounted only while open: mounting starts the signature extraction
+          (a model call), which must not run on every thread view. */}
       {modalOpen ? (
         <QuickCreateVendorModal
           threadId={threadId}
@@ -128,7 +134,7 @@ export function UnassignVendorButton({ threadId }: { threadId: string }) {
     <>
       <Button
         size="sm"
-        variant="outline"
+        variant="secondary"
         loading={pending}
         onClick={() =>
           start(async () => {

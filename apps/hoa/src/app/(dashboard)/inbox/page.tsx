@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Alert, Pager } from '@homeowner-portal/ui'
+import { Inbox, MailPlus, PenSquare, Plug } from 'lucide-react'
+import { Button, EmptyState, Page, PageHeader, Pager } from '@homeowner-portal/ui'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
@@ -9,25 +10,12 @@ import {
   INBOX_PAGE_SIZE,
   type InboxFilter,
 } from '@/lib/inbox/queries'
+import { SplitPaneFrame, SplitPaneHeader, SplitPanePlaceholder } from '@/components/split-pane/SplitPane'
 import { ThreadList } from './ThreadList'
+import { INBOX_FILTERS, InboxFilterChips, MailboxSyncAlert, mailboxSummary } from './InboxChrome'
 
 export const metadata = { title: 'Inbox' }
 export const dynamic = 'force-dynamic'
-
-const FILTERS: Array<{ key: InboxFilter; label: string }> = [
-  { key: 'needs_review', label: 'Needs review' },
-  { key: 'awaiting_resident', label: 'Awaiting resident' },
-  { key: 'open', label: 'Open' },
-  { key: 'waiting', label: 'Waiting' },
-  { key: 'closed', label: 'Closed' },
-  { key: 'all', label: 'All' },
-  // No "Filed in Gmail" chip. Mail the board filed or trashed in Gmail is
-  // hidden and stays hidden: the count was noise in a work queue — it only
-  // grows, and sitting beside "Needs review" it read as comparable work.
-  // Madison Park showed 89 there against 2 threads actually in the Gmail
-  // inbox. The rows are untouched and still queryable; they are just not
-  // something the board is asked to look at.
-]
 
 // Split-pane list/detail layout, deliberately NOT wrapped in <Page> (a
 // fixed-width container would break its full-height panes). Load failures
@@ -49,7 +37,7 @@ export default async function InboxPage({
   const { org, role } = await requireBoardOrAdmin()
   const canManageMailbox = role === 'admin'
 
-  const filter = (FILTERS.find((f) => f.key === params.filter)?.key ??
+  const filter = (INBOX_FILTERS.find((f) => f.key === params.filter)?.key ??
     'needs_review') as InboxFilter
 
   const supabase = await getSupabaseServerClient()
@@ -77,97 +65,88 @@ export default async function InboxPage({
 
   if (!status) {
     return (
-      <main className="mx-auto max-w-2xl p-6">
-        <Alert variant="info" title="No mailbox connected">
-          Connect your HOA mailbox to see resident email here.{' '}
-          {canManageMailbox ? (
-            <Link href="/settings/mailbox" className="underline">
-              Connect
-            </Link>
-          ) : (
-            'Ask an HOA admin to connect it.'
-          )}
-        </Alert>
-      </main>
+      <Page title="Inbox" width="narrow" description="Resident email, matched to the homes it is about.">
+        <EmptyState
+          icon={<Plug aria-hidden />}
+          title="No mailbox connected"
+          description={
+            canManageMailbox
+              ? 'Connect the HOA’s Gmail mailbox and resident email will appear here, filed under the right property.'
+              : 'An HOA admin needs to connect the HOA’s Gmail mailbox before resident email can appear here.'
+          }
+          action={
+            canManageMailbox ? (
+              <Button asChild>
+                <Link href="/settings/mailbox">
+          <Plug aria-hidden />
+          Connect mailbox
+        </Link>
+              </Button>
+            ) : null
+          }
+        />
+      </Page>
     )
   }
 
   return (
-    <main className="flex h-[calc(100vh-4rem)] flex-col">
-      {/* Gated on `syncError`, NOT on `syncStatus !== 'ok'` (amended
-          post-review — final branch review, Fix 2). A run that skipped
-          messages it could not fetch or parse still finishes with
-          sync_status='ok' and records the skip count in sync_error
-          (packages/jobs/src/mailbox-sync.ts); the previous condition threw
-          that away, so the inbox was silently missing mail while every
-          surface read "Connected". Those messages are permanently skipped —
-          the cursor moved past them — so this is the only place the board
-          will ever hear about them.
-
-          Amber for a partial sync, red only for auth_failed: "we have your
-          mail, minus a few messages" and "we are not receiving your mail"
-          must stay visually distinguishable, or the board learns to ignore
-          both. */}
-      {status.syncStatus !== 'ok' || status.syncError ? (
-        <Alert
-          variant={status.syncStatus === 'auth_failed' ? 'error' : 'warning'}
-          title={
-            status.syncStatus === 'auth_failed'
-              ? 'Mailbox disconnected — reconnect required'
-              : status.syncStatus === 'stalled'
-                ? 'Mail sync has stalled'
-                : // Covers both a partially-skipped run and a run that
-                  // failed outright — mailboxSyncJob records sync_error
-                  // without touching sync_status, so 'ok' + an error means
-                  // either. See MailboxConnectCard for the full reasoning.
-                  'Last sync reported a problem'
+    <SplitPaneFrame>
+      <SplitPaneHeader>
+        <PageHeader
+          title="Inbox"
+          description={mailboxSummary(status)}
+          actions={
+            <Button asChild>
+              <Link href="/inbox/compose">
+          <PenSquare aria-hidden />
+          New email
+        </Link>
+            </Button>
           }
-          className="m-3"
-        >
-          {/* sync_error is written from a caught error's .message by the
-              jobs layer (packages/jobs) — operator-facing diagnostic text,
-              not user input. React escapes it as plain text content below,
-              so it can't inject markup; it is never interpolated into an
-              href, dangerouslySetInnerHTML, or any other raw sink. */}
-          {status.syncError ?? 'Resident email may not be arriving.'}{' '}
-          {/* Only admins can reach /settings/mailbox (requireAdmin) or
-              start an OAuth connect, so linking a board member there
-              lands them on a silent redirect to '/' with no explanation.
-              Tell them who can fix it instead of offering a dead end. */}
-          {canManageMailbox ? (
-            <Link href="/settings/mailbox" className="underline">
-              Fix
-            </Link>
-          ) : (
-            'Ask an HOA admin to fix it.'
-          )}
-        </Alert>
-      ) : null}
+        />
+        <InboxFilterChips filter={filter} counts={counts} />
+      </SplitPaneHeader>
 
-      <div className="flex flex-1 overflow-hidden">
-        <aside className="w-full max-w-sm shrink-0 overflow-y-auto border-r border-border xl:max-w-xs">
-          <nav className="flex flex-wrap items-center gap-1 border-b border-border p-2 text-xs">
-            {FILTERS.map((option) => (
-              <Link
-                key={option.key}
-                href={`/inbox?filter=${option.key}`}
-                className={`rounded-full px-2.5 py-1 ${
-                  option.key === filter
-                    ? 'bg-primary text-primary-fg'
-                    : 'text-muted hover:bg-muted/10'
-                }`}
-              >
-                {option.label} {counts[option.key] ?? 0}
-              </Link>
-            ))}
-            <Link
-              href="/inbox/compose"
-              className="rounded-md border border-border px-3 py-1 text-xs text-foreground"
-            >
-              New email
-            </Link>
-          </nav>
-          <ThreadList threads={threads} filter={filter} hasAnyThreads={counts.all > 0} />
+      <MailboxSyncAlert status={status} canManageMailbox={canManageMailbox} className="m-3 shrink-0 sm:mx-6" />
+
+      <div className="flex min-h-0 flex-1">
+        <aside
+          aria-label="Conversations"
+          className="flex w-full shrink-0 flex-col overflow-y-auto border-r border-border bg-surface lg:w-[26rem]"
+        >
+          {threads.length === 0 ? (
+            counts.all > 0 ? (
+              <EmptyState
+                variant="compact"
+                icon={<Inbox aria-hidden />}
+                title={filter === 'needs_review' ? 'Nothing needs review' : 'No conversations here'}
+                description={
+                  filter === 'needs_review'
+                    ? 'Every conversation is filed under a property. New mail that can’t be matched lands here.'
+                    : 'No conversations match this filter.'
+                }
+                action={
+                  <Button asChild variant="secondary" size="sm">
+                    <Link href="/inbox?filter=all">Show all conversations</Link>
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                variant="compact"
+                icon={<MailPlus aria-hidden />}
+                title="No mail yet"
+                description="Mail syncs every 2 minutes. You can also start a conversation yourself."
+                action={
+                  <Button asChild variant="secondary" size="sm">
+                    <Link href="/inbox/compose">New email</Link>
+                  </Button>
+                }
+              />
+            )
+          ) : (
+            <ThreadList threads={threads} filter={filter} page={page} />
+          )}
           <Pager
             page={page}
             pageSize={INBOX_PAGE_SIZE}
@@ -175,14 +154,17 @@ export default async function InboxPage({
             rowCount={threads.length}
             hrefFor={(p) => `/inbox?filter=${filter}&page=${p}`}
             linkAs={Link}
-            className="border-t border-border"
+            noun="conversations"
+            className="mt-auto border-t border-border"
           />
         </aside>
 
-        <section className="hidden flex-1 items-center justify-center text-sm text-muted lg:flex">
-          Select a conversation
-        </section>
+        <SplitPanePlaceholder
+          icon={<Inbox aria-hidden />}
+          title="Select a conversation"
+          hint="Open a thread to read it, see the resident’s property at a glance, and draft a reply."
+        />
       </div>
-    </main>
+    </SplitPaneFrame>
   )
 }

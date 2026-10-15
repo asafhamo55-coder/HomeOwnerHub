@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
+import { FileText, Paperclip, Upload, X } from 'lucide-react'
 import { Alert, Button } from '@homeowner-portal/ui'
 // The repo's singleton, NOT a bare createBrowserClient — one browser client
 // per page load, so we don't add duplicate auth listeners and websocket fanout
@@ -107,28 +108,31 @@ export function AttachmentPicker({
   }
 
   return (
-    <div className="space-y-2 border-t border-border pt-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted">
-          Attachments
-        </span>
-        <span className="text-xs text-muted">{formatBytes(remaining)} left</span>
+    <div className="space-y-2.5 border-t border-border pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-sm font-medium text-foreground">Attachments</span>
+        <span className="num text-xs text-muted">{formatBytes(remaining)} left</span>
       </div>
 
       {attachments.length > 0 ? (
-        <ul className="space-y-1">
+        <ul className="flex flex-wrap gap-2">
           {attachments.map((file) => (
-            <li key={file.id} className="flex items-center gap-2 text-xs">
-              <span className="text-foreground">📎 {file.fileName}</span>
-              <span className="text-muted">{formatBytes(file.sizeBytes)}</span>
-              <button
+            <li
+              key={file.id}
+              className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-border bg-subtle py-1 pl-2.5 pr-1 text-xs"
+            >
+              <Paperclip className="size-3.5 shrink-0 text-muted" aria-hidden />
+              <span className="truncate text-foreground">{file.fileName}</span>
+              <span className="num shrink-0 text-muted">{formatBytes(file.sizeBytes)}</span>
+              <Button
                 type="button"
-                className="text-muted underline"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Remove ${file.fileName}`}
                 onClick={() => remove(file.id)}
                 disabled={busy}
-              >
-                Remove
-              </button>
+                icon={<X aria-hidden />}
+              />
             </li>
           ))}
         </ul>
@@ -139,6 +143,8 @@ export function AttachmentPicker({
           ref={fileInput}
           type="file"
           className="hidden"
+          aria-hidden
+          tabIndex={-1}
           onChange={(event) => {
             const file = event.target.files?.[0]
             if (file) void upload(file)
@@ -147,9 +153,10 @@ export function AttachmentPicker({
         <Button
           type="button"
           size="sm"
-          variant="outline"
+          variant="secondary"
           loading={uploading}
           disabled={busy}
+          icon={<Upload aria-hidden />}
           onClick={() => fileInput.current?.click()}
         >
           Upload a file
@@ -158,8 +165,10 @@ export function AttachmentPicker({
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             disabled={busy}
+            icon={<Paperclip aria-hidden />}
+            aria-expanded={open === 'thread'}
             onClick={() => setOpen(open === 'thread' ? null : 'thread')}
           >
             From this thread
@@ -168,8 +177,10 @@ export function AttachmentPicker({
         <Button
           type="button"
           size="sm"
-          variant="outline"
+          variant="secondary"
           disabled={busy}
+          icon={<FileText aria-hidden />}
+          aria-expanded={open === 'library'}
           onClick={() => setOpen(open === 'library' ? null : 'library')}
         >
           From documents
@@ -177,16 +188,18 @@ export function AttachmentPicker({
       </div>
 
       {open === 'thread' ? (
-        <ul className="rounded-md border border-border p-2">
+        <ul className="max-h-48 divide-y divide-border overflow-y-auto rounded-lg border border-border">
           {threadFiles.map((file) => (
             <li key={file.id}>
               <button
                 type="button"
-                className="w-full text-left text-xs underline"
+                className={PICK_ROW}
                 onClick={() => attach('inbox', file.id, file.sizeBytes)}
                 disabled={busy}
               >
-                📎 {file.fileName} · {formatBytes(file.sizeBytes)}
+                <Paperclip className="size-3.5 shrink-0 text-muted" aria-hidden />
+                <span className="min-w-0 flex-1 truncate">{file.fileName}</span>
+                <span className="num shrink-0 text-muted">{formatBytes(file.sizeBytes)}</span>
               </button>
             </li>
           ))}
@@ -194,19 +207,22 @@ export function AttachmentPicker({
       ) : null}
 
       {open === 'library' ? (
-        <ul className="max-h-48 overflow-y-auto rounded-md border border-border p-2">
+        <ul className="max-h-48 divide-y divide-border overflow-y-auto rounded-lg border border-border">
           {libraryFiles.length === 0 ? (
-            <li className="text-xs text-muted">No documents uploaded yet.</li>
+            <li className="px-3 py-2 text-xs text-muted">No documents uploaded yet.</li>
           ) : (
             libraryFiles.map((file) => (
               <li key={file.id}>
                 <button
                   type="button"
-                  className="w-full text-left text-xs underline"
+                  className={PICK_ROW}
                   onClick={() => attach('document', file.id, file.sizeBytes)}
                   disabled={busy}
                 >
-                  📄 {file.name} · {file.type} · {formatBytes(file.sizeBytes)}
+                  <FileText className="size-3.5 shrink-0 text-muted" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                  <span className="shrink-0 text-muted">{file.type}</span>
+                  <span className="num shrink-0 text-muted">{formatBytes(file.sizeBytes)}</span>
                 </button>
               </li>
             ))
@@ -218,3 +234,6 @@ export function AttachmentPicker({
     </div>
   )
 }
+
+const PICK_ROW =
+  'flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-foreground transition-colors hover:bg-subtle focus-visible:bg-subtle focus-visible:outline-none disabled:opacity-50'

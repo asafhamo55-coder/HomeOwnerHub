@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, useTransition, useActionState } from 'react'
-import { Alert, Button } from '@homeowner-portal/ui'
+import { Check, Search } from 'lucide-react'
+import { Alert, Button, Checkbox, Field, Input } from '@homeowner-portal/ui'
 import { assignThreadToProperty, searchProperties, type InboxActionState } from '@/lib/inbox/actions'
 
 const initial: InboxActionState = {}
@@ -50,32 +51,37 @@ export function AssignPropertyForm({ threadId, suggestedProperty }: Props) {
   }, [query])
 
   return (
-    <form action={action} className="space-y-2">
+    <form action={action} className="space-y-3">
       <input type="hidden" name="threadId" value={threadId} />
       <input type="hidden" name="unitId" value={selected?.unitId ?? ''} />
 
-      <label className="block text-xs font-semibold uppercase tracking-wide text-muted">
-        File under property
-      </label>
-      <input
-        type="text"
-        value={query}
-        onChange={(event) => {
-          setQuery(event.target.value)
-          setSelected(null)
-        }}
-        placeholder="Search by address…"
-        className="w-full rounded-md border border-border bg-background p-2 text-sm"
-        autoComplete="off"
-      />
+      <Field label="File under property" hint={selected ? undefined : 'Type at least two characters of the address.'}>
+        <Input
+          type="search"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            setSelected(null)
+          }}
+          placeholder="Search by address…"
+          prefix={<Search aria-hidden />}
+          autoComplete="off"
+        />
+      </Field>
 
       {selected ? (
-        <p className="rounded-md border border-primary/40 bg-primary/5 p-2 text-xs">
-          Filing under <span className="font-semibold">{selected.address}</span>
-          {suggestedProperty?.unitId === selected.unitId ? ' — suggested' : ''}
+        <p className="flex items-start gap-2 rounded-lg border border-primary/25 bg-primary-subtle px-3 py-2 text-xs text-foreground">
+          <Check className="mt-px size-3.5 shrink-0 text-primary" aria-hidden />
+          <span>
+            Filing under <span className="font-semibold">{selected.address}</span>
+            {suggestedProperty?.unitId === selected.unitId ? ' — suggested' : ''}
+          </span>
         </p>
       ) : results.length > 0 ? (
-        <ul className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-border">
+        <ul
+          aria-label="Matching properties"
+          className="max-h-44 divide-y divide-border overflow-y-auto rounded-lg border border-border bg-surface"
+        >
           {results.map((property) => (
             <li key={property.unitId}>
               <button
@@ -84,10 +90,12 @@ export function AssignPropertyForm({ threadId, suggestedProperty }: Props) {
                   setSelected(property)
                   setQuery(property.address)
                 }}
-                className="block w-full px-2 py-1.5 text-left text-sm hover:bg-muted/10"
+                className="block w-full px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-subtle focus-visible:bg-subtle focus-visible:outline-none"
               >
                 {property.address}
-                {property.unitId === suggestedProperty?.unitId ? ' — suggested' : ''}
+                {property.unitId === suggestedProperty?.unitId ? (
+                  <span className="text-xs text-muted"> — suggested</span>
+                ) : null}
               </button>
             </li>
           ))}
@@ -96,16 +104,13 @@ export function AssignPropertyForm({ threadId, suggestedProperty }: Props) {
         <p className="text-xs text-muted">No matching properties.</p>
       ) : null}
 
-      <label className="flex items-center gap-2 text-xs text-muted">
-        <input type="checkbox" name="rememberSender" defaultChecked />
-        Remember this sender for next time
-      </label>
+      <Checkbox name="rememberSender" defaultChecked label="Remember this sender for next time" />
 
       {state.error ? <Alert variant="error">{state.error}</Alert> : null}
       {state.warning ? <Alert variant="warning">{state.warning}</Alert> : null}
 
       <Button type="submit" size="sm" loading={pending} disabled={!selected} className="w-full">
-        Assign
+        File under property
       </Button>
     </form>
   )

@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Alert, Button } from '@homeowner-portal/ui'
-import { hasUnfilledBlanks } from '@/lib/inbox/draft/blanks'
+import { AlertTriangle, BookOpen, Send } from 'lucide-react'
+import { Alert, Button, Field, Input, Textarea } from '@homeowner-portal/ui'
+import { hasUnfilledBlanks, UNDO_WINDOW_SECONDS } from '@/lib/inbox/draft/blanks'
 import type { DraftAttachment, ThreadDraft } from '@/lib/inbox/queries'
 import { AttachmentPicker } from './AttachmentPicker'
 import { RecipientFields } from './RecipientFields'
@@ -23,6 +24,12 @@ interface Props {
   attachments: DraftAttachment[]
   threadFiles: Array<{ id: string; fileName: string; sizeBytes: number }>
   libraryFiles: Array<{ id: string; name: string; type: string; sizeBytes: number }>
+}
+
+const HEADING: Record<ThreadDraft['kind'], string> = {
+  reply: 'Draft reply',
+  forward: 'Forward',
+  new: 'New message',
 }
 
 export function Composer({
@@ -61,94 +68,110 @@ export function Composer({
   // filling a blank or adding a recipient enable Approve immediately, and
   // removing it re-disable. approveDraft re-checks all of it server-side;
   // this is the affordance, not the guarantee.
-  const blocked = hasUnfilledBlanks(subject) || hasUnfilledBlanks(body) || to.length === 0
+  const noRecipients = to.length === 0
+  const blanksLeft = hasUnfilledBlanks(subject) || hasUnfilledBlanks(body)
+  const blocked = blanksLeft || noRecipients
 
   return (
-    <section className="mt-4 space-y-3 rounded-md border border-border p-3">
-      {draft.kind === 'reply' && draft.grounded === false ? (
-        <p className={AMBER_BOX}>
-          {draft.groundingNote ??
-            'No governing document or property record matched this question — this draft contains no facts.'}
+    <section aria-label={HEADING[draft.kind]} className="rounded-xl border border-border bg-surface">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+        <h2 className="text-sm font-semibold text-foreground">{HEADING[draft.kind]}</h2>
+        <span className="text-xs text-muted">Nothing sends until you approve</span>
+      </div>
+
+      <div className="space-y-4 p-4">
+        {draft.kind === 'reply' && draft.grounded === false ? (
+          <p className={AMBER_BOX}>
+            {draft.groundingNote ??
+              'No governing document or property record matched this question — this draft contains no facts.'}
+          </p>
+        ) : null}
+
+        <RecipientFields to={to} cc={cc} onToChange={setTo} onCcChange={setCc} disabled={pending} />
+
+        <Field label="Subject">
+          <Input
+            type="text"
+            value={subject}
+            onChange={(event) => setSubject(event.target.value)}
+            disabled={pending}
+          />
+        </Field>
+
+        <Field label="Message">
+          <Textarea
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+            rows={12}
+            disabled={pending}
+            className="leading-relaxed"
+          />
+        </Field>
+
+        {draft.blanks.length > 0 ? (
+          <div className="space-y-2">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+              <AlertTriangle className="size-3.5 text-warning" aria-hidden />
+              Decide these before sending
+            </p>
+            <ul className="space-y-1.5">
+              {draft.blanks.map((blank, index) => (
+                <li key={`${blank.kind}-${index}`} className={AMBER_BOX}>
+                  <span className="font-semibold">{BLANK_KIND_LABELS[blank.kind] ?? blank.kind}: </span>
+                  {blank.prompt}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {/* Label + quote together, always — a quote shown without its source
+            is what a board member is supposed to check. */}
+        {draft.kind === 'reply' && draft.citations.length > 0 ? (
+          <div className="space-y-2">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+              <BookOpen className="size-3.5 text-muted" aria-hidden />
+              Sources
+            </p>
+            <ul className="space-y-1.5 text-xs">
+              {draft.citations.map((citation) => (
+                <li key={citation.refId} className="rounded-lg border border-border bg-subtle px-3 py-2">
+                  <span className="font-semibold text-foreground">{citation.label}</span>
+                  <span className="text-foreground-secondary">{` — “${citation.quote}”`}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <AttachmentPicker
+          draftId={draft.id}
+          attachments={attachments}
+          threadFiles={threadFiles}
+          libraryFiles={libraryFiles}
+          disabled={pending}
+        />
+
+        {actionError ? <Alert variant="error">{actionError}</Alert> : null}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
+        <p className="text-xs text-muted" aria-live="polite">
+          {noRecipients
+            ? 'Add at least one recipient before sending.'
+            : blanksLeft
+              ? 'Fill in or remove every highlighted blank before sending.'
+              : `You can undo for ${UNDO_WINDOW_SECONDS} seconds after approving.`}
         </p>
-      ) : null}
-
-      <RecipientFields to={to} cc={cc} onToChange={setTo} onCcChange={setCc} disabled={pending} />
-
-      <div>
-        <label className="block text-xs font-semibold uppercase tracking-wide text-muted">
-          Subject
-        </label>
-        <input
-          type="text"
-          value={subject}
-          onChange={(event) => setSubject(event.target.value)}
-          className="w-full rounded-md border border-border bg-background p-2 text-sm"
-        />
-      </div>
-
-      <div>
-        <label className="block text-xs font-semibold uppercase tracking-wide text-muted">
-          Message
-        </label>
-        <textarea
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
-          rows={10}
-          className="w-full rounded-md border border-border bg-background p-2 text-sm"
-        />
-      </div>
-
-      <AttachmentPicker
-        draftId={draft.id}
-        attachments={attachments}
-        threadFiles={threadFiles}
-        libraryFiles={libraryFiles}
-        disabled={pending}
-      />
-
-      {draft.blanks.length > 0 ? (
-        <ul className="space-y-1">
-          {draft.blanks.map((blank, index) => (
-            <li key={`${blank.kind}-${index}`} className={AMBER_BOX}>
-              <span className="font-semibold">{BLANK_KIND_LABELS[blank.kind] ?? blank.kind}: </span>
-              {blank.prompt}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {/* Label + quote together, always — a quote shown without its source is
-          what a board member is supposed to check. */}
-      {draft.kind === 'reply' && draft.citations.length > 0 ? (
-        <ul className="space-y-1 border-t border-border pt-2 text-xs">
-          {draft.citations.map((citation) => (
-            <li key={citation.refId}>
-              <span className="font-semibold text-foreground">{citation.label}</span>
-              <span className="text-muted">{` — "${citation.quote}"`}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {actionError ? <Alert variant="error">{actionError}</Alert> : null}
-
-      <div>
         <Button
           type="button"
-          size="sm"
           disabled={blocked}
           loading={pending}
+          icon={<Send aria-hidden />}
           onClick={() => onApprove({ subject, body, to, cc })}
         >
           Approve and send
         </Button>
-        {blocked ? (
-          <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-            {to.length === 0
-              ? 'Add at least one recipient before sending.'
-              : 'Fill in or remove every highlighted blank before sending.'}
-          </p>
-        ) : null}
       </div>
     </section>
   )

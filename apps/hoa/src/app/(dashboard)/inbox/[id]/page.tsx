@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { ArrowLeft } from 'lucide-react'
+import { PageHeader, StatusBadge } from '@homeowner-portal/ui'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
@@ -15,7 +17,10 @@ import {
   type InboxFilter,
   type PropertyContext,
 } from '@/lib/inbox/queries'
+import { INBOX_THREAD_STATUS } from '@/lib/status/community'
+import { SplitPaneFrame } from '@/components/split-pane/SplitPane'
 import { ThreadList } from '../ThreadList'
+import { INBOX_FILTERS, INBOX_FILTER_LABEL } from '../InboxChrome'
 import { DraftPanel } from './DraftPanel'
 import { ForwardButton } from './ForwardButton'
 import { MessageThread } from './MessageThread'
@@ -31,14 +36,7 @@ import { isVendorIncomplete } from '@/lib/inbox/vendor/schema'
 
 export const dynamic = 'force-dynamic'
 
-const FILTER_KEYS: InboxFilter[] = [
-  'needs_review',
-  'awaiting_resident',
-  'open',
-  'waiting',
-  'closed',
-  'all',
-]
+const FILTER_KEYS: InboxFilter[] = INBOX_FILTERS.map((f) => f.key)
 
 export default async function ThreadPage({
   params,
@@ -133,8 +131,11 @@ export default async function ThreadPage({
   // VendorRail renders, and the rail has no reason to know an address it
   // never displays. This one prefills the vendor-request composer's "Send to".
   let vendorEmail: string | null = null
+  // A failed vendor read must not render as "the vendor no longer exists"
+  // (which invites a needless re-file): the rail says it couldn't load.
+  let vendorLoadFailed = false
   if (thread.vendorId) {
-    const { data: vendorRow } = await supabase
+    const { data: vendorRow, error: vendorError } = await supabase
       .from('vendors' as never)
       .select('id, legal_name, trades, status, ein, primary_email')
       .eq('id', thread.vendorId)
@@ -148,7 +149,13 @@ export default async function ThreadPage({
         primary_email: string | null
       }>()
 
-    if (vendorRow) {
+    if (vendorError) {
+      console.error('ThreadPage: failed to load the filed vendor', {
+        threadId: id,
+        code: vendorError.code,
+      })
+      vendorLoadFailed = true
+    } else if (vendorRow) {
       railVendor = {
         vendorId: vendorRow.id,
         legalName: vendorRow.legal_name,
@@ -173,84 +180,122 @@ export default async function ThreadPage({
   // message, matching what W33 reads server-side.
   const lastInbound = [...thread.messages].reverse().find((m) => m.direction === 'inbound')
 
+  const rail = (
+    <>
+      <PropertyRail
+        thread={thread}
+        context={context}
+        contextLoadFailed={contextLoadFailed}
+        suggestedProperty={suggestedProperty}
+      />
+      {/* Sibling of PropertyRail, never nested: property and vendor filings
+          are independent, and PropertyRail early-returns on unitId. */}
+      <VendorRail
+        thread={thread}
+        vendor={railVendor}
+        loadFailed={vendorLoadFailed}
+        senderEmail={lastInbound?.fromEmail ?? null}
+        senderName={lastInbound?.fromName ?? null}
+      />
+    </>
+  )
+
+  const listHref = `/inbox?filter=${filter}${page > 1 ? `&page=${page}` : ''}`
+  const subject = thread.subject ?? '(no subject)'
+
   return (
-    <main className="flex h-[calc(100vh-4rem)] overflow-hidden">
-      {/* pane 1 — list */}
-      <aside className="hidden w-72 shrink-0 overflow-y-auto border-r border-border lg:block">
-        <nav className="border-b border-border p-2 text-xs">
-          <Link href={`/inbox?filter=${filter}&page=${page}`} className="text-muted underline">
-            ← All conversations ({counts[filter] ?? 0})
-          </Link>
-        </nav>
-        <ThreadList
-          threads={threads}
-          selectedId={thread.id}
-          filter={filter}
-          hasAnyThreads={counts.all > 0}
-        />
-      </aside>
-
-      {/* pane 2 — conversation */}
-      <section className="flex-1 overflow-y-auto p-4">
-        <header className="mb-3 flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">
-              {thread.subject ?? '(no subject)'}
-            </h1>
-            <p className="text-xs text-muted">
-              {thread.messages.length} message
-              {thread.messages.length === 1 ? '' : 's'} · {thread.status}
-            </p>
+    <SplitPaneFrame>
+      <div className="flex min-h-0 flex-1">
+        {/* pane 1 — list */}
+        <aside
+          aria-label="Conversations"
+          className="hidden w-80 shrink-0 flex-col border-r border-border bg-surface lg:flex"
+        >
+          <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
+            <Link
+              href={listHref}
+              className="inline-flex items-center gap-1.5 rounded-md text-sm font-medium text-foreground no-underline hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ArrowLeft className="size-4" aria-hidden />
+              {INBOX_FILTER_LABEL[filter]}
+            </Link>
+            <span className="num text-xs text-muted">{counts[filter] ?? 0}</span>
           </div>
-          {/* In the header so a forward is reachable in every draft state —
-              in particular after a reply has already been sent, which is the
-              most common case there is. The draft's status rides along so the
-              button can explain itself while a live draft would be displaced;
-              the server action refuses regardless. See ForwardButton. */}
-          <div className="flex items-start gap-2">
-            <ForwardButton threadId={thread.id} draftStatus={draft?.status ?? null} />
-            {/* Forward sends the resident's own email onward, quoted. This
-                writes a fresh work order instead and starts its own thread —
-                see the vendor request composer spec, D1 and D3. */}
-            <VendorRequestButton
-              threadId={thread.id}
-              vendorEmail={vendorEmail}
-              draftStatus={draft?.status ?? null}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {threads.length === 0 ? (
+              <p className="px-4 py-6 text-center text-xs text-muted">No other conversations in this view.</p>
+            ) : (
+              <ThreadList threads={threads} selectedId={thread.id} filter={filter} page={page} />
+            )}
+          </div>
+        </aside>
+
+        {/* pane 2 — conversation */}
+        <section aria-label="Conversation" className="min-w-0 flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-3xl space-y-5 px-4 py-5 sm:px-6 sm:py-6">
+            <PageHeader
+              breadcrumbs={[{ label: 'Inbox', href: listHref }, { label: subject }]}
+              linkAs={Link}
+              title={subject}
+              meta={
+                <StatusBadge
+                  status={thread.status}
+                  tones={INBOX_THREAD_STATUS.tones}
+                  labels={INBOX_THREAD_STATUS.labels}
+                />
+              }
+              description={`${thread.messages.length} message${thread.messages.length === 1 ? '' : 's'}`}
+              actions={
+                <>
+                  {/* In the header so a forward is reachable in every draft
+                      state — in particular after a reply has already been
+                      sent, the most common case there is. The draft's status
+                      rides along so the button can explain itself while a
+                      live draft would be displaced; the server action
+                      refuses regardless. See ForwardButton. */}
+                  <ForwardButton threadId={thread.id} draftStatus={draft?.status ?? null} />
+                  {/* Forward sends the resident's own email onward, quoted.
+                      This writes a fresh work order instead and starts its
+                      own thread — see the vendor request composer spec, D1
+                      and D3. */}
+                  <VendorRequestButton
+                    threadId={thread.id}
+                    vendorEmail={vendorEmail}
+                    draftStatus={draft?.status ?? null}
+                  />
+                </>
+              }
             />
+
+            <VendorRequestLinks outgoing={outgoingRequests} incoming={incomingRequest} />
+
+            <MessageThread messages={thread.messages} />
+
+            <DraftPanel
+              threadId={thread.id}
+              draft={draft}
+              attachments={draftAttachments}
+              threadFiles={threadFiles}
+              libraryFiles={libraryFiles}
+            />
+
+            {/* Below xl the rail has no column of its own, so it follows the
+                conversation. It used to be hidden outright, which meant a
+                phone or tablet never saw the property context at all. */}
+            <div className="overflow-hidden rounded-xl border border-border bg-surface xl:hidden">
+              {rail}
+            </div>
           </div>
-        </header>
+        </section>
 
-        <VendorRequestLinks outgoing={outgoingRequests} incoming={incomingRequest} />
-
-        <MessageThread messages={thread.messages} />
-
-        <DraftPanel
-          threadId={thread.id}
-          draft={draft}
-          attachments={draftAttachments}
-          threadFiles={threadFiles}
-          libraryFiles={libraryFiles}
-        />
-      </section>
-
-      {/* pane 3 — property + vendor rail */}
-      <aside className="hidden w-72 shrink-0 overflow-y-auto border-l border-border xl:block">
-        <PropertyRail
-          thread={thread}
-          context={context}
-          contextLoadFailed={contextLoadFailed}
-          suggestedProperty={suggestedProperty}
-        />
-        {/* Sibling of PropertyRail, never nested: property and vendor
-            filings are independent, and PropertyRail early-returns on
-            unitId. */}
-        <VendorRail
-          thread={thread}
-          vendor={railVendor}
-          senderEmail={lastInbound?.fromEmail ?? null}
-          senderName={lastInbound?.fromName ?? null}
-        />
-      </aside>
-    </main>
+        {/* pane 3 — property + vendor rail */}
+        <aside
+          aria-label="Property and vendor"
+          className="hidden w-80 shrink-0 overflow-y-auto border-l border-border bg-surface xl:block"
+        >
+          {rail}
+        </aside>
+      </div>
+    </SplitPaneFrame>
   )
 }

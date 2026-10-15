@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Paperclip } from 'lucide-react'
+import { AlertCircle, Home, HelpCircle, Paperclip } from 'lucide-react'
+import { Avatar, cn } from '@homeowner-portal/ui'
 import type { ThreadListItem } from '@/lib/inbox/queries'
 import { formatShortDate } from '@/lib/format-datetime'
 
@@ -15,110 +16,92 @@ import { formatShortDate } from '@/lib/format-datetime'
 // then re-triage a thread the system already resolved correctly. Branch on
 // `unitId` first, always; a unit attached with no resolvable address says
 // so honestly instead of claiming there's no match at all.
-//
-// No `text-success`/`text-warning` utilities exist in the shared Tailwind
-// config (packages/ui/tailwind.config.ts only defines primary/accent/
-// background/surface/border/foreground/muted/destructive as CSS-variable
-// tokens). Matched vs. needs-review is rendered with the same literal
-// emerald/amber + dark: pair already used for this exact distinction in
-// settings/mailbox/MailboxConnectCard.tsx (the confirmed-match sample
-// row and the Stat "ok"/"warn" tones).
-function confidenceTone(item: ThreadListItem): string {
+type Attribution = { label: string; tone: 'matched' | 'confirm' | 'none' }
+
+function attribution(item: ThreadListItem): Attribution {
   if (item.unitId !== null) {
     return item.propertyAddress
-      ? 'text-emerald-700 dark:text-emerald-400'
-      : 'text-amber-700 dark:text-amber-400'
+      ? { label: item.propertyAddress, tone: 'matched' }
+      : { label: 'Matched — address unavailable', tone: 'confirm' }
   }
-  if (item.matchConfidence === 'medium' || item.matchConfidence === 'low')
-    return 'text-amber-700 dark:text-amber-400'
-  return 'text-muted'
+  if (item.matchConfidence === 'medium') return { label: 'Suggested match — confirm', tone: 'confirm' }
+  if (item.matchConfidence === 'low') return { label: 'Possible match — confirm', tone: 'confirm' }
+  return { label: 'Not filed under a property', tone: 'none' }
 }
 
-function attributionLabel(item: ThreadListItem): string {
-  if (item.unitId !== null) {
-    return item.propertyAddress ? `→ ${item.propertyAddress}` : 'Matched — address unavailable'
-  }
-  if (item.matchConfidence === 'medium') return 'Suggested match — confirm'
-  if (item.matchConfidence === 'low') return 'Possible match — confirm'
-  return 'Unassigned'
+const ATTRIBUTION_STYLE: Record<Attribution['tone'], { className: string; Icon: typeof Home }> = {
+  matched: { className: 'text-success', Icon: Home },
+  confirm: { className: 'text-warning', Icon: AlertCircle },
+  none: { className: 'text-muted', Icon: HelpCircle },
 }
 
 export function ThreadList({
   threads,
   selectedId,
   filter,
-  hasAnyThreads,
+  page = 1,
 }: {
   threads: ThreadListItem[]
   selectedId?: string
   filter: string
-  /**
-   * Whether the mailbox has ANY thread at all (across every status), not
-   * just this filter. Lets the empty state distinguish "this filter has
-   * zero matches" from "no mail has arrived yet" — the filter chip counts
-   * hint at this already, but the empty state itself said the same thing
-   * either way.
-   */
-  hasAnyThreads: boolean
+  /** List page these threads came from, carried so the list pane stays put when one is opened. */
+  page?: number
 }) {
-  if (threads.length === 0) {
-    return (
-      <div className="p-6 text-center text-sm text-muted">
-        {hasAnyThreads
-          ? 'No threads match this filter.'
-          : 'Nothing here yet. Mail syncs every 2 minutes.'}
-      </div>
-    )
-  }
-
+  const qs = `?filter=${filter}${page > 1 ? `&page=${page}` : ''}`
   return (
     <ul className="divide-y divide-border">
-      {threads.map((thread) => (
-        <li key={thread.id}>
-          <Link
-            href={`/inbox/${thread.id}?filter=${filter}`}
-            className={`block px-3 py-2.5 transition-colors hover:bg-muted/10 ${
-              thread.id === selectedId ? 'border-l-4 border-primary bg-primary/5' : ''
-            }`}
-          >
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="truncate text-sm font-semibold text-foreground">
-                {thread.fromName ?? thread.fromEmail ?? 'Unknown sender'}
-              </span>
-              <span className="shrink-0 text-xs text-muted">
-                {thread.lastMessageAt
-                  ? formatShortDate(thread.lastMessageAt)
-                  : ''}
-              </span>
-            </div>
-            <p className="flex items-center gap-1 truncate text-sm text-foreground">
-              <span className="truncate">{thread.subject ?? '(no subject)'}</span>
-              {thread.hasAttachments ? (
-                <Paperclip className="h-3 w-3 shrink-0 text-muted" aria-label="Has attachments" />
-              ) : null}
-            </p>
-            {thread.snippet ? (
-              <p className="truncate text-xs text-muted">{thread.snippet}</p>
-            ) : null}
-            <p className={`truncate text-xs ${confidenceTone(thread)}`}>
-              {attributionLabel(thread)}
-            </p>
-            {/* Only rendered where it is load-bearing — in the "Filed in
-                Gmail" view, where every row is hidden from the working
-                inbox and the manager's next question is *why*. "Filed" and
-                "Trashed" are different enough decisions to be worth
-                distinguishing: one is where the board put it, the other is
-                the board throwing it away. Everywhere else the state is
-                'active' or 'unknown' and a badge would be noise on every
-                row. */}
-            {thread.gmailState === 'archived' || thread.gmailState === 'trashed' ? (
-              <p className="truncate text-xs text-muted">
-                {thread.gmailState === 'trashed' ? 'Trashed in Gmail' : 'Filed in Gmail'}
-              </p>
-            ) : null}
-          </Link>
-        </li>
-      ))}
+      {threads.map((thread) => {
+        const sender = thread.fromName ?? thread.fromEmail ?? 'Unknown sender'
+        const who = attribution(thread)
+        const { className: whoClass, Icon: WhoIcon } = ATTRIBUTION_STYLE[who.tone]
+        const selected = thread.id === selectedId
+        return (
+          <li key={thread.id}>
+            <Link
+              href={`/inbox/${thread.id}${qs}`}
+              aria-current={selected ? 'page' : undefined}
+              className={cn(
+                'relative flex gap-3 px-4 py-3 no-underline transition-colors duration-fast',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                selected ? 'bg-primary-subtle' : 'hover:bg-subtle',
+              )}
+            >
+              {selected ? <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-primary" /> : null}
+              <Avatar name={sender} size="sm" className="mt-0.5" />
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-sm font-semibold text-foreground">{sender}</span>
+                  <span className="num shrink-0 text-xs text-muted">
+                    {thread.lastMessageAt ? formatShortDate(thread.lastMessageAt) : ''}
+                  </span>
+                </div>
+                <p className="flex items-center gap-1.5 text-sm text-foreground">
+                  <span className="truncate">{thread.subject ?? '(no subject)'}</span>
+                  {thread.hasAttachments ? (
+                    <Paperclip className="size-3.5 shrink-0 text-muted" aria-label="Has attachments" />
+                  ) : null}
+                </p>
+                {thread.snippet ? <p className="truncate text-xs text-muted">{thread.snippet}</p> : null}
+                <p className={cn('flex items-center gap-1 pt-0.5 text-xs font-medium', whoClass)}>
+                  <WhoIcon className="size-3.5 shrink-0" aria-hidden />
+                  <span className="truncate">{who.label}</span>
+                </p>
+                {/* Only rendered where it is load-bearing — where a row is
+                    hidden from the working inbox and the manager's next
+                    question is *why*. "Filed" and "Trashed" are different
+                    enough decisions to be worth distinguishing. Everywhere
+                    else the state is 'active' or 'unknown' and a badge
+                    would be noise on every row. */}
+                {thread.gmailState === 'archived' || thread.gmailState === 'trashed' ? (
+                  <p className="truncate text-xs text-muted">
+                    {thread.gmailState === 'trashed' ? 'Trashed in Gmail' : 'Filed in Gmail'}
+                  </p>
+                ) : null}
+              </div>
+            </Link>
+          </li>
+        )
+      })}
     </ul>
   )
 }
