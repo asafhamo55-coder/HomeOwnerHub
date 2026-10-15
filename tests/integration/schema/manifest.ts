@@ -94,6 +94,7 @@ export const MIGRATION_MANIFEST: string[] = [
   '0058_org_members_role_scope.sql',
   '0059_storage_delete_update.sql',
   '0060_approval_requests.sql',
+  '0061_accounting_rls.sql',
 ]
 
 /**

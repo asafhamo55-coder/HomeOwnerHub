@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { Products, CountryCode } from 'plaid'
+import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPlaidClient } from '@/lib/plaid'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
@@ -20,6 +21,9 @@ export async function POST() {
       { status: 503 },
     )
   }
+
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return NextResponse.json({ error: 'forbidden', message: gate.error }, { status: 403 })
 
   const assoc = await getPrimaryAssociation()
   if (!assoc) {

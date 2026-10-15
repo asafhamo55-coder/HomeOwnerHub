@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { loadAccountingRefs, postJournalEntry } from '@homeowner-portal/db'
 import { bankReconciliationAgent } from '@homeowner-portal/workflows'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
 export type BankRecActionResult =
@@ -28,6 +29,8 @@ export async function reRunBankMatch(input: {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
   }
 
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 
@@ -80,6 +83,8 @@ export async function confirmFuzzyMatch(input: {
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
   }
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
   const supabase = await getSupabaseServerClient()
@@ -194,6 +199,8 @@ export async function categorizeAsExpense(input: {
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
   }
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
   const supabase = await getSupabaseServerClient()
@@ -290,6 +297,8 @@ export async function ignoreTransaction(input: {
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
   }
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
   const supabase = await getSupabaseServerClient()

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
 type BudgetInsert = Database['public']['Tables']['budgets']['Insert']
@@ -36,6 +37,8 @@ export async function createBudget(input: {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
   }
 
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 
@@ -76,6 +79,8 @@ export async function createBudget(input: {
 export async function deleteBudget(
   budgetId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 
@@ -137,6 +142,8 @@ export async function saveBudgetLineItems(input: {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
   }
 
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 
@@ -191,6 +198,8 @@ export async function approveBudget(input: {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
   }
 
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 

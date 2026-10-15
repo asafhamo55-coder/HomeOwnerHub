@@ -5,6 +5,7 @@ import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
 import { loadAccountingRefs, postJournalEntry } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
 type InvoiceInsert = Database['public']['Tables']['invoices']['Insert']
@@ -52,6 +53,8 @@ export async function enterBill(input: {
   }
   const value = parsed.data
 
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 
@@ -175,6 +178,8 @@ export async function enterBill(input: {
 export async function deleteInvoice(
   invoiceId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 
@@ -234,6 +239,8 @@ export async function markInvoicePaid(input: {
   }
   const value = parsed.data
 
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { postJournalEntry } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
 export type ClosePeriodResult =
@@ -43,6 +44,8 @@ export async function closePeriod(input: {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
   }
 
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 

@@ -6,6 +6,7 @@ import type { Database } from '@homeowner-portal/db/types'
 import { loadAccountingRefs, postJournalEntry } from '@homeowner-portal/db'
 import { memoCodeFor } from '@homeowner-portal/workflows'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
 type AssessmentInsert = Database['public']['Tables']['assessments']['Insert']
@@ -39,6 +40,8 @@ export async function materializeCurrentPeriodAssessments(input: {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
   }
 
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 
@@ -229,6 +232,8 @@ export async function createDues(
     return { ok: false, error: 'unitId is required when scope is "unit".' }
   }
 
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 
@@ -414,6 +419,8 @@ export async function listUnitsForDues(): Promise<Array<{
 export async function deleteAssessment(
   assessmentId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 
@@ -475,6 +482,8 @@ export async function markAssessmentPaid(input: {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
   }
 
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 

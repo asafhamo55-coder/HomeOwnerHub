@@ -6,6 +6,7 @@ import type { Database } from '@homeowner-portal/db/types'
 import { loadAccountingRefs, postJournalEntry } from '@homeowner-portal/db'
 import { memoCodeFor } from '@homeowner-portal/workflows'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
 type PaymentPlanInsert = Database['public']['Tables']['payment_plans']['Insert']
@@ -44,6 +45,8 @@ export async function createPaymentPlan(input: {
   }
   const value = parsed.data
 
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 

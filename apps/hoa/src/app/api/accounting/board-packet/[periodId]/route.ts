@@ -7,6 +7,7 @@ import {
   getAccountingContext,
   type AccountingBasis,
 } from '@/lib/accounting/queries'
+import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 /**
@@ -29,6 +30,10 @@ interface RouteContext {
 
 export async function GET(_request: Request, context: RouteContext) {
   const { periodId } = await context.params
+  // Residents had full-ledger reads before 0061; now RLS returns them an
+  // empty packet. Say so instead.
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return NextResponse.json({ error: 'forbidden', message: gate.error }, { status: 403 })
   const ctx = await getAccountingContext()
   if (!ctx) {
     return NextResponse.json({ error: 'unauthorized_or_unseeded' }, { status: 401 })

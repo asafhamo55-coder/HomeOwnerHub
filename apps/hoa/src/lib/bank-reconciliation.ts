@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
 export type ReconcileResult =
@@ -41,6 +42,8 @@ export async function reconcileBankAccount(input: {
   }
   const value = parsed.data
 
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
   const supabase = await getSupabaseServerClient()
@@ -160,6 +163,8 @@ export async function approveReconciliation(input: {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
   }
 
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
   const supabase = await getSupabaseServerClient()
