@@ -1,207 +1,196 @@
 import Link from 'next/link'
 import { ScrollText, Sparkles } from 'lucide-react'
-import { format } from 'date-fns'
-import { BackLink, Badge, Button, Card, EmptyState, PageHeader, Select } from '@homeowner-portal/ui'
+import {
+  DataTable,
+  EmptyState,
+  Field,
+  FilterBar,
+  LoadFailed,
+  Page,
+  Pager,
+  Select,
+  StatusPill,
+  filterFieldClass,
+  pageRange,
+  parsePageParam,
+  type DataTableColumn,
+} from '@homeowner-portal/ui'
 import {
   getAccountingContext,
   listFiscalPeriods,
-  listJournalEntries,
+  pageJournalEntries,
+  type JournalEntrySummary,
 } from '@/lib/accounting/queries'
+import { tryLoad } from '@/lib/load-or-fail'
+import { formatDay, periodLabel, plural, usd } from '@/lib/money/format'
+import { JOURNAL_SOURCES, JOURNAL_STATUS, sourceLabel } from '@/lib/money/status'
+import { AccountingTabs } from '../AccountingTabs'
+import { AccountingLoadFailed, AccountingNotSetUp, MoneyStatus } from '../_components/shared'
 
 export const metadata = { title: 'General Ledger' }
 export const dynamic = 'force-dynamic'
 
-const SOURCES = [
-  'manual',
-  'ap_invoice',
-  'ar_payment',
-  'bank_rec',
-  'recurring',
-  'closing',
-  'reversing',
-] as const
-
-const STATUSES = ['posted', 'draft', 'reversed'] as const
+// Was a silent 200-row cap: a busy year's ledger just stopped, with no
+// sign there was more. Now paged, with the true count in the header.
+const PAGE_SIZE = 50
 
 interface PageProps {
-  searchParams: Promise<{ period?: string; source?: string; status?: string }>
-}
-
-function currency(n: number): string {
-  return n.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  })
+  searchParams: Promise<{ period?: string; source?: string; status?: string; page?: string }>
 }
 
 export default async function GeneralLedgerPage({ searchParams }: PageProps) {
-  const ctx = await getAccountingContext()
-  if (!ctx) {
-    return (
-      <div className="mx-auto max-w-3xl">
-        <EmptyState
-          icon={<ScrollText className="h-10 w-10" aria-hidden />}
-          title="No ledger yet"
-          description="Run pnpm seed:accounting to bootstrap the general ledger."
-        />
-      </div>
-    )
-  }
+  const ctxRes = await tryLoad('accounting context', getAccountingContext)
+  if (!ctxRes.ok) return <AccountingLoadFailed title="General ledger" what="the ledger" width="wide" />
+  const ctx = ctxRes.data
+  if (!ctx) return <AccountingNotSetUp title="General ledger" />
 
   const sp = await searchParams
-  const periods = await listFiscalPeriods(ctx.associationId)
+  const periodsRes = await tryLoad('fiscal periods', () => listFiscalPeriods(ctx.associationId))
+  if (!periodsRes.ok) return <AccountingLoadFailed title="General ledger" what="the ledger" width="wide" />
+  const periods = periodsRes.data
+
+  // `period=all` is an explicit choice; no param means the current period.
   const periodId =
-    sp.period && periods.some((p) => p.id === sp.period)
-      ? sp.period
-      : ctx.currentPeriod?.id
+    sp.period === 'all'
+      ? undefined
+      : sp.period && periods.some((p) => p.id === sp.period)
+        ? sp.period
+        : ctx.currentPeriod?.id
+  const source = sp.source && JOURNAL_SOURCES.includes(sp.source) ? sp.source : undefined
+  const status = sp.status && sp.status in JOURNAL_STATUS ? sp.status : undefined
 
-  const entries = await listJournalEntries(ctx.associationId, {
-    periodId,
-    source: sp.source,
-    status: sp.status,
-  })
+  const page = parsePageParam(sp.page)
+  const res = await tryLoad('journal entries', () =>
+    pageJournalEntries(ctx.associationId, { periodId, source, status }, pageRange(page, PAGE_SIZE)),
+  )
 
-  const totalPosted = entries
-    .filter((e) => e.status === 'posted')
-    .reduce((s, e) => s + e.totalAmount, 0)
+  const params = new URLSearchParams()
+  if (sp.period) params.set('period', sp.period)
+  if (source) params.set('source', source)
+  if (status) params.set('status', status)
+  const hrefFor = (p: number) => {
+    const q = new URLSearchParams(params)
+    if (p > 1) q.set('page', String(p))
+    const s = q.toString()
+    return s ? `/accounting/ledger?${s}` : '/accounting/ledger'
+  }
+  const filtered = Boolean(sp.period || source || status)
+  const selectedPeriod = periods.find((p) => p.id === periodId)
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div className="space-y-2">
-        <BackLink href="/accounting" label="Accounting" />
-        <PageHeader
-          title="General Ledger"
-          description={`${entries.length} journal ${entries.length === 1 ? 'entry' : 'entries'} · ${currency(totalPosted)} posted`}
-        />
-      </div>
+    <Page
+      width="wide"
+      title="General ledger"
+      description={
+        res.ok
+          ? `${plural(res.data.total, 'journal entry', 'journal entries')} ${selectedPeriod ? `in ${periodLabel(selectedPeriod)}` : 'across all periods'}. Nothing is deleted — mistakes are reversed.`
+          : 'Every journal entry, newest first.'
+      }
+      tabs={<AccountingTabs />}
+    >
+      <FilterBar resetHref="/accounting/ledger" filtered={filtered} linkAs={Link} label="Filter the ledger">
+        <Field label="Period" className={filterFieldClass}>
+          <Select name="period" defaultValue={periodId ?? 'all'}>
+            <option value="all">All periods</option>
+            {periods.map((p) => (
+              <option key={p.id} value={p.id}>
+                {periodLabel(p)} · {p.status}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Source" className={filterFieldClass}>
+          <Select name="source" defaultValue={source ?? ''}>
+            <option value="">All sources</option>
+            {JOURNAL_SOURCES.map((s) => (
+              <option key={s} value={s}>
+                {sourceLabel(s)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Status" className={filterFieldClass}>
+          <Select name="status" defaultValue={status ?? ''}>
+            <option value="">Any status</option>
+            {Object.entries(JOURNAL_STATUS).map(([value, def]) => (
+              <option key={value} value={value}>
+                {def.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </FilterBar>
 
-      <Card>
-        <form className="flex flex-wrap items-end gap-3 px-4 py-3">
-          <FilterSelect
-            label="Period"
-            name="period"
-            value={periodId ?? ''}
-            options={periods.map((p) => ({
-              value: p.id,
-              label: `${format(new Date(p.start_date), 'yyyy')} · ${p.status}`,
-            }))}
-          />
-          <FilterSelect
-            label="Source"
-            name="source"
-            value={sp.source ?? ''}
-            options={SOURCES.map((s) => ({ value: s, label: s }))}
-          />
-          <FilterSelect
-            label="Status"
-            name="status"
-            value={sp.status ?? ''}
-            options={STATUSES.map((s) => ({ value: s, label: s }))}
-          />
-          <Button type="submit" size="sm">
-            Filter
-          </Button>
-          <Link
-            href="/accounting/ledger"
-            className="text-xs text-muted hover:text-foreground"
-          >
-            Reset
-          </Link>
-        </form>
-      </Card>
-
-      {entries.length === 0 ? (
-        <EmptyState
-          icon={<ScrollText className="h-10 w-10" aria-hidden />}
-          title="No journal entries in this view"
-          description="Try a different period or clear the filters. Entries land automatically when assessments materialize or payments are recorded."
-        />
+      {!res.ok ? (
+        <LoadFailed what="journal entries" />
       ) : (
-        <Card>
-          <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border text-xs uppercase tracking-wide text-muted">
-              <tr>
-                <th className="px-4 py-2 font-medium">Number</th>
-                <th className="px-4 py-2 font-medium">Date</th>
-                <th className="px-4 py-2 font-medium">Memo</th>
-                <th className="px-4 py-2 font-medium">Source</th>
-                <th className="px-4 py-2 text-right font-medium">Amount</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((je) => (
-                <tr key={je.id} className="border-b border-border last:border-0 hover:bg-background/50">
-                  <td className="px-4 py-2">
-                    <Link
-                      href={`/accounting/ledger/${je.id}`}
-                      className="font-mono text-xs text-primary hover:underline"
-                    >
-                      {je.entry_number}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2 text-muted">
-                    {format(new Date(je.entry_date), 'MMM d, yyyy')}
-                  </td>
-                  <td className="px-4 py-2">
-                    <span className="text-foreground">{je.memo}</span>
-                    {je.ai_generated ? (
-                      <Sparkles className="ml-1 inline h-3 w-3 text-primary" aria-label="AI-generated" />
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-2 text-xs text-muted">{je.source}</td>
-                  <td className="px-4 py-2 text-right font-mono text-foreground">
-                    {currency(je.totalAmount)}
-                  </td>
-                  <td className="px-4 py-2">
-                    <Badge
-                      variant={
-                        je.status === 'posted'
-                          ? 'success'
-                          : je.status === 'reversed'
-                            ? 'destructive'
-                            : 'outline'
-                      }
-                      size="sm"
-                    >
-                      {je.status}
-                    </Badge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        </Card>
+        <DataTable
+          caption="Journal entries"
+          density="compact"
+          mobile="cards"
+          columns={COLUMNS}
+          rows={res.data.rows}
+          rowKey={(r) => r.id}
+          empty={
+            <EmptyState
+              variant="compact"
+              icon={<ScrollText aria-hidden />}
+              title={filtered ? 'No entries match these filters' : 'No journal entries in this period'}
+              description={
+                filtered
+                  ? 'Try another period, or reset the filters.'
+                  : 'Entries post automatically when dues are generated, owners pay, or a bill is entered.'
+              }
+            />
+          }
+          footer={
+            res.data.total > PAGE_SIZE ? (
+              <Pager
+                page={page}
+                pageSize={PAGE_SIZE}
+                total={res.data.total}
+                rowCount={res.data.rows.length}
+                hrefFor={hrefFor}
+                linkAs={Link}
+                noun="entries"
+              />
+            ) : undefined
+          }
+        />
       )}
-    </div>
+    </Page>
   )
 }
 
-function FilterSelect({
-  label,
-  name,
-  value,
-  options,
-}: {
-  label: string
-  name: string
-  value: string
-  options: { value: string; label: string }[]
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-xs text-muted">
-      {label}
-      <Select name={name} defaultValue={value}>
-        <option value="">All</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </Select>
-    </label>
-  )
-}
+const COLUMNS: DataTableColumn<JournalEntrySummary>[] = [
+  {
+    key: 'number',
+    header: 'Entry',
+    className: 'whitespace-nowrap',
+    hideOnMobile: true,
+    cell: (je) => (
+      <Link href={`/accounting/ledger/${je.id}`} className="num font-medium text-primary hover:underline">
+        {je.entry_number}
+      </Link>
+    ),
+  },
+  { key: 'date', header: 'Date', className: 'whitespace-nowrap text-muted', cell: (je) => formatDay(je.entry_date) },
+  {
+    key: 'memo',
+    header: 'Memo',
+    mobilePrimary: true,
+    cell: (je) => (
+      <span className="flex min-w-0 items-center gap-2">
+        <Link href={`/accounting/ledger/${je.id}`} className="truncate text-foreground no-underline hover:text-primary hover:underline">
+          {je.memo}
+        </Link>
+        {je.ai_generated ? (
+          <StatusPill tone="ai" label="AI" icon={<Sparkles aria-hidden />} size="sm" title="Drafted by AI" />
+        ) : null}
+      </span>
+    ),
+  },
+  { key: 'source', header: 'Source', hideBelowLg: true, className: 'whitespace-nowrap text-muted', cell: (je) => sourceLabel(je.source) },
+  { key: 'amount', header: 'Amount', numeric: true, cell: (je) => usd(je.totalAmount) },
+  { key: 'status', header: 'Status', cell: (je) => <MoneyStatus registry={JOURNAL_STATUS} status={je.status} /> },
+]

@@ -1,21 +1,25 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ChevronLeft, Sparkles } from 'lucide-react'
-import { format } from 'date-fns'
-import { Badge, Card } from '@homeowner-portal/ui'
+import { Sparkles } from 'lucide-react'
+import {
+  Alert,
+  Card,
+  CardContent,
+  KeyValue,
+  KeyValueList,
+  Page,
+  StatementTable,
+  StatusPill,
+} from '@homeowner-portal/ui'
 import { getAccountingContext, getJournalEntry } from '@/lib/accounting/queries'
+import { tryLoad } from '@/lib/load-or-fail'
+import { formatDay, formatStamp, usd } from '@/lib/money/format'
+import { JOURNAL_STATUS, sourceLabel, statusOf } from '@/lib/money/status'
+import { AccountLabel, AccountingLoadFailed, accountingCrumbs } from '../../_components/shared'
 import { ReverseEntryButton } from './ReverseEntryButton'
 import { PromoteRecurringButton } from './PromoteRecurringButton'
 
 export const metadata = { title: 'Journal Entry' }
-
-function currency(n: number): string {
-  return n.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  })
-}
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -23,152 +27,132 @@ interface PageProps {
 
 export default async function JournalEntryDetailPage({ params }: PageProps) {
   const { id } = await params
-  const ctx = await getAccountingContext()
+  const crumbs = accountingCrumbs(['Ledger', '/accounting/ledger'], ['Journal entry'])
+  const ctxRes = await tryLoad('accounting context', getAccountingContext)
+  if (!ctxRes.ok) return <AccountingLoadFailed title="Journal entry" what="this journal entry" breadcrumbs={crumbs} />
+  const ctx = ctxRes.data
   if (!ctx) notFound()
 
-  const je = await getJournalEntry(ctx.associationId, id)
+  const res = await tryLoad('journal entry', () => getJournalEntry(ctx.associationId, id))
+  if (!res.ok) return <AccountingLoadFailed title="Journal entry" what="this journal entry" breadcrumbs={crumbs} />
+  const je = res.data
   if (!je) notFound()
 
+  const { header } = je
   const totalDr = je.lines.reduce((s, l) => s + l.debit_amount, 0)
   const totalCr = je.lines.reduce((s, l) => s + l.credit_amount, 0)
-  const isBalanced = totalDr === totalCr
+  // Compared to the cent: summing numeric(14,2) values as JS floats can
+  // leave dust (0.1 + 0.2), which made `===` report "off by $0.00".
+  const isBalanced = Math.abs(totalDr - totalCr) < 0.005
+  const status = statusOf(JOURNAL_STATUS, header.status)
+  const canAct = header.status === 'posted' && !header.reversed_by_id
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <header className="space-y-1">
-        <Link
-          href="/accounting/ledger"
-          className="inline-flex items-center gap-1 text-xs text-muted hover:text-foreground"
-        >
-          <ChevronLeft className="h-3 w-3" />
-          General Ledger
-        </Link>
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h1 className="font-mono text-2xl font-bold text-foreground">
-            {je.header.entry_number}
-          </h1>
-          <Badge
-            variant={
-              je.header.status === 'posted'
-                ? 'success'
-                : je.header.status === 'reversed'
-                  ? 'destructive'
-                  : 'outline'
-            }
-          >
-            {je.header.status}
-          </Badge>
-          {je.header.ai_generated ? (
-            <Badge variant="outline">
-              <Sparkles className="mr-1 h-3 w-3" />
-              AI generated
-            </Badge>
-          ) : null}
-        </div>
-        <p className="text-sm text-foreground">{je.header.memo}</p>
-        <p className="text-xs text-muted">
-          {format(new Date(je.header.entry_date), 'PPP')} · source:{' '}
-          <span className="font-mono">{je.header.source}</span>
-          {je.header.posted_at
-            ? ` · posted ${format(new Date(je.header.posted_at), 'PPp')}`
-            : null}
-        </p>
-        {je.header.status === 'posted' && !je.header.reversed_by_id ? (
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            <ReverseEntryButton journalEntryId={je.header.id} />
-            <PromoteRecurringButton journalEntryId={je.header.id} />
-          </div>
-        ) : null}
-      </header>
-
-      {je.header.reverses_id ? (
-        <Card>
-          <div className="p-4 text-sm">
-            This entry reverses{' '}
-            <Link
-              href={`/accounting/ledger/${je.header.reverses_id}`}
-              className="font-mono text-primary hover:underline"
-            >
-              the original
-            </Link>
-            .
-          </div>
-        </Card>
+    <Page
+      width="default"
+      linkAs={Link}
+      breadcrumbs={accountingCrumbs(['Ledger', '/accounting/ledger'], [header.entry_number])}
+      title={header.memo}
+      eyebrow={<span className="num">{header.entry_number}</span>}
+      meta={
+        <>
+          <StatusPill tone={status.tone} label={status.label} />
+          {header.ai_generated ? <StatusPill tone="ai" label="Drafted by AI" icon={<Sparkles aria-hidden />} /> : null}
+        </>
+      }
+      actions={
+        canAct ? (
+          <>
+            <PromoteRecurringButton journalEntryId={header.id} />
+            <ReverseEntryButton journalEntryId={header.id} entryNumber={header.entry_number} />
+          </>
+        ) : undefined
+      }
+    >
+      {header.reverses_id ? (
+        <Alert variant="info" title="This is a reversing entry">
+          It cancels{' '}
+          <Link href={`/accounting/ledger/${header.reverses_id}`} className="font-medium text-primary underline">
+            the original entry
+          </Link>
+          .
+        </Alert>
       ) : null}
-      {je.header.reversed_by_id ? (
-        <Card>
-          <div className="p-4 text-sm">
-            This entry was reversed by{' '}
-            <Link
-              href={`/accounting/ledger/${je.header.reversed_by_id}`}
-              className="font-mono text-primary hover:underline"
-            >
-              a later entry
-            </Link>
-            .
-          </div>
-        </Card>
+      {header.reversed_by_id ? (
+        <Alert variant="warning" title="Reversed">
+          This entry no longer counts toward any balance —{' '}
+          <Link href={`/accounting/ledger/${header.reversed_by_id}`} className="font-medium text-primary underline">
+            see the reversing entry
+          </Link>
+          .
+        </Alert>
+      ) : null}
+      {header.status === 'draft' ? (
+        <Alert variant="info" title="Draft">
+          Not on the books yet — drafts don’t appear in balances or reports.
+        </Alert>
       ) : null}
 
       <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border text-xs uppercase tracking-wide text-muted">
-            <tr>
-              <th className="px-4 py-2 font-medium">Account</th>
-              <th className="px-4 py-2 font-medium">Fund</th>
-              <th className="px-4 py-2 font-medium">Memo</th>
-              <th className="px-4 py-2 text-right font-medium">Debit</th>
-              <th className="px-4 py-2 text-right font-medium">Credit</th>
-            </tr>
-          </thead>
-          <tbody>
-            {je.lines.map((l) => (
-              <tr key={l.id} className="border-b border-border last:border-0">
-                <td className="px-4 py-2">
-                  <div className="font-mono text-xs text-muted">
-                    {l.account.account_number}
-                  </div>
-                  <div className="text-foreground">{l.account.account_name}</div>
-                </td>
-                <td className="px-4 py-2 font-mono text-xs text-muted">{l.fund.code}</td>
-                <td className="px-4 py-2 text-xs text-muted">{l.memo ?? '—'}</td>
-                <td className="px-4 py-2 text-right font-mono">
-                  {l.debit_amount > 0 ? currency(l.debit_amount) : '—'}
-                </td>
-                <td className="px-4 py-2 text-right font-mono">
-                  {l.credit_amount > 0 ? currency(l.credit_amount) : '—'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot className="border-t-2 border-border bg-background/30">
-            <tr>
-              <td className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted" colSpan={3}>
-                Totals
-              </td>
-              <td className="px-4 py-2 text-right font-mono font-semibold">
-                {currency(totalDr)}
-              </td>
-              <td className="px-4 py-2 text-right font-mono font-semibold">
-                {currency(totalCr)}
-              </td>
-            </tr>
-            <tr>
-              <td colSpan={5} className="px-4 py-2 text-right text-xs">
-                {isBalanced ? (
-                  <span className="text-emerald-500">✓ balanced</span>
-                ) : (
-                  <span className="text-destructive">
-                    ✗ off by {currency(Math.abs(totalDr - totalCr))}
-                  </span>
-                )}
-              </td>
-            </tr>
-          </tfoot>
-          </table>
-        </div>
+        <CardContent className="pt-5">
+          <KeyValueList>
+            <KeyValue label="Entry date" value={formatDay(header.entry_date)} />
+            <KeyValue label="Source" value={sourceLabel(header.source)} />
+            <KeyValue label="Posted" value={header.posted_at ? formatStamp(header.posted_at) : 'Not posted'} />
+            <KeyValue label="Amount" value={<span className="num">{usd(totalDr)}</span>} />
+          </KeyValueList>
+        </CardContent>
       </Card>
-    </div>
+
+      <section aria-labelledby="je-lines" className="space-y-3">
+        <h2 id="je-lines" className="text-lg font-semibold text-foreground">
+          Lines
+        </h2>
+        <StatementTable
+          caption={`Lines of ${header.entry_number}`}
+          columns={[
+            { key: 'debit', header: 'Debit' },
+            { key: 'credit', header: 'Credit' },
+          ]}
+          sections={[
+            {
+              key: 'lines',
+              empty: 'This entry has no lines.',
+              rows: je.lines.map((l) => ({
+                key: l.id,
+                label: <AccountLabel number={l.account.account_number} name={l.account.account_name} />,
+                detail: (
+                  <span className="pl-[2.875rem]">
+                    {l.fund.name}
+                    {l.memo ? ` · ${l.memo}` : ''}
+                  </span>
+                ),
+                values: {
+                  debit: l.debit_amount > 0 ? usd(l.debit_amount) : <span className="text-muted">—</span>,
+                  credit: l.credit_amount > 0 ? usd(l.credit_amount) : <span className="text-muted">—</span>,
+                },
+              })),
+            },
+          ]}
+          totals={[
+            {
+              key: 'total',
+              label: (
+                <span className="flex flex-wrap items-center gap-2">
+                  Total
+                  {isBalanced ? (
+                    <StatusPill tone="success" label="Balanced" size="sm" />
+                  ) : (
+                    <StatusPill tone="danger" label={`Off by ${usd(Math.abs(totalDr - totalCr))}`} size="sm" />
+                  )}
+                </span>
+              ),
+              values: { debit: usd(totalDr), credit: usd(totalCr) },
+            },
+          ]}
+        />
+      </section>
+
+    </Page>
   )
 }

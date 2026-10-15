@@ -2,65 +2,73 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { Loader2, Undo2 } from 'lucide-react'
-import { Alert, Button } from '@homeowner-portal/ui'
+import { Undo2 } from 'lucide-react'
+import { Button, Dialog, DialogContent, DialogTrigger, Field, Input, useToast } from '@homeowner-portal/ui'
 import { reverseJournalEntry } from '@/lib/journal-entries'
 
-export function ReverseEntryButton({ journalEntryId }: { journalEntryId: string }) {
+/**
+ * Posts a mirror-image entry dated today. Destructive in effect (the
+ * original stops counting), so it is a dialog with Cancel focused first
+ * rather than an inline panel that pushed the page around.
+ */
+export function ReverseEntryButton({ journalEntryId, entryNumber }: { journalEntryId: string; entryNumber: string }) {
   const router = useRouter()
+  const toast = useToast()
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [fieldError, setFieldError] = useState<string | undefined>()
   const [pending, startTransition] = useTransition()
 
-  function handleSubmit() {
-    setError(null)
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setFieldError(undefined)
     startTransition(async () => {
-      const result = await reverseJournalEntry({
-        journalEntryId,
-        reason: reason.trim() || undefined,
-      })
+      const result = await reverseJournalEntry({ journalEntryId, reason: reason.trim() || undefined })
       if (!result.ok) {
-        setError(result.error)
-      } else {
-        router.push(`/accounting/ledger/${result.reversingJeId}`)
-        router.refresh()
+        if (result.fieldErrors?.reason) setFieldError(result.fieldErrors.reason)
+        else toast({ tone: 'error', title: 'Couldn’t reverse the entry', message: result.error })
+        return
       }
+      setOpen(false)
+      toast({ tone: 'success', message: `Reversal posted for ${entryNumber}.` })
+      router.push(`/accounting/ledger/${result.reversingJeId}`)
+      router.refresh()
     })
   }
 
-  if (!open) {
-    return (
-      <Button onClick={() => setOpen(true)} variant="outline" size="sm">
-        <Undo2 className="h-3.5 w-3.5" />
-        Reverse entry
-      </Button>
-    )
-  }
-
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
-      <label className="block text-sm">
-        <span className="font-medium text-foreground">Reason (optional)</span>
-        <input
-          type="text"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="e.g. duplicate posting, wrong account"
-          className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground"
-          disabled={pending}
-        />
-      </label>
-      {error ? <Alert variant="error">{error}</Alert> : null}
-      <div className="flex justify-end gap-2">
-        <Button onClick={() => setOpen(false)} variant="ghost" size="sm" disabled={pending}>
-          Cancel
+    <Dialog open={open} onOpenChange={(next) => !pending && setOpen(next)}>
+      <DialogTrigger asChild>
+        <Button variant="secondary" icon={<Undo2 aria-hidden />}>
+          Reverse
         </Button>
-        <Button onClick={handleSubmit} variant="outline" size="sm" disabled={pending}>
-          {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
-          Post reversal
-        </Button>
-      </div>
-    </div>
+      </DialogTrigger>
+      <DialogContent
+        title={`Reverse ${entryNumber}?`}
+        description="Posts an equal and opposite entry dated today. The original stays on the books, marked reversed — nothing is deleted."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setOpen(false)} disabled={pending} autoFocus>
+              Cancel
+            </Button>
+            <Button type="submit" form="reverse-je" variant="destructive" loading={pending} icon={<Undo2 aria-hidden />}>
+              Post reversal
+            </Button>
+          </>
+        }
+      >
+        <form id="reverse-je" onSubmit={submit}>
+          <Field label="Reason" optional hint="Kept on the reversing entry’s memo for the audit trail." error={fieldError}>
+            <Input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Duplicate posting, wrong account…"
+              maxLength={500}
+              disabled={pending}
+            />
+          </Field>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
