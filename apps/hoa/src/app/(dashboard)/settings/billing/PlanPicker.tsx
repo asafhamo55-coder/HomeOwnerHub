@@ -2,14 +2,7 @@
 
 import { useActionState, useState } from 'react'
 import { Check, Sparkles, Lock } from 'lucide-react'
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  cn,
-} from '@homeowner-portal/ui'
+import { Alert, Badge, Button, Card, CardContent, StatusPill, cn } from '@homeowner-portal/ui'
 import {
   PRICING,
   billingSummary,
@@ -55,90 +48,70 @@ export function PlanPicker({
 
   return (
     <div className="space-y-4">
-      {/* Cadence toggle — monthly vs annual.
-          Active state uses a light violet pill against the dark foreground
-          text — readable both on light + dark backgrounds. Previous
-          bg-primary + primary-foreground combo looked like a solid dark
-          block with hard-to-read white text. */}
-      <div className="inline-flex rounded-lg border border-border bg-card p-1 text-sm">
-        <button
-          type="button"
-          onClick={() => setCadence('monthly')}
-          aria-pressed={cadence === 'monthly'}
-          className={cn(
-            'rounded-md px-3 py-1.5 font-medium transition',
-            cadence === 'monthly'
-              ? 'bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-100'
-              : 'text-muted hover:text-foreground',
-          )}
-        >
-          Monthly
-        </button>
-        <button
-          type="button"
-          onClick={() => setCadence('annual')}
-          aria-pressed={cadence === 'annual'}
-          className={cn(
-            'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition',
-            cadence === 'annual'
-              ? 'bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-100'
-              : 'text-muted hover:text-foreground',
-          )}
-        >
-          Annual
-          <Badge variant="success" size="sm">
-            Save {PRICING.ANNUAL_DISCOUNT_PCT}%
-          </Badge>
-        </button>
+      {/* Billing cadence: two mutually exclusive options, so radio
+          semantics (arrow keys move between them). */}
+      <div role="radiogroup" aria-label="Billing cadence" className="inline-flex rounded-lg border border-border bg-subtle p-1 text-sm">
+        {(['monthly', 'annual'] as const).map((c) => (
+          <button
+            key={c}
+            type="button"
+            role="radio"
+            aria-checked={cadence === c}
+            onClick={() => setCadence(c)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.preventDefault()
+                setCadence(cadence === 'monthly' ? 'annual' : 'monthly')
+              }
+            }}
+            tabIndex={cadence === c ? 0 : -1}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              cadence === c ? 'bg-surface text-foreground shadow-xs' : 'text-muted hover:text-foreground',
+            )}
+          >
+            {c === 'monthly' ? 'Monthly' : 'Annual'}
+            {c === 'annual' ? <Badge variant="success" size="sm">Save {PRICING.ANNUAL_DISCOUNT_PCT}%</Badge> : null}
+          </button>
+        ))}
       </div>
 
-      <Card variant="elevated" className="border-violet-200 dark:border-violet-900/40">
-        <CardContent className="space-y-4 p-6">
-          <header className="flex items-start justify-between gap-2">
+      <Card>
+        <CardContent className="space-y-5 p-6">
+          <header className="flex items-start justify-between gap-3">
             <div className="space-y-1">
               <p className="flex items-center gap-2 text-base font-semibold text-foreground">
-                <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                <Sparkles className="size-4 text-primary" aria-hidden />
                 HOA Hub
               </p>
-              <p className="text-3xl font-bold text-foreground">
+              <p className="num text-3xl font-semibold tracking-tight text-foreground">
                 {formatUsd(activePrice)}
-                <span className="ml-1 text-sm font-normal text-muted">
-                  {cadence === 'annual' ? '/year' : '/month'}
-                </span>
+                <span className="ml-1 text-sm font-normal text-muted">{cadence === 'annual' ? '/ year' : '/ month'}</span>
               </p>
-              <p className="text-xs text-muted">
-                {formatUsd(PRICING.PER_DOOR_USD, { withCents: true })} per door · {summary.billableDoors} {summary.billableDoors === 1 ? 'door' : 'doors'}
-                {summary.minApplied ? (
-                  <span className="ml-1 text-foreground/80">
-                    (minimum {formatUsd(PRICING.MIN_MONTHLY_USD)}/mo applied)
-                  </span>
-                ) : null}
+              <p className="text-sm text-muted">
+                {formatUsd(PRICING.PER_DOOR_USD, { withCents: true })} per door · {summary.billableDoors}{' '}
+                {summary.billableDoors === 1 ? 'door' : 'doors'}
+                {summary.minApplied ? ` (minimum ${formatUsd(PRICING.MIN_MONTHLY_USD)}/month applied)` : ''}. {billedAsText}
               </p>
-              <p className="text-xs text-muted">{billedAsText}</p>
             </div>
-            {isCurrent ? (
-              <Badge variant="success" size="sm">
-                Current
-              </Badge>
-            ) : null}
+            {isCurrent ? <StatusPill tone="success" label="Current" size="sm" /> : null}
           </header>
 
-          <ul className="grid gap-1.5 text-sm text-muted sm:grid-cols-2">
+          <ul className="grid gap-2 text-sm text-foreground-secondary sm:grid-cols-2">
             {FEATURE_BULLETS.map((b) => (
               <li key={b} className="flex items-start gap-2">
-                <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
                 <span>{b}</span>
               </li>
             ))}
           </ul>
 
           <Alert variant="info" title="First-year commitment">
-            <span className="flex items-start gap-2 text-sm">
-              <Lock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" aria-hidden />
+            <span className="flex items-start gap-2">
+              <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
               <span>
-                Your first {PRICING.COMMIT_MONTHS} months are non-cancellable.
-                You can cancel from month {PRICING.COMMIT_MONTHS + 1} onward via{' '}
-                <strong>Manage subscription</strong>.
+                The first {PRICING.COMMIT_MONTHS} months can’t be cancelled. From month {PRICING.COMMIT_MONTHS + 1} you can cancel any time
+                under <strong>Manage subscription</strong>.
               </span>
             </span>
           </Alert>
@@ -146,22 +119,15 @@ export function PlanPicker({
           <form action={action}>
             <input type="hidden" name="plan" value={cadence === 'annual' ? 'annual' : 'monthly'} />
             <input type="hidden" name="doors" value={String(summary.billableDoors)} />
-            <Button
-              type="submit"
-              variant="default"
-              size="md"
-              className="w-full bg-violet-600 text-white hover:bg-violet-700 dark:bg-violet-500 dark:hover:bg-violet-600"
-              loading={pending}
-              disabled={isCurrent}
-            >
-              {isCurrent ? 'Current plan' : `Subscribe ${cadence === 'annual' ? 'annually' : 'monthly'}`}
+            <Button type="submit" size="lg" className="w-full" loading={pending} disabled={isCurrent}>
+              {isCurrent ? 'Current plan' : `Subscribe ${cadence === 'annual' ? 'annually' : 'monthly'} · ${formatUsd(activePrice)}`}
             </Button>
           </form>
         </CardContent>
       </Card>
 
       {state.error ? (
-        <Alert variant="error" title="Couldn't start checkout">
+        <Alert variant="error" title="Couldn’t start checkout">
           {state.error}
         </Alert>
       ) : null}
