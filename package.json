@@ -10,6 +10,7 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
+    "typecheck:integration": "tsc --noEmit -p tsconfig.integration.json",
     "dev:hoa": "turbo run dev --filter=hoa",
     "dev:eviction": "turbo run dev --filter=eviction",
     "dev:pm": "turbo run dev --filter=pm",
