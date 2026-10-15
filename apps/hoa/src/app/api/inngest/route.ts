@@ -7,6 +7,7 @@ import {
   evictionReminderJob,
   wizardDraftRemindersJob,
   stateLawRefreshJob,
+  lawStatuteChangedJob,
   mailboxSyncJob,
   mailboxWatchdogJob,
   mailboxBackfillJob,
@@ -19,7 +20,7 @@ import {
   plaidSyncJob,
 } from '@homeowner-portal/jobs'
 
-// Sixteen crons mount in the HOA app. Inngest is a single
+// Seventeen functions (crons and event listeners) mount in the HOA app. Inngest is a single
 // app-id ("homeownerhub") so it doesn't matter where the handler lives —
 // scheduled invocations target the function id, not the host. Apps/eviction
 // and apps/pm could mount the same handler if they need their own
@@ -48,6 +49,7 @@ export const { GET, POST, PUT } = serve({
     evictionReminderJob,
     wizardDraftRemindersJob,
     stateLawRefreshJob,
+    lawStatuteChangedJob,
     mailboxSyncJob,
     mailboxWatchdogJob,
     mailboxBackfillJob,

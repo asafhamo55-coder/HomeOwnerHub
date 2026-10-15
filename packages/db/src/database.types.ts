@@ -5482,6 +5482,53 @@ export type Database = {
           },
         ]
       }
+      state_statute_changes: {
+        Row: {
+          change_kind: string
+          code_citation: string
+          detected_at: string
+          event_sent_at: string | null
+          id: string
+          new_hash: string | null
+          old_hash: string | null
+          source_name: string | null
+          state: string
+          statute_id: string
+        }
+        Insert: {
+          change_kind: string
+          code_citation: string
+          detected_at?: string
+          event_sent_at?: string | null
+          id?: string
+          new_hash?: string | null
+          old_hash?: string | null
+          source_name?: string | null
+          state: string
+          statute_id: string
+        }
+        Update: {
+          change_kind?: string
+          code_citation?: string
+          detected_at?: string
+          event_sent_at?: string | null
+          id?: string
+          new_hash?: string | null
+          old_hash?: string | null
+          source_name?: string | null
+          state?: string
+          statute_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "state_statute_changes_statute_id_fkey"
+            columns: ["statute_id"]
+            isOneToOne: false
+            referencedRelation: "state_statutes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       state_statute_chunks: {
         Row: {
           chunk_index: number
@@ -5525,9 +5572,12 @@ export type Database = {
           body: string
           category: string | null
           code_citation: string
+          content_hash: string | null
           effective_date: string | null
           fetched_at: string
           id: string
+          last_checked_at: string | null
+          source_name: string | null
           source_url: string | null
           state: string
           superseded_at: string | null
@@ -5537,9 +5587,12 @@ export type Database = {
           body: string
           category?: string | null
           code_citation: string
+          content_hash?: string | null
           effective_date?: string | null
           fetched_at?: string
           id?: string
+          last_checked_at?: string | null
+          source_name?: string | null
           source_url?: string | null
           state: string
           superseded_at?: string | null
@@ -5549,9 +5602,12 @@ export type Database = {
           body?: string
           category?: string | null
           code_citation?: string
+          content_hash?: string | null
           effective_date?: string | null
           fetched_at?: string
           id?: string
+          last_checked_at?: string | null
+          source_name?: string | null
           source_url?: string | null
           state?: string
           superseded_at?: string | null

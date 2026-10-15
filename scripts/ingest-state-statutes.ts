@@ -10,7 +10,18 @@
  *
  * Where <STATE> is one of: GA, FL, CA, TX.
  *
- * Reads `data/statutes/<state>.jsonl` — one statute per line, each an
+ *   pnpm ingest:state-law FL --from-source
+ *
+ * --from-source fetches the official verbatim text through the state's
+ * source adapter (packages/workflows/src/W30-state-law-brain/sources/;
+ * today FL only), diffs it against state_statutes by content_hash exactly
+ * as the weekly refresh job does, and writes the changes. Each change is
+ * logged to state_statute_changes; the next refresh-job run emits the
+ * unsent rows as law/statute.changed / law/statute.removed. It also writes
+ * data/statutes/<state>.jsonl as a reviewable diff artifact. Needs
+ * migration 0062.
+ *
+ * Without the flag, behaviour is unchanged: reads `data/statutes/<state>.jsonl` — one statute per line, each an
  * object with the shape:
  *
  *   {
@@ -40,6 +51,17 @@ import path from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import { chunkPlainText } from '../packages/workflows/src/W1-governing-docs-brain/chunker'
 import { embedTexts, toPgVector } from '../packages/ai/src/embeddings'
+import type { Database } from '../packages/db/src/database.types'
+import {
+  adapterFor,
+  applyRemoval,
+  applyStatuteWrite,
+  applyUnchanged,
+  defaultEmbed,
+  loadExistingStatutes,
+  planStatuteSync,
+  repairMissingChunks,
+} from '../packages/workflows/src/W30-state-law-brain/ingest'
 
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL
@@ -58,17 +80,74 @@ interface StatuteRecord {
   effective_date?: string | null
 }
 
+async function ingestFromSource(state: string): Promise<void> {
+  const adapter = adapterFor(state)
+  if (!adapter) {
+    console.error(`[ingest] ${state} has no official-source adapter (FL only today).`)
+    process.exit(1)
+  }
+  const db = createClient<Database>(SUPABASE_URL!, SERVICE_ROLE_KEY!, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+
+  console.log(`[ingest] ${state}: fetching from the official source (rate-limited)...`)
+  const fetched = await adapter.fetchSections()
+  console.log(`[ingest] ${state}: ${fetched.records.length} sections from ${fetched.sourceName}`)
+
+  const artifact = path.resolve(process.cwd(), `data/statutes/${state.toLowerCase()}.jsonl`)
+  const header = [
+    `// ${fetched.sourceName} - verbatim official text, written by`,
+    `// "pnpm ingest:state-law ${state} --from-source" on ${new Date().toISOString().slice(0, 10)}.`,
+    '// Review artifact only: the refresh job reads the official source, not this file.',
+    '',
+  ]
+  const lines = [...header, ...fetched.records.map((r) => JSON.stringify(r)), '']
+  await fs.writeFile(artifact, lines.join('\n'), 'utf-8')
+  console.log(`[ingest] wrote ${path.relative(process.cwd(), artifact)}`)
+
+  const plan = planStatuteSync({
+    state,
+    sourceName: fetched.sourceName,
+    records: fetched.records,
+    existing: await loadExistingStatutes(db, state),
+    covers: adapter.covers,
+  })
+  const opts = { state, sourceName: plan.sourceName }
+  const embed = defaultEmbed()
+
+  const touched = await applyUnchanged(db, plan.unchanged, opts)
+  for (const w of plan.writes) {
+    const change = await applyStatuteWrite(db, w, { ...opts, embed })
+    console.log(`[ingest] ${change.kind}: ${change.codeCitation}`)
+  }
+  for (const r of plan.removals) {
+    await applyRemoval(db, r, opts)
+    console.log(`[ingest] removed: ${r.codeCitation}`)
+  }
+  const repaired = await repairMissingChunks(db, state, plan.unchanged.map((u) => u.statuteId), embed)
+
+  console.log(
+    `[ingest] done - ${plan.writes.length} written, ${plan.removals.length} superseded, ` +
+      `${touched.checked} unchanged (${touched.backfilled} hashes backfilled), ` +
+      `${repaired.length} chunk sets repaired. Change events go out on the next refresh-job run.`,
+  )
+}
+
 async function main(): Promise<void> {
   const state = (process.argv[2] ?? '').toUpperCase()
   if (!SUPPORTED_STATES.has(state)) {
     console.error(
-      `[ingest] Usage: pnpm exec tsx scripts/ingest-state-statutes.ts <GA|FL|CA|TX>`,
+      `[ingest] Usage: pnpm exec tsx scripts/ingest-state-statutes.ts <GA|FL|CA|TX> [--from-source]`,
     )
     process.exit(1)
   }
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
     console.error('[ingest] Missing SUPABASE env vars.')
     process.exit(1)
+  }
+  if (process.argv.includes('--from-source')) {
+    await ingestFromSource(state)
+    return
   }
 
   const fixturePath = path.resolve(
@@ -133,6 +212,11 @@ async function main(): Promise<void> {
           effective_date: rec.effective_date ?? null,
           fetched_at: new Date().toISOString(),
           superseded_at: null,
+          // Curated text, not official verbatim. Clearing the hash makes the
+          // refresh job re-hash this body instead of trusting a hash that
+          // described the official text this write just replaced.
+          content_hash: null,
+          source_name: null,
         },
         { onConflict: 'state,code_citation' },
       )

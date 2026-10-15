@@ -1,23 +1,24 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@homeowner-portal/db'
+import { inngest } from '@homeowner-portal/jobs'
 import { isPlatformAdmin } from '@/lib/platform-admin'
 
 /**
- * GET  /api/admin/refresh-state-law?state=GA  → freshness report
- * POST /api/admin/refresh-state-law           → emit refresh-requested
- *                                                event (audit row)
+ * GET  /api/admin/refresh-state-law?state=FL  → freshness report
+ * POST /api/admin/refresh-state-law           → run the refresh job now
  *
- * Honest caveat — this endpoint does NOT actually scrape. Playwright +
- * Chromium are too heavy for Vercel serverless functions (250MB unzipped
- * limit, 60s timeout). Instead this returns the current freshness state
- * and emits an audit event the platform admin can react to by running
- * `pnpm scrape:state-law <STATE> --apply` from a host that has Chromium
- * installed. If you later wire a GitHub Action / Browserless worker,
- * have that worker poll for unfulfilled `state_law.refresh_requested`
- * audit rows.
+ * POST sends `law/refresh.requested`, which triggers the same Inngest job
+ * as the weekly cron (packages/jobs/src/state-law-refresh.ts): fetch the
+ * official source, diff by content_hash, write changes, emit
+ * law/statute.changed. Only states with an official-source adapter are
+ * refreshable (today: FL). Staleness keys off last_checked_at ("when we
+ * last looked"), not fetched_at ("when the text last changed").
  */
 
 const SUPPORTED = new Set(['GA', 'FL', 'CA', 'TX'])
+/** States with an official-source adapter (SOURCE_STATES in
+ *  packages/workflows/src/W30-state-law-brain/sources/index.ts). */
+const REFRESHABLE = new Set(['FL'])
 
 export async function GET(request: Request): Promise<Response> {
   if (!(await isPlatformAdmin())) {
@@ -36,7 +37,7 @@ export async function GET(request: Request): Promise<Response> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('state_statutes')
-    .select('code_citation, title, category, fetched_at, source_url, superseded_at')
+    .select('code_citation, title, category, fetched_at, last_checked_at, content_hash, source_name, source_url, superseded_at')
     .eq('state', state)
     .order('code_citation')
 
@@ -47,16 +48,19 @@ export async function GET(request: Request): Promise<Response> {
   const rows = (data ?? []) as Array<{
     code_citation: string
     title: string
-    category: string
+    category: string | null
     fetched_at: string | null
+    last_checked_at: string | null
+    content_hash: string | null
+    source_name: string | null
     source_url: string | null
     superseded_at: string | null
   }>
 
   const now = Date.now()
   const enriched = rows.map((r) => {
-    const ageDays = r.fetched_at
-      ? Math.floor((now - new Date(r.fetched_at).getTime()) / (24 * 60 * 60 * 1000))
+    const ageDays = r.last_checked_at
+      ? Math.floor((now - new Date(r.last_checked_at).getTime()) / (24 * 60 * 60 * 1000))
       : null
     return {
       ...r,
@@ -71,8 +75,8 @@ export async function GET(request: Request): Promise<Response> {
     state,
     total: enriched.length,
     stale_count: staleCount,
+    refreshable: REFRESHABLE.has(state),
     statutes: enriched,
-    refresh_command: `pnpm scrape:state-law ${state} --apply`,
   })
 }
 
@@ -95,18 +99,14 @@ export async function POST(request: Request): Promise<Response> {
     )
   }
 
-  const db = createAdminClient()
-  await db
-    .from('platform_admin_audit' as never)
-    .insert({
-      action: 'state_law.refresh_requested',
-      target_org_id: null,
-      payload: { state, requested_at: new Date().toISOString() },
-    } as never)
+  if (!REFRESHABLE.has(state)) {
+    return NextResponse.json(
+      { error: 'no_official_source', refreshable: [...REFRESHABLE] },
+      { status: 400 },
+    )
+  }
 
-  return NextResponse.json({
-    ok: true,
-    state,
-    next_step: `Run \`pnpm scrape:state-law ${state} --apply\` from a host with Playwright installed. The Vercel runtime cannot execute Chromium.`,
-  })
+  await inngest.send({ name: 'law/refresh.requested', data: { state } })
+
+  return NextResponse.json({ ok: true, state, queued: 'law/refresh.requested' })
 }
