@@ -7,8 +7,14 @@ import { cn } from '@homeowner-portal/ui'
 
 // App-style bottom tab bar — the primary navigation for the resident
 // portal on every viewport. Five destinations, large touch targets,
-// active tab in the brand color. Fixed to the bottom with safe-area
-// padding so it clears the iOS home indicator.
+// active tab in the brand color, safe-area padding so it clears the iOS
+// home indicator.
+//
+// It is `sticky bottom-0` and the LAST child of the layout's min-h-dvh
+// column, not `fixed`: it pins to the viewport bottom while scrolling,
+// but it also occupies its own space in the flow, so the end of the page
+// can always scroll fully above it. (As a fixed bar it relied on a magic
+// bottom padding on <main> and still covered the last row of cards.)
 
 interface Tab {
   href: string
@@ -48,8 +54,7 @@ export function ResidentTabBar() {
   return (
     <nav
       aria-label="Primary"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/80"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      className="sticky bottom-0 z-30 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-surface/80 print:hidden"
     >
       <ul className="mx-auto flex max-w-2xl items-stretch">
         {TABS.map((tab) => {

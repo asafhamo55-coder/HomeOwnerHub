@@ -23,7 +23,8 @@ import { SidebarContext } from './sidebar-context'
  *     <CommandPalette commands={…} onNavigate={router.push} />
  *   </AppShell>
  *
- * Desktop: sticky sidebar, collapsible to a 60px icon rail (persisted, no
+ * Desktop: full-height sidebar column whose contents stick to the
+ * viewport, collapsible to a 60px icon rail (persisted, no
  * flash — see THEME_INIT_SCRIPT). Phone: off-canvas drawer that closes on
  * any link click (Next <Link> is pushState and never fires popstate — the
  * phase-1 fix), on Esc, and on backdrop tap.
@@ -136,7 +137,11 @@ export function AppShellSidebar({
         className={cn(
           'group/sidebar fixed inset-y-0 left-0 z-50 flex w-[17rem] max-w-[85vw] flex-col border-r border-border bg-surface',
           'transition-[transform,width] duration-slow ease-emphasized',
-          'md:sticky md:top-0 md:z-30 md:h-dvh md:w-sidebar md:max-w-none md:translate-x-0',
+          // Desktop: the <aside> is an in-flow column that stretches to the
+          // full height of the page (so its surface + border never stop at
+          // the first viewport on long pages); the inner wrapper below is
+          // what sticks to the viewport.
+          'md:relative md:inset-auto md:z-30 md:shrink-0 md:self-stretch md:w-sidebar md:max-w-none md:translate-x-0',
           collapsible && 'md:sidebar-collapsed:w-sidebar-collapsed',
           mobileOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full',
           className,
@@ -151,7 +156,9 @@ export function AppShellSidebar({
           if (mobileOpen && (e.target as HTMLElement).closest('a[href]')) setMobileOpen(false)
         }}
       >
-        <SidebarContext.Provider value={{ collapsible }}>{children}</SidebarContext.Provider>
+        <div className="flex h-full min-h-0 flex-col md:sticky md:top-0 md:h-dvh">
+          <SidebarContext.Provider value={{ collapsible }}>{children}</SidebarContext.Provider>
+        </div>
         <button
           type="button"
           onClick={() => setMobileOpen(false)}

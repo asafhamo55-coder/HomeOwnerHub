@@ -1,8 +1,19 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { Briefcase, ChevronUp, Home, Shield, X } from 'lucide-react'
-import { cn } from '@homeowner-portal/ui'
+import { useTransition } from 'react'
+import { Briefcase, ChevronDown, Eye, Home, RotateCcw, Shield } from 'lucide-react'
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  cn,
+} from '@homeowner-portal/ui'
 import { setRoleOverride, clearRoleOverride } from '@/lib/role-override'
 
 type Role = 'admin' | 'board' | 'resident'
@@ -13,7 +24,16 @@ interface RoleSwitcherProps {
   realRole: Role
   /** The currently-active override, if any. */
   override: Role | null
+  /**
+   * Where the control lives. Neither placement floats over the page:
+   *   - `toolbar` — a compact menu button docked in the board top bar.
+   *   - `banner`  — a slim in-flow strip above the resident top bar, so it
+   *     can never cover content or the bottom tab bar.
+   */
+  placement: 'toolbar' | 'banner'
 }
+
+const ROLES: Role[] = ['admin', 'board', 'resident']
 
 const ROLE_LABEL: Record<Role, string> = {
   admin: 'Admin',
@@ -22,120 +42,122 @@ const ROLE_LABEL: Record<Role, string> = {
 }
 
 const ROLE_ICON: Record<Role, React.ReactNode> = {
-  admin: <Shield className="h-3.5 w-3.5" />,
-  board: <Briefcase className="h-3.5 w-3.5" />,
-  resident: <Home className="h-3.5 w-3.5" />,
+  admin: <Shield aria-hidden />,
+  board: <Briefcase aria-hidden />,
+  resident: <Home aria-hidden />,
 }
 
-export function RoleSwitcher({ realRole, override }: RoleSwitcherProps) {
-  const [open, setOpen] = useState(false)
+export function RoleSwitcher({ realRole, override, placement }: RoleSwitcherProps) {
   const [isPending, startTransition] = useTransition()
 
   const effective: Role = override ?? realRole
   const isOverriding = override !== null && override !== realRole
 
-  function pick(role: Role) {
-    setOpen(false)
-    if (role === realRole) {
-      startTransition(() => {
-        void clearRoleOverride()
-      })
-    } else {
-      startTransition(() => {
-        void setRoleOverride(role)
-      })
-    }
+  function pick(value: string) {
+    const role = value as Role
+    if (role === effective) return
+    startTransition(() => {
+      void (role === realRole ? clearRoleOverride() : setRoleOverride(role))
+    })
   }
 
   function reset() {
-    setOpen(false)
     startTransition(() => {
       void clearRoleOverride()
     })
   }
 
-  return (
-    <div className="fixed bottom-4 right-4 z-50 print:hidden">
-      {open ? (
-        <div
-          className={cn(
-            'mb-2 w-56 overflow-hidden rounded-lg border border-border bg-white shadow-lg',
-          )}
-        >
-          <div className="border-b border-border bg-foreground/5 px-3 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
-              Dev — view as
-            </p>
-            <p className="text-xs text-muted">
-              UI only · RLS uses your real role
-            </p>
-          </div>
-          <ul className="py-1">
-            {(['admin', 'board', 'resident'] as Role[]).map((r) => (
-              <li key={r}>
-                <button
-                  type="button"
-                  onClick={() => pick(r)}
-                  disabled={isPending}
-                  className={cn(
-                    'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-foreground/5',
-                    effective === r && 'font-semibold text-primary',
-                  )}
-                >
-                  {ROLE_ICON[r]}
-                  <span>{ROLE_LABEL[r]}</span>
-                  {r === realRole ? (
-                    <span className="ml-auto text-[10px] uppercase tracking-wide text-muted">
-                      real
-                    </span>
-                  ) : null}
-                </button>
-              </li>
-            ))}
-          </ul>
-          {isOverriding ? (
-            <div className="border-t border-border">
-              <button
-                type="button"
-                onClick={reset}
+  const menu = (
+    <DropdownMenuContent align="end" className="w-64">
+      <DropdownMenuLabel>
+        View as
+        <span className="mt-0.5 block font-normal">UI only — data access uses your real role.</span>
+      </DropdownMenuLabel>
+      <DropdownMenuRadioGroup value={effective} onValueChange={pick}>
+        {ROLES.map((r) => (
+          <DropdownMenuRadioItem key={r} value={r} icon={ROLE_ICON[r]} disabled={isPending}>
+            {ROLE_LABEL[r]}
+            {r === realRole ? <span className="ml-2 text-xs text-muted">(you)</span> : null}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+      {isOverriding ? (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem icon={<RotateCcw aria-hidden />} onSelect={reset} disabled={isPending}>
+            Back to {ROLE_LABEL[realRole]} view
+          </DropdownMenuItem>
+        </>
+      ) : null}
+    </DropdownMenuContent>
+  )
+
+  if (placement === 'banner') {
+    return (
+      <div
+        role="status"
+        className="border-b border-warning/30 bg-warning-subtle text-warning print:hidden"
+      >
+        <div className="mx-auto flex min-h-10 max-w-2xl items-center gap-2 px-4 py-1.5 text-xs">
+          <Eye className="size-4 shrink-0" aria-hidden />
+          <p className="min-w-0 flex-1 truncate">
+            <span className="font-semibold">Previewing as {ROLE_LABEL[effective]}</span>
+            <span className="hidden sm:inline"> · UI only, data access uses your {ROLE_LABEL[realRole]} role</span>
+          </p>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="xs"
+                iconRight={<ChevronDown aria-hidden />}
+                className="text-warning hover:bg-warning/10 hover:text-warning"
                 disabled={isPending}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-muted hover:bg-foreground/5"
               >
-                <X className="h-3 w-3" />
-                Reset to {ROLE_LABEL[realRole]}
-              </button>
-            </div>
+                Switch
+              </Button>
+            </DropdownMenuTrigger>
+            {menu}
+          </DropdownMenu>
+          {isOverriding ? (
+            <Button
+              variant="secondary"
+              size="xs"
+              onClick={reset}
+              loading={isPending}
+              className="border-warning/40 bg-surface text-warning hover:bg-warning-subtle"
+            >
+              Exit preview
+            </Button>
           ) : null}
         </div>
-      ) : null}
+      </div>
+    )
+  }
 
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        disabled={isPending}
-        className={cn(
-          'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-md transition-colors',
-          isOverriding
-            ? 'border-amber-500 bg-amber-50 text-amber-900 hover:bg-amber-100'
-            : 'border-border bg-white text-muted hover:text-foreground',
-        )}
-        title={
-          isOverriding
-            ? `Viewing as ${ROLE_LABEL[effective]} (real: ${ROLE_LABEL[realRole]})`
-            : `Dev: switch view`
-        }
-      >
-        {ROLE_ICON[effective]}
-        <span>View: {ROLE_LABEL[effective]}</span>
-        {isOverriding ? (
-          <span className="rounded bg-amber-500 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-white">
-            override
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          disabled={isPending}
+          aria-label={`View as: ${ROLE_LABEL[effective]}${isOverriding ? ' (preview)' : ''}`}
+          className={cn(
+            'inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-xs font-medium transition-colors duration-fast print:hidden',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            '[&_svg]:size-3.5 [&_svg]:shrink-0',
+            isOverriding
+              ? 'border-warning/40 bg-warning-subtle text-warning hover:bg-warning/15'
+              : 'border-border bg-surface text-muted hover:border-border-strong hover:text-foreground',
+          )}
+        >
+          {isOverriding ? <Eye aria-hidden /> : ROLE_ICON[effective]}
+          <span className="hidden lg:inline">
+            {isOverriding ? `Viewing as ${ROLE_LABEL[effective]}` : `View as ${ROLE_LABEL[effective]}`}
           </span>
-        ) : null}
-        <ChevronUp
-          className={cn('h-3 w-3 transition-transform', open && 'rotate-180')}
-        />
-      </button>
-    </div>
+          <ChevronDown className="hidden lg:block" aria-hidden />
+        </button>
+      </DropdownMenuTrigger>
+      {menu}
+    </DropdownMenu>
   )
 }

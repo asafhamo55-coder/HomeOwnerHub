@@ -10,7 +10,7 @@ import { ImpersonationBanner } from '@/components/ImpersonationBanner'
 
 // Resident-only route tree. Unlike the board/admin dashboard (fixed
 // sidebar shell), the resident portal wears a consumer app shell: a slim
-// top bar, a centered single-column content area, and a fixed bottom tab
+// top bar, a centered single-column content area, and a sticky bottom tab
 // bar on every viewport. Gating logic is unchanged — getEffectiveRoleInOrg
 // so an admin with the dev override (or an active impersonation cookie)
 // sees this UI; real residents always land here.
@@ -43,10 +43,14 @@ export default async function ResidentLayout({
   const userEmail = actor.impersonating ? actor.email ?? '' : user.email ?? ''
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-dvh flex-col bg-background">
+      {/* Dev-only role switcher: an in-flow strip, so it can never cover
+          content or the tab bar. Renders nothing for non-admins. */}
+      <RoleSwitcherMount placement="banner" />
+
       <ResidentTopBar orgName={org.name} userEmail={userEmail} />
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-28 pt-5">
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-8 pt-5">
         {impersonation ? (
           <div className="mb-4">
             <ImpersonationBanner name={impersonation.name} />
@@ -56,9 +60,6 @@ export default async function ResidentLayout({
       </main>
 
       <ResidentTabBar />
-
-      {/* Dev-only role switcher. Renders nothing for non-admins. */}
-      <RoleSwitcherMount />
     </div>
   )
 }
