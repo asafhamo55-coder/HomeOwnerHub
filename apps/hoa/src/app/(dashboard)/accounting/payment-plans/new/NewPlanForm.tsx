@@ -2,124 +2,92 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { Loader2, Plus } from 'lucide-react'
-import { Alert, Button, Input, Select } from '@homeowner-portal/ui'
+import { Plus } from 'lucide-react'
+import { Button, Field, Input, Select, useToast } from '@homeowner-portal/ui'
 import { createPaymentPlan } from '@/lib/payment-plans'
+import { todayIso, usd } from '@/lib/money/format'
 
 interface UnitOption {
   id: string
   label: string
 }
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
 export function NewPlanForm({ units }: { units: UnitOption[] }) {
   const router = useRouter()
-  const [unitId, setUnitId] = useState(units[0]?.id ?? '')
-  const [total, setTotal] = useState<number | ''>('')
-  const [count, setCount] = useState(3)
+  const toast = useToast()
+  const [unitId, setUnitId] = useState('')
+  const [total, setTotal] = useState('')
+  const [count, setCount] = useState('3')
   const [startDate, setStartDate] = useState(todayIso())
-  const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [pending, startTransition] = useTransition()
 
-  const perInstallment =
-    typeof total === 'number' && total > 0 && count > 0
-      ? (total / count).toFixed(2)
-      : '—'
+  const totalNum = Number(total.replace(/[$,\s]/g, ''))
+  const countNum = Number(count)
+  const perInstallment = totalNum > 0 && Number.isInteger(countNum) && countNum >= 2 ? totalNum / countNum : null
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setError(null)
-    if (typeof total !== 'number' || total <= 0) {
-      setError('total amount required')
-      return
-    }
+    const next: Record<string, string> = {}
+    if (!unitId) next.unitId = 'Pick the property this plan is for.'
+    if (!Number.isFinite(totalNum) || totalNum <= 0) next.totalAmount = 'Enter the balance to spread, greater than $0.'
+    if (!Number.isInteger(countNum) || countNum < 2 || countNum > 60) next.installmentCount = 'Between 2 and 60 installments.'
+    if (!startDate) next.startDate = 'Pick the first due date.'
+    setErrors(next)
+    if (Object.keys(next).length > 0) return
     startTransition(async () => {
-      const result = await createPaymentPlan({
-        unitId,
-        totalAmount: total,
-        installmentCount: count,
-        startDate,
-      })
+      const result = await createPaymentPlan({ unitId, totalAmount: totalNum, installmentCount: countNum, startDate })
       if (!result.ok) {
-        setError(result.error)
-      } else {
-        router.push('/accounting/payment-plans')
-        router.refresh()
+        if (result.fieldErrors && Object.keys(result.fieldErrors).some((k) => k !== '_')) setErrors(result.fieldErrors)
+        else toast({ tone: 'error', title: 'Couldn’t create the plan', message: result.error })
+        return
       }
+      toast({ tone: 'success', message: `Plan created: ${countNum} monthly installments of ${usd(perInstallment)}.` })
+      router.push('/accounting/payment-plans')
+      router.refresh()
     })
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <label className="block text-sm">
-        <span className="font-medium text-foreground">Unit</span>
-        <Select
-          className="mt-1"
-          value={unitId}
-          onValueChange={(v) => setUnitId(v)}
-          required
-          disabled={pending}
-        >
+    <form onSubmit={submit} noValidate className="space-y-5">
+      <Field label="Property" required error={errors.unitId}>
+        <Select value={unitId || undefined} onValueChange={setUnitId} disabled={pending} placeholder="Choose a property">
           {units.map((u) => (
-            <option key={u.id} value={u.id}>{u.label}</option>
+            <option key={u.id} value={u.id}>
+              {u.label}
+            </option>
           ))}
         </Select>
-      </label>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <label className="block text-sm">
-          <span className="font-medium text-foreground">Total</span>
-          <Input
-            type="number"
-            min={0}
-            step={1}
-            value={total}
-            onChange={(e) => setTotal(e.target.value === '' ? '' : Number(e.target.value))}
-            prefix={<span className="text-xs">$</span>}
-            required
-            disabled={pending}
-            className="mt-1"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="font-medium text-foreground">Installments</span>
-          <Input
-            type="number"
-            min={2}
-            max={60}
-            step={1}
-            value={count}
-            onChange={(e) => setCount(Number(e.target.value) || 2)}
-            required
-            disabled={pending}
-            className="mt-1"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="font-medium text-foreground">Start date</span>
-          <Input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            required
-            disabled={pending}
-            className="mt-1"
-          />
-        </label>
+      </Field>
+      <div className="grid gap-5 sm:grid-cols-3">
+        <Field label="Balance to spread" required error={errors.totalAmount}>
+          <Input inputMode="decimal" prefix="$" placeholder="0.00" value={total} onChange={(e) => setTotal(e.target.value)} disabled={pending} />
+        </Field>
+        <Field label="Installments" required hint="2 to 60" error={errors.installmentCount}>
+          <Input type="number" min={2} max={60} step={1} value={count} onChange={(e) => setCount(e.target.value)} disabled={pending} />
+        </Field>
+        <Field label="First due" required error={errors.startDate}>
+          <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} disabled={pending} />
+        </Field>
       </div>
 
-      <p className="text-xs text-muted">
-        Per installment: <span className="font-mono text-foreground">${perInstallment}</span>
-      </p>
+      <div className="rounded-lg border border-border bg-subtle px-4 py-3 text-sm" aria-live="polite">
+        {perInstallment !== null ? (
+          <>
+            <span className="text-muted">Each installment:</span>{' '}
+            <span className="num font-semibold text-foreground">{usd(perInstallment)}</span>
+            <span className="text-muted"> a month for {countNum} months.</span>
+          </>
+        ) : (
+          <span className="text-muted">Enter a balance and installment count to see the monthly amount.</span>
+        )}
+      </div>
 
-      {error ? <Alert variant="error">{error}</Alert> : null}
-
-      <div className="flex justify-end">
-        <Button type="submit" disabled={pending}>
-          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+      <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">
+        <Button type="button" variant="ghost" onClick={() => router.push('/accounting/payment-plans')} disabled={pending}>
+          Cancel
+        </Button>
+        <Button type="submit" loading={pending} icon={<Plus aria-hidden />}>
           Create plan
         </Button>
       </div>

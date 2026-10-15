@@ -1,13 +1,12 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ChevronLeft, Target } from 'lucide-react'
-import { format } from 'date-fns'
-import { Badge, Card } from '@homeowner-portal/ui'
-import {
-  getAccountingContext,
-  getBudget,
-  listAccounts,
-} from '@/lib/accounting/queries'
+import { BarChart3 } from 'lucide-react'
+import { Button, Page, StatusPill } from '@homeowner-portal/ui'
+import { getAccountingContext, getBudget, listAccounts } from '@/lib/accounting/queries'
+import { tryLoad } from '@/lib/load-or-fail'
+import { formatStamp, periodLabel } from '@/lib/money/format'
+import { BUDGET_STATUS, statusOf } from '@/lib/money/status'
+import { AccountingLoadFailed, accountingCrumbs } from '../../_components/shared'
 import { BudgetEditor } from './BudgetEditor'
 import { BudgetActions } from './BudgetActions'
 
@@ -19,86 +18,49 @@ interface PageProps {
 
 export default async function BudgetDetailPage({ params }: PageProps) {
   const { id } = await params
-  const ctx = await getAccountingContext()
+  const crumbs = accountingCrumbs(['Budgets', '/accounting/budget'], ['Budget'])
+  const ctxRes = await tryLoad('accounting context', getAccountingContext)
+  if (!ctxRes.ok) return <AccountingLoadFailed title="Budget" what="this budget" breadcrumbs={crumbs} />
+  const ctx = ctxRes.data
   if (!ctx) notFound()
-  const [budget, accounts] = await Promise.all([
-    getBudget(ctx.associationId, id),
-    listAccounts(ctx.associationId),
+  const [budgetRes, accountsRes] = await Promise.all([
+    tryLoad('budget', () => getBudget(ctx.associationId, id)),
+    tryLoad('chart of accounts', () => listAccounts(ctx.associationId)),
   ])
+  if (!budgetRes.ok || !accountsRes.ok) return <AccountingLoadFailed title="Budget" what="this budget" breadcrumbs={crumbs} />
+  const budget = budgetRes.data
   if (!budget) notFound()
 
-  // Income + expense accounts only — assets/liabilities/equity don't
-  // make sense as budget lines (a manager doesn't "budget" their cash
-  // balance; cash flows out of P&L performance).
-  const budgetableAccounts = accounts
-    .filter(
-      (a) =>
-        a.is_active &&
-        (a.account_type === 'income' || a.account_type === 'expense'),
-    )
-    .map((a) => ({
-      id: a.id,
-      label: `${a.account_number} — ${a.account_name}`,
-      type: a.account_type as 'income' | 'expense',
-    }))
+  // Income + expense accounts only — a manager budgets what flows through
+  // the P&L, not balances like cash.
+  const budgetableAccounts = accountsRes.data
+    .filter((a) => a.is_active && (a.account_type === 'income' || a.account_type === 'expense'))
+    .map((a) => ({ id: a.id, label: `${a.account_number} — ${a.account_name}`, type: a.account_type as 'income' | 'expense' }))
 
-  const totalIncome = budget.lineItems
-    .filter((l) => l.accountType === 'income')
-    .reduce((s, l) => s + l.amount, 0)
-  const totalExpense = budget.lineItems
-    .filter((l) => l.accountType === 'expense')
-    .reduce((s, l) => s + l.amount, 0)
   const isEditable = budget.status === 'draft'
+  const status = statusOf(BUDGET_STATUS, budget.status)
+  const name = `${budget.fund?.name ?? 'Budget'}${budget.fiscalPeriod ? ` · ${periodLabel(budget.fiscalPeriod)}` : ''}`
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <header className="space-y-1">
-        <Link
-          href="/accounting/budget"
-          className="inline-flex items-center gap-1 text-xs text-muted hover:text-foreground"
-        >
-          <ChevronLeft className="h-3 w-3" />
-          Budgets
-        </Link>
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h1 className="text-2xl font-bold text-foreground">
-            {budget.fund?.name ?? 'Budget'}
-          </h1>
-          <BudgetActions budgetId={budget.id} isEditable={isEditable} />
-          <Badge
-            variant={
-              budget.status === 'approved'
-                ? 'success'
-                : budget.status === 'archived'
-                  ? 'outline'
-                  : 'warning'
-            }
-          >
-            {budget.status}
-          </Badge>
-        </div>
-        <p className="text-sm text-muted">
-          {budget.fiscalPeriod
-            ? `${format(new Date(budget.fiscalPeriod.start_date), 'MMM d, yyyy')} → ${format(new Date(budget.fiscalPeriod.end_date), 'MMM d, yyyy')}`
-            : '—'}
-          {budget.approved_at
-            ? ` · approved ${format(new Date(budget.approved_at), 'PP')}`
-            : ''}
-        </p>
-      </header>
-
-      <Card>
-        <div className="grid gap-4 p-4 sm:grid-cols-3">
-          <Summary label="Budgeted income" value={totalIncome} />
-          <Summary label="Budgeted expenses" value={totalExpense} />
-          <Summary
-            label="Net (surplus / deficit)"
-            value={totalIncome - totalExpense}
-            tone={totalIncome - totalExpense < 0 ? 'destructive' : 'success'}
-          />
-        </div>
-      </Card>
-
+    <Page
+      width="default"
+      linkAs={Link}
+      breadcrumbs={accountingCrumbs(['Budgets', '/accounting/budget'], [name])}
+      title={name}
+      meta={<StatusPill tone={status.tone} label={status.label} />}
+      description={budget.approved_at ? `Approved ${formatStamp(budget.approved_at)}.` : 'Draft — edit the lines, save, then approve when the board signs off.'}
+      actions={
+        <>
+          {isEditable ? <BudgetActions budgetId={budget.id} name={name} /> : null}
+          <Button asChild variant="secondary">
+            <Link href={`/accounting/reports/budget-vs-actual?budget=${budget.id}`}>
+              <BarChart3 aria-hidden />
+              Budget vs. actual
+            </Link>
+          </Button>
+        </>
+      }
+    >
       <BudgetEditor
         budgetId={budget.id}
         editable={isEditable}
@@ -112,44 +74,6 @@ export default async function BudgetDetailPage({ params }: PageProps) {
         }))}
         accounts={budgetableAccounts}
       />
-
-      {!isEditable ? (
-        <Card>
-          <div className="p-4 text-sm text-muted">
-            This budget is {budget.status}; line items are locked. Archive it
-            (future feature) to revise totals.
-          </div>
-        </Card>
-      ) : null}
-    </div>
-  )
-}
-
-function Summary({
-  label,
-  value,
-  tone,
-}: {
-  label: string
-  value: number
-  tone?: 'success' | 'destructive'
-}) {
-  const cls =
-    tone === 'success'
-      ? 'text-emerald-600'
-      : tone === 'destructive'
-        ? 'text-destructive'
-        : 'text-foreground'
-  return (
-    <div>
-      <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
-      <p className={`mt-1 font-mono text-lg ${cls}`}>
-        {value.toLocaleString('en-US', {
-          style: 'currency',
-          currency: 'USD',
-          maximumFractionDigits: 0,
-        })}
-      </p>
-    </div>
+    </Page>
   )
 }

@@ -1,137 +1,116 @@
-import Link from 'next/link'
-import { BookOpen, ChevronLeft } from 'lucide-react'
-import { Badge, Card, EmptyState } from '@homeowner-portal/ui'
+import { BookOpen } from 'lucide-react'
 import {
-  getAccountingContext,
-  listAccounts,
-  listFunds,
-  type ChartAccount,
-  type Fund,
-} from '@/lib/accounting/queries'
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  DataTable,
+  EmptyState,
+  LoadFailed,
+  Page,
+  StatusPill,
+  type DataTableColumn,
+} from '@homeowner-portal/ui'
+import { getAccountingContext, listAccounts, listFunds, type AccountType, type ChartAccount } from '@/lib/accounting/queries'
+import { tryLoad } from '@/lib/load-or-fail'
+import { AccountingTabs } from '../AccountingTabs'
+import { AccountingLoadFailed, AccountingNotSetUp } from '../_components/shared'
 
 export const metadata = { title: 'Chart of Accounts' }
+export const dynamic = 'force-dynamic'
 
-const TYPE_ORDER = ['asset', 'liability', 'equity', 'income', 'expense'] as const
-const TYPE_LABEL: Record<(typeof TYPE_ORDER)[number], string> = {
-  asset: 'Assets (1xxx)',
-  liability: 'Liabilities (2xxx)',
-  equity: 'Equity (3xxx)',
-  income: 'Income (4xxx)',
-  expense: 'Expenses (5xxx)',
+const TYPE_ORDER: AccountType[] = ['asset', 'liability', 'equity', 'income', 'expense']
+const TYPE_META: Record<AccountType, { title: string; blurb: string }> = {
+  asset: { title: 'Assets', blurb: 'What the association owns or is owed — cash, receivables.' },
+  liability: { title: 'Liabilities', blurb: 'What it owes — unpaid bills, prepaid dues.' },
+  equity: { title: 'Equity', blurb: 'Each fund’s accumulated balance.' },
+  income: { title: 'Income', blurb: 'Dues, fees, fines and interest.' },
+  expense: { title: 'Expenses', blurb: 'What the association spends on.' },
 }
 
 export default async function ChartOfAccountsPage() {
-  const ctx = await getAccountingContext()
-  if (!ctx) {
-    return (
-      <div className="mx-auto max-w-3xl">
-        <EmptyState
-          icon={<BookOpen className="h-10 w-10" aria-hidden />}
-          title="No chart of accounts yet"
-          description="This area is empty. Contact support to set up your chart of accounts."
-        />
-      </div>
-    )
-  }
+  const ctxRes = await tryLoad('accounting context', getAccountingContext)
+  if (!ctxRes.ok) return <AccountingLoadFailed title="Chart of accounts" what="the chart of accounts" />
+  const ctx = ctxRes.data
+  if (!ctx) return <AccountingNotSetUp title="Chart of accounts" />
 
   const [accounts, funds] = await Promise.all([
-    listAccounts(ctx.associationId),
-    listFunds(ctx.associationId),
+    tryLoad('chart of accounts', () => listAccounts(ctx.associationId)),
+    tryLoad('funds', () => listFunds(ctx.associationId)),
   ])
+  const fundName = new Map((funds.ok ? funds.data : []).map((f) => [f.id, f.name]))
 
-  const fundById = new Map<string, Fund>(funds.map((f) => [f.id, f]))
+  const columns: DataTableColumn<ChartAccount>[] = [
+    { key: 'number', header: 'Number', className: 'num w-24 whitespace-nowrap text-muted', cell: (a) => a.account_number },
+    {
+      key: 'name',
+      header: 'Name',
+      mobilePrimary: true,
+      cell: (a) => (
+        <span className="block">
+          <span className="block font-medium text-foreground">{a.account_name}</span>
+          {a.description ? <span className="block text-xs text-muted">{a.description}</span> : null}
+        </span>
+      ),
+    },
+    {
+      key: 'fund',
+      header: 'Fund',
+      className: 'whitespace-nowrap text-muted',
+      cell: (a) => (a.fund_id ? (fundName.get(a.fund_id) ?? '—') : 'Shared'),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (a) => (a.is_active ? <StatusPill tone="success" label="Active" size="sm" /> : <StatusPill tone="neutral" label="Inactive" size="sm" />),
+    },
+  ]
+
   const byType = new Map<string, ChartAccount[]>()
-  for (const a of accounts) {
-    const list = byType.get(a.account_type) ?? []
-    list.push(a)
-    byType.set(a.account_type, list)
+  for (const a of accounts.ok ? accounts.data : []) {
+    byType.set(a.account_type, [...(byType.get(a.account_type) ?? []), a])
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <header className="space-y-1">
-        <Link
-          href="/accounting"
-          className="inline-flex items-center gap-1 text-xs text-muted hover:text-foreground"
-        >
-          <ChevronLeft className="h-3 w-3" />
-          Accounting
-        </Link>
-        <h1>Chart of Accounts</h1>
-        <p className="text-sm text-muted">
-          {accounts.length} accounts. Numbers follow 1xxx assets / 2xxx liabilities
-          / 3xxx equity / 4xxx income / 5xxx expenses, but the system enforces no
-          numbering scheme — you can match your CPA's.
-        </p>
-      </header>
-
-      {accounts.length === 0 ? (
+    <Page
+      title="Chart of accounts"
+      description={
+        accounts.ok
+          ? `${accounts.data.length} accounts. Numbering follows the usual 1xxx–5xxx convention, but any scheme your CPA uses works.`
+          : 'Every account the books post to.'
+      }
+      tabs={<AccountingTabs />}
+    >
+      {!accounts.ok ? (
+        <LoadFailed what="the chart of accounts" />
+      ) : accounts.data.length === 0 ? (
         <EmptyState
-          icon={<BookOpen className="h-10 w-10" aria-hidden />}
+          icon={<BookOpen aria-hidden />}
           title="No accounts yet"
-          description="This area is empty. Contact support to set up your chart of accounts."
+          description="The standard chart is created when accounting is set up. Contact support to add it."
         />
       ) : (
-        <div className="space-y-4">
-          {TYPE_ORDER.filter((t) => (byType.get(t) ?? []).length > 0).map((type) => {
-            const rows = byType.get(type) ?? []
-            return (
-              <Card key={type}>
-                <div className="border-b border-border px-4 py-2 text-sm font-semibold text-foreground">
-                  {TYPE_LABEL[type]}
-                  <span className="ml-2 text-xs font-normal text-muted">
-                    {rows.length} {rows.length === 1 ? 'account' : 'accounts'}
-                  </span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="border-b border-border text-xs uppercase tracking-wide text-muted">
-                    <tr>
-                      <th className="px-4 py-2 font-medium">Number</th>
-                      <th className="px-4 py-2 font-medium">Name</th>
-                      <th className="px-4 py-2 font-medium">Fund</th>
-                      <th className="px-4 py-2 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((a) => {
-                      const fund = a.fund_id ? fundById.get(a.fund_id) : null
-                      return (
-                        <tr key={a.id} className="border-b border-border last:border-0">
-                          <td className="px-4 py-2 font-mono text-xs text-muted">
-                            {a.account_number}
-                          </td>
-                          <td className="px-4 py-2">
-                            <div className="font-medium text-foreground">{a.account_name}</div>
-                            {a.description ? (
-                              <div className="text-xs text-muted">{a.description}</div>
-                            ) : null}
-                          </td>
-                          <td className="px-4 py-2 text-xs">
-                            {fund ? (
-                              <span className="font-mono text-muted">{fund.code}</span>
-                            ) : (
-                              <span className="text-muted">shared</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-2">
-                            {a.is_active ? (
-                              <Badge variant="success" size="sm">active</Badge>
-                            ) : (
-                              <Badge variant="outline" size="sm">inactive</Badge>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                  </table>
-                </div>
-              </Card>
-            )
-          })}
-        </div>
+        TYPE_ORDER.filter((t) => (byType.get(t) ?? []).length > 0).map((type) => {
+          const rows = byType.get(type) ?? []
+          return (
+            <Card key={type} className="overflow-hidden">
+              <CardHeader actions={<span className="text-xs text-muted">{rows.length} {rows.length === 1 ? 'account' : 'accounts'}</span>}>
+                <CardTitle as="h2">{TYPE_META[type].title}</CardTitle>
+                <CardDescription>{TYPE_META[type].blurb}</CardDescription>
+              </CardHeader>
+              <DataTable
+                framed={false}
+                density="compact"
+                mobile="cards"
+                caption={TYPE_META[type].title}
+                columns={columns}
+                rows={rows}
+                rowKey={(a) => a.id}
+              />
+            </Card>
+          )
+        })
       )}
-    </div>
+    </Page>
   )
 }
