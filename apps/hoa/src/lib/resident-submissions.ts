@@ -11,8 +11,18 @@ import { loadOrFail, type LoadResult } from '@/lib/load-or-fail'
 // ─── shared ──────────────────────────────────────────────────────────
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
-type ActionErr = { ok: false; error: string }
+type ActionErr = { ok: false; error: string; fieldErrors?: Record<string, string> }
 export type ActionResult<T = void> = ActionOk<T> | ActionErr
+
+/** A validation failure: first message as `error`, plus one message per field. */
+function invalid(e: z.ZodError): ActionErr {
+  const fieldErrors: Record<string, string> = {}
+  for (const issue of e.issues) {
+    const key = String(issue.path[0] ?? '')
+    if (key && !fieldErrors[key]) fieldErrors[key] = issue.message
+  }
+  return { ok: false, error: e.issues[0]?.message ?? 'Invalid input.', fieldErrors }
+}
 
 /** One message in a submission thread (ARC application or violation
  *  report). Residents only ever see non-internal messages. Display uses
@@ -74,15 +84,15 @@ const ArcCategorySchema = z.enum([
   'pool',
   'solar',
   'other',
-])
+], { errorMap: () => ({ message: 'Choose a category.' }) })
 
 const CreateArcSchema = z.object({
   unit_id: z.string().uuid('Pick a unit.'),
   category: ArcCategorySchema,
   summary: z.string().trim().min(5, 'Summary is too short.').max(200),
   scope_description: z.string().trim().min(20, 'Describe the scope in more detail.').max(4000),
-  proposed_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
-  proposed_completion: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  proposed_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a valid date.').nullable().optional(),
+  proposed_completion: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a valid date.').nullable().optional(),
   contractor_name: z.string().trim().max(200).nullable().optional(),
   contractor_license: z.string().trim().max(100).nullable().optional(),
 })
@@ -137,7 +147,7 @@ export async function createArcRequest(
     contractor_license: input.contractorLicense ?? null,
   })
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return invalid(parsed.error)
   }
 
   if ((await getResidentActor()).impersonating) {
@@ -233,7 +243,7 @@ export async function addArcMessage(
 ): Promise<ActionResult> {
   const parsed = AddMessageSchema.safeParse({ id: arcId, body })
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return invalid(parsed.error)
   }
 
   if ((await getResidentActor()).impersonating) {
@@ -322,7 +332,7 @@ const ViolationCategorySchema = z.enum([
   'rental',
   'nuisance',
   'other',
-])
+], { errorMap: () => ({ message: 'Choose a category.' }) })
 
 const CreateViolationReportSchema = z.object({
   category: ViolationCategorySchema,
@@ -385,7 +395,7 @@ export async function createViolationReport(
     occurred_at: input.occurredAt ?? null,
   })
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return invalid(parsed.error)
   }
 
   if ((await getResidentActor()).impersonating) {
@@ -467,7 +477,7 @@ export async function addViolationReportMessage(
 ): Promise<ActionResult> {
   const parsed = AddMessageSchema.safeParse({ id: reportId, body })
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return invalid(parsed.error)
   }
 
   if ((await getResidentActor()).impersonating) {

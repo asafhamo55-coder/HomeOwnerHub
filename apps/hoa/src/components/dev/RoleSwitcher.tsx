@@ -101,7 +101,7 @@ export function RoleSwitcher({ realRole, override, placement }: RoleSwitcherProp
         <div className="mx-auto flex min-h-10 max-w-2xl items-center gap-2 px-4 py-1.5 text-xs">
           <Eye className="size-4 shrink-0" aria-hidden />
           <p className="min-w-0 flex-1 truncate">
-            <span className="font-semibold">Previewing as {ROLE_LABEL[effective]}</span>
+            <span className="font-semibold">Viewing as {ROLE_LABEL[effective]}</span>
             <span className="hidden sm:inline"> · UI only, data access uses your {ROLE_LABEL[realRole]} role</span>
           </p>
           <DropdownMenu>
@@ -112,8 +112,9 @@ export function RoleSwitcher({ realRole, override, placement }: RoleSwitcherProp
                 iconRight={<ChevronDown aria-hidden />}
                 className="text-warning hover:bg-warning/10 hover:text-warning"
                 disabled={isPending}
+                aria-label="Switch view"
               >
-                Switch
+                <span className="hidden sm:inline">Switch</span>
               </Button>
             </DropdownMenuTrigger>
             {menu}
@@ -126,7 +127,8 @@ export function RoleSwitcher({ realRole, override, placement }: RoleSwitcherProp
               loading={isPending}
               className="border-warning/40 bg-surface text-warning hover:bg-warning-subtle"
             >
-              Exit preview
+              Exit
+              <span className="hidden sm:inline">&nbsp;preview</span>
             </Button>
           ) : null}
         </div>

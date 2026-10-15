@@ -1,5 +1,7 @@
-import { Alert, BackLink, Card, CardContent, CardHeader, CardTitle, PageHeader } from '@homeowner-portal/ui'
+import { Home } from 'lucide-react'
+import { Alert } from '@homeowner-portal/ui'
 import { getResidentUnits } from '@/lib/resident'
+import { Panel, ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
 import { ArcRequestForm } from './ArcRequestForm'
 
 export const metadata = { title: 'New ARC application' }
@@ -13,34 +15,30 @@ export default async function NewArcRequestPage({
   const { summary, scope } = await searchParams
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <BackLink href="/resident/arc" label="Back to my ARC applications" />
-
-      <PageHeader
-        title="Architectural Review application"
-        description="Submit a request for an exterior change to your unit. The board's Architectural Review Committee will review and respond within thirty (30) days per the Declaration."
+    <div className="space-y-6">
+      <ScreenHeader
+        back={{ href: '/resident/arc', label: 'ARC applications' }}
+        title="New ARC application"
+        subtitle="Ask the Architectural Review Committee to approve an exterior change. They respond within 30 days per the Declaration."
       />
 
-      <Alert variant="info" title="Before you submit">
-        <span className="block text-sm">
-          Don't start work before you receive a written approval. Per the
-          governing documents, work commenced without approval may need to
-          be removed at your expense.
-        </span>
-      </Alert>
-
-      <Card variant="elevated">
-        <CardHeader>
-          <CardTitle>Application</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ArcRequestForm
-            units={units}
-            defaultSummary={summary}
-            defaultScope={scope}
-          />
-        </CardContent>
-      </Card>
+      {units.length === 0 ? (
+        <ScreenEmpty
+          icon={<Home />}
+          title="No home linked yet"
+          description="Applications are filed against your home. Once your community manager links you to a unit, you can apply here."
+        />
+      ) : (
+        <>
+          <Alert variant="info" title="Wait for written approval">
+            Don&apos;t start work before the board approves it. Work started without approval may need
+            to be removed at your expense.
+          </Alert>
+          <Panel className="p-5">
+            <ArcRequestForm units={units} defaultSummary={summary} defaultScope={scope} />
+          </Panel>
+        </>
+      )}
     </div>
   )
 }

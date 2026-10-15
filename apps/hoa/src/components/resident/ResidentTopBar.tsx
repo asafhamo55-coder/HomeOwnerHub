@@ -30,7 +30,7 @@ export function ResidentTopBar({ orgName, userEmail }: { orgName: string; userEm
         <Link
           href="/resident/account"
           aria-label="Account"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-subtle text-[13px] font-semibold text-foreground no-underline transition hover:bg-border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-subtle text-xs font-semibold text-foreground no-underline transition hover:bg-border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {initialsFrom(userEmail)}
         </Link>

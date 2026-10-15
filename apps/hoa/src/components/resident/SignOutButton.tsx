@@ -21,7 +21,7 @@ export function SignOutButton({ className }: { className?: string }) {
       onClick={handleSignOut}
       disabled={busy}
       className={cn(
-        'flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-surface px-4 py-3.5 text-[15px] font-semibold text-foreground transition active:scale-[0.99] hover:border-destructive/40 hover:text-destructive disabled:opacity-60',
+        'flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 py-3.5 text-sm font-semibold text-foreground transition active:scale-[0.99] hover:border-destructive/40 hover:text-destructive disabled:opacity-60',
         className,
       )}
     >

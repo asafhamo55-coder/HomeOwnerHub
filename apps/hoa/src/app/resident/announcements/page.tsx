@@ -196,22 +196,22 @@ export default async function ResidentAnnouncementsPage({
 
       {ordered.length === 0 && allCommIds.length === 0 ? (
         <ScreenEmpty
-          icon={<Megaphone className="h-6 w-6" />}
+          icon={<Megaphone />}
           title="No announcements yet"
           description="When the board sends a communication, it will show up here."
         />
       ) : (
         <ul className="space-y-3">
           {ordered.map(({ comm: c, subject, body, sentAt }) => (
-            <li key={c.id} className="rounded-2xl border border-border bg-surface p-4">
+            <li key={c.id} className="rounded-xl border border-border bg-surface p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <h2 className="text-[15px] font-semibold text-foreground">{subject}</h2>
+                <h2 className="text-sm font-semibold text-foreground">{subject}</h2>
                 <Badge variant="outline" size="sm">
                   {CATEGORY_LABEL[c.category] ?? c.category}
                 </Badge>
               </div>
               <p className="mt-0.5 text-xs text-muted">{format(new Date(sentAt), 'PPp')}</p>
-              <p className="mt-3 whitespace-pre-wrap text-sm text-foreground/90">{body}</p>
+              <p className="mt-3 whitespace-pre-wrap text-sm text-foreground-secondary">{body}</p>
             </li>
           ))}
         </ul>

@@ -10,8 +10,18 @@ import { getResidentActor, IMPERSONATION_READONLY_MSG } from '@/lib/impersonatio
 import { loadOrFail, type LoadResult } from '@/lib/load-or-fail'
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
-type ActionErr = { ok: false; error: string }
+type ActionErr = { ok: false; error: string; fieldErrors?: Record<string, string> }
 export type ActionResult<T = void> = ActionOk<T> | ActionErr
+
+/** A validation failure: first message as `error`, plus one message per field. */
+function invalid(e: z.ZodError): ActionErr {
+  const fieldErrors: Record<string, string> = {}
+  for (const issue of e.issues) {
+    const key = String(issue.path[0] ?? '')
+    if (key && !fieldErrors[key]) fieldErrors[key] = issue.message
+  }
+  return { ok: false, error: e.issues[0]?.message ?? 'Invalid input.', fieldErrors }
+}
 
 export type TicketCategory =
   | 'maintenance'
@@ -53,7 +63,7 @@ export interface TicketMessageRow {
 const TicketCategorySchema = z.enum([
   'maintenance', 'noise', 'parking', 'common_area',
   'billing', 'access', 'safety', 'general', 'other',
-])
+], { errorMap: () => ({ message: 'Choose a category.' }) })
 
 const CreateTicketSchema = z.object({
   unit_id: z.string().uuid('Pick a unit.'),
@@ -150,7 +160,7 @@ export async function createTicket(
     description: input.description,
   })
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return invalid(parsed.error)
   }
 
   if ((await getResidentActor()).impersonating) {
@@ -226,7 +236,7 @@ export async function addTicketMessage(
 ): Promise<ActionResult> {
   const parsed = AddMessageSchema.safeParse({ ticket_id: ticketId, body })
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return invalid(parsed.error)
   }
 
   if ((await getResidentActor()).impersonating) {

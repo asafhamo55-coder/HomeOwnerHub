@@ -206,8 +206,8 @@ export function AskDocsClient() {
             ) : null}
 
             {response.clarification ? (
-              <div className="space-y-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-                <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-amber-600">
+              <div className="space-y-1.5 rounded-lg border border-accent/30 bg-accent-subtle p-3">
+                <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-accent-fg">
                   <HelpCircle className="h-3.5 w-3.5" />
                   One quick clarification
                 </p>

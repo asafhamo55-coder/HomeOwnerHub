@@ -79,7 +79,7 @@ export function ResidentTabBar() {
                 >
                   <Icon className="h-[22px] w-[22px]" />
                 </span>
-                <span className="text-[11px] font-medium leading-none">{tab.label}</span>
+                <span className="text-2xs font-medium leading-none">{tab.label}</span>
               </Link>
             </li>
           )

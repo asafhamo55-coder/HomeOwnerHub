@@ -1,5 +1,5 @@
-import { Shield } from 'lucide-react'
-import { Alert, BackLink, Card, CardContent, CardHeader, CardTitle, PageHeader } from '@homeowner-portal/ui'
+import { Alert } from '@homeowner-portal/ui'
+import { Panel, ScreenHeader } from '@/components/resident/screen'
 import { ReportViolationForm } from './ReportViolationForm'
 
 export const metadata = { title: 'Report a concern' }
@@ -12,31 +12,21 @@ export default async function ReportViolationPage({
   const { description } = await searchParams
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <BackLink href="/resident" label="Back to My Home" />
-
-      <PageHeader
+    <div className="space-y-6">
+      <ScreenHeader
+        back={{ href: '/resident/requests', label: 'Requests' }}
         title="Report a concern"
-        description="Let the board know about a possible rule violation or community issue. The board will review and decide whether to open a formal violation."
+        subtitle="Tell the board about a possible rule violation or community issue. They'll review it and decide whether to act."
       />
 
       <Alert variant="info" title="Your identity stays confidential">
-        <span className="block text-sm">
-          <Shield className="mr-1 inline h-3.5 w-3.5" />
-          The board sees that a report was submitted but per Policy &sect;12.03
-          your identity is kept confidential where practicable. We don't
-          act on anonymous reports though, so we do record who submitted.
-        </span>
+        The board sees that a report was submitted, and per Policy §12.03 your identity is kept
+        confidential where practicable. Reports aren&apos;t anonymous, so we do record who sent it.
       </Alert>
 
-      <Card variant="elevated">
-        <CardHeader>
-          <CardTitle>Tell the board what you saw</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ReportViolationForm defaultDescription={description} />
-        </CardContent>
-      </Card>
+      <Panel className="p-5">
+        <ReportViolationForm defaultDescription={description} />
+      </Panel>
     </div>
   )
 }

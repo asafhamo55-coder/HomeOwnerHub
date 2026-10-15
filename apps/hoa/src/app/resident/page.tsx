@@ -11,13 +11,23 @@ import {
   ShieldAlert,
   Sparkles,
 } from 'lucide-react'
-import { Badge, LoadFailed, cn } from '@homeowner-portal/ui'
+import { Badge, LoadFailed } from '@homeowner-portal/ui'
 import { getResidentDashboard, type OpenViolationRow } from '@/lib/resident-dashboard'
 import type { ResidentUnit } from '@/lib/resident'
 import type { TicketRow } from '@/lib/resident-tickets'
 import type { ArcRequestRow } from '@/lib/resident-submissions'
 import { GreetingHeadline } from '@/components/dashboard/GreetingHeadline'
-import { IconTile, Panel, SectionLabel, TappableRow, type Tone } from '@/components/resident/screen'
+import {
+  Hero,
+  IconTile,
+  Panel,
+  RowGroup,
+  Section,
+  SectionLabel,
+  TappableRow,
+  type Tone,
+} from '@/components/resident/screen'
+import { ResidentStatus } from '@/components/resident/status'
 
 export const metadata = { title: 'My Home' }
 
@@ -25,6 +35,9 @@ export const metadata = { title: 'My Home' }
 // revalidate as the resident acts — render dynamically so a fresh visit
 // always shows current priorities.
 export const dynamic = 'force-dynamic'
+
+/** Open requests shown on the home screen; the rest are one tap away. */
+const HOME_LIMIT = 5
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
@@ -45,8 +58,7 @@ export default async function ResidentDashboard() {
   const standingUnknown = data.failed.dues || data.failed.violations
 
   return (
-    <div className="space-y-7">
-      {/* Greeting */}
+    <div className="space-y-8">
       <div className="space-y-1">
         <GreetingHeadline
           name={data.firstName}
@@ -57,11 +69,9 @@ export default async function ResidentDashboard() {
 
       {!hasUnit ? (
         <Panel className="flex flex-col items-center gap-3 py-10 text-center">
-          <IconTile icon={<Home className="h-6 w-6" />} className="h-14 w-14" />
+          <IconTile icon={<Home />} size="lg" />
           <div className="space-y-1">
-            <p className="text-base font-semibold text-foreground">
-              No home linked to your account yet
-            </p>
+            <p className="text-base font-semibold text-foreground">No home linked to your account yet</p>
             <p className="mx-auto max-w-sm text-sm text-muted">
               Your community manager hasn&apos;t linked this account to a unit. Reach out to them and
               the rest of your portal will light up.
@@ -85,83 +95,91 @@ export default async function ResidentDashboard() {
             <StatusHero dues={data.dues} allGood={actionItems === 0} />
           )}
 
-          {actionItems > 0 ? (
-            <section className="space-y-2.5">
-              <SectionLabel>Needs your attention</SectionLabel>
-              {data.dues.balance > 0 ? <DuesRow dues={data.dues} /> : null}
-              {data.openViolations.map((v) => (
-                <ViolationRow key={v.id} violation={v} />
-              ))}
-            </section>
+          {data.openViolations.length > 0 ? (
+            <Section label="Needs your attention">
+              <RowGroup>
+                {data.openViolations.map((v) => (
+                  <ViolationRow key={v.id} violation={v} />
+                ))}
+              </RowGroup>
+            </Section>
           ) : null}
 
           {data.failed.requests ? (
-            <section className="space-y-2.5">
-              <SectionLabel>Your open requests</SectionLabel>
+            <Section label="Your open requests">
               <LoadFailed what="your open requests" />
-            </section>
+            </Section>
           ) : inProgress > 0 ? (
-            <section className="space-y-2.5">
-              <SectionLabel>Your open requests</SectionLabel>
-              {data.openTickets.map((t) => (
-                <TicketRowItem key={t.id} ticket={t} />
-              ))}
-              {data.pendingArc.map((a) => (
-                <ArcRowItem key={a.id} arc={a} />
-              ))}
-            </section>
+            <Section
+              label={`Your open requests · ${inProgress}`}
+              aside={
+                inProgress > HOME_LIMIT ? (
+                  <Link href="/resident/requests" className="font-medium text-primary no-underline hover:underline">
+                    See all
+                  </Link>
+                ) : null
+              }
+            >
+              <RowGroup>
+                {data.openTickets.slice(0, HOME_LIMIT).map((t) => (
+                  <TicketRowItem key={t.id} ticket={t} />
+                ))}
+                {data.pendingArc.slice(0, Math.max(0, HOME_LIMIT - data.openTickets.length)).map((a) => (
+                  <ArcRowItem key={a.id} arc={a} />
+                ))}
+              </RowGroup>
+            </Section>
           ) : null}
-
-          <section className="space-y-2.5">
-            <SectionLabel>My home</SectionLabel>
-            <UnitsPanel units={data.units} />
-          </section>
         </>
       )}
 
-      <section className="space-y-2.5">
-        <SectionLabel>Quick actions</SectionLabel>
-        <div className="grid grid-cols-2 gap-3">
+      <Section label="Quick actions">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <ActionTile
-            icon={<Sparkles className="h-5 w-5" />}
-            label="Ask the Docs"
-            href="/resident/ask"
+            icon={<MessageSquarePlus />}
+            label="New request"
+            hint="Maintenance, noise, billing"
+            href="/resident/tickets/new"
           />
+          <ActionTile icon={<Sparkles />} tone="ai" label="Ask the Docs" hint="Your rules, answered" href="/resident/ask" />
           <ActionTile
-            icon={<Megaphone className="h-5 w-5" />}
+            icon={<Megaphone />}
+            tone="info"
             label="Announcements"
+            hint="From your board"
             href="/resident/announcements"
             badge={data.recentAnnouncements > 0 ? `${data.recentAnnouncements} new` : null}
           />
           <ActionTile
-            icon={<MessageSquarePlus className="h-5 w-5" />}
-            label="New request"
-            href="/resident/tickets/new"
-          />
-          <ActionTile
-            icon={<ClipboardList className="h-5 w-5" />}
+            icon={<ClipboardList />}
+            tone="emerald"
             label="Start an ARC"
+            hint="Exterior changes"
             href="/resident/arc/new"
           />
           <ActionTile
-            icon={<ShieldAlert className="h-5 w-5" />}
+            icon={<ShieldAlert />}
+            tone="amber"
             label="Report a concern"
+            hint="Tell the board"
             href="/resident/report-violation"
           />
-          <ActionTile
-            icon={<CreditCard className="h-5 w-5" />}
-            label="View dues"
-            href="/resident/dues"
-          />
+          <ActionTile icon={<CreditCard />} tone="slate" label="Dues" hint="Balance & charges" href="/resident/dues" />
         </div>
-      </section>
+      </Section>
+
+      {hasUnit ? (
+        <Section label={data.units.length === 1 ? 'My home' : 'My homes'}>
+          <UnitsPanel units={data.units} />
+        </Section>
+      ) : null}
     </div>
   )
 }
 
 // ── Status hero ─────────────────────────────────────────────────────────
 // The single most important thing on the page: account standing. Either a
-// prominent balance-due call to action, or a warm "all caught up" state.
+// prominent balance-due call to action, or a calm "all caught up" state.
 
 function StatusHero({
   dues,
@@ -173,82 +191,52 @@ function StatusHero({
   if (dues.balance > 0) {
     const overdue = dues.pastDueCount > 0
     return (
-      <Link
+      <Hero
+        tone={overdue ? 'danger' : 'warning'}
         href="/resident/dues"
-        className={cn(
-          'block rounded-3xl border p-5 no-underline transition active:scale-[0.99]',
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+        eyebrow={overdue ? 'Balance past due' : 'Balance due'}
+        value={usd.format(dues.balance)}
+        footer={
           overdue
-            ? 'border-rose-200 bg-rose-50 dark:border-rose-500/25 dark:bg-rose-500/10'
-            : 'border-amber-200 bg-amber-50 dark:border-amber-500/25 dark:bg-amber-500/10',
-        )}
-      >
-        <p className="text-sm font-medium text-muted">Balance due</p>
-        <p className="mt-1 text-4xl font-bold tracking-tight text-foreground">
-          {usd.format(dues.balance)}
-        </p>
-        <p className="mt-2 text-sm font-medium text-foreground/80">
-          {overdue
-            ? `${dues.pastDueCount} past-due ${dues.pastDueCount === 1 ? 'charge' : 'charges'} · View dues →`
+            ? `${dues.pastDueCount} past-due ${dues.pastDueCount === 1 ? 'charge' : 'charges'} · View dues`
             : dues.nextDueDate
-              ? `Next due ${format(new Date(dues.nextDueDate), 'PP')} · View dues →`
-              : 'View dues →'}
-        </p>
-      </Link>
+              ? `Next due ${format(new Date(dues.nextDueDate), 'PP')} · View dues`
+              : 'View dues'
+        }
+      />
     )
   }
 
   if (allGood) {
     return (
-      <div className="flex items-center gap-3.5 rounded-3xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-500/25 dark:bg-emerald-500/10">
-        <IconTile icon={<CheckCircle2 className="h-6 w-6" />} tone="emerald" className="h-12 w-12" />
-        <div className="min-w-0">
-          <p className="text-base font-semibold text-foreground">You&apos;re all caught up</p>
-          <p className="text-sm text-muted">No dues or open concerns — your account is in good standing.</p>
-        </div>
-      </div>
+      <Hero
+        tone="success"
+        icon={<CheckCircle2 />}
+        title="You’re all caught up"
+        description="No balance due and no open notices — your account is in good standing."
+      />
     )
   }
 
-  // Standing is fine on dues, but there are other attention items below.
+  // No balance, but open notices are listed below.
   return (
-    <div className="flex items-center gap-3.5 rounded-3xl border border-border bg-surface p-5">
-      <IconTile icon={<Home className="h-6 w-6" />} className="h-12 w-12" />
-      <div className="min-w-0">
-        <p className="text-base font-semibold text-foreground">Welcome home</p>
-        <p className="text-sm text-muted">Here&apos;s everything for your community, in one place.</p>
-      </div>
-    </div>
+    <Hero
+      tone="neutral"
+      icon={<Home />}
+      title="No balance due"
+      description="There are open notices on your home — see below."
+    />
   )
 }
 
 // ── Attention & request rows ────────────────────────────────────────────
 
-function DuesRow({ dues }: { dues: { balance: number; pastDueCount: number; nextDueDate: string | null } }) {
-  const overdue = dues.pastDueCount > 0
-  return (
-    <TappableRow
-      href="/resident/dues"
-      icon={<CreditCard className="h-5 w-5" />}
-      tone={overdue ? 'rose' : 'amber'}
-      title="Balance due"
-      subtitle={
-        overdue
-          ? `${dues.pastDueCount} past-due ${dues.pastDueCount === 1 ? 'charge' : 'charges'}`
-          : dues.nextDueDate
-            ? `Next due ${format(new Date(dues.nextDueDate), 'PP')}`
-            : 'Outstanding assessments'
-      }
-      trailing={<span className="text-[15px] font-semibold text-foreground">{usd.format(dues.balance)}</span>}
-    />
-  )
-}
-
 function ViolationRow({ violation }: { violation: OpenViolationRow }) {
+  // Not a link: /resident/violations/[id] is the resident's own *reports*,
+  // keyed by report id — a violation id there was a 404.
   return (
     <TappableRow
-      href={`/resident/violations/${violation.id}`}
-      icon={<AlertTriangle className="h-5 w-5" />}
+      icon={<AlertTriangle />}
       tone="amber"
       title={humanize(violation.violation_type)}
       subtitle={
@@ -256,57 +244,32 @@ function ViolationRow({ violation }: { violation: OpenViolationRow }) {
           ? `Notice sent ${format(new Date(violation.notice_sent_at), 'PP')}`
           : violation.description
       }
-      trailing={
-        <Badge variant="warning" size="sm">
-          {humanize(violation.status)}
-        </Badge>
-      }
+      status={<ResidentStatus kind="violation" status={violation.status} />}
     />
   )
-}
-
-const TICKET_STATUS_VARIANT: Record<TicketRow['status'], 'outline' | 'warning' | 'success'> = {
-  open: 'outline',
-  in_progress: 'warning',
-  closed: 'success',
 }
 
 function TicketRowItem({ ticket }: { ticket: TicketRow }) {
   return (
     <TappableRow
       href={`/resident/tickets/${ticket.id}`}
-      icon={<MessageSquarePlus className="h-5 w-5" />}
+      icon={<MessageSquarePlus />}
       title={ticket.subject}
       subtitle={`Request · opened ${format(new Date(ticket.created_at), 'PP')}`}
-      trailing={
-        <Badge variant={TICKET_STATUS_VARIANT[ticket.status]} size="sm">
-          {ticket.status.replace('_', ' ')}
-        </Badge>
-      }
+      status={<ResidentStatus kind="ticket" status={ticket.status} />}
     />
   )
-}
-
-const ARC_STATUS_VARIANT: Record<string, 'outline' | 'warning' | 'success' | 'destructive'> = {
-  submitted: 'outline',
-  in_review: 'warning',
-  approved: 'success',
-  denied: 'destructive',
-  withdrawn: 'outline',
 }
 
 function ArcRowItem({ arc }: { arc: ArcRequestRow }) {
   return (
     <TappableRow
-      href="/resident/arc"
-      icon={<ClipboardList className="h-5 w-5" />}
+      href={`/resident/arc/${arc.id}`}
+      icon={<ClipboardList />}
+      tone="emerald"
       title={arc.summary}
-      subtitle={`ARC application · submitted ${format(new Date(arc.submitted_at), 'PP')}`}
-      trailing={
-        <Badge variant={ARC_STATUS_VARIANT[arc.status] ?? 'outline'} size="sm">
-          {arc.status.replace('_', ' ')}
-        </Badge>
-      }
+      subtitle={`ARC · submitted ${format(new Date(arc.submitted_at), 'PP')}`}
+      status={<ResidentStatus kind="arc" status={arc.status} />}
     />
   )
 }
@@ -327,20 +290,22 @@ function UnitsPanel({ units }: { units: ResidentUnit[] }) {
       {groups.map((group) => (
         <div key={group.community ?? '__ungrouped'} className="space-y-2">
           {group.community ? <SectionLabel>{group.community}</SectionLabel> : null}
-          {group.units.map((u) => (
-            <TappableRow
-              key={u.unit_id}
-              icon={<Home className="h-5 w-5" />}
-              tone="slate"
-              title={u.unit_number ?? u.address ?? 'Your unit'}
-              subtitle={u.unit_number && u.address ? u.address : u.association_name ?? undefined}
-              trailing={
-                <Badge variant="outline" size="sm">
-                  {u.ownership_pct ? `${u.ownership_pct}% owner` : 'Owner'}
-                </Badge>
-              }
-            />
-          ))}
+          <RowGroup>
+            {group.units.map((u) => (
+              <TappableRow
+                key={u.unit_id}
+                icon={<Home />}
+                tone="slate"
+                title={u.unit_number ?? u.address ?? 'Your unit'}
+                subtitle={u.unit_number && u.address ? u.address : u.association_name ?? undefined}
+                trailing={
+                  <Badge variant="neutral" size="sm">
+                    {u.ownership_pct ? `${u.ownership_pct}% owner` : 'Owner'}
+                  </Badge>
+                }
+              />
+            ))}
+          </RowGroup>
         </div>
       ))}
     </div>
@@ -370,12 +335,14 @@ function groupUnitsByCommunity(
 function ActionTile({
   icon,
   label,
+  hint,
   href,
   tone,
   badge,
 }: {
   icon: React.ReactNode
   label: string
+  hint: string
   href: string
   tone?: Tone
   badge?: string | null
@@ -383,13 +350,16 @@ function ActionTile({
   return (
     <Link
       href={href}
-      className="relative flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 no-underline transition active:scale-[0.98] hover:border-primary/30 hover:bg-primary/[0.03] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="relative flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 no-underline transition-colors duration-fast hover:border-border-strong hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <IconTile icon={icon} tone={tone} />
-      <span className="text-[15px] font-semibold text-foreground">{label}</span>
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-foreground">{label}</span>
+        <span className="mt-0.5 block truncate text-xs text-muted">{hint}</span>
+      </span>
       {badge ? (
         <span className="absolute right-3 top-3">
-          <Badge variant="warning" size="sm">
+          <Badge variant="info" size="sm">
             {badge}
           </Badge>
         </span>
