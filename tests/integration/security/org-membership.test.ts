@@ -40,14 +40,40 @@ describe('org_members INSERT scope', () => {
     expect(own.data).toHaveLength(1)
 
     const foreign = await boardA.client.from('orgs').select('id').eq('id', orgB.orgId)
+    // A permission-denied error also yields `data: null`, which `?? []`
+    // would silently turn into an empty array indistinguishable from a
+    // genuine RLS-filtered zero rows. Rule that out explicitly rather
+    // than relying on the positive assertion above to catch it first.
+    expect(foreign.error, 'expected a clean empty result, not a query error').toBeNull()
     expect(foreign.data ?? []).toHaveLength(0)
   })
 
-  it('a member can still be added to their own org by a service-role caller', async () => {
-    // Guards against over-correction: the founder/invite flow uses
-    // service-role and must keep working.
+  it('the inviting admin can still add a different user to their own org (production invite flow)', async () => {
+    // Guards against over-correction. The founder/invite flow does NOT
+    // use service-role for this insert: apps/hoa/src/lib/members.ts:277's
+    // attachToOrg() inserts the invitee's org_members row through the
+    // INVITING ADMIN's own RLS-enforcing client (getSupabaseServerClient()).
+    // It only reaches for the admin client a few lines earlier, to upsert
+    // the invitee's `profiles` row, with its own comment explaining why.
+    //
+    // This works post-0054 because org_member_access
+    // (migrations/0000_schema.sql:402) has no explicit WITH CHECK, so its
+    // USING expression — org_id = ANY(auth_org_ids()) — doubles as the
+    // INSERT check, and the inviting admin already satisfies it for
+    // their OWN org. A future tightening of org_member_access that
+    // doesn't preserve this would silently break production invite
+    // acceptance, which is exactly the scenario this test exists to catch.
     const orgA = await makeOrg()
-    const user = await mintUser(orgA, 'resident')
-    expect(user.id).toBeTruthy()
+    const throwaway = await makeOrg()
+    const adminA = await mintUser(orgA, 'admin')
+    // Minted in an unrelated org so this id is not already a member of
+    // orgA — the shape attachToOrg() is called with for a brand-new invitee.
+    const invitee = await mintUser(throwaway, 'resident')
+
+    const { error } = await adminA.client
+      .from('org_members')
+      .insert({ org_id: orgA.orgId, user_id: invitee.id, role: 'resident' })
+
+    expect(error, 'the production invite path (attachToOrg) would be broken').toBeNull()
   })
 })

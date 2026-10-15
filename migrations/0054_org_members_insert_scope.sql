@@ -19,11 +19,39 @@
 --
 -- and open every tenant-scoped table in the database.
 --
--- Dropped rather than tightened. 0001's own header says the founder flow
--- uses the service-role key and these policies are only a fallback;
--- service-role bypasses RLS, so removing this costs nothing real.
--- Membership is granted by service-role paths (founder bootstrap, invite
--- acceptance), never by a client asserting it into existence.
+-- Dropped rather than tightened, because it is redundant, not because
+-- nothing depends on a client-side INSERT into org_members.
+--
+-- `org_member_access` (migrations/0000_schema.sql:402) already covers
+-- same-org inserts:
+--
+--   CREATE POLICY org_member_access ON public.org_members
+--   USING ((org_id = ANY (public.auth_org_ids())));
+--
+-- It carries no explicit WITH CHECK, so Postgres uses its USING
+-- expression as the implicit check for INSERT too, and permissive
+-- policies OR together. So any member of an org can already insert an
+-- org_members row FOR THAT ORG — which is exactly what the production
+-- invite flow needs: apps/hoa/src/lib/members.ts:277's attachToOrg()
+-- inserts the invitee's org_members row through the inviting admin's
+-- own RLS-enforcing client (getSupabaseServerClient()), not
+-- service-role. (It does use the admin client, but only for the
+-- `profiles` upsert a few lines above, with its own comment explaining
+-- why.) That path is untouched by this migration and keeps working.
+--
+-- What auth_can_self_insert_org_members additionally allowed, and what
+-- org_member_access does not, is inserting into a FOREIGN org: nothing
+-- in org_member_access's USING clause is true yet for a caller who
+-- isn't a member of the target org, so it alone would already reject
+-- the escalation. auth_can_self_insert_org_members was the second,
+-- narrower-looking permissive policy that reopened exactly that case by
+-- checking only user_id. Dropping it removes the foreign-org hole and
+-- nothing else.
+--
+-- Do not read this as proof org_member_access itself is correctly
+-- scoped — it permits a member to insert ANY role (including 'admin')
+-- for an existing org, same-org privilege escalation included. That is
+-- a separate, known finding, intentionally out of scope here.
 --
 -- auth_can_insert_orgs is tightened in the same spirit: creating an org
 -- is still allowed for any signed-in user (the founder flow), but it was
