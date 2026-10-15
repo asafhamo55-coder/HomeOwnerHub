@@ -48,15 +48,25 @@ export type ActionResult<T = void> = ActionOk<T> | ActionErr
 // ─── Reads ───────────────────────────────────────────────────────────
 
 export async function listRfps(): Promise<RfpRow[]> {
+  const res = await listRfpsResult()
+  return res.ok ? res.data : []
+}
+
+/** Same read, but a failure is reported instead of becoming "no RFPs". */
+export async function listRfpsResult(): Promise<{ ok: true; data: RfpRow[] } | { ok: false }> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('rfps' as never)
     .select(
       'id, rfp_number, title, status, submission_deadline, budget_min, budget_max, ai_generated, created_at',
     )
     .order('created_at', { ascending: false })
     .limit(100)
-  return (data ?? []) as unknown as RfpRow[]
+  if (error) {
+    console.error('listRfps failed', { code: error.code, message: error.message })
+    return { ok: false }
+  }
+  return { ok: true, data: (data ?? []) as unknown as RfpRow[] }
 }
 
 export async function getRfp(id: string): Promise<RfpDetail | null> {

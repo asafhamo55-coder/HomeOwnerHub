@@ -1,7 +1,16 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, MessageSquare, Wallet } from 'lucide-react'
-import { Alert, Card, CardContent, NoOrgSelected, Page, Skeleton } from '@homeowner-portal/ui'
+import { AlertTriangle, ClipboardCheck, Mail, Wallet } from 'lucide-react'
+import {
+  Alert,
+  Button,
+  Card,
+  CardContent,
+  Kpi,
+  NoOrgSelected,
+  Page,
+  Skeleton,
+} from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 // EMERGENCY ROLLBACK (v2 — second attempt) 2026-05-25: cached layer
 // broke prod AGAIN at runtime with reference 2236965075. Both the
@@ -15,7 +24,7 @@ import {
   getComplianceHeatMap,
   getLatestDigest,
   getLeaseSummary,
-  getNextMeeting,
+  getNextMeetingResult,
   getResidentQueueCounts,
   getStaleApprovalCount,
 } from '@/lib/dashboard/queries'
@@ -27,6 +36,7 @@ import {
   getTicketCategoryDonut,
   getViolationStatusDonut,
 } from '@/lib/dashboard/charts'
+import { kpiDelta } from '@/lib/dashboard/kpi-delta'
 import { getSetupProgress } from '@/lib/inbox/queries'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
@@ -39,16 +49,14 @@ import {
   todayISO,
 } from '@/lib/dashboard/digest-facts'
 import { MailTriageCard } from '@/components/dashboard/MailTriageCard'
-import { ActivityBar } from '@/components/dashboard/ActivityBar'
+import { ActivityTrend } from '@/components/dashboard/ActivityTrend'
 import { ApprovalsInbox } from '@/components/dashboard/ApprovalsInbox'
 import { AtRiskThisWeek } from '@/components/dashboard/AtRiskThisWeek'
+import { BreakdownList } from '@/components/dashboard/BreakdownList'
 import { ComplianceHeatMap } from '@/components/dashboard/ComplianceHeatMap'
 import { DailyDigestCard } from '@/components/dashboard/DailyDigestCard'
-import { KpiHero } from '@/components/dashboard/KpiHero'
 import { LeaseSummaryCard } from '@/components/dashboard/LeaseSummaryCard'
 import { NextMeeting } from '@/components/dashboard/NextMeeting'
-import { StatusBar } from '@/components/dashboard/StatusBar'
-import { StatusDonut } from '@/components/dashboard/StatusDonut'
 import { GreetingHeadline } from '@/components/dashboard/GreetingHeadline'
 
 export const metadata = { title: 'Dashboard' }
@@ -68,6 +76,8 @@ const serverDateLabel = new Date().toLocaleDateString(undefined, {
   month: 'long',
   day: 'numeric',
 })
+
+const usd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`
 
 export default async function DashboardHome() {
   const org = await getCurrentOrg()
@@ -105,19 +115,25 @@ export default async function DashboardHome() {
     <Page
       width="wide"
       header={
-        <header className="space-y-2">
+        <header className="space-y-1">
           {/* GreetingHeadline renders the page's one <h1>. */}
           <GreetingHeadline name={userName} contextLabel={org.name} fallbackDate={serverDateLabel} />
+          <p className="text-sm text-muted">Here’s what needs your attention today.</p>
         </header>
       }
     >
       {pendingSetup.length > 0 ? (
-        <Alert variant="info" title="Finish setting up">
-          {pendingSetup.length} step{pendingSetup.length === 1 ? '' : 's'} left —{' '}
-          {pendingSetup[0].title}.{' '}
-          <Link href="/onboarding/setup" className="underline">
-            Continue
-          </Link>
+        <Alert
+          variant="info"
+          title="Finish setting up"
+          actions={
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/onboarding/setup">Continue setup</Link>
+            </Button>
+          }
+        >
+          {pendingSetup.length} step{pendingSetup.length === 1 ? '' : 's'} left. Next:{' '}
+          {pendingSetup[0].title}.
         </Alert>
       ) : null}
 
@@ -141,7 +157,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     nextMeeting,
     leaseSummary,
     digest,
-    heatMapCells,
+    heatMap,
     triage,
     community,
     residentQueues,
@@ -153,7 +169,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     getThirtyDayActivity(orgId),
     getApprovalsInbox(orgId),
     getAtRiskThisWeek(orgId),
-    getNextMeeting(orgId),
+    getNextMeetingResult(orgId),
     getLeaseSummary(orgId),
     getLatestDigest(orgId),
     getComplianceHeatMap(orgId),
@@ -171,7 +187,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
   const bullets = buildBullets({
     newSinceBaseline,
     waitingOverThree: triage.threads.filter((t) => t.waitingDays > 3).length,
-    nextMeeting: formatNextMeeting(nextMeeting),
+    nextMeeting: formatNextMeeting(nextMeeting.meeting),
   })
 
   // The insights the server renders carry no `why`: writing one costs an AI
@@ -190,193 +206,220 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     .slice(0, MAX_INSIGHTS)
     .map((signal) => ({ ...signal, why: null }))
 
-  return (
-    <div className="space-y-6">
-      {/* Today — the AI suggestion line plus deterministic bullets. The
-          bullets deliberately never restate a tile below; they carry what
-          CHANGED, which a tile structurally cannot show. */}
-      <DailyDigestCard
-        initialSuggestion={digest.content}
-        initialBullets={bullets}
-        initialInsights={initialInsights}
-        initialGeneratedAt={digest.generatedAt}
-      />
+  const overdueAtRisk = atRisk.counts.cureDeadlinesElapsed
+  const approvalsFailed = approvals.failed === true
 
-      {/* The four numbers that are about today. "Active vendors" was cut:
-          reference data, not a daily decision. The two mail tiles that used
-          to sit here ("Needs a reply", "Oldest waiting") were cut too — the
-          MailTriageCard directly below already carries both, per-thread. */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiHero
-          label="Open tickets"
-          value={kpis.openTickets.value}
-          sub="awaiting work"
-          href="/tickets"
-          upIsBad
-          unavailable={kpis.failed}
-        />
-        <KpiHero
-          label="Properties"
-          value={community.propertyCount}
-          sub={
-            community.propertyCount === 0
-              ? 'none on file yet'
-              : `${community.residentCount.toLocaleString()} ${
-                  community.residentCount === 1 ? 'resident' : 'residents'
-                } in residence`
-          }
-          href="/properties"
-          unavailable={community.failed}
-        />
-        {/* Same figure the /leases page headlines — leasedPct off
-            getLeaseSummary — so the dashboard and the lease section can
-            never disagree. Labelled "Leased" rather than "Occupancy"
-            because it is not one: 16% leased means 84% owner-occupied,
-            not 84% empty. */}
-        <KpiHero
-          label="Leased"
-          value={leaseSummary.leasedPct}
-          display={
-            !leaseSummary.hasAssociation || leaseSummary.totalUnits === 0
-              ? '—'
-              : `${Math.round(leaseSummary.leasedPct)}%`
-          }
-          sub={
-            !leaseSummary.hasAssociation
-              ? 'no association set up'
-              : leaseSummary.totalUnits === 0
-                ? 'no units on file'
-                : `${leaseSummary.leasedCount} of ${leaseSummary.totalUnits} leased · ${leaseSummary.waitingListCount} on waitlist`
-          }
-          href="/leases"
-          upIsBad
-          unavailable={leaseSummary.failed}
-        />
-        <KpiHero
-          label="Dues overdue"
-          value={kpis.duesOutstandingUsd.value}
-          display={`$${Math.round(kpis.duesOutstandingUsd.value).toLocaleString()}`}
-          previous={kpis.duesOutstandingUsd.previous}
-          upIsBad
-          href="/dues"
-          unavailable={kpis.failed}
-        />
+  return (
+    <div className="space-y-8">
+      {/* ── Needs attention ─────────────────────────────────────────────
+          Four counts, each a decision waiting on the board, each linking
+          to where it is acted on. A failed source shows "—" and says so. */}
+      <section aria-labelledby="attention-heading" className="space-y-3">
+        <h2 id="attention-heading" className="sr-only">
+          Needs your attention
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <Kpi
+            label="Approvals"
+            icon={<ClipboardCheck />}
+            value={approvals.totalCount.toLocaleString()}
+            hint={approvals.totalCount === 0 ? 'Inbox zero' : 'waiting on you'}
+            href="#approvals"
+            linkAs={Link}
+            state={approvalsFailed && approvals.totalCount === 0 ? 'failed' : 'ready'}
+          />
+          <Kpi
+            label="At risk this week"
+            icon={<AlertTriangle />}
+            value={atRisk.totalCount.toLocaleString()}
+            hint={
+              atRisk.totalCount === 0
+                ? 'All on track'
+                : overdueAtRisk > 0
+                  ? `${overdueAtRisk} cure ${overdueAtRisk === 1 ? 'deadline' : 'deadlines'} passed`
+                  : 'deadlines this week'
+            }
+            href="#at-risk"
+            linkAs={Link}
+            state={atRisk.failed ? 'failed' : 'ready'}
+          />
+          <Kpi
+            label="Mail to answer"
+            icon={<Mail />}
+            value={triage.needsReply.count.toLocaleString()}
+            hint={
+              triage.needsReply.oldestWaitingDays != null && triage.needsReply.count > 0
+                ? `oldest ${triage.needsReply.oldestWaitingDays}d`
+                : 'all replied'
+            }
+            href="/inbox"
+            linkAs={Link}
+            state={triage.failed ? 'failed' : 'ready'}
+          />
+          <Kpi
+            label="Dues overdue"
+            icon={<Wallet />}
+            value={usd(kpis.duesOutstandingUsd.value)}
+            delta={kpiDelta(kpis.duesOutstandingUsd.value, kpis.duesOutstandingUsd.previous, true)}
+            href="/dues"
+            linkAs={Link}
+            state={kpis.failed ? 'failed' : 'ready'}
+          />
+        </div>
+      </section>
+
+      {/* ── Today ──────────────────────────────────────────────────────
+          Work queue on the left, calendar + mail + leasing on the right. */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="min-w-0 space-y-6 lg:col-span-2">
+          {/* The bullets deliberately never restate a tile; they carry what
+              CHANGED, which a tile structurally cannot show. */}
+          <DailyDigestCard
+            initialSuggestion={digest.content}
+            initialBullets={bullets}
+            initialInsights={initialInsights}
+            initialGeneratedAt={digest.generatedAt}
+          />
+          <ApprovalsInbox items={approvals.items} failed={approvalsFailed} />
+          <AtRiskThisWeek items={atRisk.items} totalCount={atRisk.totalCount} failed={atRisk.failed} />
+        </div>
+        <div className="min-w-0 space-y-6">
+          <NextMeeting meeting={nextMeeting.meeting} failed={nextMeeting.failed} />
+          <MailTriageCard snapshot={triage} />
+          <LeaseSummaryCard summary={leaseSummary} />
+        </div>
       </div>
 
-      <MailTriageCard snapshot={triage} />
-
-      {/* Open by default — a confirmed "nothing urgent" is worth seeing. */}
-      <details className="rounded-xl border border-border bg-surface" open>
-        <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium hover:bg-foreground/5">
-          <span>This week</span>
-          <span className="text-xs text-muted">
-            {/* "nothing urgent" is a claim; a failed at-risk read can't
-                support it. */}
-            {atRisk.failed
-              ? 'couldn’t load everything'
-              : approvals.totalCount + atRisk.totalCount === 0
-              ? 'nothing urgent'
-              : `${approvals.totalCount + atRisk.totalCount} items`}
-          </span>
-        </summary>
-        <div className="space-y-4 border-t border-border p-4">
-          <ApprovalsInbox items={approvals.items} />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <AtRiskThisWeek items={atRisk.items} totalCount={atRisk.totalCount} />
-            <NextMeeting meeting={nextMeeting} />
-          </div>
+      {/* ── Community health ───────────────────────────────────────────
+          Reference numbers and trends: below the fold on purpose, so they
+          never compete with today's work above. */}
+      <section aria-labelledby="health-heading" className="space-y-4">
+        <div className="flex items-baseline justify-between gap-4 border-t border-border pt-6">
+          <h2 id="health-heading" className="text-lg font-semibold text-foreground">
+            Community health
+          </h2>
+          <span className="text-xs text-muted">Changes vs 30 days ago</span>
         </div>
-      </details>
-
-      {/* Demoted, not deleted. These stopped competing with today's work. */}
-      <details className="rounded-xl border border-border bg-surface">
-        <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium hover:bg-foreground/5">
-          <span className="flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-muted" />
-            Money &amp; compliance
-          </span>
-        </summary>
-        <div className="space-y-4 border-t border-border p-4">
-          {/* "Open tickets" was promoted to the top KPI row; repeating it
-              here would show the same number twice on one page. */}
-          <KpiHero
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <Kpi
             label="Open violations"
-            value={kpis.openViolations.value}
-            previous={kpis.openViolations.previous}
-            upIsBad
+            value={kpis.openViolations.value.toLocaleString()}
+            delta={kpiDelta(kpis.openViolations.value, kpis.openViolations.previous, true)}
             href="/violations"
-            unavailable={kpis.failed}
+            linkAs={Link}
+            state={kpis.failed ? 'failed' : 'ready'}
           />
-          <div
-            className={`grid gap-4 ${leaseSummary.hasAssociation ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}
-          >
-            <StatusDonut
-              title="Violations by status"
-              icon={<AlertTriangle className="h-4 w-4 text-muted" />}
-              segments={violationsDonut.segments}
-              total={violationsDonut.total}
-              emptyTitle="No violations on file"
-              emptyDescription="When violations are reported, the status breakdown will show here."
-            />
-            <StatusBar
-              title="Tickets by category"
-              icon={<MessageSquare className="h-4 w-4 text-muted" />}
-              segments={ticketCategoryDonut.segments}
-              total={ticketCategoryDonut.total}
-              emptyTitle="No tickets yet"
-              emptyDescription="When residents submit tickets, the category breakdown will show here."
-            />
-            <LeaseSummaryCard summary={leaseSummary} />
-          </div>
-          <ActivityBar buckets={activity.buckets} />
+          <Kpi
+            label="Open tickets"
+            value={kpis.openTickets.value.toLocaleString()}
+            delta={kpiDelta(kpis.openTickets.value, kpis.openTickets.previous, true)}
+            href="/tickets"
+            linkAs={Link}
+            state={kpis.failed ? 'failed' : 'ready'}
+          />
+          <Kpi
+            label="Properties"
+            value={community.propertyCount.toLocaleString()}
+            hint={
+              community.propertyCount === 0
+                ? 'none on file yet'
+                : `${community.residentCount.toLocaleString()} ${
+                    community.residentCount === 1 ? 'resident' : 'residents'
+                  } in residence`
+            }
+            href="/properties"
+            linkAs={Link}
+            state={community.failed ? 'failed' : 'ready'}
+          />
+          {/* Same figure the /leases page headlines — leasedPct off
+              getLeaseSummary — so the dashboard and the lease section can
+              never disagree. "Leased", not "Occupancy": 16% leased means
+              84% owner-occupied, not 84% empty. */}
+          <Kpi
+            label="Leased"
+            value={
+              !leaseSummary.hasAssociation || leaseSummary.totalUnits === 0
+                ? '—'
+                : `${Math.round(leaseSummary.leasedPct)}%`
+            }
+            hint={
+              !leaseSummary.hasAssociation
+                ? 'no association set up'
+                : leaseSummary.totalUnits === 0
+                  ? 'no units on file'
+                  : `${leaseSummary.leasedCount} of ${leaseSummary.totalUnits} units`
+            }
+            href="/leases"
+            linkAs={Link}
+            state={leaseSummary.failed ? 'failed' : 'ready'}
+          />
         </div>
-      </details>
-
-      <details className="rounded-xl border border-border bg-surface">
-        <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium hover:bg-foreground/5">
-          <span className="flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-muted" />
-            3-month compliance heat map
-          </span>
-        </summary>
-        <div className="border-t border-border p-2">
-          <ComplianceHeatMap cells={heatMapCells} />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <BreakdownList
+            title="Violations by status"
+            segments={violationsDonut.segments}
+            total={violationsDonut.total}
+            failed={violationsDonut.failed}
+            href="/violations"
+            hrefLabel="View all"
+            emptyTitle="No violations on file"
+            emptyDescription="When violations are reported, the status breakdown shows here."
+          />
+          <BreakdownList
+            title="Tickets by category"
+            segments={ticketCategoryDonut.segments}
+            total={ticketCategoryDonut.total}
+            failed={ticketCategoryDonut.failed}
+            href="/tickets"
+            hrefLabel="View all"
+            emptyTitle="No tickets yet"
+            emptyDescription="When residents submit tickets, the category breakdown shows here."
+          />
+          <ActivityTrend buckets={activity.buckets} failed={activity.failed} />
         </div>
-      </details>
+        <ComplianceHeatMap cells={heatMap.cells} failed={heatMap.failed} />
+      </section>
     </div>
   )
 }
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="space-y-8" aria-busy="true">
+      <span className="sr-only">Loading your dashboard</span>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
           <Card key={i}>
             <CardContent className="space-y-3 p-5">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-9 w-20" />
-              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-3.5 w-24" />
+              <Skeleton className="h-8 w-20" />
+              <Skeleton className="h-3 w-28" />
             </CardContent>
           </Card>
         ))}
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        {[0, 1].map((i) => (
-          <Card key={i}>
-            <CardContent className="space-y-4 p-6">
-              <Skeleton className="h-5 w-40" />
-              <Skeleton className="h-40 w-full" />
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="min-w-0 space-y-6 lg:col-span-2">
+          {[0, 1].map((i) => (
+            <Card key={i}>
+              <CardContent className="space-y-4 p-5">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-28 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="space-y-6">
+          {[0, 1].map((i) => (
+            <Card key={i}>
+              <CardContent className="space-y-4 p-5">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-16 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
-      <Card>
-        <CardContent className="space-y-4 p-6">
-          <Skeleton className="h-5 w-40" />
-          <Skeleton className="h-56 w-full" />
-        </CardContent>
-      </Card>
     </div>
   )
 }

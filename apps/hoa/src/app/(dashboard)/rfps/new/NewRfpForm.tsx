@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
-import { Button, Input, Textarea } from '@homeowner-portal/ui'
+import { Alert, Button, Field, Input, Textarea } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { createRfpDraft } from '@/lib/rfps'
 
@@ -60,18 +60,19 @@ export function NewRfpForm() {
   })()
 
   return (
-    <form action={handleSubmit} className="space-y-4">
-      <div className="space-y-1">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium text-foreground">
-            What does the association need? <span className="text-destructive">*</span>
-          </span>
+    <form action={handleSubmit} className="space-y-5">
+      <Field
+        label="What does the association need?"
+        required
+        hint="In your own words. The composer turns it into a scope, line items and evaluation criteria."
+        labelAside={
           <AiRewriteButton
             textareaRef={freeTextRef}
             context="RFP scope description — preserve dates, dollar amounts, deadlines, and acreage"
             disabled={isPending}
           />
-        </div>
+        }
+      >
         <Textarea
           ref={freeTextRef}
           name="freeTextNeed"
@@ -81,59 +82,38 @@ export function NewRfpForm() {
           maxLength={4000}
           placeholder="We need a landscaper for our 4-acre common area: bi-weekly mowing April–October, quarterly fertilization, and seasonal leaf removal in fall. Existing vendor's contract expires Sep 30."
         />
-        <p className="text-xs text-muted">
-          Describe it in your own words. The Composer turns this into a
-          structured scope, line items, and evaluation criteria.
-        </p>
+      </Field>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Budget minimum" optional>
+          <Input name="budgetMin" inputMode="numeric" prefix="$" placeholder="20,000" />
+        </Field>
+        <Field label="Budget maximum" optional>
+          <Input name="budgetMax" inputMode="numeric" prefix="$" placeholder="35,000" />
+        </Field>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-foreground">Budget — minimum ($)</span>
-          <Input name="budgetMin" inputMode="numeric" placeholder="20000" />
-        </label>
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-foreground">Budget — maximum ($)</span>
-          <Input name="budgetMax" inputMode="numeric" placeholder="35000" />
-        </label>
-      </div>
-
-      <label className="block space-y-1">
-        <span className="text-sm font-medium text-foreground">
-          Submission deadline <span className="text-destructive">*</span>
-        </span>
-        <Input
-          name="submissionDeadline"
-          type="datetime-local"
-          required
-          defaultValue={defaultDeadline}
-        />
-        <p className="text-xs text-muted">
-          Vendors must submit their bid by this date/time.
-        </p>
-      </label>
+      <Field label="Bids due" required hint="Vendors must submit their bid by this date and time.">
+        <Input name="submissionDeadline" type="datetime-local" required defaultValue={defaultDeadline} />
+      </Field>
 
       {error ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <Alert variant="error" title="Couldn’t draft the RFP">
           {error}
-        </p>
+        </Alert>
       ) : null}
 
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={() => router.back()}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={isPending}>
-          <Sparkles className="h-4 w-4" />
-          {isPending ? 'Drafting…' : 'Draft RFP'}
-        </Button>
+      <div className="flex flex-col-reverse gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted">Saved as a draft. Nothing goes to vendors until you publish.</p>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={() => router.back()} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={isPending} icon={<Sparkles aria-hidden />}>
+            {isPending ? 'Drafting…' : 'Draft RFP'}
+          </Button>
+        </div>
       </div>
-
-      <p className="text-xs text-muted">
-        The draft lands in <span className="font-mono">/rfps</span> as
-        status `draft` for your review. Nothing is sent to vendors until
-        you publish.
-      </p>
     </form>
   )
 }

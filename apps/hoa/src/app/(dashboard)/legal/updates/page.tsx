@@ -1,134 +1,168 @@
 import Link from 'next/link'
-import { ArrowLeft, ExternalLink, Plus, Scale } from 'lucide-react'
+import { ExternalLink, Megaphone, Plus, Scale } from 'lucide-react'
 import { format } from 'date-fns'
 import {
+  Alert,
   Badge,
   Button,
-  Card,
-  CardContent,
+  DataTable,
   EmptyState,
+  LoadFailed,
+  Page,
+  StatusBadge,
+  type DataTableColumn,
 } from '@homeowner-portal/ui'
-import {
-  getAssociationState,
-  listAllUpdatesForManager,
-} from '@/lib/state-law'
+import { getAssociationState, listAllUpdatesForManager, type LawUpdateAdminRow } from '@/lib/state-law'
+import { tryLoad } from '@/lib/load-or-fail'
+import { LAW_UPDATE_LABELS, LAW_UPDATE_TONES, STATE_NAMES } from '@/lib/status/knowledge'
+import { CategoryBadge, EffectivePill } from '@/components/knowledge/LawUpdateItem'
+import { LegalTabs } from '@/components/knowledge/LegalTabs'
 import { ArchiveButton } from './ArchiveButton'
 import { DeleteUpdateButton } from './DeleteUpdateButton'
 
-export const metadata = { title: 'Law updates — admin' }
+export const metadata = { title: 'Law updates' }
+
+/** listAllUpdatesForManager caps at this many rows; say so when we hit it. */
+const UPDATE_CAP = 200
+
+const columns: DataTableColumn<LawUpdateAdminRow>[] = [
+  {
+    key: 'update',
+    header: 'Update',
+    mobilePrimary: true,
+    cell: (u) => (
+      <div className="min-w-0 max-w-xl space-y-1">
+        <p className="font-medium text-foreground">{u.headline}</p>
+        <p className="line-clamp-2 text-sm text-muted">{u.summary}</p>
+        {u.source_url ? (
+          <a
+            href={u.source_url}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          >
+            Source
+            <ExternalLink className="size-3" aria-hidden />
+            <span className="sr-only">(opens in a new tab)</span>
+          </a>
+        ) : null}
+      </div>
+    ),
+  },
+  {
+    key: 'topic',
+    header: 'Topic',
+    hideBelowLg: true,
+    cell: (u) => (u.category ? <CategoryBadge category={u.category} /> : <span className="text-muted">—</span>),
+  },
+  {
+    key: 'effective',
+    header: 'Effective',
+    cell: (u) => (u.effective_date ? <EffectivePill date={u.effective_date} /> : <span className="text-muted">—</span>),
+  },
+  {
+    key: 'posted',
+    header: 'Posted',
+    hideBelowLg: true,
+    cell: (u) => <span className="num whitespace-nowrap text-muted">{format(new Date(u.posted_at), 'PP')}</span>,
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    cell: (u) => (
+      <StatusBadge status={u.archived_at ? 'archived' : 'live'} tones={LAW_UPDATE_TONES} labels={LAW_UPDATE_LABELS} />
+    ),
+  },
+  {
+    key: 'actions',
+    header: <span className="sr-only">Actions</span>,
+    cell: (u) => (
+      <div className="flex items-center justify-end gap-1">
+        <ArchiveButton updateId={u.id} archived={!!u.archived_at} headline={u.headline} />
+        <DeleteUpdateButton updateId={u.id} headline={u.headline} />
+      </div>
+    ),
+  },
+]
 
 export default async function UpdatesAdminPage() {
-  const state = await getAssociationState()
+  const stateResult = await tryLoad('association state', () => getAssociationState())
+  const state = stateResult.ok ? stateResult.data : null
+  const updatesResult = state ? await tryLoad('law updates', () => listAllUpdatesForManager(state)) : null
 
-  if (!state) {
-    return (
-      <div className="mx-auto max-w-4xl space-y-4">
-        <Link
-          href="/legal"
-          className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Link>
-        <EmptyState
-          icon={<Scale className="h-10 w-10" aria-hidden />}
-          title="State not supported"
-          description="The State Law Brain currently covers GA, FL, CA, and TX."
-        />
-      </div>
-    )
-  }
-
-  const updates = await listAllUpdatesForManager(state)
+  const updates = updatesResult?.ok ? updatesResult.data : []
   const live = updates.filter((u) => !u.archived_at).length
   const archived = updates.length - live
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <Link
-        href="/legal"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to State Law
-      </Link>
-
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1>Law updates — admin</h1>
-          <p className="text-sm text-muted">
-            {state} · {live} live · {archived} archived
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/legal/updates/new">
-            <Plus className="h-4 w-4" />
-            Post update
-          </Link>
-        </Button>
-      </header>
-
-      {updates.length === 0 ? (
+    <Page
+      linkAs={Link}
+      breadcrumbs={[{ label: 'State law', href: '/legal' }, { label: 'Law updates' }]}
+      title="Law updates"
+      description={
+        state
+          ? `Curated notes on changes to ${STATE_NAMES[state]} HOA law. Live updates appear on the State law page for every board in ${state}.`
+          : 'Curated notes on changes to your state’s HOA law.'
+      }
+      meta={
+        updatesResult?.ok && updates.length > 0 ? (
+          <Badge variant="neutral" className="num">
+            {live} live · {archived} archived
+          </Badge>
+        ) : null
+      }
+      tabs={<LegalTabs current="/legal/updates" />}
+      actions={
+        state ? (
+          <Button asChild>
+            <Link href="/legal/updates/new">
+              <Plus aria-hidden />
+              Post update
+            </Link>
+          </Button>
+        ) : null
+      }
+    >
+      {!stateResult.ok ? (
+        <LoadFailed what="your association’s state" />
+      ) : !state ? (
         <EmptyState
-          icon={<Plus className="h-10 w-10" aria-hidden />}
-          title="No updates posted yet"
-          description="Post a curated note about a recent change in your state's HOA law. It will appear on the /legal landing page and in the dashboard."
-          action={
-            <Button asChild>
-              <Link href="/legal/updates/new">
-                <Plus className="h-4 w-4" />
-                Post first update
-              </Link>
-            </Button>
-          }
+          icon={<Scale aria-hidden />}
+          title="Your state isn’t covered yet"
+          description="The State Law Brain covers Georgia, Florida, California and Texas today."
         />
+      ) : !updatesResult || !updatesResult.ok ? (
+        <LoadFailed what="law updates" retryHref="/legal/updates" />
       ) : (
-        <Card>
-          <ul className="divide-y divide-border">
-            {updates.map((u) => (
-              <li key={u.id} className="px-4 py-3">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-foreground">
-                      {u.headline}
-                      {u.archived_at ? (
-                        <Badge variant="outline" size="sm" className="ml-2">
-                          archived
-                        </Badge>
-                      ) : null}
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted">
-                      Posted {format(new Date(u.posted_at), 'PP')}
-                      {u.category ? ` · ${u.category}` : ''}
-                      {u.effective_date
-                        ? ` · effective ${format(new Date(u.effective_date), 'PP')}`
-                        : ''}
-                    </p>
-                    <p className="mt-1 line-clamp-2 text-sm text-foreground">
-                      {u.summary}
-                    </p>
-                    {u.source_url ? (
-                      <a
-                        href={u.source_url}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                      >
-                        Source
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    ) : null}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <ArchiveButton updateId={u.id} archived={!!u.archived_at} />
-                    <DeleteUpdateButton updateId={u.id} />
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <>
+          {updates.length >= UPDATE_CAP ? (
+            <Alert variant="info" title={`Showing the ${UPDATE_CAP} most recent updates`}>
+              Older updates aren’t listed here.
+            </Alert>
+          ) : null}
+          <DataTable
+            caption="Law updates"
+            columns={columns}
+            rows={updates}
+            rowKey={(u) => u.id}
+            mobile="cards"
+            linkAs={Link}
+            empty={
+              <EmptyState
+                variant="compact"
+                icon={<Megaphone aria-hidden />}
+                title="No updates posted yet"
+                description="Post a curated note about a recent change in your state’s HOA law."
+                action={
+                  <Button asChild size="sm">
+                    <Link href="/legal/updates/new">Post the first update</Link>
+                  </Button>
+                }
+              />
+            }
+          />
+        </>
       )}
-    </div>
+    </Page>
   )
 }

@@ -2,14 +2,15 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, Send } from 'lucide-react'
-import { Button, Input } from '@homeowner-portal/ui'
+import { Check, Copy, Send } from 'lucide-react'
+import { Alert, Button, Field, Input } from '@homeowner-portal/ui'
 import { createInvitation } from '@/lib/vendor-invitations'
 
 export function InviteVendorForm() {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
   const [success, setSuccess] = useState<{
     link: string
     emailSent: boolean
@@ -19,11 +20,16 @@ export function InviteVendorForm() {
 
   async function handleSubmit(formData: FormData) {
     setError(null)
+    setEmailError(null)
     setSuccess(null)
     setCopied(false)
 
     const inviteeEmail = String(formData.get('email') ?? '').trim()
     const inviteeName = String(formData.get('name') ?? '').trim() || null
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteeEmail)) {
+      setEmailError(inviteeEmail ? 'Enter a valid email address.' : 'Enter the vendor’s email address.')
+      return
+    }
 
     startTransition(async () => {
       const result = await createInvitation({ inviteeEmail, inviteeName })
@@ -51,70 +57,52 @@ export function InviteVendorForm() {
   }
 
   return (
-    <form action={handleSubmit} className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-foreground">Vendor email</span>
+    <form action={handleSubmit} className="space-y-4" noValidate>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Vendor email" required error={emailError}>
           <Input name="email" type="email" required placeholder="ops@acme.com" />
-        </label>
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-foreground">
-            Business name (optional)
-          </span>
+        </Field>
+        <Field label="Business name" optional>
           <Input name="name" placeholder="ACME Landscaping LLC" />
-        </label>
+        </Field>
       </div>
 
       {error ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <Alert variant="error" title="Couldn’t create the invitation">
           {error}
-        </p>
+        </Alert>
       ) : null}
 
       {success ? (
-        <div
-          className={`space-y-2 rounded-md border px-3 py-2 text-sm ${
-            success.emailSent
-              ? 'border-emerald-200 bg-emerald-50'
-              : 'border-amber-200 bg-amber-50'
-          }`}
+        <Alert
+          variant={success.emailSent ? 'success' : 'warning'}
+          title={success.emailSent ? 'Invitation sent' : 'Invitation created, but the email was not sent'}
         >
-          <p
-            className={`font-medium ${
-              success.emailSent ? 'text-emerald-800' : 'text-amber-900'
-            }`}
-          >
+          <p>
             {success.emailSent
-              ? 'Invitation sent.'
-              : 'Invitation created — email not sent.'}
+              ? 'We emailed the vendor. The link below also works if they need a copy.'
+              : `Email delivery failed${success.emailError ? ` (${success.emailError})` : ''}. Copy the link and send it to the vendor yourself.`}
           </p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 truncate rounded bg-white px-2 py-1 text-xs">
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-foreground">
               {success.link}
             </code>
-            <Button type="button" variant="outline" size="sm" onClick={handleCopy}>
-              <Copy className="h-3.5 w-3.5" />
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleCopy}
+              icon={copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+            >
               {copied ? 'Copied' : 'Copy link'}
             </Button>
           </div>
-          <p
-            className={`text-xs ${
-              success.emailSent ? 'text-emerald-800' : 'text-amber-900'
-            }`}
-          >
-            {success.emailSent
-              ? "We've emailed the vendor. The link above is also valid in case they need a copy."
-              : `Email delivery failed${
-                  success.emailError ? ` (${success.emailError})` : ''
-                }. Copy the link above and send it to the vendor manually.`}
-          </p>
-        </div>
+        </Alert>
       ) : null}
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={isPending}>
-          <Send className="h-4 w-4" />
-          {isPending ? 'Sending…' : 'Send invitation'}
+        <Button type="submit" loading={isPending} icon={<Send aria-hidden />}>
+          Send invitation
         </Button>
       </div>
     </form>

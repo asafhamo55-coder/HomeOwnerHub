@@ -1,17 +1,27 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Badge,
+  Button,
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
   EmptyState,
+  LoadFailed,
+  Page,
+  StatusPill,
+  TableScroll,
+  type StatusTone,
 } from '@homeowner-portal/ui'
 import { getRfp } from '@/lib/rfps'
-import { listBidsForRfp, getLatestBidComparison } from '@/lib/bids'
+import { listBidsForRfpResult, getLatestBidComparison } from '@/lib/bids'
+import { tryLoad } from '@/lib/load-or-fail'
+import { COMPARISON_CELL_LABELS, COMPARISON_CELL_TONES } from '@/lib/status/vendors'
+import { usd } from '@/components/vendors/format'
 
 export const metadata = { title: 'Bid comparison' }
 
@@ -40,96 +50,94 @@ interface PerBidSummary {
   summary: string
 }
 
-const STATUS_VARIANT: Record<ComparisonBidCell['status'], 'success' | 'warning' | 'destructive'> = {
-  matched: 'success',
-  excluded: 'destructive',
-  addition: 'warning',
-}
-
 export default async function ComparisonPage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
   const { id: rfpId } = await params
-  const [rfp, comparison, bids] = await Promise.all([
+  const [rfp, comparisonResult, bidsResult] = await Promise.all([
     getRfp(rfpId),
-    getLatestBidComparison(rfpId),
-    listBidsForRfp(rfpId),
+    tryLoad('bid comparison', () => getLatestBidComparison(rfpId)),
+    listBidsForRfpResult(rfpId),
   ])
   if (!rfp) notFound()
 
+  const bids = bidsResult.ok ? bidsResult.data : []
   const bidNameById = new Map(bids.map((b) => [b.id, b.vendor_legal_name]))
+  const comparison = comparisonResult.ok ? comparisonResult.data : null
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <Link
-        href={`/rfps/${rfpId}/bids`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to bids
-      </Link>
-
-      <header className="space-y-1">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <h1 className="text-2xl font-bold text-foreground">Bid comparison</h1>
-        </div>
-        <p className="text-sm text-muted">
-          {rfp.rfp_number} · {rfp.title}
-        </p>
-      </header>
-
-      {!comparison ? (
+    <Page
+      width="wide"
+      title="Bid comparison"
+      description={rfp.title}
+      breadcrumbs={[
+        { label: 'RFPs', href: '/rfps' },
+        { label: rfp.rfp_number, href: `/rfps/${rfpId}` },
+        { label: 'Bids', href: `/rfps/${rfpId}/bids` },
+        { label: 'Comparison' },
+      ]}
+      linkAs={Link}
+    >
+      {!comparisonResult.ok || !bidsResult.ok ? (
+        <LoadFailed what="the bid comparison" retryHref={`/rfps/${rfpId}/comparison`} />
+      ) : !comparison ? (
         <EmptyState
-          icon={<Sparkles className="h-10 w-10" aria-hidden />}
-          title="No comparison run yet"
-          description="From the bids page, click 'Run W23 comparison' once at least two bids are submitted."
+          icon={<Sparkles aria-hidden />}
+          title="No comparison yet"
+          description="Once at least two bids are submitted, run a comparison from the bids page."
+          action={
+            <Button asChild variant="secondary">
+              <Link href={`/rfps/${rfpId}/bids`}>Go to bids</Link>
+            </Button>
+          }
         />
       ) : (
         <>
-          <p className="text-xs text-muted">
-            Generated {format(new Date(comparison.generated_at), 'PPpp')}
-          </p>
-
           {comparison.recommendation_memo ? (
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Recommendation memo</CardTitle>
-                <p className="text-xs text-muted">
-                  Drafted by W23. The board decides — not the workflow.
-                </p>
+              <CardHeader
+                className="pb-3"
+                actions={
+                  <Badge variant="ai" icon={<Sparkles aria-hidden />}>
+                    AI draft
+                  </Badge>
+                }
+              >
+                <CardTitle as="h2">Recommendation memo</CardTitle>
+                <CardDescription>
+                  Generated {format(new Date(comparison.generated_at), 'PPp')}. A draft for discussion — the
+                  board makes the decision.
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="whitespace-pre-wrap text-sm text-foreground">
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                   {comparison.recommendation_memo}
                 </p>
               </CardContent>
             </Card>
           ) : null}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Line-item comparison</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ComparisonTable rows={comparison.comparison_table as ComparisonRow[]} bids={bids} />
-            </CardContent>
-          </Card>
+          <section className="space-y-3" aria-labelledby="line-compare">
+            <h2 id="line-compare" className="text-lg font-semibold text-foreground">
+              Line-item comparison
+            </h2>
+            <ComparisonTable rows={comparison.comparison_table as ComparisonRow[]} bids={bids} />
+          </section>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-2">
             <FlagsCard
               title="Flagged exclusions"
               items={comparison.flagged_exclusions as FlaggedItem[]}
               bidNameById={bidNameById}
-              variant="destructive"
+              tone="danger"
             />
             <FlagsCard
               title="Flagged additions"
               items={comparison.flagged_additions as FlaggedItem[]}
               bidNameById={bidNameById}
-              variant="warning"
+              tone="warning"
             />
             <SummaryCard
               title="Payment terms"
@@ -144,7 +152,7 @@ export default async function ComparisonPage({
           </div>
         </>
       )}
-    </div>
+    </Page>
   )
 }
 
@@ -156,7 +164,7 @@ function ComparisonTable({
   bids: Array<{ id: string; vendor_legal_name: string }>
 }) {
   if (rows.length === 0) {
-    return <p className="text-sm text-muted">No line items aligned.</p>
+    return <p className="text-sm text-muted">The comparison didn’t align any line items.</p>
   }
   // Build the header from the first row's bids — assumes the LLM
   // returned the bids in a consistent order across rows (it does per
@@ -164,13 +172,16 @@ function ComparisonTable({
   const headerBids = rows[0]?.bids ?? bids.map((b) => ({ bidId: b.id, vendorName: b.vendor_legal_name }))
 
   return (
-    <div className="overflow-x-auto">
+    <TableScroll className="rounded-xl border border-border bg-surface">
       <table className="w-full min-w-[640px] text-sm">
-        <thead>
-          <tr className="text-left text-xs text-muted">
-            <th className="pb-2 pr-3">RFP line</th>
+        <caption className="sr-only">Line-item comparison across bids</caption>
+        <thead className="bg-subtle">
+          <tr className="text-left text-xs font-medium text-muted">
+            <th scope="col" className="sticky left-0 bg-subtle px-4 py-2.5">
+              RFP line
+            </th>
             {headerBids.map((b) => (
-              <th key={b.bidId} className="pb-2 pr-3 text-right">
+              <th key={b.bidId} scope="col" className="px-4 py-2.5 text-right">
                 {b.vendorName}
               </th>
             ))}
@@ -179,21 +190,19 @@ function ComparisonTable({
         <tbody>
           {rows.map((row, i) => (
             <tr key={`${row.rfpDescription}-${i}`} className="border-t border-border align-top">
-              <td className="py-2 pr-3 text-foreground">{row.rfpDescription}</td>
+              <th scope="row" className="sticky left-0 bg-surface px-4 py-3 text-left font-normal text-foreground">
+                {row.rfpDescription}
+              </th>
               {row.bids.map((b) => (
-                <td key={b.bidId} className="py-2 pr-3 text-right">
+                <td key={b.bidId} className="px-4 py-3 text-right">
                   <div className="flex flex-col items-end gap-1">
                     {b.amount != null ? (
-                      <span className="font-medium text-foreground">
-                        ${b.amount.toLocaleString()}
-                      </span>
+                      <span className="num font-medium text-foreground">{usd(b.amount)}</span>
                     ) : (
                       <span className="text-muted">—</span>
                     )}
                     {b.status !== 'matched' ? (
-                      <Badge variant={STATUS_VARIANT[b.status]} size="sm">
-                        {b.status}
-                      </Badge>
+                      <StatusPill tone={COMPARISON_CELL_TONES[b.status]} label={COMPARISON_CELL_LABELS[b.status]} />
                     ) : null}
                     {b.matchedDescription &&
                     b.matchedDescription.toLowerCase() !== row.rfpDescription.toLowerCase() ? (
@@ -208,7 +217,7 @@ function ComparisonTable({
           ))}
         </tbody>
       </table>
-    </div>
+    </TableScroll>
   )
 }
 
@@ -216,19 +225,24 @@ function FlagsCard({
   title,
   items,
   bidNameById,
-  variant,
+  tone,
 }: {
   title: string
   items: FlaggedItem[]
   bidNameById: Map<string, string>
-  variant: 'destructive' | 'warning'
+  tone: StatusTone
 }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-base">
-          {title} ({items?.length ?? 0})
-        </CardTitle>
+      <CardHeader
+        className="pb-3"
+        actions={
+          <Badge variant="neutral" className="num">
+            {items?.length ?? 0}
+          </Badge>
+        }
+      >
+        <CardTitle as="h2">{title}</CardTitle>
       </CardHeader>
       <CardContent>
         {!items || items.length === 0 ? (
@@ -236,14 +250,9 @@ function FlagsCard({
         ) : (
           <ul className="space-y-2">
             {items.map((f, i) => (
-              <li
-                key={`${f.bidId}-${i}`}
-                className="rounded-md border border-border bg-foreground/10 p-2 text-sm"
-              >
-                <div className="flex items-center gap-2">
-                  <Badge variant={variant} size="sm">
-                    {bidNameById.get(f.bidId) ?? f.bidId.slice(0, 8)}
-                  </Badge>
+              <li key={`${f.bidId}-${i}`} className="rounded-lg border border-border p-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusPill tone={tone} label={bidNameById.get(f.bidId) ?? 'Unknown vendor'} />
                   <span className="text-xs text-muted">{f.line}</span>
                 </div>
                 <p className="mt-1 text-foreground">{f.detail}</p>
@@ -267,8 +276,8 @@ function SummaryCard({
 }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
+      <CardHeader className="pb-3">
+        <CardTitle as="h2">{title}</CardTitle>
       </CardHeader>
       <CardContent>
         {!items || items.length === 0 ? (
@@ -277,8 +286,8 @@ function SummaryCard({
           <ul className="space-y-2">
             {items.map((p, i) => (
               <li key={`${p.bidId}-${i}`} className="text-sm">
-                <span className="text-xs font-semibold text-foreground">
-                  {bidNameById.get(p.bidId) ?? p.bidId.slice(0, 8)}:
+                <span className="font-medium text-foreground">
+                  {bidNameById.get(p.bidId) ?? 'Unknown vendor'}:
                 </span>{' '}
                 <span className="text-foreground">{p.summary}</span>
               </li>

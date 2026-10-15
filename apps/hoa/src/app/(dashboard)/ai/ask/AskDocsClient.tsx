@@ -1,20 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import { Database, FileText, Sparkles, RotateCcw } from 'lucide-react'
+import { Database, FileText } from 'lucide-react'
+import { Badge, TabGroup, TabList, Tab } from '@homeowner-portal/ui'
 import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Textarea,
-} from '@homeowner-portal/ui'
-import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
+  AnswerCard,
+  AskComposer,
+  AskError,
+  SuggestedQuestions,
+  Thinking,
+} from '@/components/knowledge/AskUI'
+import { GOVERNING_TYPE_LABELS, type AnswerConfidence } from '@/lib/status/knowledge'
 
-type Confidence = 'HIGH' | 'MEDIUM' | 'LOW'
 type Mode = 'docs' | 'community'
 
 interface Citation {
@@ -26,7 +23,7 @@ interface Citation {
 
 interface AskResponse {
   answer: string
-  confidence: Confidence
+  confidence: AnswerConfidence
   citations: Citation[]
   runId: string
 }
@@ -47,7 +44,6 @@ const COMMON_QUESTIONS_DOCS = [
   'Can I paint my front door red?',
   'How many pets am I allowed?',
   'When are HOA dues due each month?',
-  'How long can I park a guest car on the street?',
   'Are short-term rentals like Airbnb allowed?',
 ]
 
@@ -55,31 +51,32 @@ const COMMON_QUESTIONS_COMMUNITY = [
   'How many properties are leased vs owner-occupied?',
   'Who is overdue on dues?',
   'How many open violations do we have?',
-  'Who owns 829 Pistace Ct?',
   'When was our last board meeting?',
 ]
+
+function isCommunityResponse(r: AskResponse | CommunityResponse): r is CommunityResponse {
+  return (r as CommunityResponse).toolCalls !== undefined
+}
+
+/** Tool names are snake_case identifiers; show them as words. */
+function toolLabel(name: string): string {
+  const words = name.replace(/_/g, ' ')
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
 
 export function AskDocsClient() {
   const [mode, setMode] = useState<Mode>('docs')
   const [question, setQuestion] = useState('')
-  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>(
-    'idle',
-  )
+  const [asked, setAsked] = useState('')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const [response, setResponse] = useState<AskResponse | CommunityResponse | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-
-  function isCommunityResponse(r: AskResponse | CommunityResponse): r is CommunityResponse {
-    return (r as CommunityResponse).toolCalls !== undefined
-  }
 
   function switchMode(next: Mode) {
     if (next === mode) return
     setMode(next)
     handleClear()
   }
-
-  const commonQuestions =
-    mode === 'community' ? COMMON_QUESTIONS_COMMUNITY : COMMON_QUESTIONS_DOCS
 
   function handleClear() {
     setQuestion('')
@@ -88,241 +85,134 @@ export function AskDocsClient() {
     setErrorMessage(null)
   }
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (question.trim().length < 3) return
+  async function ask() {
+    const q = question.trim()
+    if (q.length < 3) return
     setStatus('loading')
     setErrorMessage(null)
     setResponse(null)
+    setAsked(q)
 
     try {
-      // Both modes route to /api/ai/ask-community now — the tool-using
-      // agent picks search_governing_docs vs. the DB tools per question.
-      // The mode toggle becomes a UX hint about what KIND of answer the
-      // user expects (and seeds the prompt suggestions list), not a
-      // separate backend. /api/ai/ask-docs still exists for the
-      // resident-portal "rules only" use case if we want to expose it
-      // later, but board/admin gets the unified smart agent.
+      // Both modes route to /api/ai/ask-community — the tool-using agent
+      // picks search_governing_docs vs. the DB tools per question. The
+      // mode toggle is a UX hint about what KIND of answer the user
+      // expects (and seeds the suggestions), not a separate backend.
       const res = await fetch('/api/ai/ask-community', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: question.trim() }),
+        body: JSON.stringify({ question: q }),
       })
-      const json = await res.json()
+      const json = await res.json().catch(() => null)
 
-      if (!res.ok) {
-        const err = json as { error: string; message?: string }
-        setErrorMessage(err.message ?? err.error)
+      if (!res.ok || !json) {
+        const err = (json ?? {}) as { error?: string; message?: string }
+        setErrorMessage(
+          err.message ?? err.error ?? 'The assistant is unavailable right now. Try again in a minute.',
+        )
         setStatus('error')
         return
       }
 
       setResponse(json as AskResponse | CommunityResponse)
       setStatus('done')
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Network error')
+    } catch {
+      setErrorMessage('Network error — check your connection and try again.')
       setStatus('error')
     }
   }
 
+  const commonQuestions = mode === 'community' ? COMMON_QUESTIONS_COMMUNITY : COMMON_QUESTIONS_DOCS
+
   return (
-    <div className="space-y-4">
-      {/* Mode toggle — pick what the AI grounds its answer in. */}
-      <div className="inline-flex rounded-lg border border-border bg-card p-1 text-sm">
-        <button
-          type="button"
-          onClick={() => switchMode('docs')}
-          aria-pressed={mode === 'docs'}
-          className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition ${
-            mode === 'docs'
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted hover:text-foreground'
-          }`}
-        >
-          <FileText className="h-3.5 w-3.5" />
-          Governing docs
-        </button>
-        <button
-          type="button"
-          onClick={() => switchMode('community')}
-          aria-pressed={mode === 'community'}
-          className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition ${
-            mode === 'community'
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted hover:text-foreground'
-          }`}
-        >
-          <Database className="h-3.5 w-3.5" />
-          Community data
-        </button>
-      </div>
+    <div className="space-y-6">
+      <TabGroup variant="segmented" value={mode} onValueChange={(v) => switchMode(v as Mode)}>
+        <TabList aria-label="What to ask about">
+          <Tab value="docs">
+            <FileText className="size-4" aria-hidden />
+            Governing docs
+          </Tab>
+          <Tab value="community">
+            <Database className="size-4" aria-hidden />
+            Community data
+          </Tab>
+        </TabList>
+      </TabGroup>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
-            Your question
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <Textarea
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder={
-                mode === 'community'
-                  ? 'e.g. Who is overdue on dues? How many leased properties?'
-                  : 'e.g. Can I install a satellite dish on my roof?'
-              }
-              rows={3}
-              disabled={status === 'loading'}
-            />
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="submit"
-                loading={status === 'loading'}
-                disabled={question.trim().length < 3}
-              >
-                Ask
-              </Button>
-              <AiRewriteButton
-                value={question}
-                onChange={setQuestion}
-                context="Question to the governing-docs AI — rephrase for clarity"
-                disabled={status === 'loading'}
-              />
-              {status !== 'idle' ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleClear}
-                  disabled={status === 'loading'}
-                >
-                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                  Clear
-                </Button>
-              ) : null}
-            </div>
+      <AskComposer
+        value={question}
+        onChange={setQuestion}
+        onSubmit={ask}
+        pending={status === 'loading'}
+        placeholder={
+          mode === 'community'
+            ? 'Ask about your community — e.g. who is overdue on dues?'
+            : 'Ask about your governing documents — e.g. can I install a satellite dish?'
+        }
+        rewriteContext="Question to the governing-docs AI — rephrase for clarity"
+      />
 
-            <div className="space-y-1.5 border-t border-border pt-3">
-              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-fg">
-                Common questions
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {commonQuestions.map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-muted-fg hover:border-primary hover:text-muted disabled:opacity-50"
-                    onClick={() => setQuestion(q)}
-                    disabled={status === 'loading'}
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {status === 'error' && errorMessage ? (
-        <Alert variant="error" title="Couldn&apos;t answer">
-          {errorMessage}
-        </Alert>
+      {status === 'idle' ? (
+        <SuggestedQuestions questions={commonQuestions} onPick={setQuestion} />
       ) : null}
 
-      {status === 'done' && response && isCommunityResponse(response) ? (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Answer</CardTitle>
-              <Badge variant="outline" className="text-[10px]">
-                {response.toolCalls.length} tool call{response.toolCalls.length === 1 ? '' : 's'} · {response.steps} step{response.steps === 1 ? '' : 's'}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">{response.answer}</p>
+      {status === 'loading' ? (
+        <Thinking
+          what={mode === 'community' ? 'Looking through your community records…' : 'Searching your governing documents…'}
+        />
+      ) : null}
 
+      {status === 'error' && errorMessage ? <AskError message={errorMessage} onRetry={ask} /> : null}
+
+      {status === 'done' && response ? (
+        isCommunityResponse(response) ? (
+          <AnswerCard
+            question={asked}
+            answer={response.answer}
+            meta={
+              <Badge variant="neutral" className="num">
+                {response.toolCalls.length} data {response.toolCalls.length === 1 ? 'lookup' : 'lookups'}
+              </Badge>
+            }
+            footer={
+              <span>
+                Answered from your records. Verify figures on the source page before acting on them.
+              </span>
+            }
+          >
             {response.toolCalls.length > 0 ? (
-              <details className="space-y-1.5 border-t border-border pt-3">
-                <summary className="cursor-pointer text-xs font-medium uppercase tracking-wide text-muted-fg">
+              <details className="group rounded-lg border border-border">
+                <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-foreground-secondary hover:bg-subtle">
                   Data sources ({response.toolCalls.length})
                 </summary>
-                <ul className="mt-2 space-y-1.5 text-xs text-muted-fg">
+                <ul className="space-y-1.5 border-t border-border p-3 text-xs text-muted">
                   {response.toolCalls.map((tc, i) => (
-                    <li key={i} className="rounded border border-border bg-card/50 px-2 py-1.5">
-                      <span className="font-mono text-foreground">{tc.name}</span>
+                    <li key={i}>
+                      <span className="font-medium text-foreground">{toolLabel(tc.name)}</span>
                       {Object.keys(tc.args).length > 0 ? (
-                        <span className="text-muted"> ({JSON.stringify(tc.args)})</span>
+                        <span className="break-all"> · {JSON.stringify(tc.args)}</span>
                       ) : null}
                     </li>
                   ))}
                 </ul>
               </details>
             ) : null}
-          </CardContent>
-        </Card>
-      ) : status === 'done' && response && !isCommunityResponse(response) ? (
-        <DocsAnswer response={response as AskResponse} />
+          </AnswerCard>
+        ) : (
+          <AnswerCard
+            question={asked}
+            answer={response.answer}
+            confidence={response.confidence}
+            citationsLabel="Cited sections"
+            citations={response.citations.map((c) => ({
+              key: c.chunkId,
+              label: GOVERNING_TYPE_LABELS[c.docType] ?? c.docType,
+              title: c.section ?? 'Section not labelled',
+            }))}
+            footer={<span className="num">Reference {response.runId}</span>}
+          />
+        )
       ) : null}
     </div>
   )
-}
-
-// Docs-mode answer card. Pulled out into a sub-component so the type
-// narrowing on `response` doesn't leak across branches in the parent.
-function DocsAnswer({ response }: { response: AskResponse }) {
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Answer</CardTitle>
-          <ConfidenceBadge confidence={response.confidence} />
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="whitespace-pre-wrap text-sm leading-relaxed">
-          {response.answer}
-        </p>
-
-        {response.citations.length > 0 ? (
-          <div className="space-y-1.5 border-t border-border pt-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-fg">
-              Citations
-            </p>
-            <ul className="space-y-1 text-xs text-muted-fg">
-              {response.citations.map((c) => (
-                <li key={c.chunkId} className="flex items-center gap-2">
-                  <Badge variant="outline">{capitalize(c.docType)}</Badge>
-                  <span className="font-mono">{c.section ?? '—'}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        <div className="border-t border-border pt-3">
-          <p className="text-[10px] font-mono text-muted-fg/70">
-            run id: {response.runId}
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function ConfidenceBadge({ confidence }: { confidence: Confidence }) {
-  const variant: 'success' | 'warning' | 'outline' =
-    confidence === 'HIGH'
-      ? 'success'
-      : confidence === 'MEDIUM'
-        ? 'warning'
-        : 'outline'
-  return <Badge variant={variant}>{confidence}</Badge>
-}
-
-function capitalize(s: string): string {
-  return s.length > 0 ? s[0].toUpperCase() + s.slice(1) : s
 }

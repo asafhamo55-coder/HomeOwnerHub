@@ -1,26 +1,37 @@
 'use client'
 
 import { useState } from 'react'
-import { Mail } from 'lucide-react'
-import { Button, Input, Alert } from '@homeowner-portal/ui'
+import { Mail, MailCheck } from 'lucide-react'
+import { Alert, Button, Field, Input } from '@homeowner-portal/ui'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { emailProblem } from '@/components/auth/auth-fields'
 
 export function MagicLinkForm({
   redirectTo,
-  submitLabel = 'Send magic link',
-  helperText = "We'll email you a one-time link.",
+  submitLabel = 'Email me a sign-in link',
+  helperText = 'We’ll email you a one-time link. No password needed.',
+  email: emailProp,
+  onEmailChange,
 }: {
   redirectTo?: string
   submitLabel?: string
   helperText?: string
+  /** Controlled email, shared with the password tab. */
+  email?: string
+  onEmailChange?: (email: string) => void
 }) {
-  const [email, setEmail] = useState('')
+  const [localEmail, setLocalEmail] = useState('')
+  const email = emailProp ?? localEmail
+  const setEmail = onEmailChange ?? setLocalEmail
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!email.trim()) return
+    const problem = emailProblem(email)
+    setEmailError(problem)
+    if (problem) return
 
     setStatus('sending')
     setErrorMessage(null)
@@ -52,33 +63,38 @@ export function MagicLinkForm({
 
   if (status === 'sent') {
     return (
-      <Alert variant="success" title="Check your email">
-        <p>
-          We sent a magic link to <strong>{email}</strong>. Open it on this device to sign in.
-        </p>
-        <p className="mt-2 text-xs text-emerald-700/80">
-          Didn&apos;t arrive within a minute? Check spam, or{' '}
+      <div className="space-y-4 text-center" role="status">
+        <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-success-subtle text-success">
+          <MailCheck className="size-6" aria-hidden />
+        </span>
+        <div className="space-y-1">
+          <p className="text-base font-semibold text-foreground">Check your email</p>
+          <p className="text-sm text-muted">
+            We sent a sign-in link to <span className="font-medium text-foreground">{email.trim()}</span>.
+            Open it on this device.
+          </p>
+        </div>
+        <p className="text-xs text-muted">
+          Nothing after a minute? Check spam, or{' '}
           <button
             type="button"
             onClick={() => setStatus('idle')}
-            className="underline underline-offset-2"
+            className="font-medium text-primary underline-offset-2 hover:underline"
           >
-            try a different address
+            use a different address
           </button>
           .
         </p>
-      </Alert>
+      </div>
     )
   }
 
+  const busy = status === 'sending'
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-1.5">
-        <label htmlFor="email" className="text-sm font-medium text-foreground">
-          Email address
-        </label>
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <Field label="Email address" hint={emailError ? undefined : helperText} error={emailError}>
         <Input
-          id="email"
           name="email"
           type="email"
           required
@@ -86,22 +102,27 @@ export function MagicLinkForm({
           autoFocus
           placeholder="you@example.com"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          prefix={<Mail className="h-4 w-4" aria-hidden />}
+          onChange={(e) => {
+            setEmail(e.target.value)
+            if (emailError) setEmailError(null)
+          }}
+          onBlur={() => {
+            if (email.trim()) setEmailError(emailProblem(email))
+          }}
+          prefix={<Mail aria-hidden />}
           error={status === 'error'}
-          disabled={status === 'sending'}
+          disabled={busy}
         />
-        {status !== 'error' ? <p className="text-xs text-muted">{helperText}</p> : null}
-      </div>
+      </Field>
 
       {status === 'error' && errorMessage ? (
-        <Alert variant="error" title="Couldn't send the link">
+        <Alert variant="error" title="Couldn’t send the link">
           {errorMessage}
         </Alert>
       ) : null}
 
-      <Button type="submit" size="lg" className="w-full" loading={status === 'sending'}>
-        {submitLabel}
+      <Button type="submit" size="lg" className="w-full" loading={busy}>
+        {busy ? 'Sending…' : submitLabel}
       </Button>
     </form>
   )

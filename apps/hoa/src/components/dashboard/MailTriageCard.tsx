@@ -1,7 +1,8 @@
 import Link from 'next/link'
-import { Mail } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { CheckCircle2, ChevronRight } from 'lucide-react'
+import { Badge, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import type { TriageSnapshot } from '@/lib/dashboard/triage'
+import { FailedNote } from './BreakdownList'
 
 /**
  * Two-tier by design: the property-matched count is the headline, the
@@ -9,69 +10,68 @@ import type { TriageSnapshot } from '@/lib/dashboard/triage'
  * for why the quiet number is reported rather than hidden.
  */
 export function MailTriageCard({ snapshot }: { snapshot: TriageSnapshot }) {
+  const waiting = snapshot.needsReply.count
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-3">
-        <Mail className="h-4 w-4 text-muted" />
-        <CardTitle className="text-base">Resident mail needing a reply</CardTitle>
+      <CardHeader
+        className="pb-3"
+        actions={
+          !snapshot.failed && waiting > 0 ? (
+            <Badge variant="neutral" className="num">
+              {waiting} waiting
+            </Badge>
+          ) : null
+        }
+      >
+        <CardTitle as="h2">Resident mail</CardTitle>
+        <p className="text-sm text-muted">
+          {!snapshot.failed && waiting > 0 && snapshot.needsReply.oldestWaitingDays !== null
+            ? `Needs a reply · oldest ${snapshot.needsReply.oldestWaitingDays} ${
+                snapshot.needsReply.oldestWaitingDays === 1 ? 'day' : 'days'
+              }`
+            : 'Threads matched to a property'}
+        </p>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {snapshot.failed ? (
-          // Never "0" — a false zero reads as "nothing to do".
-          <p className="text-sm text-muted">
-            Couldn&apos;t load your mail queue.{' '}
-            <Link href="/inbox" className="underline">
-              Open the inbox
-            </Link>
+      {snapshot.failed ? (
+        // Never "0" — a false zero reads as "nothing to do".
+        <CardContent>
+          <FailedNote what="your mail queue" />
+        </CardContent>
+      ) : waiting === 0 ? (
+        <CardContent>
+          <p className="flex items-center gap-2 text-sm text-foreground-secondary">
+            <CheckCircle2 className="size-4 text-success" aria-hidden />
+            Every matched thread has a reply.
           </p>
-        ) : snapshot.needsReply.count === 0 ? (
-          <p className="text-sm text-muted">
-            Nothing waiting on a reply. Every matched thread has been answered.
-          </p>
-        ) : (
-          <>
-            <p className="text-sm text-foreground">
-              <span className="text-2xl font-semibold tabular-nums">
-                {snapshot.needsReply.count}
-              </span>{' '}
-              waiting
-              {snapshot.needsReply.oldestWaitingDays !== null ? (
-                <span className="text-muted">
-                  {' '}
-                  · oldest {snapshot.needsReply.oldestWaitingDays}d
+        </CardContent>
+      ) : (
+        <ul className="divide-y divide-border border-t border-border">
+          {snapshot.threads.map((thread) => (
+            <li key={thread.id}>
+              <Link
+                href={`/inbox/${thread.id}`}
+                className="group flex items-center gap-3 px-5 py-2.5 text-sm transition-colors duration-fast hover:bg-subtle focus-visible:bg-subtle focus-visible:outline-none"
+              >
+                <span className="min-w-0 flex-1 truncate text-foreground">{thread.subject ?? '(no subject)'}</span>
+                <span className="num shrink-0 text-xs text-muted">
+                  {thread.waitingDays === 0 ? 'today' : `${thread.waitingDays}d`}
                 </span>
-              ) : null}
-            </p>
+                <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
 
-            <ul className="divide-y divide-border border-t border-border">
-              {snapshot.threads.map((thread) => (
-                <li key={thread.id}>
-                  <Link
-                    href={`/inbox/${thread.id}`}
-                    className="flex items-baseline justify-between gap-3 py-2 text-sm hover:bg-foreground/5"
-                  >
-                    <span className="truncate text-foreground">
-                      {thread.subject ?? '(no subject)'}
-                    </span>
-                    <span className="shrink-0 tabular-nums text-xs text-muted">
-                      {thread.waitingDays}d
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-
-        {!snapshot.failed && snapshot.untriaged.count > 0 ? (
-          <Link
-            href="/inbox?filter=needs_review"
-            className="block border-t border-border pt-2 text-xs text-muted underline"
-          >
-            {snapshot.untriaged.count.toLocaleString()} unmatched, untriaged ›
-          </Link>
-        ) : null}
-      </CardContent>
+      {!snapshot.failed && snapshot.untriaged.count > 0 ? (
+        <Link
+          href="/inbox?filter=needs_review"
+          className="flex items-center justify-between border-t border-border px-5 py-3 text-xs text-muted transition-colors hover:bg-subtle hover:text-foreground"
+        >
+          <span className="num">{snapshot.untriaged.count.toLocaleString()} unmatched, not yet triaged</span>
+          <ChevronRight className="size-3.5" aria-hidden />
+        </Link>
+      ) : null}
     </Card>
   )
 }

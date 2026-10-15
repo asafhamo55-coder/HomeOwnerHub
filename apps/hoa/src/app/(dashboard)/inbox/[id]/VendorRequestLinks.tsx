@@ -27,13 +27,13 @@ export function VendorRequestLinks({
   if (outgoing.length === 0 && !incoming) return null
 
   return (
-    <div className="space-y-1.5 rounded-lg border border-border bg-surface px-3 py-2.5 text-xs">
+    <div className="mb-3 space-y-1 rounded-lg border border-border bg-subtle px-3 py-2 text-xs">
       {incoming ? (
         <p className="text-muted">
           From resident thread:{' '}
           <Link
             href={`/inbox/${incoming.sourceThreadId}`}
-            className="font-medium text-primary underline-offset-2 hover:underline"
+            className="font-medium text-primary hover:underline"
           >
             {incoming.sourceSubject ?? '(no subject)'}
           </Link>
@@ -46,7 +46,7 @@ export function VendorRequestLinks({
           {request.vendorThreadId ? (
             <Link
               href={`/inbox/${request.vendorThreadId}`}
-              className="font-medium text-primary underline-offset-2 hover:underline"
+              className="font-medium text-primary hover:underline"
             >
               open conversation
             </Link>

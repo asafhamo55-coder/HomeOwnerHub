@@ -35,10 +35,10 @@ export function RevokeInvitationButton({ invitationId }: { invitationId: string 
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <Button variant="outline" size="sm" onClick={handleClick} disabled={isPending}>
-        {isPending ? 'Revoking…' : 'Revoke'}
+      <Button variant="secondary" size="sm" onClick={handleClick} loading={isPending}>
+        Revoke
       </Button>
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {error ? <p className="text-xs text-danger">{error}</p> : null}
     </div>
   )
 }

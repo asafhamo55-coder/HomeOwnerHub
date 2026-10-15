@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
-import { Alert } from '@homeowner-portal/ui'
+import { Alert, Page } from '@homeowner-portal/ui'
 import { getCurrentUserRole } from '@/lib/auth'
 import { getVendor } from '@/lib/vendors'
 import { ComplianceForm } from './ComplianceForm'
@@ -25,29 +24,20 @@ export default async function VendorCompliancePage({
   const canOverride = ctx?.role === 'admin' || ctx?.role === 'board'
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <Link
-        href={`/vendors/${vendor.id}`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to {vendor.legal_name}
-      </Link>
-
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold text-foreground">Compliance check</h1>
-        <p className="text-sm text-muted">
-          Enter what's on the vendor's COI, W-9, and license. W21 will grade
-          them against your association's standards and return a color-coded
-          status with a deficiency list.
-        </p>
-      </header>
-
-      <Alert variant="info" title="Vision/OCR is not yet live">
-        Upload the PDFs for your records, but for now you also need to type
-        the values into the form below. When the self-hosted vision model
-        comes online, the upload step will read these fields straight from
-        the ACORD-25 PDF.
+    <Page
+      width="narrow"
+      title="Compliance check"
+      description="Enter what’s on the vendor’s COI, W-9 and license. The check grades them against your association’s standards and lists any deficiencies."
+      breadcrumbs={[
+        { label: 'Vendors', href: '/vendors' },
+        { label: vendor.legal_name, href: `/vendors/${vendor.id}` },
+        { label: 'Compliance' },
+      ]}
+      linkAs={Link}
+    >
+      <Alert variant="info" title="Document reading isn’t live yet">
+        Upload the PDFs for your records, and type the values into the form below. Once document
+        reading is available, the upload will fill these fields from the ACORD-25 certificate.
       </Alert>
 
       <DocumentUploader vendorId={vendor.id} documents={vendor.documents} />
@@ -55,11 +45,8 @@ export default async function VendorCompliancePage({
       <ComplianceForm vendorId={vendor.id} />
 
       {canOverride ? (
-        <ManualOverrideCard
-          vendorId={vendor.id}
-          currentStatus={vendor.compliance?.coi_status ?? null}
-        />
+        <ManualOverrideCard vendorId={vendor.id} currentStatus={vendor.compliance?.coi_status ?? null} />
       ) : null}
-    </div>
+    </Page>
   )
 }

@@ -4,13 +4,19 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Home, Trash2 } from 'lucide-react'
-import { Badge, Button, Select, useConfirm } from '@homeowner-portal/ui'
+import { Avatar, Button, Select, StatusPill, useConfirm, type StatusTone } from '@homeowner-portal/ui'
 import { changeMemberRole, removeMember, type MemberRole, type MemberRow as MemberRowType } from '@/lib/members'
 
-const ROLE_VARIANT: Record<MemberRole, 'default' | 'success' | 'outline'> = {
-  admin: 'success',
-  board: 'default',
-  resident: 'outline',
+const ROLE_TONE: Record<MemberRole, StatusTone> = {
+  admin: 'brand',
+  board: 'info',
+  resident: 'neutral',
+}
+
+const ROLE_LABEL: Record<MemberRole, string> = {
+  admin: 'Admin',
+  board: 'Board',
+  resident: 'Resident',
 }
 
 export function MemberRow({
@@ -63,60 +69,59 @@ export function MemberRow({
     })
   }
 
+  const displayName = member.full_name ?? member.email ?? 'Unknown user'
+
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+    <li className="flex flex-wrap items-center gap-3 px-5 py-3">
+      <Avatar name={displayName} size="sm" />
       <div className="min-w-0 flex-1">
-        <p className="font-medium">
-          {member.full_name ?? member.email ?? '(unknown user)'}
-          {isSelf ? <span className="ml-2 text-xs text-muted">(you)</span> : null}
+        <p className="truncate text-sm font-medium text-foreground">
+          {displayName}
+          {isSelf ? <span className="ml-1.5 text-xs font-normal text-muted">(you)</span> : null}
         </p>
-        {member.full_name && member.email ? (
-          <p className="text-xs text-muted">{member.email}</p>
-        ) : null}
+        {member.full_name && member.email ? <p className="truncate text-xs text-muted">{member.email}</p> : null}
         {member.linkedProperty ? (
-          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">
-            <Home className="h-3 w-3" aria-hidden />
-            <span>Linked to:</span>
+          <p className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-muted">
+            <Home className="size-3" aria-hidden />
             <Link
               href={`/properties/${member.linkedProperty.propertyId}`}
-              className="font-medium text-foreground underline-offset-2 hover:underline"
+              className="font-medium text-foreground hover:text-primary hover:underline"
             >
               {member.linkedProperty.address}
               {member.linkedProperty.unitNumber ? ` · ${member.linkedProperty.unitNumber}` : ''}
             </Link>
-            <span className="text-muted/80">
-              ({member.linkedProperty.residencyRole.replace('_', ' ')})
-            </span>
+            <span>({member.linkedProperty.residencyRole.replace('_', ' ')})</span>
           </p>
         ) : null}
-        {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
+        {error ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
       </div>
 
-      <div className="flex flex-shrink-0 items-center gap-2">
-        <Select
-          value={member.role}
-          onValueChange={(v) => handleRoleChange(v as MemberRole)}
-          disabled={isPending || !canChangeRole}
-          variant="ghost"
-          className="!w-auto text-xs"
-        >
-          <option value="admin">Admin</option>
-          <option value="board">Board</option>
-          <option value="resident">Resident</option>
-        </Select>
-        <Badge variant={ROLE_VARIANT[member.role]} size="sm">
-          {member.role}
-        </Badge>
+      <div className="flex shrink-0 items-center gap-1">
+        {canChangeRole ? (
+          <Select
+            value={member.role}
+            onValueChange={(v) => handleRoleChange(v as MemberRole)}
+            disabled={isPending}
+            variant="ghost"
+            className="!w-auto"
+            aria-label={`Role for ${displayName}`}
+          >
+            <option value="admin">Admin</option>
+            <option value="board">Board</option>
+            <option value="resident">Resident</option>
+          </Select>
+        ) : (
+          <StatusPill tone={ROLE_TONE[member.role]} icon={null} label={ROLE_LABEL[member.role]} />
+        )}
         {canRemove ? (
           <Button
-            variant="outline"
-            size="sm"
+            variant="destructive-ghost"
+            size="icon-sm"
             onClick={handleRemove}
-            disabled={isPending}
-            aria-label="Remove member"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+            loading={isPending}
+            aria-label={`Remove ${displayName}`}
+            icon={<Trash2 aria-hidden />}
+          />
         ) : null}
       </div>
     </li>

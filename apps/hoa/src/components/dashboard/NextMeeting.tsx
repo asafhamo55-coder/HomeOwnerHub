@@ -1,14 +1,12 @@
 import Link from 'next/link'
-import { ArrowRight, CalendarDays, CalendarPlus } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { ArrowRight, CalendarDays } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle, StatusPill } from '@homeowner-portal/ui'
 import type { NextMeetingInfo } from '@/lib/dashboard/queries'
+import { FailedNote } from './BreakdownList'
 
-const WEEKDAY: Intl.DateTimeFormatOptions = { weekday: 'long' }
-const PRETTY_DATE: Intl.DateTimeFormatOptions = {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-}
+const MONTH: Intl.DateTimeFormatOptions = { month: 'short', timeZone: 'UTC' }
+const DAY: Intl.DateTimeFormatOptions = { day: 'numeric', timeZone: 'UTC' }
+const WEEKDAY: Intl.DateTimeFormatOptions = { weekday: 'long', timeZone: 'UTC' }
 
 function relativeLabel(daysUntil: number): string {
   if (daysUntil === 0) return 'today'
@@ -18,68 +16,80 @@ function relativeLabel(daysUntil: number): string {
   return ago === 1 ? '1 day ago' : `${ago} days ago`
 }
 
-// Single-card "what's next on the board calendar". Defaults to the
-// soonest future meeting; falls back to the most recent past meeting
-// whose minutes still need approval (handled upstream in the query).
-export function NextMeeting({ meeting }: { meeting: NextMeetingInfo | null }) {
+function typeLabel(t: string | null): string {
+  if (!t) return 'Board meeting'
+  return `${t.charAt(0).toUpperCase()}${t.slice(1)} meeting`
+}
+
+// "What's next on the board calendar". Soonest future meeting; falls back
+// to the most recent past meeting whose minutes still need approval.
+export function NextMeeting({
+  meeting,
+  failed = false,
+}: {
+  meeting: NextMeetingInfo | null
+  failed?: boolean
+}) {
   if (!meeting) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <CalendarPlus className="h-4 w-4 text-muted" aria-hidden />
-            Next meeting
-          </CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle as="h2">Next meeting</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted">
-          No meeting scheduled.{' '}
-          <Link
-            href="/meetings/schedule"
-            className="text-foreground underline-offset-2 hover:underline"
-          >
-            Schedule the next board meeting <ArrowRight className="inline h-3.5 w-3.5" aria-hidden />
-          </Link>
+        <CardContent>
+          {failed ? (
+            <FailedNote what="the meeting calendar" />
+          ) : (
+            <div className="space-y-2 text-sm">
+              <p className="text-foreground-secondary">No board meeting is scheduled.</p>
+              <Link
+                href="/meetings/schedule"
+                className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+              >
+                Schedule one <ArrowRight className="size-3.5" aria-hidden />
+              </Link>
+            </div>
+          )}
         </CardContent>
       </Card>
     )
   }
 
-  const dt = new Date(meeting.meetingDate)
-  const weekday = dt.toLocaleDateString(undefined, WEEKDAY)
-  const pretty = dt.toLocaleDateString(undefined, PRETTY_DATE)
-  const relative = relativeLabel(meeting.daysUntil)
+  // meeting_date is a DATE; format in UTC so it never shifts a day.
+  const dt = new Date(`${meeting.meetingDate.slice(0, 10)}T00:00:00Z`)
   const inPast = meeting.daysUntil < 0
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <CalendarDays className="h-4 w-4 text-muted" aria-hidden />
-          Next meeting
-        </CardTitle>
-        {inPast ? (
-          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-            Minutes pending
-          </span>
-        ) : null}
+      <CardHeader
+        className="pb-3"
+        actions={inPast ? <StatusPill tone="warning" label="Minutes pending" /> : null}
+      >
+        <CardTitle as="h2">{inPast ? 'Last meeting' : 'Next meeting'}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="space-y-0.5">
-          <div className="text-lg font-semibold text-foreground">
-            {weekday} <span className="text-muted">·</span>{' '}
-            <span className="text-foreground">{relative}</span>
-          </div>
-          <div className="text-sm text-muted">
-            {pretty}
-            {meeting.meetingType ? ` · ${meeting.meetingType}` : ''}
-          </div>
-        </div>
+      <CardContent>
         <Link
           href={`/meetings/${meeting.id}`}
-          className="inline-flex items-center gap-1 text-sm text-foreground underline-offset-2 hover:underline"
+          className="group -m-2 flex items-center gap-4 rounded-lg p-2 transition-colors duration-fast hover:bg-subtle"
         >
-          Open meeting
-          <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+          <span
+            className="flex size-14 shrink-0 flex-col items-center justify-center rounded-lg border border-border bg-surface"
+            aria-hidden
+          >
+            <span className="text-2xs font-semibold uppercase text-primary">
+              {dt.toLocaleDateString('en-US', MONTH)}
+            </span>
+            <span className="num text-xl font-semibold leading-none text-foreground">
+              {dt.toLocaleDateString('en-US', DAY)}
+            </span>
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-foreground">{typeLabel(meeting.meetingType)}</span>
+            <span className="block text-sm text-muted">
+              {dt.toLocaleDateString('en-US', WEEKDAY)} · {relativeLabel(meeting.daysUntil)}
+            </span>
+          </span>
+          <CalendarDays className="size-4 shrink-0 text-muted" aria-hidden />
         </Link>
       </CardContent>
     </Card>

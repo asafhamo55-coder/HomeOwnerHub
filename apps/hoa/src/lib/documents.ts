@@ -421,12 +421,15 @@ export async function listDocumentVersions(
   documentId: string,
 ): Promise<DocumentVersion[]> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('hoa_document_versions' as never)
     .select('id, version_number, name, storage_path, file_size, parsed_at, reason, created_at')
     .eq('document_id' as never, documentId)
     .order('version_number' as never, { ascending: false })
     .returns<DocumentVersion[]>()
+  // Throw rather than return []: an empty history and an unreadable one
+  // must look different to the board (the page wraps this in tryLoad).
+  if (error) throw new Error(`hoa_document_versions: ${error.code ?? 'error'}`)
   return data ?? []
 }
 

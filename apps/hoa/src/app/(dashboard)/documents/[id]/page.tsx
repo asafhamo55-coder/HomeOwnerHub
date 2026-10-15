@@ -1,13 +1,27 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, FileText } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
-import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
-  listDocumentVersions,
-  signedDownloadUrl,
-} from '@/lib/documents'
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  LoadFailed,
+  Page,
+  StatusBadge,
+} from '@homeowner-portal/ui'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { listDocumentVersions, signedDownloadUrl } from '@/lib/documents'
+import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
+import {
+  DOCUMENT_PARSE_LABELS,
+  DOCUMENT_PARSE_TONES,
+  DOCUMENT_TYPE_LABELS,
+  documentParseStatus,
+} from '@/lib/status/knowledge'
 import { ParsedTextEditor } from './ParsedTextEditor'
 import { DocumentActions } from './DocumentActions'
 
@@ -22,18 +36,13 @@ interface DocDetailRow {
   created_at: string | null
 }
 
-const TYPE_LABEL: Record<string, string> = {
-  ccr: 'CC&R',
-  bylaws: 'Bylaws',
-  rules: 'Rules',
-  other: 'Other',
-}
-
 interface ParsedSection {
   number: string
   title: string
   summary: string
 }
+
+export const metadata = { title: 'Document' }
 
 export default async function DocumentDetailPage({
   params,
@@ -43,82 +52,78 @@ export default async function DocumentDetailPage({
   const { id } = await params
   const supabase = await getSupabaseServerClient()
 
-  const { data } = await supabase
-    .from('hoa_documents')
-    .select('id, name, type, storage_path, file_size, parsed_text, parsed_at, created_at')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (!data) notFound()
-  const doc = data as DocDetailRow
-
-  // 60-minute signed URL so the user can preview/download.
-  const { data: signed } = await supabase.storage
-    .from('hoa-documents')
-    .createSignedUrl(doc.storage_path, 3600)
-
-  // Version history + per-version download URLs. Catches the "missing
-  // table" case cleanly when 0010 hasn't been applied — list returns
-  // [] rather than throwing.
-  let versions: Awaited<ReturnType<typeof listDocumentVersions>> = []
-  try {
-    versions = await listDocumentVersions(doc.id)
-  } catch {
-    versions = []
-  }
-  const versionItems = await Promise.all(
-    versions.map(async (v) => ({
-      id: v.id,
-      versionNumber: v.version_number,
-      name: v.name,
-      fileSize: v.file_size,
-      reason: v.reason,
-      createdAt: v.created_at,
-      downloadUrl: await signedDownloadUrl(v.storage_path),
-    })),
+  const docResult = await loadOrFail(
+    'document',
+    supabase
+      .from('hoa_documents')
+      .select('id, name, type, storage_path, file_size, parsed_text, parsed_at, created_at')
+      .eq('id', id)
+      .maybeSingle(),
   )
 
-  return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <Link
-        href="/documents"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to documents
-      </Link>
+  const crumbsBase = [{ label: 'Documents', href: '/documents' }]
 
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="truncate">{doc.name}</h1>
-          <p className="text-sm text-muted">
-            {TYPE_LABEL[doc.type] ?? doc.type}
-            {doc.created_at ? ` · uploaded ${format(new Date(doc.created_at), 'PP')}` : ''}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {doc.parsed_at ? (
-            <Badge variant="success">Parsed</Badge>
-          ) : (
-            <Badge variant="outline">Needs parsing</Badge>
-          )}
-          {signed?.signedUrl ? (
-            <a
-              href={signed.signedUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-background"
-            >
-              <FileText className="h-4 w-4" />
+  if (!docResult.ok) {
+    return (
+      <Page title="Document" breadcrumbs={[...crumbsBase, { label: 'Document' }]} linkAs={Link}>
+        <LoadFailed what="this document" retryHref={`/documents/${id}`} />
+      </Page>
+    )
+  }
+  if (!docResult.data) notFound()
+  const doc = docResult.data as DocDetailRow
+
+  // 60-minute signed URL so the user can preview/download. A failure here
+  // only hides the "Open file" button; the text below still works.
+  const signedRes = await supabase.storage.from('hoa-documents').createSignedUrl(doc.storage_path, 3600)
+  const signed = signedRes.error ? null : signedRes.data
+
+  // Version history. A failed read is reported, not shown as "no history".
+  const versionsResult = await tryLoad('document versions', () => listDocumentVersions(doc.id))
+  const versionItems = versionsResult.ok
+    ? await Promise.all(
+        versionsResult.data.map(async (v) => ({
+          id: v.id,
+          versionNumber: v.version_number,
+          name: v.name,
+          fileSize: v.file_size,
+          reason: v.reason,
+          createdAt: v.created_at,
+          downloadUrl: await signedDownloadUrl(v.storage_path),
+        })),
+      )
+    : []
+
+  const parse = documentParseStatus(doc.parsed_at)
+
+  return (
+    <Page
+      title={doc.name}
+      meta={<StatusBadge status={parse} tones={DOCUMENT_PARSE_TONES} labels={DOCUMENT_PARSE_LABELS} />}
+      description={
+        <>
+          {DOCUMENT_TYPE_LABELS[doc.type] ?? doc.type}
+          {doc.created_at ? ` · uploaded ${format(new Date(doc.created_at), 'PP')}` : ''}
+        </>
+      }
+      breadcrumbs={[...crumbsBase, { label: doc.name }]}
+      linkAs={Link}
+      actions={
+        signed?.signedUrl ? (
+          <Button asChild variant="secondary" icon={<FileText aria-hidden />}>
+            <a href={signed.signedUrl} target="_blank" rel="noreferrer">
               Open file
             </a>
-          ) : null}
-        </div>
-      </header>
-
+          </Button>
+        ) : null
+      }
+    >
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Document text</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle as="h2">Searchable text</CardTitle>
+          <CardDescription>
+            Violations and Ask the Docs cite this text. Paste or correct it here if the file couldn’t be read.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <ParsedTextEditor
@@ -129,7 +134,14 @@ export default async function DocumentDetailPage({
         </CardContent>
       </Card>
 
-      <DocumentActions documentId={doc.id} versions={versionItems} />
-    </div>
+      {versionsResult.ok ? (
+        <DocumentActions documentId={doc.id} versions={versionItems} />
+      ) : (
+        <>
+          <LoadFailed what="the version history" hint="Replacing or deleting the document is still available below." />
+          <DocumentActions documentId={doc.id} versions={[]} />
+        </>
+      )}
+    </Page>
   )
 }

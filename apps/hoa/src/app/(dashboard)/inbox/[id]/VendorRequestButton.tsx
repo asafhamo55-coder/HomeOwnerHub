@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Sparkles, Wrench } from 'lucide-react'
-import { Alert, Button, Dialog, DialogContent, Field, Input, cn } from '@homeowner-portal/ui'
+import { Alert, Button, Dialog, DialogContent, Field, Fieldset, Input, cn } from '@homeowner-portal/ui'
 import { draftVendorRequest } from '@/lib/inbox/draft/actions'
 import type { VendorRequestIntent } from '@homeowner-portal/workflows'
 import type { ThreadDraft } from '@/lib/inbox/queries'
@@ -45,7 +44,7 @@ export function VendorRequestButton({
 
   return (
     <div className="max-w-56 space-y-1 text-right">
-      <Button variant="secondary" icon={<Wrench aria-hidden />} onClick={() => setOpen(true)}>
+      <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
         Request from vendor
       </Button>
       {open ? (
@@ -113,18 +112,23 @@ function VendorRequestDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(next) => (next || pending ? null : onClose())}>
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        if (!next && !pending) onClose()
+      }}
+    >
       <DialogContent
-        title="What do you need from this vendor?"
-        description="This starts a separate conversation with the vendor. The resident’s email is not forwarded, so a reply-all can never reach the owner."
-        size="lg"
+        size="md"
+        title="Request from a vendor"
+        description="Drafts a work order from this thread. You review it before anything is sent."
         footer={
           <>
-            <Button variant="secondary" onClick={onClose} disabled={pending}>
+            <Button variant="ghost" onClick={onClose} disabled={pending}>
               {skipped.length > 0 ? 'Close' : 'Cancel'}
             </Button>
             {skipped.length === 0 ? (
-              <Button loading={pending} onClick={submit} icon={<Sparkles aria-hidden />}>
+              <Button loading={pending} onClick={submit}>
                 Draft the email
               </Button>
             ) : null}
@@ -132,32 +136,35 @@ function VendorRequestDialog({
         }
       >
         <div className="space-y-4">
-          <fieldset className="space-y-2">
-            <legend className="mb-1.5 text-sm font-medium text-foreground">Request type</legend>
-            <div role="radiogroup" className="grid gap-2 sm:grid-cols-2">
+          <Fieldset legend="What do you need from this vendor?">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup">
               {INTENTS.map((option) => {
                 const selected = intent === option.value
                 return (
-                  <button
+                  <label
                     key={option.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    onClick={() => setIntent(option.value)}
                     className={cn(
-                      'rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      selected
-                        ? 'border-primary bg-primary-subtle'
-                        : 'border-border bg-surface hover:border-border-strong hover:bg-subtle',
+                      'flex cursor-pointer gap-2.5 rounded-lg border p-3 text-left transition-colors duration-fast focus-within:ring-2 focus-within:ring-ring',
+                      selected ? 'border-primary/50 bg-primary-subtle' : 'border-border hover:bg-subtle',
                     )}
                   >
-                    <span className="block text-sm font-medium text-foreground">{option.label}</span>
-                    <span className="block text-xs text-muted">{option.hint}</span>
-                  </button>
+                    <input
+                      type="radio"
+                      name="vendor-request-intent"
+                      value={option.value}
+                      checked={selected}
+                      onChange={() => setIntent(option.value)}
+                      className="mt-0.5 size-4 shrink-0 accent-primary"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-foreground">{option.label}</span>
+                      <span className="block text-xs text-muted">{option.hint}</span>
+                    </span>
+                  </label>
                 )
               })}
             </div>
-          </fieldset>
+          </Fieldset>
 
           {intent === 'other' ? (
             <Field label="What should we ask them to do?">
@@ -172,8 +179,7 @@ function VendorRequestDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Send to" hint="Separate several addresses with commas.">
               <Input
-                type="text"
-                inputMode="email"
+                type="email"
                 value={to}
                 onChange={(event) => setTo(event.target.value)}
                 placeholder="vendor@example.com"
@@ -184,11 +190,15 @@ function VendorRequestDialog({
             </Field>
           </div>
 
+          <p className="text-xs text-muted">
+            The resident&rsquo;s email is not forwarded. This starts a separate conversation with the
+            vendor, so a reply-all can never reach the owner.
+          </p>
+
           {error ? <Alert variant="error">{error}</Alert> : null}
           {skipped.length > 0 ? (
-            <Alert variant="warning">
-              Drafted, but these files did not fit the 15MB limit and are not attached:{' '}
-              {skipped.join(', ')}
+            <Alert variant="warning" title="Drafted — some files weren’t attached">
+              These files didn’t fit the 15MB limit: {skipped.join(', ')}
             </Alert>
           ) : null}
         </div>

@@ -1,101 +1,94 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, ExternalLink } from 'lucide-react'
+import { ExternalLink, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
-import {
-  Alert,
-  Badge,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@homeowner-portal/ui'
+import { Badge, Button, Card, CardContent, LoadFailed, Page } from '@homeowner-portal/ui'
 import { getStatute } from '@/lib/state-law'
+import { tryLoad } from '@/lib/load-or-fail'
+import { lawCategoryLabel } from '@/lib/status/knowledge'
+import { LegalDisclaimer } from '@/components/knowledge/LegalDisclaimer'
 
 export const metadata = { title: 'Statute' }
 
-const CATEGORY_LABEL: Record<string, string> = {
-  meetings: 'Meetings & elections',
-  assessments: 'Assessments & dues',
-  fines: 'Fines & enforcement',
-  foreclosure: 'Liens & foreclosure',
-  records: 'Records & access',
-  architectural: 'Architectural review',
-  fair_housing: 'Fair housing',
-  amendments: 'Amendments & governance',
-  uncategorized: 'Other',
-}
-
-export default async function StatuteDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
+export default async function StatuteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const statute = await getStatute(id)
+  const result = await tryLoad('statute', () => getStatute(id))
+
+  if (!result.ok) {
+    return (
+      <Page
+        width="narrow"
+        linkAs={Link}
+        breadcrumbs={[
+          { label: 'State law', href: '/legal' },
+          { label: 'Statutes', href: '/legal/browse' },
+          { label: 'Section' },
+        ]}
+        title="Statute"
+      >
+        <LoadFailed what="this statute" />
+      </Page>
+    )
+  }
+
+  const statute = result.data
   if (!statute) notFound()
+  const category = lawCategoryLabel(statute.category)
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <Link
-        href="/legal/browse"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to statutes
-      </Link>
-
-      <header className="space-y-2">
-        <p className="font-mono text-xs text-muted">{statute.code_citation}</p>
-        <h1 className="text-2xl font-bold text-foreground">{statute.title}</h1>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-          {statute.category ? (
-            <Badge variant="outline" size="sm">
-              {CATEGORY_LABEL[statute.category] ?? statute.category}
-            </Badge>
-          ) : null}
-          {statute.effective_date ? (
-            <span>Effective {format(new Date(statute.effective_date), 'PP')}</span>
-          ) : null}
-          <span>·</span>
-          <span>
-            Ingested {format(new Date(statute.fetched_at), 'PP')}
-          </span>
-        </div>
-      </header>
-
-      <Alert variant="info" title="Informational, not legal advice">
-        <span className="block text-sm">
-          This is the statute text. For interpretation specific to your
-          association, consult a licensed attorney.
+    <Page
+      width="narrow"
+      linkAs={Link}
+      breadcrumbs={[
+        { label: 'State law', href: '/legal' },
+        { label: 'Statutes', href: '/legal/browse' },
+        { label: statute.code_citation },
+      ]}
+      eyebrow={statute.code_citation}
+      title={statute.title}
+      meta={category ? <Badge variant="neutral">{category}</Badge> : null}
+      description={
+        <span className="num">
+          {statute.effective_date
+            ? `Effective ${format(new Date(`${statute.effective_date.slice(0, 10)}T00:00:00Z`), 'PP')} · `
+            : ''}
+          Loaded {format(new Date(statute.fetched_at), 'PP')}
         </span>
-      </Alert>
+      }
+      actions={
+        <Button asChild variant="secondary">
+          <Link href="/legal/ask">
+            <Sparkles aria-hidden />
+            Ask about this law
+          </Link>
+        </Button>
+      }
+    >
+      <LegalDisclaimer>
+        This is the statute text. For interpretation specific to your association, consult a licensed attorney.
+      </LegalDisclaimer>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Statute text</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="whitespace-pre-wrap font-serif text-sm leading-relaxed text-foreground">
-            {statute.body}
-          </p>
+        <CardContent className="p-5 sm:p-8">
+          <div className="whitespace-pre-wrap font-serif text-base leading-[1.75] text-foreground">{statute.body}</div>
         </CardContent>
       </Card>
 
       {statute.source_url ? (
-        <p className="text-xs text-muted">
-          Source:{' '}
+        <p className="text-sm text-muted">
+          Official source:{' '}
           <a
             href={statute.source_url}
             target="_blank"
             rel="noreferrer noopener"
-            className="inline-flex items-center gap-1 text-primary hover:underline"
+            className="inline-flex items-center gap-1 break-all font-medium text-primary hover:underline"
           >
             {statute.source_url}
-            <ExternalLink className="h-3 w-3" />
+            <ExternalLink className="size-3.5 shrink-0" aria-hidden />
+            <span className="sr-only">(opens in a new tab)</span>
           </a>
         </p>
       ) : null}
-    </div>
+    </Page>
   )
 }

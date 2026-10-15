@@ -67,19 +67,31 @@ export type ActionResult<T = void> = ActionOk<T> | ActionErr
 // ─── Reads ───────────────────────────────────────────────────────────
 
 export async function listBidsForRfp(rfpId: string): Promise<BidRow[]> {
+  const res = await listBidsForRfpResult(rfpId)
+  return res.ok ? res.data : []
+}
+
+/** Same read, but a failure is reported instead of becoming "no bids". */
+export async function listBidsForRfpResult(
+  rfpId: string,
+): Promise<{ ok: true; data: BidRow[] } | { ok: false }> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('bids' as never)
     .select(
       'id, vendor_id, total_amount, payment_terms, warranty, start_date, completion_date, status, submitted_at, raw_document_path, vendor:vendors(legal_name)',
     )
     .eq('rfp_id', rfpId)
     .order('total_amount', { ascending: true })
+  if (error) {
+    console.error('listBidsForRfp failed', { code: error.code, message: error.message })
+    return { ok: false }
+  }
 
   const rows = (data ?? []) as unknown as Array<
     Omit<BidRow, 'vendor_legal_name'> & { vendor: { legal_name: string } | null }
   >
-  return rows.map((r) => ({
+  const bids = rows.map((r) => ({
     id: r.id,
     vendor_id: r.vendor_id,
     vendor_legal_name: r.vendor?.legal_name ?? '(unknown vendor)',
@@ -92,6 +104,7 @@ export async function listBidsForRfp(rfpId: string): Promise<BidRow[]> {
     submitted_at: r.submitted_at,
     raw_document_path: r.raw_document_path,
   }))
+  return { ok: true, data: bids }
 }
 
 export async function getBid(bidId: string): Promise<BidDetail | null> {
@@ -140,7 +153,7 @@ export async function getLatestBidComparison(
   rfpId: string,
 ): Promise<BidComparisonRow | null> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('bid_comparisons' as never)
     .select(
       'id, generated_at, ai_workflow_id, comparison_table, flagged_exclusions, flagged_additions, payment_term_diffs, warranty_diffs, recommendation_memo',
@@ -149,6 +162,9 @@ export async function getLatestBidComparison(
     .order('generated_at', { ascending: false })
     .limit(1)
     .maybeSingle()
+  // Throw rather than return null: "no comparison run yet" and "couldn't
+  // read the comparison" must look different (the page uses tryLoad).
+  if (error) throw new Error(`bid_comparisons: ${error.code ?? 'error'}`)
   return data as unknown as BidComparisonRow | null
 }
 

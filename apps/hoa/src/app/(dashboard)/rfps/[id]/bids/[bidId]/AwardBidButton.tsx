@@ -37,11 +37,10 @@ export function AwardBidButton({ rfpId, bidId }: { rfpId: string; bidId: string 
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <Button size="sm" onClick={handleClick} disabled={isPending}>
-        <Award className="h-4 w-4" />
+      <Button onClick={handleClick} loading={isPending} icon={<Award aria-hidden />}>
         {isPending ? 'Awarding…' : 'Award this bid'}
       </Button>
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {error ? <p className="text-xs text-danger">{error}</p> : null}
     </div>
   )
 }

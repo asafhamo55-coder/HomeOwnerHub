@@ -93,14 +93,27 @@ export async function getPrimaryAssociation(): Promise<{ id: string; name: strin
   return data ?? null
 }
 
+/**
+ * Every vendor on file, or `[]` when the read failed. Kept for callers
+ * where an empty list is harmless (pickers); a page that states "no
+ * vendors" must use listVendorsResult so a failed read is not shown as
+ * an empty roster.
+ */
 export async function listVendors(): Promise<VendorWithCompliance[]> {
+  const res = await listVendorsResult()
+  return res.ok ? res.data : []
+}
+
+export async function listVendorsResult(): Promise<
+  { ok: true; data: VendorWithCompliance[] } | { ok: false }
+> {
   const org = await getCurrentOrg()
-  if (!org) return []
+  if (!org) return { ok: true, data: [] }
 
   const supabase = await getSupabaseServerClient()
   const assoc = await getPrimaryAssociation()
 
-  const { data: vendorRows } = await supabase
+  const { data: vendorRows, error: vendorError } = await supabase
     .from('vendors' as never)
     .select(
       'id, legal_name, dba, status, trades, primary_email, primary_phone, created_at',
@@ -110,10 +123,16 @@ export async function listVendors(): Promise<VendorWithCompliance[]> {
     .order('legal_name', { ascending: true })
     .limit(200)
 
+  if (vendorError) {
+    console.error('listVendors failed', { code: vendorError.code, message: vendorError.message })
+    return { ok: false }
+  }
   const vendors = (vendorRows ?? []) as unknown as VendorRow[]
-  if (vendors.length === 0 || !assoc) return vendors.map((v) => ({ ...v, compliance: null }))
+  if (vendors.length === 0 || !assoc) {
+    return { ok: true, data: vendors.map((v) => ({ ...v, compliance: null })) }
+  }
 
-  const { data: complianceRows } = await supabase
+  const { data: complianceRows, error: complianceError } = await supabase
     .from('vendor_compliance' as never)
     .select(
       'vendor_id, coi_status, coi_expiration_date, deficiencies, last_reviewed_at',
@@ -128,25 +147,37 @@ export async function listVendors(): Promise<VendorWithCompliance[]> {
     deficiencies: Array<{ code: string; severity: string; detail: string }> | null
     last_reviewed_at: string | null
   }
+  // A failed compliance read would otherwise show every vendor as
+  // "Not reviewed" — a false statement about their insurance.
+  if (complianceError) {
+    console.error('listVendors compliance failed', {
+      code: complianceError.code,
+      message: complianceError.message,
+    })
+    return { ok: false }
+  }
   const byVendor = new Map<string, ComplianceRow>()
   for (const row of (complianceRows ?? []) as unknown as ComplianceRow[]) {
     byVendor.set(row.vendor_id, row)
   }
 
-  return vendors.map((v) => {
-    const c = byVendor.get(v.id)
-    return {
-      ...v,
-      compliance: c
-        ? {
-            status: c.coi_status,
-            coi_expiration_date: c.coi_expiration_date,
-            deficiencies: c.deficiencies,
-            last_reviewed_at: c.last_reviewed_at,
-          }
-        : null,
-    }
-  })
+  return {
+    ok: true,
+    data: vendors.map((v) => {
+      const c = byVendor.get(v.id)
+      return {
+        ...v,
+        compliance: c
+          ? {
+              status: c.coi_status,
+              coi_expiration_date: c.coi_expiration_date,
+              deficiencies: c.deficiencies,
+              last_reviewed_at: c.last_reviewed_at,
+            }
+          : null,
+      }
+    }),
+  }
 }
 
 export async function getVendor(id: string): Promise<VendorDetail | null> {
@@ -269,7 +300,27 @@ export interface CreateVendorInput {
 
 export type ActionResult<T = void> =
   | (T extends void ? { ok: true } : { ok: true; data: T })
-  | { ok: false; error: string }
+  | {
+      ok: false
+      error: string
+      /**
+       * Per-field validation messages keyed by the schema's top-level
+       * field (`legal_name`, `ein`, `primary_email`, `trades`,
+       * `service_area_zips`, …), so a form can show each message under its
+       * own input. Only set for validation failures.
+       */
+      fieldErrors?: Record<string, string>
+    }
+
+/** First message per top-level field of a zod error. */
+function fieldErrorsOf(error: z.ZodError): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const issue of error.issues) {
+    const key = String(issue.path[0] ?? '_form')
+    if (!(key in out)) out[key] = issue.message
+  }
+  return out
+}
 
 export async function createVendor(
   input: CreateVendorInput,
@@ -286,7 +337,11 @@ export async function createVendor(
     notes: input.notes ?? null,
   })
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'Invalid input.',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
 
   const supabase = await getSupabaseServerClient()
@@ -578,7 +633,11 @@ export async function updateVendor(
     notes: input.notes,
   })
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'Invalid input.',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
 
   const org = await getCurrentOrg()

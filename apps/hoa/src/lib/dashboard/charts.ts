@@ -34,6 +34,12 @@ export interface DonutSegment {
 export interface DonutData {
   segments: DonutSegment[]
   total: number
+  /**
+   * True when the source query errored. `segments` is then empty and
+   * `total` 0 — an UNKNOWN, not "nothing on file". The dashboard renders
+   * a failed state instead of the empty state.
+   */
+  failed: boolean
 }
 
 export interface ActivityBucket {
@@ -47,6 +53,8 @@ export interface ActivityBucket {
 
 export interface ActivityData {
   buckets: ActivityBucket[]
+  /** True when any source query errored — the zeros are not facts. */
+  failed: boolean
 }
 
 export interface KpiTrend {
@@ -77,11 +85,15 @@ export async function getViolationStatusDonut(
   client?: AnyClient,
 ): Promise<DonutData> {
   const supabase = await resolveClient(client)
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('hoa_violations')
     .select('status')
     .eq('org_id', orgId)
     .is('deleted_at', null)
+  if (error) {
+    console.error('getViolationStatusDonut failed', { code: error.code, message: error.message })
+    return { segments: [], total: 0, failed: true }
+  }
 
   const rows = (data ?? []) as Array<{ status: string | null }>
   const counts: Record<string, number> = {}
@@ -93,9 +105,15 @@ export async function getViolationStatusDonut(
   // Each violation state gets its own tone so adjacent slices on the
   // donut are always distinguishable. The progression mirrors the
   // lifecycle: board action → resident cure window → outcome.
+  // The first five are the statuses hoa_violations' CHECK constraint
+  // allows today; `notice_drafted` and `waived` used to be missing, so
+  // those violations silently vanished from the total. The legacy keys
+  // after them are kept so an older row still counts.
   const SEG_ORDER: Array<[string, DonutSegment['tone'], string]> = [
     ['open', 'primary', 'Open'],            // blue — needs board review
+    ['notice_drafted', 'primary', 'Notice drafted'],
     ['notice_sent', 'warning', 'Notice sent'], // amber — cure window
+    ['waived', 'muted', 'Waived'],
     ['cured', 'success', 'Cured'],          // emerald — resident fixed
     ['resolved', 'muted', 'Resolved'],      // slate — closed / archival
     ['fined', 'destructive', 'Fined'],      // red — monetary penalty
@@ -107,7 +125,7 @@ export async function getViolationStatusDonut(
     if ((counts[key] ?? 0) > 0) segments.push({ label, value: counts[key], tone })
   }
   const total = segments.reduce((acc, s) => acc + s.value, 0)
-  return { segments, total }
+  return { segments, total, failed: false }
 }
 
 // ─── Donut: tickets by category ─────────────────────────────────────
@@ -117,11 +135,15 @@ export async function getTicketCategoryDonut(
   client?: AnyClient,
 ): Promise<DonutData> {
   const supabase = await resolveClient(client)
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('tickets' as never)
     .select('category')
     .eq('organization_id', orgId)
     .is('deleted_at', null)
+  if (error) {
+    console.error('getTicketCategoryDonut failed', { code: error.code, message: error.message })
+    return { segments: [], total: 0, failed: true }
+  }
 
   const rows = (data ?? []) as unknown as Array<{ category: string | null }>
   const counts: Record<string, number> = {}
@@ -147,7 +169,7 @@ export async function getTicketCategoryDonut(
     if ((counts[key] ?? 0) > 0) segments.push({ label, value: counts[key], tone })
   }
   const total = segments.reduce((acc, s) => acc + s.value, 0)
-  return { segments, total }
+  return { segments, total, failed: false }
 }
 
 // ─── 30-day activity bar ────────────────────────────────────────────
@@ -172,7 +194,7 @@ export async function getThirtyDayActivity(
     buckets.set(key, { date: key, violations: 0, arc: 0, invitations: 0 })
   }
 
-  const [{ data: viols }, { data: arcs }, { data: invites }] = await Promise.all([
+  const [violsRes, arcsRes, invitesRes] = await Promise.all([
     supabase
       .from('hoa_violations')
       .select('created_at')
@@ -192,6 +214,15 @@ export async function getThirtyDayActivity(
       .gte('created_at', startIso),
   ])
 
+  const failed = [violsRes, arcsRes, invitesRes].some((r) => {
+    if (!r.error) return false
+    console.error('getThirtyDayActivity failed', { code: r.error.code, message: r.error.message })
+    return true
+  })
+  const viols = violsRes.data
+  const arcs = arcsRes.data
+  const invites = invitesRes.data
+
   for (const r of (viols ?? []) as Array<{ created_at: string }>) {
     const k = r.created_at.slice(0, 10)
     const bucket = buckets.get(k)
@@ -208,7 +239,7 @@ export async function getThirtyDayActivity(
     if (bucket) bucket.invitations += 1
   }
 
-  return { buckets: Array.from(buckets.values()) }
+  return { buckets: Array.from(buckets.values()), failed }
 }
 
 // ─── KPI heroes ─────────────────────────────────────────────────────

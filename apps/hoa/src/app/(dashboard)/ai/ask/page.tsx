@@ -1,21 +1,27 @@
+import Link from 'next/link'
+import { FileText } from 'lucide-react'
+import { Button, Page } from '@homeowner-portal/ui'
 import { AskDocsClient } from './AskDocsClient'
 
 export const metadata = { title: 'Ask the Docs' }
 
 export default function AskTheDocsPage() {
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold text-foreground">Ask the Docs</h1>
-        <p className="text-sm text-muted">
-          The Governing Docs Brain answers questions grounded in your
-          association&apos;s Declaration, Bylaws, Rules, and amendments. Every
-          answer cites the section it came from. If the docs don&apos;t cover
-          it, the AI says so rather than guessing.
-        </p>
-      </header>
-
+    <Page
+      width="narrow"
+      linkAs={Link}
+      title="Ask the Docs"
+      description="Answers grounded in your Declaration, Bylaws, Rules and amendments — or in your community records. Every document answer cites the section it came from; if the documents don’t cover it, the assistant says so rather than guessing."
+      actions={
+        <Button asChild variant="secondary">
+          <Link href="/documents/governing">
+            <FileText aria-hidden />
+            Governing documents
+          </Link>
+        </Button>
+      }
+    >
       <AskDocsClient />
-    </div>
+    </Page>
   )
 }

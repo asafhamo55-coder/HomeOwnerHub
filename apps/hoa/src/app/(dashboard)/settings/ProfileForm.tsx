@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Save } from 'lucide-react'
-import { Button, Input, useToast } from '@homeowner-portal/ui'
+import { Button, Field, Input, useToast } from '@homeowner-portal/ui'
 import { updateMyProfile, type MyProfile } from '@/lib/profile'
 
 // Personal-name editor on /settings. Empty name on first load if the
@@ -38,34 +38,29 @@ export function ProfileForm({ profile }: { profile: MyProfile }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block space-y-1">
-          <span className="text-xs font-medium text-muted">Full name</span>
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Full name" required error={error}>
           <Input
             value={fullName}
-            onChange={(e) => setFullName(e.currentTarget.value)}
+            onChange={(e) => {
+              setFullName(e.currentTarget.value)
+              if (error) setError(null)
+            }}
             placeholder="Jane Smith"
             maxLength={200}
+            autoComplete="name"
             required
           />
-        </label>
-        <label className="block space-y-1">
-          <span className="text-xs font-medium text-muted">Email</span>
+        </Field>
+        <Field label="Email" hint="Your sign-in address. It can’t be changed here.">
           <Input value={profile.email ?? ''} readOnly disabled />
-        </label>
+        </Field>
       </div>
 
-      {error ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-xs text-destructive">
-          {error}
-        </p>
-      ) : null}
-
       <div className="flex items-center justify-end gap-2">
-        <Button type="submit" size="sm" disabled={pending || !dirty}>
-          <Save className="h-3.5 w-3.5" />
-          {pending ? 'Saving…' : 'Save name'}
+        <Button type="submit" loading={pending} disabled={!dirty} icon={<Save aria-hidden />}>
+          Save name
         </Button>
       </div>
     </form>

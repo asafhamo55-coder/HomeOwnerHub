@@ -1,12 +1,12 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { Lock } from 'lucide-react'
-import { Button, Input, Alert } from '@homeowner-portal/ui'
+import { CheckCircle2, Lock } from 'lucide-react'
+import { Alert, Button, Field, Input } from '@homeowner-portal/ui'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
-
-const MIN_PASSWORD = 10
+import { MIN_PASSWORD, PasswordRules } from '@/components/auth/auth-fields'
 
 // Sets a new password on the recovery session established by /auth/callback.
 // updateUser requires an active session, so the user must arrive here via the
@@ -17,23 +17,23 @@ export function ResetPasswordForm() {
   const [confirm, setConfirm] = useState('')
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [expired, setExpired] = useState(false)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [confirmError, setConfirmError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
 
-    if (password.length < MIN_PASSWORD) {
-      setStatus('error')
-      setErrorMessage(`Password must be at least ${MIN_PASSWORD} characters.`)
-      return
-    }
-    if (password !== confirm) {
-      setStatus('error')
-      setErrorMessage('Passwords do not match.')
-      return
-    }
+    const pProblem =
+      password.length < MIN_PASSWORD ? `Password must be at least ${MIN_PASSWORD} characters.` : null
+    const cProblem = !pProblem && password !== confirm ? 'Passwords do not match.' : null
+    setPasswordError(pProblem)
+    setConfirmError(cProblem)
+    if (pProblem || cProblem) return
 
     setStatus('saving')
     setErrorMessage(null)
+    setExpired(false)
 
     const supabase = getSupabaseBrowserClient()
     const { error } = await supabase.auth.updateUser({ password })
@@ -42,8 +42,10 @@ export function ResetPasswordForm() {
       setStatus('error')
       // The recovery session can be missing/expired if the link was reused or
       // opened on a different device — surface that clearly.
+      const sessionProblem = error.message.includes('session')
+      setExpired(sessionProblem)
       setErrorMessage(
-        error.message.includes('session')
+        sessionProblem
           ? 'Your reset link has expired or was already used. Request a new one.'
           : error.message,
       )
@@ -59,63 +61,75 @@ export function ResetPasswordForm() {
 
   if (status === 'saved') {
     return (
-      <Alert variant="success" title="Password updated">
-        <p>You&apos;re all set. Taking you to your dashboard…</p>
-      </Alert>
+      <div className="space-y-3 text-center" role="status">
+        <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-success-subtle text-success">
+          <CheckCircle2 className="size-6" aria-hidden />
+        </span>
+        <p className="text-base font-semibold text-foreground">Password updated</p>
+        <p className="text-sm text-muted">You’re all set. Taking you to your dashboard…</p>
+      </div>
     )
   }
 
+  const busy = status === 'saving'
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-1.5">
-        <label htmlFor="password" className="text-sm font-medium text-foreground">
-          New password
-        </label>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          required
-          minLength={MIN_PASSWORD}
-          autoComplete="new-password"
-          autoFocus
-          placeholder={`At least ${MIN_PASSWORD} characters`}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          prefix={<Lock className="h-4 w-4" aria-hidden />}
-          error={status === 'error'}
-          disabled={status === 'saving'}
-        />
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <div className="space-y-2">
+        <Field label="New password" error={passwordError}>
+          <Input
+            name="password"
+            type="password"
+            required
+            minLength={MIN_PASSWORD}
+            autoComplete="new-password"
+            autoFocus
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value)
+              if (passwordError && e.target.value.length >= MIN_PASSWORD) setPasswordError(null)
+            }}
+            prefix={<Lock aria-hidden />}
+            disabled={busy}
+          />
+        </Field>
       </div>
 
-      <div className="space-y-1.5">
-        <label htmlFor="confirm" className="text-sm font-medium text-foreground">
-          Confirm new password
-        </label>
+      <Field label="Confirm new password" error={confirmError}>
         <Input
-          id="confirm"
           name="confirm"
           type="password"
           required
           minLength={MIN_PASSWORD}
           autoComplete="new-password"
-          placeholder="Re-enter your password"
           value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          prefix={<Lock className="h-4 w-4" aria-hidden />}
-          error={status === 'error'}
-          disabled={status === 'saving'}
+          onChange={(e) => {
+            setConfirm(e.target.value)
+            if (confirmError && e.target.value === password) setConfirmError(null)
+          }}
+          prefix={<Lock aria-hidden />}
+          disabled={busy}
         />
-      </div>
+      </Field>
+
+      <PasswordRules password={password} confirm={confirm} />
 
       {status === 'error' && errorMessage ? (
-        <Alert variant="error" title="Couldn't update your password">
+        <Alert variant="error" title="Couldn’t update your password">
           {errorMessage}
+          {expired ? (
+            <>
+              {' '}
+              <Link href="/forgot-password" className="font-medium underline">
+                Send a new link
+              </Link>
+            </>
+          ) : null}
         </Alert>
       ) : null}
 
-      <Button type="submit" size="lg" className="w-full" loading={status === 'saving'}>
-        Update password
+      <Button type="submit" size="lg" className="w-full" loading={busy}>
+        {busy ? 'Saving…' : 'Update password'}
       </Button>
     </form>
   )

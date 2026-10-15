@@ -4,15 +4,29 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Send, UserCheck } from 'lucide-react'
 import {
-  Badge,
+  Alert,
   Button,
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
+  StatusBadge,
+  StatusPill,
+  cn,
   useConfirm,
   useToast,
 } from '@homeowner-portal/ui'
+import {
+  BID_STATUS_LABELS,
+  BID_STATUS_TONES,
+  COMPLIANCE_LABELS,
+  COMPLIANCE_TONES,
+  VENDOR_STATUS_LABELS,
+  VENDOR_STATUS_TONES,
+  complianceKey,
+} from '@/lib/status/vendors'
+import { tradesLabel } from '@/components/vendors/format'
 import {
   inviteVendorsToRfp,
   revokeRfpInvitation,
@@ -20,15 +34,6 @@ import {
   type RfpInvitationRow,
 } from '@/lib/rfp-invitations'
 
-const COMPLIANCE_VARIANT: Record<
-  NonNullable<InvitableVendor['compliance_status']>,
-  'success' | 'warning' | 'destructive' | 'outline'
-> = {
-  green: 'success',
-  yellow: 'warning',
-  red: 'destructive',
-  missing: 'outline',
-}
 
 interface Props {
   rfpId: string
@@ -81,14 +86,13 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-6 md:grid-cols-2">
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Invite vendors</CardTitle>
-          <p className="text-xs text-muted">
-            Pick vendors to invite. Each gets a unique email link to submit
-            their bid. Vendors without a primary email are skipped.
-          </p>
+        <CardHeader className="pb-3">
+          <CardTitle as="h2">Invite vendors</CardTitle>
+          <CardDescription>
+            Each gets a unique email link to submit a bid. Vendors without an email are skipped.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {eligible.length === 0 ? (
@@ -102,15 +106,14 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
                 return (
                   <li key={v.id}>
                     <label
-                      className={`flex items-start gap-3 rounded-md border p-2 transition-colors ${
-                        isSelected
-                          ? 'border-primary/30 bg-primary/5'
-                          : 'border-border hover:bg-foreground/30'
-                      }`}
+                      className={cn(
+                        'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors duration-fast',
+                        isSelected ? 'border-primary/40 bg-primary-subtle' : 'border-border hover:bg-subtle',
+                      )}
                     >
                       <input
                         type="checkbox"
-                        className="mt-1 h-4 w-4 rounded border-border"
+                        className="mt-1 size-4 rounded border-input accent-primary"
                         checked={isSelected}
                         onChange={() => toggle(v.id)}
                       />
@@ -118,23 +121,15 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
                         <p className="truncate text-sm font-medium text-foreground">
                           {v.legal_name}
                         </p>
-                        <p className="text-xs text-muted">
-                          {(v.trades ?? []).join(', ') || 'No trades on file'}
-                        </p>
+                        <p className="text-xs text-muted">{tradesLabel(v.trades) ?? 'No trade on file'}</p>
                       </div>
                       <div className="flex flex-shrink-0 flex-col items-end gap-1">
-                        {v.compliance_status ? (
-                          <Badge variant={COMPLIANCE_VARIANT[v.compliance_status]} size="sm">
-                            {v.compliance_status}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" size="sm">
-                            no review
-                          </Badge>
-                        )}
-                        <Badge variant="outline" size="sm">
-                          {v.status}
-                        </Badge>
+                        <StatusBadge
+                          status={complianceKey(v.compliance_status)}
+                          tones={COMPLIANCE_TONES}
+                          labels={COMPLIANCE_LABELS}
+                        />
+                        <StatusBadge status={v.status} tones={VENDOR_STATUS_TONES} labels={VENDOR_STATUS_LABELS} />
                       </div>
                     </label>
                   </li>
@@ -144,12 +139,12 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
           )}
 
           {error ? (
-            <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            <Alert variant="error" title="Couldn’t send invitations">
               {error}
-            </p>
+            </Alert>
           ) : null}
           {summary ? (
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            <Alert variant={summary.failed.length > 0 ? 'warning' : 'success'}>
               Sent {summary.sent}{summary.skipped > 0 ? `, skipped ${summary.skipped} already invited` : ''}
               {summary.failed.length > 0 ? (
                 <>
@@ -161,35 +156,33 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
                   </ul>
                 </>
               ) : null}
-            </div>
+            </Alert>
           ) : null}
 
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted">
-              {selected.size} selected
-            </span>
+            <span className="num text-sm text-muted">{selected.size} selected</span>
             <Button
-              size="sm"
+              variant="secondary"
               onClick={handleInvite}
-              disabled={isPending || selected.size === 0}
+              loading={isPending}
+              disabled={selected.size === 0}
+              icon={<Send aria-hidden />}
             >
-              <Send className="h-4 w-4" />
-              {isPending ? 'Sending…' : `Send ${selected.size || ''}`}
+              {selected.size > 0 ? `Send ${selected.size} ${selected.size === 1 ? 'invite' : 'invites'}` : 'Send invites'}
             </Button>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Invitations sent ({invitations.length})
-          </CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle as="h2">Invitations sent</CardTitle>
+          <CardDescription className="num">{invitations.length} sent</CardDescription>
         </CardHeader>
         <CardContent>
           {invitations.length === 0 ? (
             <p className="text-sm text-muted">
-              No invitations yet. Pick vendors on the left and send.
+              No invitations yet. Pick vendors and send.
             </p>
           ) : (
             <ul className="space-y-2">
@@ -233,7 +226,7 @@ function InvitationRow({ invitation }: { invitation: RfpInvitationRow }) {
   }
 
   return (
-    <li className="rounded-md border border-border bg-foreground/10 p-2">
+    <li className="rounded-lg border border-border p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-foreground">
@@ -248,19 +241,20 @@ function InvitationRow({ invitation }: { invitation: RfpInvitationRow }) {
         </div>
         <div className="flex flex-shrink-0 flex-col items-end gap-1">
           {invitation.has_bid ? (
-            <Badge variant="success" size="sm">
-              <UserCheck className="mr-1 h-3 w-3" />
-              {invitation.bid_status}
-            </Badge>
+            invitation.bid_status ? (
+              <StatusBadge status={invitation.bid_status} tones={BID_STATUS_TONES} labels={BID_STATUS_LABELS} />
+            ) : (
+              <StatusPill tone="success" label="Bid received" icon={<UserCheck aria-hidden />} />
+            )
           ) : null}
           {!invitation.has_bid ? (
-            <Button variant="outline" size="sm" onClick={handleRevoke} disabled={isPending}>
-              {isPending ? '…' : 'Revoke'}
+            <Button variant="ghost" size="sm" onClick={handleRevoke} loading={isPending}>
+              Revoke
             </Button>
           ) : null}
         </div>
       </div>
-      {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
+      {error ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
     </li>
   )
 }

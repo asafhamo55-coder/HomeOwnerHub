@@ -3,7 +3,26 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '@homeowner-portal/ui'
+import {
+  Alert,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Checkbox,
+  Field,
+  Input,
+  StatusBadge,
+  StatusPill,
+} from '@homeowner-portal/ui'
+import {
+  COMPLIANCE_LABELS,
+  COMPLIANCE_TONES,
+  DEFICIENCY_LABELS,
+  DEFICIENCY_TONES,
+} from '@/lib/status/vendors'
 import { runComplianceCheck } from '@/lib/vendors'
 
 type ComplianceStatus = 'green' | 'yellow' | 'red' | 'missing'
@@ -13,13 +32,6 @@ interface Result {
   deficiencies: Array<{ code: string; severity: string; detail: string }>
   summary: string
   runId: string
-}
-
-const VARIANT: Record<ComplianceStatus, 'success' | 'warning' | 'destructive' | 'outline'> = {
-  green: 'success',
-  yellow: 'warning',
-  red: 'destructive',
-  missing: 'outline',
 }
 
 export function ComplianceForm({ vendorId }: { vendorId: string }) {
@@ -101,11 +113,12 @@ export function ComplianceForm({ vendorId }: { vendorId: string }) {
     <div className="space-y-6">
       <form action={handleSubmit} className="space-y-6">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Certificate of Insurance</CardTitle>
+          <CardHeader className="pb-4">
+            <CardTitle as="h2">Certificate of insurance</CardTitle>
+            <CardDescription>Leave the carrier blank to skip the COI.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Carrier">
                 <Input name="coi_carrier" placeholder="Hartford" />
               </Field>
@@ -131,21 +144,19 @@ export function ComplianceForm({ vendorId }: { vendorId: string }) {
                 <Input name="coi_umbrella" inputMode="numeric" />
               </Field>
             </div>
-            <div className="flex gap-6 pt-1">
-              <Check name="coi_workersComp" label="Workers' comp included" />
-              <Check
-                name="coi_additionalInsured"
-                label="Association listed as additional insured"
-              />
+            <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:gap-6">
+              <Checkbox name="coi_workersComp" label="Workers’ comp included" />
+              <Checkbox name="coi_additionalInsured" label="Association listed as additional insured" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">W-9</CardTitle>
+          <CardHeader className="pb-4">
+            <CardTitle as="h2">W-9</CardTitle>
+            <CardDescription>Leave the legal name blank to skip the W-9.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2">
+          <CardContent className="grid gap-4 sm:grid-cols-2">
             <Field label="Legal name">
               <Input name="w9_legalName" />
             </Field>
@@ -162,10 +173,11 @@ export function ComplianceForm({ vendorId }: { vendorId: string }) {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Contractor license</CardTitle>
+          <CardHeader className="pb-4">
+            <CardTitle as="h2">Contractor license</CardTitle>
+            <CardDescription>Leave the license number blank to skip the license.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2">
+          <CardContent className="grid gap-4 sm:grid-cols-2">
             <Field label="License #">
               <Input name="license_number" />
             </Field>
@@ -185,26 +197,25 @@ export function ComplianceForm({ vendorId }: { vendorId: string }) {
         </Card>
 
         {error ? (
-          <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <Alert variant="error" title="The compliance check didn’t run">
             {error}
-          </p>
+          </Alert>
         ) : null}
 
         <div className="flex justify-end gap-2">
-          <Button type="submit" disabled={isPending}>
-            <Sparkles className="h-4 w-4" />
-            {isPending ? 'Running W21…' : 'Run compliance check'}
+          <Button type="submit" loading={isPending} icon={<Sparkles aria-hidden />}>
+            {isPending ? 'Checking…' : 'Run compliance check'}
           </Button>
         </div>
       </form>
 
       {result ? (
-        <Card variant="elevated">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Badge variant={VARIANT[result.status]}>{result.status}</Badge>
-              <CardTitle className="text-base">Result</CardTitle>
-            </div>
+        <Card role="status">
+          <CardHeader
+            className="pb-3"
+            actions={<StatusBadge status={result.status} tones={COMPLIANCE_TONES} labels={COMPLIANCE_LABELS} />}
+          >
+            <CardTitle as="h2">Result</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-foreground">{result.summary}</p>
@@ -213,16 +224,14 @@ export function ComplianceForm({ vendorId }: { vendorId: string }) {
                 {result.deficiencies.map((d, i) => (
                   <li
                     key={`${d.code}-${i}`}
-                    className="flex items-start gap-3 rounded-md border border-border bg-foreground/10 p-3 text-sm"
+                    className="flex items-start gap-3 rounded-lg border border-border bg-subtle p-3 text-sm"
                   >
-                    <Badge
-                      variant={d.severity === 'red' ? 'destructive' : 'warning'}
-                      size="sm"
-                    >
-                      {d.severity}
-                    </Badge>
+                    <StatusPill
+                      tone={DEFICIENCY_TONES[d.severity] ?? 'warning'}
+                      label={DEFICIENCY_LABELS[d.severity] ?? d.severity}
+                    />
                     <div className="min-w-0 flex-1">
-                      <p className="font-mono text-xs text-muted">{d.code}</p>
+                      <p className="text-xs text-muted">{d.code}</p>
                       <p className="text-foreground">{d.detail}</p>
                     </div>
                   </li>
@@ -231,28 +240,10 @@ export function ComplianceForm({ vendorId }: { vendorId: string }) {
             ) : (
               <p className="text-sm text-muted">No deficiencies.</p>
             )}
-            <p className="text-xs text-muted">W21 run {result.runId}</p>
+            <p className="text-xs text-muted">Run reference {result.runId}</p>
           </CardContent>
         </Card>
       ) : null}
     </div>
-  )
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block space-y-1">
-      <span className="text-xs font-medium text-foreground">{label}</span>
-      {children}
-    </label>
-  )
-}
-
-function Check({ name, label }: { name: string; label: string }) {
-  return (
-    <label className="flex items-center gap-2 text-sm text-foreground">
-      <input type="checkbox" name={name} className="h-4 w-4 rounded border-border" />
-      {label}
-    </label>
   )
 }

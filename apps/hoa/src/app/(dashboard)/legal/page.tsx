@@ -1,6 +1,5 @@
 import Link from 'next/link'
-import { BookOpen, CalendarClock, ChevronRight, ExternalLink, Plus, Scale, Settings, Sparkles } from 'lucide-react'
-import { format } from 'date-fns'
+import { BookOpen, ChevronRight, Scale, Sparkles } from 'lucide-react'
 import {
   Alert,
   Badge,
@@ -10,255 +9,169 @@ import {
   CardHeader,
   CardTitle,
   EmptyState,
+  LoadFailed,
+  Page,
 } from '@homeowner-portal/ui'
-import {
-  getStateLawSummary,
-  listRecentUpdates,
-  type LawUpdateRow,
-  type SupportedState,
-} from '@/lib/state-law'
+import { getStateLawSummary, listRecentUpdates } from '@/lib/state-law'
+import { tryLoad } from '@/lib/load-or-fail'
+import { lawCategoryLabel, STATE_CODE_LABELS, STATE_NAMES } from '@/lib/status/knowledge'
+import { LegalDisclaimer } from '@/components/knowledge/LegalDisclaimer'
+import { LawUpdateItem } from '@/components/knowledge/LawUpdateItem'
+import { LegalTabs } from '@/components/knowledge/LegalTabs'
 
 export const metadata = { title: 'State Law & Compliance' }
 
-const STATE_NAME: Record<SupportedState, string> = {
-  GA: 'Georgia',
-  FL: 'Florida',
-  CA: 'California',
-  TX: 'Texas',
-}
-
-const STATE_CODE_LABEL: Record<SupportedState, string> = {
-  GA: 'O.C.G.A. Title 44, Ch. 3 (POA / Condominium acts)',
-  FL: 'Florida Statutes Ch. 720 (HOA Act) + Ch. 718 (Condominium Act)',
-  CA: 'Davis-Stirling Common Interest Development Act (Civ. Code Sections 4000–6150)',
-  TX: 'Texas Property Code Ch. 209 (Residential Property Owners Protection Act)',
-}
-
-const CATEGORY_LABEL: Record<string, string> = {
-  meetings: 'Meetings & elections',
-  assessments: 'Assessments & dues',
-  fines: 'Fines & enforcement',
-  foreclosure: 'Liens & foreclosure',
-  records: 'Records & access',
-  architectural: 'Architectural review',
-  fair_housing: 'Fair housing',
-  amendments: 'Amendments & governance',
-  uncategorized: 'Other',
-}
-
 export default async function LegalLandingPage() {
-  const summary = await getStateLawSummary()
-  const updates = summary.state ? await listRecentUpdates(summary.state, 10) : []
+  const summaryResult = await tryLoad('state law summary', () => getStateLawSummary())
+  const summary = summaryResult.ok ? summaryResult.data : null
+  const updatesResult =
+    summary?.state != null
+      ? await tryLoad('recent law updates', () => listRecentUpdates(summary.state!, 10))
+      : null
+
+  const ready = summary?.state != null
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Scale className="h-5 w-5 text-primary" />
-            <h1>State Law & Compliance</h1>
-          </div>
-          <p className="text-sm text-muted">
-            Statute Q&A grounded in your state's HOA law — with citations.
-          </p>
-        </div>
-      </header>
+    <Page
+      linkAs={Link}
+      title="State law"
+      description="Your state’s HOA statutes, a Q&A assistant that cites them, and curated notes on recent changes."
+      meta={summary?.state ? <Badge variant="neutral">{STATE_NAMES[summary.state]}</Badge> : null}
+      tabs={<LegalTabs current="/legal" />}
+      actions={
+        ready ? (
+          <Button asChild>
+            <Link href="/legal/ask">
+              <Sparkles aria-hidden />
+              Ask a question
+            </Link>
+          </Button>
+        ) : null
+      }
+    >
+      <LegalDisclaimer>
+        This is the actual state code plus AI answers grounded in it. It does not create an attorney–client
+        relationship; for decisions specific to your association, consult a licensed attorney.
+      </LegalDisclaimer>
 
-      <Alert variant="info" title="Informational, not legal advice">
-        <span className="block text-sm">
-          What you see here is the actual state code text plus AI-summarized
-          answers grounded in those excerpts. It is <strong>not</strong> legal
-          advice and does not create an attorney–client relationship.
-          For decisions specific to your association, consult a licensed
-          attorney in your state.
-        </span>
-      </Alert>
-
-      {!summary.state ? (
+      {!summary ? (
+        <LoadFailed what="state law coverage" />
+      ) : !summary.state ? (
         <EmptyState
-          icon={<Scale className="h-10 w-10" aria-hidden />}
-          title="State not supported yet"
+          icon={<Scale aria-hidden />}
+          title="Your state isn’t covered yet"
           description={
             summary.associationName
-              ? `${summary.associationName} isn't in one of the v1 states (GA, FL, CA, TX). Coverage expands in v1.5.`
-              : 'Set up your association in onboarding to see state-specific law.'
+              ? `${summary.associationName} isn’t in one of the covered states (GA, FL, CA, TX). Coverage expands in v1.5.`
+              : 'Set up your association to see the law for its state.'
+          }
+          action={
+            summary.associationName ? null : (
+              <Button asChild>
+                <Link href="/onboarding/setup">Finish setup</Link>
+              </Button>
+            )
           }
         />
       ) : (
         <>
-          <Card variant="elevated">
+          <Card>
             <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <BookOpen className="h-4 w-4 text-primary" />
-                  {STATE_NAME[summary.state]} HOA law
-                </CardTitle>
-                <Badge variant="outline">{summary.state}</Badge>
-              </div>
-              <p className="text-xs text-muted">
-                {STATE_CODE_LABEL[summary.state]}
-              </p>
+              <CardTitle as="h2">{STATE_NAMES[summary.state]} HOA law</CardTitle>
+              <p className="text-sm text-muted">{STATE_CODE_LABELS[summary.state]}</p>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap items-center gap-6 text-sm">
-                <Stat label="Statute sections indexed" value={summary.statuteCount} />
-                <Stat label="Categories" value={summary.categories.length} />
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <Button asChild>
-                  <Link href="/legal/ask">
-                    <Sparkles className="h-4 w-4" />
-                    Ask a state-law question
-                  </Link>
-                </Button>
-                {summary.statuteCount > 0 ? (
-                  <Button asChild variant="outline">
-                    <Link href="/legal/browse">
-                      <BookOpen className="h-4 w-4" />
-                      Browse the statutes
-                    </Link>
-                  </Button>
-                ) : null}
-                <Button asChild variant="outline">
-                  <Link href="/legal/updates/new">
-                    <Plus className="h-4 w-4" />
-                    Post update
-                  </Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link href="/legal/updates">
-                    <Settings className="h-4 w-4" />
-                    Manage updates
-                  </Link>
-                </Button>
-              </div>
+            <CardContent>
+              <dl className="grid grid-cols-3 gap-4 border-t border-border pt-4">
+                <Stat label="Sections indexed" value={summary.statuteCount} />
+                <Stat label="Topics" value={summary.categories.length} />
+                <Stat label="Live updates" value={summary.recentUpdateCount} />
+              </dl>
             </CardContent>
           </Card>
 
           {summary.statuteCount === 0 ? (
-            <Alert variant="warning" title="State-law content not loaded yet">
-              <span className="block text-sm">
-                We don't have {STATE_NAME[summary.state]}'s HOA statutes
-                available for your association yet. Contact support to load
-                them — Q&A and browsing will turn on once they're in place.
-              </span>
+            <Alert variant="warning" title="Statutes aren’t loaded yet">
+              We don’t have {STATE_NAMES[summary.state]}’s HOA statutes loaded for your association yet. Contact
+              support to load them — Q&amp;A and browsing turn on once they’re in place.
             </Alert>
           ) : null}
 
-          {updates.length > 0 ? (
-            <section className="space-y-2">
-              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted">
-                <CalendarClock className="h-3.5 w-3.5" />
-                Recent updates
+          <section aria-labelledby="updates-heading" className="space-y-3">
+            <div className="flex items-baseline justify-between gap-4">
+              <h2 id="updates-heading" className="text-lg font-semibold text-foreground">
+                Recent law updates
               </h2>
-              <ul className="space-y-2">
-                {updates.map((u) => (
-                  <UpdateCard key={u.id} update={u} />
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {summary.categories.length > 0 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Browse by topic</CardTitle>
-              </CardHeader>
-              <CardContent>
+              <Link href="/legal/updates" className="text-sm font-medium text-primary hover:underline">
+                Manage updates
+              </Link>
+            </div>
+            {!updatesResult || !updatesResult.ok ? (
+              <LoadFailed what="recent law updates" />
+            ) : updatesResult.data.length === 0 ? (
+              <EmptyState
+                variant="dashed"
+                title="No recent updates"
+                description="When a change in state HOA law affects your association, a curated note appears here."
+                action={
+                  <Button asChild variant="secondary">
+                    <Link href="/legal/updates/new">Post an update</Link>
+                  </Button>
+                }
+              />
+            ) : (
+              <Card>
                 <ul className="divide-y divide-border">
-                  {summary.categories.map((c) => (
-                    <li key={c.category}>
-                      <Link
-                        href={`/legal/browse?category=${encodeURIComponent(c.category)}`}
-                        className="flex items-center justify-between gap-3 py-2 transition-colors hover:text-primary"
-                      >
-                        <span className="text-sm text-foreground">
-                          {CATEGORY_LABEL[c.category] ?? c.category}
-                        </span>
-                        <div className="flex items-center gap-2 text-xs text-muted">
-                          <span className="font-mono">{c.count}</span>
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        </div>
-                      </Link>
+                  {updatesResult.data.map((u) => (
+                    <li key={u.id}>
+                      <LawUpdateItem update={u} />
                     </li>
                   ))}
                 </ul>
-              </CardContent>
+              </Card>
+            )}
+          </section>
+
+          {summary.categories.length > 0 ? (
+            <Card>
+              <CardHeader
+                actions={
+                  <Link href="/legal/browse" className="text-sm font-medium text-primary hover:underline">
+                    All statutes
+                  </Link>
+                }
+              >
+                <CardTitle as="h2">Browse by topic</CardTitle>
+              </CardHeader>
+              <ul className="divide-y divide-border border-t border-border">
+                {summary.categories.map((c) => (
+                  <li key={c.category}>
+                    <Link
+                      href={`/legal/browse?category=${encodeURIComponent(c.category)}`}
+                      className="group flex items-center gap-3 px-5 py-3 text-sm transition-colors duration-fast hover:bg-subtle"
+                    >
+                      <BookOpen className="size-4 shrink-0 text-muted" aria-hidden />
+                      <span className="flex-1 text-foreground">{lawCategoryLabel(c.category)}</span>
+                      <span className="num text-muted">
+                        {c.count} {c.count === 1 ? 'section' : 'sections'}
+                      </span>
+                      <ChevronRight className="size-4 text-muted" aria-hidden />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </Card>
           ) : null}
         </>
       )}
-    </div>
+    </Page>
   )
 }
 
-function Stat({ label, value }: { label: string; value: number | string }) {
+function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div>
-      <p className="text-2xl font-semibold text-foreground">{value}</p>
-      <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
+      <dt className="text-xs text-muted">{label}</dt>
+      <dd className="num mt-0.5 text-2xl font-semibold text-foreground">{value.toLocaleString()}</dd>
     </div>
-  )
-}
-
-function UpdateCard({ update }: { update: LawUpdateRow }) {
-  return (
-    <li>
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <CardTitle className="text-base">{update.headline}</CardTitle>
-            {update.effective_date ? (
-              <Badge variant="warning" size="sm">
-                Effective {format(new Date(update.effective_date), 'PP')}
-              </Badge>
-            ) : null}
-          </div>
-          {update.category ? (
-            <p className="text-xs text-muted">{update.category}</p>
-          ) : null}
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="whitespace-pre-wrap text-sm text-foreground">{update.summary}</p>
-
-          {update.action_items && update.action_items.length > 0 ? (
-            <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                Action items
-              </p>
-              <ul className="list-disc space-y-1 pl-5 text-sm text-foreground">
-                {update.action_items.map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
-            <span>Posted {format(new Date(update.posted_at), 'PP')}</span>
-            {update.source_url ? (
-              <a
-                href={update.source_url}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="inline-flex items-center gap-1 text-primary hover:underline"
-              >
-                Source
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            ) : null}
-            {update.related_statute_id ? (
-              <Link
-                href={`/legal/browse/${update.related_statute_id}`}
-                className="text-primary hover:underline"
-              >
-                Related statute →
-              </Link>
-            ) : null}
-          </div>
-        </CardContent>
-      </Card>
-    </li>
   )
 }

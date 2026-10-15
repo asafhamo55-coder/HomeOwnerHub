@@ -1,7 +1,5 @@
-import Link from 'next/link'
 import { redirect as nextRedirect } from 'next/navigation'
-import { Alert } from '@homeowner-portal/ui'
-import { LoginMethods } from './LoginMethods'
+import { LoginView } from './LoginView'
 
 export const metadata = { title: 'Sign in' }
 
@@ -22,27 +20,5 @@ export default async function LoginPage({
     nextRedirect(target)
   }
 
-  return (
-    <div className="space-y-5">
-      {reason === 'session-expired' ? (
-        <Alert variant="warning" title="Your session expired">
-          Sessions stay open for up to 24 hours. Please sign in again to pick up
-          where you left off.
-        </Alert>
-      ) : null}
-
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-foreground">Sign in</h2>
-        <p className="text-sm text-muted">
-          Sign in with your password, or have a one-time link emailed to you.
-          New here?{' '}
-          <Link href="/signup" className="font-medium text-primary hover:underline">
-            Create an account
-          </Link>
-          .
-        </p>
-      </div>
-      <LoginMethods redirectTo={redirect} />
-    </div>
-  )
+  return <LoginView redirect={redirect} reason={reason} />
 }

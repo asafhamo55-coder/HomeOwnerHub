@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Send } from 'lucide-react'
-import { Button, Input, Select } from '@homeowner-portal/ui'
+import { Alert, Button, Field, Fieldset, Input, Select } from '@homeowner-portal/ui'
 import {
   inviteMember,
   type MemberRole,
@@ -67,19 +67,16 @@ export function InviteMemberForm({ properties, role }: { properties: PropertyOpt
 
   return (
     <form action={handleSubmit} className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block space-y-1">
-          <span className="text-sm font-medium">Email <span className="text-destructive">*</span></span>
-          <Input name="email" type="email" required placeholder="name@example.com" />
-        </label>
-        <label className="block space-y-1">
-          <span className="text-sm font-medium">Name (optional)</span>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Email" required>
+          <Input name="email" type="email" required placeholder="name@example.com" autoComplete="off" />
+        </Field>
+        <Field label="Name" optional>
           <Input name="full_name" placeholder="Jane Smith" />
-        </label>
+        </Field>
       </div>
 
-      <label className="block space-y-1">
-        <span className="text-sm font-medium">Role <span className="text-destructive">*</span></span>
+      <Field label="Role" required hint={ROLES.find((r) => r.value === 'resident')?.help}>
         <Select name="role" required defaultValue="resident">
           {ROLES.map((r) => (
             <option key={r.value} value={r.value}>
@@ -87,61 +84,51 @@ export function InviteMemberForm({ properties, role }: { properties: PropertyOpt
             </option>
           ))}
         </Select>
-        <p className="text-xs text-muted">
-          {ROLES.find((r) => r.value === 'resident')?.help} (Default — pick another above.)
-        </p>
-      </label>
+      </Field>
 
-      <div className="space-y-3 rounded-lg border border-dashed border-border bg-muted/10 p-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted">
-          Link to a property (optional)
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block space-y-1">
-            <span className="text-sm font-medium">Property</span>
+      <Fieldset
+        legend="Link to a property"
+        hint="Optional. Also records this person as a resident of the property, shown under their name in the list."
+        className="rounded-lg border border-border bg-subtle p-4"
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Property">
             <Select value={propertyId} onValueChange={setPropertyId}>
-              <option value="">— none —</option>
+              <option value="">None</option>
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.address}{p.unit_number ? ` · ${p.unit_number}` : ''}
+                  {p.address}
+                  {p.unit_number ? ` · ${p.unit_number}` : ''}
                 </option>
               ))}
             </Select>
-          </label>
-          <label className="block space-y-1">
-            <span className="text-sm font-medium">Residency role</span>
+          </Field>
+          <Field label="Residency role">
             <Select
               value={residencyRole}
               onValueChange={(v) => setResidencyRole(v as ResidencyRole)}
               disabled={!propertyId}
             >
               {RESIDENCY_ROLES.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
               ))}
             </Select>
-          </label>
+          </Field>
         </div>
-        <p className="text-xs text-muted">
-          If selected, also creates a property-residents row matching this email
-          to the property. The Members list will show the link under "Linked to:".
-        </p>
-      </div>
+      </Fieldset>
 
       {error ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <Alert variant="error" title="Couldn’t send the invitation">
           {error}
-        </p>
+        </Alert>
       ) : null}
-      {success ? (
-        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          {success}
-        </p>
-      ) : null}
+      {success ? <Alert variant="success">{success}</Alert> : null}
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={isPending}>
-          <Send className="h-4 w-4" />
-          {isPending ? 'Sending…' : 'Send invitation'}
+        <Button type="submit" loading={isPending} icon={<Send aria-hidden />}>
+          Send invitation
         </Button>
       </div>
     </form>
