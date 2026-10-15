@@ -36,10 +36,10 @@ export function CancelRfpButton({ rfpId }: { rfpId: string }) {
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <Button variant="outline" size="sm" onClick={handleClick} disabled={isPending}>
+      <Button variant="destructive-ghost" onClick={handleClick} loading={isPending}>
         {isPending ? 'Cancelling…' : 'Cancel RFP'}
       </Button>
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {error ? <p className="text-xs text-danger">{error}</p> : null}
     </div>
   )
 }

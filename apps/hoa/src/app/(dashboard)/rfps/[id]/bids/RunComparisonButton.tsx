@@ -25,11 +25,10 @@ export function RunComparisonButton({ rfpId }: { rfpId: string }) {
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <Button size="sm" onClick={handleClick} disabled={isPending}>
-        <Sparkles className="h-4 w-4" />
-        {isPending ? 'Comparing…' : 'Run W23 comparison'}
+      <Button onClick={handleClick} loading={isPending} icon={<Sparkles aria-hidden />}>
+        {isPending ? 'Comparing…' : 'Compare bids'}
       </Button>
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {error ? <p className="text-xs text-danger">{error}</p> : null}
     </div>
   )
 }

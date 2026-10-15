@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button, Input, Textarea } from '@homeowner-portal/ui'
+import { Alert, Button, Field, Input, Textarea } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { updateRfp } from '@/lib/rfps'
 
@@ -78,71 +78,47 @@ export function RfpEditForm({
 
   return (
     <form action={handleSubmit} className="space-y-4">
-      <label className="block space-y-1">
-        <span className="text-sm font-medium text-foreground">Title</span>
+      <Field label="Title" required>
         <Input name="title" defaultValue={initialTitle} required />
-      </label>
+      </Field>
 
-      <div className="space-y-1">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium text-foreground">Scope</span>
+      <Field
+        label="Scope"
+        required
+        labelAside={
           <AiRewriteButton
             textareaRef={scopeRef}
             context="RFP scope of work — preserve dates, dollar amounts, deadlines, and deliverables"
             disabled={isPending}
           />
-        </div>
-        <Textarea
-          ref={scopeRef}
-          name="scope"
-          rows={8}
-          defaultValue={initialScope}
-          required
-        />
+        }
+      >
+        <Textarea ref={scopeRef} name="scope" rows={8} defaultValue={initialScope} required />
+      </Field>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Budget minimum" optional>
+          <Input name="budgetMin" inputMode="numeric" prefix="$" defaultValue={initialBudgetMin ?? ''} />
+        </Field>
+        <Field label="Budget maximum" optional>
+          <Input name="budgetMax" inputMode="numeric" prefix="$" defaultValue={initialBudgetMax ?? ''} />
+        </Field>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-foreground">Budget min ($)</span>
-          <Input
-            name="budgetMin"
-            inputMode="numeric"
-            defaultValue={initialBudgetMin ?? ''}
-          />
-        </label>
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-foreground">Budget max ($)</span>
-          <Input
-            name="budgetMax"
-            inputMode="numeric"
-            defaultValue={initialBudgetMax ?? ''}
-          />
-        </label>
-      </div>
-
-      <label className="block space-y-1">
-        <span className="text-sm font-medium text-foreground">Submission deadline</span>
-        <Input
-          name="submissionDeadline"
-          type="datetime-local"
-          defaultValue={initialDeadlineLocal}
-        />
-      </label>
+      <Field label="Bids due">
+        <Input name="submissionDeadline" type="datetime-local" defaultValue={initialDeadlineLocal} />
+      </Field>
 
       {error ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <Alert variant="error" title="Couldn’t save the draft">
           {error}
-        </p>
+        </Alert>
       ) : null}
-      {success ? (
-        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          Changes saved.
-        </p>
-      ) : null}
+      {success ? <Alert variant="success">Changes saved.</Alert> : null}
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={isPending}>
-          {isPending ? 'Saving…' : 'Save changes'}
+        <Button type="submit" variant="secondary" loading={isPending}>
+          Save draft
         </Button>
       </div>
     </form>

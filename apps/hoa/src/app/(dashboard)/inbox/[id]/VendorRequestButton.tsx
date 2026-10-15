@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Alert, Button, Input } from '@homeowner-portal/ui'
+import { Alert, Button, Dialog, DialogContent, Field, Fieldset, Input, cn } from '@homeowner-portal/ui'
 import { draftVendorRequest } from '@/lib/inbox/draft/actions'
 import type { VendorRequestIntent } from '@homeowner-portal/workflows'
 import type { ThreadDraft } from '@/lib/inbox/queries'
@@ -44,7 +44,7 @@ export function VendorRequestButton({
 
   return (
     <div className="max-w-56 space-y-1 text-right">
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+      <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
         Request from vendor
       </Button>
       {open ? (
@@ -112,81 +112,97 @@ function VendorRequestDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md space-y-3 rounded-md border border-border bg-background p-4 text-left">
-        <p className="text-sm font-semibold text-foreground">What do you need from this vendor?</p>
-
-        <div className="grid grid-cols-2 gap-2">
-          {INTENTS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setIntent(option.value)}
-              className={`rounded-md border p-2 text-left text-xs ${
-                intent === option.value
-                  ? 'border-primary bg-primary/10 text-foreground'
-                  : 'border-border text-muted'
-              }`}
-            >
-              <span className="block font-medium text-foreground">{option.label}</span>
-              <span className="block">{option.hint}</span>
-            </button>
-          ))}
-        </div>
-
-        {intent === 'other' ? (
-          <label className="block space-y-1">
-            <span className="text-xs text-muted">What should we ask them to do?</span>
-            <Input
-              value={instruction}
-              onChange={(event) => setInstruction(event.target.value)}
-              placeholder="e.g. find out if it's the roof or their own plumbing"
-            />
-          </label>
-        ) : null}
-
-        <label className="block space-y-1">
-          <span className="text-xs text-muted">Send to</span>
-          <Input
-            value={to}
-            onChange={(event) => setTo(event.target.value)}
-            placeholder="vendor@example.com"
-          />
-        </label>
-
-        <label className="block space-y-1">
-          <span className="text-xs text-muted">Needed by (optional)</span>
-          <Input
-            type="date"
-            value={neededBy}
-            onChange={(event) => setNeededBy(event.target.value)}
-          />
-        </label>
-
-        <p className="text-xs text-muted">
-          The resident&rsquo;s email is not forwarded. This starts a separate conversation with the
-          vendor, so a reply-all can never reach the owner.
-        </p>
-
-        {error ? <Alert variant="error">{error}</Alert> : null}
-        {skipped.length > 0 ? (
-          <Alert variant="warning">
-            Drafted, but these files did not fit the 15MB limit and are not attached:{' '}
-            {skipped.join(', ')}
-          </Alert>
-        ) : null}
-
-        <div className="flex justify-end gap-2">
-          <Button size="sm" variant="outline" onClick={onClose} disabled={pending}>
-            {skipped.length > 0 ? 'Close' : 'Cancel'}
-          </Button>
-          {skipped.length === 0 ? (
-            <Button size="sm" loading={pending} onClick={submit}>
-              Draft the email
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        if (!next && !pending) onClose()
+      }}
+    >
+      <DialogContent
+        size="md"
+        title="Request from a vendor"
+        description="Drafts a work order from this thread. You review it before anything is sent."
+        footer={
+          <>
+            <Button variant="ghost" onClick={onClose} disabled={pending}>
+              {skipped.length > 0 ? 'Close' : 'Cancel'}
             </Button>
+            {skipped.length === 0 ? (
+              <Button loading={pending} onClick={submit}>
+                Draft the email
+              </Button>
+            ) : null}
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Fieldset legend="What do you need from this vendor?">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup">
+              {INTENTS.map((option) => {
+                const selected = intent === option.value
+                return (
+                  <label
+                    key={option.value}
+                    className={cn(
+                      'flex cursor-pointer gap-2.5 rounded-lg border p-3 text-left transition-colors duration-fast focus-within:ring-2 focus-within:ring-ring',
+                      selected ? 'border-primary/50 bg-primary-subtle' : 'border-border hover:bg-subtle',
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="vendor-request-intent"
+                      value={option.value}
+                      checked={selected}
+                      onChange={() => setIntent(option.value)}
+                      className="mt-0.5 size-4 shrink-0 accent-primary"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-foreground">{option.label}</span>
+                      <span className="block text-xs text-muted">{option.hint}</span>
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+          </Fieldset>
+
+          {intent === 'other' ? (
+            <Field label="What should we ask them to do?">
+              <Input
+                value={instruction}
+                onChange={(event) => setInstruction(event.target.value)}
+                placeholder="e.g. find out if it's the roof or their own plumbing"
+              />
+            </Field>
+          ) : null}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Send to" hint="Separate several addresses with commas.">
+              <Input
+                type="email"
+                value={to}
+                onChange={(event) => setTo(event.target.value)}
+                placeholder="vendor@example.com"
+              />
+            </Field>
+            <Field label="Needed by" optional>
+              <Input type="date" value={neededBy} onChange={(event) => setNeededBy(event.target.value)} />
+            </Field>
+          </div>
+
+          <p className="text-xs text-muted">
+            The resident&rsquo;s email is not forwarded. This starts a separate conversation with the
+            vendor, so a reply-all can never reach the owner.
+          </p>
+
+          {error ? <Alert variant="error">{error}</Alert> : null}
+          {skipped.length > 0 ? (
+            <Alert variant="warning" title="Drafted — some files weren’t attached">
+              These files didn’t fit the 15MB limit: {skipped.join(', ')}
+            </Alert>
           ) : null}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

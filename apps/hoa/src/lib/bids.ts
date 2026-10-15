@@ -153,7 +153,7 @@ export async function getLatestBidComparison(
   rfpId: string,
 ): Promise<BidComparisonRow | null> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('bid_comparisons' as never)
     .select(
       'id, generated_at, ai_workflow_id, comparison_table, flagged_exclusions, flagged_additions, payment_term_diffs, warranty_diffs, recommendation_memo',
@@ -162,6 +162,9 @@ export async function getLatestBidComparison(
     .order('generated_at', { ascending: false })
     .limit(1)
     .maybeSingle()
+  // Throw rather than return null: "no comparison run yet" and "couldn't
+  // read the comparison" must look different (the page uses tryLoad).
+  if (error) throw new Error(`bid_comparisons: ${error.code ?? 'error'}`)
   return data as unknown as BidComparisonRow | null
 }
 

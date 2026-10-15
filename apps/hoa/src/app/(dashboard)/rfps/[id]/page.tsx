@@ -3,7 +3,6 @@ import { notFound } from 'next/navigation'
 import { FileSpreadsheet, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import {
-  BackLink,
   Badge,
   Button,
   Card,
@@ -12,9 +11,12 @@ import {
   CardTitle,
   KeyValue,
   KeyValueList,
-  PageHeader,
+  Page,
+  StatusBadge,
 } from '@homeowner-portal/ui'
-import { getRfp, type RfpStatus } from '@/lib/rfps'
+import { getRfp } from '@/lib/rfps'
+import { RFP_STATUS_LABELS, RFP_STATUS_TONES } from '@/lib/status/vendors'
+import { formatBudget } from '@/components/vendors/format'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import {
   listInvitableVendors,
@@ -26,14 +28,6 @@ import { CancelRfpButton } from './CancelRfpButton'
 import { InviteVendorsPanel } from './InviteVendorsPanel'
 
 export const metadata = { title: 'RFP' }
-
-const STATUS_VARIANT: Record<RfpStatus, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
-  draft: 'outline',
-  open: 'success',
-  evaluation: 'warning',
-  awarded: 'success',
-  cancelled: 'destructive',
-}
 
 export default async function RfpDetailPage({
   params,
@@ -60,54 +54,45 @@ export default async function RfpDetailPage({
       ])
     : [[], []]
 
+  const budget = formatBudget(rfp.budget_min, rfp.budget_max)
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <BackLink href="/rfps" label="All RFPs" />
-
-      <PageHeader
-        title={
-          <>
-            <span className="block font-mono text-xs font-normal text-muted">
-              {rfp.rfp_number}
-            </span>
-            {rfp.title}
-          </>
-        }
-        description={
-          <>
-            Deadline {format(new Date(rfp.submission_deadline), 'PPp')}
-            {rfp.budget_min || rfp.budget_max ? (
-              <> · {formatBudget(rfp.budget_min, rfp.budget_max)}</>
-            ) : null}
-          </>
-        }
-        actions={
-          <>
-            {rfp.ai_generated ? (
-              <Badge variant="outline">
-                <Sparkles className="mr-1 h-3 w-3" />
-                AI draft
-              </Badge>
-            ) : null}
-            <Badge variant={STATUS_VARIANT[rfp.status]}>{rfp.status}</Badge>
-            {rfp.status !== 'draft' ? (
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/rfps/${rfp.id}/bids`}>
-                  <FileSpreadsheet className="h-4 w-4" />
-                  View bids
-                </Link>
-              </Button>
-            ) : null}
-            {isDraft ? <PublishRfpButton rfpId={rfp.id} /> : null}
-            {isCancellable ? <CancelRfpButton rfpId={rfp.id} /> : null}
-          </>
-        }
-      />
-
+    <Page
+      title={rfp.title}
+      meta={
+        <>
+          <StatusBadge status={rfp.status} tones={RFP_STATUS_TONES} labels={RFP_STATUS_LABELS} />
+          {rfp.ai_generated ? (
+            <Badge variant="ai" icon={<Sparkles aria-hidden />}>
+              AI draft
+            </Badge>
+          ) : null}
+        </>
+      }
+      description={
+        <span className="num">
+          Bids due {format(new Date(rfp.submission_deadline), 'PPp')}
+          {budget ? ` · Budget ${budget}` : ''}
+        </span>
+      }
+      breadcrumbs={[{ label: 'RFPs', href: '/rfps' }, { label: rfp.rfp_number }]}
+      linkAs={Link}
+      actions={
+        <>
+          {isCancellable ? <CancelRfpButton rfpId={rfp.id} /> : null}
+          {isDraft ? <PublishRfpButton rfpId={rfp.id} /> : null}
+          {rfp.status !== 'draft' ? (
+            <Button asChild icon={<FileSpreadsheet aria-hidden />}>
+              <Link href={`/rfps/${rfp.id}/bids`}>View bids</Link>
+            </Button>
+          ) : null}
+        </>
+      }
+    >
       {isDraft ? (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Edit draft</CardTitle>
+          <CardHeader className="pb-4">
+            <CardTitle as="h2">Edit draft</CardTitle>
           </CardHeader>
           <CardContent>
             <RfpEditForm
@@ -122,64 +107,60 @@ export default async function RfpDetailPage({
         </Card>
       ) : (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Scope</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle as="h2">Scope</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="whitespace-pre-wrap text-sm text-foreground">{rfp.scope}</p>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{rfp.scope}</p>
           </CardContent>
         </Card>
       )}
 
       {isOpen ? (
-        <InviteVendorsPanel
-          rfpId={rfp.id}
-          invitableVendors={invitableVendors}
-          invitations={invitations}
-        />
+        <InviteVendorsPanel rfpId={rfp.id} invitableVendors={invitableVendors} invitations={invitations} />
       ) : null}
 
       {rfp.line_items.length > 0 ? (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              Line items ({rfp.line_items.length})
-            </CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle as="h2">Line items</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {rfp.line_items.map((li) => (
-                <li key={li.id} className="rounded-md border border-border bg-foreground/10 p-3">
+          <ul className="divide-y divide-border border-t border-border">
+            {rfp.line_items.map((li) => (
+              <li key={li.id} className="flex items-start justify-between gap-4 px-5 py-3">
+                <div className="min-w-0">
                   <p className="text-sm text-foreground">{li.description}</p>
-                  {li.quantity != null || li.unit || li.notes ? (
-                    <p className="mt-1 text-xs text-muted">
-                      {li.quantity != null ? `${li.quantity}` : ''}
-                      {li.unit ? ` ${li.unit}` : ''}
-                      {(li.quantity != null || li.unit) && li.notes ? ' · ' : ''}
-                      {li.notes ?? ''}
-                    </p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
+                  {li.notes ? <p className="mt-0.5 text-xs text-muted">{li.notes}</p> : null}
+                </div>
+                {li.quantity != null || li.unit ? (
+                  <span className="num shrink-0 text-sm text-foreground-secondary">
+                    {li.quantity != null ? li.quantity : ''}
+                    {li.unit ? ` ${li.unit}` : ''}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
         </Card>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2">
         {rfp.evaluation_criteria && rfp.evaluation_criteria.length > 0 ? (
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Evaluation criteria</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle as="h2">Evaluation criteria</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-1 text-sm">
+              <ul className="space-y-3 text-sm">
                 {rfp.evaluation_criteria.map((c, i) => (
-                  <li key={`${c.criterion}-${i}`} className="flex justify-between gap-3">
-                    <span className="text-foreground">{c.criterion}</span>
-                    <span className="font-mono text-xs text-muted">
-                      {c.weight}%
-                    </span>
+                  <li key={`${c.criterion}-${i}`} className="space-y-1">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-foreground">{c.criterion}</span>
+                      <span className="num text-foreground-secondary">{c.weight}%</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-subtle" aria-hidden>
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, c.weight)}%` }} />
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -189,28 +170,26 @@ export default async function RfpDetailPage({
 
         {insurance.length > 0 ? (
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Insurance requirements</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle as="h2">Insurance requirements</CardTitle>
             </CardHeader>
             <CardContent>
               <KeyValueList>
                 {insurance.map(([k, v]) => (
-                  <KeyValue key={k} label={k} value={formatInsuranceValue(v)} />
+                  <KeyValue key={k} label={humanizeKey(k)} value={formatInsuranceValue(v)} />
                 ))}
               </KeyValueList>
             </CardContent>
           </Card>
         ) : null}
       </div>
-    </div>
+    </Page>
   )
 }
 
-function formatBudget(min: number | null, max: number | null): string {
-  if (min && max) return `$${min.toLocaleString()}–$${max.toLocaleString()}`
-  if (max) return `up to $${max.toLocaleString()}`
-  if (min) return `from $${min.toLocaleString()}`
-  return ''
+function humanizeKey(k: string): string {
+  const s = k.replace(/_/g, ' ').replace(/\bgl\b/i, 'GL').trim()
+  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 function formatInsuranceValue(v: unknown): string {
