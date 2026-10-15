@@ -1,6 +1,8 @@
 'use client'
 
+import * as Sentry from '@sentry/nextjs'
 import Link from 'next/link'
+import { useEffect } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { Button, Card, CardContent } from '@homeowner-portal/ui'
 
@@ -14,9 +16,10 @@ export default function DashboardError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  // Surface to the console / Sentry but never to the user.
-  // eslint-disable-next-line no-console
-  console.error('[dashboard error]', error)
+  // Report to Sentry but never show the raw message to the user.
+  useEffect(() => {
+    Sentry.captureException(error, { tags: { boundary: 'dashboard' } })
+  }, [error])
 
   return (
     <div className="mx-auto max-w-xl py-12">

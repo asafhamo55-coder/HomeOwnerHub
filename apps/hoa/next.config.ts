@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next'
+import { withSentryConfig } from '@sentry/nextjs/config'
 
 // Security headers sent on every response. These are the standard set
 // browsers expect from production sites — without them, mobile Safari
@@ -76,6 +77,7 @@ const config: NextConfig = {
     '@homeowner-portal/ai',
     '@homeowner-portal/db',
     '@homeowner-portal/workflows',
+    '@homeowner-portal/observability',
   ],
   // pdfkit ships .afm font data files alongside its JS. Next.js's bundler
   // (both webpack and Turbopack) doesn't follow those data files, so a
@@ -100,4 +102,18 @@ const config: NextConfig = {
   },
 }
 
-export default config
+// Sentry build integration. Source maps are uploaded (and a release
+// created) only when SENTRY_AUTH_TOKEN is set; without it the build is
+// identical to a Sentry-less one. Runtime capture is configured separately
+// in src/instrumentation*.ts and is inert without a DSN.
+const hasSentryToken = Boolean(process.env.SENTRY_AUTH_TOKEN)
+
+export default withSentryConfig(config, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  telemetry: false,
+  sourcemaps: { disable: !hasSentryToken },
+  release: { create: hasSentryToken, finalize: hasSentryToken },
+})

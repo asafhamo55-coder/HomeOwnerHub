@@ -1,6 +1,8 @@
 'use client'
 
+import * as Sentry from '@sentry/nextjs'
 import Link from 'next/link'
+import { useEffect } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { Button, Card, CardContent } from '@homeowner-portal/ui'
 
@@ -11,8 +13,9 @@ export default function ResidentError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  // eslint-disable-next-line no-console
-  console.error('[resident error]', error)
+  useEffect(() => {
+    Sentry.captureException(error, { tags: { boundary: 'resident' } })
+  }, [error])
 
   return (
     <div className="mx-auto max-w-xl py-12">

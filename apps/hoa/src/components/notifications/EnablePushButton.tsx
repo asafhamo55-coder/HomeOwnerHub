@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Bell, BellOff, Share } from 'lucide-react'
 import { Alert, Button, useToast } from '@homeowner-portal/ui'
+import { reportError } from '@homeowner-portal/observability/report'
 import { applicationServerKey } from '@/lib/push-key'
 import {
   deletePushSubscription,
@@ -194,7 +195,12 @@ export function EnablePushButton({ storedDeviceCount }: Props) {
         // The browser is subscribed but we cannot store it, so no push
         // will ever arrive. Undo the browser side rather than leave a
         // dead subscription claiming to be "on".
-        await subscription.unsubscribe().catch(() => {})
+        // If this rollback also fails the browser keeps a subscription we
+        // have no row for — it will never receive anything, but it is a
+        // real inconsistency, so report it instead of dropping it.
+        await subscription.unsubscribe().catch(err => {
+          reportError(err, 'push.enable-rollback-unsubscribe')
+        })
         setError(result.error)
         setState('off')
         return
@@ -221,10 +227,20 @@ export function EnablePushButton({ storedDeviceCount }: Props) {
       const subscription = await registration?.pushManager.getSubscription()
       if (subscription) {
         const endpoint = subscription.endpoint
-        await subscription.unsubscribe().catch(() => {})
-        // Unsubscribing locally is what actually stops the notifications;
-        // the row is cleanup. A failed delete is worth surfacing but must
-        // not leave the UI claiming push is still on.
+        // Unsubscribing locally is what actually stops the notifications,
+        // so a failure here means they keep arriving: tell the user
+        // and report it rather than silently claiming push is off.
+        const unsubscribed = await subscription.unsubscribe().catch(err => {
+          reportError(err, 'push.disable-unsubscribe')
+          return false
+        })
+        if (!unsubscribed) {
+          setError('This browser did not turn notifications off. Try again, or turn them off in your browser settings.')
+          return
+        }
+        // With the browser unsubscribed, the row is cleanup. A failed
+        // delete is worth surfacing but must not leave the UI claiming
+        // push is still on.
         const result = await deletePushSubscription(endpoint)
         if (!result.ok) setError(result.error)
       }

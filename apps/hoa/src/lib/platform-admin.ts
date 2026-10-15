@@ -12,6 +12,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@homeowner-portal/db'
+import { reportError } from '@homeowner-portal/observability/report'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sendEmail, appUrl } from '@/lib/email'
 import { isUsStateCode } from '@/lib/us-states'
@@ -129,7 +130,13 @@ async function writeAudit(
   targetOrgId: string | null,
   payload: Record<string, unknown> | null,
 ): Promise<void> {
-  await db
+  // Supabase reports a failed insert in `error`, it does not throw — so
+  // this used to drop every failed audit write without a trace (and the
+  // `.catch(() => {})` at one call site never had anything to catch).
+  // Report it rather than throw: the mutation being audited has already
+  // committed, and failing the action now would tell the admin it didn't
+  // happen when it did. A missing audit row still has to be seen.
+  const { error } = await db
     .from('platform_admin_audit' as never)
     .insert({
       actor_user_id: actorUserId,
@@ -137,6 +144,13 @@ async function writeAudit(
       target_org_id: targetOrgId,
       payload,
     } as never)
+  if (error) {
+    reportError(error, 'platform-admin.audit-write', {
+      action,
+      target_org_id: targetOrgId,
+      code: error.code,
+    })
+  }
 }
 
 // ─── Reads ──────────────────────────────────────────────────────────
@@ -698,8 +712,9 @@ export async function getTenantPreview(
     }>()
   if (!org) return null
 
-  // Audit the view. Best-effort; failure shouldn't block the preview.
-  await writeAudit(db, userId, 'tenant.preview', orgId, null).catch(() => {})
+  // Audit the view. A failed write is reported inside writeAudit and does
+  // not block the preview.
+  await writeAudit(db, userId, 'tenant.preview', orgId, null)
 
   const start = new Date()
   start.setUTCDate(start.getUTCDate() - 29)

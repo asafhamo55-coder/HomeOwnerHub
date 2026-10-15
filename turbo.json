@@ -18,7 +18,14 @@
         "VONAGE_*",
         "HUGGINGFACE_API_TOKEN",
         "EMBEDDING_BASE_URL",
-        "EMBEDDING_MODEL"
+        "EMBEDDING_MODEL",
+        "SENTRY_DSN",
+        "SENTRY_AUTH_TOKEN",
+        "SENTRY_ORG",
+        "SENTRY_PROJECT",
+        "VERCEL_ENV",
+        "VERCEL_GIT_COMMIT_SHA",
+        "CI"
       ]
     },
     "dev": {
