@@ -65,6 +65,18 @@ export function installLocalEnv(): void {
   // (packages/workflows/src/W18-bank-reconciliation/index.ts:225-226).
   process.env.AI_API_KEY = 'local'
 
+  // Fixed, valid-SHAPED VAPID keypair (65-byte public / 32-byte private,
+  // base64url — the only thing packages/jobs/src/web-push.ts validates at
+  // setVapidDetails() time). Not a real keypair and never used to sign an
+  // actual push: no integration test seeds push_subscriptions, so
+  // sendPushToUsers' subs.length === 0 guard returns before any network
+  // call. Without this, ensureConfigured() logs "VAPID keys not set" on
+  // every ticket-notifications run, which the idempotency/row-count tests
+  // then see as an unexpected warning.
+  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY =
+    'RjYMBTDeoSdFqPiXw0iSeQiKHUNN55UET4noGvcW2ypSK4nAM7vlIso4dOVyucsbqYTA0k3r-xtOYqBU8Vq9PIU'
+  process.env.VAPID_PRIVATE_KEY = '9LFtPSQoPPX-ZZu2Wg4miklPC2hzIenG0NEWXPJ9uis'
+
   // Belt and braces: re-read what the app will actually resolve.
   assertLoopbackOrDie(process.env.NEXT_PUBLIC_SUPABASE_URL)
   assertLoopbackOrDie(process.env.SUPABASE_URL)

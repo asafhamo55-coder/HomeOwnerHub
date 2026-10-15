@@ -12,18 +12,19 @@
 //
 // WHY NOTHING HERE THROWS
 //
-// Migration 0053 creates push_subscriptions and it is NOT applied yet;
-// this code ships first, by design. A missing table makes PostgREST
-// answer 42P01 ("relation does not exist"), which surfaces as an error
-// object, not an exception — but a network-level failure DOES throw, so
-// every call is wrapped as well. Either way the caller gets a clean
-// { ok: false, error } and the settings page it is rendered on keeps
-// working. The opt-in UI turns that into "not available yet".
+// Migration 0053 is applied; push_subscriptions exists in production. The
+// defensive wrapping below predates that and is kept anyway: a
+// network-level failure DOES throw, so every call stays wrapped. Either
+// way the caller gets a clean { ok: false, error } and the settings page
+// it is rendered on keeps working. The opt-in UI turns that into "not
+// available yet".
 //
 // The `as never` casts are the house pattern for tables absent from the
 // generated Supabase types (see resident-tickets.ts, which does the same
-// for `tickets`). They go away when 0053 is applied and `pnpm gen:types`
-// is re-run — and not before, because gen:types reads the LIVE database.
+// for `tickets`). packages/db/src/database.types.ts was regenerated
+// against the local stack for packages/jobs/src/ticket-notifications.ts
+// and now carries push_subscriptions — removing this file's casts is left
+// for whoever next touches it.
 
 import { z } from 'zod'
 import { requireBoardOrAdmin } from '@/lib/auth'
@@ -54,10 +55,11 @@ const SaveSchema = z.object({
 const NOT_AVAILABLE =
   'Push notifications are not available yet — the notifications tables have not been set up.'
 
-// Both the "table missing" and the "column missing" codes. Either means
-// 0053 has not been applied, which is a deployment state rather than a
-// bug, so it gets the explanatory message instead of a raw PostgREST
-// string the user cannot act on.
+// Both the "table missing" and the "column missing" codes. Migration 0053
+// is applied in production, so neither should fire there; kept as a
+// defensive translation in case this ever runs against an environment
+// where it has not landed, so it reads as an explanatory message rather
+// than a raw PostgREST string the user cannot act on.
 function describeDbError(error: { code?: string; message: string }): string {
   if (error.code === '42P01' || error.code === '42703' || error.code === 'PGRST205') {
     return NOT_AVAILABLE
@@ -169,8 +171,8 @@ export async function deletePushSubscription(endpoint: string): Promise<ActionRe
  *
  * The opt-in card uses this to tell "push is on, and the server knows
  * about this device" apart from "the browser thinks it is subscribed but
- * nothing was ever stored" — which is exactly the state you land in
- * while 0053 is unapplied, and the state that would otherwise read as a
+ * nothing was ever stored" — a state a failed savePushSubscription call
+ * can still leave behind, and one that would otherwise read as a
  * silently broken feature.
  */
 export async function countMyPushDevices(): Promise<ActionResult<{ count: number }>> {

@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   public: {
     Tables: {
       adjusting_entries: {
@@ -3965,6 +3960,56 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          kind: string
+          link: string | null
+          organization_id: string
+          read_at: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          kind: string
+          link?: string | null
+          organization_id: string
+          read_at?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          kind?: string
+          link?: string | null
+          organization_id?: string
+          read_at?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_members: {
         Row: {
           invited_at: string | null
@@ -4644,6 +4689,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          announcements_last_viewed_at: string | null
           avatar_url: string | null
           created_at: string | null
           email: string | null
@@ -4651,6 +4697,7 @@ export type Database = {
           id: string
         }
         Insert: {
+          announcements_last_viewed_at?: string | null
           avatar_url?: string | null
           created_at?: string | null
           email?: string | null
@@ -4658,6 +4705,7 @@ export type Database = {
           id: string
         }
         Update: {
+          announcements_last_viewed_at?: string | null
           avatar_url?: string | null
           created_at?: string | null
           email?: string | null
@@ -4790,6 +4838,50 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "hoa_property_list_v"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_used_at: string | null
+          organization_id: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_used_at?: string | null
+          organization_id: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_used_at?: string | null
+          organization_id?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
             referencedColumns: ["id"]
           },
         ]
@@ -6355,6 +6447,7 @@ export type Database = {
           needs_attention: boolean | null
           notes: string | null
           oldest_due_date: string | null
+          on_waiting_list: boolean | null
           open_violations: number | null
           org_id: string | null
           owner_email: string | null
@@ -6451,25 +6544,9 @@ export type Database = {
           title: string
         }[]
       }
-      seed_queued_recipients: {
-        Args: { p_comm_id: string; p_count: number; p_org_id: string }
-        Returns: undefined
-      }
-      seed_recipients: {
-        Args: {
-          p_comm_id: string
-          p_count: number
-          p_org_id: string
-          p_sent_at: string
-        }
-        Returns: undefined
-      }
-      seed_replies: {
-        Args: { p_comm_id: string; p_count: number; p_org_id: string }
-        Returns: undefined
-      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      storage_object_org_id: { Args: { object_name: string }; Returns: string }
     }
     Enums: {
       action_item_priority: "low" | "normal" | "high"
@@ -6631,3 +6708,4 @@ export const Constants = {
     },
   },
 } as const
+

@@ -22,13 +22,12 @@
  *
  * WHY NOTHING HERE THROWS
  *
- * Migration 0053 is NOT applied yet; this code ships first, deliberately.
- * Until it runs, every query below fails with "relation does not exist".
- * These functions are called from the dashboard layout's header, which
- * wraps every single board-side page — so a throw here is not a broken
- * bell, it is a blank product. Reads degrade to an empty list or a zero
- * count, writes to `{ ok: false }`, and the bell renders as "no
- * notifications" until the migration lands.
+ * Migration 0053 is applied; `notifications` exists. The defensive
+ * degrade-to-empty behavior below predates that and is kept anyway: these
+ * functions are called from the dashboard layout's header, which wraps
+ * every single board-side page, so a throw here is not a broken bell, it
+ * is a blank product. Reads degrade to an empty list or a zero count,
+ * writes to `{ ok: false }`, on any failure — table-missing or otherwise.
  *
  * Note that supabase-js returns `{ data, error }` rather than throwing, so
  * the missing table is already handled by the `?? []` fallbacks. The
@@ -89,11 +88,13 @@ export async function getMyNotifications(limit: number = DEFAULT_LIMIT): Promise
     } = await supabase.auth.getUser()
     if (!user) return []
 
-    // `as never` because 0053 has not been applied, so `notifications` is
-    // absent from the generated Database types — same pattern as
-    // lib/resident-tickets.ts's `.from('tickets' as never)`. Regenerating
-    // types will not fix this until the migration is live (see CLAUDE.md
-    // §3 on gen:types reading the live database).
+    // Migration 0053 is applied; `notifications` exists in production.
+    // The `as never` cast here is unrelated to this file and out of scope
+    // for this change — see packages/db/src/database.types.ts, which was
+    // regenerated against the local stack for packages/jobs/src/
+    // ticket-notifications.ts and now carries `notifications` and
+    // `push_subscriptions`. Removing this call site's cast is left for
+    // whoever next touches this file.
     const { data } = await supabase
       .from('notifications' as never)
       .select(NOTIFICATION_COLUMNS)

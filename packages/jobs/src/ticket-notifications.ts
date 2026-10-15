@@ -104,116 +104,145 @@ export function isDeadSubscription(statusCode: number | undefined): boolean {
 }
 
 /**
- * Fan-out. Fire-and-forget from the caller's perspective: the event is sent
- * by createResidentTicket and nothing downstream can fail the insert.
+ * The step surface this job needs. Deliberately NON-generic: Inngest's
+ * real `step.run` returns Jsonify<Awaited<T>>, which is not assignable
+ * back to an arbitrary T, so a generic signature fails structural typing
+ * against the real step object. See the same finding at
+ * mailbox-send.ts:27-32, where it was tried and abandoned.
+ */
+export interface TicketNotificationsStep {
+  run(id: string, fn: () => Promise<unknown>): Promise<unknown>
+}
+
+export interface TicketNotificationsLogger {
+  warn(message: string): void
+}
+
+export interface TicketNotificationsPayload {
+  ticketId: string
+  organizationId: string
+}
+
+/**
+ * Notify the board that a resident opened a ticket.
+ *
+ * Exported so it can be driven against a real database. The Inngest
+ * wrapper below is a thin shell: it unwraps the event and supplies the
+ * admin client, and holds no logic worth testing.
+ */
+export async function runTicketNotifications(
+  db: ReturnType<typeof createAdminClient>,
+  step: TicketNotificationsStep,
+  logger: TicketNotificationsLogger,
+  payload: TicketNotificationsPayload,
+): Promise<{ notified: number; pushed?: number }> {
+  const { ticketId, organizationId } = payload
+
+  const ticket = (await step.run('load-ticket', async () => {
+    const { data } = await db
+      .from('tickets')
+      .select('id, subject, category, unit_id, submitted_by, organization_id')
+      .eq('id', ticketId)
+      .maybeSingle()
+    return data
+  })) as {
+    id: string
+    subject: string
+    category: string | null
+    unit_id: string | null
+    submitted_by: string | null
+    organization_id: string
+  } | null
+
+  if (!ticket) {
+    logger.warn(`ticket-notifications: ticket ${ticketId} not found`)
+    return { notified: 0 }
+  }
+
+  const recipients = (await step.run('resolve-recipients', async () => {
+    const { data } = await db
+      .from('org_members')
+      .select('user_id, role')
+      .eq('org_id', organizationId)
+    return boardRecipients((data ?? []) as OrgMemberRow[], ticket.submitted_by)
+  })) as string[]
+  if (recipients.length === 0) return { notified: 0 }
+
+  const unitLabel = (await step.run('resolve-unit', async () => {
+    if (!ticket.unit_id) return null
+    const { data } = await db
+      .from('units')
+      .select('label, address_line1')
+      .eq('id', ticket.unit_id)
+      .maybeSingle()
+    const row = data as { label: string | null; address_line1: string | null } | null
+    return row?.label ?? row?.address_line1 ?? null
+  })) as string | null
+
+  const content = buildTicketNotification({
+    id: ticket.id,
+    subject: ticket.subject,
+    category: ticket.category,
+    unitLabel,
+  })
+
+  // The durable record, written before any push is attempted, so a
+  // provider outage costs the OS banner and nothing else.
+  await step.run('write-notifications', async () => {
+    // Dedupe by reading first rather than ON CONFLICT. The unique index
+    // guarding this is PARTIAL (`WHERE entity_id IS NOT NULL`), and
+    // Postgres infers a partial index for ON CONFLICT only if the
+    // statement repeats that predicate — which PostgREST cannot emit. An
+    // upsert here fails outright with "no unique or exclusion constraint
+    // matching the ON CONFLICT specification".
+    const { data: existing } = await db
+      .from('notifications')
+      .select('user_id')
+      .eq('kind', 'ticket.created')
+      .eq('entity_id', ticket.id)
+    const already = new Set(((existing ?? []) as { user_id: string }[]).map((r) => r.user_id))
+    const fresh = recipients.filter((userId) => !already.has(userId))
+    if (fresh.length === 0) return
+
+    const { error } = await db.from('notifications').insert(
+      fresh.map((userId) => ({
+        organization_id: organizationId,
+        user_id: userId,
+        kind: 'ticket.created',
+        title: content.title,
+        body: content.body,
+        link: content.link,
+        entity_type: 'ticket',
+        entity_id: ticket.id,
+      })),
+    )
+    // 23505 means a concurrent retry inserted the same rows between the
+    // read and the write — the desired end state either way.
+    if (error && error.code !== '23505') {
+      logger.warn(`ticket-notifications: notifications insert: ${error.message}`)
+    }
+  })
+
+  const pushed = (await step.run('send-push', async () => {
+    const { sendPushToUsers } = await import('./web-push')
+    return sendPushToUsers(db, organizationId, recipients, content, logger)
+  })) as number
+
+  return { notified: recipients.length, pushed }
+}
+
+/**
+ * Fan-out. Fire-and-forget from the caller's perspective: the event is
+ * sent by createResidentTicket and nothing downstream can fail the insert.
  */
 export const ticketNotificationsJob = inngest.createFunction(
   { id: 'ticket-notifications', name: 'Notify the board of a new ticket' },
   { event: 'ticket/created' },
   async ({ event, logger, step }) => {
-    const { ticketId, organizationId } = event.data as {
-      ticketId: string
-      organizationId: string
-    }
-    const db = createAdminClient()
-
-    const ticket = await step.run('load-ticket', async () => {
-      const { data } = await db
-        .from('tickets' as never)
-        .select('id, subject, category, unit_id, submitted_by, organization_id')
-        .eq('id', ticketId)
-        .maybeSingle()
-      return data as {
-        id: string
-        subject: string
-        category: string | null
-        unit_id: string | null
-        submitted_by: string | null
-        organization_id: string
-      } | null
+    const { ticketId, organizationId } = event.data as TicketNotificationsPayload
+    return runTicketNotifications(createAdminClient(), step, logger, {
+      ticketId,
+      organizationId,
     })
-    if (!ticket) {
-      logger.warn(`ticket-notifications: ticket ${ticketId} not found`)
-      return { notified: 0 }
-    }
-
-    const recipients = await step.run('resolve-recipients', async () => {
-      const { data } = await db
-        .from('org_members')
-        .select('user_id, role')
-        .eq('org_id', organizationId)
-      return boardRecipients((data ?? []) as OrgMemberRow[], ticket.submitted_by)
-    })
-    if (recipients.length === 0) return { notified: 0 }
-
-    const unitLabel = await step.run('resolve-unit', async () => {
-      if (!ticket.unit_id) return null
-      const { data } = await db
-        .from('units' as never)
-        .select('label, address_line1')
-        .eq('id', ticket.unit_id)
-        .maybeSingle()
-      const row = data as { label: string | null; address_line1: string | null } | null
-      return row?.label ?? row?.address_line1 ?? null
-    })
-
-    const content = buildTicketNotification({
-      id: ticket.id,
-      subject: ticket.subject,
-      category: ticket.category,
-      unitLabel,
-    })
-
-    // The durable record. Written before any push is attempted, so a
-    // provider outage costs the OS banner and nothing else. The partial
-    // unique index on (user_id, kind, entity_id) makes an Inngest retry
-    // idempotent rather than duplicating every row.
-    await step.run('write-notifications', async () => {
-      // Dedupe by reading first rather than ON CONFLICT. The unique index
-      // guarding this is PARTIAL (`WHERE entity_id IS NOT NULL`), and
-      // Postgres will only infer a partial index for ON CONFLICT if the
-      // statement repeats that predicate — which PostgREST cannot emit. An
-      // upsert here fails outright with "no unique or exclusion constraint
-      // matching the ON CONFLICT specification", so every board
-      // notification would be lost, silently, because this step logs and
-      // continues by design.
-      const { data: existing } = await db
-        .from('notifications' as never)
-        .select('user_id')
-        .eq('kind', 'ticket.created')
-        .eq('entity_id', ticket.id)
-      const already = new Set(
-        ((existing ?? []) as { user_id: string }[]).map((r) => r.user_id),
-      )
-      const fresh = recipients.filter((userId) => !already.has(userId))
-      if (fresh.length === 0) return
-
-      const { error } = await db.from('notifications' as never).insert(
-        fresh.map((userId) => ({
-          organization_id: organizationId,
-          user_id: userId,
-          kind: 'ticket.created',
-          title: content.title,
-          body: content.body,
-          link: content.link,
-          entity_type: 'ticket',
-          entity_id: ticket.id,
-        })) as never,
-      )
-      // 23505 here means a concurrent retry inserted the same rows between
-      // the read and the write — the desired end state either way. Anything
-      // else (including 0053 not being applied) is logged and the job
-      // continues to push; see the spec's degradation section.
-      if (error && error.code !== '23505') {
-        logger.warn(`ticket-notifications: notifications insert: ${error.message}`)
-      }
-    })
-
-    const pushed = await step.run('send-push', async () => {
-      const { sendPushToUsers } = await import('./web-push')
-      return sendPushToUsers(db, organizationId, recipients, content, logger)
-    })
-
-    return { notified: recipients.length, pushed }
   },
 )

@@ -81,7 +81,10 @@ export async function sendPushToUsers(
     .eq('organization_id', organizationId)
     .in('user_id', userIds)
 
-  // Migration 0053 may not be applied yet; that is a no-op, not an error.
+  // Migration 0053 is applied; this lookup failing is a real error, not a
+  // deployment-state no-op. It is still only warned and not thrown: a push
+  // provider outage must not fail the job that already wrote the durable
+  // `notifications` rows.
   if (error) {
     logger.warn(`web-push: subscription lookup failed: ${error.message}`)
     return 0
