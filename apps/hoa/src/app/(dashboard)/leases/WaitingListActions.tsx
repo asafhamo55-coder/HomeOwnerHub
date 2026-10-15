@@ -1,9 +1,17 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, XCircle, Undo2 } from 'lucide-react'
-import { Button, useConfirm, useToast } from '@homeowner-portal/ui'
+import { CheckCircle2, MoreHorizontal, Undo2, XCircle } from 'lucide-react'
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  useConfirm,
+  useToast,
+} from '@homeowner-portal/ui'
 import {
   approveWaitingListEntry,
   denyWaitingListEntry,
@@ -89,29 +97,25 @@ export function WaitingListActions({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Button size="sm" onClick={handleApprove} disabled={pending}>
-        <CheckCircle2 className="h-3.5 w-3.5" />
+    <div className="flex items-center justify-end gap-1">
+      <Button size="sm" variant="secondary" onClick={handleApprove} loading={pending} icon={<CheckCircle2 aria-hidden />}>
         Approve
       </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={handleDeny}
-        disabled={pending}
-      >
-        <XCircle className="h-3.5 w-3.5" />
-        Deny
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={handleWithdraw}
-        disabled={pending}
-      >
-        <Undo2 className="h-3.5 w-3.5" />
-        Withdraw
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="icon-sm" variant="ghost" aria-label={`More actions for ${propertyLabel}`} disabled={pending}>
+            <MoreHorizontal aria-hidden />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem icon={<Undo2 aria-hidden />} onSelect={() => void handleWithdraw()}>
+            Withdraw from list
+          </DropdownMenuItem>
+          <DropdownMenuItem destructive icon={<XCircle aria-hidden />} onSelect={() => void handleDeny()}>
+            Deny request
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }

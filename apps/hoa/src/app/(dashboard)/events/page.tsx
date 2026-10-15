@@ -1,203 +1,194 @@
 import Link from 'next/link'
-import { CalendarHeart, Plus } from 'lucide-react'
+import { BellRing, CalendarHeart, Plus, Repeat } from 'lucide-react'
 import {
-  Badge,
   Button,
-  Card,
+  DataTable,
   EmptyState,
-  PageHeader,
+  LoadFailed,
+  Page,
+  StatusPill,
+  type DataTableColumn,
 } from '@homeowner-portal/ui'
-import { listEvents, type RecurringEvent } from '@/lib/events'
+import { loadEvents, type RecurringEvent } from '@/lib/events'
+import {
+  alertState,
+  audienceLabel,
+  daysUntilDate,
+  formatDate,
+  relativeDays,
+  todayIsoUtc,
+  CHANNEL_LABEL,
+} from './event-dates'
 
 export const metadata = { title: 'Events' }
 export const dynamic = 'force-dynamic'
 
 export default async function EventsListPage() {
-  const events = await listEvents()
-  const { upcoming, past } = splitEvents(events)
+  const events = await loadEvents()
+
+  const newButton = (
+    <Button asChild>
+      <Link href="/events/new">
+        <Plus className="size-4" aria-hidden />
+        New event
+      </Link>
+    </Button>
+  )
+
+  if (events === null) {
+    return (
+      <Page title="Events" description="Dated reminders the board gets ahead of each deadline." actions={newButton}>
+        <LoadFailed what="events" />
+      </Page>
+    )
+  }
+
+  const today = todayIsoUtc()
+  const upcoming = events.filter((e) => e.event_date >= today)
+  // Already ascending from the DB; past reads newest first.
+  const past = events.filter((e) => e.event_date < today).reverse()
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <PageHeader
-        title="Events"
-        description="Annual reminders for your board"
-        actions={
-          <Button asChild>
-            <Link href="/events/new">
-              <Plus className="h-4 w-4" />
-              New event
-            </Link>
-          </Button>
-        }
-      />
-
+    <Page
+      title="Events"
+      description="Dated reminders — annual meeting, insurance renewal, budget deadline. We alert the people you choose ahead of each one."
+      actions={newButton}
+    >
       {events.length === 0 ? (
         <EmptyState
-          icon={<CalendarHeart className="h-10 w-10" aria-hidden />}
+          icon={<CalendarHeart aria-hidden />}
           title="No events yet"
-          description="Create one to remind the board automatically before annual deadlines."
-          action={
-            <Button asChild>
-              <Link href="/events/new">
-                <Plus className="h-4 w-4" />
-                New event
-              </Link>
-            </Button>
-          }
+          description="Add the dates your board can’t miss and we’ll send a reminder ahead of each one, every year."
+          action={newButton}
         />
       ) : (
-        <div className="space-y-6">
-          <EventGroup
-            heading={`Upcoming${upcoming.length > 0 ? ` (${upcoming.length})` : ''}`}
-            events={upcoming}
-            emptyMessage="No upcoming events scheduled."
-          />
-          {past.length > 0 ? (
-            <EventGroup
-              heading={`Past (${past.length})`}
-              events={past}
-              emptyMessage=""
+        <>
+          <section aria-labelledby="upcoming-events" className="space-y-3">
+            <h2 id="upcoming-events" className="flex items-baseline gap-2 text-lg font-semibold text-foreground">
+              Upcoming <span className="num text-sm font-normal text-muted">{upcoming.length}</span>
+            </h2>
+            <DataTable
+              caption="Upcoming events"
+              columns={columns(today)}
+              rows={upcoming}
+              rowKey={(e) => e.id}
+              mobile="cards"
+              linkAs={Link}
+              empty={
+                <EmptyState
+                  variant="compact"
+                  icon={<CalendarHeart aria-hidden />}
+                  title="Nothing coming up"
+                  description="Every event on file is in the past. Add the next deadline so the board gets a reminder."
+                />
+              }
             />
+          </section>
+
+          {past.length > 0 ? (
+            <section aria-labelledby="past-events" className="space-y-3">
+              <h2 id="past-events" className="flex items-baseline gap-2 text-lg font-semibold text-foreground">
+                Past <span className="num text-sm font-normal text-muted">{past.length}</span>
+              </h2>
+              <DataTable
+                caption="Past events"
+                columns={columns(today).filter((c) => c.key !== 'alert')}
+                rows={past}
+                rowKey={(e) => e.id}
+                mobile="cards"
+                linkAs={Link}
+              />
+            </section>
+          ) : null}
+        </>
+      )}
+    </Page>
+  )
+}
+
+function columns(today: string): DataTableColumn<RecurringEvent>[] {
+  return [
+    {
+      key: 'title',
+      header: 'Event',
+      mobilePrimary: true,
+      cell: (e) => (
+        <div className="min-w-0">
+          <Link
+            href={`/events/${e.id}`}
+            className="font-medium text-foreground no-underline hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {e.title}
+          </Link>
+          {e.description ? (
+            <p className="mt-0.5 line-clamp-1 max-w-md text-xs text-muted">{e.description}</p>
           ) : null}
         </div>
-      )}
-    </div>
-  )
-}
-
-function EventGroup({
-  heading,
-  events,
-  emptyMessage,
-}: {
-  heading: string
-  events: RecurringEvent[]
-  emptyMessage: string
-}) {
-  return (
-    <section className="space-y-3">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-        {heading}
-      </h2>
-      {events.length === 0 ? (
-        emptyMessage ? (
-          <p className="text-sm text-muted">{emptyMessage}</p>
-        ) : null
-      ) : (
-        <Card>
-          <ul className="divide-y divide-border">
-            {events.map((event) => (
-              <EventRow key={event.id} event={event} />
-            ))}
-          </ul>
-        </Card>
-      )}
-    </section>
-  )
-}
-
-function EventRow({ event }: { event: RecurringEvent }) {
-  const days = daysUntilDate(event.event_date)
-  const dateLabel = formatShortDate(event.event_date)
-  const recurrenceLabel = event.recurrence === 'annual' ? 'annual' : 'one-time'
-  const excerpt = event.description
-    ? event.description.length > 140
-      ? `${event.description.slice(0, 140)}…`
-      : event.description
-    : null
-
-  return (
-    <li>
-      <Link
-        href={`/events/${event.id}`}
-        className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-background sm:flex-row sm:items-center sm:justify-between"
-      >
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-medium text-foreground">
-              {event.title}
-            </p>
-            {!event.is_active ? (
-              <Badge variant="outline" size="sm">
-                Paused
-              </Badge>
-            ) : null}
-          </div>
-          <p className="text-xs text-muted">
-            {dateLabel} · {recurrenceLabel}
-            {' · '}
-            <DaysUntilLabel days={days} />
-          </p>
-          {excerpt ? (
-            <p className="mt-1 line-clamp-2 text-xs text-muted">{excerpt}</p>
-          ) : null}
-          <p className="mt-1 text-[11px] text-muted">
-            Alerts board {event.alert_days_before === 0
-              ? 'the day of'
-              : `${event.alert_days_before} day${event.alert_days_before === 1 ? '' : 's'} before`}
-          </p>
+      ),
+    },
+    {
+      key: 'date',
+      header: 'Date',
+      cell: (e) => (
+        <div className="whitespace-nowrap">
+          <span className="num text-foreground">{formatDate(e.event_date)}</span>
+          <span className="block text-xs text-muted">{relativeDays(daysUntilDate(e.event_date))}</span>
         </div>
-      </Link>
-    </li>
-  )
+      ),
+    },
+    {
+      key: 'repeats',
+      header: 'Repeats',
+      hideBelowLg: true,
+      cell: (e) =>
+        e.recurrence === 'annual' ? (
+          <span className="inline-flex items-center gap-1.5 text-foreground-secondary">
+            <Repeat className="size-3.5 text-muted" aria-hidden />
+            Yearly
+          </span>
+        ) : (
+          <span className="text-muted">Once</span>
+        ),
+    },
+    {
+      key: 'alert',
+      header: 'Reminder',
+      cell: (e) => <AlertCell event={e} today={today} />,
+    },
+    {
+      key: 'notify',
+      header: 'Notifies',
+      hideBelowLg: true,
+      hideOnMobile: true,
+      cell: (e) => (
+        <span className="text-foreground-secondary">
+          {audienceLabel(e)}
+          <span className="block text-xs text-muted">
+            {e.notify_channels.map((c) => CHANNEL_LABEL[c] ?? c).join(' · ')}
+          </span>
+        </span>
+      ),
+    },
+  ]
 }
 
-function DaysUntilLabel({ days }: { days: number }) {
-  if (days === 0) return <span className="text-foreground">today</span>
-  if (days > 0)
-    return (
-      <span className="text-foreground">
-        in {days} day{days === 1 ? '' : 's'}
-      </span>
-    )
-  const abs = Math.abs(days)
-  return (
-    <span>
-      {abs} day{abs === 1 ? '' : 's'} ago
-    </span>
-  )
-}
-
-// ─── Helpers ────────────────────────────────────────────────────────
-
-function splitEvents(events: RecurringEvent[]): {
-  upcoming: RecurringEvent[]
-  past: RecurringEvent[]
-} {
-  const today = todayIsoUtc()
-  const upcoming: RecurringEvent[] = []
-  const past: RecurringEvent[] = []
-  for (const e of events) {
-    if (e.event_date >= today) upcoming.push(e)
-    else past.push(e)
+function AlertCell({ event, today }: { event: RecurringEvent; today: string }) {
+  const s = alertState(event, today)
+  switch (s.kind) {
+    case 'paused':
+      return <StatusPill tone="neutral" label="Paused" />
+    case 'sent':
+      return <StatusPill tone="success" label={s.on ? `Sent ${formatDate(s.on)}` : 'Sent'} />
+    case 'due':
+      return <StatusPill tone="warning" label="Sending today" icon={<BellRing aria-hidden />} />
+    case 'scheduled':
+      return (
+        <span className="num whitespace-nowrap text-foreground-secondary">
+          {formatDate(s.on)}
+          <span className="block text-xs text-muted">{relativeDays(daysUntilDate(s.on))}</span>
+        </span>
+      )
+    default:
+      return <span className="text-muted">—</span>
   }
-  // Already sorted ascending from DB; past should display newest first.
-  past.reverse()
-  return { upcoming, past }
-}
-
-function todayIsoUtc(): string {
-  const d = new Date()
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
-}
-
-function daysUntilDate(yyyyMmDd: string): number {
-  const target = new Date(`${yyyyMmDd}T00:00:00Z`).getTime()
-  const now = new Date()
-  const todayUtc = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-  )
-  return Math.round((target - todayUtc) / (24 * 60 * 60 * 1000))
-}
-
-function formatShortDate(yyyyMmDd: string): string {
-  const d = new Date(`${yyyyMmDd}T00:00:00Z`)
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
 }

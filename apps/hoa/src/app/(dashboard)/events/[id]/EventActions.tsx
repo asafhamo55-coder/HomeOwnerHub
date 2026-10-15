@@ -2,31 +2,36 @@
 
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, Pause, Play, Trash2 } from 'lucide-react'
-import { Button, useConfirm, useToast } from '@homeowner-portal/ui'
+import { Bell, MoreHorizontal, Pause, Play } from 'lucide-react'
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  useConfirm,
+  useToast,
+} from '@homeowner-portal/ui'
+import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton'
 import { deleteEvent, sendTestAlert, toggleEventActive } from '@/lib/events'
 
-export function EventActions({
-  eventId,
-  isActive,
-}: {
-  eventId: string
-  isActive: boolean
-}) {
+export function EventActions({ eventId, isActive }: { eventId: string; isActive: boolean }) {
   const router = useRouter()
   const confirm = useConfirm()
   const toast = useToast()
   const [pending, startTransition] = useTransition()
 
-  function handleSendTest() {
+  // Confirm first, transition second: awaiting the dialog inside a
+  // transition defers its open commit and the dialog never appears.
+  async function handleSendTest() {
+    const ok = await confirm({
+      title: 'Send a test alert now?',
+      description:
+        "We'll notify this event's configured audience on its configured channels right now. The event's 'last alert' fields will update so the scheduled run skips this occurrence.",
+      confirmLabel: 'Send test alert',
+    })
+    if (!ok) return
     startTransition(async () => {
-      const ok = await confirm({
-        title: 'Send a test alert now?',
-        description:
-          "We'll notify this event's configured audience on its configured channels right now. The event's 'last alert' fields will update so the cron skips this occurrence.",
-        confirmLabel: 'Send test alert',
-      })
-      if (!ok) return
       const result = await sendTestAlert(eventId)
       if (!result.ok) {
         toast({ tone: 'error', message: result.error })
@@ -51,72 +56,45 @@ export function EventActions({
         toast({ tone: 'error', message: result.error })
         return
       }
-      toast({
-        tone: 'success',
-        message: isActive ? 'Event paused.' : 'Event resumed.',
-      })
+      toast({ tone: 'success', message: isActive ? 'Reminders paused.' : 'Reminders resumed.' })
       router.refresh()
     })
   }
 
-  function handleDelete() {
-    startTransition(async () => {
-      const ok = await confirm({
-        title: 'Delete this event?',
-        description:
-          "This removes the reminder and its history. You can't undo this — recreate it from scratch if you change your mind.",
-        confirmLabel: 'Delete',
-        destructive: true,
-      })
-      if (!ok) return
-      const result = await deleteEvent(eventId)
-      if (!result.ok) {
-        toast({ tone: 'error', message: result.error })
-        return
-      }
-      toast({ tone: 'success', message: 'Event deleted.' })
-      router.push('/events')
-    })
-  }
-
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={handleSendTest}
+    <>
+      <ConfirmDeleteButton
+        onDelete={() => deleteEvent(eventId)}
+        title="Delete this event?"
+        description="This removes the reminder and its history. You can't undo this — recreate it from scratch if you change your mind."
+        confirmLabel="Delete event"
+        successMessage="Event deleted."
+        onAfterDelete={() => router.push('/events')}
+        label="Delete"
+        variant="destructive-ghost"
+        size="md"
         disabled={pending}
-      >
-        <Bell className="h-3.5 w-3.5" />
-        Send test alert
-      </Button>
+      />
       <Button
-        size="sm"
-        variant="outline"
+        variant="secondary"
         onClick={handleTogglePause}
-        disabled={pending}
+        loading={pending}
+        icon={isActive ? <Pause aria-hidden /> : <Play aria-hidden />}
       >
-        {isActive ? (
-          <>
-            <Pause className="h-3.5 w-3.5" />
-            Pause
-          </>
-        ) : (
-          <>
-            <Play className="h-3.5 w-3.5" />
-            Resume
-          </>
-        )}
+        {isActive ? 'Pause reminders' : 'Resume reminders'}
       </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={handleDelete}
-        disabled={pending}
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-        Delete
-      </Button>
-    </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="secondary" size="icon" aria-label="More actions" disabled={pending}>
+            <MoreHorizontal aria-hidden />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem icon={<Bell aria-hidden />} onSelect={() => void handleSendTest()}>
+            Send test alert now
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   )
 }

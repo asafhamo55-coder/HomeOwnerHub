@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Search, X } from 'lucide-react'
-import { Badge, Button, Card, Input, Textarea, useToast } from '@homeowner-portal/ui'
+import { Badge, Button, Card, Field, Input, Textarea, cn, useToast } from '@homeowner-portal/ui'
 import { addToWaitingList, type WaitingListCandidate } from '@/lib/leases'
 
 /**
@@ -81,8 +81,8 @@ export function AddToWaitingList({
     const blocked = candidates === null || candidates.length === 0
     return (
       <Button
-        size="sm"
         onClick={() => setOpen(true)}
+        icon={<Plus aria-hidden />}
         disabled={blocked}
         title={
           candidates === null
@@ -92,17 +92,16 @@ export function AddToWaitingList({
               : undefined
         }
       >
-        <Plus className="h-3.5 w-3.5" />
-        Add property
+        Add to waiting list
       </Button>
     )
   }
 
   return (
-    <Card className="w-full space-y-3 p-4">
+    <Card className="w-full space-y-4 p-5">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">
+          <h3 className="text-base font-semibold text-foreground">
             Add a property to the waiting list
           </h3>
           <p className="text-xs text-muted">
@@ -111,9 +110,8 @@ export function AddToWaitingList({
             — leased and already-queued properties are excluded.
           </p>
         </div>
-        <Button size="sm" variant="ghost" onClick={reset} disabled={pending}>
-          <X className="h-3.5 w-3.5" />
-          Cancel
+        <Button size="icon-sm" variant="ghost" onClick={reset} disabled={pending} aria-label="Close">
+          <X aria-hidden />
         </Button>
       </div>
 
@@ -146,9 +144,10 @@ export function AddToWaitingList({
                   aria-selected={isSelected}
                   onClick={() => setSelectedId(c.id)}
                   disabled={pending}
-                  className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/10 ${
-                    isSelected ? 'bg-primary/5 ring-1 ring-inset ring-primary' : ''
-                  }`}
+                  className={cn(
+                    'flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                    isSelected && 'bg-primary-subtle ring-1 ring-inset ring-primary hover:bg-primary-subtle',
+                  )}
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium text-foreground">
@@ -170,14 +169,16 @@ export function AddToWaitingList({
         </ul>
       )}
 
-      <Textarea
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Notes (optional) — e.g. why they're queuing, or who asked."
-        rows={2}
-        maxLength={2000}
-        disabled={pending}
-      />
+      <Field label="Notes" optional>
+        <Textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Why they're queuing, or who asked."
+          rows={2}
+          maxLength={2000}
+          disabled={pending}
+        />
+      </Field>
 
       <div className="flex items-center justify-end gap-2">
         <span className="mr-auto truncate text-xs text-muted">
@@ -189,7 +190,6 @@ export function AddToWaitingList({
           loading={pending}
           disabled={pending || !selectedId}
         >
-          <Plus className="h-3.5 w-3.5" />
           Add to waiting list
         </Button>
       </div>

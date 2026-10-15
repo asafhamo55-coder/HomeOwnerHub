@@ -1,23 +1,27 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
+import { CheckCircle2, Clock, Gavel, ScrollText } from 'lucide-react'
 import {
-  ArrowLeft,
-  CalendarDays,
-  CheckCircle2,
-  Clock,
-  FileText,
-  Users,
-} from 'lucide-react'
-import {
+  Avatar,
+  Badge,
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
+  EmptyState,
+  KeyValue,
+  KeyValueList,
+  LoadFailed,
+  Page,
   StatusBadge,
+  StatusPill,
 } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { listActionItems } from '@/lib/meeting-action-items'
+import { loadOrFail } from '@/lib/load-or-fail'
+import { loadActionItems } from '@/lib/meeting-action-items'
+import { MEETING_STATUS, MEETING_TYPE } from '@/lib/status/community'
 import { ActionItemsSection } from './ActionItemsSection'
 import { MeetingActions } from './MeetingActions'
 
@@ -47,225 +51,241 @@ interface MeetingRow {
   created_at: string | null
 }
 
-const MEETING_TYPE_LABELS: Record<string, string> = {
-  regular: 'Regular (board) meeting',
-  special: 'Special meeting',
-  annual: 'Annual meeting',
-  emergency: 'Emergency meeting',
+function motionTone(result: string | undefined): 'success' | 'danger' | 'neutral' {
+  const r = (result ?? '').toLowerCase()
+  if (r === 'passed' || r === 'carried' || r === 'approved') return 'success'
+  if (r === 'failed' || r === 'defeated' || r === 'rejected') return 'danger'
+  return 'neutral'
 }
 
-const MEETING_STATUS_TONES: Record<
-  string,
-  'success' | 'warning' | 'neutral' | 'outline'
-> = {
-  draft: 'neutral',
-  in_progress: 'warning',
-  approved: 'success',
-  archived: 'neutral',
-}
-const MEETING_STATUS_LABELS: Record<string, string> = {
-  draft: 'Draft',
-  in_progress: 'In progress',
-  approved: 'Approved',
-  archived: 'Archived',
-}
-
-export default async function MeetingDetailPage(props: {
-  params: Promise<{ id: string }>
-}) {
+export default async function MeetingDetailPage(props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
-    .from('hoa_meeting_minutes')
-    .select(
-      'id, meeting_date, meeting_type, attendees, ai_summary, raw_transcript, motions, status, approved_at, approved_by, created_at',
+  const result = await loadOrFail(
+    'meeting',
+    supabase
+      .from('hoa_meeting_minutes')
+      .select(
+        'id, meeting_date, meeting_type, attendees, ai_summary, raw_transcript, motions, status, approved_at, approved_by, created_at',
+      )
+      .eq('id', id)
+      .is('deleted_at', null)
+      .maybeSingle(),
+  )
+
+  if (!result.ok) {
+    return (
+      <Page
+        title="Meeting"
+        breadcrumbs={[{ label: 'Meetings', href: '/meetings' }, { label: 'Meeting' }]}
+        linkAs={Link}
+      >
+        <LoadFailed what="this meeting" />
+      </Page>
     )
-    .eq('id', id)
-    .is('deleted_at', null)
-    .maybeSingle()
+  }
+  if (!result.data) notFound()
+  const meeting = result.data as unknown as MeetingRow
+  const actionItems = await loadActionItems(id)
 
-  if (!data) notFound()
-  const meeting = data as unknown as MeetingRow
-  const actionItems = await listActionItems(id)
-
-  const dateObj = new Date(meeting.meeting_date + 'T00:00:00')
+  const dateObj = new Date(`${meeting.meeting_date}T00:00:00`)
+  const dateLabel = format(dateObj, 'MMMM d, yyyy')
   const typeLabel = meeting.meeting_type
-    ? MEETING_TYPE_LABELS[meeting.meeting_type] ?? meeting.meeting_type
+    ? `${MEETING_TYPE[meeting.meeting_type] ?? meeting.meeting_type} meeting`
     : 'Meeting'
+  const todayIso = format(new Date(), 'yyyy-MM-dd')
+  const isUpcoming = meeting.meeting_date >= todayIso && meeting.status !== 'approved'
+  const motions = meeting.motions ?? []
+  const attendees = meeting.attendees ?? []
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <Link
-        href="/meetings"
-        className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        All meetings
-      </Link>
-
-      {/* Title block */}
-      <header className="space-y-2">
-        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-          {typeLabel} · {format(dateObj, 'EEEE')}
-        </p>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-            {format(dateObj, 'PPP')}
-          </h1>
-          <div className="flex items-center gap-2">
-            <MeetingActions meetingId={meeting.id} />
-            <StatusBadge
-            status={meeting.status ?? 'draft'}
-            tones={MEETING_STATUS_TONES}
-            labels={MEETING_STATUS_LABELS}
-          />
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted">
-          {meeting.attendees && meeting.attendees.length > 0 ? (
-            <span className="inline-flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5" /> {meeting.attendees.length} attendees
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5" /> No attendee list
-            </span>
-          )}
-          {meeting.approved_at ? (
-            <span className="inline-flex items-center gap-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-              Approved {format(new Date(meeting.approved_at), 'MMM d, yyyy')}
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5" />
-              Awaiting approval
-            </span>
-          )}
-        </div>
-      </header>
-
-      {/* Action items — first because boards need to act on them */}
-      <ActionItemsSection meetingId={meeting.id} items={actionItems} />
-
-      {/* Full meeting summary — no clamp */}
-      <section className="space-y-3">
-        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-          Meeting summary
-        </p>
-        <Card>
-          <CardHeader className="flex flex-row items-center gap-2 p-5 pb-2">
-            <FileText className="h-4 w-4 text-muted" aria-hidden />
-            <CardTitle className="text-base">Approved minutes</CardTitle>
-          </CardHeader>
-          <CardContent className="p-5 pt-2">
-            {meeting.ai_summary ? (
-              <div className="prose prose-sm max-w-none text-foreground prose-headings:font-semibold prose-headings:text-foreground prose-p:leading-relaxed prose-li:leading-relaxed">
-                {meeting.ai_summary.split('\n\n').map((para, i) => (
-                  <p key={i} className="whitespace-pre-wrap">
-                    {para}
-                  </p>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted">
-                No summary recorded. Edit this meeting to add one.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Motions — only if present */}
-      {meeting.motions && meeting.motions.length > 0 ? (
-        <section className="space-y-3">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-            Motions &amp; votes
-          </p>
+    <Page
+      width="wide"
+      eyebrow={`${typeLabel} · ${format(dateObj, 'EEEE')}`}
+      title={dateLabel}
+      meta={
+        <StatusBadge
+          status={meeting.status ?? 'draft'}
+          tones={MEETING_STATUS.tones}
+          labels={MEETING_STATUS.labels}
+        />
+      }
+      breadcrumbs={[{ label: 'Meetings', href: '/meetings' }, { label: format(dateObj, 'MMM d, yyyy') }]}
+      linkAs={Link}
+      actions={<MeetingActions meetingId={meeting.id} />}
+    >
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="min-w-0 space-y-6">
+          {/* Minutes / agenda */}
           <Card>
-            <ul className="divide-y divide-border">
-              {meeting.motions.map((m, i) => (
-                <li key={m.id ?? i} className="px-5 py-4">
-                  <p className="text-sm font-medium text-foreground">
-                    {m.text ?? m.motion ?? `Motion ${i + 1}`}
-                  </p>
-                  {(m.yea != null || m.nay != null || m.abstain != null) ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
-                      {m.yea != null ? <span>Yea: <strong className="text-foreground tabular-nums">{m.yea}</strong></span> : null}
-                      {m.nay != null ? <span>Nay: <strong className="text-foreground tabular-nums">{m.nay}</strong></span> : null}
-                      {m.abstain != null ? <span>Abstain: <strong className="text-foreground tabular-nums">{m.abstain}</strong></span> : null}
-                      {m.result ? <span className="uppercase tracking-wide">{m.result}</span> : null}
-                    </div>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
+            <CardHeader>
+              <CardTitle as="h2" className="flex items-center gap-2">
+                <ScrollText className="size-4 text-muted" aria-hidden />
+                {isUpcoming ? 'Agenda' : 'Minutes'}
+              </CardTitle>
+              <CardDescription>
+                {isUpcoming
+                  ? 'Notes for the upcoming meeting. Record minutes once it has happened.'
+                  : meeting.status === 'approved'
+                    ? 'The approved record of this meeting.'
+                    : 'Draft — not yet approved by the board.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {meeting.ai_summary ? (
+                <div className="max-w-prose space-y-3 text-base leading-relaxed text-foreground">
+                  {meeting.ai_summary.split('\n\n').map((para, i) => (
+                    <p key={i} className="whitespace-pre-wrap">
+                      {para}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  variant="compact"
+                  icon={<ScrollText aria-hidden />}
+                  title={isUpcoming ? 'No agenda yet' : 'No minutes recorded'}
+                  description="Edit this meeting to add them."
+                />
+              )}
+            </CardContent>
           </Card>
-        </section>
-      ) : null}
 
-      {/* Attendees — only if present */}
-      {meeting.attendees && meeting.attendees.length > 0 ? (
-        <section className="space-y-3">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-            Attendees
-          </p>
-          <Card>
-            <CardContent className="p-5">
-              <ul className="grid grid-cols-1 gap-1.5 text-sm sm:grid-cols-2">
-                {meeting.attendees.map((a) => (
-                  <li
-                    key={a}
-                    className="flex items-center gap-2 text-foreground"
-                  >
-                    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted/30 text-[10px] font-medium text-muted">
-                      {a
-                        .split(' ')
-                        .map((p) => p[0])
-                        .filter(Boolean)
-                        .slice(0, 2)
-                        .join('')
-                        .toUpperCase()}
-                    </span>
-                    {a}
+          {/* Action items — boards act on these */}
+          {actionItems === null ? (
+            <LoadFailed
+              what="action items"
+              hint="The minutes above are correct; only this meeting's action items are missing."
+            />
+          ) : (
+            <ActionItemsSection meetingId={meeting.id} items={actionItems} />
+          )}
+
+          {/* Motions */}
+          {motions.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle as="h2" className="flex items-center gap-2">
+                  <Gavel className="size-4 text-muted" aria-hidden />
+                  Motions &amp; votes
+                </CardTitle>
+              </CardHeader>
+              <ul className="divide-y divide-border border-t border-border">
+                {motions.map((m, i) => (
+                  <li key={m.id ?? i} className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 space-y-1.5">
+                      <p className="text-sm font-medium text-foreground">
+                        {m.text ?? m.motion ?? `Motion ${i + 1}`}
+                      </p>
+                      {m.yea != null || m.nay != null || m.abstain != null ? (
+                        <p className="num flex flex-wrap gap-x-4 text-xs text-muted">
+                          {m.yea != null ? <span>Yea <strong className="text-foreground">{m.yea}</strong></span> : null}
+                          {m.nay != null ? <span>Nay <strong className="text-foreground">{m.nay}</strong></span> : null}
+                          {m.abstain != null ? (
+                            <span>Abstain <strong className="text-foreground">{m.abstain}</strong></span>
+                          ) : null}
+                        </p>
+                      ) : null}
+                    </div>
+                    {m.result ? (
+                      <StatusPill
+                        tone={motionTone(m.result)}
+                        label={m.result.charAt(0).toUpperCase() + m.result.slice(1)}
+                        className="self-start"
+                      />
+                    ) : null}
                   </li>
                 ))}
               </ul>
+            </Card>
+          ) : null}
+
+          {/* Raw transcript — audit trail, collapsed */}
+          {meeting.raw_transcript ? (
+            <details className="group rounded-xl border border-border bg-surface">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-base font-semibold text-foreground">Raw transcript</span>
+                  <span className="num text-xs text-muted">
+                    Kept for the audit trail · {meeting.raw_transcript.length.toLocaleString()} characters
+                  </span>
+                </span>
+                <span className="text-sm font-medium text-primary">
+                  <span className="group-open:hidden">Show</span>
+                  <span className="hidden group-open:inline">Hide</span>
+                </span>
+              </summary>
+              <div className="border-t border-border px-5 py-4">
+                <pre className="max-h-[400px] overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-foreground-secondary">
+                  {meeting.raw_transcript}
+                </pre>
+              </div>
+            </details>
+          ) : null}
+        </div>
+
+        {/* Side rail: facts + attendees */}
+        <aside className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Details</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <KeyValueList className="sm:grid-cols-2 lg:grid-cols-1">
+                <KeyValue label="Date" value={format(dateObj, 'EEEE, MMMM d, yyyy')} />
+                <KeyValue label="Type" value={typeLabel} />
+                <KeyValue
+                  label="Approval"
+                  value={
+                    meeting.approved_at || meeting.status === 'approved' ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <CheckCircle2 className="size-4 text-success" aria-hidden />
+                        Approved
+                        {meeting.approved_at ? ` ${format(new Date(meeting.approved_at), 'MMM d, yyyy')}` : ''}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-foreground-secondary">
+                        <Clock className="size-4 text-muted" aria-hidden />
+                        {isUpcoming ? 'Not held yet' : 'Awaiting approval'}
+                      </span>
+                    )
+                  }
+                />
+                {meeting.created_at ? (
+                  <KeyValue label="Created" value={format(new Date(meeting.created_at), 'MMM d, yyyy')} />
+                ) : null}
+              </KeyValueList>
             </CardContent>
           </Card>
-        </section>
-      ) : null}
 
-      {/* Raw transcript — collapsed by default, audit trail */}
-      {meeting.raw_transcript ? (
-        <section className="space-y-3">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-            Audit
-          </p>
-          <details className="group rounded-xl border border-border bg-surface">
-            <summary className="flex cursor-pointer items-center justify-between gap-3 p-5 [&::-webkit-details-marker]:hidden">
-              <span className="flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-muted" aria-hidden />
-                <span className="text-base font-medium text-foreground">
-                  Raw transcript
-                </span>
-                <span className="text-xs text-muted">
-                  ({meeting.raw_transcript.length.toLocaleString()} chars)
-                </span>
-              </span>
-              <span className="text-xs uppercase tracking-wide text-muted group-open:text-foreground">
-                <span className="group-open:hidden">Show</span>
-                <span className="hidden group-open:inline">Hide</span>
-              </span>
-            </summary>
-            <div className="border-t border-border p-5">
-              <pre className="max-h-[400px] overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-muted">
-                {meeting.raw_transcript}
-              </pre>
-            </div>
-          </details>
-        </section>
-      ) : null}
-    </div>
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2" className="flex items-center justify-between gap-2">
+                Attendees
+                {attendees.length > 0 ? (
+                  <Badge variant="neutral" className="num">
+                    {attendees.length}
+                  </Badge>
+                ) : null}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {attendees.length > 0 ? (
+                <ul className="space-y-2.5">
+                  {attendees.map((a) => (
+                    <li key={a} className="flex items-center gap-2.5 text-sm text-foreground">
+                      <Avatar name={a} size="sm" />
+                      <span className="min-w-0 truncate">{a}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted">No attendee list recorded.</p>
+              )}
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
+    </Page>
   )
 }

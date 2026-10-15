@@ -9,7 +9,10 @@ import {
   Button,
   Card,
   CardContent,
+  Field,
   Input,
+  KeyValue,
+  KeyValueList,
   Select,
   Textarea,
   WizardStepper,
@@ -248,7 +251,7 @@ ${transcript}`
         currentIndex={stepIndex(step)}
         vertical={false}
       />
-      <div className="flex items-center justify-between text-xs text-muted">
+      <div className="flex min-h-6 items-center justify-between text-xs text-muted" aria-live="polite">
         <span>
           {draftSaving ? (
             <span className="flex items-center gap-1">
@@ -284,7 +287,7 @@ ${transcript}`
                 })
               }
             }}
-            className="text-muted hover:text-destructive"
+            className="rounded-md px-1.5 py-0.5 font-medium text-danger hover:bg-danger-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Discard draft
           </button>
@@ -300,39 +303,25 @@ ${transcript}`
         {stepperHeader}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <label htmlFor="meeting-date" className="text-sm font-medium text-foreground">
-              Meeting date
-            </label>
-            <Input
-              id="meeting-date"
-              type="date"
-              value={meetingDate}
-              onChange={(e) => setMeetingDate(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="meeting-type" className="text-sm font-medium text-foreground">
-                Meeting type
-              </label>
-              {aiAppliedFields.has('meeting_type') ? (
-                <button
-                  type="button"
-                  onClick={() => {
+          <Field label="Meeting date" required error={meetingDate ? undefined : 'Pick the date of the meeting.'}>
+            <Input type="date" value={meetingDate} onChange={(e) => setMeetingDate(e.target.value)} />
+          </Field>
+          <Field
+            label="Meeting type"
+            labelAside={
+              aiAppliedFields.has('meeting_type') ? (
+                <AiChip
+                  title={reasoningFor('meeting_type') ?? 'AI-suggested value'}
+                  onClear={() => {
                     const next = new Set(aiAppliedFields)
                     next.delete('meeting_type')
                     setAIAppliedFields(next)
                   }}
-                  className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary hover:bg-primary/20"
-                  title={reasoningFor('meeting_type') ?? 'AI-suggested value'}
-                >
-                  <Sparkles className="h-2.5 w-2.5" /> AI · clear
-                </button>
-              ) : null}
-            </div>
+                />
+              ) : null
+            }
+          >
             <Select
-              id="meeting-type"
               value={meetingType}
               onValueChange={(v) => {
                 setMeetingType(v as MeetingType)
@@ -348,32 +337,27 @@ ${transcript}`
               <option value="special">Special meeting</option>
               <option value="emergency">Emergency meeting</option>
             </Select>
-          </div>
+          </Field>
         </div>
 
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label htmlFor="attendees" className="text-sm font-medium text-foreground">
-              Attendees{' '}
-              <span className="text-muted">(optional, one per line or comma-separated)</span>
-            </label>
-            {aiAppliedFields.has('attendees') ? (
-              <button
-                type="button"
-                onClick={() => {
+        <Field
+          label="Attendees"
+          optional
+          hint="One per line, or separated by commas."
+          labelAside={
+            aiAppliedFields.has('attendees') ? (
+              <AiChip
+                title={reasoningFor('attendees') ?? 'AI-extracted from transcript'}
+                onClear={() => {
                   const next = new Set(aiAppliedFields)
                   next.delete('attendees')
                   setAIAppliedFields(next)
                 }}
-                className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary hover:bg-primary/20"
-                title={reasoningFor('attendees') ?? 'AI-extracted from transcript'}
-              >
-                <Sparkles className="h-2.5 w-2.5" /> AI · clear
-              </button>
-            ) : null}
-          </div>
+              />
+            ) : null
+          }
+        >
           <Textarea
-            id="attendees"
             value={attendees}
             onChange={(e) => {
               setAttendees(e.target.value)
@@ -386,45 +370,42 @@ ${transcript}`
             rows={2}
             placeholder="Linda Williams (President)&#10;John Smith (Treasurer)&#10;..."
           />
-        </div>
+        </Field>
 
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <label htmlFor="transcript" className="text-sm font-medium text-foreground">
-              Transcript <span className="text-destructive">*</span>
-            </label>
+        <Field
+          label="Transcript"
+          required
+          hint={`${transcript.length.toLocaleString()} characters · at least 50 needed to draft minutes.`}
+          labelAside={
             <AiRewriteButton
               value={transcript}
               onChange={setTranscript}
               context="HOA meeting transcript or notes — the AI will later turn this into formal minutes"
             />
-          </div>
+          }
+        >
           <Textarea
-            id="transcript"
             value={transcript}
             onChange={(e) => setTranscript(e.target.value)}
             rows={12}
             placeholder="Paste the raw transcript or your notes from the meeting. The AI will turn it into formal minutes you can edit and approve via BarBGate."
-            className="font-mono text-xs"
+            className="font-mono text-sm sm:text-xs"
           />
-          <p className="text-xs text-muted">
-            {transcript.length.toLocaleString()} characters · need at least 50.
-          </p>
-        </div>
+        </Field>
 
-        <div className="rounded-lg border border-border bg-background/50 p-3">
-          <div className="flex items-center justify-between gap-2">
-            <div>
+        <div className="rounded-lg border border-accent/30 bg-accent-subtle p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
               <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                <Sparkles className="h-3.5 w-3.5 text-primary" /> AI suggestions
+                <Sparkles className="size-4 text-accent-fg" aria-hidden /> AI suggestions
               </p>
-              <p className="text-xs text-muted">
+              <p className="text-xs text-foreground-secondary">
                 Pull meeting type + attendee names from the transcript so you don&apos;t retype them.
               </p>
             </div>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={handleSuggest}
               loading={suggesting}
@@ -434,7 +415,7 @@ ${transcript}`
             </Button>
           </div>
           {suggestionsError ? (
-            <p className="mt-2 text-xs text-amber-700">{suggestionsError}</p>
+            <p className="mt-2 text-xs font-medium text-warning" role="status">{suggestionsError}</p>
           ) : null}
         </div>
 
@@ -446,7 +427,7 @@ ${transcript}`
 
         <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={async () => {
               await persistDraft(step)
               toast({
@@ -458,8 +439,12 @@ ${transcript}`
           >
             Save draft & exit
           </Button>
-          <Button onClick={handleSummarize} disabled={!canSummarize} loading={aiPending}>
-            <Sparkles className="h-4 w-4" />
+          <Button
+            onClick={handleSummarize}
+            disabled={!canSummarize || !meetingDate}
+            loading={aiPending}
+            icon={<Sparkles aria-hidden />}
+          >
             Generate minutes
           </Button>
         </div>
@@ -480,13 +465,16 @@ ${transcript}`
     return (
       <div className="space-y-5">
         {stepperHeader}
-        <Card>
-          <CardContent className="grid gap-3 p-4 sm:grid-cols-3">
-            <Detail label="Date">{meetingDate}</Detail>
-            <Detail label="Type">{meetingType}</Detail>
-            <Detail label="Attendees">
-              {attendees.split(/[\n,]/).filter((s) => s.trim()).length} listed
-            </Detail>
+        <Card variant="subtle">
+          <CardContent className="pt-5">
+            <KeyValueList className="sm:grid-cols-3">
+              <KeyValue label="Date" value={meetingDate} />
+              <KeyValue label="Type" value={TYPE_LABELS[meetingType]} />
+              <KeyValue
+                label="Attendees"
+                value={`${attendees.split(/[\n,]/).filter((s) => s.trim()).length} listed`}
+              />
+            </KeyValueList>
           </CardContent>
         </Card>
 
@@ -515,21 +503,22 @@ ${transcript}`
       <div className="space-y-5">
         {stepperHeader}
         <div className="py-8 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-            <CheckCircle2 className="h-7 w-7" />
+          <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-success-subtle text-success">
+            <CheckCircle2 className="size-7" aria-hidden />
           </div>
           <div className="mt-4 space-y-1">
-            <h2 className="text-xl font-bold text-foreground">Minutes filed</h2>
+            <h2 className="text-lg font-semibold text-foreground">Minutes filed</h2>
             <p className="text-sm text-muted">
               The approved minutes are now on file for {meetingDate}.
-              {createdId ? '' : ''}
             </p>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-            <Button variant="outline" onClick={() => router.push('/meetings')}>
-              View all meetings
+            <Button variant="secondary" onClick={() => window.location.reload()}>
+              Record another
             </Button>
-            <Button onClick={() => window.location.reload()}>Record another</Button>
+            <Button onClick={() => router.push(createdId ? `/meetings/${createdId}` : '/meetings')}>
+              {createdId ? 'Open the minutes' : 'View all meetings'}
+            </Button>
           </div>
         </div>
       </div>
@@ -539,11 +528,23 @@ ${transcript}`
   return null
 }
 
-function Detail({ label, children }: { label: string; children: React.ReactNode }) {
+const TYPE_LABELS: Record<MeetingType, string> = {
+  regular: 'Regular board meeting',
+  special: 'Special meeting',
+  annual: 'Annual meeting',
+  emergency: 'Emergency meeting',
+}
+
+/** "Filled by AI" marker on a field label; clicking it drops the AI tag. */
+function AiChip({ title, onClear }: { title: string; onClear: () => void }) {
   return (
-    <div>
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</p>
-      <p className="mt-0.5 text-sm text-foreground">{children}</p>
-    </div>
+    <button
+      type="button"
+      onClick={onClear}
+      title={title}
+      className="inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent-subtle px-2 py-0.5 text-2xs font-medium text-accent-fg hover:bg-accent-subtle/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Sparkles className="size-3" aria-hidden /> Filled by AI · clear
+    </button>
   )
 }

@@ -24,7 +24,7 @@ import type { AudienceDefinition } from '@/lib/communications/audience'
 // layer with getCurrentUserRoleInOrg.
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
-type ActionErr = { ok: false; error: string }
+type ActionErr = { ok: false; error: string; fieldErrors?: Record<string, string> }
 export type ActionResult<T = void> = ActionOk<T> | ActionErr
 
 export type Recurrence = 'annual' | 'none'
@@ -83,6 +83,41 @@ export async function getEvent(id: string): Promise<RecurringEvent | null> {
   return data ? normalizeEvent(data) : null
 }
 
+/**
+ * Like listEvents, but a failed read returns null instead of [] so the
+ * page can say "couldn't load" rather than "no events yet".
+ */
+export async function loadEvents(): Promise<RecurringEvent[] | null> {
+  const supabase = await getSupabaseServerClient()
+  const { data, error } = await supabase
+    .from('hoa_recurring_events' as never)
+    .select(SELECT_COLUMNS)
+    .order('event_date', { ascending: true })
+    .limit(500)
+  if (error) {
+    console.error('[events] list failed', error.code)
+    return null
+  }
+  return ((data ?? []) as unknown as RecurringEvent[]).map(normalizeEvent)
+}
+
+/** Like getEvent, but distinguishes "failed" (ok: false) from "not found" (event: null). */
+export async function loadEvent(
+  id: string,
+): Promise<{ ok: false } | { ok: true; event: RecurringEvent | null }> {
+  const supabase = await getSupabaseServerClient()
+  const { data, error } = await supabase
+    .from('hoa_recurring_events' as never)
+    .select(SELECT_COLUMNS)
+    .eq('id', id)
+    .maybeSingle<RecurringEvent>()
+  if (error) {
+    console.error('[events] get failed', error.code)
+    return { ok: false }
+  }
+  return { ok: true, event: data ? normalizeEvent(data) : null }
+}
+
 // Guarantees notify_channels / notify_audience are always populated even
 // if a row predates the backfill or carries a null jsonb — the UI and
 // the alert sender can then treat them as non-optional.
@@ -122,6 +157,16 @@ export async function listEventNotifyProperties(): Promise<
       .filter(Boolean)
       .join(' '),
   }))
+}
+
+/** First zod message per top-level field, for per-field form errors. */
+function fieldErrorsOf(issues: { path: PropertyKey[]; message: string }[]): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const i of issues) {
+    const k = String(i.path[0] ?? '')
+    if (k && !(k in out)) out[k] = i.message
+  }
+  return out
 }
 
 // ─── Validation ──────────────────────────────────────────────────────
@@ -195,7 +240,11 @@ export async function createEvent(
 ): Promise<ActionResult<{ id: string }>> {
   const parsed = EventFieldsSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'Invalid input.',
+      fieldErrors: fieldErrorsOf(parsed.error.issues),
+    }
   }
 
   const org = await getCurrentOrg()
@@ -245,7 +294,11 @@ export async function updateEvent(
 ): Promise<ActionResult> {
   const parsed = EventFieldsSchema.partial().safeParse(partial)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'Invalid input.',
+      fieldErrors: fieldErrorsOf(parsed.error.issues),
+    }
   }
 
   const org = await getCurrentOrg()

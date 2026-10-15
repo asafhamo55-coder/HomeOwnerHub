@@ -1,29 +1,33 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Pencil } from 'lucide-react'
 import { Button } from '@homeowner-portal/ui'
-import { TwoClickDelete } from '@/components/TwoClickDelete'
+import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton'
 import { deleteMeeting } from '@/lib/meetings'
 
 export function MeetingActions({ meetingId }: { meetingId: string }) {
   const router = useRouter()
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => router.push(`/meetings/${meetingId}/edit`)}
-      >
-        <Pencil className="h-3.5 w-3.5" />
-        Edit
-      </Button>
-      <TwoClickDelete
+    <>
+      <ConfirmDeleteButton
         onDelete={() => deleteMeeting(meetingId)}
+        title="Delete this meeting?"
+        description="The minutes, motions and transcript are removed from the board record."
+        confirmLabel="Delete meeting"
         successMessage="Meeting deleted."
         onAfterDelete={() => router.push('/meetings')}
         label="Delete"
+        variant="destructive-ghost"
+        size="md"
       />
-    </div>
+      <Button asChild variant="secondary">
+        <Link href={`/meetings/${meetingId}/edit`}>
+          <Pencil className="size-4" aria-hidden />
+          Edit
+        </Link>
+      </Button>
+    </>
   )
 }

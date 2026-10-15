@@ -33,7 +33,7 @@ export interface MeetingActionItem {
 
 export type ActionResult<T = void> =
   | (T extends void ? { ok: true } : { ok: true; data: T })
-  | { ok: false; error: string }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> }
 
 // ─── Read ────────────────────────────────────────────────────────────
 
@@ -49,6 +49,38 @@ export async function listActionItems(
     .order('due_date' as never, { ascending: true, nullsFirst: false })
     .order('created_at' as never, { ascending: true })
   return (data ?? []) as unknown as MeetingActionItem[]
+}
+
+/**
+ * Like listActionItems, but a failed read returns null instead of [] so
+ * the meeting page can say "couldn't load" rather than "no action items".
+ */
+export async function loadActionItems(
+  meetingId: string,
+): Promise<MeetingActionItem[] | null> {
+  const supabase = await getSupabaseServerClient()
+  const { data, error } = await supabase
+    .from('meeting_action_items' as never)
+    .select('*')
+    .eq('meeting_id' as never, meetingId)
+    .order('status' as never, { ascending: true })
+    .order('due_date' as never, { ascending: true, nullsFirst: false })
+    .order('created_at' as never, { ascending: true })
+  if (error) {
+    console.error('[meeting-action-items] list failed', error.code)
+    return null
+  }
+  return (data ?? []) as unknown as MeetingActionItem[]
+}
+
+/** First zod message per top-level field, for per-field form errors. */
+function fieldErrorsOf(issues: { path: PropertyKey[]; message: string }[]): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const i of issues) {
+    const k = String(i.path[0] ?? '')
+    if (k && !(k in out)) out[k] = i.message
+  }
+  return out
 }
 
 // ─── Create ──────────────────────────────────────────────────────────
@@ -76,7 +108,11 @@ export async function createActionItem(formData: FormData): Promise<ActionResult
     priority: (formData.get('priority') as ActionItemPriority) || 'normal',
   })
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'Invalid input.',
+      fieldErrors: fieldErrorsOf(parsed.error.issues),
+    }
   }
 
   const supabase = await getSupabaseServerClient()

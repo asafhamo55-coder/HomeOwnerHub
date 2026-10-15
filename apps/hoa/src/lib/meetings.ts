@@ -26,6 +26,8 @@ export interface ApproveResult {
   ok: boolean
   meetingId?: string
   error?: string
+  /** Per-field validation messages, keyed by input field name. */
+  fieldErrors?: Record<string, string>
 }
 
 export async function approveMeetingMinutes(input: {
@@ -91,6 +93,16 @@ export async function approveMeetingMinutes(input: {
   return { ok: true, meetingId: row.id as string }
 }
 
+/** First zod message per top-level field, for per-field form errors. */
+function fieldErrorsOf(issues: { path: PropertyKey[]; message: string }[]): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const i of issues) {
+    const k = String(i.path[0] ?? '')
+    if (k && !(k in out)) out[k] = i.message
+  }
+  return out
+}
+
 // ─── Schedule a future meeting ──────────────────────────────────────
 
 const ScheduleSchema = z.object({
@@ -106,7 +118,11 @@ export async function scheduleMeeting(input: {
 }): Promise<ApproveResult> {
   const parsed = ScheduleSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'Invalid input.',
+      fieldErrors: fieldErrorsOf(parsed.error.issues),
+    }
   }
 
   const supabase = await getSupabaseServerClient()
@@ -143,12 +159,14 @@ export async function scheduleMeeting(input: {
 
 // ─── Update meeting ─────────────────────────────────────────────────
 
-type MeetingActionResult = { ok: true } | { ok: false; error: string }
+type MeetingActionResult =
+  | { ok: true }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> }
 
 const UpdateMeetingSchema = z.object({
-  meetingDate: z.string().min(4).optional(),
+  meetingDate: z.string().min(4, 'Meeting date is required.').optional(),
   meetingType: z.enum(['regular', 'special', 'annual', 'emergency']).optional(),
-  approvedSummary: z.string().min(10).optional(),
+  approvedSummary: z.string().min(10, 'Minutes must be at least 10 characters.').optional(),
   attendees: z.array(z.string()).optional(),
 })
 
@@ -165,7 +183,11 @@ export async function updateMeeting(
 ): Promise<MeetingActionResult> {
   const parsed = UpdateMeetingSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'Invalid input.',
+      fieldErrors: fieldErrorsOf(parsed.error.issues),
+    }
   }
 
   const org = await getCurrentOrg()

@@ -88,6 +88,26 @@ export interface SuggestCapResult {
 export async function getLeaseStats(
   associationId: string,
 ): Promise<LeaseStats> {
+  return (
+    (await loadLeaseStats(associationId)) ?? {
+      totalUnits: 0,
+      leasedCount: 0,
+      ownerOccupiedCount: 0,
+      unknownCount: 0,
+      leasedPct: 0,
+      capPct: null,
+      headroom: null,
+    }
+  )
+}
+
+/**
+ * getLeaseStats, but null when any underlying read failed — so /leases
+ * can show "couldn't load" instead of a confident "0% leased".
+ */
+export async function loadLeaseStats(
+  associationId: string,
+): Promise<LeaseStats | null> {
   const supabase = await getSupabaseServerClient()
 
   const [unitsRes, capRes] = await Promise.all([
@@ -103,6 +123,11 @@ export async function getLeaseStats(
       .maybeSingle<{ lease_cap_pct: number | string | null }>(),
   ])
 
+  if (unitsRes.error || capRes.error) {
+    console.error('[leases] stats failed', unitsRes.error?.code ?? capRes.error?.code)
+    return null
+  }
+
   const propertyIds = ((unitsRes.data ?? []) as unknown as Array<{
     legacy_hoa_property_id: string | null
   }>)
@@ -114,10 +139,14 @@ export async function getLeaseStats(
   let unknownCount = 0
 
   if (propertyIds.length > 0) {
-    const { data: tenureRows } = await supabase
+    const { data: tenureRows, error: tenureErr } = await supabase
       .from('hoa_properties')
       .select('id, tenure')
       .in('id', propertyIds)
+    if (tenureErr) {
+      console.error('[leases] tenure read failed', tenureErr.code)
+      return null
+    }
     for (const row of (tenureRows ?? []) as unknown as Array<{
       tenure: PropertyTenure | null
     }>) {
@@ -354,14 +383,25 @@ function humanizeDocType(docType: string): string {
 export async function listWaitingList(
   associationId: string,
 ): Promise<WaitingListEntry[]> {
+  return (await loadWaitingList(associationId)) ?? []
+}
+
+/** listWaitingList, but null when the read failed (distinct from an empty list). */
+export async function loadWaitingList(
+  associationId: string,
+): Promise<WaitingListEntry[] | null> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('lease_waiting_list' as never)
     .select(
       'id, property_id, requested_at, status, notes, property:hoa_properties(address, unit_number, owner_name)',
     )
     .eq('association_id', associationId)
     .order('requested_at', { ascending: true })
+  if (error) {
+    console.error('[leases] waiting list failed', error.code)
+    return null
+  }
 
   const rows = (data ?? []) as unknown as Array<{
     id: string

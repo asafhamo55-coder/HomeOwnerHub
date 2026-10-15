@@ -1,10 +1,9 @@
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
-import { Alert, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { Alert, Card, CardContent, Page } from '@homeowner-portal/ui'
 import { loadDraft } from '@/lib/drafts'
 import { MeetingWizard } from '../MeetingWizard'
 
-export const metadata = { title: 'New minutes' }
+export const metadata = { title: 'Record minutes' }
 
 interface SearchParams {
   draft?: string
@@ -18,34 +17,26 @@ export default async function NewMeetingPage({
   const { draft: draftId } = await searchParams
   const initialDraft = draftId ? await loadDraft(draftId) : null
   const usableDraft =
-    initialDraft && initialDraft.kind === 'meeting' && !initialDraft.completed
-      ? initialDraft
-      : null
+    initialDraft && initialDraft.kind === 'meeting' && !initialDraft.completed ? initialDraft : null
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <Link
-        href="/meetings"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to meetings
-      </Link>
-
+    <Page
+      width="narrow"
+      title={usableDraft ? 'Resume meeting minutes' : 'Record meeting minutes'}
+      description="Paste the transcript or your notes. AI drafts formal minutes; the board edits and approves them before they go on the record."
+      breadcrumbs={[{ label: 'Meetings', href: '/meetings' }, { label: 'Record minutes' }]}
+      linkAs={Link}
+    >
       {usableDraft ? (
         <Alert variant="info" title="Resumed unfinished draft">
           Your transcript and meeting details are restored. The wizard autosaves as you progress.
         </Alert>
       ) : null}
-
-      <Card variant="elevated">
-        <CardHeader>
-          <CardTitle>{usableDraft ? 'Resume meeting minutes' : 'Record meeting minutes'}</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <Card>
+        <CardContent className="pt-5">
           <MeetingWizard initialDraft={usableDraft} />
         </CardContent>
       </Card>
-    </div>
+    </Page>
   )
 }

@@ -6,6 +6,7 @@ import { Sparkles, Pencil, X } from 'lucide-react'
 import {
   Alert,
   Button,
+  Field,
   Input,
   useToast,
 } from '@homeowner-portal/ui'
@@ -114,28 +115,30 @@ export function LeaseCapEditor({
   return (
     <div className="space-y-3">
       {!editing ? (
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-            <Pencil className="h-3.5 w-3.5" />
-            Edit cap
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="secondary" onClick={() => setEditing(true)} icon={<Pencil aria-hidden />}>
+            {currentCapPct === null ? 'Set cap' : 'Edit cap'}
           </Button>
           <Button
             size="sm"
-            variant="outline"
+            variant="ghost"
             onClick={handleSuggest}
             loading={suggestPending}
-            disabled={suggestPending}
+            icon={<Sparkles aria-hidden />}
           >
-            <Sparkles className="h-3.5 w-3.5" />
-            {suggestPending ? 'Asking declaration…' : 'Suggest from declaration'}
+            {suggestPending ? 'Reading declaration…' : 'Suggest from declaration'}
           </Button>
         </div>
       ) : (
-        <div className="space-y-2">
-          <label className="block text-xs font-medium uppercase tracking-wide text-muted">
-            Cap %
-          </label>
-          <div className="flex items-center gap-2">
+        <form
+          className="flex flex-col gap-3 sm:flex-row sm:items-start"
+          onSubmit={(e) => {
+            e.preventDefault()
+            handleSave()
+          }}
+          noValidate
+        >
+          <Field label="Rental cap" error={error} hint="Percent of all units. Leave blank to remove the cap." className="sm:w-56">
             <Input
               type="number"
               min={0}
@@ -145,35 +148,34 @@ export function LeaseCapEditor({
               value={value}
               onChange={(e) => setValue(e.target.value)}
               placeholder="e.g. 20"
-              className="w-32"
+              suffix="%"
+              autoFocus
             />
-            <span className="text-sm text-muted">% of total units</span>
-            <Button size="sm" onClick={handleSave} loading={pending} disabled={pending}>
-              Save
+          </Field>
+          <div className="flex items-center gap-2 sm:pt-7">
+            <Button type="submit" size="sm" loading={pending}>
+              Save cap
             </Button>
             <Button
+              type="button"
               size="sm"
-              variant="outline"
+              variant="ghost"
               onClick={() => {
                 setEditing(false)
                 setError(null)
                 setValue(currentCapPct === null ? '' : String(currentCapPct))
               }}
               disabled={pending}
+              icon={<X aria-hidden />}
             >
-              <X className="h-3.5 w-3.5" />
               Cancel
             </Button>
           </div>
-          {error ? <p className="text-xs text-destructive">{error}</p> : null}
-          <p className="text-xs text-muted">
-            Leave blank to remove the cap. Range 0–100.
-          </p>
-        </div>
+        </form>
       )}
 
       {aiSuggestedPct !== null || aiSource ? (
-        <Alert variant="info" title="AI suggestion">
+        <Alert variant="info" title="Suggested from your governing documents">
           <div className="space-y-2 text-sm">
             <p>
               Your governing documents{' '}
@@ -188,7 +190,7 @@ export function LeaseCapEditor({
               {aiSource ? (
                 <>
                   {' '}
-                  (per <span className="font-mono text-xs">{aiSource}</span>)
+                  (per <span className="font-medium">{aiSource}</span>)
                 </>
               ) : null}
               .
@@ -196,7 +198,7 @@ export function LeaseCapEditor({
             {aiSuggestedPct !== null && aiSuggestedPct !== currentCapPct ? (
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 onClick={() => handleUseSuggestion(aiSuggestedPct)}
                 disabled={pending}
               >
@@ -208,9 +210,9 @@ export function LeaseCapEditor({
       ) : null}
 
       {lastSuggestion ? (
-        <div className="rounded-md border border-border bg-background/40 p-3 text-xs text-muted">
-          <p className="mb-1 font-medium text-foreground">AI answer</p>
-          <p className="whitespace-pre-wrap leading-relaxed">{lastSuggestion.answer}</p>
+        <div className="rounded-lg border border-border bg-subtle p-4 text-sm">
+          <p className="mb-1 font-medium text-foreground">What the declaration says</p>
+          <p className="whitespace-pre-wrap leading-relaxed text-foreground-secondary">{lastSuggestion.answer}</p>
         </div>
       ) : null}
     </div>

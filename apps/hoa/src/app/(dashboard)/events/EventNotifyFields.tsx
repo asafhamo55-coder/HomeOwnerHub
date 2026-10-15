@@ -2,7 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Loader2, Users2 } from 'lucide-react'
-import { Select } from '@homeowner-portal/ui'
+import {
+  Badge,
+  Button,
+  Checkbox,
+  ChoiceGroup,
+  Field,
+  Fieldset,
+  Radio,
+  Select,
+  cn,
+} from '@homeowner-portal/ui'
 import {
   listBoardMembers,
   listPropertyResidents,
@@ -57,11 +67,17 @@ export function EventNotifyFields({
   initial,
   onChange,
   disabled,
+  channelsError,
+  audienceError,
 }: {
   properties: PropertyOption[]
   initial?: EventNotifyValue
   onChange: (value: EventNotifyValue) => void
   disabled?: boolean
+  /** Server/client validation message for the channel choice. */
+  channelsError?: string | null
+  /** Server/client validation message for the audience choice. */
+  audienceError?: string | null
 }) {
   const [channels, setChannels] = useState<NotifyChannel[]>(
     initial?.channels?.length ? initial.channels : ['email'],
@@ -163,216 +179,156 @@ export function EventNotifyFields({
 
   return (
     <div className="space-y-5">
-      {/* Channels */}
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-foreground">How to notify</p>
-        <div className="flex flex-wrap gap-4">
+      <Fieldset
+        legend="How to notify"
+        error={channels.length === 0 ? 'Pick at least one channel.' : (channelsError ?? undefined)}
+      >
+        <ChoiceGroup orientation="horizontal">
           {CHANNELS.map((c) => (
-            <label key={c.value} className="flex items-center gap-2 text-sm text-foreground">
-              <input
-                type="checkbox"
-                checked={channels.includes(c.value)}
-                onChange={() => toggleChannel(c.value)}
-                disabled={disabled}
-              />
-              {c.label}
-              <span className="text-xs text-muted">{c.hint}</span>
-            </label>
+            <Checkbox
+              key={c.value}
+              label={c.label}
+              description={c.hint}
+              checked={channels.includes(c.value)}
+              onChange={() => toggleChannel(c.value)}
+              disabled={disabled}
+            />
           ))}
-        </div>
-        {channels.length === 0 ? (
-          <p className="text-xs text-destructive">Pick at least one channel.</p>
-        ) : null}
-      </div>
+        </ChoiceGroup>
+      </Fieldset>
 
-      {/* Audience */}
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-foreground">Who to notify</p>
+      <Fieldset legend="Who to notify" error={audienceError ?? undefined}>
         <div className="grid gap-2 sm:grid-cols-3">
           {AUDIENCE_OPTIONS.map((opt) => {
             const selected = kind === opt.value
             return (
-              <label
+              <Radio
                 key={opt.value}
-                className={`flex cursor-pointer flex-col gap-0.5 rounded-md border px-3 py-2 text-sm ${
-                  selected
-                    ? 'border-primary bg-primary/5 text-foreground'
-                    : 'border-border text-muted hover:bg-background'
-                } ${disabled ? 'opacity-50' : ''}`}
-              >
-                <span className="flex items-center gap-2 font-medium">
-                  <input
-                    type="radio"
-                    name="event-audience"
-                    checked={selected}
-                    onChange={() => setKind(opt.value)}
-                    disabled={disabled}
-                  />
-                  {opt.label}
-                </span>
-                <span className="ml-6 text-xs text-muted">{opt.hint}</span>
-              </label>
+                name="event-audience"
+                label={opt.label}
+                description={opt.hint}
+                checked={selected}
+                onChange={() => setKind(opt.value)}
+                disabled={disabled}
+                wrapperClassName={cn(
+                  'rounded-lg border px-3 py-2.5 transition-colors',
+                  selected ? 'border-primary bg-primary-subtle' : 'border-border bg-surface hover:bg-subtle',
+                )}
+              />
             )
           })}
         </div>
 
-        {/* Board sub-picker */}
         {kind === 'board' ? (
-          <div className="space-y-3 rounded-md border border-border bg-background/40 p-4">
+          <div className="mt-2 space-y-3 rounded-lg border border-border bg-subtle p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-medium text-foreground">
-                Which board members?{' '}
-                <span className="font-normal text-muted">
-                  ({checkedBoard.size} selected)
-                </span>
+              <p className="text-sm font-medium text-foreground">
+                Which board members? <span className="num font-normal text-muted">({checkedBoard.size} selected)</span>
               </p>
               {board.length > 0 ? (
-                <div className="flex items-center gap-1.5 text-xs">
-                  <button
-                    type="button"
-                    className="rounded-full border border-border bg-surface px-2 py-0.5 hover:bg-background"
-                    onClick={() => setCheckedBoard(new Set(board.map((m) => m.userId)))}
-                  >
-                    All
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-full border border-border bg-surface px-2 py-0.5 hover:bg-background"
-                    onClick={() => setCheckedBoard(new Set())}
-                  >
-                    None
-                  </button>
+                <div className="flex items-center gap-1">
+                  <Button type="button" size="xs" variant="ghost" onClick={() => setCheckedBoard(new Set(board.map((m) => m.userId)))}>
+                    Select all
+                  </Button>
+                  <Button type="button" size="xs" variant="ghost" onClick={() => setCheckedBoard(new Set())}>
+                    Clear
+                  </Button>
                 </div>
               ) : null}
             </div>
             {boardLoading ? (
-              <p className="inline-flex items-center gap-1.5 text-xs text-muted">
-                <Loader2 className="h-3 w-3 animate-spin" />
+              <p className="inline-flex items-center gap-1.5 text-sm text-muted" role="status">
+                <Loader2 className="size-4 animate-spin" aria-hidden />
                 Loading board members…
               </p>
             ) : board.length === 0 ? (
-              <p className="flex items-center gap-2 text-xs italic text-muted">
-                <Users2 className="h-3.5 w-3.5" />
+              <p className="flex items-center gap-2 text-sm text-muted">
+                <Users2 className="size-4" aria-hidden />
                 No board members yet. Invite members with the Board role first.
               </p>
             ) : (
-              <ul className="divide-y divide-border rounded-md border border-border bg-surface">
+              <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
                 {board.map((m) => (
-                  <li key={m.userId}>
-                    <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-background/50">
-                      <input
-                        type="checkbox"
-                        checked={checkedBoard.has(m.userId)}
-                        onChange={() => setCheckedBoard((p) => toggle(p, m.userId))}
-                        disabled={disabled}
-                      />
-                      <span className="min-w-0 flex-1 text-sm text-foreground">
-                        {m.fullName}
-                        <span
-                          className={`ml-2 rounded-full px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide ${
-                            m.role === 'admin'
-                              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                              : 'bg-primary/10 text-primary'
-                          }`}
-                        >
-                          {m.role}
+                  <li key={m.userId} className="px-3 py-2.5">
+                    <Checkbox
+                      checked={checkedBoard.has(m.userId)}
+                      onChange={() => setCheckedBoard((p) => toggle(p, m.userId))}
+                      disabled={disabled}
+                      label={
+                        <span className="flex flex-wrap items-center gap-2">
+                          {m.fullName}
+                          <Badge variant={m.role === 'admin' ? 'warning' : 'default'}>
+                            {m.role === 'admin' ? 'Admin' : 'Board'}
+                          </Badge>
                         </span>
-                        <span className="ml-2 text-xs text-muted">
-                          {m.email ?? 'no email on file'}
-                        </span>
-                      </span>
-                    </label>
+                      }
+                      description={m.email ?? 'No email on file'}
+                    />
                   </li>
                 ))}
               </ul>
             )}
-            <p className="text-xs italic text-muted">
-              Board members are checked by default; admins are listed as an
-              opt-in. SMS is skipped for these roles — no phone number is on file.
+            <p className="text-xs text-muted">
+              Board members are checked by default; admins are listed as an opt-in. SMS is skipped for these roles — no
+              phone number is on file.
             </p>
           </div>
         ) : null}
 
-        {/* Specific-resident sub-picker */}
         {kind === 'specific_residents' ? (
-          <div className="space-y-3 rounded-md border border-border bg-background/40 p-4">
-            <div>
-              <label className="text-xs font-medium text-foreground" htmlFor="event-property">
-                Property
-              </label>
+          <div className="mt-2 space-y-3 rounded-lg border border-border bg-subtle p-4">
+            <Field label="Property">
               <Select
-                id="event-property"
                 value={propertyId}
                 onValueChange={setPropertyId}
                 disabled={disabled}
                 placeholder="Choose a property"
-                className="mt-1"
               >
-                <option value="" disabled>
-                  — pick one —
-                </option>
                 {properties.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.label}
                   </option>
                 ))}
               </Select>
-            </div>
+            </Field>
 
             {propertyId ? (
               residentsLoading ? (
-                <p className="inline-flex items-center gap-1.5 text-xs text-muted">
-                  <Loader2 className="h-3 w-3 animate-spin" />
+                <p className="inline-flex items-center gap-1.5 text-sm text-muted" role="status">
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
                   Loading residents…
                 </p>
               ) : residents.length === 0 ? (
-                <p className="flex items-center gap-2 text-xs italic text-muted">
-                  <Users2 className="h-3.5 w-3.5" />
+                <p className="flex items-center gap-2 text-sm text-muted">
+                  <Users2 className="size-4" aria-hidden />
                   No active residents recorded for this property.
                 </p>
               ) : (
-                <div>
+                <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-medium text-foreground">
+                    <p className="text-sm font-medium text-foreground">
                       Who at this property?{' '}
-                      <span className="font-normal text-muted">
-                        ({checkedResidents.size} selected)
-                      </span>
+                      <span className="num font-normal text-muted">({checkedResidents.size} selected)</span>
                     </p>
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <button
-                        type="button"
-                        className="rounded-full border border-border bg-surface px-2 py-0.5 hover:bg-background"
-                        onClick={() => setCheckedResidents(new Set(residents.map((r) => r.id)))}
-                      >
-                        All
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-full border border-border bg-surface px-2 py-0.5 hover:bg-background"
-                        onClick={() => setCheckedResidents(new Set())}
-                      >
-                        None
-                      </button>
+                    <div className="flex items-center gap-1">
+                      <Button type="button" size="xs" variant="ghost" onClick={() => setCheckedResidents(new Set(residents.map((r) => r.id)))}>
+                        Select all
+                      </Button>
+                      <Button type="button" size="xs" variant="ghost" onClick={() => setCheckedResidents(new Set())}>
+                        Clear
+                      </Button>
                     </div>
                   </div>
-                  <ul className="mt-2 divide-y divide-border rounded-md border border-border bg-surface">
+                  <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
                     {residents.map((r) => (
-                      <li key={r.id}>
-                        <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-background/50">
-                          <input
-                            type="checkbox"
-                            checked={checkedResidents.has(r.id)}
-                            onChange={() => setCheckedResidents((p) => toggle(p, r.id))}
-                            disabled={disabled}
-                          />
-                          <span className="min-w-0 flex-1 text-sm text-foreground">
-                            {r.fullName}
-                            <span className="ml-2 text-xs text-muted">
-                              {r.email ?? 'no email on file'}
-                            </span>
-                          </span>
-                        </label>
+                      <li key={r.id} className="px-3 py-2.5">
+                        <Checkbox
+                          checked={checkedResidents.has(r.id)}
+                          onChange={() => setCheckedResidents((p) => toggle(p, r.id))}
+                          disabled={disabled}
+                          label={r.fullName}
+                          description={r.email ?? 'No email on file'}
+                        />
                       </li>
                     ))}
                   </ul>
@@ -381,7 +337,7 @@ export function EventNotifyFields({
             ) : null}
           </div>
         ) : null}
-      </div>
+      </Fieldset>
     </div>
   )
 }
