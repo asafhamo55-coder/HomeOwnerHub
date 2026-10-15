@@ -1,212 +1,221 @@
 import Link from 'next/link'
-import { Banknote, CheckCircle2, ChevronLeft, Circle, ListChecks } from 'lucide-react'
-import { format } from 'date-fns'
-import { Badge, Card, EmptyState } from '@homeowner-portal/ui'
+import { ArrowRight, Banknote, Landmark, ListChecks } from 'lucide-react'
+import {
+  Alert,
+  Button,
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  DataTable,
+  EmptyState,
+  LoadFailed,
+  Page,
+  Pager,
+  StatusPill,
+  pageRange,
+  parsePageParam,
+  type DataTableColumn,
+} from '@homeowner-portal/ui'
 import {
   getAccountingContext,
   listBankAccounts,
-  listBankTransactions,
   listFunds,
+  pageBankTransactions,
+  type BankAccountWithFund,
+  type BankTransactionRow,
 } from '@/lib/accounting/queries'
+import { tryLoad } from '@/lib/load-or-fail'
+import { formatDay, formatStamp, plural, usd } from '@/lib/money/format'
+import { AccountingTabs } from '../AccountingTabs'
+import { AccountingLoadFailed, AccountingNotSetUp } from '../_components/shared'
 import { LinkPlaidButton } from './LinkPlaidButton'
 
 export const metadata = { title: 'Bank Accounts' }
 export const dynamic = 'force-dynamic'
 
-function currency(n: number): string {
-  return n.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  })
-}
+const PAGE_SIZE = 25
 
-export default async function BankAccountsPage() {
-  const ctx = await getAccountingContext()
-  if (!ctx) {
-    return (
-      <div className="mx-auto max-w-3xl">
-        <EmptyState
-          icon={<Banknote className="h-10 w-10" aria-hidden />}
-          title="Banking not yet available"
-          description="This area is empty. Contact support to set up accounting for your association, then you can link a bank account."
-        />
-      </div>
-    )
-  }
+export default async function BankAccountsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const ctxRes = await tryLoad('accounting context', getAccountingContext)
+  if (!ctxRes.ok) return <AccountingLoadFailed title="Bank accounts" what="bank accounts" />
+  const ctx = ctxRes.data
+  if (!ctx) return <AccountingNotSetUp title="Bank accounts" />
 
-  const [accounts, recent, funds] = await Promise.all([
-    listBankAccounts(ctx.associationId),
-    listBankTransactions(ctx.associationId, { limit: 50 }),
-    listFunds(ctx.associationId),
+  const page = parsePageParam((await searchParams).page)
+  const [accounts, txns, unmatched, funds] = await Promise.all([
+    tryLoad('bank accounts', () => listBankAccounts(ctx.associationId)),
+    tryLoad('bank transactions', () => pageBankTransactions(ctx.associationId, {}, pageRange(page, PAGE_SIZE))),
+    tryLoad('unmatched transactions', () => pageBankTransactions(ctx.associationId, { matched: 'unmatched' }, { from: 0, to: 0 })),
+    tryLoad('funds', () => listFunds(ctx.associationId)),
   ])
-  const fundOptions = funds.map((f) => ({ id: f.id, label: `${f.code} — ${f.name}` }))
-
-  const unmatchedCount = recent.filter((t) => !t.matched_journal_entry_id).length
+  const fundOptions = funds.ok ? funds.data.map((f) => ({ id: f.id, label: f.name })) : []
+  const hasAccounts = accounts.ok && accounts.data.length > 0
+  const unmatchedCount = unmatched.ok ? unmatched.data.total : 0
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <header className="space-y-1">
-        <Link
-          href="/accounting"
-          className="inline-flex items-center gap-1 text-xs text-muted hover:text-foreground"
+    <Page
+      title="Bank accounts"
+      description="Linked through Plaid. Transactions sync every few hours and are matched to the ledger automatically."
+      tabs={<AccountingTabs />}
+      actions={funds.ok ? <LinkPlaidButton funds={fundOptions} variant={hasAccounts ? 'secondary' : 'default'} /> : undefined}
+    >
+      {unmatchedCount > 0 ? (
+        <Alert
+          variant="warning"
+          title={`${plural(unmatchedCount, 'transaction')} need${unmatchedCount === 1 ? 's' : ''} a match`}
+          actions={
+            <Button asChild size="sm">
+              <Link href="/accounting/bank/queue">
+                Review queue
+                <ArrowRight aria-hidden />
+              </Link>
+            </Button>
+          }
         >
-          <ChevronLeft className="h-3 w-3" />
-          Accounting
-        </Link>
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h1>Bank Accounts</h1>
-          {unmatchedCount > 0 ? (
-            <Link
-              href="/accounting/bank/queue"
-              className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-background"
-            >
-              <ListChecks className="h-3.5 w-3.5" />
-              {unmatchedCount} unmatched in queue
-            </Link>
-          ) : null}
-        </div>
-        <p className="text-sm text-muted">
-          {accounts.length} account{accounts.length === 1 ? '' : 's'} linked.
-          We pull a fresh transaction feed every few hours and match each
-          transaction to your ledger entries automatically.
-        </p>
-      </header>
+          The automatic matcher couldn’t place these in the ledger. Until they’re matched, bank and ledger balances won’t agree.
+        </Alert>
+      ) : null}
 
-      <div className="rounded-lg border border-border bg-surface p-4">
-        <p className="text-sm font-semibold text-foreground">Link a new bank account</p>
-        <p className="mb-3 text-xs text-muted">
-          Pick which fund the linked accounts attach to, then connect via
-          Plaid. The popup handles bank authentication; we never see your
-          credentials.
-        </p>
-        <LinkPlaidButton funds={fundOptions} />
-      </div>
-
-      {accounts.length === 0 ? (
+      {!accounts.ok ? (
+        <LoadFailed what="bank accounts" />
+      ) : accounts.data.length === 0 ? (
         <EmptyState
-          icon={<Banknote className="h-10 w-10" aria-hidden />}
-          title="No bank accounts linked yet"
-          description="Use the Link button above to connect your operating or reserve account via Plaid. Sandbox credentials work for dev."
+          icon={<Banknote aria-hidden />}
+          title="No bank accounts linked"
+          description="Link your operating and reserve accounts so transactions flow in and match to the ledger on their own."
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {accounts.map((a) => (
-            <Card key={a.id}>
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-semibold text-foreground">{a.account_name}</p>
-                    <p className="text-xs text-muted">
-                      {a.bank_name ?? 'Bank'}
-                      {a.last4 ? ` · …${a.last4}` : ''}
-                      {a.fund ? ` · ${a.fund.code}` : ''}
-                    </p>
-                  </div>
-                  {a.is_active ? (
-                    <Badge variant="success" size="sm">linked</Badge>
-                  ) : (
-                    <Badge variant="outline" size="sm">inactive</Badge>
-                  )}
-                </div>
-                <div className="mt-3 flex items-baseline justify-between gap-2">
-                  <span className="font-mono text-lg text-foreground">
-                    {a.current_balance != null ? currency(Number(a.current_balance)) : '—'}
-                  </span>
-                  <span className="text-[11px] text-muted">
-                    {a.last_synced_at
-                      ? `synced ${format(new Date(a.last_synced_at), 'PP')}`
-                      : 'never synced'}
-                  </span>
-                </div>
-                <div className="mt-3 border-t border-border pt-3">
-                  <Link
-                    href={`/accounting/bank/${a.id}/reconcile`}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    Reconcile →
-                  </Link>
-                </div>
-              </div>
-            </Card>
+        <section aria-label="Accounts" className="grid gap-4 sm:grid-cols-2">
+          {accounts.data.map((a) => (
+            <AccountCard key={a.id} account={a} />
           ))}
-        </div>
+        </section>
       )}
 
-      <section>
-        <div className="mb-2 flex items-baseline justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Recent transactions</h2>
-          <Link
-            href="/accounting/bank/queue"
-            className="text-xs text-primary hover:underline"
+      {hasAccounts ? (
+        <Card className="overflow-hidden">
+          <CardHeader
+            actions={
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/accounting/bank/queue">
+                  <ListChecks aria-hidden />
+                  Matching queue
+                </Link>
+              </Button>
+            }
           >
-            View queue
-          </Link>
-        </div>
-        {recent.length === 0 ? (
-          <Card>
-            <div className="p-6 text-sm text-muted">
-              No transactions yet. Once a bank account is linked, transactions
-              will appear here with their match status.
+            <CardTitle as="h2">Transactions</CardTitle>
+            <CardDescription>Newest first, across every linked account.</CardDescription>
+          </CardHeader>
+          {!txns.ok ? (
+            <div className="px-5 pb-5">
+              <LoadFailed what="bank transactions" />
             </div>
-          </Card>
-        ) : (
-          <Card>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-border text-xs uppercase tracking-wide text-muted">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Date</th>
-                  <th className="px-4 py-2 font-medium">Account</th>
-                  <th className="px-4 py-2 font-medium">Memo / Merchant</th>
-                  <th className="px-4 py-2 text-right font-medium">Amount</th>
-                  <th className="px-4 py-2 font-medium">Match</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map((t) => (
-                  <tr key={t.id} className="border-b border-border last:border-0">
-                    <td className="px-4 py-2 text-muted">
-                      {format(new Date(t.posted_date), 'MMM d')}
-                    </td>
-                    <td className="px-4 py-2 text-xs text-muted">
-                      {t.bank_account?.account_name ?? '—'}
-                    </td>
-                    <td className="px-4 py-2">
-                      <p className="text-foreground">{t.memo ?? '—'}</p>
-                      {t.merchant ? (
-                        <p className="text-xs text-muted">{t.merchant}</p>
-                      ) : null}
-                    </td>
-                    <td
-                      className={`px-4 py-2 text-right font-mono ${Number(t.amount) < 0 ? 'text-destructive' : 'text-emerald-600'}`}
-                    >
-                      {currency(Number(t.amount))}
-                    </td>
-                    <td className="px-4 py-2">
-                      {t.matched_journal_entry_id ? (
-                        <Link
-                          href={`/accounting/ledger/${t.matched_journal_entry_id}`}
-                          className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:underline"
-                        >
-                          <CheckCircle2 className="h-3 w-3" />
-                          {t.match_method ?? 'matched'}
-                        </Link>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs text-muted">
-                          <Circle className="h-3 w-3" />
-                          unmatched
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              </table>
-            </div>
-          </Card>
-        )}
-      </section>
-    </div>
+          ) : (
+            <DataTable
+              framed={false}
+              density="compact"
+              mobile="cards"
+              caption="Bank transactions"
+              columns={TXN_COLUMNS}
+              rows={txns.data.rows}
+              rowKey={(t) => t.id}
+              empty={
+                <EmptyState
+                  variant="compact"
+                  icon={<Landmark aria-hidden />}
+                  title="No transactions yet"
+                  description="They appear after the first sync, usually within a few hours of linking."
+                />
+              }
+              footer={
+                txns.data.total > PAGE_SIZE ? (
+                  <Pager
+                    page={page}
+                    pageSize={PAGE_SIZE}
+                    total={txns.data.total}
+                    rowCount={txns.data.rows.length}
+                    hrefFor={(p) => (p > 1 ? `/accounting/bank?page=${p}` : '/accounting/bank')}
+                    linkAs={Link}
+                    noun="transactions"
+                  />
+                ) : undefined
+              }
+            />
+          )}
+        </Card>
+      ) : null}
+    </Page>
   )
 }
+
+function AccountCard({ account: a }: { account: BankAccountWithFund }) {
+  return (
+    <Card className="flex flex-col">
+      <div className="flex items-start justify-between gap-3 p-5 pb-0">
+        <div className="min-w-0">
+          <h2 className="truncate text-base font-semibold text-foreground">{a.account_name}</h2>
+          <p className="text-sm text-muted">
+            {a.bank_name ?? 'Bank'}
+            {a.last4 ? <span className="num"> ··{a.last4}</span> : null}
+            {a.fund ? ` · ${a.fund.name}` : ''}
+          </p>
+        </div>
+        {a.is_active ? <StatusPill tone="success" label="Linked" size="sm" /> : <StatusPill tone="neutral" label="Inactive" size="sm" />}
+      </div>
+      <div className="flex-1 px-5 pb-5 pt-4">
+        <p className="num text-3xl font-semibold tracking-tight text-foreground">
+          {a.current_balance != null ? usd(Number(a.current_balance)) : '—'}
+        </p>
+        <p className="mt-1 text-xs text-muted">
+          {a.last_synced_at ? `Bank balance · synced ${formatStamp(a.last_synced_at)}` : 'Never synced'}
+        </p>
+      </div>
+      <div className="flex items-center gap-2 border-t border-border px-5 py-3">
+        <Button asChild variant="ghost" size="sm">
+          <Link href={`/accounting/bank/${a.id}/reconcile`}>
+            Reconcile
+            <ArrowRight aria-hidden />
+          </Link>
+        </Button>
+      </div>
+    </Card>
+  )
+}
+
+const TXN_COLUMNS: DataTableColumn<BankTransactionRow>[] = [
+  { key: 'date', header: 'Date', className: 'whitespace-nowrap text-muted', cell: (t) => formatDay(t.posted_date) },
+  {
+    key: 'memo',
+    header: 'Description',
+    mobilePrimary: true,
+    cell: (t) => (
+      <span className="block min-w-0">
+        <span className="block truncate text-foreground">{t.merchant ?? t.memo ?? 'No description'}</span>
+        {t.merchant && t.memo ? <span className="block truncate text-xs text-muted">{t.memo}</span> : null}
+      </span>
+    ),
+  },
+  { key: 'account', header: 'Account', hideBelowLg: true, className: 'whitespace-nowrap text-muted', cell: (t) => t.bank_account?.account_name ?? '—' },
+  {
+    key: 'amount',
+    header: 'Amount',
+    numeric: true,
+    cell: (t) => <span className={Number(t.amount) > 0 ? 'text-success' : 'text-foreground'}>{Number(t.amount) > 0 ? `+${usd(Number(t.amount))}` : usd(Number(t.amount))}</span>,
+  },
+  {
+    key: 'match',
+    header: 'Ledger',
+    cell: (t) =>
+      t.matched_journal_entry_id ? (
+        <Link href={`/accounting/ledger/${t.matched_journal_entry_id}`} className="no-underline">
+          <StatusPill tone="success" label={t.match_method === 'manual' ? 'Matched by hand' : 'Matched'} size="sm" />
+        </Link>
+      ) : (
+        <Link href="/accounting/bank/queue" className="no-underline">
+          <StatusPill tone="warning" label="Unmatched" size="sm" />
+        </Link>
+      ),
+  },
+]

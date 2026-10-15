@@ -1,57 +1,58 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { Check, Loader2 } from 'lucide-react'
-import { Alert, Button } from '@homeowner-portal/ui'
+import { useRouter } from 'next/navigation'
+import { useTransition } from 'react'
+import { Check } from 'lucide-react'
+import { Button, ConfirmDialog, useToast } from '@homeowner-portal/ui'
 import { approveReconciliation } from '@/lib/bank-reconciliation'
+import { usd } from '@/lib/money/format'
 
 /**
- * Approve action lives on each non-approved reconciliation row. When
- * the diff is > 1¢ the server action refuses the first attempt; we
- * then confirm with the manager and re-submit with force=true.
+ * Approve one reconciliation. A balanced one approves in one click; one
+ * with a difference asks first (it used to use the browser's native
+ * confirm()), then sends force=true so the variance stays on the record.
  */
-export function ApproveReconciliationButton({
-  reconciliationId,
-  difference,
-}: {
-  reconciliationId: string
-  difference: number
-}) {
-  const [error, setError] = useState<string | null>(null)
+export function ApproveReconciliationButton({ reconciliationId, difference }: { reconciliationId: string; difference: number }) {
+  const router = useRouter()
+  const toast = useToast()
   const [pending, startTransition] = useTransition()
   const hasDiff = Math.abs(difference) > 0.01
 
-  function handleClick() {
-    setError(null)
-    if (
-      hasDiff &&
-      !confirm(
-        `Difference is ${difference.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}. ` +
-          `Approve anyway? The variance will stay on the record.`,
-      )
-    ) {
-      return
+  async function approve() {
+    const r = await approveReconciliation({ reconciliationId, force: hasDiff })
+    if (!r.ok) {
+      toast({ tone: 'error', title: 'Couldn’t approve', message: r.error })
+      throw new Error(r.error)
     }
-    startTransition(async () => {
-      const r = await approveReconciliation({
-        reconciliationId,
-        force: hasDiff,
-      })
-      if (!r.ok) {
-        setError(r.error)
-      } else {
-        window.location.reload()
-      }
-    })
+    toast({ tone: 'success', message: 'Reconciliation approved.' })
+    router.refresh()
+  }
+
+  if (!hasDiff) {
+    return (
+      <Button
+        size="sm"
+        variant="secondary"
+        icon={<Check aria-hidden />}
+        loading={pending}
+        onClick={() => startTransition(() => approve().catch(() => undefined))}
+      >
+        Approve
+      </Button>
+    )
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <Button onClick={handleClick} variant="outline" size="sm" disabled={pending}>
-        {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-        Approve
-      </Button>
-      {error ? <Alert variant="error" className="text-xs">{error}</Alert> : null}
-    </div>
+    <ConfirmDialog
+      title={`Approve with a ${usd(difference)} difference?`}
+      description="The statement and the ledger don’t agree. Approving records the difference as-is; it stays visible on this reconciliation."
+      confirmLabel="Approve anyway"
+      trigger={
+        <Button size="sm" variant="secondary" icon={<Check aria-hidden />}>
+          Approve
+        </Button>
+      }
+      onConfirm={approve}
+    />
   )
 }

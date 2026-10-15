@@ -17,7 +17,7 @@ const ACCOUNTING_TABS = [
   { label: 'Payment plans', href: '/accounting/payment-plans' },
   { label: 'Recurring', href: '/accounting/recurring' },
   { label: 'Periods', href: '/accounting/periods' },
-  { label: 'Chart of accounts', href: '/accounting/coa' },
+  { label: 'Accounts', href: '/accounting/coa' },
 ]
 
 /**

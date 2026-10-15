@@ -69,14 +69,13 @@ export default async function InvoiceDetailPage({ params }: PageProps) {
       }
       actions={isPaid ? undefined : <InvoiceActions invoiceId={invoice.id} invoiceNumber={invoice.invoice_number} />}
     >
-      <section aria-label="Amounts" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+      <section aria-label="Amounts" className="grid gap-3 sm:grid-cols-3 sm:gap-4">
         <Kpi label="Billed" value={usd(Number(invoice.amount))} />
         <Kpi label="Paid" value={usd(totalPaid)} hint={lastPaidAt ? `Last payment ${formatStamp(lastPaidAt)}` : 'No payments yet'} />
         <Kpi
-          className="col-span-2 lg:col-span-1"
           label="Balance"
           value={usd(balance)}
-          hint={late > 0 && balance > 0 ? `${late} days past due` : isPaid ? 'Paid in full' : undefined}
+          hint={isPaid ? 'Paid in full' : undefined}
         />
       </section>
 

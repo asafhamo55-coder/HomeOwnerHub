@@ -63,7 +63,7 @@ export function EnterBillForm({ vendors, expenseAccounts }: { vendors: Option[];
   return (
     <form onSubmit={submit} noValidate className="space-y-5">
       <Field label="Vendor" required error={errors.vendorId}>
-        <Select value={vendorId} onValueChange={setVendorId} disabled={pending} placeholder="Choose a vendor">
+        <Select value={vendorId || undefined} onValueChange={setVendorId} disabled={pending} placeholder="Choose a vendor">
           {vendors.map((v) => (
             <option key={v.id} value={v.id}>
               {v.label}
@@ -88,7 +88,7 @@ export function EnterBillForm({ vendors, expenseAccounts }: { vendors: Option[];
       </div>
 
       <Field label="Expense account" required hint="Where this cost lands on the income statement." error={errors.expenseAccountId}>
-        <Select value={expenseAccountId} onValueChange={setExpenseAccountId} disabled={pending} placeholder="Choose an account">
+        <Select value={expenseAccountId || undefined} onValueChange={setExpenseAccountId} disabled={pending} placeholder="Choose an account">
           {expenseAccounts.map((a) => (
             <option key={a.id} value={a.id}>
               {a.label}
