@@ -210,8 +210,8 @@ than the redundancy, and getting the condition wrong would break it.
   org-admin exposes financials, neighbours' personal data, governing documents and
   bank reconciliation. — **Revisit trigger: first item of sub-project C, and
   unconditionally before a second real HOA is onboarded.**
-  **Status 2026-10-15 (sub-project C): fixed in code, NOT yet applied to
-  production.** `migrations/0058_org_members_role_scope.sql` replaces
+  **Status 2026-10-15 (sub-project C): fixed in code; migration applied to
+  production by Asaf the same day (post-apply listing not yet captured).** `migrations/0058_org_members_role_scope.sql` replaces
   `org_member_access` with per-command policies — any member reads; admins
   write any row; board writes resident rows only. `members.ts` now refuses
   role changes from non-admins and board removal of non-residents, and checks
@@ -236,8 +236,8 @@ than the redundancy, and getting the condition wrong would break it.
   causes outages. **Status 2026-10-15: `0055` is applied, so SELECT and INSERT
   are now org-scoped; DELETE and UPDATE still have no policy at all.** — **Revisit trigger: alongside the `org_members` item in
   sub-project C; sooner if storage cost or a deletion request forces it.**
-  **Status 2026-10-15 (sub-project C): fixed in code, NOT yet applied to
-  production.** `migrations/0059_storage_delete_update.sql` adds org-scoped
+  **Status 2026-10-15 (sub-project C): fixed in code; migration applied to
+  production by Asaf the same day (post-apply listing not yet captured).** `migrations/0059_storage_delete_update.sql` adds org-scoped
   DELETE and UPDATE (board/admin of the object's org, or its uploader via
   `owner_id`). Every user-scoped call site now goes through
   `apps/hoa/src/lib/storage-remove.ts`, which also treats "no error, nothing

@@ -25,18 +25,20 @@ failed on the missing `0055` helper and exposed it. See `docs/DEPLOY.md` for
 the correction, what was actually verified, and the open question of which
 project the first check hit.
 
-**`0058` and `0059` (sub-project C) are NOT applied.** Committed and tested
-locally: `0058` closes same-org admin self-grant on `org_members`, `0059` adds
-storage DELETE/UPDATE. Apply both in one `DO` block, as with `0055`–`0057`.
+`0058` and `0059` (sub-project C) were applied by Asaf on 2026-10-15 in one
+`DO` block. **The post-apply policy listing was not captured** — run the STEP 3
+query from the apply script and record its output here before treating them as
+verified (the `0054`/`0055` episode is why).
+
+**Not yet live in production:** the app code for sub-project C and Sentry
+(`bdadecd`) is on `claude/quality-oracle` but the prod-branch push is blocked
+by the session's permission classifier; Asaf pushes it manually.
 
 ## Decisions that are the owner's, not an agent's
 
-- **W18 auto-posts reconciliation journal entries and marks assessments paid
-  with `humanApprovalRequired: false`** — no human in the loop on a financial
-  posting (`packages/workflows/src/W18-bank-reconciliation/index.ts`). Flagged
-  independently by three reviews; deliberately never changed. Needs a decision
-  before a real bank account is connected.
-- Sub-project ordering for B–F (below).
+- **Decided 2026-10-15:** W18 postings will require board/admin approval
+  (sub-project D, branch `claude/approval-layer`). Ordering of B–F delegated:
+  D first (it gates W18 and F), E plan, B and F specs in parallel.
 
 ## Open work, in the order I would take it
 
@@ -44,14 +46,15 @@ storage DELETE/UPDATE. Apply both in one `DO` block, as with `0055`–`0057`.
    any same-org member can grant themselves `admin` in their own org (RLS checks
    `org_id` only); and `storage.objects` has no DELETE/UPDATE policy, so every
    `.storage.remove()` through a user-scoped client has always failed silently.
-   **Built (`0058`, `0059` + app changes); remaining step is applying both
-   migrations to production.**
-2. **Production observability** — there is no error tracking anywhere in this
-   repo. This is a hard prerequisite for sub-project B: a self-healing loop can
-   only repair what it can detect.
+   **Done:** code `e674580`, migrations applied 2026-10-15 (verification
+   output pending).
+2. **Production observability** — **wired (`bdadecd`), inert until a DSN is
+   set.** Sentry in all four apps + one Inngest middleware for all 16 jobs.
+   Owner's manual steps are in `docs/OBSERVABILITY.md`.
 3. **B** (24/7 autonomous loop), **D** (approval layer), **E** (enterprise UI/UX
-   across 115 pages), **F** (law → bylaw pipeline). Each needs its own spec →
-   plan → build cycle; none is started.
+   across 115 pages), **F** (law → bylaw pipeline). Started 2026-10-15: D being built on
+   `claude/approval-layer`; E audit on `claude/ux-audit`; B and F specs on
+   `claude/specs-b-f`.
 
 ## The recurring lesson from this work
 
