@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-18
 **Module:** W30 (State Law Brain), Module 8
-**Status:** Approved design, not yet implemented
+**Status:** Approved design. Phase 1 implemented 2026-10-15 as sub-project F phase 0 (migration renumbered 0062; see `docs/specs/2026-10-15-sub-project-F-law-to-bylaw.md` §10 for deviations).
 
 ## Problem
 

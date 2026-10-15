@@ -84,7 +84,7 @@ function registeredJobNames(): string[] {
  * Limitation (deferred, documented rather than fixed): the pattern
  * `[a-z]+/[a-z.]+` only matches lowercase letters and dots, so an event
  * name containing a digit, hyphen, or underscore would silently not be
- * found. All four event names in this repo today fit the pattern.
+ * found. All seven event names in this repo today fit the pattern.
  */
 function sentEventNames(): string[] {
   const out = execFileSync(
@@ -132,7 +132,7 @@ describe('inngest wiring contract', () => {
     // job sharing a multi-symbol `export { a, b } from '...'` line) cannot
     // silently regress. If a new job is added to packages/jobs, this
     // assertion fails loudly — the correct outcome for a contract test.
-    expect(exported).toHaveLength(16)
+    expect(exported).toHaveLength(17)
     expect(exported).toEqual(
       expect.arrayContaining(['mailboxSyncJob', 'mailboxWatchdogJob', 'mailboxReconcileJob']),
     )
