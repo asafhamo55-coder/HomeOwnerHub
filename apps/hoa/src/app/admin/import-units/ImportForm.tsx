@@ -2,18 +2,28 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { Upload } from 'lucide-react'
-import { Button, Input, Select } from '@homeowner-portal/ui'
 import {
-  runImport,
-  type AssociationOption,
-  type ImportResult,
-  type OrgOption,
-} from './actions'
+  Alert,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  Checkbox,
+  Field,
+  Input,
+  Select,
+} from '@homeowner-portal/ui'
+import { runImport, type AssociationOption, type ImportResult, type OrgOption } from './actions'
 
 interface Props {
   orgs: OrgOption[]
   associations: AssociationOption[]
 }
+
+type Errors = Partial<Record<'org' | 'properties' | 'residents', string>>
 
 export function ImportForm({ orgs, associations }: Props): React.ReactElement {
   const [orgId, setOrgId] = useState<string>(orgs[0]?.id ?? '')
@@ -23,6 +33,7 @@ export function ImportForm({ orgs, associations }: Props): React.ReactElement {
   const [apply, setApply] = useState(false)
 
   const [isPending, startTransition] = useTransition()
+  const [fieldErrors, setFieldErrors] = useState<Errors>({})
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<ImportResult | null>(null)
 
@@ -36,14 +47,12 @@ export function ImportForm({ orgs, associations }: Props): React.ReactElement {
     setError(null)
     setResult(null)
 
-    if (!orgId) {
-      setError('Pick an organization.')
-      return
-    }
-    if (!propertiesFile || !residentsFile) {
-      setError('Both Properties.csv and Residents.csv are required.')
-      return
-    }
+    const errs: Errors = {}
+    if (!orgId) errs.org = 'Pick the tenant to import into.'
+    if (!propertiesFile) errs.properties = 'Choose the Properties.csv export.'
+    if (!residentsFile) errs.residents = 'Choose the Residents.csv export.'
+    setFieldErrors(errs)
+    if (Object.keys(errs).length > 0 || !propertiesFile || !residentsFile) return
 
     const propertiesCsv = await propertiesFile.text()
     const residentsCsv = await residentsFile.text()
@@ -57,7 +66,7 @@ export function ImportForm({ orgs, associations }: Props): React.ReactElement {
         apply,
       })
       if (!res.ok) {
-        setError(res.error ?? 'Import failed.')
+        setError(res.error ?? 'The import failed. Nothing was written.')
         return
       }
       setResult(res)
@@ -65,99 +74,91 @@ export function ImportForm({ orgs, associations }: Props): React.ReactElement {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-          Target
-        </h2>
+    <form onSubmit={handleSubmit} noValidate className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Target</CardTitle>
+          <CardDescription>Where the units and residents land.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Field label="Tenant" required error={fieldErrors.org}>
+            <Select
+              value={orgId}
+              onValueChange={(v) => {
+                setOrgId(v)
+                setAssociationId('')
+              }}
+            >
+              <option value="">Pick a tenant…</option>
+              {orgs.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-        <Field label="Organization" required>
-          <Select
-            value={orgId}
-            onValueChange={(v) => {
-              setOrgId(v)
-              setAssociationId('') // reset assoc when org changes
-            }}
+          <Field
+            label="Association"
+            optional
+            hint={orgId && filteredAssociations.length === 0 ? 'This tenant has no associations yet.' : undefined}
           >
-            <option value="">— pick an org —</option>
-            {orgs.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+            <Select
+              value={associationId}
+              onValueChange={(v) => setAssociationId(v)}
+              disabled={!orgId || filteredAssociations.length === 0}
+            >
+              <option value="">None</option>
+              {filteredAssociations.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                  {a.state ? ` (${a.state})` : ''}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </CardContent>
+      </Card>
 
-        <Field label="Association (optional)">
-          <Select
-            value={associationId}
-            onValueChange={(v) => setAssociationId(v)}
-            disabled={!orgId || filteredAssociations.length === 0}
-          >
-            <option value="">— none / leave blank —</option>
-            {filteredAssociations.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}{a.state ? ` (${a.state})` : ''}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-          Files
-        </h2>
-
-        <Field label="Properties.csv" required>
-          <Input
-            type="file"
-            accept=".csv,text/csv"
-            onChange={(e) => setPropertiesFile(e.currentTarget.files?.[0] ?? null)}
-            required
-          />
-        </Field>
-
-        <Field label="Residents.csv" required>
-          <Input
-            type="file"
-            accept=".csv,text/csv"
-            onChange={(e) => setResidentsFile(e.currentTarget.files?.[0] ?? null)}
-            required
-          />
-        </Field>
-      </section>
-
-      <section className="space-y-2">
-        <label className="flex items-start gap-2 text-sm">
-          <input
-            type="checkbox"
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Files</CardTitle>
+          <CardDescription>HomeownerHub export format, UTF-8 CSV.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <Field label="Properties.csv" required error={fieldErrors.properties}>
+            <Input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(e) => setPropertiesFile(e.currentTarget.files?.[0] ?? null)}
+            />
+          </Field>
+          <Field label="Residents.csv" required error={fieldErrors.residents}>
+            <Input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(e) => setResidentsFile(e.currentTarget.files?.[0] ?? null)}
+            />
+          </Field>
+        </CardContent>
+        <CardFooter className="flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <Checkbox
             checked={apply}
             onChange={(e) => setApply(e.currentTarget.checked)}
-            className="mt-0.5"
+            label="Write to the database"
+            description="Leave off for a dry run: parse and count only, no writes."
           />
-          <span>
-            <span className="font-medium">Apply</span> — actually write to the
-            database. Leave unchecked for a dry run (parses + reports counts,
-            no writes).
-          </span>
-        </label>
-      </section>
+          <Button type="submit" loading={isPending} icon={<Upload aria-hidden />} className="shrink-0">
+            {apply ? 'Run import' : 'Run dry run'}
+          </Button>
+        </CardFooter>
+      </Card>
 
       {error ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <Alert variant="error" title="Import failed">
           {error}
-        </p>
+        </Alert>
       ) : null}
-
-      <div className="flex justify-end gap-2">
-        <Button type="submit" disabled={isPending}>
-          <Upload className="h-4 w-4" />
-          {isPending
-            ? (apply ? 'Importing…' : 'Running dry-run…')
-            : (apply ? 'Run import' : 'Run dry-run')}
-        </Button>
-      </div>
 
       {result ? <ImportResultDisplay result={result} /> : null}
     </form>
@@ -165,42 +166,37 @@ export function ImportForm({ orgs, associations }: Props): React.ReactElement {
 }
 
 function ImportResultDisplay({ result }: { result: ImportResult }): React.ReactElement {
+  const errored = result.units.errored + result.ownerships.errored + result.tenancies.errored
   return (
-    <section className="mt-4 space-y-3 rounded-md border border-border/60 bg-muted/20 p-4">
-      <h3 className="text-sm font-semibold">
-        {result.dryRun ? 'Dry-run results' : 'Import complete'}
-      </h3>
-
-      <div className="grid gap-2 sm:grid-cols-3 text-sm">
-        <Stat label="Units" data={result.units} />
-        <Stat label="Ownerships" data={result.ownerships} />
-        <Stat label="Tenancies" data={result.tenancies} />
-      </div>
-
-      {result.skipped > 0 ? (
-        <p className="text-sm text-muted">Skipped: {result.skipped}</p>
-      ) : null}
-
-      {result.warnings.length > 0 ? (
-        <details className="text-xs">
-          <summary className="cursor-pointer font-medium">
-            Warnings ({result.warnings.length}{result.warnings.length === 30 ? '+' : ''})
-          </summary>
-          <ul className="mt-2 space-y-1 pl-4">
-            {result.warnings.map((w, i) => (
-              <li key={i} className="list-disc text-muted">{w}</li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
-
-      {result.dryRun ? (
-        <p className="text-xs text-muted">
-          This was a dry run. Re-submit with <strong>Apply</strong> checked to
-          actually write.
-        </p>
-      ) : null}
-    </section>
+    <Card aria-live="polite">
+      <CardHeader>
+        <CardTitle as="h2">{result.dryRun ? 'Dry-run results' : 'Import complete'}</CardTitle>
+        <CardDescription>
+          {result.dryRun
+            ? 'Nothing was written. Turn on “Write to the database” and run again to apply.'
+            : errored > 0
+              ? `${errored} row${errored === 1 ? '' : 's'} failed; everything else was written.`
+              : 'All rows were written.'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Stat label="Units" data={result.units} />
+          <Stat label="Ownerships" data={result.ownerships} />
+          <Stat label="Tenancies" data={result.tenancies} />
+        </div>
+        {result.skipped > 0 ? <p className="text-sm text-muted">{result.skipped} rows skipped.</p> : null}
+        {result.warnings.length > 0 ? (
+          <Alert variant="warning" title={`${result.warnings.length}${result.warnings.length === 30 ? '+' : ''} warnings`}>
+            <ul className="list-disc space-y-1 pl-4">
+              {result.warnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          </Alert>
+        ) : null}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -212,39 +208,13 @@ function Stat({
   data: { inserted: number; reused: number; errored: number }
 }): React.ReactElement {
   return (
-    <div className="rounded-md border border-border/60 bg-background px-3 py-2">
+    <div className="rounded-lg border border-border bg-subtle px-4 py-3">
       <p className="text-xs font-medium text-muted">{label}</p>
-      <p className="text-sm">
-        <span className="text-foreground">{data.inserted} inserted</span>
-        {' · '}
-        <span className="text-muted">{data.reused} reused</span>
-        {data.errored > 0 ? (
-          <>
-            {' · '}
-            <span className="text-destructive">{data.errored} errored</span>
-          </>
-        ) : null}
+      <p className="num mt-1 text-2xl font-semibold text-foreground">{data.inserted.toLocaleString()}</p>
+      <p className="num text-xs text-muted">
+        inserted · {data.reused} reused
+        {data.errored > 0 ? <span className="font-medium text-danger"> · {data.errored} failed</span> : null}
       </p>
     </div>
-  )
-}
-
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string
-  required?: boolean
-  children: React.ReactNode
-}): React.ReactElement {
-  return (
-    <label className="block space-y-1">
-      <span className="text-sm font-medium">
-        {label}
-        {required ? <span className="ml-0.5 text-destructive">*</span> : null}
-      </span>
-      {children}
-    </label>
   )
 }

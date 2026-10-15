@@ -1,66 +1,59 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Shield } from 'lucide-react'
-import { Button, Input } from '@homeowner-portal/ui'
-import { inviteOrPromotePlatformAdmin } from '@/lib/platform-admin'
+import { Alert, Button, Field, Input, useToast } from '@homeowner-portal/ui'
+import { invitePlatformAdminFromForm, type FieldErrors } from '../_components/form-actions'
 
 export function InvitePlatformAdminForm() {
   const router = useRouter()
+  const toast = useToast()
+  const formRef = useRef<HTMLFormElement>(null)
   const [isPending, startTransition] = useTransition()
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
 
-  async function handleSubmit(formData: FormData) {
+  function handleSubmit(formData: FormData) {
     setError(null)
-    setSuccess(null)
-    const email = String(formData.get('email') ?? '').trim()
-    const note = String(formData.get('note') ?? '').trim() || null
-
+    setFieldErrors({})
     startTransition(async () => {
-      const result = await inviteOrPromotePlatformAdmin(email, note)
+      const result = await invitePlatformAdminFromForm(formData)
       if (!result.ok) {
-        setError(result.error)
+        setFieldErrors(result.fieldErrors ?? {})
+        if (result.error) setError(result.error)
         return
       }
-      setSuccess(
-        result.data.alreadyExisted
-          ? `${email} was promoted to platform admin.`
-          : `Invitation sent to ${email}.`,
-      )
+      toast({
+        tone: 'success',
+        message: result.data.alreadyExisted
+          ? `${result.data.email} is now a platform admin.`
+          : `Invitation sent to ${result.data.email}.`,
+      })
+      formRef.current?.reset()
       router.refresh()
     })
   }
 
   return (
-    <form action={handleSubmit} className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block space-y-1">
-          <span className="text-sm font-medium">Email <span className="text-destructive">*</span></span>
-          <Input name="email" type="email" required placeholder="staff@homeownerhub.com" />
-        </label>
-        <label className="block space-y-1">
-          <span className="text-sm font-medium">Note (audit log)</span>
-          <Input name="note" maxLength={200} placeholder="Engineering hire" />
-        </label>
+    <form ref={formRef} action={handleSubmit} noValidate className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Email" required error={fieldErrors.email}>
+          <Input name="email" type="email" required placeholder="name@example.com" autoComplete="off" />
+        </Field>
+        <Field label="Note" optional hint="Saved to the audit log." error={fieldErrors.note}>
+          <Input name="note" maxLength={200} placeholder="e.g. Support engineer" />
+        </Field>
       </div>
 
       {error ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <Alert variant="error" title="Couldn’t grant access">
           {error}
-        </p>
-      ) : null}
-      {success ? (
-        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          {success}
-        </p>
+        </Alert>
       ) : null}
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={isPending}>
-          <Shield className="h-4 w-4" />
-          {isPending ? 'Granting…' : 'Grant platform admin'}
+        <Button type="submit" loading={isPending}>
+          Grant access
         </Button>
       </div>
     </form>

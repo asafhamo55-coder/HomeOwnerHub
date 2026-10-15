@@ -1,11 +1,12 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { AlertTriangle, ArrowLeft, Briefcase, Shield } from 'lucide-react'
-import { Alert, Badge, Button } from '@homeowner-portal/ui'
+import { AlertTriangle, Briefcase } from 'lucide-react'
+import { Alert, Badge, Button, Page } from '@homeowner-portal/ui'
 import { getTenantPreview } from '@/lib/platform-admin'
 import { StatusDonut } from '@/components/dashboard/StatusDonut'
 import { ActivityBar } from '@/components/dashboard/ActivityBar'
 import type { DonutSegment } from '@/lib/dashboard/charts'
+import { TenantStatusPill, planLabel } from '../../../_components/tenant-status'
 
 export const metadata = { title: 'Tenant preview' }
 
@@ -24,44 +25,34 @@ export default async function TenantPreviewPage({
   if (!preview) notFound()
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <Alert variant="warning" title="Platform admin preview — read-only">
-        <span className="block text-sm">
-          <Shield className="mr-1 inline h-3.5 w-3.5" />
-          You're viewing <strong>{preview.org.name}</strong> as a platform admin.
-          This is a read-only snapshot — no actions on this page write data into
-          the tenant. Every visit is logged to the platform audit log.
-        </span>
-      </Alert>
-
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link
-            href={`/admin/tenants/${preview.org.id}`}
-            className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to tenant detail
+    <Page
+      width="wide"
+      linkAs={Link}
+      breadcrumbs={[
+        { label: 'Tenants', href: '/admin/tenants' },
+        { label: preview.org.name, href: `/admin/tenants/${preview.org.id}` },
+        { label: 'Preview' },
+      ]}
+      title={`${preview.org.name} — preview`}
+      meta={<TenantStatusPill tenant={preview.org} />}
+      description={<Badge variant="neutral">{planLabel(preview.org.plan)} plan</Badge>}
+      actions={
+        <Button asChild variant="secondary">
+          <Link href={`/admin/tenants/${preview.org.id}`} className="no-underline">
+            Exit preview
           </Link>
-          <h1 className="mt-2 text-2xl font-bold">{preview.org.name}</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Badge variant="outline" size="sm" className="capitalize">{preview.org.plan}</Badge>
-            {preview.org.suspended_at ? (
-              <Badge variant="destructive" size="sm">Suspended</Badge>
-            ) : (
-              <Badge variant="success" size="sm">Active</Badge>
-            )}
-          </div>
-        </div>
-        <Button asChild variant="outline" size="sm">
-          <Link href="/admin/tenants">Exit preview</Link>
         </Button>
-      </header>
+      }
+    >
+      <Alert variant="warning" title="Read-only platform preview">
+        You’re seeing this tenant’s dashboard data as a platform admin. Nothing here writes to the tenant, and
+        every visit is recorded in the platform audit log.
+      </Alert>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <StatusDonut
           title="Violations by status"
-          icon={<AlertTriangle className="h-4 w-4 text-muted" />}
+          icon={<AlertTriangle className="size-4 text-muted" aria-hidden />}
           segments={preview.violations_donut.segments as DonutSegment[]}
           total={preview.violations_donut.total}
           emptyTitle="No violations on file"
@@ -69,7 +60,7 @@ export default async function TenantPreviewPage({
         />
         <StatusDonut
           title="Vendor compliance"
-          icon={<Briefcase className="h-4 w-4 text-muted" />}
+          icon={<Briefcase className="size-4 text-muted" aria-hidden />}
           segments={preview.vendor_compliance_donut.segments as DonutSegment[]}
           total={preview.vendor_compliance_donut.total}
           emptyTitle="No vendors graded"
@@ -78,6 +69,6 @@ export default async function TenantPreviewPage({
       </div>
 
       <ActivityBar buckets={preview.activity_30d} />
-    </div>
+    </Page>
   )
 }

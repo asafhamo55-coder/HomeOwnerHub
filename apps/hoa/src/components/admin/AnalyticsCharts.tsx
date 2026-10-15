@@ -1,8 +1,107 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, EmptyState, useTheme } from '@homeowner-portal/ui'
+
+// Platform-analytics charts (ECharts, SVG renderer). Colours come from the
+// design tokens at runtime — the CSS variables the preset emits — so the
+// charts follow light/dark mode and the brand instead of hard-coded hex.
+
+type TokenName =
+  | 'foreground'
+  | 'foreground-secondary'
+  | 'muted'
+  | 'border'
+  | 'surface'
+  | 'elevated'
+  | 'primary'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'info'
+  | 'accent'
+
+const TOKEN_NAMES: TokenName[] = [
+  'foreground',
+  'foreground-secondary',
+  'muted',
+  'border',
+  'surface',
+  'elevated',
+  'primary',
+  'success',
+  'warning',
+  'danger',
+  'info',
+  'accent',
+]
+
+type Tokens = Record<TokenName, string>
+
+// Neutral fallbacks for the server render / first paint only.
+const FALLBACK: Tokens = {
+  foreground: '#111827',
+  'foreground-secondary': '#374151',
+  muted: '#6b7280',
+  border: '#e5e7eb',
+  surface: '#ffffff',
+  elevated: '#ffffff',
+  primary: '#4f46e5',
+  success: '#15803d',
+  warning: '#b45309',
+  danger: '#b91c1c',
+  info: '#1d4ed8',
+  accent: '#f59e0b',
+}
+
+/** "243 75% 59%" → "hsl(243, 75%, 59%)" (ECharts wants the comma form). */
+function toHsl(channels: string): string | null {
+  const parts = channels.trim().split(/\s+/)
+  if (parts.length < 3) return null
+  return `hsl(${parts[0]}, ${parts[1]}, ${parts[2]})`
+}
+
+function useChartTokens(): Tokens {
+  const { resolved } = useTheme()
+  const [tokens, setTokens] = useState<Tokens>(FALLBACK)
+  useEffect(() => {
+    const read = () => {
+      const style = getComputedStyle(document.documentElement)
+      const next = { ...FALLBACK }
+      for (const name of TOKEN_NAMES) {
+        const v = toHsl(style.getPropertyValue(`--${name}`))
+        if (v) next[name] = v
+      }
+      setTokens(next)
+    }
+    read()
+    // The `.dark` class can also flip from the pre-paint script or another
+    // tab; watch it directly.
+    const obs = new MutationObserver(read)
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [resolved])
+  return tokens
+}
+
+function baseTooltip(t: Tokens) {
+  return {
+    textStyle: { fontSize: 12, color: t.foreground },
+    backgroundColor: t.elevated,
+    borderColor: t.border,
+    borderWidth: 1,
+    padding: [6, 10],
+  }
+}
+
+function Chart({ option, height }: { option: object; height: number | string }) {
+  return (
+    <div style={{ height }}>
+      <ReactECharts option={option} style={{ height: '100%', width: '100%' }} opts={{ renderer: 'svg' }} notMerge lazyUpdate />
+    </div>
+  )
+}
 
 // ─── Growth Chart (dual-axis: tenants + members over time) ──────────
 
@@ -12,48 +111,43 @@ interface GrowthChartProps {
 }
 
 export function GrowthChart({ tenants, members }: GrowthChartProps) {
+  const t = useChartTokens()
   const option = useMemo(
     () => ({
-      tooltip: {
-        trigger: 'axis',
-        textStyle: { fontSize: 12 },
-        borderColor: '#e5e7eb',
-        borderWidth: 1,
-        padding: [6, 10],
-      },
+      tooltip: { trigger: 'axis', ...baseTooltip(t) },
       legend: {
         bottom: 0,
-        textStyle: { fontSize: 11, color: '#6b7280' },
+        textStyle: { fontSize: 12, color: t['foreground-secondary'] },
         itemWidth: 12,
         itemHeight: 8,
       },
-      grid: { top: 16, right: 48, bottom: 36, left: 48, containLabel: false },
+      grid: { top: 24, right: 40, bottom: 40, left: 40, containLabel: false },
       xAxis: {
         type: 'category',
-        data: tenants.map((t) => t.month.slice(5)),
-        axisLine: { show: false },
+        data: tenants.map((x) => x.month.slice(5)),
+        axisLine: { lineStyle: { color: t.border } },
         axisTick: { show: false },
-        axisLabel: { fontSize: 11, color: '#6b7280' },
+        axisLabel: { fontSize: 11, color: t.muted },
       },
       yAxis: [
         {
           type: 'value',
           name: 'Tenants',
-          nameTextStyle: { fontSize: 10, color: '#6b7280' },
+          nameTextStyle: { fontSize: 11, color: t.muted },
           axisLine: { show: false },
           axisTick: { show: false },
-          splitLine: { lineStyle: { color: '#e5e7eb', type: [2, 4] as [number, number] } },
-          axisLabel: { fontSize: 11, color: '#6b7280' },
+          splitLine: { lineStyle: { color: t.border, type: [2, 4] as [number, number] } },
+          axisLabel: { fontSize: 11, color: t.muted },
           minInterval: 1,
         },
         {
           type: 'value',
           name: 'Members',
-          nameTextStyle: { fontSize: 10, color: '#6b7280' },
+          nameTextStyle: { fontSize: 11, color: t.muted },
           axisLine: { show: false },
           axisTick: { show: false },
           splitLine: { show: false },
-          axisLabel: { fontSize: 11, color: '#6b7280' },
+          axisLabel: { fontSize: 11, color: t.muted },
           minInterval: 1,
         },
       ],
@@ -62,8 +156,9 @@ export function GrowthChart({ tenants, members }: GrowthChartProps) {
           name: 'Tenants created',
           type: 'bar',
           yAxisIndex: 0,
-          itemStyle: { color: '#2563eb', borderRadius: [2, 2, 0, 0] },
-          data: tenants.map((t) => t.count),
+          barMaxWidth: 28,
+          itemStyle: { color: t.primary, borderRadius: [3, 3, 0, 0] },
+          data: tenants.map((x) => x.count),
         },
         {
           name: 'Members joined',
@@ -72,30 +167,23 @@ export function GrowthChart({ tenants, members }: GrowthChartProps) {
           smooth: true,
           symbol: 'circle',
           symbolSize: 6,
-          lineStyle: { color: '#10b981', width: 2 },
-          itemStyle: { color: '#10b981' },
+          lineStyle: { color: t.success, width: 2 },
+          itemStyle: { color: t.success },
           data: members.map((m) => m.count),
         },
       ],
     }),
-    [tenants, members],
+    [tenants, members, t],
   )
 
   return (
     <Card>
-      <CardHeader className="p-5 pb-2">
-        <CardTitle className="text-base">Growth — last 12 months</CardTitle>
+      <CardHeader>
+        <CardTitle as="h2">Growth</CardTitle>
+        <CardDescription>Tenants created and members joined per month, last 12 months</CardDescription>
       </CardHeader>
-      <CardContent className="p-5 pt-2">
-        <div className="h-64">
-          <ReactECharts
-            option={option}
-            style={{ height: '100%', width: '100%' }}
-            opts={{ renderer: 'svg' }}
-            notMerge
-            lazyUpdate
-          />
-        </div>
+      <CardContent>
+        <Chart option={option} height="16rem" />
       </CardContent>
     </Card>
   )
@@ -108,55 +196,43 @@ interface FeatureAdoptionProps {
 }
 
 export function FeatureAdoptionChart({ features }: FeatureAdoptionProps) {
+  const t = useChartTokens()
   const option = useMemo(
     () => ({
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
-        textStyle: { fontSize: 12 },
-        borderColor: '#e5e7eb',
-        borderWidth: 1,
-        padding: [6, 10],
-        formatter: (params: any) => {
+        ...baseTooltip(t),
+        formatter: (params: Array<{ dataIndex: number; name: string; value: number }>) => {
           const d = params[0]
-          const total = features[d.dataIndex]?.total_tenants ?? 0
+          if (!d) return ''
+          const total = features[features.length - 1 - d.dataIndex]?.total_tenants ?? 0
           const pct = total > 0 ? Math.round((d.value / total) * 100) : 0
           return `${d.name}<br/><b>${d.value}</b> / ${total} tenants (${pct}%)`
         },
       },
-      grid: { top: 8, right: 16, bottom: 4, left: 8, containLabel: true },
-      xAxis: {
-        type: 'value',
-        axisLine: { show: false },
-        axisTick: { show: false },
-        splitLine: { lineStyle: { color: '#e5e7eb', type: [2, 4] as [number, number] } },
-        axisLabel: { fontSize: 11, color: '#6b7280' },
-        minInterval: 1,
-      },
+      grid: { top: 4, right: 40, bottom: 4, left: 4, containLabel: true },
+      xAxis: { type: 'value', show: false, minInterval: 1 },
       yAxis: {
         type: 'category',
         data: features.map((f) => f.feature).reverse(),
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { fontSize: 12, color: '#374151' },
+        axisLabel: { fontSize: 12, color: t['foreground-secondary'] },
       },
       series: [
         {
           type: 'bar',
           data: [...features].reverse().map((f) => f.tenants_using),
-          itemStyle: {
-            color: '#7c3aed',
-            borderRadius: [0, 3, 3, 0],
-          },
-          barMaxWidth: 28,
+          itemStyle: { color: t.primary, borderRadius: [0, 3, 3, 0] },
+          barMaxWidth: 18,
           label: {
             show: true,
             position: 'right',
             fontSize: 11,
-            color: '#6b7280',
-            formatter: (params: any) => {
-              const idx = features.length - 1 - params.dataIndex
-              const f = features[idx]
+            color: t.muted,
+            formatter: (params: { dataIndex: number }) => {
+              const f = features[features.length - 1 - params.dataIndex]
               if (!f || f.total_tenants === 0) return '0%'
               return `${Math.round((f.tenants_using / f.total_tenants) * 100)}%`
             },
@@ -164,216 +240,86 @@ export function FeatureAdoptionChart({ features }: FeatureAdoptionProps) {
         },
       ],
     }),
-    [features],
-  )
-
-  return (
-    <Card>
-      <CardHeader className="p-5 pb-2">
-        <CardTitle className="text-base">Feature adoption</CardTitle>
-      </CardHeader>
-      <CardContent className="p-5 pt-2">
-        <div className="h-56">
-          <ReactECharts
-            option={option}
-            style={{ height: '100%', width: '100%' }}
-            opts={{ renderer: 'svg' }}
-            notMerge
-            lazyUpdate
-          />
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Violations Breakdown Donut ─────────────────────────────────────
-
-const STATUS_COLORS: Record<string, string> = {
-  open: '#2563eb',
-  notice_sent: '#f59e0b',
-  cured: '#10b981',
-  resolved: '#64748b',
-  fined: '#ef4444',
-  escalated: '#7c3aed',
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  open: 'Open',
-  notice_sent: 'Notice sent',
-  cured: 'Cured',
-  resolved: 'Resolved',
-  fined: 'Fined',
-  escalated: 'Escalated',
-}
-
-interface ViolationsDonutProps {
-  data: Array<{ status: string; count: number }>
-}
-
-export function ViolationsDonut({ data }: ViolationsDonutProps) {
-  const total = data.reduce((acc, d) => acc + d.count, 0)
-
-  const option = useMemo(
-    () => ({
-      tooltip: {
-        trigger: 'item',
-        textStyle: { fontSize: 12 },
-        borderColor: '#e5e7eb',
-        borderWidth: 1,
-        padding: [6, 10],
-        formatter: '{b}: <b>{c}</b> ({d}%)',
-      },
-      legend: { show: false },
-      series: [
-        {
-          type: 'pie',
-          radius: ['58%', '85%'],
-          itemStyle: { borderColor: '#fff', borderWidth: 1, borderRadius: 2 },
-          label: { show: false },
-          labelLine: { show: false },
-          startAngle: 90,
-          data: data.map((d) => ({
-            name: STATUS_LABELS[d.status] ?? d.status,
-            value: d.count,
-            itemStyle: { color: STATUS_COLORS[d.status] ?? '#94a3b8' },
-          })),
-        },
-      ],
-    }),
-    [data],
+    [features, t],
   )
 
   return (
     <Card className="h-full">
-      <CardHeader className="p-5 pb-2">
-        <CardTitle className="text-base">Violations breakdown</CardTitle>
+      <CardHeader>
+        <CardTitle as="h2">Feature adoption</CardTitle>
+        <CardDescription>Share of tenants using each feature</CardDescription>
       </CardHeader>
-      <CardContent className="flex min-h-[200px] items-center p-5 pt-2">
-        {total === 0 ? (
-          <p className="w-full text-center text-sm text-muted">No violations recorded.</p>
+      <CardContent>
+        {features.length === 0 ? (
+          <EmptyState variant="compact" title="No feature data yet" />
         ) : (
-          <div className="grid w-full items-center gap-4 sm:grid-cols-[160px_1fr]">
-            <div className="relative h-40">
-              <ReactECharts
-                option={option}
-                style={{ height: '100%', width: '100%' }}
-                opts={{ renderer: 'svg' }}
-                notMerge
-                lazyUpdate
-              />
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-semibold tabular-nums">{total}</span>
-                <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-                  total
-                </span>
-              </div>
-            </div>
-            <ul className="space-y-1.5 text-sm">
-              {data.map((d) => (
-                <li key={d.status} className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 min-w-0">
-                    <span
-                      className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ background: STATUS_COLORS[d.status] ?? '#94a3b8' }}
-                    />
-                    <span className="truncate text-muted">{STATUS_LABELS[d.status] ?? d.status}</span>
-                  </span>
-                  <span className="font-medium tabular-nums">{d.count}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <Chart option={option} height={Math.max(features.length * 30 + 8, 120)} />
         )}
       </CardContent>
     </Card>
   )
 }
 
-// ─── Vendor Compliance Donut ────────────────────────────────────────
+// ─── Donuts ─────────────────────────────────────────────────────────
 
-interface VendorComplianceDonutProps {
-  data: { green: number; yellow: number; red: number; missing: number }
+interface Segment {
+  key: string
+  label: string
+  value: number
+  color: string
 }
 
-const COMPLIANCE_CONFIG = [
-  { key: 'green' as const, label: 'Compliant', color: '#10b981' },
-  { key: 'yellow' as const, label: 'Action soon', color: '#f59e0b' },
-  { key: 'red' as const, label: 'Non-compliant', color: '#ef4444' },
-  { key: 'missing' as const, label: 'Docs missing', color: '#64748b' },
-]
-
-export function VendorComplianceDonut({ data }: VendorComplianceDonutProps) {
-  const total = data.green + data.yellow + data.red + data.missing
-
-  const segments = COMPLIANCE_CONFIG.filter((c) => data[c.key] > 0)
-
+function Donut({ title, description, segments, emptyTitle }: { title: string; description: string; segments: Segment[]; emptyTitle: string }) {
+  const t = useChartTokens()
+  const total = segments.reduce((n, s) => n + s.value, 0)
   const option = useMemo(
     () => ({
-      tooltip: {
-        trigger: 'item',
-        textStyle: { fontSize: 12 },
-        borderColor: '#e5e7eb',
-        borderWidth: 1,
-        padding: [6, 10],
-        formatter: '{b}: <b>{c}</b> ({d}%)',
-      },
+      tooltip: { trigger: 'item', ...baseTooltip(t), formatter: '{b}: <b>{c}</b> ({d}%)' },
       legend: { show: false },
       series: [
         {
           type: 'pie',
-          radius: ['58%', '85%'],
-          itemStyle: { borderColor: '#fff', borderWidth: 1, borderRadius: 2 },
+          radius: ['62%', '88%'],
+          itemStyle: { borderColor: t.surface, borderWidth: 2, borderRadius: 3 },
           label: { show: false },
           labelLine: { show: false },
           startAngle: 90,
-          data: segments.map((s) => ({
-            name: s.label,
-            value: data[s.key],
-            itemStyle: { color: s.color },
-          })),
+          data: segments.map((s) => ({ name: s.label, value: s.value, itemStyle: { color: s.color } })),
         },
       ],
     }),
-    [data, segments],
+    [segments, t],
   )
 
   return (
     <Card className="h-full">
-      <CardHeader className="p-5 pb-2">
-        <CardTitle className="text-base">Vendor compliance</CardTitle>
+      <CardHeader>
+        <CardTitle as="h2">{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="flex min-h-[200px] items-center p-5 pt-2">
+      <CardContent>
         {total === 0 ? (
-          <p className="w-full text-center text-sm text-muted">No vendor data yet.</p>
+          <EmptyState variant="compact" title={emptyTitle} />
         ) : (
-          <div className="grid w-full items-center gap-4 sm:grid-cols-[160px_1fr]">
-            <div className="relative h-40">
-              <ReactECharts
-                option={option}
-                style={{ height: '100%', width: '100%' }}
-                opts={{ renderer: 'svg' }}
-                notMerge
-                lazyUpdate
-              />
+          <div className="grid items-center gap-5 sm:grid-cols-[9rem_1fr] lg:grid-cols-1 xl:grid-cols-[9rem_1fr]">
+            <div className="relative mx-auto size-36" aria-hidden>
+              <Chart option={option} height="100%" />
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-semibold tabular-nums">{total}</span>
-                <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-                  total
-                </span>
+                <span className="num text-2xl font-semibold text-foreground">{total.toLocaleString()}</span>
+                <span className="text-xs text-muted">total</span>
               </div>
             </div>
-            <ul className="space-y-1.5 text-sm">
+            <ul className="space-y-2 text-sm">
               {segments.map((s) => (
                 <li key={s.key} className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 min-w-0">
-                    <span
-                      className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ background: s.color }}
-                    />
-                    <span className="truncate text-muted">{s.label}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="size-2.5 shrink-0 rounded-full" style={{ background: s.color }} aria-hidden />
+                    <span className="truncate text-foreground-secondary">{s.label}</span>
                   </span>
-                  <span className="font-medium tabular-nums">{data[s.key]}</span>
+                  <span className="num font-medium text-foreground">
+                    {s.value.toLocaleString()}{' '}
+                    <span className="font-normal text-muted">({Math.round((s.value / total) * 100)}%)</span>
+                  </span>
                 </li>
               ))}
             </ul>
@@ -382,73 +328,90 @@ export function VendorComplianceDonut({ data }: VendorComplianceDonutProps) {
       </CardContent>
     </Card>
   )
+}
+
+const VIOLATION_STATUS: Record<string, { label: string; token: TokenName }> = {
+  open: { label: 'Open', token: 'info' },
+  notice_sent: { label: 'Notice sent', token: 'warning' },
+  cured: { label: 'Cured', token: 'success' },
+  resolved: { label: 'Resolved', token: 'muted' },
+  fined: { label: 'Fined', token: 'danger' },
+  escalated: { label: 'Escalated', token: 'primary' },
+}
+
+export function ViolationsDonut({ data }: { data: Array<{ status: string; count: number }> }) {
+  const t = useChartTokens()
+  const segments = data
+    .filter((d) => d.count > 0)
+    .map((d) => {
+      const meta = VIOLATION_STATUS[d.status]
+      return {
+        key: d.status,
+        label: meta?.label ?? d.status.replace(/_/g, ' '),
+        value: d.count,
+        color: t[meta?.token ?? 'muted'],
+      }
+    })
+  return <Donut title="Violations" description="All tenants, by status" segments={segments} emptyTitle="No violations recorded" />
+}
+
+export function VendorComplianceDonut({ data }: { data: { green: number; yellow: number; red: number; missing: number } }) {
+  const t = useChartTokens()
+  const segments: Segment[] = [
+    { key: 'green', label: 'Compliant', value: data.green, color: t.success },
+    { key: 'yellow', label: 'Expiring soon', value: data.yellow, color: t.warning },
+    { key: 'red', label: 'Non-compliant', value: data.red, color: t.danger },
+    { key: 'missing', label: 'Docs missing', value: data.missing, color: t.muted },
+  ].filter((s) => s.value > 0)
+  return <Donut title="Vendor compliance" description="Certificates of insurance, all tenants" segments={segments} emptyTitle="No vendor data yet" />
 }
 
 // ─── Workflow Usage Chart ───────────────────────────────────────────
 
-interface WorkflowUsageProps {
-  workflows: Array<{ workflow_id: string; runs: number }>
-}
-
-export function WorkflowUsageChart({ workflows }: WorkflowUsageProps) {
-  const top = workflows.slice(0, 10)
+export function WorkflowUsageChart({ workflows }: { workflows: Array<{ workflow_id: string; runs: number }> }) {
+  const t = useChartTokens()
+  const top = useMemo(() => workflows.slice(0, 10), [workflows])
   const option = useMemo(
     () => ({
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: { type: 'shadow' },
-        textStyle: { fontSize: 12 },
-        borderColor: '#e5e7eb',
-        borderWidth: 1,
-        padding: [6, 10],
-      },
-      grid: { top: 8, right: 16, bottom: 4, left: 8, containLabel: true },
-      xAxis: {
-        type: 'value',
-        axisLine: { show: false },
-        axisTick: { show: false },
-        splitLine: { lineStyle: { color: '#e5e7eb', type: [2, 4] as [number, number] } },
-        axisLabel: { fontSize: 11, color: '#6b7280' },
-        minInterval: 1,
-      },
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, ...baseTooltip(t) },
+      grid: { top: 4, right: 40, bottom: 4, left: 4, containLabel: true },
+      xAxis: { type: 'value', show: false, minInterval: 1 },
       yAxis: {
         type: 'category',
         data: top.map((w) => w.workflow_id).reverse(),
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { fontSize: 11, color: '#374151', formatter: (v: string) => v.length > 24 ? v.slice(0, 22) + '...' : v },
+        axisLabel: {
+          fontSize: 11,
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          color: t['foreground-secondary'],
+          formatter: (v: string) => (v.length > 26 ? `${v.slice(0, 24)}…` : v),
+        },
       },
       series: [
         {
           type: 'bar',
           data: [...top].reverse().map((w) => w.runs),
-          itemStyle: { color: '#2563eb', borderRadius: [0, 3, 3, 0] },
-          barMaxWidth: 24,
-          label: { show: true, position: 'right', fontSize: 11, color: '#6b7280' },
+          itemStyle: { color: t.primary, borderRadius: [0, 3, 3, 0] },
+          barMaxWidth: 18,
+          label: { show: true, position: 'right', fontSize: 11, color: t.muted },
         },
       ],
     }),
-    [top],
+    [top, t],
   )
 
   return (
-    <Card>
-      <CardHeader className="p-5 pb-2">
-        <CardTitle className="text-base">AI workflow usage — 30 days</CardTitle>
+    <Card className="h-full">
+      <CardHeader>
+        <CardTitle as="h2">AI workflow usage</CardTitle>
+        <CardDescription>Runs per workflow, last 30 days</CardDescription>
       </CardHeader>
-      <CardContent className="p-5 pt-2">
+      <CardContent>
         {top.length === 0 ? (
-          <p className="text-sm text-muted">No AI workflow runs in the last 30 days.</p>
+          <EmptyState variant="compact" title="No AI runs in the last 30 days" />
         ) : (
-          <div style={{ height: Math.max(top.length * 32 + 16, 120) }}>
-            <ReactECharts
-              option={option}
-              style={{ height: '100%', width: '100%' }}
-              opts={{ renderer: 'svg' }}
-              notMerge
-              lazyUpdate
-            />
-          </div>
+          <Chart option={option} height={Math.max(top.length * 30 + 8, 120)} />
         )}
       </CardContent>
     </Card>
