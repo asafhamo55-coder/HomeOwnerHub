@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Alert, Button, Card, CardContent, Input, Select, Textarea } from '@homeowner-portal/ui'
+import { Alert, Button, Card, CardContent, Input, Select, Textarea, Field } from '@homeowner-portal/ui'
 import { recordCollectionEvent } from '@/lib/collections/actions'
 import {
   COLLECTION_EVENT_TYPES,
@@ -68,8 +68,7 @@ export function RecordCollectionEvent({
           }}
         >
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-sm">
-              <span className="mb-1 block text-muted">What happened</span>
+            <Field label="What happened">
               <Select
                 name="eventType"
                 value={eventType}
@@ -81,9 +80,8 @@ export function RecordCollectionEvent({
                   </option>
                 ))}
               </Select>
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-muted">Date it happened</span>
+            </Field>
+            <Field label="Date it happened">
               <Input
                 type="date"
                 name="occurredOn"
@@ -91,21 +89,18 @@ export function RecordCollectionEvent({
                 defaultValue={new Date().toISOString().slice(0, 10)}
                 max={new Date().toISOString().slice(0, 10)}
               />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-muted">Amount (optional)</span>
+            </Field>
+            <Field label="Amount (optional)">
               <Input type="number" name="amount" step="0.01" min="0" placeholder="5595.71" />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-muted">Initials (optional)</span>
+            </Field>
+            <Field label="Initials (optional)">
               <Input name="actorInitials" maxLength={8} placeholder="ms" />
-            </label>
+            </Field>
           </div>
 
-          <label className="block text-sm">
-            <span className="mb-1 block text-muted">Note (optional)</span>
+          <Field label="Note (optional)">
             <Textarea name="note" rows={2} placeholder="D&amp;D sent dvl to owner" />
-          </label>
+          </Field>
 
           {wouldAdvance ? (
             <label className="flex items-center gap-2 text-sm">

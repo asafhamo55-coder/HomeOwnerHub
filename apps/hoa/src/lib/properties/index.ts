@@ -97,7 +97,7 @@ export interface UpdatePropertyInput {
 export async function updateProperty(
   propertyId: string,
   input: UpdatePropertyInput,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true } | { ok: false; error: string; fieldErrors?: Record<string, string> }> {
   const parsed = UpdatePropertySchema.safeParse({
     address: input.address,
     unit_number: input.unitNumber,
@@ -107,7 +107,21 @@ export async function updateProperty(
     notes: input.notes,
   })
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    // Keyed by the edit form's field names so each error lands under its input.
+    const toForm: Record<string, string> = {
+      address: 'address',
+      unit_number: 'unitNumber',
+      owner_name: 'ownerName',
+      owner_email: 'ownerEmail',
+      owner_phone: 'ownerPhone',
+      notes: 'notes',
+    }
+    const fieldErrors: Record<string, string> = {}
+    for (const issue of parsed.error.issues) {
+      const key = toForm[String(issue.path[0] ?? '')] ?? '_'
+      if (!fieldErrors[key]) fieldErrors[key] = issue.message
+    }
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.', fieldErrors }
   }
 
   const org = await getCurrentOrg()

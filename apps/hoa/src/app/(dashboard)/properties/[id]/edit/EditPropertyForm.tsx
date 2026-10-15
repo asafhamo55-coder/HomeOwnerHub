@@ -1,8 +1,10 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Button, Card, CardContent, useToast } from '@homeowner-portal/ui'
+import { Alert, Button, Card, CardContent, CardFooter, Field, Input, Textarea, useToast } from '@homeowner-portal/ui'
+import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { updateProperty } from '@/lib/properties'
 
 interface Props {
@@ -21,10 +23,15 @@ export function EditPropertyForm({ propertyId, defaultValues }: Props) {
   const router = useRouter()
   const toast = useToast()
   const [pending, startTransition] = useTransition()
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [formError, setFormError] = useState<string | null>(null)
+  const notesRef = useRef<HTMLTextAreaElement>(null)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+    setFieldErrors({})
+    setFormError(null)
     startTransition(async () => {
       const result = await updateProperty(propertyId, {
         address: fd.get('address') as string,
@@ -35,7 +42,10 @@ export function EditPropertyForm({ propertyId, defaultValues }: Props) {
         notes: (fd.get('notes') as string) || null,
       })
       if (!result.ok) {
-        toast({ tone: 'error', message: result.error })
+        // Field problems go under their field; anything else is a form-level alert.
+        const fe = result.fieldErrors ?? {}
+        if (Object.keys(fe).some((k) => k !== '_')) setFieldErrors(fe)
+        else setFormError(result.error)
         return
       }
       toast({ tone: 'success', message: 'Property updated.' })
@@ -43,50 +53,53 @@ export function EditPropertyForm({ propertyId, defaultValues }: Props) {
     })
   }
 
-  const cls = 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground'
-
   return (
     <Card>
-      <CardContent className="p-6">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Address</label>
-            <input name="address" defaultValue={defaultValues.address} required className={cls} />
+      <form onSubmit={handleSubmit} noValidate>
+        <CardContent className="space-y-5 pt-5">
+          <Field label="Address" required error={fieldErrors.address}>
+            <Input name="address" defaultValue={defaultValues.address} required autoComplete="street-address" disabled={pending} />
+          </Field>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Unit / Lot #" optional error={fieldErrors.unitNumber}>
+              <Input name="unitNumber" defaultValue={defaultValues.unitNumber} disabled={pending} />
+            </Field>
+            <Field label="Owner name" optional error={fieldErrors.ownerName}>
+              <Input name="ownerName" defaultValue={defaultValues.ownerName} autoComplete="off" disabled={pending} />
+            </Field>
+            <Field label="Owner email" optional error={fieldErrors.ownerEmail}>
+              <Input name="ownerEmail" type="email" defaultValue={defaultValues.ownerEmail} autoComplete="off" disabled={pending} />
+            </Field>
+            <Field label="Owner phone" optional error={fieldErrors.ownerPhone}>
+              <Input name="ownerPhone" type="tel" defaultValue={defaultValues.ownerPhone} autoComplete="off" disabled={pending} />
+            </Field>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Unit number</label>
-              <input name="unitNumber" defaultValue={defaultValues.unitNumber} className={cls} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Owner name</label>
-              <input name="ownerName" defaultValue={defaultValues.ownerName} className={cls} />
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Owner email</label>
-              <input name="ownerEmail" type="email" defaultValue={defaultValues.ownerEmail} className={cls} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Owner phone</label>
-              <input name="ownerPhone" defaultValue={defaultValues.ownerPhone} className={cls} />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Notes</label>
-            <textarea name="notes" defaultValue={defaultValues.notes} rows={3} className={cls} />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => router.back()} disabled={pending}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Saving…' : 'Save changes'}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
+          <Field
+            label="Notes"
+            optional
+            hint="Anything the board should remember. Not shown to residents."
+            error={fieldErrors.notes}
+            labelAside={
+              <AiRewriteButton textareaRef={notesRef} context="Internal property notes for the HOA board" disabled={pending} />
+            }
+          >
+            <Textarea ref={notesRef} name="notes" defaultValue={defaultValues.notes} rows={4} disabled={pending} />
+          </Field>
+          {formError ? (
+            <Alert variant="error" title="Couldn’t save">
+              {formError}
+            </Alert>
+          ) : null}
+        </CardContent>
+        <CardFooter className="justify-end">
+          <Button asChild variant="ghost">
+            <Link href={`/properties/${propertyId}`}>Cancel</Link>
+          </Button>
+          <Button type="submit" loading={pending}>
+            Save changes
+          </Button>
+        </CardFooter>
+      </form>
     </Card>
   )
 }

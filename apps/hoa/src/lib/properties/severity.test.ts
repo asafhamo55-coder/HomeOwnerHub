@@ -54,9 +54,9 @@ describe('severityLabel', () => {
 })
 
 describe('severityDotClass', () => {
-  it('uses the destructive token for red and literal amber for amber', () => {
-    expect(severityDotClass('red')).toContain('destructive')
-    expect(severityDotClass('amber')).toContain('amber')
+  it('uses the danger token for red and the warning token for amber', () => {
+    expect(severityDotClass('red')).toContain('danger')
+    expect(severityDotClass('amber')).toContain('warning')
   })
   it('returns a distinct class per tone', () => {
     const all = (['red', 'amber', 'slate', 'clear'] as const).map(severityDotClass)

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { TwoClickDelete } from '@/components/TwoClickDelete'
+import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton'
 import { removeResident } from '@/lib/property-residents'
 
 export function ResidentActions({
@@ -16,11 +16,13 @@ export function ResidentActions({
   const router = useRouter()
   if (!isActive) return null
   return (
-    <TwoClickDelete
-      onDelete={() => removeResident(residentId)}
+    <ConfirmDeleteButton
+      title={`Remove ${residentName}?`}
+      description="They stop receiving notices for this home. The record stays in the property’s history."
+      confirmLabel="Remove"
       successMessage={`${residentName} removed.`}
+      onDelete={() => removeResident(residentId)}
       onAfterDelete={() => router.refresh()}
-      variant="ghost"
     />
   )
 }

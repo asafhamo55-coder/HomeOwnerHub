@@ -1,4 +1,7 @@
 import Link from 'next/link'
+import { Building2, Search } from 'lucide-react'
+import { Badge, Button, EmptyState, cn } from '@homeowner-portal/ui'
+import { TENURE } from '@/lib/status/community'
 import type { PropertyListRow } from '@/lib/properties/list'
 import type { PropertyListParams } from '@/lib/properties/list-params'
 import {
@@ -36,11 +39,23 @@ export function PropertyList({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="p-6 text-center text-sm text-muted">
-        {params.search
-          ? `No properties match "${params.search}".`
-          : emptyListMessage(params.filter)}
-      </div>
+      <EmptyState
+        variant="compact"
+        icon={params.search ? <Search aria-hidden /> : <Building2 aria-hidden />}
+        title={params.search ? `No properties match “${params.search}”` : 'Nothing in this view'}
+        description={params.search ? 'Try a shorter search, or clear it to see every home in this filter.' : emptyListMessage(params.filter)}
+        action={
+          params.filter !== 'all' || params.search ? (
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/properties?filter=all">Show all properties</Link>
+            </Button>
+          ) : (
+            <Button asChild size="sm">
+              <Link href="/properties/new">Add property</Link>
+            </Button>
+          )
+        }
+      />
     )
   }
 
@@ -60,9 +75,11 @@ export function PropertyList({
           <li key={row.id}>
             <Link
               href={`/properties/${row.id}${qs}`}
-              className={`block px-3 py-2.5 transition-colors hover:bg-muted/10 ${
-                selected ? 'border-l-4 border-primary bg-primary/5' : ''
-              }`}
+              aria-current={selected ? 'page' : undefined}
+              className={cn(
+                'relative block px-4 py-3 no-underline transition-colors duration-fast hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                selected && 'bg-primary-subtle/60 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary hover:bg-primary-subtle/80',
+              )}
             >
               <div className="flex items-baseline justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-2">
@@ -83,12 +100,12 @@ export function PropertyList({
                   </span>
                 </span>
                 {row.balance > 0 ? (
-                  <span className="shrink-0 text-xs font-bold tabular-nums text-destructive">
+                  <span className="num shrink-0 text-xs font-semibold text-danger">
                     {money(row.balance)}
                   </span>
                 ) : null}
               </div>
-              <p className="truncate pl-4 text-xs text-muted">
+              <p className="mt-0.5 truncate pl-4 text-xs text-muted">
                 {/* `tenure` is an enum whose values include the literal
                     'unknown'. Rendering it printed the word "unknown"
                     beside every owner name on every row, which reads as
@@ -97,36 +114,28 @@ export function PropertyList({
                 {[
                   row.ownerName ?? 'No owner on file',
                   row.tenure && row.tenure !== 'unknown'
-                    ? row.tenure.replace(/_/g, '-')
+                    ? (TENURE.labels[row.tenure] ?? row.tenure)
                     : null,
                 ]
                   .filter(Boolean)
                   .join(' · ')}
               </p>
               {pills.length > 0 || onWaitingList ? (
-                <div className="flex flex-wrap gap-1 pl-4 pt-1">
+                <div className="flex flex-wrap gap-1 pl-4 pt-1.5">
                   {pills.map((p) => (
-                    <span
+                    <Badge
                       key={p.text}
-                      className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
-                        p.tone === 'red'
-                          ? 'bg-destructive/10 text-destructive'
-                          : p.tone === 'amber'
-                            ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                            : 'bg-muted/10 text-muted'
-                      }`}
+                      variant={p.tone === 'red' ? 'danger' : p.tone === 'amber' ? 'warning' : 'neutral'}
                     >
                       {p.text}
-                    </span>
+                    </Badge>
                   ))}
                   {/* Deliberately not a reasonPill: the severity pills all
                       mean "someone must act on this property", and sitting
                       in a queue is a state, not a problem. Primary tint
                       keeps it visually separate from red/amber work. */}
                   {onWaitingList ? (
-                    <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
-                      Waiting list
-                    </span>
+                    <Badge variant="default">Waiting list</Badge>
                   ) : null}
                 </div>
               ) : null}

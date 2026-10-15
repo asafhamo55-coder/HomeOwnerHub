@@ -1,4 +1,6 @@
+import { Building2 } from 'lucide-react'
 import { LoadFailed, NoOrgSelected } from '@homeowner-portal/ui'
+import { SplitPaneFrame, SplitPaneHeader, SplitPanePlaceholder } from '@/components/split-pane/SplitPane'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
@@ -64,25 +66,27 @@ export default async function PropertiesPage({
       : null
 
   return (
-    <main className="flex h-[calc(100vh-4rem)] flex-col">
-      <PropertiesHeader
-        orgName={org.name}
-        filter={params.filter}
-        total={list.ok ? list.data.total : null}
-        allCount={counts ? counts.all : null}
-        search={params.search}
-      />
+    <SplitPaneFrame>
+      <SplitPaneHeader>
+        <PropertiesHeader
+          orgName={org.name}
+          filter={params.filter}
+          total={list.ok ? list.data.total : null}
+          allCount={counts ? counts.all : null}
+          search={params.search}
+        />
+      </SplitPaneHeader>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Widens with the viewport. This was `xl:max-w-xs`, which SHRANK the
-            list to 320px on exactly the large screens that have room to
-            spare — leaving ~1050px of empty panel beside a cramped,
-            truncating list. */}
-        <aside className="w-full max-w-sm shrink-0 overflow-y-auto border-r border-border xl:max-w-md 2xl:max-w-lg">
+      <div className="flex min-h-0 flex-1">
+        {/* Widens with the viewport, so the large screens that have room
+            don't get a cramped, truncating list beside an empty panel. */}
+        <aside
+          aria-label="Property list"
+          className="flex w-full shrink-0 flex-col overflow-y-auto border-r border-border bg-surface lg:w-[24rem] xl:w-[28rem] 2xl:w-[32rem]"
+        >
           <PropertyListFilters params={params} counts={counts} />
           {/* Surfaced in the list pane rather than crashing the route, so
-              the rest of the page stays usable. Never the raw message —
-              this pane used to print error.message verbatim. */}
+              the rest of the page stays usable. Never the raw message. */}
           {!list.ok ? (
             <LoadFailed what="properties" className="m-3" />
           ) : (
@@ -97,10 +101,12 @@ export default async function PropertiesPage({
           )}
         </aside>
 
-        <section className="hidden flex-1 items-center justify-center text-sm text-muted lg:flex">
-          Select a property
-        </section>
+        <SplitPanePlaceholder
+          icon={<Building2 aria-hidden />}
+          title="Select a property"
+          hint="Open a home to see its owner, residents, balance, violations and mail in one place."
+        />
       </div>
-    </main>
+    </SplitPaneFrame>
   )
 }

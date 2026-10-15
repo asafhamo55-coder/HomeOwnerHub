@@ -2,42 +2,11 @@
 
 import { useActionState, useRef } from 'react'
 import Link from 'next/link'
-import { Button, Input, Textarea, Alert, cn } from '@homeowner-portal/ui'
+import { Alert, Button, Card, CardContent, CardFooter, Field, Input, Textarea } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { createProperty, type PropertyActionState } from '@/lib/properties'
 
 const initial: PropertyActionState = {}
-
-function Field({
-  label,
-  htmlFor,
-  required,
-  hint,
-  error,
-  children,
-}: {
-  label: string
-  htmlFor: string
-  required?: boolean
-  hint?: string
-  error?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="text-sm font-medium text-foreground">
-        {label}
-        {required ? <span className="ml-0.5 text-destructive">*</span> : null}
-      </label>
-      {children}
-      {error ? (
-        <p className="text-xs text-destructive">{error}</p>
-      ) : hint ? (
-        <p className="text-xs text-muted">{hint}</p>
-      ) : null}
-    </div>
-  )
-}
 
 export function PropertyForm() {
   const [state, action, pending] = useActionState(createProperty, initial)
@@ -45,97 +14,68 @@ export function PropertyForm() {
   const notesRef = useRef<HTMLTextAreaElement>(null)
 
   return (
-    <form action={action} className={cn('space-y-5')}>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Address" htmlFor="address" required error={f.address}>
-          <Input
-            id="address"
-            name="address"
-            required
-            autoFocus
-            placeholder="123 Main Street"
-            error={Boolean(f.address)}
-            disabled={pending}
-          />
-        </Field>
-
-        <Field label="Unit / Lot #" htmlFor="unit_number" hint="Optional" error={f.unit_number}>
-          <Input
-            id="unit_number"
-            name="unit_number"
-            placeholder="A-12"
-            error={Boolean(f.unit_number)}
-            disabled={pending}
-          />
-        </Field>
-
-        <Field label="Owner name" htmlFor="owner_name" hint="Optional" error={f.owner_name}>
-          <Input
-            id="owner_name"
-            name="owner_name"
-            placeholder="Jane Doe"
-            error={Boolean(f.owner_name)}
-            disabled={pending}
-          />
-        </Field>
-
-        <Field label="Owner email" htmlFor="owner_email" hint="Optional" error={f.owner_email}>
-          <Input
-            id="owner_email"
-            name="owner_email"
-            type="email"
-            placeholder="jane@example.com"
-            error={Boolean(f.owner_email)}
-            disabled={pending}
-          />
-        </Field>
-
-        <Field label="Owner phone" htmlFor="owner_phone" hint="Optional" error={f.owner_phone}>
-          <Input
-            id="owner_phone"
-            name="owner_phone"
-            type="tel"
-            placeholder="(555) 123-4567"
-            error={Boolean(f.owner_phone)}
-            disabled={pending}
-          />
-        </Field>
-      </div>
-
-      <Field label="Notes" htmlFor="notes" hint="Optional. Anything the board should remember.">
-        <div className="space-y-1.5">
-          <div className="flex justify-end">
-            <AiRewriteButton
-              textareaRef={notesRef}
-              context="Internal property notes for the HOA board"
+    <Card>
+      <form action={action} noValidate>
+        <CardContent className="space-y-5 pt-5">
+          <Field label="Address" required error={f.address}>
+            <Input
+              name="address"
+              required
+              autoFocus
+              autoComplete="street-address"
+              placeholder="123 Main Street"
               disabled={pending}
             />
+          </Field>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Unit / Lot #" optional error={f.unit_number}>
+              <Input name="unit_number" placeholder="A-12" disabled={pending} />
+            </Field>
+            <Field label="Owner name" optional error={f.owner_name}>
+              <Input name="owner_name" autoComplete="off" disabled={pending} />
+            </Field>
+            <Field label="Owner email" optional error={f.owner_email}>
+              <Input name="owner_email" type="email" autoComplete="off" disabled={pending} />
+            </Field>
+            <Field label="Owner phone" optional error={f.owner_phone}>
+              <Input name="owner_phone" type="tel" autoComplete="off" disabled={pending} />
+            </Field>
           </div>
-          <Textarea
-            ref={notesRef}
-            id="notes"
-            name="notes"
-            rows={3}
-            placeholder="Side gate needs lock replaced. Owner travels frequently."
-            disabled={pending}
-          />
-        </div>
-      </Field>
 
-      {state.error ? (
-        <Alert variant="error" title="Couldn't save">
-          {state.error}
-        </Alert>
-      ) : null}
+          <Field
+            label="Notes"
+            optional
+            hint="Anything the board should remember. Not shown to residents."
+            error={f.notes}
+            labelAside={
+              <AiRewriteButton textareaRef={notesRef} context="Internal property notes for the HOA board" disabled={pending} />
+            }
+          >
+            <Textarea
+              ref={notesRef}
+              name="notes"
+              rows={3}
+              placeholder="Side gate needs lock replaced. Owner travels frequently."
+              disabled={pending}
+            />
+          </Field>
 
-      <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-        <Button asChild variant="outline" disabled={pending}>
-          <Link href="/properties">Cancel</Link>
-        </Button>
-        <Button type="submit" loading={pending}>
-          Add property
-        </Button>
-      </div>
-    </form>
+          {state.error ? (
+            <Alert variant="error" title="Couldn’t save">
+              {state.error}
+            </Alert>
+          ) : null}
+        </CardContent>
+        <CardFooter className="justify-end">
+          <Button asChild variant="ghost">
+            <Link href="/properties">Cancel</Link>
+          </Button>
+          <Button type="submit" loading={pending}>
+            Add property
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
   )
 }

@@ -1,29 +1,19 @@
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { Page } from '@homeowner-portal/ui'
 import { PropertyForm } from './PropertyForm'
 
 export const metadata = { title: 'Add property' }
 
 export default function NewPropertyPage() {
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <Link
-        href="/properties"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to properties
-      </Link>
-
-      <Card variant="elevated">
-        <CardHeader>
-          <CardTitle>Add a property</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <PropertyForm />
-        </CardContent>
-      </Card>
-    </div>
+    <Page
+      width="narrow"
+      title="Add a property"
+      description="Only the address is required. Residents, tenure and dues can be added from the property afterwards."
+      breadcrumbs={[{ label: 'Properties', href: '/properties' }, { label: 'Add property' }]}
+      linkAs={Link}
+    >
+      <PropertyForm />
+    </Page>
   )
 }

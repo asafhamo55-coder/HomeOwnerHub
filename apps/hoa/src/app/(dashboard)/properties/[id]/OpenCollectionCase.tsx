@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Alert, Button, Card, CardContent, Input, Select } from '@homeowner-portal/ui'
+import { Alert, Button, Card, CardContent, Input, Select, Field } from '@homeowner-portal/ui'
 import { openCollectionCase } from '@/lib/collections/actions'
 import { COLLECTION_STATUSES, collectionStatusLabel, isTerminal } from '@/lib/collections/statuses'
 
@@ -49,8 +49,7 @@ export function OpenCollectionCase({ unitId }: { unitId: string }) {
           }}
         >
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-sm">
-              <span className="mb-1 block text-muted">Current stage</span>
+            <Field label="Current stage">
               <Select name="status" defaultValue="monitoring">
                 {/* Terminal states are excluded: opening a case that is
                     already resolved records nothing useful, and the partial
@@ -62,19 +61,16 @@ export function OpenCollectionCase({ unitId }: { unitId: string }) {
                   </option>
                 ))}
               </Select>
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-muted">Opened on</span>
+            </Field>
+            <Field label="Opened on">
               <Input type="date" name="openedOn" max={new Date().toISOString().slice(0, 10)} />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-muted">Attorney firm</span>
+            </Field>
+            <Field label="Attorney firm">
               <Input name="attorneyFirm" placeholder="Dorough &amp; Dorough, LLC" />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-muted">Their file no.</span>
+            </Field>
+            <Field label="Their file no.">
               <Input name="attorneyReference" />
-            </label>
+            </Field>
           </div>
 
           {error ? <Alert variant="error">{error}</Alert> : null}

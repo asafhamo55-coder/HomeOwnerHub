@@ -85,15 +85,13 @@ export function severityLabel(rank: number): string {
   }
 }
 
-// No `text-success` / `text-warning` utilities exist in the shared Tailwind
-// config — only the CSS-variable tokens. Literal emerald/amber with dark:
-// pairs is the established convention (inbox/ThreadList.tsx:19-25).
+// Design-system v2 status tokens (theme in light and dark on their own).
 export function severityDotClass(tone: SeverityTone): string {
   switch (tone) {
     case 'red':
-      return 'bg-destructive'
+      return 'bg-danger'
     case 'amber':
-      return 'bg-amber-500 dark:bg-amber-400'
+      return 'bg-warning'
     case 'slate':
       return 'bg-muted'
     default:

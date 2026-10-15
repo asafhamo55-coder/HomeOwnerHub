@@ -1,7 +1,10 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { BackLink, PageHeader } from '@homeowner-portal/ui'
+import { Page } from '@homeowner-portal/ui'
 import { getPropertyDetail } from '@/lib/properties'
 import { EditPropertyForm } from './EditPropertyForm'
+
+export const metadata = { title: 'Edit property' }
 
 export default async function EditPropertyPage({
   params,
@@ -14,9 +17,17 @@ export default async function EditPropertyPage({
   const p = detail.property
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <BackLink href={`/properties/${id}`} label="Back to property" />
-      <PageHeader title="Edit property" />
+    <Page
+      width="narrow"
+      title="Edit property"
+      description="Changes apply to the property record. Residents and tenure are managed on the property itself."
+      breadcrumbs={[
+        { label: 'Properties', href: '/properties' },
+        { label: p.address, href: `/properties/${id}` },
+        { label: 'Edit' },
+      ]}
+      linkAs={Link}
+    >
       <EditPropertyForm
         propertyId={p.id}
         defaultValues={{
@@ -28,6 +39,6 @@ export default async function EditPropertyPage({
           notes: p.notes ?? '',
         }}
       />
-    </div>
+    </Page>
   )
 }

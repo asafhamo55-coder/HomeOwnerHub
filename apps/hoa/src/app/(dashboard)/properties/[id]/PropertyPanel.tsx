@@ -1,5 +1,7 @@
+import Link from 'next/link'
 import { Clock } from 'lucide-react'
-import { Badge, StatCard, Tabs } from '@homeowner-portal/ui'
+import { Breadcrumbs, StatusBadge, StatusPill, Tabs, cn } from '@homeowner-portal/ui'
+import { TENURE } from '@/lib/status/community'
 
 export type PanelTab =
   | 'overview'
@@ -45,6 +47,50 @@ const LABELS: Record<PanelTab, string> = {
   history: 'History',
 }
 
+function money(n: number): string {
+  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+}
+
+/** One cell of the stat strip. `value === null` means the read failed. */
+function Stat({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string
+  value: React.ReactNode | null
+  hint?: React.ReactNode
+  tone?: 'danger' | 'warning'
+}) {
+  return (
+    <div className="min-w-0 bg-surface px-4 py-3">
+      <p className="text-xs font-medium text-muted">{label}</p>
+      {value === null ? (
+        <>
+          <p className="num text-lg font-semibold text-muted" aria-hidden>
+            —
+          </p>
+          <p className="text-xs font-medium text-danger">Couldn’t load</p>
+        </>
+      ) : (
+        <>
+          <p
+            className={cn(
+              'num text-lg font-semibold text-foreground',
+              tone === 'danger' && 'text-danger',
+              tone === 'warning' && 'text-warning',
+            )}
+          >
+            {value}
+          </p>
+          {hint ? <p className="truncate text-xs text-muted">{hint}</p> : null}
+        </>
+      )}
+    </div>
+  )
+}
+
 export function PropertyPanel({
   propertyId,
   address,
@@ -57,6 +103,8 @@ export function PropertyPanel({
   stats,
   currentTab,
   query,
+  listHref,
+  actions,
   children,
 }: {
   propertyId: string
@@ -71,13 +119,17 @@ export function PropertyPanel({
    *  every tab, and the state would otherwise vanish the moment someone
    *  clicked Mail or Dues. */
   onWaitingList?: boolean
-  stats: PanelStats
+  /** Null when the stat read failed — tiles say so instead of showing zeros. */
+  stats: PanelStats | null
   currentTab: PanelTab
   query: string
+  /** The list this property was opened from (filters kept), for the phone breadcrumb. */
+  listHref: string
+  /** Edit / delete, rendered on the title row. */
+  actions?: React.ReactNode
   children: React.ReactNode
 }) {
-  // `Tabs` renders plain <a> elements and matches on pathname, so the active
-  // tab is passed explicitly — our tabs differ only by query string.
+  // Our tabs differ only by query string, so the active tab is explicit.
   const items = TABS.map((t) => ({
     label: LABELS[t],
     href: `/properties/${propertyId}?${new URLSearchParams({
@@ -85,8 +137,9 @@ export function PropertyPanel({
       tab: t,
     })}`,
     active: t === currentTab,
-    badge:
-      t === 'violations'
+    badge: !stats
+      ? null
+      : t === 'violations'
         ? stats.openViolations || null
         : t === 'mail'
           ? stats.threadsNeedingReply || null
@@ -95,57 +148,61 @@ export function PropertyPanel({
             : null,
   }))
 
+  const title = unitNumber ? `${address} · ${unitNumber}` : address
+
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      <div className="border-b border-border px-4 py-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-base font-semibold text-foreground">{address}</h1>
-          {unitNumber ? <span className="text-sm text-muted">Unit {unitNumber}</span> : null}
-          {tenure ? (
-            <Badge variant={tenure === 'leased' ? 'warning' : tenure === 'owner_occupied' ? 'success' : 'neutral'} size="sm">
-              {tenure.replace(/_/g, '-')}
-            </Badge>
-          ) : null}
-          {onWaitingList ? (
-            <Badge variant="info" size="sm">
-              <Clock className="mr-1 h-3 w-3" />
-              On waiting list
-            </Badge>
-          ) : null}
+      <div className="space-y-3 border-b border-border bg-surface px-4 pb-0 pt-4 sm:px-6">
+        {/* The list pane is hidden on phones, so the way back lives here. */}
+        <Breadcrumbs
+          className="lg:hidden"
+          linkAs={Link}
+          items={[{ label: 'Properties', href: listHref }, { label: address }]}
+        />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <h1 className="min-w-0 break-words text-2xl font-semibold tracking-[-0.015em] text-foreground">
+                {title}
+              </h1>
+              {tenure ? <StatusBadge status={tenure} tones={TENURE.tones} labels={TENURE.labels} /> : null}
+              {onWaitingList ? (
+                <StatusPill tone="info" label="On waiting list" icon={<Clock aria-hidden />} />
+              ) : null}
+            </div>
+            <p className="text-sm text-muted">
+              {[ownerName ?? 'No owner on file', ownerEmail, ownerPhone].filter(Boolean).join(' · ')}
+            </p>
+          </div>
+          {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
         </div>
-        <p className="mt-0.5 text-xs text-muted">
-          {[ownerName ?? 'No owner on file', ownerEmail, ownerPhone].filter(Boolean).join(' · ')}
-        </p>
+
+        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-4">
+          <Stat
+            label="Balance"
+            value={stats ? (stats.balance > 0 ? money(stats.balance) : '$0.00') : null}
+            hint={stats && stats.daysOverdue > 0 ? `${stats.daysOverdue} days overdue` : 'Current'}
+            tone={stats && stats.balance > 0 && stats.daysOverdue > 0 ? 'danger' : undefined}
+          />
+          <Stat
+            label="Open violations"
+            value={stats ? stats.openViolations : null}
+            hint={stats && stats.violationsPastCure > 0 ? `${stats.violationsPastCure} past cure` : 'None past cure'}
+            tone={stats && stats.violationsPastCure > 0 ? 'danger' : undefined}
+          />
+          <Stat label="Residents" value={stats ? stats.residents : null} hint="on file" />
+          <Stat
+            label="Unread mail"
+            value={stats ? stats.threadsNeedingReply : null}
+            hint={stats && stats.threadsNeedingReply > 0 ? 'awaiting reply' : 'nothing waiting'}
+            tone={stats && stats.threadsNeedingReply > 0 ? 'warning' : undefined}
+          />
+        </div>
+
+        <Tabs items={items} aria-label="Property sections" linkAs={Link} className="border-b-0" />
       </div>
 
-      {/* No fills and no rules between the tiles — whitespace separates them.
-          An earlier version used `bg-border` + `gap-px` to draw hairlines, but
-          StatCard renders a transparent div so the parent colour showed through
-          as a grey slab; replacing that with `divide-*` then drew a visible grid
-          instead. The single bottom border is kept only to part the strip from
-          the tabs beneath it. */}
-      <div className="grid grid-cols-2 border-b border-border sm:grid-cols-4">
-        <StatCard
-          label="Balance"
-          value={stats.balance > 0 ? `$${stats.balance.toFixed(2)}` : '$0'}
-          meta={stats.daysOverdue > 0 ? `${stats.daysOverdue} days overdue` : 'Current'}
-        />
-        <StatCard
-          label="Open violations"
-          value={stats.openViolations}
-          meta={stats.violationsPastCure > 0 ? `${stats.violationsPastCure} past cure` : 'None past cure'}
-        />
-        <StatCard label="Residents" value={stats.residents} meta="on file" />
-        <StatCard
-          label="Unread mail"
-          value={stats.threadsNeedingReply}
-          meta={stats.threadsNeedingReply > 0 ? 'awaiting reply' : 'nothing waiting'}
-        />
-      </div>
-
-      <Tabs items={items} aria-label="Property sections" className="px-2" />
-
-      <div className="flex-1 px-4 py-4">{children}</div>
+      <div className="flex-1 px-4 py-5 sm:px-6">{children}</div>
     </div>
   )
 }

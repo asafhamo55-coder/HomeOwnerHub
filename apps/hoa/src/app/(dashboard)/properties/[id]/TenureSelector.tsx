@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Pencil, X, Plus } from 'lucide-react'
-import { Button, Select, useToast } from '@homeowner-portal/ui'
+import { Pencil, Plus } from 'lucide-react'
+import { Button, Field, Select, useToast } from '@homeowner-portal/ui'
 import { setPropertyTenure, type PropertyTenure } from '@/lib/properties'
 import { addToWaitingList } from '@/lib/leases'
 
@@ -67,19 +67,17 @@ export function TenureSelector({
   if (!editing) {
     return (
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-          <Pencil className="h-3.5 w-3.5" />
+        <Button size="sm" variant="secondary" icon={<Pencil aria-hidden />} onClick={() => setEditing(true)}>
           Change tenure
         </Button>
         {currentTenure === 'owner_occupied' && capInPlace && !alreadyWaiting ? (
           <Button
             size="sm"
-            variant="outline"
+            variant="secondary"
+            icon={<Plus aria-hidden />}
             onClick={handleAddWaitingList}
             loading={waitingPending}
-            disabled={waitingPending}
           >
-            <Plus className="h-3.5 w-3.5" />
             Add to waiting list
           </Button>
         ) : null}
@@ -89,12 +87,12 @@ export function TenureSelector({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-end gap-2">
+        <Field label="Tenure" hideLabel className="min-w-44 flex-1">
         <Select
           value={value}
           onValueChange={(v) => setValue(v as PropertyTenure)}
           disabled={pending}
-          className="!w-auto"
         >
           {TENURE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -102,20 +100,19 @@ export function TenureSelector({
             </option>
           ))}
         </Select>
-        <Button size="sm" onClick={handleSave} loading={pending} disabled={pending}>
-          Save
-        </Button>
+        </Field>
         <Button
-          size="sm"
-          variant="outline"
+          variant="ghost"
           onClick={() => {
             setEditing(false)
             setValue(currentTenure)
           }}
           disabled={pending}
         >
-          <X className="h-3.5 w-3.5" />
           Cancel
+        </Button>
+        <Button onClick={handleSave} loading={pending}>
+          Save
         </Button>
       </div>
     </div>

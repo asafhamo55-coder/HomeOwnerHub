@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Download, Plus } from 'lucide-react'
-import { Button } from '@homeowner-portal/ui'
+import { Button, PageHeader } from '@homeowner-portal/ui'
 import type { PropertyFilter } from '@/lib/properties/list-params'
 
 /**
@@ -66,38 +66,44 @@ export function PropertiesHeader({
         ? `${total} incomplete ${total === 1 ? 'record' : 'records'} · ${homesLabel}`
         : homesLabel
 
+  const actions = (
+    <>
+      <Button asChild variant="secondary">
+        {/* Plain anchor — Link would prefetch the CSV. */}
+        <a href={exportHref}>
+          <Download aria-hidden />
+          Export
+        </a>
+      </Button>
+      <Button asChild>
+        <Link href="/properties/new">
+          <Plus aria-hidden />
+          Add property
+        </Link>
+      </Button>
+    </>
+  )
+  const description = `${countLabel} in ${orgName}`
+
+  if (!onDetailRoute) {
+    return <PageHeader title="Properties" description={description} actions={actions} />
+  }
+  // Detail route: the open property owns the h1 (PropertyPanel). This strip
+  // keeps the same shape and actions, with the title as a way back to the
+  // unfiltered list. Hidden below lg, where the panel is the whole page and
+  // carries its own breadcrumb.
   return (
-    <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-      <div>
-        {onDetailRoute ? (
-          <Link
-            href="/properties"
-            className="text-lg font-semibold text-foreground hover:text-primary"
-          >
-            Properties
-          </Link>
-        ) : (
-          <h1 className="text-lg font-semibold text-foreground">Properties</h1>
-        )}
-        <p className="text-xs text-muted">
-          {countLabel} in {orgName}
-        </p>
+    <div className="hidden flex-wrap items-start justify-between gap-3 lg:flex">
+      <div className="min-w-0 space-y-1">
+        <Link
+          href="/properties"
+          className="text-2xl font-semibold tracking-[-0.015em] text-foreground no-underline transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Properties
+        </Link>
+        <p className="text-sm text-muted">{description}</p>
       </div>
-      <div className="flex items-center gap-2">
-        <Button asChild variant="outline" size="sm">
-          {/* Plain anchor — Link would prefetch the CSV. */}
-          <a href={exportHref}>
-            <Download className="h-4 w-4" />
-            Export
-          </a>
-        </Button>
-        <Button asChild size="sm">
-          <Link href="/properties/new">
-            <Plus className="h-4 w-4" />
-            Add property
-          </Link>
-        </Button>
-      </div>
-    </header>
+      <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
+    </div>
   )
 }

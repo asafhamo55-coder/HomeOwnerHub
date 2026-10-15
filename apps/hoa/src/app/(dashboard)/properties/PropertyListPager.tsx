@@ -41,7 +41,8 @@ export function PropertyListPager({
       rowCount={rowCount}
       hrefFor={hrefFor}
       linkAs={Link}
-      className="border-t border-border"
+      noun="homes"
+      className="mt-auto border-t border-border"
     />
   )
 }

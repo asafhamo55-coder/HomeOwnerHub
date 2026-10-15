@@ -102,7 +102,7 @@ export function CollectionsSection({
                   {/* occurred_on is the action date the manager typed, not
                       when the row was created. Tabular numerals keep the
                       dates aligned down the column. */}
-                  <span className="w-24 shrink-0 font-mono text-xs tabular-nums text-muted">
+                  <span className="w-24 shrink-0 num text-xs text-muted">
                     {e.occurredOn}
                   </span>
                   <span className="min-w-0 flex-1">
@@ -110,7 +110,7 @@ export function CollectionsSection({
                       {collectionEventLabel(e.eventType)}
                     </span>
                     {e.amount !== null ? (
-                      <span className="ml-2 font-mono text-xs tabular-nums text-muted">
+                      <span className="ml-2 num text-xs text-muted">
                         {money(e.amount)}
                       </span>
                     ) : null}

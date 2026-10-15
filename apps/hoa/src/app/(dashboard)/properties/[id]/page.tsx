@@ -2,29 +2,38 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import {
   AlertTriangle,
-  Wallet,
+  ArrowRightLeft,
+  Clock,
+  FileText,
+  History,
   Home,
   KeyRound,
-  HelpCircle,
-  Users,
-  History,
-  UserPlus,
-  UserMinus,
-  ArrowRightLeft,
-  FileText,
-  Clock,
   Mail,
+  UserMinus,
+  UserPlus,
+  Users,
+  Wallet,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import {
-  BackLink,
-  Badge,
+  Alert,
+  Button,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
+  DataTable,
   EmptyState,
+  KeyValue,
+  KeyValueList,
   LoadFailed,
+  Pager,
+  StatusBadge,
+  StatusPill,
+  Timeline,
+  pageRange,
+  parsePageParam,
+  type TimelineItem,
 } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPropertyDetail, type PropertyTenure } from '@/lib/properties'
@@ -38,13 +47,15 @@ import {
   type CorrespondenceThreadSummary,
 } from '@/lib/inbox/queries'
 import { formatShortDate } from '@/lib/format-datetime'
+import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
+import { INBOX_THREAD_STATUS, TENURE, VIOLATION_SEVERITY, VIOLATION_STATUS } from '@/lib/status/community'
 import type { PropertyResidentRow, PropertyResidentRole } from '@/lib/property-residents'
 import type { PropertyEventRow, PropertyEventKind } from '@/lib/property-events'
+import { SplitPaneFrame, SplitPaneHeader } from '@/components/split-pane/SplitPane'
 import { PropertyList } from '../PropertyList'
 import { PropertyListFilters } from '../PropertyListFilters'
 import { PropertyListPager } from '../PropertyListPager'
 import { PropertiesHeader } from '../PropertiesHeader'
-import { reportError } from '@homeowner-portal/observability/report'
 import {
   resolveCorrespondenceState,
   type CorrespondenceSectionState,
@@ -98,11 +109,12 @@ interface AssessmentRow {
 
 // Same view the list pane reads (migration 0039), queried here for the one
 // property so the panel's stat strip carries exactly the numbers the row in
-// the aside was ranked by. Not derived from `violations`/`dues` below —
-// those are capped at 20/12 rows for display and would undercount.
-// Cast for the same reason list.ts casts: the view postdates the last
+// the aside was ranked by. Cast because the view postdates the last
 // `supabase gen types` pass.
 const LIST_VIEW = 'hoa_property_list_v'
+
+/** Rows per page in the Violations and Dues tabs (they used to stop silently at 20 / 12). */
+const TAB_PAGE_SIZE = 20
 
 interface PanelStatsRow {
   balance: number | string | null
@@ -123,11 +135,14 @@ export default async function PropertyDetailPage({
     sort?: string
     q?: string
     page?: string
+    /** Page within the open tab (Violations / Dues). `page` belongs to the list pane. */
+    tp?: string
   }>
 }) {
   const { id } = await params
   const sp = await searchParams
   const tab = parsePanelTab(sp.tab)
+  const tabPage = parsePageParam(sp.tp)
   const listParams = parsePropertyListParams(sp)
   const supabase = await getSupabaseServerClient()
 
@@ -140,7 +155,7 @@ export default async function PropertyDetailPage({
 
   // Lease cap drives whether the "Add to waiting list" button shows up
   // on owner-occupied properties. No cap → no need to queue anything.
-  const [assoc] = await Promise.all([getPrimaryAssociation()])
+  const assoc = await getPrimaryAssociation()
   const cap = assoc ? await getLeaseCap(assoc.id) : null
   const capInPlace = cap?.capPct !== null && cap?.capPct !== undefined
 
@@ -151,171 +166,147 @@ export default async function PropertyDetailPage({
 
   // Resolve the v1 unit row for this legacy property (migration 0005
   // backfills `units.legacy_hoa_property_id`). Assessments live keyed
-  // on units, not on hoa_properties.
-  const { data: unit } = await supabase
-    .from('units')
-    .select('id')
-    .eq('legacy_hoa_property_id', id)
-    .maybeSingle()
+  // on units, not on hoa_properties. A failed read is NOT "no unit": the
+  // unit-keyed sections say they could not load instead of "not linked".
+  const unitRes = await loadOrFail(
+    'property unit',
+    supabase.from('units').select('id').eq('legacy_hoa_property_id', id).maybeSingle(),
+  )
+  const unitFailed = !unitRes.ok
+  const unitId = unitRes.ok ? ((unitRes.data as { id: string } | null)?.id ?? null) : null
 
   // Only admins get the "Enter portal" impersonation control.
   const ctx = await getCurrentUserRole()
   const isAdmin = ctx?.role === 'admin'
-  const unitId = unit?.id ?? null
 
-  const [violationsRes, assessmentsRes, correspondenceOutcome, statsRow] =
-    await Promise.all([
+  // Violations and dues are paged within their own tab (`tp`). On the other
+  // tabs only the first page is read, for the counts on the overview.
+  const violationsRange = pageRange(tab === 'violations' ? tabPage : 1, TAB_PAGE_SIZE)
+  const duesRange = pageRange(tab === 'dues' ? tabPage : 1, TAB_PAGE_SIZE)
+
+  const [violationsRes, assessmentsRes, correspondenceOutcome, statsRes] = await Promise.all([
+    loadOrFail(
+      'property violations',
       supabase
         .from('hoa_violations')
-        .select('id, description, status, severity, created_at, cure_period_days, notice_sent_at')
+        .select('id, description, status, severity, created_at, cure_period_days, notice_sent_at', {
+          count: 'exact',
+        })
         .eq('property_id', id)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
-        .limit(20),
-      unit
-        ? supabase
+        .range(violationsRange.from, violationsRange.to),
+    ),
+    unitId
+      ? loadOrFail(
+          'property dues',
+          supabase
             .from('assessments')
             .select(
               'id, due_date, amount, status, assessment_type, fiscal_period:fiscal_period_id(start_date), payments(amount)',
+              { count: 'exact' },
             )
-            .eq('unit_id', unit.id)
+            .eq('unit_id', unitId)
             .is('deleted_at', null)
             .order('due_date', { ascending: false })
-            .limit(12)
-        : Promise.resolve({ data: [] }),
-      // unitId null means this property has no bridged unit row — correspondence
-      // cannot be linked to it at all, which the Mail tab must render as a
-      // distinct state from "linked, but zero threads so far" AND from "linked,
-      // but the read failed". `listThreadsForUnit` throws on a soft read
-      // failure (correctly — see its docstring), but this read sits alongside
-      // the other tabs' reads in one `Promise.all`; letting it reject the whole
-      // `Promise.all` would take down residents/tenure/violations/dues too for
-      // a failure in one section of six. `Promise.allSettled` (wrapping just
-      // this one call, of one) turns that rejection into data instead —
-      // `correspondenceOutcome` is `null` when there's no unit to query, or a
-      // `PromiseSettledResult` the page can branch on otherwise.
-      unitId && ctx
-        ? Promise.allSettled([listThreadsForUnit(supabase, ctx.org.id, unitId)]).then(
-            ([result]) => result,
-          )
-        : Promise.resolve(null),
-      // Stat-strip numbers. Enrichment, not page-defining: a failure here
-      // shows zeros in four tiles rather than blanking the property.
-      (async (): Promise<PanelStatsRow | null> => {
-        if (!ctx) return null
-        const { data } = await supabase
-          .from(LIST_VIEW as never)
-          .select(
-            'balance, days_overdue, open_violations, violations_past_cure, threads_needing_reply',
-          )
-          .eq('id' as never, id)
-          .eq('org_id' as never, ctx.org.id)
-          .maybeSingle<PanelStatsRow>()
-        return data ?? null
-      })(),
-    ])
+            .range(duesRange.from, duesRange.to),
+        )
+      : Promise.resolve(unitFailed ? ({ ok: false } as const) : ({ ok: true, data: [], count: 0 } as const)),
+    // unitId null means this property has no bridged unit row — correspondence
+    // cannot be linked to it at all, which the Mail tab renders as a distinct
+    // state from "linked, but zero threads" AND from "linked, but the read
+    // failed". `listThreadsForUnit` throws on failure; allSettled keeps that
+    // one section's failure from taking down the other tabs.
+    unitId && ctx
+      ? Promise.allSettled([listThreadsForUnit(supabase, ctx.org.id, unitId)]).then(([result]) => result)
+      : Promise.resolve(null),
+    // Stat-strip numbers. A failure shows "Couldn't load" in the tiles — it
+    // used to show zeros, which read as "nothing owed".
+    ctx
+      ? loadOrFail(
+          'property stats',
+          supabase
+            .from(LIST_VIEW as never)
+            .select('balance, days_overdue, open_violations, violations_past_cure, threads_needing_reply')
+            .eq('id' as never, id)
+            .eq('org_id' as never, ctx.org.id)
+            .maybeSingle<PanelStatsRow>(),
+        )
+      : Promise.resolve({ ok: true, data: null, count: null } as const),
+  ])
 
-  const violations = (violationsRes.data ?? []) as ViolationRow[]
-  const dues = (assessmentsRes.data ?? []) as unknown as AssessmentRow[]
+  const violations = violationsRes.ok ? ((violationsRes.data ?? []) as ViolationRow[]) : []
+  const violationTotal = violationsRes.ok ? (violationsRes.count ?? violations.length) : null
+  const dues = assessmentsRes.ok ? ((assessmentsRes.data ?? []) as unknown as AssessmentRow[]) : []
+  const duesTotal = assessmentsRes.ok ? (assessmentsRes.count ?? dues.length) : null
 
   if (correspondenceOutcome?.status === 'rejected') {
     const reason = correspondenceOutcome.reason
-    // `listThreadsForUnit` already logs the underlying PostgrestError's
-    // `.code`/`.message` (never `.details`) before it throws a plain Error
-    // wrapping just that message. Log again here, at the point this page
-    // chose to swallow the rejection, so "the property page degraded" is
-    // itself visible server-side — still message-only, nothing from the
-    // original row (no subject/address ever reaches this Error).
+    // Logged where this page chose to degrade, message only (no subject or
+    // address ever reaches this Error).
     console.error('PropertyDetailPage: correspondence read failed', {
       message: reason instanceof Error ? reason.message : String(reason),
     })
   }
-  const correspondenceState = resolveCorrespondenceState(unitId, correspondenceOutcome)
+  const correspondenceState: CorrespondenceSectionState = unitFailed
+    ? { kind: 'error' }
+    : resolveCorrespondenceState(unitId, correspondenceOutcome)
 
-  // Collections. Read only when the tab is open — most property views never
-  // touch it, and this is two extra round trips. A failure narrows to an
-  // empty file rather than throwing the route away, matching how the
-  // correspondence read above degrades; the error is logged so a broken
-  // read is not indistinguishable from "no collections case".
-  let openCase: Awaited<ReturnType<typeof getOpenCaseForUnit>> = null
-  let collectionEvents: Awaited<ReturnType<typeof listEventsForCase>> = []
-  let closedCases: Awaited<ReturnType<typeof listCasesForUnit>> = []
+  // Collections. Read only when the tab is open. A failure is reported and
+  // shown as a failure, never as "no case".
+  let collections:
+    | { ok: true; openCase: Awaited<ReturnType<typeof getOpenCaseForUnit>>; events: Awaited<ReturnType<typeof listEventsForCase>>; closed: Awaited<ReturnType<typeof listCasesForUnit>> }
+    | { ok: false }
+    | null = null
   if (tab === 'collections' && unitId) {
-    try {
+    const loaded = await tryLoad('property collections', async () => {
       const all = await listCasesForUnit(supabase, unitId)
-      openCase = all.find((c) => c.status !== 'resolved' && c.status !== 'written_off') ?? null
-      closedCases = all.filter((c) => c.id !== openCase?.id)
-      if (openCase) collectionEvents = await listEventsForCase(supabase, openCase.id)
-    } catch (e) {
-      console.error('PropertyDetailPage: collections read failed', {
-        message: e instanceof Error ? e.message : String(e),
-      })
-    }
+      const openCase = all.find((c) => c.status !== 'resolved' && c.status !== 'written_off') ?? null
+      const closed = all.filter((c) => c.id !== openCase?.id)
+      const caseEvents = openCase ? await listEventsForCase(supabase, openCase.id) : []
+      return { openCase, events: caseEvents, closed }
+    })
+    collections = loaded.ok ? { ok: true, ...loaded.data } : { ok: false }
   }
 
-  const stats: PanelStats = {
-    balance: Number(statsRow?.balance ?? 0),
-    daysOverdue: Number(statsRow?.days_overdue ?? 0),
-    openViolations: Number(statsRow?.open_violations ?? 0),
-    violationsPastCure: Number(statsRow?.violations_past_cure ?? 0),
-    residents: residents.length,
-    threadsNeedingReply: Number(statsRow?.threads_needing_reply ?? 0),
-  }
-
-  // The list beside the panel. Its read is wrapped the same way
-  // /properties/page.tsx wraps it: a list failure narrows the page to the
-  // panel rather than throwing the whole route away.
-  let rows: Awaited<ReturnType<typeof listProperties>>['rows'] = []
-  let total = 0
-  let counts = { attention: 0, incomplete: 0, all: 0, waiting: 0 }
-  let listError: string | null = null
-  if (ctx) {
-    try {
-      const result = await listProperties(supabase, ctx.org.id, listParams)
-      rows = result.rows
-      total = result.total
-
-      // Count-only queries (`head: true`) so no rows are transferred — these
-      // drive the filter-chip counts, not the paginated list above. Same
-      // three queries /properties/page.tsx runs; PropertyListFilters
-      // requires them, and the two pages must agree or the chip counts jump
-      // when you open a property.
-      const [attentionCount, incompleteCount, allCount, waitingCount] = await Promise.all([
-        supabase
-          .from(LIST_VIEW as never)
-          .select('*', { count: 'exact', head: true })
-          .eq('org_id' as never, ctx.org.id)
-          .eq('needs_attention' as never, true),
-        supabase
-          .from(LIST_VIEW as never)
-          .select('*', { count: 'exact', head: true })
-          .eq('org_id' as never, ctx.org.id)
-          .eq('is_incomplete' as never, true),
-        supabase
-          .from(LIST_VIEW as never)
-          .select('*', { count: 'exact', head: true })
-          .eq('org_id' as never, ctx.org.id),
-        supabase
-          .from(LIST_VIEW as never)
-          .select('*', { count: 'exact', head: true })
-          .eq('org_id' as never, ctx.org.id)
-          .eq('on_waiting_list' as never, true),
-      ])
-      counts = {
-        attention: attentionCount.count ?? 0,
-        incomplete: incompleteCount.count ?? 0,
-        all: allCount.count ?? 0,
-        waiting: waitingCount.count ?? 0,
+  const statsRow = statsRes.ok ? statsRes.data : null
+  const stats: PanelStats | null = statsRes.ok
+    ? {
+        balance: Number(statsRow?.balance ?? 0),
+        daysOverdue: Number(statsRow?.days_overdue ?? 0),
+        openViolations: Number(statsRow?.open_violations ?? 0),
+        violationsPastCure: Number(statsRow?.violations_past_cure ?? 0),
+        residents: residents.length,
+        threadsNeedingReply: Number(statsRow?.threads_needing_reply ?? 0),
       }
-    } catch (e) {
-      // Reported, never rendered: the pane used to print this message.
-      reportError(e, 'properties-detail.list', { orgId: ctx.org.id })
-      listError = 'failed'
-    }
-  }
+    : null
+
+  // The list beside the panel, read the same way /properties reads it: a
+  // failure narrows the page to the panel, and a failed count shows no
+  // number rather than a 0.
+  const countQuery = (orgId: string) =>
+    supabase.from(LIST_VIEW as never).select('*', { count: 'exact', head: true }).eq('org_id' as never, orgId)
+  const [list, attentionCount, incompleteCount, allCount, waitingCount] = ctx
+    ? await Promise.all([
+        tryLoad('properties', () => listProperties(supabase, ctx.org.id, listParams)),
+        loadOrFail('property attention count', countQuery(ctx.org.id).eq('needs_attention' as never, true)),
+        loadOrFail('property incomplete count', countQuery(ctx.org.id).eq('is_incomplete' as never, true)),
+        loadOrFail('property count', countQuery(ctx.org.id)),
+        loadOrFail('property waiting-list count', countQuery(ctx.org.id).eq('on_waiting_list' as never, true)),
+      ])
+    : [null, null, null, null, null]
+  const counts =
+    attentionCount?.ok && incompleteCount?.ok && allCount?.ok && waitingCount?.ok
+      ? {
+          attention: attentionCount.count ?? 0,
+          incomplete: incompleteCount.count ?? 0,
+          all: allCount.count ?? 0,
+          waiting: waitingCount.count ?? 0,
+        }
+      : null
 
   // The list state this property was opened from, carried on every tab link
-  // and on the mobile back link so filter/sort/search/page survive.
+  // and on the phone breadcrumb so filter/sort/search/page survive.
   const listQuery = new URLSearchParams()
   if (listParams.filter !== 'attention') listQuery.set('filter', listParams.filter)
   if (listParams.sort !== 'severity') listQuery.set('sort', listParams.sort)
@@ -323,121 +314,140 @@ export default async function PropertyDetailPage({
   if (listParams.page > 1) listQuery.set('page', String(listParams.page))
   const query = listQuery.toString()
   const listHref = query ? `/properties?${query}` : '/properties'
-  const historyHref = `/properties/${id}?${new URLSearchParams({
-    ...Object.fromEntries(listQuery),
-    tab: 'history',
-  })}`
-  const residentsHref = `/properties/${id}?${new URLSearchParams({
-    ...Object.fromEntries(listQuery),
-    tab: 'residents',
-  })}`
+  const tabHref = (t: string, extra?: Record<string, string>) =>
+    `/properties/${id}?${new URLSearchParams({ ...Object.fromEntries(listQuery), tab: t, ...extra })}`
 
   return (
-    <main className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden">
-      {/* Same header /properties renders, so Export and Add property don't
+    <SplitPaneFrame>
+      {/* Same strip /properties renders, so Export and Add property don't
           disappear the moment a property is opened on desktop. */}
-      <PropertiesHeader
-        orgName={ctx?.org.name ?? ''}
-        filter={listParams.filter}
-        total={total}
-        allCount={counts.all}
-        search={listParams.search}
-        onDetailRoute
-      />
+      <SplitPaneHeader className="hidden lg:block">
+        <PropertiesHeader
+          orgName={ctx?.org.name ?? ''}
+          filter={listParams.filter}
+          total={list?.ok ? list.data.total : null}
+          allCount={counts ? counts.all : null}
+          search={listParams.search}
+          onDetailRoute
+        />
+      </SplitPaneHeader>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* The aside mirrors /properties so the list survives navigation;
-            hidden below lg so the panel is the whole page on a phone — the
-            same structure inbox/[id]/page.tsx uses. */}
-        {/* Must match /properties' list pane exactly — a different max-width
-            here makes the list jump width the moment a property is opened. */}
-        <aside className="hidden w-full max-w-sm shrink-0 overflow-y-auto border-r border-border lg:block xl:max-w-md 2xl:max-w-lg">
+      <div className="flex min-h-0 flex-1">
+        {/* Mirrors /properties exactly (same widths) so the list doesn't jump
+            when a property opens; hidden below lg, where the panel is the page. */}
+        <aside
+          aria-label="Property list"
+          className="hidden shrink-0 flex-col overflow-y-auto border-r border-border bg-surface lg:flex lg:w-[24rem] xl:w-[28rem] 2xl:w-[32rem]"
+        >
           <PropertyListFilters params={listParams} counts={counts} />
-          {listError ? (
+          {!list || !list.ok ? (
             <LoadFailed what="properties" className="m-3" />
           ) : (
             <>
-              <PropertyList rows={rows} selectedId={id} params={listParams} />
-              <PropertyListPager params={listParams} rowCount={rows.length} total={total} />
+              <PropertyList rows={list.data.rows} selectedId={id} params={listParams} />
+              <PropertyListPager params={listParams} rowCount={list.data.rows.length} total={list.data.total} />
             </>
           )}
         </aside>
 
-        <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {/* Edit/Delete sit above the tabs so they're reachable from every
-              tab, exactly as they were reachable from the old single page. */}
-          <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2">
-            <div className="lg:hidden">
-              <BackLink href={listHref} label="All properties" />
-            </div>
-            <div className="ml-auto">
-              <PropertyActions propertyId={p.id} />
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1">
-            <PropertyPanel
-              propertyId={id}
-              address={p.address}
-              unitNumber={p.unit_number}
-              ownerName={p.owner_name}
-              ownerEmail={p.owner_email}
-              ownerPhone={p.owner_phone}
-              tenure={tenure}
-              onWaitingList={openWaitingEntry !== null}
-              stats={stats}
-              currentTab={tab}
-              query={query}
-            >
-              {tab === 'overview' ? (
-                <OverviewTab
-                  property={p}
-                  tenureUpdatedAt={detail.property.tenure_updated_at}
-                  tenure={tenure}
-                  capInPlace={capInPlace}
-                  waitingSince={openWaitingEntry?.requested_at ?? null}
-                  isAdmin={isAdmin}
-                  unitId={unitId}
-                  violationCount={violations.length}
-                  duesCount={dues.length}
-                  residents={residents}
-                  events={events}
-                  historyHref={historyHref}
-                  residentsHref={residentsHref}
+        <section aria-label="Property" className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <PropertyPanel
+            propertyId={id}
+            address={p.address}
+            unitNumber={p.unit_number}
+            ownerName={p.owner_name}
+            ownerEmail={p.owner_email}
+            ownerPhone={p.owner_phone}
+            tenure={tenure}
+            onWaitingList={openWaitingEntry !== null}
+            stats={stats}
+            currentTab={tab}
+            query={query}
+            listHref={listHref}
+            actions={<PropertyActions propertyId={p.id} address={p.address} />}
+          >
+            {tab === 'overview' ? (
+              <OverviewTab
+                property={p}
+                tenureUpdatedAt={detail.property.tenure_updated_at}
+                tenure={tenure}
+                capInPlace={capInPlace}
+                waitingSince={openWaitingEntry?.requested_at ?? null}
+                isAdmin={isAdmin}
+                unitId={unitId}
+                violationCount={violationTotal}
+                duesCount={duesTotal}
+                residents={residents}
+                events={events}
+                historyHref={tabHref('history')}
+                residentsHref={tabHref('residents')}
+              />
+            ) : null}
+            {tab === 'residents' ? (
+              <ResidentsSection residents={residents} isAdmin={isAdmin} propertyId={p.id} unitId={unitId} />
+            ) : null}
+            {tab === 'mail' ? <CorrespondenceSection state={correspondenceState} /> : null}
+            {tab === 'violations' ? (
+              violationsRes.ok ? (
+                <ViolationsSection
+                  violations={violations}
+                  pager={
+                    <Pager
+                      page={tabPage}
+                      pageSize={TAB_PAGE_SIZE}
+                      total={violationTotal ?? 0}
+                      rowCount={violations.length}
+                      hrefFor={(n) => tabHref('violations', { tp: String(n) })}
+                      linkAs={Link}
+                      noun="violations"
+                    />
+                  }
                 />
-              ) : null}
-              {tab === 'residents' ? (
-                <ResidentsSection
-                  residents={residents}
-                  isAdmin={isAdmin}
-                  propertyId={p.id}
-                  unitId={unitId}
+              ) : (
+                <LoadFailed what="this property’s violations" />
+              )
+            ) : null}
+            {tab === 'dues' ? (
+              assessmentsRes.ok ? (
+                <DuesSection
+                  dues={dues}
+                  pager={
+                    <Pager
+                      page={tabPage}
+                      pageSize={TAB_PAGE_SIZE}
+                      total={duesTotal ?? 0}
+                      rowCount={dues.length}
+                      hrefFor={(n) => tabHref('dues', { tp: String(n) })}
+                      linkAs={Link}
+                      noun="assessments"
+                    />
+                  }
                 />
-              ) : null}
-              {tab === 'mail' ? <CorrespondenceSection state={correspondenceState} /> : null}
-              {tab === 'violations' ? <ViolationsSection violations={violations} /> : null}
-              {tab === 'dues' ? <DuesSection dues={dues} /> : null}
-              {tab === 'collections' ? (
+              ) : (
+                <LoadFailed what="this property’s dues" />
+              )
+            ) : null}
+            {tab === 'collections' ? (
+              unitFailed || collections?.ok === false ? (
+                <LoadFailed what="the collections file" />
+              ) : (
                 <CollectionsSection
                   unitId={unitId}
-                  openCase={openCase}
-                  events={collectionEvents}
-                  closedCases={closedCases}
+                  openCase={collections?.ok ? collections.openCase : null}
+                  events={collections?.ok ? collections.events : []}
+                  closedCases={collections?.ok ? collections.closed : []}
                 />
-              ) : null}
-              {tab === 'history' ? <HistorySection events={events} /> : null}
-            </PropertyPanel>
-          </div>
+              )
+            ) : null}
+            {tab === 'history' ? <HistorySection events={events} /> : null}
+          </PropertyPanel>
         </section>
       </div>
-    </main>
+    </SplitPaneFrame>
   )
 }
 
 // ─── Tabs ────────────────────────────────────────────────────────────
-// Each of these is the body of one of the six <section> blocks the old
-// single-scroll page stacked. The markup inside is unchanged; only the
-// wrapper heading rows moved, because the panel's tab strip names them now.
 
 function OverviewTab({
   property: p,
@@ -462,8 +472,9 @@ function OverviewTab({
   waitingSince: string | null
   isAdmin: boolean
   unitId: string | null
-  violationCount: number
-  duesCount: number
+  /** Null when the count could not be loaded. */
+  violationCount: number | null
+  duesCount: number | null
   residents: PropertyResidentRow[]
   events: PropertyEventRow[]
   historyHref: string
@@ -472,66 +483,68 @@ function OverviewTab({
   const recent = events.slice(0, 4)
   const active = residents.filter((r) => r.moved_out_at === null)
   const primary = active.find((r) => r.is_primary) ?? active[0] ?? null
+  const plural = (n: number | null, one: string, many: string) =>
+    n === null ? `${many} unavailable` : `${n} ${n === 1 ? one : many}`
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <div className="flex items-center justify-between gap-2">
-              <CardTitle className="text-base">Owner</CardTitle>
-              {isAdmin && p.owner_email ? (
+    <div className="space-y-5">
+      <div className="grid gap-5 2xl:grid-cols-5">
+        <Card className="2xl:col-span-3">
+          <CardHeader
+            actions={
+              isAdmin && p.owner_email ? (
                 <EnterPortalButton
                   email={p.owner_email}
                   name={p.owner_name}
                   propertyId={p.id}
                   unitId={unitId}
+                  variant="outline"
                 />
-              ) : null}
-            </div>
+              ) : null
+            }
+          >
+            <CardTitle as="h2">Owner</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            <p className="text-foreground">{p.owner_name ?? <span className="text-muted">Not on file</span>}</p>
-            {p.owner_email ? (
-              <a href={`mailto:${p.owner_email}`} className="block text-primary hover:underline">
-                {p.owner_email}
-              </a>
-            ) : null}
-            {p.owner_phone ? <p className="text-muted">{p.owner_phone}</p> : null}
+          <CardContent className="space-y-4">
+            <KeyValueList className="lg:grid-cols-4 2xl:grid-cols-2">
+              <KeyValue label="Name" value={p.owner_name} />
+              <KeyValue
+                label="Email"
+                value={
+                  p.owner_email ? (
+                    <a href={`mailto:${p.owner_email}`} className="text-primary hover:underline">
+                      {p.owner_email}
+                    </a>
+                  ) : null
+                }
+              />
+              <KeyValue label="Phone" value={p.owner_phone} />
+              <KeyValue label="Added" value={p.created_at ? format(new Date(p.created_at), 'PP') : null} />
+            </KeyValueList>
             {p.notes ? (
-              <p className="mt-3 whitespace-pre-wrap text-sm text-muted">{p.notes}</p>
+              <div className="rounded-lg bg-subtle px-3.5 py-2.5">
+                <p className="text-xs font-medium text-muted">Notes</p>
+                <p className="mt-0.5 whitespace-pre-wrap text-sm text-foreground-secondary">{p.notes}</p>
+              </div>
             ) : null}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <CardTitle className="text-base">Tenure</CardTitle>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <TenureBadge tenure={tenure} />
-                {waitingSince ? (
-                  <Badge variant="info" size="sm">
-                    <Clock className="mr-1 h-3 w-3" />
-                    On waiting list
-                  </Badge>
-                ) : null}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
+
+        <Card className="2xl:col-span-2">
+          <CardHeader actions={<StatusBadge status={tenure} tones={TENURE.tones} labels={TENURE.labels} />}>
+            <CardTitle as="h2">Tenure</CardTitle>
             <p className="text-xs text-muted">
               {tenureUpdatedAt
                 ? `Updated ${format(new Date(tenureUpdatedAt), 'PP')}`
                 : 'Never recorded — set the current state below.'}
             </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
             {waitingSince ? (
-              <p className="text-xs text-muted">
-                Queued to lease since {format(new Date(waitingSince), 'PP')} —{' '}
-                <Link href="/leases" className="text-primary hover:underline">
-                  approve or withdraw on Leases
-                </Link>
-                .
-              </p>
+              <Alert variant="info" title="On the lease waiting list">
+                Queued since {format(new Date(waitingSince), 'PP')}.{' '}
+                <Link href="/leases">Approve or withdraw on Leases</Link>.
+              </Alert>
             ) : null}
             <TenureSelector
               propertyId={p.id}
@@ -539,39 +552,32 @@ function OverviewTab({
               capInPlace={capInPlace}
               alreadyWaiting={waitingSince !== null}
             />
-            <div className="pt-2 text-xs text-muted">
-              <p>
-                {violationCount}{' '}
-                {violationCount === 1 ? 'violation' : 'violations'} ·{' '}
-                {duesCount}{' '}
-                {duesCount === 1 ? 'assessment' : 'assessments'}
-              </p>
-              {p.created_at ? (
-                <p>Added {format(new Date(p.created_at), 'PP')}</p>
-              ) : null}
-            </div>
+            <p className="border-t border-border pt-3 text-xs text-muted">
+              {plural(violationCount, 'violation', 'violations')} · {plural(duesCount, 'assessment', 'assessments')} on record
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground">Residents</h3>
-            <Link href={residentsHref} className="text-xs font-medium text-primary hover:underline">
-              Manage
-            </Link>
-          </div>
-          {residents.length === 0 ? (
-            <p className="text-sm text-muted">No residents on file.</p>
-          ) : (
-            <Card>
-              <CardContent className="space-y-1 py-3 text-sm">
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Card>
+          <CardHeader
+            actions={
+              <Button asChild variant="ghost" size="sm">
+                <Link href={residentsHref}>Manage</Link>
+              </Button>
+            }
+          >
+            <CardTitle as="h2">Residents</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {residents.length === 0 ? (
+              <p className="text-sm text-muted">No residents on file.</p>
+            ) : (
+              <div className="space-y-1 text-sm">
                 <p className="text-foreground">
                   {active.length} {active.length === 1 ? 'person' : 'people'} living here
-                  {residents.length !== active.length
-                    ? ` · ${residents.length - active.length} moved out`
-                    : ''}
+                  {residents.length !== active.length ? ` · ${residents.length - active.length} moved out` : ''}
                 </p>
                 {primary ? (
                   <p className="text-xs text-muted">
@@ -579,30 +585,29 @@ function OverviewTab({
                     {primary.email ? ` · ${primary.email}` : ''}
                   </p>
                 ) : null}
-              </CardContent>
-            </Card>
-          )}
-        </section>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground">Recent activity</h3>
-            <Link href={historyHref} className="text-xs font-medium text-primary hover:underline">
-              Full history
-            </Link>
-          </div>
-          {recent.length === 0 ? (
-            <p className="text-sm text-muted">Nothing recorded yet.</p>
-          ) : (
-            <Card>
-              <ul className="divide-y divide-border">
-                {recent.map((e) => (
-                  <EventRow key={e.id} event={e} />
-                ))}
-              </ul>
-            </Card>
-          )}
-        </section>
+        <Card>
+          <CardHeader
+            actions={
+              <Button asChild variant="ghost" size="sm">
+                <Link href={historyHref}>Full history</Link>
+              </Button>
+            }
+          >
+            <CardTitle as="h2">Recent activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recent.length === 0 ? (
+              <p className="text-sm text-muted">Nothing recorded yet.</p>
+            ) : (
+              <Timeline label="Recent activity" items={recent.map(eventItem)} />
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
@@ -620,13 +625,14 @@ function ResidentsSection({
   unitId: string | null
 }) {
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-end">
+    <section aria-label="Residents" className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold text-foreground">Residents</h2>
         <AddResidentForm propertyId={propertyId} />
       </div>
       {residents.length === 0 ? (
         <EmptyState
-          icon={<Users className="h-8 w-8" aria-hidden />}
+          icon={<Users aria-hidden />}
           title="No residents on file"
           description="Add the owners, tenants, and family members living here so notices and outreach reach the right people."
         />
@@ -634,13 +640,7 @@ function ResidentsSection({
         <Card>
           <ul className="divide-y divide-border">
             {residents.map((r) => (
-              <ResidentRowClient
-                key={r.id}
-                resident={r}
-                isAdmin={isAdmin}
-                propertyId={propertyId}
-                unitId={unitId}
-              />
+              <ResidentRowClient key={r.id} resident={r} isAdmin={isAdmin} propertyId={propertyId} unitId={unitId} />
             ))}
           </ul>
         </Card>
@@ -649,40 +649,39 @@ function ResidentsSection({
   )
 }
 
+function SectionHeading({ title, action }: { title: string; action?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+      {action}
+    </div>
+  )
+}
+
 function CorrespondenceSection({ state }: { state: CorrespondenceSectionState }) {
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-end">
-        <Link href="/inbox" className="text-sm font-medium text-primary hover:underline">
-          Open inbox
-        </Link>
-      </div>
+    <section aria-label="Mail" className="space-y-3">
+      <SectionHeading
+        title="Mail"
+        action={
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/inbox">Open inbox</Link>
+          </Button>
+        }
+      />
       {state.kind === 'unlinked' ? (
         <EmptyState
-          icon={<Mail className="h-8 w-8" aria-hidden />}
+          icon={<Mail aria-hidden />}
           title="Not linked to a mailbox unit"
           description="This property isn't bridged to a unit yet, so incoming email can't be matched to it. Correspondence will appear here once it is."
         />
       ) : state.kind === 'error' ? (
-        // Deliberately NOT an EmptyState: this must not look like "no
-        // correspondence" (below), because it isn't that claim — the read
-        // failed and we don't actually know what's there. Amber pair used
-        // for degraded-but-not-destructive states elsewhere in this app
-        // (PropertyRail.tsx, MailboxConnectCard.tsx, DraftPanel.tsx) —
-        // there's no `text-warning` token in the shared Tailwind config.
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-amber-300 bg-amber-50 px-6 py-12 text-center dark:border-amber-800 dark:bg-amber-950">
-          <Mail className="mb-4 h-8 w-8 text-amber-700 dark:text-amber-400" aria-hidden />
-          <h3 className="text-base font-semibold text-amber-700 dark:text-amber-400">
-            Correspondence couldn&apos;t be loaded
-          </h3>
-          <p className="mt-1 max-w-md text-sm text-amber-700 dark:text-amber-400">
-            This doesn&apos;t mean there is none — the read failed. Refresh to try
-            again, or check the inbox directly.
-          </p>
-        </div>
+        // Deliberately NOT an EmptyState: the read failed and we don't know
+        // what's there — that is not "no correspondence".
+        <LoadFailed what="correspondence" hint="You can still check the inbox directly." />
       ) : state.kind === 'empty' ? (
         <EmptyState
-          icon={<Mail className="h-8 w-8" aria-hidden />}
+          icon={<Mail aria-hidden />}
           title="No correspondence yet"
           description="Emails from this household will appear here once they write in."
         />
@@ -701,163 +700,152 @@ function CorrespondenceSection({ state }: { state: CorrespondenceSectionState })
 
 function HistorySection({ events }: { events: PropertyEventRow[] }) {
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-end">
-        {events.length === 25 ? (
-          <span className="text-xs text-muted">Showing latest 25 events</span>
-        ) : null}
-      </div>
+    <section aria-label="History" className="space-y-3">
+      <SectionHeading
+        title="History"
+        action={events.length === 25 ? <span className="text-xs text-muted">Latest 25 events</span> : null}
+      />
       {events.length === 0 ? (
         <EmptyState
-          icon={<History className="h-8 w-8" aria-hidden />}
+          icon={<History aria-hidden />}
           title="No history yet"
           description="Tenure changes, resident moves, lease starts/ends, and waiting-list activity will appear here."
         />
       ) : (
         <Card>
-          <ul className="divide-y divide-border">
-            {events.map((e) => (
-              <EventRow key={e.id} event={e} />
-            ))}
-          </ul>
+          <CardContent className="pt-5">
+            <Timeline label="Property history" items={events.map(eventItem)} />
+          </CardContent>
         </Card>
       )}
     </section>
   )
 }
 
-function ViolationsSection({ violations }: { violations: ViolationRow[] }) {
+function ViolationsSection({ violations, pager }: { violations: ViolationRow[]; pager: React.ReactNode }) {
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-end">
-        <Link href="/violations" className="text-sm font-medium text-primary hover:underline">
-          All violations
-        </Link>
-      </div>
-      {violations.length === 0 ? (
-        <EmptyState
-          icon={<AlertTriangle className="h-8 w-8" aria-hidden />}
-          title="No violations"
-          description="This property has a clean record."
-        />
-      ) : (
-        <Card>
-          <ul className="divide-y divide-border">
-            {violations.map((v) => (
-              <li key={v.id} className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-foreground">{v.description}</p>
-                  <p className="text-xs text-muted">
-                    {v.created_at ? format(new Date(v.created_at), 'PP') : ''}
-                    {v.severity ? ` · ${v.severity} severity` : ''}
-                  </p>
-                </div>
-                <Badge
-                  variant={v.status === 'resolved' ? 'success' : v.status === 'notice_sent' ? 'warning' : 'outline'}
-                  size="sm"
-                >
-                  {v.status}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
+    <section aria-label="Violations" className="space-y-3">
+      <SectionHeading
+        title="Violations"
+        action={
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/violations">All violations</Link>
+          </Button>
+        }
+      />
+      <DataTable
+        caption="Violations at this property"
+        mobile="cards"
+        rows={violations}
+        rowKey={(v) => v.id}
+        empty={
+          <EmptyState
+            variant="compact"
+            icon={<AlertTriangle aria-hidden />}
+            title="No violations"
+            description="This property has a clean record."
+          />
+        }
+        footer={pager}
+        columns={[
+          {
+            key: 'description',
+            header: 'Violation',
+            mobilePrimary: true,
+            cell: (v) => (
+              <Link href={`/violations/${v.id}`} className="font-medium text-foreground hover:text-primary hover:underline">
+                {v.description}
+              </Link>
+            ),
+          },
+          {
+            key: 'severity',
+            header: 'Severity',
+            hideBelowLg: true,
+            cell: (v) =>
+              v.severity ? (
+                <StatusBadge status={v.severity} tones={VIOLATION_SEVERITY.tones} labels={VIOLATION_SEVERITY.labels} />
+              ) : (
+                <span className="text-muted">—</span>
+              ),
+          },
+          {
+            key: 'reported',
+            header: 'Reported',
+            cell: (v) => <span className="num text-muted">{v.created_at ? format(new Date(v.created_at), 'PP') : '—'}</span>,
+          },
+          {
+            key: 'status',
+            header: 'Status',
+            cell: (v) => <StatusBadge status={v.status} tones={VIOLATION_STATUS.tones} labels={VIOLATION_STATUS.labels} />,
+          },
+        ]}
+      />
     </section>
   )
 }
 
-function DuesSection({ dues }: { dues: AssessmentRow[] }) {
+const DUES_STATUS = {
+  tones: { open: 'warning', partial: 'warning', paid: 'success', waived: 'neutral', written_off: 'neutral' } as const,
+  labels: { open: 'Open', partial: 'Partial', paid: 'Paid', waived: 'Waived', written_off: 'Written off' },
+}
+
+function DuesSection({ dues, pager }: { dues: AssessmentRow[]; pager: React.ReactNode }) {
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-end">
-        <Link href="/dues" className="text-sm font-medium text-primary hover:underline">
-          Full ledger
-        </Link>
-      </div>
-      {dues.length === 0 ? (
-        <EmptyState
-          icon={<Wallet className="h-8 w-8" aria-hidden />}
-          title="No dues records"
-          description="Dues for this property will appear here once they're invoiced."
-        />
-      ) : (
-        <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-background/50 text-xs uppercase tracking-wide text-muted">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Period</th>
-                  <th className="px-4 py-2 font-medium">Due</th>
-                  <th className="px-4 py-2 font-medium">Amount</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dues.map((d) => {
-                  const period = d.fiscal_period?.start_date
-                    ? format(new Date(d.fiscal_period.start_date), 'yyyy')
-                    : '—'
-                  return (
-                    <tr key={d.id} className="border-b border-border last:border-0">
-                      <td className="px-4 py-2 text-foreground">
-                        {period}
-                        <span className="ml-2 text-xs text-muted">{d.assessment_type}</span>
-                      </td>
-                      <td className="px-4 py-2 text-muted">{format(new Date(d.due_date), 'PP')}</td>
-                      <td className="px-4 py-2 text-foreground">${Number(d.amount).toFixed(2)}</td>
-                      <td className="px-4 py-2">
-                        <Badge
-                          variant={
-                            d.status === 'paid'
-                              ? 'success'
-                              : d.status === 'partial'
-                                ? 'warning'
-                                : 'outline'
-                          }
-                          size="sm"
-                        >
-                          {d.status}
-                        </Badge>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
+    <section aria-label="Dues" className="space-y-3">
+      <SectionHeading
+        title="Dues"
+        action={
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/dues">Full ledger</Link>
+          </Button>
+        }
+      />
+      <DataTable
+        caption="Assessments for this property"
+        mobile="cards"
+        rows={dues}
+        rowKey={(d) => d.id}
+        empty={
+          <EmptyState
+            variant="compact"
+            icon={<Wallet aria-hidden />}
+            title="No dues records"
+            description="Dues for this property will appear here once they're invoiced."
+          />
+        }
+        footer={pager}
+        columns={[
+          {
+            key: 'period',
+            header: 'Period',
+            mobilePrimary: true,
+            cell: (d) => (
+              <span>
+                {d.fiscal_period?.start_date ? format(new Date(d.fiscal_period.start_date), 'yyyy') : '—'}
+                <span className="ml-2 text-xs text-muted">{d.assessment_type.replace(/_/g, ' ')}</span>
+              </span>
+            ),
+          },
+          { key: 'due', header: 'Due', cell: (d) => <span className="num text-muted">{format(new Date(d.due_date), 'PP')}</span> },
+          {
+            key: 'amount',
+            header: 'Amount',
+            numeric: true,
+            cell: (d) => Number(d.amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' }),
+          },
+          {
+            key: 'status',
+            header: 'Status',
+            cell: (d) => <StatusBadge status={d.status} tones={DUES_STATUS.tones} labels={DUES_STATUS.labels} />,
+          },
+        ]}
+      />
     </section>
   )
 }
 
-// ─── Helpers for the new tenure / residents / history cards ──────────
-
-function TenureBadge({ tenure }: { tenure: PropertyTenure }) {
-  if (tenure === 'owner_occupied') {
-    return (
-      <Badge variant="success" size="sm">
-        <Home className="mr-1 h-3 w-3" />
-        Owner-occupied
-      </Badge>
-    )
-  }
-  if (tenure === 'leased') {
-    return (
-      <Badge variant="warning" size="sm">
-        <KeyRound className="mr-1 h-3 w-3" />
-        Leased
-      </Badge>
-    )
-  }
-  return (
-    <Badge variant="neutral" size="sm">
-      <HelpCircle className="mr-1 h-3 w-3" />
-      Unknown
-    </Badge>
-  )
-}
+// ─── Helpers ─────────────────────────────────────────────────────────
 
 const ROLE_LABEL: Record<PropertyResidentRole, string> = {
   owner: 'Owner',
@@ -866,33 +854,19 @@ const ROLE_LABEL: Record<PropertyResidentRole, string> = {
   other: 'Other',
 }
 
-// Same tones the Violations section above uses (success / warning / outline),
-// extended with `neutral` for "waiting" so it reads as distinct from "open"
-// rather than reusing outline for both.
-const THREAD_STATUS_VARIANT: Record<string, 'success' | 'warning' | 'outline' | 'neutral'> = {
-  needs_review: 'warning',
-  open: 'outline',
-  waiting: 'neutral',
-  closed: 'success',
-}
-
 function CorrespondenceRow({ thread }: { thread: CorrespondenceThreadSummary }) {
   return (
-    <li className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
-      <div className="min-w-0 flex-1">
-        <Link
-          href={`/inbox/${thread.id}`}
-          className="block truncate font-medium text-foreground hover:underline"
-        >
-          {thread.subject || '(no subject)'}
-        </Link>
-        <p className="text-xs text-muted">
-          {thread.lastMessageAt ? formatShortDate(thread.lastMessageAt) : ''}
-        </p>
-      </div>
-      <Badge variant={THREAD_STATUS_VARIANT[thread.status] ?? 'outline'} size="sm">
-        {thread.status}
-      </Badge>
+    <li>
+      <Link
+        href={`/inbox/${thread.id}`}
+        className="flex items-start justify-between gap-3 px-4 py-3 text-sm no-underline transition-colors hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-foreground">{thread.subject || '(no subject)'}</p>
+          <p className="num text-xs text-muted">{thread.lastMessageAt ? formatShortDate(thread.lastMessageAt) : ''}</p>
+        </div>
+        <StatusBadge status={thread.status} tones={INBOX_THREAD_STATUS.tones} labels={INBOX_THREAD_STATUS.labels} />
+      </Link>
     </li>
   )
 }
@@ -911,51 +885,41 @@ const EVENT_ICON: Record<PropertyEventKind, React.ComponentType<{ className?: st
 
 function describeEvent(event: PropertyEventRow): string {
   const p = event.payload as Record<string, unknown>
+  const tenureLabel = (v: unknown) => (typeof v === 'string' ? (TENURE.labels[v] ?? v.replace(/_/g, '-')) : '?')
   switch (event.kind) {
-    case 'tenure_changed': {
-      const from = typeof p.from === 'string' ? p.from.replace(/_/g, '-') : '?'
-      const to = typeof p.to === 'string' ? p.to.replace(/_/g, '-') : '?'
-      return `Tenure changed from ${from} to ${to}.`
-    }
+    case 'tenure_changed':
+      return `Tenure changed from ${tenureLabel(p.from)} to ${tenureLabel(p.to)}`
     case 'ownership_changed':
-      return 'Ownership changed.'
+      return 'Ownership changed'
     case 'resident_added':
       return `${typeof p.fullName === 'string' ? p.fullName : 'A resident'} added${
         typeof p.role === 'string' ? ` as ${p.role.replace(/_/g, ' ')}` : ''
-      }.`
+      }`
     case 'resident_removed':
-      return `${
-        typeof p.fullName === 'string' ? p.fullName : 'A resident'
-      } moved out.`
+      return `${typeof p.fullName === 'string' ? p.fullName : 'A resident'} moved out`
     case 'lease_started':
-      return 'Lease started.'
+      return 'Lease started'
     case 'lease_ended':
-      return 'Lease ended.'
+      return 'Lease ended'
     case 'waiting_list_added':
-      return 'Added to lease waiting list.'
+      return 'Added to lease waiting list'
     case 'waiting_list_resolved': {
       const outcome = typeof p.outcome === 'string' ? p.outcome : 'resolved'
-      return `Waiting list entry ${outcome}.`
+      return `Waiting list entry ${outcome}`
     }
     case 'note':
-      return event.notes ?? 'Note recorded.'
+      return event.notes ?? 'Note recorded'
   }
 }
 
-function EventRow({ event }: { event: PropertyEventRow }) {
+function eventItem(event: PropertyEventRow): TimelineItem {
   const Icon = EVENT_ICON[event.kind] ?? FileText
-  return (
-    <li className="flex items-start gap-3 px-4 py-3 text-sm">
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-background text-muted">
-        <Icon className="h-3.5 w-3.5" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-foreground">{describeEvent(event)}</p>
-        <p className="text-xs text-muted">
-          {format(new Date(event.occurred_at), 'PPp')}
-          {event.notes && event.kind !== 'note' ? ` · ${event.notes}` : ''}
-        </p>
-      </div>
-    </li>
-  )
+  return {
+    id: event.id,
+    title: describeEvent(event),
+    time: <time dateTime={event.occurred_at}>{format(new Date(event.occurred_at), 'PP · p')}</time>,
+    icon: <Icon />,
+    tone: event.kind === 'resident_removed' || event.kind === 'lease_ended' ? 'neutral' : 'brand',
+    body: event.notes && event.kind !== 'note' ? event.notes : undefined,
+  }
 }

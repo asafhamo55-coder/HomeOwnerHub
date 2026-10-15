@@ -3,8 +3,8 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
-import { ChevronDown, ChevronUp, Pencil, Save, X } from 'lucide-react'
-import { Badge, Button, Input, Select, Textarea, useToast } from '@homeowner-portal/ui'
+import { Pencil } from 'lucide-react'
+import { Alert, Badge, Button, Checkbox, Field, Input, Select, Textarea, cn, useToast } from '@homeowner-portal/ui'
 import {
   updateResident,
   type PropertyResidentRow,
@@ -56,11 +56,11 @@ export function ResidentRow({
         : 'neutral'
 
   return (
-    <li className={`px-4 py-3 text-sm ${isActive ? '' : 'opacity-60'}`}>
+    <li className={cn('px-4 py-3 text-sm', !isActive && 'bg-subtle/50')}>
       {!editing ? (
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-2 truncate font-medium text-foreground">
+            <p className={cn('flex items-center gap-2 truncate font-medium', isActive ? 'text-foreground' : 'text-muted')}>
               {resident.full_name}
               {resident.is_primary ? (
                 <Badge variant="outline" size="sm">
@@ -85,7 +85,7 @@ export function ResidentRow({
                 <span>moved in {format(new Date(resident.moved_in_at), 'PP')}</span>
               ) : null}
               {resident.moved_out_at ? (
-                <span className="text-destructive/80">
+                <span className="font-medium text-foreground-secondary">
                   moved out {format(new Date(resident.moved_out_at), 'PP')}
                 </span>
               ) : null}
@@ -104,13 +104,12 @@ export function ResidentRow({
             {isActive ? (
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
+                icon={<Pencil aria-hidden />}
                 onClick={() => setEditing(true)}
                 aria-label={`Edit ${resident.full_name}`}
                 title="Edit"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </Button>
+              />
             ) : null}
             <ResidentActions
               residentId={resident.id}
@@ -181,8 +180,8 @@ function ResidentEditForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="grid gap-2 sm:grid-cols-2">
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-border bg-subtle/40 p-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Full name">
           <Input
             value={fullName}
@@ -225,15 +224,13 @@ function ResidentEditForm({
             onChange={(e) => setMovedInAt(e.currentTarget.value)}
           />
         </Field>
-        <label className="flex items-end gap-2 pb-1.5 text-sm">
-          <input
-            type="checkbox"
+        <div className="flex items-end pb-1.5">
+          <Checkbox
+            label="Primary resident for this property"
             checked={isPrimary}
             onChange={(e) => setIsPrimary(e.currentTarget.checked)}
-            className="h-4 w-4"
           />
-          <span>Primary resident for this property</span>
-        </label>
+        </div>
       </div>
 
       <Field label="Notes">
@@ -247,42 +244,19 @@ function ResidentEditForm({
       </Field>
 
       {error ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-xs text-destructive">
+        <Alert variant="error" title="Couldn’t save">
           {error}
-        </p>
+        </Alert>
       ) : null}
 
       <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          disabled={pending}
-        >
-          <X className="h-3.5 w-3.5" />
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={pending}>
           Cancel
         </Button>
-        <Button type="submit" size="sm" disabled={pending}>
-          <Save className="h-3.5 w-3.5" />
-          {pending ? 'Saving…' : 'Save'}
+        <Button type="submit" size="sm" loading={pending}>
+          Save
         </Button>
       </div>
     </form>
-  )
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <label className="block space-y-1">
-      <span className="text-xs font-medium text-muted">{label}</span>
-      {children}
-    </label>
   )
 }

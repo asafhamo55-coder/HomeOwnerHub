@@ -1,6 +1,5 @@
 import Link from 'next/link'
-import { Search } from 'lucide-react'
-import { Input } from '@homeowner-portal/ui'
+import { SearchForm, cn } from '@homeowner-portal/ui'
 import type { PropertyListParams, PropertyFilter, PropertySort } from '@/lib/properties/list-params'
 
 const FILTERS: Array<{ key: PropertyFilter; label: string }> = [
@@ -66,71 +65,63 @@ export function PropertyListFilters({
   counts: { attention: number; incomplete: number; all: number; waiting: number } | null
 }) {
   return (
-    <div className="space-y-2 border-b border-border p-2">
-      <form action="/properties" method="get" className="flex items-center gap-2">
-        {params.filter !== 'attention' ? (
-          <input type="hidden" name="filter" value={params.filter} />
-        ) : null}
-        {params.sort !== 'severity' ? (
-          <input type="hidden" name="sort" value={params.sort} />
-        ) : null}
-        <div className="relative flex-1">
-          <Search
-            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted"
-            aria-hidden
-          />
-          <Input
-            type="search"
-            name="q"
-            defaultValue={params.search}
-            placeholder="Search address, unit, owner, email"
-            aria-label="Search properties"
-            className="pl-8 text-sm"
-          />
-        </div>
-        {params.search ? (
-          <Link
-            href={clearSearchHref(params)}
-            className="shrink-0 text-xs font-medium text-muted hover:text-foreground"
-          >
-            Clear
-          </Link>
-        ) : null}
-      </form>
+    <div className="space-y-3 border-b border-border p-3">
+      <SearchForm
+        action="/properties"
+        label="Search properties"
+        placeholder="Search address, unit, owner, email"
+        defaultValue={params.search}
+        keep={{
+          filter: params.filter !== 'attention' ? params.filter : null,
+          sort: params.sort !== 'severity' ? params.sort : null,
+        }}
+        clearHref={clearSearchHref(params)}
+        linkAs={Link}
+        className="sm:w-full"
+      />
 
-      <nav aria-label="Filter properties" className="flex flex-wrap gap-1 text-xs">
-        {FILTERS.map((f) => (
-          <Link
-            key={f.key}
-            href={hrefWith(params, { filter: f.key })}
-            aria-current={params.filter === f.key ? 'page' : undefined}
-            className={`rounded-full px-2.5 py-1 ${
-              params.filter === f.key
-                ? 'bg-primary text-primary-fg'
-                : 'text-muted hover:bg-muted/10'
-            }`}
-          >
-            {COUNTED.has(f.key) && counts
-              ? `${f.label} ${counts[f.key as keyof typeof counts] ?? 0}`
-              : f.label}
-          </Link>
-        ))}
-      </nav>
+      <div className="flex flex-wrap gap-1" role="navigation" aria-label="Filter properties">
+        {FILTERS.map((f) => {
+          const active = params.filter === f.key
+          const count = COUNTED.has(f.key) && counts ? counts[f.key as keyof typeof counts] ?? 0 : null
+          return (
+            <Link
+              key={f.key}
+              href={hrefWith(params, { filter: f.key })}
+              aria-current={active ? 'page' : undefined}
+              className={cn(
+                'inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium no-underline transition-colors duration-fast sm:h-7',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                active
+                  ? 'border-primary/30 bg-primary-subtle text-primary'
+                  : 'border-border bg-surface text-foreground-secondary hover:border-border-strong hover:text-foreground',
+              )}
+            >
+              {f.label}
+              {count !== null ? <span className={cn('num', active ? 'text-primary' : 'text-muted')}>{count}</span> : null}
+            </Link>
+          )
+        })}
+      </div>
 
-      <div className="flex items-center gap-1 text-[11px] text-muted">
-        <span className="uppercase tracking-wide">Sort</span>
-        {SORTS.map((s) => (
-          <Link
-            key={s.key}
-            href={hrefWith(params, { sort: s.key })}
-            aria-current={params.sort === s.key ? 'page' : undefined}
-            className={`rounded px-1.5 py-0.5 ${
-              params.sort === s.key ? 'font-semibold text-foreground' : 'hover:text-foreground'
-            }`}
-          >
-            {s.label}
-          </Link>
-        ))}
+      <div className="flex items-center gap-1 text-xs text-muted">
+        <span className="mr-1 font-medium">Sort by</span>
+        {SORTS.map((s) => {
+          const active = params.sort === s.key
+          return (
+            <Link
+              key={s.key}
+              href={hrefWith(params, { sort: s.key })}
+              aria-current={active ? 'page' : undefined}
+              className={cn(
+                'rounded-md px-2 py-1 no-underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                active ? 'bg-subtle font-semibold text-foreground' : 'hover:bg-subtle hover:text-foreground',
+              )}
+            >
+              {s.label}
+            </Link>
+          )
+        })}
       </div>
     </div>
   )
