@@ -1,9 +1,11 @@
 'use server'
 
-// Admin-only member management. Lists, invites, role changes, removes.
-// All writes go through the user-bound RLS client; RLS lets admins
-// of an org INSERT/UPDATE/DELETE rows in org_members for that org,
-// per the policies in migration 0000 + 0001.
+// Member management. Lists, invites, role changes, removes.
+// All writes go through the user-bound RLS client. Per migration 0058,
+// RLS lets admins INSERT/UPDATE/DELETE any org_members row in their org
+// and board members only rows whose role is (and stays) 'resident'. The
+// checks below mirror that so callers get a clear error instead of an
+// RLS-filtered no-op, and every write confirms it touched a row.
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
@@ -300,13 +302,19 @@ async function attachToOrg(args: {
     } as never)
 
   if (insertErr) {
-    // Likely a uniqueness violation — fall back to update.
-    const { error: updateErr } = await supabase
+    // Likely a uniqueness violation — fall back to update. A board member
+    // re-inviting an existing admin/board member is filtered out by RLS
+    // (0058), which reports no error, so check that a row was touched.
+    const { data: updated, error: updateErr } = await supabase
       .from('org_members')
       .update({ role: args.role } as never)
       .eq('org_id', args.orgId)
       .eq('user_id', args.userId)
+      .select('user_id')
     if (updateErr) return { ok: false, error: updateErr.message }
+    if (!updated || updated.length === 0) {
+      return { ok: false, error: 'This person is already a member with a role you can\'t change.' }
+    }
   }
 
   // Optionally link to a property. We write to TWO tables so both data
@@ -441,7 +449,10 @@ export async function changeMemberRole(
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
   }
 
-  const { org } = await requireBoardOrAdmin()
+  const { role: callerRole, org } = await requireBoardOrAdmin()
+  if (callerRole !== 'admin') {
+    return { ok: false, error: 'Only admins can change member roles.' }
+  }
   const supabase = await getSupabaseServerClient()
 
   // Guard against removing the last admin. Count current admins in org.
@@ -468,13 +479,17 @@ export async function changeMemberRole(
     }
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from('org_members')
     .update({ role: parsed.data.role } as never)
     .eq('org_id', org.id)
     .eq('user_id', parsed.data.user_id)
+    .select('user_id')
 
   if (error) return { ok: false, error: error.message }
+  if (!updated || updated.length === 0) {
+    return { ok: false, error: 'Role was not changed. Refresh and try again.' }
+  }
   revalidatePath('/settings/members')
   return { ok: true }
 }
@@ -482,7 +497,7 @@ export async function changeMemberRole(
 // ─── Remove ──────────────────────────────────────────────────────────
 
 export async function removeMember(userId: string): Promise<ActionResult> {
-  const { org } = await requireBoardOrAdmin()
+  const { role: callerRole, org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
 
   // Same guard: don't allow removing the last admin.
@@ -492,6 +507,10 @@ export async function removeMember(userId: string): Promise<ActionResult> {
     .eq('org_id', org.id)
     .eq('user_id', userId)
     .maybeSingle<{ role: string }>()
+
+  if (callerRole !== 'admin' && targetRow?.role !== 'resident') {
+    return { ok: false, error: 'Board members can only remove residents.' }
+  }
 
   if (targetRow?.role === 'admin') {
     const { count } = await supabase
@@ -507,13 +526,17 @@ export async function removeMember(userId: string): Promise<ActionResult> {
     }
   }
 
-  const { error } = await supabase
+  const { data: deleted, error } = await supabase
     .from('org_members')
     .delete()
     .eq('org_id', org.id)
     .eq('user_id', userId)
+    .select('user_id')
 
   if (error) return { ok: false, error: error.message }
+  if (!deleted || deleted.length === 0) {
+    return { ok: false, error: 'Member was not removed. Refresh and try again.' }
+  }
   revalidatePath('/settings/members')
   return { ok: true }
 }

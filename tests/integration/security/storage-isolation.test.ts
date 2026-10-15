@@ -172,3 +172,126 @@ describe('storage tenant isolation', () => {
     expect(leak.error, 'cross-tenant governing-docs read succeeded').not.toBeNull()
   })
 })
+
+/**
+ * DELETE and UPDATE on storage.objects (0059). With no policy for either,
+ * every user-scoped remove() silently deleted nothing.
+ *
+ * remove() reports no error when RLS filters every row out, so each
+ * assertion checks whether the object still exists as superuser.
+ */
+function objectExists(bucket: string, name: string): boolean {
+  const out = execFileSync(
+    'psql',
+    [
+      LOCAL_DB_URL,
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-tAc',
+      `select count(*) from storage.objects where bucket_id = '${bucket}' and name = '${name}'`,
+    ],
+    { stdio: ['ignore', 'pipe', 'inherit'] },
+  )
+  return out.toString().trim() === '1'
+}
+
+describe('storage delete and update scope', () => {
+  beforeEach(async () => {
+    await truncateAll()
+  })
+
+  it('board can delete any object in its org', async () => {
+    const orgA = await makeOrg()
+    const board = await mintUser(orgA, 'board')
+    const resident = await mintUser(orgA, 'resident')
+    const path = `${orgA.orgId}/resident-upload.txt`
+
+    const up = await resident.client.storage.from('hoa-documents').upload(path, new Blob(['x']))
+    expect(up.error).toBeNull()
+
+    const rm = await board.client.storage.from('hoa-documents').remove([path])
+    expect(rm.error).toBeNull()
+    expect(objectExists('hoa-documents', path), 'board delete silently did nothing').toBe(false)
+  })
+
+  it('a resident can delete an object they uploaded', async () => {
+    const orgA = await makeOrg()
+    const resident = await mintUser(orgA, 'resident')
+    const path = `${orgA.orgId}/submissions/mine.txt`
+
+    await resident.client.storage.from('hoa-documents').upload(path, new Blob(['x']))
+    expect(objectExists('hoa-documents', path)).toBe(true)
+
+    await resident.client.storage.from('hoa-documents').remove([path])
+    expect(objectExists('hoa-documents', path), 'uploader could not delete own object').toBe(false)
+  })
+
+  it('a resident cannot delete an object another member uploaded', async () => {
+    const orgA = await makeOrg()
+    const board = await mintUser(orgA, 'board')
+    const resident = await mintUser(orgA, 'resident')
+    const path = `${orgA.orgId}/bylaws.txt`
+
+    await board.client.storage.from('hoa-documents').upload(path, new Blob(['x']))
+    await resident.client.storage.from('hoa-documents').remove([path])
+
+    expect(objectExists('hoa-documents', path), 'resident deleted a board document').toBe(true)
+  })
+
+  it('a board member of another org cannot delete an object', async () => {
+    const orgA = await makeOrg()
+    const orgB = await makeOrg()
+    const boardA = await mintUser(orgA, 'board')
+    const boardB = await mintUser(orgB, 'board')
+    const path = `${orgA.orgId}/bylaws.txt`
+
+    await boardA.client.storage.from('governing-docs').upload(path, new Blob(['x']))
+    await boardB.client.storage.from('governing-docs').remove([path])
+
+    expect(objectExists('governing-docs', path), 'cross-tenant delete succeeded').toBe(true)
+  })
+
+  it('upsert over an existing object works for the owning org', async () => {
+    const orgA = await makeOrg()
+    const board = await mintUser(orgA, 'board')
+    const path = `${orgA.orgId}/replace-me.txt`
+
+    await board.client.storage.from('hoa-photos').upload(path, new Blob(['v1']))
+    const again = await board.client.storage
+      .from('hoa-photos')
+      .upload(path, new Blob(['v2']), { upsert: true })
+    expect(again.error, 'overwrite of an existing object denied').toBeNull()
+
+    const got = await board.client.storage.from('hoa-photos').download(path)
+    expect(await got.data?.text()).toBe('v2')
+  })
+
+  it('a resident cannot overwrite an object another member uploaded', async () => {
+    const orgA = await makeOrg()
+    const board = await mintUser(orgA, 'board')
+    const resident = await mintUser(orgA, 'resident')
+    const path = `${orgA.orgId}/bylaws.txt`
+
+    await board.client.storage.from('hoa-documents').upload(path, new Blob(['original']))
+    await resident.client.storage
+      .from('hoa-documents')
+      .upload(path, new Blob(['tampered']), { upsert: true })
+
+    const got = await board.client.storage.from('hoa-documents').download(path)
+    expect(await got.data?.text(), 'resident overwrote a board document').toBe('original')
+  })
+
+  it('an object cannot be moved into another org prefix', async () => {
+    const orgA = await makeOrg()
+    const orgB = await makeOrg()
+    const boardA = await mintUser(orgA, 'board')
+    const src = `${orgA.orgId}/move-me.txt`
+    const dst = `${orgB.orgId}/planted.txt`
+
+    await boardA.client.storage.from('hoa-documents').upload(src, new Blob(['x']))
+    await boardA.client.storage.from('hoa-documents').move(src, dst)
+
+    expect(objectExists('hoa-documents', dst), 'object moved into a foreign org').toBe(false)
+  })
+})
+

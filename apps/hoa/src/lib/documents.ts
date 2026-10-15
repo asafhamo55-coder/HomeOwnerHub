@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { removeStorageObjects } from '@/lib/storage-remove'
 
 const STORAGE_BUCKET = 'hoa-documents'
 const MAX_FILE_BYTES = 50 * 1024 * 1024 // 50 MB
@@ -95,7 +96,7 @@ export async function uploadDocument(
 
   if (rowError) {
     // Best-effort cleanup of the uploaded file if the row insert fails.
-    await supabase.storage.from(STORAGE_BUCKET).remove([storagePath])
+    await removeStorageObjects(supabase, STORAGE_BUCKET, [storagePath], 'uploadDocument cleanup')
     return { error: rowError.message }
   }
 
@@ -140,10 +141,16 @@ export async function deleteDocument(documentId: string) {
     ...(doc?.storage_path ? [doc.storage_path] : []),
     ...((versions ?? []).map((v) => v.storage_path)),
   ]
-  if (paths.length > 0) {
-    await supabase.storage.from(STORAGE_BUCKET).remove(paths)
+  // Files first, row second: if the files cannot be removed, keep the row
+  // so the document can still be found and the delete retried, rather
+  // than orphaning files nothing points at any more. Throwing is the
+  // contract DocumentActions.tsx's handleDelete surfaces to the user.
+  const storageErr = await removeStorageObjects(supabase, STORAGE_BUCKET, paths, `deleteDocument ${documentId}`)
+  if (storageErr) {
+    throw new Error('Could not remove the document files. Nothing was deleted — try again.')
   }
-  await supabase.from('hoa_documents').delete().eq('id', documentId)
+  const { error: deleteErr } = await supabase.from('hoa_documents').delete().eq('id', documentId)
+  if (deleteErr) throw new Error(deleteErr.message)
   revalidatePath('/documents')
   redirect('/documents')
 }
@@ -278,7 +285,7 @@ export async function replaceDocumentFile(
   if (updErr) {
     // Cleanup: drop the new file and the version row to leave state
     // untouched.
-    await supabase.storage.from(STORAGE_BUCKET).remove([newStoragePath])
+    await removeStorageObjects(supabase, STORAGE_BUCKET, [newStoragePath], `replaceDocumentFile cleanup ${current.id}`)
     await supabase
       .from('hoa_document_versions' as never)
       .delete()

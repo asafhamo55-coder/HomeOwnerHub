@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { removeStorageObjects } from '@/lib/storage-remove'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import {
   ATTACHMENT_ALLOWED_TYPES,
@@ -218,7 +219,7 @@ export async function recordAttachmentUpload(input: {
 
   if (insertError) {
     console.error(`[attach] metadata insert failed: ${insertError.message}`)
-    await supabase.storage.from(BUCKET).remove([input.storagePath])
+    await removeStorageObjects(supabase, BUCKET, [input.storagePath], 'attachSubmissionFile cleanup')
     return { ok: false, error: insertError.message }
   }
 
@@ -257,7 +258,10 @@ export async function deleteSubmissionAttachment(id: string): Promise<ActionResu
   if (error) return { ok: false, error: error.message }
   if (!count) return { ok: false, error: 'You cannot remove this attachment.' }
 
-  await supabase.storage.from(BUCKET).remove([row.storage_path])
+  // The row is already gone, so the file can no longer be reached through
+  // the app; a failure here is logged for cleanup rather than reported as
+  // a failed delete.
+  await removeStorageObjects(supabase, BUCKET, [row.storage_path], `deleteSubmissionAttachment ${id}`)
 
   for (const p of pathsFor(row.thread_type, row.parent_id)) {
     revalidatePath(p)

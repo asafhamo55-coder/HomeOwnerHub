@@ -25,6 +25,10 @@ failed on the missing `0055` helper and exposed it. See `docs/DEPLOY.md` for
 the correction, what was actually verified, and the open question of which
 project the first check hit.
 
+**`0058` and `0059` (sub-project C) are NOT applied.** Committed and tested
+locally: `0058` closes same-org admin self-grant on `org_members`, `0059` adds
+storage DELETE/UPDATE. Apply both in one `DO` block, as with `0055`–`0057`.
+
 ## Decisions that are the owner's, not an agent's
 
 - **W18 auto-posts reconciliation journal entries and marks assessments paid
@@ -40,6 +44,8 @@ project the first check hit.
    any same-org member can grant themselves `admin` in their own org (RLS checks
    `org_id` only); and `storage.objects` has no DELETE/UPDATE policy, so every
    `.storage.remove()` through a user-scoped client has always failed silently.
+   **Built (`0058`, `0059` + app changes); remaining step is applying both
+   migrations to production.**
 2. **Production observability** — there is no error tracking anywhere in this
    repo. This is a hard prerequisite for sub-project B: a self-healing loop can
    only repair what it can detect.

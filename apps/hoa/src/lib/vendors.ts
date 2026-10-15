@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { vendorOnboarder } from '@homeowner-portal/workflows'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { removeStorageObjects } from '@/lib/storage-remove'
 
 // Vendor tables ship in migration 0007 but aren't yet in database.types.ts
 // (regen happens post-migration). Cast through `never` like ai_runs does
@@ -509,11 +510,13 @@ export async function deleteVendorDocument(
   // may contain PII — COI, W-9, license) would be orphaned in the
   // bucket with no metadata to find it again. Better to leave both
   // in place and surface a retryable error.
-  const { error: storageErr } = await supabase.storage
-    .from('hoa-documents')
-    .remove([doc.storage_path])
+  const storageErr = await removeStorageObjects(
+    supabase,
+    'hoa-documents',
+    [doc.storage_path],
+    `deleteVendorDocument ${documentId}`,
+  )
   if (storageErr) {
-    console.error('[vendors] storage remove failed', storageErr)
     return {
       ok: false,
       error:

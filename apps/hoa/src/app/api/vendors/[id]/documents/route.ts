@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { removeStorageObjects } from '@/lib/storage-remove'
 
 const STORAGE_BUCKET = 'hoa-documents'
 const MAX_BYTES = 25 * 1024 * 1024 // 25 MB
@@ -111,7 +112,7 @@ export async function POST(
 
   if (insertError || !row) {
     // Best-effort cleanup of the orphaned upload so we don't leak bytes.
-    await supabase.storage.from(STORAGE_BUCKET).remove([storagePath])
+    await removeStorageObjects(supabase, STORAGE_BUCKET, [storagePath], 'vendor document upload cleanup')
     return NextResponse.json(
       { error: 'record_failed', message: insertError?.message ?? 'unknown' },
       { status: 500 },

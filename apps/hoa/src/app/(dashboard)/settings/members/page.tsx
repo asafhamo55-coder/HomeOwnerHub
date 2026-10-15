@@ -78,7 +78,7 @@ export default async function MembersPage() {
         <CardContent>
           <ul className="divide-y divide-border">
             {members.map((m) => (
-              <MemberRow key={m.user_id} member={m} isSelf={m.user_id === user?.id} />
+              <MemberRow key={m.user_id} member={m} isSelf={m.user_id === user?.id} viewerRole={role} />
             ))}
           </ul>
         </CardContent>

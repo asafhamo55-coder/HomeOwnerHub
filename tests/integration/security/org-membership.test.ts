@@ -5,7 +5,7 @@
  * assertion in it is a SELECT, and this is an INSERT.
  */
 import { beforeEach, describe, expect, it } from 'vitest'
-import { makeOrg, mintUser } from '../fixtures/factory'
+import { adminDb, makeOrg, mintUser } from '../fixtures/factory'
 import { truncateAll } from '../fixtures/truncate'
 
 describe('org_members INSERT scope', () => {
@@ -75,5 +75,203 @@ describe('org_members INSERT scope', () => {
       .insert({ org_id: orgA.orgId, user_id: invitee.id, role: 'resident' })
 
     expect(error, 'the production invite path (attachToOrg) would be broken').toBeNull()
+  })
+})
+
+/**
+ * Same-org role escalation (0058). Before 0058, org_member_access was a
+ * single FOR ALL policy gated on org_id alone, so any member — a plain
+ * resident included — could grant admin within their own org.
+ *
+ * An UPDATE or DELETE that RLS filters out returns no error and touches
+ * zero rows, so every negative below re-reads the row as service role
+ * rather than trusting the absence of an error.
+ */
+async function roleOf(orgId: string, userId: string): Promise<string | null> {
+  const { data, error } = await adminDb()
+    .from('org_members')
+    .select('role')
+    .eq('org_id', orgId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) throw new Error(`roleOf: ${error.message}`)
+  return data?.role ?? null
+}
+
+describe('org_members same-org role scope', () => {
+  beforeEach(async () => {
+    await truncateAll()
+  })
+
+  it('a resident cannot promote themselves to admin', async () => {
+    const orgA = await makeOrg()
+    const resident = await mintUser(orgA, 'resident')
+
+    await resident.client
+      .from('org_members')
+      .update({ role: 'admin' })
+      .eq('org_id', orgA.orgId)
+      .eq('user_id', resident.id)
+
+    expect(await roleOf(orgA.orgId, resident.id)).toBe('resident')
+  })
+
+  it('a resident cannot add another user to their org as admin', async () => {
+    const orgA = await makeOrg()
+    const throwaway = await makeOrg()
+    const resident = await mintUser(orgA, 'resident')
+    const accomplice = await mintUser(throwaway, 'resident')
+
+    const { error } = await resident.client
+      .from('org_members')
+      .insert({ org_id: orgA.orgId, user_id: accomplice.id, role: 'admin' })
+
+    expect(error, 'a resident granted admin in their own org').not.toBeNull()
+    expect(await roleOf(orgA.orgId, accomplice.id)).toBeNull()
+  })
+
+  it('a resident cannot invite anyone, even as a resident', async () => {
+    const orgA = await makeOrg()
+    const throwaway = await makeOrg()
+    const resident = await mintUser(orgA, 'resident')
+    const other = await mintUser(throwaway, 'resident')
+
+    const { error } = await resident.client
+      .from('org_members')
+      .insert({ org_id: orgA.orgId, user_id: other.id, role: 'resident' })
+
+    expect(error).not.toBeNull()
+  })
+
+  it('a board member cannot promote themselves to admin', async () => {
+    const orgA = await makeOrg()
+    const board = await mintUser(orgA, 'board')
+
+    await board.client
+      .from('org_members')
+      .update({ role: 'admin' })
+      .eq('org_id', orgA.orgId)
+      .eq('user_id', board.id)
+
+    expect(await roleOf(orgA.orgId, board.id)).toBe('board')
+  })
+
+  it('a board member cannot grant admin to a new user', async () => {
+    const orgA = await makeOrg()
+    const throwaway = await makeOrg()
+    const board = await mintUser(orgA, 'board')
+    const other = await mintUser(throwaway, 'resident')
+
+    const { error } = await board.client
+      .from('org_members')
+      .insert({ org_id: orgA.orgId, user_id: other.id, role: 'admin' })
+
+    expect(error, 'a board member granted admin').not.toBeNull()
+  })
+
+  it('a board member cannot promote a resident to admin', async () => {
+    const orgA = await makeOrg()
+    const board = await mintUser(orgA, 'board')
+    const resident = await mintUser(orgA, 'resident')
+
+    await board.client
+      .from('org_members')
+      .update({ role: 'admin' })
+      .eq('org_id', orgA.orgId)
+      .eq('user_id', resident.id)
+
+    expect(await roleOf(orgA.orgId, resident.id)).toBe('resident')
+  })
+
+  it('a board member cannot remove an admin', async () => {
+    const orgA = await makeOrg()
+    const board = await mintUser(orgA, 'board')
+    const admin = await mintUser(orgA, 'admin')
+
+    await board.client
+      .from('org_members')
+      .delete()
+      .eq('org_id', orgA.orgId)
+      .eq('user_id', admin.id)
+
+    expect(await roleOf(orgA.orgId, admin.id)).toBe('admin')
+  })
+
+  it('a board member can still invite and remove a resident (members.ts invite flow)', async () => {
+    const orgA = await makeOrg()
+    const throwaway = await makeOrg()
+    const board = await mintUser(orgA, 'board')
+    const invitee = await mintUser(throwaway, 'resident')
+
+    const ins = await board.client
+      .from('org_members')
+      .insert({ org_id: orgA.orgId, user_id: invitee.id, role: 'resident' })
+    expect(ins.error, 'board can no longer invite residents').toBeNull()
+    expect(await roleOf(orgA.orgId, invitee.id)).toBe('resident')
+
+    const del = await board.client
+      .from('org_members')
+      .delete()
+      .eq('org_id', orgA.orgId)
+      .eq('user_id', invitee.id)
+    expect(del.error).toBeNull()
+    expect(await roleOf(orgA.orgId, invitee.id)).toBeNull()
+  })
+
+  it('a resident cannot remove another member', async () => {
+    const orgA = await makeOrg()
+    const resident = await mintUser(orgA, 'resident')
+    const neighbour = await mintUser(orgA, 'resident')
+
+    await resident.client
+      .from('org_members')
+      .delete()
+      .eq('org_id', orgA.orgId)
+      .eq('user_id', neighbour.id)
+
+    expect(await roleOf(orgA.orgId, neighbour.id)).toBe('resident')
+  })
+
+  it('an admin can promote, demote and remove members', async () => {
+    const orgA = await makeOrg()
+    const admin = await mintUser(orgA, 'admin')
+    const resident = await mintUser(orgA, 'resident')
+
+    const up = await admin.client
+      .from('org_members')
+      .update({ role: 'admin' })
+      .eq('org_id', orgA.orgId)
+      .eq('user_id', resident.id)
+    expect(up.error).toBeNull()
+    expect(await roleOf(orgA.orgId, resident.id)).toBe('admin')
+
+    const down = await admin.client
+      .from('org_members')
+      .update({ role: 'board' })
+      .eq('org_id', orgA.orgId)
+      .eq('user_id', resident.id)
+    expect(down.error).toBeNull()
+    expect(await roleOf(orgA.orgId, resident.id)).toBe('board')
+
+    const del = await admin.client
+      .from('org_members')
+      .delete()
+      .eq('org_id', orgA.orgId)
+      .eq('user_id', resident.id)
+    expect(del.error).toBeNull()
+    expect(await roleOf(orgA.orgId, resident.id)).toBeNull()
+  })
+
+  it('every member can still read the member list of their own org', async () => {
+    const orgA = await makeOrg()
+    const resident = await mintUser(orgA, 'resident')
+    await mintUser(orgA, 'admin')
+
+    const { data, error } = await resident.client
+      .from('org_members')
+      .select('user_id')
+      .eq('org_id', orgA.orgId)
+    expect(error).toBeNull()
+    expect(data).toHaveLength(2)
   })
 })

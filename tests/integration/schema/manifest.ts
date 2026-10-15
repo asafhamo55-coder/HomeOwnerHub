@@ -91,6 +91,8 @@ export const MIGRATION_MANIFEST: string[] = [
   '0055_storage_org_prefix_scope.sql',
   '0056_governing_docs_org_scope.sql',
   '0057_bank_txn_reconciliation_attempted.sql',
+  '0058_org_members_role_scope.sql',
+  '0059_storage_delete_update.sql',
 ]
 
 /**

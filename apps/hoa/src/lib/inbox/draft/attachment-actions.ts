@@ -24,6 +24,7 @@ import { randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { removeStorageObjects } from '@/lib/storage-remove'
 import { attachmentNameProblem, checkAttachmentFits } from './attachments'
 
 const BUCKET = 'hoa-documents'
@@ -287,12 +288,9 @@ export async function removeDraftAttachment(
   // destroy a governing document because someone changed their mind about an
   // attachment.
   if (data.source === 'upload') {
-    const { error: storageError } = await supabase.storage.from(BUCKET).remove([data.storage_path])
-    if (storageError) {
-      // Not fatal: the row is gone, so the file will not be sent. A stray
-      // object is a housekeeping matter, not a correctness one.
-      console.error(`attachments: storage cleanup failed: ${storageError.message}`)
-    }
+    // Not fatal: the row is gone, so the file will not be sent. The helper
+    // logs a failure, including the RLS-filtered no-op that returns no error.
+    await removeStorageObjects(supabase, BUCKET, [data.storage_path], 'inbox draft attachment remove')
   }
 
   if (editable.threadId) revalidatePath(`/inbox/${editable.threadId}`)

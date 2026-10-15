@@ -13,7 +13,18 @@ const ROLE_VARIANT: Record<MemberRole, 'default' | 'success' | 'outline'> = {
   resident: 'outline',
 }
 
-export function MemberRow({ member, isSelf }: { member: MemberRowType; isSelf: boolean }) {
+export function MemberRow({
+  member,
+  isSelf,
+  viewerRole,
+}: {
+  member: MemberRowType
+  isSelf: boolean
+  viewerRole: 'admin' | 'board'
+}) {
+  // Mirrors 0058: only admins change roles; board can remove residents only.
+  const canChangeRole = viewerRole === 'admin'
+  const canRemove = !isSelf && (viewerRole === 'admin' || member.role === 'resident')
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -78,7 +89,7 @@ export function MemberRow({ member, isSelf }: { member: MemberRowType; isSelf: b
         <Select
           value={member.role}
           onValueChange={(v) => handleRoleChange(v as MemberRole)}
-          disabled={isPending}
+          disabled={isPending || !canChangeRole}
           variant="ghost"
           className="!w-auto text-xs"
         >
@@ -89,7 +100,7 @@ export function MemberRow({ member, isSelf }: { member: MemberRowType; isSelf: b
         <Badge variant={ROLE_VARIANT[member.role]} size="sm">
           {member.role}
         </Badge>
-        {!isSelf ? (
+        {canRemove ? (
           <Button
             variant="outline"
             size="sm"
