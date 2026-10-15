@@ -29,17 +29,17 @@ export function HubCta({ theme, title, description, primary, secondary, footnote
           transition={{ duration: 0.6 }}
           className="mx-auto max-w-3xl text-center"
         >
-          <h2 className="text-balance text-4xl font-semibold tracking-tight text-ink-900 md:text-5xl">
+          <h2 className="text-balance text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
             {title}
           </h2>
-          <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-ink-600">
+          <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-foreground-secondary">
             {description}
           </p>
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               href={primary.href}
               className={cn(
-                'group inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold text-white shadow-sm transition-all hover:shadow-md',
+                'group inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold shadow-sm transition-all hover:shadow-md',
                 theme.buttonClass,
               )}
             >
@@ -49,13 +49,13 @@ export function HubCta({ theme, title, description, primary, secondary, footnote
             {secondary && (
               <Link
                 href={secondary.href}
-                className="text-sm font-medium text-ink-700 hover:text-ink-900"
+                className="text-sm font-medium text-foreground-secondary hover:text-foreground"
               >
                 {secondary.label} →
               </Link>
             )}
           </div>
-          {footnote && <p className="mt-8 text-xs text-ink-500">{footnote}</p>}
+          {footnote && <p className="mt-8 text-xs text-muted">{footnote}</p>}
         </motion.div>
       </div>
     </section>

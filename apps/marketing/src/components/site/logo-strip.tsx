@@ -10,13 +10,13 @@ export function LogoStrip() {
   ]
 
   return (
-    <section className="border-y border-ink-200/60 bg-ink-50/40">
+    <section className="border-y border-border/60 bg-subtle/40">
       <div className="container-page py-5">
         <ul className="grid gap-x-8 gap-y-2 text-center md:flex md:items-center md:justify-between">
           {items.map((label) => (
             <li
               key={label}
-              className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-600"
+              className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground-secondary"
             >
               {label}
             </li>

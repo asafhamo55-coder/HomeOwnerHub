@@ -101,15 +101,15 @@ const ACTIONS: Omit<AuditEntry, 'id' | 'ts'>[] = [
 ]
 
 const barColor: Record<'C' | 'B' | 'A', string> = {
-  C: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
-  B: 'bg-amber-50 text-amber-700 ring-amber-100',
-  A: 'bg-slate-50 text-slate-700 ring-slate-200',
+  C: 'bg-success-subtle text-success ring-success/15',
+  B: 'bg-warning-subtle text-warning ring-warning/15',
+  A: 'bg-subtle text-foreground-secondary ring-border',
 }
 
 const statusColor: Record<AuditEntry['status'], string> = {
-  completed: 'text-emerald-700',
-  'human-gated': 'text-amber-700',
-  sent: 'text-brand-700',
+  completed: 'text-success',
+  'human-gated': 'text-warning',
+  sent: 'text-primary',
 }
 
 const actorIcon: Record<string, typeof ShieldCheck> = {
@@ -150,41 +150,41 @@ export function AuditLogLive() {
   }, [seed, paused])
 
   return (
-    <section className="border-y border-ink-200/60 bg-ink-50/30 py-20 md:py-24">
+    <section className="border-y border-border/60 bg-subtle/30 py-20 md:py-24">
       <div className="container-page">
         <header className="mb-12 md:flex md:items-end md:justify-between md:gap-12">
           <div className="max-w-xl">
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-700">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
               Live · AIEventLog
             </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
+            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
               Every AI action. Logged. Cited. Defensible.
             </h2>
           </div>
-          <p className="mt-4 max-w-md text-base leading-relaxed text-ink-500 md:mt-0">
+          <p className="mt-4 max-w-md text-base leading-relaxed text-muted md:mt-0">
             The AIEventLog is append-only. Every output records the model, the
             prompt hash, the tenant, the citation, and the human action taken.
             This is the legal-defense story.
           </p>
         </header>
 
-        <div className="overflow-hidden rounded-2xl border border-ink-200/70 bg-ink-950 text-ink-100">
+        <div className="overflow-hidden rounded-2xl border border-border/70 bg-foreground text-background/90">
           {/* Header chrome */}
-          <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-5 py-3">
+          <div className="flex items-center justify-between border-b border-background/10 bg-surface/[0.03] px-5 py-3">
             <div className="flex items-center gap-3">
               <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success-solid opacity-70" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-success-solid" />
               </span>
-              <span className="font-mono text-xs text-white/80">
-                <span className="text-white/40">stream</span> ledger.aieventlog
+              <span className="font-mono text-xs text-background/80">
+                <span className="text-background/40">stream</span> ledger.aieventlog
               </span>
             </div>
-            <div className="flex items-center gap-3 font-mono text-[11px] text-white/50">
+            <div className="flex items-center gap-3 font-mono text-[11px] text-background/50">
               <span className="hidden sm:inline">{entries.length} entries · last 60s</span>
               <button
                 onClick={() => setPaused((p) => !p)}
-                className="inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-0.5 text-white/70 transition-colors hover:bg-white/10"
+                className="inline-flex items-center gap-1 rounded-md border border-background/10 px-2 py-0.5 text-background/70 transition-colors hover:bg-surface/10"
               >
                 {paused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
                 {paused ? 'play' : 'pause'}
@@ -193,7 +193,7 @@ export function AuditLogLive() {
           </div>
 
           {/* Stream */}
-          <ul className="divide-y divide-white/5">
+          <ul className="divide-y divide-background/5">
             <AnimatePresence initial={false}>
               {entries.map((e) => {
                 const Icon = actorIcon[e.actor] ?? ShieldCheck
@@ -201,25 +201,25 @@ export function AuditLogLive() {
                   <motion.li
                     key={e.id}
                     layout
-                    initial={{ opacity: 0, x: -8, backgroundColor: 'rgba(16,185,129,0.08)' }}
-                    animate={{ opacity: 1, x: 0, backgroundColor: 'rgba(16,185,129,0)' }}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.5 }}
                     className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-5 py-3"
                   >
-                    <div className="hidden flex-col items-end gap-0.5 font-mono text-[10px] text-white/40 sm:flex">
+                    <div className="hidden flex-col items-end gap-0.5 font-mono text-[10px] text-background/40 sm:flex">
                       <span>{e.ts}</span>
-                      <span className="text-white/30">{e.hash}</span>
+                      <span className="text-background/30">{e.hash}</span>
                     </div>
                     <div className="flex min-w-0 items-center gap-3">
-                      <Icon className="h-4 w-4 shrink-0 text-emerald-400/70" />
+                      <Icon className="h-4 w-4 shrink-0 text-success/70" />
                       <div className="min-w-0">
-                        <p className="truncate font-mono text-xs text-white/90">
-                          <span className="text-emerald-300">{e.actor}</span>
-                          <span className="text-white/40"> · </span>
-                          <span className="text-white/70">{e.action}</span>
+                        <p className="truncate font-mono text-xs text-background/90">
+                          <span className="text-success">{e.actor}</span>
+                          <span className="text-background/40"> · </span>
+                          <span className="text-background/70">{e.action}</span>
                         </p>
-                        <p className="mt-1 truncate font-mono text-[10px] text-white/40">
+                        <p className="mt-1 truncate font-mono text-[10px] text-background/40">
                           tenant={e.tenant} model={e.model}
                         </p>
                       </div>
@@ -242,7 +242,7 @@ export function AuditLogLive() {
             </AnimatePresence>
           </ul>
 
-          <div className="flex items-center justify-between border-t border-white/10 bg-white/[0.03] px-5 py-3 font-mono text-[10px] text-white/40">
+          <div className="flex items-center justify-between border-t border-background/10 bg-surface/[0.03] px-5 py-3 font-mono text-[10px] text-background/40">
             <span>append-only · immutable · queryable by tenant_id, workflow, model</span>
             <span className="inline-flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />

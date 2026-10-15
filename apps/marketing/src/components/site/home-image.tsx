@@ -29,7 +29,7 @@ export function HomeImage({
 }: HomeImageProps) {
   const url = appendUnsplashParams(src, width)
   return (
-    <div className={cn('relative overflow-hidden bg-ink-100', rounded, className)}>
+    <div className={cn('relative overflow-hidden bg-subtle', rounded, className)}>
       <Image
         src={url}
         alt={alt}

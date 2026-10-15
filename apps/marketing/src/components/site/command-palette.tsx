@@ -107,31 +107,31 @@ export function CommandPalette({
       onMouseDown={onClose}
     >
       <div
-        className="absolute inset-0 bg-ink-900/30 backdrop-blur-sm"
+        className="absolute inset-0 bg-foreground/30 backdrop-blur-sm"
         aria-hidden
       />
       <div
-        className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-ink-200/70 bg-white shadow-2xl"
+        className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-border/70 bg-surface shadow-2xl"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3 border-b border-ink-200/70 px-4">
-          <Search className="h-4 w-4 shrink-0 text-ink-400" />
+        <div className="flex items-center gap-3 border-b border-border/70 px-4">
+          <Search className="h-4 w-4 shrink-0 text-muted" />
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search workflows, pages, docs…"
-            className="w-full bg-transparent py-4 text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none"
+            className="w-full bg-transparent py-4 text-sm text-foreground placeholder:text-muted focus:outline-none"
           />
-          <kbd className="hidden rounded border border-ink-200 bg-ink-50 px-1.5 py-0.5 font-mono text-[10px] text-ink-500 sm:inline-block">
+          <kbd className="hidden rounded border border-border bg-subtle px-1.5 py-0.5 font-mono text-[10px] text-muted sm:inline-block">
             ESC
           </kbd>
         </div>
 
         <div className="max-h-[60vh] overflow-y-auto p-2">
           {results.length === 0 && (
-            <div className="px-4 py-8 text-center text-sm text-ink-500">
+            <div className="px-4 py-8 text-center text-sm text-muted">
               No matches for "{query}"
             </div>
           )}
@@ -148,13 +148,13 @@ export function CommandPalette({
                     }}
                     className={cn(
                       'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
-                      isActive ? 'bg-ink-900 text-white' : 'text-ink-800 hover:bg-ink-50',
+                      isActive ? 'bg-foreground text-background' : 'text-foreground hover:bg-subtle',
                     )}
                   >
                     <r.Icon
                       className={cn(
                         'h-4 w-4 shrink-0',
-                        isActive ? 'text-white/80' : 'text-ink-400',
+                        isActive ? 'text-background/80' : 'text-muted',
                       )}
                     />
                     <div className="min-w-0 flex-1">
@@ -163,7 +163,7 @@ export function CommandPalette({
                         <p
                           className={cn(
                             'truncate text-xs',
-                            isActive ? 'text-white/60' : 'text-ink-500',
+                            isActive ? 'text-background/60' : 'text-muted',
                           )}
                         >
                           {r.hint}
@@ -173,7 +173,7 @@ export function CommandPalette({
                     <span
                       className={cn(
                         'shrink-0 font-mono text-[10px] uppercase tracking-wider',
-                        isActive ? 'text-white/60' : 'text-ink-400',
+                        isActive ? 'text-background/60' : 'text-muted',
                       )}
                     >
                       {r.category}
@@ -185,7 +185,7 @@ export function CommandPalette({
           </ul>
         </div>
 
-        <div className="flex items-center justify-between border-t border-ink-200/70 bg-ink-50/40 px-4 py-2 font-mono text-[10px] uppercase tracking-wider text-ink-500">
+        <div className="flex items-center justify-between border-t border-border/70 bg-subtle/40 px-4 py-2 font-mono text-[10px] uppercase tracking-wider text-muted">
           <span>↑↓ navigate · ↵ open · esc close</span>
           <span>{results.length} results</span>
         </div>

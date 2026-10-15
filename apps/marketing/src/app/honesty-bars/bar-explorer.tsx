@@ -30,9 +30,9 @@ const BARS: BarDef[] = [
       'Legal clearance with revert clause (if legal-adjacent)',
       'Model weights pinned · no retraining in last 14 days',
     ],
-    chipCls: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
-    cardCls: 'border-emerald-200/60',
-    activeCls: 'border-emerald-500 bg-emerald-50/40',
+    chipCls: 'bg-success-subtle text-success ring-success/15',
+    cardCls: 'border-success/60',
+    activeCls: 'border-success bg-success-subtle/40',
   },
   {
     bar: 'B',
@@ -45,9 +45,9 @@ const BARS: BarDef[] = [
       'Human review gate implemented and tested (~5 min review)',
       'Legal review (if legal-adjacent) green-lit in writing',
     ],
-    chipCls: 'bg-amber-50 text-amber-700 ring-amber-100',
-    cardCls: 'border-amber-200/60',
-    activeCls: 'border-amber-500 bg-amber-50/40',
+    chipCls: 'bg-warning-subtle text-warning ring-warning/15',
+    cardCls: 'border-warning/60',
+    activeCls: 'border-warning bg-warning-subtle/40',
   },
   {
     bar: 'A',
@@ -60,17 +60,17 @@ const BARS: BarDef[] = [
       'Watermarked "DEMO ONLY" on every output',
       'Founder + lawyer sign-off (for legal-adjacent demos)',
     ],
-    chipCls: 'bg-slate-50 text-slate-700 ring-slate-200',
-    cardCls: 'border-slate-200/60',
-    activeCls: 'border-slate-500 bg-slate-50/40',
+    chipCls: 'bg-subtle text-foreground-secondary ring-border',
+    cardCls: 'border-border/60',
+    activeCls: 'border-muted bg-subtle/40',
   },
 ]
 
 const barChipMap: Record<Bar, string> = {
-  C: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
-  B: 'bg-amber-50 text-amber-700 ring-amber-100',
-  A: 'bg-slate-50 text-slate-700 ring-slate-200',
-  '—': 'bg-slate-50 text-slate-500 ring-slate-200',
+  C: 'bg-success-subtle text-success ring-success/15',
+  B: 'bg-warning-subtle text-warning ring-warning/15',
+  A: 'bg-subtle text-foreground-secondary ring-border',
+  '—': 'bg-subtle text-muted ring-border',
 }
 
 export function BarExplorer() {
@@ -85,13 +85,13 @@ export function BarExplorer() {
     <section className="py-12">
       <div className="container-page">
         <div className="mb-6 flex items-center justify-between">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-700">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
             Click a bar to filter the workflow list
           </p>
           {activeBar !== 'all' && (
             <button
               onClick={() => setActiveBar('all')}
-              className="font-mono text-[11px] font-semibold uppercase tracking-wider text-brand-700 hover:text-brand-800"
+              className="font-mono text-[11px] font-semibold uppercase tracking-wider text-primary hover:text-primary"
             >
               Show all bars
             </button>
@@ -106,11 +106,11 @@ export function BarExplorer() {
                 key={b.bar}
                 onClick={() => setActiveBar(isActive ? 'all' : b.bar)}
                 className={cn(
-                  'rounded-2xl border bg-white p-6 text-left transition-all',
+                  'rounded-2xl border bg-surface p-6 text-left transition-all',
                   isActive ? b.activeCls : b.cardCls,
                   isActive
-                    ? 'ring-2 ring-offset-2 ring-offset-white'
-                    : 'hover:border-ink-300',
+                    ? 'ring-2 ring-offset-2 ring-offset-surface'
+                    : 'hover:border-border-strong',
                 )}
                 aria-pressed={isActive}
               >
@@ -124,23 +124,23 @@ export function BarExplorer() {
                     <b.Icon className="h-3 w-3" />
                     Bar {b.bar}
                   </span>
-                  <span className="text-sm font-semibold text-ink-900">{b.name}</span>
+                  <span className="text-sm font-semibold text-foreground">{b.name}</span>
                 </div>
-                <p className="mt-5 text-sm font-medium text-ink-800">{b.summary}</p>
+                <p className="mt-5 text-sm font-medium text-foreground">{b.summary}</p>
 
-                <p className="mt-6 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+                <p className="mt-6 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted">
                   Requires
                 </p>
                 <ul className="mt-2 space-y-1.5">
                   {b.requires.map((r) => (
-                    <li key={r} className="flex gap-2 text-xs leading-relaxed text-ink-600">
-                      <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-ink-400" />
+                    <li key={r} className="flex gap-2 text-xs leading-relaxed text-foreground-secondary">
+                      <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-muted" />
                       {r}
                     </li>
                   ))}
                 </ul>
 
-                <p className="mt-6 inline-flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-700">
+                <p className="mt-6 inline-flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-foreground-secondary">
                   {isActive ? '✓ filtered below' : 'click to filter →'}
                 </p>
               </button>
@@ -149,13 +149,13 @@ export function BarExplorer() {
         </div>
 
         {/* Workflow list below */}
-        <div className="mt-10 rounded-2xl border border-ink-200/70 bg-white p-6 md:p-8">
+        <div className="mt-10 rounded-2xl border border-border/70 bg-surface p-6 md:p-8">
           <div className="mb-4 flex items-center justify-between">
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-500">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
               {activeBar === 'all' ? 'All workflows' : `Workflows at Bar ${activeBar}`}
             </p>
-            <span className="font-mono text-[11px] text-ink-500">
-              <span className="font-semibold text-ink-900">{filtered.length}</span> of {WORKFLOWS.length}
+            <span className="font-mono text-[11px] text-muted">
+              <span className="font-semibold text-foreground">{filtered.length}</span> of {WORKFLOWS.length}
             </span>
           </div>
 
@@ -169,9 +169,9 @@ export function BarExplorer() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.98 }}
                   transition={{ duration: 0.2 }}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-ink-200/70 bg-white px-3 py-2.5"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-surface px-3 py-2.5"
                 >
-                  <span className="truncate text-sm font-medium text-ink-900">{w.name}</span>
+                  <span className="truncate text-sm font-medium text-foreground">{w.name}</span>
                   <span
                     className={cn(
                       'shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ring-1',

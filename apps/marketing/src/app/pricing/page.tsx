@@ -147,13 +147,13 @@ export default function PricingPage() {
       <section className="relative overflow-hidden pt-32 pb-12">
         <div className="absolute inset-0 -z-10 bg-radial-spot" />
         <div className="container-page text-center">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-700">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
             Pricing
           </p>
-          <h1 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold tracking-tight text-ink-900 md:text-[56px] md:leading-[1.05]">
+          <h1 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold tracking-tight text-foreground md:text-[56px] md:leading-[1.05]">
             One management company quote = 18 months of Ledger.
           </h1>
-          <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-ink-500">
+          <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-muted">
             HOAs pay per month. Landlords start free. Evictions are per-case.
             Every workflow is labeled by its quality bar.
           </p>
@@ -187,20 +187,20 @@ export default function PricingPage() {
       <section className="py-24 md:py-32" id="faq">
         <div className="container-page">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="text-sm font-semibold uppercase tracking-wider text-brand-600">FAQ</p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-5xl">
+            <p className="text-sm font-semibold uppercase tracking-wider text-primary">FAQ</p>
+            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
               Common questions.
             </h2>
           </div>
 
-          <div className="mx-auto mt-12 max-w-3xl divide-y divide-ink-200/70 rounded-2xl border border-ink-200/70 bg-white ring-card">
+          <div className="mx-auto mt-12 max-w-3xl divide-y divide-border/70 rounded-2xl border border-border/70 bg-surface ring-card">
             {faqs.map((f) => (
               <details key={f.q} className="group p-6 [&_summary::-webkit-details-marker]:hidden">
-                <summary className="flex cursor-pointer items-center justify-between gap-4 text-left text-base font-semibold text-ink-900">
+                <summary className="flex cursor-pointer items-center justify-between gap-4 text-left text-base font-semibold text-foreground">
                   {f.q}
-                  <span className="text-ink-400 transition-transform group-open:rotate-45">＋</span>
+                  <span className="text-muted transition-transform group-open:rotate-45">＋</span>
                 </summary>
-                <p className="mt-3 text-sm leading-relaxed text-ink-600">{f.a}</p>
+                <p className="mt-3 text-sm leading-relaxed text-foreground-secondary">{f.a}</p>
               </details>
             ))}
           </div>
@@ -208,7 +208,7 @@ export default function PricingPage() {
           <div className="mt-16 text-center">
             <Link
               href="/demo"
-              className="group inline-flex items-center gap-2 rounded-xl bg-ink-900 px-6 py-3.5 text-base font-semibold text-white shadow-sm transition-all hover:bg-ink-800"
+              className="group inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-base font-semibold text-primary-fg shadow-sm transition-all hover:bg-primary-hover"
             >
               Book a demo
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -242,19 +242,19 @@ function PricingBlock({
   }[]
 }) {
   const accentMap = {
-    emerald: { text: 'text-emerald-700', ring: 'border-emerald-200', bg: 'from-emerald-50/70' },
-    ember: { text: 'text-ember-700', ring: 'border-ember-200', bg: 'from-ember-50/70' },
-    violet: { text: 'text-violet-700', ring: 'border-violet-200', bg: 'from-violet-50/70' },
+    emerald: { text: 'text-success', ring: 'border-success/25', bg: 'from-success-subtle/70' },
+    ember: { text: 'text-accent-fg', ring: 'border-accent/25', bg: 'from-accent-subtle/70' },
+    violet: { text: 'text-eviction', ring: 'border-eviction/25', bg: 'from-eviction-subtle/70' },
   }[accent]
 
   return (
-    <section className="border-t border-ink-200/60 py-20">
+    <section className="border-t border-border/60 py-20">
       <div className="container-page">
         <div className="mx-auto max-w-2xl text-center">
           <p className={cn('text-sm font-semibold uppercase tracking-wider', accentMap.text)}>
             {eyebrow}
           </p>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
+          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
             {title}
           </h2>
         </div>
@@ -266,27 +266,27 @@ function PricingBlock({
               className={cn(
                 'relative flex flex-col rounded-2xl border p-7 ring-card transition-all',
                 t.featured
-                  ? cn('bg-gradient-to-br to-white', accentMap.ring, accentMap.bg)
-                  : 'border-ink-200/70 bg-white',
+                  ? cn('bg-gradient-to-br to-surface', accentMap.ring, accentMap.bg)
+                  : 'border-border/70 bg-surface',
               )}
             >
               {t.featured && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-ink-900 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary-fg">
                   Popular
                 </span>
               )}
-              <p className="text-sm font-semibold text-ink-900">{t.name}</p>
-              <p className="mt-1 text-xs text-ink-500">{t.sub}</p>
+              <p className="text-sm font-semibold text-foreground">{t.name}</p>
+              <p className="mt-1 text-xs text-muted">{t.sub}</p>
               <div className="mt-5 flex items-baseline gap-1">
-                <span className="text-4xl font-semibold tracking-tight text-ink-900">
+                <span className="text-4xl font-semibold tracking-tight text-foreground">
                   {t.price}
                 </span>
-                <span className="text-sm text-ink-500">{t.period}</span>
+                <span className="text-sm text-muted">{t.period}</span>
               </div>
               <ul className="mt-6 flex-1 space-y-2.5">
                 {t.bullets.map((b) => (
-                  <li key={b} className="flex gap-2 text-sm text-ink-700">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                  <li key={b} className="flex gap-2 text-sm text-foreground-secondary">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                     {b}
                   </li>
                 ))}
@@ -296,8 +296,8 @@ function PricingBlock({
                 className={cn(
                   'mt-7 inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all',
                   t.featured
-                    ? 'bg-ink-900 text-white hover:bg-ink-800'
-                    : 'border border-ink-200 bg-white text-ink-800 hover:bg-ink-50',
+                    ? 'bg-primary text-primary-fg hover:bg-primary-hover'
+                    : 'border border-border bg-surface text-foreground hover:bg-subtle',
                 )}
               >
                 {t.cta}

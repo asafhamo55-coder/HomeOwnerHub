@@ -20,8 +20,8 @@ export default function PrivacyPage() {
 
       <section className="pb-24">
         <div className="container-page">
-          <article className="prose prose-ink mx-auto max-w-3xl text-base leading-relaxed text-ink-700">
-            <p className="text-sm text-ink-500">Last updated: May 15, 2026</p>
+          <article className="prose prose-ink mx-auto max-w-3xl text-base leading-relaxed text-foreground-secondary">
+            <p className="text-sm text-muted">Last updated: May 15, 2026</p>
 
             <h2>The short version</h2>
             <ul>
@@ -75,7 +75,7 @@ export default function PrivacyPage() {
               Privacy questions: <a href="mailto:privacy@ledger.ai">privacy@ledger.ai</a>
             </p>
 
-            <p className="mt-12 text-xs text-ink-500">
+            <p className="mt-12 text-xs text-muted">
               This is a working draft — the production privacy policy is being
               reviewed by counsel and will replace this page before public
               launch.

@@ -24,13 +24,13 @@ export function ProblemSolution() {
     <section className="py-24 md:py-32">
       <div className="container-page">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-ember-600">
+          <p className="text-sm font-semibold uppercase tracking-wider text-accent-fg">
             The work that nobody volunteered for
           </p>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-5xl">
+          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
             Volunteer boards burn 10 hours a week on paperwork. That paperwork is what AI is for.
           </h2>
-          <p className="mt-5 text-lg leading-relaxed text-ink-500">
+          <p className="mt-5 text-lg leading-relaxed text-muted">
             HOA boards, landlords, and operators all do the same paperwork — at
             different stages of the same life cycle. We built one system that
             handles all of it.
@@ -43,18 +43,18 @@ export function ProblemSolution() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-80px' }}
             transition={{ duration: 0.5 }}
-            className="rounded-2xl border border-ink-200/70 bg-white p-8 ring-card"
+            className="rounded-2xl border border-border/70 bg-surface p-8 ring-card"
           >
-            <div className="mb-6 flex items-center gap-2 text-sm font-semibold text-ink-900">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+            <div className="mb-6 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-danger-subtle text-danger">
                 <AlertTriangle className="h-4 w-4" />
               </span>
               Today
             </div>
             <ul className="space-y-4">
               {problems.map((p, i) => (
-                <li key={i} className="flex gap-3 text-sm leading-relaxed text-ink-700">
-                  <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-ink-400" />
+                <li key={i} className="flex gap-3 text-sm leading-relaxed text-foreground-secondary">
+                  <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted" />
                   {p}
                 </li>
               ))}
@@ -66,18 +66,18 @@ export function ProblemSolution() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-80px' }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="rounded-2xl border border-brand-200/70 bg-gradient-to-br from-white via-white to-brand-50/60 p-8 ring-card"
+            className="rounded-2xl border border-primary/70 bg-gradient-to-br from-surface via-surface to-primary-subtle/60 p-8 ring-card"
           >
-            <div className="mb-6 flex items-center gap-2 text-sm font-semibold text-ink-900">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+            <div className="mb-6 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-success-subtle text-success">
                 <CheckCircle2 className="h-4 w-4" />
               </span>
               With Ledger
             </div>
             <ul className="space-y-4">
               {solutions.map((s, i) => (
-                <li key={i} className="flex gap-3 text-sm leading-relaxed text-ink-800">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                <li key={i} className="flex gap-3 text-sm leading-relaxed text-foreground">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                   <span>{s.line}</span>
                 </li>
               ))}

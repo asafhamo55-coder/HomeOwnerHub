@@ -30,7 +30,7 @@ export default function MadisonParkCase() {
         <div className="container-page">
           <Link
             href="/case-studies"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-500 hover:text-ink-900"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to case studies
@@ -38,28 +38,28 @@ export default function MadisonParkCase() {
 
           <div className="mt-10 grid gap-12 md:grid-cols-[2fr,1fr] md:items-start">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-wider text-brand-600">
+              <p className="text-sm font-semibold uppercase tracking-wider text-primary">
                 Case study · Madison Park HOA
               </p>
-              <h1 className="mt-4 text-balance text-5xl font-semibold tracking-tight text-ink-900 md:text-6xl">
+              <h1 className="mt-4 text-balance text-5xl font-semibold tracking-tight text-foreground md:text-6xl">
                 "I got my Tuesday nights back."
               </h1>
-              <p className="mt-6 max-w-2xl text-xl leading-relaxed text-ink-600">
+              <p className="mt-6 max-w-2xl text-xl leading-relaxed text-foreground-secondary">
                 How a 180-home self-managed HOA in Johns Creek reclaimed 32+
                 hours a month and caught a $4,200 reserve discrepancy in week
                 three.
               </p>
             </div>
 
-            <aside className="space-y-3 rounded-2xl border border-ink-200/70 bg-white p-6 ring-card">
+            <aside className="space-y-3 rounded-2xl border border-border/70 bg-surface p-6 ring-card">
               <FactRow Icon={MapPin} label="Location" value="Johns Creek, GA" />
               <FactRow Icon={Users} label="Size" value="180 homes · all volunteer" />
               <FactRow Icon={Clock} label="Onboarded" value="January 2026" />
-              <div className="border-t border-ink-200/70 pt-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">
+              <div className="border-t border-border/70 pt-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
                   Workflows live
                 </p>
-                <p className="mt-1 text-sm text-ink-800">
+                <p className="mt-1 text-sm text-foreground">
                   Covenant Brain · Violation Drafter · Minutes Engine · Reserve Live · Onboarding Agent
                 </p>
               </div>
@@ -78,7 +78,7 @@ export default function MadisonParkCase() {
             sizes="(min-width: 1024px) 1200px, 100vw"
             priority
           />
-          <p className="mt-3 text-xs text-ink-500">
+          <p className="mt-3 text-xs text-muted">
             Photo · {PHOTOS.brickHomeManicured.credit}. Representative of the Madison Park community; not the property itself.
           </p>
           <div className="mt-10 grid gap-6 md:grid-cols-3">
@@ -89,16 +89,16 @@ export default function MadisonParkCase() {
         </div>
       </section>
 
-      <section className="border-y border-ink-200/60 bg-ink-50/40 py-20">
+      <section className="border-y border-border/60 bg-subtle/40 py-20">
         <div className="container-page">
           <div className="mx-auto max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-wider text-brand-600">
+            <p className="text-sm font-semibold uppercase tracking-wider text-primary">
               The situation
             </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
+            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
               Three volunteers, 180 homes, no management company.
             </h2>
-            <div className="prose prose-ink mt-6 max-w-none text-base leading-relaxed text-ink-700">
+            <div className="prose prose-ink mt-6 max-w-none text-base leading-relaxed text-foreground-secondary">
               <p>
                 Madison Park is a 180-home self-managed HOA in Johns Creek, north
                 of Atlanta. The board has three members and no paid staff. Linda
@@ -128,26 +128,26 @@ export default function MadisonParkCase() {
       <section className="py-24">
         <div className="container-page">
           <div className="mx-auto max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-wider text-ember-600">
+            <p className="text-sm font-semibold uppercase tracking-wider text-accent-fg">
               The first month, week by week
             </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
+            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
               From PDF pile to working AI in 15 minutes.
             </h2>
 
-            <ol className="mt-12 space-y-6 border-l border-ink-200 pl-8">
+            <ol className="mt-12 space-y-6 border-l border-border pl-8">
               {timeline.map((t, i) => (
                 <li key={t.day} className="relative">
-                  <span className="absolute -left-[37px] top-1 flex h-3 w-3 items-center justify-center rounded-full bg-brand-500 ring-4 ring-white" />
-                  <p className="font-mono text-xs font-semibold text-brand-700">{t.day}</p>
-                  <h3 className="mt-1 text-base font-semibold text-ink-900">{t.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-ink-600">{t.body}</p>
+                  <span className="absolute -left-[37px] top-1 flex h-3 w-3 items-center justify-center rounded-full bg-primary ring-4 ring-surface" />
+                  <p className="font-mono text-xs font-semibold text-primary">{t.day}</p>
+                  <h3 className="mt-1 text-base font-semibold text-foreground">{t.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-foreground-secondary">{t.body}</p>
                   {i === 4 && (
-                    <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
-                      <p className="text-xs font-semibold text-emerald-800">
+                    <div className="mt-3 rounded-xl border border-success/25 bg-success-subtle/40 p-3">
+                      <p className="text-xs font-semibold text-success">
                         Pay-for-itself moment
                       </p>
-                      <p className="mt-1 text-xs text-ink-700">
+                      <p className="mt-1 text-xs text-foreground-secondary">
                         Linda's words: "Ledger paid for itself in week three."
                       </p>
                     </div>
@@ -159,10 +159,10 @@ export default function MadisonParkCase() {
         </div>
       </section>
 
-      <section className="bg-ink-900 py-24 text-white">
+      <section className="bg-foreground py-24 text-background">
         <div className="container-page">
           <div className="mx-auto max-w-3xl">
-            <Quote className="h-9 w-9 text-ember-400" />
+            <Quote className="h-9 w-9 text-accent" />
             <p className="mt-5 text-2xl leading-relaxed md:text-3xl">
               "We're 180 homes, all volunteer. I was the treasurer carrying eight
               to twelve unpaid hours a week. Ledger answers covenant
@@ -172,12 +172,12 @@ export default function MadisonParkCase() {
               nobody had noticed in three years."
             </p>
             <div className="mt-8 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-ember-500 text-base font-semibold text-white">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-base font-semibold text-primary-fg">
                 LJ
               </div>
               <div>
                 <p className="text-sm font-semibold">Linda Jackson</p>
-                <p className="text-xs text-ink-400">Treasurer · Madison Park HOA</p>
+                <p className="text-xs text-muted">Treasurer · Madison Park HOA</p>
               </div>
             </div>
           </div>
@@ -185,18 +185,18 @@ export default function MadisonParkCase() {
       </section>
 
       <section className="relative overflow-hidden py-24">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-brand-50 via-white to-ember-50/70" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary-subtle via-surface to-accent-subtle/70" />
         <div className="container-page text-center">
-          <h2 className="text-balance text-4xl font-semibold tracking-tight text-ink-900 md:text-5xl">
+          <h2 className="text-balance text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
             Want your board to be next?
           </h2>
-          <p className="mx-auto mt-5 max-w-xl text-lg text-ink-600">
+          <p className="mx-auto mt-5 max-w-xl text-lg text-foreground-secondary">
             We pre-load your CC&R before the call. By minute four, the board is
             asking their own rules and watching the AI cite the answer.
           </p>
           <Link
             href="/demo"
-            className="mt-8 inline-flex items-center gap-2 rounded-xl bg-ink-900 px-6 py-3.5 text-base font-semibold text-white shadow-sm transition-all hover:bg-ink-800 hover:shadow-md"
+            className="mt-8 inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-base font-semibold text-primary-fg shadow-sm transition-all hover:bg-primary-hover hover:shadow-md"
           >
             Book a demo
             <ArrowRight className="h-4 w-4" />
@@ -220,14 +220,14 @@ function FactRow({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ink-50 text-ink-700">
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-subtle text-foreground-secondary">
         <Icon className="h-4 w-4" />
       </span>
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
           {label}
         </p>
-        <p className="mt-0.5 text-sm font-medium text-ink-900">{value}</p>
+        <p className="mt-0.5 text-sm font-medium text-foreground">{value}</p>
       </div>
     </div>
   )
@@ -235,10 +235,10 @@ function FactRow({
 
 function BigStat({ value, label, sub }: { value: string; label: string; sub: string }) {
   return (
-    <div className="rounded-2xl border border-ink-200/70 bg-white p-7 ring-card">
-      <p className="text-4xl font-semibold tracking-tight text-ink-900">{value}</p>
-      <p className="mt-2 text-sm font-semibold text-ink-700">{label}</p>
-      <p className="mt-1 text-xs text-ink-500">{sub}</p>
+    <div className="rounded-2xl border border-border/70 bg-surface p-7 ring-card">
+      <p className="text-4xl font-semibold tracking-tight text-foreground">{value}</p>
+      <p className="mt-2 text-sm font-semibold text-foreground-secondary">{label}</p>
+      <p className="mt-1 text-xs text-muted">{sub}</p>
     </div>
   )
 }

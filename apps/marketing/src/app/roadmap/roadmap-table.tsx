@@ -18,9 +18,9 @@ const monthLabel: Record<(typeof months)[number], string> = {
 }
 
 const statusStyle: Record<Status, { label: string; cls: string }> = {
-  shipped: { label: 'Shipped', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-100' },
-  building: { label: 'Building', cls: 'bg-amber-50 text-amber-700 ring-amber-100' },
-  planned: { label: 'Planned', cls: 'bg-slate-50 text-slate-700 ring-slate-200' },
+  shipped: { label: 'Shipped', cls: 'bg-success-subtle text-success ring-success/15' },
+  building: { label: 'Building', cls: 'bg-warning-subtle text-warning ring-warning/15' },
+  planned: { label: 'Planned', cls: 'bg-subtle text-foreground-secondary ring-border' },
 }
 
 const barIcon: Record<Bar, typeof ShieldCheck> = {
@@ -31,18 +31,18 @@ const barIcon: Record<Bar, typeof ShieldCheck> = {
 }
 
 const barColor: Record<Bar, string> = {
-  C: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
-  B: 'bg-amber-50 text-amber-700 ring-amber-100',
-  A: 'bg-slate-50 text-slate-700 ring-slate-200',
-  '—': 'bg-slate-50 text-slate-500 ring-slate-200',
+  C: 'bg-success-subtle text-success ring-success/15',
+  B: 'bg-warning-subtle text-warning ring-warning/15',
+  A: 'bg-subtle text-foreground-secondary ring-border',
+  '—': 'bg-subtle text-muted ring-border',
 }
 
 const hubColor: Record<Hub, string> = {
-  HOA: 'text-emerald-700',
-  PM: 'text-ember-700',
-  Eviction: 'text-violet-700',
-  All: 'text-brand-700',
-  Build: 'text-ink-500',
+  HOA: 'text-success',
+  PM: 'text-accent-fg',
+  Eviction: 'text-eviction',
+  All: 'text-primary',
+  Build: 'text-muted',
 }
 
 const HUB_FILTERS: { value: Hub | 'all'; label: string }[] = [
@@ -85,16 +85,16 @@ export function RoadmapTable() {
   return (
     <div>
       {/* Filter bar */}
-      <div className="rounded-2xl border border-ink-200/70 bg-white p-4 md:p-5">
+      <div className="rounded-2xl border border-border/70 bg-surface p-4 md:p-5">
         <div className="grid gap-4 md:grid-cols-3">
           <FilterGroup label="Hub" options={HUB_FILTERS} value={hub} onChange={setHub} />
           <FilterGroup label="Bar" options={BAR_FILTERS} value={bar} onChange={setBar} />
           <FilterGroup label="Status" options={STATUS_FILTERS} value={status} onChange={setStatus} />
         </div>
-        <div className="mt-4 flex items-center justify-between border-t border-ink-200/70 pt-3">
-          <p className="font-mono text-[11px] text-ink-500">
-            <span className="font-semibold text-ink-900">{filtered.length}</span> of{' '}
-            <span className="font-semibold text-ink-900">{WORKFLOWS.length}</span> workflows
+        <div className="mt-4 flex items-center justify-between border-t border-border/70 pt-3">
+          <p className="font-mono text-[11px] text-muted">
+            <span className="font-semibold text-foreground">{filtered.length}</span> of{' '}
+            <span className="font-semibold text-foreground">{WORKFLOWS.length}</span> workflows
           </p>
           {isFiltered && (
             <button
@@ -103,7 +103,7 @@ export function RoadmapTable() {
                 setBar('all')
                 setStatus('all')
               }}
-              className="font-mono text-[11px] font-semibold uppercase tracking-wider text-brand-700 hover:text-brand-800"
+              className="font-mono text-[11px] font-semibold uppercase tracking-wider text-primary hover:text-primary"
             >
               Reset filters
             </button>
@@ -126,39 +126,39 @@ export function RoadmapTable() {
                 transition={{ duration: 0.25 }}
               >
                 <div className="mb-4 flex items-baseline gap-3">
-                  <h3 className="font-mono text-sm font-semibold text-brand-700">{m}</h3>
-                  <span className="text-sm font-semibold text-ink-900">{monthLabel[m]}</span>
-                  <span className="font-mono text-xs text-ink-400">
+                  <h3 className="font-mono text-sm font-semibold text-primary">{m}</h3>
+                  <span className="text-sm font-semibold text-foreground">{monthLabel[m]}</span>
+                  <span className="font-mono text-xs text-muted">
                     {rows.length} workflow{rows.length === 1 ? '' : 's'}
                   </span>
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border border-ink-200/70 bg-white">
+                <div className="overflow-hidden rounded-2xl border border-border/70 bg-surface">
                   <table className="w-full">
-                    <thead className="border-b border-ink-200/70 bg-ink-50/40 text-left">
+                    <thead className="border-b border-border/70 bg-subtle/40 text-left">
                       <tr>
-                        <th className="px-5 py-3 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+                        <th className="px-5 py-3 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted">
                           Workflow
                         </th>
-                        <th className="px-5 py-3 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+                        <th className="px-5 py-3 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted">
                           Hub
                         </th>
-                        <th className="px-5 py-3 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+                        <th className="px-5 py-3 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted">
                           Bar
                         </th>
-                        <th className="px-5 py-3 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+                        <th className="px-5 py-3 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted">
                           Status
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-ink-100">
+                    <tbody className="divide-y divide-border">
                       {rows.map((w) => {
                         const Icon = barIcon[w.bar]
                         return (
-                          <tr key={w.id} className="transition-colors hover:bg-ink-50/40">
+                          <tr key={w.id} className="transition-colors hover:bg-subtle/40">
                             <td className="px-5 py-4">
-                              <p className="text-sm font-semibold text-ink-900">{w.name}</p>
-                              <p className="mt-1 text-xs leading-relaxed text-ink-500">
+                              <p className="text-sm font-semibold text-foreground">{w.name}</p>
+                              <p className="mt-1 text-xs leading-relaxed text-muted">
                                 {w.description}
                               </p>
                             </td>
@@ -203,8 +203,8 @@ export function RoadmapTable() {
         </AnimatePresence>
 
         {filtered.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-ink-300 bg-white p-12 text-center">
-            <p className="text-sm text-ink-500">No workflows match these filters.</p>
+          <div className="rounded-2xl border border-dashed border-border-strong bg-surface p-12 text-center">
+            <p className="text-sm text-muted">No workflows match these filters.</p>
           </div>
         )}
       </div>
@@ -225,7 +225,7 @@ function FilterGroup<T extends string>({
 }) {
   return (
     <div>
-      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-500">
+      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
         {label}
       </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
@@ -236,8 +236,8 @@ function FilterGroup<T extends string>({
             className={cn(
               'rounded-md border px-2.5 py-1 font-mono text-[11px] font-semibold transition-colors',
               value === o.value
-                ? 'border-ink-900 bg-ink-900 text-white'
-                : 'border-ink-200 bg-white text-ink-700 hover:border-ink-400 hover:bg-ink-50',
+                ? 'border-foreground bg-foreground text-background'
+                : 'border-border bg-surface text-foreground-secondary hover:border-border-strong hover:bg-subtle',
             )}
           >
             {o.label}

@@ -65,23 +65,23 @@ export function CovenantBrainDemo() {
   return (
     <div className="grid gap-0 md:grid-cols-[1fr,1.15fr]">
       {/* Left: prompt panel */}
-      <div className="border-b border-ink-200/70 bg-ink-50/30 p-6 md:border-b-0 md:border-r">
-        <div className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-500">
-          <Sparkles className="h-3 w-3 text-ember-500" />
+      <div className="border-b border-border/70 bg-subtle/30 p-6 md:border-b-0 md:border-r">
+        <div className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <Sparkles className="h-3 w-3 text-accent-fg" />
           Ask anything about your covenants
         </div>
         <div className="relative">
-          <div className="flex items-center gap-2 rounded-xl border border-ink-200 bg-white px-3.5 py-3 ring-soft">
-            <Search className="h-4 w-4 shrink-0 text-ink-400" />
-            <span className="min-h-[1.5rem] text-sm text-ink-800">
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-3 ring-soft">
+            <Search className="h-4 w-4 shrink-0 text-muted" />
+            <span className="min-h-[1.5rem] text-sm text-foreground">
               {typed}
-              <span className="ml-0.5 inline-block h-4 w-[2px] -translate-y-[1px] bg-ink-900 align-middle animate-blink" />
+              <span className="ml-0.5 inline-block h-4 w-[2px] -translate-y-[1px] bg-foreground align-middle animate-blink" />
             </span>
           </div>
         </div>
 
         <div className="mt-5 space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
             Try one
           </p>
           {QUERIES.map((q, i) => (
@@ -95,8 +95,8 @@ export function CovenantBrainDemo() {
               className={cn(
                 'block w-full rounded-lg border px-3 py-2 text-left text-xs transition-all',
                 i === idx
-                  ? 'border-brand-200 bg-brand-50 text-brand-800'
-                  : 'border-ink-200 bg-white text-ink-600 hover:border-ink-300',
+                  ? 'border-primary/25 bg-primary-subtle text-primary'
+                  : 'border-border bg-surface text-foreground-secondary hover:border-border-strong',
               )}
             >
               {q.q}
@@ -106,7 +106,7 @@ export function CovenantBrainDemo() {
       </div>
 
       {/* Right: answer panel */}
-      <div className="relative min-h-[360px] bg-white p-6">
+      <div className="relative min-h-[360px] bg-surface p-6">
         <AnimatePresence mode="wait">
           {phase === 'thinking' && (
             <motion.div
@@ -131,31 +131,31 @@ export function CovenantBrainDemo() {
               className="space-y-4"
             >
               <div className="flex items-center gap-2">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-ember-500 text-white">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-fg">
                   <Sparkles className="h-3.5 w-3.5" />
                 </span>
-                <span className="text-xs font-semibold text-ink-700">Covenant Brain</span>
-                <span className="ml-auto inline-flex items-center gap-1 rounded-md bg-ink-50 px-2 py-0.5 text-[11px] font-medium text-ink-600 ring-1 ring-ink-200">
+                <span className="text-xs font-semibold text-foreground-secondary">Covenant Brain</span>
+                <span className="ml-auto inline-flex items-center gap-1 rounded-md bg-subtle px-2 py-0.5 text-[11px] font-medium text-foreground-secondary ring-1 ring-border">
                   <BookOpen className="h-3 w-3" />
                   {current.citation}
                 </span>
               </div>
-              <p className="text-sm leading-relaxed text-ink-800">{current.answer}</p>
+              <p className="text-sm leading-relaxed text-foreground">{current.answer}</p>
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {current.chips.map((c) => (
                   <span
                     key={c}
-                    className="rounded-md bg-brand-50 px-2 py-1 text-[11px] font-medium text-brand-700 ring-1 ring-brand-100"
+                    className="rounded-md bg-primary-subtle px-2 py-1 text-[11px] font-medium text-primary ring-1 ring-primary/15"
                   >
                     {c}
                   </span>
                 ))}
               </div>
-              <div className="mt-3 flex items-center justify-between rounded-xl border border-ink-200 bg-ink-50/40 px-3 py-2">
-                <span className="text-[11px] text-ink-500">
+              <div className="mt-3 flex items-center justify-between rounded-xl border border-border bg-subtle/40 px-3 py-2">
+                <span className="text-[11px] text-muted">
                   Source: Madison Park HOA · CC&amp;R (1996, restated 2024)
                 </span>
-                <span className="text-[11px] font-medium text-ink-700">View in document →</span>
+                <span className="text-[11px] font-medium text-foreground-secondary">View in document →</span>
               </div>
             </motion.div>
           )}
@@ -171,11 +171,11 @@ function ThinkingLine({ label, delay = 0 }: { label: string; delay?: number }) {
       initial={{ opacity: 0, x: -6 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay }}
-      className="flex items-center gap-2 text-xs text-ink-500"
+      className="flex items-center gap-2 text-xs text-muted"
     >
       <span className="relative flex h-2 w-2">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-400 opacity-75" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-500" />
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
       </span>
       {label}
     </motion.div>

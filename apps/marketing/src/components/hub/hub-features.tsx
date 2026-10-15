@@ -21,9 +21,9 @@ interface HubFeaturesProps {
 }
 
 const barStyle = {
-  C: { label: 'Production', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-100' },
-  B: { label: 'Human-reviewed', cls: 'bg-amber-50 text-amber-700 ring-amber-100' },
-  A: { label: 'Demo only', cls: 'bg-slate-50 text-slate-700 ring-slate-200' },
+  C: { label: 'Production', cls: 'bg-success-subtle text-success ring-success/15' },
+  B: { label: 'Human-reviewed', cls: 'bg-warning-subtle text-warning ring-warning/15' },
+  A: { label: 'Demo only', cls: 'bg-subtle text-foreground-secondary ring-border' },
 }
 
 export function HubFeatures({
@@ -41,11 +41,11 @@ export function HubFeatures({
             <p className={cn('font-mono text-[11px] font-semibold uppercase tracking-[0.18em]', theme.accentText)}>
               {eyebrow}
             </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
+            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
               {title}
             </h2>
           </div>
-          <p className="mt-4 max-w-md text-base leading-relaxed text-ink-500 md:mt-0">{description}</p>
+          <p className="mt-4 max-w-md text-base leading-relaxed text-muted md:mt-0">{description}</p>
         </header>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -58,7 +58,7 @@ export function HubFeatures({
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-60px' }}
                 transition={{ duration: 0.4, delay: (i % 3) * 0.06 }}
-                className="rounded-2xl border border-ink-200/70 bg-white p-6 transition-colors hover:border-ink-300"
+                className="rounded-2xl border border-border/70 bg-surface p-6 transition-colors hover:border-border-strong"
               >
                 <div className="flex items-start justify-between">
                   <div
@@ -79,10 +79,10 @@ export function HubFeatures({
                     Bar {f.bar}
                   </span>
                 </div>
-                <h3 className="mt-5 text-lg font-semibold tracking-tight text-ink-900">
+                <h3 className="mt-5 text-lg font-semibold tracking-tight text-foreground">
                   {f.title}
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-ink-600">{f.body}</p>
+                <p className="mt-2 text-sm leading-relaxed text-foreground-secondary">{f.body}</p>
               </motion.div>
             )
           })}

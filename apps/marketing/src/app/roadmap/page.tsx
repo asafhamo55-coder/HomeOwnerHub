@@ -21,10 +21,10 @@ const barIcon: Record<Bar, typeof ShieldCheck> = {
 }
 
 const barColor: Record<Bar, string> = {
-  C: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
-  B: 'bg-amber-50 text-amber-700 ring-amber-100',
-  A: 'bg-slate-50 text-slate-700 ring-slate-200',
-  '—': 'bg-slate-50 text-slate-500 ring-slate-200',
+  C: 'bg-success-subtle text-success ring-success/15',
+  B: 'bg-warning-subtle text-warning ring-warning/15',
+  A: 'bg-subtle text-foreground-secondary ring-border',
+  '—': 'bg-subtle text-muted ring-border',
 }
 
 export default function RoadmapPage() {
@@ -39,13 +39,13 @@ export default function RoadmapPage() {
       <section className="relative overflow-hidden pt-32 pb-12">
         <div className="absolute inset-0 -z-10 bg-radial-spot" />
         <div className="container-page text-center">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-700">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
             Public roadmap · updated weekly
           </p>
-          <h1 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold tracking-tight text-ink-900 md:text-[56px] md:leading-[1.05]">
+          <h1 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold tracking-tight text-foreground md:text-[56px] md:leading-[1.05]">
             Every workflow. Every bar. In public.
           </h1>
-          <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-ink-500">
+          <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-muted">
             We publish what each workflow can and can't do today. Quality bar
             labels are visible in the product, in pricing, and here.
           </p>
@@ -60,9 +60,9 @@ export default function RoadmapPage() {
 
       <section className="py-12">
         <div className="container-page">
-          <div className="rounded-2xl border border-ink-200/70 bg-white p-6 ring-card md:p-8">
-            <h2 className="text-base font-semibold text-ink-900">What the bars mean</h2>
-            <p className="mt-2 text-sm text-ink-600">
+          <div className="rounded-2xl border border-border/70 bg-surface p-6 ring-card md:p-8">
+            <h2 className="text-base font-semibold text-foreground">What the bars mean</h2>
+            <p className="mt-2 text-sm text-foreground-secondary">
               Every workflow ships at a labeled quality bar. The label is
               visible everywhere — in the UI, in marketing, in pricing.
             </p>
@@ -72,7 +72,7 @@ export default function RoadmapPage() {
                 return (
                   <div
                     key={b}
-                    className="rounded-xl border border-ink-200/70 bg-ink-50/40 p-5"
+                    className="rounded-xl border border-border/70 bg-subtle/40 p-5"
                   >
                     <div className="flex items-center gap-2">
                       <span
@@ -84,22 +84,22 @@ export default function RoadmapPage() {
                         <Icon className="h-3 w-3" />
                         Bar {b}
                       </span>
-                      <span className="text-sm font-semibold text-ink-900">
+                      <span className="text-sm font-semibold text-foreground">
                         {BAR_TARGETS[b].name}
                       </span>
                     </div>
-                    <p className="mt-3 text-xs leading-relaxed text-ink-600">
+                    <p className="mt-3 text-xs leading-relaxed text-foreground-secondary">
                       {BAR_TARGETS[b].threshold}
                     </p>
                   </div>
                 )
               })}
             </div>
-            <p className="mt-6 text-xs text-ink-500">
+            <p className="mt-6 text-xs text-muted">
               Movement between bars (A → B → C) requires an internal eval pass
               and, for legal-adjacent workflows, written attorney sign-off. The
               audit log records every move with approver and date.{' '}
-              <Link href="/honesty-bars" className="font-semibold text-ink-800 underline-offset-4 hover:underline">
+              <Link href="/honesty-bars" className="font-semibold text-foreground underline-offset-4 hover:underline">
                 Read the full bar policy →
               </Link>
             </p>
@@ -111,10 +111,10 @@ export default function RoadmapPage() {
         <div className="container-page">
           <div className="mb-10 md:flex md:items-end md:justify-between md:gap-12">
             <div className="max-w-xl">
-              <h2 className="text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
+              <h2 className="text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
                 All 17 workflows
               </h2>
-              <p className="mt-3 text-base leading-relaxed text-ink-500">
+              <p className="mt-3 text-base leading-relaxed text-muted">
                 Filter by hub, bar, or status. Updates land here within 24 hours
                 of a bar move in production.
               </p>
@@ -123,17 +123,17 @@ export default function RoadmapPage() {
 
           <RoadmapTable />
 
-          <div className="mt-16 rounded-2xl border border-ink-200/70 bg-gradient-to-br from-brand-50 via-white to-ember-50/40 p-8 text-center ring-card">
-            <h3 className="text-xl font-semibold tracking-tight text-ink-900">
+          <div className="mt-16 rounded-2xl border border-border/70 bg-gradient-to-br from-primary-subtle via-surface to-accent-subtle/40 p-8 text-center ring-card">
+            <h3 className="text-xl font-semibold tracking-tight text-foreground">
               Want input on what we build next?
             </h3>
-            <p className="mx-auto mt-2 max-w-lg text-sm text-ink-600">
+            <p className="mx-auto mt-2 max-w-lg text-sm text-foreground-secondary">
               Customer advisory board meets monthly. Three to four customers help
               us prioritize. Spots are open.
             </p>
             <Link
               href="/demo"
-              className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-ink-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-ink-800"
+              className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-fg shadow-sm transition-all hover:bg-primary-hover"
             >
               Book a demo
               <ArrowRight className="h-4 w-4" />
@@ -159,15 +159,15 @@ function Stat({
   tone: 'emerald' | 'amber' | 'slate'
 }) {
   const colors = {
-    emerald: 'border-emerald-200 bg-emerald-50/40',
-    amber: 'border-amber-200 bg-amber-50/40',
-    slate: 'border-slate-200 bg-slate-50/40',
+    emerald: 'border-success/25 bg-success-subtle/40',
+    amber: 'border-warning/25 bg-warning-subtle/40',
+    slate: 'border-border bg-subtle/40',
   }[tone]
   return (
-    <div className={cn('rounded-2xl border bg-white p-6 text-left', colors)}>
-      <p className="text-4xl font-semibold tracking-tight text-ink-900">{value}</p>
-      <p className="mt-2 text-sm font-semibold text-ink-700">{label}</p>
-      <p className="mt-1 text-xs text-ink-500">{sub}</p>
+    <div className={cn('rounded-2xl border bg-surface p-6 text-left', colors)}>
+      <p className="text-4xl font-semibold tracking-tight text-foreground">{value}</p>
+      <p className="mt-2 text-sm font-semibold text-foreground-secondary">{label}</p>
+      <p className="mt-1 text-xs text-muted">{sub}</p>
     </div>
   )
 }

@@ -9,17 +9,17 @@ type Bar = 'C' | 'B' | 'A'
 const barStyle: Record<Bar, { label: string; color: string; Icon: typeof ShieldCheck }> = {
   C: {
     label: 'Bar C · Production',
-    color: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+    color: 'bg-success-subtle text-success ring-success/15',
     Icon: ShieldCheck,
   },
   B: {
     label: 'Bar B · Human-reviewed',
-    color: 'bg-amber-50 text-amber-700 ring-amber-100',
+    color: 'bg-warning-subtle text-warning ring-warning/15',
     Icon: AlertCircle,
   },
   A: {
     label: 'Bar A · Demo only',
-    color: 'bg-slate-50 text-slate-700 ring-slate-200',
+    color: 'bg-subtle text-foreground-secondary ring-border',
     Icon: BookOpen,
   },
 }
@@ -49,13 +49,13 @@ export function WorkflowsGrid() {
     <section className="py-24 md:py-32" id="workflows">
       <div className="container-page">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-700">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
             17 workflows · labeled by quality bar
           </p>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
+          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
             We tell you what's production, what's beta, and what's demo.
           </h2>
-          <p className="mt-5 text-lg leading-relaxed text-ink-500">
+          <p className="mt-5 text-lg leading-relaxed text-muted">
             Every workflow ships with a quality bar visible in product and in
             marketing. No hidden hallucination risk. No "AI did it" deflection.
           </p>
@@ -76,14 +76,14 @@ export function WorkflowsGrid() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-60px' }}
                 transition={{ duration: 0.4, delay: (i % 6) * 0.04 }}
-                className="group rounded-2xl border border-ink-200/70 bg-white p-5 transition-all hover:border-ink-300 ring-card"
+                className="group rounded-2xl border border-border/70 bg-surface p-5 transition-all hover:border-border-strong ring-card"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
-                    <h3 className="text-[15px] font-semibold tracking-tight text-ink-900">
+                    <h3 className="text-[15px] font-semibold tracking-tight text-foreground">
                       {w.name}
                     </h3>
-                    <p className="mt-1.5 text-xs uppercase tracking-wider text-ink-400">
+                    <p className="mt-1.5 text-xs uppercase tracking-wider text-muted">
                       {w.hub}
                     </p>
                   </div>
@@ -97,7 +97,7 @@ export function WorkflowsGrid() {
                     {w.bar}
                   </span>
                 </div>
-                <p className="mt-3 text-[13px] leading-relaxed text-ink-600">
+                <p className="mt-3 text-[13px] leading-relaxed text-foreground-secondary">
                   {w.description}
                 </p>
               </motion.div>

@@ -12,10 +12,10 @@ export function DemoForm() {
 
   if (state.status === 'success') {
     return (
-      <div className="mt-8 rounded-xl border border-emerald-200 bg-emerald-50/40 p-6 text-center">
-        <CheckCircle2 className="mx-auto h-9 w-9 text-emerald-600" />
-        <h3 className="mt-3 text-base font-semibold text-ink-900">Got it. Talk soon.</h3>
-        <p className="mt-2 text-sm leading-relaxed text-ink-600">
+      <div className="mt-8 rounded-xl border border-success/25 bg-success-subtle/40 p-6 text-center">
+        <CheckCircle2 className="mx-auto h-9 w-9 text-success" />
+        <h3 className="mt-3 text-base font-semibold text-foreground">Got it. Talk soon.</h3>
+        <p className="mt-2 text-sm leading-relaxed text-foreground-secondary">
           We'll reach out within one business day with a calendar link and a
           short doc-upload form for your CC&R.
         </p>
@@ -44,7 +44,7 @@ export function DemoForm() {
       />
 
       {state.status === 'error' && !Object.keys(errors).length && (
-        <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50/60 p-3 text-xs text-rose-700">
+        <div className="flex items-start gap-2 rounded-xl border border-danger/25 bg-danger-subtle/60 p-3 text-xs text-danger">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{state.message}</span>
         </div>
@@ -53,7 +53,7 @@ export function DemoForm() {
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-ink-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-ink-800 disabled:opacity-70"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-fg shadow-sm transition-all hover:bg-primary-hover disabled:opacity-70"
       >
         {pending ? (
           <>
@@ -67,7 +67,7 @@ export function DemoForm() {
           </>
         )}
       </button>
-      <p className="text-center text-xs text-ink-500">
+      <p className="text-center text-xs text-muted">
         We reply within one business day. No spam, ever.
       </p>
     </form>
@@ -91,9 +91,9 @@ function Field({
 }) {
   return (
     <div>
-      <label className="text-xs font-semibold text-ink-700" htmlFor={name}>
+      <label className="text-xs font-semibold text-foreground-secondary" htmlFor={name}>
         {label}
-        {required && <span className="ml-1 text-rose-500">*</span>}
+        {required && <span className="ml-1 text-danger">*</span>}
       </label>
       <input
         id={name}
@@ -103,13 +103,13 @@ function Field({
         required={required}
         aria-invalid={Boolean(error)}
         className={cn(
-          'mt-1.5 w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-2',
+          'mt-1.5 w-full rounded-xl border bg-surface px-3 py-2.5 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2',
           error
-            ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-100'
-            : 'border-ink-200 focus:border-brand-500 focus:ring-brand-100',
+            ? 'border-danger/40 focus:border-danger focus:ring-danger/15'
+            : 'border-border focus:border-primary focus:ring-primary/15',
         )}
       />
-      {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
+      {error && <p className="mt-1 text-xs text-danger">{error}</p>}
     </div>
   )
 }

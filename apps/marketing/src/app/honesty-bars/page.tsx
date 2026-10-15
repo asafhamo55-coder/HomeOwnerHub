@@ -56,10 +56,10 @@ export default function HonestyBarsPage() {
       <section className="py-20">
         <div className="container-page">
           <div className="mx-auto max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-wider text-brand-600">
+            <p className="text-sm font-semibold uppercase tracking-wider text-primary">
               Movement between bars
             </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
+            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
               Every promotion (and rollback) is recorded.
             </h2>
 
@@ -67,18 +67,18 @@ export default function HonestyBarsPage() {
               {movement.map((m) => (
                 <div
                   key={m.arrow}
-                  className="rounded-2xl border border-ink-200/70 bg-white p-7 ring-card"
+                  className="rounded-2xl border border-border/70 bg-surface p-7 ring-card"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-sm font-semibold text-brand-700">
+                    <span className="font-mono text-sm font-semibold text-primary">
                       {m.arrow}
                     </span>
-                    <span className="text-xs text-ink-500">{m.duration}</span>
+                    <span className="text-xs text-muted">{m.duration}</span>
                   </div>
-                  <h3 className="mt-3 text-lg font-semibold tracking-tight text-ink-900">
+                  <h3 className="mt-3 text-lg font-semibold tracking-tight text-foreground">
                     {m.title}
                   </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-ink-600">{m.body}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-foreground-secondary">{m.body}</p>
                 </div>
               ))}
             </div>
@@ -86,14 +86,14 @@ export default function HonestyBarsPage() {
         </div>
       </section>
 
-      <section className="bg-ink-50/40 py-20">
+      <section className="bg-subtle/40 py-20">
         <div className="container-page text-center">
-          <h2 className="mx-auto max-w-2xl text-balance text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
+          <h2 className="mx-auto max-w-2xl text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
             See every workflow's current bar on the public roadmap.
           </h2>
           <Link
             href="/roadmap"
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-ink-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-ink-800"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-fg shadow-sm transition-all hover:bg-primary-hover"
           >
             View roadmap
             <ArrowRight className="h-4 w-4" />
