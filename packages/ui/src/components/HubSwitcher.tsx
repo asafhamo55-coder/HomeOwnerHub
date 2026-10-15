@@ -3,6 +3,13 @@
 import * as React from 'react'
 import { ChevronDown, ExternalLink, Building2, Gavel, Home as HomeIcon } from 'lucide-react'
 import { cn } from '../lib/cn'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from './DropdownMenu'
 
 export type HubType = 'hoa' | 'eviction' | 'pm'
 
@@ -33,99 +40,69 @@ const ICONS: Record<HubType, React.ComponentType<{ className?: string }>> = {
 }
 
 export function HubSwitcher({ current, hubs }: HubSwitcherProps) {
-  const [open, setOpen] = React.useState(false)
-  const ref = React.useRef<HTMLDivElement>(null)
-
-  // Close on outside click + Escape, the way every other dropdown should.
-  React.useEffect(() => {
-    if (!open) return
-    function handlePointer(e: MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
-    }
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    window.addEventListener('mousedown', handlePointer)
-    window.addEventListener('keydown', handleKey)
-    return () => {
-      window.removeEventListener('mousedown', handlePointer)
-      window.removeEventListener('keydown', handleKey)
-    }
-  }, [open])
-
   const currentHub = hubs.find((h) => h.type === current)
   const CurrentIcon = ICONS[current]
 
   return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-background"
-        aria-haspopup="menu"
-        aria-expanded={open}
-      >
-        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-primary/10 text-primary">
-          <CurrentIcon className="h-3.5 w-3.5" />
-        </span>
-        <span className="hidden sm:inline">
-          {currentHub?.label ?? labelFor(current)}
-        </span>
-        <ChevronDown className="h-3.5 w-3.5 text-muted" aria-hidden />
-      </button>
-
-      {open ? (
-        <div
-          role="menu"
-          className="absolute right-0 z-30 mt-1 w-64 overflow-hidden rounded-lg border border-border bg-surface shadow-lg"
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-9 items-center gap-2 rounded-lg px-2 text-sm font-medium text-foreground-secondary transition-colors hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-subtle"
+          aria-label={`Switch hub (current: ${currentHub?.label ?? labelFor(current)})`}
         >
-          <p className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
-            Switch hub
-          </p>
-          <ul className="py-1">
-            {hubs.map((h) => {
-              const Icon = ICONS[h.type]
-              const isCurrent = h.type === current
-              return (
-                <li key={h.type}>
-                  {isCurrent ? (
-                    <div className="flex items-center gap-3 px-3 py-2 text-sm">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-foreground">{h.label}</p>
-                        <p className="truncate text-xs text-muted">
-                          {h.orgName ?? 'Active'} · current
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <a
-                      href={h.url}
-                      className={cn(
-                        'flex items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-background',
-                      )}
-                    >
-                      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-muted/10 text-muted">
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-foreground">{h.label}</p>
-                        <p className="truncate text-xs text-muted">
-                          {h.orgName ?? 'Sign in to set up'}
-                        </p>
-                      </div>
-                      <ExternalLink className="h-3.5 w-3.5 text-muted" aria-hidden />
-                    </a>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      ) : null}
-    </div>
+          <span className="flex size-6 items-center justify-center rounded-md bg-primary-subtle text-primary">
+            <CurrentIcon className="size-3.5" aria-hidden />
+          </span>
+          <span className="hidden lg:inline">{currentHub?.label ?? labelFor(current)}</span>
+          <ChevronDown className="size-3.5 text-muted" aria-hidden />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-72">
+        <DropdownMenuLabel>Switch hub</DropdownMenuLabel>
+        {hubs.map((h) => {
+          const Icon = ICONS[h.type]
+          const isCurrent = h.type === current
+          return (
+            <DropdownMenuItem
+              key={h.type}
+              asChild={!isCurrent}
+              disabled={isCurrent}
+              className={cn('gap-3 py-2', isCurrent && 'data-[disabled]:opacity-100')}
+            >
+              {isCurrent ? (
+                <HubRow icon={<Icon className="size-4" />} label={h.label} sub={`${h.orgName ?? 'Active'} · current`} current />
+              ) : (
+                <a href={h.url} className="no-underline">
+                  <HubRow icon={<Icon className="size-4" />} label={h.label} sub={h.orgName ?? 'Sign in to set up'} />
+                  <ExternalLink className="ml-auto size-3.5" aria-hidden />
+                </a>
+              )}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function HubRow({ icon, label, sub, current }: { icon: React.ReactNode; label: string; sub: string; current?: boolean }) {
+  return (
+    <>
+      <span
+        className={cn(
+          'flex size-8 shrink-0 items-center justify-center rounded-md [&_svg]:!text-current',
+          current ? 'bg-primary-subtle text-primary' : 'bg-subtle text-muted',
+        )}
+        aria-hidden
+      >
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium text-foreground">{label}</span>
+        <span className="block truncate text-xs text-muted">{sub}</span>
+      </span>
+    </>
   )
 }
 

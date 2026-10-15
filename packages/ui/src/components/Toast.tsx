@@ -1,30 +1,49 @@
 'use client'
 
 import * as React from 'react'
-import { CheckCircle2, Info, AlertCircle, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Info, XCircle, X } from 'lucide-react'
 import { cn } from '../lib/cn'
 
-// Lightweight toast system. Mounts a fixed-position viewport in the bottom
-// right; each toast is auto-dismissed after `duration` ms unless the user
-// dismisses it manually. Use via `useToast()` at the consumer site.
+// Lightweight toast system. Bottom-right on desktop, bottom-centre on
+// phones. Each toast auto-dismisses after `duration` ms (paused while
+// hovered or focused) unless the user dismisses it. Use via `useToast()`.
+//
+// Toasts confirm an action or report a non-field error. A validation
+// problem belongs next to its field (`Field error=…`), not here.
 
-type ToastTone = 'success' | 'error' | 'info'
+type ToastTone = 'success' | 'error' | 'info' | 'warning'
 
 export interface ToastOptions {
   message: string
   tone?: ToastTone
-  /** ms before auto-dismiss. 0 = sticky. Default 4500. */
+  /** Optional bold first line; `message` becomes the detail. */
+  title?: string
+  /** One inline action, e.g. Undo. */
+  action?: { label: string; onClick: () => void }
+  /** ms before auto-dismiss. 0 = sticky. Default 4500 (errors 8000). */
   duration?: number
 }
 
-interface ToastRow extends Required<Omit<ToastOptions, 'duration'>> {
+interface ToastRow {
   id: number
+  message: string
+  tone: ToastTone
+  title?: string
+  action?: ToastOptions['action']
   duration: number
 }
 
 const ToastCtx = React.createContext<((opts: ToastOptions) => void) | null>(null)
 
 let nextId = 1
+
+const ICONS = { success: CheckCircle2, error: XCircle, info: Info, warning: AlertTriangle } as const
+const ICON_COLOR = {
+  success: 'text-success',
+  error: 'text-danger',
+  info: 'text-info',
+  warning: 'text-warning',
+} as const
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = React.useState<ToastRow[]>([])
@@ -33,27 +52,26 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((rows) => rows.filter((r) => r.id !== id))
   }, [])
 
-  const push = React.useCallback(
-    (opts: ToastOptions) => {
-      const row: ToastRow = {
-        id: nextId++,
-        message: opts.message,
-        tone: opts.tone ?? 'info',
-        duration: opts.duration ?? 4500,
-      }
-      setToasts((rows) => [...rows, row])
-      if (row.duration > 0) {
-        setTimeout(() => dismiss(row.id), row.duration)
-      }
-    },
-    [dismiss],
-  )
+  const push = React.useCallback((opts: ToastOptions) => {
+    const tone = opts.tone ?? 'info'
+    const row: ToastRow = {
+      id: nextId++,
+      message: opts.message,
+      tone,
+      title: opts.title,
+      action: opts.action,
+      duration: opts.duration ?? (tone === 'error' ? 8000 : 4500),
+    }
+    // Cap the stack so a loop cannot bury the page.
+    setToasts((rows) => [...rows.slice(-3), row])
+  }, [])
 
   return (
     <ToastCtx.Provider value={push}>
       {children}
       <div
-        className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2"
+        className="pointer-events-none fixed inset-x-4 bottom-4 z-toast flex flex-col items-center gap-2 sm:inset-x-auto sm:right-4 sm:items-end"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         role="region"
         aria-label="Notifications"
       >
@@ -66,35 +84,54 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 }
 
 function ToastBody({ toast, onDismiss }: { toast: ToastRow; onDismiss: () => void }) {
-  const Icon =
-    toast.tone === 'success' ? CheckCircle2 : toast.tone === 'error' ? AlertCircle : Info
+  const [paused, setPaused] = React.useState(false)
+  const remaining = React.useRef(toast.duration)
+  const startedAt = React.useRef(Date.now())
+
+  React.useEffect(() => {
+    if (toast.duration <= 0 || paused) return
+    startedAt.current = Date.now()
+    const t = setTimeout(onDismiss, remaining.current)
+    return () => {
+      clearTimeout(t)
+      remaining.current -= Date.now() - startedAt.current
+    }
+  }, [paused, toast.duration, onDismiss])
+
+  const Icon = ICONS[toast.tone]
   return (
     <div
       role={toast.tone === 'error' ? 'alert' : 'status'}
-      className={cn(
-        'pointer-events-auto animate-slide-in-right flex items-start gap-3 rounded-lg border bg-surface px-4 py-3 shadow-md',
-        toast.tone === 'success' && 'border-primary/30',
-        toast.tone === 'error' && 'border-destructive/40',
-        toast.tone === 'info' && 'border-border',
-      )}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+      className="pointer-events-auto flex w-full max-w-sm animate-slide-up items-start gap-3 rounded-xl border border-border bg-elevated px-4 py-3 text-foreground shadow-lg"
     >
-      <Icon
-        className={cn(
-          'mt-0.5 h-4 w-4 shrink-0',
-          toast.tone === 'success' && 'text-primary',
-          toast.tone === 'error' && 'text-destructive',
-          toast.tone === 'info' && 'text-muted',
-        )}
-        aria-hidden
-      />
-      <p className="flex-1 text-sm leading-snug text-foreground">{toast.message}</p>
+      <Icon className={cn('mt-0.5 size-[18px] shrink-0', ICON_COLOR[toast.tone])} aria-hidden />
+      <div className="min-w-0 flex-1 text-sm leading-snug">
+        {toast.title ? <p className="font-semibold">{toast.title}</p> : null}
+        <p className={toast.title ? 'mt-0.5 text-muted' : undefined}>{toast.message}</p>
+        {toast.action ? (
+          <button
+            type="button"
+            onClick={() => {
+              toast.action?.onClick()
+              onDismiss()
+            }}
+            className="mt-2 text-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+          >
+            {toast.action.label}
+          </button>
+        ) : null}
+      </div>
       <button
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss notification"
-        className="-mr-1 -mt-1 rounded p-1 text-muted hover:bg-background hover:text-foreground"
+        className="-mr-1.5 -mt-1 inline-flex size-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <X className="h-3.5 w-3.5" aria-hidden />
+        <X className="size-4" aria-hidden />
       </button>
     </div>
   )

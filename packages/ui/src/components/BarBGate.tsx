@@ -79,12 +79,12 @@ export function BarBGate({
   const canApprove = hasScrolledToBottom && !isLoading
 
   return (
-    <div className={cn('overflow-hidden rounded-xl border-l-4 border-amber-500 bg-amber-50/40', className)}>
-      <header className="flex items-start gap-3 border-b border-amber-200 bg-amber-50 p-4">
-        <ShieldAlert className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-700" aria-hidden />
+    <div className={cn('overflow-hidden rounded-xl border border-l-4 border-border border-l-accent bg-surface', className)}>
+      <header className="flex items-start gap-3 border-b border-accent/30 bg-accent-subtle p-4">
+        <ShieldAlert className="mt-0.5 h-5 w-5 flex-shrink-0 text-accent-fg" aria-hidden />
         <div className="flex-1">
-          <p className="font-semibold text-amber-900">{title}</p>
-          <p className="mt-1 text-sm text-amber-800">{description}</p>
+          <p className="font-semibold text-foreground">{title}</p>
+          <p className="mt-1 text-sm text-foreground-secondary">{description}</p>
         </div>
       </header>
 
@@ -102,12 +102,12 @@ export function BarBGate({
           className="w-full resize-y rounded-lg border border-border bg-background p-3 font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary"
         />
         {!hasScrolledToBottom ? (
-          <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-700">
-            <span className="inline-block h-1.5 w-1.5 animate-pulse-soft rounded-full bg-amber-500" />
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-accent-fg">
+            <span className="inline-block h-1.5 w-1.5 animate-pulse-soft rounded-full bg-accent" />
             Scroll the draft to the bottom to enable the approve button.
           </p>
         ) : (
-          <p className="mt-2 flex items-center gap-1.5 text-xs text-emerald-700">
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-success">
             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
             Draft reviewed. Ready to approve.
           </p>

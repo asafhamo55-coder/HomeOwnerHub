@@ -1,114 +1,174 @@
 'use client'
 
 import * as React from 'react'
-import { AlertTriangle } from 'lucide-react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { AlertTriangle, HelpCircle } from 'lucide-react'
 import { Button } from './Button'
 import { cn } from '../lib/cn'
 
-// `useConfirm()` returns an async function that opens a modal and resolves
-// to true (confirmed) or false (cancelled). Designed to replace
-// `window.confirm` 1-for-1 at call sites.
+/**
+ * Confirmation — the replacement for `window.confirm` (which Safari renders
+ * as an unstyled system sheet; UX audit finding 13).
+ *
+ * Two ways in:
+ *
+ *   1. Imperative, 1-for-1 with window.confirm, inside <ConfirmProvider>:
+ *        const confirm = useConfirm()
+ *        if (!(await confirm({ title: 'Remove member?', destructive: true }))) return
+ *
+ *   2. Declarative, no provider needed:
+ *        <ConfirmDialog
+ *          trigger={<Button variant="destructive">Revoke</Button>}
+ *          title="Revoke access?" destructive confirmLabel="Revoke"
+ *          onConfirm={async () => { await revoke() }} />
+ *      An async onConfirm keeps the dialog open with a spinner until it
+ *      settles; throw to keep it open (show the error yourself).
+ *
+ * Both render role="alertdialog", focus Cancel first for destructive
+ * actions (so Enter never destroys by accident), and close on Esc.
+ */
 
 export interface ConfirmOptions {
   title: string
-  description?: string
+  description?: React.ReactNode
   confirmLabel?: string
   cancelLabel?: string
   /** Destructive confirms render the primary action in red. */
   destructive?: boolean
 }
 
+function ConfirmBody({
+  title,
+  description,
+  destructive,
+}: Pick<ConfirmOptions, 'title' | 'description' | 'destructive'>) {
+  const Icon = destructive ? AlertTriangle : HelpCircle
+  return (
+    <div className="flex items-start gap-4">
+      <div
+        className={cn(
+          'flex size-10 shrink-0 items-center justify-center rounded-full',
+          destructive ? 'bg-danger-subtle text-danger' : 'bg-primary-subtle text-primary',
+        )}
+        aria-hidden
+      >
+        <Icon className="size-5" />
+      </div>
+      <div className="min-w-0 flex-1 space-y-1.5 pt-1">
+        <DialogPrimitive.Title className="text-base font-semibold leading-snug text-foreground">
+          {title}
+        </DialogPrimitive.Title>
+        {description ? (
+          <DialogPrimitive.Description className="text-sm text-muted">{description}</DialogPrimitive.Description>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function ConfirmShell({
+  open,
+  onOpenChange,
+  options,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  options: ConfirmOptions | null
+  busy?: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const cancelRef = React.useRef<HTMLButtonElement>(null)
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-[hsl(220_30%_6%/0.45)] backdrop-blur-[2px] data-[state=open]:animate-fade-in" />
+        <DialogPrimitive.Content
+          role="alertdialog"
+          {...(options?.description ? {} : { 'aria-describedby': undefined })}
+          onOpenAutoFocus={(e) => {
+            // Destructive: focus Cancel so a stray Enter is safe.
+            if (options?.destructive) {
+              e.preventDefault()
+              cancelRef.current?.focus()
+            }
+          }}
+          onPointerDownOutside={(e) => {
+            if (busy) e.preventDefault()
+          }}
+          onEscapeKeyDown={(e) => {
+            if (busy) e.preventDefault()
+          }}
+          className={cn(
+            'fixed z-modal w-[calc(100%-2rem)] max-w-md rounded-xl border border-border bg-elevated text-foreground shadow-xl focus:outline-none',
+            'inset-0 m-auto h-fit data-[state=open]:animate-scale-in',
+          )}
+        >
+          {options ? (
+            <>
+              <div className="p-5 sm:p-6">
+                <ConfirmBody {...options} />
+              </div>
+              <div className="flex flex-col-reverse gap-2 border-t border-border bg-surface px-5 py-3 sm:flex-row sm:justify-end sm:px-6 rounded-b-xl">
+                <Button ref={cancelRef} variant="secondary" onClick={onCancel} disabled={busy}>
+                  {options.cancelLabel ?? 'Cancel'}
+                </Button>
+                <Button
+                  variant={options.destructive ? 'destructive' : 'default'}
+                  onClick={onConfirm}
+                  loading={busy}
+                >
+                  {options.confirmLabel ?? 'Confirm'}
+                </Button>
+              </div>
+            </>
+          ) : null}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  )
+}
+
 type Resolver = (value: boolean) => void
-type ConfirmState = ConfirmOptions & { resolve: Resolver }
 
 const ConfirmCtx = React.createContext<((opts: ConfirmOptions) => Promise<boolean>) | null>(null)
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = React.useState<ConfirmState | null>(null)
-  const dialogRef = React.useRef<HTMLDialogElement | null>(null)
+  const [state, setState] = React.useState<(ConfirmOptions & { resolve: Resolver }) | null>(null)
+  const [open, setOpen] = React.useState(false)
 
   const confirm = React.useCallback(
     (opts: ConfirmOptions) =>
       new Promise<boolean>((resolve) => {
         setState({ ...opts, resolve })
+        setOpen(true)
       }),
     [],
   )
 
-  React.useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-    if (state) {
-      if (!dialog.open) dialog.showModal()
-    } else if (dialog.open) {
-      dialog.close()
-    }
-  }, [state])
-
-  const close = React.useCallback(
+  const settle = React.useCallback(
     (result: boolean) => {
-      if (!state) return
-      state.resolve(result)
-      setState(null)
+      state?.resolve(result)
+      setOpen(false)
     },
     [state],
-  )
-
-  // Treat ESC / backdrop close as cancel.
-  const onCancel = React.useCallback(
-    (e: React.SyntheticEvent<HTMLDialogElement>) => {
-      e.preventDefault()
-      close(false)
-    },
-    [close],
   )
 
   return (
     <ConfirmCtx.Provider value={confirm}>
       {children}
-      <dialog
-        ref={dialogRef}
-        onCancel={onCancel}
-        onClick={(e) => {
-          // Click on the backdrop (the dialog element itself) cancels.
-          if (e.target === e.currentTarget) close(false)
+      <ConfirmShell
+        open={open}
+        onOpenChange={(next) => {
+          if (!next) settle(false)
         }}
-        className={cn(
-          'm-auto rounded-xl border border-border bg-surface p-0 text-foreground shadow-xl',
-          'max-w-md w-[calc(100%-2rem)]',
-          'backdrop:bg-black/40 backdrop:backdrop-blur-sm',
-          'animate-fade-in',
-        )}
-      >
-        {state ? (
-          <div className="space-y-4 p-6">
-            <div className="flex items-start gap-3">
-              {state.destructive ? (
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-                  <AlertTriangle className="h-5 w-5" aria-hidden />
-                </div>
-              ) : null}
-              <div className="flex-1 space-y-1">
-                <h3 className="text-lg font-semibold text-foreground">{state.title}</h3>
-                {state.description ? (
-                  <p className="text-sm text-muted">{state.description}</p>
-                ) : null}
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => close(false)} autoFocus>
-                {state.cancelLabel ?? 'Cancel'}
-              </Button>
-              <Button
-                variant={state.destructive ? 'destructive' : 'default'}
-                onClick={() => close(true)}
-              >
-                {state.confirmLabel ?? 'Confirm'}
-              </Button>
-            </div>
-          </div>
-        ) : null}
-      </dialog>
+        options={state}
+        onConfirm={() => settle(true)}
+        onCancel={() => settle(false)}
+      />
     </ConfirmCtx.Provider>
   )
 }
@@ -119,4 +179,49 @@ export function useConfirm(): (opts: ConfirmOptions) => Promise<boolean> {
     throw new Error('useConfirm() must be used inside <ConfirmProvider>')
   }
   return ctx
+}
+
+export interface ConfirmDialogProps extends ConfirmOptions {
+  /** The element that opens the dialog (usually a Button). */
+  trigger: React.ReactElement
+  /** Runs on confirm. Async keeps the dialog open with a spinner. Throw to stay open. */
+  onConfirm: () => void | Promise<void>
+}
+
+export function ConfirmDialog({ trigger, onConfirm, ...options }: ConfirmDialogProps) {
+  const [open, setOpen] = React.useState(false)
+  const [busy, setBusy] = React.useState(false)
+
+  async function run() {
+    try {
+      setBusy(true)
+      await onConfirm()
+      setOpen(false)
+    } catch {
+      // Caller surfaces the failure (toast / inline). Stay open.
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      {React.cloneElement(trigger as React.ReactElement<{ onClick?: (e: React.MouseEvent) => void }>, {
+        onClick: (e: React.MouseEvent) => {
+          ;(trigger.props as { onClick?: (e: React.MouseEvent) => void }).onClick?.(e)
+          if (!e.defaultPrevented) setOpen(true)
+        },
+      })}
+      <ConfirmShell
+        open={open}
+        onOpenChange={(next) => {
+          if (!busy) setOpen(next)
+        }}
+        options={options}
+        busy={busy}
+        onConfirm={run}
+        onCancel={() => setOpen(false)}
+      />
+    </>
+  )
 }

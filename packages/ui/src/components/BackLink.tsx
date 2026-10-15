@@ -4,16 +4,19 @@ import { ArrowLeft } from 'lucide-react'
 export interface BackLinkProps {
   href: string
   label?: React.ReactNode
+  /** Router link component (e.g. next/link). Defaults to <a>. */
+  linkAs?: React.ElementType
 }
 
-export function BackLink({ href, label = 'Back' }: BackLinkProps) {
+/** "← Back to X". Prefer `Page back={…}` or `breadcrumbs`, which place it for you. */
+export function BackLink({ href, label = 'Back', linkAs: LinkAs = 'a' }: BackLinkProps) {
   return (
-    <a
+    <LinkAs
       href={href}
-      className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
+      className="-ml-1 inline-flex w-fit items-center gap-1.5 rounded-md px-1 py-0.5 text-sm font-medium text-muted no-underline transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <ArrowLeft className="h-4 w-4" aria-hidden />
+      <ArrowLeft className="size-4" aria-hidden />
       {label}
-    </a>
+    </LinkAs>
   )
 }

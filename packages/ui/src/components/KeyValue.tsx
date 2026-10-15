@@ -20,7 +20,7 @@ export const KeyValue = React.forwardRef<HTMLDivElement, KeyValueProps>(
       value === null || value === undefined || value === ''
     return (
       <div ref={ref} className={cn('space-y-0.5', className)} {...props}>
-        <dt className="text-xs uppercase tracking-wide text-muted">{label}</dt>
+        <dt className="text-xs font-medium text-muted">{label}</dt>
         <dd className="text-sm text-foreground">
           {isEmpty ? <span className="text-muted">—</span> : value}
         </dd>

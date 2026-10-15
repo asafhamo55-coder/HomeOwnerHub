@@ -1,42 +1,96 @@
 'use client'
 
 import * as React from 'react'
-import { Menu, X } from 'lucide-react'
+import { Menu, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react'
 import { cn } from '../lib/cn'
+import { useSidebarCollapsed } from '../lib/theme'
+import { TooltipProvider, Tooltip } from '../components/Tooltip'
+import { SidebarContext } from './sidebar-context'
+
+/**
+ * AppShell — the board / platform-admin / pm / eviction frame.
+ *
+ *   <AppShell linkAs={Link}>
+ *     <AppShellSidebar collapsible>
+ *       <SidebarBrand>…org switcher…</SidebarBrand>
+ *       <SidebarNav><SidebarSection label="Money"><NavItem …/></SidebarSection></SidebarNav>
+ *       <SidebarFooter><SidebarCollapseToggle /></SidebarFooter>
+ *     </AppShellSidebar>
+ *     <AppShellMain>
+ *       <AppShellHeader><AppShellSearchTrigger />…<UserMenu …/></AppShellHeader>
+ *       <AppShellContent>{children}</AppShellContent>
+ *     </AppShellMain>
+ *     <CommandPalette commands={…} onNavigate={router.push} />
+ *   </AppShell>
+ *
+ * Desktop: sticky sidebar, collapsible to a 60px icon rail (persisted, no
+ * flash — see THEME_INIT_SCRIPT). Phone: off-canvas drawer that closes on
+ * any link click (Next <Link> is pushState and never fires popstate — the
+ * phase-1 fix), on Esc, and on backdrop tap.
+ */
 
 interface AppShellContextValue {
   mobileOpen: boolean
   setMobileOpen: (v: boolean) => void
+  collapsed: boolean
+  setCollapsed: (v: boolean) => void
+  paletteOpen: boolean
+  setPaletteOpen: (v: boolean) => void
+  linkAs: React.ElementType
 }
 
 const AppShellContext = React.createContext<AppShellContextValue | null>(null)
 
-function useAppShell() {
+function useAppShellStrict() {
   const ctx = React.useContext(AppShellContext)
   if (!ctx) throw new Error('AppShell.* must be rendered inside <AppShell>')
   return ctx
 }
 
+/** Shell state for custom chrome. Returns null outside an AppShell. */
+export function useAppShell(): AppShellContextValue | null {
+  return React.useContext(AppShellContext)
+}
+
 export function AppShell({
   children,
   className,
+  linkAs = 'a',
 }: {
   children: React.ReactNode
   className?: string
+  /** Router link component (next/link) used by NavItem and friends. */
+  linkAs?: React.ElementType
 }) {
   const [mobileOpen, setMobileOpen] = React.useState(false)
+  const [paletteOpen, setPaletteOpen] = React.useState(false)
+  const [collapsed, setCollapsed] = useSidebarCollapsed()
 
-  // Close the mobile drawer on any client-side navigation.
+  // Back/forward closes the drawer too.
   React.useEffect(() => {
     if (!mobileOpen) return
     const close = () => setMobileOpen(false)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false)
+    }
     window.addEventListener('popstate', close)
-    return () => window.removeEventListener('popstate', close)
+    window.addEventListener('keydown', onKey)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('popstate', close)
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+    }
   }, [mobileOpen])
 
   return (
-    <AppShellContext.Provider value={{ mobileOpen, setMobileOpen }}>
-      <div className={cn('flex min-h-screen bg-background', className)}>{children}</div>
+    <AppShellContext.Provider
+      value={{ mobileOpen, setMobileOpen, collapsed, setCollapsed, paletteOpen, setPaletteOpen, linkAs }}
+    >
+      <TooltipProvider>
+        <div className={cn('flex min-h-dvh bg-background', className)}>{children}</div>
+      </TooltipProvider>
     </AppShellContext.Provider>
   )
 }
@@ -44,28 +98,47 @@ export function AppShell({
 export function AppShellSidebar({
   children,
   className,
+  collapsible = false,
 }: {
   children: React.ReactNode
   className?: string
+  /**
+   * Allow the desktop icon-rail mode. Only enable when every item is a
+   * `NavItem` (they hide their labels and show tooltips when collapsed).
+   */
+  collapsible?: boolean
 }) {
-  const { mobileOpen, setMobileOpen } = useAppShell()
+  const { mobileOpen, setMobileOpen } = useAppShellStrict()
+  const ref = React.useRef<HTMLElement>(null)
+
+  // Move focus into the drawer when it opens on a phone.
+  React.useEffect(() => {
+    if (!mobileOpen) return
+    const first = ref.current?.querySelector<HTMLElement>('a[href], button:not([disabled])')
+    first?.focus()
+  }, [mobileOpen])
 
   return (
     <>
       {/* Mobile backdrop */}
-      {mobileOpen ? (
-        <div
-          className="fixed inset-0 z-30 bg-black/30 md:hidden"
-          onClick={() => setMobileOpen(false)}
-          aria-hidden
-        />
-      ) : null}
+      <div
+        className={cn(
+          'fixed inset-0 z-40 bg-[hsl(220_30%_6%/0.45)] backdrop-blur-[2px] transition-opacity duration-base md:hidden',
+          mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
+        )}
+        onClick={() => setMobileOpen(false)}
+        aria-hidden
+      />
 
       <aside
+        ref={ref}
+        data-collapsible={collapsible || undefined}
         className={cn(
-          // Mobile: off-canvas drawer.
-          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-surface transition-transform duration-200 md:sticky md:top-0 md:h-screen md:translate-x-0',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          'group/sidebar fixed inset-y-0 left-0 z-50 flex w-[17rem] max-w-[85vw] flex-col border-r border-border bg-surface',
+          'transition-[transform,width] duration-slow ease-emphasized',
+          'md:sticky md:top-0 md:z-30 md:h-dvh md:w-sidebar md:max-w-none md:translate-x-0',
+          collapsible && 'md:sidebar-collapsed:w-sidebar-collapsed',
+          mobileOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full',
           className,
         )}
         aria-label="Primary navigation"
@@ -78,9 +151,42 @@ export function AppShellSidebar({
           if (mobileOpen && (e.target as HTMLElement).closest('a[href]')) setMobileOpen(false)
         }}
       >
-        {children}
+        <SidebarContext.Provider value={{ collapsible }}>{children}</SidebarContext.Provider>
+        <button
+          type="button"
+          onClick={() => setMobileOpen(false)}
+          className="absolute right-2 top-3 inline-flex size-8 items-center justify-center rounded-md text-muted hover:bg-subtle hover:text-foreground md:hidden"
+          aria-label="Close navigation"
+          tabIndex={mobileOpen ? 0 : -1}
+        >
+          <X className="size-4" aria-hidden />
+        </button>
       </aside>
     </>
+  )
+}
+
+/** Desktop-only collapse/expand control. Put it in SidebarFooter. */
+export function SidebarCollapseToggle({ className }: { className?: string }) {
+  const { collapsed, setCollapsed } = useAppShellStrict()
+  const label = collapsed ? 'Expand sidebar' : 'Collapse sidebar'
+  const Icon = collapsed ? PanelLeftOpen : PanelLeftClose
+  return (
+    <Tooltip content={label} side="right" shortcut="⌘\">
+      <button
+        type="button"
+        onClick={() => setCollapsed(!collapsed)}
+        aria-label={label}
+        aria-pressed={collapsed}
+        className={cn(
+          'hidden size-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-subtle hover:text-foreground md:inline-flex',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          className,
+        )}
+      >
+        <Icon className="size-4" aria-hidden />
+      </button>
+    </Tooltip>
   )
 }
 
@@ -101,25 +207,85 @@ export function AppShellHeader({
   children?: React.ReactNode
   className?: string
 }) {
-  const { mobileOpen, setMobileOpen } = useAppShell()
+  const { mobileOpen, setMobileOpen, collapsed, setCollapsed } = useAppShellStrict()
+
+  // ⌘\ / Ctrl+\ toggles the desktop sidebar.
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
+        e.preventDefault()
+        setCollapsed(!collapsed)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [collapsed, setCollapsed])
 
   return (
     <header
       className={cn(
-        'sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-surface/80 px-4 backdrop-blur md:px-6',
+        'sticky top-0 z-20 flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-background/85 px-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/70 sm:px-4 md:px-6',
         className,
       )}
     >
       <button
         type="button"
         onClick={() => setMobileOpen(!mobileOpen)}
-        className="-ml-1 rounded-md p-1 text-muted hover:bg-background md:hidden"
+        className="inline-flex size-9 items-center justify-center rounded-md text-foreground-secondary hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
         aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
+        aria-expanded={mobileOpen}
       >
-        {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        <Menu className="size-5" aria-hidden />
       </button>
       {children}
     </header>
+  )
+}
+
+/**
+ * The top-bar search field. Opens the CommandPalette (same as ⌘K). A
+ * full field on desktop, an icon button on phones.
+ */
+export function AppShellSearchTrigger({
+  placeholder = 'Search or jump to…',
+  className,
+}: {
+  placeholder?: string
+  className?: string
+}) {
+  const { setPaletteOpen } = useAppShellStrict()
+  const [isMac, setIsMac] = React.useState(true)
+  React.useEffect(() => {
+    setIsMac(/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent))
+  }, [])
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setPaletteOpen(true)}
+        className={cn(
+          'hidden h-9 w-full max-w-sm items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-muted shadow-xs transition-colors hover:border-border-strong hover:text-foreground-secondary sm:flex',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          className,
+        )}
+        aria-label="Open command palette"
+        aria-keyshortcuts={isMac ? 'Meta+K' : 'Control+K'}
+      >
+        <Search className="size-4 shrink-0" aria-hidden />
+        <span className="flex-1 truncate text-left">{placeholder}</span>
+        <kbd className="hidden shrink-0 items-center gap-0.5 rounded border border-border bg-subtle px-1.5 font-sans text-xs font-medium text-muted md:inline-flex">
+          {isMac ? '⌘' : 'Ctrl'} K
+        </kbd>
+      </button>
+      <button
+        type="button"
+        onClick={() => setPaletteOpen(true)}
+        className="inline-flex size-9 items-center justify-center rounded-md text-foreground-secondary hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:hidden"
+        aria-label="Search"
+      >
+        <Search className="size-5" aria-hidden />
+      </button>
+    </>
   )
 }
 
@@ -130,5 +296,9 @@ export function AppShellContent({
   children: React.ReactNode
   className?: string
 }) {
-  return <main className={cn('flex-1 px-4 py-6 md:px-6 md:py-8', className)}>{children}</main>
+  return (
+    <main id="main" className={cn('flex-1 px-4 pb-16 pt-6 sm:px-6 md:pt-8 lg:px-8', className)}>
+      {children}
+    </main>
+  )
 }

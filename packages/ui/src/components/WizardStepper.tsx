@@ -110,7 +110,7 @@ export function WizardStepper({
                 className={cn(
                   'flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold transition-colors',
                   s.status === 'done'
-                    ? 'border-emerald-300 bg-emerald-100 text-emerald-700'
+                    ? 'border-success/30 bg-success-subtle text-success'
                     : s.status === 'current'
                       ? 'border-primary bg-primary text-primary-fg'
                       : 'border-border bg-surface text-muted',
@@ -122,7 +122,7 @@ export function WizardStepper({
                 <span
                   className={cn(
                     'mt-1 h-4 w-px',
-                    s.status === 'done' ? 'bg-emerald-300' : 'bg-border',
+                    s.status === 'done' ? 'bg-success/40' : 'bg-border',
                   )}
                   aria-hidden
                 />

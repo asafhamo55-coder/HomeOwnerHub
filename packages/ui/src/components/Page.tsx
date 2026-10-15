@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { cn } from '../lib/cn'
+import { PageHeader, type Crumb } from './PageHeader'
 import { BackLink } from './BackLink'
 
 /**
@@ -26,8 +27,10 @@ const WIDTHS: Record<PageWidth, string> = {
 interface PageCommonProps {
   /** narrow = 3xl (forms, reading), default = 5xl (lists), wide = 7xl (dashboards). */
   width?: PageWidth
-  /** Renders a BackLink above the title. */
+  /** Renders a back link above the title (ignored when `breadcrumbs` is set). */
   back?: { href: string; label?: React.ReactNode }
+  /** Router link component for back/breadcrumb links (e.g. next/link). */
+  linkAs?: React.ElementType
   /** Page-level sub-nav, typically a `<Tabs />`, rendered under the title. */
   tabs?: React.ReactNode
   className?: string
@@ -40,6 +43,10 @@ interface PageWithTitle extends PageCommonProps {
   /** Small uppercase label above the title ("Board record"). */
   eyebrow?: React.ReactNode
   actions?: React.ReactNode
+  /** Trail above the title; the last crumb is this page. */
+  breadcrumbs?: Crumb[]
+  /** Inline status next to the title (a StatusPill, a count). */
+  meta?: React.ReactNode
   header?: never
 }
 
@@ -54,38 +61,36 @@ interface PageWithCustomHeader extends PageCommonProps {
   description?: never
   eyebrow?: never
   actions?: never
+  breadcrumbs?: never
+  meta?: never
 }
 
 export type PageProps = PageWithTitle | PageWithCustomHeader
 
 export function Page(props: PageProps) {
-  const { width = 'default', back, tabs, className, children } = props
+  const { width = 'default', back, tabs, className, children, linkAs } = props
 
   return (
     <div
       className={cn('mx-auto w-full space-y-6', WIDTHS[width], className)}
       data-page-width={width}
     >
-      {back ? <BackLink href={back.href} label={back.label} /> : null}
       {props.header !== undefined ? (
-        props.header
+        <>
+          {back ? <BackLink href={back.href} label={back.label} linkAs={linkAs} /> : null}
+          {props.header}
+        </>
       ) : (
-        <header className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            {props.eyebrow ? (
-              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-                {props.eyebrow}
-              </p>
-            ) : null}
-            <h1>{props.title}</h1>
-            {props.description ? (
-              <div className="text-sm text-muted">{props.description}</div>
-            ) : null}
-          </div>
-          {props.actions ? (
-            <div className="flex flex-wrap items-center gap-2">{props.actions}</div>
-          ) : null}
-        </header>
+        <PageHeader
+          title={props.title}
+          description={props.description}
+          eyebrow={props.eyebrow}
+          actions={props.actions}
+          breadcrumbs={props.breadcrumbs}
+          meta={props.meta}
+          back={back}
+          linkAs={linkAs}
+        />
       )}
       {tabs ?? null}
       {children}

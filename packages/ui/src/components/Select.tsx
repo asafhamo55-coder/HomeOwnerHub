@@ -4,6 +4,8 @@ import * as React from 'react'
 import * as RS from '@radix-ui/react-select'
 import { Check, ChevronDown } from 'lucide-react'
 import { cn } from '../lib/cn'
+import { controlBase, controlInvalid } from '../lib/control'
+import { useFieldControlProps } from './Field'
 
 // Radix-based Select with a fully styleable open menu (the #1 reason
 // native HTML <select> looks bad — browsers render the option list
@@ -123,6 +125,7 @@ export function Select({
   children,
   className,
 }: SelectProps) {
+  const { invalid, ...aria } = useFieldControlProps({ id, error })
   const parsed = React.useMemo(
     () => parseOptions(children, options),
     [children, options],
@@ -154,23 +157,20 @@ export function Select({
       name={name}
     >
       <RS.Trigger
-        id={id}
-        aria-invalid={error || undefined}
+        {...aria}
         className={cn(
-          'group flex w-full min-h-10 items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
-          'focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary',
-          'disabled:cursor-not-allowed disabled:opacity-50',
-          'data-[placeholder]:text-muted',
+          'group flex min-h-10 items-center justify-between gap-2 px-3 py-1.5 text-left sm:min-h-9',
+          'data-[placeholder]:text-muted data-[state=open]:border-ring data-[state=open]:ring-[3px] data-[state=open]:ring-ring/25',
           variant === 'default'
-            ? 'border-border bg-surface text-foreground hover:border-foreground/30'
-            : 'border-transparent bg-transparent text-foreground hover:bg-muted/40',
-          error && 'border-destructive focus:border-destructive focus:ring-destructive',
+            ? controlBase
+            : 'w-full rounded-lg border border-transparent bg-transparent text-sm text-foreground hover:bg-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          invalid && controlInvalid,
           className,
         )}
       >
         <RS.Value placeholder={placeholder ?? 'Select…'} />
         <RS.Icon asChild>
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted transition-transform group-data-[state=open]:rotate-180" />
+          <ChevronDown className="size-4 shrink-0 text-muted transition-transform duration-fast group-data-[state=open]:rotate-180" aria-hidden />
         </RS.Icon>
       </RS.Trigger>
 
@@ -181,23 +181,19 @@ export function Select({
           align="start"
           className={cn(
             // Match the trigger width so the popup doesn't snap to its content width
-            'z-50 min-w-[var(--radix-select-trigger-width)] max-h-[var(--radix-select-content-available-height)] overflow-hidden rounded-lg border border-border bg-surface text-foreground shadow-xl ring-1 ring-black/5',
-            // Enter animations — match the rest of the design language
-            'data-[state=open]:animate-in data-[state=closed]:animate-out',
-            'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-            'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
-            'data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1',
+            'z-popover min-w-[var(--radix-select-trigger-width)] max-h-[min(var(--radix-select-content-available-height),22rem)] overflow-hidden rounded-xl border border-border bg-elevated text-foreground shadow-lg',
+            'data-[state=open]:animate-scale-in',
           )}
         >
-          <RS.Viewport className="p-1">
+          <RS.Viewport className="p-1 scroll-py-1">
             {parsed.map((opt) => (
               <RS.Item
                 key={opt.value}
                 value={opt.value}
                 disabled={opt.disabled}
                 className={cn(
-                  'relative flex w-full cursor-pointer select-none items-center gap-2 rounded-md py-1.5 pl-2 pr-8 text-sm outline-none',
-                  'data-[highlighted]:bg-primary/10 data-[highlighted]:text-foreground',
+                  'relative flex w-full cursor-pointer select-none items-center gap-2 rounded-md py-2 pl-2.5 pr-8 text-sm outline-none sm:py-1.5',
+                  'data-[highlighted]:bg-subtle data-[highlighted]:text-foreground',
                   'data-[state=checked]:font-medium',
                   'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
                 )}

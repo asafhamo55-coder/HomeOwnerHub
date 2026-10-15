@@ -104,14 +104,17 @@ export function Pager({
   // One page holds everything: the list itself is the whole truth.
   if (state.singlePage) return null
 
-  const linkClass = 'underline hover:text-foreground'
-  const disabledClass = 'text-muted/50'
+  const btn =
+    'inline-flex h-8 items-center gap-1 rounded-lg border border-border-strong bg-surface px-3 text-sm font-medium text-foreground no-underline shadow-xs transition-colors hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+  const disabledClass =
+    'inline-flex h-8 cursor-not-allowed items-center gap-1 rounded-lg border border-border px-3 text-sm font-medium text-muted opacity-60'
+  const linkClass = 'font-medium text-primary underline-offset-4 hover:underline'
 
   return (
     <nav
       aria-label="Pagination"
       className={cn(
-        'flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs text-muted',
+        'flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm text-muted',
         className,
       )}
     >
@@ -124,15 +127,15 @@ export function Pager({
           </LinkAs>
         </span>
       ) : (
-        <span>
+        <span className="num">
           Showing {state.first}–{state.last} of {total}
           {noun ? ` ${noun}` : ''}
         </span>
       )}
       {state.pastEnd ? null : (
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           {state.hasPrev ? (
-            <LinkAs href={hrefFor(page - 1)} className={linkClass} rel="prev">
+            <LinkAs href={hrefFor(page - 1)} className={btn} rel="prev">
               Previous
             </LinkAs>
           ) : (
@@ -141,7 +144,7 @@ export function Pager({
             </span>
           )}
           {state.hasNext ? (
-            <LinkAs href={hrefFor(page + 1)} className={linkClass} rel="next">
+            <LinkAs href={hrefFor(page + 1)} className={btn} rel="next">
               Next
             </LinkAs>
           ) : (
