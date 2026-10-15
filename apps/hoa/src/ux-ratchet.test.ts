@@ -96,6 +96,20 @@ const PAGE_CONTAINER_ROUTES = [
   '(dashboard)/tickets',
   '(dashboard)/communications',
   '(dashboard)/meetings',
+  // Design-system v2 area pass (dashboard, vendors, knowledge, settings).
+  '(dashboard)/vendors',
+  '(dashboard)/vendors/[id]',
+  '(dashboard)/rfps',
+  '(dashboard)/rfps/[id]',
+  '(dashboard)/documents',
+  '(dashboard)/documents/[id]',
+  '(dashboard)/documents/governing',
+  '(dashboard)/legal',
+  '(dashboard)/legal/updates',
+  '(dashboard)/ai/ask',
+  '(dashboard)/settings',
+  '(dashboard)/settings/members',
+  '(dashboard)/settings/mailbox',
 ]
 
 /**
@@ -288,6 +302,85 @@ describe('confirmation dialogs', () => {
     const offenders = ['apps/hoa/src', 'apps/pm/src', 'apps/eviction/src']
       .flatMap((d) => walkSource(path.join(repoRoot, d)))
       .filter((f) => /\bwindow\.confirm\s*\(/.test(readFileSync(f, 'utf8')))
+      .map((f) => path.relative(repoRoot, f))
+    expect(offenders).toEqual([])
+  })
+})
+
+// ── Rule 7: restyled areas stay on semantic tokens ────────────────────────
+
+/**
+ * Areas restyled to design-system v2 (docs/specs/2026-10-15-design-system-v2.md
+ * §6 rule 2). Every .ts/.tsx under these paths must use semantic tokens only:
+ * no hard-coded Tailwind palette classes (`bg-emerald-50`, `text-gray-500`),
+ * no `bg-white`/`bg-black`, no `dark:` variants (the tokens already theme),
+ * and no bare `confirm(` (the browser dialog; use useConfirm). Add a path
+ * when an area is migrated; never remove one.
+ */
+const SEMANTIC_TOKEN_PATHS = [
+  'apps/hoa/src/app/(dashboard)/page.tsx',
+  'apps/hoa/src/components/dashboard/ActivityTrend.tsx',
+  'apps/hoa/src/components/dashboard/ApprovalsInbox.tsx',
+  'apps/hoa/src/components/dashboard/AtRiskThisWeek.tsx',
+  'apps/hoa/src/components/dashboard/BreakdownList.tsx',
+  'apps/hoa/src/components/dashboard/ComplianceHeatMap.tsx',
+  'apps/hoa/src/components/dashboard/DailyDigestCard.tsx',
+  'apps/hoa/src/components/dashboard/LeaseSummaryCard.tsx',
+  'apps/hoa/src/components/dashboard/MailTriageCard.tsx',
+  'apps/hoa/src/components/dashboard/NextMeeting.tsx',
+  'apps/hoa/src/app/(auth)',
+  'apps/hoa/src/app/onboarding',
+  'apps/hoa/src/app/(dashboard)/vendors',
+  'apps/hoa/src/app/(dashboard)/rfps',
+  'apps/hoa/src/app/(dashboard)/documents',
+  'apps/hoa/src/app/(dashboard)/legal',
+  'apps/hoa/src/app/(dashboard)/ai',
+  'apps/hoa/src/app/(dashboard)/settings/page.tsx',
+  'apps/hoa/src/app/(dashboard)/settings/ProfileForm.tsx',
+  'apps/hoa/src/app/(dashboard)/settings/members',
+  'apps/hoa/src/app/(dashboard)/settings/mailbox',
+  'apps/hoa/src/components/auth',
+  'apps/hoa/src/components/knowledge',
+  'apps/hoa/src/components/settings',
+  'apps/hoa/src/components/vendors',
+]
+
+const PALETTE =
+  /\b(?:bg|text|border|ring|from|to|via|fill|stroke|divide|outline|decoration|placeholder)-(?:red|amber|emerald|green|yellow|blue|gray|slate|zinc|neutral|stone|orange|lime|teal|cyan|sky|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b|\bbg-(?:white|black)\b|\bdark:/
+
+/** Exported for the self-test below. */
+export function usesRawPalette(src: string): boolean {
+  return PALETTE.test(src)
+}
+
+/** A call to the browser's confirm(), bare or via window. Not `await confirm({` from useConfirm. */
+export function usesNativeConfirm(src: string): boolean {
+  return /(?:^|[^.\w])confirm\(\s*[`'"]/m.test(src) || /\bwindow\.confirm\s*\(/.test(src)
+}
+
+describe('semantic tokens in restyled areas', () => {
+  it('detector self-test', () => {
+    expect(usesRawPalette('className="bg-emerald-50 text-emerald-800"')).toBe(true)
+    expect(usesRawPalette('className="text-gray-500"')).toBe(true)
+    expect(usesRawPalette('className="dark:bg-slate-900"')).toBe(true)
+    expect(usesRawPalette('className="bg-white"')).toBe(true)
+    expect(usesRawPalette('className="bg-success-subtle text-success text-muted"')).toBe(false)
+    expect(usesRawPalette('className="bg-danger-solid text-on-solid"')).toBe(false)
+    expect(usesNativeConfirm("if (!confirm('Delete?')) return")).toBe(true)
+    expect(usesNativeConfirm('const ok = await confirm({ title: "x" })')).toBe(false)
+  })
+
+  it('no hard-coded palette classes, dark: variants or native confirm()', () => {
+    const files = SEMANTIC_TOKEN_PATHS.flatMap((p) => {
+      const full = path.join(repoRoot, p)
+      return statSync(full).isDirectory() ? walkSource(full) : [full]
+    })
+    expect(files.length).toBeGreaterThan(40)
+    const offenders = files
+      .filter((f) => {
+        const src = readFileSync(f, 'utf8')
+        return usesRawPalette(src) || usesNativeConfirm(src)
+      })
       .map((f) => path.relative(repoRoot, f))
     expect(offenders).toEqual([])
   })
