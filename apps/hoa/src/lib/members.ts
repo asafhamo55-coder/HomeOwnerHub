@@ -70,13 +70,16 @@ export async function listMembers(): Promise<MemberRow[]> {
   // already enforces the caller is an admin of THIS org, so the scope
   // stays tenant-isolated.
   const admin = createAdminClient()
-  const { data } = await admin
+  const { data, error } = await admin
     .from('org_members')
     .select(
       'user_id, role, joined_at, invited_at, profile:profiles(email, full_name)',
     )
     .eq('org_id', org.id)
     .order('joined_at', { ascending: true, nullsFirst: false })
+  // Throw rather than return []: an empty member list would read as "no
+  // one has access", which is never true for the person looking at it.
+  if (error) throw new Error(`org_members: ${error.code ?? 'error'}`)
 
   const rows = (data ?? []) as unknown as Array<{
     user_id: string

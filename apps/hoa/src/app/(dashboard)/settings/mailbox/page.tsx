@@ -1,4 +1,6 @@
-import { Alert, NoOrgSelected } from '@homeowner-portal/ui'
+import Link from 'next/link'
+import { Alert, NoOrgSelected, Page } from '@homeowner-portal/ui'
+import { SettingsTabs } from '@/components/settings/SettingsTabs'
 import { requireAdmin } from '@/lib/auth'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -6,7 +8,7 @@ import { getConnectPreview, getMailboxStatus, type ConnectPreview } from '@/lib/
 import { loadScopeOptions } from '@/lib/inbox/connect'
 import { MailboxConnectCard } from './MailboxConnectCard'
 
-export const metadata = { title: 'Mailbox' }
+export const metadata = { title: 'HOA mailbox' }
 export const dynamic = 'force-dynamic'
 
 export default async function MailboxSettingsPage({
@@ -54,22 +56,21 @@ export default async function MailboxSettingsPage({
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Mailbox</h1>
-        <p className="text-sm text-muted">
-          Connect the mailbox residents email, so their messages appear in HomeownerHub.
-        </p>
-      </div>
-
+    <Page
+      width="narrow"
+      title="Settings"
+      description="Connect the mailbox residents write to, so their messages land in the HOA inbox."
+      tabs={<SettingsTabs current="/settings/mailbox" role="admin" />}
+      linkAs={Link}
+    >
       {params.error ? (
-        <Alert variant="error" title="Could not connect">
+        <Alert variant="error" title="Couldn’t connect the mailbox">
           {params.error}
         </Alert>
       ) : null}
       {params.connected ? (
         <Alert variant="success" title="Mailbox connected">
-          We are importing your history now. Counts below fill in as it runs.
+          We’re importing your history now. The counts below fill in as it runs.
         </Alert>
       ) : null}
 
@@ -79,6 +80,6 @@ export default async function MailboxSettingsPage({
         scopeOptions={scopeOptions}
         returnTo="/settings/mailbox"
       />
-    </main>
+    </Page>
   )
 }

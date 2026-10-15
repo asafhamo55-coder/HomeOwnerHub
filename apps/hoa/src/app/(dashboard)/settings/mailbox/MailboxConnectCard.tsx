@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Mail } from 'lucide-react'
 import { Alert, Badge, Button, Card, CardContent } from '@homeowner-portal/ui'
 import type { ConnectPreview, MailboxStatus } from '@/lib/inbox/queries'
 import { DisconnectMailboxButton } from './DisconnectMailboxButton'
@@ -16,8 +17,8 @@ export function MailboxConnectCard({ status, preview, scopeOptions, returnTo }: 
     return (
       <Card variant="elevated">
         <CardContent className="space-y-3 p-6 text-center">
-          <div className="text-2xl" aria-hidden>
-            ✉️
+          <div className="mx-auto flex size-11 items-center justify-center rounded-xl bg-primary-subtle text-primary" aria-hidden>
+            <Mail className="size-5" />
           </div>
           <h2 className="text-lg font-semibold text-foreground">
             Connect your HOA mailbox
@@ -68,7 +69,7 @@ export function MailboxConnectCard({ status, preview, scopeOptions, returnTo }: 
           <div className="flex items-start gap-3 border-b border-border pb-4">
             <div className="flex-1">
               <p className="font-medium text-foreground">{status.emailAddress}</p>
-              <p className={partialSync ? 'text-xs text-amber-700 dark:text-amber-400' : 'text-xs text-muted'}>
+              <p className={partialSync ? 'text-xs text-warning' : 'text-xs text-muted'}>
                 {status.syncStatus === 'ok'
                   ? `Syncing every 2 minutes · last check ${
                       status.lastSyncedAt
@@ -155,14 +156,14 @@ export function MailboxConnectCard({ status, preview, scopeOptions, returnTo }: 
               </p>
               {backfillPct !== null ? (
                 <div
-                  className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-blue-200 dark:bg-blue-900/40"
+                  className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-info-subtle"
                   role="progressbar"
                   aria-valuenow={backfillPct}
                   aria-valuemin={0}
                   aria-valuemax={100}
                 >
                   <div
-                    className="h-full rounded-full bg-blue-600 dark:bg-blue-400"
+                    className="h-full rounded-full bg-info-solid"
                     style={{ width: `${backfillPct}%` }}
                   />
                 </div>
@@ -218,8 +219,8 @@ export function MailboxConnectCard({ status, preview, scopeOptions, returnTo }: 
                       <span
                         className={
                           row.matchedAddress
-                            ? 'text-emerald-700 dark:text-emerald-400'
-                            : 'text-amber-700 dark:text-amber-400'
+                            ? 'text-success'
+                            : 'text-warning'
                         }
                       >
                         {row.matchedAddress ? `→ ${row.matchedAddress}` : '→ needs review'}
@@ -247,19 +248,19 @@ function Stat({
 }) {
   const border =
     tone === 'ok'
-      ? 'border-emerald-300 dark:border-emerald-800'
+      ? 'border-success/40'
       : tone === 'warn'
-        ? 'border-amber-300 dark:border-amber-800'
+        ? 'border-warning/40'
         : 'border-border'
   const valueColor =
     tone === 'ok'
-      ? 'text-emerald-700 dark:text-emerald-400'
+      ? 'text-success'
       : tone === 'warn'
-        ? 'text-amber-700 dark:text-amber-400'
+        ? 'text-warning'
         : 'text-foreground'
   return (
     <div className={`rounded-lg border ${border} p-3 text-center`}>
-      <p className={`text-xl font-bold ${valueColor}`}>{value.toLocaleString()}</p>
+      <p className={`num text-xl font-semibold ${valueColor}`}>{value.toLocaleString()}</p>
       <p className="text-xs text-muted">{label}</p>
     </div>
   )

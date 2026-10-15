@@ -1,21 +1,33 @@
-import { Building2, User, Users } from 'lucide-react'
+import Link from 'next/link'
 import {
-  Badge,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  KeyValue,
+  KeyValueList,
   NoOrgSelected,
+  Page,
+  StatusPill,
 } from '@homeowner-portal/ui'
 import { requireAdmin } from '@/lib/auth'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getMyProfile } from '@/lib/profile'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { SettingsTabs } from '@/components/settings/SettingsTabs'
 import { ProfileForm } from './ProfileForm'
 
 export const metadata = { title: 'Settings' }
 export const dynamic = 'force-dynamic'
+
+const PLAN_LABEL: Record<string, string> = {
+  free: 'Free',
+  trial: 'Trial',
+  starter: 'Starter',
+  pro: 'Pro',
+  enterprise: 'Enterprise',
+}
 
 export default async function SettingsPage() {
   await requireAdmin()
@@ -23,85 +35,64 @@ export default async function SettingsPage() {
   if (!org) return <NoOrgSelected />
 
   const supabase = await getSupabaseServerClient()
-  const [{ count: memberCount }, profile] = await Promise.all([
+  const [membersRes, profile] = await Promise.all([
     supabase.from('org_members').select('user_id', { count: 'exact', head: true }),
     getMyProfile(),
   ])
+  // A failed count reads "—", never a confident "1 person".
+  const memberCount = membersRes.error ? null : membersRes.count
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-        <p className="mt-1 text-sm text-muted">Manage your HOA&apos;s configuration.</p>
-      </header>
-
-      {profile ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <User className="h-4 w-4 text-muted" />
-              My profile
-            </CardTitle>
-            <CardDescription>
-              The name shown in the dashboard greeting, emails, and the members
-              list.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+    <Page
+      width="narrow"
+      title="Settings"
+      description="Your profile and your association’s account."
+      tabs={<SettingsTabs current="/settings" role="admin" />}
+      linkAs={Link}
+    >
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle as="h2">Your profile</CardTitle>
+          <CardDescription>The name shown in the dashboard greeting, emails and the members list.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {profile ? (
             <ProfileForm profile={profile} />
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Building2 className="h-4 w-4 text-muted" />
-            HOA
-          </CardTitle>
-          <CardDescription>
-            Editing these values will be added in a later checkpoint.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <Row label="Name">{org.name}</Row>
-          <Row label="Plan">
-            <Badge variant="outline" size="sm">
-              {org.plan}
-            </Badge>
-          </Row>
-          <Row label="Doors">
-            {org.doors_count ?? <span className="text-muted">Not set</span>}
-          </Row>
-          <Row label="Hub type">{org.hub_type}</Row>
+          ) : (
+            <p className="text-sm text-muted">Your profile couldn’t be loaded. Refresh to try again.</p>
+          )}
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Users className="h-4 w-4 text-muted" />
-            Members
-          </CardTitle>
-          <CardDescription>
-            Inviting board members and editing roles will be added in a later checkpoint.
-          </CardDescription>
+        <CardHeader className="pb-4">
+          <CardTitle as="h2">Association</CardTitle>
+          <CardDescription>Read-only for now — contact support to change these.</CardDescription>
         </CardHeader>
-        <CardContent className="text-sm">
-          <Row label="Current members">
-            {memberCount ?? 1} {(memberCount ?? 1) === 1 ? 'person' : 'people'}
-          </Row>
+        <CardContent>
+          <KeyValueList>
+            <KeyValue label="Name" value={org.name} />
+            <KeyValue
+              label="Plan"
+              value={<StatusPill tone="brand" icon={null} label={PLAN_LABEL[org.plan] ?? org.plan} />}
+            />
+            <KeyValue
+              label="Doors"
+              value={org.doors_count != null ? <span className="num">{org.doors_count}</span> : 'Not set'}
+            />
+            <KeyValue
+              label="Members"
+              value={
+                <Link href="/settings/members" className="font-medium text-primary hover:underline">
+                  {memberCount == null
+                    ? 'View members'
+                    : `${memberCount} ${memberCount === 1 ? 'person' : 'people'}`}
+                </Link>
+              }
+            />
+          </KeyValueList>
         </CardContent>
       </Card>
-    </div>
-  )
-}
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-xs uppercase tracking-wide text-muted">{label}</span>
-      <span className="text-foreground">{children}</span>
-    </div>
+    </Page>
   )
 }
