@@ -8,6 +8,8 @@ on:
   pull_request:
     branches:
       - main
+      # Vercel's production branch: PRs into it must pass the same gates.
+      - claude/phase1-homeownerhub-setup-MILNu
 
 concurrency:
   # One run per branch/PR; cancel any in-flight earlier runs.
