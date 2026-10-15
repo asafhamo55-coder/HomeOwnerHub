@@ -271,3 +271,39 @@ than the redundancy, and getting the condition wrong would break it.
   `approval_requests.error`). Parked because adding it needs a production audit
   for existing duplicates first, or the index build fails. — **Revisit trigger:
   with the accounting-RLS item above.**
+  **Status 2026-10-15 (branch `claude/accounting-rls`): both items above are
+  fixed in code by `0061_accounting_rls.sql`, NOT yet applied to production.**
+  The hole was proven, not just inferred: 89 failures in
+  `tests/integration/security/accounting-rls.test.ts` before 0061, 0 after. It
+  was wider than described: residents could also read every neighbour's
+  balance, the whole GL and bank feed, and `plaid_items.access_token`. 0061
+  creates the double-post index only if the pre-check finds no existing
+  duplicates (otherwise it warns and skips; the RLS part still applies). Apply
+  with `docs/specs/2026-10-15-accounting-rls-apply.sql`.
+- 2026-10-15 — **`ownerships` and `units` are still FOR ALL, org-only** — Found
+  while scoping 0061. Same 0006-era shape as the accounting tables were: any
+  member, a resident included, can insert an `ownerships` row naming
+  themselves owner of any unit in their org, or edit/delete units. After 0061
+  that matters more, because "units you own" is now what scopes a resident's
+  read of `assessments`/`payments`: a resident who forges an ownership row
+  reads that unit's dues. That is still strictly less than they could read
+  before 0061 (every unit), so 0061 is not blocked on it. Parked because
+  `ownerships`/`units` writes come from several onboarding, import and
+  property-360 paths that need their own inventory. — **Revisit trigger: next
+  RLS pass; before any resident self-service "claim my unit" flow.**
+- 2026-10-15 — **`pm_rent_ledger` left on org-only RLS** — The PM app's rent
+  ledger has the same FOR ALL org-only policy, but it was left out of 0061
+  because the PM app's role model is unclear: `apps/pm/src/app/onboarding/actions.ts`
+  inserts `org_members.role = 'owner'`, which the 0012 CHECK constraint
+  rejects, so new PM onboarding appears to be broken outright, and it is not
+  known what role existing PM members hold in production. Gating writes on
+  board/admin could lock a PM owner out of their own ledger
+  (`ensureLeaseLedger` inserts on every page load). — **Revisit trigger: when
+  the PM onboarding role bug is fixed; check `SELECT role, count(*) FROM
+  org_members m JOIN orgs o ON o.id = m.org_id WHERE o.hub_type = 'pm' GROUP BY
+  1` first.**
+- 2026-10-15 — **Closing a fiscal period is board-or-admin, not admin-only** —
+  0061 lets board close periods because the app does today (no role gate on
+  `/accounting/periods`). Making it admin-only is a product decision, not a
+  security fix. — **Revisit trigger: if a board asks for close to need an
+  admin.**

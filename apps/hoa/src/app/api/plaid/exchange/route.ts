@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPlaidClient } from '@/lib/plaid'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
@@ -35,6 +36,11 @@ export async function POST(request: Request) {
       { status: 503 },
     )
   }
+
+  // Before the Plaid exchange: a caller the plaid_items INSERT policy
+  // (0061) would refuse must not get as far as minting an access token.
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return NextResponse.json({ error: 'forbidden', message: gate.error }, { status: 403 })
 
   const assoc = await getPrimaryAssociation()
   if (!assoc) {
