@@ -18,17 +18,12 @@ which returns the deployed SHA). CI runs `typecheck`, `typecheck:integration`,
 
 ## Applied to production
 
-`0054` and `0055` are applied — both cross-tenant RLS holes are closed. See
-`docs/DEPLOY.md` for what was verified and the pre-apply audit that made it safe.
-
-**`0056` and `0057` are NOT applied.** They are committed and tested locally.
-`0056` scopes the `governing-docs` bucket (which had no policy at all);
-`0057` adds `bank_transactions.reconciliation_attempted_at`. Preconditions were
-verified against production on 2026-10-15: the bucket exists with 2 objects whose
-prefixes are real orgs, and `bank_transactions` has 105 rows with the column
-absent, so the `ALTER` is metadata-only. Generate the apply SQL by concatenating
-both files inside a `BEGIN`/`COMMIT` and re-running the verification queries in
-`docs/DEPLOY.md`'s pattern.
+`0054`–`0057` are all applied (2026-10-15). **An earlier version of this file
+claimed `0054`/`0055` were applied when they were not** — that verification ran
+against a database that was not the one the apps use; the apply of `0056`
+failed on the missing `0055` helper and exposed it. See `docs/DEPLOY.md` for
+the correction, what was actually verified, and the open question of which
+project the first check hit.
 
 ## Decisions that are the owner's, not an agent's
 
@@ -54,8 +49,9 @@ both files inside a `BEGIN`/`COMMIT` and re-running the verification queries in
 
 ## The recurring lesson from this work
 
-Four separate times, a green signal in this repo proved nothing because the
+Five separate times, a green signal in this repo proved nothing because the
 check could not see the failure: rtk's `tsc` output filter, grant verification
-run as superuser, `tests/integration/` compiled by no tsconfig, and a storage
-bucket that existed in production but not in the local stack. Before trusting a
+run as superuser, `tests/integration/` compiled by no tsconfig, a storage
+bucket that existed in production but not in the local stack, and a "verified
+in production" migration check run against the wrong database. Before trusting a
 check, ask what it would report if the thing it checks were switched off.

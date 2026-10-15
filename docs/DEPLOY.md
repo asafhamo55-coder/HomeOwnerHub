@@ -213,23 +213,42 @@ You're done with infra. Move on to **MADISON_PARK_DEMO.md** for the demo run-thr
 | Magic link 404s after click | Redirect URL not allowlisted in Supabase auth settings |
 | Hub switcher shows "Sign in to set up" for own hub | `NEXT_PUBLIC_*_URL` env vars missing or wrong |
 
-## 2026-10-15 — migrations 0054 and 0055 applied to production
+## 2026-10-15 — migrations 0054, 0055, 0056, 0057 applied to production
 
-Both cross-tenant RLS holes found by the quality-oracle work are closed in
-production as of this date. Verified by Asaf against the live database:
+**Correction.** An earlier version of this section said `0054` and `0055` were
+applied and "verified by Asaf against the live database" (six `org_can_*`
+policies, 1,334 objects across two orgs). That was wrong for the database the
+apps actually use: when `0056` was run there, it failed with
+`function public.storage_object_org_id(text) does not exist`, and `pg_policies`
+still showed all eight unscoped `auth_can_*` storage policies plus
+`auth_can_self_insert_org_members`. The object count there was 1,807, not
+1,334 — so the earlier verification most likely ran against a different
+Supabase project. **Unresolved: which project that was.** Before trusting any
+future "verified in prod" claim, check the object/row counts match the project
+the apps' `SUPABASE_URL` points at.
+
+Applied later the same day as two single statements in the SQL editor (it does
+not hold `BEGIN`/`COMMIT` across statements, so `0055`–`0057` were combined
+into one `DO` block and `0054` is a single `DROP POLICY`). Verified by Asaf
+afterwards:
 
 - `public.org_members` carries exactly one policy, `org_member_access`
-  (`cmd=ALL`, `with_check` null so its `qual` is the implicit INSERT check).
-  The `auth_can_self_insert_org_members` policy — `WITH CHECK (auth.uid() =
+  (`cmd=ALL`). `auth_can_self_insert_org_members` — `WITH CHECK (auth.uid() =
   user_id)` with no `org_id` or `role` constraint, which let any authenticated
-  user join any org as admin — is gone.
-- `storage.objects` carries six `org_can_*` policies and zero `auth_can_*`.
-- `storage_object_org_id` resolves both path shapes: `<org>/<file>` and
-  `inbox-drafts/<org>/<draft>/<obj>`, and returns NULL for a non-UUID prefix.
-- Zero unreachable objects: all 1,334 across two orgs (1,092 + 242) map to an
-  org that exists, with 5 and 3 members respectively.
+  user join any org as admin — is gone. Org creation in all three apps and the
+  platform-admin flow insert `org_members` via the service-role client, so
+  they are unaffected.
+- `storage.objects` carries eight `org_can_*` policies (SELECT + INSERT for
+  `hoa-photos`, `hoa-documents`, `eviction-docs`, `governing-docs`) and zero
+  `auth_can_*`. `governing-docs` was **not** policy-less as `0056` assumed: it
+  had out-of-band `auth_can_read_governing_docs` / `auth_can_insert_governing_docs`
+  (bucket-only, unscoped), now dropped and replaced.
+- `public.storage_object_org_id(text)` exists.
+- `bank_transactions.reconciliation_attempted_at` exists (`timestamptz`).
+- Pre-apply: zero orphaned objects — hoa-documents 1,787, hoa-photos 8,
+  governing-docs 12, every path resolving to an existing org.
 
-Pre-apply audit that made this safe, worth repeating before any future storage
+Pre-apply audit, worth repeating before any future storage
 policy change: every object's first path segment was confirmed to be a
 canonical UUID **and** to correspond to a real org. A well-formed UUID naming a
 deleted org resolves through the helper and then fails `= ANY(auth_org_ids())`

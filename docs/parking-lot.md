@@ -214,7 +214,7 @@ than the redundancy, and getting the condition wrong would break it.
 - 2026-10-15 — **`storage.objects` DELETE and UPDATE policies** — `storage.objects`
   has only INSERT and SELECT policies (3 each), from
   `migrations/0003_storage_policies.sql`; `0055` replaced those six with org-scoped
-  equivalents but added no DELETE or UPDATE. RLS is enabled and under RLS "no
+  equivalents (and `governing-docs` got the same pair, applied 2026-10-15) but added no DELETE or UPDATE. RLS is enabled and under RLS "no
   policy" means deny, so **every `.storage.remove()` issued through a user-scoped
   client has always failed silently** — `apps/hoa/src/lib/documents.ts:98` (a
   "best-effort cleanup" that never happens), `:144`, `:281`,
