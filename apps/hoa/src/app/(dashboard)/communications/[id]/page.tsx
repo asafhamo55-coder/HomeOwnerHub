@@ -1,51 +1,86 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { CheckCircle2, Eye, MailX, Reply, Sparkles, Users } from 'lucide-react'
 import {
-  CheckCircle2,
-  ChevronLeft,
-  Circle,
-  Clock,
-  Eye,
-  MailX,
-  Reply,
-  Sparkles,
-} from 'lucide-react'
-import { Badge, Card } from '@homeowner-portal/ui'
+  Badge,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  DataTable,
+  EmptyState,
+  FilterChips,
+  Kpi,
+  Page,
+  Pager,
+  StatusBadge,
+  StatusPill,
+  parsePageParam,
+  type DataTableColumn,
+} from '@homeowner-portal/ui'
 import { LocalDateTime } from '@/components/ui/LocalDateTime'
 import { getPrimaryAssociation } from '@/lib/vendors'
-import { getCommunication } from '@/lib/communications/queries'
+import { getCommunication, type CommunicationDetail } from '@/lib/communications/queries'
 import { pickDisplaySubject, resolveHtmlForDisplay } from '@/lib/communications/display'
+import { COMMUNICATION_CATEGORY, COMMUNICATION_STATUS, DELIVERY_STATUS } from '@/lib/status/community'
 import { CommunicationActions } from './CommunicationActions'
 
 export const metadata = { title: 'Message' }
 
-const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
-  draft: 'outline',
-  scheduled: 'warning',
-  sending: 'warning',
-  sent: 'success',
-  failed: 'destructive',
-  cancelled: 'outline',
+type Recipient = CommunicationDetail['recipients'][number]
+
+const CHANNEL_LABEL: Record<string, string> = {
+  email: 'Email',
+  sms: 'SMS',
+  portal: 'Portal',
+  mail: 'Mail',
 }
 
-const DELIVERY_VARIANT: Record<string, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
-  queued: 'outline',
-  sent: 'default',
-  delivered: 'success',
-  opened: 'success',
-  clicked: 'success',
-  replied: 'success',
-  bounced: 'destructive',
-  failed: 'destructive',
-  suppressed: 'outline',
-}
+/** Recipient views. "Problems" is what a board opens this page to find. */
+const VIEWS = {
+  all: { label: 'All', match: () => true },
+  problems: {
+    label: 'Failed',
+    match: (r: Recipient) => ['failed', 'bounced', 'suppressed'].includes(r.delivery_status),
+  },
+  opened: {
+    label: 'Opened',
+    match: (r: Recipient) => ['opened', 'clicked', 'replied'].includes(r.delivery_status),
+  },
+  pending: {
+    label: 'Not opened',
+    match: (r: Recipient) => ['queued', 'sent', 'delivered'].includes(r.delivery_status),
+  },
+} as const
+type View = keyof typeof VIEWS
+
+const RECIPIENTS_PER_PAGE = 50
+
+/** Point the typography plugin's colours at the theme tokens, so the body
+ *  preview reads correctly in both themes with no per-theme class. */
+const PROSE_TOKENS = [
+  '[--tw-prose-body:hsl(var(--foreground))]',
+  '[--tw-prose-headings:hsl(var(--foreground))]',
+  '[--tw-prose-bold:hsl(var(--foreground))]',
+  '[--tw-prose-links:hsl(var(--primary))]',
+  '[--tw-prose-bullets:hsl(var(--muted))]',
+  '[--tw-prose-counters:hsl(var(--muted))]',
+  '[--tw-prose-quotes:hsl(var(--foreground-secondary))]',
+  '[--tw-prose-quote-borders:hsl(var(--border))]',
+  '[--tw-prose-hr:hsl(var(--border))]',
+  '[--tw-prose-th-borders:hsl(var(--border))]',
+  '[--tw-prose-td-borders:hsl(var(--border))]',
+].join(' ')
 
 interface PageProps {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ view?: string; page?: string }>
 }
 
-export default async function CommunicationDetailPage({ params }: PageProps) {
+export default async function CommunicationDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params
+  const sp = await searchParams
   const assoc = await getPrimaryAssociation()
   if (!assoc) notFound()
   const comm = await getCommunication(assoc.id, id)
@@ -68,261 +103,260 @@ export default async function CommunicationDetailPage({ params }: PageProps) {
     (r) => r.channel === 'email' && r.delivery_status === 'failed',
   ).length
 
+  // Recipients: every row is loaded (counts above are over all of them);
+  // the table filters and pages that list in memory via the URL.
+  const view: View = sp.view && sp.view in VIEWS ? (sp.view as View) : 'all'
+  const viewRows = comm.recipients.filter(VIEWS[view].match)
+  const page = parsePageParam(sp.page)
+  const pageRows = viewRows.slice((page - 1) * RECIPIENTS_PER_PAGE, page * RECIPIENTS_PER_PAGE)
+  const base = `/communications/${comm.id}`
+  const hrefFor = (v: View, p = 1) => {
+    const q = new URLSearchParams()
+    if (v !== 'all') q.set('view', v)
+    if (p > 1) q.set('page', String(p))
+    const qs = q.toString()
+    return `${qs ? `${base}?${qs}` : base}#recipients`
+  }
+
+  const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)}%` : '—')
+
+  const columns: DataTableColumn<Recipient>[] = [
+    {
+      key: 'recipient',
+      header: 'Recipient',
+      mobilePrimary: true,
+      cell: (r) => (
+        <div className="min-w-0">
+          <p className="font-medium text-foreground">{r.recipient_name ?? 'Resident'}</p>
+          <p className="truncate text-xs text-muted">
+            {r.channel === 'email' ? r.email ?? '—' : r.channel === 'sms' ? r.phone ?? '—' : 'Portal'}
+          </p>
+          {/* Null means unknown (pre-dates rendered_subject, or the render
+              threw) — not empty, so it stays silent rather than showing "—". */}
+          {r.rendered_subject && r.rendered_subject !== displaySubject.text ? (
+            <p className="mt-0.5 max-w-xs truncate text-xs text-muted" title={r.rendered_subject}>
+              Subject: {r.rendered_subject}
+            </p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      key: 'channel',
+      header: 'Channel',
+      hideBelowLg: true,
+      cell: (r) => <span className="text-foreground-secondary">{CHANNEL_LABEL[r.channel] ?? r.channel}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (r) => (
+        <div className="space-y-1">
+          <StatusBadge status={r.delivery_status} tones={DELIVERY_STATUS.tones} labels={DELIVERY_STATUS.labels} />
+          {r.error_message ? <p className="max-w-[16rem] text-xs text-danger">{r.error_message}</p> : null}
+        </div>
+      ),
+    },
+    {
+      key: 'last',
+      header: 'Last activity',
+      className: 'whitespace-nowrap text-foreground-secondary',
+      cell: (r) => <LastActivity r={r} />,
+    },
+  ]
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <header className="space-y-1">
-        <Link
-          href="/communications"
-          className="inline-flex items-center gap-1 text-xs text-muted hover:text-foreground"
-        >
-          <ChevronLeft className="h-3 w-3" />
-          Communications
-        </Link>
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h1 className="text-2xl font-bold text-foreground">{displaySubject.text}</h1>
-          <Badge variant={STATUS_VARIANT[comm.status] ?? 'outline'}>{comm.status}</Badge>
+    <Page
+      width="wide"
+      linkAs={Link}
+      breadcrumbs={[{ label: 'Communications', href: '/communications' }, { label: displaySubject.text }]}
+      title={displaySubject.text}
+      meta={
+        <>
+          <StatusBadge status={comm.status} tones={COMMUNICATION_STATUS.tones} labels={COMMUNICATION_STATUS.labels} />
           {!displaySubject.exact && displaySubject.personalizedFields.length > 0 ? (
             <Badge
               variant="neutral"
-              size="sm"
-              title={`Each recipient saw their own ${displaySubject.personalizedFields
-                .join(', ')
-                .replace(/_/g, ' ')} here`}
+              title={`Each recipient saw their own ${displaySubject.personalizedFields.join(', ').replace(/_/g, ' ')} here`}
             >
               Personalized
             </Badge>
           ) : null}
-          <CommunicationActions commId={comm.id} failedEmailCount={failedEmailCount} />
-          {comm.ai_generated ? (
-            <Badge variant="outline">
-              <Sparkles className="mr-1 h-3 w-3" />
-              AI drafted
-            </Badge>
-          ) : null}
-        </div>
-        <p className="text-xs text-muted">
-          {comm.category} ·{' '}
+          {comm.ai_generated ? <StatusPill tone="ai" label="AI drafted" icon={<Sparkles aria-hidden />} /> : null}
+        </>
+      }
+      description={
+        <>
+          {COMMUNICATION_CATEGORY[comm.category] ?? comm.category}
+          {' · '}
+          {comm.channels.map((c) => CHANNEL_LABEL[c] ?? c).join(' + ')}
+          {' · '}
           {comm.sent_at ? (
             <LocalDateTime iso={comm.sent_at} variant="long" prefix="sent" />
           ) : comm.scheduled_for ? (
-            <LocalDateTime
-              iso={comm.scheduled_for}
-              variant="long"
-              prefix="scheduled"
-            />
+            <LocalDateTime iso={comm.scheduled_for} variant="long" prefix="scheduled for" />
           ) : (
-            <LocalDateTime
-              iso={comm.created_at}
-              variant="long"
-              prefix="created"
-            />
+            <LocalDateTime iso={comm.created_at} variant="long" prefix="created" />
           )}
           {comm.audience_summary ? ` · ${comm.audience_summary}` : ''}
           {comm.template ? ` · template: ${comm.template.name}` : ''}
-        </p>
-      </header>
-
-      {/* Delivery summary tiles */}
-      <div className="grid gap-3 sm:grid-cols-4">
-        <Tile
-          icon={<CheckCircle2 className="h-4 w-4" />}
-          label="Sent"
-          value={`${comm.sentCount}/${comm.totalRecipients}`}
+        </>
+      }
+      actions={
+        <CommunicationActions commId={comm.id} subject={displaySubject.text} failedEmailCount={failedEmailCount} />
+      }
+    >
+      <section aria-label="Delivery summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi
+          label="Delivered"
+          icon={<CheckCircle2 />}
+          value={comm.totalRecipients > 0 ? pct(comm.sentCount, comm.totalRecipients) : '—'}
+          hint={`${comm.sentCount} of ${comm.totalRecipients} recipients`}
         />
-        <Tile
-          icon={<Eye className="h-4 w-4" />}
+        <Kpi
           label="Opened"
-          value={String(comm.openedCount)}
+          icon={<Eye />}
+          value={comm.sentCount > 0 ? pct(comm.openedCount, comm.sentCount) : '—'}
+          hint={`${comm.openedCount} opened`}
         />
-        <Tile
-          icon={<Reply className="h-4 w-4" />}
+        <Kpi
           label="Replied"
-          value={String(comm.repliedCount)}
+          icon={<Reply />}
+          value={comm.repliedCount}
+          hint={comm.replies.length > 0 ? `${comm.replies.length} in the replies below` : 'no replies yet'}
         />
-        <Tile
-          icon={<MailX className="h-4 w-4" />}
+        <Kpi
           label="Failed"
-          value={String(comm.failedCount)}
-          tone={comm.failedCount > 0 ? 'destructive' : 'default'}
+          icon={<MailX />}
+          value={comm.failedCount}
+          hint={comm.failedCount > 0 ? 'bounced or failed — see below' : 'none'}
+          href={comm.failedCount > 0 ? hrefFor('problems') : undefined}
+          linkAs={Link}
         />
-      </div>
+      </section>
 
-      {/* Body preview */}
       <Card>
-        <div className="border-b border-border px-4 py-2 text-sm font-semibold text-foreground">
-          Message body
-        </div>
-        <div className="prose prose-sm max-w-none p-4 text-foreground">
-          <div dangerouslySetInnerHTML={{ __html: displayBody.html }} />
-        </div>
+        <CardHeader>
+          <CardTitle as="h2">Message</CardTitle>
+          <CardDescription>As residents received it.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className={`prose prose-sm max-w-none rounded-lg border border-border bg-background p-5 ${PROSE_TOKENS}`}>
+            <div dangerouslySetInnerHTML={{ __html: displayBody.html }} />
+          </div>
+        </CardContent>
       </Card>
 
-      {/* Recipients table */}
-      <section>
-        <h2 className="mb-2 text-sm font-semibold text-foreground">
-          Recipients ({comm.recipients.length})
-        </h2>
+      <section id="recipients" className="scroll-mt-20 space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-lg font-semibold text-foreground">
+            Recipients <span className="num font-normal text-muted">({comm.recipients.length})</span>
+          </h2>
+          {comm.recipients.length > 0 ? (
+            <FilterChips
+              label="Filter recipients"
+              linkAs={Link}
+              items={(Object.keys(VIEWS) as View[]).map((v) => ({
+                label: VIEWS[v].label,
+                href: hrefFor(v),
+                active: view === v,
+                count: comm.recipients.filter(VIEWS[v].match).length,
+              }))}
+            />
+          ) : null}
+        </div>
         {comm.recipients.length === 0 ? (
-          <Card>
-            <div className="p-6 text-sm italic text-muted">
-              No recipients. Either the audience filter matched no units, or
-              none had contact info on file.
-            </div>
-          </Card>
+          <EmptyState
+            icon={<Users aria-hidden />}
+            title={comm.status === 'draft' || comm.status === 'scheduled' ? 'Not sent yet' : 'No recipients'}
+            description={
+              comm.status === 'draft' || comm.status === 'scheduled'
+                ? 'Recipients appear here, with delivery status, once the message goes out.'
+                : 'Either the audience matched no units, or none had contact info on file for the chosen channel.'
+            }
+          />
         ) : (
-          <Card>
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border text-xs uppercase tracking-wide text-muted">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Recipient</th>
-                  <th className="px-4 py-2 font-medium">Channel</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2 font-medium">Timeline</th>
-                </tr>
-              </thead>
-              <tbody>
-                {comm.recipients.map((r) => (
-                  <tr key={r.id} className="border-b border-border last:border-0">
-                    <td className="px-4 py-2">
-                      <p className="text-foreground">{r.recipient_name ?? 'Resident'}</p>
-                      <p className="text-xs text-muted">
-                        {r.channel === 'email'
-                          ? r.email ?? '—'
-                          : r.channel === 'sms'
-                            ? r.phone ?? '—'
-                            : 'portal'}
-                      </p>
-                      {/* Null means unknown (pre-dates rendered_subject, or the render
-                          threw) — not empty, so it stays silent rather than showing "—". */}
-                      {r.rendered_subject && r.rendered_subject !== displaySubject.text ? (
-                        <p className="mt-0.5 max-w-xs truncate text-xs text-muted" title={r.rendered_subject}>
-                          {r.rendered_subject}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-2 font-mono text-xs uppercase tracking-wide text-muted">
-                      {r.channel}
-                    </td>
-                    <td className="px-4 py-2">
-                      <Badge variant={DELIVERY_VARIANT[r.delivery_status] ?? 'outline'} size="sm">
-                        {r.delivery_status}
-                      </Badge>
-                      {r.error_message ? (
-                        <p className="mt-1 text-[11px] text-destructive">
-                          {r.error_message}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-2 text-xs text-muted">
-                      <Timeline
-                        events={[
-                          r.sent_at ? { label: 'sent', at: r.sent_at } : null,
-                          r.delivered_at ? { label: 'delivered', at: r.delivered_at } : null,
-                          r.opened_at ? { label: 'opened', at: r.opened_at } : null,
-                          r.replied_at ? { label: 'replied', at: r.replied_at } : null,
-                          r.failed_at ? { label: 'failed', at: r.failed_at } : null,
-                        ].filter((x): x is { label: string; at: string } => !!x)}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
+          <DataTable
+            caption="Recipients and delivery status"
+            columns={columns}
+            rows={pageRows}
+            rowKey={(r) => r.id}
+            mobile="cards"
+            empty={
+              <EmptyState
+                variant="compact"
+                title={`No ${VIEWS[view].label.toLowerCase()} recipients`}
+                description="Nothing in this view."
+              />
+            }
+            footer={
+              viewRows.length > RECIPIENTS_PER_PAGE ? (
+                <Pager
+                  page={page}
+                  pageSize={RECIPIENTS_PER_PAGE}
+                  total={viewRows.length}
+                  rowCount={pageRows.length}
+                  hrefFor={(p) => hrefFor(view, p)}
+                  linkAs={Link}
+                  noun="recipients"
+                />
+              ) : undefined
+            }
+          />
         )}
       </section>
 
-      {/* Replies */}
       {comm.replies.length > 0 ? (
-        <section>
-          <h2 className="mb-2 text-sm font-semibold text-foreground">
-            Replies ({comm.replies.length})
-          </h2>
-          <Card>
-            <ul className="divide-y divide-border">
-              {comm.replies.map((r) => (
-                <li key={r.id} className="p-4">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <p className="text-sm font-medium text-foreground">
-                      {r.from_email ?? r.from_phone ?? 'Anonymous'}
-                    </p>
-                    <p className="text-xs text-muted">
-                      <LocalDateTime iso={r.received_at} variant="long" />
-                      {r.read_at ? null : (
-                        <span className="ml-2 inline-flex items-center gap-1 text-primary">
-                          <Circle className="h-2 w-2 fill-current" />
-                          unread
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  {r.subject ? (
-                    <p className="mt-1 text-xs text-muted">re: {r.subject}</p>
-                  ) : null}
-                  {r.ai_summary ? (
-                    <p className="mt-2 rounded-md bg-background/50 p-2 text-xs italic text-muted">
-                      <Sparkles className="mr-1 inline h-3 w-3 text-primary" />
-                      {r.ai_summary}
-                    </p>
-                  ) : null}
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">
-                    {r.body}
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">
+              Replies <span className="num font-normal text-muted">({comm.replies.length})</span>
+            </CardTitle>
+          </CardHeader>
+          <ul className="divide-y divide-border border-t border-border">
+            {comm.replies.map((r) => (
+              <li key={r.id} className="space-y-2 px-5 py-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    {r.from_email ?? r.from_phone ?? 'Anonymous'}
+                    {r.read_at ? null : <StatusPill tone="brand" label="Unread" icon={null} />}
                   </p>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </section>
+                  <p className="text-xs text-muted">
+                    <LocalDateTime iso={r.received_at} variant="long" />
+                  </p>
+                </div>
+                {r.subject ? <p className="text-xs text-muted">Re: {r.subject}</p> : null}
+                {r.ai_summary ? (
+                  <p className="flex gap-2 rounded-lg bg-accent-subtle px-3 py-2 text-xs text-accent-fg">
+                    <Sparkles className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                    <span>
+                      <span className="sr-only">AI summary: </span>
+                      {r.ai_summary}
+                    </span>
+                  </p>
+                ) : null}
+                <p className="whitespace-pre-wrap text-sm text-foreground">{r.body}</p>
+              </li>
+            ))}
+          </ul>
+        </Card>
       ) : null}
-    </div>
+    </Page>
   )
 }
 
-function Tile({
-  icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string
-  tone?: 'destructive' | 'default'
-}) {
-  const valueClass = tone === 'destructive' ? 'text-destructive' : 'text-foreground'
-  return (
-    <Card>
-      <div className="p-4">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
-          {icon}
-          {label}
-        </div>
-        <p className={`mt-2 text-lg font-semibold ${valueClass}`}>{value}</p>
-      </div>
-    </Card>
-  )
-}
-
-function Timeline({ events }: { events: { label: string; at: string }[] }) {
-  if (events.length === 0) {
-    return <span className="italic text-muted">—</span>
-  }
-  return (
-    <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
-      {events.map((e, i) => (
-        <span key={i} className="inline-flex items-center gap-1">
-          {i > 0 ? <span className="text-muted">·</span> : null}
-          <Clock className="h-3 w-3" />
-          <span>
-            {e.label}{' '}
-            <LocalDateTime
-              iso={e.at}
-              variant="short"
-              className="text-muted"
-            />
-          </span>
-        </span>
-      ))}
-    </span>
-  )
+/** The most recent thing that happened to this recipient, with its time. */
+function LastActivity({ r }: { r: Recipient }) {
+  const events: [string, string | null][] = [
+    ['Failed', r.failed_at],
+    ['Replied', r.replied_at],
+    ['Opened', r.opened_at],
+    ['Delivered', r.delivered_at],
+    ['Sent', r.sent_at],
+  ]
+  const latest = events
+    .filter((e): e is [string, string] => Boolean(e[1]))
+    .sort((a, b) => b[1].localeCompare(a[1]))[0]
+  if (!latest) return <span className="text-muted">—</span>
+  return <LocalDateTime iso={latest[1]} variant="short" prefix={latest[0]} />
 }

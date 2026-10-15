@@ -1,14 +1,22 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { ArrowLeft, MessageSquare, ClipboardList, Paperclip } from 'lucide-react'
-import { Badge, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { ClipboardList, Lock, MessageSquare, Paperclip, User } from 'lucide-react'
 import {
-  getTicketForBoard,
-  listTicketActionItems,
-  type TicketStatus,
-  type TicketPriority,
-} from '@/lib/tickets'
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  KeyValue,
+  KeyValueList,
+  Page,
+  StatusBadge,
+  Timeline,
+  type TimelineItem,
+} from '@homeowner-portal/ui'
+import { getTicketForBoard, listTicketActionItems } from '@/lib/tickets'
+import { TICKET_CATEGORY, TICKET_PRIORITY, TICKET_STATUS } from '@/lib/status/community'
 import { TicketReplyForm } from './TicketReplyForm'
 import { TicketStatusEditor } from './TicketStatusEditor'
 import { TicketActionItems } from './TicketActionItems'
@@ -21,29 +29,14 @@ export const metadata = { title: 'Ticket' }
 // immediately (see the note in ../../arc/[id]/page.tsx).
 export const dynamic = 'force-dynamic'
 
-const STATUS_VARIANT: Record<TicketStatus, 'success' | 'warning' | 'outline'> = {
-  open: 'outline',
-  in_progress: 'warning',
-  closed: 'success',
+const ROLE_LABEL: Record<string, string> = {
+  resident: 'Resident',
+  board: 'Board',
+  admin: 'Admin',
 }
 
-const PRIORITY_VARIANT: Record<TicketPriority, 'destructive' | 'warning' | 'outline' | 'default'> = {
-  urgent: 'destructive',
-  high: 'warning',
-  normal: 'outline',
-  low: 'default',
-}
-
-const CATEGORY_LABEL: Record<string, string> = {
-  maintenance: 'Maintenance',
-  noise: 'Noise',
-  parking: 'Parking',
-  common_area: 'Common area',
-  billing: 'Billing',
-  access: 'Access',
-  safety: 'Safety',
-  general: 'General',
-  other: 'Other',
+function when(iso: string) {
+  return <time dateTime={iso}>{format(new Date(iso), 'MMM d, yyyy · h:mm a')}</time>
 }
 
 export default async function BoardTicketDetailPage({
@@ -59,143 +52,137 @@ export default async function BoardTicketDetailPage({
   ])
   if (!ticket) notFound()
 
+  const submitter = ticket.submitter_name ?? ticket.submitter_email ?? 'Unknown resident'
+
+  // The opening request is the first entry; replies and notes follow.
+  const timeline: TimelineItem[] = [
+    {
+      id: 'opened',
+      title: submitter,
+      meta: 'opened this ticket',
+      time: when(ticket.created_at),
+      icon: <User aria-hidden />,
+      tone: 'brand',
+      body: <p className="whitespace-pre-wrap text-foreground">{ticket.description}</p>,
+    },
+    ...ticket.messages.map<TimelineItem>((m) => ({
+      id: m.id,
+      title: m.author_name ?? 'Unknown',
+      meta: m.internal
+        ? `${ROLE_LABEL[m.author_role] ?? m.author_role} · internal note`
+        : ROLE_LABEL[m.author_role] ?? m.author_role,
+      time: when(m.created_at),
+      icon: m.internal ? <Lock aria-hidden /> : <MessageSquare aria-hidden />,
+      tone: m.internal ? 'warning' : m.author_role === 'resident' ? 'neutral' : 'info',
+      highlight: m.internal,
+      body: <p className="whitespace-pre-wrap text-foreground">{m.body}</p>,
+    })),
+  ]
+  if (ticket.closed_at) {
+    timeline.push({
+      id: 'closed',
+      title: 'Ticket closed',
+      time: when(ticket.closed_at),
+      tone: 'success',
+    })
+  }
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <Link
-        href="/tickets"
-        className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Tickets
-      </Link>
+    <Page
+      width="wide"
+      linkAs={Link}
+      breadcrumbs={[{ label: 'Tickets', href: '/tickets' }, { label: ticket.subject }]}
+      title={ticket.subject}
+      meta={
+        <>
+          <StatusBadge status={ticket.status} tones={TICKET_STATUS.tones} labels={TICKET_STATUS.labels} />
+          <StatusBadge status={ticket.priority} tones={TICKET_PRIORITY.tones} labels={TICKET_PRIORITY.labels} />
+        </>
+      }
+      description={
+        <>
+          {submitter}
+          {ticket.unit_number ? ` · Unit ${ticket.unit_number}` : ''} · opened{' '}
+          {format(new Date(ticket.created_at), 'MMM d, yyyy')}
+        </>
+      }
+      actions={<TicketActions ticketId={ticket.id} subject={ticket.subject} />}
+    >
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Conversation</CardTitle>
+              <CardDescription>
+                {ticket.messages.length === 0
+                  ? 'No replies yet — the resident is waiting on the board.'
+                  : `${ticket.messages.length} ${ticket.messages.length === 1 ? 'reply' : 'replies'}. Internal notes are highlighted and never shown to the resident.`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <Timeline items={timeline} label="Ticket conversation" />
+              <div className="border-t border-border pt-5">
+                <TicketReplyForm ticketId={ticket.id} />
+              </div>
+            </CardContent>
+          </Card>
 
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold">{ticket.subject}</h1>
-          <p className="text-sm text-muted">
-            {ticket.submitter_name ?? ticket.submitter_email ?? 'Unknown'}
-            {ticket.unit_number ? ` · Unit ${ticket.unit_number}` : ''}
-            {' · '}
-            {format(new Date(ticket.created_at), 'PPp')}
-          </p>
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2" className="flex items-center gap-2">
+                <Paperclip className="size-4 text-muted" aria-hidden />
+                Documents
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SubmissionAttachments
+                threadType="ticket"
+                parentId={ticket.id}
+                attachments={attachments}
+                canDelete
+              />
+            </CardContent>
+          </Card>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={PRIORITY_VARIANT[ticket.priority]} size="sm">
-            {ticket.priority}
-          </Badge>
-          <Badge variant={STATUS_VARIANT[ticket.status]} size="sm">
-            {ticket.status.replace('_', ' ')}
-          </Badge>
-          <TicketActions ticketId={ticket.id} />
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <KeyValueList className="sm:grid-cols-2 lg:grid-cols-1">
+                <KeyValue label="Category" value={TICKET_CATEGORY[ticket.category] ?? ticket.category} />
+                <KeyValue label="Unit" value={ticket.unit_number} />
+                <KeyValue label="Submitted by" value={submitter} />
+                <KeyValue
+                  label="Closed"
+                  value={ticket.closed_at ? format(new Date(ticket.closed_at), 'MMM d, yyyy') : null}
+                />
+              </KeyValueList>
+              <div className="border-t border-border pt-5">
+                <TicketStatusEditor
+                  ticketId={ticket.id}
+                  currentStatus={ticket.status}
+                  currentPriority={ticket.priority}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2" className="flex items-center gap-2">
+                <ClipboardList className="size-4 text-muted" aria-hidden />
+                Action items
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TicketActionItems ticketId={ticket.id} items={actionItems} />
+            </CardContent>
+          </Card>
         </div>
       </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Description</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm whitespace-pre-wrap">{ticket.description}</p>
-            <p className="mt-2 text-xs text-muted">
-              Category: {CATEGORY_LABEL[ticket.category] ?? ticket.category}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Manage</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TicketStatusEditor ticketId={ticket.id} currentStatus={ticket.status} currentPriority={ticket.priority} />
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <MessageSquare className="h-4 w-4" />
-            Conversation
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {ticket.messages.length === 0 ? (
-            <p className="text-sm text-muted">No messages yet.</p>
-          ) : (
-            <ul className="space-y-4">
-              {ticket.messages.map((m) => (
-                <li
-                  key={m.id}
-                  className={`space-y-1 rounded-md p-3 ${
-                    m.internal
-                      ? 'border border-dashed border-warning/40 bg-warning/5'
-                      : 'bg-foreground/5'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">
-                      {m.author_name ?? 'Unknown'}
-                    </span>
-                    <Badge
-                      variant={m.author_role === 'resident' ? 'outline' : 'default'}
-                      size="sm"
-                    >
-                      {m.author_role}
-                    </Badge>
-                    {m.internal ? (
-                      <Badge variant="warning" size="sm">internal note</Badge>
-                    ) : null}
-                    <span className="text-xs text-muted">
-                      {format(new Date(m.created_at), 'PPp')}
-                    </span>
-                  </div>
-                  <p className="text-sm whitespace-pre-wrap">{m.body}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Reply</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TicketReplyForm ticketId={ticket.id} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Paperclip className="h-4 w-4" />
-            Documents
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <SubmissionAttachments
-            threadType="ticket"
-            parentId={ticket.id}
-            attachments={attachments}
-            canDelete
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <ClipboardList className="h-4 w-4" />
-            Action Items
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TicketActionItems ticketId={ticket.id} items={actionItems} />
-        </CardContent>
-      </Card>
-    </div>
+    </Page>
   )
 }

@@ -8,8 +8,18 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { loadOrFail } from '@/lib/load-or-fail'
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
-type ActionErr = { ok: false; error: string }
+type ActionErr = { ok: false; error: string; fieldErrors?: Record<string, string> }
 export type ActionResult<T = void> = ActionOk<T> | ActionErr
+
+/** First message per top-level field, for per-field form errors. */
+function fieldErrorsOf(issues: z.ZodIssue[]): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const issue of issues) {
+    const key = String(issue.path[0] ?? '')
+    if (key && !out[key]) out[key] = issue.message
+  }
+  return out
+}
 
 export type TicketStatus = 'open' | 'in_progress' | 'closed'
 export type TicketPriority = 'low' | 'normal' | 'high' | 'urgent'
@@ -75,7 +85,14 @@ export interface TicketActionItem {
  * this page — the header states them as facts about the association.
  */
 export type TicketBoardPage =
-  | { ok: true; rows: TicketBoardRow[]; total: number; openCount: number }
+  | {
+      ok: true
+      rows: TicketBoardRow[]
+      total: number
+      openCount: number
+      /** Per-status totals across the association (for the filter chips). */
+      statusCounts: Record<TicketStatus, number>
+    }
   | { ok: false }
 
 export async function listTicketsForBoard(opts: {
@@ -96,17 +113,28 @@ export async function listTicketsForBoard(opts: {
     .order('created_at', { ascending: false })
   if (opts.status) query = query.eq('status', opts.status)
 
-  const openQuery = supabase
-    .from('tickets' as never)
-    .select('id', { count: 'exact', head: true })
-    .is('deleted_at', null)
-    .in('status', ['open', 'in_progress'])
+  const countFor = (status: TicketStatus) =>
+    loadOrFail(
+      `${status} ticket count`,
+      supabase
+        .from('tickets' as never)
+        .select('id', { count: 'exact', head: true })
+        .is('deleted_at', null)
+        .eq('status', status),
+    )
 
-  const [list, open] = await Promise.all([
+  const [list, open, inProgress, closed] = await Promise.all([
     loadOrFail('tickets', query.range(from, from + opts.pageSize - 1)),
-    loadOrFail('open ticket count', openQuery),
+    countFor('open'),
+    countFor('in_progress'),
+    countFor('closed'),
   ])
-  if (!list.ok || !open.ok) return { ok: false }
+  if (!list.ok || !open.ok || !inProgress.ok || !closed.ok) return { ok: false }
+  const statusCounts: Record<TicketStatus, number> = {
+    open: open.count ?? 0,
+    in_progress: inProgress.count ?? 0,
+    closed: closed.count ?? 0,
+  }
 
   const rows = (list.data ?? []) as unknown as Array<{
     id: string
@@ -124,7 +152,8 @@ export async function listTicketsForBoard(opts: {
   return {
     ok: true,
     total: list.count ?? rows.length,
-    openCount: open.count ?? 0,
+    openCount: statusCounts.open + statusCounts.in_progress,
+    statusCounts,
     rows: rows.map((r) => ({
       id: r.id,
       unit_id: r.unit_id,
@@ -216,7 +245,11 @@ export async function respondToTicket(input: {
   })
   const parsed = schema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'Invalid input.',
+      fieldErrors: fieldErrorsOf(parsed.error.issues),
+    }
   }
 
   await requireBoardOrAdmin()
@@ -312,7 +345,11 @@ export async function createActionItemFromTicket(input: {
   })
   const parsed = schema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'Invalid input.',
+      fieldErrors: fieldErrorsOf(parsed.error.issues),
+    }
   }
 
   await requireBoardOrAdmin()
@@ -354,11 +391,14 @@ export async function listTicketActionItems(
 ): Promise<TicketActionItem[]> {
   await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('meeting_action_items' as never)
     .select('id, title, status, priority, assignee_name, due_date, created_at')
     .eq('ticket_id' as never, ticketId)
     .order('created_at' as never, { ascending: true })
+  // Throw to the route error boundary rather than render "No action items"
+  // for a failed read (UX audit finding 1).
+  if (error) throw new Error(`Failed to load ticket action items (${error.code ?? 'no code'})`)
   return (data ?? []) as unknown as TicketActionItem[]
 }
 

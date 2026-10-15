@@ -2,8 +2,20 @@
 
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
-import { Loader2, Send } from 'lucide-react'
-import { Alert, Button, Input, Select } from '@homeowner-portal/ui'
+import { ArrowLeft, ArrowRight, CalendarClock, Send } from 'lucide-react'
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Field,
+  Fieldset,
+  Input,
+  KeyValue,
+  KeyValueList,
+  Select,
+  Textarea,
+  WizardStepper,
+} from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { sendCommunication } from '@/lib/communications/send'
 import {
@@ -15,6 +27,7 @@ import {
 import { buildMergeBag, type AnswerMap } from '@/lib/community-templates/merge-bag'
 import type { TemplateQuestion } from '@/lib/community-templates/types'
 import {
+  AUDIENCE_LABELS,
   AudienceStep,
   type AudienceCounts,
   type AudienceKind,
@@ -72,6 +85,21 @@ const CATEGORY_LABEL: Record<(typeof CATEGORIES)[number], string> = {
 
 const CHANNELS = ['email', 'sms', 'portal'] as const
 
+const CHANNEL_COPY: Record<(typeof CHANNELS)[number], { label: string; hint: string }> = {
+  email: { label: 'Email', hint: 'To every recipient with an email on file' },
+  sms: { label: 'SMS', hint: 'Texts are split at 279 characters' },
+  portal: { label: 'Portal', hint: "Shows in the resident's in-app inbox" },
+}
+
+const STEPS = [
+  { id: 'audience', label: 'Topic & audience' },
+  { id: 'message', label: 'Message' },
+  { id: 'delivery', label: 'Review & send' },
+] as const
+
+/** Field-level errors, keyed by field (questions as `q:<id>`). */
+type FieldErrors = Record<string, string>
+
 export function NewCommunicationWizard({
   templates,
   audienceCounts,
@@ -93,6 +121,8 @@ export function NewCommunicationWizard({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  const [step, setStep] = useState(0)
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
   // Specific-property audience state.
   // selectedPropertyId — single property at a time keeps the UI simple.
@@ -293,8 +323,69 @@ export function NewCommunicationWizard({
     )
   }
 
+  /** Per-step checks, shown beside the field they concern. */
+  function errorsForStep(i: number): FieldErrors {
+    const errs: FieldErrors = {}
+    if (i === 0) {
+      if (audience === 'specific_property') {
+        if (!selectedPropertyId) errs.audience = 'Pick a property first.'
+        else if (checkedResidentIds.size === 0) errs.audience = 'Pick at least one resident at that property.'
+      } else if (audience === 'board' && checkedBoardIds.size === 0) {
+        errs.audience = 'Pick at least one board member.'
+      } else if (
+        audience === 'manual_emails' &&
+        manualContacts.length === 0 &&
+        !draftEmail.trim() &&
+        !draftPhone.trim()
+      ) {
+        errs.audience = 'Add at least one contact.'
+      }
+    }
+    if (i === 1) {
+      if (!subject.trim()) errs.subject = 'Write a subject.'
+      if (!bodyHtml.trim()) errs.body = 'Write the message body.'
+      for (const q of effectiveQuestions) {
+        if (!q.required) continue
+        const v = answers[q.id]
+        const blank = Array.isArray(v) ? v.length === 0 : String(v ?? '').trim() === ''
+        if (blank) errs[`q:${q.id}`] = 'Required — this answer fills a merge field in the message.'
+      }
+    }
+    if (i === 2 && channels.length === 0) errs.channels = 'Pick at least one channel.'
+    return errs
+  }
+
+  /** Validate step `i`; on failure show its errors and return false. */
+  function checkStep(i: number): boolean {
+    const errs = errorsForStep(i)
+    setFieldErrors(errs)
+    return Object.keys(errs).length === 0
+  }
+
+  function goTo(next: number) {
+    setError(null)
+    if (next > step && !checkStep(step)) return
+    if (next < step) setFieldErrors({})
+    setStep(next)
+    // Bring the new step's top into view (long steps on phones).
+    requestAnimationFrame(() => document.getElementById('wizard-top')?.scrollIntoView({ block: 'nearest' }))
+  }
+
+  const lastStep = STEPS.length - 1
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    // Enter inside an earlier step means "continue", never "send".
+    if (step < lastStep) {
+      goTo(step + 1)
+      return
+    }
+    for (let i = 0; i <= lastStep; i++) {
+      if (!checkStep(i)) {
+        setStep(i)
+        return
+      }
+    }
     setError(null)
     setSuccess(null)
     if (!subject.trim() || !bodyHtml.trim() || channels.length === 0) {
@@ -428,220 +519,265 @@ export function NewCommunicationWizard({
     })
   }
 
+  const questionErrors = Object.fromEntries(
+    Object.entries(fieldErrors)
+      .filter(([k]) => k.startsWith('q:'))
+      .map(([k, v]) => [k.slice(2), v]),
+  )
+  const audienceCount =
+    audience === 'specific_property'
+      ? checkedResidentIds.size
+      : audience === 'board'
+        ? checkedBoardIds.size
+        : audience === 'manual_emails'
+          ? manualContacts.length
+          : audienceCounts[audience]
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Step 1 — topic */}
-      <Section number={1} title="Topic" hint="What kind of message is this?">
-        <Select
-          value={category}
-          onValueChange={(v) => {
-            setCategory(v as (typeof CATEGORIES)[number])
-            setTemplateId('')
-          }}
-          disabled={pending}
-          placeholder="Choose a topic"
-        >
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {CATEGORY_LABEL[c]}
-            </option>
-          ))}
-        </Select>
-      </Section>
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col">
+      <div id="wizard-top" className="scroll-mt-24 border-b border-border p-5 sm:px-6">
+        <WizardStepper steps={STEPS.map((s) => ({ id: s.id, label: s.label }))} currentIndex={step} vertical={false} />
+      </div>
 
-      {/* Step 2 — audience */}
-      <Section number={2} title="Audience" hint="Who receives this?">
-        <AudienceStep
-          pending={pending}
-          audience={audience}
-          setAudience={setAudience}
-          audienceCounts={audienceCounts}
-          properties={properties}
-          manualContacts={manualContacts}
-          draftName={draftName}
-          setDraftName={setDraftName}
-          draftEmail={draftEmail}
-          setDraftEmail={setDraftEmail}
-          draftPhone={draftPhone}
-          setDraftPhone={setDraftPhone}
-          addManualContact={addManualContact}
-          setError={setError}
-          removeContact={removeContact}
-          selectedPropertyId={selectedPropertyId}
-          setSelectedPropertyId={setSelectedPropertyId}
-          residents={residents}
-          residentsLoading={residentsLoading}
-          checkedResidentIds={checkedResidentIds}
-          toggleResident={toggleResident}
-          selectAllResidents={selectAllResidents}
-          selectByRole={selectByRole}
-          clearResidents={clearResidents}
-          boardMembers={boardMembers}
-          boardLoading={boardLoading}
-          checkedBoardIds={checkedBoardIds}
-          toggleBoardMember={toggleBoardMember}
-          selectAllBoard={selectAllBoard}
-          clearBoard={clearBoard}
-        />
-      </Section>
+      <div className="space-y-6 p-5 sm:p-6">
+        {/* Step 1 — topic + audience */}
+        <div hidden={step !== 0} className="space-y-6">
+          <Field label="Topic" hint="Filters the templates on the next step and files the message.">
+            <Select
+              value={category}
+              onValueChange={(v) => {
+                setCategory(v as (typeof CATEGORIES)[number])
+                setTemplateId('')
+              }}
+              disabled={pending}
+              placeholder="Choose a topic"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {CATEGORY_LABEL[c]}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-      {/* Step 3 — template */}
-      <Section number={3} title="Template" hint="Optional — pre-fills subject + body.">
-        {visibleTemplates.length === 0 ? (
-          <p className="text-xs italic text-muted">
-            No templates in this category yet. Skip to step 4 and write a custom
-            message.
-          </p>
-        ) : (
-          <Select
-            value={templateId}
-            onValueChange={pickTemplate}
-            disabled={pending}
-            placeholder="— Custom (no template) —"
+          <Fieldset legend="Audience" hint="Counts are recipients right now." error={fieldErrors.audience}>
+            <AudienceStep
+              pending={pending}
+              audience={audience}
+              setAudience={(k) => {
+                setAudience(k)
+                setFieldErrors((e) => ({ ...e, audience: '' }))
+              }}
+              audienceCounts={audienceCounts}
+              properties={properties}
+              manualContacts={manualContacts}
+              draftName={draftName}
+              setDraftName={setDraftName}
+              draftEmail={draftEmail}
+              setDraftEmail={setDraftEmail}
+              draftPhone={draftPhone}
+              setDraftPhone={setDraftPhone}
+              addManualContact={() => {
+                const r = addManualContact()
+                if (r.ok) setFieldErrors((e) => ({ ...e, audience: '' }))
+                return r
+              }}
+              setError={(m) => setFieldErrors((e) => ({ ...e, audience: m }))}
+              removeContact={removeContact}
+              selectedPropertyId={selectedPropertyId}
+              setSelectedPropertyId={setSelectedPropertyId}
+              residents={residents}
+              residentsLoading={residentsLoading}
+              checkedResidentIds={checkedResidentIds}
+              toggleResident={toggleResident}
+              selectAllResidents={selectAllResidents}
+              selectByRole={selectByRole}
+              clearResidents={clearResidents}
+              boardMembers={boardMembers}
+              boardLoading={boardLoading}
+              checkedBoardIds={checkedBoardIds}
+              toggleBoardMember={toggleBoardMember}
+              selectAllBoard={selectAllBoard}
+              clearBoard={clearBoard}
+            />
+          </Fieldset>
+        </div>
+
+        {/* Step 2 — template, declared questions, subject + body */}
+        <div hidden={step !== 1} className="space-y-6">
+          <Field
+            label="Template"
+            optional
+            hint={
+              visibleTemplates.length === 0
+                ? `No ${CATEGORY_LABEL[category]} templates yet — write the message yourself below.`
+                : 'Pre-fills the subject and body. You can edit both.'
+            }
           >
-            <option value="">— Custom (no template) —</option>
-            {visibleTemplates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </Select>
-        )}
-      </Section>
+            <Select
+              value={templateId}
+              onValueChange={pickTemplate}
+              disabled={pending || visibleTemplates.length === 0}
+              placeholder="Custom message (no template)"
+            >
+              <option value="">Custom message (no template)</option>
+              {visibleTemplates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-      {/* Step 4 — declared questions, only shown when the chosen template
-          has any. Answers become the merge bag for its {{ fields }} —
-          see handleSubmit, which builds and substitutes it before send. */}
-      {effectiveQuestions.length > 0 ? (
-        <Section
-          number={4}
-          title="Details"
-          hint="Answers fill in this template's {{ merge fields }}."
-        >
-          <QuestionStep
-            questions={effectiveQuestions}
-            answers={answers}
-            onChange={(id, v) => setAnswers((a) => ({ ...a, [id]: v }))}
-          />
-        </Section>
-      ) : null}
+          {/* Declared questions, only when the chosen template has any.
+              Answers become the merge bag for its {{ fields }}. */}
+          {effectiveQuestions.length > 0 ? (
+            <section className="space-y-4 rounded-lg border border-border bg-subtle/50 p-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Details</h3>
+                <p className="text-xs text-muted">Your answers fill in this template’s merge fields.</p>
+              </div>
+              <QuestionStep
+                questions={effectiveQuestions}
+                answers={answers}
+                errors={questionErrors}
+                onChange={(id, v) => setAnswers((a) => ({ ...a, [id]: v }))}
+              />
+            </section>
+          ) : null}
 
-      {/* Step 5 — subject + body */}
-      <Section number={5} title="Message" hint="Edit before sending. {{ variables }} render per recipient.">
-        <label className="block text-sm">
-          <span className="text-muted">Subject</span>
-          <Input
-            type="text"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            placeholder="e.g. Welcome to Madison Park, {{ recipient_name }}"
+          <Field
+            label="Subject"
             required
-            disabled={pending}
-            className="mt-1"
-          />
-        </label>
-        {selectedTemplate?.topicSlug ? (
-          <SectionToggles
-            topicSlug={selectedTemplate.topicSlug}
-            answeredKey={answeredKey}
-            disabled={pending}
-            onRendered={handleSectionsRendered}
-          />
-        ) : null}
-
-        <div className="mt-3">
-          <div className="mb-1 flex items-center justify-between gap-2">
-            <label htmlFor="comm-body" className="text-sm text-muted">
-              Body (HTML)
-            </label>
-            <AiRewriteButton
-              value={bodyHtml}
-              onChange={setBodyHtml}
-              context={`HOA communication, category: ${CATEGORY_LABEL[category]}`}
+            error={fieldErrors.subject}
+            hint="{{ variables }} render per recipient."
+          >
+            <Input
+              type="text"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="e.g. Welcome to the neighborhood, {{ recipient_name }}"
               disabled={pending}
             />
-          </div>
-          <textarea
-            id="comm-body"
-            value={bodyHtml}
-            onChange={(e) => setBodyHtml(e.target.value)}
-            placeholder="<p>Hi {{ recipient_name }}, ...</p>"
-            required
-            disabled={pending}
-            rows={10}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-xs text-foreground"
-          />
-        </div>
-      </Section>
+          </Field>
 
-      {/* Step 6 — channels + schedule */}
-      <Section number={6} title="Channels & schedule" hint="Pick where this lands. Portal messages show in the resident's in-app inbox.">
-        <div className="flex flex-wrap gap-4">
-          {CHANNELS.map((c) => (
-            <label key={c} className="flex items-center gap-2 text-sm text-foreground">
-              <input
-                type="checkbox"
-                checked={channels.includes(c)}
-                onChange={() => toggleChannel(c)}
+          {selectedTemplate?.topicSlug ? (
+            <SectionToggles
+              topicSlug={selectedTemplate.topicSlug}
+              answeredKey={answeredKey}
+              disabled={pending}
+              onRendered={handleSectionsRendered}
+            />
+          ) : null}
+
+          <Field
+            label="Body"
+            required
+            error={fieldErrors.body}
+            hint="HTML. {{ variables }} render per recipient."
+            labelAside={
+              <AiRewriteButton
+                value={bodyHtml}
+                onChange={setBodyHtml}
+                context={`HOA communication, category: ${CATEGORY_LABEL[category]}`}
                 disabled={pending}
               />
-              {c}
-            </label>
-          ))}
+            }
+          >
+            <Textarea
+              value={bodyHtml}
+              onChange={(e) => setBodyHtml(e.target.value)}
+              placeholder="<p>Hi {{ recipient_name }}, ...</p>"
+              disabled={pending}
+              rows={12}
+              className="font-mono text-xs sm:text-xs"
+            />
+          </Field>
         </div>
-        <label className="mt-3 block text-sm">
-          <span className="text-muted">Send at (leave blank to send now)</span>
-          <Input
-            type="datetime-local"
-            value={scheduledFor}
-            onChange={(e) => setScheduledFor(e.target.value)}
-            disabled={pending}
-            className="mt-1"
-          />
-        </label>
-      </Section>
 
-      {error ? <Alert variant="error">{error}</Alert> : null}
-      {success ? <Alert variant="success">{success}</Alert> : null}
+        {/* Step 3 — channels, schedule, review */}
+        <div hidden={step !== 2} className="space-y-6">
+          <Fieldset legend="Channels" error={fieldErrors.channels}>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {CHANNELS.map((c) => (
+                <Checkbox
+                  key={c}
+                  checked={channels.includes(c)}
+                  onChange={() => {
+                    toggleChannel(c)
+                    setFieldErrors((e) => ({ ...e, channels: '' }))
+                  }}
+                  disabled={pending}
+                  label={CHANNEL_COPY[c].label}
+                  description={CHANNEL_COPY[c].hint}
+                />
+              ))}
+            </div>
+          </Fieldset>
 
-      <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-        <Button type="submit" disabled={pending}>
-          {pending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
-          {scheduledFor ? 'Schedule' : 'Send now'}
-        </Button>
+          <Field label="Send at" optional hint="Leave blank to send now. Uses your local time.">
+            <Input
+              type="datetime-local"
+              value={scheduledFor}
+              onChange={(e) => setScheduledFor(e.target.value)}
+              disabled={pending}
+              className="sm:max-w-xs"
+            />
+          </Field>
+
+          <section className="rounded-lg border border-border bg-subtle/50 p-4">
+            <h3 className="mb-3 text-sm font-semibold text-foreground">Review</h3>
+            <KeyValueList>
+              <KeyValue label="Topic" value={CATEGORY_LABEL[category]} />
+              <KeyValue
+                label="Audience"
+                value={
+                  <span>
+                    {AUDIENCE_LABELS[audience]} <span className="num text-muted">({audienceCount})</span>
+                  </span>
+                }
+              />
+              <KeyValue label="Subject" value={subject.trim() || null} />
+              <KeyValue label="Template" value={selectedTemplate?.name ?? 'Custom message'} />
+              <KeyValue
+                label="Channels"
+                value={channels.map((c) => CHANNEL_COPY[c as (typeof CHANNELS)[number]]?.label ?? c).join(', ') || null}
+              />
+              <KeyValue
+                label="When"
+                value={scheduledFor ? new Date(scheduledFor).toLocaleString() : 'Immediately'}
+              />
+            </KeyValueList>
+          </section>
+        </div>
+
+        {error ? <Alert variant="error">{error}</Alert> : null}
+        {success ? <Alert variant="success">{success}</Alert> : null}
+      </div>
+
+      <div className="flex items-center justify-between gap-2 border-t border-border px-5 py-3 sm:px-6">
+        {step > 0 ? (
+          <Button type="button" variant="ghost" icon={<ArrowLeft aria-hidden />} onClick={() => goTo(step - 1)} disabled={pending}>
+            Back
+          </Button>
+        ) : (
+          <span />
+        )}
+        {step < lastStep ? (
+          <Button type="submit" iconRight={<ArrowRight aria-hidden />}>
+            Continue
+          </Button>
+        ) : (
+          <Button
+            type="submit"
+            loading={pending}
+            icon={scheduledFor ? <CalendarClock aria-hidden /> : <Send aria-hidden />}
+          >
+            {scheduledFor ? 'Schedule' : 'Send now'}
+          </Button>
+        )}
       </div>
     </form>
-  )
-}
-
-function Section({
-  number,
-  title,
-  hint,
-  children,
-}: {
-  number: number
-  title: string
-  hint?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="space-y-2">
-      <div>
-        <p className="text-sm font-semibold text-foreground">
-          <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-xs text-primary">
-            {number}
-          </span>
-          {title}
-        </p>
-        {hint ? <p className="ml-7 text-xs text-muted">{hint}</p> : null}
-      </div>
-      <div className="ml-7">{children}</div>
-    </div>
   )
 }
 

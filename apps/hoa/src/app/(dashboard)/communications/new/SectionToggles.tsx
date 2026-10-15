@@ -93,7 +93,7 @@ export function SectionToggles({
   }
 
   return (
-    <div className="mt-3 rounded-md border border-border p-3">
+    <div className="rounded-lg border border-border bg-subtle/50 p-3">
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <span className="text-sm font-medium text-foreground">Sections</span>
         <span className="text-xs text-muted">
@@ -108,13 +108,13 @@ export function SectionToggles({
           const on = !manuallyOff && !waiting
           return (
             <li key={s.index}>
-              <label className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 hover:bg-muted/10">
+              <label className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 hover:bg-subtle">
                 <input
                   type="checkbox"
                   checked={!manuallyOff}
                   onChange={() => toggle(s.index)}
                   disabled={disabled || pending}
-                  className="mt-1 h-4 w-4 shrink-0"
+                  className="mt-1 size-4 shrink-0 accent-primary"
                 />
                 <span className={`min-w-0 text-sm ${on ? 'text-foreground' : 'text-muted line-through'}`}>
                   <span className="font-medium">{s.label}</span>
@@ -122,7 +122,7 @@ export function SectionToggles({
                       waiting on an answer" — otherwise a section vanishing
                       after an unrelated edit looks like a bug. */}
                   {waiting && !manuallyOff ? (
-                    <span className="ml-2 rounded bg-muted/20 px-1.5 py-0.5 text-[11px] font-normal text-muted no-underline">
+                    <span className="ml-2 inline-block rounded-full border border-warning/30 bg-warning-subtle px-1.5 py-0.5 text-2xs font-medium text-warning no-underline">
                       needs an answer
                     </span>
                   ) : null}

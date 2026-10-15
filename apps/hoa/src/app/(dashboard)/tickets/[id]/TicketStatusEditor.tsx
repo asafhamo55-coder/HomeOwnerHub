@@ -2,9 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Select } from '@homeowner-portal/ui'
+import { Field, Select, useToast } from '@homeowner-portal/ui'
 import { updateTicketStatus, updateTicketPriority, type TicketStatus, type TicketPriority } from '@/lib/tickets'
+import { TICKET_PRIORITY, TICKET_STATUS } from '@/lib/status/community'
 
+/** Status + priority. Each change saves immediately (no submit button). */
 export function TicketStatusEditor({
   ticketId,
   currentStatus,
@@ -15,51 +17,51 @@ export function TicketStatusEditor({
   currentPriority: TicketPriority
 }) {
   const router = useRouter()
+  const toast = useToast()
   const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ status?: string; priority?: string }>({})
 
   function handleStatusChange(status: string) {
-    setError(null)
+    setError({})
     startTransition(async () => {
       const result = await updateTicketStatus(ticketId, status as TicketStatus)
-      if (!result.ok) setError(result.error)
-      else router.refresh()
+      if (!result.ok) setError({ status: result.error })
+      else {
+        toast({ tone: 'success', message: `Status set to ${TICKET_STATUS.labels[status] ?? status}.` })
+        router.refresh()
+      }
     })
   }
 
   function handlePriorityChange(priority: string) {
-    setError(null)
+    setError({})
     startTransition(async () => {
       const result = await updateTicketPriority(ticketId, priority as TicketPriority)
-      if (!result.ok) setError(result.error)
-      else router.refresh()
+      if (!result.ok) setError({ priority: result.error })
+      else {
+        toast({ tone: 'success', message: `Priority set to ${TICKET_PRIORITY.labels[priority] ?? priority}.` })
+        router.refresh()
+      }
     })
   }
 
   return (
     <div className="space-y-4">
-      <label className="block space-y-1">
-        <span className="text-sm font-medium">Status</span>
+      <Field label="Status" error={error.status} hint="Closing records who closed it and when.">
         <Select value={currentStatus} onValueChange={handleStatusChange} disabled={isPending}>
           <option value="open">Open</option>
-          <option value="in_progress">In Progress</option>
+          <option value="in_progress">In progress</option>
           <option value="closed">Closed</option>
         </Select>
-      </label>
-
-      <label className="block space-y-1">
-        <span className="text-sm font-medium">Priority</span>
+      </Field>
+      <Field label="Priority" error={error.priority}>
         <Select value={currentPriority} onValueChange={handlePriorityChange} disabled={isPending}>
           <option value="low">Low</option>
           <option value="normal">Normal</option>
           <option value="high">High</option>
           <option value="urgent">Urgent</option>
         </Select>
-      </label>
-
-      {error ? (
-        <p className="text-sm text-destructive">{error}</p>
-      ) : null}
+      </Field>
     </div>
   )
 }

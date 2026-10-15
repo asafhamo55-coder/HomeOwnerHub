@@ -1,11 +1,12 @@
 import Link from 'next/link'
-import { ChevronLeft, MessageSquare } from 'lucide-react'
-import { Card, EmptyState } from '@homeowner-portal/ui'
+import { MessageSquare } from 'lucide-react'
+import { Alert, Button, Card, EmptyState, LoadFailed, Page } from '@homeowner-portal/ui'
 import { createAdminClient } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { listTemplates } from '@/lib/communications/queries'
 import { countAudiences } from '@/lib/communications/audience'
+import { loadOrFail } from '@/lib/load-or-fail'
 import type { TemplateQuestion } from '@/lib/community-templates/types'
 import { NewCommunicationWizard } from './NewCommunicationWizard'
 
@@ -22,122 +23,130 @@ function toTemplateQuestions(questions: unknown): readonly TemplateQuestion[] {
   return Array.isArray(questions) ? (questions as unknown as TemplateQuestion[]) : []
 }
 
+const BREADCRUMBS = [{ label: 'Communications', href: '/communications' }, { label: 'New message' }]
+
 export default async function NewCommunicationPage() {
   const assoc = await getPrimaryAssociation()
   if (!assoc) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <Page width="narrow" title="New message" breadcrumbs={BREADCRUMBS} linkAs={Link}>
         <EmptyState
-          icon={<MessageSquare className="h-10 w-10" aria-hidden />}
+          icon={<MessageSquare aria-hidden />}
           title="No HOA association configured"
           description="Set up an association before sending communications."
+          action={
+            <Button asChild>
+              <Link href="/settings">Open settings</Link>
+            </Button>
+          }
         />
-      </div>
+      </Page>
     )
   }
 
   const supabase = await getSupabaseServerClient()
-  const { data: assocRow } = await supabase
-    .from('associations')
-    .select('organization_id')
-    .eq('id', assoc.id)
-    .single()
-  if (!assocRow) {
+  const assocRes = await loadOrFail(
+    'association',
+    supabase.from('associations').select('organization_id').eq('id', assoc.id).single(),
+  )
+  if (!assocRes.ok || !assocRes.data) {
     return (
-      <div className="mx-auto max-w-3xl">
-        <EmptyState
-          icon={<MessageSquare className="h-10 w-10" aria-hidden />}
-          title="Association not found"
-          description="We couldn't load your association record."
+      <Page width="narrow" title="New message" breadcrumbs={BREADCRUMBS} linkAs={Link}>
+        <LoadFailed what="your association record" />
+      </Page>
+    )
+  }
+  const orgId = (assocRes.data as { organization_id: string }).organization_id
+
+  // Property list for the "Specific property" audience option. Cheap
+  // top-level query — residents are lazy-loaded per property via the
+  // listPropertyResidents server action. No hard cap: a silent cap hid the
+  // 501st property from the picker. The count makes any server-side row
+  // limit visible instead.
+  const [templates, propertyRes, audienceCounts, boardRes] = await Promise.all([
+    listTemplates(orgId, assoc.id),
+    loadOrFail(
+      'properties',
+      supabase
+        .from('hoa_properties')
+        .select('id, address, unit_number', { count: 'exact' })
+        .eq('org_id', orgId)
+        .is('deleted_at', null)
+        .order('address'),
+    ),
+    // Pre-compute audience counts so the wizard can show "All owners (82)"
+    // without a roundtrip per selection. countAudiences lives next to
+    // resolveAudience so the counts and the send cannot drift.
+    countAudiences(supabase, assoc.id),
+    // Board headcount is org-scoped rather than association-scoped, and
+    // needs the service-role client to see past org_members RLS.
+    loadOrFail(
+      'board member count',
+      createAdminClient()
+        .from('org_members')
+        .select('user_id', { count: 'exact', head: true })
+        .eq('org_id', orgId)
+        .eq('role', 'board'),
+    ),
+  ])
+
+  if (!propertyRes.ok || !boardRes.ok) {
+    return (
+      <Page width="narrow" title="New message" breadcrumbs={BREADCRUMBS} linkAs={Link}>
+        <LoadFailed
+          what={!propertyRes.ok ? 'your properties' : 'the board roster'}
+          hint="The audience counts depend on it, so the composer is not shown."
         />
-      </div>
+      </Page>
     )
   }
 
-  const templates = await listTemplates(assocRow.organization_id, assoc.id)
-
-  // Property list for the "Specific property" audience option. Cheap
-  // top-level query — we don't load residents here; that's lazy-loaded
-  // per-property via the listPropertyResidents server action.
-  const { data: propertyRows } = await supabase
-    .from('hoa_properties')
-    .select('id, address, unit_number')
-    .eq('org_id', assocRow.organization_id)
-    .is('deleted_at', null)
-    .order('address')
-    .limit(500)
-  const properties = (propertyRows ?? []).map((p) => ({
+  const propertyRows = propertyRes.data ?? []
+  const properties = propertyRows.map((p) => ({
     id: p.id as string,
-    label: [p.address, p.unit_number ? `· ${p.unit_number}` : null]
-      .filter(Boolean)
-      .join(' '),
+    label: [p.address, p.unit_number ? `· ${p.unit_number}` : null].filter(Boolean).join(' '),
   }))
-
-  // Pre-compute audience counts so the wizard can show "All owners (82)"
-  // without a roundtrip per selection.
-  //
-  // These used to be independent `count: 'exact'` queries written here, and
-  // they counted different things than resolveAudience sends to:
-  // late_on_dues counted assessment ROWS against a resolver that sends to
-  // distinct UNITS (Madison Park: 24 overdue assessments across 5 units, so
-  // the chip read 24 and the send went to 5), and owners_only/tenants_only
-  // counted ownership/tenancy rows against a resolver that emits one
-  // recipient per unit. countAudiences lives next to resolveAudience so the
-  // two cannot drift again.
-  const audienceCounts = await countAudiences(supabase, assoc.id)
-
-  // Board headcount is org-scoped rather than association-scoped, and needs
-  // the service-role client to see past org_members RLS, so it stays here.
-  const { count: boardCount } = await createAdminClient()
-    .from('org_members')
-    .select('user_id', { count: 'exact', head: true })
-    .eq('org_id', assocRow.organization_id)
-    .eq('role', 'board')
+  const propertyTotal = propertyRes.count ?? properties.length
 
   const counts = {
     ...audienceCounts,
-    board: boardCount ?? 0,
+    board: boardRes.count ?? 0,
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <header className="space-y-1">
-        <Link
-          href="/communications"
-          className="inline-flex items-center gap-1 text-xs text-muted hover:text-foreground"
-        >
-          <ChevronLeft className="h-3 w-3" />
-          Communications
-        </Link>
-        <h1 className="text-2xl font-bold text-foreground">New message</h1>
-        <p className="text-sm text-muted">
-          Pick a topic, pick an audience, pick a template, preview, send.
-          Every step is auditable.
-        </p>
-      </header>
-
-      <Card>
-        <div className="p-6">
-          <NewCommunicationWizard
-            templates={templates.map((t) => ({
-              id: t.id,
-              category: t.category,
-              name: t.name,
-              description: t.description ?? '',
-              subject: t.subject,
-              bodyHtml: t.body_html,
-              bodyText: t.body_text ?? '',
-              channels: t.channels,
-              questions: toTemplateQuestions(t.questions),
-              // Drives the per-section toggles: the composer looks the
-              // template up in the community registry by this slug.
-              topicSlug: t.topic_slug ?? null,
-            }))}
-            audienceCounts={counts}
-            properties={properties}
-          />
-        </div>
+    <Page
+      width="narrow"
+      linkAs={Link}
+      breadcrumbs={BREADCRUMBS}
+      title="New message"
+      description="Pick the audience, write the message, review, send. Every message and its delivery history are kept under Communications."
+    >
+      {propertyTotal > properties.length ? (
+        <Alert variant="warning" title="Not every property is in the picker">
+          The “Specific property” list shows {properties.length} of {propertyTotal} properties. Other
+          audiences are unaffected.
+        </Alert>
+      ) : null}
+      <Card className="overflow-hidden">
+        <NewCommunicationWizard
+          templates={templates.map((t) => ({
+            id: t.id,
+            category: t.category,
+            name: t.name,
+            description: t.description ?? '',
+            subject: t.subject,
+            bodyHtml: t.body_html,
+            bodyText: t.body_text ?? '',
+            channels: t.channels,
+            questions: toTemplateQuestions(t.questions),
+            // Drives the per-section toggles: the composer looks the
+            // template up in the community registry by this slug.
+            topicSlug: t.topic_slug ?? null,
+          }))}
+          audienceCounts={counts}
+          properties={properties}
+        />
       </Card>
-    </div>
+    </Page>
   )
 }

@@ -1,66 +1,31 @@
 import Link from 'next/link'
-import {
-  Bell,
-  CheckCheck,
-  Eye,
-  Mail,
-  MessageSquare,
-  Plus,
-  Reply,
-  Send,
-} from 'lucide-react'
+import { AlertTriangle, Bell, Eye, Mail, MessageSquare, Plus, Reply, Send, SearchX } from 'lucide-react'
 import {
   Badge,
   Button,
-  Card,
+  DataTable,
   EmptyState,
+  FilterChips,
+  Kpi,
+  ListToolbar,
   LoadFailed,
   Page,
   Pager,
-  Select,
+  StatusBadge,
   parsePageParam,
+  type DataTableColumn,
 } from '@homeowner-portal/ui'
 import { LocalDateTime } from '@/components/ui/LocalDateTime'
 import { getPrimaryAssociation } from '@/lib/vendors'
-import { listCommunications } from '@/lib/communications/queries'
+import { listCommunications, type CommunicationSummary } from '@/lib/communications/queries'
 import { pickDisplaySubject } from '@/lib/communications/display'
+import { COMMUNICATION_CATEGORY, COMMUNICATION_STATUS } from '@/lib/status/community'
+import { CategoryFilter } from './CategoryFilter'
 
 export const metadata = { title: 'Communications' }
 export const dynamic = 'force-dynamic'
 
-const CATEGORY_LABEL: Record<string, string> = {
-  welcome: 'Welcome',
-  dues: 'Dues',
-  meeting: 'Meeting',
-  violation: 'Violation',
-  arc: 'ARC',
-  financial: 'Financial',
-  emergency: 'Emergency',
-  announcement: 'Announcement',
-  custom: 'Custom',
-}
-
-const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
-  draft: 'outline',
-  scheduled: 'warning',
-  sending: 'warning',
-  sent: 'success',
-  failed: 'destructive',
-  cancelled: 'outline',
-}
-
-const STATUS_LABEL: Record<string, string> = {
-  draft: 'Draft',
-  scheduled: 'Scheduled',
-  sending: 'Sending',
-  sent: 'Sent',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
-}
-
-/** Icon per channel, so the row is scannable without reading the word
- *  "EMAIL" in every line. Ordered — a multi-channel comm shows the icon
- *  of the first channel it actually used. */
+/** Icon per channel, so a row is scannable without reading "Email" each time. */
 const CHANNEL_ICON: Record<string, typeof Mail> = {
   email: Mail,
   sms: MessageSquare,
@@ -73,6 +38,9 @@ const CHANNEL_LABEL: Record<string, string> = {
   portal: 'Portal',
 }
 
+/** Status chips, in the order a board thinks about them. */
+const STATUS_FILTERS = ['draft', 'scheduled', 'sent', 'failed'] as const
+
 interface PageProps {
   searchParams: Promise<{ category?: string; status?: string; page?: string }>
 }
@@ -80,281 +48,277 @@ interface PageProps {
 // Was a silent `.limit(100)` inside listCommunications.
 const PAGE_SIZE = 100
 
+type Row = CommunicationSummary & { displaySubject: ReturnType<typeof pickDisplaySubject> }
+
 export default async function CommunicationsPage({ searchParams }: PageProps) {
   const assoc = await getPrimaryAssociation()
   if (!assoc) {
     return (
       <Page title="Communications" width="narrow">
         <EmptyState
-          icon={<MessageSquare className="h-10 w-10" aria-hidden />}
+          icon={<MessageSquare aria-hidden />}
           title="No HOA association configured"
           description="Set up an association before sending communications."
+          action={
+            <Button asChild>
+              <Link href="/settings">Open settings</Link>
+            </Button>
+          }
         />
       </Page>
     )
   }
 
   const sp = await searchParams
+  const category = sp.category && sp.category in COMMUNICATION_CATEGORY ? sp.category : undefined
+  const status = sp.status && sp.status in COMMUNICATION_STATUS.labels ? sp.status : undefined
   const page = parsePageParam(sp.page)
   const result = await listCommunications(assoc.id, {
-    category: sp.category,
-    status: sp.status,
+    category,
+    status,
     page,
     pageSize: PAGE_SIZE,
   })
   const comms = result.ok ? result.rows : []
   const total = result.ok ? result.total : 0
-  // The summary tiles add up the rows on THIS page. Say so when that is
-  // not everything, rather than presenting a page's sums as the totals.
-  const summaryIsPartial = total > comms.length
+  const filtered = Boolean(category || status)
 
-  const hrefFor = (p: number): string => {
+  const hrefFor = (next: { status?: string; page?: number }): string => {
     const q = new URLSearchParams()
-    if (sp.category) q.set('category', sp.category)
-    if (sp.status) q.set('status', sp.status)
-    if (p > 1) q.set('page', String(p))
+    if (category) q.set('category', category)
+    if (next.status) q.set('status', next.status)
+    if (next.page && next.page > 1) q.set('page', String(next.page))
     const qs = q.toString()
     return qs ? `/communications?${qs}` : '/communications'
   }
 
-  // Top-of-page summary numbers — only count fully-sent comms so a draft
-  // doesn't inflate the "delivery rate" reading.
-  const sentRecipients = comms.reduce((s, c) => s + c.sentCount, 0)
-  const totalRecipients = comms.reduce((s, c) => s + c.totalRecipients, 0)
-  const totalOpened = comms.reduce((s, c) => s + c.openedCount, 0)
-  const totalReplies = comms.reduce((s, c) => s + c.repliedCount, 0)
+  // Delivery figures are summed over the rows on THIS page. When that is not
+  // every matching message, the tiles say so instead of passing a page's
+  // sums off as totals.
+  const summaryIsPartial = total > comms.length
+  const scope = summaryIsPartial ? `on this page (${comms.length} of ${total})` : null
+  const attempted = comms.reduce((s, c) => s + c.totalRecipients, 0)
+  const delivered = comms.reduce((s, c) => s + c.sentCount, 0)
+  const opened = comms.reduce((s, c) => s + c.openedCount, 0)
+  const replies = comms.reduce((s, c) => s + c.repliedCount, 0)
+  const failedRecipients = comms.reduce((s, c) => s + c.failedCount, 0)
+  const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)}%` : '—')
+
+  const rows: Row[] = comms.map((c) => ({
+    ...c,
+    // What a resident actually received, not the template. Exact when
+    // every recipient got the same rendered subject; otherwise the row is
+    // marked personalized rather than implying one value.
+    displaySubject: pickDisplaySubject({
+      subject: c.subject,
+      associationName: assoc.name,
+      renderedSubjects: c.renderedSubjects,
+    }),
+  }))
+
+  const columns: DataTableColumn<Row>[] = [
+    {
+      key: 'message',
+      header: 'Message',
+      mobilePrimary: true,
+      cell: (c) => {
+        const Icon = CHANNEL_ICON[c.channels[0]] ?? Mail
+        return (
+          <div className="flex min-w-0 items-start gap-3">
+            <span
+              aria-hidden
+              className={
+                c.failedCount > 0
+                  ? 'mt-0.5 hidden size-8 shrink-0 items-center justify-center rounded-lg bg-danger-subtle text-danger sm:flex'
+                  : 'mt-0.5 hidden size-8 shrink-0 items-center justify-center rounded-lg bg-subtle text-muted sm:flex'
+              }
+            >
+              <Icon className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <Link
+                  href={`/communications/${c.id}`}
+                  className="font-medium text-foreground no-underline hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {c.displaySubject.text}
+                </Link>
+                {c.displaySubject.personalizedFields.length > 0 ? (
+                  <Badge
+                    variant="neutral"
+                    title={`Each recipient saw their own ${c.displaySubject.personalizedFields
+                      .map((f) => f.replace(/_/g, ' '))
+                      .join(', ')}.`}
+                  >
+                    Personalized
+                  </Badge>
+                ) : null}
+              </div>
+              <p className="mt-0.5 text-xs text-muted">
+                {COMMUNICATION_CATEGORY[c.category] ?? c.category}
+                {' · '}
+                {c.channels.map((ch) => CHANNEL_LABEL[ch] ?? ch).join(' + ')}
+                {c.audience_summary ? ` · ${c.audience_summary}` : ''}
+              </p>
+            </div>
+          </div>
+        )
+      },
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (c) => (
+        <StatusBadge status={c.status} tones={COMMUNICATION_STATUS.tones} labels={COMMUNICATION_STATUS.labels} />
+      ),
+    },
+    {
+      key: 'delivery',
+      header: 'Delivery',
+      className: 'min-w-[12rem]',
+      cell: (c) =>
+        c.totalRecipients > 0 ? (
+          <DeliveryBar
+            sent={c.sentCount}
+            failed={c.failedCount}
+            total={c.totalRecipients}
+            opened={c.openedCount}
+            replied={c.repliedCount}
+          />
+        ) : (
+          <span className="text-xs text-muted">Not sent yet</span>
+        ),
+    },
+    {
+      key: 'date',
+      header: 'Date',
+      className: 'whitespace-nowrap text-foreground-secondary',
+      cell: (c) =>
+        c.sent_at ? (
+          <LocalDateTime iso={c.sent_at} variant="short" prefix="Sent" />
+        ) : c.scheduled_for ? (
+          <LocalDateTime iso={c.scheduled_for} variant="short" prefix="Scheduled" />
+        ) : (
+          <LocalDateTime iso={c.created_at} variant="date-only" prefix="Created" />
+        ),
+    },
+  ]
 
   return (
     <Page
+      width="wide"
       title="Communications"
-      description="Every message sent to your community — welcomes, dues reminders, violation notices, ARC decisions, and ad-hoc announcements."
+      description="Every message sent to your community — welcomes, dues reminders, violation notices, ARC decisions and announcements — with who received it."
       actions={
         <Button asChild>
           <Link href="/communications/new">
-            <Plus className="h-4 w-4" />
+            <Plus aria-hidden />
             New message
           </Link>
         </Button>
       }
     >
-      {summaryIsPartial ? (
-        <p className="text-xs text-muted">
-          Figures below cover the {comms.length} messages on this page, not all {total}.
-        </p>
-      ) : null}
-      {comms.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-4">
-          <SummaryCard
-            icon={<Send className="h-4 w-4" />}
-            label="Sent"
-            value={String(sentRecipients)}
-            hint={`of ${totalRecipients} recipient${totalRecipients === 1 ? '' : 's'}`}
-          />
-          <SummaryCard
-            icon={<Eye className="h-4 w-4" />}
-            label="Opened"
-            value={String(totalOpened)}
-            hint={sentRecipients > 0 ? `${Math.round((totalOpened / sentRecipients) * 100)}% open rate` : '—'}
-          />
-          <SummaryCard
-            icon={<Reply className="h-4 w-4" />}
-            label="Replies"
-            value={String(totalReplies)}
-            hint={totalReplies === 1 ? 'response' : 'responses'}
-          />
-          <SummaryCard
-            icon={<CheckCheck className="h-4 w-4" />}
-            label="Messages"
-            value={String(comms.length)}
-            hint={`${comms.filter((c) => c.status === 'sent').length} sent`}
-          />
-        </div>
-      ) : null}
-
-      <Card>
-        <form className="flex flex-wrap items-end gap-3 px-4 py-3">
-          <div className="flex w-full flex-col gap-1 sm:w-52">
-            <label htmlFor="filter-category" className="text-xs font-medium text-muted">
-              Category
-            </label>
-            <Select
-              id="filter-category"
-              name="category"
-              defaultValue={sp.category ?? ''}
-              placeholder="All categories"
-            >
-              <option value="">All categories</option>
-              {Object.entries(CATEGORY_LABEL).map(([v, l]) => (
-                <option key={v} value={v}>
-                  {l}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex w-full flex-col gap-1 sm:w-52">
-            <label htmlFor="filter-status" className="text-xs font-medium text-muted">
-              Status
-            </label>
-            <Select
-              id="filter-status"
-              name="status"
-              defaultValue={sp.status ?? ''}
-              placeholder="All statuses"
-            >
-              <option value="">All statuses</option>
-              {Object.entries(STATUS_LABEL).map(([v, l]) => (
-                <option key={v} value={v}>
-                  {l}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <Button type="submit" size="sm">
-            Filter
-          </Button>
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/communications">Reset</Link>
-          </Button>
-        </form>
-      </Card>
-
       {!result.ok ? (
         <LoadFailed what="communications" />
-      ) : comms.length === 0 && total === 0 ? (
+      ) : total === 0 && !filtered ? (
         <EmptyState
-          icon={<Mail className="h-10 w-10" aria-hidden />}
+          icon={<Mail aria-hidden />}
           title="No messages yet"
-          description="Send your first communication. Choose a topic, pick the audience, pick a template, and ship — the history of every message lives here."
+          description="Choose a topic, pick the audience, and send. Every message and its delivery history will live here."
           action={
             <Button asChild>
               <Link href="/communications/new">
-                <Plus className="h-4 w-4" />
-                Send first message
+                <Plus aria-hidden />
+                Send your first message
               </Link>
             </Button>
           }
         />
       ) : (
-        <Card>
-          <ul className="divide-y divide-border">
-            {comms.map((c) => {
-              // What a resident actually received, not the template. Exact
-              // when every recipient got the same rendered subject;
-              // otherwise per-recipient fields fall back to labels and the
-              // row is marked personalized rather than implying one value.
-              const subject = pickDisplaySubject({
-                subject: c.subject,
-                associationName: assoc.name,
-                renderedSubjects: c.renderedSubjects,
-              })
-              const failed = c.failedCount > 0
+        <>
+          <section aria-label="Delivery summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Kpi
+              label="Messages"
+              icon={<Mail />}
+              value={total}
+              hint={filtered ? 'matching these filters' : 'all time'}
+            />
+            <Kpi
+              label="Delivered"
+              icon={<Send />}
+              value={attempted > 0 ? pct(delivered, attempted) : '—'}
+              hint={attempted > 0 ? `${delivered} of ${attempted} recipients${scope ? ` ${scope}` : ''}` : 'Nothing sent in this view'}
+            />
+            <Kpi
+              label="Opened"
+              icon={<Eye />}
+              value={delivered > 0 ? pct(opened, delivered) : '—'}
+              hint={`${opened} opened · ${replies} ${replies === 1 ? 'reply' : 'replies'}${scope ? ` ${scope}` : ''}`}
+            />
+            <Kpi
+              label="Failed"
+              icon={<AlertTriangle />}
+              value={failedRecipients}
+              hint={
+                failedRecipients > 0
+                  ? `recipients bounced or failed${scope ? ` ${scope}` : ''}`
+                  : `no failures${scope ? ` ${scope}` : ''}`
+              }
+            />
+          </section>
 
-              return (
-                <li key={c.id}>
-                  <Link
-                    href={`/communications/${c.id}`}
-                    className="flex items-start gap-3 px-4 py-3.5 transition-colors hover:bg-background/50"
-                  >
-                    <ChannelTile channels={c.channels} failed={failed} />
+          <ListToolbar>
+            <FilterChips
+              label="Filter by status"
+              linkAs={Link}
+              items={[
+                { label: 'All', href: hrefFor({}), active: !status },
+                ...STATUS_FILTERS.map((s) => ({
+                  label: COMMUNICATION_STATUS.labels[s],
+                  href: hrefFor({ status: s }),
+                  active: status === s,
+                })),
+              ]}
+            />
+            <CategoryFilter category={category} status={status} />
+          </ListToolbar>
 
-                    <div className="min-w-0 flex-1 space-y-1.5">
-                      <div className="flex items-start justify-between gap-3">
-                        <p className="truncate font-medium text-foreground">
-                          {subject.text}
-                        </p>
-                        <div className="flex flex-shrink-0 items-center gap-1.5">
-                          {subject.personalizedFields.length > 0 ? (
-                            <Badge
-                              variant="neutral"
-                              size="sm"
-                              title={`Each recipient saw their own ${subject.personalizedFields
-                                .map((f) => f.replace(/_/g, ' '))
-                                .join(', ')}.`}
-                            >
-                              Personalized
-                            </Badge>
-                          ) : null}
-                          <Badge variant={STATUS_VARIANT[c.status] ?? 'outline'} size="sm">
-                            {STATUS_LABEL[c.status] ?? c.status}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted">
-                        <span className="font-medium text-foreground/70">
-                          {CATEGORY_LABEL[c.category] ?? c.category}
-                        </span>
-                        <span aria-hidden>·</span>
-                        <span>{c.channels.map((ch) => CHANNEL_LABEL[ch] ?? ch).join(' + ')}</span>
-                        {c.audience_summary ? (
-                          <>
-                            <span aria-hidden>·</span>
-                            <span className="truncate">{c.audience_summary}</span>
-                          </>
-                        ) : null}
-                        <span aria-hidden>·</span>
-                        {c.sent_at ? (
-                          <LocalDateTime iso={c.sent_at} variant="short" prefix="sent" />
-                        ) : c.scheduled_for ? (
-                          <LocalDateTime
-                            iso={c.scheduled_for}
-                            variant="short"
-                            prefix="scheduled"
-                          />
-                        ) : (
-                          <LocalDateTime iso={c.created_at} variant="date-only" />
-                        )}
-                      </p>
-
-                      {c.totalRecipients > 0 ? (
-                        <DeliveryBar
-                          sent={c.sentCount}
-                          failed={c.failedCount}
-                          total={c.totalRecipients}
-                          opened={c.openedCount}
-                          replied={c.repliedCount}
-                        />
-                      ) : null}
-                    </div>
-                  </Link>
-                </li>
+          <DataTable
+            caption="Communications"
+            columns={columns}
+            rows={rows}
+            rowKey={(c) => c.id}
+            mobile="cards"
+            empty={
+              <EmptyState
+                variant="compact"
+                icon={<SearchX aria-hidden />}
+                title="No messages match these filters"
+                description="Try another status or category."
+                action={
+                  <Button asChild variant="secondary" size="sm">
+                    <Link href="/communications">Clear filters</Link>
+                  </Button>
+                }
+              />
+            }
+            footer={
+              total <= PAGE_SIZE && page === 1 ? undefined : (
+                <Pager
+                  page={page}
+                  pageSize={PAGE_SIZE}
+                  total={total}
+                  rowCount={comms.length}
+                  hrefFor={(p) => hrefFor({ status, page: p })}
+                  linkAs={Link}
+                  noun="messages"
+                />
               )
-            })}
-          </ul>
-          <Pager
-            page={page}
-            pageSize={PAGE_SIZE}
-            total={total}
-            rowCount={comms.length}
-            hrefFor={hrefFor}
-            linkAs={Link}
-            noun="messages"
-            className="border-t border-border"
+            }
           />
-        </Card>
+        </>
       )}
     </Page>
-  )
-}
-
-/**
- * The channel glyph, tinted red when any recipient failed. The tint is
- * the point: a row reading "10 of 47 delivered · 37 failed" used to sit
- * at exactly the same visual weight as one that reached everybody.
- */
-function ChannelTile({ channels, failed }: { channels: string[]; failed: boolean }) {
-  const Icon = CHANNEL_ICON[channels[0]] ?? Mail
-  return (
-    <span
-      className={
-        failed
-          ? 'mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-700'
-          : 'mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600'
-      }
-      aria-hidden
-    >
-      <Icon className="h-4 w-4" />
-    </span>
   )
 }
 
@@ -382,66 +346,46 @@ function DeliveryBar({
 }) {
   const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0)
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5 text-left">
       <div
-        className="flex h-1 w-full overflow-hidden rounded-full bg-border"
+        className="flex h-1.5 w-full overflow-hidden rounded-full bg-subtle"
         role="img"
         aria-label={`${sent} of ${total} delivered, ${failed} failed`}
       >
-        <span className="bg-emerald-500" style={{ width: `${pct(sent)}%` }} />
-        <span className="bg-red-500" style={{ width: `${pct(failed)}%` }} />
+        <span className="bg-success-solid" style={{ width: `${pct(sent)}%` }} />
+        <span className="bg-danger-solid" style={{ width: `${pct(failed)}%` }} />
       </div>
-      <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted">
-        <Send className="h-3 w-3" aria-hidden />
+      <p className="num flex flex-wrap items-center gap-x-1.5 text-xs text-muted">
         <span>
-          {sent} of {total} delivered
+          {sent}/{total} delivered
         </span>
         {opened > 0 ? (
           <>
             <span aria-hidden>·</span>
-            <Eye className="h-3 w-3" aria-hidden />
-            <span>{opened} opened</span>
+            <Eye className="size-3" aria-hidden />
+            <span>
+              {opened}
+              <span className="sr-only"> opened</span>
+            </span>
           </>
         ) : null}
         {replied > 0 ? (
           <>
             <span aria-hidden>·</span>
-            <Reply className="h-3 w-3" aria-hidden />
-            <span>{replied} replied</span>
+            <Reply className="size-3" aria-hidden />
+            <span>
+              {replied}
+              <span className="sr-only"> replied</span>
+            </span>
           </>
         ) : null}
         {failed > 0 ? (
           <>
             <span aria-hidden>·</span>
-            <span className="font-medium text-destructive">{failed} failed</span>
+            <span className="font-medium text-danger">{failed} failed</span>
           </>
         ) : null}
       </p>
     </div>
-  )
-}
-
-function SummaryCard({
-  icon,
-  label,
-  value,
-  hint,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string
-  hint?: string
-}) {
-  return (
-    <Card>
-      <div className="p-4">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
-          {icon}
-          {label}
-        </div>
-        <p className="mt-2 text-lg font-semibold text-foreground">{value}</p>
-        {hint ? <p className="text-xs text-muted">{hint}</p> : null}
-      </div>
-    </Card>
   )
 }

@@ -2,9 +2,13 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus } from 'lucide-react'
-import { Badge, Button, Input, Select, Textarea } from '@homeowner-portal/ui'
+import { format, parseISO } from 'date-fns'
+import { ClipboardList, Plus } from 'lucide-react'
+import { Button, EmptyState, Field, Input, Select, StatusBadge, Textarea, useToast } from '@homeowner-portal/ui'
 import { createActionItemFromTicket, type TicketActionItem } from '@/lib/tickets'
+import { ACTION_ITEM_STATUS } from '@/lib/status/community'
+
+type FieldErrors = Partial<Record<'title' | 'description' | 'assigneeName' | 'dueDate' | 'priority', string>>
 
 export function TicketActionItems({
   ticketId,
@@ -14,17 +18,22 @@ export function TicketActionItems({
   items: TicketActionItem[]
 }) {
   const router = useRouter()
+  const toast = useToast()
   const [showForm, setShowForm] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<FieldErrors>({})
 
-  async function handleSubmit(formData: FormData) {
-    setError(null)
+  function handleSubmit(formData: FormData) {
+    setErrors({})
     const title = String(formData.get('title') ?? '').trim()
     const description = String(formData.get('description') ?? '').trim() || undefined
     const assigneeName = String(formData.get('assignee_name') ?? '').trim() || undefined
     const dueDate = String(formData.get('due_date') ?? '').trim() || undefined
     const priority = (String(formData.get('priority') ?? '') || 'normal') as 'low' | 'normal' | 'high'
+    if (!title) {
+      setErrors({ title: 'Give the action item a title.' })
+      return
+    }
 
     startTransition(async () => {
       const result = await createActionItemFromTicket({
@@ -36,90 +45,79 @@ export function TicketActionItems({
         priority,
       })
       if (!result.ok) {
-        setError(result.error)
+        if (result.fieldErrors && Object.keys(result.fieldErrors).length > 0) {
+          setErrors(result.fieldErrors as FieldErrors)
+        } else {
+          toast({ tone: 'error', message: result.error })
+        }
         return
       }
+      toast({ tone: 'success', message: 'Action item created.' })
       setShowForm(false)
       router.refresh()
     })
   }
 
-  const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'outline' | 'destructive'> = {
-    open: 'outline',
-    in_progress: 'warning',
-    done: 'success',
-    cancelled: 'destructive',
-  }
-
   return (
     <div className="space-y-4">
       {items.length > 0 ? (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-border rounded-lg border border-border">
           {items.map((item) => (
-            <li
-              key={item.id}
-              className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm"
-            >
-              <div>
-                <p className="font-medium">{item.title}</p>
+            <li key={item.id} className="flex items-start justify-between gap-3 px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">{item.title}</p>
                 <p className="text-xs text-muted">
                   {item.assignee_name ?? 'Unassigned'}
-                  {item.due_date ? ` · Due ${item.due_date}` : ''}
+                  {item.due_date ? ` · Due ${format(parseISO(item.due_date), 'MMM d, yyyy')}` : ''}
                 </p>
               </div>
-              <Badge variant={STATUS_VARIANT[item.status] ?? 'outline'} size="sm">
-                {item.status.replace('_', ' ')}
-              </Badge>
+              <StatusBadge status={item.status} tones={ACTION_ITEM_STATUS.tones} labels={ACTION_ITEM_STATUS.labels} />
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="text-sm text-muted">No action items linked to this ticket.</p>
+      ) : showForm ? null : (
+        <EmptyState
+          variant="compact"
+          icon={<ClipboardList aria-hidden />}
+          title="No action items"
+          description="Turn this request into tracked work with an owner and a due date."
+        />
       )}
 
       {showForm ? (
-        <form action={handleSubmit} className="space-y-3 rounded-md border border-border p-3">
-          <label className="block space-y-1">
-            <span className="text-sm font-medium">Title *</span>
-            <Input name="title" required maxLength={200} placeholder="What needs to be done?" />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-sm font-medium">Description</span>
+        <form action={handleSubmit} className="space-y-4 rounded-lg border border-border bg-subtle/40 p-4" noValidate>
+          <Field label="Title" required error={errors.title}>
+            <Input name="title" maxLength={200} placeholder="What needs to be done?" autoFocus />
+          </Field>
+          <Field label="Description" optional error={errors.description}>
             <Textarea name="description" rows={2} maxLength={2000} />
-          </label>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="block space-y-1">
-              <span className="text-sm font-medium">Assignee</span>
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Assignee" optional error={errors.assigneeName}>
               <Input name="assignee_name" maxLength={120} placeholder="Name" />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-sm font-medium">Due date</span>
+            </Field>
+            <Field label="Due date" optional error={errors.dueDate}>
               <Input name="due_date" type="date" />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-sm font-medium">Priority</span>
-              <Select name="priority">
+            </Field>
+            <Field label="Priority" error={errors.priority}>
+              <Select name="priority" defaultValue="normal">
                 <option value="low">Low</option>
-                <option value="normal" selected>Normal</option>
+                <option value="normal">Normal</option>
                 <option value="high">High</option>
               </Select>
-            </label>
+            </Field>
           </div>
-          {error ? (
-            <p className="text-sm text-destructive">{error}</p>
-          ) : null}
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setShowForm(false)}>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setShowForm(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isPending} size="sm">
-              {isPending ? 'Creating…' : 'Create'}
+            <Button type="submit" variant="secondary" size="sm" loading={isPending}>
+              Create action item
             </Button>
           </div>
         </form>
       ) : (
-        <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
-          <Plus className="h-3.5 w-3.5" />
+        <Button variant="secondary" size="sm" icon={<Plus aria-hidden />} onClick={() => setShowForm(true)}>
           Add action item
         </Button>
       )}

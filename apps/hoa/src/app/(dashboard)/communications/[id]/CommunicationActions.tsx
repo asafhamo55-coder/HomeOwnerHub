@@ -1,11 +1,18 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createPortal } from 'react-dom'
-import { RotateCw, X } from 'lucide-react'
-import { Alert, Button, Input, useToast } from '@homeowner-portal/ui'
-import { TwoClickDelete } from '@/components/TwoClickDelete'
+import { RotateCw, Trash2 } from 'lucide-react'
+import {
+  Alert,
+  Button,
+  ConfirmDialog,
+  Dialog,
+  DialogContent,
+  Field,
+  Input,
+  useToast,
+} from '@homeowner-portal/ui'
 import { deleteCommunication } from '@/lib/communications/actions'
 import {
   getResendPreflight,
@@ -15,9 +22,11 @@ import {
 
 export function CommunicationActions({
   commId,
+  subject,
   failedEmailCount,
 }: {
   commId: string
+  subject: string
   /** Email recipients in `delivery_status = 'failed'`. Zero hides the
    *  resend button entirely — there is nothing to retry, and an always-on
    *  button next to Delete invites a pointless re-send. */
@@ -35,31 +44,6 @@ export function CommunicationActions({
   // the server's rejection names the fields still blank, which is only
   // actionable next to the boxes to fill in.
   const [formError, setFormError] = useState<string | null>(null)
-  // Portal target only exists on the client; gate on mount so SSR doesn't
-  // reach for document.body.
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
-
-  // While the form is open: Escape closes it and background scroll locks,
-  // matching AiRewriteButton. A resend in flight is not abandoned — the
-  // request would still land, and closing would drop the result on the
-  // floor while the rows changed underneath.
-  useEffect(() => {
-    if (!fields) return
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && !isPending) {
-        e.preventDefault()
-        close()
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prevOverflow
-    }
-  }, [fields, isPending])
 
   function close() {
     setFields(null)
@@ -114,109 +98,97 @@ export function CommunicationActions({
     })
   }
 
-  const form = fields ? (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Fill in the missing merge fields"
-      // z-[100] for the same reason as AiRewriteButton: above the sticky
-      // header, sidebar and dev role-switcher, so nothing covers Cancel.
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !isPending) close()
-      }}
-    >
-      <form
-        onSubmit={handleSubmit}
-        className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-xl"
-      >
-        <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-3">
-          <div>
-            <h2 className="text-sm font-medium text-foreground">
-              {fields.length === 1 ? 'One value is missing' : `${fields.length} values are missing`}
-            </h2>
-            <p className="mt-1 text-xs text-muted">
-              This message was written with values typed into the send wizard, and those are
-              not stored on the message itself. Retype them so the {failedEmailCount} retries
-              read exactly like the copies that already went out.
-            </p>
-          </div>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={close}
-            disabled={isPending}
-            className="rounded p-1 text-muted hover:bg-foreground/5 hover:text-foreground disabled:opacity-50"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </header>
+  const formId = `resend-${commId}`
 
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
-          {fields.map((field, i) => (
-            <label key={field.name} className="block">
-              <span className="block text-[10px] uppercase tracking-wide text-muted">
-                {humanizeField(field.name)}
-                {field.value ? (
+  return (
+    <>
+      <ConfirmDialog
+        destructive
+        title="Delete this message?"
+        description={
+          <>
+            “{subject}” and its delivery history are removed from Communications. Residents
+            who already received it keep their copy.
+          </>
+        }
+        confirmLabel="Delete message"
+        onConfirm={async () => {
+          const result = await deleteCommunication(commId)
+          if (!result.ok) {
+            toast({ tone: 'error', message: result.error })
+            throw new Error(result.error)
+          }
+          toast({ tone: 'success', message: 'Communication deleted.' })
+          router.push('/communications')
+        }}
+        trigger={
+          <Button variant="destructive-ghost" icon={<Trash2 aria-hidden />}>
+            Delete
+          </Button>
+        }
+      />
+      {failedEmailCount > 0 ? (
+        <Button
+          onClick={handleResend}
+          loading={isPending && !fields}
+          icon={<RotateCw aria-hidden />}
+          title="Send again to the email recipients that failed. Recipients who already received it are untouched."
+        >
+          Resend to {failedEmailCount} failed
+        </Button>
+      ) : null}
+
+      <Dialog
+        open={fields !== null}
+        onOpenChange={(open) => {
+          if (!open && !isPending) close()
+        }}
+      >
+        {fields ? (
+          <DialogContent
+            title={fields.length === 1 ? 'One value is missing' : `${fields.length} values are missing`}
+            description={
+              <>
+                This message was written with values typed into the send wizard, and those are not
+                stored on the message itself. Retype them so the {failedEmailCount} retries read
+                exactly like the copies that already went out.
+              </>
+            }
+            footer={
+              <>
+                <Button type="button" variant="secondary" onClick={close} disabled={isPending}>
+                  Cancel
+                </Button>
+                <Button type="submit" form={formId} loading={isPending}>
+                  Resend to {failedEmailCount}
+                </Button>
+              </>
+            }
+          >
+            <form id={formId} onSubmit={handleSubmit} className="space-y-4">
+              {fields.map((field, i) => (
+                <Field
+                  key={field.name}
+                  label={humanizeField(field.name)}
                   // Worth flagging: a recovered value was read back out of a
                   // delivered subject line, not typed by anyone, so it is
                   // the one field on the form nobody has checked.
-                  <span className="ml-1 normal-case tracking-normal">
-                    · recovered from a delivered copy
-                  </span>
-                ) : null}
-              </span>
-              <Input
-                value={values[field.name] ?? ''}
-                onChange={(e) =>
-                  setValues((prev) => ({ ...prev, [field.name]: e.target.value }))
-                }
-                autoComplete="off"
-                autoFocus={i === 0}
-                className="text-sm"
-              />
-            </label>
-          ))}
-
-          {formError ? <Alert variant="error">{formError}</Alert> : null}
-        </div>
-
-        <footer className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
-          <Button type="button" variant="outline" size="sm" onClick={close} disabled={isPending}>
-            Cancel
-          </Button>
-          <Button type="submit" size="sm" loading={isPending}>
-            Resend to {failedEmailCount}
-          </Button>
-        </footer>
-      </form>
-    </div>
-  ) : null
-
-  return (
-    <div className="inline-flex items-center gap-2">
-      {failedEmailCount > 0 ? (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleResend}
-          disabled={isPending}
-          title="Send again to the email recipients that failed. Recipients who already received it are untouched."
-        >
-          <RotateCw className="h-3.5 w-3.5" />
-          <span>{isPending ? 'Resending…' : `Resend to ${failedEmailCount} failed`}</span>
-        </Button>
-      ) : null}
-      <TwoClickDelete
-        onDelete={() => deleteCommunication(commId)}
-        successMessage="Communication deleted."
-        onAfterDelete={() => router.push('/communications')}
-        label="Delete"
-      />
-      {/* Portal to <body>: this component renders inside the page's
-          baseline-aligned title row, which is no place for a dialog. */}
-      {mounted && form ? createPortal(form, document.body) : null}
-    </div>
+                  hint={field.value ? 'Recovered from a delivered copy — check it.' : undefined}
+                >
+                  <Input
+                    value={values[field.name] ?? ''}
+                    onChange={(e) => setValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
+                    autoComplete="off"
+                    autoFocus={i === 0}
+                  />
+                </Field>
+              ))}
+              {formError ? <Alert variant="error">{formError}</Alert> : null}
+            </form>
+          </DialogContent>
+        ) : null}
+      </Dialog>
+    </>
   )
 }
 
