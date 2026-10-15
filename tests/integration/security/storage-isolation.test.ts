@@ -99,4 +99,37 @@ describe('storage tenant isolation', () => {
     const got = await boardA.client.storage.from('hoa-documents').download(path)
     expect(got.error, 'a malformed prefix elsewhere in the bucket broke this query').toBeNull()
   })
+  // Regression guard for a real near-miss. The first version of 0055 read the
+  // org id from path segment 1 only, which is right for six of the seven
+  // upload call sites — and wrong for the one that matters most to users.
+  // apps/hoa/src/lib/inbox/draft/attachment-actions.ts:116 mints
+  //   inbox-drafts/<org>/<draft>/<uuid>
+  // in this same bucket through a user-scoped client, so a segment-1-only
+  // helper returned NULL, which under RLS means denied: every inbox draft
+  // attachment would have failed to upload and every already-attached file
+  // would have vanished from its draft. The hostile non-UUID case above did
+  // not catch it, because denying a malformed path is the *correct* outcome
+  // there — only a POSITIVE assertion on a legitimate prefixed path does.
+  it('allows the owning org to use the inbox-drafts/<org>/<draft>/ convention', async () => {
+    const orgA = await makeOrg()
+    const orgB = await makeOrg()
+    const boardA = await mintUser(orgA, 'board')
+    const residentB = await mintUser(orgB, 'resident')
+
+    const draftPath = `inbox-drafts/${orgA.orgId}/draft-1/attachment.txt`
+
+    // Positive first: the owning org can write and read its own draft
+    // attachment. If this fails, the negative below proves nothing.
+    const up = await boardA.client.storage
+      .from('hoa-documents')
+      .upload(draftPath, new Blob(['draft attachment']), { upsert: true })
+    expect(up.error, 'owning org could not upload to inbox-drafts/<org>/ — 0055 denies a live feature').toBeNull()
+
+    const read = await boardA.client.storage.from('hoa-documents').download(draftPath)
+    expect(read.error, 'owning org could not read back its own draft attachment').toBeNull()
+
+    // And the tenant boundary still holds on the prefixed shape.
+    const leak = await residentB.client.storage.from('hoa-documents').download(draftPath)
+    expect(leak.error, 'cross-tenant read of an inbox-drafts path succeeded').not.toBeNull()
+  })
 })

@@ -42,10 +42,31 @@
 -- there, wrapped in a small SECURITY INVOKER helper so it is written
 -- once rather than six times and reads the same way auth_org_ids() does.
 
+-- Two path shapes exist, and missing the second one denies a live feature.
+-- Six of the seven upload call sites lead with the org id:
+--     <org>/<file>, <org>/vendors/..., <org>/submissions/..., <org>/inbox/...
+-- One does not. apps/hoa/src/lib/inbox/draft/attachment-actions.ts:116 mints
+--     inbox-drafts/<org>/<draft>/<uuid>
+-- in the hoa-documents bucket, through a USER-scoped client, and that
+-- convention is load-bearing elsewhere: resolveUploadPath validates it
+-- (attachment-actions.ts:47) and migration 0040 encodes it as
+-- starts_with(storage_path, 'inbox-drafts/' || organization_id::text || '/').
+-- So the org id is segment 2 there, and a segment-1-only helper returns NULL,
+-- which under RLS means denied — breaking every inbox draft attachment and
+-- hiding already-attached files from existing drafts.
+-- `inbox-drafts` is the ONLY literal-prefixed family; verified by grepping
+-- every storage path template in apps/ and packages/.
+
 CREATE OR REPLACE FUNCTION public.storage_object_org_id(object_name text) RETURNS uuid
     LANGUAGE sql IMMUTABLE PARALLEL SAFE SECURITY INVOKER
     AS $$
   SELECT CASE
+    -- Literal-prefixed family: org id is the second segment.
+    WHEN (storage.foldername(object_name))[1] = 'inbox-drafts'
+     AND (storage.foldername(object_name))[2] ~
+         '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    THEN (storage.foldername(object_name))[2]::uuid
+    -- Everything else: org id leads the path.
     WHEN (storage.foldername(object_name))[1] ~
          '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
     THEN (storage.foldername(object_name))[1]::uuid
@@ -54,8 +75,9 @@ CREATE OR REPLACE FUNCTION public.storage_object_org_id(object_name text) RETURN
 $$;
 
 COMMENT ON FUNCTION public.storage_object_org_id(text) IS
-  'Returns the first path segment of a storage object name as a uuid, or '
-  'NULL if that segment is not UUID-shaped. Used by the storage.objects '
+  'Returns the owning org id for a storage object name, or NULL if the path '
+  'carries none. Reads segment 2 for the inbox-drafts/<org>/<draft>/ family '
+  'and segment 1 otherwise. Used by the storage.objects '
   'RLS policies below instead of a bare cast, because a cast that raises '
   'inside a policy predicate aborts the whole query rather than denying '
   'just the offending row, and Postgres does not guarantee that an AND '
