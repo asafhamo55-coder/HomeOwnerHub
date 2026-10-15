@@ -7,6 +7,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getResidentUnits } from '@/lib/resident'
 import { getResidentActor, IMPERSONATION_READONLY_MSG } from '@/lib/impersonation'
+import { loadOrFail, type LoadResult } from '@/lib/load-or-fail'
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
 type ActionErr = { ok: false; error: string }
@@ -68,17 +69,35 @@ export interface CreateTicketInput {
   description: string
 }
 
-export async function listMyTickets(): Promise<TicketRow[]> {
+/**
+ * The resident's own tickets, or `{ ok: false }` when the read failed —
+ * so a page can say "couldn't load" instead of "nothing yet".
+ */
+export async function loadMyTickets(): Promise<LoadResult<TicketRow[]>> {
   const actor = await getResidentActor()
-  if (!actor.id) return []
-  const { data } = await actor.client
-    .from('tickets' as never)
-    .select('id, unit_id, category, subject, status, priority, created_at')
-    .eq('submitted_by', actor.id)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .limit(50)
-  return (data ?? []) as unknown as TicketRow[]
+  if (!actor.id) return { ok: true, data: [], count: 0 }
+  const res = await loadOrFail(
+    'resident tickets',
+    actor.client
+      .from('tickets' as never)
+      .select('id, unit_id, category, subject, status, priority, created_at')
+      .eq('submitted_by', actor.id)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(50),
+  )
+  return res.ok ? { ok: true, data: (res.data ?? []) as unknown as TicketRow[], count: null } : res
+}
+
+/**
+ * Throwing form for callers without a failure state of their own: a failed
+ * read reaches the resident error boundary rather than rendering as an
+ * empty list.
+ */
+export async function listMyTickets(): Promise<TicketRow[]> {
+  const res = await loadMyTickets()
+  if (!res.ok) throw new Error('listMyTickets: failed to load tickets')
+  return res.data
 }
 
 export async function getMyTicket(id: string): Promise<TicketDetail | null> {

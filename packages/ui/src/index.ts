@@ -96,3 +96,23 @@ export type { ConfirmOptions } from './components/Confirm'
 // Transient toast notifications for mutation feedback.
 export { ToastProvider, useToast } from './components/Toast'
 export type { ToastOptions } from './components/Toast'
+
+// Page container: fixed widths and the page's one <h1>.
+export { Page } from './components/Page'
+export type { PageProps, PageWidth } from './components/Page'
+
+// Truthful page states: failed (≠ empty), loading, and no org.
+export { LoadFailed } from './components/LoadFailed'
+export type { LoadFailedProps } from './components/LoadFailed'
+export { PageSkeleton } from './components/PageSkeleton'
+export type { PageSkeletonProps } from './components/PageSkeleton'
+export { NoOrgSelected } from './components/NoOrgSelected'
+export type { NoOrgSelectedProps } from './components/NoOrgSelected'
+
+// URL-driven pagination, replacing silent `.limit(N)` truncation.
+export { Pager, parsePageParam, pageRange, pagerState } from './components/Pager'
+export type { PagerProps, PagerState } from './components/Pager'
+
+// Table with a horizontal scroll container.
+export { DataTable, TableScroll } from './components/DataTable'
+export type { DataTableProps, DataTableColumn } from './components/DataTable'

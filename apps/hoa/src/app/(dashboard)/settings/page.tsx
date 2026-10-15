@@ -6,6 +6,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  NoOrgSelected,
 } from '@homeowner-portal/ui'
 import { requireAdmin } from '@/lib/auth'
 import { getCurrentOrg } from '@/lib/orgs'
@@ -19,7 +20,7 @@ export const dynamic = 'force-dynamic'
 export default async function SettingsPage() {
   await requireAdmin()
   const org = await getCurrentOrg()
-  if (!org) return null
+  if (!org) return <NoOrgSelected />
 
   const supabase = await getSupabaseServerClient()
   const [{ count: memberCount }, profile] = await Promise.all([

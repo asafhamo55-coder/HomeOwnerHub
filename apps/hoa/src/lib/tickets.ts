@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdmin } from '@/lib/auth'
+import { loadOrFail } from '@/lib/load-or-fail'
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
 type ActionErr = { ok: false; error: string }
@@ -65,23 +66,49 @@ export interface TicketActionItem {
   created_at: string
 }
 
-export async function listTicketsForBoard(opts?: {
+/**
+ * One page of the board's ticket list, or `{ ok: false }` when it could not
+ * be loaded. This used to resolve `data ?? []` and cap at 200 rows, so a
+ * failed query read as "No tickets yet" and ticket 201 was invisible.
+ *
+ * `openCount` and `total` are counted over ALL matching tickets, not just
+ * this page — the header states them as facts about the association.
+ */
+export type TicketBoardPage =
+  | { ok: true; rows: TicketBoardRow[]; total: number; openCount: number }
+  | { ok: false }
+
+export async function listTicketsForBoard(opts: {
+  page: number
+  pageSize: number
   status?: TicketStatus
-}): Promise<TicketBoardRow[]> {
+}): Promise<TicketBoardPage> {
   await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
+  const from = (opts.page - 1) * opts.pageSize
   let query = supabase
     .from('tickets' as never)
     .select(
       'id, unit_id, submitted_by, category, subject, status, priority, created_at, unit:units(unit_number), submitter:profiles!tickets_submitted_by_fkey(full_name, email)',
+      { count: 'exact' },
     )
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
-    .limit(200)
-  if (opts?.status) query = query.eq('status', opts.status)
-  const { data } = await query
+  if (opts.status) query = query.eq('status', opts.status)
 
-  const rows = (data ?? []) as unknown as Array<{
+  const openQuery = supabase
+    .from('tickets' as never)
+    .select('id', { count: 'exact', head: true })
+    .is('deleted_at', null)
+    .in('status', ['open', 'in_progress'])
+
+  const [list, open] = await Promise.all([
+    loadOrFail('tickets', query.range(from, from + opts.pageSize - 1)),
+    loadOrFail('open ticket count', openQuery),
+  ])
+  if (!list.ok || !open.ok) return { ok: false }
+
+  const rows = (list.data ?? []) as unknown as Array<{
     id: string
     unit_id: string | null
     submitted_by: string
@@ -94,19 +121,24 @@ export async function listTicketsForBoard(opts?: {
     submitter: { full_name: string | null; email: string | null } | null
   }>
 
-  return rows.map((r) => ({
-    id: r.id,
-    unit_id: r.unit_id,
-    unit_number: r.unit?.unit_number ?? null,
-    submitted_by: r.submitted_by,
-    submitter_name: r.submitter?.full_name ?? null,
-    submitter_email: r.submitter?.email ?? null,
-    category: r.category,
-    subject: r.subject,
-    status: r.status,
-    priority: r.priority,
-    created_at: r.created_at,
-  }))
+  return {
+    ok: true,
+    total: list.count ?? rows.length,
+    openCount: open.count ?? 0,
+    rows: rows.map((r) => ({
+      id: r.id,
+      unit_id: r.unit_id,
+      unit_number: r.unit?.unit_number ?? null,
+      submitted_by: r.submitted_by,
+      submitter_name: r.submitter?.full_name ?? null,
+      submitter_email: r.submitter?.email ?? null,
+      category: r.category,
+      subject: r.subject,
+      status: r.status,
+      priority: r.priority,
+      created_at: r.created_at,
+    })),
+  }
 }
 
 export async function getTicketForBoard(

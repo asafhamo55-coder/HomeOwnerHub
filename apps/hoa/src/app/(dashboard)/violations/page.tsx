@@ -7,11 +7,18 @@ import {
   Card,
   EmptyState,
   Input,
+  LoadFailed,
+  NoOrgSelected,
+  Page,
+  Pager,
   StatusBadge,
   Tabs,
+  pageRange,
+  parsePageParam,
 } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadOrFail } from '@/lib/load-or-fail'
 
 export const metadata = { title: 'Violations' }
 export const dynamic = 'force-dynamic'
@@ -51,27 +58,33 @@ interface ViolationRow {
   property: { address: string; unit_number: string | null } | null
 }
 
+// Was a silent `.limit(100)`: the 101st violation simply did not exist as
+// far as this page was concerned. Same page size, now with a pager.
+const PAGE_SIZE = 100
+
 export default async function ViolationsListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>
+  searchParams: Promise<{ q?: string; page?: string }>
 }) {
-  const { q: qParam } = await searchParams
+  const { q: qParam, page: pageParam } = await searchParams
   const search = (qParam ?? '').trim()
+  const page = parsePageParam(pageParam)
+  const { from, to } = pageRange(page, PAGE_SIZE)
 
   const org = await getCurrentOrg()
-  if (!org) return null
+  if (!org) return <NoOrgSelected />
 
   const supabase = await getSupabaseServerClient()
   let query = supabase
     .from('hoa_violations')
     .select(
       'id, description, status, severity, ccr_section, created_at, notice_sent_at, property:hoa_properties(address, unit_number)',
+      { count: 'exact' },
     )
     .eq('org_id', org.id)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
-    .limit(100)
   if (search.length > 0) {
     // Cap length, escape LIKE wildcards (`%`, `_`, `\`) so they don't
     // match everything, and strip PostgREST `.or()` separators.
@@ -83,21 +96,29 @@ export default async function ViolationsListPage({
       `description.ilike.%${safe}%,ccr_section.ilike.%${safe}%`,
     )
   }
-  const { data } = await query
+  const result = await loadOrFail('violations', query.range(from, to))
 
-  const rows = (data ?? []) as unknown as ViolationRow[]
+  const rows = result.ok ? ((result.data ?? []) as unknown as ViolationRow[]) : []
+  const total = result.ok ? (result.count ?? rows.length) : 0
+
+  const hrefFor = (p: number): string => {
+    const q = new URLSearchParams()
+    if (search) q.set('q', search)
+    if (p > 1) q.set('page', String(p))
+    const qs = q.toString()
+    return qs ? `/violations?${qs}` : '/violations'
+  }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1>Violations</h1>
-          <p className="text-sm text-muted">
-            {rows.length} on file
-            {search ? ` matching “${search}”` : ' (showing most recent first)'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+    <Page
+      title="Violations"
+      description={
+        !result.ok
+          ? null
+          : `${total} on file${search ? ` matching “${search}”` : ' (most recent first)'}`
+      }
+      actions={
+        <>
           <Button asChild variant="outline">
             <a href={`/violations/export${search ? `?q=${encodeURIComponent(search)}` : ''}`}>
               <Download className="h-4 w-4" />
@@ -110,11 +131,10 @@ export default async function ViolationsListPage({
               Report violation
             </Link>
           </Button>
-        </div>
-      </header>
-
-      <Tabs items={VIOLATION_TABS} currentPath="/violations" aria-label="Violation sections" />
-
+        </>
+      }
+      tabs={<Tabs items={VIOLATION_TABS} currentPath="/violations" aria-label="Violation sections" />}
+    >
       <form action="/violations" method="get" className="flex flex-wrap items-center gap-2 sm:max-w-md">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden />
@@ -138,7 +158,9 @@ export default async function ViolationsListPage({
         ) : null}
       </form>
 
-      {rows.length === 0 ? (
+      {!result.ok ? (
+        <LoadFailed what="violations" />
+      ) : rows.length === 0 && total === 0 ? (
         search ? (
           <EmptyState
             icon={<Search className="h-10 w-10" aria-hidden />}
@@ -202,8 +224,18 @@ export default async function ViolationsListPage({
               </li>
             ))}
           </ul>
+          <Pager
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            rowCount={rows.length}
+            hrefFor={hrefFor}
+            linkAs={Link}
+            noun="violations"
+            className="border-t border-border"
+          />
         </Card>
       )}
-    </div>
+    </Page>
   )
 }

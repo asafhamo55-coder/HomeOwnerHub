@@ -21,9 +21,10 @@ export function PropertiesHeader({
   orgName: string
   filter: PropertyFilter
   /** Row count for the *current* filter — only meaningful to show for 'attention'. */
-  total: number
-  /** Row count across the whole org, unfiltered. */
-  allCount: number
+  total: number | null
+  /** Row count across the whole org, unfiltered. Null when it could not be
+   *  loaded — shown as unavailable, never as "0 homes". */
+  allCount: number | null
   search: string
   /**
    * True on /properties/[id]. There, the open property's address is the
@@ -48,13 +49,18 @@ export function PropertiesHeader({
   const exportQuery = exportParams.toString()
   const exportHref = exportQuery ? `/properties/export?${exportQuery}` : '/properties/export'
 
-  const homesLabel = `${allCount} ${allCount === 1 ? 'home' : 'homes'}`
+  const homesLabel =
+    allCount === null
+      ? 'home count unavailable'
+      : `${allCount} ${allCount === 1 ? 'home' : 'homes'}`
   // Both subset filters name what they selected, so the number is never
   // mistaken for the association's size. 'incomplete' says "record" rather
   // than "needing attention": an unfilled tenure field is data-entry
   // backlog, not something the board owes anyone work on.
   const countLabel =
-    filter === 'attention'
+    total === null
+      ? homesLabel
+      : filter === 'attention'
       ? `${total} needing attention · ${homesLabel}`
       : filter === 'incomplete'
         ? `${total} incomplete ${total === 1 ? 'record' : 'records'} · ${homesLabel}`

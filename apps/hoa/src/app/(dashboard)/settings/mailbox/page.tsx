@@ -1,4 +1,4 @@
-import { Alert } from '@homeowner-portal/ui'
+import { Alert, NoOrgSelected } from '@homeowner-portal/ui'
 import { requireAdmin } from '@/lib/auth'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -17,7 +17,7 @@ export default async function MailboxSettingsPage({
   const params = await searchParams
   await requireAdmin()
   const org = await getCurrentOrg()
-  if (!org) return null
+  if (!org) return <NoOrgSelected />
 
   const supabase = await getSupabaseServerClient()
   const status = await getMailboxStatus(supabase, org.id)

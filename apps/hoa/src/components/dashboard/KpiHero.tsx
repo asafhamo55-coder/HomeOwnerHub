@@ -19,6 +19,11 @@ export interface KpiHeroProps {
    *  number (which read as "every KPI is on fire"). Severity now lives
    *  on the delta chip instead. */
   tone?: 'default' | 'success' | 'warning' | 'destructive'
+  /**
+   * The source query failed, so `value` is a placeholder zero, not a
+   * fact. Shows a dash and says so instead of a confident "0" / "$0".
+   */
+  unavailable?: boolean
 }
 
 export function KpiHero({
@@ -29,9 +34,12 @@ export function KpiHero({
   previous,
   upIsBad,
   href,
+  unavailable,
 }: KpiHeroProps) {
-  const formatted = display ?? value.toLocaleString()
-  const trend = previous != null ? computeTrend(value, previous, upIsBad ?? false) : null
+  const formatted = unavailable ? '—' : (display ?? value.toLocaleString())
+  const trend =
+    !unavailable && previous != null ? computeTrend(value, previous, upIsBad ?? false) : null
+  const subText = unavailable ? 'Couldn’t load — refresh to try again' : sub
 
   const body = (
     <CardContent className="flex h-full min-h-[7rem] flex-col justify-between gap-2 p-5">
@@ -55,7 +63,7 @@ export function KpiHero({
           </span>
         ) : null}
       </div>
-      <p className="text-xs text-muted">{sub ?? <>&nbsp;</>}</p>
+      <p className="text-xs text-muted">{subText ?? <>&nbsp;</>}</p>
     </CardContent>
   )
 

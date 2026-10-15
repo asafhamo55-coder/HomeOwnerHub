@@ -522,6 +522,8 @@ export interface CommunitySnapshot {
    * size with people who have left.
    */
   residentCount: number
+  /** True when either query errored — the counts are UNKNOWN, not 0. */
+  failed: boolean
 }
 
 /**
@@ -570,9 +572,23 @@ export async function getCommunitySnapshot(
     property_id: string
   }>
 
+  // A failed read used to come back as zero and the dashboard tile said
+  // "none on file yet". The tile now shows the count as unavailable.
+  let failed = false
+  for (const [table, r] of [
+    ['hoa_properties', propsResult],
+    ['property_residents', residentsResult],
+  ] as const) {
+    if (r.error) {
+      logQueryError(`getCommunitySnapshot(${table})`, r.error)
+      failed = true
+    }
+  }
+
   return {
     propertyCount: propertyIds.size,
     residentCount: residentRows.filter((r) => propertyIds.has(r.property_id)).length,
+    failed,
   }
 }
 

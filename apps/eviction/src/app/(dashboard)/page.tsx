@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ScrollText, Plus, AlertCircle } from 'lucide-react'
 import { format, differenceInCalendarDays } from 'date-fns'
-import { Badge, Button, Card, EmptyState } from '@homeowner-portal/ui'
+import { Badge, Button, Card, EmptyState, NoOrgSelected } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { listUnfinishedDrafts } from '@/lib/drafts'
 import { formatCounty } from '@/lib/county-labels'
@@ -34,7 +34,7 @@ const COLUMNS: { id: string; label: string; description: string }[] = [
 
 export default async function CasesHomePage() {
   const org = await getCurrentOrg()
-  if (!org) return null
+  if (!org) return <NoOrgSelected noun="workspace" />
 
   const supabase = await getSupabaseServerClient()
   const [casesRes, drafts] = await Promise.all([

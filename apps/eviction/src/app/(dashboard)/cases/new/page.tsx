@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, Alert } from '@homeowner-portal/ui'
+import { Card, CardContent, CardHeader, CardTitle, Alert, NoOrgSelected } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { loadDraft } from '@/lib/drafts'
 import { Wizard } from './Wizard'
@@ -22,7 +22,7 @@ export default async function NewCasePage({
   searchParams: Promise<SearchParams>
 }) {
   const org = await getCurrentOrg()
-  if (!org) return null
+  if (!org) return <NoOrgSelected noun="workspace" />
 
   const params = await searchParams
 

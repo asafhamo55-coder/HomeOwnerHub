@@ -22,8 +22,9 @@ import {
   type ReaderIdentity,
 } from '@/lib/resident-announcements'
 import { getResidentUnits, type ResidentUnit } from '@/lib/resident'
-import { listMyTickets, type TicketRow } from '@/lib/resident-tickets'
-import { listMyArcRequests, type ArcRequestRow } from '@/lib/resident-submissions'
+import { loadMyTickets, type TicketRow } from '@/lib/resident-tickets'
+import { loadMyArcRequests, type ArcRequestRow } from '@/lib/resident-submissions'
+import { loadOrFail } from '@/lib/load-or-fail'
 
 // Violation statuses that mean "closed" — anything else is still open
 // against the resident. Excluding terminal states (rather than
@@ -85,6 +86,12 @@ export interface ResidentDashboard {
   openTickets: TicketRow[]
   /** ARC applications awaiting a board decision. */
   pendingArc: ArcRequestRow[]
+  /**
+   * Which reads failed. A failed read leaves its field at the empty value,
+   * which on its own would render as "You're all caught up" — callers must
+   * check these before stating anything about the account.
+   */
+  failed: { dues: boolean; violations: boolean; requests: boolean }
 }
 
 type Supabase = SupabaseClient<Database>
@@ -113,8 +120,8 @@ export async function getResidentDashboard(): Promise<ResidentDashboard> {
     resolveFirstName(supabase, actorUser),
     getOpenViolations(supabase, unitIds),
     getDues(supabase, unitIds),
-    listMyTickets(),
-    listMyArcRequests(),
+    loadMyTickets(),
+    loadMyArcRequests(),
     getRecentAnnouncements(supabase, org?.id ?? null, {
       unitIds,
       userId: actor.id,
@@ -131,10 +138,19 @@ export async function getResidentDashboard(): Promise<ResidentDashboard> {
     associationName,
     orgName: org?.name ?? null,
     recentAnnouncements,
-    openViolations,
-    dues,
-    openTickets: tickets.filter((t) => t.status === 'open' || t.status === 'in_progress'),
-    pendingArc: arc.filter((a) => a.status === 'submitted' || a.status === 'in_review'),
+    openViolations: openViolations ?? [],
+    dues: dues ?? EMPTY_DUES,
+    openTickets: tickets.ok
+      ? tickets.data.filter((t) => t.status === 'open' || t.status === 'in_progress')
+      : [],
+    pendingArc: arc.ok
+      ? arc.data.filter((a) => a.status === 'submitted' || a.status === 'in_review')
+      : [],
+    failed: {
+      dues: dues === null,
+      violations: openViolations === null,
+      requests: !tickets.ok || !arc.ok,
+    },
   }
 }
 
@@ -156,13 +172,19 @@ async function resolveFirstName(
 // Violations are keyed by hoa_properties.id; a resident's units link to
 // that legacy id via units.legacy_hoa_property_id. Resolve the property
 // ids first, then pull unresolved violations for them.
-async function getOpenViolations(supabase: Supabase, unitIds: string[]): Promise<OpenViolationRow[]> {
+// Null means a read failed — the violations are UNKNOWN, not none.
+async function getOpenViolations(
+  supabase: Supabase,
+  unitIds: string[],
+): Promise<OpenViolationRow[] | null> {
   if (unitIds.length === 0) return []
 
-  const { data: unitRows } = await supabase
-    .from('units' as never)
-    .select('legacy_hoa_property_id')
-    .in('id' as never, unitIds)
+  const unitResult = await loadOrFail(
+    'resident unit properties',
+    supabase.from('units' as never).select('legacy_hoa_property_id').in('id' as never, unitIds),
+  )
+  if (!unitResult.ok) return null
+  const unitRows = unitResult.data
 
   const propertyIds = [
     ...new Set(
@@ -173,31 +195,41 @@ async function getOpenViolations(supabase: Supabase, unitIds: string[]): Promise
   ]
   if (propertyIds.length === 0) return []
 
-  const { data } = await supabase
-    .from('hoa_violations')
-    .select(
-      'id, violation_type, description, status, severity, fine_amount, cure_period_days, notice_sent_at, created_at',
-    )
-    .in('property_id', propertyIds)
-    .not('status', 'in', `(${CLOSED_VIOLATION_STATUSES.map((s) => `"${s}"`).join(',')})`)
-    .order('created_at', { ascending: false })
-    .limit(20)
-
-  return (data ?? []) as unknown as OpenViolationRow[]
+  const result = await loadOrFail(
+    'resident open violations',
+    supabase
+      .from('hoa_violations')
+      .select(
+        'id, violation_type, description, status, severity, fine_amount, cure_period_days, notice_sent_at, created_at',
+      )
+      .in('property_id', propertyIds)
+      .not('status', 'in', `(${CLOSED_VIOLATION_STATUSES.map((s) => `"${s}"`).join(',')})`)
+      .order('created_at', { ascending: false })
+      .limit(20),
+  )
+  if (!result.ok) return null
+  return (result.data ?? []) as unknown as OpenViolationRow[]
 }
 
 // Outstanding dues across every owned unit. Sums open/partial
 // assessments and subtracts any payments already applied so partials
 // report the true remaining balance.
-async function getDues(supabase: Supabase, unitIds: string[]): Promise<ResidentDues> {
+// Null means a read failed: the balance is UNKNOWN. Returning EMPTY_DUES
+// here is what used to tell a resident "You're all paid up" on a timeout.
+async function getDues(supabase: Supabase, unitIds: string[]): Promise<ResidentDues | null> {
   if (unitIds.length === 0) return EMPTY_DUES
 
-  const { data: rows } = await supabase
-    .from('assessments')
-    .select('id, unit_id, amount, due_date, status, assessment_type')
-    .in('unit_id', unitIds)
-    .in('status', ['open', 'partial'])
-    .is('deleted_at', null)
+  const assessmentResult = await loadOrFail(
+    'resident dues',
+    supabase
+      .from('assessments')
+      .select('id, unit_id, amount, due_date, status, assessment_type')
+      .in('unit_id', unitIds)
+      .in('status', ['open', 'partial'])
+      .is('deleted_at', null),
+  )
+  if (!assessmentResult.ok) return null
+  const rows = assessmentResult.data
 
   const assessments = (rows ?? []) as Array<{
     id: string
@@ -209,13 +241,19 @@ async function getDues(supabase: Supabase, unitIds: string[]): Promise<ResidentD
   }>
   if (assessments.length === 0) return EMPTY_DUES
 
-  const { data: payRows } = await supabase
-    .from('payments')
-    .select('assessment_id, amount')
-    .in(
-      'assessment_id',
-      assessments.map((a) => a.id),
-    )
+  // Without payments every partial charge would read as owed in full.
+  const paymentResult = await loadOrFail(
+    'resident payments',
+    supabase
+      .from('payments')
+      .select('assessment_id, amount')
+      .in(
+        'assessment_id',
+        assessments.map((a) => a.id),
+      ),
+  )
+  if (!paymentResult.ok) return null
+  const payRows = paymentResult.data
 
   const paidByAssessment = new Map<string, number>()
   for (const p of (payRows ?? []) as Array<{ assessment_id: string | null; amount: number }>) {

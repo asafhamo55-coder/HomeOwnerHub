@@ -8,6 +8,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  NoOrgSelected,
 } from '@homeowner-portal/ui'
 import { isStripeConfigured } from '@homeowner-portal/billing'
 import { getCurrentOrg } from '@/lib/orgs'
@@ -19,7 +20,7 @@ export const metadata = { title: 'Billing' }
 
 export default async function BillingPage() {
   const org = await getCurrentOrg()
-  if (!org) return null
+  if (!org) return <NoOrgSelected noun="workspace" />
 
   const supabase = await getSupabaseServerClient()
   const { data: orgRow } = await supabase

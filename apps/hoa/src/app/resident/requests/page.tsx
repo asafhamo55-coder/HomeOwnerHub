@@ -1,7 +1,7 @@
 import { ClipboardList, MessageSquarePlus, ShieldAlert } from 'lucide-react'
-import { Badge } from '@homeowner-portal/ui'
-import { listMyTickets } from '@/lib/resident-tickets'
-import { listMyArcRequests, listMyViolationReports } from '@/lib/resident-submissions'
+import { Badge, LoadFailed } from '@homeowner-portal/ui'
+import { loadMyTickets } from '@/lib/resident-tickets'
+import { loadMyArcRequests, loadMyViolationReports } from '@/lib/resident-submissions'
 import { IconTile, ScreenHeader, SectionLabel, TappableRow, type Tone } from '@/components/resident/screen'
 
 export const metadata = { title: 'Requests' }
@@ -10,15 +10,20 @@ export const dynamic = 'force-dynamic'
 const CLOSED_VIOLATION = new Set(['resolved', 'dismissed', 'closed', 'waived'])
 
 export default async function ResidentRequestsPage() {
-  const [tickets, arc, reports] = await Promise.all([
-    listMyTickets(),
-    listMyArcRequests(),
-    listMyViolationReports(),
+  const [ticketsResult, arcResult, reportsResult] = await Promise.all([
+    loadMyTickets(),
+    loadMyArcRequests(),
+    loadMyViolationReports(),
   ])
+  // A failed read must not show as "Nothing yet" on its track row.
+  const tickets = ticketsResult.ok ? ticketsResult.data : null
+  const arc = arcResult.ok ? arcResult.data : null
+  const reports = reportsResult.ok ? reportsResult.data : null
 
-  const ticketsOpen = tickets.filter((t) => t.status === 'open' || t.status === 'in_progress').length
-  const arcOpen = arc.filter((a) => a.status === 'submitted' || a.status === 'in_review').length
-  const reportsOpen = reports.filter((r) => !CLOSED_VIOLATION.has(r.status)).length
+  const ticketsOpen = tickets?.filter((t) => t.status === 'open' || t.status === 'in_progress').length ?? 0
+  const arcOpen = arc?.filter((a) => a.status === 'submitted' || a.status === 'in_review').length ?? 0
+  const reportsOpen = reports?.filter((r) => !CLOSED_VIOLATION.has(r.status)).length ?? 0
+  const anyFailed = tickets === null || arc === null || reports === null
 
   return (
     <div className="space-y-7">
@@ -51,25 +56,26 @@ export default async function ResidentRequestsPage() {
 
       <section className="space-y-2.5">
         <SectionLabel>Track</SectionLabel>
+        {anyFailed ? <LoadFailed what="some of your requests" /> : null}
         <TrackRow
           href="/resident/tickets"
           icon={<MessageSquarePlus className="h-5 w-5" />}
           title="Support tickets"
-          total={tickets.length}
+          total={tickets?.length ?? null}
           open={ticketsOpen}
         />
         <TrackRow
           href="/resident/arc"
           icon={<ClipboardList className="h-5 w-5" />}
           title="ARC applications"
-          total={arc.length}
+          total={arc?.length ?? null}
           open={arcOpen}
         />
         <TrackRow
           href="/resident/violations"
           icon={<ShieldAlert className="h-5 w-5" />}
           title="Reported concerns"
-          total={reports.length}
+          total={reports?.length ?? null}
           open={reportsOpen}
         />
       </section>
@@ -88,12 +94,19 @@ function TrackRow({
   href: string
   icon: React.ReactNode
   title: string
-  total: number
+  /** Null when the list could not be loaded. */
+  total: number | null
   open: number
   tone?: Tone
 }) {
   const subtitle =
-    total === 0 ? 'Nothing yet' : open > 0 ? `${open} open · ${total} total` : `${total} total`
+    total === null
+      ? 'Couldn’t load'
+      : total === 0
+        ? 'Nothing yet'
+        : open > 0
+          ? `${open} open · ${total} total`
+          : `${total} total`
   return (
     <TappableRow
       href={href}

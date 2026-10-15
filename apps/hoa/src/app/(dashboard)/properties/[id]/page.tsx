@@ -17,7 +17,6 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import {
-  Alert,
   BackLink,
   Badge,
   Card,
@@ -25,6 +24,7 @@ import {
   CardHeader,
   CardTitle,
   EmptyState,
+  LoadFailed,
 } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPropertyDetail, type PropertyTenure } from '@/lib/properties'
@@ -44,6 +44,7 @@ import { PropertyList } from '../PropertyList'
 import { PropertyListFilters } from '../PropertyListFilters'
 import { PropertyListPager } from '../PropertyListPager'
 import { PropertiesHeader } from '../PropertiesHeader'
+import { reportError } from '@homeowner-portal/observability/report'
 import {
   resolveCorrespondenceState,
   type CorrespondenceSectionState,
@@ -307,7 +308,9 @@ export default async function PropertyDetailPage({
         waiting: waitingCount.count ?? 0,
       }
     } catch (e) {
-      listError = e instanceof Error ? e.message : 'Could not load properties.'
+      // Reported, never rendered: the pane used to print this message.
+      reportError(e, 'properties-detail.list', { orgId: ctx.org.id })
+      listError = 'failed'
     }
   }
 
@@ -351,9 +354,7 @@ export default async function PropertyDetailPage({
         <aside className="hidden w-full max-w-sm shrink-0 overflow-y-auto border-r border-border lg:block xl:max-w-md 2xl:max-w-lg">
           <PropertyListFilters params={listParams} counts={counts} />
           {listError ? (
-            <Alert variant="error" title="Could not load properties" className="m-3">
-              {listError}
-            </Alert>
+            <LoadFailed what="properties" className="m-3" />
           ) : (
             <>
               <PropertyList rows={rows} selectedId={id} params={listParams} />

@@ -1,10 +1,21 @@
 import Link from 'next/link'
 import { MessageSquare } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Card, EmptyState } from '@homeowner-portal/ui'
+import {
+  Badge,
+  Card,
+  EmptyState,
+  LoadFailed,
+  Page,
+  Pager,
+  parsePageParam,
+} from '@homeowner-portal/ui'
 import { listTicketsForBoard, type TicketStatus, type TicketPriority } from '@/lib/tickets'
 
 export const metadata = { title: 'Tickets' }
+
+// Was a hidden `.limit(200)` inside listTicketsForBoard.
+const PAGE_SIZE = 100
 
 const STATUS_VARIANT: Record<TicketStatus, 'success' | 'warning' | 'outline'> = {
   open: 'outline',
@@ -31,20 +42,23 @@ const CATEGORY_LABEL: Record<string, string> = {
   other: 'Other',
 }
 
-export default async function TicketsPage() {
-  const tickets = await listTicketsForBoard()
-  const open = tickets.filter((t) => t.status !== 'closed').length
+export default async function TicketsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
+  const page = parsePageParam((await searchParams).page)
+  const result = await listTicketsForBoard({ page, pageSize: PAGE_SIZE })
+  const tickets = result.ok ? result.rows : []
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold">Tickets</h1>
-        <p className="text-sm text-muted">
-          {open} open · {tickets.length} total
-        </p>
-      </header>
-
-      {tickets.length === 0 ? (
+    <Page
+      title="Tickets"
+      description={result.ok ? `${result.openCount} open · ${result.total} total` : null}
+    >
+      {!result.ok ? (
+        <LoadFailed what="tickets" />
+      ) : tickets.length === 0 && result.total === 0 ? (
         <EmptyState
           icon={<MessageSquare className="h-10 w-10" aria-hidden />}
           title="No tickets yet"
@@ -84,8 +98,18 @@ export default async function TicketsPage() {
               </li>
             ))}
           </ul>
+          <Pager
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={result.total}
+            rowCount={tickets.length}
+            hrefFor={(p) => (p > 1 ? `/tickets?page=${p}` : '/tickets')}
+            linkAs={Link}
+            noun="tickets"
+            className="border-t border-border"
+          />
         </Card>
       )}
-    </div>
+    </Page>
   )
 }

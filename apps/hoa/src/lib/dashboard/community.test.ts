@@ -3,6 +3,7 @@ import { getCommunitySnapshot } from './queries'
 
 interface TableResult {
   data?: unknown
+  error?: { code: string; message: string }
 }
 
 /**
@@ -35,7 +36,11 @@ function fakeDb(results: Record<string, TableResult>) {
           return chain
         },
         then: (resolve: (v: unknown) => unknown) =>
-          Promise.resolve({ data: result.data ?? [], error: null }).then(resolve),
+          Promise.resolve(
+            result.error
+              ? { data: null, error: result.error }
+              : { data: result.data ?? [], error: null },
+          ).then(resolve),
       }
       return chain
     },
@@ -45,6 +50,9 @@ function fakeDb(results: Record<string, TableResult>) {
 
 const ORG = 'org-1'
 
+function failing() {
+  return { error: { code: '57014', message: 'canceling statement due to statement timeout' } }
+}
 function props(...ids: string[]) {
   return { data: ids.map((id) => ({ id })) }
 }
@@ -66,6 +74,20 @@ describe('getCommunitySnapshot', () => {
 
     expect(snap.propertyCount).toBe(4)
     expect(snap.residentCount).toBe(4)
+  })
+
+  it('flags a failed read instead of passing its zero off as "nothing on file"', async () => {
+    const db = fakeDb({ hoa_properties: failing(), property_residents: residents('p1') })
+
+    const snap = await getCommunitySnapshot(ORG, db as never)
+
+    expect(snap.failed).toBe(true)
+  })
+
+  it('is not failed when both reads succeed', async () => {
+    const db = fakeDb({ hoa_properties: props('p1'), property_residents: residents('p1') })
+
+    expect((await getCommunitySnapshot(ORG, db as never)).failed).toBe(false)
   })
 
   it('reports zeroes for a community with nothing on file yet', async () => {

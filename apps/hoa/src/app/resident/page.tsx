@@ -11,7 +11,7 @@ import {
   ShieldAlert,
   Sparkles,
 } from 'lucide-react'
-import { Badge, cn } from '@homeowner-portal/ui'
+import { Badge, LoadFailed, cn } from '@homeowner-portal/ui'
 import { getResidentDashboard, type OpenViolationRow } from '@/lib/resident-dashboard'
 import type { ResidentUnit } from '@/lib/resident'
 import type { TicketRow } from '@/lib/resident-tickets'
@@ -40,6 +40,9 @@ export default async function ResidentDashboard() {
   const hasUnit = data.units.length > 0
   const actionItems = data.openViolations.length + (data.dues.balance > 0 ? 1 : 0)
   const inProgress = data.openTickets.length + data.pendingArc.length
+  // A failed dues or violations read leaves those empty, which would render
+  // as "You're all caught up" — a wrong answer about someone's account.
+  const standingUnknown = data.failed.dues || data.failed.violations
 
   return (
     <div className="space-y-7">
@@ -67,7 +70,20 @@ export default async function ResidentDashboard() {
         </Panel>
       ) : (
         <>
-          <StatusHero dues={data.dues} allGood={actionItems === 0} />
+          {standingUnknown ? (
+            <LoadFailed
+              what={
+                data.failed.dues && data.failed.violations
+                  ? 'your balance or open notices'
+                  : data.failed.dues
+                    ? 'your balance'
+                    : 'your open notices'
+              }
+              hint="Anything listed below did load correctly."
+            />
+          ) : (
+            <StatusHero dues={data.dues} allGood={actionItems === 0} />
+          )}
 
           {actionItems > 0 ? (
             <section className="space-y-2.5">
@@ -79,7 +95,12 @@ export default async function ResidentDashboard() {
             </section>
           ) : null}
 
-          {inProgress > 0 ? (
+          {data.failed.requests ? (
+            <section className="space-y-2.5">
+              <SectionLabel>Your open requests</SectionLabel>
+              <LoadFailed what="your open requests" />
+            </section>
+          ) : inProgress > 0 ? (
             <section className="space-y-2.5">
               <SectionLabel>Your open requests</SectionLabel>
               {data.openTickets.map((t) => (

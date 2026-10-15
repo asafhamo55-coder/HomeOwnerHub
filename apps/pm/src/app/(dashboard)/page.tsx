@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
   EmptyState,
+  NoOrgSelected,
 } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -46,7 +47,7 @@ function currency(n: number): string {
 
 export default async function PMDashboard() {
   const org = await getCurrentOrg()
-  if (!org) return null
+  if (!org) return <NoOrgSelected noun="workspace" />
 
   const supabase = await getSupabaseServerClient()
   const { data: propData } = await supabase

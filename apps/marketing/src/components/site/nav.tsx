@@ -6,6 +6,9 @@ import { Menu, X, ChevronDown, Search } from 'lucide-react'
 import { CommandPalette } from './command-palette'
 import { cn } from '@/lib/cn'
 
+// Production HOA app — the live host residents and boards sign in on.
+const SIGN_IN_URL = 'https://www.homeownerledger.com/login'
+
 const products = [
   {
     href: '/hoa',
@@ -119,12 +122,15 @@ export function Nav() {
               ⌘K
             </kbd>
           </button>
-          <Link
-            href="/login"
+          {/* Cross-origin: the marketing site has no /login of its own (it
+              was a 404). The HOA app's production host is the sign-in. A
+              plain anchor, since next/link only helps same-origin routes. */}
+          <a
+            href={SIGN_IN_URL}
             className="text-sm font-medium text-ink-700 hover:text-ink-900"
           >
             Sign in
-          </Link>
+          </a>
           <Link
             href="/demo"
             className="inline-flex items-center gap-1.5 rounded-xl bg-ink-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink-800"
