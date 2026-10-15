@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { FileText, Plus, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Button, Card, EmptyState, Tabs } from '@homeowner-portal/ui'
+import { Badge, Button, Card, EmptyState, LoadFailed, Tabs, NoOrgSelected } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadOrFail } from '@/lib/load-or-fail'
 
 export const metadata = { title: 'Documents' }
 export const dynamic = 'force-dynamic'
@@ -38,16 +39,19 @@ function bytes(n: number | null): string {
 
 export default async function DocumentsPage() {
   const org = await getCurrentOrg()
-  if (!org) return null
+  if (!org) return <NoOrgSelected />
 
   const supabase = await getSupabaseServerClient()
-  const { data, error } = await supabase
-    .from('hoa_documents')
-    .select('id, name, type, file_size, parsed_at, created_at')
-    .eq('org_id', org.id)
-    .order('created_at', { ascending: false })
+  const result = await loadOrFail(
+    'documents',
+    supabase
+      .from('hoa_documents')
+      .select('id, name, type, file_size, parsed_at, created_at')
+      .eq('org_id', org.id)
+      .order('created_at', { ascending: false }),
+  )
 
-  const docs = (data ?? []) as DocRow[]
+  const docs = result.ok ? ((result.data ?? []) as DocRow[]) : []
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -69,10 +73,9 @@ export default async function DocumentsPage() {
 
       <Tabs items={DOC_TABS} currentPath="/documents" aria-label="Document sections" />
 
-      {error ? (
-        <Card>
-          <div className="p-6 text-sm text-destructive">{error.message}</div>
-        </Card>
+      {/* Never the raw error.message, which this used to print. */}
+      {!result.ok ? (
+        <LoadFailed what="documents" />
       ) : docs.length === 0 ? (
         <EmptyState
           icon={<FileText className="h-10 w-10" aria-hidden />}

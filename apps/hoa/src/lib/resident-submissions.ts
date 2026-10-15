@@ -6,6 +6,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getResidentUnits } from '@/lib/resident'
 import { getResidentActor, IMPERSONATION_READONLY_MSG } from '@/lib/impersonation'
+import { loadOrFail, type LoadResult } from '@/lib/load-or-fail'
 
 // ─── shared ──────────────────────────────────────────────────────────
 
@@ -97,18 +98,29 @@ export interface CreateArcInput {
   contractorLicense?: string | null
 }
 
-export async function listMyArcRequests(): Promise<ArcRequestRow[]> {
+/** The resident's ARC requests, or `{ ok: false }` when the read failed. */
+export async function loadMyArcRequests(): Promise<LoadResult<ArcRequestRow[]>> {
   const actor = await getResidentActor()
-  if (!actor.id) return []
-  const { data } = await actor.client
-    .from('arc_requests' as never)
-    .select(
-      'id, unit_id, category, summary, scope_description, proposed_start, proposed_completion, contractor_name, status, board_response, board_response_at, submitted_at',
-    )
-    .eq('submitted_by', actor.id)
-    .order('submitted_at', { ascending: false })
-    .limit(50)
-  return (data ?? []) as unknown as ArcRequestRow[]
+  if (!actor.id) return { ok: true, data: [], count: 0 }
+  const res = await loadOrFail(
+    'resident ARC requests',
+    actor.client
+      .from('arc_requests' as never)
+      .select(
+        'id, unit_id, category, summary, scope_description, proposed_start, proposed_completion, contractor_name, status, board_response, board_response_at, submitted_at',
+      )
+      .eq('submitted_by', actor.id)
+      .order('submitted_at', { ascending: false })
+      .limit(50),
+  )
+  return res.ok ? { ok: true, data: (res.data ?? []) as unknown as ArcRequestRow[], count: null } : res
+}
+
+/** Throwing form: a failed read reaches the error boundary, never "none". */
+export async function listMyArcRequests(): Promise<ArcRequestRow[]> {
+  const res = await loadMyArcRequests()
+  if (!res.ok) throw new Error('listMyArcRequests: failed to load ARC requests')
+  return res.data
 }
 
 export async function createArcRequest(
@@ -336,18 +348,31 @@ export interface ViolationReportRow {
   submitted_at: string
 }
 
-export async function listMyViolationReports(): Promise<ViolationReportRow[]> {
+/** The resident's concern reports, or `{ ok: false }` when the read failed. */
+export async function loadMyViolationReports(): Promise<LoadResult<ViolationReportRow[]>> {
   const actor = await getResidentActor()
-  if (!actor.id) return []
-  const { data } = await actor.client
-    .from('resident_violation_reports' as never)
-    .select(
-      'id, category, description, about_address, occurred_at, status, submitted_at',
-    )
-    .eq('reported_by', actor.id)
-    .order('submitted_at', { ascending: false })
-    .limit(50)
-  return (data ?? []) as unknown as ViolationReportRow[]
+  if (!actor.id) return { ok: true, data: [], count: 0 }
+  const res = await loadOrFail(
+    'resident violation reports',
+    actor.client
+      .from('resident_violation_reports' as never)
+      .select(
+        'id, category, description, about_address, occurred_at, status, submitted_at',
+      )
+      .eq('reported_by', actor.id)
+      .order('submitted_at', { ascending: false })
+      .limit(50),
+  )
+  return res.ok
+    ? { ok: true, data: (res.data ?? []) as unknown as ViolationReportRow[], count: null }
+    : res
+}
+
+/** Throwing form: a failed read reaches the error boundary, never "none". */
+export async function listMyViolationReports(): Promise<ViolationReportRow[]> {
+  const res = await loadMyViolationReports()
+  if (!res.ok) throw new Error('listMyViolationReports: failed to load reports')
+  return res.data
 }
 
 export async function createViolationReport(

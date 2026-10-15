@@ -1,4 +1,4 @@
-import { Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle, NoOrgSelected } from '@homeowner-portal/ui'
 import { isStripeConfigured, billingSummary, formatUsd, PRICING } from '@homeowner-portal/billing'
 import { getCurrentOrg } from '@/lib/orgs'
 import { requireBoardOrAdmin } from '@/lib/auth'
@@ -11,7 +11,7 @@ export const metadata = { title: 'Billing' }
 export default async function BillingPage() {
   const { role } = await requireBoardOrAdmin()
   const org = await getCurrentOrg()
-  if (!org) return null
+  if (!org) return <NoOrgSelected />
   const isAdmin = role === 'admin'
 
   const supabase = await getSupabaseServerClient()

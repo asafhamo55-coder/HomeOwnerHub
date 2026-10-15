@@ -170,7 +170,7 @@ It is on the landing page and called out in the demo script.
 ### Further findings (lower impact, folded into later phases)
 
 11. **pm and eviction have no `not-found.tsx`** and only a root `error.tsx` (outside the shell): a bad URL shows Next's unstyled 404 with no nav.
-12. **Marketing "Sign in" is a 404.** `apps/marketing/src/components/site/nav.tsx:123` links `/login`, which does not exist in the marketing app (no rewrites in `next.config.ts`). *Not fixed:* the docs disagree on the HOA app's production host (`hoa.homeownerhub.com` in `docs/DEPLOY.md:11` vs `homeowner-hub.vercel.app` in `docs/DEPLOY_PHASE_C.md:17`), and guessing a domain is not "clearly safe". Needs the owner to name the URL (or a `NEXT_PUBLIC_HOA_URL` env var).
+12. **Marketing "Sign in" was a 404 (fixed in phase 1, decision 19).** `apps/marketing/src/components/site/nav.tsx:123` links `/login`, which does not exist in the marketing app (no rewrites in `next.config.ts`). *Not fixed:* the docs disagree on the HOA app's production host (`hoa.homeownerhub.com` in `docs/DEPLOY.md:11` vs `homeowner-hub.vercel.app` in `docs/DEPLOY_PHASE_C.md:17`), and guessing a domain is not "clearly safe". Needs the owner to name the URL (or a `NEXT_PUBLIC_HOA_URL` env var).
 13. **Three `window.confirm` survivors** despite `useConfirm`: `app/admin/admins/RevokeButton.tsx:14`, `(dashboard)/settings/members/MemberRow.tsx:47`, `(dashboard)/rfps/[id]/PublishRfpButton.tsx:16`. Safari renders these as an un-styled system sheet.
 14. **Status vocabulary duplicated:** 12 files define their own `*_TONES`/`*_LABELS` `Record<string, …>`; `StatusBadge` is used on 7 pages vs raw `Badge` on 68, so the same status can read differently on list and detail pages.
 15. **`packages/ui/src/tokens.ts` is stale.** It documents HOA as teal `#00C9A7`; `apps/hoa/src/app/globals.css:24` ships indigo `#4F46E5`. Nothing imports `tokens`. Delete or regenerate it so nobody designs against it.
@@ -207,6 +207,81 @@ It is on the landing page and called out in the demo script.
    the resident bottom tab bar. That is 12 routes.
 6. **Marketing stays on its own kit.** It is a static brochure with a
    different visual brief; the only change it needs is finding 12.
+
+### Phase 1 decision log (branch `claude/ux-phase1`)
+
+Decisions made while implementing phase 1, recorded so the next phase does
+not have to rediscover them.
+
+7. **`LoadFailed` does not log; `loadOrFail` does.** The baseline table said
+   `LoadFailed` "logs to Sentry". `packages/ui` has no Sentry dependency and
+   `LoadFailed` must be renderable anywhere, so it is presentational only and
+   takes *no* error prop at all (a type-level guarantee that raw messages
+   cannot reach it). Reporting happens once, in `apps/hoa/src/lib/load-or-fail.ts`,
+   via `@homeowner-portal/observability`'s `reportError` with a `redactText`-ed
+   message and `{ what, code }` context — no row values.
+8. **`loadOrFail`'s failure branch is just `{ ok: false }`.** No error object,
+   so a page has nothing to render from it. Rejections are failures too.
+   `redirect()` / `notFound()` thrown through it are re-thrown via Next's
+   `unstable_rethrow`, so an auth redirect never becomes a "couldn't load" box.
+   A sibling `tryLoad(what, fn)` gives the same contract for lib helpers that
+   *throw* (inbox, properties).
+9. **Inbox and properties are not wrapped in `Page`.** Both are full-height
+   split panes with their own scrolling; a fixed-width container breaks them.
+   They adopt `Pager` (properties also `LoadFailed`) and are listed as
+   pager-only in the ratchet. Inbox load failures were already honest — every
+   `lib/inbox/queries.ts` read throws to `(dashboard)/error.tsx` — so it keeps
+   that path.
+10. **Helpers that every page shares were fixed at the helper.** `listTicketsForBoard`,
+   `listCommunications`, the resident `listMy*` readers and `getResidentDashboard`
+   now report failure. The resident `listMy*` functions keep their array
+   signature for the non-phase-1 callers but *throw* on failure (→ resident
+   error boundary, not an empty list); phase-1 pages use the new `loadMy*`
+   variants and show `LoadFailed` per section.
+11. **Totals no longer come from a truncated page.** `/dues`' "$X overdue"
+   headline was summed from the first 500 rows; it now has its own query over
+   every overdue charge. `/tickets`' "N open" uses a count query. On
+   `/communications` the summary tiles still sum the visible page, and the
+   page now says so when there is more than one page. On `/dues`, a fiscal
+   period split across a page boundary labels its billed/paid figures "on this
+   page only".
+12. **Page sizes kept from the old caps** — violations 100, dues 500,
+   meetings 50, communications 100, resident announcements 50 — except tickets
+   (hidden 200 cap → 100 per page, for consistency with violations).
+   Resident announcements read up to 1000 recipient rows (was 300) and say so
+   if that cap is hit.
+13. **`Pager` hides itself when one page holds everything.** The inbox used to
+   show "Showing 1–5 of 5" on a single page; the filter chips already carry the
+   count. A `?page=` past the end says so and links to page 1 instead of
+   rendering an empty list.
+14. **Dashboard KPI tiles show "—" and "Couldn't load" when their source
+   failed.** The helpers already computed `failed` flags (used by
+   `board-signals`) but the tiles ignored them and showed `$0` / `0`.
+   `getCommunitySnapshot` gained the same flag. "This week" no longer says
+   "nothing urgent" when the at-risk read failed. Not done: the heat map and
+   donuts still render a failed read as empty (phase 3/4).
+15. **`NoOrgSelected` lives in `packages/ui`** with a `noun` prop: "community"
+   (HOA), "workspace" (pm, eviction).
+16. **pm and eviction 404s keep the shell via a catch-all.** A
+   `(dashboard)/not-found.tsx` alone only catches `notFound()` calls; an
+   unmatched URL renders the *root* not-found outside the layout. Each app
+   now has `(dashboard)/[...missing]/page.tsx` calling `notFound()`. More
+   specific routes (`(auth)`, `onboarding`, `api`, `auth/callback`) still win.
+   Side effect: an unauthenticated request for an unknown URL now redirects
+   to `/login` (the layout's auth check) instead of a bare 404. HOA was not
+   given a catch-all: its root also hosts the resident and admin trees.
+17. **The ratchet's detectors are narrower than the audit's scan.** It flags
+   `const { data } = await …` without `error` and `(await …).data`; the audit
+   also counted other shapes. Its allowlist (25 pages now) is what *this*
+   detector sees, and a detector self-test pins its behaviour. Also enforced:
+   no `if (!org) return null`, no `{error.message}</` in a page, `<Page width>`
+   only narrow/default/wide.
+18. **Two raw-message leaks outside the 12 routes were fixed** because the
+   ratchet rule would otherwise have needed an allowlist: `/documents` and
+   the `/properties/[id]` list pane.
+19. **Finding 12 resolved:** marketing "Sign in" now points to the live HOA
+   production host, `https://www.homeownerledger.com/login` (owner-confirmed;
+   the hostnames in `docs/DEPLOY*.md` are stale).
 
 ## Proposed design-system baseline (additions to `packages/ui`)
 

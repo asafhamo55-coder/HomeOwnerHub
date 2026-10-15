@@ -9,7 +9,17 @@ import {
   Reply,
   Send,
 } from 'lucide-react'
-import { Badge, Button, Card, EmptyState, Select } from '@homeowner-portal/ui'
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  LoadFailed,
+  Page,
+  Pager,
+  Select,
+  parsePageParam,
+} from '@homeowner-portal/ui'
 import { LocalDateTime } from '@/components/ui/LocalDateTime'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { listCommunications } from '@/lib/communications/queries'
@@ -64,28 +74,48 @@ const CHANNEL_LABEL: Record<string, string> = {
 }
 
 interface PageProps {
-  searchParams: Promise<{ category?: string; status?: string }>
+  searchParams: Promise<{ category?: string; status?: string; page?: string }>
 }
+
+// Was a silent `.limit(100)` inside listCommunications.
+const PAGE_SIZE = 100
 
 export default async function CommunicationsPage({ searchParams }: PageProps) {
   const assoc = await getPrimaryAssociation()
   if (!assoc) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <Page title="Communications" width="narrow">
         <EmptyState
           icon={<MessageSquare className="h-10 w-10" aria-hidden />}
           title="No HOA association configured"
           description="Set up an association before sending communications."
         />
-      </div>
+      </Page>
     )
   }
 
   const sp = await searchParams
-  const comms = await listCommunications(assoc.id, {
+  const page = parsePageParam(sp.page)
+  const result = await listCommunications(assoc.id, {
     category: sp.category,
     status: sp.status,
+    page,
+    pageSize: PAGE_SIZE,
   })
+  const comms = result.ok ? result.rows : []
+  const total = result.ok ? result.total : 0
+  // The summary tiles add up the rows on THIS page. Say so when that is
+  // not everything, rather than presenting a page's sums as the totals.
+  const summaryIsPartial = total > comms.length
+
+  const hrefFor = (p: number): string => {
+    const q = new URLSearchParams()
+    if (sp.category) q.set('category', sp.category)
+    if (sp.status) q.set('status', sp.status)
+    if (p > 1) q.set('page', String(p))
+    const qs = q.toString()
+    return qs ? `/communications?${qs}` : '/communications'
+  }
 
   // Top-of-page summary numbers — only count fully-sent comms so a draft
   // doesn't inflate the "delivery rate" reading.
@@ -95,23 +125,23 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
   const totalReplies = comms.reduce((s, c) => s + c.repliedCount, 0)
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <header className="flex flex-wrap items-baseline justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Communications</h1>
-          <p className="text-sm text-muted">
-            Every message sent to your community — welcomes, dues reminders,
-            violation notices, ARC decisions, and ad-hoc announcements.
-          </p>
-        </div>
+    <Page
+      title="Communications"
+      description="Every message sent to your community — welcomes, dues reminders, violation notices, ARC decisions, and ad-hoc announcements."
+      actions={
         <Button asChild>
           <Link href="/communications/new">
             <Plus className="h-4 w-4" />
             New message
           </Link>
         </Button>
-      </header>
-
+      }
+    >
+      {summaryIsPartial ? (
+        <p className="text-xs text-muted">
+          Figures below cover the {comms.length} messages on this page, not all {total}.
+        </p>
+      ) : null}
       {comms.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-4">
           <SummaryCard
@@ -188,7 +218,9 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
         </form>
       </Card>
 
-      {comms.length === 0 ? (
+      {!result.ok ? (
+        <LoadFailed what="communications" />
+      ) : comms.length === 0 && total === 0 ? (
         <EmptyState
           icon={<Mail className="h-10 w-10" aria-hidden />}
           title="No messages yet"
@@ -289,9 +321,19 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
               )
             })}
           </ul>
+          <Pager
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            rowCount={comms.length}
+            hrefFor={hrefFor}
+            linkAs={Link}
+            noun="messages"
+            className="border-t border-border"
+          />
         </Card>
       )}
-    </div>
+    </Page>
   )
 }
 

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Alert } from '@homeowner-portal/ui'
+import { Alert, Pager } from '@homeowner-portal/ui'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
@@ -29,6 +29,10 @@ const FILTERS: Array<{ key: InboxFilter; label: string }> = [
   // something the board is asked to look at.
 ]
 
+// Split-pane list/detail layout, deliberately NOT wrapped in <Page> (a
+// fixed-width container would break its full-height panes). Load failures
+// are honest already: every lib/inbox/queries.ts read throws on error, which
+// lands on (dashboard)/error.tsx rather than an empty inbox.
 export default async function InboxPage({
   searchParams,
 }: {
@@ -164,35 +168,15 @@ export default async function InboxPage({
             </Link>
           </nav>
           <ThreadList threads={threads} filter={filter} hasAnyThreads={counts.all > 0} />
-          {total > 0 ? (
-            <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-xs text-muted">
-              <span>
-                Showing {offset + 1}–{Math.min(offset + threads.length, total)} of {total}
-              </span>
-              <div className="flex gap-3">
-                {page > 1 ? (
-                  <Link
-                    href={`/inbox?filter=${filter}&page=${page - 1}`}
-                    className="underline hover:text-foreground"
-                  >
-                    Previous
-                  </Link>
-                ) : (
-                  <span className="text-muted/50">Previous</span>
-                )}
-                {page < totalPages ? (
-                  <Link
-                    href={`/inbox?filter=${filter}&page=${page + 1}`}
-                    className="underline hover:text-foreground"
-                  >
-                    Next
-                  </Link>
-                ) : (
-                  <span className="text-muted/50">Next</span>
-                )}
-              </div>
-            </div>
-          ) : null}
+          <Pager
+            page={page}
+            pageSize={INBOX_PAGE_SIZE}
+            total={total}
+            rowCount={threads.length}
+            hrefFor={(p) => `/inbox?filter=${filter}&page=${p}`}
+            linkAs={Link}
+            className="border-t border-border"
+          />
         </aside>
 
         <section className="hidden flex-1 items-center justify-center text-sm text-muted lg:flex">

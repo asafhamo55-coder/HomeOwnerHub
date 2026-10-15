@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { Alert, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { Alert, Card, CardContent, CardHeader, CardTitle, NoOrgSelected } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadDraft } from '@/lib/drafts'
@@ -25,7 +25,7 @@ export default async function NewViolationPage({
 }) {
   const supabase = await getSupabaseServerClient()
   const org = await getCurrentOrg()
-  if (!org) return null
+  if (!org) return <NoOrgSelected />
   const { draft: draftId } = await searchParams
 
   const [propsRes, ccrRes, initialDraft] = await Promise.all([

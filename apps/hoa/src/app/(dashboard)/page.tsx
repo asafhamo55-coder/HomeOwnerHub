@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, MessageSquare, Wallet } from 'lucide-react'
-import { Alert, Card, CardContent, Skeleton } from '@homeowner-portal/ui'
+import { Alert, Card, CardContent, NoOrgSelected, Page, Skeleton } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 // EMERGENCY ROLLBACK (v2 — second attempt) 2026-05-25: cached layer
 // broke prod AGAIN at runtime with reference 2236965075. Both the
@@ -29,6 +29,7 @@ import {
 } from '@/lib/dashboard/charts'
 import { getSetupProgress } from '@/lib/inbox/queries'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadOrFail } from '@/lib/load-or-fail'
 import { getTriageSnapshot } from '@/lib/dashboard/triage'
 import {
   buildBullets,
@@ -70,7 +71,7 @@ const serverDateLabel = new Date().toLocaleDateString(undefined, {
 
 export default async function DashboardHome() {
   const org = await getCurrentOrg()
-  if (!org) return null
+  if (!org) return <NoOrgSelected />
 
   // Prefer the user's set full_name from profiles. Fall back to the
   // email-prefix only when no name has been set yet, so the greeting
@@ -79,13 +80,19 @@ export default async function DashboardHome() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  const { data: profileRow } = user
-    ? await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', user.id)
-        .maybeSingle<{ full_name: string | null }>()
-    : { data: null }
+  const profile = user
+    ? await loadOrFail(
+        'profile name',
+        supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .maybeSingle<{ full_name: string | null }>(),
+      )
+    : null
+  // A failed name lookup only costs the greeting its name; the email
+  // prefix below is a fine stand-in. Logged by loadOrFail either way.
+  const profileRow = profile?.ok ? profile.data : null
   const fullName = profileRow?.full_name?.trim() || null
   const firstName = fullName ? fullName.split(/\s+/)[0] : null
   const userName =
@@ -95,11 +102,15 @@ export default async function DashboardHome() {
   const pendingSetup = setupSteps.filter((step) => !step.done)
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <header className="space-y-2">
-        <GreetingHeadline name={userName} contextLabel={org.name} fallbackDate={serverDateLabel} />
-      </header>
-
+    <Page
+      width="wide"
+      header={
+        <header className="space-y-2">
+          {/* GreetingHeadline renders the page's one <h1>. */}
+          <GreetingHeadline name={userName} contextLabel={org.name} fallbackDate={serverDateLabel} />
+        </header>
+      }
+    >
       {pendingSetup.length > 0 ? (
         <Alert variant="info" title="Finish setting up">
           {pendingSetup.length} step{pendingSetup.length === 1 ? '' : 's'} left —{' '}
@@ -113,7 +124,7 @@ export default async function DashboardHome() {
       <Suspense fallback={<DashboardSkeleton />}>
         <DashboardContent orgId={org.id} />
       </Suspense>
-    </div>
+    </Page>
   )
 }
 
@@ -202,6 +213,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
           sub="awaiting work"
           href="/tickets"
           upIsBad
+          unavailable={kpis.failed}
         />
         <KpiHero
           label="Properties"
@@ -214,6 +226,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
                 } in residence`
           }
           href="/properties"
+          unavailable={community.failed}
         />
         {/* Same figure the /leases page headlines — leasedPct off
             getLeaseSummary — so the dashboard and the lease section can
@@ -237,6 +250,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
           }
           href="/leases"
           upIsBad
+          unavailable={leaseSummary.failed}
         />
         <KpiHero
           label="Dues overdue"
@@ -245,6 +259,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
           previous={kpis.duesOutstandingUsd.previous}
           upIsBad
           href="/dues"
+          unavailable={kpis.failed}
         />
       </div>
 
@@ -255,7 +270,11 @@ async function DashboardContent({ orgId }: { orgId: string }) {
         <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium hover:bg-foreground/5">
           <span>This week</span>
           <span className="text-xs text-muted">
-            {approvals.totalCount + atRisk.totalCount === 0
+            {/* "nothing urgent" is a claim; a failed at-risk read can't
+                support it. */}
+            {atRisk.failed
+              ? 'couldn’t load everything'
+              : approvals.totalCount + atRisk.totalCount === 0
               ? 'nothing urgent'
               : `${approvals.totalCount + atRisk.totalCount} items`}
           </span>
@@ -286,6 +305,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
             previous={kpis.openViolations.previous}
             upIsBad
             href="/violations"
+            unavailable={kpis.failed}
           />
           <div
             className={`grid gap-4 ${leaseSummary.hasAssociation ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}

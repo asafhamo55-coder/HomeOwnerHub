@@ -1,6 +1,7 @@
-import { Alert } from '@homeowner-portal/ui'
+import { LoadFailed, NoOrgSelected } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
 import { listProperties } from '@/lib/properties/list'
 import { parsePropertyListParams } from '@/lib/properties/list-params'
 import { PropertyList } from './PropertyList'
@@ -16,72 +17,59 @@ export const dynamic = 'force-dynamic'
 // this mirrors for the count-only queries below.
 const VIEW = 'hoa_property_list_v'
 
+// Split-pane list/detail layout, deliberately NOT wrapped in <Page>: it is
+// full-height with its own scrolling panes, which a fixed-width container
+// would break. It adopts the shared Pager and LoadFailed instead (see the
+// decision log in docs/specs/2026-10-15-enterprise-ux-plan.md).
 export default async function PropertiesPage({
   searchParams,
 }: {
   searchParams: Promise<{ filter?: string; sort?: string; q?: string; page?: string }>
 }) {
   const org = await getCurrentOrg()
-  if (!org) return null
+  if (!org) return <NoOrgSelected />
 
   const params = parsePropertyListParams(await searchParams)
   const supabase = await getSupabaseServerClient()
 
-  let rows: Awaited<ReturnType<typeof listProperties>>['rows'] = []
-  let total = 0
-  let counts = { attention: 0, incomplete: 0, all: 0, waiting: 0 }
-  let error: string | null = null
-  try {
-    const result = await listProperties(supabase, org.id, params)
-    rows = result.rows
-    total = result.total
+  const countQuery = () =>
+    supabase
+      .from(VIEW as never)
+      .select('*', { count: 'exact', head: true })
+      .eq('org_id' as never, org.id)
 
-    // Count-only queries (`head: true`) so no rows are transferred — these
-    // drive the filter-chip counts, not the paginated list above.
-    // `needs_attention` rather than `severity_rank < 6` — see list.ts. The
-    // old predicate counted missing-data rows as work, which put "131
-    // needing attention" beside 184 homes and made the number meaningless.
-    const [attentionCount, incompleteCount, allCount, waitingCount] = await Promise.all([
-      supabase
-        .from(VIEW as never)
-        .select('*', { count: 'exact', head: true })
-        .eq('org_id' as never, org.id)
-        .eq('needs_attention' as never, true),
-      supabase
-        .from(VIEW as never)
-        .select('*', { count: 'exact', head: true })
-        .eq('org_id' as never, org.id)
-        .eq('is_incomplete' as never, true),
-      supabase
-        .from(VIEW as never)
-        .select('*', { count: 'exact', head: true })
-        .eq('org_id' as never, org.id),
-      supabase
-        .from(VIEW as never)
-        .select('*', { count: 'exact', head: true })
-        .eq('org_id' as never, org.id)
-        .eq('on_waiting_list' as never, true),
-    ])
-    counts = {
-      attention: attentionCount.count ?? 0,
-      incomplete: incompleteCount.count ?? 0,
-      all: allCount.count ?? 0,
-      waiting: waitingCount.count ?? 0,
-    }
-  } catch (e) {
-    // Surfaced in the list pane rather than crashing the route, so the
-    // rest of the page stays usable — the old page rendered a raw
-    // error.message into a bare Card.
-    error = e instanceof Error ? e.message : 'Could not load properties.'
-  }
+  // Count-only queries (`head: true`) so no rows are transferred — these
+  // drive the filter-chip counts, not the paginated list.
+  // `needs_attention` rather than `severity_rank < 6` — see list.ts. The
+  // old predicate counted missing-data rows as work, which put "131
+  // needing attention" beside 184 homes and made the number meaningless.
+  const [list, attentionCount, incompleteCount, allCount, waitingCount] = await Promise.all([
+    tryLoad('properties', () => listProperties(supabase, org.id, params)),
+    loadOrFail('property attention count', countQuery().eq('needs_attention' as never, true)),
+    loadOrFail('property incomplete count', countQuery().eq('is_incomplete' as never, true)),
+    loadOrFail('property count', countQuery()),
+    loadOrFail('property waiting-list count', countQuery().eq('on_waiting_list' as never, true)),
+  ])
+
+  // A failed count used to read as 0 ("0 homes"). Unknown is shown as
+  // unknown: the chips drop their numbers and the header says so.
+  const counts =
+    attentionCount.ok && incompleteCount.ok && allCount.ok && waitingCount.ok
+      ? {
+          attention: attentionCount.count ?? 0,
+          incomplete: incompleteCount.count ?? 0,
+          all: allCount.count ?? 0,
+          waiting: waitingCount.count ?? 0,
+        }
+      : null
 
   return (
     <main className="flex h-[calc(100vh-4rem)] flex-col">
       <PropertiesHeader
         orgName={org.name}
         filter={params.filter}
-        total={total}
-        allCount={counts.all}
+        total={list.ok ? list.data.total : null}
+        allCount={counts ? counts.all : null}
         search={params.search}
       />
 
@@ -92,14 +80,19 @@ export default async function PropertiesPage({
             truncating list. */}
         <aside className="w-full max-w-sm shrink-0 overflow-y-auto border-r border-border xl:max-w-md 2xl:max-w-lg">
           <PropertyListFilters params={params} counts={counts} />
-          {error ? (
-            <Alert variant="error" title="Could not load properties" className="m-3">
-              {error}
-            </Alert>
+          {/* Surfaced in the list pane rather than crashing the route, so
+              the rest of the page stays usable. Never the raw message —
+              this pane used to print error.message verbatim. */}
+          {!list.ok ? (
+            <LoadFailed what="properties" className="m-3" />
           ) : (
             <>
-              <PropertyList rows={rows} params={params} />
-              <PropertyListPager params={params} rowCount={rows.length} total={total} />
+              <PropertyList rows={list.data.rows} params={params} />
+              <PropertyListPager
+                params={params}
+                rowCount={list.data.rows.length}
+                total={list.data.total}
+              />
             </>
           )}
         </aside>

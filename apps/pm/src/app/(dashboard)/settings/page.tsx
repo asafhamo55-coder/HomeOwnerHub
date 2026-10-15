@@ -7,6 +7,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  NoOrgSelected,
 } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 
@@ -14,7 +15,7 @@ export const metadata = { title: 'Settings' }
 
 export default async function SettingsPage() {
   const org = await getCurrentOrg()
-  if (!org) return null
+  if (!org) return <NoOrgSelected noun="workspace" />
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

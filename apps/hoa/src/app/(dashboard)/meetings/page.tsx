@@ -8,9 +8,21 @@ import {
   Plus,
 } from 'lucide-react'
 import { format } from 'date-fns'
-import { Button, Card, EmptyState, StatusBadge } from '@homeowner-portal/ui'
+import {
+  Button,
+  Card,
+  EmptyState,
+  LoadFailed,
+  NoOrgSelected,
+  Page,
+  Pager,
+  StatusBadge,
+  pageRange,
+  parsePageParam,
+} from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadOrFail } from '@/lib/load-or-fail'
 
 export const metadata = { title: 'Meetings' }
 export const dynamic = 'force-dynamic'
@@ -48,32 +60,55 @@ interface ActionItemAgg {
   due_date: string | null
 }
 
-export default async function MeetingsPage() {
+// Was a silent `.limit(50)`. Same page size, now with a pager.
+const PAGE_SIZE = 50
+
+export default async function MeetingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
   const org = await getCurrentOrg()
-  if (!org) return null
+  if (!org) return <NoOrgSelected />
+
+  const page = parsePageParam((await searchParams).page)
+  const { from, to } = pageRange(page, PAGE_SIZE)
 
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
-    .from('hoa_meeting_minutes')
-    .select('id, meeting_date, meeting_type, status, approved_at, attendees, ai_summary')
-    .eq('org_id', org.id)
-    .is('deleted_at', null)
-    .order('meeting_date', { ascending: false })
-    .limit(50)
+  const result = await loadOrFail(
+    'meetings',
+    supabase
+      .from('hoa_meeting_minutes')
+      .select('id, meeting_date, meeting_type, status, approved_at, attendees, ai_summary', {
+        count: 'exact',
+      })
+      .eq('org_id', org.id)
+      .is('deleted_at', null)
+      .order('meeting_date', { ascending: false })
+      .range(from, to),
+  )
 
-  const rows = (data ?? []) as MeetingRow[]
+  const rows = result.ok ? ((result.data ?? []) as MeetingRow[]) : []
+  const total = result.ok ? (result.count ?? rows.length) : 0
 
   // Aggregate action item counts in one round-trip rather than N+1.
+  // A failed lookup must not read as "no action items" on every row.
+  let actionItemsFailed = false
   let countsByMeeting: Map<
     string,
     { total: number; open: number; overdue: number }
   > = new Map()
   if (rows.length > 0) {
     const meetingIds = rows.map((m) => m.id)
-    const { data: agg } = await supabase
-      .from('meeting_action_items' as never)
-      .select('meeting_id, status, due_date')
-      .in('meeting_id' as never, meetingIds)
+    const aggResult = await loadOrFail(
+      'meeting action items',
+      supabase
+        .from('meeting_action_items' as never)
+        .select('meeting_id, status, due_date')
+        .in('meeting_id' as never, meetingIds),
+    )
+    actionItemsFailed = !aggResult.ok
+    const agg = aggResult.ok ? aggResult.data : null
     const todayIso = new Date().toISOString().slice(0, 10)
     countsByMeeting = ((agg ?? []) as unknown as ActionItemAgg[]).reduce((acc, raw) => {
       const r = raw as ActionItemAgg
@@ -94,21 +129,17 @@ export default async function MeetingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-            Board record
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-            Meetings
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            Paste a transcript, get AI-drafted minutes, approve via BarBGate.
-            Action items track due dates &amp; status separately.
-          </p>
-        </div>
-        <div className="flex gap-2">
+    <Page
+      eyebrow="Board record"
+      title="Meetings"
+      description={
+        <>
+          Paste a transcript, get AI-drafted minutes, approve via BarBGate.
+          Action items track due dates &amp; status separately.
+        </>
+      }
+      actions={
+        <>
           <Button asChild variant="outline">
             <Link href="/meetings/schedule">
               <CalendarPlus className="h-4 w-4" />
@@ -121,10 +152,19 @@ export default async function MeetingsPage() {
               New minutes
             </Link>
           </Button>
-        </div>
-      </header>
+        </>
+      }
+    >
+      {actionItemsFailed ? (
+        <LoadFailed
+          what="action-item counts"
+          hint="The meetings below are correct; only their action-item tallies are missing."
+        />
+      ) : null}
 
-      {rows.length === 0 ? (
+      {!result.ok ? (
+        <LoadFailed what="meetings" />
+      ) : rows.length === 0 && total === 0 ? (
         <Card>
           <div className="p-8">
             <EmptyState
@@ -210,8 +250,18 @@ export default async function MeetingsPage() {
               )
             })}
           </ul>
+          <Pager
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            rowCount={rows.length}
+            hrefFor={(p) => (p > 1 ? `/meetings?page=${p}` : '/meetings')}
+            linkAs={Link}
+            noun="meetings"
+            className="border-t border-border"
+          />
         </Card>
       )}
-    </div>
+    </Page>
   )
 }

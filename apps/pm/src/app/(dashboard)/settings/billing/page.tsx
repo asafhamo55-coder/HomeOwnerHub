@@ -1,4 +1,4 @@
-import { Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle, NoOrgSelected } from '@homeowner-portal/ui'
 import { isStripeConfigured } from '@homeowner-portal/billing'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -9,7 +9,7 @@ export const metadata = { title: 'Billing' }
 
 export default async function BillingPage() {
   const org = await getCurrentOrg()
-  if (!org) return null
+  if (!org) return <NoOrgSelected noun="workspace" />
 
   const supabase = await getSupabaseServerClient()
   const { data: orgRow } = await supabase

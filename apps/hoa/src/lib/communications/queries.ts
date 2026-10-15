@@ -1,5 +1,6 @@
 import type { Database } from '@homeowner-portal/db/types'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadOrFail } from '@/lib/load-or-fail'
 
 type Row<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Row']
@@ -33,8 +34,19 @@ export interface CommunicationSummary {
 export interface ListCommunicationsFilters {
   category?: string
   status?: string
-  limit?: number
+  /** 1-based page. */
+  page?: number
+  pageSize?: number
 }
+
+/**
+ * `{ ok: false }` when the list could not be loaded — never an empty list
+ * standing in for a failure. `total` counts every matching communication,
+ * not just this page.
+ */
+export type CommunicationsPage =
+  | { ok: true; rows: CommunicationSummary[]; total: number }
+  | { ok: false }
 
 /**
  * Activity-feed query. Aggregates per-recipient delivery state into a
@@ -44,23 +56,27 @@ export interface ListCommunicationsFilters {
 export async function listCommunications(
   associationId: string,
   filters: ListCommunicationsFilters = {},
-): Promise<CommunicationSummary[]> {
+): Promise<CommunicationsPage> {
   const supabase = await getSupabaseServerClient()
+  const pageSize = filters.pageSize ?? 100
+  const from = ((filters.page ?? 1) - 1) * pageSize
   let q = supabase
     .from('communications')
     .select(
       'id, category, subject, status, channels, audience_summary, scheduled_for, sent_at, created_at, ' +
         'recipients:communication_recipients(delivery_status, rendered_subject)',
+      { count: 'exact' },
     )
     .eq('association_id', associationId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
-    .limit(filters.limit ?? 100)
 
   if (filters.category) q = q.eq('category', filters.category)
   if (filters.status) q = q.eq('status', filters.status)
 
-  const { data } = await q
+  const result = await loadOrFail('communications', q.range(from, from + pageSize - 1))
+  if (!result.ok) return { ok: false }
+  const data = result.data
 
   type Shape = {
     id: string
@@ -75,7 +91,7 @@ export async function listCommunications(
     recipients: { delivery_status: string; rendered_subject: string | null }[]
   }
 
-  return ((data ?? []) as unknown as Shape[]).map((c) => {
+  const rows = ((data ?? []) as unknown as Shape[]).map((c) => {
     const recipients = c.recipients ?? []
     const counts = recipients.reduce(
       (acc, r) => {
@@ -120,6 +136,7 @@ export async function listCommunications(
       failedCount: counts.failed,
     }
   })
+  return { ok: true, rows, total: result.count ?? rows.length }
 }
 
 export interface CommunicationDetail extends CommunicationSummary {

@@ -1,6 +1,6 @@
 import { differenceInCalendarDays, format } from 'date-fns'
 import { AlertTriangle, CheckCircle2, CreditCard, Home, Wallet } from 'lucide-react'
-import { Badge } from '@homeowner-portal/ui'
+import { Badge, LoadFailed } from '@homeowner-portal/ui'
 import { getResidentDashboard, type ResidentCharge } from '@/lib/resident-dashboard'
 import type { ResidentUnit } from '@/lib/resident'
 import { chargeTypeLabel } from '@/lib/assessment-labels'
@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
 export default async function ResidentDuesPage() {
-  const { units, dues } = await getResidentDashboard()
+  const { units, dues, failed } = await getResidentDashboard()
 
   if (units.length === 0) {
     return (
@@ -28,6 +28,19 @@ export default async function ResidentDuesPage() {
             </p>
           </div>
         </Panel>
+      </div>
+    )
+  }
+
+  // A failed read would otherwise fall through to "You're all paid up".
+  if (failed.dues) {
+    return (
+      <div className="space-y-7">
+        <ScreenHeader title="Dues" subtitle="Your balance and the homes it covers." />
+        <LoadFailed
+          what="your dues"
+          hint="Your balance is unknown right now — not zero. For a statement, contact your community manager."
+        />
       </div>
     )
   }

@@ -61,7 +61,9 @@ export function PropertyListFilters({
   counts,
 }: {
   params: PropertyListParams
-  counts: { attention: number; incomplete: number; all: number; waiting: number }
+  /** Null when the counts could not be loaded — chips then show no number
+   *  rather than a 0 that reads as "none". */
+  counts: { attention: number; incomplete: number; all: number; waiting: number } | null
 }) {
   return (
     <div className="space-y-2 border-b border-border p-2">
@@ -108,7 +110,7 @@ export function PropertyListFilters({
                 : 'text-muted hover:bg-muted/10'
             }`}
           >
-            {COUNTED.has(f.key)
+            {COUNTED.has(f.key) && counts
               ? `${f.label} ${counts[f.key as keyof typeof counts] ?? 0}`
               : f.label}
           </Link>

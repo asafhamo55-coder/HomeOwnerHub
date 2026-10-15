@@ -1,3 +1,4 @@
+import { AlertCircle, Check, Clock } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import { addDays, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns'
 
@@ -57,9 +58,9 @@ export function ComplianceHeatMap({ cells, months = 3 }: ComplianceHeatMapProps)
           Compliance heat map
         </CardTitle>
         <p className="text-xs text-muted">
-          {format(start, 'MMM yyyy')} – {format(end, 'MMM yyyy')} · red = overdue / yellow = within 3
-          days / green = clean
+          {format(start, 'MMM yyyy')} – {format(end, 'MMM yyyy')}
         </p>
+        <HeatMapLegend />
       </CardHeader>
       <CardContent className="space-y-4">
         {monthGrids.map((m) => (
@@ -100,29 +101,94 @@ function MonthGrid({
         {padded.map((cell, idx) => {
           if (!cell) return <div key={`pad-${idx}`} className="h-8" aria-hidden />
           const isToday = isSameDay(cell.date, today)
+          const meta = LEVEL_META[cell.level]
+          const Icon = meta.icon
+          const dateLabel = format(cell.date, 'PP')
+          // Spoken and tooltip text carry the status in words: colour alone
+          // is invisible to screen readers and to colour-blind users, and a
+          // `title` never surfaces on touch devices.
+          const description =
+            cell.notes.length === 0
+              ? `${dateLabel}: ${meta.label}`
+              : `${dateLabel}: ${meta.label} — ${cell.notes.join('; ')}`
           return (
             <div
               key={cell.date.toISOString()}
-              title={
-                cell.notes.length === 0
-                  ? format(cell.date, 'PP')
-                  : `${format(cell.date, 'PP')} · ${cell.notes.join('; ')}`
-              }
+              role="img"
+              aria-label={isToday ? `Today, ${description}` : description}
+              title={description}
               className={`relative flex h-8 items-center justify-center rounded-md text-xs font-medium ${
-                cell.level === 'red'
-                  ? 'bg-destructive/20 text-destructive'
-                  : cell.level === 'yellow'
-                    ? 'bg-amber-200 text-amber-900'
-                    : cell.level === 'green'
-                      ? 'bg-emerald-200 text-emerald-900'
-                      : 'bg-background text-muted'
+                meta.cellClass
               } ${isToday ? 'ring-2 ring-primary' : ''}`}
             >
               {cell.date.getDate()}
+              {Icon ? (
+                <Icon
+                  className="absolute right-0.5 top-0.5 h-2.5 w-2.5"
+                  strokeWidth={3}
+                  aria-hidden
+                />
+              ) : null}
             </div>
           )
         })}
       </div>
     </div>
+  )
+}
+
+// One table for colour, glyph and words, so the legend and the cells can
+// never disagree. Red and amber carry a glyph as well as a colour (audit
+// finding 10: the explanation used to live only in a `title` attribute).
+const LEVEL_META: Record<
+  DayLevel,
+  { label: string; cellClass: string; swatchClass: string; icon: typeof AlertCircle | null }
+> = {
+  red: {
+    label: 'overdue',
+    cellClass: 'bg-destructive/20 text-destructive',
+    swatchClass: 'bg-destructive/20 text-destructive',
+    icon: AlertCircle,
+  },
+  yellow: {
+    label: 'due within 3 days',
+    cellClass: 'bg-amber-200 text-amber-900',
+    swatchClass: 'bg-amber-200 text-amber-900',
+    icon: Clock,
+  },
+  green: {
+    label: 'on track',
+    cellClass: 'bg-emerald-200 text-emerald-900',
+    swatchClass: 'bg-emerald-200 text-emerald-900',
+    icon: Check,
+  },
+  grey: {
+    label: 'nothing due',
+    cellClass: 'bg-background text-muted',
+    swatchClass: 'border border-border bg-background text-muted',
+    icon: null,
+  },
+}
+
+function HeatMapLegend() {
+  const order: DayLevel[] = ['red', 'yellow', 'green', 'grey']
+  return (
+    <ul className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs text-muted" aria-label="Legend">
+      {order.map((level) => {
+        const meta = LEVEL_META[level]
+        const Icon = meta.icon
+        return (
+          <li key={level} className="inline-flex items-center gap-1.5">
+            <span
+              className={`inline-flex h-4 w-4 items-center justify-center rounded ${meta.swatchClass}`}
+              aria-hidden
+            >
+              {Icon ? <Icon className="h-2.5 w-2.5" strokeWidth={3} /> : null}
+            </span>
+            <span className="first-letter:uppercase">{meta.label}</span>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
