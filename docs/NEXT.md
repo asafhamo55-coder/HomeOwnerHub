@@ -39,10 +39,12 @@ by the session's permission classifier; Asaf pushes it manually.
 - **Decided and built 2026-10-15 (sub-project D):** W18 Step A now *proposes*;
   board/admin approval in `/accounting/bank/queue` posts it exactly once. Spec:
   `docs/specs/2026-10-15-approval-layer.md`. Migration `0060` applied to
-  production by Asaf 2026-10-15.
+  production 2026-10-15; code live since deploy `7aeaa66` (all three apps
+  verified via `/api/health`).
 - **Open, found by D:** accounting tables (journal entries, payments,
   assessments, bank transactions) are writable by any org member including
-  residents — being fixed as `0061` on `claude/accounting-rls`.
+  residents. **Fixed:** `0061` applied and verified in production 2026-10-15
+  (72 policies, `org_access` gone, no-double-post index present).
 
 ## Open work, in the order I would take it
 
