@@ -89,6 +89,7 @@ export const MIGRATION_MANIFEST: string[] = [
   '0053_ticket_notifications.sql',
   '0054_org_members_insert_scope.sql',
   '0055_storage_org_prefix_scope.sql',
+  '0056_governing_docs_org_scope.sql',
 ]
 
 /**
@@ -96,8 +97,21 @@ export const MIGRATION_MANIFEST: string[] = [
  * against these three buckets but never creates them — they were
  * provisioned out of band in production, so replay must create them or
  * every storage test fails on a missing bucket.
+ *
+ * `governing-docs` is a fourth bucket, also provisioned out of band in
+ * production (confirmed via storage.listBuckets() against prod — not
+ * created by any migration), added here alongside 0056's policies. This
+ * manifest is the ONLY place the local stack learns about a bucket that
+ * exists in production: a bucket created through the dashboard and never
+ * added here silently escapes all test coverage — no error, no failing
+ * test, just a bucket nothing ever checks.
  */
-export const STORAGE_BUCKETS = ['hoa-photos', 'hoa-documents', 'eviction-docs'] as const
+export const STORAGE_BUCKETS = [
+  'hoa-photos',
+  'hoa-documents',
+  'eviction-docs',
+  'governing-docs',
+] as const
 
 /**
  * Seeds that are schema prerequisites rather than per-test fixtures.

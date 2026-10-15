@@ -132,4 +132,43 @@ describe('storage tenant isolation', () => {
     const leak = await residentB.client.storage.from('hoa-documents').download(draftPath)
     expect(leak.error, 'cross-tenant read of an inbox-drafts path succeeded').not.toBeNull()
   })
+
+  // F2 follow-up: governing-docs is a fourth bucket (provisioned out of
+  // band in production exactly like the original three) that had NO
+  // policy at all until 0056. No policy means deny under RLS, so the
+  // upload route's uploads were silently failing — see
+  // apps/hoa/src/app/api/governing-docs/upload/route.ts:129 for the path
+  // shape this test exercises: `${org.id}/${associationId}/${ts}-${name}`,
+  // which leads with the org id, same family as hoa-photos/hoa-documents/
+  // eviction-docs (not the inbox-drafts exception).
+  it('the owning org can upload to and read from governing-docs', async () => {
+    const orgA = await makeOrg()
+    const boardA = await mintUser(orgA, 'board')
+    const path = `${orgA.orgId}/${orgA.associationId}/${Date.now()}-bylaws.txt`
+
+    // Positive first: a wrong-or-missing policy denies everyone, so this
+    // is the assertion that actually proves the policy is correct.
+    const up = await boardA.client.storage
+      .from('governing-docs')
+      .upload(path, new Blob(['bylaws content']), { upsert: true })
+    expect(up.error, 'owning org could not upload to governing-docs').toBeNull()
+
+    const got = await boardA.client.storage.from('governing-docs').download(path)
+    expect(got.error, 'owning org could not read back its own governing-docs object').toBeNull()
+  })
+
+  it('a resident of another org cannot read a governing-docs object', async () => {
+    const orgA = await makeOrg()
+    const orgB = await makeOrg()
+    const boardA = await mintUser(orgA, 'board')
+    const residentB = await mintUser(orgB, 'resident')
+    const path = `${orgA.orgId}/${orgA.associationId}/${Date.now()}-bylaws.txt`
+
+    await boardA.client.storage
+      .from('governing-docs')
+      .upload(path, new Blob(['bylaws content']), { upsert: true })
+
+    const leak = await residentB.client.storage.from('governing-docs').download(path)
+    expect(leak.error, 'cross-tenant governing-docs read succeeded').not.toBeNull()
+  })
 })
