@@ -1,109 +1,75 @@
 import Link from 'next/link'
 import { Plus, Target } from 'lucide-react'
-import { format } from 'date-fns'
-import { BackLink, Badge, Button, Card, EmptyState, PageHeader } from '@homeowner-portal/ui'
-import { getAccountingContext, listBudgets } from '@/lib/accounting/queries'
+import { Button, DataTable, EmptyState, LoadFailed, Page, type DataTableColumn } from '@homeowner-portal/ui'
+import { getAccountingContext, listBudgets, type BudgetSummary } from '@/lib/accounting/queries'
+import { tryLoad } from '@/lib/load-or-fail'
+import { formatStamp, periodLabel, usd } from '@/lib/money/format'
+import { BUDGET_STATUS } from '@/lib/money/status'
+import { AccountingTabs } from '../AccountingTabs'
+import { AccountingLoadFailed, AccountingNotSetUp, MoneyStatus } from '../_components/shared'
 
 export const metadata = { title: 'Budgets' }
+export const dynamic = 'force-dynamic'
 
-function currency(n: number): string {
-  return n.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  })
-}
+const COLUMNS: DataTableColumn<BudgetSummary>[] = [
+  {
+    key: 'name',
+    header: 'Budget',
+    mobilePrimary: true,
+    cell: (b) => (
+      <Link href={`/accounting/budget/${b.id}`} className="font-medium text-foreground no-underline hover:text-primary hover:underline">
+        {b.fund?.name ?? 'Unknown fund'}
+      </Link>
+    ),
+  },
+  { key: 'period', header: 'Period', className: 'whitespace-nowrap text-muted', cell: (b) => (b.fiscalPeriod ? periodLabel(b.fiscalPeriod) : '—') },
+  { key: 'lines', header: 'Lines', numeric: true, hideBelowLg: true, cell: (b) => b.lineItemCount },
+  { key: 'total', header: 'Total budgeted', numeric: true, cell: (b) => usd(b.totalAmount, { whole: true }) },
+  { key: 'approved', header: 'Approved', hideBelowLg: true, className: 'whitespace-nowrap text-muted', cell: (b) => (b.approved_at ? formatStamp(b.approved_at) : '—') },
+  { key: 'status', header: 'Status', cell: (b) => <MoneyStatus registry={BUDGET_STATUS} status={b.status} /> },
+]
 
 export default async function BudgetsListPage() {
-  const ctx = await getAccountingContext()
-  if (!ctx) {
-    return (
-      <div className="mx-auto max-w-3xl">
-        <EmptyState
-          icon={<Target className="h-10 w-10" aria-hidden />}
-          title="No budgets yet"
-          description="Run pnpm seed:accounting first, then create your first budget."
-        />
-      </div>
-    )
-  }
+  const ctxRes = await tryLoad('accounting context', getAccountingContext)
+  if (!ctxRes.ok) return <AccountingLoadFailed title="Budgets" what="budgets" />
+  const ctx = ctxRes.data
+  if (!ctx) return <AccountingNotSetUp title="Budgets" />
 
-  const budgets = await listBudgets(ctx.associationId)
+  const res = await tryLoad('budgets', () => listBudgets(ctx.associationId))
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div className="space-y-2">
-        <BackLink href="/accounting" label="Accounting" />
-        <PageHeader
-          title="Budgets"
-          description="One budget per fiscal period + fund. Approved budgets feed the Budget vs Actual report."
-          actions={
-            <Button asChild>
-              <Link href="/accounting/budget/new">
-                <Plus className="h-4 w-4" />
-                New budget
-              </Link>
-            </Button>
-          }
-        />
-      </div>
-
-      {budgets.length === 0 ? (
-        <EmptyState
-          icon={<Target className="h-10 w-10" aria-hidden />}
-          title="No budgets on file"
-          description="Create the operating fund budget for the current period. Approving it locks the totals so variance reports stay stable."
-          action={
-            <Button asChild>
-              <Link href="/accounting/budget/new">
-                <Plus className="h-4 w-4" />
-                Create first budget
-              </Link>
-            </Button>
-          }
-        />
+    <Page
+      title="Budgets"
+      description="One budget per fund and fiscal period. Approving locks it, and Budget vs. actual compares spending against it."
+      tabs={<AccountingTabs />}
+      actions={
+        <Button asChild>
+          <Link href="/accounting/budget/new">
+            <Plus aria-hidden />
+            New budget
+          </Link>
+        </Button>
+      }
+    >
+      {!res.ok ? (
+        <LoadFailed what="budgets" />
       ) : (
-        <Card>
-          <ul className="divide-y divide-border">
-            {budgets.map((b) => (
-              <li key={b.id}>
-                <Link
-                  href={`/accounting/budget/${b.id}`}
-                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-background/50"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-foreground">
-                      {b.fund?.name ?? '—'}
-                      {b.fiscalPeriod
-                        ? ` · ${format(new Date(b.fiscalPeriod.start_date), 'yyyy')}`
-                        : ''}
-                    </p>
-                    <p className="text-xs text-muted">
-                      {b.lineItemCount} line {b.lineItemCount === 1 ? 'item' : 'items'} ·{' '}
-                      {currency(b.totalAmount)}
-                      {b.approved_at
-                        ? ` · approved ${format(new Date(b.approved_at), 'PP')}`
-                        : ''}
-                    </p>
-                  </div>
-                  <Badge
-                    variant={
-                      b.status === 'approved'
-                        ? 'success'
-                        : b.status === 'archived'
-                          ? 'outline'
-                          : 'warning'
-                    }
-                    size="sm"
-                  >
-                    {b.status}
-                  </Badge>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <DataTable
+          caption="Budgets"
+          mobile="cards"
+          columns={COLUMNS}
+          rows={res.data}
+          rowKey={(b) => b.id}
+          empty={
+            <EmptyState
+              variant="compact"
+              icon={<Target aria-hidden />}
+              title="No budgets yet"
+              description="Start with the operating fund for this year. Approve it once the board signs off, and variance reports stay stable."
+            />
+          }
+        />
       )}
-    </div>
+    </Page>
   )
 }

@@ -1,112 +1,84 @@
-import Link from 'next/link'
-import { CalendarClock, ChevronLeft } from 'lucide-react'
-import { format } from 'date-fns'
-import { Badge, Card, EmptyState } from '@homeowner-portal/ui'
-import {
-  getAccountingContext,
-  listFiscalPeriods,
-} from '@/lib/accounting/queries'
+import { CalendarClock, Download } from 'lucide-react'
+import { Button, DataTable, EmptyState, LoadFailed, Page, type DataTableColumn } from '@homeowner-portal/ui'
+import { getAccountingContext, listFiscalPeriods, type FiscalPeriod } from '@/lib/accounting/queries'
+import { tryLoad } from '@/lib/load-or-fail'
+import { formatDayRange, formatStamp, periodLabel } from '@/lib/money/format'
+import { PERIOD_STATUS } from '@/lib/money/status'
+import { AccountingTabs } from '../AccountingTabs'
+import { AccountingLoadFailed, AccountingNotSetUp, MoneyStatus } from '../_components/shared'
 import { ClosePeriodButton } from './ClosePeriodButton'
 
 export const metadata = { title: 'Fiscal Periods' }
+export const dynamic = 'force-dynamic'
+
+const COLUMNS: DataTableColumn<FiscalPeriod>[] = [
+  {
+    key: 'period',
+    header: 'Period',
+    mobilePrimary: true,
+    cell: (p) => (
+      <span className="block">
+        <span className="block font-medium text-foreground">{periodLabel(p)}</span>
+        {periodLabel(p).startsWith('FY') ? (
+          <span className="block text-xs text-muted">{formatDayRange(p.start_date, p.end_date)}</span>
+        ) : null}
+      </span>
+    ),
+  },
+  { key: 'status', header: 'Status', cell: (p) => <MoneyStatus registry={PERIOD_STATUS} status={p.status} /> },
+  { key: 'closed', header: 'Closed', className: 'whitespace-nowrap text-muted', cell: (p) => (p.closed_at ? formatStamp(p.closed_at) : '—') },
+  {
+    key: 'actions',
+    header: <span className="sr-only">Actions</span>,
+    className: 'text-right',
+    cell: (p) => (
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {/* A route handler returning a PDF — a plain anchor, not a client navigation. */}
+        <Button asChild variant="ghost" size="sm">
+          <a href={`/api/accounting/board-packet/${p.id}`}>
+            <Download aria-hidden />
+            Board packet
+          </a>
+        </Button>
+        {p.status === 'open' ? <ClosePeriodButton periodId={p.id} label={periodLabel(p)} /> : null}
+      </div>
+    ),
+  },
+]
 
 export default async function PeriodsPage() {
-  const ctx = await getAccountingContext()
-  if (!ctx) {
-    return (
-      <div className="mx-auto max-w-3xl">
-        <EmptyState
-          icon={<CalendarClock className="h-10 w-10" aria-hidden />}
-          title="No fiscal periods yet"
-          description="This area is empty. Contact support to set up accounting for your association."
-        />
-      </div>
-    )
-  }
+  const ctxRes = await tryLoad('accounting context', getAccountingContext)
+  if (!ctxRes.ok) return <AccountingLoadFailed title="Fiscal periods" what="fiscal periods" />
+  const ctx = ctxRes.data
+  if (!ctx) return <AccountingNotSetUp title="Fiscal periods" />
 
-  const periods = await listFiscalPeriods(ctx.associationId)
+  const res = await tryLoad('fiscal periods', () => listFiscalPeriods(ctx.associationId))
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <header className="space-y-1">
-        <Link
-          href="/accounting"
-          className="inline-flex items-center gap-1 text-xs text-muted hover:text-foreground"
-        >
-          <ChevronLeft className="h-3 w-3" />
-          Accounting
-        </Link>
-        <h1>Fiscal Periods</h1>
-        <p className="text-sm text-muted">
-          Closing a period emits Income→Equity and Expense→Equity journal
-          entries per fund. Closed periods can still receive reversing entries.
-        </p>
-      </header>
-
-      {periods.length === 0 ? (
-        <EmptyState
-          icon={<CalendarClock className="h-10 w-10" aria-hidden />}
-          title="No fiscal periods"
-          description="Seeding creates one period per association for the current calendar year."
-        />
+    <Page
+      title="Fiscal periods"
+      description="Closing a period moves its income and expenses into each fund’s balance and locks it. Closed periods still accept reversing entries. The board packet is a PDF of the period’s statements."
+      tabs={<AccountingTabs />}
+    >
+      {!res.ok ? (
+        <LoadFailed what="fiscal periods" />
       ) : (
-        <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border text-xs uppercase tracking-wide text-muted">
-              <tr>
-                <th className="px-4 py-2 font-medium">Start</th>
-                <th className="px-4 py-2 font-medium">End</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Closed</th>
-                <th className="px-4 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {periods.map((p) => (
-                <tr key={p.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-2 text-foreground">
-                    {format(new Date(p.start_date), 'PP')}
-                  </td>
-                  <td className="px-4 py-2 text-foreground">
-                    {format(new Date(p.end_date), 'PP')}
-                  </td>
-                  <td className="px-4 py-2">
-                    <Badge
-                      variant={
-                        p.status === 'closed'
-                          ? 'success'
-                          : p.status === 'closing'
-                            ? 'warning'
-                            : 'outline'
-                      }
-                      size="sm"
-                    >
-                      {p.status}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-2 text-xs text-muted">
-                    {p.closed_at ? format(new Date(p.closed_at), 'PP') : '—'}
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <a
-                        href={`/api/accounting/board-packet/${p.id}`}
-                        className="rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-foreground hover:bg-background"
-                        title="Download board-packet PDF"
-                      >
-                        PDF
-                      </a>
-                      {p.status === 'open' ? <ClosePeriodButton periodId={p.id} /> : null}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            </table>
-          </div>
-        </Card>
+        <DataTable
+          caption="Fiscal periods"
+          mobile="cards"
+          columns={COLUMNS}
+          rows={res.data}
+          rowKey={(p) => p.id}
+          empty={
+            <EmptyState
+              variant="compact"
+              icon={<CalendarClock aria-hidden />}
+              title="No fiscal periods"
+              description="The first period is created when accounting is set up. Contact support if it’s missing."
+            />
+          }
+        />
       )}
-    </div>
+    </Page>
   )
 }

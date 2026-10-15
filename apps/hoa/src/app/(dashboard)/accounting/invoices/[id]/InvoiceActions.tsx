@@ -1,24 +1,35 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { TwoClickDelete } from '@/components/TwoClickDelete'
+import { Trash2 } from 'lucide-react'
+import { Button, ConfirmDialog, useToast } from '@homeowner-portal/ui'
 import { deleteInvoice } from '@/lib/invoices'
 
-export function InvoiceActions({
-  invoiceId,
-  isPaid,
-}: {
-  invoiceId: string
-  isPaid: boolean
-}) {
+/** Delete an unpaid invoice, behind a destructive confirm (Cancel focused). */
+export function InvoiceActions({ invoiceId, invoiceNumber }: { invoiceId: string; invoiceNumber: string }) {
   const router = useRouter()
-  if (isPaid) return null
+  const toast = useToast()
   return (
-    <TwoClickDelete
-      onDelete={() => deleteInvoice(invoiceId)}
-      successMessage="Invoice deleted."
-      onAfterDelete={() => router.push('/accounting/invoices')}
-      label="Delete"
+    <ConfirmDialog
+      destructive
+      title={`Delete invoice ${invoiceNumber}?`}
+      description="It disappears from the invoice list. Journal entries already posted for it stay in the ledger — reverse them there if they were wrong."
+      confirmLabel="Delete invoice"
+      trigger={
+        <Button variant="destructive-ghost" icon={<Trash2 aria-hidden />}>
+          Delete
+        </Button>
+      }
+      onConfirm={async () => {
+        const r = await deleteInvoice(invoiceId)
+        if (!r.ok) {
+          toast({ tone: 'error', title: 'Couldn’t delete the invoice', message: r.error })
+          throw new Error(r.error)
+        }
+        toast({ tone: 'success', message: `Invoice ${invoiceNumber} deleted.` })
+        router.push('/accounting/invoices')
+        router.refresh()
+      }}
     />
   )
 }

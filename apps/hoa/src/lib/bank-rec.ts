@@ -7,13 +7,14 @@ import { bankReconciliationAgent } from '@homeowner-portal/workflows'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { fieldErrorsOf } from '@/lib/field-errors'
 
 export type BankRecActionResult =
   | { ok: true; matchMethod: string; confidence: number; notes: string }
-  | { ok: false; error: string }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> }
 export type BankRecSimpleResult =
   | { ok: true; journalEntryId?: string }
-  | { ok: false; error: string }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> }
 
 // ─── re-run W18 ──────────────────────────────────────────────────────
 
@@ -26,7 +27,11 @@ export async function reRunBankMatch(input: {
 }): Promise<BankRecActionResult> {
   const parsed = ReRunSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
 
   const gate = await requireBoardOrAdminForAction()
@@ -81,7 +86,11 @@ export async function confirmFuzzyMatch(input: {
 }): Promise<BankRecSimpleResult> {
   const parsed = ConfirmMatchSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
   const gate = await requireBoardOrAdminForAction()
   if (!gate.ok) return gate
@@ -197,7 +206,11 @@ export async function categorizeAsExpense(input: {
 }): Promise<BankRecSimpleResult> {
   const parsed = CategorizeExpenseSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
   const gate = await requireBoardOrAdminForAction()
   if (!gate.ok) return gate
@@ -295,7 +308,11 @@ export async function ignoreTransaction(input: {
 }): Promise<BankRecSimpleResult> {
   const parsed = IgnoreSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
   const gate = await requireBoardOrAdminForAction()
   if (!gate.ok) return gate

@@ -1,24 +1,23 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { Lock, Loader2 } from 'lucide-react'
-import { Alert, Button, useConfirm, useToast } from '@homeowner-portal/ui'
+import { useRouter } from 'next/navigation'
+import { useTransition } from 'react'
+import { Lock } from 'lucide-react'
+import { Button, useConfirm, useToast } from '@homeowner-portal/ui'
 import { closePeriod } from '@/lib/periods'
+import { usd } from '@/lib/money/format'
 
-export function ClosePeriodButton({ periodId }: { periodId: string }) {
+export function ClosePeriodButton({ periodId, label }: { periodId: string; label: string }) {
+  const router = useRouter()
   const confirm = useConfirm()
   const toast = useToast()
-  const [error, setError] = useState<string | null>(null)
-  const [outcome, setOutcome] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   async function handleClick() {
-    setError(null)
-    setOutcome(null)
     const ok = await confirm({
-      title: 'Close this period?',
+      title: `Close ${label}?`,
       description:
-        "Locks this month's books — no more journal entries can be added. The closing entries (income / expense → equity) will be posted automatically.",
+        'Locks these books — no more journal entries can be added to the period. Closing entries (income and expenses into fund balance) post automatically for each fund.',
       confirmLabel: 'Close period',
       destructive: true,
     })
@@ -26,33 +25,21 @@ export function ClosePeriodButton({ periodId }: { periodId: string }) {
     startTransition(async () => {
       const result = await closePeriod({ periodId })
       if (!result.ok) {
-        setError(result.error)
-        toast({ tone: 'error', message: result.error })
-      } else {
-        const ni = result.netIncome.toLocaleString('en-US', {
-          style: 'currency',
-          currency: 'USD',
-        })
-        setOutcome(
-          `Closed. ${result.closingJeIds.length} closing JE(s) posted, net income ${ni}.`,
-        )
-        toast({ tone: 'success', message: `Period closed. Net income ${ni}.` })
-        // Refresh after a beat so the user sees the outcome.
-        setTimeout(() => window.location.reload(), 1200)
+        toast({ tone: 'error', title: 'Couldn’t close the period', message: result.error })
+        return
       }
+      toast({
+        tone: 'success',
+        title: `${label} closed`,
+        message: `${result.closingJeIds.length} closing ${result.closingJeIds.length === 1 ? 'entry' : 'entries'} posted · net income ${usd(result.netIncome)}.`,
+      })
+      router.refresh()
     })
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <Button onClick={handleClick} variant="outline" size="sm" disabled={pending}>
-        {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />}
-        Close period
-      </Button>
-      {outcome ? (
-        <span className="text-[11px] text-emerald-600">{outcome}</span>
-      ) : null}
-      {error ? <Alert variant="error">{error}</Alert> : null}
-    </div>
+    <Button onClick={handleClick} variant="secondary" size="sm" loading={pending} icon={<Lock aria-hidden />}>
+      Close period
+    </Button>
   )
 }

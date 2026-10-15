@@ -195,3 +195,5 @@ export type { FilterChipItem, FilterChipsProps, SearchFormProps } from './compon
 // Record history for detail pages (notices, replies, decisions).
 export { Timeline } from './components/Timeline'
 export type { TimelineItem, TimelineProps } from './components/Timeline'
+export { StatementTable, type StatementTableProps, type StatementColumn, type StatementRow, type StatementSection } from './components/StatementTable'
+export { FilterBar, filterFieldClass, type FilterBarProps } from './components/FilterBar'

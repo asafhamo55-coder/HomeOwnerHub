@@ -1,100 +1,85 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { Loader2, Repeat } from 'lucide-react'
-import { Alert, Button, Input, Select } from '@homeowner-portal/ui'
+import { Repeat } from 'lucide-react'
+import { Button, Dialog, DialogContent, DialogTrigger, Field, Input, Select, useToast } from '@homeowner-portal/ui'
 import { promoteJeToRecurring } from '@/lib/journal-entries'
+import { todayIso } from '@/lib/money/format'
 
-const CADENCES = ['daily', 'weekly', 'monthly', 'quarterly', 'annually'] as const
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+const CADENCES = [
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'annually', label: 'Annually' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'daily', label: 'Daily' },
+] as const
+type Cadence = (typeof CADENCES)[number]['value']
 
 export function PromoteRecurringButton({ journalEntryId }: { journalEntryId: string }) {
+  const router = useRouter()
+  const toast = useToast()
   const [open, setOpen] = useState(false)
-  const [cadence, setCadence] = useState<(typeof CADENCES)[number]>('monthly')
+  const [cadence, setCadence] = useState<Cadence>('monthly')
   const [nextRunDate, setNextRunDate] = useState(todayIso())
-  const [error, setError] = useState<string | null>(null)
-  const [done, setDone] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [pending, startTransition] = useTransition()
 
-  function handleSubmit() {
-    setError(null)
-    setDone(false)
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setErrors({})
     startTransition(async () => {
-      const r = await promoteJeToRecurring({
-        journalEntryId,
-        cadence,
-        nextRunDate,
-      })
+      const r = await promoteJeToRecurring({ journalEntryId, cadence, nextRunDate })
       if (!r.ok) {
-        setError(r.error)
-      } else {
-        setDone(true)
-        setOpen(false)
+        if (r.fieldErrors && (r.fieldErrors.cadence || r.fieldErrors.nextRunDate)) setErrors(r.fieldErrors)
+        else toast({ tone: 'error', title: 'Couldn’t save the template', message: r.error })
+        return
       }
+      setOpen(false)
+      toast({
+        tone: 'success',
+        message: 'Saved as a recurring entry.',
+        action: { label: 'View recurring', onClick: () => router.push('/accounting/recurring') },
+      })
     })
   }
 
-  if (!open) {
-    return (
-      <div className="flex flex-col items-start gap-1">
-        <Button onClick={() => setOpen(true)} variant="outline" size="sm">
-          <Repeat className="h-3.5 w-3.5" />
+  return (
+    <Dialog open={open} onOpenChange={(next) => !pending && setOpen(next)}>
+      <DialogTrigger asChild>
+        <Button variant="secondary" icon={<Repeat aria-hidden />}>
           Make recurring
         </Button>
-        {done ? (
-          <span className="text-[11px] text-emerald-600">
-            ✓ Saved as recurring template — see Accounting → Recurring Entries
-          </span>
-        ) : null}
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
-      <p className="text-sm font-semibold text-foreground">Repeat this entry</p>
-      <p className="text-xs text-muted">
-        The daily cron will clone this JE&apos;s lines on the chosen cadence and
-        post a fresh entry with source=&apos;recurring&apos;.
-      </p>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="block text-xs">
-          <span className="text-muted">Cadence</span>
-          <Select
-            className="mt-1"
-            value={cadence}
-            onValueChange={(v) => setCadence(v as (typeof CADENCES)[number])}
-            disabled={pending}
-          >
-            {CADENCES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </Select>
-        </label>
-        <label className="block text-xs">
-          <span className="text-muted">Next run</span>
-          <Input
-            type="date"
-            value={nextRunDate}
-            onChange={(e) => setNextRunDate(e.target.value)}
-            disabled={pending}
-            className="mt-1"
-          />
-        </label>
-      </div>
-      {error ? <Alert variant="error" className="text-xs">{error}</Alert> : null}
-      <div className="flex justify-end gap-2">
-        <Button onClick={() => setOpen(false)} variant="ghost" size="sm" disabled={pending}>
-          Cancel
-        </Button>
-        <Button onClick={handleSubmit} size="sm" disabled={pending}>
-          {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Repeat className="h-3.5 w-3.5" />}
-          Save template
-        </Button>
-      </div>
-    </div>
+      </DialogTrigger>
+      <DialogContent
+        title="Repeat this entry"
+        description="On each run date a fresh copy of these lines posts to the ledger, marked Recurring."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setOpen(false)} disabled={pending}>
+              Cancel
+            </Button>
+            <Button type="submit" form="promote-je" loading={pending} icon={<Repeat aria-hidden />}>
+              Save recurring entry
+            </Button>
+          </>
+        }
+      >
+        <form id="promote-je" onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+          <Field label="Repeats" required error={errors.cadence}>
+            <Select value={cadence} onValueChange={(v) => setCadence(v as Cadence)} disabled={pending}>
+              {CADENCES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="First run" required error={errors.nextRunDate}>
+            <Input type="date" value={nextRunDate} onChange={(e) => setNextRunDate(e.target.value)} disabled={pending} required />
+          </Field>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

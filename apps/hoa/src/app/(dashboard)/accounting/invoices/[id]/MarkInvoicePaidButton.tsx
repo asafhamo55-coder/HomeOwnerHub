@@ -1,77 +1,69 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { Check, Loader2 } from 'lucide-react'
-import { Alert, Button, Select } from '@homeowner-portal/ui'
+import { Check } from 'lucide-react'
+import { Button, Field, Input, Select, useToast } from '@homeowner-portal/ui'
 import { markInvoicePaid } from '@/lib/invoices'
+import { usd } from '@/lib/money/format'
 
-const METHODS = ['check', 'ach', 'card', 'cash', 'other'] as const
+const METHODS = [
+  { value: 'check', label: 'Check' },
+  { value: 'ach', label: 'ACH / bank transfer' },
+  { value: 'card', label: 'Card' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'other', label: 'Other' },
+] as const
+type Method = (typeof METHODS)[number]['value']
 
-export function MarkInvoicePaidButton({
-  invoiceId,
-  amount,
-}: {
-  invoiceId: string
-  amount: number
-}) {
-  const [method, setMethod] = useState<(typeof METHODS)[number]>('check')
+/**
+ * Records payment of the full invoice and posts Dr AP / Cr Cash. The
+ * button names the amount so nobody pays a bill without seeing what it is.
+ */
+export function MarkInvoicePaidButton({ invoiceId, amount }: { invoiceId: string; amount: number }) {
+  const router = useRouter()
+  const toast = useToast()
+  const [method, setMethod] = useState<Method>('check')
   const [externalRef, setExternalRef] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [pending, startTransition] = useTransition()
 
-  function currency(n: number): string {
-    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
-  }
-
-  function handleClick() {
-    setError(null)
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setErrors({})
     startTransition(async () => {
       const result = await markInvoicePaid({
         invoiceId,
         paymentMethod: method,
-        externalRef: externalRef || undefined,
+        externalRef: externalRef.trim() || undefined,
       })
-      if (!result.ok) setError(result.error)
+      if (!result.ok) {
+        if (result.fieldErrors?.paymentMethod || result.fieldErrors?.externalRef) setErrors(result.fieldErrors)
+        else toast({ tone: 'error', title: 'Couldn’t record the payment', message: result.error })
+        return
+      }
+      toast({ tone: 'success', message: `Payment of ${usd(amount)} recorded.` })
+      router.refresh()
     })
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-xs text-muted">
-          Payment method
-          <Select
-            value={method}
-            onValueChange={(v) => setMethod(v as (typeof METHODS)[number])}
-            className="w-full sm:w-56"
-            disabled={pending}
-          >
-            {METHODS.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </Select>
-        </label>
-        <label className="flex flex-1 flex-col gap-1 text-xs text-muted">
-          Reference (check #, etc.)
-          <input
-            type="text"
-            value={externalRef}
-            onChange={(e) => setExternalRef(e.target.value)}
-            className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground"
-            placeholder="optional"
-            disabled={pending}
-          />
-        </label>
-        <Button onClick={handleClick} disabled={pending}>
-          {pending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Check className="h-4 w-4" />
-          )}
-          Mark paid · {currency(amount)}
-        </Button>
-      </div>
-      {error ? <Alert variant="error">{error}</Alert> : null}
-    </div>
+    <form onSubmit={submit} className="flex flex-col gap-4 sm:flex-row sm:items-end">
+      <Field label="Paid by" error={errors.paymentMethod} className="sm:w-56">
+        <Select value={method} onValueChange={(v) => setMethod(v as Method)} disabled={pending}>
+          {METHODS.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field label="Reference" optional hint="Check number or confirmation code." error={errors.externalRef} className="sm:flex-1">
+        <Input value={externalRef} onChange={(e) => setExternalRef(e.target.value)} maxLength={120} disabled={pending} />
+      </Field>
+      <Button type="submit" loading={pending} icon={<Check aria-hidden />} className="sm:mb-[1.375rem]">
+        Mark paid · {usd(amount)}
+      </Button>
+    </form>
   )
 }

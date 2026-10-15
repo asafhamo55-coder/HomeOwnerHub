@@ -1,13 +1,7 @@
-import { AccountingTabs } from './AccountingTabs'
-
-// Persistent in-page nav across every /accounting/* route. Highlights
-// the active tab via the client-side `usePathname()` hook inside
-// AccountingTabs.
+// Pages render their own <Page> (width, title, and the AccountingTabs
+// section nav under the title), so the layout adds nothing. It used to wrap
+// everything in max-w-5xl with the tabs ABOVE each page's h1, which capped
+// wide reports and put the section nav before the page it belonged to.
 export default function AccountingLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <AccountingTabs />
-      <div>{children}</div>
-    </div>
-  )
+  return children
 }

@@ -182,14 +182,8 @@ describe('phase-1 pages stay migrated', () => {
 const DISCARDS_ERROR_ALLOWLIST = [
   'apps/eviction/src/app/(dashboard)/cases/[id]/page.tsx',
   'apps/eviction/src/app/(dashboard)/settings/billing/page.tsx',
-  'apps/hoa/src/app/(dashboard)/accounting/bank/[accountId]/reconcile/page.tsx',
-  'apps/hoa/src/app/(dashboard)/accounting/bank/queue/page.tsx',
-  'apps/hoa/src/app/(dashboard)/accounting/payment-plans/new/page.tsx',
-  'apps/hoa/src/app/(dashboard)/accounting/payment-plans/page.tsx',
-  'apps/hoa/src/app/(dashboard)/accounting/recurring/page.tsx',
   'apps/hoa/src/app/(dashboard)/documents/[id]/page.tsx',
   'apps/hoa/src/app/(dashboard)/documents/governing/page.tsx',
-  'apps/hoa/src/app/(dashboard)/settings/billing/page.tsx',
   'apps/hoa/src/app/admin/admins/page.tsx',
   'apps/hoa/src/app/resident/account/page.tsx',
   'apps/hoa/src/app/vendor-onboard/[token]/page.tsx',
@@ -241,8 +235,6 @@ describe('Supabase reads handle their error', () => {
  * notice. Shrink-only: page with `Pager`, or justify the cap in the page.
  */
 const LIMIT_WITHOUT_PAGER_ALLOWLIST = [
-  'apps/hoa/src/app/(dashboard)/accounting/bank/[accountId]/reconcile/page.tsx',
-  'apps/hoa/src/app/(dashboard)/accounting/bank/queue/page.tsx',
   'apps/hoa/src/app/(dashboard)/documents/governing/page.tsx',
   'apps/pm/src/app/(dashboard)/page.tsx',
   'apps/pm/src/app/(dashboard)/rent/page.tsx',
@@ -307,5 +299,33 @@ describe('confirmation dialogs', () => {
       .filter((f) => /\bwindow\.confirm\s*\(/.test(readFileSync(f, 'utf8')))
       .map((f) => path.relative(repoRoot, f))
     expect(offenders).toEqual([])
+  })
+})
+
+// ── Money area (design system v2 pass): every page stays on the kit ──────
+
+describe('money pages stay on design system v2', () => {
+  const money = [...pages.keys()].filter(
+    (f) =>
+      f.startsWith('apps/hoa/src/app/(dashboard)/accounting/') ||
+      f.startsWith('apps/hoa/src/app/(dashboard)/dues/') ||
+      f === 'apps/hoa/src/app/(dashboard)/settings/billing/page.tsx',
+  )
+
+  it('finds the money pages', () => {
+    expect(money.length).toBeGreaterThanOrEqual(25)
+  })
+
+  it.each(money)('%s renders inside <Page> (or a shared wrapper that does)', (file) => {
+    const src = pages.get(file)!
+    expect(/<Page\b/.test(src) || /<Accounting(NotSetUp|LoadFailed)\b/.test(src)).toBe(true)
+  })
+
+  it.each(money)('%s has no hard-coded palette classes, dark: variants, raw <table> or font-mono', (file) => {
+    const src = pages.get(file)!
+    expect(src).not.toMatch(/\b(?:bg|text|border)-(?:gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|white|black)\b/)
+    expect(src).not.toMatch(/\bdark:/)
+    expect(src).not.toMatch(/<table\b/)
+    expect(src).not.toMatch(/\bfont-mono\b/)
   })
 })

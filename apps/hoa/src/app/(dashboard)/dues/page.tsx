@@ -1,16 +1,18 @@
 import Link from 'next/link'
 import { Plus, Wallet } from 'lucide-react'
-import { format, differenceInCalendarDays } from 'date-fns'
 import {
-  Badge,
   Button,
   Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
   DataTable,
   EmptyState,
+  Kpi,
   LoadFailed,
   Page,
   Pager,
-  StatusBadge,
+  StatusPill,
   pageRange,
   parsePageParam,
   type DataTableColumn,
@@ -18,6 +20,8 @@ import {
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
+import { chargeTypeLabel } from '@/lib/assessment-labels'
+import { daysSince, formatDay, plural, todayIso, usd } from '@/lib/money/format'
 import { MarkPaidButton } from './MarkPaidButton'
 import { MaterializeButton } from './MaterializeButton'
 import { DeleteAssessmentButton } from './DeleteAssessmentButton'
@@ -31,22 +35,6 @@ export const dynamic = 'force-dynamic'
 // no sign it had. The table now pages; the headline has its own query over
 // every overdue charge.
 const PAGE_SIZE = 500
-
-const DUES_STATUS_TONES: Record<string, 'success' | 'warning' | 'destructive' | 'neutral' | 'outline'> = {
-  paid: 'success',
-  partial: 'warning',
-  overdue: 'destructive',
-  due: 'neutral',
-  waived: 'neutral',
-}
-
-const DUES_STATUS_LABELS: Record<string, string> = {
-  paid: 'Paid',
-  partial: 'Partly paid',
-  overdue: 'Overdue',
-  due: 'Due',
-  waived: 'Waived',
-}
 
 interface AssessmentRow {
   id: string
@@ -65,16 +53,9 @@ interface AssessmentRow {
 
 interface OverdueRow {
   amount: number
+  due_date: string
   unit_id: string | null
   payments: { amount: number }[]
-}
-
-function currency(n: number): string {
-  return n.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  })
 }
 
 export default async function DuesPage({
@@ -87,9 +68,9 @@ export default async function DuesPage({
     return (
       <Page title="Dues" width="narrow">
         <EmptyState
-          icon={<Wallet className="h-10 w-10" aria-hidden />}
-          title="No HOA association configured"
-          description="Set up an association before viewing dues."
+          icon={<Wallet aria-hidden />}
+          title="No association set up yet"
+          description="Dues are billed per property in an association. Contact support to create yours."
         />
       </Page>
     )
@@ -103,7 +84,7 @@ export default async function DuesPage({
   // charge due TODAY counted as overdue here while the Who owes panel
   // directly below, which compares 'YYYY-MM-DD' strings, called it current.
   // Due today is not late; this is the boundary both now use.
-  const todayIso = new Date().toISOString().slice(0, 10)
+  const todayIsoStr = todayIso()
 
   const supabase = await getSupabaseServerClient()
   const [listResult, overdueResult] = await Promise.all([
@@ -127,12 +108,12 @@ export default async function DuesPage({
       'overdue dues total',
       supabase
         .from('assessments')
-        .select('amount, unit_id, payments(amount)')
+        .select('amount, due_date, unit_id, payments(amount)')
         .eq('association_id', assoc.id)
         .is('deleted_at', null)
         .neq('status', 'paid')
         .neq('status', 'waived')
-        .lt('due_date', todayIso)
+        .lt('due_date', todayIsoStr)
         // PostgREST's default row cap would quietly truncate the sum.
         .range(0, 49_999),
     ),
@@ -141,61 +122,78 @@ export default async function DuesPage({
   const rows = listResult.ok ? ((listResult.data ?? []) as unknown as AssessmentRow[]) : []
   const total = listResult.ok ? (listResult.count ?? rows.length) : 0
 
-  // Group by fiscal period start month so the page reads as a stack.
-  const byPeriod = new Map<string, AssessmentRow[]>()
+  // Group by the month each charge is due, newest first, so the page reads
+  // as a stack of billing months.
+  const byMonth = new Map<string, AssessmentRow[]>()
   for (const row of rows) {
-    if (!row.fiscal_period) continue
-    const key = row.fiscal_period.start_date.slice(0, 7)
-    if (!byPeriod.has(key)) byPeriod.set(key, [])
-    byPeriod.get(key)!.push(row)
+    const key = row.due_date.slice(0, 7)
+    if (!byMonth.has(key)) byMonth.set(key, [])
+    byMonth.get(key)!.push(row)
   }
-  const periods = Array.from(byPeriod.entries()).sort((a, b) => b[0].localeCompare(a[0]))
+  const months = Array.from(byMonth.entries()).sort((a, b) => b[0].localeCompare(a[0]))
 
-  // A period cut by a page boundary has only part of its charges on this
+  // A month cut by a page boundary has only part of its charges on this
   // page, so its billed/paid figures are this page's only. Rows run newest
   // due date first: the previous page can only continue into the top
-  // period, and the next page only out of the bottom one.
+  // month, and the next page only out of the bottom one.
   const hasNextPage = from + rows.length < total
-  const cutPeriods = new Set<string>()
-  if (periods.length > 0) {
-    if (page > 1) cutPeriods.add(periods[0][0])
-    if (hasNextPage) cutPeriods.add(periods[periods.length - 1][0])
+  const cutMonths = new Set<string>()
+  if (months.length > 0) {
+    if (page > 1) cutMonths.add(months[0][0])
+    if (hasNextPage) cutMonths.add(months[months.length - 1][0])
   }
 
-  const today = new Date()
-  const currentMonthLabel = format(today, 'MMM yyyy')
+  const currentMonthLabel = formatDay(todayIsoStr, 'monthShort')
 
-  const overdueRows = overdueResult.ok
-    ? ((overdueResult.data ?? []) as unknown as OverdueRow[])
-    : []
-  const totalOverdue = overdueRows.reduce((sum, r) => {
+  const overdueRows = overdueResult.ok ? ((overdueResult.data ?? []) as unknown as OverdueRow[]) : []
+  let totalOverdue = 0
+  let oldestDue: string | null = null
+  const overdueUnits = new Set<string | null>()
+  for (const r of overdueRows) {
     const paid = (r.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
-    return sum + Math.max(Number(r.amount) - paid, 0)
-  }, 0)
-  const overdueUnitCount = new Set(overdueRows.map((r) => r.unit_id)).size
+    const open = Math.max(Number(r.amount) - paid, 0)
+    totalOverdue += open
+    if (open > 0) {
+      overdueUnits.add(r.unit_id)
+      if (!oldestDue || r.due_date < oldestDue) oldestDue = r.due_date
+    }
+  }
+  const kpiState = overdueResult.ok ? 'ready' : 'failed'
 
   return (
     <Page
+      width="wide"
       title="Dues"
-      description={
-        !overdueResult.ok
-          ? 'Couldn’t load the overdue total — refresh to try again.'
-          : totalOverdue > 0
-            ? `${currency(totalOverdue)} overdue across ${overdueUnitCount} ${overdueUnitCount === 1 ? 'unit' : 'units'}`
-            : 'All caught up.'
-      }
+      description="Charges billed to each property, who has paid, and who to remind."
       actions={
         <>
+          <MaterializeButton monthLabel={currentMonthLabel} />
           <Button asChild>
             <Link href="/dues/new">
-              <Plus className="h-4 w-4" />
-              Add due
+              <Plus aria-hidden />
+              Add a due
             </Link>
           </Button>
-          <MaterializeButton monthLabel={currentMonthLabel} />
         </>
       }
     >
+      <section aria-label="Overdue" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+        <Kpi
+          label="Overdue"
+          value={usd(totalOverdue, { whole: true })}
+          hint={totalOverdue > 0 ? 'Past due and unpaid' : 'All caught up'}
+          state={kpiState}
+        />
+        <Kpi label="Properties behind" value={String(overdueUnits.size)} hint={overdueUnits.size > 0 ? 'With an overdue charge' : 'None'} state={kpiState} />
+        <Kpi
+          className="col-span-2 lg:col-span-1"
+          label="Oldest overdue"
+          value={oldestDue ? `${daysSince(oldestDue, todayIsoStr)} days` : '—'}
+          hint={oldestDue ? `Due ${formatDay(oldestDue)}` : 'Nothing overdue'}
+          state={kpiState}
+        />
+      </section>
+
       <WhoOwesPanel associationId={assoc.id} />
 
       {/* Never the raw error.message — this page used to render it, which is
@@ -204,160 +202,36 @@ export default async function DuesPage({
         <LoadFailed what="dues" />
       ) : rows.length === 0 && total === 0 ? (
         <EmptyState
-          icon={<Wallet className="h-10 w-10" aria-hidden />}
-          title="No assessments yet"
-          description="Generate this period's assessments to get started. Each one posts a Dr AR / Cr Assessment Income journal entry — visible under Accounting → General Ledger."
-          action={
-            <div className="flex flex-col items-center gap-2">
-              <MaterializeButton monthLabel={currentMonthLabel} />
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/properties">Add units first</Link>
-              </Button>
-            </div>
+          icon={<Wallet aria-hidden />}
+          title="No dues billed yet"
+          description="Generate this month’s dues for every property, or add a one-off charge. Each charge posts to the ledger as money owed to the association."
+          action={<MaterializeButton monthLabel={currentMonthLabel} variant="default" />}
+          secondaryAction={
+            <Button asChild variant="ghost">
+              <Link href="/properties">Add properties first</Link>
+            </Button>
           }
         />
       ) : (
         <div className="space-y-6">
-          {periods.map(([period, periodRows]) => (
-            <PeriodTable
-              key={period}
-              period={period}
-              rows={periodRows}
-              today={today}
-              partial={cutPeriods.has(period)}
-            />
+          {months.map(([month, monthRows]) => (
+            <MonthTable key={month} month={month} rows={monthRows} today={todayIsoStr} partial={cutMonths.has(month)} />
           ))}
-          <Pager
-            page={page}
-            pageSize={PAGE_SIZE}
-            total={total}
-            rowCount={rows.length}
-            hrefFor={(p) => (p > 1 ? `/dues?page=${p}` : '/dues')}
-            linkAs={Link}
-            noun="assessments"
-            className="rounded-xl border border-border bg-surface"
-          />
+          {total > PAGE_SIZE ? (
+            <Pager
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={total}
+              rowCount={rows.length}
+              hrefFor={(p) => (p > 1 ? `/dues?page=${p}` : '/dues')}
+              linkAs={Link}
+              noun="charges"
+              className="rounded-xl border border-border bg-surface"
+            />
+          ) : null}
         </div>
       )}
     </Page>
-  )
-}
-
-function PeriodTable({
-  period,
-  rows,
-  today,
-  partial,
-}: {
-  period: string
-  rows: AssessmentRow[]
-  today: Date
-  /** Some of this period's charges are on another page. */
-  partial: boolean
-}) {
-  const totalDue = rows.reduce((sum, r) => sum + Number(r.amount), 0)
-  const totalPaid = rows.reduce(
-    (sum, r) => sum + (r.payments ?? []).reduce((s, p) => s + Number(p.amount), 0),
-    0,
-  )
-  const remaining = Math.max(totalDue - totalPaid, 0)
-
-  const [year, month] = period.split('-')
-  const label = format(new Date(Number(year), Number(month) - 1, 1), 'MMMM yyyy')
-
-  const columns: DataTableColumn<AssessmentRow>[] = [
-    {
-      key: 'unit',
-      header: 'Unit',
-      cell: (r) => (
-        <>
-          <p className="font-medium text-foreground">{r.unit?.address_line1 ?? 'Unknown unit'}</p>
-          {r.unit?.unit_number ? (
-            <p className="text-xs text-muted">Unit {r.unit.unit_number}</p>
-          ) : null}
-        </>
-      ),
-    },
-    {
-      key: 'type',
-      header: 'Type',
-      className: 'text-xs text-muted',
-      cell: (r) => r.assessment_type,
-    },
-    {
-      key: 'due',
-      header: 'Due',
-      className: 'text-muted',
-      cell: (r) => format(new Date(r.due_date), 'MMM d'),
-    },
-    {
-      key: 'amount',
-      header: 'Amount',
-      numeric: true,
-      cell: (r) => currency(Number(r.amount)),
-    },
-    {
-      key: 'paid',
-      header: 'Paid',
-      numeric: true,
-      className: 'text-muted',
-      cell: (r) => {
-        const paidAmount = paidOf(r)
-        return paidAmount > 0 ? currency(paidAmount) : '—'
-      },
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      cell: (r) => <DuesStatus row={r} today={today} />,
-    },
-    {
-      key: 'actions',
-      header: <span className="sr-only">Actions</span>,
-      className: 'text-right',
-      cell: (r) =>
-        r.status !== 'paid' ? (
-          <div className="flex items-center justify-end gap-1">
-            <MarkPaidButton
-              assessmentId={r.id}
-              balance={Math.max(Number(r.amount) - paidOf(r), 0)}
-            />
-            <DeleteAssessmentButton assessmentId={r.id} />
-          </div>
-        ) : null,
-    },
-  ]
-
-  return (
-    <Card>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background/50 px-4 py-3">
-        <div>
-          <p className="text-sm font-semibold text-foreground">{label}</p>
-          <p className="text-xs text-muted">
-            {rows.length} {rows.length === 1 ? 'assessment' : 'assessments'} ·
-            billed {currency(totalDue)} · paid {currency(totalPaid)}
-            {partial ? ' · on this page only — the rest of this period is on another page' : ''}
-          </p>
-        </div>
-        {remaining > 0 ? (
-          <Badge variant="warning" size="sm">
-            {currency(remaining)} outstanding
-          </Badge>
-        ) : (
-          <Badge variant="success" size="sm">
-            paid in full
-          </Badge>
-        )}
-      </div>
-
-      <DataTable
-        framed={false}
-        caption={`${label} assessments`}
-        columns={columns}
-        rows={rows}
-        rowKey={(r) => r.id}
-      />
-    </Card>
   )
 }
 
@@ -365,23 +239,86 @@ function paidOf(r: AssessmentRow): number {
   return (r.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
 }
 
-function DuesStatus({ row, today }: { row: AssessmentRow; today: Date }) {
-  const isPaid = row.status === 'paid'
-  const daysLate = isPaid ? 0 : Math.max(0, differenceInCalendarDays(today, new Date(row.due_date)))
-  const isOverdue = !isPaid && daysLate > 0
+function unitLabelOf(r: AssessmentRow): string {
+  return `${r.unit?.address_line1 ?? 'Unknown property'}${r.unit?.unit_number ? ` · unit ${r.unit.unit_number}` : ''}`
+}
 
-  if (isPaid) {
-    return <StatusBadge status="paid" tones={DUES_STATUS_TONES} labels={DUES_STATUS_LABELS} size="sm" />
+function MonthTable({ month, rows, today, partial }: { month: string; rows: AssessmentRow[]; today: string; partial: boolean }) {
+  const billed = rows.reduce((sum, r) => sum + Number(r.amount), 0)
+  const paid = rows.reduce((sum, r) => sum + paidOf(r), 0)
+  const remaining = Math.max(billed - paid, 0)
+  const label = formatDay(`${month}-01`, 'month')
+
+  const columns: DataTableColumn<AssessmentRow>[] = [
+    {
+      key: 'unit',
+      header: 'Property',
+      mobilePrimary: true,
+      cell: (r) => (
+        <span className="block">
+          <span className="block font-medium text-foreground">{r.unit?.address_line1 ?? 'Unknown property'}</span>
+          {r.unit?.unit_number ? <span className="block text-xs text-muted">Unit {r.unit.unit_number}</span> : null}
+        </span>
+      ),
+    },
+    { key: 'type', header: 'Charge', hideBelowLg: true, hideOnMobile: true, className: 'whitespace-nowrap text-muted', cell: (r) => chargeTypeLabel(r.assessment_type) },
+    { key: 'due', header: 'Due', className: 'whitespace-nowrap text-muted', cell: (r) => formatDay(r.due_date, 'short') },
+    { key: 'amount', header: 'Amount', numeric: true, cell: (r) => usd(Number(r.amount)) },
+    {
+      key: 'paid',
+      header: 'Paid',
+      numeric: true,
+      cell: (r) => {
+        const p = paidOf(r)
+        return p > 0 ? usd(p) : <span className="text-muted">—</span>
+      },
+    },
+    { key: 'status', header: 'Status', cell: (r) => <DuesStatus row={r} today={today} /> },
+    {
+      key: 'actions',
+      header: <span className="sr-only">Actions</span>,
+      className: 'text-right',
+      cell: (r) =>
+        r.status !== 'paid' ? (
+          <div className="flex items-center justify-end gap-1">
+            <MarkPaidButton assessmentId={r.id} balance={Math.max(Number(r.amount) - paidOf(r), 0)} unitLabel={unitLabelOf(r)} />
+            <DeleteAssessmentButton assessmentId={r.id} unitLabel={unitLabelOf(r)} />
+          </div>
+        ) : null,
+    },
+  ]
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader
+        actions={
+          remaining > 0 ? (
+            <StatusPill tone="warning" label={`${usd(remaining)} outstanding`} size="sm" />
+          ) : (
+            <StatusPill tone="success" label="Paid in full" size="sm" />
+          )
+        }
+      >
+        <CardTitle as="h2">{label}</CardTitle>
+        <CardDescription>
+          <span className="num">
+            {plural(rows.length, 'charge')} · billed {usd(billed)} · collected {usd(paid)}
+          </span>
+          {partial ? ' · this page only; the rest of this month is on another page' : ''}
+        </CardDescription>
+      </CardHeader>
+      <DataTable framed={false} mobile="cards" caption={`${label} charges`} columns={columns} rows={rows} rowKey={(r) => r.id} />
+    </Card>
+  )
+}
+
+function DuesStatus({ row, today }: { row: AssessmentRow; today: string }) {
+  if (row.status === 'paid') return <StatusPill tone="success" label="Paid" size="sm" />
+  if (row.status === 'waived') return <StatusPill tone="neutral" label="Waived" size="sm" />
+  const late = daysSince(row.due_date, today)
+  if (late > 0) {
+    return <StatusPill tone="danger" label={`${late} ${late === 1 ? 'day' : 'days'} late${row.status === 'partial' ? ' · partly paid' : ''}`} size="sm" />
   }
-  if (row.status === 'partial') {
-    return <StatusBadge status="partial" tones={DUES_STATUS_TONES} labels={DUES_STATUS_LABELS} size="sm" />
-  }
-  if (isOverdue) {
-    return (
-      <Badge variant="destructive" size="sm">
-        {daysLate} days late
-      </Badge>
-    )
-  }
-  return <StatusBadge status="due" tones={DUES_STATUS_TONES} labels={DUES_STATUS_LABELS} size="sm" />
+  if (row.status === 'partial') return <StatusPill tone="warning" label="Partly paid" size="sm" />
+  return <StatusPill tone="neutral" label="Due" size="sm" />
 }

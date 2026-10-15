@@ -8,13 +8,14 @@ import { memoCodeFor } from '@homeowner-portal/workflows'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { fieldErrorsOf } from '@/lib/field-errors'
 
 type PaymentPlanInsert = Database['public']['Tables']['payment_plans']['Insert']
 type AssessmentInsert = Database['public']['Tables']['assessments']['Insert']
 
 export type PaymentPlanResult =
   | { ok: true; planId: string; assessmentIds: string[] }
-  | { ok: false; error: string }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> }
 
 const CreatePlanSchema = z.object({
   unitId: z.string().uuid(),
@@ -41,7 +42,11 @@ export async function createPaymentPlan(input: {
 }): Promise<PaymentPlanResult> {
   const parsed = CreatePlanSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
   const value = parsed.data
 

@@ -2,6 +2,17 @@ import type { Database } from '@homeowner-portal/db/types'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
+/**
+ * Every read below throws on a query error instead of resolving to `[]` /
+ * zeros. Supabase resolves `{ data: null, error }` on an RLS denial or a
+ * timeout; treating that as "no rows" made a failed trial balance read as
+ * a balanced, empty one. Pages wrap these helpers in `tryLoad` and render
+ * `LoadFailed` (docs/specs/2026-10-15-enterprise-ux-plan.md, finding 1).
+ */
+function queryFailed(error: { code?: string; message?: string }): Error {
+  return new Error(`accounting query failed (${error.code ?? 'no code'}): ${error.message ?? ''}`)
+}
+
 type Row<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Row']
 
@@ -43,7 +54,7 @@ export interface BudgetSummary {
 
 export async function listBudgets(associationId: string): Promise<BudgetSummary[]> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error: dataErr } = await supabase
     .from('budgets')
     .select(
       'id, status, approved_at, fund:fund_id(id, code, name), fiscalPeriod:fiscal_period_id(id, start_date, end_date), budget_line_items(amount)',
@@ -51,6 +62,7 @@ export async function listBudgets(associationId: string): Promise<BudgetSummary[
     .eq('association_id', associationId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
+  if (dataErr) throw queryFailed(dataErr)
 
   type Shape = {
     id: string
@@ -94,7 +106,7 @@ export async function getBudget(
   budgetId: string,
 ): Promise<BudgetDetail | null> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error: dataErr } = await supabase
     .from('budgets')
     .select(
       'id, status, approved_at, fund:fund_id(id, code, name), fiscalPeriod:fiscal_period_id(id, start_date, end_date), budget_line_items(id, amount, notes, account:account_id(id, account_number, account_name, account_type))',
@@ -103,6 +115,7 @@ export async function getBudget(
     .eq('association_id', associationId)
     .is('deleted_at', null)
     .maybeSingle()
+  if (dataErr) throw queryFailed(dataErr)
   if (!data) return null
 
   type LiShape = {
@@ -193,12 +206,13 @@ export async function computeBalanceSheet(
   const supabase = await getSupabaseServerClient()
 
   // All posted JE ids with entry_date <= asOfDate.
-  const { data: jeRows } = await supabase
+  const { data: jeRows, error: jeRowsErr } = await supabase
     .from('journal_entries')
     .select('id')
     .eq('association_id', associationId)
     .eq('status', 'posted')
     .lte('entry_date', asOfDate)
+  if (jeRowsErr) throw queryFailed(jeRowsErr)
 
   const jeIds = (jeRows ?? []).map((r) => r.id)
   if (jeIds.length === 0) {
@@ -215,12 +229,13 @@ export async function computeBalanceSheet(
     }
   }
 
-  const { data: lines } = await supabase
+  const { data: lines, error: linesErr } = await supabase
     .from('ledger_entries')
     .select(
       'debit_amount, credit_amount, account:account_id(id, account_number, account_name, account_type)',
     )
     .in('journal_entry_id', jeIds)
+  if (linesErr) throw queryFailed(linesErr)
 
   type LineShape = {
     debit_amount: number
@@ -330,11 +345,12 @@ export async function computeIncomeStatement(
 ): Promise<IncomeStatement> {
   const supabase = await getSupabaseServerClient()
 
-  const { data: period } = await supabase
+  const { data: period, error: periodErr } = await supabase
     .from('fiscal_periods')
     .select('id, start_date, end_date')
     .eq('id', periodId)
-    .single()
+    .maybeSingle()
+  if (periodErr) throw queryFailed(periodErr)
   if (!period) {
     return {
       periodId,
@@ -350,12 +366,13 @@ export async function computeIncomeStatement(
   }
 
   // JEs with their source so we can apply the basis filter per row.
-  const { data: jeRows } = await supabase
+  const { data: jeRows, error: jeRowsErr } = await supabase
     .from('journal_entries')
     .select('id, source')
     .eq('association_id', associationId)
     .eq('fiscal_period_id', periodId)
     .eq('status', 'posted')
+  if (jeRowsErr) throw queryFailed(jeRowsErr)
 
   const jeIds = (jeRows ?? []).map((r) => r.id)
   if (jeIds.length === 0) {
@@ -379,20 +396,22 @@ export async function computeIncomeStatement(
   // counts a line only if the JE it belongs to also touched cash.
   const cashAccountIds = new Set<string>()
   if (basis !== 'accrual') {
-    const { data: cashAccts } = await supabase
+    const { data: cashAccts, error: cashAcctsErr } = await supabase
       .from('chart_of_accounts')
       .select('id')
       .eq('association_id', associationId)
       .in('account_number', ['1010', '1020'])
+    if (cashAcctsErr) throw queryFailed(cashAcctsErr)
     for (const a of cashAccts ?? []) cashAccountIds.add(a.id)
   }
 
-  const { data: lines } = await supabase
+  const { data: lines, error: linesErr } = await supabase
     .from('ledger_entries')
     .select(
       'journal_entry_id, debit_amount, credit_amount, account_id, account:account_id(id, account_number, account_name, account_type)',
     )
     .in('journal_entry_id', jeIds)
+  if (linesErr) throw queryFailed(linesErr)
 
   type LineShape = {
     journal_entry_id: string
@@ -518,11 +537,12 @@ export async function computeCashFlow(
 ): Promise<CashFlow> {
   const supabase = await getSupabaseServerClient()
 
-  const { data: period } = await supabase
+  const { data: period, error: periodErr } = await supabase
     .from('fiscal_periods')
     .select('id, start_date, end_date')
     .eq('id', periodId)
-    .single()
+    .maybeSingle()
+  if (periodErr) throw queryFailed(periodErr)
   if (!period) {
     return {
       periodId,
@@ -536,28 +556,31 @@ export async function computeCashFlow(
   }
 
   // Cash accounts: 1010 (Cash—Operating), 1020 (Cash—Reserve).
-  const { data: cashAccts } = await supabase
+  const { data: cashAccts, error: cashAcctsErr } = await supabase
     .from('chart_of_accounts')
     .select('id')
     .eq('association_id', associationId)
     .in('account_number', ['1010', '1020'])
+  if (cashAcctsErr) throw queryFailed(cashAcctsErr)
   const cashIds = new Set((cashAccts ?? []).map((a) => a.id))
 
   // Opening balance: posted entries up to (but not including) start_date.
-  const { data: priorJes } = await supabase
+  const { data: priorJes, error: priorJesErr } = await supabase
     .from('journal_entries')
     .select('id')
     .eq('association_id', associationId)
     .eq('status', 'posted')
     .lt('entry_date', period.start_date)
+  if (priorJesErr) throw queryFailed(priorJesErr)
   const priorIds = (priorJes ?? []).map((r) => r.id)
 
   let openingCash = 0
   if (priorIds.length > 0 && cashIds.size > 0) {
-    const { data: priorLines } = await supabase
+    const { data: priorLines, error: priorLinesErr } = await supabase
       .from('ledger_entries')
       .select('debit_amount, credit_amount, account_id')
       .in('journal_entry_id', priorIds)
+    if (priorLinesErr) throw queryFailed(priorLinesErr)
     for (const l of priorLines ?? []) {
       if (!cashIds.has(l.account_id)) continue
       openingCash += Number(l.debit_amount) - Number(l.credit_amount)
@@ -565,7 +588,7 @@ export async function computeCashFlow(
   }
 
   // Period movements grouped by source.
-  const { data: periodJes } = await supabase
+  const { data: periodJes, error: periodJesErr } = await supabase
     .from('journal_entries')
     .select(
       'id, source, lines:ledger_entries(debit_amount, credit_amount, account_id)',
@@ -573,6 +596,7 @@ export async function computeCashFlow(
     .eq('association_id', associationId)
     .eq('fiscal_period_id', periodId)
     .eq('status', 'posted')
+  if (periodJesErr) throw queryFailed(periodJesErr)
 
   type JeShape = {
     source: string
@@ -655,7 +679,7 @@ export async function computeBudgetVsActual(
   budgetId: string,
 ): Promise<BudgetVsActual | null> {
   const supabase = await getSupabaseServerClient()
-  const { data: budget } = await supabase
+  const { data: budget, error: budgetErr } = await supabase
     .from('budgets')
     .select(
       'id, fiscal_period_id, fund:fund_id(code), fiscalPeriod:fiscal_period_id(start_date, end_date), budget_line_items(account_id, amount, account:account_id(id, account_number, account_name, account_type))',
@@ -663,6 +687,7 @@ export async function computeBudgetVsActual(
     .eq('id', budgetId)
     .eq('association_id', associationId)
     .maybeSingle()
+  if (budgetErr) throw queryFailed(budgetErr)
   if (!budget) return null
 
   type Shape = {
@@ -691,19 +716,21 @@ export async function computeBudgetVsActual(
 
   const actualsByAccount = new Map<string, number>()
   if (accountIds.length > 0) {
-    const { data: jes } = await supabase
+    const { data: jes, error: jesErr } = await supabase
       .from('journal_entries')
       .select('id')
       .eq('association_id', associationId)
       .eq('fiscal_period_id', b.fiscal_period_id)
       .eq('status', 'posted')
+    if (jesErr) throw queryFailed(jesErr)
     const jeIds = (jes ?? []).map((r) => r.id)
     if (jeIds.length > 0) {
-      const { data: lines } = await supabase
+      const { data: lines, error: linesErr } = await supabase
         .from('ledger_entries')
         .select('debit_amount, credit_amount, account_id')
         .in('journal_entry_id', jeIds)
         .in('account_id', accountIds)
+      if (linesErr) throw queryFailed(linesErr)
       for (const l of lines ?? []) {
         const prior = actualsByAccount.get(l.account_id) ?? 0
         actualsByAccount.set(
@@ -785,23 +812,116 @@ export interface InvoiceRow {
   payments: { amount: number; paid_at: string | null }[]
 }
 
+/** Inclusive row window for a paged list (see `pageRange` in the UI kit). */
+export interface RowRange {
+  from: number
+  to: number
+}
+
+export interface Paged<T> {
+  rows: T[]
+  /** Every row matching the filters, not just this page. */
+  total: number
+}
+
 export async function listInvoices(
   associationId: string,
   filters: { status?: string; limit?: number } = {},
 ): Promise<InvoiceRow[]> {
+  const { rows } = await pageInvoices(associationId, filters, { from: 0, to: (filters.limit ?? 200) - 1 })
+  return rows
+}
+
+export async function pageInvoices(
+  associationId: string,
+  filters: { status?: string },
+  range: RowRange,
+): Promise<Paged<InvoiceRow>> {
   const supabase = await getSupabaseServerClient()
   let q = supabase
     .from('invoices')
     .select(
       'id, invoice_number, invoice_date, due_date, amount, status, vendor:vendor_id(id, legal_name, dba), payments(amount, paid_at)',
+      { count: 'exact' },
     )
     .eq('association_id', associationId)
     .is('deleted_at', null)
     .order('invoice_date', { ascending: false })
-    .limit(filters.limit ?? 200)
+    .order('id', { ascending: false })
+    .range(range.from, range.to)
   if (filters.status) q = q.eq('status', filters.status)
-  const { data } = await q
-  return ((data ?? []) as unknown as InvoiceRow[])
+  const { data, error: dataErr, count } = await q
+  if (dataErr) throw queryFailed(dataErr)
+  const rows = (data ?? []) as unknown as InvoiceRow[]
+  return { rows, total: count ?? rows.length }
+}
+
+export interface UnpaidInvoiceSummary {
+  count: number
+  /** Open balance (billed minus paid) across every unpaid invoice. */
+  total: number
+  overdueCount: number
+  overdueTotal: number
+}
+
+/**
+ * Headline numbers for unpaid bills, over EVERY unpaid invoice rather than
+ * the visible page (the dues page learned this the hard way: a headline
+ * summed from a capped list undercounts silently). Unpaid = received,
+ * coded or approved; overdue = due before `today` ('YYYY-MM-DD').
+ */
+export async function summarizeUnpaidInvoices(
+  associationId: string,
+  today: string,
+): Promise<UnpaidInvoiceSummary> {
+  const supabase = await getSupabaseServerClient()
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('amount, due_date, payments(amount)')
+    .eq('association_id', associationId)
+    .is('deleted_at', null)
+    .in('status', ['received', 'coded', 'approved'])
+    // PostgREST's default row cap would quietly truncate the sum.
+    .range(0, 49_999)
+  if (error) throw queryFailed(error)
+  const out: UnpaidInvoiceSummary = { count: 0, total: 0, overdueCount: 0, overdueTotal: 0 }
+  for (const r of (data ?? []) as unknown as { amount: number; due_date: string | null; payments: { amount: number }[] }[]) {
+    const paid = (r.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
+    const open = Math.max(Number(r.amount) - paid, 0)
+    out.count++
+    out.total += open
+    if (r.due_date && r.due_date < today) {
+      out.overdueCount++
+      out.overdueTotal += open
+    }
+  }
+  return out
+}
+
+/** Journal entries still in draft (not yet on the books). */
+export async function countDraftJournalEntries(associationId: string): Promise<number> {
+  const supabase = await getSupabaseServerClient()
+  const { count, error } = await supabase
+    .from('journal_entries')
+    .select('id', { count: 'exact', head: true })
+    .eq('association_id', associationId)
+    .eq('status', 'draft')
+  if (error) throw queryFailed(error)
+  return count ?? 0
+}
+
+/** W18 cash-receipt postings waiting for a board decision. */
+export async function countPendingProposals(organizationId: string, associationId: string): Promise<number> {
+  const supabase = await getSupabaseServerClient()
+  const { count, error } = await supabase
+    .from('approval_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', organizationId)
+    .eq('action_type', 'w18.cash_receipt')
+    .eq('payload->>associationId', associationId)
+    .in('status', ['proposed', 'approved'])
+  if (error) throw queryFailed(error)
+  return count ?? 0
 }
 
 export interface InvoiceDetail extends InvoiceRow {
@@ -817,7 +937,7 @@ export async function getInvoice(
   invoiceId: string,
 ): Promise<InvoiceDetail | null> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error: dataErr } = await supabase
     .from('invoices')
     .select(
       'id, invoice_number, invoice_date, due_date, amount, status, organization_id, association_id, ai_generated, vendor:vendor_id(id, legal_name, dba), payments(amount, paid_at)',
@@ -826,6 +946,7 @@ export async function getInvoice(
     .eq('id', invoiceId)
     .is('deleted_at', null)
     .maybeSingle()
+  if (dataErr) throw queryFailed(dataErr)
   if (!data) return null
 
   // JEs that reference this invoice. source_id is the invoice id for the
@@ -835,18 +956,20 @@ export async function getInvoice(
   const payIds = (data.payments as { amount: number; paid_at: string | null }[] | null) ?? []
   void payIds
 
-  const { data: directJes } = await supabase
+  const { data: directJes, error: directJesErr } = await supabase
     .from('journal_entries')
     .select('id, entry_number, entry_date, memo, source')
     .eq('association_id', associationId)
     .eq('source_id', invoiceId)
     .order('entry_date', { ascending: true })
+  if (directJesErr) throw queryFailed(directJesErr)
 
-  const { data: paymentJes } = await supabase
+  const { data: paymentJes, error: paymentJesErr } = await supabase
     .from('journal_entries')
     .select('id, entry_number, entry_date, memo, source, payments!payments_journal_entry_id_fkey(invoice_id)')
     .eq('association_id', associationId)
     .eq('source', 'ap_invoice')
+  if (paymentJesErr) throw queryFailed(paymentJesErr)
 
   type PayJe = {
     id: string
@@ -888,13 +1011,14 @@ export async function listBankAccounts(
   associationId: string,
 ): Promise<BankAccountWithFund[]> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error: dataErr } = await supabase
     .from('bank_accounts')
     .select(
       'id, organization_id, association_id, fund_id, plaid_item_id, plaid_account_id, account_name, bank_name, last4, current_balance, last_synced_at, is_active, created_at, fund:fund_id(code, name)',
     )
     .eq('association_id', associationId)
     .order('account_name')
+  if (dataErr) throw queryFailed(dataErr)
 
   return ((data ?? []) as unknown as BankAccountWithFund[])
 }
@@ -909,25 +1033,40 @@ export async function listBankTransactions(
   associationId: string,
   filters: ListBankTransactionFilters = {},
 ): Promise<BankTransactionRow[]> {
+  const { rows } = await pageBankTransactions(associationId, filters, {
+    from: 0,
+    to: (filters.limit ?? 200) - 1,
+  })
+  return rows
+}
+
+export async function pageBankTransactions(
+  associationId: string,
+  filters: Omit<ListBankTransactionFilters, 'limit'>,
+  range: RowRange,
+): Promise<Paged<BankTransactionRow>> {
   const supabase = await getSupabaseServerClient()
 
   // bank_transactions is org-scoped, not association-scoped. Join through
   // bank_accounts to narrow to one association.
-  const { data: accounts } = await supabase
+  const { data: accounts, error: accountsErr } = await supabase
     .from('bank_accounts')
     .select('id')
     .eq('association_id', associationId)
+  if (accountsErr) throw queryFailed(accountsErr)
   const acctIds = (accounts ?? []).map((a) => a.id)
-  if (acctIds.length === 0) return []
+  if (acctIds.length === 0) return { rows: [], total: 0 }
 
   let q = supabase
     .from('bank_transactions')
     .select(
       'id, amount, posted_date, memo, merchant, match_method, match_confidence, matched_journal_entry_id, bank_account:bank_account_id(id, account_name, bank_name)',
+      { count: 'exact' },
     )
     .in('bank_account_id', filters.bankAccountId ? [filters.bankAccountId] : acctIds)
     .order('posted_date', { ascending: false })
-    .limit(filters.limit ?? 200)
+    .order('id', { ascending: false })
+    .range(range.from, range.to)
 
   if (filters.matched === 'matched') {
     q = q.not('matched_journal_entry_id', 'is', null)
@@ -935,8 +1074,10 @@ export async function listBankTransactions(
     q = q.is('matched_journal_entry_id', null)
   }
 
-  const { data } = await q
-  return ((data ?? []) as unknown as BankTransactionRow[])
+  const { data, error: dataErr, count } = await q
+  if (dataErr) throw queryFailed(dataErr)
+  const rows = (data ?? []) as unknown as BankTransactionRow[]
+  return { rows, total: count ?? rows.length }
 }
 
 export interface AccountingContext {
@@ -958,21 +1099,23 @@ export async function getAccountingContext(): Promise<AccountingContext | null> 
 
   const supabase = await getSupabaseServerClient()
 
-  const { data: assocRow } = await supabase
+  const { data: assocRow, error: assocRowErr } = await supabase
     .from('associations')
     .select('organization_id')
     .eq('id', assoc.id)
-    .single()
+    .maybeSingle()
+  if (assocRowErr) throw queryFailed(assocRowErr)
 
   if (!assocRow) return null
 
-  const { data: period } = await supabase
+  const { data: period, error: periodErr } = await supabase
     .from('fiscal_periods')
     .select('*')
     .eq('association_id', assoc.id)
     .order('start_date', { ascending: false })
     .limit(1)
     .maybeSingle()
+  if (periodErr) throw queryFailed(periodErr)
 
   return {
     organizationId: assocRow.organization_id,
@@ -984,11 +1127,12 @@ export async function getAccountingContext(): Promise<AccountingContext | null> 
 
 export async function listFunds(associationId: string): Promise<Fund[]> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error: dataErr } = await supabase
     .from('funds')
     .select('*')
     .eq('association_id', associationId)
     .order('code')
+  if (dataErr) throw queryFailed(dataErr)
   return data ?? []
 }
 
@@ -996,11 +1140,12 @@ export async function listAccounts(
   associationId: string,
 ): Promise<ChartAccount[]> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error: dataErr } = await supabase
     .from('chart_of_accounts')
     .select('*')
     .eq('association_id', associationId)
     .order('account_number')
+  if (dataErr) throw queryFailed(dataErr)
   return data ?? []
 }
 
@@ -1008,11 +1153,12 @@ export async function listFiscalPeriods(
   associationId: string,
 ): Promise<FiscalPeriod[]> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error: dataErr } = await supabase
     .from('fiscal_periods')
     .select('*')
     .eq('association_id', associationId)
     .order('start_date', { ascending: false })
+  if (dataErr) throw queryFailed(dataErr)
   return data ?? []
 }
 
@@ -1042,24 +1188,38 @@ export async function listJournalEntries(
   associationId: string,
   filters: ListLedgerFilters = {},
 ): Promise<JournalEntrySummary[]> {
+  const { rows } = await pageJournalEntries(associationId, filters, {
+    from: 0,
+    to: (filters.limit ?? 200) - 1,
+  })
+  return rows
+}
+
+export async function pageJournalEntries(
+  associationId: string,
+  filters: Omit<ListLedgerFilters, 'limit'>,
+  range: RowRange,
+): Promise<Paged<JournalEntrySummary>> {
   const supabase = await getSupabaseServerClient()
   let query = supabase
     .from('journal_entries')
     .select(
       'id, entry_number, entry_date, memo, source, status, ai_generated, lines:ledger_entries(debit_amount)',
+      { count: 'exact' },
     )
     .eq('association_id', associationId)
     .order('entry_date', { ascending: false })
     .order('entry_number', { ascending: false })
-    .limit(filters.limit ?? 200)
+    .range(range.from, range.to)
 
   if (filters.periodId) query = query.eq('fiscal_period_id', filters.periodId)
   if (filters.source) query = query.eq('source', filters.source)
   if (filters.status) query = query.eq('status', filters.status)
 
-  const { data } = await query
+  const { data, error: dataErr, count } = await query
+  if (dataErr) throw queryFailed(dataErr)
 
-  return (data ?? []).map((r) => {
+  const rows = (data ?? []).map((r) => {
     const lines = (r.lines ?? []) as { debit_amount: number }[]
     const total = lines.reduce((s, l) => s + Number(l.debit_amount), 0)
     return {
@@ -1074,6 +1234,7 @@ export async function listJournalEntries(
       lineCount: lines.length,
     }
   })
+  return { rows, total: count ?? rows.length }
 }
 
 export interface JournalEntryDetail {
@@ -1094,21 +1255,23 @@ export async function getJournalEntry(
 ): Promise<JournalEntryDetail | null> {
   const supabase = await getSupabaseServerClient()
 
-  const { data: header } = await supabase
+  const { data: header, error: headerErr } = await supabase
     .from('journal_entries')
     .select('*')
     .eq('association_id', associationId)
     .eq('id', id)
     .maybeSingle()
+  if (headerErr) throw queryFailed(headerErr)
 
   if (!header) return null
 
-  const { data: lines } = await supabase
+  const { data: lines, error: linesErr } = await supabase
     .from('ledger_entries')
     .select(
       'id, debit_amount, credit_amount, memo, account:account_id(id, account_number, account_name, account_type), fund:fund_id(id, code, name)',
     )
     .eq('journal_entry_id', id)
+  if (linesErr) throw queryFailed(linesErr)
 
   type LineShape = {
     id: string
@@ -1169,24 +1332,26 @@ export async function computeTrialBalance(
   const supabase = await getSupabaseServerClient()
 
   // JE ids in this period, posted only.
-  const { data: jeRows } = await supabase
+  const { data: jeRows, error: jeRowsErr } = await supabase
     .from('journal_entries')
     .select('id')
     .eq('association_id', associationId)
     .eq('fiscal_period_id', periodId)
     .eq('status', 'posted')
+  if (jeRowsErr) throw queryFailed(jeRowsErr)
 
   const jeIds = (jeRows ?? []).map((r) => r.id)
   if (jeIds.length === 0) {
     return { rows: [], totalDebits: 0, totalCredits: 0 }
   }
 
-  const { data: lines } = await supabase
+  const { data: lines, error: linesErr } = await supabase
     .from('ledger_entries')
     .select(
       'debit_amount, credit_amount, account:account_id(id, account_number, account_name, account_type)',
     )
     .in('journal_entry_id', jeIds)
+  if (linesErr) throw queryFailed(linesErr)
 
   type LineShape = {
     debit_amount: number

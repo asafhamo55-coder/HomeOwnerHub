@@ -1,11 +1,16 @@
 import Link from 'next/link'
-import { ChevronLeft, Repeat } from 'lucide-react'
-import { format } from 'date-fns'
-import { Badge, Card, EmptyState } from '@homeowner-portal/ui'
+import { Repeat, ScrollText } from 'lucide-react'
+import { Button, DataTable, EmptyState, LoadFailed, Page, StatusPill, type DataTableColumn } from '@homeowner-portal/ui'
 import { getAccountingContext } from '@/lib/accounting/queries'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
+import { formatDay } from '@/lib/money/format'
+import { humanize } from '@/lib/money/status'
+import { AccountingTabs } from '../AccountingTabs'
+import { AccountingLoadFailed, AccountingNotSetUp } from '../_components/shared'
 
 export const metadata = { title: 'Recurring Entries' }
+export const dynamic = 'force-dynamic'
 
 interface RuleRow {
   id: string
@@ -15,101 +20,79 @@ interface RuleRow {
   template: { id: string; entry_number: string; memo: string } | null
 }
 
+const COLUMNS: DataTableColumn<RuleRow>[] = [
+  {
+    key: 'template',
+    header: 'Entry',
+    mobilePrimary: true,
+    cell: (r) =>
+      r.template ? (
+        <Link href={`/accounting/ledger/${r.template.id}`} className="group block no-underline">
+          <span className="block font-medium text-foreground group-hover:text-primary group-hover:underline">{r.template.memo}</span>
+          <span className="num block text-xs text-muted">Copies {r.template.entry_number}</span>
+        </Link>
+      ) : (
+        <span className="text-muted">Template entry missing</span>
+      ),
+  },
+  { key: 'cadence', header: 'Repeats', className: 'whitespace-nowrap', cell: (r) => humanize(r.cadence) },
+  { key: 'next', header: 'Next run', className: 'whitespace-nowrap text-muted', cell: (r) => (r.is_active ? formatDay(r.next_run_date) : '—') },
+  {
+    key: 'status',
+    header: 'Status',
+    cell: (r) => (r.is_active ? <StatusPill tone="success" label="Active" size="sm" /> : <StatusPill tone="neutral" label="Paused" size="sm" />),
+  },
+]
+
 export default async function RecurringPage() {
-  const ctx = await getAccountingContext()
-  if (!ctx) {
-    return (
-      <div className="mx-auto max-w-3xl">
-        <EmptyState
-          icon={<Repeat className="h-10 w-10" aria-hidden />}
-          title="No recurring entries"
-          description="This area is empty. Contact support to set up accounting for your association."
-        />
-      </div>
-    )
-  }
+  const ctxRes = await tryLoad('accounting context', getAccountingContext)
+  if (!ctxRes.ok) return <AccountingLoadFailed title="Recurring entries" what="recurring entries" />
+  const ctx = ctxRes.data
+  if (!ctx) return <AccountingNotSetUp title="Recurring entries" />
 
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
-    .from('recurring_journal_entries')
-    .select(
-      'id, cadence, next_run_date, is_active, template:template_je_id(id, entry_number, memo)',
-    )
-    .eq('association_id', ctx.associationId)
-    .order('next_run_date', { ascending: true })
-
-  const rules = (data ?? []) as unknown as RuleRow[]
+  const res = await loadOrFail(
+    'recurring entries',
+    supabase
+      .from('recurring_journal_entries')
+      .select('id, cadence, next_run_date, is_active, template:template_je_id(id, entry_number, memo)')
+      .eq('association_id', ctx.associationId)
+      .order('next_run_date', { ascending: true }),
+  )
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <header className="space-y-1">
-        <Link
-          href="/accounting"
-          className="inline-flex items-center gap-1 text-xs text-muted hover:text-foreground"
-        >
-          <ChevronLeft className="h-3 w-3" />
-          Accounting
-        </Link>
-        <h1>Recurring Entries</h1>
-        <p className="text-sm text-muted">
-          Set up a template once and we post it on a regular schedule —
-          monthly, quarterly, or annually. New entries appear in your ledger
-          automatically each cycle.
-        </p>
-      </header>
-
-      {rules.length === 0 ? (
-        <EmptyState
-          icon={<Repeat className="h-10 w-10" aria-hidden />}
-          title="No recurring entries yet"
-          description="Recurring entries can't be added from the portal yet. Talk to your bookkeeper or contact support to set one up."
-        />
+    <Page
+      title="Recurring entries"
+      description="Entries that post themselves on a schedule — a fresh copy of the template’s lines each run."
+      tabs={<AccountingTabs />}
+    >
+      {!res.ok ? (
+        <LoadFailed what="recurring entries" />
       ) : (
-        <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border text-xs uppercase tracking-wide text-muted">
-              <tr>
-                <th className="px-4 py-2 font-medium">Template</th>
-                <th className="px-4 py-2 font-medium">Cadence</th>
-                <th className="px-4 py-2 font-medium">Next run</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rules.map((r) => (
-                <tr key={r.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-2">
-                    {r.template ? (
-                      <Link
-                        href={`/accounting/ledger/${r.template.id}`}
-                        className="font-mono text-xs text-primary hover:underline"
-                      >
-                        {r.template.entry_number}
-                      </Link>
-                    ) : (
-                      <span className="text-xs text-muted">—</span>
-                    )}
-                    {r.template ? (
-                      <span className="ml-2 text-foreground">{r.template.memo}</span>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-2 text-xs text-muted">{r.cadence}</td>
-                  <td className="px-4 py-2 text-muted">
-                    {format(new Date(r.next_run_date), 'PP')}
-                  </td>
-                  <td className="px-4 py-2">
-                    <Badge variant={r.is_active ? 'success' : 'outline'} size="sm">
-                      {r.is_active ? 'active' : 'paused'}
-                    </Badge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            </table>
-          </div>
-        </Card>
+        <DataTable
+          caption="Recurring entries"
+          mobile="cards"
+          columns={COLUMNS}
+          rows={(res.data ?? []) as unknown as RuleRow[]}
+          rowKey={(r) => r.id}
+          empty={
+            <EmptyState
+              variant="compact"
+              icon={<Repeat aria-hidden />}
+              title="No recurring entries yet"
+              description="Open any posted entry in the ledger — a monthly management fee, a reserve transfer — and choose Make recurring."
+              action={
+                <Button asChild variant="secondary">
+                  <Link href="/accounting/ledger">
+                    <ScrollText aria-hidden />
+                    Open ledger
+                  </Link>
+                </Button>
+              }
+            />
+          }
+        />
       )}
-    </div>
+    </Page>
   )
 }

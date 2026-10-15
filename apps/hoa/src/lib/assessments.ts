@@ -8,13 +8,14 @@ import { memoCodeFor } from '@homeowner-portal/workflows'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { fieldErrorsOf } from '@/lib/field-errors'
 
 type AssessmentInsert = Database['public']['Tables']['assessments']['Insert']
 type PaymentInsert = Database['public']['Tables']['payments']['Insert']
 
 export type AssessmentActionResult =
   | { ok: true; created?: number; assessmentId?: string }
-  | { ok: false; error: string }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> }
 
 // ─── materialize ─────────────────────────────────────────────────────
 
@@ -37,7 +38,11 @@ export async function materializeCurrentPeriodAssessments(input: {
 }): Promise<AssessmentActionResult> {
   const parsed = MaterializeSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
 
   const gate = await requireBoardOrAdminForAction()
@@ -226,7 +231,11 @@ export async function createDues(
 ): Promise<AssessmentActionResult> {
   const parsed = CreateDuesSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
   if (parsed.data.scope === 'unit' && !parsed.data.unitId) {
     return { ok: false, error: 'unitId is required when scope is "unit".' }
@@ -418,7 +427,7 @@ export async function listUnitsForDues(): Promise<Array<{
 
 export async function deleteAssessment(
   assessmentId: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true } | { ok: false; error: string; fieldErrors?: Record<string, string> }> {
   const gate = await requireBoardOrAdminForAction()
   if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
@@ -479,7 +488,11 @@ export async function markAssessmentPaid(input: {
 }): Promise<AssessmentActionResult> {
   const parsed = MarkPaidSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
 
   const gate = await requireBoardOrAdminForAction()
