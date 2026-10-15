@@ -1,261 +1,164 @@
 import Link from 'next/link'
-import { ChevronLeft, Scale } from 'lucide-react'
-import { format } from 'date-fns'
-import { Card, EmptyState, Select } from '@homeowner-portal/ui'
-import {
-  computeBudgetVsActual,
-  getAccountingContext,
-  listBudgets,
-  type BudgetVsActualRow,
-} from '@/lib/accounting/queries'
+import { Plus, Scale } from 'lucide-react'
+import { Button, EmptyState, Field, FilterBar, Kpi, LoadFailed, Page, Select, StatementTable, filterFieldClass } from '@homeowner-portal/ui'
+import { computeBudgetVsActual, getAccountingContext, listBudgets, type BudgetVsActualRow } from '@/lib/accounting/queries'
+import { tryLoad } from '@/lib/load-or-fail'
+import { formatDayRange, periodLabel, signTone, usd, usdSigned } from '@/lib/money/format'
+import { BUDGET_STATUS, statusOf } from '@/lib/money/status'
+import { AccountLabel, AccountingLoadFailed, AccountingNotSetUp, accountingCrumbs } from '../../_components/shared'
 
 export const metadata = { title: 'Budget vs Actual' }
-
-function currency(n: number): string {
-  return n.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  })
-}
+export const dynamic = 'force-dynamic'
 
 interface PageProps {
   searchParams: Promise<{ budget?: string }>
 }
 
+const variance = (n: number) => <span className={signTone(n)}>{usdSigned(n, { whole: true })}</span>
+
+const rowsOf = (rows: BudgetVsActualRow[]) =>
+  rows.map((r) => ({
+    key: r.accountId,
+    label: <AccountLabel number={r.accountNumber} name={r.accountName} />,
+    values: { b: usd(r.budgeted, { whole: true }), a: usd(r.actual, { whole: true }), v: variance(r.variance) },
+  }))
+
 export default async function BudgetVsActualPage({ searchParams }: PageProps) {
-  const ctx = await getAccountingContext()
-  if (!ctx) {
-    return (
-      <div className="mx-auto max-w-3xl">
-        <EmptyState
-          icon={<Scale className="h-10 w-10" aria-hidden />}
-          title="No data yet"
-          description="Run pnpm seed:accounting first."
-        />
-      </div>
-    )
-  }
+  const crumbs = accountingCrumbs(['Reports', '/accounting/reports'], ['Budget vs. actual'])
+  const ctxRes = await tryLoad('accounting context', getAccountingContext)
+  if (!ctxRes.ok) return <AccountingLoadFailed title="Budget vs. actual" what="the report" breadcrumbs={crumbs} />
+  const ctx = ctxRes.data
+  if (!ctx) return <AccountingNotSetUp title="Budget vs. actual" />
 
   const sp = await searchParams
-  const budgets = await listBudgets(ctx.associationId)
+  const budgetsRes = await tryLoad('budgets', () => listBudgets(ctx.associationId))
+  if (!budgetsRes.ok) return <AccountingLoadFailed title="Budget vs. actual" what="budgets" breadcrumbs={crumbs} />
+  const budgets = budgetsRes.data
   if (budgets.length === 0) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <Page linkAs={Link} breadcrumbs={crumbs} title="Budget vs. actual">
         <EmptyState
-          icon={<Scale className="h-10 w-10" aria-hidden />}
-          title="No budgets to compare"
-          description="Create a budget under Accounting → Budgets first."
+          icon={<Scale aria-hidden />}
+          title="No budget to compare against"
+          description="Create a budget for the year and this report shows each line next to what was actually collected or spent."
           action={
-            <Link
-              href="/accounting/budget/new"
-              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg hover:bg-primary/90"
-            >
-              New budget
-            </Link>
+            <Button asChild>
+              <Link href="/accounting/budget/new">
+                <Plus aria-hidden />
+                New budget
+              </Link>
+            </Button>
           }
         />
-      </div>
+      </Page>
     )
   }
 
   const budgetId = sp.budget && budgets.some((b) => b.id === sp.budget) ? sp.budget : budgets[0].id
-  const bva = await computeBudgetVsActual(ctx.associationId, budgetId)
-
-  if (!bva) {
-    return (
-      <div className="mx-auto max-w-3xl">
-        <EmptyState
-          icon={<Scale className="h-10 w-10" aria-hidden />}
-          title="Budget not found"
-          description="That budget couldn't be loaded for this association."
-        />
-      </div>
-    )
-  }
-
-  const incomeRows = bva.rows.filter((r) => r.accountType === 'income')
-  const expenseRows = bva.rows.filter((r) => r.accountType === 'expense')
+  const res = await tryLoad('budget vs actual', () => computeBudgetVsActual(ctx.associationId, budgetId))
+  const budgetName = (b: (typeof budgets)[number]) =>
+    `${b.fund?.name ?? 'Unknown fund'}${b.fiscalPeriod ? ` · ${periodLabel(b.fiscalPeriod)}` : ''} · ${statusOf(BUDGET_STATUS, b.status).label}`
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <header className="space-y-1">
-        <Link
-          href="/accounting"
-          className="inline-flex items-center gap-1 text-xs text-muted hover:text-foreground"
-        >
-          <ChevronLeft className="h-3 w-3" />
-          Accounting
-        </Link>
-        <h1 className="text-2xl font-bold text-foreground">Budget vs Actual</h1>
-        <p className="text-sm text-muted">
-          {bva.fundCode ? `${bva.fundCode} fund · ` : ''}
-          {bva.startDate ? format(new Date(bva.startDate), 'MMM d, yyyy') : ''} —{' '}
-          {bva.endDate ? format(new Date(bva.endDate), 'MMM d, yyyy') : ''} ·
-          posted entries only · favorable variance is positive
-        </p>
-      </header>
+    <Page
+      linkAs={Link}
+      breadcrumbs={crumbs}
+      title="Budget vs. actual"
+      description={
+        res.ok && res.data
+          ? `${res.data.startDate ? formatDayRange(res.data.startDate, res.data.endDate) : ''} · posted entries only. Variance is positive when it helps: income above plan, or spending below it.`
+          : 'Each budget line next to what was actually collected or spent.'
+      }
+    >
+      <FilterBar resetHref="/accounting/reports/budget-vs-actual" filtered={Boolean(sp.budget)} linkAs={Link} label="Report options">
+        <Field label="Budget" className="w-full sm:w-80">
+          <Select name="budget" defaultValue={budgetId}>
+            {budgets.map((b) => (
+              <option key={b.id} value={b.id}>
+                {budgetName(b)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </FilterBar>
 
-      <Card>
-        <form className="flex flex-wrap items-end gap-3 px-4 py-3">
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            Budget
-            <Select
-              name="budget"
-              defaultValue={budgetId}
-              className="w-full sm:w-56"
-            >
-              {budgets.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.fund?.code ?? '—'} ·{' '}
-                  {b.fiscalPeriod ? new Date(b.fiscalPeriod.start_date).getFullYear() : '—'} ·{' '}
-                  {b.status}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <button
-            type="submit"
-            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-fg hover:bg-primary/90"
-          >
-            Refresh
-          </button>
-        </form>
-      </Card>
-
-      {bva.rows.length === 0 ? (
+      {!res.ok ? (
+        <LoadFailed what="the report" />
+      ) : !res.data ? (
+        <EmptyState icon={<Scale aria-hidden />} title="Budget not found" description="That budget isn’t part of this association. Pick another above." />
+      ) : res.data.rows.length === 0 ? (
         <EmptyState
-          icon={<Scale className="h-10 w-10" aria-hidden />}
-          title="No line items"
-          description="Add line items to this budget to compare against actuals."
+          icon={<Scale aria-hidden />}
+          title="This budget has no lines yet"
+          description="Add income and expense lines to the budget to compare them against the ledger."
           action={
-            <Link
-              href={`/accounting/budget/${budgetId}`}
-              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg hover:bg-primary/90"
-            >
-              Edit budget
-            </Link>
+            <Button asChild variant="secondary">
+              <Link href={`/accounting/budget/${budgetId}`}>Edit budget</Link>
+            </Button>
           }
         />
       ) : (
-        <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border text-xs uppercase tracking-wide text-muted">
-              <tr>
-                <th className="px-4 py-2 font-medium">Account</th>
-                <th className="px-4 py-2 text-right font-medium">Budget</th>
-                <th className="px-4 py-2 text-right font-medium">Actual</th>
-                <th className="px-4 py-2 text-right font-medium">Variance</th>
-              </tr>
-            </thead>
-            <tbody>
-              <SectionHeader label="Income" />
-              <Rows rows={incomeRows} />
-              <Subtotal
-                label="Total income"
-                budgeted={bva.totals.budgetedIncome}
-                actual={bva.totals.actualIncome}
-              />
-
-              <SectionHeader label="Expenses" />
-              <Rows rows={expenseRows} />
-              <Subtotal
-                label="Total expenses"
-                budgeted={bva.totals.budgetedExpense}
-                actual={bva.totals.actualExpense}
-              />
-
-              <tr className="border-t-2 border-border bg-background/40">
-                <td className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                  Net surplus / (deficit)
-                </td>
-                <td className="px-4 py-2 text-right font-mono font-semibold">
-                  {currency(bva.totals.budgetedNet)}
-                </td>
-                <td className="px-4 py-2 text-right font-mono font-semibold">
-                  {currency(bva.totals.actualNet)}
-                </td>
-                <td
-                  className={`px-4 py-2 text-right font-mono font-semibold ${bva.totals.varianceNet < 0 ? 'text-destructive' : 'text-emerald-600'}`}
-                >
-                  {currency(bva.totals.varianceNet)}
-                </td>
-              </tr>
-            </tbody>
-            </table>
-          </div>
-        </Card>
+        <>
+          <section aria-label="Totals" className="grid gap-3 sm:grid-cols-3 sm:gap-4">
+            <Kpi label="Budgeted net" value={usd(res.data.totals.budgetedNet, { whole: true })} />
+            <Kpi label="Actual net" value={usd(res.data.totals.actualNet, { whole: true })} />
+            <Kpi
+              label="Variance"
+              value={variance(res.data.totals.varianceNet)}
+              hint={res.data.totals.varianceNet >= 0 ? 'Ahead of plan' : 'Behind plan'}
+            />
+          </section>
+          <StatementTable
+            caption="Budget vs. actual"
+            columns={[
+              { key: 'b', header: 'Budget' },
+              { key: 'a', header: 'Actual' },
+              { key: 'v', header: 'Variance' },
+            ]}
+            sections={[
+              {
+                key: 'income',
+                title: 'Income',
+                rows: rowsOf(res.data.rows.filter((r) => r.accountType === 'income')),
+                subtotal: {
+                  label: 'Total income',
+                  values: {
+                    b: usd(res.data.totals.budgetedIncome, { whole: true }),
+                    a: usd(res.data.totals.actualIncome, { whole: true }),
+                    v: variance(res.data.totals.actualIncome - res.data.totals.budgetedIncome),
+                  },
+                },
+              },
+              {
+                key: 'expense',
+                title: 'Expenses',
+                rows: rowsOf(res.data.rows.filter((r) => r.accountType === 'expense')),
+                // Favourable = spent less than budgeted. The old subtotal used
+                // actual − budget here, so overspending showed green.
+                subtotal: {
+                  label: 'Total expenses',
+                  values: {
+                    b: usd(res.data.totals.budgetedExpense, { whole: true }),
+                    a: usd(res.data.totals.actualExpense, { whole: true }),
+                    v: variance(res.data.totals.budgetedExpense - res.data.totals.actualExpense),
+                  },
+                },
+              },
+            ]}
+            totals={[
+              {
+                key: 'net',
+                label: 'Net surplus (deficit)',
+                values: {
+                  b: usd(res.data.totals.budgetedNet, { whole: true }),
+                  a: usd(res.data.totals.actualNet, { whole: true }),
+                  v: variance(res.data.totals.varianceNet),
+                },
+              },
+            ]}
+          />
+        </>
       )}
-    </div>
-  )
-}
-
-function SectionHeader({ label }: { label: string }) {
-  return (
-    <tr className="bg-background/30">
-      <td colSpan={4} className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted">
-        {label}
-      </td>
-    </tr>
-  )
-}
-
-function Rows({ rows }: { rows: BudgetVsActualRow[] }) {
-  if (rows.length === 0) {
-    return (
-      <tr className="border-b border-border">
-        <td colSpan={4} className="px-4 py-1 text-xs italic text-muted">
-          (none)
-        </td>
-      </tr>
-    )
-  }
-  return (
-    <>
-      {rows.map((r) => (
-        <tr key={r.accountId} className="border-b border-border">
-          <td className="px-4 py-1">
-            <span className="font-mono text-xs text-muted">{r.accountNumber}</span>{' '}
-            {r.accountName}
-          </td>
-          <td className="px-4 py-1 text-right font-mono text-foreground">
-            {r.budgeted.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}
-          </td>
-          <td className="px-4 py-1 text-right font-mono text-foreground">
-            {r.actual.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}
-          </td>
-          <td
-            className={`px-4 py-1 text-right font-mono ${r.variance < 0 ? 'text-destructive' : 'text-emerald-600'}`}
-          >
-            {r.variance.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}
-          </td>
-        </tr>
-      ))}
-    </>
-  )
-}
-
-function Subtotal({
-  label,
-  budgeted,
-  actual,
-}: {
-  label: string
-  budgeted: number
-  actual: number
-}) {
-  const variance = actual - budgeted
-  return (
-    <tr className="border-b-2 border-border bg-background/20">
-      <td className="px-4 py-2 text-xs uppercase tracking-wide text-muted">{label}</td>
-      <td className="px-4 py-2 text-right font-mono font-semibold">{currency(budgeted)}</td>
-      <td className="px-4 py-2 text-right font-mono font-semibold">{currency(actual)}</td>
-      <td
-        className={`px-4 py-2 text-right font-mono font-semibold ${variance < 0 ? 'text-destructive' : 'text-emerald-600'}`}
-      >
-        {currency(variance)}
-      </td>
-    </tr>
+    </Page>
   )
 }
