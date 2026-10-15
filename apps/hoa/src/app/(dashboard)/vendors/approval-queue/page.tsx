@@ -1,127 +1,97 @@
 import Link from 'next/link'
-import { Sparkles } from 'lucide-react'
-import { Badge, Card, CardContent } from '@homeowner-portal/ui'
-import { listVendors, type ComplianceStatus } from '@/lib/vendors'
+import { ChevronRight, ClipboardCheck } from 'lucide-react'
+import { Card, EmptyState, LoadFailed, Page, StatusBadge } from '@homeowner-portal/ui'
+import { listVendorsResult, type ComplianceStatus } from '@/lib/vendors'
+import { COMPLIANCE_LABELS, COMPLIANCE_TONES, complianceKey } from '@/lib/status/vendors'
+import { VendorTabs } from '@/components/vendors/VendorTabs'
+import { tradesLabel } from '@/components/vendors/format'
 
 export const metadata = { title: 'Vendor approval queue' }
 
-const VARIANT: Record<ComplianceStatus, 'success' | 'warning' | 'destructive' | 'outline'> = {
-  green: 'success',
-  yellow: 'warning',
-  red: 'destructive',
-  missing: 'outline',
-}
-
-const LABEL: Record<ComplianceStatus, string> = {
-  green: 'Compliant',
-  yellow: 'Action soon',
-  red: 'Non-compliant',
-  missing: 'Docs missing',
-}
-
 export default async function VendorApprovalQueuePage() {
-  const vendors = await listVendors()
+  const result = await listVendorsResult()
 
   // Queue = anything that needs a human eye:
   //   1. green + still prospect → board can flip to active
   //   2. yellow / red → board reviews the deficiencies
   //   3. missing → docs haven't been entered yet
-  const queue = vendors.filter((v) => {
-    const c = v.compliance?.status
-    if (v.status === 'prospect' && c === 'green') return true
-    if (c === 'yellow' || c === 'red' || c === 'missing') return true
-    return false
-  })
+  const queue = result.ok
+    ? result.data.filter((v) => {
+        const c = v.compliance?.status
+        if (v.status === 'prospect' && c === 'green') return true
+        if (c === 'yellow' || c === 'red' || c === 'missing') return true
+        return false
+      })
+    : []
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <header className="space-y-1">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <h1>Vendor approval queue</h1>
-        </div>
-        <p className="text-sm text-muted">
-          Vendors awaiting board action. Green prospects can be approved;
-          yellow / red need a follow-up before they can do work.
-        </p>
-      </header>
-
-      {queue.length === 0 ? (
-        <Card>
-          <CardContent>
-            <p className="py-4 text-center text-sm text-muted">
-              Nothing pending. New vendor compliance results land here.
-            </p>
-          </CardContent>
-        </Card>
+    <Page
+      title="Vendors"
+      description="Vendors waiting on the board. Compliant prospects can be approved; the rest need a follow-up before they can do work."
+      tabs={<VendorTabs current="/vendors/approval-queue" />}
+      linkAs={Link}
+    >
+      {!result.ok ? (
+        <LoadFailed what="the approval queue" retryHref="/vendors/approval-queue" />
+      ) : queue.length === 0 ? (
+        <EmptyState
+          icon={<ClipboardCheck aria-hidden />}
+          title="Nothing waiting on the board"
+          description="New compliance results that need a decision land here."
+        />
       ) : (
-        <ul className="space-y-3">
-          {queue.map((v) => {
-            const compliance = v.compliance?.status
-            const reason = describeReason(v.status, compliance)
-            return (
-              <li key={v.id}>
-                <Card>
-                  <CardContent>
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
+        <Card>
+          <ul className="divide-y divide-border">
+            {queue.map((v) => {
+              const compliance = v.compliance?.status
+              const deficiencies = v.compliance?.deficiencies ?? []
+              return (
+                <li key={v.id}>
+                  <Link
+                    href={`/vendors/${v.id}`}
+                    className="group flex items-start gap-4 px-5 py-4 transition-colors duration-fast hover:bg-subtle focus-visible:bg-subtle focus-visible:outline-none"
+                  >
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
                         <p className="font-medium text-foreground">{v.legal_name}</p>
-                        <p className="text-xs text-muted">
-                          {(v.trades ?? []).join(', ') || 'No trades on file'}
-                        </p>
-                        <p className="mt-1 text-sm text-muted">{reason}</p>
-                        {v.compliance?.deficiencies?.length ? (
-                          <ul className="mt-2 space-y-1 text-xs text-muted">
-                            {v.compliance.deficiencies.slice(0, 3).map((d, i) => (
-                              <li key={`${d.code}-${i}`}>
-                                <span className="font-mono">{d.code}</span>:{' '}
-                                {d.detail}
-                              </li>
-                            ))}
-                            {v.compliance.deficiencies.length > 3 ? (
-                              <li>
-                                +{v.compliance.deficiencies.length - 3} more
-                              </li>
-                            ) : null}
-                          </ul>
-                        ) : null}
+                        <StatusBadge
+                          status={complianceKey(compliance)}
+                          tones={COMPLIANCE_TONES}
+                          labels={COMPLIANCE_LABELS}
+                        />
                       </div>
-                      <div className="flex flex-shrink-0 flex-col items-end gap-2">
-                        {compliance ? (
-                          <Badge variant={VARIANT[compliance]}>
-                            {LABEL[compliance]}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline">No review</Badge>
-                        )}
-                        <Link
-                          href={`/vendors/${v.id}`}
-                          className="text-xs font-medium text-primary hover:underline"
-                        >
-                          Review →
-                        </Link>
-                      </div>
+                      <p className="text-sm text-foreground-secondary">{describeReason(v.status, compliance)}</p>
+                      <p className="text-xs text-muted">{tradesLabel(v.trades) ?? 'No trade on file'}</p>
+                      {deficiencies.length > 0 ? (
+                        <ul className="mt-1 space-y-0.5 text-xs text-muted">
+                          {deficiencies.slice(0, 3).map((d, i) => (
+                            <li key={`${d.code}-${i}`}>• {d.detail}</li>
+                          ))}
+                          {deficiencies.length > 3 ? <li>+{deficiencies.length - 3} more</li> : null}
+                        </ul>
+                      ) : null}
                     </div>
-                  </CardContent>
-                </Card>
-              </li>
-            )
-          })}
-        </ul>
+                    <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary">
+                      Review
+                      <ChevronRight className="size-4 transition-transform duration-fast group-hover:translate-x-0.5" aria-hidden />
+                    </span>
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        </Card>
       )}
-    </div>
+    </Page>
   )
 }
 
-function describeReason(
-  vendorStatus: string,
-  compliance: ComplianceStatus | null | undefined,
-): string {
+function describeReason(vendorStatus: string, compliance: ComplianceStatus | null | undefined): string {
   if (vendorStatus === 'prospect' && compliance === 'green') {
     return 'Compliant prospect — ready to approve as an active vendor.'
   }
-  if (compliance === 'yellow') return 'Action item — review deficiencies.'
-  if (compliance === 'red') return 'Non-compliant — vendor cannot do work yet.'
-  if (compliance === 'missing') return 'Docs not yet entered — run a compliance check.'
+  if (compliance === 'yellow') return 'Gaps that need follow-up soon — review the deficiencies.'
+  if (compliance === 'red') return 'Non-compliant — do not assign work until cured.'
+  if (compliance === 'missing') return 'Documents not entered yet — run a compliance check.'
   return ''
 }

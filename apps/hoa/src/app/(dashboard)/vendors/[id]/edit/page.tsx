@@ -1,7 +1,10 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { BackLink, PageHeader } from '@homeowner-portal/ui'
+import { Page } from '@homeowner-portal/ui'
 import { getVendor } from '@/lib/vendors'
 import { EditVendorForm } from './EditVendorForm'
+
+export const metadata = { title: 'Edit vendor' }
 
 export default async function EditVendorPage({
   params,
@@ -13,9 +16,17 @@ export default async function EditVendorPage({
   if (!vendor) notFound()
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <BackLink href={`/vendors/${id}`} label="Back to vendor" />
-      <PageHeader title={`Edit ${vendor.legal_name}`} />
+    <Page
+      width="narrow"
+      title="Edit vendor"
+      description={vendor.legal_name}
+      breadcrumbs={[
+        { label: 'Vendors', href: '/vendors' },
+        { label: vendor.legal_name, href: `/vendors/${id}` },
+        { label: 'Edit' },
+      ]}
+      linkAs={Link}
+    >
       <EditVendorForm
         vendorId={vendor.id}
         defaultValues={{
@@ -27,6 +38,6 @@ export default async function EditVendorPage({
           notes: vendor.notes ?? '',
         }}
       />
-    </div>
+    </Page>
   )
 }

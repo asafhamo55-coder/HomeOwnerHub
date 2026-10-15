@@ -1,8 +1,18 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button, Card, CardContent, useToast } from '@homeowner-portal/ui'
+import {
+  Alert,
+  Button,
+  Card,
+  CardContent,
+  CardFooter,
+  Field,
+  Input,
+  Textarea,
+  useToast,
+} from '@homeowner-portal/ui'
 import { updateVendor } from '@/lib/vendors'
 
 interface Props {
@@ -21,10 +31,14 @@ export function EditVendorForm({ vendorId, defaultValues }: Props) {
   const router = useRouter()
   const toast = useToast()
   const [pending, startTransition] = useTransition()
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [formError, setFormError] = useState<string | null>(null)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+    setFieldErrors({})
+    setFormError(null)
     startTransition(async () => {
       const result = await updateVendor(vendorId, {
         legalName: fd.get('legalName') as string,
@@ -38,7 +52,11 @@ export function EditVendorForm({ vendorId, defaultValues }: Props) {
         notes: (fd.get('notes') as string) || null,
       })
       if (!result.ok) {
-        toast({ tone: 'error', message: result.error })
+        if (result.fieldErrors && Object.keys(result.fieldErrors).length > 0) {
+          setFieldErrors(result.fieldErrors)
+        } else {
+          setFormError(result.error)
+        }
         return
       }
       toast({ tone: 'success', message: 'Vendor updated.' })
@@ -46,48 +64,47 @@ export function EditVendorForm({ vendorId, defaultValues }: Props) {
     })
   }
 
-  const cls = 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground'
+  const fe = (k: string) => fieldErrors[k]
 
   return (
     <Card>
-      <CardContent className="p-6">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Legal name</label>
-            <input name="legalName" defaultValue={defaultValues.legalName} required className={cls} />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">DBA</label>
-            <input name="dba" defaultValue={defaultValues.dba} className={cls} />
-          </div>
+      <form onSubmit={handleSubmit} noValidate>
+        <CardContent className="space-y-4 pt-5">
+          <Field label="Legal name" required error={fe('legal_name')}>
+            <Input name="legalName" defaultValue={defaultValues.legalName} required />
+          </Field>
+          <Field label="DBA" optional error={fe('dba')}>
+            <Input name="dba" defaultValue={defaultValues.dba} />
+          </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Email</label>
-              <input name="primaryEmail" type="email" defaultValue={defaultValues.primaryEmail} className={cls} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Phone</label>
-              <input name="primaryPhone" defaultValue={defaultValues.primaryPhone} className={cls} />
-            </div>
+            <Field label="Email" error={fe('primary_email')}>
+              <Input name="primaryEmail" type="email" defaultValue={defaultValues.primaryEmail} />
+            </Field>
+            <Field label="Phone" error={fe('primary_phone')}>
+              <Input name="primaryPhone" type="tel" defaultValue={defaultValues.primaryPhone} />
+            </Field>
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Trades (comma-separated)</label>
-            <input name="trades" defaultValue={defaultValues.trades} className={cls} />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Notes</label>
-            <textarea name="notes" defaultValue={defaultValues.notes} rows={3} className={cls} />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => router.back()} disabled={pending}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Saving…' : 'Save changes'}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
+          <Field label="Trades" hint="Comma-separated, e.g. landscaping, irrigation." error={fe('trades')}>
+            <Input name="trades" defaultValue={defaultValues.trades} />
+          </Field>
+          <Field label="Internal notes" optional error={fe('notes')}>
+            <Textarea name="notes" defaultValue={defaultValues.notes} rows={3} />
+          </Field>
+          {formError ? (
+            <Alert variant="error" title="Couldn’t save changes">
+              {formError}
+            </Alert>
+          ) : null}
+        </CardContent>
+        <CardFooter className="justify-end">
+          <Button type="button" variant="ghost" onClick={() => router.back()} disabled={pending}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={pending}>
+            Save changes
+          </Button>
+        </CardFooter>
+      </form>
     </Card>
   )
 }
