@@ -78,6 +78,32 @@ function designSystemPlugin(hub: HubKey) {
     addVariant('sidebar-collapsed', ':root[data-sidebar="collapsed"] &')
     addVariant('in-rail', ':root[data-sidebar="collapsed"] [data-collapsible] &')
 
+    // Top-bar container queries. The bar's AVAILABLE width depends on the
+    // sidebar (expanded/rail) and the docked Copilot column, not just the
+    // viewport — 1440 with Copilot open leaves ~820px — so top-bar items
+    // size themselves against the bar (`AppShellHeader` is the `topbar`
+    // container), never against viewport breakpoints.
+    //   bar-sm:  ≥32rem — the search field is a full field (icon below)
+    //   bar-lg:  ≥58rem — secondary items (View as, Platform, Copilot, hub)
+    //            show text labels; below it they are icon-only buttons
+    //            with an accessible name and a tooltip title.
+    addVariant('bar-sm', '@container topbar (min-width: 32rem)')
+    addVariant('bar-lg', '@container topbar (min-width: 58rem)')
+
+    // Content container queries. `.cq` makes an element an (unnamed)
+    // inline-size container; `cq-sm/md/lg:` inside it respond to ITS width.
+    // Use for page sections whose column count must follow the space the
+    // page actually has — with the Copilot column docked, a 1440 viewport
+    // leaves ~720px of page, which viewport `lg:` cannot see.
+    // Note: a container is a containing block for position:fixed
+    // descendants, so do not put `.cq` around anything that renders a
+    // non-portalled fixed overlay.
+    addUtilities({ '.cq': { containerType: 'inline-size' } })
+    addVariant('cq-xs', '@container (min-width: 12rem)')
+    addVariant('cq-sm', '@container (min-width: 30rem)')
+    addVariant('cq-md', '@container (min-width: 44rem)')
+    addVariant('cq-lg', '@container (min-width: 56rem)')
+
     addUtilities({
       // Money and counts: tabular, lining figures so columns align.
       '.num': { fontVariantNumeric: 'tabular-nums lining-nums', fontFeatureSettings: '"tnum", "lnum", "cv02", "cv03", "cv04", "cv11"' },

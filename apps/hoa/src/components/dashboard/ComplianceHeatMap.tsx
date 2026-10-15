@@ -62,7 +62,7 @@ export function ComplianceHeatMap({ cells, failed = false, months = 3 }: Complia
 
   return (
     <Card>
-      <CardHeader className="gap-2 pb-4 sm:flex-row sm:items-start sm:justify-between">
+      <CardHeader className="gap-2 pb-4 cq-sm:flex-row cq-sm:items-start cq-sm:justify-between">
         <div className="space-y-1">
           <CardTitle as="h3">Compliance calendar</CardTitle>
           <p className="text-sm text-muted">
@@ -78,7 +78,7 @@ export function ComplianceHeatMap({ cells, failed = false, months = 3 }: Complia
         {failed ? (
           <FailedNote what="the compliance calendar" />
         ) : (
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-6 cq-md:grid-cols-3">
             {monthGrids.map((m) => (
               <MonthGrid key={m.label} label={m.label} days={m.days} today={today} />
             ))}

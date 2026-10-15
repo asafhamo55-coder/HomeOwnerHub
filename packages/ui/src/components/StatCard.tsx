@@ -55,10 +55,15 @@ export function Kpi({
 }: KpiProps) {
   const DeltaIcon = delta ? DELTA_ICON[delta.direction] : null
   const body = (
-    <div className="flex h-full flex-col gap-2 p-5">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-medium text-muted">{label}</p>
-        {icon ? <span className="text-muted [&_svg]:size-4" aria-hidden>{icon}</span> : null}
+    // min-w-0 + wrap rules: a tile never grows past its grid cell and
+    // nothing in it spills out — the delta wraps under the value, long
+    // labels/hints wrap, and the figure sizes to the TILE (it is a `.cq`
+    // container: text-2xl, text-3xl once the tile is ≥12rem wide), only
+    // breaking as a last resort (checked by `pnpm ui:overflow`).
+    <div className="cq flex h-full min-w-0 flex-col gap-2 p-4 sm:p-5">
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <p className="min-w-0 break-words text-sm font-medium text-muted">{label}</p>
+        {icon ? <span className="shrink-0 pt-0.5 text-muted [&_svg]:size-4" aria-hidden>{icon}</span> : null}
       </div>
       {state === 'loading' ? (
         <div aria-busy="true" className="space-y-2 pt-1">
@@ -75,17 +80,19 @@ export function Kpi({
         </div>
       ) : (
         <>
-          <p className="num text-3xl font-semibold tracking-tight text-foreground">{value}</p>
+          <p className="num min-w-0 text-2xl font-semibold tracking-tight text-foreground [overflow-wrap:anywhere] cq-xs:text-3xl">
+            {value}
+          </p>
           {delta || hint ? (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
               {delta && DeltaIcon ? (
-                <span className={cn('num inline-flex items-center gap-0.5 font-semibold', SENTIMENT[delta.sentiment ?? 'neutral'])}>
-                  <DeltaIcon className="size-3.5" aria-hidden />
+                <span className={cn('num inline-flex max-w-full items-center gap-0.5 font-semibold', SENTIMENT[delta.sentiment ?? 'neutral'])}>
+                  <DeltaIcon className="size-3.5 shrink-0" aria-hidden />
                   {delta.value}
                 </span>
               ) : null}
-              {delta?.label ? <span className="text-muted">{delta.label}</span> : null}
-              {hint ? <span className="text-muted">{hint}</span> : null}
+              {delta?.label ? <span className="min-w-0 text-muted">{delta.label}</span> : null}
+              {hint ? <span className="min-w-0 break-words text-muted">{hint}</span> : null}
             </div>
           ) : null}
         </>
@@ -97,7 +104,7 @@ export function Kpi({
     return (
       <LinkAs
         href={href}
-        className={cn('group block rounded-xl no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background', className)}
+        className={cn('group block min-w-0 rounded-xl no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background', className)}
       >
         <Card variant="interactive" className="h-full">
           {body}
@@ -105,7 +112,7 @@ export function Kpi({
       </LinkAs>
     )
   }
-  return <Card className={cn('h-full', className)}>{body}</Card>
+  return <Card className={cn('h-full min-w-0', className)}>{body}</Card>
 }
 
 /* ───────────────────────────────────────────────────────────────────────────

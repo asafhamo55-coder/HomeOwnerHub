@@ -57,7 +57,7 @@ export function Alert({
       {!hideIcon ? (
         <Icon className="mt-0.5 size-[18px] shrink-0 text-[color:var(--alert-icon)]" aria-hidden />
       ) : null}
-      <div className="min-w-0 flex-1 space-y-1">
+      <div className="min-w-0 flex-1 space-y-1 break-words">
         {title ? <p className="font-semibold leading-snug">{title}</p> : null}
         {children ? <div className="text-foreground-secondary [&_a]:font-medium [&_a]:text-foreground [&_a]:underline">{children}</div> : null}
         {actions ? <div className="flex flex-wrap gap-2 pt-2">{actions}</div> : null}

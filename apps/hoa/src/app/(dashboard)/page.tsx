@@ -210,7 +210,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
   const approvalsFailed = approvals.failed === true
 
   return (
-    <div className="space-y-8">
+    <div className="cq space-y-8">
       {/* ── Needs attention ─────────────────────────────────────────────
           Four counts, each a decision waiting on the board, each linking
           to where it is acted on. A failed source shows "—" and says so. */}
@@ -218,7 +218,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
         <h2 id="attention-heading" className="sr-only">
           Needs your attention
         </h2>
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 cq-sm:gap-4 cq-md:grid-cols-4">
           <Kpi
             label="Approvals"
             icon={<ClipboardCheck />}
@@ -270,8 +270,8 @@ async function DashboardContent({ orgId }: { orgId: string }) {
 
       {/* ── Today ──────────────────────────────────────────────────────
           Work queue on the left, calendar + mail + leasing on the right. */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="min-w-0 space-y-6 lg:col-span-2">
+      <div className="grid gap-6 cq-lg:grid-cols-3">
+        <div className="min-w-0 space-y-6 cq-lg:col-span-2">
           {/* The bullets deliberately never restate a tile; they carry what
               CHANGED, which a tile structurally cannot show. */}
           <DailyDigestCard
@@ -300,7 +300,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
           </h2>
           <span className="text-xs text-muted">Changes vs 30 days ago</span>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 cq-sm:gap-4 cq-md:grid-cols-4">
           <Kpi
             label="Open violations"
             value={kpis.openViolations.value.toLocaleString()}
@@ -354,7 +354,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
             state={leaseSummary.failed ? 'failed' : 'ready'}
           />
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 cq-md:grid-cols-3">
           <BreakdownList
             title="Violations by status"
             segments={violationsDonut.segments}
@@ -385,9 +385,9 @@ async function DashboardContent({ orgId }: { orgId: string }) {
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-8" aria-busy="true">
+    <div className="cq space-y-8" aria-busy="true">
       <span className="sr-only">Loading your dashboard</span>
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 cq-sm:gap-4 cq-md:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
           <Card key={i}>
             <CardContent className="space-y-3 p-5">
@@ -398,8 +398,8 @@ function DashboardSkeleton() {
           </Card>
         ))}
       </div>
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="min-w-0 space-y-6 lg:col-span-2">
+      <div className="grid gap-6 cq-lg:grid-cols-3">
+        <div className="min-w-0 space-y-6 cq-lg:col-span-2">
           {[0, 1].map((i) => (
             <Card key={i}>
               <CardContent className="space-y-4 p-5">

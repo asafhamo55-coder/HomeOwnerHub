@@ -48,6 +48,7 @@
     "migrate:properties-residents": "tsx scripts/migrate-properties-residents.ts",
     "db:local:reset": "tsx scripts/local-db-reset.ts",
     "ui:shots": "tsx scripts/ui-shots.ts",
+    "ui:overflow": "tsx scripts/ui-shots.ts --overflow",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {

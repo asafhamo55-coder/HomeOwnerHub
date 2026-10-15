@@ -17,8 +17,8 @@ export async function PlatformAdminLink() {
       title="Open platform-admin tools"
     >
       <Shield className="h-3 w-3" aria-hidden />
-      <span className="hidden sm:inline">Platform</span>
-      <span className="sr-only sm:hidden">Platform admin</span>
+      <span className="hidden bar-lg:inline">Platform</span>
+      <span className="sr-only bar-lg:hidden">Platform admin</span>
     </Link>
   )
 }

@@ -231,7 +231,9 @@ export function AppShellHeader({
   return (
     <header
       className={cn(
-        'sticky top-0 z-20 flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-background/85 px-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/70 sm:px-4 md:px-6',
+        // `topbar` container: children use the bar-sm / bar-lg variants
+        // (tailwind preset) to adapt to the bar's own width.
+        'sticky top-0 z-20 flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-background/85 px-3 backdrop-blur-md [container-name:topbar] [container-type:inline-size] supports-[backdrop-filter]:bg-background/70 sm:px-4 md:px-6',
         className,
       )}
     >
@@ -271,7 +273,10 @@ export function AppShellSearchTrigger({
         type="button"
         onClick={() => setPaletteOpen(true)}
         className={cn(
-          'hidden h-9 w-full max-w-sm items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-muted shadow-xs transition-colors hover:border-border-strong hover:text-foreground-secondary sm:flex',
+          // Shrinks first (min-w-0 flex-1) so the right-hand cluster never
+          // overlaps it; collapses to the icon button below bar-sm, where a
+          // field would be too narrow to read.
+          'hidden h-9 min-w-0 max-w-sm flex-1 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-muted shadow-xs transition-colors hover:border-border-strong hover:text-foreground-secondary bar-sm:flex',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           className,
         )}
@@ -280,14 +285,14 @@ export function AppShellSearchTrigger({
       >
         <Search className="size-4 shrink-0" aria-hidden />
         <span className="flex-1 truncate text-left">{placeholder}</span>
-        <kbd className="hidden shrink-0 items-center gap-0.5 rounded border border-border bg-subtle px-1.5 font-sans text-xs font-medium text-muted md:inline-flex">
+        <kbd className="hidden shrink-0 items-center gap-0.5 rounded border border-border bg-subtle px-1.5 font-sans text-xs font-medium text-muted bar-lg:inline-flex">
           {isMac ? '⌘' : 'Ctrl'} K
         </kbd>
       </button>
       <button
         type="button"
         onClick={() => setPaletteOpen(true)}
-        className="inline-flex size-9 items-center justify-center rounded-md text-foreground-secondary hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:hidden"
+        className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-foreground-secondary hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bar-sm:hidden"
         aria-label="Search"
       >
         <Search className="size-5" aria-hidden />

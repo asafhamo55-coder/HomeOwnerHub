@@ -50,11 +50,12 @@ export function HubSwitcher({ current, hubs }: HubSwitcherProps) {
           type="button"
           className="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-2 text-sm font-medium text-foreground-secondary transition-colors hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-subtle"
           aria-label={`Switch hub (current: ${currentHub?.label ?? labelFor(current)})`}
+          title={currentHub?.label ?? labelFor(current)}
         >
           <span className="flex size-6 items-center justify-center rounded-md bg-primary-subtle text-primary">
             <CurrentIcon className="size-3.5" aria-hidden />
           </span>
-          <span className="hidden lg:inline">{currentHub?.label ?? labelFor(current)}</span>
+          <span className="hidden bar-lg:inline">{currentHub?.label ?? labelFor(current)}</span>
           <ChevronDown className="size-3.5 text-muted" aria-hidden />
         </button>
       </DropdownMenuTrigger>

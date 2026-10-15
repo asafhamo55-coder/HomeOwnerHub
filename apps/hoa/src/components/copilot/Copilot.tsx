@@ -119,7 +119,7 @@ export function CopilotTrigger() {
       )}
     >
       <Sparkles className="size-4 shrink-0" aria-hidden />
-      <span className="hidden xl:inline">Copilot</span>
+      <span className="hidden bar-lg:inline">Copilot</span>
     </button>
   )
 }

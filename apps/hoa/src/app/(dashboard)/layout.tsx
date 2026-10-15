@@ -82,7 +82,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <AppShellMain>
           <AppShellHeader>
             <AppShellSearchTrigger />
-            <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
+            {/* shrink-0: the search field is what gives way when the bar
+                narrows (Copilot open, small laptop); these collapse to
+                icons below the bar-lg container width instead. */}
+            <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5">
               {/* Dev-only role switcher, docked in the top bar so it never
                   floats over page content. Renders nothing for non-admins. */}
               <RoleSwitcherMount placement="toolbar" />

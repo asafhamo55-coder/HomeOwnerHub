@@ -143,6 +143,7 @@ export function RoleSwitcher({ realRole, override, placement }: RoleSwitcherProp
           type="button"
           disabled={isPending}
           aria-label={`View as: ${ROLE_LABEL[effective]}${isOverriding ? ' (preview)' : ''}`}
+          title={`View as ${ROLE_LABEL[effective]}`}
           className={cn(
             'inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-xs font-medium transition-colors duration-fast print:hidden',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -153,10 +154,10 @@ export function RoleSwitcher({ realRole, override, placement }: RoleSwitcherProp
           )}
         >
           {isOverriding ? <Eye aria-hidden /> : ROLE_ICON[effective]}
-          <span className="hidden lg:inline">
+          <span className="hidden bar-lg:inline">
             {isOverriding ? `Viewing as ${ROLE_LABEL[effective]}` : `View as ${ROLE_LABEL[effective]}`}
           </span>
-          <ChevronDown className="hidden lg:block" aria-hidden />
+          <ChevronDown className="hidden bar-lg:block" aria-hidden />
         </button>
       </DropdownMenuTrigger>
       {menu}

@@ -26,6 +26,12 @@
  *   --only=<substr>        only shots whose name contains substr
  *                          (comma-separated list allowed)
  *   --gallery-only         skip app routes
+ *   --overflow             `pnpm ui:overflow`: no screenshots — load every
+ *                          selected route at 375 and 1440 (light) and FAIL
+ *                          (exit 1) when the page scrolls horizontally
+ *                          (document scrollWidth > clientWidth) or any box
+ *                          visibly spills out of its card/tile. Prints the
+ *                          offending elements (tag + class, never text).
  *   UI_SHOTS_PORT=3100     base port (pick another when several checkouts
  *                          run shots at once)
  *   UI_SHOTS_URL=http://localhost:3000   use an hoa server you already run
@@ -95,6 +101,10 @@ const SHOTS: Shot[] = [
   { name: 'gallery-toast', path: '/ui-gallery?overlay=toast', themes: LIGHT },
   { name: 'dashboard', path: '/', auth: true },
   { name: 'dashboard-copilot', path: '/', auth: true, copilot: true },
+  // Top bar with the Copilot column open, across laptop widths: the bar's
+  // available width is what drives its icon-only / labelled states.
+  { name: 'topbar-copilot', path: '/', auth: true, copilot: true, viewport: true, widths: [1024, 1280, 1440], themes: LIGHT },
+  { name: 'topbar', path: '/', auth: true, viewport: true, widths: [768, 1024, 1440], themes: LIGHT },
   { name: 'dashboard-viewport', path: '/', auth: true, viewport: true, scrollBottom: true, widths: [1440], themes: LIGHT },
   { name: 'violations', path: '/violations', auth: true },
   { name: 'dues', path: '/dues', auth: true },
@@ -324,6 +334,96 @@ function startServer(app: App): ChildProcess {
   return child
 }
 
+interface OverflowReport {
+  scrollWidth: number
+  clientWidth: number
+  /** Elements that stick out past the viewport edge. */
+  offscreen: string[]
+  /** Boxes whose content visibly spills out of a card/tile. */
+  spills: string[]
+}
+
+/**
+ * Runs in the page. Three checks:
+ *  1. page-level: the document must not scroll sideways, and no element may
+ *     extend past the viewport edge (unless an ancestor clips/scrolls it —
+ *     a TableScroll is allowed to be wider than the screen);
+ *  2. card-level: inside any bordered box (`.rounded-xl.border` — the kit's
+ *     Card — or `.rounded-lg.border` — Alert, callouts) no descendant or its
+ *     text may poke out of the box. That is
+ *     the "KPI delta spills out of its tile" bug, which never widens the
+ *     document at 1440 and so check 1 alone would miss it;
+ *  3. bar-level: no <header> may overflow its own box (a crowded top bar
+ *     whose items would overlap or be cut off).
+ * Describes elements by tag + a few classes only — never their text (PII).
+ */
+function probeOverflow(): OverflowReport {
+  const doc = document.documentElement
+  const vw = doc.clientWidth
+  const describe = (el: Element) => {
+    const cls = (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean).slice(0, 6).join('.')
+    return `${el.tagName.toLowerCase()}${cls ? '.' + cls : ''}`
+  }
+  const clipsX = (el: Element) => {
+    const o = getComputedStyle(el).overflowX
+    return o === 'hidden' || o === 'auto' || o === 'scroll' || o === 'clip'
+  }
+  const clippedBetween = (el: Element, stop: Element | null) => {
+    for (let p = el.parentElement; p && p !== stop; p = p.parentElement) if (clipsX(p)) return true
+    return false
+  }
+  const visible = (el: Element) => {
+    const r = el.getBoundingClientRect()
+    if (r.width === 0 || r.height === 0) return null
+    const cs = getComputedStyle(el)
+    if (cs.visibility === 'hidden' || cs.position === 'fixed') return null
+    if (el.closest('[aria-hidden="true"], .sr-only, nextjs-portal, [data-radix-popper-content-wrapper]')) return null
+    return r
+  }
+  const offscreen: string[] = []
+  const spills: string[] = []
+  for (const el of Array.from(document.body.querySelectorAll('*'))) {
+    const r = visible(el)
+    if (!r) continue
+    // Entirely outside the viewport = an off-canvas drawer at rest; only a
+    // box STRADDLING the edge is a layout bug.
+    const straddles = (r.right > vw + 1 && r.left < vw) || (r.left < -1 && r.right > 0)
+    if (straddles && !clippedBetween(el, null)) offscreen.push(describe(el))
+  }
+  // Bordered boxes: the kit's Card (`rounded-xl border`) and the smaller
+  // bordered panels inside cards (Alert, callouts: `rounded-lg border`).
+  for (const card of Array.from(document.querySelectorAll('.rounded-xl.border, .rounded-lg.border'))) {
+    const cr = card.getBoundingClientRect()
+    if (cr.width === 0) continue
+    for (const el of Array.from(card.querySelectorAll('*'))) {
+      const r = visible(el)
+      if (!r) continue
+      if (clippedBetween(el, card)) continue
+      // The box itself pokes out of the card…
+      if (r.right > cr.right + 1 || r.left < cr.left - 1) spills.push(describe(el))
+      // …or its content (e.g. a nowrap figure) overflows a box that does
+      // not clip it, far enough to reach the card's edge.
+      else if (el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1 && !clipsX(el)) {
+        const contentRight = r.left + el.clientLeft + el.scrollWidth
+        // Text must stay ≥4px clear of the card's border: hover rows may
+        // bleed into the padding, text touching the border is a spill.
+        if (contentRight > cr.right - 4) {
+          spills.push(`${describe(el)} (content ${el.scrollWidth}px in a ${el.clientWidth}px box, reaches within 4px of the card edge)`)
+        }
+      }
+    }
+  }
+  // 3. bars: a top bar whose items do not fit overflows its own box (items
+  //    would overlap or be cut off) — scrollWidth exceeds clientWidth.
+  for (const bar of Array.from(document.querySelectorAll('header'))) {
+    if (bar.getBoundingClientRect().width > 0 && bar.scrollWidth > bar.clientWidth + 1) {
+      spills.push(`${describe(bar)} (bar content ${bar.scrollWidth}px > ${bar.clientWidth}px)`)
+    }
+  }
+  const uniq = (a: string[]) => [...new Set(a)].slice(0, 8)
+  return { scrollWidth: doc.scrollWidth, clientWidth: vw, offscreen: uniq(offscreen), spills: uniq(spills) }
+}
+
 function fillPath(path: string, vars: Record<string, string>): string | null {
   let missing = false
   const out = path.replace(/:([A-Za-z]\w*)/g, (_, k: string) => {
@@ -339,6 +439,7 @@ async function main() {
   const onlyArg = args.find((a) => a.startsWith('--only='))?.slice(7)
   const only = onlyArg ? onlyArg.split(',').filter(Boolean) : null
   const galleryOnly = args.includes('--gallery-only')
+  const overflowMode = args.includes('--overflow')
   mkdirSync(OUT, { recursive: true })
 
   // `--serve=hoa,pm` just runs those dev servers (seeded, same env) until
@@ -401,6 +502,7 @@ async function main() {
   let written = 0
   let failed = 0
   let skipped = 0
+  const overflowFailures: string[] = []
   try {
     await Promise.all(
       [...apps, ...(external ? (['hoa'] as App[]) : [])].map((a) =>
@@ -416,8 +518,10 @@ async function main() {
         console.log(`shot skipped: ${shot.name} (no seed data for ${shot.path})`)
         continue
       }
-      for (const width of shot.widths ?? WIDTHS) {
-        for (const theme of shot.themes ?? THEMES) {
+      // Overflow mode: layout is theme-independent, so light only, and
+      // always both reference widths regardless of the shot's own list.
+      for (const width of overflowMode ? WIDTHS : (shot.widths ?? WIDTHS)) {
+        for (const theme of overflowMode ? LIGHT : (shot.themes ?? THEMES)) {
           const ctx = await browser.newContext({
             viewport: { width, height: width < 768 ? 812 : 900 },
             deviceScaleFactor: width < 768 ? 2 : 1,
@@ -436,6 +540,9 @@ async function main() {
             },
             [theme, Boolean(shot.rail), Boolean(shot.copilot)] as const,
           )
+          // tsx/esbuild wraps named functions in `__name(...)`; define it in
+          // the page so evaluate(probeOverflow) runs there.
+          await ctx.addInitScript('window.__name = window.__name || ((f) => f)')
           if (shot.resident) {
             await ctx.addCookies([{ name: 'hh_role_override', value: 'resident', url: bases.hoa }])
           }
@@ -454,6 +561,22 @@ async function main() {
               await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
             }
             await page.waitForTimeout(shot.path.includes('overlay') || shot.copilot ? 700 : 300)
+            if (overflowMode) {
+              const r = await page.evaluate(probeOverflow)
+              const bad = r.scrollWidth > r.clientWidth || r.offscreen.length > 0 || r.spills.length > 0
+              if (bad) {
+                overflowFailures.push(`${shot.name} @${width}`)
+                console.log(
+                  `OVERFLOW: ${shot.name} ${width} — scrollWidth ${r.scrollWidth} vs clientWidth ${r.clientWidth}` +
+                    (r.offscreen.length ? `\n    off-screen: ${r.offscreen.join('\n                ')}` : '') +
+                    (r.spills.length ? `\n    spills out of card: ${r.spills.join('\n                        ')}` : ''),
+                )
+              } else {
+                console.log(`ok: ${shot.name} ${width} (scrollWidth ${r.scrollWidth} = clientWidth ${r.clientWidth})`)
+              }
+              written++
+              continue
+            }
             const fullPage = !shot.path.includes('overlay') && !shot.viewport
             if (fullPage) {
               // Grow the viewport to the document height first. Chromium's
@@ -482,6 +605,14 @@ async function main() {
   } finally {
     await browser?.close()
     stop()
+  }
+  if (overflowMode) {
+    console.log(
+      `ui:overflow — ${written} checked, ${overflowFailures.length} overflowing, ${failed} failed to load, ${skipped} skipped` +
+        (overflowFailures.length ? `\n  overflowing: ${overflowFailures.join(', ')}` : ''),
+    )
+    if (overflowFailures.length > 0 || failed > 0) process.exitCode = 1
+    return
   }
   console.log(`ui:shots — ${written} written, ${failed} failed, ${skipped} skipped → ${OUT}`)
   if (failed > 0) process.exitCode = 1
