@@ -15,6 +15,9 @@ const PUBLIC_PREFIXES = [
   '/api/vendor-onboard',
   '/rfp-bid',
   '/api/rfp-bid',
+  // Dev-only component gallery (pnpm ui:shots). The page itself 404s in
+  // production builds; this keeps it reachable without a session locally.
+  ...(process.env.NODE_ENV !== 'production' ? ['/ui-gallery'] : []),
 ]
 
 // Dev-only escape hatch: set DEV_AUTOLOGIN=1 in .env.local to skip the

@@ -47,6 +47,7 @@
     "scrape:state-law": "tsx scripts/scrape-state-law.ts",
     "migrate:properties-residents": "tsx scripts/migrate-properties-residents.ts",
     "db:local:reset": "tsx scripts/local-db-reset.ts",
+    "ui:shots": "tsx scripts/ui-shots.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {
