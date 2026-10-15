@@ -261,7 +261,7 @@ function MonthTable({ month, rows, today, partial }: { month: string; rows: Asse
         </span>
       ),
     },
-    { key: 'type', header: 'Charge', hideBelowLg: true, className: 'whitespace-nowrap text-muted', cell: (r) => chargeTypeLabel(r.assessment_type) },
+    { key: 'type', header: 'Charge', hideBelowLg: true, hideOnMobile: true, className: 'whitespace-nowrap text-muted', cell: (r) => chargeTypeLabel(r.assessment_type) },
     { key: 'due', header: 'Due', className: 'whitespace-nowrap text-muted', cell: (r) => formatDay(r.due_date, 'short') },
     { key: 'amount', header: 'Amount', numeric: true, cell: (r) => usd(Number(r.amount)) },
     {
