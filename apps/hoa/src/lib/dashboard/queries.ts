@@ -951,7 +951,10 @@ export async function getAtRiskThisWeek(
       // >60 days overdue is "this is becoming a lien" — escalate to red.
       severity: daysOffset < -60 ? 'red' : 'amber',
       daysOffset,
-      href: `/accounting/assessments/${a.id}`,
+      // No per-assessment page exists (/accounting/assessments/[id] was a
+      // 404). /dues lists every assessment with its status — same target
+      // board-signals.ts uses for dues_overdue.
+      href: '/dues',
     })
   }
 
