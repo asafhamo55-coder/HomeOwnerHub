@@ -1,17 +1,35 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { AlertTriangle, Sparkles } from 'lucide-react'
+import { format } from 'date-fns'
 import {
+  Alert,
   Badge,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
+  EmptyState,
+  KeyValue,
+  KeyValueList,
+  LoadFailed,
+  Page,
+  Pager,
+  StatusBadge,
+  StatusPill,
+  Tabs,
+  pageRange,
+  parsePageParam,
+  type StatusTone,
 } from '@homeowner-portal/ui'
-import { Sparkles } from 'lucide-react'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadOrFail } from '@/lib/load-or-fail'
+import { VIOLATION_SEVERITY } from '@/lib/status/community'
+import { violationTabs } from '../tabs'
 
 export const metadata = { title: 'Violation Approval Queue' }
+export const dynamic = 'force-dynamic'
 
 interface PendingRun {
   id: string
@@ -25,56 +43,82 @@ interface PendingRun {
   citations: string[] | null
 }
 
-export default async function ApprovalQueuePage() {
+// Was a silent `.limit(50)`. Same page size, now paged.
+const PAGE_SIZE = 50
+
+const CONFIDENCE_TONE: Record<string, StatusTone> = { HIGH: 'success', MEDIUM: 'warning', LOW: 'neutral' }
+
+export default async function ApprovalQueuePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
   const org = await getCurrentOrg()
   if (!org) redirect('/onboarding')
 
+  const page = parsePageParam((await searchParams).page)
+  const { from, to } = pageRange(page, PAGE_SIZE)
   const supabase = await getSupabaseServerClient()
 
-  const { data: runs } = await supabase
-    .from('ai_runs' as never)
-    .select(
-      'id, workflow_id, workflow_version, model, confidence, created_at, input, output, citations',
-    )
-    .eq('organization_id' as never, org.id)
-    .eq('workflow_id' as never, 'W3')
-    .eq('status' as never, 'pending_human_approval')
-    .order('created_at' as never, { ascending: false })
-    .limit(50)
+  const result = await loadOrFail(
+    'the approval queue',
+    supabase
+      .from('ai_runs' as never)
+      .select('id, workflow_id, workflow_version, model, confidence, created_at, input, output, citations', {
+        count: 'exact',
+      })
+      .eq('organization_id' as never, org.id)
+      .eq('workflow_id' as never, 'W3')
+      .eq('status' as never, 'pending_human_approval')
+      .order('created_at' as never, { ascending: false })
+      .range(from, to),
+  )
 
-  const pending = (runs ?? []) as PendingRun[]
+  const pending = result.ok ? ((result.data ?? []) as PendingRun[]) : []
+  const total = result.ok ? (result.count ?? pending.length) : 0
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <header className="space-y-1">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <h1>Violation Approval Queue</h1>
-        </div>
-        <p className="text-sm text-muted">
-          AI-drafted violation notices awaiting board review. Approve, edit,
-          or reject each one. Nothing here ships to a homeowner until the
-          board says so.
-        </p>
-      </header>
-
-      {pending.length === 0 ? (
-        <Card>
-          <CardContent>
-            <p className="py-4 text-center text-sm text-muted">
-              Nothing pending. New AI drafts from the violations wizard land
-              here.
-            </p>
-          </CardContent>
-        </Card>
+    <Page
+      title="Violations"
+      width="wide"
+      description="AI-drafted violation notices awaiting board review. Nothing here reaches a homeowner until the board approves it."
+      linkAs={Link}
+      tabs={<Tabs items={violationTabs('/violations/approval-queue')} aria-label="Violation sections" linkAs={Link} />}
+    >
+      {!result.ok ? (
+        <LoadFailed what="the approval queue" />
+      ) : pending.length === 0 && total === 0 ? (
+        <EmptyState
+          icon={<Sparkles aria-hidden />}
+          title="Nothing waiting for approval"
+          description="Drafts from Covenant Brain land here until the board reviews them."
+        />
       ) : (
-        <ul className="space-y-3">
-          {pending.map((run) => (
-            <PendingRunCard key={run.id} run={run} />
-          ))}
-        </ul>
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            <span className="num font-medium text-foreground">{total}</span> draft{total === 1 ? '' : 's'} pending review
+          </p>
+          <ul className="space-y-4">
+            {pending.map((run) => (
+              <PendingRunCard key={run.id} run={run} />
+            ))}
+          </ul>
+          {total > PAGE_SIZE || page > 1 ? (
+            <Card>
+              <Pager
+                page={page}
+                pageSize={PAGE_SIZE}
+                total={total}
+                rowCount={pending.length}
+                hrefFor={(p) => (p > 1 ? `/violations/approval-queue?page=${p}` : '/violations/approval-queue')}
+                linkAs={Link}
+                noun="drafts"
+              />
+            </Card>
+          ) : null}
+        </div>
       )}
-    </div>
+    </Page>
   )
 }
 
@@ -93,79 +137,69 @@ function PendingRunCard({ run }: { run: PendingRun }) {
     confidence?: string
   }
 
-  const confidenceLabel =
-    typeof output.confidence === 'string' ? output.confidence : 'LOW'
-  const confidenceVariant =
-    confidenceLabel === 'HIGH'
-      ? 'success'
-      : confidenceLabel === 'MEDIUM'
-        ? 'warning'
-        : 'outline'
-
+  const confidenceLabel = typeof output.confidence === 'string' ? output.confidence.toUpperCase() : 'LOW'
   const severity = output.recommendedSeverity ?? 'low'
-
   const fineDollars =
     typeof output.recommendedFineAmountCents === 'number'
-      ? `$${(output.recommendedFineAmountCents / 100).toFixed(0)}`
-      : '—'
-
+      ? `$${(output.recommendedFineAmountCents / 100).toFixed(0)}/day`
+      : null
   const cureDays =
-    typeof output.recommendedCurePeriodDays === 'number'
-      ? `${output.recommendedCurePeriodDays} days`
-      : '—'
-
-  const truncatedNotice =
+    typeof output.recommendedCurePeriodDays === 'number' ? `${output.recommendedCurePeriodDays} days` : null
+  const notice =
     typeof output.notice === 'string'
       ? output.notice.length > 600
         ? output.notice.slice(0, 600) + '…'
         : output.notice
-      : '(no draft text)'
+      : null
 
   return (
     <li>
       <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="text-base">
-              {input.violationType ?? '(no type)'}
-            </CardTitle>
-            <div className="flex items-center gap-1.5">
-              <Badge variant={confidenceVariant as 'success' | 'warning' | 'outline'}>
-                {confidenceLabel}
-              </Badge>
-              <Badge variant="outline">{severity}</Badge>
-              <Badge variant="outline">{fineDollars}</Badge>
-              <Badge variant="outline">{cureDays}</Badge>
-            </div>
-          </div>
+        <CardHeader
+          actions={
+            <StatusPill
+              tone={CONFIDENCE_TONE[confidenceLabel] ?? 'neutral'}
+              label={`${confidenceLabel.charAt(0)}${confidenceLabel.slice(1).toLowerCase()} confidence`}
+            />
+          }
+        >
+          <CardTitle as="h2" className="capitalize">
+            {input.violationType ?? 'Untyped violation'}
+          </CardTitle>
+          <p className="text-xs text-muted">
+            Drafted <time dateTime={run.created_at}>{format(new Date(run.created_at), 'PPp')}</time> · Draft{' '}
+            {run.id.slice(0, 8)} · v{run.workflow_version}
+          </p>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {output.citedSection ? (
-            <p className="text-xs text-muted">
-              Cited: <span className="font-mono">{output.citedSection}</span>
-            </p>
-          ) : (
-            <p className="text-xs text-amber-700">
-              ⚠ No direct CC&R section cited — board should verify rule before sending.
-            </p>
+        <CardContent className="space-y-4">
+          <KeyValueList className="sm:grid-cols-4">
+            <KeyValue
+              label="Severity"
+              value={<StatusBadge status={severity} tones={VIOLATION_SEVERITY.tones} labels={VIOLATION_SEVERITY.labels} />}
+            />
+            <KeyValue label="Daily fine" value={fineDollars ? <span className="num">{fineDollars}</span> : null} />
+            <KeyValue label="Cure period" value={cureDays} />
+            <KeyValue
+              label="CC&R cited"
+              value={output.citedSection ? <Badge variant="neutral">{output.citedSection}</Badge> : null}
+            />
+          </KeyValueList>
+
+          {output.citedSection ? null : (
+            <Alert variant="warning" title="No CC&R section cited">
+              Verify the rule before this notice is sent.
+            </Alert>
           )}
 
-          <p className="whitespace-pre-wrap rounded-md border border-border bg-foreground/20 p-3 text-sm">
-            {truncatedNotice}
-          </p>
-
-          <div className="flex items-center justify-between text-xs text-muted">
-            <span>
-              Draft ID {run.id.slice(0, 8)} · v{run.workflow_version} ·{' '}
-              {new Date(run.created_at).toLocaleString()}
-            </span>
-            <Link
-              href={`/violations/approval-queue/${run.id}`}
-              className="font-medium text-primary hover:underline"
-            >
-              Review →
-            </Link>
-          </div>
+          {notice ? (
+            <div className="whitespace-pre-wrap rounded-lg border border-border bg-subtle p-4 text-sm leading-relaxed text-foreground">
+              {notice}
+            </div>
+          ) : (
+            <p className="flex items-center gap-2 text-sm text-muted">
+              <AlertTriangle className="size-4" aria-hidden /> No draft text was produced.
+            </p>
+          )}
         </CardContent>
       </Card>
     </li>

@@ -130,7 +130,7 @@ export async function createApprovedViolation(
 const UpdateStatusSchema = z.object({
   violationId: z.string().uuid(),
   status: z.enum(VIOLATION_STATUSES),
-  resolutionNote: z.string().trim().max(2000).nullable().optional(),
+  resolutionNote: z.string().trim().max(2000, "Keep the note under 2,000 characters.").nullable().optional(),
 })
 
 export interface UpdateViolationStatusInput {
@@ -141,18 +141,18 @@ export interface UpdateViolationStatusInput {
 
 export type UpdateViolationStatusResult =
   | { ok: true }
-  | { ok: false; error: string }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> }
 
 // ─── Edit violation details ─────────────────────────────────────────
 
 const UpdateViolationSchema = z.object({
   violationId: z.string().uuid(),
-  description: z.string().trim().min(3).max(2000).optional(),
-  violation_type: z.string().trim().min(2).max(200).optional(),
+  description: z.string().trim().min(3, 'Describe the violation (at least 3 characters).').max(2000, 'Keep the description under 2,000 characters.').optional(),
+  violation_type: z.string().trim().min(2, 'Enter a violation type, e.g. Landscaping.').max(200).optional(),
   ccr_section: z.string().trim().nullable().optional(),
   severity: z.enum(['low', 'medium', 'high']).nullable().optional(),
-  cure_period_days: z.number().int().min(1).max(180).optional(),
-  fine_amount: z.number().min(0).max(1000).optional(),
+  cure_period_days: z.number({ invalid_type_error: 'Enter a number of days.' }).int('Use whole days.').min(1, 'At least 1 day.').max(180, 'At most 180 days.').optional(),
+  fine_amount: z.number({ invalid_type_error: 'Enter an amount.' }).min(0, 'Can’t be negative.').max(1000, 'At most $1,000 per day.').optional(),
 })
 
 export interface UpdateViolationInput {
@@ -165,7 +165,28 @@ export interface UpdateViolationInput {
   fineAmount?: number
 }
 
-export type UpdateViolationResult = { ok: true } | { ok: false; error: string }
+export type UpdateViolationResult =
+  | { ok: true }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> }
+
+// Schema keys → the edit form's field names, so errors land under the right input.
+const UPDATE_FIELD_NAMES: Record<string, string> = {
+  description: 'description',
+  violation_type: 'violationType',
+  ccr_section: 'ccrSection',
+  severity: 'severity',
+  cure_period_days: 'curePeriodDays',
+  fine_amount: 'fineAmount',
+}
+
+function fieldErrorsOf(issues: z.ZodIssue[], names: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const issue of issues) {
+    const key = names[String(issue.path[0] ?? '')]
+    if (key && !out[key]) out[key] = issue.message
+  }
+  return out
+}
 
 export async function updateViolation(
   input: UpdateViolationInput,
@@ -180,7 +201,11 @@ export async function updateViolation(
     fine_amount: input.fineAmount,
   })
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return {
+      ok: false,
+      error: 'Some fields need attention.',
+      fieldErrors: fieldErrorsOf(parsed.error.issues, UPDATE_FIELD_NAMES),
+    }
   }
 
   const org = await getCurrentOrg()
@@ -233,7 +258,11 @@ export async function updateViolationStatus(
 ): Promise<UpdateViolationStatusResult> {
   const parsed = UpdateStatusSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'Invalid input.',
+      fieldErrors: fieldErrorsOf(parsed.error.issues, { status: 'status', resolutionNote: 'resolutionNote' }),
+    }
   }
 
   const supabase = await getSupabaseServerClient()

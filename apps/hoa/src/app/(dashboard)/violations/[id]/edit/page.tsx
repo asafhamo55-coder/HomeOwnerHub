@@ -1,7 +1,15 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { BackLink, PageHeader } from '@homeowner-portal/ui'
+import { LoadFailed, Page } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadOrFail } from '@/lib/load-or-fail'
 import { EditViolationForm } from './EditViolationForm'
+
+export const metadata = { title: 'Edit violation' }
+
+function crumbLabel(text: string): string {
+  return text.length > 40 ? `${text.slice(0, 40).trimEnd()}…` : text
+}
 
 export default async function EditViolationPage({
   params,
@@ -11,17 +19,30 @@ export default async function EditViolationPage({
   const { id } = await params
   const supabase = await getSupabaseServerClient()
 
-  const { data } = await supabase
-    .from('hoa_violations')
-    .select(
-      'id, description, violation_type, ccr_section, severity, cure_period_days, fine_amount',
-    )
-    .eq('id', id)
-    .is('deleted_at', null)
-    .maybeSingle()
+  const result = await loadOrFail(
+    'this violation',
+    supabase
+      .from('hoa_violations')
+      .select('id, description, violation_type, ccr_section, severity, cure_period_days, fine_amount')
+      .eq('id', id)
+      .is('deleted_at', null)
+      .maybeSingle(),
+  )
 
-  if (!data) notFound()
-  const v = data as {
+  if (!result.ok) {
+    return (
+      <Page
+        width="narrow"
+        title="Edit violation"
+        breadcrumbs={[{ label: 'Violations', href: '/violations' }, { label: 'Edit' }]}
+        linkAs={Link}
+      >
+        <LoadFailed what="this violation" retryHref={`/violations/${id}/edit`} />
+      </Page>
+    )
+  }
+  if (!result.data) notFound()
+  const v = result.data as {
     id: string
     description: string
     violation_type: string
@@ -32,9 +53,17 @@ export default async function EditViolationPage({
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <BackLink href={`/violations/${id}`} label="Back to violation" />
-      <PageHeader title="Edit violation" />
+    <Page
+      width="narrow"
+      title="Edit violation"
+      description="Changes apply to the record only. Notices already sent are not re-sent."
+      breadcrumbs={[
+        { label: 'Violations', href: '/violations' },
+        { label: crumbLabel(v.description), href: `/violations/${v.id}` },
+        { label: 'Edit' },
+      ]}
+      linkAs={Link}
+    >
       <EditViolationForm
         violationId={v.id}
         defaultValues={{
@@ -46,6 +75,6 @@ export default async function EditViolationPage({
           fineAmount: v.fine_amount ?? 0,
         }}
       />
-    </div>
+    </Page>
   )
 }

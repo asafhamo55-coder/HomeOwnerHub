@@ -2,21 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Loader2 } from 'lucide-react'
-import { Alert, Button, Select, Textarea } from '@homeowner-portal/ui'
+import { Check } from 'lucide-react'
+import { Alert, Button, Field, Select, Textarea, useToast } from '@homeowner-portal/ui'
 import { updateViolationStatus } from '@/lib/violations'
-import {
-  VIOLATION_STATUSES,
-  type ViolationStatus,
-} from '@/lib/violation-statuses'
-
-const STATUS_LABEL: Record<ViolationStatus, string> = {
-  open: 'Open',
-  notice_sent: 'Notice sent',
-  fined: 'Fined',
-  resolved: 'Resolved',
-  dismissed: 'Dismissed',
-}
+import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violation-statuses'
+import { VIOLATION_STATUS } from '@/lib/status/community'
 
 const STATUS_HINT: Record<ViolationStatus, string> = {
   open: 'Reported but no notice has gone out yet.',
@@ -32,26 +22,24 @@ interface Props {
   currentResolutionNote: string | null
 }
 
-export function ViolationStatusEditor({
-  violationId,
-  currentStatus,
-  currentResolutionNote,
-}: Props) {
+export function ViolationStatusEditor({ violationId, currentStatus, currentResolutionNote }: Props) {
   const router = useRouter()
+  const toast = useToast()
   const [isPending, startTransition] = useTransition()
   const [status, setStatus] = useState<ViolationStatus>(currentStatus)
   const [resolutionNote, setResolutionNote] = useState(currentResolutionNote ?? '')
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const closingState = status === 'resolved' || status === 'dismissed'
   const dirty =
     status !== currentStatus ||
     (closingState && resolutionNote.trim() !== (currentResolutionNote ?? '').trim())
 
-  function submit() {
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
     setError(null)
-    setSuccess(false)
+    setFieldErrors({})
     startTransition(async () => {
       const result = await updateViolationStatus({
         violationId,
@@ -59,81 +47,55 @@ export function ViolationStatusEditor({
         resolutionNote: closingState ? resolutionNote.trim() || null : null,
       })
       if (!result.ok) {
-        setError(result.error)
+        if (result.fieldErrors && Object.keys(result.fieldErrors).length > 0) setFieldErrors(result.fieldErrors)
+        else setError(result.error)
         return
       }
-      setSuccess(true)
+      toast({ tone: 'success', message: `Status set to ${VIOLATION_STATUS.labels[status] ?? status}.` })
       router.refresh()
     })
   }
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-1">
-        <label htmlFor="violation-status" className="text-xs font-medium uppercase tracking-wide text-muted">
-          Status
-        </label>
+    <form onSubmit={submit} className="space-y-4">
+      <Field label="Status" hint={STATUS_HINT[status]} error={fieldErrors.status}>
         <Select
-          id="violation-status"
           value={status}
-          onValueChange={(v) => {
-            setStatus(v as ViolationStatus)
-            setSuccess(false)
-          }}
+          onValueChange={(v) => setStatus(v as ViolationStatus)}
           disabled={isPending}
         >
           {VIOLATION_STATUSES.map((s) => (
             <option key={s} value={s}>
-              {STATUS_LABEL[s]}
+              {VIOLATION_STATUS.labels[s] ?? s}
             </option>
           ))}
         </Select>
-        <p className="text-xs text-muted">{STATUS_HINT[status]}</p>
-      </div>
+      </Field>
 
       {closingState ? (
-        <div className="space-y-1">
-          <label
-            htmlFor="resolution-note"
-            className="text-xs font-medium uppercase tracking-wide text-muted"
-          >
-            {status === 'resolved' ? 'Resolution note' : 'Reason for dismissal'}
-            <span className="ml-1 normal-case text-muted/70">(optional)</span>
-          </label>
+        <Field
+          label={status === 'resolved' ? 'Resolution note' : 'Reason for dismissal'}
+          optional
+          error={fieldErrors.resolutionNote}
+        >
           <Textarea
-            id="resolution-note"
             value={resolutionNote}
             onChange={(e) => setResolutionNote(e.target.value)}
             rows={3}
             maxLength={2000}
             placeholder={
-              status === 'resolved'
-                ? 'How was it fixed? Verified by whom?'
-                : 'Why is this being dismissed?'
+              status === 'resolved' ? 'How was it fixed? Verified by whom?' : 'Why is this being dismissed?'
             }
             disabled={isPending}
           />
-        </div>
+        </Field>
       ) : null}
 
       {error ? <Alert variant="error">{error}</Alert> : null}
-      {success && !dirty ? (
-        <Alert variant="success">Status updated.</Alert>
-      ) : null}
 
-      <Button
-        type="button"
-        size="sm"
-        onClick={submit}
-        disabled={isPending || !dirty}
-      >
-        {isPending ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Check className="h-4 w-4" />
-        )}
+      <Button type="submit" className="w-full" loading={isPending} disabled={!dirty} icon={<Check aria-hidden />}>
         {isPending ? 'Saving…' : 'Update status'}
       </Button>
-    </div>
+    </form>
   )
 }

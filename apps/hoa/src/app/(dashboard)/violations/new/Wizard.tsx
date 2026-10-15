@@ -14,13 +14,15 @@ import {
 } from 'lucide-react'
 import {
   Alert,
-  Badge,
   BarBGate,
   Button,
   Card,
   CardContent,
+  Field,
   Input,
+  Label,
   Select,
+  StatusBadge,
   Textarea,
   WizardStepper,
   useConfirm,
@@ -29,6 +31,7 @@ import {
 } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { createApprovedViolation } from '@/lib/violations'
+import { VIOLATION_SEVERITY } from '@/lib/status/community'
 import {
   saveDraft,
   markDraftCompleted,
@@ -415,7 +418,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
                 })
               }
             }}
-            className="text-muted hover:text-destructive"
+            className="rounded font-medium text-muted transition-colors hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Discard draft
           </button>
@@ -431,17 +434,21 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
       <div className="space-y-5">
         {stepperHeader}
 
-        <div className="space-y-1.5">
-          <label htmlFor="property" className="text-sm font-medium text-foreground">
-            Property <span className="text-destructive">*</span>
-          </label>
-          {properties.length === 0 ? (
-            <Alert variant="warning" title="No properties">
-              Add a property first before reporting a violation.
-            </Alert>
-          ) : (
+        {properties.length === 0 ? (
+          <Alert
+            variant="warning"
+            title="No properties yet"
+            actions={
+              <Button asChild size="sm" variant="secondary">
+                <a href="/properties/new">Add a property</a>
+              </Button>
+            }
+          >
+            A violation is always recorded against a property. Add one first.
+          </Alert>
+        ) : (
+          <Field label="Property" required>
             <Select
-              id="property"
               value={propertyId}
               onValueChange={setPropertyId}
               placeholder="Select property"
@@ -453,17 +460,17 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
                 </option>
               ))}
             </Select>
-          )}
-        </div>
+          </Field>
+        )}
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-foreground">
-            Photos <span className="text-destructive">*</span>
-            <span className="ml-1 text-xs font-normal text-muted">
+          <Label htmlFor="photo" required>
+            Photos
+            <span className="ml-1 text-xs font-normal text-muted" aria-live="polite">
               ({photoStoragePaths.length} uploaded
               {photoUploading ? ', uploading…' : ''})
             </span>
-          </label>
+          </Label>
 
           {photoPreviews.length > 0 || photoStoragePaths.length > 0 ? (
             <div className="space-y-2">
@@ -480,7 +487,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
                   return (
                     <div
                       key={i}
-                      className="relative aspect-square overflow-hidden rounded-lg border border-border bg-background"
+                      className="relative aspect-square overflow-hidden rounded-lg border border-border bg-subtle"
                     >
                       {preview ? (
                         <Image
@@ -496,11 +503,11 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
                         </div>
                       )}
                       {uploaded ? (
-                        <span className="absolute left-1 top-1 flex items-center gap-0.5 rounded bg-emerald-600/90 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                        <span className="absolute left-1 top-1 flex items-center gap-0.5 rounded bg-success-solid px-1.5 py-0.5 text-2xs font-medium text-on-solid">
                           <CheckCircle2 className="h-2.5 w-2.5" /> Uploaded
                         </span>
                       ) : photoUploading ? (
-                        <span className="absolute left-1 top-1 flex items-center gap-0.5 rounded bg-foreground/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                        <span className="absolute left-1 top-1 flex items-center gap-0.5 rounded bg-foreground/70 px-1.5 py-0.5 text-2xs font-medium text-background">
                           <Loader2 className="h-2.5 w-2.5 animate-spin" /> Uploading
                         </span>
                       ) : null}
@@ -508,7 +515,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
                         type="button"
                         onClick={() => removePhotoAt(i)}
                         aria-label={`Remove photo ${i + 1}`}
-                        className="absolute right-1 top-1 rounded bg-foreground/70 p-1 text-white hover:bg-foreground"
+                        className="absolute right-1 top-1 rounded bg-foreground/70 p-1 text-background hover:bg-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -519,16 +526,13 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
                 {/* "Add more" tile sits inline with the thumbnails. */}
                 <label
                   htmlFor="photo"
-                  className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border bg-background text-center hover:border-primary"
+                  className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border-strong bg-subtle text-center transition-colors hover:border-primary hover:bg-primary-subtle"
                 >
                   <ImagePlus className="h-5 w-5 text-muted" aria-hidden />
                   <span className="text-xs font-medium text-foreground">Add more</span>
                 </label>
               </div>
 
-              {photoError ? (
-                <p className="text-xs text-destructive">{photoError}</p>
-              ) : null}
               {photoStoragePaths.length > 1 ? (
                 <p className="text-xs text-muted">
                   AI analysis uses the first photo. All photos are saved on the violation record.
@@ -538,7 +542,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
           ) : (
             <label
               htmlFor="photo"
-              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-background px-6 py-8 text-center hover:border-primary"
+              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border-strong bg-subtle px-6 py-8 text-center transition-colors hover:border-primary hover:bg-primary-subtle"
             >
               <ImagePlus className="h-6 w-6 text-muted" aria-hidden />
               <span className="text-sm font-medium text-foreground">Click to add photos</span>
@@ -553,13 +557,16 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
             className="sr-only"
             onChange={handlePhotoChange}
           />
+          {photoError ? (
+            <p role="alert" className="text-xs font-medium text-danger">{photoError}</p>
+          ) : null}
         </div>
 
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2">
-            <label htmlFor="notes" className="text-sm font-medium text-foreground">
-              Additional notes <span className="text-muted">(optional)</span>
-            </label>
+            <Label htmlFor="notes" optional>
+              Additional notes
+            </Label>
             <AiRewriteButton
               value={notes}
               onChange={setNotes}
@@ -576,11 +583,11 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
         </div>
 
         {/* AI suggestions block */}
-        <div className="rounded-lg border border-border bg-background/50 p-3">
+        <div className="rounded-xl border border-accent/30 bg-accent-subtle p-3">
           <div className="flex items-center justify-between gap-2">
             <div>
               <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                <Sparkles className="h-3.5 w-3.5 text-primary" /> AI suggestions
+                <Sparkles className="h-3.5 w-3.5 text-accent-fg" aria-hidden /> AI suggestions
               </p>
               <p className="text-xs text-muted">
                 Pick sensible defaults for cure period and fine from the notes + photo.
@@ -598,7 +605,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
             </Button>
           </div>
           {suggestionsError ? (
-            <p className="mt-2 text-xs text-amber-700">{suggestionsError}</p>
+            <p role="alert" className="mt-2 text-xs font-medium text-warning">{suggestionsError}</p>
           ) : null}
         </div>
 
@@ -679,9 +686,9 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
           </Alert>
         ) : null}
 
-        <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+        <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-end">
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={async () => {
               await persistDraft(step)
               toast({
@@ -693,8 +700,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
           >
             Save draft & exit
           </Button>
-          <Button onClick={handleAnalyze} disabled={!canAnalyze}>
-            <Sparkles className="h-4 w-4" />
+          <Button onClick={handleAnalyze} disabled={!canAnalyze} icon={<Sparkles aria-hidden />}>
             Analyze with Covenant Brain
           </Button>
         </div>
@@ -708,7 +714,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
       <div className="space-y-6">
         {stepperHeader}
         <div className="py-8 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary-subtle text-primary">
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
           <div className="mt-4 space-y-1">
@@ -751,9 +757,11 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
             </Detail>
             <Detail label="Severity">
               {analysis.severity ? (
-                <Badge variant={severityVariant(analysis.severity)} size="sm">
-                  {analysis.severity}
-                </Badge>
+                <StatusBadge
+                  status={analysis.severity}
+                  tones={VIOLATION_SEVERITY.tones}
+                  labels={VIOLATION_SEVERITY.labels}
+                />
               ) : (
                 <span className="text-muted">—</span>
               )}
@@ -790,17 +798,17 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
       <div className="space-y-5">
         {stepperHeader}
         <div className="py-8 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success-subtle text-success">
             <CheckCircle2 className="h-7 w-7" />
           </div>
           <div className="mt-4 space-y-1">
-            <h2 className="text-xl font-bold text-foreground">Violation recorded</h2>
+            <h2 className="text-lg font-semibold text-foreground">Violation recorded</h2>
             <p className="text-sm text-muted">
               Notice marked as sent. The cure clock is now running.
             </p>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-            <Button variant="outline" onClick={() => router.push(`/violations/${createdId}`)}>
+            <Button variant="secondary" onClick={() => router.push(`/violations/${createdId}`)}>
               View violation
             </Button>
             <Button onClick={() => router.refresh()}>Create another</Button>
@@ -831,14 +839,12 @@ function FieldWithSuggestion({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <label htmlFor={htmlFor} className="text-sm font-medium text-foreground">
-          {label}
-        </label>
+        <Label htmlFor={htmlFor}>{label}</Label>
         {isAI ? (
           <button
             type="button"
             onClick={onClearAI}
-            className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary hover:bg-primary/20"
+            className="inline-flex items-center gap-1 rounded-full bg-accent-subtle px-2 py-0.5 text-2xs font-medium uppercase tracking-wide text-accent-fg hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             title={reasoning ?? 'AI-suggested value'}
           >
             <Sparkles className="h-2.5 w-2.5" /> AI · clear
@@ -847,7 +853,7 @@ function FieldWithSuggestion({
       </div>
       {children}
       {isAI && reasoning ? (
-        <p className="text-[11px] text-muted">{reasoning}</p>
+        <p className="text-xs text-muted">{reasoning}</p>
       ) : null}
     </div>
   )
@@ -856,14 +862,10 @@ function FieldWithSuggestion({
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</p>
+      <p className="text-xs font-medium text-muted">{label}</p>
       <div className="mt-0.5 text-sm text-foreground">{children}</div>
     </div>
   )
 }
 
-function severityVariant(s: 'low' | 'medium' | 'high'): 'success' | 'warning' | 'destructive' {
-  if (s === 'high') return 'destructive'
-  if (s === 'medium') return 'warning'
-  return 'success'
-}
+

@@ -1,6 +1,5 @@
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
-import { Alert, Card, CardContent, CardHeader, CardTitle, NoOrgSelected } from '@homeowner-portal/ui'
+import { Alert, Card, CardContent, LoadFailed, NoOrgSelected, Page } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadDraft } from '@/lib/drafts'
@@ -43,6 +42,9 @@ export default async function NewViolationPage({
     draftId ? loadDraft(draftId) : Promise.resolve(null),
   ])
 
+  // A failed property read must not look like "no properties yet" (the
+  // wizard would tell the board to add one).
+  const propertiesFailed = Boolean(propsRes.error)
   const properties = (propsRes.data ?? []) as PropertyOption[]
   const hasParsedCCR = (ccrRes.count ?? 0) > 0
 
@@ -53,16 +55,15 @@ export default async function NewViolationPage({
       ? initialDraft
       : null
 
+  const title = usableDraft ? 'Resume violation report' : 'Report a violation'
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <Link
-        href="/violations"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to violations
-      </Link>
-
+    <Page
+      width="narrow"
+      title={title}
+      description="Add photos and notes. Covenant Brain matches the CC&R section and drafts the notice; nothing is sent until you approve it."
+      breadcrumbs={[{ label: 'Violations', href: '/violations' }, { label: usableDraft ? 'Resume draft' : 'New' }]}
+      linkAs={Link}
+    >
       {usableDraft ? (
         <Alert variant="info" title="Resumed unfinished draft">
           Picking up where you left off. Your previous photo and notes are restored. The wizard
@@ -71,18 +72,19 @@ export default async function NewViolationPage({
         </Alert>
       ) : null}
 
-      <Card variant="elevated">
-        <CardHeader>
-          <CardTitle>{usableDraft ? 'Resume violation report' : 'Report a violation'}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Wizard
-            properties={properties}
-            hasParsedCCR={hasParsedCCR}
-            initialDraft={usableDraft}
-          />
-        </CardContent>
-      </Card>
-    </div>
+      {propertiesFailed ? (
+        <LoadFailed what="properties" hint="You need a property to report a violation against." />
+      ) : (
+        <Card>
+          <CardContent className="pt-5">
+            <Wizard
+              properties={properties}
+              hasParsedCCR={hasParsedCCR}
+              initialDraft={usableDraft}
+            />
+          </CardContent>
+        </Card>
+      )}
+    </Page>
   )
 }

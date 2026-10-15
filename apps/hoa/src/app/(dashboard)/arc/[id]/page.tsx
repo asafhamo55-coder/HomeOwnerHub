@@ -1,15 +1,23 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, MessageSquare, Paperclip } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import {
-  getArcRequestForBoard,
-  getArcMessagesForBoard,
-  type ArcStatus,
-} from '@/lib/board-review'
+  Badge,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  KeyValue,
+  KeyValueList,
+  Page,
+  StatusBadge,
+} from '@homeowner-portal/ui'
+import { getArcRequestForBoard, getArcMessagesForBoard } from '@/lib/board-review'
 import { listSubmissionAttachments } from '@/lib/submission-attachments'
 import { SubmissionAttachments } from '@/components/attachments/SubmissionAttachments'
+import { BoardConversation } from '@/components/board-review/BoardConversation'
+import { ARC_CATEGORY, ARC_STATUS } from '@/lib/status/community'
 import { ArcDecisionForm } from './ArcDecisionForm'
 import { ArcBoardReplyForm } from './ArcBoardReplyForm'
 import { ArcActions } from './ArcActions'
@@ -20,25 +28,7 @@ export const metadata = { title: 'ARC application' }
 // though the write landed.
 export const dynamic = 'force-dynamic'
 
-const STATUS_VARIANT: Record<ArcStatus, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
-  submitted: 'warning',
-  in_review: 'default',
-  approved: 'success',
-  denied: 'destructive',
-  withdrawn: 'outline',
-}
-
-const CATEGORY_LABEL: Record<string, string> = {
-  paint: 'Paint',
-  fence: 'Fence',
-  deck_patio: 'Deck / patio',
-  roof: 'Roof',
-  landscaping: 'Landscaping',
-  addition: 'Addition',
-  pool: 'Pool / spa',
-  solar: 'Solar',
-  other: 'Other',
-}
+const date = (iso: string | null) => (iso ? format(new Date(iso), 'PP') : null)
 
 export default async function ArcReviewDetailPage({
   params,
@@ -48,206 +38,108 @@ export default async function ArcReviewDetailPage({
   const { id } = await params
   const arc = await getArcRequestForBoard(id)
   if (!arc) notFound()
-  const messages = await getArcMessagesForBoard(id)
-  const attachments = await listSubmissionAttachments('arc', id)
+  const [messages, attachments] = await Promise.all([
+    getArcMessagesForBoard(id),
+    listSubmissionAttachments('arc', id),
+  ])
 
-  const decided =
-    arc.status === 'approved' || arc.status === 'denied'
+  const decided = arc.status === 'approved' || arc.status === 'denied'
+  const submitter = arc.submitter_name ?? arc.submitter_email ?? 'Unknown submitter'
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <Link
-        href="/arc"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to ARC queue
-      </Link>
+    <Page
+      width="wide"
+      title={arc.summary}
+      breadcrumbs={[{ label: 'ARC review', href: '/arc' }, { label: arc.summary }]}
+      linkAs={Link}
+      meta={
+        <>
+          <StatusBadge status={arc.status} tones={ARC_STATUS.tones} labels={ARC_STATUS.labels} />
+          <Badge variant="neutral">{ARC_CATEGORY[arc.category] ?? arc.category}</Badge>
+        </>
+      }
+      description={
+        <>
+          {submitter}
+          {arc.unit_number ? ` · Unit ${arc.unit_number}` : ''} · submitted{' '}
+          <time dateTime={arc.submitted_at}>{format(new Date(arc.submitted_at), 'PP')}</time>
+        </>
+      }
+      actions={<ArcActions arcId={arc.id} />}
+    >
+      <div className="grid items-start gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Proposed work</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{arc.scope_description}</p>
+              <KeyValueList className="border-t border-border pt-4 sm:grid-cols-4">
+                <KeyValue label="Proposed start" value={date(arc.proposed_start)} />
+                <KeyValue label="Proposed completion" value={date(arc.proposed_completion)} />
+                <KeyValue label="Contractor" value={arc.contractor_name} />
+                <KeyValue label="License #" value={arc.contractor_license} />
+              </KeyValueList>
+            </CardContent>
+          </Card>
 
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">{arc.summary}</h1>
-          <p className="mt-1 text-xs text-muted">
-            {arc.submitter_name ?? arc.submitter_email ?? '(unknown submitter)'}
-            {arc.unit_number ? ` · unit ${arc.unit_number}` : ''}
-            {' · submitted '}
-            {format(new Date(arc.submitted_at), 'PP')}
-          </p>
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Conversation</CardTitle>
+              <CardDescription>Replies go to the resident&apos;s portal. Internal notes stay with the board.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <BoardConversation
+                messages={messages}
+                residentLabel="Resident"
+                emptyHint="No messages yet. Ask the resident for samples, drawings or a contractor quote."
+              />
+              <div className="border-t border-border pt-5">
+                <ArcBoardReplyForm arcId={arc.id} />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Documents</CardTitle>
+              <CardDescription>Plans, photos and quotes attached to this application.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SubmissionAttachments threadType="arc" parentId={arc.id} attachments={attachments} canDelete />
+            </CardContent>
+          </Card>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <ArcActions arcId={arc.id} />
-          <Badge variant="outline">{CATEGORY_LABEL[arc.category] ?? arc.category}</Badge>
-          <Badge variant={STATUS_VARIANT[arc.status]}>
-            {arc.status.replace('_', ' ')}
-          </Badge>
-        </div>
-      </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Scope</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="whitespace-pre-wrap text-sm">{arc.scope_description}</p>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Timeline</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            <KV
-              label="Proposed start"
-              value={
-                arc.proposed_start
-                  ? format(new Date(arc.proposed_start), 'PP')
-                  : null
-              }
-            />
-            <KV
-              label="Proposed completion"
-              value={
-                arc.proposed_completion
-                  ? format(new Date(arc.proposed_completion), 'PP')
-                  : null
-              }
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Contractor</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            <KV label="Name" value={arc.contractor_name} />
-            <KV label="License #" value={arc.contractor_license} />
-          </CardContent>
-        </Card>
-      </div>
-
-      {decided && arc.board_response ? (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Board response</CardTitle>
-              {arc.board_response_at ? (
-                <span className="text-xs text-muted">
-                  {format(new Date(arc.board_response_at), 'PP')}
-                </span>
-              ) : null}
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="whitespace-pre-wrap text-sm">{arc.board_response}</p>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <MessageSquare className="h-4 w-4" />
-            Conversation
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {messages.length === 0 ? (
-            <p className="text-sm text-muted">
-              No messages yet. Replies you send here are visible to the resident;
-              internal notes are not.
-            </p>
+        <div className="space-y-6 lg:sticky lg:top-20">
+          {arc.status === 'withdrawn' ? (
+            <Card variant="subtle">
+              <CardHeader>
+                <CardTitle as="h2">Withdrawn</CardTitle>
+                <CardDescription>The resident withdrew this application. No decision is needed.</CardDescription>
+              </CardHeader>
+            </Card>
           ) : (
-            <ul className="space-y-4">
-              {messages.map((m) => (
-                <li
-                  key={m.id}
-                  className={
-                    m.internal
-                      ? 'space-y-1 rounded-md border border-dashed border-warning/40 bg-warning/5 p-2'
-                      : 'space-y-1'
-                  }
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">
-                      {m.author_role === 'resident' ? 'Resident' : 'Board'}
-                    </span>
-                    <Badge
-                      variant={m.author_role === 'resident' ? 'outline' : 'default'}
-                      size="sm"
-                    >
-                      {m.author_role}
-                    </Badge>
-                    {m.internal ? (
-                      <Badge variant="warning" size="sm">
-                        internal
-                      </Badge>
-                    ) : null}
-                    <span className="text-xs text-muted">
-                      {format(new Date(m.created_at), 'PPp')}
-                    </span>
-                  </div>
-                  <p className="whitespace-pre-wrap text-sm">{m.body}</p>
-                </li>
-              ))}
-            </ul>
+            <Card>
+              <CardHeader>
+                <CardTitle as="h2">{decided ? 'Update decision' : 'Decision'}</CardTitle>
+                {decided && arc.board_response_at ? (
+                  <CardDescription>
+                    {ARC_STATUS.labels[arc.status]} on{' '}
+                    <time dateTime={arc.board_response_at}>{format(new Date(arc.board_response_at), 'PP')}</time>
+                  </CardDescription>
+                ) : (
+                  <CardDescription>The resident sees the decision and your response in their portal.</CardDescription>
+                )}
+              </CardHeader>
+              <CardContent>
+                <ArcDecisionForm arcId={arc.id} currentResponse={arc.board_response} currentStatus={arc.status} />
+              </CardContent>
+            </Card>
           )}
-          <div className="border-t border-border pt-4">
-            <ArcBoardReplyForm arcId={arc.id} />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Paperclip className="h-4 w-4" />
-            Documents
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <SubmissionAttachments
-            threadType="arc"
-            parentId={arc.id}
-            attachments={attachments}
-            canDelete
-          />
-        </CardContent>
-      </Card>
-
-      {arc.status === 'withdrawn' ? null : (
-        <Card variant="elevated">
-          <CardHeader>
-            <CardTitle className="text-base">
-              {decided ? 'Update decision' : 'Decision'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ArcDecisionForm
-              arcId={arc.id}
-              currentResponse={arc.board_response}
-              currentStatus={arc.status}
-            />
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  )
-}
-
-function KV({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <span className="text-xs text-muted">{label}</span>
-      <span className="truncate text-right">
-        {value == null || value === '' ? (
-          <span className="text-muted">—</span>
-        ) : (
-          value
-        )}
-      </span>
-    </div>
+        </div>
+      </div>
+    </Page>
   )
 }

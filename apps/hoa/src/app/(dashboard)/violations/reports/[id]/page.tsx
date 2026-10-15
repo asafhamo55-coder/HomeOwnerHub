@@ -1,22 +1,24 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, MessageSquare, Paperclip, Shield } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Alert,
   Badge,
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
+  KeyValue,
+  KeyValueList,
+  Page,
+  StatusBadge,
 } from '@homeowner-portal/ui'
-import {
-  getResidentViolationReportForBoard,
-  getViolationReportMessagesForBoard,
-  type ViolationReportStatus,
-} from '@/lib/board-review'
+import { getResidentViolationReportForBoard, getViolationReportMessagesForBoard } from '@/lib/board-review'
 import { listSubmissionAttachments } from '@/lib/submission-attachments'
 import { SubmissionAttachments } from '@/components/attachments/SubmissionAttachments'
+import { BoardConversation } from '@/components/board-review/BoardConversation'
+import { VIOLATION_REPORT_CATEGORY, VIOLATION_REPORT_STATUS } from '@/lib/status/community'
 import { ReportDecisionForm } from './ReportDecisionForm'
 import { ReportBoardReplyForm } from './ReportBoardReplyForm'
 
@@ -24,26 +26,6 @@ export const metadata = { title: 'Resident violation report' }
 // Force a fresh render after a board decision so the status reflects the
 // write immediately (see the note in ../../arc/[id]/page.tsx).
 export const dynamic = 'force-dynamic'
-
-const STATUS_VARIANT: Record<ViolationReportStatus, 'success' | 'warning' | 'destructive' | 'outline' | 'default'> = {
-  submitted: 'warning',
-  under_review: 'default',
-  opened_as_violation: 'destructive',
-  closed_no_action: 'outline',
-  dismissed: 'outline',
-}
-
-const CATEGORY_LABEL: Record<string, string> = {
-  parking: 'Parking',
-  pet: 'Pet',
-  noise: 'Noise',
-  lawn_landscape: 'Lawn / landscape',
-  trash: 'Trash',
-  architectural: 'Architectural',
-  rental: 'Rental',
-  nuisance: 'Nuisance',
-  other: 'Other',
-}
 
 export default async function ViolationReportDetailPage({
   params,
@@ -53,150 +35,123 @@ export default async function ViolationReportDetailPage({
   const { id } = await params
   const report = await getResidentViolationReportForBoard(id)
   if (!report) notFound()
-  const messages = await getViolationReportMessagesForBoard(id)
-  const attachments = await listSubmissionAttachments('concern', id)
+  const [messages, attachments] = await Promise.all([
+    getViolationReportMessagesForBoard(id),
+    listSubmissionAttachments('concern', id),
+  ])
+
+  const category = VIOLATION_REPORT_CATEGORY[report.category] ?? report.category
+  const title = report.about_address ?? 'No address given'
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <Link
-        href="/violations/reports"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to reports
-      </Link>
-
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">
-            {report.about_address ?? '(no address)'}
-          </h1>
-          <p className="mt-1 text-xs text-muted">
-            {format(new Date(report.submitted_at), 'PP')}
-            {report.occurred_at
-              ? ` · occurred ${format(new Date(report.occurred_at), 'PPp')}`
-              : ''}
-            {report.about_unit_number ? ` · unit ${report.about_unit_number}` : ''}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">{CATEGORY_LABEL[report.category] ?? report.category}</Badge>
-          <Badge variant={STATUS_VARIANT[report.status]}>
-            {report.status.replace(/_/g, ' ')}
-          </Badge>
-        </div>
-      </header>
-
-      <Alert variant="info" title="Reporter identity — board-only">
-        <span className="block text-sm">
-          <Shield className="mr-1 inline h-3.5 w-3.5" />
-          This report was submitted by{' '}
-          <strong>
-            {report.reporter_name ?? report.reporter_email ?? '(unknown user)'}
-          </strong>
-          . Per Policy Section 12.03, do not disclose the reporter's identity to the
-          subject of the report or other residents.
-        </span>
-      </Alert>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">What they observed</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="whitespace-pre-wrap text-sm">{report.description}</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <MessageSquare className="h-4 w-4" />
-            Conversation with reporter
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {messages.length === 0 ? (
-            <p className="text-sm text-muted">
-              No messages yet. Replies you send here are visible to the reporter;
-              internal notes are not.
-            </p>
-          ) : (
-            <ul className="space-y-4">
-              {messages.map((m) => (
-                <li
-                  key={m.id}
-                  className={
-                    m.internal
-                      ? 'space-y-1 rounded-md border border-dashed border-warning/40 bg-warning/5 p-2'
-                      : 'space-y-1'
+    <Page
+      width="wide"
+      title={title}
+      breadcrumbs={[
+        { label: 'Violations', href: '/violations' },
+        { label: 'Resident reports', href: '/violations/reports' },
+        { label: title },
+      ]}
+      linkAs={Link}
+      meta={
+        <>
+          <StatusBadge status={report.status} tones={VIOLATION_REPORT_STATUS.tones} labels={VIOLATION_REPORT_STATUS.labels} />
+          <Badge variant="neutral">{category}</Badge>
+        </>
+      }
+      description={
+        <>
+          Submitted <time dateTime={report.submitted_at}>{format(new Date(report.submitted_at), 'PP')}</time>
+          {report.about_unit_number ? ` · Unit ${report.about_unit_number}` : ''}
+        </>
+      }
+    >
+      <div className="grid items-start gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">What they observed</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{report.description}</p>
+              <KeyValueList className="border-t border-border pt-4 sm:grid-cols-3">
+                <KeyValue
+                  label="Occurred"
+                  value={report.occurred_at ? format(new Date(report.occurred_at), 'PP, h:mm a') : null}
+                />
+                <KeyValue label="Category" value={category} />
+                <KeyValue
+                  label="Formal violation"
+                  value={
+                    report.hoa_violation_id ? (
+                      <Link href={`/violations/${report.hoa_violation_id}`} className="font-medium text-primary">
+                        View violation
+                      </Link>
+                    ) : null
                   }
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">
-                      {m.author_role === 'resident' ? 'Reporter' : 'Board'}
-                    </span>
-                    <Badge
-                      variant={m.author_role === 'resident' ? 'outline' : 'default'}
-                      size="sm"
-                    >
-                      {m.author_role}
-                    </Badge>
-                    {m.internal ? (
-                      <Badge variant="warning" size="sm">
-                        internal
-                      </Badge>
-                    ) : null}
-                    <span className="text-xs text-muted">
-                      {format(new Date(m.created_at), 'PPp')}
-                    </span>
-                  </div>
-                  <p className="whitespace-pre-wrap text-sm">{m.body}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="border-t border-border pt-4">
-            <ReportBoardReplyForm reportId={report.id} />
-          </div>
-        </CardContent>
-      </Card>
+                />
+              </KeyValueList>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Paperclip className="h-4 w-4" />
-            Documents
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <SubmissionAttachments
-            threadType="concern"
-            parentId={report.id}
-            attachments={attachments}
-            canDelete
-          />
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Conversation with the reporter</CardTitle>
+              <CardDescription>Replies go to the reporter&apos;s portal. Internal notes stay with the board.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <BoardConversation
+                messages={messages}
+                residentLabel="Reporter"
+                emptyHint="No messages yet. Ask the reporter for a photo or more detail if you need it."
+              />
+              <div className="border-t border-border pt-5">
+                <ReportBoardReplyForm reportId={report.id} />
+              </div>
+            </CardContent>
+          </Card>
 
-      <Card variant="elevated">
-        <CardHeader>
-          <CardTitle className="text-base">Decision</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ReportDecisionForm
-            reportId={report.id}
-            currentNote={report.board_note}
-            currentStatus={report.status}
-          />
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Documents</CardTitle>
+              <CardDescription>Photos and files the reporter or board attached.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SubmissionAttachments threadType="concern" parentId={report.id} attachments={attachments} canDelete />
+            </CardContent>
+          </Card>
+        </div>
 
-      {report.reviewed_at ? (
-        <p className="text-xs text-muted">
-          Reviewed {format(new Date(report.reviewed_at), 'PPp')}
-        </p>
-      ) : null}
-    </div>
+        <div className="space-y-6 lg:sticky lg:top-20">
+          <Alert variant="warning" title="Reporter identity — board only">
+            <p>
+                Submitted by{' '}
+                <strong className="font-semibold text-foreground">
+                  {report.reporter_name ?? report.reporter_email ?? 'an unknown user'}
+                </strong>
+                . Per Policy §12.03, never disclose the reporter to the subject of the report or other residents.
+            </p>
+          </Alert>
+
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Decision</CardTitle>
+              <CardDescription>
+                {report.reviewed_at ? (
+                  <>
+                    Last reviewed <time dateTime={report.reviewed_at}>{format(new Date(report.reviewed_at), 'PPp')}</time>
+                  </>
+                ) : (
+                  'Not reviewed yet.'
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ReportDecisionForm reportId={report.id} currentNote={report.board_note} currentStatus={report.status} />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </Page>
   )
 }
