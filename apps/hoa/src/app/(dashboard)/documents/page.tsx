@@ -1,18 +1,30 @@
 import Link from 'next/link'
-import { FileText, Plus, Sparkles } from 'lucide-react'
+import { FileText, Upload } from 'lucide-react'
 import { format } from 'date-fns'
-import { Badge, Button, Card, EmptyState, LoadFailed, Tabs, NoOrgSelected } from '@homeowner-portal/ui'
+import {
+  Badge,
+  Button,
+  DataTable,
+  EmptyState,
+  LoadFailed,
+  NoOrgSelected,
+  Page,
+  StatusBadge,
+  type DataTableColumn,
+} from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
+import {
+  DOCUMENT_PARSE_LABELS,
+  DOCUMENT_PARSE_TONES,
+  DOCUMENT_TYPE_LABELS,
+  documentParseStatus,
+} from '@/lib/status/knowledge'
+import { DocumentTabs, formatBytes } from '@/components/knowledge/DocumentTabs'
 
 export const metadata = { title: 'Documents' }
 export const dynamic = 'force-dynamic'
-
-const DOC_TABS = [
-  { label: 'All documents', href: '/documents' },
-  { label: 'Governing docs', href: '/documents/governing' },
-]
 
 interface DocRow {
   id: string
@@ -23,19 +35,55 @@ interface DocRow {
   created_at: string | null
 }
 
-const TYPE_LABEL: Record<string, string> = {
-  ccr: 'CC&R',
-  bylaws: 'Bylaws',
-  rules: 'Rules',
-  other: 'Other',
-}
-
-function bytes(n: number | null): string {
-  if (!n) return '—'
-  const mb = n / 1024 / 1024
-  if (mb >= 1) return `${mb.toFixed(1)} MB`
-  return `${(n / 1024).toFixed(0)} KB`
-}
+const columns: DataTableColumn<DocRow>[] = [
+  {
+    key: 'name',
+    header: 'Document',
+    mobilePrimary: true,
+    cell: (d) => (
+      <Link
+        href={`/documents/${d.id}`}
+        className="group inline-flex min-w-0 items-center gap-2.5 font-medium text-foreground hover:text-primary"
+      >
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-subtle text-muted" aria-hidden>
+          <FileText className="size-4" />
+        </span>
+        <span className="min-w-0 truncate group-hover:underline">{d.name}</span>
+      </Link>
+    ),
+  },
+  {
+    key: 'type',
+    header: 'Type',
+    cell: (d) => <Badge variant="neutral">{DOCUMENT_TYPE_LABELS[d.type] ?? d.type}</Badge>,
+  },
+  {
+    key: 'size',
+    header: 'Size',
+    numeric: true,
+    hideBelowLg: true,
+    cell: (d) => formatBytes(d.file_size),
+  },
+  {
+    key: 'uploaded',
+    header: 'Uploaded',
+    hideOnMobile: true,
+    cell: (d) => (
+      <span className="num whitespace-nowrap text-muted">{d.created_at ? format(new Date(d.created_at), 'PP') : '—'}</span>
+    ),
+  },
+  {
+    key: 'text',
+    header: 'Searchable text',
+    cell: (d) => (
+      <StatusBadge
+        status={documentParseStatus(d.parsed_at)}
+        tones={DOCUMENT_PARSE_TONES}
+        labels={DOCUMENT_PARSE_LABELS}
+      />
+    ),
+  },
+]
 
 export default async function DocumentsPage() {
   const org = await getCurrentOrg()
@@ -52,73 +100,64 @@ export default async function DocumentsPage() {
   )
 
   const docs = result.ok ? ((result.data ?? []) as DocRow[]) : []
+  const needsText = docs.filter((d) => !d.parsed_at).length
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1>Documents</h1>
-          <p className="text-sm text-muted">
-            CC&amp;Rs, bylaws, and rules. Parsed text powers Covenant Brain matching in the
-            violation wizard.
-          </p>
-        </div>
+    <Page
+      linkAs={Link}
+      title="Documents"
+      description="CC&Rs, bylaws, rules and minutes. A document’s text powers covenant matching in the violation wizard."
+      meta={
+        result.ok && docs.length > 0 ? (
+          <Badge variant="neutral" className="num">
+            {docs.length} {docs.length === 1 ? 'document' : 'documents'}
+          </Badge>
+        ) : null
+      }
+      tabs={<DocumentTabs current="/documents" />}
+      actions={
         <Button asChild>
           <Link href="/documents/upload">
-            <Plus className="h-4 w-4" />
-            Upload
+            <Upload aria-hidden />
+            Upload document
           </Link>
         </Button>
-      </header>
-
-      <Tabs items={DOC_TABS} currentPath="/documents" aria-label="Document sections" />
-
+      }
+    >
       {/* Never the raw error.message, which this used to print. */}
       {!result.ok ? (
-        <LoadFailed what="documents" />
-      ) : docs.length === 0 ? (
-        <EmptyState
-          icon={<FileText className="h-10 w-10" aria-hidden />}
-          title="No documents yet"
-          description="Upload your CC&Rs first — they're the foundation of every violation letter."
-          action={
-            <Button asChild>
-              <Link href="/documents/upload">
-                <Plus className="h-4 w-4" />
-                Upload first document
-              </Link>
-            </Button>
-          }
-        />
+        <LoadFailed what="documents" retryHref="/documents" />
       ) : (
-        <Card>
-          <ul className="divide-y divide-border">
-            {docs.map((d) => (
-              <li key={d.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <Link href={`/documents/${d.id}`} className="block">
-                    <p className="truncate font-medium text-foreground hover:text-primary">{d.name}</p>
-                  </Link>
-                  <p className="text-xs text-muted">
-                    {TYPE_LABEL[d.type] ?? d.type} · {bytes(d.file_size)}
-                    {d.created_at ? ` · uploaded ${format(new Date(d.created_at), 'PP')}` : ''}
-                  </p>
-                </div>
-                {d.parsed_at ? (
-                  <Badge variant="success" size="sm">
-                    <Sparkles className="mr-1 h-3 w-3" />
-                    Parsed
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" size="sm">
-                    Needs parsing
-                  </Badge>
-                )}
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <>
+          {needsText > 0 ? (
+            <p className="text-sm text-muted">
+              {needsText} {needsText === 1 ? 'document has' : 'documents have'} no searchable text yet — open{' '}
+              {needsText === 1 ? 'it' : 'one'} and paste its text so violations can cite it.
+            </p>
+          ) : null}
+          <DataTable
+            caption="Documents"
+            columns={columns}
+            rows={docs}
+            rowKey={(d) => d.id}
+            mobile="cards"
+            linkAs={Link}
+            empty={
+              <EmptyState
+                variant="compact"
+                icon={<FileText aria-hidden />}
+                title="No documents yet"
+                description="Upload your CC&Rs first — they’re the foundation of every violation letter."
+                action={
+                  <Button asChild size="sm">
+                    <Link href="/documents/upload">Upload a document</Link>
+                  </Button>
+                }
+              />
+            }
+          />
+        </>
       )}
-    </div>
+    </Page>
   )
 }

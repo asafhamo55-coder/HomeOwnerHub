@@ -1,21 +1,15 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Sparkles } from 'lucide-react'
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Textarea,
-} from '@homeowner-portal/ui'
-import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { askStateLawAction } from '@/lib/state-law'
-
-type Confidence = 'HIGH' | 'MEDIUM' | 'LOW'
+import {
+  AnswerCard,
+  AskComposer,
+  AskError,
+  SuggestedQuestions,
+  Thinking,
+} from '@/components/knowledge/AskUI'
+import { STATE_NAMES, type AnswerConfidence, type SupportedStateCode } from '@/lib/status/knowledge'
 
 interface Citation {
   chunkId: string
@@ -27,165 +21,104 @@ interface Citation {
 
 interface AskResponse {
   answer: string
-  confidence: Confidence
+  confidence: AnswerConfidence
   citations: Citation[]
   disclaimer: string
   runId: string
 }
 
-const SAMPLE_QUESTIONS: Record<string, string[]> = {
+const SAMPLE_QUESTIONS: Record<SupportedStateCode, string[]> = {
   GA: [
     'How much notice is required for an annual meeting?',
     'Can the board impose fines without a hearing?',
     'What rights do owners have to inspect HOA records?',
+    'Can the HOA place a lien for unpaid assessments?',
   ],
   FL: [
     'When does a structural integrity reserve study have to be done?',
     'Can the HOA prevent me from displaying a US flag?',
     'How many owners are needed to recall a board member?',
+    'How much notice is required before a fine hearing?',
   ],
   CA: [
     'What notice is required before levying a special assessment?',
-    "What does Davis-Stirling say about open board meetings?",
+    'What does Davis-Stirling say about open board meetings?',
     'Can the HOA prohibit short-term rentals?',
+    'How long does the board have to respond to a records request?',
   ],
   TX: [
     'Can an HOA foreclose for unpaid assessments?',
     'What rights do owners have to solar panels?',
     'How does the Texas POA Act limit fines?',
+    'What must be in a notice before a fine?',
   ],
 }
 
-export function AskStateLawClient({ state }: { state: 'GA' | 'FL' | 'CA' | 'TX' }) {
+export function AskStateLawClient({ state }: { state: SupportedStateCode }) {
   const [question, setQuestion] = useState('')
+  const [asked, setAsked] = useState('')
   const [isPending, startTransition] = useTransition()
   const [response, setResponse] = useState<AskResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (question.trim().length < 3) return
+  function ask() {
+    const q = question.trim()
+    if (q.length < 3) return
     setError(null)
     setResponse(null)
+    setAsked(q)
     startTransition(async () => {
-      const result = await askStateLawAction(question.trim())
-      if (!result.ok) {
-        setError(result.error)
-        return
+      try {
+        const result = await askStateLawAction(q)
+        if (!result.ok) {
+          setError(result.error)
+          return
+        }
+        setResponse(result.data)
+      } catch {
+        setError('The assistant is unavailable right now. Try again in a minute.')
       }
-      setResponse(result.data)
     })
   }
 
+  const idle = !isPending && !response && !error
+
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
-            Your question
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <Textarea
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="e.g. How much notice is required for a special assessment?"
-              rows={3}
-              disabled={isPending}
-            />
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="submit"
-                loading={isPending}
-                disabled={question.trim().length < 3}
-              >
-                Ask
-              </Button>
-              <AiRewriteButton
-                value={question}
-                onChange={setQuestion}
-                context="Question to the state-law AI — rephrase for clarity"
-                disabled={isPending}
-              />
-              <span className="text-xs text-muted">
-                Try:{' '}
-                {(SAMPLE_QUESTIONS[state] ?? []).map((q, i, arr) => (
-                  <button
-                    key={q}
-                    type="button"
-                    className="underline underline-offset-2 hover:text-foreground"
-                    onClick={() => setQuestion(q)}
-                  >
-                    {q}
-                    {i < arr.length - 1 ? ', ' : ''}
-                  </button>
-                ))}
-              </span>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+    <div className="space-y-6">
+      <AskComposer
+        value={question}
+        onChange={setQuestion}
+        onSubmit={ask}
+        pending={isPending}
+        placeholder={`Ask about ${STATE_NAMES[state]} HOA law — e.g. how much notice is required for a special assessment?`}
+        rewriteContext="Question to the state-law AI — rephrase for clarity"
+      />
 
-      {error ? (
-        <Alert variant="error" title="Couldn't answer">
-          {error}
-        </Alert>
-      ) : null}
+      {idle ? <SuggestedQuestions questions={SAMPLE_QUESTIONS[state] ?? []} onPick={setQuestion} /> : null}
 
-      {response ? (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Answer</CardTitle>
-              <ConfidenceBadge confidence={response.confidence} />
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">
-              {response.answer}
-            </p>
+      {isPending ? <Thinking what={`Searching ${STATE_NAMES[state]} statutes…`} /> : null}
 
-            {response.citations.length > 0 ? (
-              <div className="space-y-1.5 border-t border-border pt-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted">
-                  Citations
-                </p>
-                <ul className="space-y-1 text-xs">
-                  {response.citations.map((c) => (
-                    <li key={c.chunkId} className="flex items-center gap-2">
-                      <Badge variant="outline" size="sm">
-                        {c.codeCitation}
-                      </Badge>
-                      <a
-                        href={`/legal/browse/${c.statuteId}`}
-                        className="truncate text-muted hover:text-foreground hover:underline"
-                      >
-                        {c.title}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+      {error && !isPending ? <AskError message={error} onRetry={ask} /> : null}
 
-            <Alert variant="warning" title="Disclaimer">
-              <span className="block text-xs">{response.disclaimer}</span>
-            </Alert>
-
-            <p className="text-[10px] font-mono text-muted/70">
-              run id: {response.runId}
-            </p>
-          </CardContent>
-        </Card>
+      {response && !isPending ? (
+        <AnswerCard
+          question={asked}
+          answer={response.answer}
+          confidence={response.confidence}
+          citationsLabel="Cited statutes"
+          citations={response.citations.map((c) => ({
+            key: c.chunkId,
+            label: c.codeCitation,
+            title: c.title,
+            href: `/legal/browse/${c.statuteId}`,
+          }))}
+          footer={
+            <span>
+              {response.disclaimer} <span className="num">· Reference {response.runId}</span>
+            </span>
+          }
+        />
       ) : null}
     </div>
   )
-}
-
-function ConfidenceBadge({ confidence }: { confidence: Confidence }) {
-  const variant: 'success' | 'warning' | 'outline' =
-    confidence === 'HIGH' ? 'success' : confidence === 'MEDIUM' ? 'warning' : 'outline'
-  return <Badge variant={variant}>{confidence}</Badge>
 }

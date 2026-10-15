@@ -67,7 +67,12 @@ const UPDATE_CATEGORIES = [
 ] as const
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
-type ActionErr = { ok: false; error: string }
+type ActionErr = {
+  ok: false
+  error: string
+  /** Per-field validation messages, keyed by form field name. */
+  fieldErrors?: Record<string, string>
+}
 export type ActionResult<T = void> = ActionOk<T> | ActionErr
 
 // ─── Reads ───────────────────────────────────────────────────────────
@@ -80,11 +85,14 @@ export async function getAssociationState(): Promise<SupportedState | null> {
   const assoc = await getPrimaryAssociation()
   if (!assoc) return null
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('associations' as never)
     .select('state')
     .eq('id', assoc.id)
     .maybeSingle<{ state: string }>()
+  // A failed read is not "unsupported state" — throw so the page can say
+  // it couldn't load (tryLoad) instead of claiming the state is missing.
+  if (error) throw new Error(`associations.state: ${error.code ?? 'error'}`)
   if (!data?.state) return null
   return isSupportedState(data.state) ? data.state : null
 }
@@ -104,7 +112,7 @@ export async function getStateLawSummary(): Promise<StateLawSummary> {
   }
 
   const supabase = await getSupabaseServerClient()
-  const [{ data: rows }, { count: updateCount }] = await Promise.all([
+  const [{ data: rows, error: rowsError }, { count: updateCount, error: countError }] = await Promise.all([
     supabase
       .from('state_statutes' as never)
       .select('category')
@@ -117,6 +125,8 @@ export async function getStateLawSummary(): Promise<StateLawSummary> {
       .is('archived_at', null),
   ])
 
+  if (rowsError) throw new Error(`state_statutes: ${rowsError.code ?? 'error'}`)
+  if (countError) throw new Error(`state_law_updates count: ${countError.code ?? 'error'}`)
   const items = (rows ?? []) as unknown as Array<{ category: string | null }>
   const counts = new Map<string, number>()
   for (const r of items) {
@@ -140,7 +150,7 @@ export async function listRecentUpdates(
   limit = 20,
 ): Promise<LawUpdateRow[]> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('state_law_updates' as never)
     .select(
       'id, headline, summary, action_items, category, effective_date, source_url, related_statute_id, posted_at',
@@ -150,6 +160,7 @@ export async function listRecentUpdates(
     .is('deleted_at', null)
     .order('posted_at', { ascending: false })
     .limit(limit)
+  if (error) throw new Error(`state_law_updates: ${error.code ?? 'error'}`)
   return (data ?? []) as unknown as LawUpdateRow[]
 }
 
@@ -166,19 +177,21 @@ export async function listStatutesForState(
     .order('code_citation', { ascending: true })
     .limit(500)
   if (category) query = query.eq('category', category)
-  const { data } = await query
+  const { data, error } = await query
+  if (error) throw new Error(`state_statutes: ${error.code ?? 'error'}`)
   return (data ?? []) as unknown as StatuteRow[]
 }
 
 export async function getStatute(id: string): Promise<StatuteDetail | null> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('state_statutes' as never)
     .select(
       'id, state, code_citation, title, category, effective_date, body, source_url, fetched_at',
     )
     .eq('id', id)
     .maybeSingle()
+  if (error) throw new Error(`state_statutes: ${error.code ?? 'error'}`)
   return (data as unknown as StatuteDetail) ?? null
 }
 
@@ -188,7 +201,7 @@ export async function listAllUpdatesForManager(
   state: SupportedState,
 ): Promise<LawUpdateAdminRow[]> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('state_law_updates' as never)
     .select(
       'id, state, headline, summary, action_items, category, effective_date, source_url, related_statute_id, posted_at, archived_at',
@@ -197,6 +210,7 @@ export async function listAllUpdatesForManager(
     .is('deleted_at', null)
     .order('posted_at', { ascending: false })
     .limit(200)
+  if (error) throw new Error(`state_law_updates: ${error.code ?? 'error'}`)
   return (data ?? []) as unknown as LawUpdateAdminRow[]
 }
 
@@ -242,7 +256,18 @@ export async function createLawUpdate(
     related_statute_id: input.relatedStatuteId ?? null,
   })
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+    // Keyed by the form's field names so the form can show each message
+    // under its field. Validation itself is unchanged.
+    const fieldErrors: Record<string, string> = {}
+    for (const issue of parsed.error.issues) {
+      const key = String(issue.path[0] ?? '')
+      if (key && !fieldErrors[key]) fieldErrors[key] = issue.message
+    }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'Invalid input.',
+      fieldErrors,
+    }
   }
 
   const supabase = await getSupabaseServerClient()
@@ -251,7 +276,12 @@ export async function createLawUpdate(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Not signed in.' }
 
-  const state = await getAssociationState()
+  let state: SupportedState | null
+  try {
+    state = await getAssociationState()
+  } catch {
+    return { ok: false, error: "Couldn't check your association's state. Try again." }
+  }
   if (!state) {
     return { ok: false, error: "Your association's state isn't supported yet." }
   }
@@ -359,7 +389,12 @@ export async function askStateLawAction(
     return { ok: false, error: 'Question is too long (>2000 chars).' }
   }
 
-  const state = await getAssociationState()
+  let state: SupportedState | null
+  try {
+    state = await getAssociationState()
+  } catch {
+    return { ok: false, error: "Couldn't check your association's state. Try again." }
+  }
   if (!state) {
     return {
       ok: false,

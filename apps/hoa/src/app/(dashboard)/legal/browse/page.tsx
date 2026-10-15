@@ -1,30 +1,51 @@
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
-import {
-  Badge,
-  Card,
-  CardContent,
-  EmptyState,
-} from '@homeowner-portal/ui'
 import { Scale } from 'lucide-react'
 import {
-  getAssociationState,
-  listStatutesForState,
-} from '@/lib/state-law'
+  Alert,
+  Badge,
+  Button,
+  DataTable,
+  EmptyState,
+  LoadFailed,
+  Page,
+  type DataTableColumn,
+} from '@homeowner-portal/ui'
+import { getAssociationState, listStatutesForState, type StatuteRow } from '@/lib/state-law'
+import { tryLoad } from '@/lib/load-or-fail'
+import { lawCategoryLabel, LAW_CATEGORY_LABELS, STATE_NAMES } from '@/lib/status/knowledge'
+import { LegalTabs } from '@/components/knowledge/LegalTabs'
 
 export const metadata = { title: 'Browse statutes' }
 
-const CATEGORY_LABEL: Record<string, string> = {
-  meetings: 'Meetings & elections',
-  assessments: 'Assessments & dues',
-  fines: 'Fines & enforcement',
-  foreclosure: 'Liens & foreclosure',
-  records: 'Records & access',
-  architectural: 'Architectural review',
-  fair_housing: 'Fair housing',
-  amendments: 'Amendments & governance',
-  uncategorized: 'Other',
-}
+/** listStatutesForState caps at this many rows; say so when we hit it. */
+const STATUTE_CAP = 500
+
+const FILTERS = ['meetings', 'assessments', 'fines', 'foreclosure', 'records', 'architectural', 'fair_housing', 'amendments']
+
+const columns: DataTableColumn<StatuteRow>[] = [
+  {
+    key: 'citation',
+    header: 'Section',
+    className: 'w-40 whitespace-nowrap',
+    cell: (s) => <span className="num font-medium text-foreground">{s.code_citation}</span>,
+  },
+  {
+    key: 'title',
+    header: 'Title',
+    mobilePrimary: true,
+    cell: (s) => (
+      <Link href={`/legal/browse/${s.id}`} className="font-medium text-foreground hover:text-primary hover:underline">
+        {s.title}
+      </Link>
+    ),
+  },
+  {
+    key: 'topic',
+    header: 'Topic',
+    hideBelowLg: true,
+    cell: (s) => (s.category ? <Badge variant="neutral">{lawCategoryLabel(s.category)}</Badge> : <span className="text-muted">—</span>),
+  },
+]
 
 export default async function BrowsePage({
   searchParams,
@@ -32,88 +53,117 @@ export default async function BrowsePage({
   searchParams: Promise<{ category?: string }>
 }) {
   const { category } = await searchParams
-  const state = await getAssociationState()
+  const stateResult = await tryLoad('association state', () => getAssociationState())
+  const state = stateResult.ok ? stateResult.data : null
+  const statutesResult = state ? await tryLoad('statutes', () => listStatutesForState(state, category)) : null
 
-  if (!state) {
-    return (
-      <div className="mx-auto max-w-4xl space-y-4">
-        <Link
-          href="/legal"
-          className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Link>
-        <EmptyState
-          icon={<Scale className="h-10 w-10" aria-hidden />}
-          title="No state configured"
-          description="Set up your association in onboarding first."
-        />
-      </div>
-    )
-  }
-
-  const statutes = await listStatutesForState(state, category)
+  const heading = category ? (lawCategoryLabel(category) ?? 'Statutes') : 'Statutes'
+  const crumbs = category
+    ? [{ label: 'State law', href: '/legal' }, { label: 'Statutes', href: '/legal/browse' }, { label: heading }]
+    : [{ label: 'State law', href: '/legal' }, { label: 'Statutes' }]
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <Link
-        href="/legal"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to State Law
-      </Link>
-
-      <header className="space-y-1">
-        <h1>
-          {category ? CATEGORY_LABEL[category] ?? category : 'All statutes'}
-        </h1>
-        <p className="text-sm text-muted">
-          {state} · {statutes.length} section{statutes.length === 1 ? '' : 's'}
-        </p>
-      </header>
-
-      {statutes.length === 0 ? (
+    <Page
+      linkAs={Link}
+      breadcrumbs={crumbs}
+      title={heading}
+      description={
+        state
+          ? `${STATE_NAMES[state]} HOA statutes, as published. Open a section to read its full text.`
+          : 'Your state’s HOA statutes, as published.'
+      }
+      meta={
+        statutesResult?.ok ? (
+          <Badge variant="neutral" className="num">
+            {statutesResult.data.length.toLocaleString()} {statutesResult.data.length === 1 ? 'section' : 'sections'}
+          </Badge>
+        ) : null
+      }
+      tabs={<LegalTabs current="/legal/browse" />}
+    >
+      {!stateResult.ok ? (
+        <LoadFailed what="your association’s state" />
+      ) : !state ? (
         <EmptyState
-          icon={<Scale className="h-10 w-10" aria-hidden />}
-          title="No statutes match this filter"
-          description={
-            category
-              ? 'Try clearing the category filter.'
-              : 'No statutes have been ingested yet for this state.'
+          icon={<Scale aria-hidden />}
+          title="No state configured"
+          description="Set up your association first — statutes are shown for its state."
+          action={
+            <Button asChild>
+              <Link href="/onboarding/setup">Finish setup</Link>
+            </Button>
           }
         />
       ) : (
-        <Card>
-          <ul className="divide-y divide-border">
-            {statutes.map((s) => (
-              <li key={s.id}>
-                <Link
-                  href={`/legal/browse/${s.id}`}
-                  className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-background/50"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-mono text-xs text-muted">
-                      {s.code_citation}
-                    </p>
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {s.title}
-                    </p>
-                  </div>
-                  <div className="flex flex-shrink-0 items-center gap-2">
-                    {s.category ? (
-                      <Badge variant="outline" size="sm">
-                        {CATEGORY_LABEL[s.category] ?? s.category}
-                      </Badge>
-                    ) : null}
-                  </div>
-                </Link>
-              </li>
+        <>
+          <nav aria-label="Filter by topic" className="-mx-1 flex flex-wrap gap-1.5">
+            <FilterChip href="/legal/browse" active={!category} label="All topics" />
+            {FILTERS.map((c) => (
+              <FilterChip
+                key={c}
+                href={`/legal/browse?category=${encodeURIComponent(c)}`}
+                active={category === c}
+                label={LAW_CATEGORY_LABELS[c]}
+              />
             ))}
-          </ul>
-        </Card>
+          </nav>
+
+          {!statutesResult || !statutesResult.ok ? (
+            <LoadFailed what="statutes" retryHref={category ? `/legal/browse?category=${encodeURIComponent(category)}` : '/legal/browse'} />
+          ) : (
+            <>
+              {statutesResult.data.length >= STATUTE_CAP ? (
+                <Alert variant="info" title={`Showing the first ${STATUTE_CAP} sections`}>
+                  Pick a topic above to narrow the list.
+                </Alert>
+              ) : null}
+              <DataTable
+                caption={`${heading} — ${STATE_NAMES[state]}`}
+                columns={columns}
+                rows={statutesResult.data}
+                rowKey={(s) => s.id}
+                mobile="cards"
+                linkAs={Link}
+                empty={
+                  <EmptyState
+                    variant="compact"
+                    icon={<Scale aria-hidden />}
+                    title={category ? 'No sections on this topic' : 'No statutes loaded yet'}
+                    description={
+                      category
+                        ? 'Try another topic, or view all statutes.'
+                        : `${STATE_NAMES[state]}’s statutes haven’t been loaded for your association yet.`
+                    }
+                    action={
+                      category ? (
+                        <Button asChild variant="secondary" size="sm">
+                          <Link href="/legal/browse">View all statutes</Link>
+                        </Button>
+                      ) : null
+                    }
+                  />
+                }
+              />
+            </>
+          )}
+        </>
       )}
-    </div>
+    </Page>
+  )
+}
+
+function FilterChip({ href, label, active }: { href: string; label: string; active: boolean }) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? 'page' : undefined}
+      className={
+        active
+          ? 'rounded-full border border-primary bg-primary-subtle px-3 py-1 text-sm font-medium text-primary'
+          : 'rounded-full border border-border bg-surface px-3 py-1 text-sm text-foreground-secondary transition-colors hover:border-border-strong hover:text-foreground'
+      }
+    >
+      {label}
+    </Link>
   )
 }
