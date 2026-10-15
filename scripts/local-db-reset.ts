@@ -28,6 +28,12 @@ function psqlFile(path: string): void {
   execFileSync('psql', [LOCAL_DB, '-v', 'ON_ERROR_STOP=1', '-q', '-f', path], { stdio: ['ignore', 'ignore', 'inherit'] })
 }
 
+function psqlScalar(sql: string): string {
+  return execFileSync('psql', [LOCAL_DB, '-v', 'ON_ERROR_STOP=1', '-tAc', sql], { stdio: ['ignore', 'pipe', 'inherit'] })
+    .toString()
+    .trim()
+}
+
 function main(): void {
   assertLoopback(LOCAL_DB)
 
@@ -35,7 +41,31 @@ function main(): void {
   // is the first time these migrations have ever been applied from
   // scratch; a failure here is a real finding, not a script bug.
   psql('DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;')
-  psql('GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;')
+
+  // DROP SCHEMA ... CASCADE also wipes Supabase's ALTER DEFAULT PRIVILEGES
+  // configuration on the schema. Without resetting it here, every table
+  // the migrations create below gets no grants at all: the schema is
+  // structurally correct but completely unreachable through PostgREST
+  // (every query comes back "permission denied"), while psql as the
+  // postgres superuser reads it as fine because superusers bypass grants.
+  // Set this BEFORE any migration runs so every table inherits it at
+  // creation time.
+  //
+  // Granting ALL to anon and authenticated (not just SELECT) is
+  // deliberate, not an oversight: it's what a stock Supabase project
+  // does. RLS is the protection layer here, not table grants — every
+  // table in this schema has RLS enabled. Narrowing these grants would
+  // diverge from production and would make the RLS policy tests prove
+  // something weaker than they claim to prove. Do not tighten this.
+  psql(`
+    GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
+    ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+      GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role;
+    ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+      GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role;
+    ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+      GRANT ALL ON ROUTINES TO postgres, anon, authenticated, service_role;
+  `)
 
   let applied = 0
   for (const name of MIGRATION_MANIFEST) {
@@ -59,6 +89,32 @@ function main(): void {
     psqlFile(resolve(REPO_ROOT, 'migrations', seed))
   }
   console.log(`[local-db-reset] applied ${SCHEMA_SEEDS.length} schema seed(s)`)
+
+  // Sweep for anything created by a different role, or in a way the
+  // default privileges above didn't cover. Same ALL-to-anon/authenticated
+  // reasoning as above: RLS is the protection layer, not grants.
+  psql(`
+    GRANT ALL ON ALL TABLES    IN SCHEMA public TO postgres, anon, authenticated, service_role;
+    GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, service_role;
+    GRANT ALL ON ALL ROUTINES  IN SCHEMA public TO postgres, anon, authenticated, service_role;
+  `)
+
+  // Verify through the roles that actually matter, not as the postgres
+  // superuser — a superuser bypasses grants entirely, which is exactly
+  // how the original version of this script shipped with no table grants
+  // and still looked fine under every psql check.
+  const grantsOk = psqlScalar(`
+    select
+      has_table_privilege('service_role', 'public.orgs', 'select')
+      and has_table_privilege('authenticated', 'public.orgs', 'select')
+      and has_table_privilege('anon', 'public.orgs', 'select');
+  `)
+  if (grantsOk !== 't') {
+    throw new Error(
+      `local-db-reset: grants verification FAILED — service_role/authenticated/anon cannot select public.orgs (got: ${grantsOk})`,
+    )
+  }
+  console.log('[local-db-reset] grants verified: service_role/authenticated/anon can read public')
 }
 
 main()
