@@ -2,16 +2,23 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@homeowner-portal/ui'
+import { Button, useConfirm } from '@homeowner-portal/ui'
 import { revokePlatformAdmin } from '@/lib/platform-admin'
 
 export function RevokeButton({ userId, email }: { userId: string; email: string }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const confirm = useConfirm()
 
-  function handleClick() {
-    if (!window.confirm(`Revoke platform-admin access from ${email}?`)) return
+  async function handleClick() {
+    const ok = await confirm({
+      title: 'Revoke platform-admin access?',
+      description: `${email} will lose access to every platform-admin tool immediately.`,
+      confirmLabel: 'Revoke access',
+      destructive: true,
+    })
+    if (!ok) return
     setError(null)
     startTransition(async () => {
       const result = await revokePlatformAdmin(userId)

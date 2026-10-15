@@ -5,6 +5,7 @@ import {
   AppShellContent,
   AppShellHeader,
   AppShellMain,
+  AppShellSearchTrigger,
   AppShellSidebar,
 } from '@homeowner-portal/ui'
 import { createAdminClient } from '@homeowner-portal/db'
@@ -14,6 +15,7 @@ import { isPlatformAdmin } from '@/lib/platform-admin'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { HoaSidebar } from '@/components/layout/HoaSidebar'
 import { HoaHubSwitcher } from '@/components/layout/HoaHubSwitcher'
+import { HoaCommandPalette, HoaUserMenu } from '@/components/layout/HoaChrome'
 import { DashboardProviders } from '@/components/layout/DashboardProviders'
 import { NavigationProgress } from '@/components/layout/NavigationProgress'
 import { PlatformAdminLink } from '@/components/layout/PlatformAdminLink'
@@ -68,18 +70,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
           server fetch. Pure client component, no server-side risk. */}
       <NavigationProgress />
       <AppShell>
-        <AppShellSidebar>
+        <AppShellSidebar collapsible>
           <HoaSidebar
             currentOrgId={org.id}
             currentOrgName={org.name}
             hoaOrgs={role === 'admin' ? hoaOrgs : hoaOrgs.filter((o) => o.id === org.id)}
-            userEmail={user.email ?? ''}
             role={role}
           />
         </AppShellSidebar>
         <AppShellMain>
           <AppShellHeader>
-            <div className="ml-auto flex items-center gap-2">
+            <AppShellSearchTrigger />
+            <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
               {role === 'admin' && <PlatformAdminLink />}
               {/* Wrapped in Suspense so two extra queries on the shared
                   dashboard chrome cannot delay first paint of the page
@@ -91,10 +93,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 <NotificationBell />
               </Suspense>
               {role === 'admin' && <HoaHubSwitcher userHubs={userHubs} />}
+              <HoaUserMenu email={user.email ?? ''} role={role} orgName={org.name} />
             </div>
           </AppShellHeader>
           <AppShellContent>{children}</AppShellContent>
         </AppShellMain>
+        <HoaCommandPalette role={role} />
       </AppShell>
       {/* Dev-only role switcher. Renders nothing for non-admins.
           Remove this line when you no longer want the switcher. */}

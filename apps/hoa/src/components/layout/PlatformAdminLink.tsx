@@ -16,8 +16,9 @@ export async function PlatformAdminLink() {
       className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/5 px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/10"
       title="Open platform-admin tools"
     >
-      <Shield className="h-3 w-3" />
-      Platform
+      <Shield className="h-3 w-3" aria-hidden />
+      <span className="hidden sm:inline">Platform</span>
+      <span className="sr-only sm:hidden">Platform admin</span>
     </Link>
   )
 }

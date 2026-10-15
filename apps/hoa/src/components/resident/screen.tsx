@@ -37,11 +37,12 @@ export function SectionLabel({ children }: { children: React.ReactNode }) {
 
 // Soft rounded tile that holds a lucide icon. `tone` picks the accent.
 const TONES = {
-  primary: 'bg-primary/10 text-primary',
-  amber: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400',
-  emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400',
-  rose: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400',
-  slate: 'bg-foreground/5 text-foreground',
+  // Design-system v2 tokens: AA-checked in light and dark (tokens.test.ts).
+  primary: 'bg-primary-subtle text-primary',
+  amber: 'bg-warning-subtle text-warning',
+  emerald: 'bg-success-subtle text-success',
+  rose: 'bg-danger-subtle text-danger',
+  slate: 'bg-subtle text-foreground',
 } as const
 
 export type Tone = keyof typeof TONES
@@ -105,7 +106,7 @@ export function TappableRow({
 
   const base = cn(
     'flex items-center gap-3.5 rounded-2xl border border-border bg-surface px-4 py-3.5',
-    href && 'transition active:scale-[0.99] hover:border-primary/30 hover:bg-primary/[0.03]',
+    href && 'transition active:scale-[0.99] hover:border-border-strong hover:bg-subtle/60',
     className,
   )
 

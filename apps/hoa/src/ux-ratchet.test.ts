@@ -269,3 +269,29 @@ describe('raw error text', () => {
     expect(offenders).toEqual([])
   })
 })
+
+// ── Rule 6: no native confirm dialogs ─────────────────────────────────────
+
+/** Every .ts/.tsx under the three apps' src, not just pages. */
+function walkSource(dir: string): string[] {
+  const out: string[] = []
+  for (const name of readdirSync(dir)) {
+    const full = path.join(dir, name)
+    if (statSync(full).isDirectory()) {
+      if (name !== 'node_modules') out.push(...walkSource(full))
+    } else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name)) out.push(full)
+  }
+  return out
+}
+
+describe('confirmation dialogs', () => {
+  it('no window.confirm — use useConfirm() / <ConfirmDialog> (design-system v2)', () => {
+    // Safari renders window.confirm as an unstyled system sheet (UX audit
+    // finding 13). All three survivors were migrated; this keeps it at zero.
+    const offenders = ['apps/hoa/src', 'apps/pm/src', 'apps/eviction/src']
+      .flatMap((d) => walkSource(path.join(repoRoot, d)))
+      .filter((f) => /\bwindow\.confirm\s*\(/.test(readFileSync(f, 'utf8')))
+      .map((f) => path.relative(repoRoot, f))
+    expect(offenders).toEqual([])
+  })
+})

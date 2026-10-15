@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Home, Trash2 } from 'lucide-react'
-import { Badge, Button, Select } from '@homeowner-portal/ui'
+import { Badge, Button, Select, useConfirm } from '@homeowner-portal/ui'
 import { changeMemberRole, removeMember, type MemberRole, type MemberRow as MemberRowType } from '@/lib/members'
 
 const ROLE_VARIANT: Record<MemberRole, 'default' | 'success' | 'outline'> = {
@@ -28,6 +28,7 @@ export function MemberRow({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const confirm = useConfirm()
 
   function handleRoleChange(role: MemberRole) {
     if (role === member.role) return
@@ -42,9 +43,15 @@ export function MemberRow({
     })
   }
 
-  function handleRemove() {
+  async function handleRemove() {
     if (isSelf) return
-    if (!window.confirm(`Remove ${member.email ?? 'this member'} from the HOA?`)) return
+    const ok = await confirm({
+      title: 'Remove member?',
+      description: `${member.email ?? 'This member'} will lose access to this HOA.`,
+      confirmLabel: 'Remove',
+      destructive: true,
+    })
+    if (!ok) return
     setError(null)
     startTransition(async () => {
       const result = await removeMember(member.user_id)

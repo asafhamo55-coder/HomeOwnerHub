@@ -69,7 +69,7 @@ export function ResidentTabBar() {
                 <span
                   className={cn(
                     'flex h-8 w-12 items-center justify-center rounded-full transition-colors',
-                    active && 'bg-primary/10',
+                    active && 'bg-primary-subtle',
                   )}
                 >
                   <Icon className="h-[22px] w-[22px]" />

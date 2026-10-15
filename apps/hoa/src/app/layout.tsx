@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
+import { THEME_INIT_SCRIPT } from '@homeowner-portal/ui'
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister'
 
 const inter = Inter({
@@ -36,7 +37,10 @@ export const metadata: Metadata = {
 }
 
 export const viewport: import('next').Viewport = {
-  themeColor: '#4F46E5',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#F7F8FA' },
+    { media: '(prefers-color-scheme: dark)', color: '#0B0D11' },
+  ],
   width: 'device-width',
   initialScale: 1,
   // Don't let iOS zoom the chrome on form-input focus — the app should
@@ -54,17 +58,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         {/*
           Pre-paint theme script. Runs synchronously BEFORE any React
-          rendering so the .dark class is on <html> before paint —
-          eliminates the white flash users would otherwise see when
-          dark mode is their preference. Reads localStorage; falls
-          back to the OS color-scheme media query.
+          rendering so the .dark class (and a collapsed sidebar) is on
+          <html> before paint — no white flash for dark-mode users, no
+          sidebar jump. Reads localStorage; falls back to the OS
+          color-scheme media query. Source: packages/ui/src/lib/theme-script.ts.
           suppressHydrationWarning above keeps React quiet about the
           className diff this script introduces server→client.
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html:
-              "(function(){try{var t=localStorage.getItem('theme');if(!t||t==='system'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}if(t==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})();",
+            __html: THEME_INIT_SCRIPT,
           }}
         />
       </head>

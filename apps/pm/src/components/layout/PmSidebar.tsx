@@ -11,7 +11,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import {
-  cn,
+  NavItem,
   SidebarBrand,
   SidebarFooter,
   SidebarNav,
@@ -47,23 +47,7 @@ function isActive(pathname: string, href: string) {
 }
 
 function NavLink({ link, active }: { link: NavLink; active: boolean }) {
-  return (
-    <li>
-      <Link
-        href={link.href}
-        aria-current={active ? 'page' : undefined}
-        className={cn(
-          'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-          active
-            ? 'bg-primary/10 text-primary'
-            : 'text-muted hover:bg-background hover:text-foreground',
-        )}
-      >
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center">{link.icon}</span>
-        <span className="flex-1 truncate">{link.label}</span>
-      </Link>
-    </li>
-  )
+  return <NavItem href={link.href} linkAs={Link} icon={link.icon} label={link.label} active={active} />
 }
 
 export function PmSidebar({ orgName, userEmail }: PmSidebarProps) {
@@ -99,7 +83,7 @@ export function PmSidebar({ orgName, userEmail }: PmSidebarProps) {
       </SidebarNav>
 
       <SidebarFooter>
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex w-full items-center justify-between gap-2 px-1">
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-medium text-foreground">{userEmail}</p>
             <p className="text-[11px] text-muted">PM Hub · {orgName}</p>
@@ -107,7 +91,7 @@ export function PmSidebar({ orgName, userEmail }: PmSidebarProps) {
           <button
             type="button"
             onClick={handleSignOut}
-            className="rounded-md p-1.5 text-muted hover:bg-background hover:text-foreground"
+            className="rounded-md p-1.5 text-muted hover:bg-subtle hover:text-foreground"
             aria-label="Sign out"
             title="Sign out"
           >
