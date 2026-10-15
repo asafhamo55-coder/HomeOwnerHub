@@ -36,6 +36,12 @@ storage DELETE/UPDATE. Apply both in one `DO` block, as with `0055`–`0057`.
   posting (`packages/workflows/src/W18-bank-reconciliation/index.ts`). Flagged
   independently by three reviews; deliberately never changed. Needs a decision
   before a real bank account is connected.
+  **Decided and built 2026-10-15 (sub-project D, branch `claude/approval-layer`):**
+  W18 Step A now *proposes*, and board/admin approval in
+  `/accounting/bank/queue` posts it exactly once. Spec:
+  `docs/specs/2026-10-15-approval-layer.md`. **Migration `0060` is NOT applied
+  to production.** Apply it with `docs/specs/2026-10-15-approval-layer-apply.sql`
+  *before* deploying the code.
 - Sub-project ordering for B–F (below).
 
 ## Open work, in the order I would take it

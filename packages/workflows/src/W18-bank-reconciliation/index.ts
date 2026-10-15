@@ -2,7 +2,11 @@
 //
 // The reconciliation half of ADR-005's Pay-by-Zelle UX. Given an unmatched
 // bank transaction, runs through:
-//   A. Exact memo + amount match → auto-post JE, mark assessment paid
+//   A. Exact memo + amount match → PROPOSE the cash-receipt posting
+//      (approval_requests, sub-project D). Nothing is posted and no
+//      assessment is marked paid until a board member/admin approves —
+//      see packages/workflows/src/approvals and
+//      docs/specs/2026-10-15-approval-layer.md.
 //   B. Fuzzy memo + amount match → manager queue with high-confidence hint
 //   C. Duplicate of a recent JE → link, don't double-post
 //   D. Unmatched → call LLM for categorization suggestion + queue
@@ -17,11 +21,9 @@
 import { z } from 'zod'
 import OpenAI from 'openai'
 import { defineWorkflow, resolveModel, JSON_MODE_PARAMS } from '@homeowner-portal/ai'
-import {
-  createAdminClient,
-  loadAccountingRefs,
-  postJournalEntry,
-} from '@homeowner-portal/db'
+import { createAdminClient } from '@homeowner-portal/db'
+import { proposeApproval } from '../approvals'
+import { buildCashReceiptProposal } from '../approvals/w18-cash-receipt'
 import { PROMPT_VERSION, SYSTEM_PROMPT, userPromptFor } from './prompt'
 import {
   amountsMatchExact,
@@ -54,9 +56,20 @@ export const BankReconciliationInputSchema = z.object({
 export type BankReconciliationInput = z.infer<typeof BankReconciliationInputSchema>
 
 export const BankReconciliationOutputSchema = z.object({
-  matchMethod: z.enum(['auto_exact', 'auto_fuzzy', 'duplicate_je', 'unmatched']),
+  // 'proposed_exact' replaced 'auto_exact' (sub-project D): Step A no
+  // longer posts. 'auto_exact' stays in the enum only so historical
+  // ai_runs outputs still parse for anything that re-validates them.
+  matchMethod: z.enum([
+    'proposed_exact',
+    'auto_exact',
+    'auto_fuzzy',
+    'duplicate_je',
+    'unmatched',
+  ]),
   matchedJournalEntryId: z.string().uuid().nullable(),
   matchedAssessmentId: z.string().uuid().nullable(),
+  /** approval_requests.id when Step A proposed a posting; else null. */
+  approvalRequestId: z.string().uuid().nullable().optional(),
   confidence: z.number().min(0).max(1),
   suggestedCategorization: z
     .object({
@@ -78,8 +91,12 @@ export const bankReconciliationAgent = defineWorkflow({
   version: '1.0.0',
   promptVersion: PROMPT_VERSION,
   model: resolveModel(),
-  // Step A's auto-post does NOT require human approval. B/C/D do; the
-  // body flips this per-run via api.requireHumanApproval().
+  // No step posts a journal entry on its own any more (sub-project D).
+  // A proposes a posting, B and D queue for a human, and each calls
+  // api.requireHumanApproval() itself. This workflow-level flag means
+  // "EVERY run needs approval", which would be wrong for Step C: C only
+  // links a bank line to a JE a human already posted. It moves no money
+  // and creates no entry. So the gate lives per step, not here.
   humanApprovalRequired: false,
   inputSchema: BankReconciliationInputSchema,
   outputSchema: BankReconciliationOutputSchema,
@@ -146,6 +163,7 @@ export const bankReconciliationAgent = defineWorkflow({
         ai_workflow_id: 'W18',
       })
       if (stepA) {
+        api.requireHumanApproval()
         api.setConfidence(stepA.confidence)
         return stepA.output
       }
@@ -420,94 +438,38 @@ async function runStepA(
     return null
   }
 
-  const refs = await loadAccountingRefs(db, input.associationId)
-  if (!refs) {
-    throw new Error(
-      `accounting refs missing for association ${input.associationId} — run pnpm seed:accounting`,
-    )
-  }
-
-  // Cash receipt: Dr Cash (bank account's fund) / Cr AR.
-  const je = await postJournalEntry(db, {
-    organizationId: input.organizationId,
-    associationId: input.associationId,
-    fiscalPeriodId: match.fiscal_period_id,
-    entryDate: input.postedDate,
-    memo: `Zelle: ${input.memoParts.canonical} → assessment ${match.id.slice(0, 8)}`,
-    source: 'bank_rec',
-    sourceId: input.txnId,
-    aiGenerated: true,
-    aiWorkflowId: input.ai_workflow_id,
-    lines: [
-      {
-        accountId: refs.acctCashOperating,
-        fundId: input.bankFundId,
-        debit: input.amount,
-        credit: 0,
-      },
-      {
-        accountId: refs.acctAR,
-        fundId: input.bankFundId,
-        debit: 0,
-        credit: input.amount,
-      },
-    ],
-  })
-
-  if (!je.ok) {
-    throw new Error(`step_a_je_failed: ${je.error}`)
-  }
-
-  // Side effects: cross-link transaction → JE, mark assessment paid,
-  // log the audit row.
-  await Promise.all([
-    db
-      .from('bank_transactions')
-      .update({
-        matched_journal_entry_id: je.journalEntryId,
-        match_method: 'auto_exact',
-        match_confidence: EXACT_MEMO_MATCH_CONFIDENCE,
-      })
-      .eq('id', input.txnId),
-    db
-      .from('payments')
-      .insert({
-        organization_id: input.organizationId,
-        unit_id: match.unit_id,
-        assessment_id: match.id,
-        amount: input.amount,
-        payment_method: 'zelle_assisted',
-        external_ref: input.txnId,
-        paid_at: new Date(input.postedDate).toISOString(),
-        journal_entry_id: je.journalEntryId,
-      }),
-    db
-      .from('assessments')
-      .update({
-        status:
-          input.amount >= Number(match.amount) ? 'paid' : 'partial',
-      })
-      .eq('id', match.id),
-    db.from('zelle_inbound_matches').insert({
-      organization_id: input.organizationId,
-      bank_transaction_id: input.txnId,
-      memo_code: input.memoParts.canonical,
-      matched_assessment_id: match.id,
-      matched_unit_id: match.unit_id,
-      status: 'matched',
-      ai_workflow_id: input.ai_workflow_id,
+  // Sub-project D: propose, don't post. The cash-receipt JE, payment,
+  // assessment status and zelle_inbound_matches 'matched' row are written
+  // by executeW18CashReceipt only after a board member or admin approves
+  // (packages/workflows/src/approvals). Re-running W18 against the same
+  // transaction returns the existing live proposal instead of a second one.
+  const proposal = await proposeApproval(
+    db,
+    buildCashReceiptProposal(input.organizationId, {
+      bankTransactionId: input.txnId,
+      associationId: input.associationId,
+      assessmentId: match.id,
+      unitId: match.unit_id,
+      fiscalPeriodId: match.fiscal_period_id,
+      bankFundId: input.bankFundId,
+      amount: input.amount,
+      postedDate: input.postedDate,
+      memoCode: input.memoParts.canonical,
     }),
-  ])
+  )
 
   return {
     confidence: EXACT_MEMO_MATCH_CONFIDENCE,
     output: {
-      matchMethod: 'auto_exact',
-      matchedJournalEntryId: je.journalEntryId,
+      matchMethod: 'proposed_exact',
+      matchedJournalEntryId: null,
       matchedAssessmentId: match.id,
+      approvalRequestId: proposal.id,
       confidence: EXACT_MEMO_MATCH_CONFIDENCE,
       suggestedCategorization: null,
-      notes: `auto-matched on memo_code=${input.memoParts.canonical}, amount within $${0.5}`,
+      notes: proposal.created
+        ? `exact match on memo_code=${input.memoParts.canonical}, amount within $${0.5} — posting proposed, awaiting board/admin approval`
+        : `exact match on memo_code=${input.memoParts.canonical} — a posting for this transaction is already ${proposal.status}; nothing new proposed`,
     },
   }
 }

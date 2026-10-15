@@ -94,6 +94,10 @@ function sentEventNames(): string[] {
       "name:\\s*'[a-z]+/[a-z.]+'",
       '--include=*.ts',
       '--include=*.tsx',
+      // Test fixtures build fake events (packages/jobs/src/failure-reporting.test.ts
+      // uses `name: 'app/test'`); they are not sends.
+      '--exclude=*.test.ts',
+      '--exclude=*.test.tsx',
       '--exclude-dir=node_modules',
       'apps',
       'packages',

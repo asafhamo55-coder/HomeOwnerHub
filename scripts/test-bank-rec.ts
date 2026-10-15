@@ -9,9 +9,9 @@
  *
  *   1. parseMemoCode — runs the 8 fixture MEMO_PARSE_CASES from eval.ts
  *      (pure function, no DB).
- *   2. Step A — inbound deposit with exact memo + amount → auto-posts a
- *      bank_rec JE, marks the assessment paid, links bank_transaction,
- *      writes zelle_inbound_matches row.
+ *   2. Step A — inbound deposit with exact memo + amount → PROPOSES the
+ *      cash receipt (approval_requests row, status 'proposed') and posts
+ *      nothing: no JE, no payment, assessment still open (sub-project D).
  *   3. Memo code right, amount wrong → no auto-post, status='unmatched'
  *      audit row written.
  *   4. Malformed memo + amount within fuzzy tolerance → Step B queues
@@ -223,45 +223,47 @@ async function testStepAAutoMatch(db: Db, f: Fixture): Promise<void> {
     { bankTransactionId: txnId },
     { organizationId: f.organizationId },
   )
-  check('matchMethod=auto_exact', result.output.matchMethod === 'auto_exact')
+  // Sub-project D: Step A PROPOSES; it no longer posts. The posting itself
+  // (approve → exactly-once JE, payment, assessment paid) is covered by
+  // tests/integration/flows/approval-layer.test.ts.
+  check('matchMethod=proposed_exact', result.output.matchMethod === 'proposed_exact')
   check(
     'confidence at/above auto-post floor',
     (result.output.confidence ?? 0) >= AUTO_POST_CONFIDENCE_FLOOR,
     `got ${result.output.confidence}`,
   )
   check('matchedAssessmentId set', result.output.matchedAssessmentId === assess.id)
-  check('matchedJournalEntryId set', !!result.output.matchedJournalEntryId)
+  check('matchedJournalEntryId NOT set', result.output.matchedJournalEntryId === null)
+  check('approvalRequestId set', !!result.output.approvalRequestId)
+  check('ai_runs status=pending_human_approval', result.status === 'pending_human_approval')
 
-  // 4. Verify side effects.
+  // 4. Verify NO posting side effects.
   const { data: txnRow } = await db
     .from('bank_transactions')
-    .select('matched_journal_entry_id, match_method, match_confidence')
+    .select('matched_journal_entry_id')
     .eq('id', txnId)
     .single()
-  check('bank_transactions.matched_journal_entry_id set', !!txnRow?.matched_journal_entry_id)
-  check('bank_transactions.match_method=auto_exact', txnRow?.match_method === 'auto_exact')
+  check('bank_transactions.matched_journal_entry_id still null', !txnRow?.matched_journal_entry_id)
 
   const { data: assessAfter } = await db
     .from('assessments')
     .select('status')
     .eq('id', assess.id)
     .single()
-  check('assessments.status=paid', assessAfter?.status === 'paid')
-
-  const { data: zRow } = await db
-    .from('zelle_inbound_matches')
-    .select('status, memo_code, matched_assessment_id')
-    .eq('bank_transaction_id', txnId)
-    .single()
-  check('zelle_inbound_matches.status=matched', zRow?.status === 'matched')
-  check('zelle_inbound_matches.memo_code', zRow?.memo_code === memoCode)
+  check('assessments.status still open', assessAfter?.status === 'open')
 
   const { data: pay } = await db
     .from('payments')
-    .select('amount, payment_method, journal_entry_id, external_ref')
+    .select('id')
     .eq('assessment_id', assess.id)
+  check('no payments row', (pay ?? []).length === 0)
+
+  const { data: proposal } = await db
+    .from('approval_requests')
+    .select('status, action_type')
+    .eq('subject_id', txnId)
     .single()
-  check('payments row created', !!pay && pay.journal_entry_id === result.output.matchedJournalEntryId)
+  check('approval_requests row proposed', proposal?.status === 'proposed' && proposal?.action_type === 'w18.cash_receipt')
 }
 
 // ─── 3. Memo code matches, amount doesn't ───────────────────────────
@@ -298,8 +300,8 @@ async function testStepAMemoOkAmountWrong(db: Db, f: Fixture): Promise<void> {
     { organizationId: f.organizationId },
   )
   check(
-    'matchMethod NOT auto_exact',
-    result.output.matchMethod !== 'auto_exact',
+    'matchMethod NOT proposed_exact',
+    result.output.matchMethod !== 'proposed_exact',
     `got ${result.output.matchMethod}`,
   )
 

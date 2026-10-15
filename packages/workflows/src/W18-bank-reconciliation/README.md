@@ -21,7 +21,7 @@ const { output, runId } = await bankReconciliationAgent.execute(
 
 For each unmatched `bank_transactions` row:
 
-1. **Step A — exact memo match.** If memo contains `[A-Z]{2,4}-\d{3,5}-(DUES|FEE|FINE|ASSESS)`, look up the assessment by `memo_code`, confirm amount within ±$0.50, post the matching JE, mark the assessment paid. Write `zelle_inbound_matches.status='matched'`. **Confidence 0.99.**
+1. **Step A — exact memo match.** If memo contains `[A-Z]{2,4}-\d{3,5}-(DUES|FEE|FINE|ASSESS)`, look up the assessment by `memo_code`, confirm amount within ±$0.50, then **propose** the cash-receipt posting as an `approval_requests` row (`w18.cash_receipt`). The JE, the payment, marking the assessment paid and `zelle_inbound_matches.status='matched'` all happen only after a board member or admin approves it in `/accounting/bank/queue` (sub-project D, `docs/specs/2026-10-15-approval-layer.md`). **Confidence 0.99.**
 2. **Step B — fuzzy memo + amount.** Match memo to a known resident name + amount within ±5% of an open assessment. **Confidence 0.7–0.9.** Manager queue.
 3. **Step C — duplicate of recent JE.** Check for a matching JE posted within 7 days (likely a manual entry). If found, link `bank_transaction` to the existing JE without creating a new one.
 4. **Step D — unmatched.** Present in the exception queue with the LLM's suggested categorization (account + fund + memo) for human disposition.
