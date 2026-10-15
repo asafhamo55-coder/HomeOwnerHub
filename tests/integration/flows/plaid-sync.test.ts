@@ -222,6 +222,57 @@ async function matchedIds(txnIds: string[]): Promise<Set<string>> {
   return new Set((data ?? []).filter((r) => r.matched_journal_entry_id).map((r) => r.id))
 }
 
+/**
+ * Like fakeW18, but lets each transaction's outcome be chosen explicitly —
+ * needed to distinguish the two states migration 0057 exists to tell
+ * apart:
+ *   - 'match'   mirrors W18 Step A/C: sets matched_journal_entry_id.
+ *   - 'decline' mirrors Step B/D leaving a row for human review: execute()
+ *     returns successfully but matched_journal_entry_id stays NULL.
+ *   - 'throw'   simulates a kill or a genuine W18 failure mid-step.
+ * Any transaction not named in `outcomes` is NOT called at all — the
+ * query is expected to have already filtered it out — so a test asserts
+ * "not resubmitted" via `executed`, not via outcome.
+ */
+function fakeW18WithOutcomes(opts: {
+  jeId: string
+  outcomes: Record<string, 'match' | 'decline' | 'throw'>
+}): PlaidSyncW18Runner & { executed: string[] } {
+  const executed: string[] = []
+  return {
+    executed,
+    async execute(input) {
+      executed.push(input.bankTransactionId)
+      const outcome = opts.outcomes[input.bankTransactionId] ?? 'match'
+      if (outcome === 'throw') {
+        throw new Error(`simulated failure reconciling ${input.bankTransactionId}`)
+      }
+      if (outcome === 'match') {
+        const { error } = await adminDb()
+          .from('bank_transactions')
+          .update({
+            matched_journal_entry_id: opts.jeId,
+            match_method: 'auto_exact',
+            match_confidence: 1,
+          })
+          .eq('id', input.bankTransactionId)
+        if (error) throw new Error(`fakeW18: update failed: ${error.message}`)
+      }
+      // 'decline': deliberately does not touch matched_journal_entry_id.
+      return { matchMethod: outcome === 'match' ? 'auto_exact' : null }
+    },
+  }
+}
+
+/** Reads reconciliation_attempted_at for a set of transactions, keyed by id. */
+async function attemptedAtById(txnIds: string[]): Promise<Map<string, string | null>> {
+  const { data } = await adminDb()
+    .from('bank_transactions')
+    .select('id, reconciliation_attempted_at')
+    .in('id', txnIds)
+  return new Map((data ?? []).map((r) => [r.id, r.reconciliation_attempted_at]))
+}
+
 describe('plaid-sync', () => {
   beforeEach(async () => {
     await truncateAll()
@@ -334,5 +385,120 @@ describe('plaid-sync', () => {
         fakeW18({ jeId: randomUUID(), throwFor: new Set() }),
       ),
     ).rejects.toThrow(/cursor write failed/)
+  })
+
+  // The cost leak migration 0057 exists to close. Before the fix, "found by
+  // matched_journal_entry_id IS NULL" could not tell a declined row (W18
+  // ran, found nothing confident, queued it for human review) apart from
+  // one that was never attempted — so the whole human-review backlog was
+  // re-submitted to W18 (including a fresh paid Step D LLM call) on every
+  // 4-hour tick. This must fail against the pre-fix query (no
+  // reconciliation_attempted_at filter) and pass once that filter — and the
+  // post-execute stamp — are in place.
+  it('a transaction W18 declines (left unmatched, attempt stamped) is not re-submitted on the next run', async () => {
+    const org = await makeOrg()
+    const acct = await makeAccounting(org)
+    const jeId = await seedJournalEntry(org, acct)
+    const plaidItemId = `item-${randomUUID()}`
+    await seedPlaidItem(org, plaidItemId, `cursor-${randomUUID()}`)
+    const bankAccountId = await seedBankAccount(org, acct.fundIds.OPERATING, plaidItemId)
+
+    const declinedId = await seedUnreconciledTxn(org, bankAccountId)
+
+    const client = emptyPagePlaidClient()
+    const logger = collectingLogger()
+
+    // Run 1: W18 declines — this is Step B/D's legitimate "queue for human
+    // review" outcome, not a throw.
+    const run1 = fakeW18WithOutcomes({ jeId, outcomes: { [declinedId]: 'decline' } })
+    const result1 = await runPlaidSync(client, adminDb(), inlineStep(), logger, run1)
+    expect(run1.executed).toEqual([declinedId])
+    expect(result1.reconciled, 'a non-throwing decline counts as a completed attempt').toBe(1)
+
+    const matchedAfterRun1 = await matchedIds([declinedId])
+    expect(matchedAfterRun1.has(declinedId), 'a decline must not set matched_journal_entry_id').toBe(false)
+
+    const attemptedAfterRun1 = await attemptedAtById([declinedId])
+    expect(
+      attemptedAfterRun1.get(declinedId),
+      'the attempt must be stamped even though W18 declined to match',
+    ).not.toBeNull()
+
+    // Run 2: the declined row is still matched_journal_entry_id IS NULL —
+    // exactly what made this ambiguous pre-fix. It must NOT be
+    // re-submitted now that an attempt is on record.
+    const run2 = fakeW18WithOutcomes({ jeId, outcomes: {} })
+    await runPlaidSync(client, adminDb(), inlineStep(), logger, run2)
+    expect(run2.executed, 'a declined transaction must not be resubmitted to W18').toEqual([])
+  })
+
+  // The regression guard for the resumability the prior fix bought: a
+  // transaction whose W18 step genuinely throws (kill, transient failure)
+  // must stay unstamped and be retried on the next run. If the stamp
+  // ordering were wrong (e.g. stamped before execute(), or in a step that
+  // always completes), this test would catch it going red.
+  it('a transaction whose W18 step threw is retried on the next run', async () => {
+    const org = await makeOrg()
+    const acct = await makeAccounting(org)
+    const jeId = await seedJournalEntry(org, acct)
+    const plaidItemId = `item-${randomUUID()}`
+    await seedPlaidItem(org, plaidItemId, `cursor-${randomUUID()}`)
+    const bankAccountId = await seedBankAccount(org, acct.fundIds.OPERATING, plaidItemId)
+    const txnId = await seedUnreconciledTxn(org, bankAccountId)
+
+    const client = emptyPagePlaidClient()
+    const logger = collectingLogger()
+
+    const run1 = fakeW18WithOutcomes({ jeId, outcomes: { [txnId]: 'throw' } })
+    const result1 = await runPlaidSync(client, adminDb(), inlineStep(), logger, run1)
+    expect(result1.reconcileFailed).toBe(1)
+
+    const attemptedAfterThrow = await attemptedAtById([txnId])
+    expect(attemptedAfterThrow.get(txnId), 'a thrown step must NOT be stamped').toBeNull()
+
+    // Run 2: nothing throws now — the surviving orphan must still be found.
+    const run2 = fakeW18WithOutcomes({ jeId, outcomes: {} })
+    const result2 = await runPlaidSync(client, adminDb(), inlineStep(), logger, run2)
+    expect(run2.executed, 'the thrown transaction must be retried').toEqual([txnId])
+    expect(result2.reconciled).toBe(1)
+  })
+
+  // Requirement: a human/operator can force W18 to look again at a
+  // declined transaction simply by clearing the new column — nothing else
+  // should gate that.
+  it('clearing reconciliation_attempted_at re-queues a declined transaction', async () => {
+    const org = await makeOrg()
+    const acct = await makeAccounting(org)
+    const jeId = await seedJournalEntry(org, acct)
+    const plaidItemId = `item-${randomUUID()}`
+    await seedPlaidItem(org, plaidItemId, `cursor-${randomUUID()}`)
+    const bankAccountId = await seedBankAccount(org, acct.fundIds.OPERATING, plaidItemId)
+    const txnId = await seedUnreconciledTxn(org, bankAccountId)
+
+    const client = emptyPagePlaidClient()
+    const logger = collectingLogger()
+
+    const run1 = fakeW18WithOutcomes({ jeId, outcomes: { [txnId]: 'decline' } })
+    await runPlaidSync(client, adminDb(), inlineStep(), logger, run1)
+    expect(run1.executed).toEqual([txnId])
+
+    const run2 = fakeW18WithOutcomes({ jeId, outcomes: {} })
+    await runPlaidSync(client, adminDb(), inlineStep(), logger, run2)
+    expect(run2.executed, 'sanity check: declined row is skipped before clearing').toEqual([])
+
+    // An operator (or a human-review tool) forces a retry by clearing the
+    // attempt timestamp. Nothing else should block this.
+    const { error } = await adminDb()
+      .from('bank_transactions')
+      .update({ reconciliation_attempted_at: null })
+      .eq('id', txnId)
+    expect(error).toBeNull()
+
+    const run3 = fakeW18WithOutcomes({ jeId, outcomes: {} })
+    await runPlaidSync(client, adminDb(), inlineStep(), logger, run3)
+    expect(
+      run3.executed,
+      'clearing the attempt timestamp must be sufficient to re-queue the transaction',
+    ).toEqual([txnId])
   })
 })

@@ -727,6 +727,7 @@ export type Database = {
           organization_id: string
           plaid_transaction_id: string | null
           posted_date: string
+          reconciliation_attempted_at: string | null
         }
         Insert: {
           amount: number
@@ -741,6 +742,7 @@ export type Database = {
           organization_id: string
           plaid_transaction_id?: string | null
           posted_date: string
+          reconciliation_attempted_at?: string | null
         }
         Update: {
           amount?: number
@@ -755,6 +757,7 @@ export type Database = {
           organization_id?: string
           plaid_transaction_id?: string | null
           posted_date?: string
+          reconciliation_attempted_at?: string | null
         }
         Relationships: [
           {

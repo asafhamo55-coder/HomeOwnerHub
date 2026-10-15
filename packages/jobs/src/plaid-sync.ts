@@ -58,19 +58,44 @@ import { inngest } from './client'
  *      one transaction throwing can't prevent the others from running, in
  *      this tick or the next.
  *
- * Trade-off worth flagging: W18's Step B (fuzzy match) and Step D
- * (unmatched / LLM triage) intentionally never set
- * `matched_journal_entry_id` — they queue for human review instead. Those
- * rows look identical, to this query, to a transaction orphaned by a
- * crash: both are `matched_journal_entry_id IS NULL`. So a transaction
- * sitting in the manager queue awaiting a human will be re-submitted to
- * W18 (including a fresh Step D LLM call) on every 4-hour tick until a
- * human disposes of it, not just once. W18 is idempotent against this
- * (Step A/C no-op on an already-matched row; this one just isn't matched
- * yet), so it is not a correctness bug, but it is a recurring LLM cost for
- * a backlog of manual-review items. Fixing that cleanly needs a real
- * "reconciliation attempted" column — out of scope here per instruction
- * not to invent one; flagged for a follow-up migration instead.
+ * ── Why `reconciliation_attempted_at` (migrations/0057) exists ──
+ *
+ * W18's Step B (fuzzy match) and Step D (unmatched / LLM triage)
+ * intentionally never set `matched_journal_entry_id` — they queue for
+ * human review instead. Those rows looked, to the query above, identical
+ * to a transaction orphaned by a crash: both were
+ * `matched_journal_entry_id IS NULL`. So a transaction sitting in the
+ * manager queue awaiting a human was re-submitted to W18 (including a
+ * fresh, paid Step D LLM call) on every 4-hour tick until a human disposed
+ * of it — not a correctness bug (W18 is idempotent) but an unbounded,
+ * growing cost as the review backlog grew.
+ *
+ * `reconciliation_attempted_at` breaks the tie: it is stamped once W18
+ * has run against a row, whether or not it produced a match, so the
+ * unreconciled query now also requires `reconciliation_attempted_at IS
+ * NULL`. A declined row is attempted-but-unmatched and is not
+ * re-submitted; an orphaned row is neither attempted nor matched and
+ * still is.
+ *
+ * Ordering is the crux, and it is deliberate: the stamp happens INSIDE the
+ * same `step.run('w18-' + id, …)` as the W18 call, written only AFTER
+ * `w18.execute` returns without throwing. Stamping before the call (or in
+ * a step that always runs) would mark "attempted" a transaction whose
+ * step then dies mid-flight — re-losing the resumability the prior fix
+ * (above) bought, since a killed attempt would never be retried. Stamping
+ * only on an actual match would leave every declined row unstamped
+ * forever, recreating this exact leak. Stamping after a non-throwing
+ * return covers both outcomes (matched or declined) while a genuine
+ * failure (execute() throws, or the process is killed before the step
+ * returns) leaves the row unstamped and therefore still found — and
+ * retried — by the next tick's query.
+ *
+ * To force W18 to re-examine a row it previously declined, clear
+ * `reconciliation_attempted_at` (e.g.
+ * `UPDATE bank_transactions SET reconciliation_attempted_at = NULL WHERE
+ * id = …`). Nothing else gates a retry — `matched_journal_entry_id` is
+ * already NULL on a declined row, so clearing the attempt timestamp alone
+ * is sufficient to re-queue it on the next tick.
  */
 export const plaidSyncJob = inngest.createFunction(
   { id: 'plaid-sync', name: 'Plaid Transaction Sync' },
@@ -228,9 +253,26 @@ export async function runPlaidSync(
     // found again (and retried) on the next tick by the query above.
     for (const txnId of unreconciledIds) {
       try {
-        await step.run(`w18-${txnId}`, () =>
-          w18.execute({ bankTransactionId: txnId }, { organizationId: item.organization_id }),
-        )
+        await step.run(`w18-${txnId}`, async () => {
+          await w18.execute(
+            { bankTransactionId: txnId },
+            { organizationId: item.organization_id },
+          )
+          // Stamp AFTER execute() returns, whether or not it matched — see
+          // the header comment above for why ordering here is the whole
+          // point. A throw here (execute() itself, or this write) fails the
+          // step, so totalReconcileFailed below still counts it and the
+          // row stays unstamped for the next tick's query to find.
+          const { error: stampErr } = await db
+            .from('bank_transactions')
+            .update({ reconciliation_attempted_at: new Date().toISOString() })
+            .eq('id', txnId)
+          if (stampErr) {
+            throw new Error(
+              `[plaid-sync] attempt stamp failed for ${txnId}: ${stampErr.message}`,
+            )
+          }
+        })
         totalReconciled += 1
       } catch (err) {
         totalReconcileFailed += 1
@@ -383,6 +425,12 @@ async function syncOnePage(
  * item's bank accounts via `bank_accounts.plaid_item_id`, which already
  * carries Plaid's item id (migration 0006_accounting.sql) — no join
  * through `plaid_items` needed.
+ *
+ * Also requires `reconciliation_attempted_at IS NULL` (migration 0057):
+ * without it this matches every row a human-review queue is still holding
+ * on to, re-submitting the entire backlog — and a fresh Step D LLM call
+ * per row — on every tick. See the header comment above for the full
+ * reasoning.
  */
 async function findUnreconciledTxnIds(
   db: Db,
@@ -405,6 +453,7 @@ async function findUnreconciledTxnIds(
     .select('id')
     .in('bank_account_id', acctIds)
     .is('matched_journal_entry_id', null)
+    .is('reconciliation_attempted_at', null)
   if (error) {
     logger.warn(`[plaid-sync] unreconciled lookup failed: ${error.message}`)
     return []
