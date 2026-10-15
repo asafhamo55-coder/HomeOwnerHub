@@ -3,22 +3,8 @@
 @tailwind utilities;
 
 @layer base {
+  /* Colour tokens come from the shared preset (packages/ui/src/tokens.ts). */
   :root {
-    --radius: 14px;
-
-    --background: 220 33% 99%;       /* #FAFBFD */
-    --surface: 0 0% 100%;
-    --border: 220 13% 91%;           /* #E5E7EB */
-
-    --primary: 244 76% 59%;          /* #4F46E5 indigo-600 */
-    --primary-fg: 0 0% 100%;
-    --accent: 38 92% 50%;            /* #F59E0B amber-500 */
-
-    --foreground: 220 39% 11%;       /* #111827 ink-900 */
-    --muted: 217 9% 46%;             /* #6B7280 ink-500 */
-
-    --destructive: 0 72% 45%;
-
     --font-sans: var(--font-inter), system-ui, sans-serif;
     --font-mono: var(--font-jetbrains-mono), monospace;
   }

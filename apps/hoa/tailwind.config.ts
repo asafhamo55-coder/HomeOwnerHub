@@ -1,18 +1,14 @@
 import type { Config } from 'tailwindcss'
-import sharedConfig from '@homeowner-portal/ui/tailwind.config'
+import { createTailwindConfig } from '@homeowner-portal/ui/tailwind.config'
+
+// Shared design-system preset (docs/specs/2026-10-15-design-system-v2.md).
+// Colour variables, light + dark (`.dark` on <html>), come from
+// packages/ui/src/tokens.ts — do not redeclare them in globals.css.
+const shared = createTailwindConfig('hoa')
 
 const config: Config = {
-  ...sharedConfig,
-  // Class strategy: dark mode toggles by adding `.dark` to <html>.
-  // CSS variable overrides in globals.css under the `.dark` selector
-  // do the actual theming — same Tailwind token names, different
-  // HSL values, no per-component dark: variants required for the
-  // 80%+ of UI that already uses semantic tokens.
-  darkMode: 'class',
-  content: [
-    './src/**/*.{ts,tsx}',
-    '../../packages/ui/src/**/*.{ts,tsx}',
-  ],
+  ...shared,
+  content: ['./src/**/*.{ts,tsx}', '../../packages/ui/src/**/*.{ts,tsx}'],
 }
 
 export default config

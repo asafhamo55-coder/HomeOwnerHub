@@ -2,90 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-/* HOA Hub theming — indigo primary on a neutral off-white canvas
-   (Linear / Stripe family). Clean, modern, trustworthy. Amber
-   reserved as the AI-affordance accent.
-
-   Constraints honored:
-   - 18px root font preserved (Linda is 58, no shrink)
-   - Body text AAA (>= 7:1) against background
-   - Visually distinct from PM (blue) and Eviction (purple)            */
+/* Colour, type, radius, shadow and motion tokens — light AND dark — are
+   emitted by the shared Tailwind preset from packages/ui/src/tokens.ts
+   (docs/specs/2026-10-15-design-system-v2.md). Do not declare --primary,
+   --background & co. here: the preset owns them, and the contrast test in
+   packages/ui/src/tokens.test.ts only covers values declared there. */
 @layer base {
   :root {
-    --radius: 12px;
-
-    /* Surfaces — clean off-white, very slight cool tint.               */
-    --background: 220 33% 99%;          /* #FAFBFD */
-    --surface: 0 0% 100%;               /* #FFFFFF — card surface */
-    --border: 220 13% 91%;              /* #E5E7EB — neutral-200 */
-
-    /* Brand — indigo. Used for primary CTAs, focus rings, selection.
-       White-on-indigo clears AA Large for buttons.                     */
-    --primary: 244 76% 59%;             /* #4F46E5 — indigo-600 */
-    --primary-fg: 0 0% 100%;            /* #FFFFFF on indigo button */
-
-    /* Accent — amber. Reserved for AI affordances, progress, and
-       warmth callouts so it reads as intentional, not decorative.      */
-    --accent: 38 92% 50%;               /* #F59E0B — amber-500 */
-
-    /* Text — ink-900 / ink-500. AAA against the cool off-white bg.     */
-    --foreground: 220 39% 11%;          /* #111827 — ink-900 */
-    --muted: 217 9% 46%;                /* #6B7280 — ink-500, secondary text */
-
-    --destructive: 0 72% 45%;           /* deeper, less neon red */
-
-    --font-sans: var(--font-inter), system-ui, sans-serif;
-    --font-mono: var(--font-jetbrains-mono), monospace;
-  }
-
-  /* Dark theme — same token names, dark HSL values. Activates when
-     html.dark is set (Tailwind darkMode: 'class'). Every component
-     that uses semantic tokens (text-foreground, bg-surface,
-     border-border, etc.) themes automatically. Hardcoded Tailwind
-     colors (text-emerald-500, bg-amber-50) do NOT theme — we audit
-     and replace those gradually as they're noticed. */
-  :root.dark {
-    /* Surfaces — near-black with a slight cool tint so it reads
-       distinct from pure black (which feels muddy at scale). */
-    --background: 220 14% 8%;           /* #11141A — page canvas */
-    --surface: 220 14% 12%;             /* #1A1E26 — card surface */
-    --border: 220 13% 22%;               /* #2F3540 — subtle separator */
-
-    /* Brand — same indigo but +6L so it stays vibrant against dark bg.
-       Indigo-600 looks muddy on dark; indigo-500 reads correctly. */
-    --primary: 244 76% 68%;              /* lifted indigo */
-    --primary-fg: 0 0% 100%;             /* keep white on indigo button */
-
-    /* Accent — keep amber-500; works against dark just fine. */
-    --accent: 38 92% 55%;                /* slightly lifted amber */
-
-    /* Text — near-white with cool tint matching the background. */
-    --foreground: 220 14% 95%;           /* #EEF0F4 — ink-50ish */
-    --muted: 217 10% 64%;                /* #94A1AF — secondary text */
-
-    --destructive: 0 78% 65%;            /* brighter red so it stays visible */
-  }
-
-  html {
-    /* HOA bumps the base from 16 to 18px for accessibility. */
-    font-size: 18px;
-  }
-
-  body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-  }
-
-  *:focus-visible {
-    outline: 2px solid hsl(var(--primary));
-    outline-offset: 2px;
-  }
-
-  ::selection {
-    background-color: hsl(var(--primary) / 0.2);
+    --font-sans: var(--font-inter);
+    --font-mono: var(--font-jetbrains-mono);
   }
 }
 

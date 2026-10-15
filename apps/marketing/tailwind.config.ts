@@ -1,5 +1,13 @@
 import type { Config } from 'tailwindcss'
-import sharedConfig from '@homeowner-portal/ui/tailwind.config'
+import defaultTheme from 'tailwindcss/defaultTheme'
+import { createTailwindConfig } from '@homeowner-portal/ui/tailwind.config'
+
+// Marketing takes the shared colour tokens, shadows and motion from the
+// design-system preset (docs/specs/2026-10-15-design-system-v2.md) but keeps
+// its own brochure type scale and larger radii — it is a static site with a
+// different visual brief (UX plan decision 6), and the app scale (15px `sm`,
+// 12px cards) would reflow every hero.
+const sharedConfig = createTailwindConfig('hoa')
 
 const config: Config = {
   ...sharedConfig,
@@ -11,6 +19,13 @@ const config: Config = {
     ...sharedConfig.theme,
     extend: {
       ...sharedConfig.theme?.extend,
+      fontSize: defaultTheme.fontSize,
+      borderRadius: {
+        DEFAULT: '14px',
+        lg: '18px',
+        xl: '22px',
+        '2xl': '30px',
+      },
       colors: {
         ...(sharedConfig.theme?.extend as Record<string, unknown>)?.colors as Record<string, unknown>,
         brand: {
