@@ -5,13 +5,14 @@ import { z } from 'zod'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { fieldErrorsOf } from '@/lib/field-errors'
 
 export type ReconcileResult =
   | { ok: true; reconciliationId: string; difference: number }
-  | { ok: false; error: string }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> }
 export type ApproveReconciliationResult =
   | { ok: true }
-  | { ok: false; error: string }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> }
 
 const ReconcileSchema = z.object({
   bankAccountId: z.string().uuid(),
@@ -38,7 +39,11 @@ export async function reconcileBankAccount(input: {
 }): Promise<ReconcileResult> {
   const parsed = ReconcileSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
   const value = parsed.data
 
@@ -160,7 +165,11 @@ export async function approveReconciliation(input: {
 }): Promise<ApproveReconciliationResult> {
   const parsed = ApproveSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
 
   const gate = await requireBoardOrAdminForAction()

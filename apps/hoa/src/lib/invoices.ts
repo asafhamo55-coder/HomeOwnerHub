@@ -7,26 +7,27 @@ import { loadAccountingRefs, postJournalEntry } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { fieldErrorsOf } from '@/lib/field-errors'
 
 type InvoiceInsert = Database['public']['Tables']['invoices']['Insert']
 type PaymentInsert = Database['public']['Tables']['payments']['Insert']
 
 export type InvoiceActionResult =
   | { ok: true; invoiceId: string }
-  | { ok: false; error: string }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> }
 
 // ─── enterBill ───────────────────────────────────────────────────────
 
 const EnterBillSchema = z.object({
-  vendorId: z.string().uuid(),
-  invoiceNumber: z.string().min(1).max(120),
+  vendorId: z.string().uuid('Pick a vendor.'),
+  invoiceNumber: z.string().min(1, 'Enter the invoice number from the bill.').max(120),
   invoiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'invoiceDate must be YYYY-MM-DD'),
   dueDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'dueDate must be YYYY-MM-DD')
     .optional(),
-  amount: z.number().positive().max(1_000_000),
-  expenseAccountId: z.string().uuid(),
+  amount: z.number().positive('Enter an amount greater than $0.').max(1_000_000, 'Amounts over $1,000,000 need support to enter.'),
+  expenseAccountId: z.string().uuid('Pick an expense account.'),
   memo: z.string().max(500).optional(),
 })
 
@@ -49,7 +50,11 @@ export async function enterBill(input: {
 }): Promise<InvoiceActionResult> {
   const parsed = EnterBillSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
   const value = parsed.data
 
@@ -177,7 +182,7 @@ export async function enterBill(input: {
 
 export async function deleteInvoice(
   invoiceId: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true } | { ok: false; error: string; fieldErrors?: Record<string, string> }> {
   const gate = await requireBoardOrAdminForAction()
   if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
@@ -235,7 +240,11 @@ export async function markInvoicePaid(input: {
 }): Promise<InvoiceActionResult> {
   const parsed = MarkInvoicePaidSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
   const value = parsed.data
 

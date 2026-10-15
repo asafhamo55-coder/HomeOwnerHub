@@ -7,16 +7,17 @@ import { postJournalEntry } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { fieldErrorsOf } from '@/lib/field-errors'
 
 type RecurringInsert =
   Database['public']['Tables']['recurring_journal_entries']['Insert']
 
 export type ReverseJeResult =
   | { ok: true; reversingJeId: string; reversingEntryNumber: string }
-  | { ok: false; error: string }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> }
 export type PromoteRecurringResult =
   | { ok: true; ruleId: string }
-  | { ok: false; error: string }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> }
 
 const ReverseSchema = z.object({
   journalEntryId: z.string().uuid(),
@@ -40,7 +41,11 @@ export async function reverseJournalEntry(input: {
 }): Promise<ReverseJeResult> {
   const parsed = ReverseSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
 
   const gate = await requireBoardOrAdminForAction()
@@ -159,7 +164,11 @@ export async function promoteJeToRecurring(input: {
 }): Promise<PromoteRecurringResult> {
   const parsed = PromoteSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
   const value = parsed.data
 

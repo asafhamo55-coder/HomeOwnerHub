@@ -6,13 +6,14 @@ import type { Database } from '@homeowner-portal/db/types'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { fieldErrorsOf } from '@/lib/field-errors'
 
 type BudgetInsert = Database['public']['Tables']['budgets']['Insert']
 type LineItemInsert = Database['public']['Tables']['budget_line_items']['Insert']
 
 export type BudgetActionResult =
   | { ok: true; budgetId: string }
-  | { ok: false; error: string }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> }
 
 // ─── createBudget ────────────────────────────────────────────────────
 
@@ -34,7 +35,11 @@ export async function createBudget(input: {
 }): Promise<BudgetActionResult> {
   const parsed = CreateBudgetSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
 
   const gate = await requireBoardOrAdminForAction()
@@ -78,7 +83,7 @@ export async function createBudget(input: {
 
 export async function deleteBudget(
   budgetId: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true } | { ok: false; error: string; fieldErrors?: Record<string, string> }> {
   const gate = await requireBoardOrAdminForAction()
   if (!gate.ok) return gate
   const assoc = await getPrimaryAssociation()
@@ -139,7 +144,11 @@ export async function saveBudgetLineItems(input: {
 }): Promise<BudgetActionResult> {
   const parsed = SaveLineItemsSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
 
   const gate = await requireBoardOrAdminForAction()
@@ -195,7 +204,11 @@ export async function approveBudget(input: {
 }): Promise<BudgetActionResult> {
   const parsed = ApproveBudgetSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'invalid input',
+      fieldErrors: fieldErrorsOf(parsed.error),
+    }
   }
 
   const gate = await requireBoardOrAdminForAction()
