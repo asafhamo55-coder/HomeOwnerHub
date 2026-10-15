@@ -69,6 +69,14 @@ export function AppShellSidebar({
           className,
         )}
         aria-label="Primary navigation"
+        // Next <Link> navigation is pushState, which never fires the
+        // popstate listener above, and the layout holding this state does
+        // not remount — so without this the drawer stayed open over the
+        // page the user just picked. Delegated: any link click inside the
+        // drawer closes it. No-op on desktop, where the drawer is never open.
+        onClickCapture={(e) => {
+          if (mobileOpen && (e.target as HTMLElement).closest('a[href]')) setMobileOpen(false)
+        }}
       >
         {children}
       </aside>
