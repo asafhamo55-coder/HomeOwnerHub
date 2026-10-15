@@ -75,7 +75,7 @@ export default async function BalanceSheetPage({ searchParams }: PageProps) {
                   ...rowsOf(res.data.equity),
                   {
                     key: 'ni',
-                    label: <span className="pl-[2.875rem] italic text-foreground-secondary">Net income, period to date</span>,
+                    label: <span className="block pl-[2.875rem] italic text-foreground-secondary">Net income, period to date</span>,
                     values: { bal: usd(res.data.netIncomePtd) },
                   },
                 ],

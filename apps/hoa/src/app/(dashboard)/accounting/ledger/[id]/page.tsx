@@ -122,7 +122,7 @@ export default async function JournalEntryDetailPage({ params }: PageProps) {
                 key: l.id,
                 label: <AccountLabel number={l.account.account_number} name={l.account.account_name} />,
                 detail: (
-                  <span className="pl-[2.875rem]">
+                  <span className="block pl-[2.875rem]">
                     {l.fund.name}
                     {l.memo ? ` · ${l.memo}` : ''}
                   </span>

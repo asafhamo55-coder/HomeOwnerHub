@@ -19,7 +19,9 @@ const COLUMNS: DataTableColumn<FiscalPeriod>[] = [
     cell: (p) => (
       <span className="block">
         <span className="block font-medium text-foreground">{periodLabel(p)}</span>
-        <span className="block text-xs text-muted">{formatDayRange(p.start_date, p.end_date)}</span>
+        {periodLabel(p).startsWith('FY') ? (
+          <span className="block text-xs text-muted">{formatDayRange(p.start_date, p.end_date)}</span>
+        ) : null}
       </span>
     ),
   },

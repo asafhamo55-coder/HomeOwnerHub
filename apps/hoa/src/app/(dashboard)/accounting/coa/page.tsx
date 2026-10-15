@@ -56,6 +56,7 @@ export default async function ChartOfAccountsPage() {
     {
       key: 'fund',
       header: 'Fund',
+      hideBelowLg: true,
       className: 'whitespace-nowrap text-muted',
       cell: (a) => (a.fund_id ? (fundName.get(a.fund_id) ?? '—') : 'Shared'),
     },
@@ -101,7 +102,6 @@ export default async function ChartOfAccountsPage() {
               <DataTable
                 framed={false}
                 density="compact"
-                mobile="cards"
                 caption={TYPE_META[type].title}
                 columns={columns}
                 rows={rows}
