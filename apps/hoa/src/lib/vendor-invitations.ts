@@ -37,11 +37,19 @@ export type ActionResult<T = void> = ActionOk<T> | ActionErr
 // ─── Reads (manager-side, RLS-respecting) ────────────────────────────
 
 export async function listInvitations(): Promise<InvitationRow[]> {
+  const res = await listInvitationsResult()
+  return res.ok ? res.data : []
+}
+
+/** Same read, but a failure is reported instead of becoming "no invitations". */
+export async function listInvitationsResult(): Promise<
+  { ok: true; data: InvitationRow[] } | { ok: false }
+> {
   const org = await getCurrentOrg()
-  if (!org) return []
+  if (!org) return { ok: true, data: [] }
 
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('vendor_onboarding_invitations' as never)
     .select(
       'id, invitee_email, invitee_name, status, expires_at, created_at, submitted_at, vendor_id',
@@ -49,7 +57,11 @@ export async function listInvitations(): Promise<InvitationRow[]> {
     .eq('organization_id', org.id)
     .order('created_at', { ascending: false })
     .limit(100)
-  return (data ?? []) as unknown as InvitationRow[]
+  if (error) {
+    console.error('listInvitations failed', { code: error.code, message: error.message })
+    return { ok: false }
+  }
+  return { ok: true, data: (data ?? []) as unknown as InvitationRow[] }
 }
 
 // ─── Create + send ───────────────────────────────────────────────────

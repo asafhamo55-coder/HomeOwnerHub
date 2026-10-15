@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { listVendors, type ComplianceStatus } from '@/lib/vendors'
+import { listVendorsResult, type ComplianceStatus } from '@/lib/vendors'
 
 // CSV export of the vendor list. Honors `?q=` so the exported file
 // matches the filtered view on /vendors. RLS via `listVendors()` already
@@ -36,7 +36,13 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const search = (url.searchParams.get('q') ?? '').trim().toLowerCase()
 
-  const allVendors = await listVendors()
+  // A failed read must not download as an empty (header-only) CSV that a
+  // board member could file as "we have no vendors".
+  const res = await listVendorsResult()
+  if (!res.ok) {
+    return new Response('Could not load vendors. Please try again.', { status: 503 })
+  }
+  const allVendors = res.data
   const vendors = search
     ? allVendors.filter((v) => {
         const hay = [

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2 } from 'lucide-react'
 import { Button, useConfirm, useToast } from '@homeowner-portal/ui'
@@ -9,15 +9,16 @@ import { approveVendor } from '@/lib/vendors'
 export function ApproveVendorButton({
   vendorId,
   vendorName,
+  size = 'md',
 }: {
   vendorId: string
   vendorName?: string
+  size?: 'sm' | 'md'
 }) {
   const router = useRouter()
   const confirm = useConfirm()
   const toast = useToast()
   const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
 
   async function handleClick() {
     const ok = await confirm({
@@ -27,12 +28,10 @@ export function ApproveVendorButton({
       confirmLabel: 'Approve vendor',
     })
     if (!ok) return
-    setError(null)
     startTransition(async () => {
       const result = await approveVendor(vendorId)
       if (!result.ok) {
-        setError(result.error)
-        toast({ tone: 'error', message: result.error })
+        toast({ tone: 'error', title: 'Couldn’t approve vendor', message: result.error })
         return
       }
       toast({ tone: 'success', message: 'Vendor approved.' })
@@ -41,12 +40,8 @@ export function ApproveVendorButton({
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <Button size="sm" onClick={handleClick} disabled={isPending}>
-        <CheckCircle2 className="h-4 w-4" />
-        {isPending ? 'Approving…' : 'Approve vendor'}
-      </Button>
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
-    </div>
+    <Button size={size} onClick={handleClick} loading={isPending} icon={<CheckCircle2 aria-hidden />}>
+      {isPending ? 'Approving…' : 'Approve vendor'}
+    </Button>
   )
 }
