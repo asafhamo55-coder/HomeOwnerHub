@@ -59,7 +59,9 @@ by the session's permission classifier; Asaf pushes it manually.
    Owner's manual steps are in `docs/OBSERVABILITY.md`.
 3. **B** (24/7 autonomous loop), **D** (approval layer), **E** (enterprise UI/UX
    across 115 pages), **F** (law → bylaw pipeline). D built and merged; E audit merged, phase 1 on `claude/ux-phase1`;
-   B and F specs merged (`docs/specs/`).
+   B and F specs merged (`docs/specs/`). F phase 0 (FL Ch. 720 ingestion)
+   merged; `0062` applied and verified 2026-10-15; first refresh run pending
+   after deploy.
 
 ## The recurring lesson from this work
 
