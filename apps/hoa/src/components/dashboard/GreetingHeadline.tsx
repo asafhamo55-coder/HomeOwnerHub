@@ -48,14 +48,14 @@ export function GreetingHeadline({ name, contextLabel, fallbackDate }: GreetingH
   return (
     <>
       <p
-        className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted"
+        className="text-xs font-semibold uppercase tracking-[0.08em] text-muted"
         suppressHydrationWarning
       >
         {dateLabel}
         {contextLabel ? ` · ${contextLabel}` : ''}
       </p>
       <h1
-        className="text-2xl font-semibold tracking-tight text-foreground"
+        className="break-words text-2xl font-semibold tracking-[-0.015em] text-foreground"
         suppressHydrationWarning
       >
         {greet}

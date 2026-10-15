@@ -45,6 +45,25 @@ export interface ApprovalItem {
 export interface ApprovalsInbox {
   items: ApprovalItem[]
   totalCount: number
+  /**
+   * True when any source query errored: the list is then PARTIAL, and an
+   * empty list is not "inbox zero". Optional so existing callers and test
+   * doubles that predate it keep type-checking; absent means not failed.
+   */
+  failed?: boolean
+}
+
+/** Day cells for the compliance heat map, plus whether the read failed. */
+export interface ComplianceHeatMapResult {
+  cells: DayCell[]
+  /** True when a source query errored — grey days are then unknown, not clear. */
+  failed: boolean
+}
+
+export interface NextMeetingResult {
+  meeting: NextMeetingInfo | null
+  /** True when the read errored — `meeting: null` is then unknown, not "none scheduled". */
+  failed: boolean
 }
 
 export type AtRiskKind = 'cure_deadline' | 'dues_overdue' | 'coi_expiring'
@@ -330,13 +349,22 @@ export async function getApprovalsInbox(
     updated_at: string | null
   }
   for (const m of (minutes.data ?? []) as unknown as MRow[]) {
+    // meeting_date is a DATE: format in UTC so it never shifts a day.
     const when = m.meeting_date
-      ? new Date(m.meeting_date).toLocaleDateString()
-      : 'Date TBD'
+      ? new Date(`${m.meeting_date.slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          timeZone: 'UTC',
+        })
+      : 'date TBD'
+    const type = m.meeting_type
+      ? `${m.meeting_type.charAt(0).toUpperCase()}${m.meeting_type.slice(1)} meeting`
+      : 'Board meeting'
     items.push({
       kind: 'meeting',
       id: m.id,
-      title: `Meeting minutes · ${when}${m.meeting_type ? ' · ' + m.meeting_type : ''}`,
+      title: `Meeting minutes · ${type}, ${when}`,
       pendingSince: m.updated_at ?? m.meeting_date,
       href: `/meetings/${m.id}`,
     })
@@ -387,7 +415,13 @@ export async function getApprovalsInbox(
     return at - bt
   })
 
-  return { items, totalCount: items.length }
+  const failed = [violations, minutes, invoices, rfps].some((r) => {
+    if (!r.error) return false
+    logQueryError('getApprovalsInbox', r.error)
+    return true
+  })
+
+  return { items, totalCount: items.length, failed }
 }
 
 // Lease cap + current state + waiting list count for the dashboard
@@ -740,7 +774,7 @@ export async function getLatestDigest(
 export async function getComplianceHeatMap(
   orgId: string,
   client?: AnyClient,
-): Promise<DayCell[]> {
+): Promise<ComplianceHeatMapResult> {
   const supabase = await resolveClient(client)
   const today = new Date()
   const start = startOfMonth(today)
@@ -750,10 +784,11 @@ export async function getComplianceHeatMap(
 
   // assessments replaces hoa_dues for the heat map's dues lane. Query
   // is org-wide via the associations FK.
-  const { data: assocs } = await supabase
+  const { data: assocs, error: assocError } = await supabase
     .from('associations')
     .select('id')
     .eq('organization_id', orgId)
+  if (assocError) logQueryError('getComplianceHeatMap', assocError)
   const assocIds = (assocs ?? []).map((a) => a.id)
 
   const duesPromise =
@@ -765,7 +800,10 @@ export async function getComplianceHeatMap(
           .is('deleted_at', null)
           .gte('due_date', startISO)
           .lte('due_date', endISO)
-      : Promise.resolve({ data: [] as { id: string; due_date: string; status: string }[] })
+      : Promise.resolve({
+          data: [] as { id: string; due_date: string; status: string }[],
+          error: null,
+        })
 
   const [violations, dues] = await Promise.all([
     supabase
@@ -826,9 +864,19 @@ export async function getComplianceHeatMap(
     }
   }
 
-  return Array.from(cellMap.values()).sort(
-    (a, b) => a.date.getTime() - b.date.getTime(),
-  )
+  const failed =
+    Boolean(assocError) ||
+    [violations, dues].some((r) => {
+      const error = (r as { error?: { code?: string; message?: string } | null }).error
+      if (!error) return false
+      logQueryError('getComplianceHeatMap', error)
+      return true
+    })
+
+  return {
+    cells: Array.from(cellMap.values()).sort((a, b) => a.date.getTime() - b.date.getTime()),
+    failed,
+  }
 }
 
 /**
@@ -854,10 +902,11 @@ export async function getAtRiskThisWeek(
     .slice(0, 10)
 
   // Tenant-scope assessments via associations FK; matches getDashboardStats.
-  const { data: assocs } = await supabase
+  const { data: assocs, error: assocError } = await supabase
     .from('associations')
     .select('id')
     .eq('organization_id', orgId)
+  if (assocError) logQueryError('getAtRiskThisWeek', assocError)
   const assocIds = (assocs ?? []).map((a) => a.id)
 
   const assessmentsPromise =
@@ -1012,7 +1061,7 @@ export async function getAtRiskThisWeek(
     coiExpiring: items.filter((i) => i.kind === 'coi_expiring').length,
   }
 
-  const failed = [violations, assessments, cois].some((r) => {
+  const failed = Boolean(assocError) || [violations, assessments, cois].some((r) => {
     const error = (r as { error?: { code?: string; message?: string } | null }).error
     if (!error) return false
     logQueryError('getAtRiskThisWeek', error)
@@ -1031,12 +1080,23 @@ export async function getNextMeeting(
   orgId: string,
   client?: AnyClient,
 ): Promise<NextMeetingInfo | null> {
+  return (await getNextMeetingResult(orgId, client)).meeting
+}
+
+/**
+ * Same as getNextMeeting, but says when the read failed so the dashboard
+ * never shows "No meeting scheduled" for a query that errored.
+ */
+export async function getNextMeetingResult(
+  orgId: string,
+  client?: AnyClient,
+): Promise<NextMeetingResult> {
   const supabase = await resolveClient(client)
   const today = new Date()
   const todayISO = today.toISOString().slice(0, 10)
 
   // Soonest future meeting first.
-  const { data: future } = await supabase
+  const { data: future, error: futureError } = await supabase
     .from('hoa_meeting_minutes')
     .select('id, meeting_date, meeting_type, status')
     .eq('org_id', orgId)
@@ -1045,22 +1105,29 @@ export async function getNextMeeting(
     .order('meeting_date', { ascending: true })
     .limit(1)
 
+  if (futureError) {
+    logQueryError('getNextMeeting', futureError)
+    return { meeting: null, failed: true }
+  }
   const pick = future?.[0]
   if (pick) {
     const daysUntil = Math.round(
       (new Date(pick.meeting_date).getTime() - today.getTime()) / 86_400_000,
     )
     return {
-      id: pick.id,
-      meetingDate: pick.meeting_date,
-      meetingType: pick.meeting_type ?? null,
-      daysUntil,
-      status: pick.status ?? null,
+      meeting: {
+        id: pick.id,
+        meetingDate: pick.meeting_date,
+        meetingType: pick.meeting_type ?? null,
+        daysUntil,
+        status: pick.status ?? null,
+      },
+      failed: false,
     }
   }
 
   // Fallback: most recent past meeting with un-approved minutes.
-  const { data: past } = await supabase
+  const { data: past, error: pastError } = await supabase
     .from('hoa_meeting_minutes')
     .select('id, meeting_date, meeting_type, status')
     .eq('org_id', orgId)
@@ -1070,18 +1137,25 @@ export async function getNextMeeting(
     .order('meeting_date', { ascending: false })
     .limit(1)
 
+  if (pastError) {
+    logQueryError('getNextMeeting', pastError)
+    return { meeting: null, failed: true }
+  }
   const fallback = past?.[0]
-  if (!fallback) return null
+  if (!fallback) return { meeting: null, failed: false }
 
   const daysUntil = Math.round(
     (new Date(fallback.meeting_date).getTime() - today.getTime()) / 86_400_000,
   )
   return {
-    id: fallback.id,
-    meetingDate: fallback.meeting_date,
-    meetingType: fallback.meeting_type ?? null,
-    daysUntil,
-    status: fallback.status ?? null,
+    meeting: {
+      id: fallback.id,
+      meetingDate: fallback.meeting_date,
+      meetingType: fallback.meeting_type ?? null,
+      daysUntil,
+      status: fallback.status ?? null,
+    },
+    failed: false,
   }
 }
 

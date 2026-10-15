@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ChevronRight, RefreshCw, Sparkles } from 'lucide-react'
+import { AlertCircle, AlertTriangle, ChevronRight, Info, RefreshCw, Sparkles } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -26,12 +26,15 @@ interface DailyDigestCardProps {
   initialGeneratedAt: string | null
 }
 
-// Same three colours the At-Risk card uses, so red means the same thing in
-// both places on one dashboard.
-const SEVERITY_DOT: Record<BoardInsight['severity'], string> = {
-  red: 'bg-red-500',
-  amber: 'bg-amber-500',
-  info: 'bg-primary',
+// Severity is an icon AND a colour AND (for screen readers) a word — the
+// same vocabulary as the At-risk card's pills.
+const SEVERITY: Record<
+  BoardInsight['severity'],
+  { icon: typeof AlertCircle; className: string; label: string }
+> = {
+  red: { icon: AlertCircle, className: 'text-danger', label: 'Urgent' },
+  amber: { icon: AlertTriangle, className: 'text-warning', label: 'Soon' },
+  info: { icon: Info, className: 'text-info', label: 'Note' },
 }
 
 /**
@@ -95,90 +98,98 @@ export function DailyDigestCard({
   const hasContent = suggestion !== null || bullets.length > 0 || insights.length > 0
 
   return (
-    <Card variant="elevated">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+    <Card>
+      <CardHeader
+        className="pb-3"
+        actions={
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={refresh}
+            loading={loading}
+            icon={<RefreshCw aria-hidden />}
+            aria-label="Refresh briefing"
+          >
+            <span className="hidden sm:inline">{loading ? 'Refreshing…' : 'Refresh'}</span>
+          </Button>
+        }
+      >
         <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Sparkles className="h-4 w-4" />
+          <span
+            className="flex size-7 items-center justify-center rounded-lg bg-accent-subtle text-accent-fg"
+            aria-hidden
+          >
+            <Sparkles className="size-4" />
           </span>
-          <CardTitle className="text-base">Today</CardTitle>
+          <CardTitle as="h2">Today’s briefing</CardTitle>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={refresh}
-          disabled={loading}
-          aria-label="Refresh digest"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">{loading ? 'Thinking…' : 'Refresh'}</span>
-        </Button>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         {suggestion ? (
-          <p className="rounded-lg bg-primary/5 px-3 py-2 text-sm font-medium text-foreground">
-            {suggestion}
-          </p>
-        ) : null}
-
-        {bullets.length > 0 ? (
-          <ul className="space-y-1.5 text-sm leading-relaxed text-foreground">
-            {bullets.map((line) => (
-              <li key={line} className="flex gap-2">
-                <span
-                  className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
-                  aria-hidden
-                />
-                <span>{line}</span>
-              </li>
-            ))}
-          </ul>
+          <p className="text-base font-medium leading-relaxed text-foreground">{suggestion}</p>
         ) : null}
 
         {insights.length > 0 ? (
-          <div className="space-y-2 border-t border-border pt-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.08em] text-muted">
               Needs the board
             </p>
-            <ul className="space-y-2">
-              {insights.map((insight) => (
-                <li key={insight.kind}>
-                  <Link
-                    href={insight.href}
-                    className="group flex gap-2 rounded-md px-1 py-1 -mx-1 hover:bg-muted/10"
-                  >
-                    <span
-                      className={`mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${SEVERITY_DOT[insight.severity]}`}
-                      aria-hidden
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium text-foreground">
-                        {insight.headline}
+            <ul className="-mx-2">
+              {insights.map((insight) => {
+                const sev = SEVERITY[insight.severity]
+                const Icon = sev.icon
+                return (
+                  <li key={insight.kind}>
+                    <Link
+                      href={insight.href}
+                      className="group flex gap-3 rounded-lg px-2 py-2 transition-colors duration-fast hover:bg-subtle focus-visible:bg-subtle focus-visible:outline-none"
+                    >
+                      <Icon className={`mt-0.5 size-4 shrink-0 ${sev.className}`} aria-hidden />
+                      <span className="min-w-0 flex-1">
+                        <span className="sr-only">{sev.label}: </span>
+                        <span className="block text-sm font-medium text-foreground">
+                          {insight.headline}
+                        </span>
+                        {/* Null whenever the model was unavailable. The
+                            finding still stands on its own. */}
+                        {insight.why ? (
+                          <span className="block text-sm text-muted">{insight.why}</span>
+                        ) : null}
                       </span>
-                      {/* Null whenever the model was unavailable. The
-                          finding still stands on its own. */}
-                      {insight.why ? (
-                        <span className="block text-sm text-muted">{insight.why}</span>
-                      ) : null}
-                    </span>
-                    <ChevronRight
-                      className="mt-0.5 h-4 w-4 shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100"
-                      aria-hidden
-                    />
-                  </Link>
+                      <ChevronRight
+                        className="mt-0.5 size-4 shrink-0 text-muted transition-transform duration-fast group-hover:translate-x-0.5"
+                        aria-hidden
+                      />
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        ) : null}
+
+        {bullets.length > 0 ? (
+          <div>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+              Since yesterday
+            </p>
+            <ul className="space-y-1 text-sm text-foreground-secondary">
+              {bullets.map((line) => (
+                <li key={line} className="flex gap-2">
+                  <span className="mt-2 inline-block size-1 shrink-0 rounded-full bg-muted" aria-hidden />
+                  <span>{line}</span>
                 </li>
               ))}
             </ul>
           </div>
         ) : null}
 
-        {!hasContent ? (
-          <p className="text-sm text-muted">Nothing new since yesterday.</p>
-        ) : null}
+        {!hasContent ? <p className="text-sm text-muted">Nothing new since yesterday.</p> : null}
 
         {generatedAt ? (
           <p className="text-xs text-muted">
-            Updated {formatDistanceToNow(new Date(generatedAt), { addSuffix: true })}
+            Summary updated {formatDistanceToNow(new Date(generatedAt), { addSuffix: true })}. The
+            findings above are computed from your records.
           </p>
         ) : null}
       </CardContent>

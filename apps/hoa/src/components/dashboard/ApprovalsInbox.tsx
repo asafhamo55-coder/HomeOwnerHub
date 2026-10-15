@@ -1,23 +1,23 @@
 import Link from 'next/link'
 import {
   AlertTriangle,
-  ArrowRight,
   CalendarDays,
   CheckCircle2,
+  ChevronRight,
   FileSpreadsheet,
   Receipt,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { Badge, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import type { ApprovalItem, ApprovalKind } from '@/lib/dashboard/queries'
+import { FailedNote } from './BreakdownList'
 
-// Kind icons render in muted so the row's signal is the title + age,
-// not a rainbow of decorative colour. Severity goes on chips/dots, not
-// on the kind glyph itself.
-const KIND_ICON: Record<ApprovalKind, React.ReactNode> = {
-  violation: <AlertTriangle className="h-4 w-4 text-muted" aria-hidden />,
-  meeting: <CalendarDays className="h-4 w-4 text-muted" aria-hidden />,
-  invoice: <Receipt className="h-4 w-4 text-muted" aria-hidden />,
-  rfp: <FileSpreadsheet className="h-4 w-4 text-muted" aria-hidden />,
+// Kind glyph + word: the row's kind is named in text ("Invoice"), the
+// icon is only a scanning aid.
+const KIND: Record<ApprovalKind, { icon: React.ReactNode; label: string }> = {
+  violation: { icon: <AlertTriangle className="size-4" aria-hidden />, label: 'Violation letter' },
+  meeting: { icon: <CalendarDays className="size-4" aria-hidden />, label: 'Minutes' },
+  invoice: { icon: <Receipt className="size-4" aria-hidden />, label: 'Invoice' },
+  rfp: { icon: <FileSpreadsheet className="size-4" aria-hidden />, label: 'RFP draft' },
 }
 
 const MS_DAY = 86_400_000
@@ -28,76 +28,106 @@ function age(iso: string | null): string {
   if (ms < 0) return 'just now'
   const days = Math.floor(ms / MS_DAY)
   if (days === 0) return 'today'
-  if (days === 1) return '1d'
-  if (days < 30) return `${days}d`
+  if (days === 1) return '1 day'
+  if (days < 30) return `${days} days`
   const months = Math.floor(days / 30)
-  return `${months}mo`
+  return months === 1 ? '1 month' : `${months} months`
 }
 
-// Foreground tile on the Monday-morning dashboard: a unified list of
-// every item that's waiting on the manager — violation letters drafted
-// by AI, meeting minutes not yet approved, AI-coded invoices, AI-drafted
-// RFP drafts. Empty state = inbox zero.
+/** Strip the "Kind · " prefix the query puts on titles; the kind is shown separately. */
+function rowTitle(item: ApprovalItem): string {
+  const parts = item.title.split(' · ')
+  return parts.length > 1 ? parts.slice(1).join(' · ') : item.title
+}
+
+// The manager's queue: violation letters drafted by AI, minutes not yet
+// approved, AI-coded invoices, AI-drafted RFPs. Empty = inbox zero — but
+// only when every source loaded.
 export function ApprovalsInbox({
   items,
+  failed = false,
   maxRows = 6,
 }: {
   items: ApprovalItem[]
+  failed?: boolean
   maxRows?: number
 }) {
-  if (items.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />
-            Waiting on you
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted">
-          Inbox zero. Nothing waiting on your approval.
-        </CardContent>
-      </Card>
-    )
-  }
-
   const visible = items.slice(0, maxRows)
   const overflow = items.length - visible.length
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-base">Waiting on you</CardTitle>
-        <span className="text-xs text-muted">
-          {items.length} {items.length === 1 ? 'item' : 'items'}
-        </span>
+    <Card id="approvals">
+      <CardHeader
+        className="pb-3"
+        actions={
+          items.length > 0 ? (
+            <Badge variant="neutral" className="num">
+              {items.length} pending
+            </Badge>
+          ) : null
+        }
+      >
+        <CardTitle as="h2">Waiting on your approval</CardTitle>
+        <p className="text-sm text-muted">Oldest first. Nothing goes out until you sign off.</p>
       </CardHeader>
-      <CardContent className="p-0">
-        <ul className="divide-y divide-border">
-          {visible.map((item) => (
-            <li key={`${item.kind}:${item.id}`}>
-              <Link
-                href={item.href}
-                className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/40"
-              >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/10">
-                  {KIND_ICON[item.kind]}
-                </span>
-                <span className="flex-1 truncate text-sm text-foreground">
-                  {item.title}
-                </span>
-                <span className="text-xs text-muted">{age(item.pendingSince)}</span>
-                <ArrowRight className="h-4 w-4 text-muted" aria-hidden />
-              </Link>
-            </li>
-          ))}
-        </ul>
-        {overflow > 0 ? (
-          <div className="border-t border-border px-5 py-3 text-xs text-muted">
-            + {overflow} more pending. Open each section to review.
-          </div>
-        ) : null}
-      </CardContent>
+      {items.length === 0 ? (
+        <CardContent>
+          {failed ? (
+            <FailedNote what="your approvals" />
+          ) : (
+            <p className="flex items-center gap-2 text-sm text-foreground-secondary">
+              <CheckCircle2 className="size-4 text-success" aria-hidden />
+              Inbox zero — nothing is waiting on your approval.
+            </p>
+          )}
+        </CardContent>
+      ) : (
+        <>
+          {failed ? (
+            <CardContent className="pb-3">
+              <FailedNote what="every approval source — this list may be incomplete" />
+            </CardContent>
+          ) : null}
+          <ul className="divide-y divide-border border-t border-border">
+            {visible.map((item) => {
+              const kind = KIND[item.kind]
+              return (
+                <li key={`${item.kind}:${item.id}`}>
+                  <Link
+                    href={item.href}
+                    className="group flex items-center gap-3 px-5 py-3 transition-colors duration-fast hover:bg-subtle focus-visible:bg-subtle focus-visible:outline-none"
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-subtle text-muted">
+                      {kind.icon}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-foreground">{rowTitle(item)}</span>
+                      <span className="block text-xs text-muted">
+                        {kind.label}
+                        {item.pendingSince ? (
+                          <span className="sm:hidden"> · waiting {age(item.pendingSince)}</span>
+                        ) : null}
+                      </span>
+                    </span>
+                    <span className="num hidden shrink-0 text-xs text-muted sm:inline">
+                      {item.pendingSince ? `waiting ${age(item.pendingSince)}` : null}
+                    </span>
+                    <ChevronRight
+                      className="size-4 shrink-0 text-muted transition-transform duration-fast group-hover:translate-x-0.5"
+                      aria-hidden
+                    />
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+          {overflow > 0 ? (
+            <p className="border-t border-border px-5 py-3 text-xs text-muted">
+              {overflow} more pending — open Violations, Meetings, Accounting or Vendors to review them.
+            </p>
+          ) : null}
+        </>
+      )}
     </Card>
   )
 }

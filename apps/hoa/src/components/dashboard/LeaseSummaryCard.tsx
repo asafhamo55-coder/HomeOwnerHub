@@ -1,90 +1,87 @@
 import Link from 'next/link'
-import { KeyRound, Users } from 'lucide-react'
-import { Badge, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { Card, CardContent, CardHeader, CardTitle, StatusPill, cn } from '@homeowner-portal/ui'
 import type { LeaseSummary } from '@/lib/dashboard/queries'
+import { FailedNote } from './BreakdownList'
 
-// Compact lease snapshot for the Monday-morning dashboard. Shows the
-// current leased % vs the cap %, plus a small "N on waitlist" badge
-// when the queue has anyone in it. Click-through opens /leases.
+// Compact lease snapshot: leased % against the cap, headroom and the
+// waitlist. Click-through opens /leases.
 export function LeaseSummaryCard({ summary }: { summary: LeaseSummary }) {
-  if (!summary.hasAssociation) return null
+  if (!summary.hasAssociation && !summary.failed) return null
 
-  const capLabel = summary.capPct === null ? '—' : `${Math.round(summary.capPct)}%`
-  const leasedLabel = `${Math.round(summary.leasedPct)}%`
-  const meta =
-    summary.totalUnits === 0
-      ? 'No units on file yet'
-      : `${summary.leasedCount} of ${summary.totalUnits} leased${
-          summary.capPct === null ? ' · no cap set' : ` · cap ${capLabel}`
-        }`
-
-  // How full is the lease window? Width is clamped 0–100; tone shifts
-  // amber at 80% and red at 100% so a board sees "we're near the cap"
-  // without reading numbers.
+  const capLabel = summary.capPct === null ? null : `${Math.round(summary.capPct)}%`
   const capPctNum = summary.capPct ?? 0
-  const fillRatio =
-    capPctNum > 0 ? Math.min(1, summary.leasedPct / capPctNum) : 0
-  const fillPct = `${Math.round(fillRatio * 100)}%`
-  const barTone =
-    fillRatio >= 1
-      ? 'bg-destructive'
-      : fillRatio >= 0.8
-        ? 'bg-amber-500'
-        : 'bg-primary'
+  const fillRatio = capPctNum > 0 ? Math.min(1, summary.leasedPct / capPctNum) : 0
+  const fillPct = Math.round(fillRatio * 100)
+  // State in words as well as colour: the pill says "At cap" / "Near cap".
+  const capState =
+    summary.capPct === null || summary.totalUnits === 0
+      ? null
+      : fillRatio >= 1
+        ? ({ tone: 'danger', label: 'At cap', bar: 'bg-danger-solid' } as const)
+        : fillRatio >= 0.8
+          ? ({ tone: 'warning', label: 'Near cap', bar: 'bg-warning-solid' } as const)
+          : ({ tone: 'success', label: 'Under cap', bar: 'bg-primary' } as const)
 
   return (
-    <Link href="/leases" className="block group h-full">
-      <Card variant="interactive" className="h-full">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 p-5 pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <KeyRound className="h-4 w-4 text-muted" aria-hidden />
-            Leases
-          </CardTitle>
-          {summary.waitingListCount > 0 ? (
-            <Badge variant="warning" size="sm">
-              <Users className="mr-1 h-3 w-3" />
-              {summary.waitingListCount} on waitlist
-            </Badge>
-          ) : null}
-        </CardHeader>
-        <CardContent className="space-y-3 p-5 pt-2">
-          <div className="flex items-baseline gap-2">
-            <p className="text-3xl font-semibold tabular-nums text-foreground">
-              {leasedLabel}
+    <Card>
+      <CardHeader
+        className="pb-3"
+        actions={capState && !summary.failed ? <StatusPill tone={capState.tone} label={capState.label} /> : null}
+      >
+        <CardTitle as="h2">
+          <Link href="/leases" className="hover:underline">
+            Leasing
+          </Link>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {summary.failed ? (
+          <FailedNote what="lease figures" />
+        ) : summary.totalUnits === 0 ? (
+          <p className="text-sm text-muted">No units on file yet.</p>
+        ) : (
+          <>
+            <p className="flex items-baseline gap-2">
+              <span className="num text-2xl font-semibold text-foreground">
+                {Math.round(summary.leasedPct)}%
+              </span>
+              <span className="text-sm text-muted">
+                leased{capLabel ? ` · cap ${capLabel}${summary.capIsMixed ? ' (strictest)' : ''}` : ' · no cap set'}
+              </span>
             </p>
-            <p className="text-sm text-muted">
-              currently leased{summary.capPct === null ? '' : ` · cap ${capLabel}`}
-            </p>
-          </div>
-
-          {summary.capPct !== null && summary.totalUnits > 0 ? (
-            <div
-              className="h-2 w-full overflow-hidden rounded-full bg-muted/20"
-              role="progressbar"
-              aria-valuenow={Math.round(fillRatio * 100)}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label={`Leased capacity used: ${fillPct} of cap`}
-            >
+            {capState ? (
               <div
-                className={`h-full rounded-full transition-all ${barTone}`}
-                style={{ width: fillPct }}
-              />
-            </div>
-          ) : null}
-
-          <p className="text-xs text-muted">{meta}</p>
-          {summary.headroom !== null && summary.totalUnits > 0 ? (
-            <p className="text-xs text-muted">
-              {summary.headroom === 0
-                ? 'At cap — no more leases allowed'
-                : `${summary.headroom} ${
-                    summary.headroom === 1 ? 'unit' : 'units'
-                  } left under cap`}
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
-    </Link>
+                className="h-1.5 w-full overflow-hidden rounded-full bg-subtle"
+                role="progressbar"
+                aria-valuenow={fillPct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`Lease cap used: ${fillPct}%`}
+              >
+                <div className={cn('h-full rounded-full', capState.bar)} style={{ width: `${fillPct}%` }} />
+              </div>
+            ) : null}
+            <dl className="grid grid-cols-3 gap-2 text-sm">
+              <div>
+                <dt className="text-xs text-muted">Leased</dt>
+                <dd className="num font-medium text-foreground">
+                  {summary.leasedCount} / {summary.totalUnits}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted">Headroom</dt>
+                <dd className="num font-medium text-foreground">
+                  {summary.headroom === null ? '—' : summary.headroom}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted">Waitlist</dt>
+                <dd className="num font-medium text-foreground">{summary.waitingListCount}</dd>
+              </div>
+            </dl>
+          </>
+        )}
+      </CardContent>
+    </Card>
   )
 }
