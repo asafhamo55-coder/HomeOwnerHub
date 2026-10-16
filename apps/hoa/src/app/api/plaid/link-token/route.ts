@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 import { Products, CountryCode } from 'plaid'
-import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
+import { ACCOUNTING_DENIED } from '@/lib/accounting/guard'
+import { withRoute } from '@/lib/api/handler'
+import { ApiRouteError } from '@/lib/api/errors'
+import { requireRouteBoardOrAdmin } from '@/lib/api/auth'
+import { logRouteFailure } from '@/lib/api/log'
 import { getPlaidClient } from '@/lib/plaid'
-import { getPrimaryAssociation } from '@/lib/vendors'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 /**
  * POST /api/plaid/link-token
@@ -11,41 +15,58 @@ import { getPrimaryAssociation } from '@/lib/vendors'
  * client_user_id is the association id so Plaid's dashboard view groups
  * link sessions by HOA.
  *
- * No body required.
+ * Board-only (accounting). No body. Success: `{ linkToken, expiration }`
+ * (expiration is Plaid's ISO 8601 timestamp).
  */
-export async function POST() {
+export const POST = withRoute('plaid.link-token', async () => {
+  // Auth and role before anything else, so a resident never learns
+  // whether Plaid is configured (RC-3).
+  const { orgId } = await requireRouteBoardOrAdmin(ACCOUNTING_DENIED)
+
   const client = getPlaidClient()
   if (!client) {
-    return NextResponse.json(
-      { error: 'plaid_not_configured', message: 'Set PLAID_CLIENT_ID and PLAID_SECRET to enable bank linking.' },
-      { status: 503 },
-    )
+    throw new ApiRouteError('not_configured', 'Bank linking is not set up yet. Ask support to enable Plaid.')
   }
 
-  const gate = await requireBoardOrAdminForAction()
-  if (!gate.ok) return NextResponse.json({ error: 'forbidden', message: gate.error }, { status: 403 })
-
-  const assoc = await getPrimaryAssociation()
+  // The org's primary association, scoped to the gate's org id. A failed
+  // read is a 500, not "no association".
+  const supabase = await getSupabaseServerClient()
+  const { data: assoc, error: assocError } = await supabase
+    .from('associations' as never)
+    .select('id')
+    .eq('organization_id', orgId)
+    .order('name', { ascending: true })
+    .limit(1)
+    .maybeSingle<{ id: string }>()
+  if (assocError) {
+    logRouteFailure('plaid.link-token.association', assocError, { orgId })
+    throw new ApiRouteError('internal')
+  }
   if (!assoc) {
-    return NextResponse.json({ error: 'no_association' }, { status: 400 })
+    throw new ApiRouteError('not_found', 'This organization has no association to link a bank account to.', {
+      reason: 'no_association',
+    })
   }
 
+  let resp
   try {
-    const resp = await client.linkTokenCreate({
+    resp = await client.linkTokenCreate({
       user: { client_user_id: assoc.id },
       client_name: 'HomeownerHub',
       products: [Products.Transactions],
       country_codes: [CountryCode.Us],
       language: 'en',
     })
-    return NextResponse.json({ link_token: resp.data.link_token, expiration: resp.data.expiration })
   } catch (err) {
-    return NextResponse.json(
-      {
-        error: 'plaid_link_token_failed',
-        message: err instanceof Error ? err.message : String(err),
-      },
-      { status: 500 },
-    )
+    // Plaid's error_code (e.g. INVALID_API_KEYS) is a stable code, safe to
+    // log; its message and response body are not (RC-2).
+    const plaidCode = (err as { response?: { data?: { error_code?: unknown } } })?.response?.data?.error_code
+    logRouteFailure('plaid.link-token.create', err, {
+      orgId,
+      plaidErrorCode: typeof plaidCode === 'string' ? plaidCode : null,
+    })
+    throw new ApiRouteError('upstream_unavailable', 'Plaid is not reachable right now. Try again shortly.')
   }
-}
+
+  return NextResponse.json({ linkToken: resp.data.link_token, expiration: resp.data.expiration })
+})

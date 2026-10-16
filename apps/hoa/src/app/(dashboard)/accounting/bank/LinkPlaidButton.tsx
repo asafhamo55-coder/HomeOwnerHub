@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { usePlaidLink, type PlaidLinkOnSuccessMetadata, type PlaidLinkOptions } from 'react-plaid-link'
 import { Link2 } from 'lucide-react'
 import { Alert, Button, Dialog, DialogContent, DialogTrigger, Field, Select, useToast } from '@homeowner-portal/ui'
+import { responseErrorMessage } from '@/lib/api/client'
 
 interface FundOption {
   id: string
@@ -21,8 +22,8 @@ interface FundOption {
  * rest of the page inert (pointer-events: none on body), which would
  * swallow every click inside Plaid's iframe.
  *
- * A 503 from /api/plaid/link-token (PLAID_* env not set) is surfaced as
- * the route's own message.
+ * A failure from /api/plaid/link-token (e.g. 503 not_configured) is surfaced as
+ * the envelope's message via responseErrorMessage.
  */
 export function LinkPlaidButton({
   funds,
@@ -85,13 +86,17 @@ export function LinkPlaidButton({
     setBusy(true)
     try {
       const res = await fetch('/api/plaid/link-token', { method: 'POST' })
-      const body = await res.json().catch(() => null)
-      if (!res.ok || !body?.link_token) {
-        setError(body?.message ?? body?.error ?? `Couldn’t start Plaid (${res.status}).`)
+      if (!res.ok) {
+        setError(await responseErrorMessage(res, `Couldn’t start Plaid (${res.status}).`))
+        return
+      }
+      const body = (await res.json().catch(() => null)) as { linkToken?: unknown } | null
+      if (typeof body?.linkToken !== 'string' || !body.linkToken) {
+        setError('Couldn’t start Plaid. Try again in a moment.')
         return
       }
       setOpen(false)
-      setLinkToken(body.link_token)
+      setLinkToken(body.linkToken)
     } catch {
       setError('Couldn’t reach the server. Check your connection and try again.')
     } finally {
