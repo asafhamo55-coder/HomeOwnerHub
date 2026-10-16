@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Sparkles, X } from 'lucide-react'
 import { Button } from '@homeowner-portal/ui'
+import { responseErrorMessage } from '@/lib/api/client'
 
 interface Variant {
   label: string
@@ -111,10 +112,10 @@ export function AiRewriteButton(props: AiRewriteButtonProps) {
         body: JSON.stringify({ text: current, context }),
       })
       if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { message?: string }
-        throw new Error(data.message ?? `Rewrite failed (${res.status}).`)
+        throw new Error(await responseErrorMessage(res, `Rewrite failed (${res.status}).`))
       }
-      const data = (await res.json()) as { variants: Variant[] }
+      const data = (await res.json().catch(() => null)) as { variants?: Variant[] } | null
+      if (!data || !Array.isArray(data.variants)) throw new Error('Rewrite failed. Try again.')
       setVariants(data.variants)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Rewrite failed.')

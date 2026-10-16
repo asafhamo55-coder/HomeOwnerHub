@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { runMain } from '@homeowner-portal/ai'
-import { getCurrentOrg } from '@/lib/orgs'
+import { withRoute } from '@/lib/api/handler'
+import { ApiRouteError } from '@/lib/api/errors'
+import { requireRouteMember } from '@/lib/api/auth'
+import { parseJson } from '@/lib/api/parse'
+import { zText } from '@/lib/api/schemas'
+import { MAX_SHORT_TEXT } from '@/lib/api/limits'
+import { logRouteFailure } from '@/lib/api/log'
 
 // POST /api/ai/rewrite
 // Takes a chunk of user-authored text (subject, body, notes, …) and
@@ -11,11 +17,21 @@ import { getCurrentOrg } from '@/lib/orgs'
 //
 // Input  : { text: string, context?: string }
 // Output : { variants: [{ label, text }, { label, text }, { label, text }] }
+// Errors : the RC-1 envelope — 401 unauthenticated, 403 forbidden (no_org),
+//          400 invalid_json / validation_failed, 413 payload_too_large,
+//          503 upstream_unavailable (provider down or unusable reply).
+//
+// Gate: requireRouteMember, NOT the board gate. AiRewriteButton is rendered on
+// board pages under app/(dashboard) AND on four resident pages
+// (resident/arc/new, resident/ask, resident/report-violation,
+// resident/tickets/new), so this is a mixed surface (RC-4). Residents may call
+// it because it only rewrites the caller's own submitted text: it reads no
+// rows and returns no other resident's data.
 
 const Schema = z.object({
-  text: z.string().min(1).max(8000),
+  text: zText(8000, 1),
   /** Free-text hint about what the text is for ("HOA dues reminder", "violation letter"). Improves tone matching. */
-  context: z.string().max(500).optional(),
+  context: zText(MAX_SHORT_TEXT).optional(),
 })
 
 const VARIANT_SPECS = [
@@ -94,47 +110,25 @@ function parseModelJson(raw: string): ModelResponse {
   return {}
 }
 
-export async function POST(request: Request): Promise<Response> {
-  const org = await getCurrentOrg()
-  if (!org) {
-    return NextResponse.json({ error: 'no_org' }, { status: 403 })
-  }
-
-  let body: unknown
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'invalid_json' }, { status: 400 })
-  }
-
-  const parsed = Schema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'invalid_input', issues: parsed.error.issues },
-      { status: 400 },
-    )
-  }
+export const POST = withRoute('ai.rewrite', async (request) => {
+  // Residents included on purpose — see the header comment (mixed surface).
+  const { orgId } = await requireRouteMember()
+  const body = await parseJson(request, Schema)
 
   let raw: string
   try {
     raw = await runMain(
       [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userPrompt(parsed.data.text, parsed.data.context) },
+        { role: 'user', content: userPrompt(body.text, body.context) },
       ],
       { temperature: 0.4, max_tokens: 2000 },
     )
   } catch (err) {
-    console.error('[rewrite] model call failed', err)
-    return NextResponse.json(
-      {
-        error: 'ai_unavailable',
-        message:
-          err instanceof Error
-            ? err.message
-            : 'The AI service is not reachable right now.',
-      },
-      { status: 503 },
+    logRouteFailure('ai.rewrite.model', err, { orgId })
+    throw new ApiRouteError(
+      'upstream_unavailable',
+      'The AI rewrite service is not reachable right now. Try again shortly.',
     )
   }
 
@@ -149,11 +143,11 @@ export async function POST(request: Request): Promise<Response> {
     : []
 
   if (variants.length === 0) {
-    return NextResponse.json(
-      { error: 'empty_response', message: 'The AI returned no usable variants. Try again.' },
-      { status: 502 },
-    )
+    logRouteFailure('ai.rewrite.empty_reply', null, { orgId })
+    throw new ApiRouteError('upstream_unavailable', 'The AI returned no usable variants. Try again.', {
+      reason: 'empty_response',
+    })
   }
 
   return NextResponse.json({ variants })
-}
+})
