@@ -125,6 +125,27 @@ function listenedEventNames(): string[] {
   return [...new Set(names)].sort()
 }
 
+/**
+ * A job may be exported as a factory (`createDailyDigestJob(deps)`) so the
+ * app can inject app-only dependencies (e.g. the guarded sendEmail). The
+ * factory counts as registered only when route.ts binds its result
+ * (`const x = createFooJob(...)`) AND `x` is in the serve() array — calling
+ * the factory without registering the result is still a miss.
+ */
+function factoryBindingsIn(routeSrc: string): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const m of stripComments(routeSrc).matchAll(/const\s+(\w+)\s*=\s*(create\w+Job)\s*\(/g)) {
+    out.set(m[2], m[1])
+  }
+  return out
+}
+
+function isRegistered(job: string, registered: string[], bindings: Map<string, string>): boolean {
+  if (registered.includes(job)) return true
+  const bound = bindings.get(job)
+  return bound !== undefined && registered.includes(bound)
+}
+
 describe('inngest wiring contract', () => {
   it('finds every job export, including multi-symbol export lines', () => {
     const exported = exportedJobNames()
@@ -142,7 +163,8 @@ describe('inngest wiring contract', () => {
     const exported = exportedJobNames()
     const registered = registeredJobNames()
     expect(exported.length).toBeGreaterThan(0)
-    const unregistered = exported.filter((j) => !registered.includes(j))
+    const bindings = factoryBindingsIn(read('apps/hoa/src/app/api/inngest/route.ts'))
+    const unregistered = exported.filter((j) => !isRegistered(j, registered, bindings))
     expect(
       unregistered,
       `exported but never registered — their crons do not exist on the platform: ${unregistered.join(', ')}`,
@@ -156,6 +178,17 @@ describe('inngest wiring contract', () => {
       plaidSyncJob,
     `
     expect(registeredJobNamesIn(fixture)).toEqual(['dailyDigestJob', 'plaidSyncJob'])
+  })
+
+  it('counts a factory job only when its bound result is registered', () => {
+    const route = `
+      const dailyDigestJob = createDailyDigestJob({ sendEmail, appUrl })
+      const orphan = createOrphanJob({})
+    `
+    const bindings = factoryBindingsIn(route)
+    expect(isRegistered('createDailyDigestJob', ['dailyDigestJob'], bindings)).toBe(true)
+    expect(isRegistered('createOrphanJob', ['dailyDigestJob'], bindings)).toBe(false)
+    expect(isRegistered('createMissingJob', ['dailyDigestJob'], bindings)).toBe(false)
   })
 
   it('every sent event has a registered listener', () => {
