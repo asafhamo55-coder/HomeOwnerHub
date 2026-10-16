@@ -80,6 +80,23 @@ export async function seed_dashboard(db: SupabaseClient, ctx: SeedContext): Prom
     }
   }
 
+  // A connected mailbox mid-way through its history import, so /inbox
+  // renders the BL-005 progress banner ("Importing history — N of ~M") and
+  // the dashboard checklist has a done step. Reserved-TLD address; no token
+  // is stored, so nothing can ever sync from it.
+  await findOrCreate(
+    db,
+    'mailbox_accounts',
+    { organization_id: org, email_address: 'board@ui-shots.example.test' },
+    {
+      scope_mode: 'all',
+      sync_status: 'ok',
+      last_synced_at: iso(now - 3 * 60_000),
+      backfill_status: 'running',
+      backfill_progress: { done: 1240, total_estimate: 5300 },
+    },
+  )
+
   console.log('seed dashboard: ok')
   return {}
 }

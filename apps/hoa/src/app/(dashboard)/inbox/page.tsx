@@ -12,15 +12,17 @@ import {
 } from '@/lib/inbox/queries'
 import { SplitPaneFrame, SplitPaneHeader, SplitPanePlaceholder } from '@/components/split-pane/SplitPane'
 import { ThreadList } from './ThreadList'
-import { INBOX_FILTERS, InboxFilterChips, MailboxSyncAlert, mailboxSummary } from './InboxChrome'
+import { BackfillAlert, INBOX_FILTERS, InboxFilterChips, MailboxSyncAlert, mailboxSummary } from './InboxChrome'
+import type { MailboxStatusRead } from '@/lib/inbox/backfill-banner'
 
 export const metadata = { title: 'Inbox' }
 export const dynamic = 'force-dynamic'
 
 // Split-pane list/detail layout, deliberately NOT wrapped in <Page> (a
 // fixed-width container would break its full-height panes). Load failures
-// are honest already: every lib/inbox/queries.ts read throws on error, which
-// lands on (dashboard)/error.tsx rather than an empty inbox.
+// are honest already: the count and list reads throw on error, which lands
+// on (dashboard)/error.tsx rather than an empty inbox. The mailbox status
+// read is the exception — it is caught and shown as its own warning.
 export default async function InboxPage({
   searchParams,
 }: {
@@ -47,10 +49,24 @@ export default async function InboxPage({
   // never disagree the way they used to (list capped at 50, count
   // unbounded). Fetched alongside status; threads are fetched after,
   // once we know how many pages this filter actually has.
-  const [status, counts] = await Promise.all([
-    getMailboxStatus(supabase, org.id),
+  //
+  // The status read is caught on its own (BL-005): a failed read must not
+  // take the whole inbox down, and it must not read as "No mailbox
+  // connected" or as "import complete" either. It gets its own banner.
+  const [statusRead, counts] = await Promise.all([
+    getMailboxStatus(supabase, org.id).then(
+      (status): MailboxStatusRead | null => (status ? { kind: 'loaded', status } : null),
+      (err: unknown): MailboxStatusRead => {
+        console.error('InboxPage: getMailboxStatus failed', {
+          orgId: org.id,
+          message: err instanceof Error ? err.message : String(err),
+        })
+        return { kind: 'failed' }
+      },
+    ),
     countThreadsByStatus(supabase, org.id),
   ])
+  const status = statusRead?.kind === 'loaded' ? statusRead.status : null
 
   const total = counts[filter] ?? 0
   const totalPages = Math.max(1, Math.ceil(total / INBOX_PAGE_SIZE))
@@ -63,7 +79,7 @@ export default async function InboxPage({
 
   const threads = await listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset)
 
-  if (!status) {
+  if (statusRead === null) {
     return (
       <Page title="Inbox" width="narrow" description="Resident email, matched to the homes it is about.">
         <EmptyState
@@ -94,7 +110,7 @@ export default async function InboxPage({
       <SplitPaneHeader>
         <PageHeader
           title="Inbox"
-          description={mailboxSummary(status)}
+          description={status ? mailboxSummary(status) : 'Mailbox status unavailable'}
           actions={
             <Button asChild>
               <Link href="/inbox/compose">
@@ -107,7 +123,10 @@ export default async function InboxPage({
         <InboxFilterChips filter={filter} counts={counts} />
       </SplitPaneHeader>
 
-      <MailboxSyncAlert status={status} canManageMailbox={canManageMailbox} className="m-3 shrink-0 sm:mx-6" />
+      {status ? (
+        <MailboxSyncAlert status={status} canManageMailbox={canManageMailbox} className="m-3 shrink-0 sm:mx-6" />
+      ) : null}
+      <BackfillAlert read={statusRead} canManageMailbox={canManageMailbox} className="m-3 shrink-0 sm:mx-6" />
 
       <div className="flex min-h-0 flex-1">
         <aside
