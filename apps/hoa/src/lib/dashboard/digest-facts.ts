@@ -112,7 +112,8 @@ export function isBaselineRow(capturedOn: string, today: string): boolean {
 // ─── Snapshot IO ─────────────────────────────────────────────────────
 
 function logDbError(fn: string, error: PostgrestError): void {
-  console.error(`${fn} failed`, { code: error.code, message: error.message })
+  // Code only: a Postgres message embeds the offending value (RC-2).
+  console.error(`${fn} failed`, { code: error.code })
 }
 
 
@@ -157,22 +158,23 @@ export async function readBaseline(
 }
 
 /**
- * One row per org per day, first write wins. A failure is logged and
- * swallowed — telemetry must never block the page.
+ * One row per org per day, first write wins. Returns the write's error for
+ * the caller to check (the daily-digest route passes it to `checkWrite`,
+ * RC-6) rather than swallowing it here.
  */
 export async function writeSnapshot(
   db: Db,
   orgId: string,
   today: string,
   counts: DigestCounts,
-): Promise<void> {
+): Promise<{ error: PostgrestError | null }> {
   const { error } = await db
     .from('dashboard_daily_snapshots')
     .upsert(
       { organization_id: orgId, captured_on: today, counts },
       { onConflict: 'organization_id,captured_on', ignoreDuplicates: true },
     )
-  if (error) logDbError('writeSnapshot', error)
+  return { error }
 }
 
 /**

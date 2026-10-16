@@ -10,16 +10,24 @@ vi.mock('@/lib/accounting/guard', () => ({
   requireBoardOrAdminForAction: vi.fn(async () => ({ ok: true, role: 'board', orgId: 'org-1' })),
 }))
 
+// Per-table upsert failures, so a test can force a write error with a
+// message that must never reach the response or a log line.
+const db = vi.hoisted(() => ({
+  upsertError: {} as Record<string, { code: string; message: string } | undefined>,
+  user: { id: 'user-1' } as { id: string } | null,
+}))
+
 vi.mock('@/lib/supabase/server', () => ({
   getSupabaseServerClient: vi.fn(async () => ({
-    from: vi.fn(() => ({
+    auth: { getUser: vi.fn(async () => ({ data: { user: db.user } })) },
+    from: vi.fn((table: string) => ({
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       lt: vi.fn().mockReturnThis(),
       order: vi.fn().mockReturnThis(),
       limit: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn(async () => ({ data: null, error: null })),
-      upsert: vi.fn(async () => ({ error: null })),
+      upsert: vi.fn(async () => ({ error: db.upsertError[table] ?? null })),
     })),
   })),
 }))
@@ -98,6 +106,122 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 /** The AI half is not under test in the suggestion cases; keep it quiet. */
 beforeEach(() => {
   vi.mocked(generateBoardInsights).mockResolvedValue('[]')
+  vi.mocked(generateDigestSuggestion).mockClear()
+  db.upsertError = {}
+  db.user = { id: 'user-1' }
+})
+
+const req = () => new Request('http://x/api/ai/daily-digest', { method: 'POST' })
+
+/** Everything the route logged, flattened, for "no raw text" assertions. */
+function logged(spy: { mock: { calls: unknown[][] } }): string {
+  return JSON.stringify(spy.mock.calls)
+}
+
+describe('POST /api/ai/daily-digest conventions (RC-1, RC-2, RC-6, RC-10)', () => {
+  it('answers a resident with the 403 envelope', async () => {
+    vi.mocked(requireBoardOrAdminForAction).mockResolvedValueOnce({
+      ok: false,
+      error: 'Only board members and admins can make this change.',
+    })
+
+    const response = await POST(req())
+
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({
+      error: { code: 'forbidden', message: 'Only board members and admins can make this change.' },
+    })
+  })
+
+  it('answers a signed-in caller with no HOA org with 403 forbidden / no_org', async () => {
+    vi.mocked(requireBoardOrAdminForAction).mockResolvedValueOnce({
+      ok: false,
+      error: 'You are not signed in to an organization.',
+    })
+
+    const response = await POST(req())
+
+    expect(response.status).toBe(403)
+    const body = await response.json()
+    expect(body.error.code).toBe('forbidden')
+    expect(body.error.reason).toBe('no_org')
+  })
+
+  it('answers a signed-out caller with 401 unauthenticated', async () => {
+    vi.mocked(requireBoardOrAdminForAction).mockResolvedValueOnce({
+      ok: false,
+      error: 'You are not signed in to an organization.',
+    })
+    db.user = null
+
+    const response = await POST(req())
+
+    expect(response.status).toBe(401)
+    expect((await response.json()).error.code).toBe('unauthenticated')
+  })
+
+  it('turns a thrown dashboard query into the generic JSON 500, not a framework error', async () => {
+    const { getApprovalsInbox } = await import('@/lib/dashboard/queries')
+    vi.mocked(getApprovalsInbox).mockRejectedValueOnce(
+      new Error('relation "approvals" does not exist at row 7'),
+    )
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const response = await POST(req())
+
+    expect(response.status).toBe(500)
+    const body = await response.json()
+    expect(body).toEqual({
+      error: { code: 'internal', message: 'Something went wrong on our side. Try again in a moment.' },
+    })
+    expect(logged(spy)).not.toContain('does not exist')
+    spy.mockRestore()
+  })
+
+  it('fails with the generic 500 when the digest upsert fails, and never logs its message', async () => {
+    vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
+    db.upsertError.hoa_digests = { code: '42501', message: 'new row violates policy for jane@x.test' }
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const response = await POST(req())
+
+    expect(response.status).toBe(500)
+    const text = await response.text()
+    expect(text).not.toContain('violates')
+    expect(JSON.parse(text).error.code).toBe('internal')
+    expect(logged(spy)).not.toContain('jane@x.test')
+    expect(logged(spy)).toContain('42501')
+    spy.mockRestore()
+  })
+
+  it('fails with the generic 500 when the snapshot write fails, and never logs its message', async () => {
+    db.upsertError.dashboard_daily_snapshots = {
+      code: '23514',
+      message: 'check constraint violated by value 4200',
+    }
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const response = await POST(req())
+
+    expect(response.status).toBe(500)
+    const text = await response.text()
+    expect(text).not.toContain('constraint')
+    expect(JSON.parse(text).error.code).toBe('internal')
+    expect(logged(spy)).not.toContain('violated by value')
+    // Failing before the model calls means a broken DB does not also bill
+    // two model requests.
+    expect(generateDigestSuggestion).not.toHaveBeenCalled()
+    spy.mockRestore()
+  })
+
+  it('a success body carries no error key', async () => {
+    vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
+
+    const body = await (await POST(req())).json()
+
+    expect(body).not.toHaveProperty('error')
+    expect(Object.keys(body).sort()).toEqual(['bullets', 'generatedAt', 'insights', 'suggestion'])
+  })
 })
 
 describe('POST /api/ai/daily-digest', () => {
@@ -108,7 +232,7 @@ describe('POST /api/ai/daily-digest', () => {
     })
     vi.mocked(getSupabaseServerClient).mockClear()
 
-    const response = await POST()
+    const response = await POST(req())
 
     expect(response.status).toBe(403)
     expect(getSupabaseServerClient).not.toHaveBeenCalled()
@@ -121,7 +245,7 @@ describe('POST /api/ai/daily-digest', () => {
     // it needs to render.
     vi.mocked(generateDigestSuggestion).mockRejectedValueOnce(new Error('model down'))
 
-    const response = await POST()
+    const response = await POST(req())
 
     expect(response.status).toBe(200)
     const body = await response.json()
@@ -132,7 +256,7 @@ describe('POST /api/ai/daily-digest', () => {
   it('returns 200 with a null suggestion when the AI returns something too long', async () => {
     vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('x'.repeat(500))
 
-    const response = await POST()
+    const response = await POST(req())
 
     expect(response.status).toBe(200)
     expect((await response.json()).suggestion).toBeNull()
@@ -141,7 +265,7 @@ describe('POST /api/ai/daily-digest', () => {
   it('returns the suggestion when the AI answers normally', async () => {
     vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
 
-    const response = await POST()
+    const response = await POST(req())
 
     expect(response.status).toBe(200)
     expect((await response.json()).suggestion).toBe('Start with the pond thread')
@@ -150,7 +274,7 @@ describe('POST /api/ai/daily-digest', () => {
   it('reports the long-waiting thread count in the bullets', async () => {
     vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
 
-    const response = await POST()
+    const response = await POST(req())
 
     const body = await response.json()
     expect(body.bullets).toContain('1 has now waited over 3 days')
@@ -175,7 +299,7 @@ describe('POST /api/ai/daily-digest board insights', () => {
       ]),
     )
 
-    const body = await (await POST()).json()
+    const body = await (await POST(req())).json()
 
     const insight = body.insights.find((i: { kind: string }) => i.kind === 'dues_overdue')
     expect(insight.headline).toContain('22')
@@ -190,7 +314,7 @@ describe('POST /api/ai/daily-digest board insights', () => {
     vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
     vi.mocked(generateBoardInsights).mockResolvedValueOnce('[]')
 
-    await POST()
+    await POST(req())
 
     const sent = vi.mocked(generateBoardInsights).mock.calls.at(-1)![0].signals
     expect(sent.length).toBeGreaterThan(0)
@@ -250,7 +374,7 @@ describe('POST /api/ai/daily-digest board insights', () => {
     vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('All quiet')
     vi.mocked(generateBoardInsights).mockClear()
 
-    const body = await (await POST()).json()
+    const body = await (await POST(req())).json()
 
     expect(body.insights).toEqual([])
     expect(generateBoardInsights).not.toHaveBeenCalled()
@@ -260,7 +384,7 @@ describe('POST /api/ai/daily-digest board insights', () => {
     vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
     vi.mocked(generateBoardInsights).mockRejectedValueOnce(new Error('model down'))
 
-    const response = await POST()
+    const response = await POST(req())
 
     expect(response.status).toBe(200)
     const body = await response.json()
@@ -274,7 +398,7 @@ describe('POST /api/ai/daily-digest board insights', () => {
     vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
     vi.mocked(generateBoardInsights).mockResolvedValueOnce('[]')
 
-    const body = await (await POST()).json()
+    const body = await (await POST(req())).json()
 
     expect(body.insights.length).toBeLessThanOrEqual(4)
   })
@@ -285,7 +409,7 @@ describe('POST /api/ai/daily-digest board insights', () => {
       JSON.stringify([{ kind: 'reserve_study_overdue', why: 'Invented out of thin air.' }]),
     )
 
-    const body = await (await POST()).json()
+    const body = await (await POST(req())).json()
 
     expect(
       body.insights.some((i: { kind: string }) => i.kind === 'reserve_study_overdue'),
@@ -303,7 +427,7 @@ describe('POST /api/ai/daily-digest insight safety', () => {
       JSON.stringify([{ kind: 'waiting_list', why: 'Owners are queued behind the cap.' }]),
     )
 
-    const body = await (await POST()).json()
+    const body = await (await POST(req())).json()
 
     const kinds = body.insights.map((i: { kind: string }) => i.kind)
     expect(kinds).toContain('dues_overdue')
@@ -320,7 +444,7 @@ describe('POST /api/ai/daily-digest insight safety', () => {
       ]),
     )
 
-    const body = await (await POST()).json()
+    const body = await (await POST(req())).json()
 
     expect(body.insights[0].severity).toBe('red')
   })
@@ -333,7 +457,7 @@ describe('POST /api/ai/daily-digest insight safety', () => {
       JSON.stringify([{ kind: 'dues_overdue', why: 'x'.repeat(500) }]),
     )
 
-    const body = await (await POST()).json()
+    const body = await (await POST(req())).json()
 
     expect(body.insights.length).toBe(4)
     expect(body.insights[0].severity).toBe('red')
@@ -343,7 +467,7 @@ describe('POST /api/ai/daily-digest insight safety', () => {
     vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
     vi.mocked(generateBoardInsights).mockResolvedValueOnce('[]')
 
-    const body = await (await POST()).json()
+    const body = await (await POST(req())).json()
 
     const dues = body.insights.find((i: { kind: string }) => i.kind === 'dues_overdue')
     expect(dues.headline).toContain('22')
