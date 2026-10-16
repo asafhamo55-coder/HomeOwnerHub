@@ -82,3 +82,11 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **New items:** BL-052 (DB-enforced document visibility, security, M1), BL-053, BL-054.
 - **M1 batch** is now BL-020 + BL-050 + BL-052. It is built after 0063 is applied.
 - **Next:** M1 batch (once 0063 is in), BL-048 W3 one-click approve, BL-053.
+
+## 2026-10-16 (afternoon) â€” security deploy + route conventions
+
+- **Shipped to prod:** 0439e1e. All three apps report it on /api/health; the Vercel statuses for all three say "completed". This adds the signed, org-bound owner-portal impersonation fix (S-01) and the amended 0063 file, which Asaf has not applied yet.
+- **Merged, not deployed:** 0b05f1e. These are the route-handler conventions: the skill, the shared lib/api helpers, a JSON 401 for /api/*, and 21 of 29 routes brought into line. Every gate passes and CI is green. They ship in the next deploy.
+- **Not merged:** 8 route fixes the skeptic review rejected. They stay on claude/routes-fix/*-r2: ask-community, cron/recurring-events, health, plaid/exchange, rfp-bid submit, vendor-onboard submit, webhooks/resend, and webhooks/stripe (whose 0064 can drop a paying org to the free plan).
+- **Blocked:** the FL law refresh can't be triggered from here. INNGEST_EVENT_KEY is a sensitive Vercel variable that pulls empty, and the admin route needs a platform-admin session. Asaf needs to trigger it from his browser.
+- **Next:** 0063 apply (Asaf), deploy 0b05f1e, rework the 8 refuted routes, then the M1 migration batch.
