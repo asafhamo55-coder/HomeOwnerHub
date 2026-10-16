@@ -66,7 +66,6 @@ const ALLOWLIST: Record<string, Rule[]> = {
 
   'ai/suggest-fields/route.ts': ['with-route', 'api-error', 'raw-zod'],
 
-  'ai/violations/draft/route.ts': ['with-route', 'api-error', 'error-message', 'raw-zod'],
 
   'cron/recurring-events/route.ts': ['with-route', 'api-error', 'error-message', 'query-secret', 'secret-header'],
 

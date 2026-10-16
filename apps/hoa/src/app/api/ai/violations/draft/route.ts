@@ -2,88 +2,92 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { violationInspector } from '@homeowner-portal/workflows/W3'
 import { RequestedActionSchema, StatuteRuleRefusalError } from '@homeowner-portal/workflows/W3-state-rules'
-import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
+import { withRoute } from '@/lib/api/handler'
+import { ApiRouteError } from '@/lib/api/errors'
+import { requireOrgOwned, requireRouteBoardOrAdmin } from '@/lib/api/auth'
+import { parseJson } from '@/lib/api/parse'
+import { zText, zUuid } from '@/lib/api/schemas'
+import { logRouteFailure } from '@/lib/api/log'
 
 // POST /api/ai/violations/draft
 //
-// Wraps W3 (Violation Inspector). Caller submits unit_id +
-// violation_type + description + optional reporter_notes; receives the
-// drafted notice + citations + recommended severity/fine/cure-period.
+// Wraps W3 (Violation Inspector). Caller submits unitId + violationType +
+// description + optional reporterNotes; receives the drafted notice +
+// citations + recommended severity / fine (cents) / cure period.
 //
-// W3 itself persists to ai_runs with status='pending_human_approval'.
-// This endpoint just returns the output + runId; the wizard / board
-// approval queue UI consumes that.
+// W3 persists to ai_runs with status='pending_human_approval' on the
+// SERVICE-ROLE client and trusts its caller, so this route is the gate
+// (RC-4, R-01): board/admin only, and every client-supplied id is proven to
+// belong to the caller's org before W3 sees it (R-06, R-18).
 
+// Bounds mirror W3's ViolationInspectorInputSchema so a request the route
+// accepts is one the workflow accepts too.
 const DraftSchema = z.object({
-  unitId: z.string().uuid(),
-  violationType: z.string().min(2).max(120),
-  description: z.string().min(10).max(4000),
-  reporterNotes: z.string().max(2000).nullable().optional(),
-  associationId: z.string().uuid().nullable().optional(),
+  unitId: zUuid,
+  violationType: zText(120, 2),
+  description: zText(4000, 10),
+  reporterNotes: zText(2000).nullable().optional(),
+  associationId: zUuid.nullable().optional(),
   requestedAction: RequestedActionSchema.optional(),
 })
 
 export const maxDuration = 60
 
-export async function POST(request: Request): Promise<Response> {
-  // Board/admin only (R-01). Residents are org members, so the bare org
-  // check let any resident spend AI budget drafting violation notices
-  // (and persist ai_runs rows) against their own association.
-  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
-  if (!gate.ok) {
-    return NextResponse.json({ error: 'forbidden', message: gate.error }, { status: 403 })
-  }
-
-  let body: unknown
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'invalid_json' }, { status: 400 })
-  }
-  const parsed = DraftSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'invalid_input', issues: parsed.error.issues },
-      { status: 400 },
-    )
+export const POST = withRoute('ai.violations.draft', async (request) => {
+  const { orgId } = await requireRouteBoardOrAdmin()
+  const body = await parseJson(request, DraftSchema)
+  await requireOrgOwned('units', body.unitId, orgId, { message: 'We could not find that unit.' })
+  if (body.associationId) {
+    await requireOrgOwned('associations', body.associationId, orgId, {
+      message: 'We could not find that association.',
+    })
   }
 
   try {
-    const result = await violationInspector.execute(parsed.data, {
-      organizationId: gate.orgId,
-    })
-    return NextResponse.json({
-      runId: result.runId,
-      ...result.output,
-    })
+    const result = await violationInspector.execute(body, { organizationId: orgId })
+    return NextResponse.json({ runId: result.runId, ...result.output })
   } catch (err) {
     // BL-019: a step the association's state law forbids (e.g. a Florida
     // fine without a committee hearing). Not an outage — tell the board why.
+    // `reasons` is rule text from state-rules.ts, never DB or model text.
     const refusal = refusalOf(err)
     if (refusal) {
-      return NextResponse.json(
-        {
-          error: 'statute_refusal',
-          jurisdiction: refusal.jurisdiction,
-          reasons: refusal.reasons,
-        },
-        { status: 422 },
-      )
+      throw new ApiRouteError('unprocessable', 'State law does not allow this step yet.', {
+        reason: 'statute_refusal',
+        jurisdiction: refusal.jurisdiction,
+        reasons: refusal.reasons,
+      })
     }
-    console.error('[w3-draft] workflow failed', err)
-    return NextResponse.json(
-      {
-        error: 'ai_unavailable',
-        message: err instanceof Error ? err.message : 'unknown',
-      },
-      { status: 503 },
-    )
+    if (isProviderFailure(err)) {
+      logRouteFailure('ai.violations.draft', causeOf(err), { orgId, stage: 'provider' })
+      throw new ApiRouteError('upstream_unavailable', 'The AI drafting service is not reachable right now. Try again shortly.')
+    }
+    // Anything else (ai_runs insert, an association lookup) is ours: withRoute
+    // logs the code only, reports to Sentry and answers a generic 500.
+    throw err
   }
-}
+})
 
 /** defineWorkflow wraps run() errors; the original is kept as `cause`. */
+function causeOf(err: unknown): unknown {
+  return err instanceof Error && err.cause !== undefined ? err.cause : err
+}
+
 function refusalOf(err: unknown): StatuteRuleRefusalError | null {
   if (err instanceof StatuteRuleRefusalError) return err
-  if (err instanceof Error && err.cause instanceof StatuteRuleRefusalError) return err.cause
-  return null
+  const cause = causeOf(err)
+  return cause instanceof StatuteRuleRefusalError ? cause : null
+}
+
+/**
+ * The OpenAI-compatible SDK's errors (APIError and its subclasses, including
+ * connection / timeout errors) carry `status` and `headers` own properties.
+ * apps/hoa does not depend on `openai` directly, so this is duck-typed.
+ * W3 coerces an unusable model reply into defaults rather than throwing, so
+ * an output-schema miss would be our bug and stays a 500.
+ */
+function isProviderFailure(err: unknown): boolean {
+  const cause = causeOf(err)
+  if (!(cause instanceof Error)) return false
+  return 'status' in cause && 'headers' in cause
 }
