@@ -78,7 +78,6 @@ const ALLOWLIST: Record<string, Rule[]> = {
 
   'oauth/google/callback/route.ts': ['with-route', 'error-message'],
 
-  'oauth/google/start/route.ts': ['with-route', 'error-message'],
 
   'plaid/exchange/route.ts': ['with-route', 'api-error', 'error-message', 'raw-zod'],
 

@@ -1,18 +1,34 @@
 import { NextResponse } from 'next/server'
+import { withRoute } from '@/lib/api/handler'
+import { logRouteFailure } from '@/lib/api/log'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sanitizeReturnTo, startConnect } from '@/lib/inbox/connect'
+import { connectErrorRedirect } from '@/lib/inbox/connect-errors'
 
-export async function GET(request: Request): Promise<Response> {
-  const org = await getCurrentOrg()
-  if (!org) return NextResponse.redirect(new URL('/onboarding', request.url))
+// A browser-navigation route (the "Connect Gmail" link), not a fetch
+// endpoint, so every expected outcome is a redirect rather than the JSON
+// envelope: signed out → /login, no org → /onboarding, refused or failed →
+// back to `returnTo` with `?error=<code>` (RC-1's redirect-route rule; the
+// page maps the code to words via lib/inbox/connect-errors). Middleware
+// excludes /api/oauth/*, so this route does its own auth. Only a genuinely
+// unexpected throw (e.g. the org lookup failing) falls through to
+// withRoute's generic JSON 500.
 
+/** Env startConnect needs. Checked up front so a missing one is `not_configured`, not `internal`. */
+const REQUIRED_ENV = ['MAILBOX_TOKEN_KEY', 'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_REDIRECT_URI'] as const
+
+export const GET = withRoute('oauth.google.start', async (request: Request) => {
+  // Auth first (RC-3).
   const supabase = await getSupabaseServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.redirect(new URL('/login', request.url))
+
+  const org = await getCurrentOrg()
+  if (!org) return NextResponse.redirect(new URL('/onboarding', request.url))
 
   // `returnTo` is attacker-controllable query input (a board member can
   // be sent a crafted link and will complete a genuine Google consent
@@ -35,24 +51,27 @@ export async function GET(request: Request): Promise<Response> {
   // closes a silent dead end: every failure path here and in the callback
   // redirects to settings/mailbox, which requireAdmin() would bounce to '/'
   // with no message, so a board member's refusal was invisible to them.
+  //
+  // Not requireRouteBoardOrAdmin: that gate is board-or-admin and throws a
+  // JSON 403, and this route needs admin-only and a redirect.
   const role = await getCurrentUserRoleInOrg(org.id)
   if (role !== 'admin') {
-    return NextResponse.redirect(
-      new URL(
-        `${returnTo}?error=${encodeURIComponent(
-          'Only an HOA admin can connect a mailbox for this organization.',
-        )}`,
-        request.url,
-      ),
-    )
+    return NextResponse.redirect(connectErrorRedirect(returnTo, 'forbidden', request.url))
   }
 
-  try {
-    return NextResponse.redirect(startConnect(org.id, user.id, returnTo))
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Could not start connection.'
-    return NextResponse.redirect(
-      new URL(`${returnTo}?error=${encodeURIComponent(message)}`, request.url),
-    )
+  const missing = REQUIRED_ENV.filter((name) => !process.env[name])
+  if (missing.length > 0) {
+    logRouteFailure('oauth.google.start', null, { stage: 'config', orgId: org.id, missingCount: missing.length })
+    return NextResponse.redirect(connectErrorRedirect(returnTo, 'not_configured', request.url))
   }
-}
+
+  let consentUrl: string
+  try {
+    consentUrl = startConnect(org.id, user.id, returnTo)
+  } catch (error) {
+    // Ids and codes only (RC-2) — the thrown text never reaches the URL or the log.
+    logRouteFailure('oauth.google.start', error, { stage: 'start_connect', orgId: org.id })
+    return NextResponse.redirect(connectErrorRedirect(returnTo, 'internal', request.url))
+  }
+  return NextResponse.redirect(consentUrl)
+})

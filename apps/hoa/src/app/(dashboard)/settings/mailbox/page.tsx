@@ -6,6 +6,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getConnectPreview, getMailboxStatus, type ConnectPreview } from '@/lib/inbox/queries'
 import { loadScopeOptions } from '@/lib/inbox/connect'
+import { mailboxConnectErrorMessage } from '@/lib/inbox/connect-errors'
 import { MailboxConnectCard } from './MailboxConnectCard'
 
 export const metadata = { title: 'HOA mailbox' }
@@ -65,7 +66,7 @@ export default async function MailboxSettingsPage({
     >
       {params.error ? (
         <Alert variant="error" title="Couldn’t connect the mailbox">
-          {params.error}
+          {mailboxConnectErrorMessage(params.error)}
         </Alert>
       ) : null}
       {params.connected ? (
