@@ -131,6 +131,7 @@ const PAGE_CONTAINER_ROUTES = [
   '(dashboard)/documents/governing',
   '(dashboard)/legal',
   '(dashboard)/legal/updates',
+  '(dashboard)/legal/compliance',
   '(dashboard)/ai/ask',
   '(dashboard)/settings',
   '(dashboard)/settings/members',

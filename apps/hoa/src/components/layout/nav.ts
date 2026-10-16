@@ -83,7 +83,7 @@ export const HOA_NAV: HoaNavGroup[] = [
     label: 'Knowledge',
     items: [
       { href: '/documents', icon: FileText, label: 'Documents', keywords: ['files', 'governing'] },
-      { href: '/legal', icon: Scale, label: 'State Law', keywords: ['statutes', 'legal'] },
+      { href: '/legal', icon: Scale, label: 'State Law', keywords: ['statutes', 'legal', 'compliance', '720.303', 'official records'] },
     ],
   },
 ]

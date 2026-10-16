@@ -5,9 +5,10 @@ const ITEMS = [
   { label: 'Overview', href: '/legal' },
   { label: 'Statutes', href: '/legal/browse' },
   { label: 'Law updates', href: '/legal/updates' },
+  { label: 'Compliance', href: '/legal/compliance' },
 ]
 
 /** Sub-navigation shared by the State law section's list pages. */
-export function LegalTabs({ current }: { current: '/legal' | '/legal/browse' | '/legal/updates' }) {
+export function LegalTabs({ current }: { current: '/legal' | '/legal/browse' | '/legal/updates' | '/legal/compliance' }) {
   return <Tabs items={ITEMS.map((i) => ({ ...i, active: i.href === current }))} linkAs={Link} aria-label="State law sections" />
 }
