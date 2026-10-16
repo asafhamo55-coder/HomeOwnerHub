@@ -14,6 +14,7 @@ import {
   Textarea,
 } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
+import { responseErrorMessage } from '@/lib/api/client'
 
 const DOC_TYPES = [
   { value: 'declaration', label: 'Declaration / CC&Rs' },
@@ -31,12 +32,9 @@ interface AssociationOption {
 interface UploadSuccess {
   documentId: string
   chunkCount: number
+  embeddedCount: number
+  embeddingStatus: 'embedded' | 'failed' | 'skipped'
   parserVersion: string
-}
-
-interface UploadError {
-  error: string
-  message?: string
 }
 
 export function GoverningDocsUploader({
@@ -97,22 +95,22 @@ export function GoverningDocsUploader({
         method: 'POST',
         body: form,
       })
-      const json = (await res.json()) as UploadSuccess | UploadError
       if (!res.ok) {
-        const err = json as UploadError
-        setErrorMessage(err.message ?? err.error)
+        setErrorMessage(
+          await responseErrorMessage(res, 'The upload failed. Try again in a moment.'),
+        )
         setStatus('error')
         return
       }
-      setSuccess(json as UploadSuccess)
+      setSuccess((await res.json()) as UploadSuccess)
       setStatus('done')
       // Re-fetch the page server-side via a soft reload so the loaded-docs
       // list updates without losing scroll.
       setTimeout(() => {
         window.location.reload()
       }, 1500)
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Network error')
+    } catch {
+      setErrorMessage('We could not reach the server. Check your connection and try again.')
       setStatus('error')
     }
   }
@@ -284,6 +282,9 @@ export function GoverningDocsUploader({
               We found {success.chunkCount}{' '}
               {success.chunkCount === 1 ? 'section' : 'sections'} — you can
               now reference them from the violation wizard and Ask the Docs.
+              {success.embeddingStatus === 'failed'
+                ? ' Smart search indexing did not finish, so answers will use keyword search for this document for now.'
+                : null}
             </Alert>
           ) : null}
 
