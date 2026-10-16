@@ -32,7 +32,6 @@ import {
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { responseErrorMessage } from '@/lib/api/client'
 import { createApprovedViolation } from '@/lib/violations'
-import { responseErrorMessage } from '@/lib/api/client'
 import { VIOLATION_SEVERITY } from '@/lib/status/community'
 import {
   saveDraft,
