@@ -18,7 +18,7 @@ vi.mock('@/lib/accounting/guard', () => ({
 let tableRows: Record<string, Array<Record<string, unknown>>> = {}
 /** Tables whose query errors. */
 let failingTables = new Set<string>()
-let auditError: { message: string } | null = null
+let auditError: { message: string; code?: string } | null = null
 let user: { id: string } | null = { id: 'user-1' }
 
 const fromCalls: string[] = []
@@ -64,7 +64,18 @@ const getSupabaseServerClient = vi.fn(async () => ({
 }))
 vi.mock('@/lib/supabase/server', () => ({ getSupabaseServerClient }))
 
-const { GET } = await import('./route')
+vi.mock('@sentry/nextjs', () => ({ captureException: vi.fn() }))
+
+const { GET: rawGET } = await import('./route')
+const GET = () => rawGET(new Request('http://x/api/settings/data-export'))
+
+const DENIED = 'Only board members and admins can make this change.'
+const NO_ORG_GATE = 'You are not signed in to an organization.'
+
+async function envelope(res: Response) {
+  expect(res.headers.get('content-type') ?? '').toContain('application/json')
+  return (await res.json()) as { error: { code: string; message: string; reason?: string } }
+}
 
 async function body(res: Response): Promise<Uint8Array> {
   return new Uint8Array(await res.arrayBuffer())
@@ -86,26 +97,67 @@ beforeEach(() => {
 // ─── Tests ───────────────────────────────────────────────────────────
 
 describe('GET /api/settings/data-export', () => {
-  it('refuses a resident with 403 before touching the database', async () => {
-    gate = { ok: false, error: 'Only board members and admins can make this change.' }
+  it('refuses a resident with the 403 envelope before touching the database', async () => {
+    gate = { ok: false, error: DENIED }
     const res = await GET()
     expect(res.status).toBe(403)
-    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+    expect(await envelope(res)).toEqual({ error: { code: 'forbidden', message: DENIED } })
     expect(fromCalls).toEqual([])
   })
 
-  it('refuses when there is no signed-in user', async () => {
+  it('answers a signed-in caller with no HOA org with 403 forbidden / no_org', async () => {
+    gate = { ok: false, error: NO_ORG_GATE }
+    const res = await GET()
+    expect(res.status).toBe(403)
+    const body = await envelope(res)
+    expect(body.error.code).toBe('forbidden')
+    expect(body.error.reason).toBe('no_org')
+    expect(fromCalls).toEqual([])
+  })
+
+  it('answers no session with the 401 unauthenticated envelope', async () => {
     user = null
     const res = await GET()
     expect(res.status).toBe(401)
+    expect((await envelope(res)).error.code).toBe('unauthenticated')
     expect(fromCalls).toEqual([])
   })
 
-  it('fails closed when the audit row cannot be written — no data is read', async () => {
-    auditError = { message: 'rls' }
-    const res = await GET()
-    expect(res.status).toBe(500)
-    expect(fromCalls).toEqual(['audit_log'])
+  it('fails closed when the audit row cannot be written — generic 500 envelope, no raw text, no data read', async () => {
+    auditError = { message: 'rls violates policy on audit_log', code: '42501' }
+    const logged: unknown[] = []
+    const spy = vi.spyOn(console, 'error').mockImplementation((...args) => {
+      logged.push(args)
+    })
+    try {
+      const res = await GET()
+      expect(res.status).toBe(500)
+      const body = await envelope(res)
+      expect(body.error.code).toBe('internal')
+      expect(JSON.stringify(body)).not.toContain('rls')
+      expect(JSON.stringify(body)).not.toContain('audit_log')
+      expect(fromCalls).toEqual(['audit_log'])
+      expect(JSON.stringify(logged)).not.toContain('violates')
+      expect(JSON.stringify(logged)).toContain('42501')
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('turns an unexpected throw into the generic JSON 500, not a framework HTML page', async () => {
+    getSupabaseServerClient.mockImplementationOnce(async () => {
+      throw new Error('connect ECONNREFUSED db.internal:5432')
+    })
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const res = await GET()
+      expect(res.status).toBe(500)
+      const body = await envelope(res)
+      expect(body.error.code).toBe('internal')
+      expect(JSON.stringify(body)).not.toContain('ECONNREFUSED')
+    } finally {
+      spy.mockRestore()
+    }
   })
 
   it('writes exactly one audit row as the caller, then streams a zip of every CSV', async () => {

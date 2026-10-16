@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Download } from 'lucide-react'
 import { Alert, Button } from '@homeowner-portal/ui'
+import { responseErrorMessage } from '@/lib/api/client'
 
 const EXPORT_URL = '/api/settings/data-export'
 
@@ -19,12 +20,21 @@ export function DownloadAllDataButton() {
   async function download() {
     setBusy(true)
     setError(null)
+    let res: Response
     try {
-      const res = await fetch(EXPORT_URL, { cache: 'no-store' })
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { message?: string } | null
-        throw new Error(body?.message ?? 'The export could not be started. Try again.')
-      }
+      res = await fetch(EXPORT_URL, { cache: 'no-store' })
+    } catch {
+      setError('The export could not be started. Check your connection and try again.')
+      setBusy(false)
+      return
+    }
+    if (!res.ok) {
+      // RC-1 envelope { error: { code, message } }: show the server's message.
+      setError(await responseErrorMessage(res, 'The export could not be started. Try again.'))
+      setBusy(false)
+      return
+    }
+    try {
       const blob = await res.blob()
       const name =
         /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ?? 'association-data.zip'
@@ -36,12 +46,8 @@ export function DownloadAllDataButton() {
       a.click()
       a.remove()
       setTimeout(() => URL.revokeObjectURL(url), 10_000)
-    } catch (e) {
-      setError(
-        e instanceof Error && e.message.startsWith('The export')
-          ? e.message
-          : 'The download stopped before it finished, so no file was saved. Try again.',
-      )
+    } catch {
+      setError('The download stopped before it finished, so no file was saved. Try again.')
     } finally {
       setBusy(false)
     }
