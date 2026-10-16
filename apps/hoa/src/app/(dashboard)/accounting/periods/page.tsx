@@ -1,11 +1,12 @@
-import { CalendarClock, Download } from 'lucide-react'
-import { Button, DataTable, EmptyState, LoadFailed, Page, type DataTableColumn } from '@homeowner-portal/ui'
+import { CalendarClock } from 'lucide-react'
+import { DataTable, EmptyState, LoadFailed, Page, type DataTableColumn } from '@homeowner-portal/ui'
 import { getAccountingContext, listFiscalPeriods, type FiscalPeriod } from '@/lib/accounting/queries'
 import { tryLoad } from '@/lib/load-or-fail'
 import { formatDayRange, formatStamp, periodLabel } from '@/lib/money/format'
 import { PERIOD_STATUS } from '@/lib/money/status'
 import { AccountingTabs } from '../AccountingTabs'
 import { AccountingLoadFailed, AccountingNotSetUp, MoneyStatus } from '../_components/shared'
+import { BoardPacketButton } from './BoardPacketButton'
 import { ClosePeriodButton } from './ClosePeriodButton'
 
 export const metadata = { title: 'Fiscal Periods' }
@@ -33,13 +34,7 @@ const COLUMNS: DataTableColumn<FiscalPeriod>[] = [
     className: 'text-right',
     cell: (p) => (
       <div className="flex flex-wrap items-center justify-end gap-2">
-        {/* A route handler returning a PDF — a plain anchor, not a client navigation. */}
-        <Button asChild variant="ghost" size="sm">
-          <a href={`/api/accounting/board-packet/${p.id}`}>
-            <Download aria-hidden />
-            Board packet
-          </a>
-        </Button>
+        <BoardPacketButton periodId={p.id} />
         {p.status === 'open' ? <ClosePeriodButton periodId={p.id} label={periodLabel(p)} /> : null}
       </div>
     ),

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import PDFDocument from 'pdfkit'
+import { z } from 'zod'
 import {
   computeBalanceSheet,
   computeCashFlow,
@@ -7,53 +8,69 @@ import {
   getAccountingContext,
   type AccountingBasis,
 } from '@/lib/accounting/queries'
-import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
+import { withRoute } from '@/lib/api/handler'
+import { ApiRouteError } from '@/lib/api/errors'
+import { requireRouteBoardOrAdmin } from '@/lib/api/auth'
+import { parseValue } from '@/lib/api/parse'
+import { zUuid } from '@/lib/api/schemas'
+import { logRouteFailure } from '@/lib/api/log'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 /**
  * GET /api/accounting/board-packet/[periodId]
  *
  * Returns a PDF combining Balance Sheet (as-of period end) + Income
- * Statement + Cash Flow for the named fiscal period. Auth comes via the
- * existing RLS-scoped server client (the route runs under the user's
- * session cookies). PDFs are streamed back as application/pdf so the
- * browser triggers a download.
+ * Statement + Cash Flow for the named fiscal period. Board/admin only
+ * (RC-4): residents lost full-ledger reads in 0061, so the gate refuses
+ * them with 403 rather than letting RLS hand back an empty packet.
+ * Every failure is the JSON envelope (RC-1); the PDF is the only 2xx.
  *
  * Layout is plain text on portrait Letter — fine for a monthly board
  * packet. Designed renders (logo, two-column tables) land later if a
  * board cares.
  */
 
+const DENIED = 'Only board members and admins can download the board packet.'
+
+const Params = z.object({ periodId: zUuid })
+
 interface RouteContext {
   params: Promise<{ periodId: string }>
 }
 
-export async function GET(_request: Request, context: RouteContext) {
-  const { periodId } = await context.params
-  // Residents had full-ledger reads before 0061; now RLS returns them an
-  // empty packet. Say so instead.
-  const gate = await requireBoardOrAdminForAction()
-  if (!gate.ok) return NextResponse.json({ error: 'forbidden', message: gate.error }, { status: 403 })
+export const GET = withRoute('accounting.board-packet', async (_request: Request, context: RouteContext) => {
+  const { orgId } = await requireRouteBoardOrAdmin(DENIED) // 401 / 403 before any read
+  const { periodId } = parseValue(Params, await context.params) // 400 validation_failed
+
+  // A thrown read failure becomes a generic 500 via withRoute.
   const ctx = await getAccountingContext()
-  if (!ctx) {
-    return NextResponse.json({ error: 'unauthorized_or_unseeded' }, { status: 401 })
+  if (!ctx || ctx.organizationId !== orgId) {
+    throw new ApiRouteError('not_found', 'Accounting is not set up for this association yet.', {
+      reason: 'accounting_not_set_up',
+    })
   }
 
-  // Verify the period belongs to this association — RLS would block
-  // cross-org reads anyway but a clear 404 is nicer.
+  // The period must belong to this association. RLS would block a
+  // cross-org read anyway; a foreign or unknown id is the same 404.
   const supabase = await getSupabaseServerClient()
-  const { data: period } = await supabase
+  const { data: period, error: periodError } = await supabase
     .from('fiscal_periods')
     .select('id, start_date, end_date, status')
     .eq('id', periodId)
     .eq('association_id', ctx.associationId)
-    .single()
+    .maybeSingle()
+  if (periodError) {
+    logRouteFailure('accounting.board-packet.period', periodError, { orgId, periodId })
+    throw new ApiRouteError('internal')
+  }
   if (!period) {
-    return NextResponse.json({ error: 'period_not_found' }, { status: 404 })
+    throw new ApiRouteError('not_found', 'We could not find that fiscal period.', { reason: 'period_not_found' })
   }
 
   // Pull all three reports in parallel. Use accrual basis (the board's
   // statutory book of record); managers wanting cash can use the UI.
+  // The compute* helpers read through readAll and throw on a page error;
+  // withRoute turns that into the generic 500 envelope.
   const basis: AccountingBasis = 'accrual'
   const [balanceSheet, incomeStatement, cashFlow] = await Promise.all([
     computeBalanceSheet(ctx.associationId, period.end_date),
@@ -80,7 +97,7 @@ export async function GET(_request: Request, context: RouteContext) {
       'cache-control': 'no-store',
     },
   })
-}
+})
 
 type BS = Awaited<ReturnType<typeof computeBalanceSheet>>
 type IS = Awaited<ReturnType<typeof computeIncomeStatement>>
@@ -96,8 +113,10 @@ async function renderPdf(input: {
   const doc = new PDFDocument({ size: 'LETTER', margin: 48 })
   const chunks: Buffer[] = []
   doc.on('data', (c: Buffer) => chunks.push(c))
-  const done = new Promise<void>((resolve) => {
+  // Reject on a pdfkit stream error so a render failure is a 500, not a hung request.
+  const done = new Promise<void>((resolve, reject) => {
     doc.on('end', () => resolve())
+    doc.on('error', reject)
   })
 
   // ─── Cover header ──────────────────────────────────────────────────

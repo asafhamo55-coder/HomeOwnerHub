@@ -44,7 +44,6 @@ const EXEMPT: Record<string, Partial<Record<Rule, string>>> = {
 
 /** route (relative to app/api) → rules it still violates. SHRINK-ONLY. */
 const ALLOWLIST: Record<string, Rule[]> = {
-  'accounting/board-packet/[periodId]/route.ts': ['with-route', 'api-error'],
 
   'admin/refresh-state-law/route.ts': ['with-route', 'api-error', 'error-message'],
 
