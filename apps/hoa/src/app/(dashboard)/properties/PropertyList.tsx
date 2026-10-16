@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Building2, Search } from 'lucide-react'
+import { Building2, Plus, Search } from 'lucide-react'
 import { Badge, Button, EmptyState, cn } from '@homeowner-portal/ui'
 import { TENURE } from '@/lib/status/community'
 import type { PropertyListRow } from '@/lib/properties/list'
@@ -32,11 +32,38 @@ export function PropertyList({
   rows,
   selectedId,
   params,
+  noPropertiesYet = false,
 }: {
   rows: PropertyListRow[]
   selectedId?: string
   params: PropertyListParams
+  /**
+   * True only when the org-wide count loaded AND is zero. Then every
+   * filter is empty for the same reason, and the next step is adding the
+   * first home, not "Show all properties" (which would be empty too).
+   * Unknown (count failed) stays false and falls back to the filter copy.
+   */
+  noPropertiesYet?: boolean
 }) {
+  if (rows.length === 0 && noPropertiesYet && !params.search) {
+    return (
+      <EmptyState
+        variant="compact"
+        icon={<Building2 aria-hidden />}
+        title="No properties yet"
+        description="Add each home in the association. Owners, residents, dues and violations all hang off a property."
+        action={
+          <Button asChild size="sm">
+            <Link href="/properties/new">
+              <Plus aria-hidden />
+              Add a property
+            </Link>
+          </Button>
+        }
+      />
+    )
+  }
+
   if (rows.length === 0) {
     return (
       <EmptyState
@@ -51,7 +78,7 @@ export function PropertyList({
             </Button>
           ) : (
             <Button asChild size="sm">
-              <Link href="/properties/new">Add property</Link>
+              <Link href="/properties/new">Add a property</Link>
             </Button>
           )
         }

@@ -438,3 +438,100 @@ describe('semantic colour tokens (design-system v2 §5)', () => {
     expect(offenders).toEqual([])
   })
 })
+
+// ── Rule 8: empty states carry the next action (BL-012) ──────────────────
+
+/**
+ * The 12 highest-traffic board pages, from the sidebar (components/layout/
+ * nav.ts): every `EmptyState` they render must pass an `action` — the one
+ * next step ("Add a property", "Connect bank", "Upload a document"). A
+ * board member who opens an empty page is never left without somewhere to
+ * go. Route → the files that render its empty states (properties renders
+ * its list from a co-located component). No allowlist: all 12 comply, and
+ * a route may be added here but never removed.
+ *
+ * A failed read is `LoadFailed`, never `EmptyState` (rule 2, phase 1); this
+ * rule leaves that distinction alone.
+ */
+const EMPTY_STATE_ACTION_ROUTES: Record<string, string[]> = {
+  '/inbox': ['(dashboard)/inbox/page.tsx'],
+  '/properties': ['(dashboard)/properties/PropertyList.tsx'],
+  '/violations': ['(dashboard)/violations/page.tsx'],
+  '/arc': ['(dashboard)/arc/page.tsx'],
+  '/meetings': ['(dashboard)/meetings/page.tsx'],
+  '/events': ['(dashboard)/events/page.tsx'],
+  '/communications': ['(dashboard)/communications/page.tsx'],
+  '/tickets': ['(dashboard)/tickets/page.tsx'],
+  '/dues': ['(dashboard)/dues/page.tsx'],
+  '/accounting/bank': ['(dashboard)/accounting/bank/page.tsx'],
+  '/vendors': ['(dashboard)/vendors/page.tsx'],
+  '/documents': ['(dashboard)/documents/page.tsx'],
+}
+
+/**
+ * Line numbers of every `<EmptyState …>` element in `src` whose props have
+ * no `action=`. Walks the opening tag tracking `{}` depth, so a `>` inside
+ * an expression prop (`action={<Button>…</Button>}`) doesn't end the tag
+ * and an `action=` nested inside another prop's JSX doesn't count.
+ * Exported for the self-test below.
+ */
+export function emptyStatesWithoutAction(src: string): number[] {
+  const out: number[] = []
+  for (const m of src.matchAll(/<EmptyState\b/g)) {
+    let depth = 0
+    let topLevel = ''
+    for (let i = m.index + m[0].length; i < src.length; i++) {
+      const c = src[i]
+      if (c === '{') depth++
+      else if (c === '}') depth--
+      else if (depth === 0) {
+        if (c === '"') {
+          const end = src.indexOf('"', i + 1)
+          i = end === -1 ? src.length : end
+          continue
+        }
+        if (c === '>' || (c === '/' && src[i + 1] === '>')) break
+        topLevel += c
+      }
+    }
+    if (!/(?:^|\s)action=/.test(topLevel)) out.push(src.slice(0, m.index).split('\n').length)
+  }
+  return out
+}
+
+describe('empty states carry the next action (BL-012)', () => {
+  it('detector self-test', () => {
+    expect(emptyStatesWithoutAction('<EmptyState title="x" />')).toEqual([1])
+    expect(emptyStatesWithoutAction('<EmptyState title="a > b" action={<Button>Go</Button>} />')).toEqual([])
+    expect(
+      emptyStatesWithoutAction('<EmptyState\n  title="x"\n  description={<p>see <Link href="/a">here</Link></p>}\n/>'),
+    ).toEqual([1])
+    // `action=` inside another prop's JSX is not the EmptyState's action.
+    expect(emptyStatesWithoutAction('<EmptyState title="x" description={<Foo action={1} />} />')).toEqual([1])
+    // secondaryAction alone is not a primary action.
+    expect(emptyStatesWithoutAction('<EmptyState title="x" secondaryAction={<a />} />')).toEqual([1])
+    expect(
+      emptyStatesWithoutAction(
+        '<EmptyState\n  title={`No ${s} tickets`}\n  action={ok ? <A /> : <B />}\n/>\n<EmptyState title="y" />',
+      ),
+    ).toEqual([5])
+  })
+
+  it('covers 12 routes, each rendering at least one EmptyState', () => {
+    expect(Object.keys(EMPTY_STATE_ACTION_ROUTES)).toHaveLength(12)
+    for (const [route, files] of Object.entries(EMPTY_STATE_ACTION_ROUTES)) {
+      const src = files.map((f) => readFileSync(path.join(repoRoot, 'apps/hoa/src/app', f), 'utf8')).join('\n')
+      expect(src, `${route} renders no EmptyState — is the list stale?`).toMatch(/<EmptyState\b/)
+    }
+  })
+
+  it('every EmptyState on those routes has an action', () => {
+    const offenders = Object.values(EMPTY_STATE_ACTION_ROUTES)
+      .flat()
+      .flatMap((f) => {
+        const src = readFileSync(path.join(repoRoot, 'apps/hoa/src/app', f), 'utf8')
+        return emptyStatesWithoutAction(src).map((line) => `apps/hoa/src/app/${f}:${line}`)
+      })
+    expect(offenders, 'Give each EmptyState a real next step via `action` (an existing route or dialog).').toEqual([])
+  })
+})

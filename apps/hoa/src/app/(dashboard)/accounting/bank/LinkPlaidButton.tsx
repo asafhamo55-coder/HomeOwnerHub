@@ -24,7 +24,16 @@ interface FundOption {
  * A 503 from /api/plaid/link-token (PLAID_* env not set) is surfaced as
  * the route's own message.
  */
-export function LinkPlaidButton({ funds, variant = 'default' }: { funds: FundOption[]; variant?: 'default' | 'secondary' }) {
+export function LinkPlaidButton({
+  funds,
+  variant = 'default',
+  label = 'Link bank account',
+}: {
+  funds: FundOption[]
+  variant?: 'default' | 'secondary'
+  /** Trigger text; the empty state says "Connect bank". */
+  label?: string
+}) {
   const router = useRouter()
   const toast = useToast()
   const [open, setOpen] = useState(false)
@@ -94,7 +103,7 @@ export function LinkPlaidButton({ funds, variant = 'default' }: { funds: FundOpt
     <Dialog open={open} onOpenChange={(next) => !busy && setOpen(next)}>
       <DialogTrigger asChild>
         <Button variant={variant} icon={<Link2 aria-hidden />} loading={busy && !open}>
-          Link bank account
+          {label}
         </Button>
       </DialogTrigger>
       <DialogContent
