@@ -42,9 +42,9 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 | 8 | BL-008 | First-run setup checklist on the board dashboard | 3 | 0.8 | 1 | **2.40** | no | no | Now |
 | 9 | BL-009 | Privacy-safe product analytics | 3 | 0.8 | 1 | **2.40** | no | **yes** | Now |
 | 10 | BL-010 | Resident ledger and printable statement | 3 | 0.9 | 1.5 | **1.80** | no | no | Now |
-| 11 | BL-011 | Full data export (zip of CSVs) | 3 | 0.9 | 1.5 | **1.80** | no | no | Now |
-| 12 | BL-012 | Empty states carry the next action | 2 | 0.9 | 1 | **1.80** | no | no | Now |
-| 13 | BL-013 | Automated dues reminders (behind BL-004) | 4 | 0.8 | 2 | **1.60** | no | no | Now |
+| 11 | BL-011 | Full data export (zip of CSVs) | 3 | 0.9 | 1.5 | **1.80** | no | no | **Done (c2)** |
+| 12 | BL-012 | Empty states carry the next action | 2 | 0.9 | 1 | **1.80** | no | no | **Done (c2)** |
+| 13 | BL-013 | Automated dues reminders (behind BL-004) | 4 | 0.8 | 2 | **1.60** | no | no | **Done (c2)** |
 | 14 | BL-014 | One approvals inbox across AI workflows | 4 | 0.8 | 2 | **1.60** | no | no | Now |
 | 15 | BL-015 | FL §720.303 records and notices compliance check | 4 | 0.8 | 2 | **1.60** | no | no | Now |
 | 16 | BL-016 | Monthly board packet | 4 | 0.8 | 2 | **1.60** | no | no | Now |
@@ -607,3 +607,11 @@ These go beyond the design-system v2 pass:
   `charts.ts`, `community-qa/tools.ts`) parses date-only columns as UTC midnight.
   `bank-rec.ts:164` stores `paid_at` from a date-only value — needs a decision.
   Fix: one association timezone (default America/New_York) and date-only helpers.
+- **BL-044 Dues-reminder follow-ups** (from c2): a per-association timezone (with BL-043);
+  the populated dry-run table has never been seen with real data; a message where every
+  recipient was blocked by the guard is marked `failed`; the 600px email preview scrolls
+  sideways at 375px (as on /dues).
+- **BL-045 Unify CSV escaping:** the four legacy export routes (properties, violations,
+  leases, vendors) should use `apps/hoa/src/lib/csv.ts`, which has a formula-injection guard.
+- **BL-046 Setup gaps found by BL-012:** /dues with no association links to a checklist
+  that can't create one; `AccountingNotSetUp` has no action.

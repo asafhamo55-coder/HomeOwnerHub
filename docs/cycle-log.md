@@ -30,3 +30,15 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` โ
 
 - **Dispatched:** BL-011 data export, BL-012 actionable empty states, BL-013 dues reminders (off by default, guarded).
 - **Health:** prod 7aeaa66 ok (db, ai). CI green on 91c893d.
+- **Merged** into `claude/quality-oracle` at ffabc32:
+  - BL-012 empty states: 12 routes, ratchet rule 8.
+  - BL-011 data export: `/settings/data`, streamed zip, column allowlist, audit row first.
+  - BL-013 dues reminders: `/settings/reminders`, off by default, HMAC-signed config, idempotent per (assessment, step), guarded send. I also skip `board_authorized_suit`.
+- **Verified** at ffabc32:
+  - typecheck 12/12, typecheck:integration ok
+  - unit 2500/139 files
+  - build 4/4
+  - integration 324/13 after `db:local:reset`
+- **Screenshots reviewed:** bank 390, documents 1440, settings-data 375 dark.
+- **Deploy:** not pushed to prod this cycle because the Vercel daily limit resets around 14:29 EDT. The 14:47 EDT scheduled deploy ships ffabc32 or later.
+- **Next:** BL-014 approvals inbox, BL-015 FL ยง720.303 check, BL-016 board packet. The M1 batch stays open for BL-020.
