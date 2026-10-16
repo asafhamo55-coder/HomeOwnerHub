@@ -60,3 +60,12 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **Deploy:** still waiting on the Vercel daily limit; the 14:47 EDT scheduled deploy ships this.
 - **New items:** BL-047 (1000-row cap, high), BL-048 to BL-051. BL-050 joins migration batch M1 with BL-020.
 - **Next:** BL-047 (bug), BL-049 resident documents, BL-019 statute-aware letters. M1 (BL-020 + BL-050) is ready to batch.
+
+## 2026-10-16 â€” Cycle 4 (started 08:45 EDT)
+
+- **Health:** prod 7aeaa66 ok; CI green on 6ea7f57. Scheduled prod deploy 14:47 EDT.
+- **Dispatched:**
+  - BL-047 1000-row cap sweep (bug)
+  - BL-049 resident documents
+  - BL-019 statute-aware violation letters
+- **Held:** migration batch M1 (BL-020 + BL-050) until 0063 is applied, so Asaf has one SQL set in flight at a time.
