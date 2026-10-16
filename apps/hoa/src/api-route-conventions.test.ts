@@ -48,7 +48,6 @@ const ALLOWLIST: Record<string, Rule[]> = {
 
   'admin/refresh-state-law/route.ts': ['with-route', 'api-error', 'error-message'],
 
-  'admin/setup-stripe-pricing/route.ts': ['with-route', 'api-error', 'secret-header'],
 
   'ai/analyze-violation/route.ts': ['with-route', 'api-error', 'raw-zod'],
 

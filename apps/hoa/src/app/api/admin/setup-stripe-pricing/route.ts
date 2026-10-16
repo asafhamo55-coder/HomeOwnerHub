@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
+import type Stripe from 'stripe'
 import { getStripe, isStripeConfigured } from '@homeowner-portal/billing'
-import { isPlatformAdmin } from '@/lib/platform-admin'
+import { withRoute } from '@/lib/api/handler'
+import { ApiRouteError } from '@/lib/api/errors'
+import { requireRoutePlatformAdmin } from '@/lib/api/auth'
+import { bearerToken, requireBearerSecret } from '@/lib/api/secrets'
+import { logRouteFailure } from '@/lib/api/log'
 
 // POST /api/admin/setup-stripe-pricing
 //
@@ -11,7 +16,15 @@ import { isPlatformAdmin } from '@/lib/platform-admin'
 // Idempotent via Stripe's `lookup_key` feature. Re-running won't
 // duplicate — it returns the existing Price IDs.
 //
-// Platform-admin gated. Run once after deploying the new pricing model.
+// Two auth paths (RC-7, R-21 / C-06):
+//   - curl / CI: `Authorization: Bearer $STRIPE_PRICING_SETUP_SECRET`, a
+//     dedicated secret — CRON_SECRET no longer unlocks this. Timing-safe,
+//     fails closed (503 when unset, 401 on a mismatch).
+//   - browser: a platform-admin session (401 signed out, 403 otherwise).
+// A request that carries a bearer token is judged on the token alone.
+//
+// No request body is read. Middleware skips this path (curl caller), so the
+// route runs its own auth before anything else (RC-3).
 
 const PRODUCT_NAME = 'HOA Hub'
 const MONTHLY_LOOKUP_KEY = 'hoa_per_door_monthly'
@@ -21,89 +34,90 @@ const ANNUAL_LOOKUP_KEY = 'hoa_per_door_annual'
 const MONTHLY_UNIT_CENTS = 499  // $4.99
 const ANNUAL_UNIT_CENTS = 5388  // $53.88 ($4.99 × 12 × 0.9, the 10% discount baked in)
 
-export async function POST(request: Request): Promise<Response> {
-  // Two auth paths so this route works both from the browser (session
-  // cookies) and from curl/CI (bearer token = CRON_SECRET).
-  const bearer = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim()
-  const cronSecret = process.env.CRON_SECRET
-  const bearerOk = bearer && cronSecret && bearer === cronSecret
-  const sessionOk = bearerOk ? false : await isPlatformAdmin()
-  if (!bearerOk && !sessionOk) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+const SETUP_SECRET_ENV = 'STRIPE_PRICING_SETUP_SECRET'
+
+async function findOrCreateProduct(stripe: Stripe): Promise<Stripe.Product> {
+  // Stripe has no "find by name", so walk every active product (auto-paged,
+  // not just the first 100 — RC-9) and match locally.
+  for await (const p of stripe.products.list({ active: true, limit: 100 })) {
+    if (p.name === PRODUCT_NAME) return p
   }
+  return stripe.products.create({
+    name: PRODUCT_NAME,
+    description: 'Per-door HOA management subscription',
+    metadata: { managed_by: 'hoa_hub_setup' },
+  })
+}
+
+async function ensurePrice(
+  stripe: Stripe,
+  productId: string,
+  lookupKey: string,
+  unitAmount: number,
+  interval: 'month' | 'year',
+): Promise<Stripe.Price> {
+  // lookup_key is a module constant, never caller input.
+  const existing = await stripe.prices.search({
+    query: `lookup_key:'${lookupKey}' AND active:'true'`,
+    limit: 1,
+  })
+  if (existing.data[0]) return existing.data[0]
+  return stripe.prices.create({
+    product: productId,
+    unit_amount: unitAmount,
+    currency: 'usd',
+    recurring: { interval },
+    lookup_key: lookupKey,
+    nickname: `HOA Hub — ${interval === 'month' ? 'Monthly' : 'Annual'} per door`,
+    metadata: { managed_by: 'hoa_hub_setup' },
+  })
+}
+
+function priceView(price: Stripe.Price, interval: 'month' | 'year') {
+  return {
+    id: price.id,
+    unitAmountCents: price.unit_amount,
+    interval,
+    lookupKey: price.lookup_key,
+  }
+}
+
+export const POST = withRoute('admin.setup-stripe-pricing', async (request: Request) => {
+  // ─── Auth (RC-3, RC-7) ─────────────────────────────────────────────
+  if (bearerToken(request) !== null) {
+    requireBearerSecret(request, SETUP_SECRET_ENV)
+  } else {
+    await requireRoutePlatformAdmin()
+  }
+
   if (!isStripeConfigured()) {
-    return NextResponse.json(
-      { error: 'stripe_not_configured', message: 'STRIPE_SECRET_KEY missing.' },
-      { status: 503 },
-    )
+    throw new ApiRouteError('not_configured', 'Stripe is not configured (STRIPE_SECRET_KEY is unset).')
+  }
+  const stripe = getStripe()
+  if (!stripe) throw new ApiRouteError('not_configured')
+
+  // ─── Work: Stripe calls (RC-2, RC-10) ──────────────────────────────
+  let product: Stripe.Product
+  let monthlyPrice: Stripe.Price
+  let annualPrice: Stripe.Price
+  try {
+    product = await findOrCreateProduct(stripe)
+    monthlyPrice = await ensurePrice(stripe, product.id, MONTHLY_LOOKUP_KEY, MONTHLY_UNIT_CENTS, 'month')
+    annualPrice = await ensurePrice(stripe, product.id, ANNUAL_LOOKUP_KEY, ANNUAL_UNIT_CENTS, 'year')
+  } catch (err) {
+    // Code only; a Stripe message can name ids and request details.
+    logRouteFailure('admin.setup-stripe-pricing.stripe', err)
+    throw new ApiRouteError('upstream_unavailable', 'Stripe did not complete the setup. Try again shortly.')
   }
 
-  const stripe = getStripe()!
-
-  // ─── 1. Find or create the Product ─────────────────────────────────
-  // Stripe doesn't have a "find by name" endpoint, so we list active
-  // products and match locally. List page is generous — even at scale
-  // we'd typically have <50 products.
-  let product = (await stripe.products.list({ active: true, limit: 100 })).data
-    .find((p) => p.name === PRODUCT_NAME)
-
-  if (!product) {
-    product = await stripe.products.create({
-      name: PRODUCT_NAME,
-      description: 'Per-door HOA management subscription',
-      metadata: {
-        managed_by: 'hoa_hub_setup',
-      },
-    })
-  }
-
-  // ─── 2. Find or create the two Prices (idempotent via lookup_key) ──
-  // Use price.search by lookup_key instead of relying on list filtering.
-  const ensurePrice = async (
-    lookupKey: string,
-    unitAmount: number,
-    interval: 'month' | 'year',
-  ) => {
-    const existing = await stripe.prices.search({
-      query: `lookup_key:'${lookupKey}' AND active:'true'`,
-      limit: 1,
-    })
-    if (existing.data[0]) return existing.data[0]
-    return await stripe.prices.create({
-      product: product!.id,
-      unit_amount: unitAmount,
-      currency: 'usd',
-      recurring: { interval },
-      lookup_key: lookupKey,
-      nickname: `HOA Hub — ${interval === 'month' ? 'Monthly' : 'Annual'} per door`,
-      metadata: { managed_by: 'hoa_hub_setup' },
-    })
-  }
-
-  const monthlyPrice = await ensurePrice(MONTHLY_LOOKUP_KEY, MONTHLY_UNIT_CENTS, 'month')
-  const annualPrice = await ensurePrice(ANNUAL_LOOKUP_KEY, ANNUAL_UNIT_CENTS, 'year')
-
+  // ─── Response (RC-11: camelCase, integer cents) ────────────────────
   return NextResponse.json({
-    ok: true,
-    product: {
-      id: product.id,
-      name: product.name,
-    },
+    product: { id: product.id, name: product.name },
     prices: {
-      monthly: {
-        id: monthlyPrice.id,
-        amount_usd: monthlyPrice.unit_amount! / 100,
-        interval: 'month',
-        lookup_key: monthlyPrice.lookup_key,
-      },
-      annual: {
-        id: annualPrice.id,
-        amount_usd: annualPrice.unit_amount! / 100,
-        interval: 'year',
-        lookup_key: annualPrice.lookup_key,
-      },
+      monthly: priceView(monthlyPrice, 'month'),
+      annual: priceView(annualPrice, 'year'),
     },
-    next_steps: [
+    nextSteps: [
       `Add to Vercel env (Production + Preview + Development):`,
       `  STRIPE_PRICE_PER_DOOR_MONTHLY=${monthlyPrice.id}`,
       `  STRIPE_PRICE_PER_DOOR_ANNUAL=${annualPrice.id}`,
@@ -111,4 +125,4 @@ export async function POST(request: Request): Promise<Response> {
       `(Or — switch app code to read by lookup_key '${MONTHLY_LOOKUP_KEY}' / '${ANNUAL_LOOKUP_KEY}' and skip env vars entirely.)`,
     ],
   })
-}
+})
