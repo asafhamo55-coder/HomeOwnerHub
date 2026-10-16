@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { violationInspector } from '@homeowner-portal/workflows/W3'
 import { RequestedActionSchema, StatuteRuleRefusalError } from '@homeowner-portal/workflows/W3-state-rules'
-import { getCurrentOrg } from '@/lib/orgs'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 
 // POST /api/ai/violations/draft
 //
@@ -26,9 +26,12 @@ const DraftSchema = z.object({
 export const maxDuration = 60
 
 export async function POST(request: Request): Promise<Response> {
-  const org = await getCurrentOrg()
-  if (!org) {
-    return NextResponse.json({ error: 'no_org' }, { status: 403 })
+  // Board/admin only (R-01). Residents are org members, so the bare org
+  // check let any resident spend AI budget drafting violation notices
+  // (and persist ai_runs rows) against their own association.
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) {
+    return NextResponse.json({ error: 'forbidden', message: gate.error }, { status: 403 })
   }
 
   let body: unknown
@@ -47,7 +50,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const result = await violationInspector.execute(parsed.data, {
-      organizationId: org.id,
+      organizationId: gate.orgId,
     })
     return NextResponse.json({
       runId: result.runId,

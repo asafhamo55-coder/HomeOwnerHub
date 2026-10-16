@@ -1,8 +1,13 @@
 'use server'
 
-// Server actions for admin "enter owner portal" impersonation. Both refuse
-// non-admins (via requireAdmin) and write an audit_log row. The read-side
-// resolver lives in impersonation.ts.
+// Server actions for admin "enter owner portal" impersonation. Entering
+// refuses non-admins (via requireAdmin) and any target outside the admin's
+// own org; both write an audit_log row. The read-side resolver lives in
+// impersonation.ts.
+//
+// Server actions are public POST endpoints: every argument here is
+// attacker-controlled. The target is re-derived from the database, scoped
+// to the admin's org (impersonation-target.ts), never taken on trust.
 
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
@@ -14,8 +19,12 @@ import { requireAdmin } from '@/lib/auth'
 import {
   IMPERSONATION_COOKIE,
   IMPERSONATION_MAX_AGE,
-  type ImpersonationTarget,
+  IMPERSONATION_REFUSED,
+  getImpersonationTarget,
+  impersonationSecret,
 } from '@/lib/impersonation'
+import { signImpersonationToken } from '@/lib/impersonation-token'
+import { resolveImpersonationTarget } from '@/lib/impersonation-target'
 
 interface EnterInput {
   email: string
@@ -27,8 +36,10 @@ interface EnterInput {
   ownerUserId?: string | null
 }
 
+export type EnterResult = { ok: false; error: string }
+
 async function writeImpersonationAudit(
-  action: 'resident_portal.enter' | 'resident_portal.exit',
+  action: 'resident_portal.enter' | 'resident_portal.exit' | 'resident_portal.refused',
   orgId: string,
   actorUserId: string,
   targetUserId: string | null,
@@ -51,53 +62,68 @@ async function writeImpersonationAudit(
     )
 }
 
-// Start impersonating an owner. Admin-gated; resolves the owner's auth uid
-// (best-effort), sets the cookie, audits, and lands on the resident portal.
-export async function enterResidentPortal(input: EnterInput): Promise<void> {
+function str(v: unknown): string | null {
+  return typeof v === 'string' && v !== '' ? v : null
+}
+
+// Start impersonating an owner. Admin-gated and org-confined: the target
+// must be linked to a unit in the admin's current org, or no cookie is set.
+// On success sets a signed cookie bound to (org, admin), audits, and lands
+// on the resident portal.
+export async function enterResidentPortal(input: EnterInput): Promise<EnterResult | void> {
   const { org } = await requireAdmin()
 
-  const email = input.email.trim().toLowerCase()
-  const name = input.name.trim() || email
+  const {
+    data: { user },
+  } = await (await getSupabaseServerClient()).auth.getUser()
+  if (!user) return { ok: false, error: 'You are not signed in.' }
 
-  // Resolve the target auth user id. Prefer an explicit id, then the
-  // unit's current ownership, then a profiles lookup by email. May stay
-  // null for an email-only owner — the resident reads then fall back to
-  // matching by email, exactly as that owner's own login would.
+  const secret = impersonationSecret()
+  if (!secret) return { ok: false, error: 'Owner portal preview is not configured.' }
+
   const admin = createAdminClient()
-  let userId = input.ownerUserId ?? null
-
-  if (!userId && input.unitId) {
-    const { data } = await admin
-      .from('ownerships')
-      .select('owner_user_id')
-      .eq('unit_id', input.unitId)
-      .is('valid_to', null)
-      .not('owner_user_id', 'is', null)
-      .order('valid_from', { ascending: false })
-      .limit(1)
-      .maybeSingle<{ owner_user_id: string | null }>()
-    userId = data?.owner_user_id ?? null
+  const resolved = await resolveImpersonationTarget(admin, org.id, {
+    email: str(input?.email) ?? '',
+    unitId: str(input?.unitId),
+    ownerUserId: str(input?.ownerUserId),
+  })
+  if (!resolved.ok) {
+    // Ids and a reason code only — never the submitted address.
+    await writeImpersonationAudit('resident_portal.refused', org.id, user.id, null, {
+      reason: resolved.reason,
+    })
+    return { ok: false, error: IMPERSONATION_REFUSED }
   }
 
-  if (!userId && email) {
+  const name = (str(input.name)?.trim() || '') || resolved.email
+
+  // propertyId only drives the exit redirect; keep it only if it is ours.
+  let propertyId: string | null = null
+  const wantedProperty = str(input.propertyId)
+  if (wantedProperty) {
     const { data } = await admin
-      .from('profiles')
+      .from('hoa_properties')
       .select('id')
-      .ilike('email', email)
-      .limit(1)
-      .maybeSingle<{ id: string }>()
-    userId = data?.id ?? null
+      .eq('id', wantedProperty)
+      .eq('org_id', org.id)
+      .maybeSingle()
+    propertyId = data ? wantedProperty : null
   }
 
-  const target: ImpersonationTarget = {
-    userId,
-    email,
-    name,
-    propertyId: input.propertyId ?? null,
-  }
+  const token = signImpersonationToken(
+    {
+      orgId: org.id,
+      actorUserId: user.id,
+      userId: resolved.userId,
+      email: resolved.email,
+      name,
+      propertyId,
+    },
+    secret,
+  )
 
   const store = await cookies()
-  store.set(IMPERSONATION_COOKIE, JSON.stringify(target), {
+  store.set(IMPERSONATION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -105,16 +131,11 @@ export async function enterResidentPortal(input: EnterInput): Promise<void> {
     maxAge: IMPERSONATION_MAX_AGE,
   })
 
-  const {
-    data: { user },
-  } = await (await getSupabaseServerClient()).auth.getUser()
-  if (user) {
-    await writeImpersonationAudit('resident_portal.enter', org.id, user.id, userId, {
-      email,
-      name,
-      property_id: target.propertyId,
-    })
-  }
+  await writeImpersonationAudit('resident_portal.enter', org.id, user.id, resolved.userId, {
+    email: resolved.email,
+    name,
+    property_id: propertyId,
+  })
 
   revalidatePath('/resident')
   revalidatePath('/')
@@ -122,18 +143,11 @@ export async function enterResidentPortal(input: EnterInput): Promise<void> {
 }
 
 // Stop impersonating. Clears the cookie, audits, and returns to the
-// property page we came from (or the dashboard).
+// property page we came from (or the dashboard). Only a verified cookie's
+// contents are trusted for the audit row and the redirect.
 export async function exitResidentPortal(): Promise<void> {
+  const target = await getImpersonationTarget()
   const store = await cookies()
-  const raw = store.get(IMPERSONATION_COOKIE)?.value
-  let target: ImpersonationTarget | null = null
-  if (raw) {
-    try {
-      target = JSON.parse(raw) as ImpersonationTarget
-    } catch {
-      target = null
-    }
-  }
   store.delete(IMPERSONATION_COOKIE)
 
   const supabase = await getSupabaseServerClient()

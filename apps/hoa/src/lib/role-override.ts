@@ -16,8 +16,9 @@ import { redirect } from 'next/navigation'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getCurrentUserRoleInOrg, type Role } from '@/lib/auth'
+import { ROLE_OVERRIDE_COOKIE } from '@/lib/session-cookies'
 
-const COOKIE = 'hh_role_override'
+const COOKIE = ROLE_OVERRIDE_COOKIE
 const VALID: Role[] = ['admin', 'board', 'resident']
 
 export async function getRoleOverride(): Promise<Role | null> {

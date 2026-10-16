@@ -123,8 +123,8 @@ export async function getResidentDashboard(): Promise<ResidentDashboard> {
 
   const [firstName, openViolations, dues, tickets, arc, recentAnnouncements] = await Promise.all([
     resolveFirstName(supabase, actorUser),
-    getOpenViolations(supabase, unitIds),
-    getDues(supabase, unitIds),
+    getOpenViolations(supabase, unitIds, actor.orgId),
+    getDues(supabase, unitIds, actor.orgId),
     loadMyTickets(),
     loadMyArcRequests(),
     getRecentAnnouncements(supabase, org?.id ?? null, {
@@ -170,7 +170,7 @@ export async function getResidentDues(): Promise<{
 }> {
   const actor = await getResidentActor()
   const units = await getResidentUnits()
-  const dues = await getDues(actor.client, units.map((u) => u.unit_id))
+  const dues = await getDues(actor.client, units.map((u) => u.unit_id), actor.orgId)
   return { units, dues: dues ?? EMPTY_DUES, failed: dues === null }
 }
 
@@ -186,7 +186,7 @@ export async function getResidentLedger(): Promise<{
 }> {
   const actor = await getResidentActor()
   const units = await getResidentUnits()
-  const rows = await loadLedgerRows(actor.client, units.map((u) => u.unit_id))
+  const rows = await loadLedgerRows(actor.client, units.map((u) => u.unit_id), actor.orgId)
   if (!rows.ok) return { units, ledger: null, truncated: false }
   return { units, ledger: buildLedger(rows.assessments, rows.payments), truncated: rows.truncated }
 }
@@ -223,16 +223,18 @@ async function resolveFirstName(
 // that legacy id via units.legacy_hoa_property_id. Resolve the property
 // ids first, then pull unresolved violations for them.
 // Null means a read failed — the violations are UNKNOWN, not none.
+// `orgId` is the impersonation org (service-role client, no RLS): when set,
+// every read here is confined to it. Null = RLS-bound client.
 async function getOpenViolations(
   supabase: Supabase,
   unitIds: string[],
+  orgId: string | null,
 ): Promise<OpenViolationRow[] | null> {
   if (unitIds.length === 0) return []
 
-  const unitResult = await loadOrFail(
-    'resident unit properties',
-    supabase.from('units' as never).select('legacy_hoa_property_id').in('id' as never, unitIds),
-  )
+  let unitQuery = supabase.from('units' as never).select('legacy_hoa_property_id').in('id' as never, unitIds)
+  if (orgId) unitQuery = unitQuery.eq('organization_id' as never, orgId)
+  const unitResult = await loadOrFail('resident unit properties', unitQuery)
   if (!unitResult.ok) return null
   const unitRows = unitResult.data
 
@@ -245,17 +247,17 @@ async function getOpenViolations(
   ]
   if (propertyIds.length === 0) return []
 
+  let violationQuery = supabase
+    .from('hoa_violations')
+    .select(
+      'id, violation_type, description, status, severity, fine_amount, cure_period_days, notice_sent_at, created_at',
+    )
+    .in('property_id', propertyIds)
+    .not('status', 'in', `(${CLOSED_VIOLATION_STATUSES.map((s) => `"${s}"`).join(',')})`)
+  if (orgId) violationQuery = violationQuery.eq('org_id', orgId)
   const result = await loadOrFail(
     'resident open violations',
-    supabase
-      .from('hoa_violations')
-      .select(
-        'id, violation_type, description, status, severity, fine_amount, cure_period_days, notice_sent_at, created_at',
-      )
-      .in('property_id', propertyIds)
-      .not('status', 'in', `(${CLOSED_VIOLATION_STATUSES.map((s) => `"${s}"`).join(',')})`)
-      .order('created_at', { ascending: false })
-      .limit(20),
+    violationQuery.order('created_at', { ascending: false }).limit(20),
   )
   if (!result.ok) return null
   return (result.data ?? []) as unknown as OpenViolationRow[]
@@ -266,18 +268,21 @@ async function getOpenViolations(
 // report the true remaining balance.
 // Null means a read failed: the balance is UNKNOWN. Returning EMPTY_DUES
 // here is what used to tell a resident "You're all paid up" on a timeout.
-async function getDues(supabase: Supabase, unitIds: string[]): Promise<ResidentDues | null> {
+async function getDues(
+  supabase: Supabase,
+  unitIds: string[],
+  orgId: string | null,
+): Promise<ResidentDues | null> {
   if (unitIds.length === 0) return EMPTY_DUES
 
-  const assessmentResult = await loadOrFail(
-    'resident dues',
-    supabase
-      .from('assessments')
-      .select('id, unit_id, amount, due_date, status, assessment_type, memo_code')
-      .in('unit_id', unitIds)
-      .in('status', ['open', 'partial'])
-      .is('deleted_at', null),
-  )
+  let assessmentQuery = supabase
+    .from('assessments')
+    .select('id, unit_id, amount, due_date, status, assessment_type, memo_code')
+    .in('unit_id', unitIds)
+    .in('status', ['open', 'partial'])
+    .is('deleted_at', null)
+  if (orgId) assessmentQuery = assessmentQuery.eq('organization_id', orgId)
+  const assessmentResult = await loadOrFail('resident dues', assessmentQuery)
   if (!assessmentResult.ok) return null
   const rows = assessmentResult.data
 
@@ -293,16 +298,15 @@ async function getDues(supabase: Supabase, unitIds: string[]): Promise<ResidentD
   if (assessments.length === 0) return EMPTY_DUES
 
   // Without payments every partial charge would read as owed in full.
-  const paymentResult = await loadOrFail(
-    'resident payments',
-    supabase
-      .from('payments')
-      .select('assessment_id, amount')
-      .in(
-        'assessment_id',
-        assessments.map((a) => a.id),
-      ),
-  )
+  let paymentQuery = supabase
+    .from('payments')
+    .select('assessment_id, amount')
+    .in(
+      'assessment_id',
+      assessments.map((a) => a.id),
+    )
+  if (orgId) paymentQuery = paymentQuery.eq('organization_id', orgId)
+  const paymentResult = await loadOrFail('resident payments', paymentQuery)
   if (!paymentResult.ok) return null
   const payRows = paymentResult.data
 

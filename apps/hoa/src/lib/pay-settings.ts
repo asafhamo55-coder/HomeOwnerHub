@@ -144,10 +144,10 @@ export async function getResidentZelleSettings(
   const ids = [...new Set(associationIds)]
   if (ids.length === 0) return { ok: true, byAssociation: {} }
   const actor = await getResidentActor()
-  const res = await loadOrFail(
-    'resident pay settings',
-    actor.client.from('associations').select('id, compliance_settings').in('id', ids),
-  )
+  let q = actor.client.from('associations').select('id, compliance_settings').in('id', ids)
+  // Impersonating = service-role client: never read another org's settings.
+  if (actor.orgId) q = q.eq('organization_id', actor.orgId)
+  const res = await loadOrFail('resident pay settings', q)
   if (!res.ok) return { ok: false }
   const secret = paySettingsSecret()
   const byAssociation: Record<string, ZelleReadResult> = {}

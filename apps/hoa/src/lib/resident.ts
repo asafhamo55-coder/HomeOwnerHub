@@ -2,12 +2,15 @@
 
 // Resident-side reads. Always scoped to the current user's owned units.
 // Uses the user-bound supabase client so RLS enforces the unit boundary;
-// callers do NOT need to thread a user id through.
+// callers do NOT need to thread a user id through. Exception: while an
+// admin impersonates, the actor's client is service-role (no RLS), so
+// every query here also filters on `actor.orgId`.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getResidentActor, type ResidentActor } from '@/lib/impersonation'
+import { exactIlike } from '@/lib/impersonation-target'
 import {
   countNewAnnouncements,
   fetchMyAnnouncementRows,
@@ -42,7 +45,7 @@ export interface ResidentSummary {
 export async function getResidentUnits(): Promise<ResidentUnit[]> {
   const actor = await getResidentActor()
   const units = await getOwnedUnits(actor)
-  return attachAssociationNames(actor.client, units)
+  return attachAssociationNames(actor.client, units, actor.orgId)
 }
 
 // Resolves the association (community) name for each unit's association_id
@@ -50,16 +53,20 @@ export async function getResidentUnits(): Promise<ResidentUnit[]> {
 async function attachAssociationNames(
   supabase: SupabaseClient<Database>,
   units: ResidentUnit[],
+  /** Impersonation org — service-role reads must not cross it. */
+  orgId: string | null,
 ): Promise<ResidentUnit[]> {
   const associationIds = [
     ...new Set(units.map((u) => u.association_id).filter((id): id is string => id != null)),
   ]
   if (associationIds.length === 0) return units
 
-  const { data } = await supabase
+  let q = supabase
     .from('associations' as never)
     .select('id, name')
     .in('id', associationIds)
+  if (orgId) q = q.eq('organization_id' as never, orgId)
+  const { data } = await q
 
   const nameById = new Map(
     ((data ?? []) as unknown as Array<{ id: string; name: string | null }>).map((a) => [
@@ -84,6 +91,12 @@ async function getOwnedUnits(actor: ResidentActor): Promise<ResidentUnit[]> {
   // auth session, so we scope on actor.id / actor.email directly rather than
   // re-deriving the user from the client.
   if (!actor.id && !actor.email) return []
+  // While impersonating the client is SERVICE-ROLE: RLS is off, so every
+  // query below must carry the impersonation org or it would return this
+  // owner's units in every tenant. (Not impersonating: orgId is null and
+  // RLS bounds the read, exactly as before.)
+  if (actor.impersonating && !actor.orgId) return []
+  const orgId = actor.orgId
 
   const rows: Array<{
     unit_id: string
@@ -97,14 +110,15 @@ async function getOwnedUnits(actor: ResidentActor): Promise<ResidentUnit[]> {
   }> = []
 
   if (actor.id) {
-    const { data } = await supabase
+    let q = supabase
       .from('ownerships')
       .select(
         'unit_id, ownership_pct, valid_from, unit:units(unit_number, address_line1, association_id)',
       )
       .eq('owner_user_id', actor.id)
       .is('valid_to', null)
-      .order('valid_from', { ascending: false })
+    if (orgId) q = q.eq('organization_id', orgId)
+    const { data } = await q.order('valid_from', { ascending: false })
     rows.push(
       ...((data ?? []) as unknown as typeof rows),
     )
@@ -126,14 +140,17 @@ async function getOwnedUnits(actor: ResidentActor): Promise<ResidentUnit[]> {
   // then resolve the matching units row via legacy_hoa_property_id so
   // the returned unit_id is valid for FK references (e.g. tickets).
   if (!actor.email) return []
-  const { data: prData } = await supabase
+  // Exact, case-insensitive: `%` / `_` in the address are escaped, so an
+  // address can never act as a pattern matching other residents.
+  let prQuery = supabase
     .from('property_residents' as never)
     .select(
       'property_id, role, moved_in_at, property:hoa_properties(id, address, unit_number, org_id)',
     )
-    .ilike('email' as never, actor.email)
+    .ilike('email' as never, exactIlike(actor.email))
     .is('moved_out_at' as never, null)
-    .order('moved_in_at' as never, { ascending: false })
+  if (orgId) prQuery = prQuery.eq('organization_id' as never, orgId)
+  const { data: prData } = await prQuery.order('moved_in_at' as never, { ascending: false })
 
   const prRows = (prData ?? []) as unknown as Array<{
     property_id: string
@@ -147,14 +164,18 @@ async function getOwnedUnits(actor: ResidentActor): Promise<ResidentUnit[]> {
     } | null
   }>
 
-  const validRows = prRows.filter((r) => r.property != null)
+  const validRows = prRows.filter(
+    (r) => r.property != null && (!orgId || r.property.org_id === orgId),
+  )
   if (validRows.length === 0) return []
 
   const propertyIds = validRows.map((r) => r.property_id)
-  const { data: unitLinks } = await supabase
+  let unitQuery = supabase
     .from('units' as never)
     .select('id, legacy_hoa_property_id, association_id')
     .in('legacy_hoa_property_id' as never, propertyIds)
+  if (orgId) unitQuery = unitQuery.eq('organization_id' as never, orgId)
+  const { data: unitLinks } = await unitQuery
 
   const unitByPropId = new Map(
     ((unitLinks ?? []) as unknown as Array<{

@@ -112,16 +112,17 @@ export interface CreateArcInput {
 export async function loadMyArcRequests(): Promise<LoadResult<ArcRequestRow[]>> {
   const actor = await getResidentActor()
   if (!actor.id) return { ok: true, data: [], count: 0 }
+  // Impersonating = service-role client: confine to the impersonation org.
+  let q = actor.client
+    .from('arc_requests' as never)
+    .select(
+      'id, unit_id, category, summary, scope_description, proposed_start, proposed_completion, contractor_name, status, board_response, board_response_at, submitted_at',
+    )
+    .eq('submitted_by', actor.id)
+  if (actor.orgId) q = q.eq('organization_id' as never, actor.orgId)
   const res = await loadOrFail(
     'resident ARC requests',
-    actor.client
-      .from('arc_requests' as never)
-      .select(
-        'id, unit_id, category, summary, scope_description, proposed_start, proposed_completion, contractor_name, status, board_response, board_response_at, submitted_at',
-      )
-      .eq('submitted_by', actor.id)
-      .order('submitted_at', { ascending: false })
-      .limit(50),
+    q.order('submitted_at', { ascending: false }).limit(50),
   )
   return res.ok ? { ok: true, data: (res.data ?? []) as unknown as ArcRequestRow[], count: null } : res
 }
@@ -211,7 +212,7 @@ export async function getMyArcRequest(id: string): Promise<ArcRequestDetail | nu
   const actor = await getResidentActor()
   if (!actor.id) return null
 
-  const { data: request } = await actor.client
+  let rq = actor.client
     .from('arc_requests' as never)
     .select(
       'id, unit_id, category, summary, scope_description, proposed_start, proposed_completion, contractor_name, contractor_license, status, board_response, board_response_at, submitted_at',
@@ -219,7 +220,8 @@ export async function getMyArcRequest(id: string): Promise<ArcRequestDetail | nu
     .eq('id', id)
     .eq('submitted_by', actor.id)
     .is('deleted_at', null)
-    .maybeSingle()
+  if (actor.orgId) rq = rq.eq('organization_id' as never, actor.orgId)
+  const { data: request } = await rq.maybeSingle()
   if (!request) return null
 
   // `internal: false` reproduces the resident's exact visibility — they
@@ -362,16 +364,15 @@ export interface ViolationReportRow {
 export async function loadMyViolationReports(): Promise<LoadResult<ViolationReportRow[]>> {
   const actor = await getResidentActor()
   if (!actor.id) return { ok: true, data: [], count: 0 }
+  // Impersonating = service-role client: confine to the impersonation org.
+  let q = actor.client
+    .from('resident_violation_reports' as never)
+    .select('id, category, description, about_address, occurred_at, status, submitted_at')
+    .eq('reported_by', actor.id)
+  if (actor.orgId) q = q.eq('organization_id' as never, actor.orgId)
   const res = await loadOrFail(
     'resident violation reports',
-    actor.client
-      .from('resident_violation_reports' as never)
-      .select(
-        'id, category, description, about_address, occurred_at, status, submitted_at',
-      )
-      .eq('reported_by', actor.id)
-      .order('submitted_at', { ascending: false })
-      .limit(50),
+    q.order('submitted_at', { ascending: false }).limit(50),
   )
   return res.ok
     ? { ok: true, data: (res.data ?? []) as unknown as ViolationReportRow[], count: null }
@@ -449,12 +450,13 @@ export async function getMyViolationReport(
   const actor = await getResidentActor()
   if (!actor.id) return null
 
-  const { data: report } = await actor.client
+  let rq = actor.client
     .from('resident_violation_reports' as never)
     .select('id, category, description, about_address, occurred_at, status, submitted_at')
     .eq('id', id)
     .eq('reported_by', actor.id)
-    .maybeSingle()
+  if (actor.orgId) rq = rq.eq('organization_id' as never, actor.orgId)
+  const { data: report } = await rq.maybeSingle()
   if (!report) return null
 
   // `internal: false` — the reporter never sees the board's internal note,

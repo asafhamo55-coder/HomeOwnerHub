@@ -211,14 +211,19 @@ export type LedgerRowsResult =
 export async function loadLedgerRows(
   db: SupabaseClient<Database>,
   unitIds: string[],
+  /** Impersonation org: the service-role client has no RLS, so confine
+   *  every read to it. Null/omitted for an RLS-bound client. */
+  orgId: string | null = null,
 ): Promise<LedgerRowsResult> {
   if (unitIds.length === 0) return { ok: true, assessments: [], payments: [], truncated: false }
 
-  const { data: aRows, error: aErr } = await db
+  let aQuery = db
     .from('assessments')
     .select('id, unit_id, amount, due_date, status, assessment_type, memo_code')
     .in('unit_id', unitIds)
     .is('deleted_at', null)
+  if (orgId) aQuery = aQuery.eq('organization_id', orgId)
+  const { data: aRows, error: aErr } = await aQuery
     .order('due_date', { ascending: true })
     .limit(MAX_ROWS)
   if (aErr) return { ok: false }
@@ -227,10 +232,12 @@ export async function loadLedgerRows(
   const ids = assessments.map((a) => a.id)
   const filters = [`unit_id.in.(${unitIds.join(',')})`]
   if (ids.length > 0) filters.push(`assessment_id.in.(${ids.join(',')})`)
-  const { data: pRows, error: pErr } = await db
+  let pQuery = db
     .from('payments')
     .select('id, unit_id, assessment_id, amount, paid_at, payment_method')
     .or(filters.join(','))
+  if (orgId) pQuery = pQuery.eq('organization_id', orgId)
+  const { data: pRows, error: pErr } = await pQuery
     .order('paid_at', { ascending: true })
     .limit(MAX_ROWS)
   if (pErr) return { ok: false }

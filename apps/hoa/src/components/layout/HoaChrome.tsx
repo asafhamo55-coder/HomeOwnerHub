@@ -12,10 +12,13 @@ import {
   type PaletteCommand,
 } from '@homeowner-portal/ui'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { clearSessionCookiesOnSignOut } from '@/app/actions/sign-out'
 import { ADMIN_ACCOUNT, BOARD_ACCOUNT, HOA_CREATE, HOA_NAV } from './nav'
 
 async function signOut() {
   const supabase = getSupabaseBrowserClient()
+  // Impersonation / role-override cookies are HTTPOnly: clear server-side.
+  await clearSessionCookiesOnSignOut().catch(() => {})
   await supabase.auth.signOut()
   window.location.href = '/login'
 }

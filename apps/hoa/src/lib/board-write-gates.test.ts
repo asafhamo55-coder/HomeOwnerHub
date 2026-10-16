@@ -10,6 +10,7 @@ import * as commActions from './communications/actions'
 import * as commSend from './communications/send'
 import * as parseDocument from '../app/api/ai/parse-document/route'
 import * as governingUpload from '../app/api/governing-docs/upload/route'
+import * as violationDraft from '../app/api/ai/violations/draft/route'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
@@ -130,6 +131,16 @@ describe('board-only routes return 403 to a resident', () => {
     )
     expect(res.status).toBe(403)
     expect(getSupabaseServerClient).not.toHaveBeenCalled()
+  })
+
+  it('POST /api/ai/violations/draft (R-01: org membership alone let a resident draft notices)', async () => {
+    const res = await violationDraft.POST(
+      new Request('http://x/api/ai/violations/draft', {
+        method: 'POST',
+        body: JSON.stringify({ unitId: ID, violationType: 'parking', description: 'x'.repeat(20) }),
+      }),
+    )
+    expect(res.status).toBe(403)
   })
 
   it('POST /api/governing-docs/upload (would otherwise poison Ask-the-Docs)', async () => {

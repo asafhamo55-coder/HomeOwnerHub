@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
@@ -22,6 +23,21 @@ export interface UserHoaOrg {
 
 export const ACTIVE_ORG_COOKIE = 'hoa_active_org_id'
 
+// Every org_members read below filters on the signed-in user's id. RLS
+// would scope it anyway for most callers, but org_members' policies also
+// expose co-members' rows (an admin sees their whole org), so an unfiltered
+// `.limit(20)` returned OTHER people's memberships — and with them other
+// orgs — once an org had enough members to push the caller's own rows out.
+// Memoized per request (React cache) — getCurrentOrg runs many times per
+// render and getUser is a round trip to the auth server.
+const signedInUser = cache(async (): Promise<{ id: string } | null> => {
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  return user ? { id: user.id } : null
+})
+
 // Resolution order for the active HOA org:
 //   1. Cookie `hoa_active_org_id` (set by the switcher), iff the user is
 //      a member of that org and it's an HOA hub.
@@ -29,10 +45,13 @@ export const ACTIVE_ORG_COOKIE = 'hoa_active_org_id'
 // Returns null if the user has no HOA org membership.
 export async function getCurrentOrg(): Promise<CurrentOrg | null> {
   const supabase = await getSupabaseServerClient()
+  const user = await signedInUser()
+  if (!user) return null
 
   const { data, error } = await supabase
     .from('org_members')
     .select('org:orgs(id, name, hub_type, plan, doors_count)')
+    .eq('user_id', user.id)
     .order('joined_at', { ascending: true })
     .limit(20)
   if (error || !data) return null
@@ -58,9 +77,12 @@ export async function getCurrentOrg(): Promise<CurrentOrg | null> {
 // All HOA orgs the user belongs to. Powers the in-app org switcher.
 export async function getUserHoaOrgs(): Promise<UserHoaOrg[]> {
   const supabase = await getSupabaseServerClient()
+  const user = await signedInUser()
+  if (!user) return []
   const { data, error } = await supabase
     .from('org_members')
     .select('org:orgs(id, name, hub_type, doors_count)')
+    .eq('user_id', user.id)
     .order('joined_at', { ascending: true })
     .limit(20)
   if (error || !data) return []
@@ -81,9 +103,12 @@ export async function getUserHoaOrgs(): Promise<UserHoaOrg[]> {
 // All hubs the user has any org in. Powers the cross-app hub switcher.
 export async function getUserHubs(): Promise<UserHub[]> {
   const supabase = await getSupabaseServerClient()
+  const user = await signedInUser()
+  if (!user) return []
   const { data } = await supabase
     .from('org_members')
     .select('org:orgs(hub_type, name)')
+    .eq('user_id', user.id)
     .order('joined_at', { ascending: true })
     .limit(20)
 

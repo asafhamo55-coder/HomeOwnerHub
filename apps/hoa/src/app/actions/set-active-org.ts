@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ACTIVE_ORG_COOKIE } from '@/lib/orgs'
+import { clearSessionScopedCookies } from '@/lib/session-cookies'
 
 // Sets the active HOA org cookie iff the calling user is actually a
 // member of the target org. Anything else is rejected — this is the
@@ -33,6 +34,8 @@ export async function setActiveOrg(orgId: string): Promise<
   }
 
   const cookieStore = await cookies()
+  // Impersonation and the role override belong to the org being left.
+  clearSessionScopedCookies(cookieStore)
   cookieStore.set(ACTIVE_ORG_COOKIE, orgId, {
     path: '/',
     maxAge: 60 * 60 * 24 * 365, // 1 year

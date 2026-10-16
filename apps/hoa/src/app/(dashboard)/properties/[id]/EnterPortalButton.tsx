@@ -2,7 +2,7 @@
 
 import { useTransition } from 'react'
 import { LogIn } from 'lucide-react'
-import { Button } from '@homeowner-portal/ui'
+import { Button, useToast } from '@homeowner-portal/ui'
 import { enterResidentPortal } from '@/lib/impersonation-actions'
 
 // Admin-only control: enter the owner's resident portal to see exactly what
@@ -24,6 +24,7 @@ export function EnterPortalButton({
   variant?: 'outline' | 'ghost' | 'default'
 }) {
   const [pending, startTransition] = useTransition()
+  const toast = useToast()
   if (!email) return null
 
   const label = name || email
@@ -35,9 +36,13 @@ export function EnterPortalButton({
       disabled={pending}
       title={`Enter ${label}'s portal (read-only)`}
       onClick={() =>
-        startTransition(() =>
-          void enterResidentPortal({ email, name: label, propertyId, unitId, ownerUserId }),
-        )
+        startTransition(async () => {
+          // Success redirects; a refusal (owner not in this org) returns.
+          const result = await enterResidentPortal({ email, name: label, propertyId, unitId, ownerUserId })
+          if (result && !result.ok) {
+            toast({ tone: 'error', title: 'Couldn’t open the owner portal', message: result.error })
+          }
+        })
       }
     >
       <LogIn className="h-3.5 w-3.5" />

@@ -86,15 +86,16 @@ export interface CreateTicketInput {
 export async function loadMyTickets(): Promise<LoadResult<TicketRow[]>> {
   const actor = await getResidentActor()
   if (!actor.id) return { ok: true, data: [], count: 0 }
+  // Impersonating = service-role client: confine to the impersonation org.
+  let q = actor.client
+    .from('tickets' as never)
+    .select('id, unit_id, category, subject, status, priority, created_at')
+    .eq('submitted_by', actor.id)
+    .is('deleted_at', null)
+  if (actor.orgId) q = q.eq('organization_id' as never, actor.orgId)
   const res = await loadOrFail(
     'resident tickets',
-    actor.client
-      .from('tickets' as never)
-      .select('id, unit_id, category, subject, status, priority, created_at')
-      .eq('submitted_by', actor.id)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .limit(50),
+    q.order('created_at', { ascending: false }).limit(50),
   )
   return res.ok ? { ok: true, data: (res.data ?? []) as unknown as TicketRow[], count: null } : res
 }
@@ -114,13 +115,14 @@ export async function getMyTicket(id: string): Promise<TicketDetail | null> {
   const actor = await getResidentActor()
   if (!actor.id) return null
 
-  const { data: ticket } = await actor.client
+  let tq = actor.client
     .from('tickets' as never)
     .select('id, unit_id, category, subject, description, status, priority, created_at, closed_at')
     .eq('id', id)
     .eq('submitted_by', actor.id)
     .is('deleted_at', null)
-    .maybeSingle()
+  if (actor.orgId) tq = tq.eq('organization_id' as never, actor.orgId)
+  const { data: ticket } = await tq.maybeSingle()
   if (!ticket) return null
 
   // `internal: false` reproduces the resident's exact visibility: residents

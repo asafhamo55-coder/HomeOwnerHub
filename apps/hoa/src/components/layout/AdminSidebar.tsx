@@ -21,6 +21,7 @@ import {
   SidebarSection,
 } from '@homeowner-portal/ui'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { clearSessionCookiesOnSignOut } from '@/app/actions/sign-out'
 
 interface AdminSidebarProps {
   userEmail: string
@@ -61,6 +62,8 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
 
   async function handleSignOut() {
     const supabase = getSupabaseBrowserClient()
+    // Impersonation / role-override cookies are HTTPOnly: clear server-side.
+    await clearSessionCookiesOnSignOut().catch(() => {})
     await supabase.auth.signOut()
     window.location.href = '/login'
   }
