@@ -80,12 +80,28 @@ It reports the commit SHA that pushed and tells you to run
 
 ## /api/health endpoint shape
 
-Each app exposes `GET /api/health` (no auth required). Sample response:
+Each app exposes `GET /api/health` (no auth required).
+
+**HOA is two-tier** (api-route-conventions RC-2, C-15):
+
+- Public, no `Authorization` header: exactly `{ "ok": true, "app": "hoa", "version": "<sha>" }`.
+  Only the DB probe runs. Unhealthy is a 503
+  `{ "error": { "code": "...", "message": "...", "app": "hoa", "version": "<sha>" } }`:
+  `not_configured` when a required Supabase env var is unset (without saying which),
+  `upstream_unavailable` when the DB probe fails. No probe detail, branch or env booleans.
+- Details, `Authorization: Bearer $EMBEDDING_PROBE_KEY`: `ok`, `app`, `timestamp`, `version`,
+  `branch`, `supabaseUrl` (camelCase), `probes` (`db`, `ai`, and `embedding` only with
+  `?probe=embedding`, which is billed), `models` and `env`. Unhealthy is a 503 envelope with the
+  same fields plus `reason`: `not_configured` / `missing_env` when a required Supabase env var is
+  unset, `upstream_unavailable` / `db_unreachable` when the DB probe fails. A wrong bearer is 401;
+  an unset key is 503 `not_configured`. `?key=` and `CRON_SECRET` are not accepted.
+
+PM and Eviction still return the older single-tier shape. Sample response:
 
 ```json
 {
   "ok": true,
-  "app": "hoa",
+  "app": "pm",
   "timestamp": "2026-05-11T18:47:00.000Z",
   "version": "abc1234",
   "branch": "claude/phase1-...",

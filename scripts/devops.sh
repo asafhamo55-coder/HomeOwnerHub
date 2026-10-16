@@ -129,7 +129,9 @@ probe_one() {
   local app version dbok
   app=$(jq -r '.app' "$tmp")
   version=$(jq -r '.version' "$tmp")
-  dbok=$(jq -r '.probes.db.ok' "$tmp")
+  # HOA's public body is { ok, app, version }: ok implies the DB probe
+  # passed. PM and eviction still report probes.db.ok.
+  dbok=$(jq -r 'if .probes then .probes.db.ok else .ok end' "$tmp")
   ok "  $label · app=$app · version=$version · db=$dbok"
   rm -f "$tmp"
 }

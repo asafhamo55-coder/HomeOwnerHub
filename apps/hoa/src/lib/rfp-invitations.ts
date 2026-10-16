@@ -7,6 +7,8 @@ import { createAdminClient } from '@homeowner-portal/db'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sendEmail, appUrl } from '@/lib/email'
+import { ApiRouteError } from '@/lib/api/errors'
+import { logRouteFailure } from '@/lib/api/log'
 
 // rfp_invitations rows ship in migration 0007. One row per (rfp_id,
 // vendor_id) — unique constraint. Token format identical to
@@ -340,11 +342,17 @@ export interface ValidatedRfpInvitation {
 export async function validateRfpInvitationToken(
   token: string,
 ): Promise<
-  | { ok: true; invitation: ValidatedRfpInvitation; alreadyBid: boolean }
+  | {
+      ok: true
+      invitation: ValidatedRfpInvitation
+      alreadyBid: boolean
+      /** Status of the vendor's existing bid in ANY status (UNIQUE rfp_id, vendor_id), or null. */
+      existingBidStatus: string | null
+    }
   | { ok: false; reason: 'not_found' | 'rfp_closed' | 'revoked' | 'expired' }
 > {
   const db = createAdminClient()
-  const { data } = await db
+  const { data, error: lookupErr } = await db
     .from('rfp_invitations' as never)
     .select(
       'id, organization_id, rfp_id, vendor_id, unique_submission_token, rfp:rfps(id, rfp_number, title, scope, status, submission_deadline), vendor:vendors(id, legal_name, primary_email)',
@@ -371,6 +379,14 @@ export async function validateRfpInvitationToken(
       } | null
     }>()
 
+  // A failed lookup is ours, not the caller's: it must not read as an
+  // unknown token ("invalid link"). Code only — a Postgres message embeds
+  // values (api-route-conventions RC-2). The route's withRoute turns this
+  // into the generic 500 envelope.
+  if (lookupErr) {
+    logRouteFailure('rfp-invitations.validate.lookup', lookupErr)
+    throw new ApiRouteError('internal')
+  }
   if (!data || !data.rfp || !data.vendor) return { ok: false, reason: 'not_found' }
   if (data.unique_submission_token == null) {
     return { ok: false, reason: 'revoked' }
@@ -385,12 +401,16 @@ export async function validateRfpInvitationToken(
   // If the vendor already submitted a bid, surface it so the
   // public page can show "thanks, already submitted" instead of
   // letting them double-submit.
-  const { data: existingBid } = await db
+  const { data: existingBid, error: bidLookupErr } = await db
     .from('bids' as never)
     .select('id, status')
     .eq('rfp_id', data.rfp_id)
     .eq('vendor_id', data.vendor_id)
     .maybeSingle<{ id: string; status: string }>()
+  if (bidLookupErr) {
+    logRouteFailure('rfp-invitations.validate.bid_lookup', bidLookupErr, { invitationId: data.id })
+    throw new ApiRouteError('internal')
+  }
   const alreadyBid = !!existingBid && existingBid.status === 'submitted'
 
   // Mark the invitation acknowledged the first time the link is opened.
@@ -403,7 +423,8 @@ export async function validateRfpInvitationToken(
     .eq('id', data.id)
     .is('acknowledged_at', null)
   if (ackErr) {
-    console.error('[rfp-invitations] acknowledged_at update failed', ackErr.message)
+    // Code and id only, never ackErr.message (RC-2).
+    logRouteFailure('rfp-invitations.validate.acknowledge', ackErr, { invitationId: data.id })
   }
 
   return {
@@ -421,6 +442,7 @@ export async function validateRfpInvitationToken(
       vendorEmail: data.vendor.primary_email,
     },
     alreadyBid,
+    existingBidStatus: existingBid?.status ?? null,
   }
 }
 

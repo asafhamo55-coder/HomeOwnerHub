@@ -120,7 +120,9 @@ jobs:
               if [ -f /tmp/$app.json ]; then
                 OK=$(jq -r '.ok' /tmp/$app.json)
                 VERSION=$(jq -r '.version' /tmp/$app.json)
-                DB=$(jq -r '.probes.db.ok' /tmp/$app.json)
+                # HOA's public body is { ok, app, version }: ok implies the
+                # DB probe passed. PM and eviction still report probes.db.ok.
+                DB=$(jq -r 'if .probes then .probes.db.ok else .ok end' /tmp/$app.json)
                 echo "- **$app** — ok=$OK · version=$VERSION · db=$DB"
               else
                 echo "- **$app** — not probed"

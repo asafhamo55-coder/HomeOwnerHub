@@ -4,6 +4,17 @@ import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { FileUp } from 'lucide-react'
 import { Button, Input, Textarea } from '@homeowner-portal/ui'
+import { apiErrorMessage } from '@/lib/api/client'
+
+/** Payload fields the form shows an inline error under. */
+const FIELD_KEYS = new Set([
+  'legal_name',
+  'ein',
+  'primary_email',
+  'primary_phone',
+  'trades',
+  'service_area_zips',
+])
 
 interface Props {
   token: string
@@ -102,41 +113,38 @@ export function PublicOnboardingForm({ token, inviteeEmail, inviteeName }: Props
         body,
       })
       if (!res.ok) {
-        type ZodIssue = { path?: (string | number)[]; message?: string }
-        type WrappedBody = {
-          message?: string
-          error?: string
-          issues?: ZodIssue[]
-        }
-        const raw = (await res.json().catch(() => null)) as
-          | WrappedBody
-          | ZodIssue[]
-          | null
+        // The route answers with the shared envelope:
+        //   { error: { code, message, issues?: [{ path: 'a.b', message }] } }
+        const raw: unknown = await res.json().catch(() => null)
+        const fallback = 'Submission failed. Please try again.'
+        const issues =
+          raw && typeof raw === 'object' && (raw as { error?: unknown }).error
+            ? ((raw as { error: { issues?: unknown } }).error.issues as
+                | Array<{ path?: unknown; message?: unknown }>
+                | undefined)
+            : undefined
 
-        // Normalize: the route returns { error, issues }, but be
-        // defensive — some error paths return the issues array bare,
-        // and we never want raw JSON visible to the user.
-        let issues: ZodIssue[] | undefined
-        let topLevelMessage: string | undefined
-        if (Array.isArray(raw)) {
-          issues = raw
-        } else if (raw && typeof raw === 'object') {
-          issues = raw.issues
-          topLevelMessage = raw.message ?? raw.error ?? undefined
-        }
-
-        if (issues && issues.length > 0) {
+        if (Array.isArray(issues) && issues.length > 0) {
           const mapped: Record<string, string> = {}
+          let unmapped: string | undefined
           for (const iss of issues) {
-            const key = String(iss.path?.[0] ?? '_')
-            if (!mapped[key] && iss.message) mapped[key] = iss.message
+            if (typeof iss.message !== 'string') continue
+            const key = typeof iss.path === 'string' ? (iss.path.split('.')[0] ?? '') : ''
+            if (FIELD_KEYS.has(key)) {
+              if (!mapped[key]) mapped[key] = iss.message
+            } else if (!unmapped) {
+              unmapped = iss.message
+            }
           }
           setFieldErrors(mapped)
           setError(
-            'Please fix the highlighted fields above and try again.',
+            Object.keys(mapped).length > 0
+              ? 'Please fix the highlighted fields above and try again.'
+              : (unmapped ?? apiErrorMessage(raw, fallback)),
           )
         } else {
-          setError(topLevelMessage ?? 'Submission failed. Please try again.')
+          setFieldErrors({})
+          setError(apiErrorMessage(raw, fallback))
         }
         return
       }

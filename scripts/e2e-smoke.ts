@@ -105,7 +105,10 @@ async function probeHealth(t: AppTarget): Promise<void> {
       })
       return
     }
-    if (body.probes?.db?.ok !== true) {
+    // HOA's public body is just { ok, app, version } (ok already implies the
+    // DB probe passed); PM and eviction still report probes, so check them
+    // where present.
+    if (body.probes !== undefined && body.probes?.db?.ok !== true) {
       record({
         app: t.id,
         probe: 'health 200',

@@ -27,9 +27,9 @@ function checkDeclaredLength(request: Request, maxBytes: number): void {
   }
 }
 
-/** Read the body as text, stopping as soon as it passes maxBytes. */
-async function readCapped(request: Request, maxBytes: number): Promise<string> {
-  if (!request.body) return ''
+/** Read the body's bytes, stopping as soon as it passes maxBytes. */
+async function readCappedBytes(request: Request, maxBytes: number): Promise<Uint8Array<ArrayBuffer>> {
+  if (!request.body) return new Uint8Array(0)
   const reader = request.body.getReader()
   const chunks: Uint8Array[] = []
   let total = 0
@@ -49,7 +49,12 @@ async function readCapped(request: Request, maxBytes: number): Promise<string> {
     all.set(c, off)
     off += c.byteLength
   }
-  return new TextDecoder().decode(all)
+  return all
+}
+
+/** Read the body as text, stopping as soon as it passes maxBytes. */
+async function readCapped(request: Request, maxBytes: number): Promise<string> {
+  return new TextDecoder().decode(await readCappedBytes(request, maxBytes))
 }
 
 export async function parseJson<S extends z.ZodTypeAny>(
@@ -69,12 +74,25 @@ export async function parseJson<S extends z.ZodTypeAny>(
   return validated(schema, body)
 }
 
-/** multipart/form-data or urlencoded. A malformed body is a 400, not a thrown 500 (R-20). */
+/**
+ * multipart/form-data or urlencoded. A malformed body is a 400, not a thrown 500 (R-20).
+ * The cap holds on the bytes actually read, not only the declared Content-Length, so a
+ * chunked body (no Content-Length) cannot be buffered past maxBytes.
+ */
 export async function parseForm(request: Request, opts: { maxBytes?: number } = {}): Promise<FormData> {
   const maxBytes = opts.maxBytes ?? MAX_FORM_BYTES
   checkDeclaredLength(request, maxBytes)
+  let bytes: Uint8Array<ArrayBuffer>
   try {
-    return await request.formData()
+    bytes = await readCappedBytes(request, maxBytes)
+  } catch (err) {
+    if (err instanceof ApiRouteError) throw err
+    // The stream itself failed (client aborted mid-upload): still a 400, not a 500.
+    throw new ApiRouteError('validation_failed', 'The upload could not be read. Try again.')
+  }
+  const contentType = request.headers.get('content-type')
+  try {
+    return await new Response(bytes, contentType ? { headers: { 'content-type': contentType } } : undefined).formData()
   } catch {
     throw new ApiRouteError('validation_failed', 'The upload could not be read. Try again.')
   }

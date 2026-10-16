@@ -83,6 +83,50 @@ describe('parseForm', () => {
     const e = await rejection(parseForm(post(f, { 'content-length': '999999999' }), { maxBytes: 1000 }))
     expect(e.code).toBe('payload_too_large')
   })
+
+  it('rejects an oversize body with no content-length (chunked) as 413 on the bytes read', async () => {
+    const boundary = 'zzz'
+    const big = `--${boundary}\r\nContent-Disposition: form-data; name="title"\r\n\r\n${'x'.repeat(5000)}\r\n--${boundary}--\r\n`
+    let reads = 0
+    const stream = new ReadableStream<Uint8Array>({
+      pull(c) {
+        // Emit in chunks, as a chunked transfer would; never a content-length.
+        const bytes = new TextEncoder().encode(big)
+        if (reads * 512 >= bytes.byteLength) return c.close()
+        c.enqueue(bytes.slice(reads * 512, (reads + 1) * 512))
+        reads++
+      },
+    })
+    const req = new Request('http://x/api/thing', {
+      method: 'POST',
+      body: stream,
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      duplex: 'half',
+    } as RequestInit)
+    expect(req.headers.get('content-length')).toBeNull()
+    const e = await rejection(parseForm(req, { maxBytes: 1000 }))
+    expect(e.code).toBe('payload_too_large')
+    expect(e.extra).toMatchObject({ maxBytes: 1000 })
+    expect(reads).toBeLessThan(5) // stopped reading once past the cap
+  })
+
+  it('still parses a chunked body under the cap', async () => {
+    const f = new FormData()
+    f.append('title', 'Rules')
+    f.append('file', new File(['%PDF'], 'a.pdf', { type: 'application/pdf' }))
+    const encoded = new Response(f)
+    const req = new Request('http://x/api/thing', {
+      method: 'POST',
+      body: encoded.body,
+      headers: { 'content-type': encoded.headers.get('content-type')! },
+      duplex: 'half',
+    } as RequestInit)
+    const form = await parseForm(req)
+    expect(form.get('title')).toBe('Rules')
+    const file = form.get('file') as File
+    expect(file.type).toBe('application/pdf')
+    expect(file.size).toBe(4)
+  })
 })
 
 describe('parseQuery', () => {

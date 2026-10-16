@@ -6,21 +6,43 @@ import {
   resolveVisionModel,
   resolveCloudModel,
 } from '@homeowner-portal/ai'
+import { withRoute } from '@/lib/api/handler'
+import { ApiRouteError } from '@/lib/api/errors'
+import { requireBearerSecret } from '@/lib/api/secrets'
+import { errorCode } from '@/lib/api/log'
 
 // GET /api/health
 //
-// Smoke-test target for the devops pipeline. Returns 200 with a JSON
-// body describing what's reachable. Never returns 500 — every probe is
-// individually wrapped so one missing env var doesn't mask the others.
+// Smoke-test target for the devops pipeline. Two tiers (RC-2 "public
+// diagnostics", C-15):
 //
-// Public on purpose: no auth required. Production identifiers are
-// included by env-var NAME (not value) so this is safe to expose.
+//  - Public (no Authorization header): `{ ok: true, app, version }` and
+//    nothing else. Only the DB probe runs (our own database, not a billed
+//    call), so `ok` still means "DB reachable + required env present".
+//    Unhealthy is a 503 envelope carrying only `app` and `version`:
+//    `not_configured` when a required env var is unset (RC-1), else
+//    `upstream_unavailable` when the DB probe fails. No probe detail, no
+//    branch, no "which secret is unset".
+//
+//  - Details (`Authorization: Bearer <EMBEDDING_PROBE_KEY>`): every probe,
+//    the resolved model ids, env-var presence and the branch.
+//    `?probe=embedding` adds the billed embedding probe. Unhealthy is 503
+//    `not_configured` (reason missing_env) or `upstream_unavailable` (reason
+//    db_unreachable), with the details in the envelope. A wrong bearer is
+//    401 and an unset key is 503, so the tier fails closed. `?key=` and
+//    CRON_SECRET are no longer accepted (RC-7, R-21 / C-06).
+//
+// Probe `detail` strings carry HTTP status numbers, Postgres codes and
+// error name/code chains only, never a DB or provider message, on either
+// tier (RC-2).
+//
+// `version` stays public: it is how a production deploy is verified.
 //
 // Read by:
-//  - .github/workflows/smoke.yml (curls / and asserts ok=true)
-//  - scripts/devops.sh
+//  - .github/workflows/smoke.yml (curl -f, asserts ok=true)
+//  - scripts/devops.sh, scripts/e2e-smoke.ts, scripts/e2e-impersonation.ts
 //  - the devops subagent
-//  - operators in the browser when something looks wrong
+//  - operators, with the bearer, when something looks wrong
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -36,28 +58,46 @@ async function probeDb(): Promise<ProbeResult> {
   try {
     const db = createAdminClient()
     const { error } = await db.from('orgs').select('id').limit(1)
-    if (error) return { ok: false, detail: error.message }
+    // Code only: a Postgres message names tables and embeds values (RC-2).
+    if (error) return { ok: false, detail: `code=${errorCode(error) ?? 'none'}` }
     return { ok: true }
   } catch (err) {
-    return { ok: false, detail: err instanceof Error ? err.message : String(err) }
+    return { ok: false, detail: failureDetail(err) }
   }
 }
 
 async function probeAi(): Promise<ProbeResult> {
-  if (!process.env.AI_BASE_URL || !process.env.AI_API_KEY) {
+  const baseUrl = process.env.AI_BASE_URL
+  const apiKey = process.env.AI_API_KEY
+  if (!baseUrl || !apiKey) {
     return { ok: false, detail: 'AI_BASE_URL or AI_API_KEY not set' }
   }
   try {
     // Cheap models list call — doesn't burn quota on Groq's free tier.
-    const res = await fetch(`${process.env.AI_BASE_URL}/models`, {
-      headers: { Authorization: `Bearer ${process.env.AI_API_KEY}` },
+    // Outbound credential, not an inbound secret compare.
+    const res = await fetch(`${baseUrl}/models`, {
+      headers: { Authorization: 'Bearer ' + apiKey },
       signal: AbortSignal.timeout(5000),
     })
-    if (!res.ok) return { ok: false, detail: `${res.status} ${res.statusText}` }
+    // Status number only; statusText and the body are provider text.
+    if (!res.ok) return { ok: false, detail: `status=${res.status}` }
     return { ok: true }
   } catch (err) {
-    return { ok: false, detail: err instanceof Error ? err.message : String(err) }
+    return { ok: false, detail: failureDetail(err) }
   }
+}
+
+/** Error name and code chain — fixed vocabularies, never a message (RC-2). */
+function failureDetail(err: unknown): string {
+  const chain: string[] = []
+  let cur: unknown = err
+  for (let depth = 0; depth < 5 && cur; depth++) {
+    const name = cur instanceof Error ? cur.name : typeof cur
+    const code = errorCode(cur)
+    chain.push(code ? `${name}(${code})` : name)
+    cur = cur && typeof cur === 'object' && 'cause' in cur ? (cur as { cause?: unknown }).cause : undefined
+  }
+  return `chain=${chain.join(' <- ')}`
 }
 
 /**
@@ -120,7 +160,8 @@ function probeEnvVars(): Record<string, boolean> {
 }
 
 /**
- * Opt-in probe for the embedding provider, behind `?probe=embedding`.
+ * Opt-in probe for the embedding provider, behind `?probe=embedding` on
+ * the bearer-authenticated details tier only.
  *
  * Not run by default, and deliberately so: embedding calls are billed per
  * token, and this endpoint is polled by CI smoke tests and by anyone
@@ -136,8 +177,8 @@ function probeEnvVars(): Record<string, boolean> {
  * whether the token is wrong, the model is gone, or it is rate limited.
  *
  * The input is a fixed literal, so nothing resident-derived is ever sent.
- * Only the HTTP status is reported back — an integer from a fixed set,
- * which cannot carry PII.
+ * Only the HTTP status and the error name/code chain are reported back,
+ * all drawn from fixed sets, which cannot carry PII.
  */
 async function probeEmbedding(): Promise<ProbeResult> {
   if (!process.env.OPENAI_API_KEY) {
@@ -152,104 +193,100 @@ async function probeEmbedding(): Promise<ProbeResult> {
     // time instead of here, which is a far worse place to find out.
     return { ok: true, detail: `dim=${vector.length}` }
   } catch (err) {
+    // HTTP status plus the name/code chain. The provider client wraps a
+    // network failure twice (retry-exhausted -> network error -> the
+    // underlying fetch rejection), so the Node code that names the real
+    // fault (ENOTFOUND, ECONNREFUSED, CERT_HAS_EXPIRED, an AbortError from
+    // our own timeout) sits two or three levels down.
+    //
+    // Never the provider's message. It used to be appended here on the
+    // argument that the fixed 'healthcheck' input cannot echo resident
+    // data, but RC-2 keeps raw provider text out of every response, and an
+    // error page or account detail is still provider text.
     const status =
       err && typeof err === 'object' && 'status' in err
         ? (err as { status?: number }).status
         : undefined
-
-    // Walk the cause chain. The provider client wraps a network failure
-    // twice (retry-exhausted -> network error -> the underlying fetch
-    // rejection), so the only thing that names the real fault — a Node
-    // error code like ENOTFOUND, ECONNREFUSED, CERT_HAS_EXPIRED, or an
-    // AbortError from our own timeout — sits two or three levels down.
-    //
-    // Names and codes ONLY, never messages: a message from this provider
-    // can carry a slice of the request body. A Node error code is drawn
-    // from a fixed set and cannot.
-    const chain: string[] = []
-    let cur: unknown = err
-    for (let depth = 0; depth < 5 && cur; depth++) {
-      const name = cur instanceof Error ? cur.name : typeof cur
-      const code =
-        cur && typeof cur === 'object' && 'code' in cur
-          ? String((cur as { code?: unknown }).code)
-          : undefined
-      chain.push(code ? `${name}(${code})` : name)
-      cur = cur && typeof cur === 'object' && 'cause' in cur
-        ? (cur as { cause?: unknown }).cause
-        : undefined
-    }
-
-    // The provider's own message is included HERE and nowhere else.
-    //
-    // mailboxReplyEmbeddingsJob must never log it: that job embeds a
-    // resident's correspondence, and this provider echoes a slice of the
-    // request body in its error text. This probe sends a single fixed
-    // literal ('healthcheck'), so its response provably cannot contain
-    // resident data — the reason the same string is safe here and not
-    // there is the input, not the handling.
-    //
-    // Truncated because a provider error can carry an HTML page.
-    const providerMessage = err instanceof Error ? err.message.slice(0, 300) : ''
-
-    return {
-      ok: false,
-      detail: `status=${status ?? 'none'} chain=${chain.join(' <- ')} provider=${providerMessage}`,
-    }
+    return { ok: false, detail: `status=${status ?? 'none'} ${failureDetail(err)}` }
   }
 }
 
-export async function GET(request: Request): Promise<Response> {
+function requiredEnvPresent(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+  )
+}
 
-  // Gated behind CRON_SECRET. /api/health is deliberately public, but this
-  // probe makes a BILLED provider call, so leaving it open would let anyone
-  // burn the embedding quota by hammering one URL.
-  //
-  // EMBEDDING_PROBE_KEY is accepted as well, and exists because gating this
-  // on CRON_SECRET alone locked the operator out of their own diagnostic:
-  // Vercel marks production secrets as sensitive so they cannot be read
-  // back, and `vercel redeploy` reuses the previous deployment's env
-  // snapshot, so rotating the value does not take effect either. A
-  // diagnostic whose key cannot be retrieved is not a diagnostic.
-  //
-  // Either key works. Both are compared with a constant-time-ish equality
-  // on values of the same length; neither is logged. When neither variable
-  // is set the probe is unavailable rather than open.
-  const url = new URL(request.url)
-  const providedKey = url.searchParams.get('key')
-  const cronSecret = process.env.CRON_SECRET
-  const probeKey = process.env.EMBEDDING_PROBE_KEY
-  const keyMatches =
-    Boolean(providedKey) &&
-    ((Boolean(cronSecret) && providedKey === cronSecret) ||
-      (Boolean(probeKey) && providedKey === probeKey))
-  const wantEmbedding = url.searchParams.get('probe') === 'embedding' && keyMatches
+/**
+ * The details tier's own secret (RC-7: one env var per purpose). It already
+ * exists in production for exactly this diagnostic; CRON_SECRET is no longer
+ * accepted here (R-21 / C-06).
+ */
+const DETAILS_SECRET_ENV = 'EMBEDDING_PROBE_KEY'
+
+export const GET = withRoute('health.get', async (request: Request) => {
+  const version = process.env.VERCEL_GIT_COMMIT_SHA ?? 'local'
+
+  // Public tier: no Authorization header at all. Only our own DB is probed,
+  // so an unauthenticated poll makes no outbound or billed call.
+  if (!request.headers.has('authorization')) {
+    // RC-1: a missing required env var is 503 `not_configured`. Checked
+    // before the DB probe (which cannot succeed without it). The envelope
+    // carries only `app` and `version`, never which variable is unset (RC-2).
+    if (!requiredEnvPresent()) {
+      throw new ApiRouteError('not_configured', 'Health check failed: required configuration is missing.', {
+        app: APP_ID,
+        version,
+      })
+    }
+    const db = await probeDb()
+    // Config present but our DB is not reachable: 503 `upstream_unavailable`,
+    // again with no probe detail on the public tier.
+    if (!db.ok) {
+      throw new ApiRouteError('upstream_unavailable', 'Health check failed.', { app: APP_ID, version })
+    }
+    return NextResponse.json({ ok: true, app: APP_ID, version })
+  }
+
+  // Details tier: any Authorization header opts in and must then be right.
+  // Timing-safe; 401 on a mismatch, 503 when the key is unset (fails closed).
+  requireBearerSecret(request, DETAILS_SECRET_ENV)
+
+  // The embedding probe is billed per token, so it runs only on request.
+  const wantEmbedding = new URL(request.url).searchParams.get('probe') === 'embedding'
   const [db, ai, embedding] = await Promise.all([
     probeDb(),
     probeAi(),
     wantEmbedding ? probeEmbedding() : Promise.resolve(null),
   ])
-  const env = probeEnvVars()
+  const details = {
+    app: APP_ID,
+    timestamp: new Date().toISOString(),
+    version,
+    branch: process.env.VERCEL_GIT_COMMIT_REF ?? 'local',
+    supabaseUrl: SUPABASE_URL,
+    probes: embedding ? { db, ai, embedding } : { db, ai },
+    models: probeModels(),
+    // Keyed by env-var NAME, verbatim (so not camelCased), presence only.
+    env: probeEnvVars(),
+  }
 
-  const allRequiredEnvPresent =
-    env.NEXT_PUBLIC_SUPABASE_URL &&
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
-    env.SUPABASE_SERVICE_ROLE_KEY
-
-  const ok = db.ok && allRequiredEnvPresent
-
-  return NextResponse.json(
-    {
-      ok,
-      app: APP_ID,
-      timestamp: new Date().toISOString(),
-      version: process.env.VERCEL_GIT_COMMIT_SHA ?? 'local',
-      branch: process.env.VERCEL_GIT_COMMIT_REF ?? 'local',
-      supabase_url: SUPABASE_URL,
-      probes: embedding ? { db, ai, embedding } : { db, ai },
-      models: probeModels(),
-      env,
-    },
-    { status: ok ? 200 : 503 },
-  )
-}
+  // RC-1: an unset required env var is 503 `not_configured`; checked first
+  // because without it the DB probe fails too. A reachable-config DB failure
+  // is 503 `upstream_unavailable`. Nothing to hide on this authenticated tier.
+  if (!requiredEnvPresent()) {
+    throw new ApiRouteError('not_configured', 'Health check failed: required configuration is missing.', {
+      reason: 'missing_env',
+      ...details,
+    })
+  }
+  if (!db.ok) {
+    throw new ApiRouteError('upstream_unavailable', 'Health check failed.', {
+      reason: 'db_unreachable',
+      ...details,
+    })
+  }
+  return NextResponse.json({ ok: true, ...details })
+})

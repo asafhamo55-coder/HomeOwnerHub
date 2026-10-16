@@ -7,6 +7,8 @@ import { createAdminClient } from '@homeowner-portal/db'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sendEmail, appUrl } from '@/lib/email'
+import { ApiRouteError } from '@/lib/api/errors'
+import { logRouteFailure } from '@/lib/api/log'
 
 export type InvitationStatus = 'pending' | 'submitted' | 'expired' | 'revoked'
 
@@ -198,7 +200,7 @@ export async function validateInvitationToken(
   | { ok: false; reason: 'not_found' | 'expired' | 'consumed' | 'revoked' }
 > {
   const db = createAdminClient()
-  const { data } = await db
+  const { data, error: lookupErr } = await db
     .from('vendor_onboarding_invitations' as never)
     .select(
       'id, organization_id, invitee_email, invitee_name, status, expires_at',
@@ -213,16 +215,28 @@ export async function validateInvitationToken(
       expires_at: string
     }>()
 
+  // A failed lookup must not read as an unknown token: that would tell a
+  // vendor their link is invalid (404) when our database is the problem.
+  // Logged by code only (RC-2); withRoute turns the throw into a 500.
+  if (lookupErr) {
+    logRouteFailure('vendor-invitations.validate.lookup', lookupErr)
+    throw new ApiRouteError('internal')
+  }
   if (!data) return { ok: false, reason: 'not_found' }
   if (data.status === 'submitted') return { ok: false, reason: 'consumed' }
   if (data.status === 'revoked') return { ok: false, reason: 'revoked' }
   if (data.status === 'expired') return { ok: false, reason: 'expired' }
   if (new Date(data.expires_at).getTime() < Date.now()) {
     // Lazily mark it expired so the manager UI reflects reality.
-    await db
+    // Best-effort: the expiry date already makes the token unusable, so a
+    // failed status write does not change the answer. Logged by code.
+    const { error: expireErr } = await db
       .from('vendor_onboarding_invitations' as never)
       .update({ status: 'expired' } as never)
       .eq('id', data.id)
+    if (expireErr) {
+      logRouteFailure('vendor-invitations.validate.mark_expired', expireErr, { invitationId: data.id })
+    }
     return { ok: false, reason: 'expired' }
   }
 

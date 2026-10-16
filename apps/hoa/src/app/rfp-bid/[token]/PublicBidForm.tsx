@@ -4,13 +4,15 @@ import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { FileUp, Plus, Trash2 } from 'lucide-react'
 import { Button, Input, Textarea } from '@homeowner-portal/ui'
-
-interface BidLineDraft {
-  description: string
-  quantity: string
-  unitPrice: string
-  notes: string
-}
+import { apiErrorMessage } from '@/lib/api/client'
+import {
+  BID_LONG_TEXT,
+  BID_MAX_LINES,
+  BID_SHORT_TEXT,
+  buildBidPayload,
+  describeIssues,
+  type BidLineDraft,
+} from './bid-payload'
 
 const emptyLine = (): BidLineDraft => ({
   description: '',
@@ -23,6 +25,7 @@ export function PublicBidForm({ token }: { token: string }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [problems, setProblems] = useState<string[]>([])
   const [lines, setLines] = useState<BidLineDraft[]>([emptyLine()])
   const fileRef = useRef<HTMLInputElement>(null)
   const [fileName, setFileName] = useState<string | null>(null)
@@ -31,7 +34,7 @@ export function PublicBidForm({ token }: { token: string }) {
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l)))
   }
   function addLine() {
-    setLines((prev) => [...prev, emptyLine()])
+    setLines((prev) => (prev.length >= BID_MAX_LINES ? prev : [...prev, emptyLine()]))
   }
   function removeLine(i: number) {
     setLines((prev) => prev.filter((_, idx) => idx !== i))
@@ -39,33 +42,24 @@ export function PublicBidForm({ token }: { token: string }) {
 
   async function handleSubmit(formData: FormData) {
     setError(null)
+    setProblems([])
 
-    const totalRaw = String(formData.get('total_amount') ?? '').trim()
-    const totalAmount = totalRaw ? Number(totalRaw.replace(/[^0-9.]/g, '')) : NaN
-    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
-      setError('Total bid amount is required and must be greater than zero.')
+    // Same rules as the route, checked first so the vendor sees which field
+    // is wrong instead of a bare "Some fields are missing or invalid."
+    const built = buildBidPayload({
+      totalAmount: String(formData.get('total_amount') ?? ''),
+      paymentTerms: String(formData.get('payment_terms') ?? ''),
+      warranty: String(formData.get('warranty') ?? ''),
+      startDate: String(formData.get('start_date') ?? ''),
+      completionDate: String(formData.get('completion_date') ?? ''),
+      lines,
+    })
+    if (!built.ok) {
+      setError('Fix the following before submitting:')
+      setProblems(built.problems)
       return
     }
-
-    const payloadLines = lines
-      .map((l) => ({
-        description: l.description.trim(),
-        quantity: l.quantity ? Number(l.quantity.replace(/[^0-9.]/g, '')) : null,
-        unit_price: l.unitPrice
-          ? Number(l.unitPrice.replace(/[^0-9.]/g, ''))
-          : null,
-        notes: l.notes.trim() || null,
-      }))
-      .filter((l) => l.description.length > 0)
-
-    const payload = {
-      total_amount: totalAmount,
-      payment_terms: String(formData.get('payment_terms') ?? '').trim() || null,
-      warranty: String(formData.get('warranty') ?? '').trim() || null,
-      start_date: String(formData.get('start_date') ?? '').trim() || null,
-      completion_date: String(formData.get('completion_date') ?? '').trim() || null,
-      line_items: payloadLines,
-    }
+    const { payload, lineIndex } = built
 
     const body = new FormData()
     body.append('payload', JSON.stringify(payload))
@@ -78,11 +72,15 @@ export function PublicBidForm({ token }: { token: string }) {
         body,
       })
       if (!res.ok) {
-        const errBody = (await res.json().catch(() => ({}))) as {
-          message?: string
-          error?: string
+        let errBody: unknown = null
+        try {
+          errBody = await res.json()
+        } catch {
+          // HTML or empty body: fall through to the generic message.
         }
-        setError(errBody.message ?? errBody.error ?? 'Submission failed.')
+        setError(apiErrorMessage(errBody, 'Submission failed. Try again in a moment.'))
+        // A 400 validation_failed carries per-field issues; show them.
+        setProblems(describeIssues(errBody, lineIndex))
         return
       }
       router.push(`/rfp-bid/${token}/submitted`)
@@ -97,10 +95,10 @@ export function PublicBidForm({ token }: { token: string }) {
           <Input name="total_amount" inputMode="decimal" required placeholder="32500" />
         </Field>
         <Field label="Payment terms">
-          <Input name="payment_terms" placeholder="Net 30, 50% deposit, etc." />
+          <Input name="payment_terms" maxLength={BID_SHORT_TEXT} placeholder="Net 30, 50% deposit, etc." />
         </Field>
         <Field label="Warranty">
-          <Input name="warranty" placeholder="1 year workmanship" />
+          <Input name="warranty" maxLength={BID_SHORT_TEXT} placeholder="1 year workmanship" />
         </Field>
       </section>
 
@@ -132,6 +130,7 @@ export function PublicBidForm({ token }: { token: string }) {
                 <div className="sm:col-span-2">
                   <Input
                     placeholder="Bi-weekly mowing"
+                    maxLength={BID_SHORT_TEXT}
                     value={line.description}
                     onChange={(e) => updateLine(i, { description: e.target.value })}
                   />
@@ -153,6 +152,7 @@ export function PublicBidForm({ token }: { token: string }) {
                 <Textarea
                   rows={1}
                   placeholder="Notes (optional)"
+                  maxLength={BID_LONG_TEXT}
                   value={line.notes}
                   onChange={(e) => updateLine(i, { notes: e.target.value })}
                 />
@@ -171,7 +171,13 @@ export function PublicBidForm({ token }: { token: string }) {
             </li>
           ))}
         </ul>
-        <Button type="button" variant="outline" size="sm" onClick={addLine}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={addLine}
+          disabled={lines.length >= BID_MAX_LINES}
+        >
           <Plus className="h-3.5 w-3.5" />
           Add line item
         </Button>
@@ -207,9 +213,16 @@ export function PublicBidForm({ token }: { token: string }) {
       </section>
 
       {error ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-          {error}
-        </p>
+        <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <p>{error}</p>
+          {problems.length > 0 ? (
+            <ul className="mt-1 list-disc pl-5">
+              {problems.map((p, i) => (
+                <li key={i}>{p}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="flex justify-end">
