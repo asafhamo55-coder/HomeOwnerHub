@@ -6,6 +6,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violation-statuses'
+import { approveViolationDraftWith, rejectViolationDraftWith } from '@/lib/violation-drafts'
 
 const STORAGE_BUCKET = 'hoa-photos'
 
@@ -117,6 +118,57 @@ export async function createApprovedViolation(
   revalidatePath('/violations')
   revalidatePath('/')
   return { ok: true, violationId: row.id }
+}
+
+// ─── W3 draft decisions (BL-048) ────────────────────────────────────
+// The board's approve/reject on an AI-drafted letter (ai_runs W3,
+// pending_human_approval). Logic lives in lib/violation-drafts.ts; these
+// gate (residents refused before any client exists) and revalidate.
+// Approving files the letter as an open violation and sends nothing.
+
+const DraftIdSchema = z.string().uuid()
+
+export async function approveViolationDraft(
+  runId: string,
+): Promise<{ ok: true; violationId: string } | { ok: false; error: string }> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  if (!DraftIdSchema.safeParse(runId).success) return { ok: false, error: 'That draft isn’t valid.' }
+
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Not signed in.' }
+
+  const result = await approveViolationDraftWith(supabase, { orgId: gate.orgId, runId, userId: user.id })
+  if (result.ok) {
+    revalidatePath('/violations')
+    revalidatePath('/violations/approval-queue')
+    revalidatePath('/')
+  }
+  return result
+}
+
+export async function rejectViolationDraft(
+  runId: string,
+  reason: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  if (!DraftIdSchema.safeParse(runId).success) return { ok: false, error: 'That draft isn’t valid.' }
+  const why = reason.trim().slice(0, 1000)
+  if (!why) return { ok: false, error: 'A reason is required to reject.' }
+
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Not signed in.' }
+
+  const result = await rejectViolationDraftWith(supabase, { orgId: gate.orgId, runId, userId: user.id, reason: why })
+  if (result.ok) revalidatePath('/violations/approval-queue')
+  return result
 }
 
 // ─── Status update ──────────────────────────────────────────────────

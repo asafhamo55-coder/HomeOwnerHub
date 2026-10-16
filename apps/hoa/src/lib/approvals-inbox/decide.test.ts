@@ -15,6 +15,9 @@ function handlers(over: Partial<InboxDecisionHandlers> = {}): InboxDecisionHandl
     approvePosting: vi.fn(async () => ({ ok: true as const, status: 'posted' as const, resultRef: 'je', alreadyDecided: false })),
     rejectPosting: vi.fn(async () => ({ ok: true as const, status: 'rejected' as const, resultRef: null, alreadyDecided: false })),
     approveVendor: vi.fn(async () => ({ ok: true as const })),
+    rejectVendor: vi.fn(async () => ({ ok: true as const })),
+    approveViolationDraft: vi.fn(async () => ({ ok: true as const, violationId: 'v1' })),
+    rejectViolationDraft: vi.fn(async () => ({ ok: true as const })),
     ...over,
   }
 }
@@ -22,11 +25,13 @@ function handlers(over: Partial<InboxDecisionHandlers> = {}): InboxDecisionHandl
 describe('decideApprovalFor — role gate', () => {
   it.each(['resident', null, 'owner'])('refuses %s before touching any module action', async (role) => {
     const h = handlers()
-    const r = await decideApprovalFor(role, { kind: 'w18', id: ID, decision: 'approve' }, h)
-    expect(r.ok).toBe(false)
-    expect(h.approvePosting).not.toHaveBeenCalled()
-    expect(h.rejectPosting).not.toHaveBeenCalled()
-    expect(h.approveVendor).not.toHaveBeenCalled()
+    for (const kind of ['w18', 'w3', 'vendor'] as const) {
+      for (const decision of ['approve', 'reject'] as const) {
+        const r = await decideApprovalFor(role, { kind, id: ID, decision, reason: 'x' }, h)
+        expect(r.ok).toBe(false)
+      }
+    }
+    for (const fn of Object.values(h)) expect(fn).not.toHaveBeenCalled()
   })
 })
 
@@ -44,11 +49,17 @@ describe('decideApprovalFor — input', () => {
     expect(h.rejectPosting).not.toHaveBeenCalled()
   })
 
-  it('has no vendor reject (the vendor module has no such action) and no W3 decision', async () => {
+  it.each(['w3', 'vendor'] as const)('requires a reason to reject a %s item too', async (kind) => {
     const h = handlers()
-    expect((await decideApprovalFor('admin', { kind: 'vendor', id: ID, decision: 'reject', reason: 'x' }, h)).ok).toBe(false)
-    expect((await decideApprovalFor('admin', { kind: 'w3', id: ID, decision: 'approve' }, h)).ok).toBe(false)
-    expect(h.approveVendor).not.toHaveBeenCalled()
+    const r = await decideApprovalFor('board', { kind, id: ID, decision: 'reject' }, h)
+    expect(r).toEqual({ ok: false, error: 'A reason is required to reject.' })
+    expect(h.rejectVendor).not.toHaveBeenCalled()
+    expect(h.rejectViolationDraft).not.toHaveBeenCalled()
+  })
+
+  it('refuses an unknown kind', async () => {
+    const h = handlers()
+    expect((await decideApprovalFor('admin', { kind: 'w99', id: ID, decision: 'approve' }, h)).ok).toBe(false)
   })
 })
 
@@ -95,6 +106,49 @@ describe('decideApprovalFor — dispatch to each module’s existing action', ()
     expect(await decideApprovalFor('board', { kind: 'vendor', id: ID, decision: 'approve' }, h)).toEqual({
       ok: false,
       error: 'not green',
+    })
+  })
+})
+
+describe('decideApprovalFor — W3 letters and vendor reject (BL-048)', () => {
+  it('W3 approve goes to the violation module’s draft approval and says nothing was sent', async () => {
+    const h = handlers()
+    const r = await decideApprovalFor('board', { kind: 'w3', id: ID, decision: 'approve' }, h)
+    expect(h.approveViolationDraft).toHaveBeenCalledWith(ID)
+    expect(r.ok).toBe(true)
+    if (!r.ok) throw new Error('unreachable')
+    expect(r.message).toMatch(/nothing was sent/i)
+  })
+
+  it('W3 approve failure is passed through', async () => {
+    const h = handlers({ approveViolationDraft: vi.fn(async () => ({ ok: false as const, error: 'already decided' })) })
+    expect(await decideApprovalFor('board', { kind: 'w3', id: ID, decision: 'approve' }, h)).toEqual({
+      ok: false,
+      error: 'already decided',
+    })
+  })
+
+  it('W3 reject passes the trimmed reason', async () => {
+    const h = handlers()
+    const r = await decideApprovalFor('admin', { kind: 'w3', id: ID, decision: 'reject', reason: ' wrong lot ' }, h)
+    expect(h.rejectViolationDraft).toHaveBeenCalledWith(ID, 'wrong lot')
+    expect(h.approveViolationDraft).not.toHaveBeenCalled()
+    expect(r.ok).toBe(true)
+  })
+
+  it('vendor reject goes to rejectVendor with the trimmed reason', async () => {
+    const h = handlers()
+    const r = await decideApprovalFor('board', { kind: 'vendor', id: ID, decision: 'reject', reason: ' no license ' }, h)
+    expect(h.rejectVendor).toHaveBeenCalledWith(ID, 'no license')
+    expect(h.approveVendor).not.toHaveBeenCalled()
+    expect(r.ok).toBe(true)
+  })
+
+  it('vendor reject failure is passed through', async () => {
+    const h = handlers({ rejectVendor: vi.fn(async () => ({ ok: false as const, error: 'not a prospect' })) })
+    expect(await decideApprovalFor('board', { kind: 'vendor', id: ID, decision: 'reject', reason: 'x' }, h)).toEqual({
+      ok: false,
+      error: 'not a prospect',
     })
   })
 })

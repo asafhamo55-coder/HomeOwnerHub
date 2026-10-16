@@ -6,6 +6,8 @@ import { vendorOnboarder } from '@homeowner-portal/workflows'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { removeStorageObjects } from '@/lib/storage-remove'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
+import { rejectProspectVendor } from '@/lib/vendor-decisions'
 
 // Vendor tables ship in migration 0007 but aren't yet in database.types.ts
 // (regen happens post-migration). Cast through `never` like ai_runs does
@@ -722,6 +724,38 @@ export async function approveVendor(
   return { ok: true }
 }
 
+// ─── Reject a prospect (BL-048) ─────────────────────────────────────
+// Board-only; residents are refused before any client exists. The
+// prospect becomes inactive and the reason is audited — see
+// lib/vendor-decisions.ts.
+
+export async function rejectVendor(vendorId: string, reason: string): Promise<ActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  if (!z.string().uuid().safeParse(vendorId).success) return { ok: false, error: 'That vendor isn’t valid.' }
+  const why = reason.trim().slice(0, 1000)
+  if (!why) return { ok: false, error: 'A reason is required to reject.' }
+
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Not signed in.' }
+
+  const result = await rejectProspectVendor(supabase, {
+    orgId: gate.orgId,
+    vendorId,
+    userId: user.id,
+    role: gate.role,
+    reason: why,
+  })
+  if (result.ok) {
+    revalidatePath(`/vendors/${vendorId}`)
+    revalidatePath('/vendors')
+    revalidatePath('/vendors/approval-queue')
+  }
+  return result
+}
 
 // ─── Manual compliance override (admin / board only) ─────────────────
 //

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@homeowner-portal/observability/report', () => ({ reportError: vi.fn() }))
 
-import { countPendingApprovals, loadW18Section, loadW3Section, type InboxDb } from './load'
+import { countPendingApprovals, loadVendorCountsByAssociation, loadW18Section, loadW3Section, type InboxDb } from './load'
 
 /**
  * A minimal stand-in for the Supabase query builder: every chained call is
@@ -124,25 +124,105 @@ describe('countPendingApprovals (sidebar badge)', () => {
     ok = (n) => ({ data: null, error: null, count: n })
   })
 
-  it('counts each source with head-only queries', async () => {
+  const ASSOC = { id: 'a-1', name: 'Alpha Commons' }
+
+  it('counts each source with head-only queries; vendors only for the primary association the list shows', async () => {
     const { db, calls } = fakeDb({
       approval_requests: [ok(2)],
       ai_runs: [ok(1)],
+      associations: [{ data: [ASSOC], error: null }],
       vendor_compliance: [ok(3), ok(1)],
     })
     expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 2, w3: 1, vendor: 4 })
-    for (const c of calls) {
+    for (const c of calls.filter((c) => c.table !== 'associations')) {
       const select = c.ops.find(([op]) => op === 'select')!
       expect(select[1][1], `${c.table} must be a head count`).toMatchObject({ count: 'exact', head: true })
     }
+    // BL-048: a vendor with compliance rows in two associations was counted
+    // twice, and vendors of other associations counted though the list
+    // (primary association only) never shows them.
+    const vendorCounts = calls.filter((c) => c.table === 'vendor_compliance')
+    expect(vendorCounts).toHaveLength(2)
+    for (const c of vendorCounts) expect(c.ops).toContainEqual(['eq', ['association_id', ASSOC.id]])
+    // Same primary rule as getPrimaryAssociation: first by name.
+    const assoc = calls.find((c) => c.table === 'associations')!.ops
+    expect(assoc).toContainEqual(['eq', ['organization_id', ORG]])
+    expect(assoc).toContainEqual(['order', ['name', { ascending: true }]])
+  })
+
+  it('no association means no vendor in the list, so 0 — without counting', async () => {
+    const { db, calls } = fakeDb({
+      approval_requests: [ok(0)],
+      ai_runs: [ok(0)],
+      associations: [{ data: [], error: null }],
+    })
+    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 0, w3: 0, vendor: 0 })
+    expect(calls.some((c) => c.table === 'vendor_compliance')).toBe(false)
+  })
+
+  it('a failed association lookup makes the vendor count unknown, not 0', async () => {
+    const { db } = fakeDb({
+      approval_requests: [ok(0)],
+      ai_runs: [ok(0)],
+      associations: [{ data: null, error: err }],
+    })
+    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 0, w3: 0, vendor: null })
   })
 
   it('a failed count is unknown (null), not zero', async () => {
     const { db } = fakeDb({
       approval_requests: [{ data: null, error: err }],
       ai_runs: [ok(0)],
+      associations: [{ data: [ASSOC], error: null }],
       vendor_compliance: [ok(0), { data: null, error: err }],
     })
     expect(await countPendingApprovals(db, ORG)).toEqual({ w18: null, w3: 0, vendor: null })
+  })
+})
+
+describe('loadVendorCountsByAssociation (BL-048 multi-association breakdown)', () => {
+  const ok = (n: number): Resp => ({ data: null, error: null, count: n })
+
+  it('counts vendors needing the board per association, primary (first by name) marked', async () => {
+    const { db, calls } = fakeDb({
+      associations: [
+        {
+          data: [
+            { id: 'a-1', name: 'Alpha Commons' },
+            { id: 'a-2', name: 'Birch Village' },
+          ],
+          error: null,
+        },
+      ],
+      // per association: gaps, then ready
+      vendor_compliance: [ok(2), ok(1), ok(0), { data: null, error: err }],
+    })
+    const r = await loadVendorCountsByAssociation(db, ORG)
+    expect(r).toEqual({
+      ok: true,
+      rows: [
+        { associationId: 'a-1', name: 'Alpha Commons', count: 3, primary: true },
+        { associationId: 'a-2', name: 'Birch Village', count: null, primary: false },
+      ],
+    })
+    const vc = calls.filter((c) => c.table === 'vendor_compliance')
+    expect(vc).toHaveLength(4)
+    for (const c of vc) {
+      expect(c.ops.find(([op]) => op === 'select')![1][1]).toMatchObject({ count: 'exact', head: true })
+      expect(c.ops).toContainEqual(['eq', ['organization_id', ORG]])
+    }
+    expect(vc[0].ops).toContainEqual(['eq', ['association_id', 'a-1']])
+    expect(vc[2].ops).toContainEqual(['eq', ['association_id', 'a-2']])
+  })
+
+  it('a single-association org has no breakdown and makes no counts', async () => {
+    const { db, calls } = fakeDb({ associations: [{ data: [{ id: 'a-1', name: 'Alpha Commons' }], error: null }] })
+    expect(await loadVendorCountsByAssociation(db, ORG)).toEqual({ ok: true, rows: [] })
+    expect(calls.some((c) => c.table === 'vendor_compliance')).toBe(false)
+  })
+
+  it('a failed association read is a failure, not an empty breakdown', async () => {
+    const { db } = fakeDb({ associations: [{ data: null, error: err }] })
+    expect(await loadVendorCountsByAssociation(db, ORG)).toEqual({ ok: false })
   })
 })

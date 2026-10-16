@@ -10,8 +10,13 @@
 //                        journal_entries_bank_rec_posted_uniq index).
 //   vendor approve     → approveVendor (lib/vendors.ts), with its own
 //                        green-compliance gate.
-//   w3                 → none: the W3 module has no decision action yet, so
-//                        the inbox links to its queue instead.
+//   vendor reject      → rejectVendor (lib/vendors.ts): prospect → inactive,
+//                        reason audited (BL-048).
+//   w3 approve/reject  → approveViolationDraft / rejectViolationDraft
+//                        (lib/violations.ts → lib/violation-drafts.ts):
+//                        approve files the letter as an OPEN violation and
+//                        sends nothing; reject keeps the reason on the run
+//                        (BL-048).
 //
 // Pure (relative imports + workspace packages only) so tests/integration
 // can drive the exact composition the server action uses.
@@ -21,16 +26,21 @@ import { approveRequest, rejectRequest, type DecisionResult } from '@homeowner-p
 import { canUseApprovals } from './model'
 import type { InboxDb } from './load'
 
+type Simple = { ok: true } | { ok: false; error: string }
+
 export interface InboxDecisionHandlers {
   approvePosting(approvalRequestId: string): Promise<DecisionResult>
   rejectPosting(approvalRequestId: string, reason: string): Promise<DecisionResult>
-  approveVendor(vendorId: string): Promise<{ ok: true } | { ok: false; error: string }>
+  approveVendor(vendorId: string): Promise<Simple>
+  rejectVendor(vendorId: string, reason: string): Promise<Simple>
+  approveViolationDraft(runId: string): Promise<{ ok: true; violationId: string } | { ok: false; error: string }>
+  rejectViolationDraft(runId: string, reason: string): Promise<Simple>
 }
 
 export type InboxDecisionOutcome = { ok: true; message: string } | { ok: false; error: string }
 
 const DecisionSchema = z.object({
-  kind: z.enum(['w18', 'vendor']),
+  kind: z.enum(['w18', 'w3', 'vendor']),
   id: z.string().uuid(),
   decision: z.enum(['approve', 'reject']),
   reason: z.string().max(1000).optional(),
@@ -50,9 +60,10 @@ export function postingHandlers(
 }
 
 /**
- * Gate, validate, dispatch. The role gate is defense in depth: the W18
- * RPC independently refuses non-board callers (42501), but approveVendor
- * has no role check of its own.
+ * Gate, validate, dispatch. The role gate is defense in depth: the server
+ * action already refused non-board callers, the W18 RPC refuses them
+ * (42501), and RLS on ai_runs/vendors does too — but approveVendor has no
+ * role check of its own.
  */
 export async function decideApprovalFor(
   role: string | null | undefined,
@@ -66,14 +77,29 @@ export async function decideApprovalFor(
   const { kind, id, decision } = parsed.data
   const reason = parsed.data.reason?.trim() ?? ''
 
+  if (decision === 'reject' && !reason) return { ok: false, error: 'A reason is required to reject.' }
+
   if (kind === 'vendor') {
-    if (decision !== 'approve') return { ok: false, error: 'Vendors can only be approved here. Open the vendor to change anything else.' }
+    if (decision === 'reject') {
+      const r = await handlers.rejectVendor(id, reason)
+      return r.ok ? { ok: true, message: 'Vendor rejected and marked inactive.' } : { ok: false, error: r.error }
+    }
     const r = await handlers.approveVendor(id)
     return r.ok ? { ok: true, message: 'Vendor approved and now active.' } : { ok: false, error: r.error }
   }
 
+  if (kind === 'w3') {
+    if (decision === 'reject') {
+      const r = await handlers.rejectViolationDraft(id, reason)
+      return r.ok ? { ok: true, message: 'Draft rejected. Nothing was sent.' } : { ok: false, error: r.error }
+    }
+    const r = await handlers.approveViolationDraft(id)
+    return r.ok
+      ? { ok: true, message: 'Letter approved and filed as an open violation. Nothing was sent to the homeowner.' }
+      : { ok: false, error: r.error }
+  }
+
   if (decision === 'reject') {
-    if (!reason) return { ok: false, error: 'A reason is required to reject.' }
     const r = await handlers.rejectPosting(id, reason)
     if (!r.ok) return { ok: false, error: r.error }
     return { ok: true, message: 'Rejected. The deposit is back in the matching queue.' }
