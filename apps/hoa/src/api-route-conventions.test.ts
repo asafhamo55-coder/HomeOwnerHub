@@ -94,7 +94,6 @@ const ALLOWLIST: Record<string, Rule[]> = {
 
   'violations/photo/route.ts': ['with-route', 'api-error', 'error-message'],
 
-  'webhooks/plaid/route.ts': ['with-route', 'api-error', 'error-message', 'raw-zod', 'secret-header'],
 
   'webhooks/resend/route.ts': ['with-route', 'api-error'],
 

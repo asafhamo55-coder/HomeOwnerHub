@@ -119,11 +119,11 @@ async function main(): Promise<void> {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-ingest-key': INGEST_SECRET,
+      authorization: `Bearer ${INGEST_SECRET}`,
     },
     body: JSON.stringify({
       bankAccountId,
-      amount,
+      amountCents: amount * 100,
       postedDate: new Date().toISOString().slice(0, 10),
       memo: `ZELLE PAYMENT FROM J SMITH MEMO: ${memoCode}`,
       merchant: null,
@@ -143,6 +143,7 @@ async function main(): Promise<void> {
     if (!pass) ok = false
   }
   assertEq('http 200', 200, res.status)
+  if (!res.ok) console.log(`  error: ${body?.error?.code ?? 'unknown'} — ${body?.error?.message ?? ''}`)
   assertEq('ok=true', true, body?.ok)
   assertEq('matchMethod=auto_exact', 'auto_exact', body?.w18?.matchMethod)
 
