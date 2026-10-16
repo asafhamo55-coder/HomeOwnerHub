@@ -48,12 +48,18 @@ export default async function ResidentLayout({
     <div className="flex min-h-dvh flex-col bg-background">
       {/* Dev-only role switcher: an in-flow strip, so it can never cover
           content or the tab bar. Renders nothing for non-admins. */}
-      <RoleSwitcherMount placement="banner" />
+      <div className="print:hidden">
+        <RoleSwitcherMount placement="banner" />
+      </div>
 
       <ResidentTopBar orgName={org.name} userEmail={userEmail} />
 
-      <main id="main" className="mx-auto w-full max-w-2xl flex-1 px-4 pb-10 pt-5 sm:pt-8">
-        {impersonation ? <ImpersonationBanner name={impersonation.name} /> : null}
+      <main id="main" className="mx-auto w-full max-w-2xl flex-1 px-4 pb-10 pt-5 sm:pt-8 print:max-w-none print:p-0">
+        {impersonation ? (
+          <div className="print:hidden">
+            <ImpersonationBanner name={impersonation.name} />
+          </div>
+        ) : null}
         {children}
       </main>
 

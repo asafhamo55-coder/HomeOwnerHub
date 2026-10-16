@@ -83,6 +83,8 @@ interface Shot {
   scrollBottom?: boolean
   widths?: number[]
   themes?: ('light' | 'dark')[]
+  /** Render with print media (CSS `print:` styles), e.g. the resident statement. */
+  print?: boolean
 }
 
 const WIDTHS = [375, 1440]
@@ -115,6 +117,7 @@ const SHOTS: Shot[] = [
   { name: 'accounting', path: '/accounting', auth: true },
   { name: 'vendors', path: '/vendors', auth: true },
   { name: 'settings-members', path: '/settings/members', auth: true },
+  { name: 'settings-payments', path: '/settings/payments', auth: true },
 
   // Platform admin
   { name: 'admin', path: '/admin', auth: true },
@@ -132,6 +135,10 @@ const SHOTS: Shot[] = [
   { name: 'resident', path: '/resident', auth: true, resident: true },
   { name: 'resident-viewport', path: '/resident', auth: true, resident: true, viewport: true, scrollBottom: true, widths: [375], themes: LIGHT },
   { name: 'resident-dues', path: '/resident/dues', auth: true, resident: true },
+  { name: 'resident-pay', path: '/resident/dues/pay', auth: true, resident: true },
+  { name: 'resident-ledger', path: '/resident/dues/ledger', auth: true, resident: true },
+  { name: 'resident-statement', path: '/resident/dues/statement', auth: true, resident: true },
+  { name: 'resident-statement-print', path: '/resident/dues/statement', auth: true, resident: true, print: true, widths: [816], themes: LIGHT },
   { name: 'resident-requests', path: '/resident/requests', auth: true, resident: true },
   { name: 'resident-tickets', path: '/resident/tickets', auth: true, resident: true },
   { name: 'resident-ticket', path: '/resident/tickets/:residentTicketId', auth: true, resident: true },
@@ -511,6 +518,8 @@ async function main() {
     )
     browser = await (process.env.UI_SHOTS_BROWSER === 'webkit' ? webkit : chromium).launch()
     for (const shot of shots) {
+      // Paper layout is not a screen layout; the screen shot of the same route covers overflow.
+      if (overflowMode && shot.print) continue
       const app = shot.app ?? 'hoa'
       const path = fillPath(shot.path, seeded?.vars ?? {})
       if (!path) {
@@ -554,6 +563,7 @@ async function main() {
               // cookies are host-scoped (localhost), so pm/eviction see them.
               await page.goto(`${bases.hoa}/auth/dev-login?redirect=/api/health`, { waitUntil: 'load', timeout: 120_000 })
             }
+            if (shot.print) await page.emulateMedia({ media: 'print' })
             await page.goto(`${bases[app]}${path}`, { waitUntil: 'networkidle', timeout: 120_000 })
             // Hide Next's dev-mode indicator; it is not part of the product.
             await page.addStyleTag({ content: 'nextjs-portal{display:none!important}' })
