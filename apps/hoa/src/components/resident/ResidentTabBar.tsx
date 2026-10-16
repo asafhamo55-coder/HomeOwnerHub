@@ -38,7 +38,7 @@ const TABS: Tab[] = [
     href: '/resident/account',
     label: 'Account',
     icon: CircleUser,
-    match: ['/resident/announcements'],
+    match: ['/resident/announcements', '/resident/documents'],
   },
 ]
 

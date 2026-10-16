@@ -137,7 +137,69 @@ describe('record status', () => {
       stale: 1,
       missing: RECORD_CATEGORIES.length - 3 - 2,
       noneOnFile: 2,
+      postedForOwners: 0,
     })
+  })
+})
+
+// ─── Posted for owners (BL-049) ────────────────────────────────────
+
+describe('posted for owners', () => {
+  const withFile = (d: ComplianceDoc, extra: Partial<ComplianceDoc> = {}): ComplianceDoc => ({ ...d, hasFile: true, ...extra })
+
+  it('a resident-visible match with a file is posted, and links to the owner copy', () => {
+    const d = withFile(hoaDoc('bylaws', 'Bylaws'))
+    const line = evaluateRecord(cat('bylaws'), [d], NOW)
+    expect(line.status).toBe('present')
+    expect(line.posting).toBe('posted')
+    expect(line.postedDoc?.id).toBe(d.id)
+  })
+
+  it('a title-matched "other" document is on file but not visible to owners', () => {
+    const line = evaluateRecord(cat('budget'), [withFile(hoaDoc('other', '2026 Annual Budget'))], NOW)
+    expect(line.status).toBe('present')
+    expect(line.posting).toBe('not_visible')
+    expect(line.postedDoc).toBeNull()
+  })
+
+  it('internal and draft types never count as posted', () => {
+    for (const d of [
+      withFile(hoaDoc('minutes', 'Rules committee minutes')),
+      withFile(govDoc('minutes', 'Rules discussion')),
+      withFile(govDoc('policy', 'Rules policy'), { aiGenerated: true }),
+    ]) {
+      const line = evaluateRecord(cat('rules'), [d], NOW)
+      expect(line.posting, `${d.source} ${d.type}`).not.toBe('posted')
+    }
+  })
+
+  it('a visible document with no stored file is not posted', () => {
+    const line = evaluateRecord(cat('rules'), [govDoc('rules', 'Rules')], NOW)
+    expect(line.posting).toBe('not_visible')
+    const noFile = evaluateRecord(cat('rules'), [{ ...govDoc('rules', 'Rules'), hasFile: false }], NOW)
+    expect(noFile.posting).toBe('not_visible')
+  })
+
+  it('when only an older match is visible, says the newest is not posted', () => {
+    const older = withFile(hoaDoc('ccr', 'CC&Rs', '2020-01-01T00:00:00Z'))
+    const newer = withFile(hoaDoc('other', 'Declaration amendment 2026', '2026-05-01T00:00:00Z'))
+    const line = evaluateRecord(cat('declaration'), [older, newer], NOW)
+    expect(line.matches[0].id).toBe(newer.id)
+    expect(line.posting).toBe('older_posted')
+    expect(line.postedDoc?.id).toBe(older.id)
+  })
+
+  it('no match → no posting status', () => {
+    expect(evaluateRecord(cat('insurance'), [], NOW).posting).toBeNull()
+  })
+
+  it('the board view is unaffected: hidden documents still count as on file', () => {
+    const docs = [withFile(hoaDoc('ccr', 'CC&Rs')), withFile(hoaDoc('other', 'Insurance policies 2026'))]
+    const lines = evaluateRecords(docs, NOW)
+    const insurance = lines.find((l) => l.category.id === 'insurance')
+    expect(insurance?.status).toBe('present')
+    expect(insurance?.matches).toHaveLength(1)
+    expect(summarizeRecords(lines)).toMatchObject({ present: 2, postedForOwners: 1 })
   })
 })
 

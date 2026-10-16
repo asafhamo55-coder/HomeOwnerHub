@@ -29,14 +29,18 @@ export async function loadFlRecordsStatute(): Promise<StoredRecordsStatute | nul
   return data ?? null
 }
 
-/** Every current document on file, from both document tables. */
+/**
+ * Every current document on file, from both document tables — the BOARD's
+ * view: nothing is filtered by resident visibility here. hasFile and
+ * aiGenerated feed only the "posted for owners" line (BL-049).
+ */
 export async function loadComplianceDocs(orgId: string): Promise<ComplianceDoc[]> {
   const supabase = await getSupabaseServerClient()
   const [hoa, gov] = await Promise.all([
-    supabase.from('hoa_documents').select('id, name, type, created_at').eq('org_id', orgId),
+    supabase.from('hoa_documents').select('id, name, type, storage_path, created_at').eq('org_id', orgId),
     supabase
       .from('governing_documents')
-      .select('id, title, type, effective_date, created_at')
+      .select('id, title, type, effective_date, storage_path, ai_generated, created_at')
       .eq('organization_id', orgId)
       .is('superseded_at', null),
   ])
@@ -44,7 +48,14 @@ export async function loadComplianceDocs(orgId: string): Promise<ComplianceDoc[]
   if (gov.error) throw new Error(`governing_documents: ${gov.error.code ?? 'error'}`)
   return [
     ...(hoa.data ?? []).map(
-      (d): ComplianceDoc => ({ source: 'hoa', id: d.id, title: d.name, type: d.type, date: d.created_at }),
+      (d): ComplianceDoc => ({
+        source: 'hoa',
+        id: d.id,
+        title: d.name,
+        type: d.type,
+        date: d.created_at,
+        hasFile: Boolean(d.storage_path?.trim()),
+      }),
     ),
     ...(gov.data ?? []).map(
       (d): ComplianceDoc => ({
@@ -53,6 +64,8 @@ export async function loadComplianceDocs(orgId: string): Promise<ComplianceDoc[]
         title: d.title,
         type: d.type,
         date: d.effective_date ?? d.created_at,
+        hasFile: Boolean(d.storage_path?.trim()),
+        aiGenerated: d.ai_generated,
       }),
     ),
   ]

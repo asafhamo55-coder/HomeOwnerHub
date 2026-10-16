@@ -32,6 +32,20 @@ export async function seed_compliance(db: SupabaseClient, ctx: SeedContext): Pro
     })
   }
 
+  // Governing documents (BL-049): one with a file and an effective date,
+  // one text-only (no file), so /resident/documents shows both row kinds.
+  const govDocs: { title: string; type: string; effective: string | null; path: string | null }[] = [
+    { title: 'ui-shots: Rules & Regulations (2026)', type: 'rules', effective: '2026-03-01', path: `${org}/ui-shots/rules-placeholder.pdf` },
+    { title: 'ui-shots: Parking policy', type: 'policy', effective: null, path: null },
+  ]
+  for (const g of govDocs) {
+    await upsertByKey(db, 'governing_documents', { organization_id: org, title: g.title }, {
+      type: g.type,
+      effective_date: g.effective,
+      storage_path: g.path,
+    })
+  }
+
   const meetings: { key: string; type: string; inDays: number; addedDaysAgo: number }[] = [
     { key: 'ui-shots: annual meeting agenda', type: 'annual', inDays: 9, addedDaysAgo: 1 },
     { key: 'ui-shots: regular board meeting agenda', type: 'regular', inDays: 24, addedDaysAgo: 2 },

@@ -160,6 +160,7 @@ const SHOTS: Shot[] = [
   { name: 'resident-violation', path: '/resident/violations/:residentReportId', auth: true, resident: true },
   { name: 'resident-report', path: '/resident/report-violation', auth: true, resident: true },
   { name: 'resident-ask', path: '/resident/ask', auth: true, resident: true },
+  { name: 'resident-documents', path: '/resident/documents', auth: true, resident: true },
   { name: 'resident-account', path: '/resident/account', auth: true, resident: true },
   { name: 'resident-announcements', path: '/resident/announcements', auth: true, resident: true },
 

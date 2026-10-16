@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ClipboardList,
   CreditCard,
+  FileText,
   Home,
   Send,
   Megaphone,
@@ -146,7 +147,8 @@ export default async function ResidentDashboard() {
       )}
 
       <Section label="Quick actions">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {/* Seven tiles: the odd one out spans the last row rather than sitting alone. */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 max-sm:[&>:last-child:nth-child(odd)]:col-span-2 sm:[&>:last-child:nth-child(3n+1)]:col-span-3">
           <ActionTile
             icon={<MessageSquarePlus />}
             label="New request"
@@ -154,6 +156,7 @@ export default async function ResidentDashboard() {
             href="/resident/tickets/new"
           />
           <ActionTile icon={<Sparkles />} tone="ai" label="Ask the Docs" hint="Your rules, answered" href="/resident/ask" />
+          <ActionTile icon={<FileText />} tone="slate" label="Documents" hint="CC&Rs, bylaws, rules" href="/resident/documents" />
           <ActionTile
             icon={<Megaphone />}
             tone="info"
