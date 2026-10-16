@@ -13,6 +13,7 @@ import {
   FileText,
   Home,
   KeyRound,
+  ListChecks,
   Mail,
   Megaphone,
   MessageSquare,
@@ -51,6 +52,12 @@ export const HOA_NAV: HoaNavGroup[] = [
   {
     items: [
       { href: '/', icon: Home, label: 'Dashboard', keywords: ['home', 'overview'] },
+      {
+        href: '/approvals',
+        icon: ListChecks,
+        label: 'Approvals',
+        keywords: ['approve', 'pending', 'queue', 'decisions', 'ai', 'proposals'],
+      },
       { href: '/ai/ask', icon: Sparkles, label: 'Ask the Docs', keywords: ['ai', 'question', 'ccr', 'bylaws'] },
     ],
   },

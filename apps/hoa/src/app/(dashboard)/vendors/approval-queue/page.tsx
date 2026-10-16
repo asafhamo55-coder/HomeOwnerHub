@@ -1,7 +1,8 @@
 import Link from 'next/link'
-import { ChevronRight, ClipboardCheck } from 'lucide-react'
-import { Card, EmptyState, LoadFailed, Page, StatusBadge } from '@homeowner-portal/ui'
-import { listVendorsResult, type ComplianceStatus } from '@/lib/vendors'
+import { ChevronRight, ClipboardCheck, ListChecks } from 'lucide-react'
+import { Button, Card, EmptyState, LoadFailed, Page, StatusBadge } from '@homeowner-portal/ui'
+import { listVendorsResult } from '@/lib/vendors'
+import { vendorNeedsBoard, vendorReason } from '@/lib/approvals-inbox/model'
 import { COMPLIANCE_LABELS, COMPLIANCE_TONES, complianceKey } from '@/lib/status/vendors'
 import { VendorTabs } from '@/components/vendors/VendorTabs'
 import { tradesLabel } from '@/components/vendors/format'
@@ -11,24 +12,22 @@ export const metadata = { title: 'Vendor approval queue' }
 export default async function VendorApprovalQueuePage() {
   const result = await listVendorsResult()
 
-  // Queue = anything that needs a human eye:
+  // Queue = anything that needs a human eye (the same rule /approvals uses):
   //   1. green + still prospect → board can flip to active
   //   2. yellow / red → board reviews the deficiencies
   //   3. missing → docs haven't been entered yet
-  const queue = result.ok
-    ? result.data.filter((v) => {
-        const c = v.compliance?.status
-        if (v.status === 'prospect' && c === 'green') return true
-        if (c === 'yellow' || c === 'red' || c === 'missing') return true
-        return false
-      })
-    : []
+  const queue = result.ok ? result.data.filter(vendorNeedsBoard) : []
 
   return (
     <Page
       title="Vendors"
       description="Vendors waiting on the board. Compliant prospects can be approved; the rest need a follow-up before they can do work."
       tabs={<VendorTabs current="/vendors/approval-queue" />}
+      actions={
+        <Button asChild variant="secondary" icon={<ListChecks aria-hidden />}>
+          <Link href="/approvals?type=vendor">All approvals</Link>
+        </Button>
+      }
       linkAs={Link}
     >
       {!result.ok ? (
@@ -60,7 +59,7 @@ export default async function VendorApprovalQueuePage() {
                           labels={COMPLIANCE_LABELS}
                         />
                       </div>
-                      <p className="text-sm text-foreground-secondary">{describeReason(v.status, compliance)}</p>
+                      <p className="text-sm text-foreground-secondary">{vendorReason(v.status, compliance)}</p>
                       <p className="text-xs text-muted">{tradesLabel(v.trades) ?? 'No trade on file'}</p>
                       {deficiencies.length > 0 ? (
                         <ul className="mt-1 space-y-0.5 text-xs text-muted">
@@ -84,14 +83,4 @@ export default async function VendorApprovalQueuePage() {
       )}
     </Page>
   )
-}
-
-function describeReason(vendorStatus: string, compliance: ComplianceStatus | null | undefined): string {
-  if (vendorStatus === 'prospect' && compliance === 'green') {
-    return 'Compliant prospect — ready to approve as an active vendor.'
-  }
-  if (compliance === 'yellow') return 'Gaps that need follow-up soon — review the deficiencies.'
-  if (compliance === 'red') return 'Non-compliant — do not assign work until cured.'
-  if (compliance === 'missing') return 'Documents not entered yet — run a compliance check.'
-  return ''
 }

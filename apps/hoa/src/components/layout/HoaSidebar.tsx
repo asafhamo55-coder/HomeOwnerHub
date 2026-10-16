@@ -20,6 +20,8 @@ interface HoaSidebarProps {
   currentOrgName: string
   hoaOrgs: UserHoaOrg[]
   role: 'admin' | 'board'
+  /** Count badges keyed by nav href (e.g. pending approvals). Null/absent = no badge. */
+  badges?: Record<string, string | null>
 }
 
 /** The single most specific nav href that matches — so /settings/members
@@ -32,7 +34,7 @@ function bestMatch(pathname: string, links: HoaNavLink[]): string | null {
   return best
 }
 
-export function HoaSidebar({ currentOrgId, currentOrgName, hoaOrgs, role }: HoaSidebarProps) {
+export function HoaSidebar({ currentOrgId, currentOrgName, hoaOrgs, role, badges }: HoaSidebarProps) {
   const pathname = usePathname()
   const account = role === 'admin' ? ADMIN_ACCOUNT : BOARD_ACCOUNT
   const active = bestMatch(pathname, [...HOA_NAV.flatMap((g) => g.items), ...account])
@@ -47,6 +49,7 @@ export function HoaSidebar({ currentOrgId, currentOrgName, hoaOrgs, role }: HoaS
         prefetch
         icon={<Icon aria-hidden />}
         label={link.label}
+        badge={badges?.[link.href] ?? undefined}
         active={active === link.href}
       />
     )

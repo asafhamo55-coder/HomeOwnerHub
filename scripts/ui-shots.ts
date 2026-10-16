@@ -108,6 +108,7 @@ const SHOTS: Shot[] = [
   { name: 'topbar-copilot', path: '/', auth: true, copilot: true, viewport: true, widths: [1024, 1280, 1440], themes: LIGHT },
   { name: 'topbar', path: '/', auth: true, viewport: true, widths: [768, 1024, 1440], themes: LIGHT },
   { name: 'dashboard-viewport', path: '/', auth: true, viewport: true, scrollBottom: true, widths: [1440], themes: LIGHT },
+  { name: 'approvals', path: '/approvals', auth: true },
   { name: 'violations', path: '/violations', auth: true },
   { name: 'dues', path: '/dues', auth: true },
   { name: 'inbox', path: '/inbox', auth: true },

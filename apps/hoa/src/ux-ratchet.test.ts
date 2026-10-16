@@ -135,6 +135,8 @@ const PAGE_CONTAINER_ROUTES = [
   '(dashboard)/settings',
   '(dashboard)/settings/members',
   '(dashboard)/settings/mailbox',
+  // BL-014 approvals inbox.
+  '(dashboard)/approvals',
 ]
 
 /**
@@ -369,6 +371,7 @@ const SEMANTIC_TOKEN_PATHS = [
   'apps/hoa/src/components/knowledge',
   'apps/hoa/src/components/settings',
   'apps/hoa/src/components/vendors',
+  'apps/hoa/src/app/(dashboard)/approvals',
 ]
 
 const PALETTE =
@@ -442,12 +445,12 @@ describe('semantic colour tokens (design-system v2 §5)', () => {
 // ── Rule 8: empty states carry the next action (BL-012) ──────────────────
 
 /**
- * The 12 highest-traffic board pages, from the sidebar (components/layout/
+ * The 13 highest-traffic board pages, from the sidebar (components/layout/
  * nav.ts): every `EmptyState` they render must pass an `action` — the one
  * next step ("Add a property", "Connect bank", "Upload a document"). A
  * board member who opens an empty page is never left without somewhere to
  * go. Route → the files that render its empty states (properties renders
- * its list from a co-located component). No allowlist: all 12 comply, and
+ * its list from a co-located component). No allowlist: all 13 comply, and
  * a route may be added here but never removed.
  *
  * A failed read is `LoadFailed`, never `EmptyState` (rule 2, phase 1); this
@@ -466,6 +469,8 @@ const EMPTY_STATE_ACTION_ROUTES: Record<string, string[]> = {
   '/accounting/bank': ['(dashboard)/accounting/bank/page.tsx'],
   '/vendors': ['(dashboard)/vendors/page.tsx'],
   '/documents': ['(dashboard)/documents/page.tsx'],
+  // BL-014: the approvals inbox joined the sidebar.
+  '/approvals': ['(dashboard)/approvals/page.tsx'],
 }
 
 /**
@@ -517,8 +522,8 @@ describe('empty states carry the next action (BL-012)', () => {
     ).toEqual([5])
   })
 
-  it('covers 12 routes, each rendering at least one EmptyState', () => {
-    expect(Object.keys(EMPTY_STATE_ACTION_ROUTES)).toHaveLength(12)
+  it('covers 13 routes, each rendering at least one EmptyState', () => {
+    expect(Object.keys(EMPTY_STATE_ACTION_ROUTES)).toHaveLength(13)
     for (const [route, files] of Object.entries(EMPTY_STATE_ACTION_ROUTES)) {
       const src = files.map((f) => readFileSync(path.join(repoRoot, 'apps/hoa/src/app', f), 'utf8')).join('\n')
       expect(src, `${route} renders no EmptyState — is the list stale?`).toMatch(/<EmptyState\b/)
