@@ -55,7 +55,6 @@ const ALLOWLIST: Record<string, Rule[]> = {
 
 
 
-  'ai/violations/draft/route.ts': ['with-route', 'api-error', 'error-message', 'raw-zod'],
 
   'cron/recurring-events/route.ts': ['with-route', 'api-error', 'error-message', 'query-secret', 'secret-header'],
 
