@@ -35,6 +35,7 @@ import {
   recommendScope,
   revokeToken,
 } from '@homeowner-portal/mailbox'
+import { ConnectError } from './connect-errors'
 
 const STATE_TTL_MS = 10 * 60 * 1000
 
@@ -57,7 +58,7 @@ interface StatePayload {
 
 function stateSecret(): string {
   const secret = process.env.MAILBOX_TOKEN_KEY
-  if (!secret) throw new Error('MAILBOX_TOKEN_KEY is not set.')
+  if (!secret) throw new ConnectError('not_configured', 'MAILBOX_TOKEN_KEY is not set.')
   return secret
 }
 
@@ -144,31 +145,33 @@ export function signState(payload: StatePayload): string {
 
 export function verifyState(state: string): StatePayload {
   const parts = state.split('.')
-  if (parts.length !== 2) throw new Error('Malformed OAuth state.')
+  if (parts.length !== 2) throw new ConnectError('invalid_state', 'Malformed OAuth state.')
   const [body, mac] = parts
-  if (!body || !mac) throw new Error('Malformed OAuth state.')
+  if (!body || !mac) throw new ConnectError('invalid_state', 'Malformed OAuth state.')
 
   let expected: string
   try {
     expected = createHmac('sha256', stateSecret()).update(body).digest('base64url')
-  } catch {
-    throw new Error('Malformed OAuth state.')
+  } catch (error) {
+    // A missing signing key is a config problem, not a bad link.
+    if (error instanceof ConnectError) throw error
+    throw new ConnectError('invalid_state', 'Malformed OAuth state.')
   }
 
   const a = Buffer.from(mac)
   const b = Buffer.from(expected)
   if (a.length !== b.length || !timingSafeEqual(a, b)) {
-    throw new Error('OAuth state signature mismatch.')
+    throw new ConnectError('invalid_state', 'OAuth state signature mismatch.')
   }
 
   let payload: StatePayload
   try {
     payload = JSON.parse(Buffer.from(body, 'base64url').toString()) as StatePayload
   } catch {
-    throw new Error('Malformed OAuth state.')
+    throw new ConnectError('invalid_state', 'Malformed OAuth state.')
   }
   if (Date.now() - payload.issuedAt > STATE_TTL_MS) {
-    throw new Error('OAuth state expired — please start the connection again.')
+    throw new ConnectError('state_expired', 'OAuth state expired — please start the connection again.')
   }
   return payload
 }
@@ -241,7 +244,7 @@ export async function completeConnect(
     throw new Error(`completeConnect: failed to verify permissions: ${roleError.message}`)
   }
   if (!membership || (membership.role !== 'admin' && membership.role !== 'board')) {
-    throw new Error('You do not have permission to connect a mailbox for this organization.')
+    throw new ConnectError('forbidden', 'You do not have permission to connect a mailbox for this organization.')
   }
 
   const tokens = await exchangeCode(code)
@@ -249,7 +252,8 @@ export async function completeConnect(
     // Without a refresh token the connection dies in about an hour. This
     // happens when prompt=consent was omitted or the user previously
     // authorized and Google suppressed it.
-    throw new Error(
+    throw new ConnectError(
+      'no_refresh_token',
       'Google did not return a refresh token. Remove HomeownerHub at ' +
         'myaccount.google.com/permissions and connect again.',
     )
@@ -376,9 +380,11 @@ export async function completeConnect(
     // Names BOTH addresses on purpose: "a mailbox is already connected" is
     // unactionable when the whole failure mode is that Google silently
     // signed the user in as someone they did not intend. The callback
-    // route redirects this message to /settings/mailbox?error=… where it
-    // renders verbatim.
-    throw new Error(
+    // route redirects only the CODE to /settings/mailbox?error=… (the
+    // addresses must not land in a URL); the page renders the connected
+    // address itself from getMailboxStatus.
+    throw new ConnectError(
+      'different_mailbox_connected',
       `You signed in as ${profile.emailAddress}, but this organization already has ` +
         `${otherLive.email_address} connected. Disconnect ${otherLive.email_address} ` +
         `first, or start again and choose ${otherLive.email_address} on Google's ` +

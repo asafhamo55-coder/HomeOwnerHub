@@ -6,6 +6,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getConnectPreview, getMailboxStatus, type ConnectPreview } from '@/lib/inbox/queries'
 import { loadScopeOptions } from '@/lib/inbox/connect'
+import { connectErrorMessage } from '@/lib/inbox/connect-errors'
 import { MailboxConnectCard } from './MailboxConnectCard'
 
 export const metadata = { title: 'HOA mailbox' }
@@ -65,7 +66,11 @@ export default async function MailboxSettingsPage({
     >
       {params.error ? (
         <Alert variant="error" title="Couldn’t connect the mailbox">
-          {params.error}
+          {/* `error` is a code from the OAuth routes, never text to render
+              verbatim: the query string is attacker-writable. */}
+          {params.error === 'different_mailbox_connected' && status
+            ? `This organization already has ${status.emailAddress} connected. Disconnect it first, or start again and choose ${status.emailAddress} on Google’s account picker.`
+            : connectErrorMessage(params.error)}
         </Alert>
       ) : null}
       {params.connected ? (
