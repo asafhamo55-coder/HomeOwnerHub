@@ -11,6 +11,7 @@ import * as commSend from './communications/send'
 import * as parseDocument from '../app/api/ai/parse-document/route'
 import * as governingUpload from '../app/api/governing-docs/upload/route'
 import * as violationDraft from '../app/api/ai/violations/draft/route'
+import * as meetingSummary from '../app/api/ai/meeting-summary/route'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
@@ -152,6 +153,19 @@ describe('board-only routes return 403 to a resident', () => {
       }),
     )
     expect(res.status).toBe(403)
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+  })
+
+  it('POST /api/ai/meeting-summary (R-02/R-16: was org-only, and validated the body before any gate)', async () => {
+    vi.mocked(getSupabaseServerClient).mockClear()
+    const res = await meetingSummary.POST(
+      new Request('http://x/api/ai/meeting-summary', {
+        method: 'POST',
+        body: '{not json',
+      }),
+    )
+    expect(res.status).toBe(403)
+    expect((await res.json()).error.code).toBe('forbidden')
     expect(getSupabaseServerClient).not.toHaveBeenCalled()
   })
 })
