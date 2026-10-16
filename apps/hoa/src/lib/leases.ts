@@ -7,6 +7,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { readAllResult } from '@/lib/supabase/read-all'
 import { logPropertyEvent } from '@/lib/property-events'
 
 // Lease management — cap policy + waiting list + current state.
@@ -55,6 +56,8 @@ export interface WaitingListEntry {
   owner_name: string | null
   requested_at: string
   status: WaitingListStatus
+  /** When the status last changed (approve/deny/withdraw); null while untouched. */
+  status_updated_at: string | null
   notes: string | null
 }
 
@@ -380,24 +383,26 @@ function humanizeDocType(docType: string): string {
 
 // ─── Waiting list ────────────────────────────────────────────────────
 
-export async function listWaitingList(
-  associationId: string,
-): Promise<WaitingListEntry[]> {
-  return (await loadWaitingList(associationId)) ?? []
-}
-
-/** listWaitingList, but null when the read failed (distinct from an empty list). */
+/**
+ * The association's whole waiting list (every status), or null when the
+ * read failed — distinct from an empty list. Paged to the end (BL-053):
+ * one read stops at PostgREST's 1000-row cap.
+ */
 export async function loadWaitingList(
   associationId: string,
 ): Promise<WaitingListEntry[] | null> {
   const supabase = await getSupabaseServerClient()
-  const { data, error } = await supabase
-    .from('lease_waiting_list' as never)
-    .select(
-      'id, property_id, requested_at, status, notes, property:hoa_properties(address, unit_number, owner_name)',
-    )
-    .eq('association_id', associationId)
-    .order('requested_at', { ascending: true })
+  const { data, error } = await readAllResult<unknown>((from, to) =>
+    supabase
+      .from('lease_waiting_list' as never)
+      .select(
+        'id, property_id, requested_at, status, status_updated_at, notes, property:hoa_properties(address, unit_number, owner_name)',
+      )
+      .eq('association_id', associationId)
+      .order('requested_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to) as unknown as PromiseLike<{ data: unknown[] | null; error: { code?: string; message?: string } | null }>,
+  )
   if (error) {
     console.error('[leases] waiting list failed', error.code)
     return null
@@ -408,6 +413,7 @@ export async function loadWaitingList(
     property_id: string
     requested_at: string
     status: WaitingListStatus
+    status_updated_at: string | null
     notes: string | null
     property: {
       address: string | null
@@ -424,6 +430,7 @@ export async function loadWaitingList(
     owner_name: r.property?.owner_name ?? null,
     requested_at: r.requested_at,
     status: r.status,
+    status_updated_at: r.status_updated_at ?? null,
     notes: r.notes,
   }))
 }

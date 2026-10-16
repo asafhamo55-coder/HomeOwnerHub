@@ -14,18 +14,6 @@ async function resolveClient(client?: AnyClient): Promise<AnyClient> {
   return client ?? ((await getSupabaseServerClient()) as unknown as AnyClient)
 }
 
-export interface DashboardStats {
-  openViolations: number
-  overdueViolations: number
-  pendingApprovals: number
-  /** $ sum of unpaid assessments where due_date < today (past-due). */
-  overdueDuesAmount: number
-  /** $ sum of ALL unpaid assessments — overdue + upcoming. Includes
-   *  today-due. Surfaces freshly-added dues that aren't yet past due. */
-  outstandingDuesAmount: number
-  propertiesBehind: number
-}
-
 export interface DigestSnapshot {
   content: string | null
   generatedAt: string | null
@@ -163,107 +151,6 @@ export interface LeaseSummary {
  */
 function logQueryError(fn: string, error: { code?: string; message?: string }): void {
   console.error(`${fn} failed`, { code: error.code, message: error.message })
-}
-
-export async function getDashboardStats(
-  orgId: string,
-  client?: AnyClient,
-): Promise<DashboardStats> {
-  const supabase = await resolveClient(client)
-  const today = new Date().toISOString().slice(0, 10)
-
-  // Resolve associations for this org so the v1 assessments query stays
-  // tenant-scoped. Service role isn't used here (this runs from the
-  // dashboard page under a user session) so RLS does the heavy lifting,
-  // but the explicit IN keeps the query plan tight.
-  const { data: assocs } = await supabase
-    .from('associations')
-    .select('id')
-    .eq('organization_id', orgId)
-  const assocIds = (assocs ?? []).map((a) => a.id)
-
-  // Pull ALL unpaid assessments (overdue + upcoming). Splitting into
-  // two buckets in-memory is cheaper than two round-trips, and a
-  // healthy HOA has at most a few hundred outstanding rows.
-  const assessmentsPromise =
-    assocIds.length > 0
-      ? supabase
-          .from('assessments')
-          .select('id, amount, unit_id, status, due_date, payments(amount)')
-          .in('association_id', assocIds)
-          .is('deleted_at', null)
-          .neq('status', 'paid')
-          .neq('status', 'waived')
-          .neq('status', 'written_off')
-      : Promise.resolve({ data: [] as { id: string; amount: number; unit_id: string; status: string; due_date: string; payments: { amount: number }[] }[] })
-
-  const [open, overdue, pending, assessments] = await Promise.all([
-    supabase
-      .from('hoa_violations')
-      .select('id', { count: 'exact', head: true })
-      .eq('org_id', orgId)
-      .is('deleted_at', null)
-      .in('status', ['open', 'notice_sent']),
-
-    supabase
-      .from('hoa_violations')
-      .select('notice_sent_at, cure_period_days')
-      .eq('org_id', orgId)
-      .is('deleted_at', null)
-      .eq('status', 'notice_sent')
-      .not('notice_sent_at', 'is', null),
-
-    supabase
-      .from('hoa_violations')
-      .select('id', { count: 'exact', head: true })
-      .eq('org_id', orgId)
-      .is('deleted_at', null)
-      .not('ai_draft_letter', 'is', null)
-      .is('approved_at', null),
-
-    assessmentsPromise,
-  ])
-
-  const overdueCount = (overdue.data ?? []).filter((v) => {
-    if (!v.notice_sent_at || !v.cure_period_days) return false
-    const sent = new Date(v.notice_sent_at)
-    const cureDeadline = new Date(sent.getTime() + v.cure_period_days * 86_400_000)
-    return cureDeadline < new Date()
-  }).length
-
-  type AssessmentShape = {
-    id: string
-    amount: number
-    unit_id: string
-    status: string
-    due_date: string
-    payments: { amount: number }[]
-  }
-  const allRows = (assessments.data ?? []) as unknown as AssessmentShape[]
-
-  // Compute remaining $ once per row; bucket into overdue vs total.
-  let overdueDuesAmount = 0
-  let outstandingDuesAmount = 0
-  const overdueUnitIds = new Set<string>()
-  for (const row of allRows) {
-    const paid = (row.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
-    const remaining = Math.max(Number(row.amount) - paid, 0)
-    outstandingDuesAmount += remaining
-    if (row.due_date < today) {
-      overdueDuesAmount += remaining
-      overdueUnitIds.add(row.unit_id)
-    }
-  }
-  const propertiesBehind = overdueUnitIds.size
-
-  return {
-    openViolations: open.count ?? 0,
-    overdueViolations: overdueCount,
-    pendingApprovals: pending.count ?? 0,
-    overdueDuesAmount,
-    outstandingDuesAmount,
-    propertiesBehind,
-  }
 }
 
 // Unions every "manager owes an approval" source so the dashboard can
@@ -926,7 +813,7 @@ export async function getAtRiskThisWeek(
     .toISOString()
     .slice(0, 10)
 
-  // Tenant-scope assessments via associations FK; matches getDashboardStats.
+  // Tenant-scope assessments via associations FK.
   const { data: assocs, error: assocError } = await supabase
     .from('associations')
     .select('id')

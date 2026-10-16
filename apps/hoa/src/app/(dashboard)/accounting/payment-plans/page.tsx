@@ -1,9 +1,8 @@
 import Link from 'next/link'
 import { HandCoins, Plus } from 'lucide-react'
 import { Button, DataTable, EmptyState, LoadFailed, Page, type DataTableColumn } from '@homeowner-portal/ui'
-import { getAccountingContext } from '@/lib/accounting/queries'
-import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
+import { getAccountingContext, loadPaymentPlans, type PaymentPlanRow } from '@/lib/accounting/queries'
+import { tryLoad } from '@/lib/load-or-fail'
 import { formatDay, usd } from '@/lib/money/format'
 import { PLAN_STATUS } from '@/lib/money/status'
 import { AccountingTabs } from '../AccountingTabs'
@@ -12,17 +11,7 @@ import { AccountingLoadFailed, AccountingNotSetUp, MoneyStatus } from '../_compo
 export const metadata = { title: 'Payment Plans' }
 export const dynamic = 'force-dynamic'
 
-interface PlanRow {
-  id: string
-  total_amount: number
-  installment_amount: number
-  installment_count: number
-  start_date: string
-  status: string
-  unit: { address_line1: string | null; unit_number: string | null } | null
-}
-
-const COLUMNS: DataTableColumn<PlanRow>[] = [
+const COLUMNS: DataTableColumn<PaymentPlanRow>[] = [
   {
     key: 'unit',
     header: 'Property',
@@ -56,22 +45,7 @@ export default async function PaymentPlansPage() {
   const ctx = ctxRes.data
   if (!ctx) return <AccountingNotSetUp title="Payment plans" />
 
-  const supabase = await getSupabaseServerClient()
-  // payment_plans is org-scoped — narrow to this association's units.
-  const unitsRes = await loadOrFail('units', supabase.from('units').select('id').eq('association_id', ctx.associationId))
-  const unitIds = unitsRes.ok ? (unitsRes.data ?? []).map((u) => u.id) : []
-  const plansRes = !unitsRes.ok
-    ? ({ ok: false } as const)
-    : unitIds.length === 0
-      ? ({ ok: true, data: [] as PlanRow[], count: 0 } as const)
-      : await loadOrFail(
-          'payment plans',
-          supabase
-            .from('payment_plans')
-            .select('id, total_amount, installment_amount, installment_count, start_date, status, unit:unit_id(address_line1, unit_number)')
-            .in('unit_id', unitIds)
-            .order('start_date', { ascending: false }),
-        )
+  const plansRes = await tryLoad('payment plans', () => loadPaymentPlans(ctx.associationId))
 
   return (
     <Page
@@ -94,7 +68,7 @@ export default async function PaymentPlansPage() {
           caption="Payment plans"
           mobile="cards"
           columns={COLUMNS}
-          rows={(plansRes.data ?? []) as unknown as PlanRow[]}
+          rows={plansRes.data}
           rowKey={(p) => p.id}
           empty={
             <EmptyState
