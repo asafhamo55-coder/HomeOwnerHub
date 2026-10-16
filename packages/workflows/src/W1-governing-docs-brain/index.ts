@@ -14,11 +14,17 @@ import { createAdminClient } from '@homeowner-portal/db'
 import { PROMPT_VERSION, SYSTEM_PROMPT, userPromptFor } from './prompt'
 import { retrieveChunks } from './tools'
 
+export { GoverningDocsRetrievalError } from './tools'
+
 // ─── Public types ────────────────────────────────────────────────────
 
 export const GoverningDocsBrainInputSchema = z.object({
   question: z.string().min(3).max(2000),
   associationId: z.string().uuid().nullable().optional(),
+  // Resident callers: only these governing_documents types (current, not
+  // AI-generated) may ground the answer. Omitted = every document (board
+  // and server-side callers). See RetrieveOptions.allowedDocTypes (F-04).
+  allowedDocTypes: z.array(z.string().max(50)).max(20).optional(),
 })
 
 export type GoverningDocsBrainInput = z.infer<
@@ -101,6 +107,7 @@ export const governingDocsBrain = defineWorkflow({
       organizationId: ctx.organizationId,
       associationId: input.associationId ?? null,
       limit: 8,
+      allowedDocTypes: input.allowedDocTypes,
     })
 
     if (retrieved.length === 0) {
@@ -113,6 +120,7 @@ export const governingDocsBrain = defineWorkflow({
       const hasDocs = await hasGoverningDocs(
         ctx.organizationId,
         input.associationId ?? null,
+        input.allowedDocTypes,
       )
       const answer = hasDocs
         ? "I couldn't find anything in the governing documents that addresses that directly. " +
@@ -191,10 +199,19 @@ export const governingDocsBrain = defineWorkflow({
 
 export async function queryGoverningDocs(
   question: string,
-  ctx: { organizationId: string; associationId?: string | null },
+  ctx: {
+    organizationId: string
+    associationId?: string | null
+    /** Set for resident callers; see GoverningDocsBrainInputSchema. */
+    allowedDocTypes?: readonly string[]
+  },
 ): Promise<GoverningDocsBrainOutput & { runId: string }> {
   const result = await governingDocsBrain.execute(
-    { question, associationId: ctx.associationId ?? null },
+    {
+      question,
+      associationId: ctx.associationId ?? null,
+      ...(ctx.allowedDocTypes ? { allowedDocTypes: [...ctx.allowedDocTypes] } : {}),
+    },
     { organizationId: ctx.organizationId },
   )
   return { ...result.output, runId: result.runId }
@@ -276,9 +293,23 @@ function normalizeConfidence(value: unknown): 'HIGH' | 'MEDIUM' | 'LOW' {
 async function hasGoverningDocs(
   organizationId: string,
   associationId: string | null,
+  allowedDocTypes?: readonly string[],
 ): Promise<boolean> {
   try {
     const db = createAdminClient()
+    if (allowedDocTypes) {
+      // Resident: only count documents they could be answered from.
+      let visible = db
+        .from('governing_documents')
+        .select('id', { head: true, count: 'exact' })
+        .eq('organization_id', organizationId)
+        .in('type', [...allowedDocTypes])
+        .is('superseded_at', null)
+        .not('ai_generated', 'is', true)
+      if (associationId) visible = visible.eq('association_id', associationId)
+      const { count } = await visible
+      return (count ?? 0) > 0
+    }
     let query = db
       .from('governing_document_chunks')
       .select('id', { head: true, count: 'exact' })

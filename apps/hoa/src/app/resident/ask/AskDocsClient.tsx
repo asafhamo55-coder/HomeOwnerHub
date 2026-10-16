@@ -14,6 +14,7 @@ import {
   Textarea,
 } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
+import { responseErrorMessage } from '@/lib/api/client'
 
 type Confidence = 'HIGH' | 'MEDIUM' | 'LOW'
 
@@ -115,20 +116,17 @@ export function AskDocsClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: question.trim() }),
       })
-      const json = (await res.json()) as
-        | AskResponse
-        | { error: string; message?: string }
-
       if (!res.ok) {
-        const err = json as { error: string; message?: string }
-        setErrorMessage(err.message ?? err.error)
+        setErrorMessage(
+          await responseErrorMessage(res, 'We could not answer that right now. Try again shortly.'),
+        )
         setStatus('error')
         return
       }
-      setResponse(json as AskResponse)
+      setResponse((await res.json()) as AskResponse)
       setStatus('done')
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Network error')
+    } catch {
+      setErrorMessage('We could not reach the server. Check your connection and try again.')
       setStatus('error')
     }
   }
