@@ -22,7 +22,7 @@ const FEATURE_BULLETS = [
   'Violation wizard with Covenant Brain (CC&R citations)',
   'Meeting Co-Pilot summaries',
   'Resident portal — dues, ARC, governing docs',
-  'Multi-board access controls + audit log',
+  'Shared Gmail inbox with AI reply drafts',
   'Priority support',
 ]
 

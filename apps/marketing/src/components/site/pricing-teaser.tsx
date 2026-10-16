@@ -11,7 +11,7 @@ const tiers = [
     price: '$39',
     period: '/mo',
     sub: 'Up to 50 doors',
-    bullets: ['Covenant Brain', 'Onboarding Agent', 'Resident portal'],
+    bullets: ['Ask your governing documents — cited answers', 'Governing-document upload + parsing', 'Resident portal'],
     cta: 'Pilot for free',
   },
   {
@@ -19,7 +19,7 @@ const tiers = [
     price: '$79',
     period: '/mo',
     sub: '51–300 doors · Most boards',
-    bullets: ['Everything in Starter', 'Violation Drafter', 'Minutes Engine', 'Reserve Live', 'Vendor Oracle'],
+    bullets: ['Everything in Starter', 'Violation letters drafted from photos', 'Meeting minutes + AI summaries', 'Shared Gmail inbox with AI reply drafts', 'Vendor onboarding + AI bid comparison'],
     cta: 'Book a demo',
     featured: true,
   },
@@ -28,7 +28,7 @@ const tiers = [
     price: '$149',
     period: '/mo',
     sub: '301–1,000 doors',
-    bullets: ['Everything in Standard', 'Board Copilot', 'White-label resident portal', 'Priority support'],
+    bullets: ['Everything in Standard', 'Board Copilot', 'Accounting + bank reconciliation', 'Priority support'],
     cta: 'Talk to us',
   },
 ]
