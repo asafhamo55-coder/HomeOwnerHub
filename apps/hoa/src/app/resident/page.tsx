@@ -6,12 +6,13 @@ import {
   ClipboardList,
   CreditCard,
   Home,
+  Send,
   Megaphone,
   MessageSquarePlus,
   ShieldAlert,
   Sparkles,
 } from 'lucide-react'
-import { Badge, LoadFailed } from '@homeowner-portal/ui'
+import { Badge, Button, LoadFailed } from '@homeowner-portal/ui'
 import { getResidentDashboard, type OpenViolationRow } from '@/lib/resident-dashboard'
 import type { ResidentUnit } from '@/lib/resident'
 import type { TicketRow } from '@/lib/resident-tickets'
@@ -92,7 +93,17 @@ export default async function ResidentDashboard() {
               hint="Anything listed below did load correctly."
             />
           ) : (
-            <StatusHero dues={data.dues} allGood={actionItems === 0} />
+            <div className="space-y-3">
+              <StatusHero dues={data.dues} allGood={actionItems === 0} />
+              {data.dues.balance > 0 ? (
+                <Button asChild size="lg" className="w-full">
+                  <Link href="/resident/dues/pay">
+                    <Send aria-hidden />
+                    Pay {usd.format(data.dues.balance)}
+                  </Link>
+                </Button>
+              ) : null}
+            </div>
           )}
 
           {data.openViolations.length > 0 ? (

@@ -36,3 +36,9 @@
 @media (prefers-reduced-motion: reduce) {
   .nav-progress-bar { animation: none; transform: scaleX(0.8); opacity: 1; }
 }
+
+/* Printed resident statement (/resident/dues/statement): even margins on
+   paper. The page's own print: utilities hide the app chrome. */
+@page {
+  margin: 12mm;
+}

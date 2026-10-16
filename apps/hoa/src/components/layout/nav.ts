@@ -15,6 +15,7 @@ import {
   Megaphone,
   MessageSquare,
   Scale,
+  Send,
   Settings,
   Sparkles,
   Users,
@@ -95,11 +96,13 @@ export const ADMIN_ACCOUNT: HoaNavLink[] = [
   { href: '/settings', icon: Settings, label: 'Settings' },
   { href: '/settings/mailbox', icon: AtSign, label: 'HOA mailbox' },
   { href: '/settings/members', icon: Users, label: 'Members', keywords: ['board', 'invite'] },
+  { href: '/settings/payments', icon: Send, label: 'Resident payments', keywords: ['zelle', 'pay', 'memo'] },
   { href: '/settings/billing', icon: CreditCard, label: 'Billing', keywords: ['subscription', 'plan'] },
 ]
 
 export const BOARD_ACCOUNT: HoaNavLink[] = [
   { href: '/settings/members', icon: Users, label: 'Members', keywords: ['board', 'invite'] },
+  { href: '/settings/payments', icon: Send, label: 'Resident payments', keywords: ['zelle', 'pay', 'memo'] },
   { href: '/settings/billing', icon: CreditCard, label: 'Billing', keywords: ['subscription', 'plan'] },
 ]
 

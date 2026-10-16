@@ -1,9 +1,11 @@
+import Link from 'next/link'
 import { differenceInCalendarDays, format } from 'date-fns'
-import { AlertTriangle, CheckCircle2, CreditCard, Home, Info, Wallet } from 'lucide-react'
-import { Badge, LoadFailed, StatusPill } from '@homeowner-portal/ui'
-import { getResidentDashboard, type ResidentCharge } from '@/lib/resident-dashboard'
+import { AlertTriangle, CheckCircle2, CreditCard, FileText, Home, Send, Wallet } from 'lucide-react'
+import { Badge, Button, LoadFailed, StatusPill } from '@homeowner-portal/ui'
+import { getResidentDues, type ResidentCharge } from '@/lib/resident-dashboard'
 import type { ResidentUnit } from '@/lib/resident'
 import { chargeTypeLabel } from '@/lib/assessment-labels'
+import { DuesTabs } from '@/components/resident/DuesTabs'
 import { Hero, Panel, RowGroup, ScreenEmpty, ScreenHeader, Section, TappableRow } from '@/components/resident/screen'
 
 export const metadata = { title: 'Dues' }
@@ -12,7 +14,7 @@ export const dynamic = 'force-dynamic'
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
 export default async function ResidentDuesPage() {
-  const { units, dues, failed } = await getResidentDashboard()
+  const { units, dues, failed } = await getResidentDues()
 
   if (units.length === 0) {
     return (
@@ -28,13 +30,14 @@ export default async function ResidentDuesPage() {
   }
 
   // A failed read would otherwise fall through to "You're all paid up".
-  if (failed.dues) {
+  if (failed) {
     return (
       <div className="space-y-6">
         <ScreenHeader title="Dues" subtitle="Your balance and the homes it covers." />
+        <DuesTabs current="balance" />
         <LoadFailed
           what="your dues"
-          hint="Your balance is unknown right now — not zero. For a statement, contact your community manager."
+          hint="Your balance is unknown right now — not zero. Try again in a minute."
         />
       </div>
     )
@@ -45,21 +48,32 @@ export default async function ResidentDuesPage() {
 
   return (
     <div className="space-y-8">
-      <ScreenHeader title="Dues" subtitle="Your balance and the homes it covers." />
+      <div className="space-y-4">
+        <ScreenHeader title="Dues" subtitle="Your balance and the homes it covers." />
+        <DuesTabs current="balance" />
+      </div>
 
       {owes ? (
-        <Hero
-          tone={overdue ? 'danger' : 'warning'}
-          eyebrow={overdue ? 'Balance past due' : 'Current balance'}
-          value={usd.format(dues.balance)}
-          footer={
-            overdue
-              ? `${dues.pastDueCount} past-due ${dues.pastDueCount === 1 ? 'charge' : 'charges'}`
-              : dues.nextDueDate
-                ? `Next due ${format(new Date(dues.nextDueDate), 'PP')}`
-                : `${dues.openCount} open ${dues.openCount === 1 ? 'charge' : 'charges'}`
-          }
-        />
+        <div className="space-y-3">
+          <Hero
+            tone={overdue ? 'danger' : 'warning'}
+            eyebrow={overdue ? 'Balance past due' : 'Current balance'}
+            value={usd.format(dues.balance)}
+            footer={
+              overdue
+                ? `${dues.pastDueCount} past-due ${dues.pastDueCount === 1 ? 'charge' : 'charges'}`
+                : dues.nextDueDate
+                  ? `Next due ${format(new Date(dues.nextDueDate), 'PP')}`
+                  : `${dues.openCount} open ${dues.openCount === 1 ? 'charge' : 'charges'}`
+            }
+          />
+          <Button asChild size="lg" className="w-full">
+            <Link href="/resident/dues/pay">
+              <Send aria-hidden />
+              Pay {usd.format(dues.balance)}
+            </Link>
+          </Button>
+        </div>
       ) : (
         <Hero
           tone="success"
@@ -104,11 +118,17 @@ export default async function ResidentDuesPage() {
         </RowGroup>
       </Section>
 
-      <Panel className="flex items-start gap-3 bg-subtle">
-        <Info className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />
-        <p className="text-sm text-foreground-secondary">
-          For a detailed statement or to make a payment, contact your community manager.
-        </p>
+      <Panel className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <FileText className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />
+          <div className="space-y-0.5">
+            <p className="text-sm font-semibold text-foreground">Need a statement?</p>
+            <p className="text-sm text-muted">Every charge and payment, ready to print or save as a PDF.</p>
+          </div>
+        </div>
+        <Button asChild variant="secondary" className="shrink-0">
+          <Link href="/resident/dues/statement">View statement</Link>
+        </Button>
       </Panel>
     </div>
   )

@@ -25,6 +25,7 @@ import { getResidentUnits, type ResidentUnit } from '@/lib/resident'
 import { loadMyTickets, type TicketRow } from '@/lib/resident-tickets'
 import { loadMyArcRequests, type ArcRequestRow } from '@/lib/resident-submissions'
 import { loadOrFail } from '@/lib/load-or-fail'
+import { buildLedger, loadLedgerRows, type Ledger } from '@/lib/resident-ledger'
 
 // Violation statuses that mean "closed" — anything else is still open
 // against the resident. Excluding terminal states (rather than
@@ -58,6 +59,10 @@ export interface ResidentCharge {
   amount: number
   /** Already past its due date as of today. */
   pastDue: boolean
+  /** The charge's full amount before any partial payment (what W18 matches against). */
+  fullAmount: number
+  /** assessments.memo_code as stored; the Pay screen validates it before showing it. */
+  memoCode: string | null
 }
 
 export interface ResidentDues {
@@ -154,6 +159,51 @@ export async function getResidentDashboard(): Promise<ResidentDashboard> {
   }
 }
 
+/**
+ * Just the dues slice of the dashboard (units + open charges), for screens
+ * that don't need tickets, ARC or announcements (Pay, ledger, statement).
+ */
+export async function getResidentDues(): Promise<{
+  units: ResidentUnit[]
+  dues: ResidentDues
+  failed: boolean
+}> {
+  const actor = await getResidentActor()
+  const units = await getResidentUnits()
+  const dues = await getDues(actor.client, units.map((u) => u.unit_id))
+  return { units, dues: dues ?? EMPTY_DUES, failed: dues === null }
+}
+
+/**
+ * The resident's full ledger (every charge, payment and credit on their
+ * units, running balance). Read with the actor's client, so 0061's resident
+ * policies bound it — see tests/integration/security/resident-ledger-rls.test.ts.
+ */
+export async function getResidentLedger(): Promise<{
+  units: ResidentUnit[]
+  ledger: Ledger | null
+  truncated: boolean
+}> {
+  const actor = await getResidentActor()
+  const units = await getResidentUnits()
+  const rows = await loadLedgerRows(actor.client, units.map((u) => u.unit_id))
+  if (!rows.ok) return { units, ledger: null, truncated: false }
+  return { units, ledger: buildLedger(rows.assessments, rows.payments), truncated: rows.truncated }
+}
+
+/** Name and email for the printed statement's "Prepared for" line. */
+export async function getResidentIdentity(): Promise<{ name: string | null; email: string | null }> {
+  const actor = await getResidentActor()
+  if (!actor.id) return { name: actor.displayName, email: actor.email ?? null }
+  const { data, error } = await actor.client
+    .from('profiles')
+    .select('full_name')
+    .eq('id', actor.id)
+    .maybeSingle<{ full_name: string | null }>()
+  const fullName = error ? null : data?.full_name?.trim() || null
+  return { name: fullName ?? actor.displayName, email: actor.email ?? null }
+}
+
 async function resolveFirstName(
   supabase: Supabase,
   user: { id: string; email?: string | null } | null,
@@ -223,7 +273,7 @@ async function getDues(supabase: Supabase, unitIds: string[]): Promise<ResidentD
     'resident dues',
     supabase
       .from('assessments')
-      .select('id, unit_id, amount, due_date, status, assessment_type')
+      .select('id, unit_id, amount, due_date, status, assessment_type, memo_code')
       .in('unit_id', unitIds)
       .in('status', ['open', 'partial'])
       .is('deleted_at', null),
@@ -238,6 +288,7 @@ async function getDues(supabase: Supabase, unitIds: string[]): Promise<ResidentD
     due_date: string
     status: string
     assessment_type: string
+    memo_code: string | null
   }>
   if (assessments.length === 0) return EMPTY_DUES
 
@@ -283,6 +334,8 @@ async function getDues(supabase: Supabase, unitIds: string[]): Promise<ResidentD
       dueDate: a.due_date,
       amount: Math.round(remaining * 100) / 100,
       pastDue,
+      fullAmount: Number(a.amount),
+      memoCode: a.memo_code,
     })
   }
 

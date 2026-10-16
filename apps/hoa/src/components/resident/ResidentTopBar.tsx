@@ -15,7 +15,7 @@ function initialsFrom(value: string): string {
 
 export function ResidentTopBar({ orgName, userEmail }: { orgName: string; userEmail: string }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-surface/80 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-border bg-surface/80 backdrop-blur print:hidden">
       <div className="mx-auto flex h-14 max-w-2xl items-center justify-between gap-3 px-4">
         <Link
           href="/resident"

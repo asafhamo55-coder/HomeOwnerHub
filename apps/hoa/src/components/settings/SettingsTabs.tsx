@@ -1,18 +1,24 @@
 import Link from 'next/link'
 import { Tabs } from '@homeowner-portal/ui'
 
-type SettingsPath = '/settings' | '/settings/members' | '/settings/mailbox' | '/settings/billing'
+type SettingsPath =
+  | '/settings'
+  | '/settings/members'
+  | '/settings/payments'
+  | '/settings/mailbox'
+  | '/settings/billing'
 
 /**
  * Sub-navigation across the settings pages. Mirrors the role gating of
  * each page (and of nav.ts): General and the HOA mailbox are admin-only
- * (requireAdmin), Members and Billing are open to board and admin
+ * (requireAdmin), Members, Resident payments and Billing are open to board and admin
  * (requireBoardOrAdmin). A tab is never shown to a role its page would
  * bounce.
  */
 const ITEMS: Array<{ label: string; href: SettingsPath; adminOnly: boolean }> = [
   { label: 'General', href: '/settings', adminOnly: true },
   { label: 'Members', href: '/settings/members', adminOnly: false },
+  { label: 'Resident payments', href: '/settings/payments', adminOnly: false },
   { label: 'HOA mailbox', href: '/settings/mailbox', adminOnly: true },
   { label: 'Billing', href: '/settings/billing', adminOnly: false },
 ]

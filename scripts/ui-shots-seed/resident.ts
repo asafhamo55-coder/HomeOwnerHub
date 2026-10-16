@@ -1,11 +1,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { memoCodeFor } from '../../packages/workflows/src/W18-bank-reconciliation/tools'
+import { signZelleSettings, withZelleSettings } from '../../apps/hoa/src/lib/pay-by-zelle'
+import { LOCAL_SERVICE_KEY } from '../../tests/integration/setup/env'
 import type { SeedContext } from '../ui-shots-seed'
 
 /**
  * Demo rows for the resident-portal shots: the shots user owns one unit in
  * the demo HOA and has a ticket, an ARC application and a concern report,
- * each with a board reply, plus a couple of dues charges when the org has a
- * fiscal period. Idempotent (find-or-create); invented data only.
+ * each with a board reply, plus dues charges (with W18 memo codes and a
+ * payment on the paid one) when the org has a fiscal period, and the
+ * association's Pay-by-Zelle settings. Idempotent (find-or-create);
+ * invented data only.
+ *
+ * UI_SHOTS_ZELLE=off removes the Zelle settings instead, to shoot the
+ * resident "online payments aren't set up yet" state.
  */
 export async function seed_resident(db: SupabaseClient, ctx: SeedContext): Promise<Record<string, string>> {
   const { userId, hoaOrgId: org } = ctx
@@ -101,19 +109,63 @@ export async function seed_resident(db: SupabaseClient, ctx: SeedContext): Promi
     .limit(1)
   const periodId = (fp?.[0] as { id: string } | undefined)?.id
   if (periodId) {
-    for (const [due_date, status] of [
-      ['2026-10-01', 'open'],
-      ['2026-09-01', 'paid'],
+    const { data: assocRow } = await db.from('associations').select('slug').eq('id', assoc).single()
+    const { data: unitRow } = await db.from('units').select('unit_number').eq('id', unitId).single()
+    const slug = (assocRow as { slug: string } | null)?.slug ?? ''
+    const unitNumber = (unitRow as { unit_number: string | null } | null)?.unit_number ?? null
+    for (const [due_date, status, assessment_type, amount] of [
+      ['2026-08-01', 'paid', 'regular', 325],
+      ['2026-09-01', 'paid', 'regular', 325],
+      ['2026-09-20', 'waived', 'late_fee', 25],
+      ['2026-10-01', 'open', 'regular', 325],
+      ['2026-10-20', 'open', 'late_fee', 25],
     ] as const) {
-      await findOrCreate(db, 'assessments', { unit_id: unitId, due_date, assessment_type: 'regular' }, {
+      const memo_code = memoCodeFor({ associationSlug: slug, unitNumber, unitId, assessmentType: assessment_type })
+      const id = await findOrCreate(db, 'assessments', { unit_id: unitId, due_date, assessment_type }, {
         organization_id: org,
         association_id: assoc,
         fiscal_period_id: periodId,
-        amount: 325,
+        amount,
         status,
+        memo_code,
       })
+      // Rows from older seeds predate memo codes.
+      await db.from('assessments').update({ memo_code }).eq('id', id).is('memo_code', null)
+      if (status === 'paid') {
+        await findOrCreate(db, 'payments', { assessment_id: id }, {
+          organization_id: org,
+          unit_id: unitId,
+          amount,
+          payment_method: due_date === '2026-08-01' ? 'check' : 'zelle_assisted',
+          paid_at: `${due_date.slice(0, 8)}03T15:00:00Z`,
+        })
+      }
     }
   }
+
+  // Pay-by-Zelle settings, signed the way the board's save action signs them
+  // (the dev server's secret is the local service key; see ui-shots.ts).
+  const { data: assocSettings } = await db.from('associations').select('compliance_settings').eq('id', assoc).single()
+  const current = (assocSettings as { compliance_settings: unknown } | null)?.compliance_settings ?? {}
+  const secret = process.env.PAY_SETTINGS_SECRET || LOCAL_SERVICE_KEY
+  const next =
+    process.env.UI_SHOTS_ZELLE === 'off'
+      ? withZelleSettings(current, null)
+      : withZelleSettings(
+          current,
+          signZelleSettings(
+            assoc,
+            {
+              recipient: 'pay@demo-court.example',
+              recipientName: 'Demo Court HOA',
+              instructions: 'Prefer a check? Drop it in the clubhouse box, with your memo code on the memo line.',
+            },
+            secret,
+            '2026-10-01T12:00:00.000Z',
+          ),
+        )
+  const { error: settingsErr } = await db.from('associations').update({ compliance_settings: next }).eq('id', assoc)
+  if (settingsErr) throw new Error(`associations settings update: ${settingsErr.code}`)
 
   console.log(`seed resident: ok (${Object.keys(vars).length} ids)`)
   return vars
