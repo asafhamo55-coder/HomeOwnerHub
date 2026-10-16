@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { removeStorageObjects } from '@/lib/storage-remove'
 
@@ -37,6 +38,8 @@ export async function uploadDocument(
   _prev: UploadActionState,
   formData: FormData,
 ): Promise<UploadActionState> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { error: gate.error }
   const file = formData.get('file')
   if (!(file instanceof File) || file.size === 0) {
     return { fieldErrors: { file: 'Pick a file to upload.' } }
@@ -106,6 +109,8 @@ export async function uploadDocument(
 }
 
 export async function updateParsedText(documentId: string, parsedText: string) {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) throw new Error(gate.error)
   const supabase = await getSupabaseServerClient()
   const { error } = await supabase
     .from('hoa_documents')
@@ -121,6 +126,8 @@ export async function updateParsedText(documentId: string, parsedText: string) {
 }
 
 export async function deleteDocument(documentId: string) {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) throw new Error(gate.error)
   const supabase = await getSupabaseServerClient()
   const { data: doc } = await supabase
     .from('hoa_documents')
@@ -185,6 +192,8 @@ export async function replaceDocumentFile(
   _prev: ReplaceActionState,
   formData: FormData,
 ): Promise<ReplaceActionState> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { error: gate.error }
   const file = formData.get('file')
   if (!(file instanceof File) || file.size === 0) {
     return { fieldErrors: { file: 'Pick a file to upload.' } }
@@ -314,6 +323,8 @@ const RestoreSchema = z.object({
 export async function restoreDocumentVersion(input: {
   versionId: string
 }): Promise<{ ok: true } | { ok: false; error: string }> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const parsed = RestoreSchema.safeParse(input)
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }

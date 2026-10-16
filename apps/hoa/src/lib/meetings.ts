@@ -5,6 +5,7 @@ import { DASHBOARD_TAG_ALL } from '@/lib/dashboard/cached'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
@@ -38,6 +39,8 @@ export async function approveMeetingMinutes(input: {
   approvedSummary: string
   attendees: string[]
 }): Promise<ApproveResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const parsed = ApproveSchema.safeParse(input)
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
@@ -116,6 +119,8 @@ export async function scheduleMeeting(input: {
   meetingType: MeetingType
   agenda?: string
 }): Promise<ApproveResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const parsed = ScheduleSchema.safeParse(input)
   if (!parsed.success) {
     return {

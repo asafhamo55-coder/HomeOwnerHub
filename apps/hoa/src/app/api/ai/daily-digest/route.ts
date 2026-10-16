@@ -7,6 +7,7 @@ import {
   MAX_INSIGHTS,
 } from '@homeowner-portal/ai'
 import { getCurrentOrg } from '@/lib/orgs'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getTriageSnapshot } from '@/lib/dashboard/triage'
 import {
@@ -53,6 +54,10 @@ export async function POST() {
   if (!org) {
     return NextResponse.json({ error: 'no_org' }, { status: 403 })
   }
+  // Board-only write (0063). Residents are members, so the org check alone
+  // let them write here.
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return NextResponse.json({ error: 'forbidden', message: gate.error }, { status: 403 })
 
   const supabase = await getSupabaseServerClient()
   const [triage, approvals, nextMeeting, atRisk, lease, residentQueues, kpis, staleApprovals] =

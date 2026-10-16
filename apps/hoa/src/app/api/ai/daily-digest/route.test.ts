@@ -4,6 +4,12 @@ vi.mock('@/lib/orgs', () => ({
   getCurrentOrg: vi.fn(async () => ({ id: 'org-1', name: 'Madison Park' })),
 }))
 
+// The board-only gate (0063). Admits by default; one case below refuses.
+vi.mock('@/lib/accounting/guard', () => ({
+  BOARD_ONLY_DENIED: 'Only board members and admins can make this change.',
+  requireBoardOrAdminForAction: vi.fn(async () => ({ ok: true, role: 'board', orgId: 'org-1' })),
+}))
+
 vi.mock('@/lib/supabase/server', () => ({
   getSupabaseServerClient: vi.fn(async () => ({
     from: vi.fn(() => ({
@@ -86,6 +92,8 @@ vi.mock('@homeowner-portal/ai', async () => {
 
 import { POST } from './route'
 import { generateBoardInsights, generateDigestSuggestion } from '@homeowner-portal/ai'
+import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 /** The AI half is not under test in the suggestion cases; keep it quiet. */
 beforeEach(() => {
@@ -93,6 +101,20 @@ beforeEach(() => {
 })
 
 describe('POST /api/ai/daily-digest', () => {
+  it('refuses a resident with 403 before reading or writing anything', async () => {
+    vi.mocked(requireBoardOrAdminForAction).mockResolvedValueOnce({
+      ok: false,
+      error: 'Only board members and admins can make this change.',
+    })
+    vi.mocked(getSupabaseServerClient).mockClear()
+
+    const response = await POST()
+
+    expect(response.status).toBe(403)
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+    expect(generateDigestSuggestion).not.toHaveBeenCalled()
+  })
+
   it('returns 200 with the facts when the AI call fails', async () => {
     // An AI outage is not an error state: the card's real content is
     // deterministic, so a 503 here would blank a card that has everything

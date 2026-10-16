@@ -14,13 +14,18 @@ import { getCurrentUserRole } from '@/lib/auth'
 
 export const ACCOUNTING_DENIED = 'Only board members and admins can change accounting records.'
 
+/** The same gate for non-accounting board actions (0063 sweep). */
+export const BOARD_ONLY_DENIED = 'Only board members and admins can make this change.'
+
 export type AccountingGate =
   | { ok: true; role: 'admin' | 'board'; orgId: string }
   | { ok: false; error: string }
 
-export async function requireBoardOrAdminForAction(): Promise<AccountingGate> {
+export async function requireBoardOrAdminForAction(
+  denied: string = ACCOUNTING_DENIED,
+): Promise<AccountingGate> {
   const ctx = await getCurrentUserRole()
   if (!ctx) return { ok: false, error: 'You are not signed in to an organization.' }
-  if (ctx.role !== 'admin' && ctx.role !== 'board') return { ok: false, error: ACCOUNTING_DENIED }
+  if (ctx.role !== 'admin' && ctx.role !== 'board') return { ok: false, error: denied }
   return { ok: true, role: ctx.role, orgId: ctx.org.id }
 }

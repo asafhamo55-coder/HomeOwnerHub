@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violation-statuses'
 
@@ -48,6 +49,8 @@ export interface CreateViolationError {
 export async function createApprovedViolation(
   input: CreateViolationInput,
 ): Promise<CreateViolationResult | CreateViolationError> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const parsed = CreateSchema.safeParse({
     property_id: input.propertyId,
     description: input.description,
@@ -191,6 +194,8 @@ function fieldErrorsOf(issues: z.ZodIssue[], names: Record<string, string>): Rec
 export async function updateViolation(
   input: UpdateViolationInput,
 ): Promise<UpdateViolationResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const parsed = UpdateViolationSchema.safeParse({
     violationId: input.violationId,
     description: input.description,
@@ -238,6 +243,8 @@ export async function updateViolation(
 export async function deleteViolation(
   violationId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const org = await getCurrentOrg()
   if (!org) return { ok: false, error: 'No HOA selected.' }
 
@@ -256,6 +263,8 @@ export async function deleteViolation(
 export async function updateViolationStatus(
   input: UpdateViolationStatusInput,
 ): Promise<UpdateViolationStatusResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const parsed = UpdateStatusSchema.safeParse(input)
   if (!parsed.success) {
     return {

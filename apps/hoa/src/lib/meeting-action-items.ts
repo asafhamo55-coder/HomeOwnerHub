@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -99,6 +100,8 @@ const CreateSchema = z.object({
 })
 
 export async function createActionItem(formData: FormData): Promise<ActionResult<{ id: string }>> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const parsed = CreateSchema.safeParse({
     meeting_id: formData.get('meeting_id'),
     title: formData.get('title'),
@@ -158,6 +161,8 @@ export async function setActionItemStatus(
   id: string,
   status: ActionItemStatus,
 ): Promise<ActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const parsed = StatusSchema.safeParse({ id, status })
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
@@ -212,6 +217,8 @@ export async function updateActionItem(
     priority?: ActionItemPriority
   },
 ): Promise<ActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const parsed = UpdateSchema.safeParse({ id, ...patch })
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
@@ -245,6 +252,8 @@ export async function updateActionItem(
 // ─── Delete ──────────────────────────────────────────────────────────
 
 export async function deleteActionItem(id: string): Promise<ActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const supabase = await getSupabaseServerClient()
   const { data: row } = await supabase
     .from('meeting_action_items' as never)

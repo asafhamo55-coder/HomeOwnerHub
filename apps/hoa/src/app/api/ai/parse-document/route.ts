@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { parseCCRDocument } from '@homeowner-portal/ai'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 
 const Schema = z.object({
   documentId: z.string().uuid(),
@@ -9,6 +10,10 @@ const Schema = z.object({
 })
 
 export async function POST(request: Request) {
+  // Board-only write (0063). Residents are members, so the org check alone
+  // let them write here.
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return NextResponse.json({ error: 'forbidden', message: gate.error }, { status: 403 })
   const body = await request.json().catch(() => null)
   const parsed = Schema.safeParse(body)
   if (!parsed.success) {

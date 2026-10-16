@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { logPropertyEvent } from '@/lib/property-events'
@@ -44,6 +45,8 @@ export async function createProperty(
   _prev: PropertyActionState,
   formData: FormData,
 ): Promise<PropertyActionState> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { error: gate.error }
   const parsed = PropertySchema.safeParse(Object.fromEntries(formData))
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {}
@@ -154,6 +157,8 @@ export async function updateProperty(
 }
 
 export async function deleteProperty(propertyId: string) {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) throw new Error(gate.error)
   const supabase = await getSupabaseServerClient()
   const { error } = await supabase
     .from('hoa_properties')

@@ -96,6 +96,7 @@ export const MIGRATION_MANIFEST: string[] = [
   '0060_approval_requests.sql',
   '0061_accounting_rls.sql',
   '0062_state_law_ingestion.sql',
+  '0063_rls_sweep.sql',
 ]
 
 /**

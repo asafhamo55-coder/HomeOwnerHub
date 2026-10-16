@@ -1,6 +1,7 @@
 'use server'
 
 import { getCurrentOrg } from '@/lib/orgs'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 // property_events lands in migration 0017. One row per meaningful change
@@ -54,6 +55,8 @@ export async function logPropertyEvent(args: {
   payload?: Record<string, unknown>
   notes?: string | null
 }): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const org = await getCurrentOrg()
   if (!org) return { ok: false, error: 'No HOA selected.' }
 

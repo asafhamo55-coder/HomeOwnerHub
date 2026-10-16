@@ -8,6 +8,7 @@ import { buildSenderName } from '@/lib/email/sender-name'
 import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
 import { sendSms, htmlToSmsBody } from '@/lib/sms'
 import { requireBoardOrAdmin } from '@/lib/auth'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getLeaseStats } from '@/lib/leases'
@@ -134,6 +135,8 @@ export type SendCommunicationInput = z.infer<typeof SendSchema>
 export async function sendCommunication(
   input: SendCommunicationInput,
 ): Promise<SendCommunicationResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const parsed = SendSchema.safeParse(input)
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }

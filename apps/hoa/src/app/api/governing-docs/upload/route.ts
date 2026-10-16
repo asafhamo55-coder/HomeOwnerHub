@@ -5,6 +5,7 @@ import {
   chunkPlainText,
 } from '@homeowner-portal/workflows/chunker'
 import { getCurrentOrg } from '@/lib/orgs'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@homeowner-portal/db'
 import { embedTexts, toPgVector } from '@homeowner-portal/ai'
@@ -48,6 +49,10 @@ export async function POST(request: Request): Promise<Response> {
   if (!org) {
     return NextResponse.json({ error: 'no_org' }, { status: 403 })
   }
+  // Board-only write (0063). Residents are members, so the org check alone
+  // let them write here.
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return NextResponse.json({ error: 'forbidden', message: gate.error }, { status: 403 })
 
   let form: FormData
   try {

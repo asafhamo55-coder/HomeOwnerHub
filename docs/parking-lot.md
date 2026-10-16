@@ -291,6 +291,11 @@ than the redundancy, and getting the condition wrong would break it.
   `ownerships`/`units` writes come from several onboarding, import and
   property-360 paths that need their own inventory. — **Revisit trigger: next
   RLS pass; before any resident self-service "claim my unit" flow.**
+  **Status 2026-10-16 (branch `claude/rls-sweep`): fixed in code by
+  `0063_rls_sweep.sql` (33 tables swept), NOT yet applied to production.**
+  Apply with `docs/specs/2026-10-16-rls-sweep-apply.sql`; full matrix in
+  `docs/specs/2026-10-16-rls-sweep.md`. `pm_*`, `eviction_cases` and
+  `state_law_updates` remain parked there with reasons.
 - 2026-10-15 — **`pm_rent_ledger` left on org-only RLS** — The PM app's rent
   ledger has the same FOR ALL org-only policy, but it was left out of 0061
   because the PM app's role model is unclear: `apps/pm/src/app/onboarding/actions.ts`
