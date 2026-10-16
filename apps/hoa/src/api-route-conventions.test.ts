@@ -46,7 +46,6 @@ const EXEMPT: Record<string, Partial<Record<Rule, string>>> = {
 const ALLOWLIST: Record<string, Rule[]> = {
   'accounting/board-packet/[periodId]/route.ts': ['with-route', 'api-error'],
 
-  'admin/refresh-state-law/route.ts': ['with-route', 'api-error', 'error-message'],
 
   'admin/setup-stripe-pricing/route.ts': ['with-route', 'api-error', 'secret-header'],
 
