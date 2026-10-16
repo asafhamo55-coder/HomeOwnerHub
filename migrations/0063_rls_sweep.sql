@@ -34,20 +34,50 @@
 --            M = org = ANY(auth_org_ids()), A = auth_is_admin(org),
 --            RU = auth_resident_unit_ids(), uid = auth.uid())
 --
---   members read, board writes .... units, hoa_properties, hoa_documents,
---                                   hoa_meeting_minutes, hoa_recurring_events,
---                                   governing_documents, governing_document_chunks
---                                   (+ hoa_document_versions via its document,
---                                    communication_templates incl. global rows)
+--   members read, board writes .... hoa_recurring_events
+--                                   (+ communication_templates incl. global rows)
 --   board only ..................... communication_threads, communication_replies,
 --                                   lease_waiting_list, property_events,
---                                   hoa_digests, meeting_action_items
+--                                   hoa_digests, meeting_action_items,
+--                                   hoa_meeting_minutes (C-19: drafts + raw transcripts)
 --   board, or the resident's own ... ownerships (owner_user_id = uid)
 --     rows (writes board only)       tenancies (tenant_user_id = uid)
 --                                   property_residents (email = JWT email)
 --                                   hoa_violations (property of a unit in RU)
 --                                   communication_recipients (user / unit in RU / email)
 --                                   communications (has such a recipient row)
+--                                   units (id in RU)                         C-19
+--                                   hoa_properties (id in RP)                C-19
+--   board, or resident-visible ..... hoa_documents (type ccr/bylaws/rules)    C-19
+--     types (writes board only)      governing_documents (declaration/bylaws/
+--                                     rules/amendment/policy, current, not AI)
+--                                   governing_document_chunks (of such a doc)
+--                                   (+ hoa_document_versions via its document,
+--                                    which inherits hoa_documents' RLS)
+--
+--   RP = auth_resident_property_ids() (new here, SECURITY DEFINER): the
+--   hoa_properties ids behind the caller's own links -- property_residents
+--   rows on their JWT email (not moved out) plus units in RU via
+--   legacy_hoa_property_id. Returns only the caller's own ids.
+--
+-- C-19 (owner privacy). hoa_properties carries owner_name / owner_email /
+-- owner_phone and the board's notes; units carries board notes. An
+-- org-wide member SELECT handed every resident the whole HOA's owner
+-- contact list through PostgREST. No resident page reads another unit or
+-- property (traced: lib/resident.ts getOwnedUnits + email fallback,
+-- lib/resident-dashboard.ts violations lookup; the violation-report form
+-- takes a free-text address; Ask-the-Community is board-only), so no
+-- "other properties" read surface is needed and none is exposed. Same
+-- treatment for the other member-readable tables holding board-only
+-- material: hoa_documents "other" (collection letters, legal
+-- correspondence) and "minutes", unapproved/AI governing documents and
+-- their chunks, and meeting minutes (drafts, raw transcripts, attendees)
+-- -- RLS now mirrors the resident allowlist in
+-- apps/hoa/src/lib/resident-documents/visibility.ts.
+-- RESIDUAL: a resident still reads their OWN property/unit row in full,
+-- notes and owner_* included (the getOwnedUnits email fallback embeds
+-- hoa_properties). Closing that needs lib/resident.ts to read through a
+-- narrow function instead; see the spec.
 --   associations ................... SELECT M, UPDATE B, INSERT/DELETE A
 --   orgs ........................... SELECT member, UPDATE A; no user INSERT/DELETE
 --   audit_log ...................... SELECT B, INSERT B as yourself; append-only
@@ -108,25 +138,63 @@ DECLARE
   ];
   -- table:org_column. Members read, board/admin write.
   member_read text[] := ARRAY[
-    'units:organization_id', 'hoa_properties:org_id', 'hoa_documents:org_id',
-    'hoa_meeting_minutes:org_id', 'hoa_recurring_events:organization_id',
-    'governing_documents:organization_id', 'governing_document_chunks:organization_id'
+    'hoa_recurring_events:organization_id'
   ];
   -- table:org_column. Board/admin for every command.
   board_only text[] := ARRAY[
     'communication_threads:organization_id', 'communication_replies:organization_id',
     'lease_waiting_list:organization_id', 'property_events:organization_id',
-    'hoa_digests:org_id', 'meeting_action_items:org_id'
+    'hoa_digests:org_id', 'meeting_action_items:org_id',
+    'hoa_meeting_minutes:org_id'
   ];
   -- Resident identity predicates, reused below.
   jwt_email constant text := $$lower(coalesce(auth.jwt() ->> 'email', ''))$$;
   ru        constant text := $$((SELECT public.auth_resident_unit_ids())::uuid[])$$;
+  rp        constant text := $$((SELECT public.auth_resident_property_ids())::uuid[])$$;
+  -- Resident-visible document types: keep in step with RESIDENT_VISIBLE_TYPES
+  -- in apps/hoa/src/lib/resident-documents/visibility.ts.
+  -- format() templates: %1$s is the table alias prefix ('' or 'd.').
+  hoa_doc_visible constant text := $$%1$stype::text IN ('ccr', 'bylaws', 'rules')$$;
+  gov_doc_visible constant text :=
+    $$%1$stype::text IN ('declaration', 'bylaws', 'rules', 'amendment', 'policy')
+      AND %1$ssuperseded_at IS NULL AND %1$sai_generated IS NOT TRUE$$;
   recipient_is_me text;
   parent       text;
   owner_col    text;
   board_parent text;
   own_parent   text;
 BEGIN
+  -- ─── RP: the caller's own hoa_properties ids (C-19) ───────────────
+  -- SECURITY DEFINER like 0061's auth_resident_unit_ids(), so the
+  -- hoa_properties policy does not depend on property_residents' or
+  -- units' own RLS. It only ever returns the caller's own ids. Email is
+  -- the JWT claim, matching property_residents_select below and the
+  -- app's ilike(actor.email) fallback in lib/resident.ts.
+  CREATE OR REPLACE FUNCTION public.auth_resident_property_ids()
+  RETURNS uuid[]
+  LANGUAGE sql STABLE
+  SECURITY DEFINER
+  SET search_path = public
+  AS $fn$
+    SELECT COALESCE(
+      ARRAY(
+        SELECT pr.property_id
+          FROM public.property_residents pr
+         WHERE pr.moved_out_at IS NULL
+           AND pr.email IS NOT NULL
+           AND lower(pr.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+        UNION
+        SELECT u.legacy_hoa_property_id
+          FROM public.units u
+         WHERE u.id = ANY (public.auth_resident_unit_ids())
+           AND u.legacy_hoa_property_id IS NOT NULL
+      ),
+      ARRAY[]::uuid[]
+    );
+  $fn$;
+  REVOKE ALL ON FUNCTION public.auth_resident_property_ids() FROM PUBLIC, anon;
+  GRANT EXECUTE ON FUNCTION public.auth_resident_property_ids() TO authenticated, service_role;
+
   -- ─── drop every existing policy on every swept table ──────────────
   FOREACH t IN ARRAY swept LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
@@ -166,8 +234,8 @@ BEGIN
   END LOOP;
 
   -- ─── board writes; board or the resident's own rows read ─────────
-  -- Writes for all six are board/admin. Reads differ only in the
-  -- "own row" predicate, so build them from one template.
+  -- Writes for all eleven are board/admin. Reads differ only in the
+  -- "own row" / "resident-visible" predicate, written out below.
   recipient_is_me := format(
     '(%%1$s.user_id = auth.uid() OR %%1$s.unit_id = ANY %s OR (%%1$s.email IS NOT NULL AND lower(%%1$s.email) = %s))',
     ru, jwt_email);
@@ -179,7 +247,12 @@ BEGIN
       ('property_residents', 'organization_id'),
       ('hoa_violations', 'org_id'),
       ('communication_recipients', 'organization_id'),
-      ('communications', 'organization_id')
+      ('communications', 'organization_id'),
+      ('units', 'organization_id'),
+      ('hoa_properties', 'org_id'),
+      ('hoa_documents', 'org_id'),
+      ('governing_documents', 'organization_id'),
+      ('governing_document_chunks', 'organization_id')
     ) v(tbl, col)
   LOOP
     EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated
@@ -240,6 +313,56 @@ BEGIN
             AND EXISTS (SELECT 1 FROM public.communication_recipients r
                          WHERE r.communication_id = communications.id AND %s))
       )$p$, format(recipient_is_me, 'r'));
+
+  -- ─── C-19: owner contact + board notes; board-only documents ──────
+  -- units.notes, hoa_properties.owner_name/owner_email/owner_phone/notes.
+  -- Residents read only their own rows: lib/resident.ts getOwnedUnits
+  -- (ownerships -> units join; property_residents -> hoa_properties join,
+  -- then units by legacy_hoa_property_id) and lib/resident-dashboard.ts
+  -- (units.legacy_hoa_property_id for the violations lookup).
+  EXECUTE format($p$
+    CREATE POLICY units_select ON public.units FOR SELECT TO authenticated
+      USING (
+        public.auth_is_board_or_admin(organization_id)
+        OR (organization_id = ANY (public.auth_org_ids()) AND id = ANY %s)
+      )$p$, ru);
+
+  EXECUTE format($p$
+    CREATE POLICY hoa_properties_select ON public.hoa_properties FOR SELECT TO authenticated
+      USING (
+        public.auth_is_board_or_admin(org_id)
+        OR (org_id = ANY (public.auth_org_ids()) AND id = ANY %s)
+      )$p$, rp);
+
+  -- Documents: mirror the resident allowlist (lib/resident-documents/
+  -- visibility.ts). hoa "other" is where collection letters and legal
+  -- correspondence are filed; minutes may be drafts.
+  EXECUTE format($p$
+    CREATE POLICY hoa_documents_select ON public.hoa_documents FOR SELECT TO authenticated
+      USING (
+        public.auth_is_board_or_admin(org_id)
+        OR (org_id = ANY (public.auth_org_ids()) AND %s)
+      )$p$, format(hoa_doc_visible, ''));
+
+  EXECUTE format($p$
+    CREATE POLICY governing_documents_select ON public.governing_documents FOR SELECT TO authenticated
+      USING (
+        public.auth_is_board_or_admin(organization_id)
+        OR (organization_id = ANY (public.auth_org_ids()) AND %s)
+      )$p$, format(gov_doc_visible, ''));
+
+  -- A chunk is the parsed text of its document: same visibility. (Ask-
+  -- the-Docs retrieves through the service role and is unaffected.)
+  EXECUTE format($p$
+    CREATE POLICY governing_document_chunks_select ON public.governing_document_chunks FOR SELECT TO authenticated
+      USING (
+        public.auth_is_board_or_admin(organization_id)
+        OR (organization_id = ANY (public.auth_org_ids())
+            AND EXISTS (SELECT 1 FROM public.governing_documents d
+                         WHERE d.id = governing_document_chunks.document_id
+                           AND d.organization_id = governing_document_chunks.organization_id
+                           AND %s))
+      )$p$, format(gov_doc_visible, 'd.'));
 
   -- ─── associations: the Zelle recipient lives in compliance_settings ─
   CREATE POLICY associations_select ON public.associations FOR SELECT TO authenticated
@@ -441,8 +564,12 @@ BEGIN
     REVOKE ALL ON public.property_bridge_gaps FROM anon, authenticated;
   END IF;
 
-  RAISE NOTICE '0063 ok: % tables swept, % policies on them.',
+  RAISE NOTICE '0063 ok: % tables swept, % policies on them, % org-wide member SELECT policies (C-19), auth_resident_property_ids %.',
     array_length(swept, 1),
-    (SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = ANY (swept));
+    (SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = ANY (swept)),
+    (SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = ANY (swept)
+        AND cmd = 'SELECT' AND qual NOT LIKE '%auth_is_board_or_admin%'
+        AND qual NOT LIKE '%auth.uid()%' AND qual NOT LIKE '%auth.jwt()%'),
+    CASE WHEN to_regprocedure('public.auth_resident_property_ids()') IS NOT NULL THEN 'present' ELSE 'MISSING' END;
 END
 $mig$;
