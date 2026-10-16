@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { clearAuthCookies, updateSession } from '@/lib/supabase/middleware'
+import { apiError } from '@/lib/api/errors'
 
 // Routes a signed-out user is allowed to hit. The /onboarding page handles
 // its own "already onboarded? bounce home" check, so we don't gate on
@@ -42,6 +43,10 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname
   const isPublic = PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))
+  // API callers are fetch(), not a browser tab: a 307 to /login is followed
+  // to a 200 HTML page and the caller dies on `Unexpected token '<'`
+  // (R-03 / C-03). They get the JSON 401 envelope instead.
+  const isApi = path === '/api' || path.startsWith('/api/')
 
   // Sessions are capped at 24h from sign-in (lib/session-cap.ts). Past that
   // the user is treated as signed out and has to enter their credentials
@@ -50,6 +55,7 @@ export async function middleware(request: NextRequest) {
   // app, which expires again — an infinite redirect.
   if (sessionExpired) {
     if (isPublic) return clearAuthCookies(request, NextResponse.next({ request }))
+    if (isApi) return clearAuthCookies(request, apiError('unauthenticated'))
 
     const target = DEV_AUTOLOGIN ? '/auth/dev-login' : '/login'
     const expiredUrl = new URL(target, request.url)
@@ -59,6 +65,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!user && !isPublic) {
+    if (isApi) return apiError('unauthenticated')
     const target = DEV_AUTOLOGIN ? '/auth/dev-login' : '/login'
     const loginUrl = new URL(target, request.url)
     if (path !== '/') loginUrl.searchParams.set('redirect', path)
@@ -103,6 +110,12 @@ export const config = {
     //     Deliberately NOT a catch-all like (?!.*\..*): that would be safe today
     //     but would silently un-gate any future authenticated route whose
     //     parameter can contain a dot.
-    '/((?!_next/static|_next/image|favicon.ico|email/|sw\\.js$|manifest\\.webmanifest$|icon$|apple-icon$|robots\\.txt$|api/webhooks|api/inngest|api/health|api/cron|api/admin/setup-stripe-pricing|api/oauth).*)',
+    //
+    //   The api/ exclusions are anchored the same way (C-16): a directory
+    //   with a trailing slash, an exact route with `$`. Unanchored, a future
+    //   /api/healthcare-reports or /api/cron-admin would silently skip the
+    //   session refresh and the JSON 401 above. middleware.test.ts pins both
+    //   the excluded set and the look-alikes that must stay gated.
+    '/((?!_next/static/|_next/image|favicon\\.ico$|email/|sw\\.js$|manifest\\.webmanifest$|icon$|apple-icon$|robots\\.txt$|api/webhooks/|api/inngest$|api/health$|api/cron/|api/admin/setup-stripe-pricing$|api/oauth/).*)',
   ],
 }
