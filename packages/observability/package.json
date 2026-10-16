@@ -6,7 +6,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./report": "./src/report.ts"
+    "./report": "./src/report.ts",
+    "./outbound-guard": "./src/outbound-guard.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

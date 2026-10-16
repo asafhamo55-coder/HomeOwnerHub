@@ -13,6 +13,7 @@
  */
 
 import webpush from 'web-push'
+import { fetchOrgSandbox, guardRecipients } from '@homeowner-portal/observability/outbound-guard'
 import { isDeadSubscription } from './ticket-notifications'
 
 interface Logger {
@@ -75,11 +76,21 @@ export async function sendPushToUsers(
   if (userIds.length === 0) return 0
   if (!ensureConfigured(logger)) return 0
 
+  // Outbound safety guard (BL-004): outside production, or for a sandboxed
+  // org, only users listed as `user:<id>` in OUTBOUND_ALLOWLIST are pushed.
+  // Filtered before the device lookup, so a blocked user's endpoints are
+  // never even read.
+  const allowedUserIds = guardRecipients('push', userIds, (id) => id, {
+    orgSandbox: await fetchOrgSandbox(db, organizationId),
+    ref: organizationId,
+  }).allowed
+  if (allowedUserIds.length === 0) return 0
+
   const { data, error } = await db
     .from('push_subscriptions')
     .select('id, endpoint, p256dh, auth')
     .eq('organization_id', organizationId)
-    .in('user_id', userIds)
+    .in('user_id', allowedUserIds)
 
   // Migration 0053 is applied; this lookup failing is a real error, not a
   // deployment-state no-op. It is still only warned and not thrown: a push

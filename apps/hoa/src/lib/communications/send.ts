@@ -5,6 +5,7 @@ import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
 import { sendEmailBatch, type BatchSendResult } from '@/lib/email'
 import { buildSenderName } from '@/lib/email/sender-name'
+import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
 import { sendSms, htmlToSmsBody } from '@/lib/sms'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -341,6 +342,12 @@ export async function sendCommunication(
   // outcome out of here instead of issuing its own request.
   const emailBatchResults = new Map<string, BatchSendResult>()
   const commId = comm.id
+  // Outbound safety guard (BL-004): a sandboxed org only reaches
+  // OUTBOUND_ALLOWLIST recipients, even in production. Read once per send.
+  const outbound = {
+    orgSandbox: await fetchOrgSandbox(supabase, assocRow.organization_id),
+    ref: commId,
+  }
 
   // extraFields is the caller-supplied bag built from the template's
   // declared questions via buildMergeBag. Ambient recipient fields are
@@ -413,7 +420,7 @@ export async function sendCommunication(
       const smsBody = truncated
         ? `${combined.slice(0, 240)}… see ${portalLink}`.slice(0, 279)
         : combined.slice(0, 279)
-      const result = await sendSms({ to: phone, body: smsBody })
+      const result = await sendSms({ to: phone, body: smsBody }, outbound)
       if (result.ok) {
         await supabase
           .from('communication_recipients')
@@ -479,7 +486,7 @@ export async function sendCommunication(
     })
     // `failures` is ignored here on purpose: deliverOne re-renders, throws
     // identically, and records the real message against the row.
-    const batchResults = await sendEmailBatch(payloads)
+    const batchResults = await sendEmailBatch(payloads, outbound)
     batchResults.forEach((result, i) => emailBatchResults.set(owners[i], result))
   }
 
@@ -774,7 +781,10 @@ export async function resendFailedRecipients(
     extraFields: supplied,
   })
 
-  const results = await sendEmailBatch(payloads)
+  const results = await sendEmailBatch(payloads, {
+    orgSandbox: await fetchOrgSandbox(supabase, org.id),
+    ref: comm.id,
+  })
 
   let sentCount = 0
   let failedCount = 0

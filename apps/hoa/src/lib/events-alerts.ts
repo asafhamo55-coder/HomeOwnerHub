@@ -1,4 +1,6 @@
 import { createAdminClient } from '@homeowner-portal/db'
+import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
+import type { OutboundSendOptions } from '@/lib/email'
 import { sendEmail, appUrl } from '@/lib/email'
 import { buildSenderName } from '@/lib/email/sender-name'
 import { sendSms, htmlToSmsBody } from '@/lib/sms'
@@ -115,7 +117,12 @@ export async function sendEventAlertEmail(
   const { subject, html, text } = buildEventMessage(event)
 
   // 4. Deliver — through the communications tables when we have an
-  //    association (enables portal + audit), else a direct send.
+  //    association (enables portal + audit), else a direct send. Both go
+  //    through the outbound safety guard (BL-004) with the org's mode.
+  const outbound: OutboundSendOptions = {
+    orgSandbox: await fetchOrgSandbox(admin, organizationId),
+    ref: event.id,
+  }
   const result = associationId
     ? await deliverViaCommunications({
         admin,
@@ -130,8 +137,9 @@ export async function sendEventAlertEmail(
         html,
         text,
         senderName,
+        outbound,
       })
-    : await deliverDirect({ channels, recipients, subject, html, text, senderName })
+    : await deliverDirect({ channels, recipients, subject, html, text, senderName, outbound })
 
   // 5. Stamp the event so the cron skips this occurrence next run — only
   //    when at least one message went out (unchanged from before).
@@ -200,6 +208,7 @@ interface DeliverViaCommsArgs {
   html: string
   text: string
   senderName: string
+  outbound: OutboundSendOptions
 }
 
 async function deliverViaCommunications(
@@ -218,6 +227,7 @@ async function deliverViaCommunications(
     html,
     text,
     senderName,
+    outbound,
   } = args
 
   // Audit row. source='cron' is the closest allowed enum value for an
@@ -251,7 +261,7 @@ async function deliverViaCommunications(
   if (commErr || !comm) {
     // Couldn't persist the audit row — still try a direct send so the
     // alert isn't silently dropped.
-    return deliverDirect({ channels, recipients, subject, html, text, senderName })
+    return deliverDirect({ channels, recipients, subject, html, text, senderName, outbound })
   }
 
   // One recipient row per (person × channel) the person can receive on.
@@ -305,7 +315,7 @@ async function deliverViaCommunications(
     rows.map(async (row) => {
       if (row.channel === 'email') {
         if (!row.email) return
-        const res = await sendEmail({ to: row.email, subject, html, text, senderName })
+        const res = await sendEmail({ to: row.email, subject, html, text, senderName }, outbound)
         if (res.ok) {
           sent += 1
           await markRecipient(admin, row.id, 'sent', res.messageId)
@@ -318,7 +328,7 @@ async function deliverViaCommunications(
       if (row.channel === 'sms') {
         if (!row.phone) return
         const body = buildSmsBody(subject, text, html, portalLink)
-        const res = await sendSms({ to: row.phone, body })
+        const res = await sendSms({ to: row.phone, body }, outbound)
         if (res.ok) {
           sent += 1
           await markRecipient(admin, row.id, 'sent', res.messageSid)
@@ -353,21 +363,22 @@ interface DeliverDirectArgs {
   html: string
   text: string
   senderName: string
+  outbound: OutboundSendOptions
 }
 
 async function deliverDirect(args: DeliverDirectArgs): Promise<SendEventAlertResult> {
-  const { channels, recipients, subject, html, text, senderName } = args
+  const { channels, recipients, subject, html, text, senderName, outbound } = args
   let sent = 0
   const failed: SendEventAlertResult['failed'] = []
 
   for (const r of recipients) {
     if (channels.includes('email') && r.email) {
-      const res = await sendEmail({ to: r.email, subject, html, text, senderName })
+      const res = await sendEmail({ to: r.email, subject, html, text, senderName }, outbound)
       if (res.ok) sent += 1
       else failed.push({ email: r.email, reason: res.error })
     }
     if (channels.includes('sms') && r.phone) {
-      const res = await sendSms({ to: r.phone, body: buildSmsBody(subject, text, html, null) })
+      const res = await sendSms({ to: r.phone, body: buildSmsBody(subject, text, html, null) }, outbound)
       if (res.ok) sent += 1
       else failed.push({ email: r.phone, reason: res.error })
     }

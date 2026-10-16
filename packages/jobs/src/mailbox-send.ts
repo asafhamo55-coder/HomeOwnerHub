@@ -5,6 +5,11 @@ import {
   MailboxAuthError,
   type OutboundAttachment,
 } from '@homeowner-portal/mailbox'
+import {
+  OUTBOUND_BLOCKED_ERROR,
+  fetchOrgSandbox,
+  guardRecipients,
+} from '@homeowner-portal/observability/outbound-guard'
 import { inngest } from './client'
 import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
 import { logDbError } from './db-error'
@@ -440,10 +445,28 @@ export async function runMailboxSend(
   // The empty-array fallback covers drafts queued before migration 0038,
   // which have no recipients stored. It reproduces the old behaviour exactly
   // and can be deleted once no such row remains queued.
-  const to = draft.to_emails?.length ? draft.to_emails : last?.from_email ? [last.from_email] : []
-  if (to.length === 0) {
+  const resolvedTo = draft.to_emails?.length
+    ? draft.to_emails
+    : last?.from_email
+      ? [last.from_email]
+      : []
+  if (resolvedTo.length === 0) {
     await fail(db, draftId, 'No recipient for this reply.')
     return { sent: false, reason: 'no_recipient' }
+  }
+
+  // Outbound safety guard (BL-004). Outside production, or for an org whose
+  // compliance_settings.outbound_mode is 'sandbox', only OUTBOUND_ALLOWLIST
+  // addresses may receive this. Blocked To/Cc are dropped (logged as counts
+  // against the draft id); if no To survives, nothing is sent and the draft
+  // fails with the guard's reason so the board sees why. Before any token
+  // fetch or attachment download: a blocked reply touches nothing external.
+  const guardOpts = { orgSandbox: await fetchOrgSandbox(db, draft.organization_id), ref: draftId }
+  const to = guardRecipients('gmail', resolvedTo, (a) => a, guardOpts).allowed
+  const cc = guardRecipients('gmail', draft.cc_emails ?? [], (a) => a, guardOpts).allowed
+  if (to.length === 0) {
+    await fail(db, draftId, OUTBOUND_BLOCKED_ERROR)
+    return { sent: false, reason: 'blocked_by_outbound_guard' }
   }
 
   // Before sendToGmail, so a storage failure marks the draft failed while
@@ -473,7 +496,7 @@ export async function runMailboxSend(
     draftId,
     { gmailThreadId, accountId },
     account,
-    draft,
+    { ...draft, cc_emails: cc },
     to,
     attachments,
     { rfc822_message_id: last?.rfc822_message_id ?? null },

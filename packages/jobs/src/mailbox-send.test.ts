@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // sendReply must never actually be reachable in a test run — this suite
 // mocks it. `buildMimeMessage` is mocked alongside it purely so tests don't
@@ -29,8 +29,11 @@ import {
 } from './mailbox-send'
 import { buildMimeMessage, sendReply, MailboxAuthError } from '@homeowner-portal/mailbox'
 import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
+import { OUTBOUND_BLOCKED_ERROR } from '@homeowner-portal/observability/outbound-guard'
 
 type Row = { data: unknown; error: unknown }
+
+const LIVE_ORG: Row = { data: [{ compliance_settings: {} }], error: null }
 
 /**
  * A `.from(table)` result stands in for one Supabase query builder call.
@@ -64,6 +67,9 @@ function makeChain(result: Row) {
  */
 function buildDb(queues: Record<string, Row[]>, storage?: Record<string, Buffer>) {
   const from = vi.fn((table: string) => {
+    // The outbound guard's per-org sandbox lookup. Unscripted → a live org
+    // (no association asks for sandbox); a test that cares scripts it.
+    if (table === 'associations' && !queues.associations) return makeChain(LIVE_ORG)
     const queue = queues[table]
     if (!queue || queue.length === 0) {
       throw new Error(`buildDb: no queued result left for table "${table}"`)
@@ -111,6 +117,7 @@ function buildClaimRaceDb(opts: {
   const otherQueues = opts.otherQueues ?? {}
 
   const from = vi.fn((table: string) => {
+    if (table === 'associations' && !otherQueues.associations) return makeChain(LIVE_ORG)
     if (table !== 'inbox_drafts') {
       const queue = otherQueues[table]
       if (!queue || queue.length === 0) {
@@ -196,6 +203,14 @@ function queuedDraftRow(overrides: Partial<Record<string, unknown>> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // Every case below except the outbound-guard block pins PRODUCTION
+  // behaviour; outside production the guard (BL-004) would block each
+  // @example.com recipient. The guard block re-stubs this per case.
+  vi.stubEnv('VERCEL_ENV', 'production')
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
 })
 
 describe('runMailboxSend', () => {
@@ -512,6 +527,7 @@ describe('runMailboxSend', () => {
     let draftCall = 0
     let failWriteAttempted = false
     const from = vi.fn((table: string) => {
+      if (table === 'associations') return makeChain(LIVE_ORG)
       if (table === 'inbox_threads') {
         return makeChain({
           data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID },
@@ -672,6 +688,7 @@ describe('runMailboxSend', () => {
     let failWritePayload: Record<string, unknown> | undefined
     let draftCall = 0
     const from = vi.fn((table: string) => {
+      if (table === 'associations') return makeChain(LIVE_ORG)
       if (table === 'inbox_threads') {
         return makeChain({ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null })
       }
@@ -836,6 +853,7 @@ describe('runMailboxSend', () => {
     let failWritePayload: Record<string, unknown> | undefined
     let draftCall = 0
     const from = vi.fn((table: string) => {
+      if (table === 'associations') return makeChain(LIVE_ORG)
       if (table === 'inbox_threads') {
         return makeChain({ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null })
       }
@@ -1109,6 +1127,7 @@ function buildStatefulDb() {
       if (table === 'inbox_draft_attachments') {
         return []
       }
+      if (table === 'associations') return LIVE_ORG.data
       return { ...draft }
     }
 
@@ -1173,5 +1192,110 @@ describe('runMailboxSend under Inngest step replay', () => {
 
     expect(sendReply).not.toHaveBeenCalled()
     expect(result.sent).toBe(false)
+  })
+})
+
+// ─── Outbound safety guard (BL-004) ──────────────────────────────────
+// A Gmail reply goes to residents. Outside production, or for an org in
+// sandbox mode, only OUTBOUND_ALLOWLIST addresses may receive it.
+describe('runMailboxSend — outbound safety guard', () => {
+  function guardDb(opts: {
+    to: string[]
+    cc?: string[]
+    associations?: Row[]
+    failWrite?: boolean
+  }) {
+    return buildDb({
+      inbox_drafts: [
+        {
+          data: queuedDraftRow({ to_emails: opts.to, cc_emails: opts.cc ?? [], send_after: null }),
+          error: null,
+        },
+        { data: { id: DRAFT_ID }, error: null }, // claim
+        { data: null, error: null }, // recordSent OR fail()
+      ],
+      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: ACCOUNT_ID }, error: null }],
+      mailbox_accounts: [
+        { data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null },
+      ],
+      inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: RESIDENT_EMAIL }, error: null }],
+      inbox_draft_attachments: [{ data: [], error: null }],
+      ...(opts.associations ? { associations: opts.associations } : {}),
+    })
+  }
+
+  beforeEach(() => {
+    vi.stubEnv('OUTBOUND_ALLOWLIST', 'owner@allowed.test')
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  it('in preview, does not send a reply to a resident and fails the draft with the guard reason', async () => {
+    vi.stubEnv('VERCEL_ENV', 'preview')
+    const db = guardDb({ to: [RESIDENT_EMAIL] })
+
+    const result = await runMailboxSend(db, fakeStep(), fakeLogger(), DRAFT_ID)
+
+    expect(result).toEqual({ sent: false, reason: 'blocked_by_outbound_guard' })
+    expect(sendReply).not.toHaveBeenCalled()
+    expect(getAccessTokenFor).not.toHaveBeenCalled()
+    const failUpdate = (db.from as ReturnType<typeof vi.fn>).mock.results
+      .map((r) => r.value as { update: ReturnType<typeof vi.fn> })
+      .flatMap((chain) => chain.update?.mock?.calls ?? [])
+      .find((call) => (call[0] as { status?: string }).status === 'failed')
+    expect(failUpdate?.[0]).toEqual({ status: 'failed', error: OUTBOUND_BLOCKED_ERROR })
+  })
+
+  it('in preview, sends only to allowlisted To/Cc addresses', async () => {
+    vi.stubEnv('VERCEL_ENV', 'preview')
+    const db = guardDb({
+      to: [RESIDENT_EMAIL, 'owner@allowed.test'],
+      cc: ['neighbour@example.com', 'owner@allowed.test'],
+    })
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
+
+    const result = await runMailboxSend(db, fakeStep(), fakeLogger(), DRAFT_ID)
+
+    expect(result).toEqual({ sent: true, messageId: 'm1' })
+    const args = vi.mocked(buildMimeMessage).mock.calls[0][0]
+    expect(args.to).toEqual(['owner@allowed.test'])
+    expect(args.cc).toEqual(['owner@allowed.test'])
+  })
+
+  it('in production, sends to the resident', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production')
+    const db = guardDb({ to: [RESIDENT_EMAIL] })
+    vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
+
+    expect(await runMailboxSend(db, fakeStep(), fakeLogger(), DRAFT_ID)).toEqual({
+      sent: true,
+      messageId: 'm1',
+    })
+    expect(vi.mocked(buildMimeMessage).mock.calls[0][0].to).toEqual([RESIDENT_EMAIL])
+  })
+
+  it('in production, an org whose compliance_settings.outbound_mode is sandbox is blocked', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production')
+    const db = guardDb({
+      to: [RESIDENT_EMAIL],
+      associations: [{ data: [{ compliance_settings: { outbound_mode: 'sandbox' } }], error: null }],
+    })
+
+    const result = await runMailboxSend(db, fakeStep(), fakeLogger(), DRAFT_ID)
+
+    expect(result).toEqual({ sent: false, reason: 'blocked_by_outbound_guard' })
+    expect(sendReply).not.toHaveBeenCalled()
+  })
+
+  it('in production, fails closed when the org mode cannot be read', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production')
+    const db = guardDb({
+      to: [RESIDENT_EMAIL],
+      associations: [{ data: null, error: { message: 'boom', code: 'XX000' } }],
+    })
+
+    const result = await runMailboxSend(db, fakeStep(), fakeLogger(), DRAFT_ID)
+
+    expect(result).toEqual({ sent: false, reason: 'blocked_by_outbound_guard' })
+    expect(sendReply).not.toHaveBeenCalled()
   })
 })

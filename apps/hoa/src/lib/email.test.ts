@@ -32,9 +32,14 @@ describe('sendEmail From header', () => {
     send.mockResolvedValue({ data: { id: 'msg_1' }, error: null })
     process.env.EMAIL_FROM = ENV_FROM
     process.env.RESEND_API_KEY = 'test-key'
+    // These cases pin the production transport. The outbound guard
+    // (BL-004) would block every @example.com address outside production;
+    // its own wiring is covered in outbound-guard-wiring.test.ts.
+    vi.stubEnv('VERCEL_ENV', 'production')
   })
 
   afterEach(() => {
+    vi.unstubAllEnvs()
     for (const [k, v] of [['EMAIL_FROM', saved.from], ['RESEND_API_KEY', saved.key]] as const) {
       if (v === undefined) delete process.env[k]
       else process.env[k] = v

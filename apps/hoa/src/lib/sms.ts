@@ -20,7 +20,17 @@
 // the module level so serverless cold starts amortize across requests in
 // the same warm function instance.
 
+//
+// Every send passes the outbound safety guard (BL-004) first — outside
+// VERCEL_ENV=production, or for a sandboxed org, only OUTBOUND_ALLOWLIST
+// numbers are sent. See packages/observability/src/outbound-guard.ts.
+
 import { Vonage } from '@vonage/server-sdk'
+import {
+  OUTBOUND_BLOCKED_ERROR,
+  guardRecipients,
+} from '@homeowner-portal/observability/outbound-guard'
+import type { OutboundSendOptions } from './email'
 
 let _client: Vonage | null = null
 
@@ -42,10 +52,16 @@ export interface SendSmsInput {
 
 export async function sendSms(
   input: SendSmsInput,
+  opts: OutboundSendOptions = {},
 ): Promise<
   | { ok: true; messageSid: string | null }
   | { ok: false; error: string }
 > {
+  const guard = guardRecipients('sms', [input], (i) => i.to, opts)
+  if (guard.allowed.length === 0) {
+    return { ok: false, error: OUTBOUND_BLOCKED_ERROR }
+  }
+
   const from = process.env.VONAGE_FROM_NUMBER
   if (!from) {
     return { ok: false, error: 'VONAGE_FROM_NUMBER is not configured.' }
@@ -54,10 +70,8 @@ export async function sendSms(
   if (!client) {
     // No key/secret configured — log so a developer can still trace the
     // flow without burning a real Vonage send. NOT for prod.
-    console.warn('[sms] VONAGE_API_KEY / VONAGE_API_SECRET missing; skipping send', {
-      to: input.to,
-      bodyPreview: input.body.slice(0, 80),
-    })
+    // No number or body in logs.
+    console.warn('[sms] VONAGE_API_KEY / VONAGE_API_SECRET missing; skipping send')
     return { ok: true, messageSid: null }
   }
 

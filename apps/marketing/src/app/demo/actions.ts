@@ -2,6 +2,7 @@
 
 import { z } from 'zod'
 import { Resend } from 'resend'
+import { guardRecipients } from '@homeowner-portal/observability/outbound-guard'
 
 const DemoRequestSchema = z.object({
   name: z.string().trim().min(2, 'Please enter your name.').max(120),
@@ -64,6 +65,13 @@ Submitted at ${new Date().toISOString()}
     // submission is visible during local development, then succeed.
     console.log('[demo-request] RESEND_API_KEY not set — logging only')
     console.log(summary)
+    return { status: 'success' }
+  }
+
+  // Outbound safety guard (BL-004): outside production the internal inbox
+  // must be on OUTBOUND_ALLOWLIST too. A blocked request is dropped (the
+  // guard logs counts only) and the visitor still sees success.
+  if (guardRecipients('email', [to], (r) => r, { ref: 'demo-request' }).allowed.length === 0) {
     return { status: 'success' }
   }
 

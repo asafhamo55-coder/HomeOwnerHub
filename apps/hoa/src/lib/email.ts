@@ -11,8 +11,18 @@
 //
 // If RESEND_API_KEY is unset we no-op and log instead — keeps dev/preview
 // builds from failing when the key isn't configured yet.
+//
+// Every recipient passes the outbound safety guard (BL-004) FIRST, before
+// the key check: outside VERCEL_ENV=production — or for an org whose
+// compliance_settings.outbound_mode is 'sandbox' — only OUTBOUND_ALLOWLIST
+// recipients are sent; the rest come back { ok: false } with
+// OUTBOUND_BLOCKED_ERROR. See packages/observability/src/outbound-guard.ts.
 
 import { Resend } from 'resend'
+import {
+  OUTBOUND_BLOCKED_ERROR,
+  guardRecipients,
+} from '@homeowner-portal/observability/outbound-guard'
 import { formatFrom } from './email/sender-name'
 
 let _client: Resend | null = null
@@ -38,10 +48,28 @@ export interface SendEmailInput {
   senderName?: string | null
 }
 
-export async function sendEmail(input: SendEmailInput): Promise<
+/** Per-send context for the outbound guard. */
+export interface OutboundSendOptions {
+  /** The sending org's `compliance_settings.outbound_mode === 'sandbox'`
+   *  (see fetchOrgSandbox). Omit when the org is unknown: the env rule
+   *  still applies. */
+  orgSandbox?: boolean
+  /** An id for the guard's log line (communication id etc.). Never PII. */
+  ref?: string
+}
+
+export async function sendEmail(
+  input: SendEmailInput,
+  opts: OutboundSendOptions = {},
+): Promise<
   | { ok: true; messageId: string | null }
   | { ok: false; error: string }
 > {
+  const guard = guardRecipients('email', [input], (i) => i.to, opts)
+  if (guard.allowed.length === 0) {
+    return { ok: false, error: OUTBOUND_BLOCKED_ERROR }
+  }
+
   const envFrom = process.env.EMAIL_FROM
   if (!envFrom) {
     return { ok: false, error: 'EMAIL_FROM is not configured.' }
@@ -51,10 +79,8 @@ export async function sendEmail(input: SendEmailInput): Promise<
   if (!client) {
     // No key configured — log so a developer can still trace the flow
     // without burning a real Resend send. NOT for prod.
-    console.warn('[email] RESEND_API_KEY missing; skipping send', {
-      to: input.to,
-      subject: input.subject,
-    })
+    // Ids/counts only — no address or subject in logs.
+    console.warn('[email] RESEND_API_KEY missing; skipping send')
     return { ok: true, messageId: null }
   }
 
@@ -104,8 +130,27 @@ export type BatchSendResult =
  * No attachments: Resend's batch endpoint does not support them. This path
  * sends none, but that is why sendEmail still exists alongside this.
  */
-export async function sendEmailBatch(inputs: SendEmailInput[]): Promise<BatchSendResult[]> {
-  if (inputs.length === 0) return []
+export async function sendEmailBatch(
+  allInputs: SendEmailInput[],
+  opts: OutboundSendOptions = {},
+): Promise<BatchSendResult[]> {
+  if (allInputs.length === 0) return []
+
+  // Guard first. Blocked recipients get a positional { ok: false } and are
+  // never handed to Resend; the allowed ones go through the unchanged
+  // batching below and are slotted back into their original positions.
+  const guard = guardRecipients('email', allInputs, (i) => i.to, opts)
+  const sent = guard.allowed.length > 0 ? await sendAllowedBatch(guard.allowed) : []
+  let cursor = 0
+  return guard.allowedMask.map((ok) =>
+    ok
+      ? (sent[cursor++] ?? { ok: false as const, error: 'no batch result returned' })
+      : { ok: false as const, error: OUTBOUND_BLOCKED_ERROR },
+  )
+}
+
+/** Resend batching for recipients the guard has already cleared. */
+async function sendAllowedBatch(inputs: SendEmailInput[]): Promise<BatchSendResult[]> {
 
   const envFrom = process.env.EMAIL_FROM
   if (!envFrom) {

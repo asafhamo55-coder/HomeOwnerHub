@@ -462,6 +462,9 @@ importers:
       '@homeowner-portal/mailbox':
         specifier: workspace:*
         version: link:../mailbox
+      '@homeowner-portal/observability':
+        specifier: workspace:*
+        version: link:../observability
       '@homeowner-portal/workflows':
         specifier: workspace:*
         version: link:../workflows
