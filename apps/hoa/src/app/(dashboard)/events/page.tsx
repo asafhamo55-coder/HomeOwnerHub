@@ -80,6 +80,11 @@ export default async function EventsListPage() {
                   icon={<CalendarHeart aria-hidden />}
                   title="Nothing coming up"
                   description="Every event on file is in the past. Add the next deadline so the board gets a reminder."
+                  action={
+                    <Button asChild size="sm">
+                      <Link href="/events/new">Add the next deadline</Link>
+                    </Button>
+                  }
                 />
               }
             />

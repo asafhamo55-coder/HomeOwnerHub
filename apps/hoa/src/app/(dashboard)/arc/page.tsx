@@ -165,6 +165,11 @@ export default async function ArcReviewListPage({
                 icon={<ClipboardList aria-hidden />}
                 title="No ARC applications yet"
                 description="When a resident submits an architectural application from their portal, it lands here for board review."
+                action={
+                  <Button asChild size="sm">
+                    <Link href="/communications/new">Tell residents how to apply</Link>
+                  </Button>
+                }
               />
             ) : (
               <EmptyState

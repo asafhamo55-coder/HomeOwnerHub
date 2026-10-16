@@ -58,7 +58,9 @@ export default async function BankAccountsPage({ searchParams }: { searchParams:
       title="Bank accounts"
       description="Linked through Plaid. Transactions sync every few hours and are matched to the ledger automatically."
       tabs={<AccountingTabs />}
-      actions={funds.ok ? <LinkPlaidButton funds={fundOptions} variant={hasAccounts ? 'secondary' : 'default'} /> : undefined}
+      // With no accounts yet, the empty state below carries the one primary
+      // "Connect bank" action, so the header doesn't repeat it.
+      actions={funds.ok && (hasAccounts || !accounts.ok) ? <LinkPlaidButton funds={fundOptions} variant="secondary" /> : undefined}
     >
       {unmatchedCount > 0 ? (
         <Alert
@@ -84,6 +86,17 @@ export default async function BankAccountsPage({ searchParams }: { searchParams:
           icon={<Banknote aria-hidden />}
           title="No bank accounts linked"
           description="Link your operating and reserve accounts so transactions flow in and match to the ledger on their own."
+          action={
+            funds.ok ? (
+              <LinkPlaidButton funds={fundOptions} label="Connect bank" />
+            ) : (
+              // Linking needs the fund list; when that read failed, reloading
+              // is the honest next step (the dialog would offer no funds).
+              <Button asChild>
+                <Link href="/accounting/bank">Reload to connect a bank</Link>
+              </Button>
+            )
+          }
         />
       ) : (
         <section aria-label="Accounts" className="grid gap-4 sm:grid-cols-2">
@@ -126,7 +139,12 @@ export default async function BankAccountsPage({ searchParams }: { searchParams:
                   variant="compact"
                   icon={<Landmark aria-hidden />}
                   title="No transactions yet"
-                  description="They appear after the first sync, usually within a few hours of linking."
+                  description="They appear after the first sync, usually within a few hours of linking. Dues and invoices already post to the ledger."
+                  action={
+                    <Button asChild variant="secondary" size="sm">
+                      <Link href="/accounting/ledger">Open the ledger</Link>
+                    </Button>
+                  }
                 />
               }
               footer={

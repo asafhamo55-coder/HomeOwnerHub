@@ -70,7 +70,12 @@ export default async function DuesPage({
         <EmptyState
           icon={<Wallet aria-hidden />}
           title="No association set up yet"
-          description="Dues are billed per property in an association. Contact support to create yours."
+          description="Dues are billed per property in an association. Contact support to create yours; the setup checklist shows what else is left."
+          action={
+            <Button asChild>
+              <Link href="/onboarding/setup">Open the setup checklist</Link>
+            </Button>
+          }
         />
       </Page>
     )

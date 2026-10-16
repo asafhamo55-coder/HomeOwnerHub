@@ -91,14 +91,20 @@ export default async function InboxPage({
               : 'An HOA admin needs to connect the HOA’s Gmail mailbox before resident email can appear here.'
           }
           action={
+            // Connecting is admin-only (settings/mailbox requires admin); a
+            // board member is sent to the members list to find an admin.
             canManageMailbox ? (
               <Button asChild>
                 <Link href="/settings/mailbox">
-          <Plug aria-hidden />
-          Connect mailbox
-        </Link>
+                  <Plug aria-hidden />
+                  Connect mailbox
+                </Link>
               </Button>
-            ) : null
+            ) : (
+              <Button asChild variant="secondary">
+                <Link href="/settings/members">See your HOA admins</Link>
+              </Button>
+            )
           }
         />
       </Page>

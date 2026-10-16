@@ -235,6 +235,11 @@ export default async function MeetingsPage({
                     icon={<FileText aria-hidden />}
                     title="No past meetings on file"
                     description="Minutes you record appear here once the meeting date has passed."
+                    action={
+                      <Button asChild size="sm" variant="secondary">
+                        <Link href="/meetings/new">Record past minutes</Link>
+                      </Button>
+                    }
                   />
                 }
                 footer={

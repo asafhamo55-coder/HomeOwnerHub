@@ -150,7 +150,12 @@ export default async function DocumentsPage() {
                 description="Upload your CC&Rs first — they’re the foundation of every violation letter."
                 action={
                   <Button asChild size="sm">
-                    <Link href="/documents/upload">Upload a document</Link>
+                    <Link href="/documents/governing">Upload governing documents</Link>
+                  </Button>
+                }
+                secondaryAction={
+                  <Button asChild variant="ghost" size="sm">
+                    <Link href="/documents/upload">Upload another file</Link>
                   </Button>
                 }
               />

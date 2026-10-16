@@ -91,7 +91,7 @@ export default async function PropertiesPage({
             <LoadFailed what="properties" className="m-3" />
           ) : (
             <>
-              <PropertyList rows={list.data.rows} params={params} />
+              <PropertyList rows={list.data.rows} params={params} noPropertiesYet={counts?.all === 0} />
               <PropertyListPager
                 params={params}
                 rowCount={list.data.rows.length}
