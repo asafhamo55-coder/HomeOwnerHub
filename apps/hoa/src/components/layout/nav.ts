@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   AtSign,
+  BellRing,
   Briefcase,
   Building2,
   Calculator,
@@ -98,6 +99,7 @@ export const ADMIN_ACCOUNT: HoaNavLink[] = [
   { href: '/settings/mailbox', icon: AtSign, label: 'HOA mailbox' },
   { href: '/settings/members', icon: Users, label: 'Members', keywords: ['board', 'invite'] },
   { href: '/settings/payments', icon: Send, label: 'Resident payments', keywords: ['zelle', 'pay', 'memo'] },
+  { href: '/settings/reminders', icon: BellRing, label: 'Dues reminders', keywords: ['reminder', 'late', 'dues', 'chaser'] },
   { href: '/settings/billing', icon: CreditCard, label: 'Billing', keywords: ['subscription', 'plan'] },
   { href: '/settings/data', icon: DatabaseBackup, label: 'Your data', keywords: ['export', 'download', 'backup', 'csv'] },
 ]
@@ -105,6 +107,7 @@ export const ADMIN_ACCOUNT: HoaNavLink[] = [
 export const BOARD_ACCOUNT: HoaNavLink[] = [
   { href: '/settings/members', icon: Users, label: 'Members', keywords: ['board', 'invite'] },
   { href: '/settings/payments', icon: Send, label: 'Resident payments', keywords: ['zelle', 'pay', 'memo'] },
+  { href: '/settings/reminders', icon: BellRing, label: 'Dues reminders', keywords: ['reminder', 'late', 'dues', 'chaser'] },
   { href: '/settings/billing', icon: CreditCard, label: 'Billing', keywords: ['subscription', 'plan'] },
   { href: '/settings/data', icon: DatabaseBackup, label: 'Your data', keywords: ['export', 'download', 'backup', 'csv'] },
 ]

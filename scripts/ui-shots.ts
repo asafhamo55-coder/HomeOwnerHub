@@ -120,6 +120,7 @@ const SHOTS: Shot[] = [
   { name: 'settings-members', path: '/settings/members', auth: true },
   { name: 'settings-payments', path: '/settings/payments', auth: true },
   { name: 'settings-data', path: '/settings/data', auth: true },
+  { name: 'settings-reminders', path: '/settings/reminders', auth: true },
 
   // Platform admin
   { name: 'admin', path: '/admin', auth: true },
