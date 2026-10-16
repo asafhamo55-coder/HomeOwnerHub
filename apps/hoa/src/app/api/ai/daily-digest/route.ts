@@ -7,7 +7,10 @@ import {
   MAX_INSIGHTS,
 } from '@homeowner-portal/ai'
 import { getCurrentOrg } from '@/lib/orgs'
-import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
+import { withRoute } from '@/lib/api/handler'
+import { ApiRouteError } from '@/lib/api/errors'
+import { requireRouteBoardOrAdmin } from '@/lib/api/auth'
+import { checkWrite } from '@/lib/api/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getTriageSnapshot } from '@/lib/dashboard/triage'
 import {
@@ -49,33 +52,36 @@ type DigestBoardInsight = BoardSignal & { why: string | null }
  * model, the top signals by severity still ship, each with `why: null`.
  * Losing the reasoning is a smaller loss than losing the finding.
  */
-export async function POST() {
+export const POST = withRoute('ai.daily-digest', async () => {
+  // Board-only write (0063). Residents are members, so an org check alone
+  // let them write here. The gate answers 401 / 403 (no_org) / 403 (role).
+  // There is no request body to parse.
+  const { orgId } = await requireRouteBoardOrAdmin()
+  // The org name is only prompt context; the id always comes from the gate.
   const org = await getCurrentOrg()
-  if (!org) {
-    return NextResponse.json({ error: 'no_org' }, { status: 403 })
+  if (!org || org.id !== orgId) {
+    throw new ApiRouteError('forbidden', 'You are not signed in to an organization.', {
+      reason: 'no_org',
+    })
   }
-  // Board-only write (0063). Residents are members, so the org check alone
-  // let them write here.
-  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
-  if (!gate.ok) return NextResponse.json({ error: 'forbidden', message: gate.error }, { status: 403 })
 
   const supabase = await getSupabaseServerClient()
   const [triage, approvals, nextMeeting, atRisk, lease, residentQueues, kpis, staleApprovals] =
     await Promise.all([
-      getTriageSnapshot(supabase, org.id),
-      getApprovalsInbox(org.id),
-      getNextMeeting(org.id),
-      getAtRiskThisWeek(org.id),
-      getLeaseSummary(org.id),
-      getResidentQueueCounts(org.id),
-      getDashboardKpis(org.id),
-      getStaleApprovalCount(org.id, STALE_APPROVAL_DAYS),
+      getTriageSnapshot(supabase, orgId),
+      getApprovalsInbox(orgId),
+      getNextMeeting(orgId),
+      getAtRiskThisWeek(orgId),
+      getLeaseSummary(orgId),
+      getResidentQueueCounts(orgId),
+      getDashboardKpis(orgId),
+      getStaleApprovalCount(orgId, STALE_APPROVAL_DAYS),
     ])
 
   const today = todayISO()
-  const baseline = await readBaseline(supabase, org.id, today)
+  const baseline = await readBaseline(supabase, orgId, today)
   const newSinceBaseline =
-    baseline !== null ? await countNewSince(supabase, org.id, baseline.capturedAt) : null
+    baseline !== null ? await countNewSince(supabase, orgId, baseline.capturedAt) : null
 
   const bullets = buildBullets({
     newSinceBaseline,
@@ -83,15 +89,17 @@ export async function POST() {
     nextMeeting: formatNextMeeting(nextMeeting),
   })
 
-  // Record today's numbers for tomorrow's comparison. Never blocks the
-  // response — a failed write is logged inside writeSnapshot.
-  await writeSnapshot(supabase, org.id, today, {
+  // Record today's numbers for tomorrow's comparison. A failed write is a
+  // generic 500 (RC-6), raised before the two model calls so a broken
+  // database does not also bill them.
+  const snapshot = await writeSnapshot(supabase, orgId, today, {
     needsReply: triage.needsReply.count,
     oldestWaitingDays: triage.needsReply.oldestWaitingDays,
     untriaged: triage.untriaged.count,
     approvalsPending: approvals.totalCount,
     duesOutstandingUsd: Math.round(kpis.duesOutstandingUsd.value),
   })
+  checkWrite(snapshot, 'daily-digest.snapshot', { orgId })
 
   // The two model calls are independent — neither consumes the other's
   // output — so they run concurrently. Serially they doubled the latency
@@ -112,18 +120,18 @@ export async function POST() {
   const generatedAt = new Date().toISOString()
 
   if (suggestion !== null) {
+    // The dashboard renders this cached row on its next load. A failed
+    // write is a 500 rather than a 200 that claims a refresh the next page
+    // load will not show (RC-6); the card keeps its server-rendered
+    // content and says the refresh failed. Logs the code, never the message.
     const { error } = await supabase
       .from('hoa_digests')
-      .upsert({ org_id: org.id, content: suggestion, generated_at: generatedAt })
-    if (error) {
-      // Persisting is a convenience, not the product. Never fail the
-      // response over it.
-      console.error('[daily-digest] upsert failed', { code: error.code, message: error.message })
-    }
+      .upsert({ org_id: orgId, content: suggestion, generated_at: generatedAt })
+    checkWrite({ error }, 'daily-digest.upsert', { orgId })
   }
 
   return NextResponse.json({ suggestion, bullets, insights, generatedAt })
-}
+})
 
 /** The digest's one suggestion sentence, or null if the model is unusable. */
 async function buildSuggestion(

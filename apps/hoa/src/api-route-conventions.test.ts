@@ -51,7 +51,6 @@ const ALLOWLIST: Record<string, Rule[]> = {
   'ai/ask-community/route.ts': ['with-route', 'api-error', 'error-message', 'raw-zod'],
 
 
-  'ai/daily-digest/route.ts': ['with-route', 'api-error', 'error-message'],
 
   'ai/meeting-summary/route.ts': ['with-route', 'api-error', 'raw-zod'],
 

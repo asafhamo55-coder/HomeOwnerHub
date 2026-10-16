@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { AlertCircle, AlertTriangle, ChevronRight, Info, RefreshCw, Sparkles } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import { formatDistanceToNow } from 'date-fns'
+import { responseErrorMessage } from '@/lib/api/client'
 
 /**
  * One thing in the community that needs the board. `headline`, `href` and
@@ -55,17 +56,27 @@ export function DailyDigestCard({
   const [insights, setInsights] = useState(initialInsights)
   const [generatedAt, setGeneratedAt] = useState(initialGeneratedAt)
   const [loading, setLoading] = useState(false)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
   const autoRefreshFired = useRef(false)
 
-  const refresh = useCallback(async () => {
+  /**
+   * `manual` is true when a person pressed Refresh. Only then is a failure
+   * shown, as one quiet line — the bullets and insights on screen are
+   * server-rendered and still correct, so a failed background refresh
+   * costs at most a stale suggestion and is not worth an alarm.
+   */
+  const refresh = useCallback(async (manual: boolean) => {
     setLoading(true)
+    setRefreshError(null)
+    const fallback = 'Could not refresh the briefing. Try again in a moment.'
     try {
       const res = await fetch('/api/ai/daily-digest', { method: 'POST' })
       if (!res.ok) {
-        // No banner — see below — but the endpoint failing every time
-        // must leave a trace somewhere. Silent on screen is a deliberate
-        // choice; silent everywhere is a blind spot.
+        // The endpoint failing every time must leave a trace somewhere,
+        // even when nothing is shown on screen.
         console.error('[daily-digest] refresh failed', res.status)
+        const message = await responseErrorMessage(res, fallback)
+        if (manual) setRefreshError(message)
         return
       }
       const body = await res.json()
@@ -74,13 +85,11 @@ export function DailyDigestCard({
       setInsights(Array.isArray(body.insights) ? body.insights : [])
       setGeneratedAt(body.generatedAt ?? null)
     } catch (err) {
-      // No error state. The bullets and insights on screen are
-      // server-rendered and still correct; a failed refresh costs at most
-      // a stale suggestion line, which is not worth an alarm banner.
       console.error(
         '[daily-digest] refresh threw',
         err instanceof Error ? err.name : 'UnknownError',
       )
+      if (manual) setRefreshError(fallback)
     } finally {
       setLoading(false)
     }
@@ -92,7 +101,7 @@ export function DailyDigestCard({
       !generatedAt || Date.now() - new Date(generatedAt).getTime() > AUTO_REFRESH_AFTER_MS
     if (!isStale) return
     autoRefreshFired.current = true
-    refresh()
+    refresh(false)
   }, [generatedAt, refresh])
 
   const hasContent = suggestion !== null || bullets.length > 0 || insights.length > 0
@@ -105,7 +114,7 @@ export function DailyDigestCard({
           <Button
             variant="ghost"
             size="sm"
-            onClick={refresh}
+            onClick={() => refresh(true)}
             loading={loading}
             icon={<RefreshCw aria-hidden />}
             aria-label="Refresh briefing"
@@ -125,6 +134,11 @@ export function DailyDigestCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {refreshError ? (
+          <p role="status" className="text-sm text-muted">
+            {refreshError}
+          </p>
+        ) : null}
         {suggestion ? (
           <p className="text-base font-medium leading-relaxed text-foreground">{suggestion}</p>
         ) : null}
