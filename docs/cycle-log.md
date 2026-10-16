@@ -90,3 +90,13 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **Not merged:** 8 route fixes the skeptic review rejected. They stay on claude/routes-fix/*-r2: ask-community, cron/recurring-events, health, plaid/exchange, rfp-bid submit, vendor-onboard submit, webhooks/resend, and webhooks/stripe (whose 0064 can drop a paying org to the free plan).
 - **Blocked:** the FL law refresh can't be triggered from here. INNGEST_EVENT_KEY is a sensitive Vercel variable that pulls empty, and the admin route needs a platform-admin session. Asaf needs to trigger it from his browser.
 - **Next:** 0063 apply (Asaf), deploy 0b05f1e, rework the 8 refuted routes, then the M1 migration batch.
+
+## 2026-10-16 (evening) â€” cycle 5
+
+- **Built and merged into claude/quality-oracle** (local gates all pass: typecheck 12/12, typecheck:integration, unit 3342/3342, build 4/4, integration 348/348 after reset):
+  - BL-048: approve or reject violation letters from /approvals, reject vendors, and per-association vendor counts. The badge no longer counts a vendor twice. Approving files an open violation and sends nothing.
+  - BL-053: the last 1000-row caps (CSV exports, invoice payment entry, payment plans, platform-admin metrics, recurring-events worklist), and removed `getDashboardStats`. It also fixes the platform-admin document count, which counted every tenant's documents.
+  - Route conventions, round 3: health, rfp-bid submit, vendor-onboard submit and recurring-events now follow the skill. An annual event moves forward a year only after a real delivery.
+- **Not deployed:** the push of e92da24 to the production branch was refused by the permission classifier. Prod stays on 0439e1e until the owner allows the push.
+- **New items:** BL-055 to BL-057.
+- **Next:** deploy (needs the owner's OK), 0063 apply (Asaf), then the M1 batch (BL-020, BL-050, BL-052, and the Stripe 0064 fix).

@@ -619,7 +619,7 @@ These go beyond the design-system v2 pass:
   are silently capped at 1000 rows by Supabase `max_rows`, so the `/dues` headline,
   `lib/dashboard/queries.ts:501` and one read in `accounting/queries.ts` undercount large
   associations. Fix: use `lib/supabase/read-all.ts`. No migration.
-- **BL-048 Approvals inbox follow-ups** (from BL-014): a W3 approve/reject action so letters
+- **BL-048 Approvals inbox follow-ups — Done (c5)** (from BL-014): a W3 approve/reject action so letters
   are one click from `/approvals`; a vendor reject action; per-association vendor badge
   count for multi-association orgs.
 - **BL-049 Residents see association documents — Done (c4)** (from BL-015): FL §720.303(4) requires
@@ -634,10 +634,24 @@ These go beyond the design-system v2 pass:
   object under their org's `hoa-documents` prefix (including `<org>/vendors/…`), because 0063 kept
   member reads. Add a board-set `visible_to_owners` column, gate resident SELECT and storage reads on
   it, and let budgets, insurance and contracts filed as "other" be posted to owners.
-- **BL-053 Remaining row caps** (from BL-047): CSV exports (properties, violations, leases) stop at
+- **BL-053 Remaining row caps — Done (c5)** (from BL-047): CSV exports (properties, violations, leases) stop at
   1000 rows; invoice detail can miss its payment entry (`accounting/queries.ts:1044`); payment-plans
   list filtered by a capped unit list; platform-admin metrics; recurring-events cron worklist
   `.limit(1000)`; delete the unused `getDashboardStats`.
 - **BL-054 Verify CA violation rules against official text** (from BL-019): leginfo blocked fetches;
   §5850/§5855/AB 130 rules come from secondary sources. CA letters say "verify" and quote nothing
   until this is done (needs a CA ingestion adapter).
+
+## Added 2026-10-16 (cycle 5)
+
+- **BL-055 Route-conventions round 4.** Four rejected route fixes are still open: ai/ask-community (raw tool errors reach the model, and raw rows are returned), plaid/exchange (the write order can't be undone if a write fails), webhooks/resend (reply linking relies on Resend's API id, not the SMTP Message-ID), and webhooks/stripe (its 0064 can drop a paying org to the free plan when it switches subscriptions; this one needs a migration, so it joins batch M1). The routes-fix/*-r2 branches hold the earlier attempts.
+- **BL-056 Invitation pages and server actions follow-ups (from round 3):**
+  - The rfp-bid and vendor-onboard pages now show Next's error page when the database fails. They should show a branded "try again".
+  - `inviteVendorsToRfp`, `revokeRfpInvitation` and `listInvitations` still return or log raw `.message`.
+  - `lib/events-alerts.ts` ignores errors on some of its writes and stores provider error text.
+  - An event that never delivers now retries every day and adds a failed communications row each time. Add a retry cap.
+- **BL-057 Approvals follow-ups (from BL-048):**
+  - Add buttons to /violations/approval-queue using the new actions.
+  - Give `approveVendor` its own role gate.
+  - Make `getAnalyticsData` use count queries; it currently loads every unit and member row, up to the 200k cap.
+
