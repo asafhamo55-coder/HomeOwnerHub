@@ -28,6 +28,8 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { VIOLATION_SEVERITY } from '@/lib/status/community'
 import { violationTabs } from '../tabs'
+import { StateRulesOutputSchema } from '@homeowner-portal/workflows/W3-state-rules'
+import { StateRulesPanel } from '@/components/violations/StateRulesPanel'
 
 export const metadata = { title: 'Violation Approval Queue' }
 export const dynamic = 'force-dynamic'
@@ -143,6 +145,10 @@ function PendingRunCard({ run }: { run: PendingRun }) {
     confidence?: string
   }
 
+  // BL-019: drafts from W3 >= 1.1.0 carry the state rule set they were
+  // written under, with only the statute quotes that passed validation.
+  const stateRules = StateRulesOutputSchema.safeParse((run.output as { stateRules?: unknown }).stateRules)
+
   const confidenceLabel = typeof output.confidence === 'string' ? output.confidence.toUpperCase() : 'LOW'
   const severity = output.recommendedSeverity ?? 'low'
   const fineDollars =
@@ -196,6 +202,20 @@ function PendingRunCard({ run }: { run: PendingRun }) {
               Verify the rule before this notice is sent.
             </Alert>
           )}
+
+          {stateRules.success ? (
+            <StateRulesPanel
+              variant="inset"
+              title={stateRules.data.title}
+              citation={stateRules.data.citation}
+              sourceUrl={stateRules.data.sourceUrl}
+              textVerified={stateRules.data.textVerified}
+              jurisdiction={stateRules.data.jurisdiction}
+              summary={stateRules.data.summary}
+              quotes={stateRules.data.quotes}
+              warnings={stateRules.data.warnings}
+            />
+          ) : null}
 
           {notice ? (
             <div className="whitespace-pre-wrap rounded-lg border border-border bg-subtle p-4 text-sm leading-relaxed text-foreground">

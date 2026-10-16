@@ -1,4 +1,8 @@
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { parseFloridaChapter } from '../../packages/workflows/src/W30-state-law-brain/sources/florida'
+import { applyStateRulesToDraft, selectStateRules } from '../../packages/workflows/src/W3-violation-inspector/state-rules'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { SeedContext } from '../ui-shots-seed'
 
@@ -85,6 +89,54 @@ export async function seed_approvals(db: SupabaseClient, ctx: SeedContext): Prom
       created_at: iso(DAY),
     })
     if (error) throw new Error(`ai_runs W3 insert: ${error.code}`)
+  }
+
+  // BL-019: a W3 1.1.0 draft carrying its state rule set, assembled by the
+  // real statute layer against the official FL fixture text (the demo org
+  // is in FL), so /violations/approval-queue shows the rule panel with
+  // validated quotes. Model prose is invented.
+  const w3StatuteHash = 'ui-shots-w3-statute-draft'
+  const { data: w3s } = await db.from('ai_runs').select('id').eq('organization_id', org).eq('input_hash', w3StatuteHash).limit(1)
+  if (!w3s?.[0]) {
+    const flText =
+      parseFloridaChapter(
+        readFileSync(path.resolve(__dirname, '../fixtures/state-law/flsenate-ch720-2026.html'), 'utf8'),
+        2026,
+      ).find((r) => r.code_citation === 'Fla. Stat. § 720.305')?.body ?? null
+    const applied = applyStateRulesToDraft({
+      rules: selectStateRules('FL'),
+      requestedAction: { step: 'hearing_notice', hearingNoticeDays: 21 },
+      modelNotice:
+        'Dear homeowner, a boat trailer has been parked in the driveway of the sample lot for more than 72 hours, which the parking rules do not allow. Please move it to an approved storage location.',
+      statuteText: flText,
+      recommendedFineAmountCents: 5000,
+    })
+    const { error } = await db.from('ai_runs').insert({
+      organization_id: org,
+      workflow_id: 'W3',
+      workflow_version: '1.1.0',
+      prompt_version: 'ui-shots',
+      model: 'demo',
+      input: {
+        violationType: 'trailer parking',
+        description: 'Boat trailer parked in the sample driveway past the 72-hour limit.',
+        requestedAction: { step: 'hearing_notice', hearingNoticeDays: 21 },
+      },
+      input_hash: w3StatuteHash,
+      output: {
+        notice: applied.notice,
+        citedSection: 'Rules §4.2',
+        citations: [],
+        recommendedSeverity: 'medium',
+        recommendedFineAmountCents: applied.recommendedFineAmountCents,
+        recommendedCurePeriodDays: 14,
+        confidence: 'MEDIUM',
+        stateRules: applied.stateRules,
+      },
+      status: 'pending_human_approval',
+      created_at: iso(DAY / 2),
+    })
+    if (error) throw new Error(`ai_runs W3 statute insert: ${error.code}`)
   }
 
   const { data: assoc } = await db.from('associations').select('id').eq('organization_id', org).order('name').limit(1)

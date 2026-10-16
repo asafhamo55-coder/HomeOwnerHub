@@ -110,6 +110,10 @@ const SHOTS: Shot[] = [
   { name: 'dashboard-viewport', path: '/', auth: true, viewport: true, scrollBottom: true, widths: [1440], themes: LIGHT },
   { name: 'approvals', path: '/approvals', auth: true },
   { name: 'violations', path: '/violations', auth: true },
+  // BL-019: the state-law rule panel where the board creates and reviews
+  // violation letter drafts.
+  { name: 'violations-new', path: '/violations/new', auth: true },
+  { name: 'violations-approval-queue', path: '/violations/approval-queue', auth: true },
   { name: 'dues', path: '/dues', auth: true },
   { name: 'inbox', path: '/inbox', auth: true },
   { name: 'properties', path: '/properties', auth: true },

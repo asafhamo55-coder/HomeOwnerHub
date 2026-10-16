@@ -23,6 +23,21 @@ import { defineWorkflow, resolveModel, JSON_MODE_PARAMS } from '@homeowner-porta
 import { createAdminClient } from '@homeowner-portal/db'
 import { retrieveChunks } from '../W1-governing-docs-brain/tools'
 import { PROMPT_VERSION, SYSTEM_PROMPT, userPromptFor } from './prompt'
+import {
+  RequestedActionSchema,
+  StateRulesOutputSchema,
+  applyStateRulesToDraft,
+  assertRequestedActionAllowed,
+  selectStateRules,
+  stateRulesPromptContext,
+} from './state-rules'
+
+export {
+  StatuteRuleRefusalError,
+  selectStateRules,
+  evaluateRequestedAction,
+} from './state-rules'
+export type { RequestedAction, StateRuleSet, StateRulesOutput } from './state-rules'
 
 // ─── Public types ────────────────────────────────────────────────────
 
@@ -32,6 +47,10 @@ export const ViolationInspectorInputSchema = z.object({
   description: z.string().min(10).max(4000),
   reporterNotes: z.string().max(2000).nullable().optional(),
   associationId: z.string().uuid().nullable().optional(),
+  /** BL-019: the step the board wants drafted. Absent = first notice.
+   *  A step the association's state rules forbid is refused before any
+   *  model call (StatuteRuleRefusalError). */
+  requestedAction: RequestedActionSchema.optional(),
 })
 
 export type ViolationInspectorInput = z.infer<
@@ -53,6 +72,9 @@ export const ViolationInspectorOutputSchema = z.object({
   recommendedFineAmountCents: z.number().int().min(0),
   recommendedCurePeriodDays: z.number().int().min(1).max(180),
   confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']),
+  /** BL-019: the state rule set applied, its validated quotes and any
+   *  warnings for the board. Absent on runs before W3 1.1.0. */
+  stateRules: StateRulesOutputSchema,
 })
 
 export type ViolationInspectorOutput = z.infer<
@@ -76,7 +98,7 @@ function getClient(): OpenAI {
 export const violationInspector = defineWorkflow({
   id: 'W3',
   name: 'Violation Inspector',
-  version: '1.0.0',
+  version: '1.1.0',
   promptVersion: PROMPT_VERSION,
   model: resolveModel(),
   humanApprovalRequired: true, // spec §5 W3: mandatory board approval
@@ -101,6 +123,19 @@ export const violationInspector = defineWorkflow({
     }
 
     const unitAddress = formatUnitAddress(unit)
+
+    // BL-019: the association's state picks the rule set. Refuse a
+    // forbidden step here, before retrieval or any model call — a refused
+    // draft must never be generated, let alone staged.
+    const associationState = await loadAssociationState(
+      db,
+      ctx.organizationId,
+      input.associationId ?? null,
+    )
+    const rules = selectStateRules(associationState)
+    assertRequestedActionAllowed(rules, input.requestedAction)
+    const step = RequestedActionSchema.parse(input.requestedAction ?? {}).step
+    const statuteText = await loadStatuteText(db, rules)
 
     const { data: owner } = (await db
       .from('ownerships' as never)
@@ -142,6 +177,7 @@ export const violationInspector = defineWorkflow({
             unitAddress,
             ownerName: owner?.owner_name ?? null,
             reporterNotes: input.reporterNotes ?? null,
+            stateRulesContext: stateRulesPromptContext(rules, step),
             chunks: retrieved.map((c) => ({
               id: c.id,
               docType: c.docType,
@@ -180,18 +216,27 @@ export const violationInspector = defineWorkflow({
         section: c.section,
       }))
 
+    const recommendedFine = clampInt(
+      parsed.recommended_fine_amount_cents,
+      0,
+      100_000_000,
+      2500,
+    )
+    const statute = applyStateRulesToDraft({
+      rules,
+      requestedAction: input.requestedAction,
+      modelNotice: typeof parsed.notice === 'string' ? parsed.notice : '',
+      statuteText,
+      recommendedFineAmountCents: recommendedFine,
+    })
+
     return {
-      notice: typeof parsed.notice === 'string' ? parsed.notice : '',
+      notice: statute.notice,
       citedSection:
         typeof parsed.cited_section === 'string' ? parsed.cited_section : null,
       citations,
       recommendedSeverity: normalizeSeverity(parsed.recommended_severity),
-      recommendedFineAmountCents: clampInt(
-        parsed.recommended_fine_amount_cents,
-        0,
-        100_000_000,
-        2500,
-      ),
+      recommendedFineAmountCents: statute.recommendedFineAmountCents,
       recommendedCurePeriodDays: clampInt(
         parsed.recommended_cure_period_days,
         1,
@@ -199,6 +244,7 @@ export const violationInspector = defineWorkflow({
         14,
       ),
       confidence,
+      stateRules: statute.stateRules,
     }
   },
 })
@@ -211,6 +257,57 @@ interface UnitRow {
   address_line1: string
   address_line2: string | null
   unit_number: string | null
+}
+
+type AdminDb = ReturnType<typeof createAdminClient>
+
+/**
+ * `associations.state` for the named association, or the org's primary
+ * association (first by name — same rule as apps/hoa getPrimaryAssociation)
+ * when none is named. A failed read throws: silently falling back to the
+ * generic rules would drop a Florida hearing requirement without saying so.
+ */
+async function loadAssociationState(
+  db: AdminDb,
+  organizationId: string,
+  associationId: string | null,
+): Promise<string | null> {
+  let query = db
+    .from('associations' as never)
+    .select('state')
+    .eq('organization_id' as never, organizationId)
+  query = associationId
+    ? query.eq('id' as never, associationId)
+    : query.order('name' as never, { ascending: true })
+  const { data, error } = await query.limit(1).maybeSingle<{ state: string | null }>()
+  if (error) throw new Error(`association_state_lookup_failed: ${error.code ?? 'error'}`)
+  return data?.state ?? null
+}
+
+/**
+ * The ingested statute body the rule set quotes from. Absent or unreadable
+ * text is not an error: the letter keeps its notice language and simply
+ * quotes nothing (verifyStatuteQuotes adds a verify-against-the-statute
+ * warning). It is never a reason to quote from memory.
+ */
+async function loadStatuteText(
+  db: AdminDb,
+  rules: ReturnType<typeof selectStateRules>,
+): Promise<string | null> {
+  if (!rules.citation || rules.quotes.length === 0 || !rules.state) return null
+  const { data, error } = await db
+    .from('state_statutes' as never)
+    .select('body')
+    .eq('state' as never, rules.state)
+    .eq('code_citation' as never, rules.citation)
+    .is('superseded_at' as never, null)
+    .limit(1)
+    .maybeSingle<{ body: string }>()
+  if (error) {
+    console.warn(`[W3] state_statutes read failed: ${error.code ?? 'error'}`)
+    return null
+  }
+  return data?.body ?? null
 }
 
 function formatUnitAddress(u: UnitRow): string {

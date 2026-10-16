@@ -3,6 +3,9 @@ import { Alert, Card, CardContent, LoadFailed, NoOrgSelected, Page } from '@home
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadDraft } from '@/lib/drafts'
+import { loadOrFail } from '@/lib/load-or-fail'
+import { selectStateRules } from '@homeowner-portal/workflows/W3-state-rules'
+import { StateRulesPanel } from '@/components/violations/StateRulesPanel'
 import { Wizard } from './Wizard'
 
 export const metadata = { title: 'New violation' }
@@ -27,7 +30,7 @@ export default async function NewViolationPage({
   if (!org) return <NoOrgSelected />
   const { draft: draftId } = await searchParams
 
-  const [propsRes, ccrRes, initialDraft] = await Promise.all([
+  const [propsRes, ccrRes, initialDraft, assocRes] = await Promise.all([
     supabase
       .from('hoa_properties')
       .select('id, address, unit_number')
@@ -40,7 +43,22 @@ export default async function NewViolationPage({
       .eq('type', 'ccr')
       .not('parsed_text', 'is', null),
     draftId ? loadDraft(draftId) : Promise.resolve(null),
+    // BL-019: the association's state picks the enforcement rules the
+    // letter must follow. Primary association = first by name, the same
+    // rule W3 and getPrimaryAssociation use.
+    loadOrFail(
+      'the association state',
+      supabase
+        .from('associations' as never)
+        .select('state')
+        .eq('organization_id' as never, org.id)
+        .order('name' as never, { ascending: true })
+        // One row: the primary association (a single lookup, not a list).
+        .range(0, 0)
+        .returns<Array<{ state: string | null }>>(),
+    ),
   ])
+  const stateRules = assocRes.ok ? selectStateRules(assocRes.data?.[0]?.state ?? null) : null
 
   // A failed property read must not look like "no properties yet" (the
   // wizard would tell the board to add one).
@@ -71,6 +89,20 @@ export default async function NewViolationPage({
           dashboard.
         </Alert>
       ) : null}
+
+      {stateRules ? (
+        <StateRulesPanel
+          title={stateRules.title}
+          citation={stateRules.citation}
+          sourceUrl={stateRules.sourceUrl}
+          textVerified={stateRules.textVerified}
+          jurisdiction={stateRules.jurisdiction}
+          summary={stateRules.summary}
+          warnings={stateRules.verifyNote ? [stateRules.verifyNote] : []}
+        />
+      ) : (
+        <LoadFailed what="your association's state law rules" />
+      )}
 
       {propertiesFailed ? (
         <LoadFailed what="properties" hint="You need a property to report a violation against." />
