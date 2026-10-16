@@ -66,10 +66,14 @@ only. It is sent as-is.
 
 ## Verifying
 
-- `curl -H "Authorization: Bearer $CRON_SECRET" https://<hoa-host>/api/cron/sentry-test`
+- Set `SENTRY_TEST_SECRET` (hoa project, Production) to a fresh random value.
+  It is this route's own secret; `CRON_SECRET` is for Vercel cron only and is
+  not accepted here.
+- `curl -H "Authorization: Bearer $SENTRY_TEST_SECRET" https://<hoa-host>/api/cron/sentry-test`
   returns a 500 and should create an issue *"Sentry test error from hoa
   (<sha>)"* in the hoa project within a minute. The route fails closed: 503
-  without `CRON_SECRET`, 401 with a wrong token.
+  `not_configured` without `SENTRY_TEST_SECRET`, 401 `unauthenticated` with a
+  wrong or missing token.
 - Open that issue and check: the stack is readable (source maps worked),
   `release` is the deployed SHA, and the request shows no headers or
   cookies.
