@@ -69,7 +69,6 @@ const ALLOWLIST: Record<string, Rule[]> = {
 
   'rfp-bid/[token]/submit/route.ts': ['with-route', 'api-error', 'error-message'],
 
-  'settings/data-export/route.ts': ['with-route', 'api-error'],
 
   'vendor-onboard/[token]/submit/route.ts': ['with-route', 'api-error', 'error-message'],
 
