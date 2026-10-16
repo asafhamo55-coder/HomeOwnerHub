@@ -13,8 +13,9 @@
 //
 // Decisions are NOT made here; see decide.ts. An item's `decision` says
 // which existing module action can decide it in one click, or is null
-// when that module has no decision action (W3 drafts, non-green vendors)
-// and the row links to the module's own page instead.
+// when that module has no decision for it (a W3 draft with no letter
+// text, an active vendor with compliance gaps) and the row links to the
+// module's own page instead.
 
 export const APPROVAL_SOURCES = ['w18', 'w3', 'vendor'] as const
 export type ApprovalSource = (typeof APPROVAL_SOURCES)[number]
@@ -65,7 +66,15 @@ export const SOURCE_META: Record<ApprovalSource, SourceMeta> = {
 /** Which existing module action decides this item in one click. */
 export type InboxDecisionTarget =
   | { kind: 'w18'; approvalRequestId: string }
-  | { kind: 'vendor'; vendorId: string }
+  /** BL-048: approve files the letter (lib/violations approveViolationDraft); reject records why. */
+  | { kind: 'w3'; runId: string }
+  /** A prospect: rejectable always; approvable only when compliance is green (approveVendor's gate). */
+  | { kind: 'vendor'; vendorId: string; canApprove: boolean }
+
+/** The id the decision endpoint takes for a target. */
+export function decisionId(d: InboxDecisionTarget): string {
+  return d.kind === 'w18' ? d.approvalRequestId : d.kind === 'w3' ? d.runId : d.vendorId
+}
 
 export interface InboxItem {
   source: ApprovalSource
@@ -201,8 +210,8 @@ function titleCase(s: string): string {
 }
 
 /**
- * W3 drafts. No module action decides one today (the W3 queue is
- * review-only), so `decision` is null and the row links to the queue.
+ * W3 drafts (BL-048): decidable in one click when there is letter text to
+ * approve. A draft with none links to the queue instead.
  */
 export function w3Items(runs: W3RunRow[]): InboxItem[] {
   return runs.map((r) => {
@@ -223,7 +232,7 @@ export function w3Items(runs: W3RunRow[]): InboxItem[] {
       citations: cited ? [cited] : [],
       confidenceLabel: conf ? (W3_CONFIDENCE[conf] ?? null) : null,
       href: '/violations/approval-queue',
-      decision: null,
+      decision: str(output.notice) ? { kind: 'w3', runId: r.id } : null,
     }
   })
 }
@@ -258,12 +267,15 @@ export function vendorReason(vendorStatus: string, compliance: string | null | u
   return ''
 }
 
-/** Only a compliant prospect can be approved in one click (approveVendor's own gate). */
+/**
+ * Only a compliant prospect can be approved in one click (approveVendor's
+ * own gate); any prospect can be rejected (rejectVendor). An active vendor
+ * with gaps has no one-click decision — it links to its page.
+ */
 export function vendorItems(vendors: VendorQueueRow[]): InboxItem[] {
   return vendors.filter(vendorNeedsBoard).map((v) => {
     const c = v.compliance?.status ?? null
     const deficiencies = v.compliance?.deficiencies ?? []
-    const ready = v.status === 'prospect' && c === 'green'
     return {
       source: 'vendor',
       id: v.id,
@@ -276,7 +288,7 @@ export function vendorItems(vendors: VendorQueueRow[]): InboxItem[] {
       citations: [],
       confidenceLabel: null,
       href: `/vendors/${v.id}`,
-      decision: ready ? { kind: 'vendor', vendorId: v.id } : null,
+      decision: v.status === 'prospect' ? { kind: 'vendor', vendorId: v.id, canApprove: c === 'green' } : null,
     }
   })
 }
@@ -286,6 +298,20 @@ export function vendorSection(result: { ok: true; data: VendorQueueRow[] } | { o
   if (!result.ok) return { source: 'vendor', ok: false }
   const items = vendorItems(result.data)
   return { source: 'vendor', ok: true, items: items.slice(0, SECTION_LIMIT), total: items.length }
+}
+
+/**
+ * BL-048: vendors needing the board, per association, for orgs with more
+ * than one. Vendor compliance is per association; the list above it shows
+ * the primary association (first by name, getPrimaryAssociation), so the
+ * others are counted here rather than silently left out. `count` null =
+ * that count failed (unknown, not 0).
+ */
+export interface AssociationVendorCount {
+  associationId: string
+  name: string
+  count: number | null
+  primary: boolean
 }
 
 // ─── aggregation ─────────────────────────────────────────────────────

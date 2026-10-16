@@ -76,6 +76,8 @@ describe('board-only server actions refuse a resident before touching the databa
     ['updateViolation', () => violations.updateViolation({ violationId: ID } as never), DENIED],
     ['deleteViolation', () => violations.deleteViolation(ID), DENIED],
     ['updateViolationStatus', () => violations.updateViolationStatus({ violationId: ID, status: 'resolved' } as never), DENIED],
+    ['approveViolationDraft (BL-048)', () => violations.approveViolationDraft(ID), DENIED],
+    ['rejectViolationDraft (BL-048)', () => violations.rejectViolationDraft(ID, 'wrong lot'), DENIED],
     ['createActionItem', () => actionItems.createActionItem(form({ meeting_id: ID, title: 'x' })), DENIED],
     ['setActionItemStatus', () => actionItems.setActionItemStatus(ID, 'done'), DENIED],
     ['updateActionItem', () => actionItems.updateActionItem(ID, { title: 'x' }), DENIED],

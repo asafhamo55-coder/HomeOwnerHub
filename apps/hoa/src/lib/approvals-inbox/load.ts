@@ -11,6 +11,7 @@ import type { Database } from '@homeowner-portal/db'
 import { loadOrFail } from '../load-or-fail'
 import {
   SECTION_LIMIT,
+  type AssociationVendorCount,
   w18Items,
   w3Items,
   type InboxSection,
@@ -78,13 +79,63 @@ export async function loadW3Section(db: InboxDb, orgId: string): Promise<InboxSe
 }
 
 /**
- * Head-only counts for the sidebar badge: four index-backed counts, no
- * rows. Same predicates as the sections (the vendor one mirrors
- * vendorNeedsBoard: yellow/red/missing, or green on a prospect; deleted
- * vendors excluded). A failed count is null — unknown, never 0.
+ * Vendors needing the board in ONE association: two index-backed head
+ * counts mirroring vendorNeedsBoard (yellow/red/missing, or green on a
+ * prospect; deleted vendors excluded). Scoped to an association because
+ * compliance is per association — counting org-wide counted a vendor once
+ * per association it is reviewed for (BL-048). Null = a count failed.
+ */
+async function countVendorsNeedingBoard(db: InboxDb, orgId: string, associationId: string): Promise<number | null> {
+  const [gaps, ready] = await Promise.all([
+    loadOrFail(
+      'approvals badge: vendor gaps',
+      db
+        .from('vendor_compliance')
+        .select('vendor_id, vendors!inner(id)', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .eq('association_id', associationId)
+        .in('coi_status', ['yellow', 'red', 'missing'])
+        .is('vendors.deleted_at', null),
+    ),
+    loadOrFail(
+      'approvals badge: vendors ready',
+      db
+        .from('vendor_compliance')
+        .select('vendor_id, vendors!inner(id)', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .eq('association_id', associationId)
+        .eq('coi_status', 'green')
+        .eq('vendors.status', 'prospect')
+        .is('vendors.deleted_at', null),
+    ),
+  ])
+  return gaps.ok && ready.ok ? (gaps.count ?? 0) + (ready.count ?? 0) : null
+}
+
+/** The org's associations, first by name — getPrimaryAssociation's rule. */
+async function loadAssociations(db: InboxDb, orgId: string) {
+  return loadOrFail(
+    'approvals: associations',
+    db.from('associations').select('id, name').eq('organization_id', orgId).order('name', { ascending: true }),
+  )
+}
+
+/**
+ * Head-only counts for the sidebar badge. Same predicates as the sections.
+ * The vendor count is the PRIMARY association's, because that is the list
+ * /approvals and /vendors/approval-queue show; other associations are
+ * broken out on the page (loadVendorCountsByAssociation). No association
+ * means the vendor list is empty, so 0. A failed count is null — unknown,
+ * never 0.
  */
 export async function countPendingApprovals(db: InboxDb, orgId: string): Promise<SourceCounts> {
-  const [w18, w3, vendorGaps, vendorReady] = await Promise.all([
+  const vendorCount = async (): Promise<number | null> => {
+    const assocs = await loadAssociations(db, orgId)
+    if (!assocs.ok) return null
+    const primary = (assocs.data ?? [])[0]
+    return primary ? countVendorsNeedingBoard(db, orgId, primary.id) : 0
+  }
+  const [w18, w3, vendor] = await Promise.all([
     loadOrFail(
       'approvals badge: postings',
       db
@@ -103,32 +154,28 @@ export async function countPendingApprovals(db: InboxDb, orgId: string): Promise
         .eq('workflow_id', 'W3')
         .eq('status', 'pending_human_approval'),
     ),
-    loadOrFail(
-      'approvals badge: vendor gaps',
-      db
-        .from('vendor_compliance')
-        .select('vendor_id, vendors!inner(id)', { count: 'exact', head: true })
-        .eq('organization_id', orgId)
-        .in('coi_status', ['yellow', 'red', 'missing'])
-        .is('vendors.deleted_at', null),
-    ),
-    loadOrFail(
-      'approvals badge: vendors ready',
-      db
-        .from('vendor_compliance')
-        .select('vendor_id, vendors!inner(id)', { count: 'exact', head: true })
-        .eq('organization_id', orgId)
-        .eq('coi_status', 'green')
-        .eq('vendors.status', 'prospect')
-        .is('vendors.deleted_at', null),
-    ),
+    vendorCount(),
   ])
   const count = (r: { ok: true; count: number | null } | { ok: false }) => (r.ok ? (r.count ?? 0) : null)
-  const gaps = count(vendorGaps)
-  const ready = count(vendorReady)
+  return { w18: count(w18), w3: count(w3), vendor }
+}
+
+/**
+ * BL-048: per-association vendor counts for a multi-association org. An
+ * org with one association (or none) gets no rows — the section's own
+ * count already says it all — and no extra queries.
+ */
+export async function loadVendorCountsByAssociation(
+  db: InboxDb,
+  orgId: string,
+): Promise<{ ok: true; rows: AssociationVendorCount[] } | { ok: false }> {
+  const assocs = await loadAssociations(db, orgId)
+  if (!assocs.ok) return { ok: false }
+  const list = assocs.data ?? []
+  if (list.length <= 1) return { ok: true, rows: [] }
+  const counts = await Promise.all(list.map((a) => countVendorsNeedingBoard(db, orgId, a.id)))
   return {
-    w18: count(w18),
-    w3: count(w3),
-    vendor: gaps === null || ready === null ? null : gaps + ready,
+    ok: true,
+    rows: list.map((a, i) => ({ associationId: a.id, name: a.name, count: counts[i], primary: i === 0 })),
   }
 }

@@ -22,6 +22,15 @@ import { decideApprovalFor, postingHandlers } from '../../../apps/hoa/src/lib/ap
 import { adminDb, makeAccounting, makeOrg, makeUnit, mintUser, type OrgFixture } from '../fixtures/factory'
 import { truncateAll } from '../fixtures/truncate'
 
+// The W18 flows below never reach the vendor or W3 handlers (BL-048).
+const notUsed = async () => ({ ok: false as const, error: 'not used' })
+const OTHER_HANDLERS = {
+  approveVendor: notUsed,
+  rejectVendor: notUsed,
+  approveViolationDraft: notUsed,
+  rejectViolationDraft: notUsed,
+}
+
 const AMOUNT = 180
 
 interface Scenario {
@@ -123,7 +132,7 @@ describe('approvals inbox: W18 via /approvals', () => {
 
     const handlers = {
       ...postingHandlers(board.client, adminDb()),
-      approveVendor: async () => ({ ok: false as const, error: 'not used' }),
+      ...OTHER_HANDLERS,
     }
     const input = { kind: 'w18' as const, id: item.id, decision: 'approve' as const }
 
@@ -152,11 +161,10 @@ describe('approvals inbox: W18 via /approvals', () => {
     const admin = await mintUser(s.org, 'admin')
     const result = await bankReconciliationAgent.execute({ bankTransactionId: s.txnId }, { organizationId: s.org.orgId })
     const id = result.output.approvalRequestId!
-    const noVendor = async () => ({ ok: false as const, error: 'not used' })
 
     const outcomes = await Promise.all([
-      decideApprovalFor('board', { kind: 'w18', id, decision: 'approve' }, { ...postingHandlers(board.client, adminDb()), approveVendor: noVendor }),
-      decideApprovalFor('admin', { kind: 'w18', id, decision: 'approve' }, { ...postingHandlers(admin.client, adminDb()), approveVendor: noVendor }),
+      decideApprovalFor('board', { kind: 'w18', id, decision: 'approve' }, { ...postingHandlers(board.client, adminDb()), ...OTHER_HANDLERS }),
+      decideApprovalFor('admin', { kind: 'w18', id, decision: 'approve' }, { ...postingHandlers(admin.client, adminDb()), ...OTHER_HANDLERS }),
     ])
     expect(outcomes.every((o) => o.ok)).toBe(true)
     expect(await ledgerState(s)).toMatchObject({ journalEntries: 1, payments: 1 })
@@ -175,7 +183,7 @@ describe('approvals inbox: W18 via /approvals', () => {
     const forged = await decideApprovalFor(
       'board',
       { kind: 'w18', id, decision: 'approve' },
-      { ...postingHandlers(resident.client, adminDb()), approveVendor: async () => ({ ok: true as const }) },
+      { ...postingHandlers(resident.client, adminDb()), ...OTHER_HANDLERS, approveVendor: async () => ({ ok: true as const }) },
     )
     expect(forged.ok).toBe(false)
     expect(await ledgerState(s)).toMatchObject({ journalEntries: 0, payments: 0, assessmentStatus: 'open' })

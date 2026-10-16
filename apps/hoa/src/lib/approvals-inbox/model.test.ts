@@ -81,7 +81,7 @@ describe('w18Items', () => {
 })
 
 describe('w3Items', () => {
-  it('maps a pending W3 run with fine, citations and reasoning, and offers no one-click decision', () => {
+  it('maps a pending W3 run with fine, citations and reasoning, decidable in one click (BL-048)', () => {
     const [item] = w3Items([
       {
         id: 'r1',
@@ -108,16 +108,16 @@ describe('w3Items', () => {
       reasoning: 'The hedge exceeds the height limit.',
       citations: ['CC&R §4.2'],
       confidenceLabel: 'High confidence',
-      decision: null,
+      decision: { kind: 'w3', runId: 'r1' },
     })
     expect(item.href).toBe('/violations/approval-queue')
   })
 
-  it('tolerates a run with no output fields', () => {
+  it('tolerates a run with no output fields, and offers no approve for a draft with no letter text', () => {
     const [item] = w3Items([
       { id: 'r2', created_at: T1, input: null, output: null, citations: null, reasoning_trace: null },
     ])
-    expect(item).toMatchObject({ title: 'Violation notice', amount: null, citations: [], reasoning: null })
+    expect(item).toMatchObject({ title: 'Violation notice', amount: null, citations: [], reasoning: null, decision: null })
   })
 
   it('truncates a long notice', () => {
@@ -147,15 +147,17 @@ describe('vendor queue predicate and items', () => {
     expect(vendorNeedsBoard(vendor('f', 'prospect', null))).toBe(false)
   })
 
-  it('only a compliant prospect gets a one-click approve; the rest link to review', () => {
+  it('only a compliant prospect can be approved; any prospect can be rejected; active vendors link to review', () => {
     const items = vendorItems([
       vendor('a', 'prospect', 'green'),
       vendor('b', 'active', 'green'),
       vendor('c', 'active', 'red', [{ code: 'gl', severity: 'high', detail: 'GL below $1M' }]),
+      vendor('d', 'prospect', 'yellow'),
     ])
-    expect(items.map((i) => i.id)).toEqual(['a', 'c'])
-    expect(items[0].decision).toEqual({ kind: 'vendor', vendorId: 'a' })
+    expect(items.map((i) => i.id)).toEqual(['a', 'c', 'd'])
+    expect(items[0].decision).toEqual({ kind: 'vendor', vendorId: 'a', canApprove: true })
     expect(items[1].decision).toBeNull()
+    expect(items[2].decision).toEqual({ kind: 'vendor', vendorId: 'd', canApprove: false })
     expect(items[1].reasoning).toBe('GL below $1M')
     expect(items[1].href).toBe('/vendors/c')
     expect(items[0].amount).toBeNull()

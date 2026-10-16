@@ -2,9 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@homeowner-portal/db'
-import { getCurrentUserRole } from '@/lib/auth'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { approveVendor } from '@/lib/vendors'
+import { approveVendor, rejectVendor } from '@/lib/vendors'
+import { approveViolationDraft, rejectViolationDraft } from '@/lib/violations'
 import { decideApprovalFor, postingHandlers, type InboxDecisionInput, type InboxDecisionOutcome } from './decide'
 
 /**
@@ -12,14 +13,21 @@ import { decideApprovalFor, postingHandlers, type InboxDecisionInput, type Inbox
  * W18 goes through the approval layer exactly as the matching queue's
  * approvePosting/rejectPosting do (the user's RLS client makes the
  * decision via decide_approval_request; service role runs the executor),
- * and vendors through approveVendor. See decide.ts.
+ * vendors through approveVendor/rejectVendor, and W3 letters through
+ * approveViolationDraft/rejectViolationDraft (BL-048). See decide.ts.
+ *
+ * Residents are refused here, before any Supabase client is created.
  */
 export async function decideApproval(input: InboxDecisionInput): Promise<InboxDecisionOutcome> {
-  const ctx = await getCurrentUserRole()
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const supabase = await getSupabaseServerClient()
-  const result = await decideApprovalFor(ctx?.role ?? null, input, {
+  const result = await decideApprovalFor(gate.role, input, {
     ...postingHandlers(supabase, createAdminClient()),
     approveVendor,
+    rejectVendor,
+    approveViolationDraft,
+    rejectViolationDraft,
   })
 
   revalidatePath('/approvals')
@@ -27,6 +35,9 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
     revalidatePath('/accounting/bank')
     revalidatePath('/accounting/bank/queue')
     revalidatePath('/accounting/ledger')
+  } else if (input.kind === 'w3') {
+    revalidatePath('/violations')
+    revalidatePath('/violations/approval-queue')
   } else {
     revalidatePath('/vendors/approval-queue')
   }

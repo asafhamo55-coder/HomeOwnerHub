@@ -9,8 +9,9 @@ import type { SeedContext } from '../ui-shots-seed'
 /**
  * Demo rows for /approvals (BL-014), one per source, so the inbox renders
  * its busy state: a W18 proposed posting (with the W18 run whose notes the
- * inbox shows), a pending W3 violation draft, a compliant vendor prospect
- * (one-click approve) and a non-compliant vendor (review link).
+ * inbox shows), pending W3 violation drafts (one-click approve/reject,
+ * BL-048), a compliant vendor prospect (approve or reject), a prospect
+ * with gaps (reject or review) and a non-compliant active vendor (review).
  *
  * The W18 proposal points at a made-up bank transaction id, so approving it
  * in a shot session fails cleanly at the executor's re-validation — it can
@@ -143,6 +144,13 @@ export async function seed_approvals(db: SupabaseClient, ctx: SeedContext): Prom
   const associationId = (assoc?.[0] as { id: string } | undefined)?.id ?? null
   const vendors: { name: string; status: string; coi: string; deficiencies: { code: string; severity: string; detail: string }[] }[] = [
     { name: 'Sample Landscaping Co (demo)', status: 'prospect', coi: 'green', deficiencies: [] },
+    // BL-048: a prospect that is not compliant yet — Reject plus Review, no Approve.
+    {
+      name: 'Demo Roofing Partners (demo)',
+      status: 'prospect',
+      coi: 'yellow',
+      deficiencies: [{ code: 'coi_expiring', severity: 'medium', detail: 'Certificate of insurance expires in 20 days.' }],
+    },
     {
       name: 'Demo Pool Services (demo)',
       status: 'active',

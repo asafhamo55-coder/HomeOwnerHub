@@ -19,7 +19,7 @@ import {
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { listVendorsResult } from '@/lib/vendors'
-import { loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
+import { loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
 import {
   APPROVAL_SOURCES,
   SOURCE_META,
@@ -27,6 +27,7 @@ import {
   parseApprovalFilter,
   vendorSection,
   type ApprovalFilter,
+  type AssociationVendorCount,
   type InboxItem,
   type InboxSection,
 } from '@/lib/approvals-inbox/model'
@@ -48,10 +49,11 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const filter = parseApprovalFilter((await searchParams).type)
   const supabase = await getSupabaseServerClient()
 
-  const [w18, w3, vendors] = await Promise.all([
+  const [w18, w3, vendors, byAssociation] = await Promise.all([
     loadW18Section(supabase, org.id),
     loadW3Section(supabase, org.id),
     listVendorsResult().then(vendorSection, () => ({ source: 'vendor', ok: false }) as const),
+    loadVendorCountsByAssociation(supabase, org.id),
   ])
   const inbox = buildInbox([w18, w3, vendors], filter)
 
@@ -85,7 +87,14 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           }
         />
       ) : (
-        inbox.sections.map((section) => <SourceSection key={section.source} section={section} filter={filter} />)
+        inbox.sections.map((section) => (
+          <SourceSection
+            key={section.source}
+            section={section}
+            filter={filter}
+            byAssociation={section.source === 'vendor' ? byAssociation : undefined}
+          />
+        ))
       )}
     </Page>
   )
@@ -149,7 +158,45 @@ const COLUMNS: DataTableColumn<InboxItem>[] = [
   },
 ]
 
-function SourceSection({ section, filter }: { section: InboxSection; filter: ApprovalFilter }) {
+/**
+ * BL-048: in a multi-association org, how many vendors need the board in
+ * each association. The list shows the primary association only (vendor
+ * compliance is per association), so the others are counted, not hidden.
+ */
+function AssociationCounts({ result }: { result: { ok: true; rows: AssociationVendorCount[] } | { ok: false } }) {
+  if (!result.ok) {
+    return <p className="text-xs text-muted">Couldn’t load the per-association vendor counts.</p>
+  }
+  if (result.rows.length === 0) return null
+  const primary = result.rows.find((r) => r.primary)
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs text-muted" id="approvals-vendor-assoc">
+        Waiting by association{primary ? ` — the list shows ${primary.name}` : ''}
+      </p>
+      <ul className="flex flex-wrap gap-1.5" aria-labelledby="approvals-vendor-assoc">
+        {result.rows.map((r) => (
+          <li key={r.associationId}>
+            <Badge variant={r.primary ? 'default' : 'neutral'}>
+              {r.name}
+              <span className="num">&nbsp;·&nbsp;{r.count === null ? 'couldn’t count' : r.count}</span>
+            </Badge>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function SourceSection({
+  section,
+  filter,
+  byAssociation,
+}: {
+  section: InboxSection
+  filter: ApprovalFilter
+  byAssociation?: { ok: true; rows: AssociationVendorCount[] } | { ok: false }
+}) {
   const meta = SOURCE_META[section.source]
   const headingId = `approvals-${section.source}`
   return (
@@ -163,6 +210,11 @@ function SourceSection({ section, filter }: { section: InboxSection; filter: App
           </CardTitle>
           <CardDescription>{meta.description}</CardDescription>
         </CardHeader>
+        {byAssociation && (!byAssociation.ok || byAssociation.rows.length > 0) ? (
+          <div className="px-5 pb-4">
+            <AssociationCounts result={byAssociation} />
+          </div>
+        ) : null}
         {!section.ok ? (
           <div className="px-5 pb-5">
             <LoadFailed
