@@ -66,7 +66,6 @@ const ALLOWLIST: Record<string, Rule[]> = {
 
   'plaid/exchange/route.ts': ['with-route', 'api-error', 'error-message', 'raw-zod'],
 
-  'plaid/link-token/route.ts': ['with-route', 'api-error', 'error-message'],
 
   'rfp-bid/[token]/submit/route.ts': ['with-route', 'api-error', 'error-message'],
 
