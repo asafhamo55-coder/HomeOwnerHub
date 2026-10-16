@@ -224,15 +224,15 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
       fd.append('file', file)
       try {
         const res = await fetch('/api/violations/photo', { method: 'POST', body: fd })
-        const body = await res.json()
         if (!res.ok) {
-          setPhotoError(body?.message ?? `Upload failed for ${file.name}.`)
+          setPhotoError(await responseErrorMessage(res, `Upload failed for ${file.name}.`))
           continue
         }
+        const body = (await res.json()) as { storagePath: string; signedUrl: string | null }
         setPhotoStoragePaths((prev) => [...prev, body.storagePath])
-        setPhotoSignedUrls((prev) => [...prev, body.signedUrl])
-      } catch (err) {
-        setPhotoError(err instanceof Error ? err.message : 'Photo upload failed.')
+        setPhotoSignedUrls((prev) => [...prev, body.signedUrl as string])
+      } catch {
+        setPhotoError('Photo upload failed. Check your connection and try again.')
       }
     }
 

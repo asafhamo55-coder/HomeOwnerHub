@@ -12,6 +12,7 @@ import * as parseDocument from '../app/api/ai/parse-document/route'
 import * as governingUpload from '../app/api/governing-docs/upload/route'
 import * as violationDraft from '../app/api/ai/violations/draft/route'
 import * as meetingSummary from '../app/api/ai/meeting-summary/route'
+import * as violationPhoto from '../app/api/violations/photo/route'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
@@ -168,6 +169,18 @@ describe('board-only routes return 403 to a resident', () => {
     )
     expect(res.status).toBe(403)
     expect((await res.json()).error.code).toBe('forbidden')
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+  })
+
+  it('POST /api/violations/photo (hoa-photos INSERT admits any member; the route is the boundary)', async () => {
+    vi.mocked(getSupabaseServerClient).mockClear()
+    const res = await violationPhoto.POST(
+      new Request('http://x/api/violations/photo', {
+        method: 'POST',
+        body: form({ file: new File([new Uint8Array([1, 2, 3])], 'a.png', { type: 'image/png' }) }),
+      }),
+    )
+    expect(res.status).toBe(403)
     expect(getSupabaseServerClient).not.toHaveBeenCalled()
   })
 })
