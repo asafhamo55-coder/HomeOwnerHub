@@ -124,7 +124,7 @@ export function AppShellSidebar({
       {/* Mobile backdrop */}
       <div
         className={cn(
-          'fixed inset-0 z-40 bg-[hsl(220_30%_6%/0.45)] backdrop-blur-[2px] transition-opacity duration-base md:hidden',
+          'fixed inset-0 z-40 bg-[hsl(220_30%_6%/0.45)] backdrop-blur-[2px] transition-opacity duration-base md:hidden print:hidden',
           mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
         onClick={() => setMobileOpen(false)}
@@ -144,6 +144,8 @@ export function AppShellSidebar({
           'md:relative md:inset-auto md:z-30 md:shrink-0 md:self-stretch md:w-sidebar md:max-w-none md:translate-x-0',
           collapsible && 'md:sidebar-collapsed:w-sidebar-collapsed',
           mobileOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full',
+          // App chrome never prints (board packet, statements).
+          'print:hidden',
           className,
         )}
         aria-label="Primary navigation"
@@ -233,7 +235,7 @@ export function AppShellHeader({
       className={cn(
         // `topbar` container: children use the bar-sm / bar-lg variants
         // (tailwind preset) to adapt to the bar's own width.
-        'sticky top-0 z-20 flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-background/85 px-3 backdrop-blur-md [container-name:topbar] [container-type:inline-size] supports-[backdrop-filter]:bg-background/70 sm:px-4 md:px-6',
+        'sticky top-0 z-20 flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-background/85 px-3 backdrop-blur-md [container-name:topbar] [container-type:inline-size] supports-[backdrop-filter]:bg-background/70 sm:px-4 md:px-6 print:hidden',
         className,
       )}
     >
@@ -309,7 +311,7 @@ export function AppShellContent({
   className?: string
 }) {
   return (
-    <main id="main" className={cn('flex-1 px-4 pb-16 pt-6 sm:px-6 md:pt-8 lg:px-8', className)}>
+    <main id="main" className={cn('flex-1 px-4 pb-16 pt-6 sm:px-6 md:pt-8 lg:px-8 print:p-0', className)}>
       {children}
     </main>
   )

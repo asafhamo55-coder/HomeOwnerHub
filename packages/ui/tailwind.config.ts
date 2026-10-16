@@ -35,6 +35,13 @@ function designSystemPlugin(hub: HubKey) {
     addBase({
       ':root': { ...cssVariables(hub, 'light'), colorScheme: 'light' },
       ':root.dark': { ...cssVariables(hub, 'dark'), colorScheme: 'dark' },
+      // Paper is white: a dark-theme reader printing a board packet or a
+      // statement gets the light palette, not light-grey text the printer
+      // renders on nothing (browsers drop dark backgrounds by default).
+      // Same specificity as the rule above and later, so it wins in print.
+      '@media print': {
+        ':root.dark': { ...cssVariables(hub, 'light'), colorScheme: 'light' },
+      },
       html: {
         fontSize: '16px',
         WebkitTextSizeAdjust: '100%',

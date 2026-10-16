@@ -18,6 +18,7 @@ import { seed_resident } from './ui-shots-seed/resident'
 import { seed_dashboard } from './ui-shots-seed/dashboard'
 import { seed_compliance } from './ui-shots-seed/compliance'
 import { seed_approvals } from './ui-shots-seed/approvals'
+import { seed_meetings } from './ui-shots-seed/meetings'
 
 export interface SeedContext {
   userId: string
@@ -29,7 +30,7 @@ export interface SeedContext {
 type Seeder = (db: SupabaseClient, ctx: SeedContext) => Promise<Record<string, string>>
 
 // One file per area under scripts/ui-shots-seed/.
-const SEEDERS: Seeder[] = [seed_dashboard, seed_compliance, seed_approvals, seed_resident, seed_pm, seed_eviction]
+const SEEDERS: Seeder[] = [seed_dashboard, seed_compliance, seed_approvals, seed_meetings, seed_resident, seed_pm, seed_eviction]
 
 export async function seedExtras(db: SupabaseClient, ctx: SeedContext): Promise<Record<string, string>> {
   const vars: Record<string, string> = {}

@@ -114,6 +114,11 @@ const SHOTS: Shot[] = [
   { name: 'inbox', path: '/inbox', auth: true },
   { name: 'properties', path: '/properties', auth: true },
   { name: 'meetings', path: '/meetings', auth: true },
+  { name: 'meeting-detail', path: '/meetings/:meetingId', auth: true, themes: LIGHT },
+  // BL-016 board packet: screen at both widths and themes, plus paper
+  // (print media at US Letter width) in both themes — dark must print light.
+  { name: 'meeting-packet', path: '/meetings/:meetingId/packet', auth: true },
+  { name: 'meeting-packet-print', path: '/meetings/:meetingId/packet', auth: true, print: true, widths: [816] },
   { name: 'tickets', path: '/tickets', auth: true },
   { name: 'communications', path: '/communications', auth: true },
   { name: 'accounting', path: '/accounting', auth: true },

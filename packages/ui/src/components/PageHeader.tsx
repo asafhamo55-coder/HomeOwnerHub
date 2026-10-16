@@ -29,7 +29,7 @@ export interface BreadcrumbsProps {
 export function Breadcrumbs({ items, linkAs: LinkAs = 'a', className }: BreadcrumbsProps) {
   if (items.length === 0) return null
   return (
-    <nav aria-label="Breadcrumb" className={cn('min-w-0', className)}>
+    <nav aria-label="Breadcrumb" className={cn('min-w-0 print:hidden', className)}>
       <ol className="flex min-w-0 flex-wrap items-center gap-1 text-sm text-muted">
         {items.map((c, i) => {
           const last = i === items.length - 1

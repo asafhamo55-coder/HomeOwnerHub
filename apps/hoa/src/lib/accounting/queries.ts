@@ -1,6 +1,7 @@
 import type { Database } from '@homeowner-portal/db/types'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { chunk, readAll } from '@/lib/supabase/read-all'
 
 /**
  * Every read below throws on a query error instead of resolving to `[]` /
@@ -11,6 +12,32 @@ import { getPrimaryAssociation } from '@/lib/vendors'
  */
 function queryFailed(error: { code?: string; message?: string }): Error {
   return new Error(`accounting query failed (${error.code ?? 'no code'}): ${error.message ?? ''}`)
+}
+
+type ServerClient = Awaited<ReturnType<typeof getSupabaseServerClient>>
+
+/**
+ * Every ledger line for `jeIds`. The id list is chunked (a long `.in()`
+ * overflows the request URL) and each chunk is paged to the end, because
+ * PostgREST caps a response at 1000 rows and a statement summed from a
+ * capped read is silently wrong (UX decision 11).
+ */
+async function readLedgerLines<T>(supabase: ServerClient, columns: string, jeIds: string[]): Promise<T[]> {
+  const out: T[] = []
+  for (const ids of chunk(jeIds)) {
+    const rows = await readAll<T>(
+      (from, to) =>
+        supabase
+          .from('ledger_entries')
+          .select(columns)
+          .in('journal_entry_id', ids)
+          .order('id', { ascending: true })
+          .range(from, to) as unknown as PromiseLike<{ data: T[] | null; error: { code?: string; message?: string } | null }>,
+      queryFailed,
+    )
+    out.push(...rows)
+  }
+  return out
 }
 
 type Row<T extends keyof Database['public']['Tables']> =
@@ -205,16 +232,23 @@ export async function computeBalanceSheet(
 ): Promise<BalanceSheet> {
   const supabase = await getSupabaseServerClient()
 
-  // All posted JE ids with entry_date <= asOfDate.
-  const { data: jeRows, error: jeRowsErr } = await supabase
-    .from('journal_entries')
-    .select('id')
-    .eq('association_id', associationId)
-    .eq('status', 'posted')
-    .lte('entry_date', asOfDate)
-  if (jeRowsErr) throw queryFailed(jeRowsErr)
+  // All posted JE ids with entry_date <= asOfDate. Inception-to-date runs
+  // past PostgREST's 1000-row cap within a year or two, so both this and
+  // the line read below page to the end (lib/supabase/read-all.ts).
+  const jeRows = await readAll<{ id: string }>(
+    (from, to) =>
+      supabase
+        .from('journal_entries')
+        .select('id')
+        .eq('association_id', associationId)
+        .eq('status', 'posted')
+        .lte('entry_date', asOfDate)
+        .order('id', { ascending: true })
+        .range(from, to),
+    queryFailed,
+  )
 
-  const jeIds = (jeRows ?? []).map((r) => r.id)
+  const jeIds = jeRows.map((r) => r.id)
   if (jeIds.length === 0) {
     return {
       asOfDate,
@@ -229,13 +263,11 @@ export async function computeBalanceSheet(
     }
   }
 
-  const { data: lines, error: linesErr } = await supabase
-    .from('ledger_entries')
-    .select(
-      'debit_amount, credit_amount, account:account_id(id, account_number, account_name, account_type)',
-    )
-    .in('journal_entry_id', jeIds)
-  if (linesErr) throw queryFailed(linesErr)
+  const lines = await readLedgerLines<LineShape>(
+    supabase,
+    'debit_amount, credit_amount, account:account_id(id, account_number, account_name, account_type)',
+    jeIds,
+  )
 
   type LineShape = {
     debit_amount: number
@@ -365,32 +397,80 @@ export async function computeIncomeStatement(
     }
   }
 
-  // JEs with their source so we can apply the basis filter per row.
-  const { data: jeRows, error: jeRowsErr } = await supabase
-    .from('journal_entries')
-    .select('id, source')
-    .eq('association_id', associationId)
-    .eq('fiscal_period_id', periodId)
-    .eq('status', 'posted')
-  if (jeRowsErr) throw queryFailed(jeRowsErr)
-
-  const jeIds = (jeRows ?? []).map((r) => r.id)
-  if (jeIds.length === 0) {
-    return {
-      periodId,
-      startDate: period.start_date,
-      endDate: period.end_date,
-      basis,
-      income: [],
-      expenses: [],
-      totalIncome: 0,
-      totalExpenses: 0,
-      netIncome: 0,
-    }
-  }
-  const sourceByJe = new Map<string, string>(
-    (jeRows ?? []).map((r) => [r.id, r.source]),
+  // JEs with their source so we can apply the basis filter per row. A
+  // year of entries passes the 1000-row response cap, so page to the end.
+  const jeRows = await readAll<{ id: string; source: string }>(
+    (from, to) =>
+      supabase
+        .from('journal_entries')
+        .select('id, source')
+        .eq('association_id', associationId)
+        .eq('fiscal_period_id', periodId)
+        .eq('status', 'posted')
+        .order('id', { ascending: true })
+        .range(from, to),
+    queryFailed,
   )
+
+  return {
+    periodId,
+    startDate: period.start_date,
+    endDate: period.end_date,
+    basis,
+    ...(await incomeStatementLines(supabase, associationId, jeRows, basis)),
+  }
+}
+
+/**
+ * Income statement over a calendar date range rather than a fiscal period
+ * — the board packet reports the month before the meeting, and fiscal
+ * periods here are usually whole years. Posted JEs whose `entry_date`
+ * falls in [startDate, endDate] (inclusive, 'YYYY-MM-DD'); the same basis
+ * rules and aggregation as `computeIncomeStatement`. `periodId` is ''.
+ */
+export async function computeIncomeStatementForRange(
+  associationId: string,
+  startDate: string,
+  endDate: string,
+  basis: AccountingBasis = 'accrual',
+): Promise<IncomeStatement> {
+  const supabase = await getSupabaseServerClient()
+  const jeRows = await readAll<{ id: string; source: string }>(
+    (from, to) =>
+      supabase
+        .from('journal_entries')
+        .select('id, source')
+        .eq('association_id', associationId)
+        .eq('status', 'posted')
+        .gte('entry_date', startDate)
+        .lte('entry_date', endDate)
+        .order('id', { ascending: true })
+        .range(from, to),
+    queryFailed,
+  )
+  return {
+    periodId: '',
+    startDate,
+    endDate,
+    basis,
+    ...(await incomeStatementLines(supabase, associationId, jeRows, basis)),
+  }
+}
+
+type IncomeStatementLines = Pick<IncomeStatement, 'income' | 'expenses' | 'totalIncome' | 'totalExpenses' | 'netIncome'>
+
+/** Aggregates the income/expense lines of a set of posted JEs under `basis`. */
+async function incomeStatementLines(
+  supabase: ServerClient,
+  associationId: string,
+  jeRows: { id: string; source: string }[],
+  basis: AccountingBasis,
+): Promise<IncomeStatementLines> {
+  const jeIds = jeRows.map((r) => r.id)
+  if (jeIds.length === 0) {
+    return { income: [], expenses: [], totalIncome: 0, totalExpenses: 0, netIncome: 0 }
+  }
+  const sourceByJe = new Map<string, string>(jeRows.map((r) => [r.id, r.source]))
 
   // Cash account ids — needed for the cash/modified basis filter, which
   // counts a line only if the JE it belongs to also touched cash.
@@ -405,13 +485,11 @@ export async function computeIncomeStatement(
     for (const a of cashAccts ?? []) cashAccountIds.add(a.id)
   }
 
-  const { data: lines, error: linesErr } = await supabase
-    .from('ledger_entries')
-    .select(
-      'journal_entry_id, debit_amount, credit_amount, account_id, account:account_id(id, account_number, account_name, account_type)',
-    )
-    .in('journal_entry_id', jeIds)
-  if (linesErr) throw queryFailed(linesErr)
+  const lines = await readLedgerLines<LineShape>(
+    supabase,
+    'journal_entry_id, debit_amount, credit_amount, account_id, account:account_id(id, account_number, account_name, account_type)',
+    jeIds,
+  )
 
   type LineShape = {
     journal_entry_id: string
@@ -492,17 +570,7 @@ export async function computeIncomeStatement(
   const totalExpenses = expenses.reduce((s, r) => s + r.balance, 0)
   const netIncome = totalIncome - totalExpenses
 
-  return {
-    periodId,
-    startDate: period.start_date,
-    endDate: period.end_date,
-    basis,
-    income,
-    expenses,
-    totalIncome,
-    totalExpenses,
-    netIncome,
-  }
+  return { income, expenses, totalIncome, totalExpenses, netIncome }
 }
 
 // ─── Cash Flow ──────────────────────────────────────────────────────
@@ -716,22 +784,30 @@ export async function computeBudgetVsActual(
 
   const actualsByAccount = new Map<string, number>()
   if (accountIds.length > 0) {
-    const { data: jes, error: jesErr } = await supabase
-      .from('journal_entries')
-      .select('id')
-      .eq('association_id', associationId)
-      .eq('fiscal_period_id', b.fiscal_period_id)
-      .eq('status', 'posted')
-    if (jesErr) throw queryFailed(jesErr)
-    const jeIds = (jes ?? []).map((r) => r.id)
+    // Paged to the end: a year of entries passes the 1000-row cap.
+    const jes = await readAll<{ id: string }>(
+      (from, to) =>
+        supabase
+          .from('journal_entries')
+          .select('id')
+          .eq('association_id', associationId)
+          .eq('fiscal_period_id', b.fiscal_period_id)
+          .eq('status', 'posted')
+          .order('id', { ascending: true })
+          .range(from, to),
+      queryFailed,
+    )
+    const jeIds = jes.map((r) => r.id)
     if (jeIds.length > 0) {
-      const { data: lines, error: linesErr } = await supabase
-        .from('ledger_entries')
-        .select('debit_amount, credit_amount, account_id')
-        .in('journal_entry_id', jeIds)
-        .in('account_id', accountIds)
-      if (linesErr) throw queryFailed(linesErr)
-      for (const l of lines ?? []) {
+      const budgeted = new Set(accountIds)
+      const lines = (
+        await readLedgerLines<{ debit_amount: number; credit_amount: number; account_id: string }>(
+          supabase,
+          'debit_amount, credit_amount, account_id',
+          jeIds,
+        )
+      ).filter((l) => budgeted.has(l.account_id))
+      for (const l of lines) {
         const prior = actualsByAccount.get(l.account_id) ?? 0
         actualsByAccount.set(
           l.account_id,

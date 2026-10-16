@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Pencil } from 'lucide-react'
+import { FileText, Pencil } from 'lucide-react'
 import { Button } from '@homeowner-portal/ui'
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton'
 import { deleteMeeting } from '@/lib/meetings'
@@ -22,6 +22,13 @@ export function MeetingActions({ meetingId }: { meetingId: string }) {
         variant="destructive-ghost"
         size="md"
       />
+      {/* BL-016: the printable monthly packet for this meeting. */}
+      <Button asChild variant="secondary">
+        <Link href={`/meetings/${meetingId}/packet`}>
+          <FileText className="size-4" aria-hidden />
+          Board packet
+        </Link>
+      </Button>
       <Button asChild variant="secondary">
         <Link href={`/meetings/${meetingId}/edit`}>
           <Pencil className="size-4" aria-hidden />

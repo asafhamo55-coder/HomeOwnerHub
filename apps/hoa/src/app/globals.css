@@ -42,3 +42,20 @@
 @page {
   margin: 12mm;
 }
+
+/* Paper rules for every printable page (board packet, statement):
+   table rows never split across a page, a table that does break repeats
+   its header row, and shadows (which print as grey smudges) are dropped.
+   App chrome is hidden by the shell's own print:hidden utilities. */
+@media print {
+  tr,
+  img {
+    break-inside: avoid;
+  }
+  thead {
+    display: table-header-group;
+  }
+  * {
+    box-shadow: none !important;
+  }
+}
