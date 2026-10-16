@@ -50,7 +50,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 | 16 | BL-016 | Monthly board packet | 4 | 0.8 | 2 | **1.60** | no | no | **Done (c3)** |
 | 17 | BL-017 | Inbox attachment retry controls + per-tenant fairness | 2 | 0.8 | 1 | **1.60** | no | no | Next |
 | 18 | BL-018 | Mailbox reconnect skips a completed backfill | 1 | 0.8 | 0.5 | **1.60** | no | no | Next |
-| 19 | BL-019 | Statute-aware violation letters (W3 + W30) | 4 | 0.7 | 2 | **1.40** | no | no | Now |
+| 19 | BL-019 | Statute-aware violation letters (W3 + W30) | 4 | 0.7 | 2 | **1.40** | no | no | **Done (c4)** |
 | 20 | BL-020 | Per-member email consent (CA §4040) | 3 | 0.7 | 1.5 | **1.40** | **yes (M1)** | no | Now |
 | 21 | BL-021 | AI bill scan → AP bill proposal | 4 | 0.8 | 2.5 | **1.28** | no | no | Next |
 | 22 | BL-022 | ⌘K searches records, not just pages | 3 | 0.8 | 2 | **1.20** | no | no | Next |
@@ -615,17 +615,29 @@ These go beyond the design-system v2 pass:
   leases, vendors) should use `apps/hoa/src/lib/csv.ts`, which has a formula-injection guard.
 - **BL-046 Setup gaps found by BL-012:** /dues with no association links to a checklist
   that can't create one; `AccountingNotSetUp` has no action.
-- **BL-047 1000-row cap on totals (bug, high)** (found by BL-016): `.range(0, 49_999)` reads
+- **BL-047 1000-row cap on totals (bug, high) — Done (c4)** (found by BL-016): `.range(0, 49_999)` reads
   are silently capped at 1000 rows by Supabase `max_rows`, so the `/dues` headline,
   `lib/dashboard/queries.ts:501` and one read in `accounting/queries.ts` undercount large
   associations. Fix: use `lib/supabase/read-all.ts`. No migration.
 - **BL-048 Approvals inbox follow-ups** (from BL-014): a W3 approve/reject action so letters
   are one click from `/approvals`; a vendor reject action; per-association vendor badge
   count for multi-association orgs.
-- **BL-049 Residents see association documents** (from BL-015): FL §720.303(4) requires
+- **BL-049 Residents see association documents — Done (c4)** (from BL-015): FL §720.303(4) requires
   posting records in an owners-only area; the resident portal lists none today. No migration.
 - **BL-050 `notice_posted_at` on meetings (migration, batch M1)** (from BL-015): record when a
   meeting notice was posted so the 14-day/48-hour check can confirm compliance, not just
   flag late additions.
 - **BL-051 Board packet follow-ups** (from BL-016): budget vs actual cut off at the end of
   the packet month; delinquency as of the end of the month; a real Safari PDF check.
+- **BL-052 Document visibility enforced by the database (migration, batch M1, security)** (from BL-049):
+  residents can still read every `hoa_documents`/`governing_documents` row of their org and sign any
+  object under their org's `hoa-documents` prefix (including `<org>/vendors/…`), because 0063 kept
+  member reads. Add a board-set `visible_to_owners` column, gate resident SELECT and storage reads on
+  it, and let budgets, insurance and contracts filed as "other" be posted to owners.
+- **BL-053 Remaining row caps** (from BL-047): CSV exports (properties, violations, leases) stop at
+  1000 rows; invoice detail can miss its payment entry (`accounting/queries.ts:1044`); payment-plans
+  list filtered by a capped unit list; platform-admin metrics; recurring-events cron worklist
+  `.limit(1000)`; delete the unused `getDashboardStats`.
+- **BL-054 Verify CA violation rules against official text** (from BL-019): leginfo blocked fetches;
+  §5850/§5855/AB 130 rules come from secondary sources. CA letters say "verify" and quote nothing
+  until this is done (needs a CA ingestion adapter).

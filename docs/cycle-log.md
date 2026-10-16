@@ -69,3 +69,16 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
   - BL-049 resident documents
   - BL-019 statute-aware violation letters
 - **Held:** migration batch M1 (BL-020 + BL-050) until 0063 is applied, so Asaf has one SQL set in flight at a time.
+- **Merged** into `claude/quality-oracle` at ca2ed89:
+  - BL-019 statute-aware letters: FL rules checked against the official fixture; CA unverified, so it says "verify"; refusals before any model call.
+  - BL-047 row-cap sweep: about 20 sites. It also closes a late-fee double-charge risk and wrong period-close amounts. A ratchet test now blocks the pattern.
+  - BL-049 `/resident/documents`: default-deny type allowlist, 60-second signed URLs, and the "Posted for owners" status on `/legal/compliance`.
+- **Verified** at ca2ed89:
+  - typecheck 12/12, typecheck:integration ok
+  - unit 2755/162 files
+  - build 4/4
+  - integration 331/15 files after `db:local:reset`, including the resident-documents security test
+- **Screenshots reviewed:** violations approval queue 375, resident documents 375.
+- **New items:** BL-052 (DB-enforced document visibility, security, M1), BL-053, BL-054.
+- **M1 batch** is now BL-020 + BL-050 + BL-052. It is built after 0063 is applied.
+- **Next:** M1 batch (once 0063 is in), BL-048 W3 one-click approve, BL-053.
