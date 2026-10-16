@@ -1,6 +1,8 @@
 export { inngest } from './client'
 export { createDailyDigestJob } from './daily-digest'
 export type { DailyDigestDeps } from './daily-digest'
+export { createDuesRemindersJob } from './dues-reminders/job'
+export type { DuesRemindersDeps, ReminderRenderInput } from './dues-reminders/run'
 export { hoaLateFeeJob } from './hoa-late-fees'
 export { recurringJeJob } from './recurring-jes'
 export { plaidSyncJob } from './plaid-sync'
