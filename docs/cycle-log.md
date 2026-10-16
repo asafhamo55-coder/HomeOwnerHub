@@ -47,3 +47,16 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 
 - **Health:** prod still 7aeaa66 ok (Vercel daily limit; scheduled deploy 14:47 EDT). CI green on the working branch.
 - **Dispatched:** BL-014 approvals inbox, BL-015 FL §720.303 compliance check, BL-016 monthly board packet.
+- **Merged** into `claude/quality-oracle` at 1a01fb4:
+  - BL-015 `/legal/compliance` (FL §720.303; quotes validated against the official statute fixture).
+  - BL-014 `/approvals`: W18, W3 and W21, reusing executors, with a sidebar badge.
+  - BL-016 `/meetings/[id]/packet` with a print stylesheet (dark prints light). It also fixes the 1000-row cap in the accounting reports via `readAll`.
+- **Verified** at 1a01fb4:
+  - typecheck 12/12, typecheck:integration ok
+  - unit 2645/149 files
+  - build 4/4
+  - integration 327/14 files after `db:local:reset`, including the approve-once test
+- **Screenshots reviewed:** compliance 1440, approvals 1440, packet print 816 dark.
+- **Deploy:** still waiting on the Vercel daily limit; the 14:47 EDT scheduled deploy ships this.
+- **New items:** BL-047 (1000-row cap, high), BL-048 to BL-051. BL-050 joins migration batch M1 with BL-020.
+- **Next:** BL-047 (bug), BL-049 resident documents, BL-019 statute-aware letters. M1 (BL-020 + BL-050) is ready to batch.
