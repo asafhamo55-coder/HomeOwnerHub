@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { CalendarDays, ExternalLink, FileText, Scale, ShieldCheck } from 'lucide-react'
+import { CalendarDays, ExternalLink, Eye, EyeOff, FileText, Scale, ShieldCheck } from 'lucide-react'
 import {
   Alert,
   Badge,
@@ -47,6 +47,7 @@ import {
   loadComplianceMeetings,
   loadFlRecordsStatute,
 } from '@/lib/fl-compliance/load'
+import { residentDocumentHref } from '@/lib/resident-documents/visibility'
 import { LegalDisclaimer } from '@/components/knowledge/LegalDisclaimer'
 import { LegalTabs } from '@/components/knowledge/LegalTabs'
 import { StatuteCitation } from '@/components/knowledge/StatuteCitation'
@@ -204,8 +205,10 @@ export default async function CompliancePage() {
           <StatuteCitation check={checkQuote(APPLICABILITY, statuteText)} />
           <p className="text-sm text-foreground-secondary">
             Posted records must sit in an owners-only area. Residents sign in to HomeownerHub’s resident portal,
-            but it doesn’t list association documents to them yet — a document on file here is not, by itself,
-            posted for owners.
+            and its Documents screen shows them your CC&amp;Rs, bylaws and rules, plus governing documents filed as a
+            declaration, bylaws, rules, amendment or policy — current versions with a file attached. Anything else
+            on file (minutes, and documents typed “other” such as budgets, insurance or correspondence) stays
+            board-only, so each record below says whether owners can see it.
           </p>
           <StatuteCitation check={checkQuote(OWNER_ONLY_AREA, statuteText)} />
         </CardContent>
@@ -218,7 +221,8 @@ export default async function CompliancePage() {
           </h2>
           {summary ? (
             <p className="num text-sm text-muted">
-              {summary.present} on file · {summary.stale} may be out of date · {summary.missing} missing
+              {summary.present} on file · {summary.stale} may be out of date · {summary.missing} missing ·{' '}
+              {summary.postedForOwners} posted for owners
             </p>
           ) : null}
         </div>
@@ -334,7 +338,9 @@ function RecordItem({ line, statuteText }: { line: RecordLine; statuteText: stri
             </span>
           ) : null}
         </p>
-      ) : line.status === 'none_on_file' ? (
+      ) : null}
+      {line.posting ? <PostingLine line={line} /> : null}
+      {newest ? null : line.status === 'none_on_file' ? (
         <p className="text-sm text-muted">Nothing on file. Required only if any such contract or document exists.</p>
       ) : (
         <p className="text-sm text-muted">
@@ -346,6 +352,50 @@ function RecordItem({ line, statuteText }: { line: RecordLine; statuteText: stri
       )}
       <StatuteCitation check={checkQuote(line.category.citation, statuteText)} />
     </div>
+  )
+}
+
+/** The owner-facing copy, exactly as a resident opens it (new tab). */
+function OwnerCopyLink({ doc, children }: { doc: { source: 'hoa' | 'governing'; id: string }; children: React.ReactNode }) {
+  return (
+    <a
+      href={residentDocumentHref(doc)}
+      target="_blank"
+      rel="noreferrer"
+      className="font-medium text-primary hover:underline"
+    >
+      {children}
+      <span className="sr-only"> (opens the copy owners see in a new tab)</span>
+    </a>
+  )
+}
+
+function PostingLine({ line }: { line: RecordLine }) {
+  const posted = line.postedDoc
+  if (line.posting === 'posted' && posted) {
+    return (
+      <p className="text-sm text-foreground-secondary">
+        <Eye className="mr-1 inline size-3.5 align-[-2px] text-success" aria-hidden />
+        <OwnerCopyLink doc={posted}>Posted for owners</OwnerCopyLink>
+      </p>
+    )
+  }
+  if (line.posting === 'older_posted' && posted) {
+    return (
+      <p className="text-sm text-foreground-secondary">
+        <EyeOff className="mr-1 inline size-3.5 align-[-2px] text-warning" aria-hidden />
+        Newest on file is not visible to owners; they see an older one:{' '}
+        <OwnerCopyLink doc={posted}>
+          <span className="break-words">{posted.title}</span>
+        </OwnerCopyLink>
+      </p>
+    )
+  }
+  return (
+    <p className="text-sm text-muted">
+      <EyeOff className="mr-1 inline size-3.5 align-[-2px]" aria-hidden />
+      On file, not visible to owners
+    </p>
   )
 }
 

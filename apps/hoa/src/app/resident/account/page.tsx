@@ -1,4 +1,4 @@
-import { Home, Megaphone, Sparkles } from 'lucide-react'
+import { FileText, Home, Megaphone, Sparkles } from 'lucide-react'
 import { Badge } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getResidentUnits } from '@/lib/resident'
@@ -98,6 +98,13 @@ export default async function ResidentAccountPage() {
           icon={<Megaphone />}
           title="Announcements"
           subtitle="Updates from your board"
+        />
+        <TappableRow
+          href="/resident/documents"
+          icon={<FileText />}
+          title="Documents"
+          subtitle="CC&Rs, bylaws, rules and policies"
+          tone="slate"
         />
         <TappableRow
           href="/resident/ask"

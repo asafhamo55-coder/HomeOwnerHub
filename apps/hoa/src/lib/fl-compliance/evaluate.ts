@@ -13,6 +13,7 @@ import {
   type RecordCategory,
   type StatuteQuote,
 } from './rules'
+import { isResidentVisible } from '../resident-documents/visibility'
 
 // ─── Statute text + quote validation ───────────────────────────────
 
@@ -70,6 +71,10 @@ export interface ComplianceDoc {
   type: string
   /** ISO date or timestamp: governing effective_date, else created_at. */
   date: string | null
+  /** A stored file exists (storage_path set). Absent = no, default-deny. */
+  hasFile?: boolean
+  /** governing_documents.ai_generated. */
+  aiGenerated?: boolean | null
 }
 
 export type MatchedBy = 'type' | 'title'
@@ -80,6 +85,22 @@ export interface MatchedDoc extends ComplianceDoc {
 
 export type RecordStatus = 'present' | 'stale' | 'missing' | 'none_on_file'
 
+/**
+ * Whether owners can see the record in the resident portal's Documents
+ * screen (BL-049), which shows only the types allowlisted in
+ * resident-documents/visibility.ts, and only when a file is stored.
+ *
+ *   posted         the newest matching document is visible to owners
+ *   older_posted   an older match is visible, the newest is not
+ *   not_visible    on file, but no match is visible to owners
+ */
+export type PostingStatus = 'posted' | 'older_posted' | 'not_visible'
+
+/** Owners can open this document from /resident/documents. */
+export function postedForOwners(doc: ComplianceDoc): boolean {
+  return doc.hasFile === true && isResidentVisible({ source: doc.source, type: doc.type, aiGenerated: doc.aiGenerated })
+}
+
 export interface RecordLine {
   category: RecordCategory
   status: RecordStatus
@@ -87,6 +108,10 @@ export interface RecordLine {
   matches: MatchedDoc[]
   /** Whole months since the newest match's date, when it has one. */
   ageMonths: number | null
+  /** null when nothing matches. */
+  posting: PostingStatus | null
+  /** The newest match owners can open, if any. */
+  postedDoc: MatchedDoc | null
 }
 
 /** governing_documents types that are never one of these records. */
@@ -122,7 +147,14 @@ export function evaluateRecord(category: RecordCategory, docs: readonly Complian
   matches.sort((a, b) => time(b.date) - time(a.date))
 
   if (matches.length === 0) {
-    return { category, status: category.conditional ? 'none_on_file' : 'missing', matches, ageMonths: null }
+    return {
+      category,
+      status: category.conditional ? 'none_on_file' : 'missing',
+      matches,
+      ageMonths: null,
+      posting: null,
+      postedDoc: null,
+    }
   }
 
   const newest = matches[0]
@@ -130,7 +162,9 @@ export function evaluateRecord(category: RecordCategory, docs: readonly Complian
   const ageMonths = Number.isFinite(t) ? monthsBetween(new Date(t), now) : null
   const stale =
     category.staleAfterMonths != null && ageMonths != null && ageMonths > category.staleAfterMonths
-  return { category, status: stale ? 'stale' : 'present', matches, ageMonths }
+  const postedDoc = matches.find(postedForOwners) ?? null
+  const posting: PostingStatus = !postedDoc ? 'not_visible' : postedDoc === newest ? 'posted' : 'older_posted'
+  return { category, status: stale ? 'stale' : 'present', matches, ageMonths, posting, postedDoc }
 }
 
 export function evaluateRecords(docs: readonly ComplianceDoc[], now: Date): RecordLine[] {
@@ -250,11 +284,14 @@ export interface RecordsSummary {
   stale: number
   missing: number
   noneOnFile: number
+  /** Lines whose newest match owners can open. */
+  postedForOwners: number
 }
 
 export function summarizeRecords(lines: readonly RecordLine[]): RecordsSummary {
-  const s: RecordsSummary = { present: 0, stale: 0, missing: 0, noneOnFile: 0 }
+  const s: RecordsSummary = { present: 0, stale: 0, missing: 0, noneOnFile: 0, postedForOwners: 0 }
   for (const l of lines) {
+    if (l.posting === 'posted') s.postedForOwners++
     if (l.status === 'present') s.present++
     else if (l.status === 'stale') s.stale++
     else if (l.status === 'missing') s.missing++
