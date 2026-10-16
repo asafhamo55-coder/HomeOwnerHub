@@ -1,9 +1,8 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, ClipboardCheck, Mail, Wallet } from 'lucide-react'
+import { cookies } from 'next/headers'
 import {
-  Alert,
-  Button,
   Card,
   CardContent,
   Kpi,
@@ -37,7 +36,7 @@ import {
   getViolationStatusDonut,
 } from '@/lib/dashboard/charts'
 import { kpiDelta } from '@/lib/dashboard/kpi-delta'
-import { getSetupProgress } from '@/lib/inbox/queries'
+import { loadSetupChecklist, setupDismissedCookie } from '@/lib/dashboard/setup-checklist'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { getTriageSnapshot } from '@/lib/dashboard/triage'
@@ -58,6 +57,7 @@ import { DailyDigestCard } from '@/components/dashboard/DailyDigestCard'
 import { LeaseSummaryCard } from '@/components/dashboard/LeaseSummaryCard'
 import { NextMeeting } from '@/components/dashboard/NextMeeting'
 import { GreetingHeadline } from '@/components/dashboard/GreetingHeadline'
+import { SetupChecklistCard } from '@/components/dashboard/SetupChecklistCard'
 
 export const metadata = { title: 'Dashboard' }
 
@@ -108,8 +108,12 @@ export default async function DashboardHome() {
   const userName =
     firstName ?? (user?.email ? user.email.split('@')[0] : null)
 
-  const setupSteps = await getSetupProgress(supabase, org.id)
-  const pendingSetup = setupSteps.filter((step) => !step.done)
+  // Each step's read fails on its own ("Couldn't check"), so this never
+  // takes the dashboard down. The dismiss cookie only counts while the
+  // checklist is still complete — a step that regresses brings it back.
+  const checklist = await loadSetupChecklist(supabase, org.id)
+  const dismissed = (await cookies()).get(setupDismissedCookie(org.id))?.value === '1'
+  const showChecklist = !(checklist.complete && dismissed)
 
   return (
     <Page
@@ -122,20 +126,7 @@ export default async function DashboardHome() {
         </header>
       }
     >
-      {pendingSetup.length > 0 ? (
-        <Alert
-          variant="info"
-          title="Finish setting up"
-          actions={
-            <Button asChild size="sm" variant="secondary">
-              <Link href="/onboarding/setup">Continue setup</Link>
-            </Button>
-          }
-        >
-          {pendingSetup.length} step{pendingSetup.length === 1 ? '' : 's'} left. Next:{' '}
-          {pendingSetup[0].title}.
-        </Alert>
-      ) : null}
+      {showChecklist ? <SetupChecklistCard checklist={checklist} /> : null}
 
       <Suspense fallback={<DashboardSkeleton />}>
         <DashboardContent orgId={org.id} />

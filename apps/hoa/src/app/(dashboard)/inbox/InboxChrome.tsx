@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { Alert, FilterChips } from '@homeowner-portal/ui'
 import type { InboxFilter, MailboxStatus } from '@/lib/inbox/queries'
+import { backfillBanner, type MailboxStatusRead } from '@/lib/inbox/backfill-banner'
 
 export const INBOX_FILTERS: Array<{ key: InboxFilter; label: string }> = [
   { key: 'needs_review', label: 'Needs review' },
@@ -103,6 +104,49 @@ export function MailboxSyncAlert({
           silent redirect to '/' with no explanation. Tell them who can fix
           it instead of offering a dead end. */}
       {canManageMailbox ? <Link href="/settings/mailbox">Fix it in mailbox settings</Link> : 'Ask an HOA admin to fix it.'}
+    </Alert>
+  )
+}
+
+/**
+ * History-import progress / failure (BL-005). Copy and state come from
+ * `backfillBanner`; hidden once the import is done. A failed status read
+ * renders its own warning rather than disappearing.
+ */
+export function BackfillAlert({
+  read,
+  canManageMailbox,
+  className,
+}: {
+  read: MailboxStatusRead
+  canManageMailbox: boolean
+  className?: string
+}) {
+  const banner = backfillBanner(read, canManageMailbox)
+  if (!banner) return null
+  return (
+    <Alert variant={banner.variant} title={banner.title} className={className}>
+      <p>
+        {banner.body}
+        {banner.action ? (
+          <>
+            {' '}
+            <Link href={banner.action.href}>{banner.action.label}</Link>
+          </>
+        ) : null}
+      </p>
+      {banner.percent !== null ? (
+        <div
+          className="mt-2 h-1.5 max-w-xs overflow-hidden rounded-full bg-surface"
+          role="progressbar"
+          aria-valuenow={banner.percent}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="History import progress"
+        >
+          <div className="h-full rounded-full bg-info-solid" style={{ width: `${banner.percent}%` }} />
+        </div>
+      ) : null}
     </Alert>
   )
 }

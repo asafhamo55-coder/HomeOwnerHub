@@ -26,7 +26,7 @@ export default function PrivacyPage() {
             <h2>The short version</h2>
             <ul>
               <li>We collect only what we need to run the product.</li>
-              <li>You own your documents. Export is one-click in every plan.</li>
+              <li>You own your documents. You can download properties, violations, leases and vendors as CSV files at any time; a full one-click export is on our roadmap.</li>
               <li>We never train models on your data.</li>
               <li>We never sell or share your data with third parties.</li>
               <li>We log every AI action for your audit trail.</li>

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowRight, Check, Sparkles } from 'lucide-react'
+import { ArrowRight, Check, Clock, Sparkles } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { RoiCalculator } from '@/components/site/roi-calculator'
@@ -15,19 +15,39 @@ export const metadata: Metadata = {
 // HOA per-door plan. One tier; cadence (monthly vs annual) drives the
 // price, with 10% off annual. Mirrors the in-app billing page and the
 // shared module at packages/billing/src/pricing.ts — keep these in sync.
+//
+// Truth rule (BL-002): every bullet below maps to a shipped route in
+// apps/hoa. Anything not built yet goes in `roadmap`, which renders under a
+// "Roadmap" label — and only if it is on docs/backlog.md. Monthly and
+// annual are the SAME product; the annual card must not imply extra
+// features.
+const HOA_FEATURES = [
+  'AI Daily Digest + Compliance Heat Map', // (dashboard)/page.tsx
+  'Violation letters drafted from photos, approved by the board', // /violations/new, W3
+  'Ask your governing documents — cited answers', // /ai/ask, W1
+  'Meeting minutes wizard + AI summaries', // /meetings
+  'Shared Gmail inbox with AI reply drafts', // /inbox, W32
+  'Accounting: general ledger, bank feeds, reconciliation', // /accounting
+  'Vendor onboarding, RFPs and AI bid comparison', // /vendors, /rfps, W21–W23
+  'Resident portal — dues balance, ARC, requests, documents', // /resident
+]
+
+// Each item is a backlog entry (docs/backlog.md). Not available today.
+const HOA_ROADMAP = [
+  'Spanish-language resident communications', // BL-025
+  'AI review of ARC requests against your guidelines', // BL-024, BL-027
+  'Reserve fund tracking', // BL-037
+  'Full one-click data export', // BL-011
+]
+
 const hoaTiers = [
   {
     name: 'HOA Monthly',
     price: '$4.99',
     period: '/door · mo',
     sub: '$200/mo minimum · billed monthly',
-    bullets: [
-      'AI Daily Digest + Compliance Heat Map',
-      'Violation wizard with Covenant Brain',
-      'Meeting Co-Pilot summaries',
-      'Resident portal — dues, ARC, governing docs',
-      'Multilingual comms + Daily Digest',
-    ],
+    bullets: HOA_FEATURES,
+    roadmap: HOA_ROADMAP,
     cta: 'Start monthly',
   },
   {
@@ -36,10 +56,8 @@ const hoaTiers = [
     period: '/door · mo',
     sub: '$200/mo minimum · save 10% paying yearly · 12-month commitment',
     bullets: [
-      'Everything in HOA Monthly',
-      'Bar B agents: Violation Drafter, Minutes Engine, Reserve Live',
-      'Vendor Oracle + ARC Recommender',
-      'Board Copilot + multi-board access controls',
+      'Everything in HOA Monthly — same product',
+      '10% off for paying a year up front',
       'Priority support',
     ],
     cta: 'Save 10% annually',
@@ -65,7 +83,6 @@ const pmTiers = [
       'Zero-touch rent collection (ACH + card)',
       'Delinquency Coach (day 5–30)',
       'Auto late fees per state',
-      'Multilingual tenant comms',
     ],
     cta: 'Start trial',
     featured: true,
@@ -127,11 +144,11 @@ const faqs = [
   },
   {
     q: 'Do we keep our data?',
-    a: 'Yes. You own everything you upload. We never train on your documents. Export is one-click in any plan, including free.',
+    a: 'Yes. You own everything you upload, and we never train on your documents. Today you can download properties, violations, leases and vendors as CSV files. A full one-click export of everything is on our roadmap.',
   },
   {
     q: 'What if my HOA is in a state you don\'t support yet?',
-    a: 'HOA Hub launches in Georgia. We add states as we onboard customers there — Charlotte / Raleigh / Nashville / Tampa / Orlando are next. If you want us to add yours, get on a demo and tell us.',
+    a: 'Dues, violations, documents, accounting and the inbox work for an HOA in any state. The state-law assistant is the state-specific part: it covers Georgia today, and Florida (Chapter 720) is being added now. If you want yours next, get on a demo and tell us.',
   },
   {
     q: 'Is eviction legal in v1?',
@@ -237,6 +254,8 @@ function PricingBlock({
     period: string
     sub: string
     bullets: string[]
+    /** Not built yet; rendered under a "Roadmap" label, never with a check. */
+    roadmap?: string[]
     cta: string
     featured?: boolean
   }[]
@@ -291,6 +310,21 @@ function PricingBlock({
                   </li>
                 ))}
               </ul>
+              {t.roadmap && t.roadmap.length > 0 ? (
+                <div className="mt-6 border-t border-border/70 pt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+                    Roadmap · not available yet
+                  </p>
+                  <ul className="mt-2.5 space-y-2">
+                    {t.roadmap.map((r) => (
+                      <li key={r} className="flex gap-2 text-sm text-muted">
+                        <Clock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                        {r}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <Link
                 href="/demo"
                 className={cn(
