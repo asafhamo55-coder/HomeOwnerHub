@@ -1,7 +1,8 @@
 import Link from 'next/link'
-import { CheckCircle2, Sparkles } from 'lucide-react'
+import { CheckCircle2, ListChecks, Sparkles } from 'lucide-react'
 import {
   Alert,
+  Button,
   Card,
   CardDescription,
   CardHeader,
@@ -110,6 +111,11 @@ export default async function ReconciliationQueuePage({ searchParams }: { search
       linkAs={Link}
       breadcrumbs={crumbs}
       title="Matching queue"
+      actions={
+        <Button asChild variant="secondary" icon={<ListChecks aria-hidden />}>
+          <Link href="/approvals?type=w18">All approvals</Link>
+        </Button>
+      }
       description="Bank transactions the automatic matcher couldn’t place on its own. Approve its suggestions, categorize expenses, or set aside what doesn’t belong in the books."
     >
       <section id="proposed-postings" aria-labelledby="proposals-title" className="scroll-mt-24">

@@ -22,6 +22,8 @@ import { PlatformAdminLink } from '@/components/layout/PlatformAdminLink'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { RoleSwitcherMount } from '@/components/dev/RoleSwitcherMount'
 import { Copilot, CopilotTrigger } from '@/components/copilot/Copilot'
+import { countPendingApprovals } from '@/lib/approvals-inbox/load'
+import { approvalsBadge } from '@/lib/approvals-inbox/model'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await getSupabaseServerClient()
@@ -64,6 +66,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (role === 'resident') redirect('/resident')
   if (!role) redirect('/onboarding')
 
+  // Sidebar count for /approvals (BL-014): four head-only counts. A failed
+  // count yields no badge (or a "3+" lower bound), never a false 0.
+  const approvalCounts = await countPendingApprovals(supabase, org.id)
+
   return (
     <DashboardProviders>
       {/* Instant click-to-motion feedback. Renders nothing until a
@@ -77,6 +83,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             currentOrgName={org.name}
             hoaOrgs={role === 'admin' ? hoaOrgs : hoaOrgs.filter((o) => o.id === org.id)}
             role={role}
+            badges={{ '/approvals': approvalsBadge(approvalCounts) }}
           />
         </AppShellSidebar>
         <AppShellMain>

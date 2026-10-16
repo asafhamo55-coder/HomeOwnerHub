@@ -1,10 +1,11 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { AlertTriangle, Sparkles } from 'lucide-react'
+import { AlertTriangle, ListChecks, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Alert,
   Badge,
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -83,6 +84,11 @@ export default async function ApprovalQueuePage({
       width="wide"
       description="AI-drafted violation notices awaiting board review. Nothing here reaches a homeowner until the board approves it."
       linkAs={Link}
+      actions={
+        <Button asChild variant="secondary" icon={<ListChecks aria-hidden />}>
+          <Link href="/approvals?type=w3">All approvals</Link>
+        </Button>
+      }
       tabs={<Tabs items={violationTabs('/violations/approval-queue')} aria-label="Violation sections" linkAs={Link} />}
     >
       {!result.ok ? (
