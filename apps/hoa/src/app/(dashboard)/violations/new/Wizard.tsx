@@ -31,6 +31,7 @@ import {
 } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { createApprovedViolation } from '@/lib/violations'
+import { responseErrorMessage } from '@/lib/api/client'
 import { VIOLATION_SEVERITY } from '@/lib/status/community'
 import {
   saveDraft,
@@ -310,11 +311,12 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
 
   async function handleAnalyze() {
     // Vision analysis still goes single-photo for now — the analyze
-    // endpoint takes one signedUrl. Use the first uploaded photo
-    // (typically the primary evidence shot). Multi-image analysis is
-    // a future enhancement that requires endpoint changes.
-    const primarySignedUrl = photoSignedUrls[0]
-    if (!propertyId || !primarySignedUrl) return
+    // endpoint takes one storage path and signs it server-side (R-22). Use
+    // the first uploaded photo (typically the primary evidence shot).
+    // Multi-image analysis is a future enhancement that requires endpoint
+    // changes.
+    const primaryStoragePath = photoStoragePaths[0]
+    if (!propertyId || !primaryStoragePath) return
     setStep('analyzing')
     setAnalyzeError(null)
 
@@ -323,16 +325,17 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         propertyId,
-        photoSignedUrl: primarySignedUrl,
+        photoStoragePath: primaryStoragePath,
         manualDescription: notes.trim() || undefined,
         curePeriodDays: curePeriod,
-        fineAmount,
+        fineAmountCents: Math.round(fineAmount * 100),
       }),
     })
 
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      setAnalyzeError(body?.message ?? 'Analysis failed. Try again or write the letter manually.')
+      setAnalyzeError(
+        await responseErrorMessage(res, 'Analysis failed. Try again or write the letter manually.'),
+      )
       setStep('capture')
       return
     }
@@ -429,7 +432,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
 
   // ── Step 1: Capture ────────────────────────────────────────────────
   if (step === 'capture') {
-    const canAnalyze = Boolean(propertyId && photoSignedUrls.length > 0 && !photoUploading)
+    const canAnalyze = Boolean(propertyId && photoStoragePaths.length > 0 && !photoUploading)
     return (
       <div className="space-y-5">
         {stepperHeader}
