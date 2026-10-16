@@ -92,8 +92,6 @@ const ALLOWLIST: Record<string, Rule[]> = {
 
   'vendors/[id]/documents/route.ts': ['with-route', 'api-error', 'error-message'],
 
-  'violations/photo/route.ts': ['with-route', 'api-error', 'error-message'],
-
   'webhooks/plaid/route.ts': ['with-route', 'api-error', 'error-message', 'raw-zod', 'secret-header'],
 
   'webhooks/resend/route.ts': ['with-route', 'api-error'],
