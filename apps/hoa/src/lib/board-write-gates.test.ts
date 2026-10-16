@@ -131,6 +131,7 @@ describe('board-only routes return 403 to a resident', () => {
       }),
     )
     expect(res.status).toBe(403)
+    expect((await res.json()).error.code).toBe('forbidden')
     expect(getSupabaseServerClient).not.toHaveBeenCalled()
   })
 

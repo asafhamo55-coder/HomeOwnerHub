@@ -5,6 +5,7 @@ import { Save, Sparkles } from 'lucide-react'
 import { Alert, Button, Field, Textarea } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { updateParsedText } from '@/lib/documents'
+import { responseErrorMessage } from '@/lib/api/client'
 
 interface ParsedTextEditorProps {
   documentId: string
@@ -44,12 +45,11 @@ export function ParsedTextEditor({
         body: JSON.stringify({ documentId, rawText: text }),
       })
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        setParseError(body?.message ?? 'AI is unavailable right now. Try again shortly.')
+        setParseError(await responseErrorMessage(res, 'AI is unavailable right now. Try again shortly.'))
         return
       }
-      const body = await res.json()
-      setSections(body.sections)
+      const body = (await res.json().catch(() => null)) as { sections?: typeof sections } | null
+      setSections(body?.sections ?? [])
     })
   }
 
@@ -108,7 +108,7 @@ export function ParsedTextEditor({
         </Alert>
       ) : null}
       {parseError ? (
-        <Alert variant="warning" title="AI unavailable">
+        <Alert variant="warning" title="Couldn’t extract sections">
           {parseError}
         </Alert>
       ) : null}
