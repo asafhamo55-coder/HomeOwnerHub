@@ -8,6 +8,10 @@ export async function draftViolationLetter(params: {
   hoaName: string
   curePeriodDays: number
   fineAmount: number
+  /** BL-019: the association's state enforcement rules, so the prose does
+   *  not promise a step the law forbids (e.g. a Florida fine with no
+   *  hearing). A statutory notice paragraph is appended by the caller. */
+  stateLawContext?: string
 }): Promise<string> {
   return runMain(
     [
@@ -27,7 +31,9 @@ Requirements:
 - Do not include a date line (manager will add when serving)
 - Include full signature block for HOA Manager
 - Plain text, no markdown
-- 3 paragraphs: (1) violation notice, (2) required action, (3) consequences`,
+- 3 paragraphs: (1) violation notice, (2) required action, (3) consequences${
+          params.stateLawContext ? `\n\n${params.stateLawContext}` : ''
+        }`,
       },
     ],
     { temperature: 0.2, max_tokens: 800 },

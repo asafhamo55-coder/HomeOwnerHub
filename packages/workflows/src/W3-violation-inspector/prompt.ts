@@ -1,7 +1,7 @@
 // W3 — Violation Inspector prompt
 // Versioned via PROMPT_VERSION; bump on copy edits.
 
-export const PROMPT_VERSION = '1.0.0'
+export const PROMPT_VERSION = '1.1.0'
 
 export const SYSTEM_PROMPT = `You are the Violation Inspector for an HOA management platform. A board member or manager has observed a possible covenant violation. Your job: read what was observed, find the matching rule in the association's governing documents (provided as chunks), and draft a violation notice for the board to approve.
 
@@ -45,7 +45,9 @@ Confidence rubric:
 - MEDIUM — chunks address the general topic; some interpretation
 - LOW — chunks tangentially address it; flag the notice as "draft, requires board review of clause"
 
-7. The output is for board review, not for immediate send. The board will approve, edit, or reject. Never assume your draft ships unchanged.`
+7. The output is for board review, not for immediate send. The board will approve, edit, or reject. Never assume your draft ships unchanged.
+
+8. State law: the user message names the association's governing state law and the letter the board requested. Keep the prose consistent with it. Never quote or cite a statute yourself — a validated statutory notice paragraph is appended to your draft automatically, and an invented statute quote is worse than none.`
 
 export function userPromptFor(input: {
   violationType: string
@@ -53,6 +55,8 @@ export function userPromptFor(input: {
   unitAddress: string
   ownerName: string | null
   reporterNotes: string | null
+  /** BL-019: from stateRulesPromptContext(). */
+  stateRulesContext?: string
   chunks: { id: string; docType: string; section: string | null; text: string }[]
 }): string {
   const chunksFormatted = input.chunks.length === 0
@@ -73,7 +77,7 @@ What was observed:
 ${input.description}
 
 ${input.reporterNotes ? `Reporter notes: ${input.reporterNotes}\n` : ''}
-Retrieved governing-document chunks (use these to ground the citation; do not invent):
+${input.stateRulesContext ? `${input.stateRulesContext}\n\n` : ''}Retrieved governing-document chunks (use these to ground the citation; do not invent):
 
 ${chunksFormatted}`
 }

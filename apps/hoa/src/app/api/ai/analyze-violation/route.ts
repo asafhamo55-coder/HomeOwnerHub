@@ -5,6 +5,14 @@ import {
   covenantBrainAnalyze,
   draftViolationLetter,
 } from '@homeowner-portal/ai'
+import {
+  StatuteRuleRefusalError,
+  applyStateRulesToDraft,
+  selectStateRules,
+  stateRulesPromptContext,
+  type StateRuleSet,
+  type StateRulesOutput,
+} from '@homeowner-portal/workflows/W3-state-rules'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
@@ -24,6 +32,8 @@ interface AnalysisResult {
   confidence: 'high' | 'medium' | 'low' | null
   letterDraft: string
   warnings: string[]
+  /** BL-019: the state rule set the letter was assembled under. */
+  stateRules: StateRulesOutput | null
 }
 
 // The wizard's heavy lift. Three independent AI calls, each wrapped so that
@@ -73,7 +83,12 @@ export async function POST(request: Request) {
     confidence: null,
     letterDraft: '',
     warnings,
+    stateRules: null,
   }
+
+  // BL-019: the association's state picks the enforcement rules. A failed
+  // lookup is surfaced as a warning, never silently treated as "no rules".
+  const { rules, statuteText } = await loadStateRules(supabase, org.id, warnings)
 
   // 1. Vision agent.
   try {
@@ -126,6 +141,7 @@ export async function POST(request: Request) {
       hoaName: org.name,
       curePeriodDays: parsed.data.curePeriodDays,
       fineAmount: parsed.data.fineAmount,
+      stateLawContext: rules ? stateRulesPromptContext(rules, 'first_notice') : undefined,
     })
   } catch (err) {
     console.warn('[analyze-violation] letter draft failed', err)
@@ -133,5 +149,68 @@ export async function POST(request: Request) {
     result.letterDraft = `[AI letter drafting is unavailable.]\n\nViolation observed: ${result.description}\nProperty: ${property.address}\nCC&R section: ${result.ccrSection ?? '—'}\nCure period: ${parsed.data.curePeriodDays} days\n\nWrite the formal notice in the editor below before approving.`
   }
 
+  // Append the statutory notice paragraph (+ quotes that pass the W32
+  // validator against the stored statute text). The wizard drafts a first
+  // notice, which no state forbids; the proposed fine only adds warnings.
+  if (rules) {
+    try {
+      const applied = applyStateRulesToDraft({
+        rules,
+        requestedAction: { step: 'first_notice', fineAmountCents: Math.round(parsed.data.fineAmount * 100) },
+        modelNotice: result.letterDraft,
+        statuteText,
+        recommendedFineAmountCents: Math.round(parsed.data.fineAmount * 100),
+      })
+      result.letterDraft = applied.notice
+      result.stateRules = applied.stateRules
+      warnings.push(...applied.stateRules.warnings.filter((w) => !warnings.includes(w)))
+      if (
+        rules.fineCapOverride === 'health_safety_finding' &&
+        rules.fineCapCents !== null &&
+        parsed.data.fineAmount * 100 > rules.fineCapCents
+      ) {
+        warnings.push(
+          `California caps a fine at $100 per violation unless the board makes a written health or safety finding at an open meeting. Lower the $${parsed.data.fineAmount} fine or record that finding first — verify against the statute.`,
+        )
+      }
+    } catch (err) {
+      if (!(err instanceof StatuteRuleRefusalError)) throw err
+      warnings.push(...err.reasons)
+    }
+  }
+
   return NextResponse.json(result)
+}
+
+type ServerClient = Awaited<ReturnType<typeof getSupabaseServerClient>>
+
+async function loadStateRules(
+  supabase: ServerClient,
+  orgId: string,
+  warnings: string[],
+): Promise<{ rules: StateRuleSet | null; statuteText: string | null }> {
+  const { data: assoc, error } = await supabase
+    .from('associations' as never)
+    .select('state')
+    .eq('organization_id' as never, orgId)
+    .order('name' as never, { ascending: true })
+    .limit(1)
+    .maybeSingle<{ state: string | null }>()
+  if (error) {
+    console.warn(`[analyze-violation] association state read failed: ${error.code ?? 'error'}`)
+    warnings.push('Could not load your association’s state, so no state-law notice was added. Verify against your state’s statute before sending.')
+    return { rules: null, statuteText: null }
+  }
+  const rules = selectStateRules(assoc?.state ?? null)
+  if (!rules.citation || rules.quotes.length === 0 || !rules.state) return { rules, statuteText: null }
+  const { data: statute, error: statuteErr } = await supabase
+    .from('state_statutes' as never)
+    .select('body')
+    .eq('state' as never, rules.state)
+    .eq('code_citation' as never, rules.citation)
+    .is('superseded_at' as never, null)
+    .limit(1)
+    .maybeSingle<{ body: string }>()
+  if (statuteErr) console.warn(`[analyze-violation] state_statutes read failed: ${statuteErr.code ?? 'error'}`)
+  return { rules, statuteText: statute?.body ?? null }
 }

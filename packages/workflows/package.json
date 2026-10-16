@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./W1": "./src/W1-governing-docs-brain/index.ts",
     "./W3": "./src/W3-violation-inspector/index.ts",
+    "./W3-state-rules": "./src/W3-violation-inspector/state-rules.ts",
     "./W18": "./src/W18-bank-reconciliation/index.ts",
     "./W21": "./src/W21-vendor-onboarder/index.ts",
     "./W22": "./src/W22-rfp-composer/index.ts",

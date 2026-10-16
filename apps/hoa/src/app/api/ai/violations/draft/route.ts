@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { violationInspector } from '@homeowner-portal/workflows/W3'
+import { RequestedActionSchema, StatuteRuleRefusalError } from '@homeowner-portal/workflows/W3-state-rules'
 import { getCurrentOrg } from '@/lib/orgs'
 
 // POST /api/ai/violations/draft
@@ -19,6 +20,7 @@ const DraftSchema = z.object({
   description: z.string().min(10).max(4000),
   reporterNotes: z.string().max(2000).nullable().optional(),
   associationId: z.string().uuid().nullable().optional(),
+  requestedAction: RequestedActionSchema.optional(),
 })
 
 export const maxDuration = 60
@@ -52,6 +54,19 @@ export async function POST(request: Request): Promise<Response> {
       ...result.output,
     })
   } catch (err) {
+    // BL-019: a step the association's state law forbids (e.g. a Florida
+    // fine without a committee hearing). Not an outage — tell the board why.
+    const refusal = refusalOf(err)
+    if (refusal) {
+      return NextResponse.json(
+        {
+          error: 'statute_refusal',
+          jurisdiction: refusal.jurisdiction,
+          reasons: refusal.reasons,
+        },
+        { status: 422 },
+      )
+    }
     console.error('[w3-draft] workflow failed', err)
     return NextResponse.json(
       {
@@ -61,4 +76,11 @@ export async function POST(request: Request): Promise<Response> {
       { status: 503 },
     )
   }
+}
+
+/** defineWorkflow wraps run() errors; the original is kept as `cause`. */
+function refusalOf(err: unknown): StatuteRuleRefusalError | null {
+  if (err instanceof StatuteRuleRefusalError) return err
+  if (err instanceof Error && err.cause instanceof StatuteRuleRefusalError) return err.cause
+  return null
 }
