@@ -4,98 +4,123 @@ import {
   chunkByMarkdownSection,
   chunkPlainText,
 } from '@homeowner-portal/workflows/chunker'
-import { getCurrentOrg } from '@/lib/orgs'
-import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
-import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@homeowner-portal/db'
 import { embedTexts, toPgVector } from '@homeowner-portal/ai'
+import { withRoute } from '@/lib/api/handler'
+import { ApiRouteError } from '@/lib/api/errors'
+import { requireOrgOwned, requireRouteBoardOrAdmin } from '@/lib/api/auth'
+import { parseForm, parseValue } from '@/lib/api/parse'
+import { zDateOnly, zText, zUuid } from '@/lib/api/schemas'
+import { MAX_DOCUMENT_TEXT, MAX_UPLOAD_BYTES } from '@/lib/api/limits'
+import { checkWrite } from '@/lib/api/db'
+import { logRouteFailure } from '@/lib/api/log'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 
-// POST /api/governing-docs/upload
+// POST /api/governing-docs/upload — board-only (RC-4).
 //
-// Accepts multipart/form-data with fields:
+// multipart/form-data:
 //   - file: PDF / TXT / MD (required unless `pastedText` is provided)
 //   - pastedText: raw text alternative for users who can't upload
-//   - title: human-readable title (required)
+//   - title: human-readable title (required, ≤ 200)
 //   - type: 'declaration' | 'bylaws' | 'rules' | 'amendment' | 'policy'
-//   - effectiveDate: ISO date string (optional)
-//   - associationId: which association this doc governs (required)
+//   - effectiveDate: YYYY-MM-DD (optional)
+//   - associationId: uuid of an association in the caller's org (required)
 //
-// Pipeline:
-//   1. Auth + org check
-//   2. Extract text (PDF parse, plain text passthrough, or pasted)
-//   3. Upload original file to Storage (when one was provided)
-//   4. Insert governing_documents row
-//   5. Chunk text + insert governing_document_chunks (admin client; RLS
-//      would block bulk insert under user session because chunks live in
-//      a separate org-scoped table)
+// Pipeline (RC-3 order, every write checked, partial writes compensated):
+//   1. Board gate → parse form → validate fields → association belongs to org
+//   2. Extract text (PDF parse, plain text passthrough, or pasted) and chunk
+//      it — everything that can refuse the request runs before any write
+//   3. Upload the original file to Storage — a failure is a 500 and nothing
+//      is written (RC-6: no success after a failed step)
+//   4. Insert governing_documents (user client, RLS); on failure remove the
+//      stored object
+//   5. Insert governing_document_chunks (admin client: bulk insert into the
+//      chunk table); on failure delete the doc row, then the stored object
 //
-// Returns: { documentId, chunkCount }
+// 201 { documentId, chunkCount, embeddedCount, embeddingStatus, parserVersion }
 
-const TypeEnum = z.enum([
-  'declaration',
-  'bylaws',
-  'rules',
-  'amendment',
-  'policy',
-])
+const TypeEnum = z.enum(['declaration', 'bylaws', 'rules', 'amendment', 'policy'])
+
+const emptyToUndefined = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? undefined : v)
+
+const Fields = z.object({
+  title: zText(200, 1),
+  type: TypeEnum,
+  associationId: zUuid,
+  effectiveDate: z.preprocess(emptyToUndefined, zDateOnly.optional()),
+  pastedText: z.preprocess(emptyToUndefined, zText(MAX_DOCUMENT_TEXT).optional()),
+})
 
 const STORAGE_BUCKET = 'governing-docs'
-const MAX_FILE_BYTES = 25 * 1024 * 1024 // 25 MB
+
+const PDF_TYPES = new Set(['application/pdf'])
+const TEXT_TYPES = new Set(['text/plain', 'text/markdown', 'text/x-markdown'])
+/** Browsers often send no type (or a generic one) for .md; fall back to the extension then. */
+const UNTYPED = new Set(['', 'application/octet-stream'])
+
+function fileKind(file: File): 'pdf' | 'text' | null {
+  const name = file.name.toLowerCase()
+  const type = file.type.toLowerCase().split(';')[0]!.trim()
+  if (PDF_TYPES.has(type)) return 'pdf'
+  if (TEXT_TYPES.has(type)) return 'text'
+  if (UNTYPED.has(type)) {
+    if (name.endsWith('.pdf')) return 'pdf'
+    if (name.endsWith('.txt') || name.endsWith('.md')) return 'text'
+  }
+  return null
+}
+
+/** The document-text cap, in UTF-8 bytes (the unit the 413's `maxBytes` reports). */
+function overTextLimit(text: string): boolean {
+  return Buffer.byteLength(text, 'utf8') > MAX_DOCUMENT_TEXT
+}
 
 export const maxDuration = 60 // seconds — PDF parse + insert can run long
 
-export async function POST(request: Request): Promise<Response> {
-  const org = await getCurrentOrg()
-  if (!org) {
-    return NextResponse.json({ error: 'no_org' }, { status: 403 })
-  }
-  // Board-only write (0063). Residents are members, so the org check alone
-  // let them write here.
-  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
-  if (!gate.ok) return NextResponse.json({ error: 'forbidden', message: gate.error }, { status: 403 })
+export const POST = withRoute('governing-docs.upload', async (request) => {
+  const { orgId } = await requireRouteBoardOrAdmin()
+  const form = await parseForm(request)
 
-  let form: FormData
-  try {
-    form = await request.formData()
-  } catch {
-    return NextResponse.json({ error: 'invalid_form_data' }, { status: 400 })
+  // Over the document limit is a size problem (413), not a schema miss (RC-1).
+  // Measured in UTF-8 bytes so `maxBytes` means what it says; bytes ≥ chars,
+  // so this also runs before zText's character cap can turn it into a 400.
+  const pasted = form.get('pastedText')
+  if (typeof pasted === 'string' && overTextLimit(pasted)) {
+    throw new ApiRouteError('payload_too_large', 'This text is longer than we can index.', {
+      maxBytes: MAX_DOCUMENT_TEXT,
+      reason: 'text_too_long',
+    })
   }
 
-  const title = (form.get('title') ?? '').toString().trim()
-  const typeRaw = (form.get('type') ?? '').toString()
-  const associationId = (form.get('associationId') ?? '').toString().trim()
-  const effectiveDate = (form.get('effectiveDate') ?? '').toString().trim()
-  const pastedText = (form.get('pastedText') ?? '').toString().trim()
-  const file = form.get('file')
+  const fields = parseValue(Fields, {
+    title: form.get('title') ?? undefined,
+    type: form.get('type') ?? undefined,
+    associationId: form.get('associationId') ?? undefined,
+    effectiveDate: form.get('effectiveDate') ?? undefined,
+    pastedText: form.get('pastedText') ?? undefined,
+  })
+  await requireOrgOwned('associations', fields.associationId, orgId)
 
-  if (!title || title.length > 200) {
-    return NextResponse.json({ error: 'title_required' }, { status: 400 })
-  }
-  const typeParsed = TypeEnum.safeParse(typeRaw)
-  if (!typeParsed.success) {
-    return NextResponse.json({ error: 'invalid_type' }, { status: 400 })
-  }
-  if (!associationId) {
-    return NextResponse.json({ error: 'association_required' }, { status: 400 })
-  }
+  const rawFile = form.get('file')
+  const file = rawFile instanceof File && rawFile.size > 0 ? rawFile : null
 
-  // Decide where the text comes from.
   let extractedText = ''
-  let storagePath: string | null = null
-  let fileSize: number | null = null
   let parserVersion = 'paste-1.0.0'
+  let buffer: Buffer | null = null
+  let contentType = 'application/octet-stream'
 
-  if (file instanceof File && file.size > 0) {
-    if (file.size > MAX_FILE_BYTES) {
-      return NextResponse.json(
-        { error: 'file_too_large', maxBytes: MAX_FILE_BYTES },
-        { status: 413 },
-      )
+  if (file) {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      throw new ApiRouteError('payload_too_large', undefined, { maxBytes: MAX_UPLOAD_BYTES })
     }
-    const buffer = Buffer.from(await file.arrayBuffer())
-    fileSize = file.size
+    const kind = fileKind(file)
+    if (!kind) {
+      throw new ApiRouteError('unsupported_media_type', 'Upload a PDF, .txt or .md file.')
+    }
+    buffer = Buffer.from(await file.arrayBuffer())
 
-    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+    if (kind === 'pdf') {
+      contentType = 'application/pdf'
       try {
         // Dynamic import — pdf-parse pulls a heavy native chain we don't
         // want loaded on cold start of unrelated routes.
@@ -104,83 +129,92 @@ export async function POST(request: Request): Promise<Response> {
         extractedText = parsed.text
         parserVersion = `pdf-parse-${parsed.version ?? 'unknown'}`
       } catch (err) {
-        console.error('[upload] pdf parse failed', err)
-        return NextResponse.json(
-          {
-            error: 'pdf_parse_failed',
-            message:
-              'We could not extract text from this PDF. Try the "Paste text" tab, or convert the PDF first.',
-          },
-          { status: 422 },
+        logRouteFailure('governing-docs.upload.pdf-parse', err, { orgId, bytes: file.size })
+        throw new ApiRouteError(
+          'unprocessable',
+          'We could not extract text from this PDF. Try the "Paste text" tab, or convert the PDF first.',
+          { reason: 'pdf_parse_failed' },
         )
       }
-    } else if (
-      file.type.startsWith('text/') ||
-      file.name.toLowerCase().endsWith('.txt') ||
-      file.name.toLowerCase().endsWith('.md')
-    ) {
+    } else {
+      contentType = file.name.toLowerCase().endsWith('.md') ? 'text/markdown' : 'text/plain'
       extractedText = buffer.toString('utf8')
       parserVersion = 'text-passthrough-1.0.0'
-    } else {
-      return NextResponse.json(
-        { error: 'unsupported_file_type' },
-        { status: 415 },
-      )
     }
+  } else if (fields.pastedText) {
+    extractedText = fields.pastedText
+  } else {
+    throw new ApiRouteError('validation_failed', 'Either upload a file or paste text.', {
+      issues: [{ path: 'file', message: 'Either upload a file or paste text.' }],
+    })
+  }
 
-    // Upload the original file to Storage so the source is preserved.
-    const supabase = await getSupabaseServerClient()
+  if (overTextLimit(extractedText)) {
+    throw new ApiRouteError('payload_too_large', 'This document has more text than we can index.', {
+      maxBytes: MAX_DOCUMENT_TEXT,
+      reason: 'text_too_long',
+    })
+  }
+  if (extractedText.trim().length < 100) {
+    throw new ApiRouteError(
+      'unprocessable',
+      'Extracted text is under 100 characters; nothing meaningful to chunk.',
+      { reason: 'content_too_short' },
+    )
+  }
+
+  // Markdown gets the section-aware chunker; everything else (PDF text,
+  // plain text) gets the paragraph chunker. Chunk before writing anything,
+  // so a refusal here leaves no orphan object or row behind.
+  const isMarkdown = !!file && file.name.toLowerCase().endsWith('.md')
+  const chunks = isMarkdown ? chunkByMarkdownSection(extractedText) : chunkPlainText(extractedText)
+  if (chunks.length === 0) {
+    throw new ApiRouteError('unprocessable', 'Text was extracted but produced zero chunks.', {
+      reason: 'no_chunks_produced',
+    })
+  }
+
+  const supabase = await getSupabaseServerClient()
+  const adminDb = createAdminClient()
+
+  // Upload the original file to Storage so the source is preserved. The
+  // path is built server-side under `${orgId}/` from a validated, org-owned
+  // association id (RC-4). A failed upload is a failed step (RC-6): answer
+  // the generic 500 before any row is written, so there is nothing to
+  // compensate and the board is never told a file was kept when it was not.
+  let storagePath: string | null = null
+  if (file && buffer) {
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200)
-    storagePath = `${org.id}/${associationId}/${Date.now()}-${safeName}`
+    const path = `${orgId}/${fields.associationId}/${Date.now()}-${safeName}`
     const { error: uploadErr } = await supabase.storage
       .from(STORAGE_BUCKET)
-      .upload(storagePath, buffer, {
-        contentType: file.type || 'application/octet-stream',
-        upsert: false,
-      })
-    if (uploadErr) {
-      // Storage failure isn't fatal — we still have the extracted text.
-      // Log and clear storagePath so the row doesn't reference a missing object.
-      console.warn('[upload] storage upload failed:', uploadErr.message)
-      storagePath = null
-    }
-  } else if (pastedText.length > 0) {
-    extractedText = pastedText
-    parserVersion = 'paste-1.0.0'
-  } else {
-    return NextResponse.json(
-      { error: 'no_content', message: 'Either upload a file or paste text.' },
-      { status: 400 },
-    )
+      .upload(path, buffer, { contentType, upsert: false })
+    checkWrite({ error: uploadErr }, 'governing-docs.upload.storage', { orgId })
+    storagePath = path
   }
 
-  if (extractedText.trim().length < 100) {
-    return NextResponse.json(
-      {
-        error: 'content_too_short',
-        message:
-          'Extracted text is under 100 characters; nothing meaningful to chunk.',
-      },
-      { status: 422 },
-    )
+  async function removeStoredObject(): Promise<void> {
+    if (!storagePath) return
+    // Service role: the path was built server-side under `${orgId}/` above.
+    const { error } = await adminDb.storage.from(STORAGE_BUCKET).remove([storagePath])
+    // Cannot compensate further. Left behind: the uploaded object at
+    // storagePath, with no governing_documents row referencing it. Logged
+    // (code + org only) so it can be swept; the caller still gets its 500.
+    if (error) logRouteFailure('governing-docs.upload.storage-remove', error, { orgId })
   }
 
-  // Insert the governing_documents row via the regular client so RLS
-  // verifies the user actually belongs to the org.
-  const supabase = await getSupabaseServerClient()
-  const isMarkdown =
-    file instanceof File && file.name.toLowerCase().endsWith('.md')
-
+  // The governing_documents row goes through the user client so RLS
+  // verifies the caller's org.
   const { data: doc, error: docErr } = await supabase
     .from('governing_documents' as never)
     .insert({
-      organization_id: org.id,
-      association_id: associationId,
-      type: typeParsed.data,
-      title,
-      effective_date: effectiveDate || null,
+      organization_id: orgId,
+      association_id: fields.associationId,
+      type: fields.type,
+      title: fields.title,
+      effective_date: fields.effectiveDate ?? null,
       storage_path: storagePath,
-      file_size: fileSize,
+      file_size: file ? file.size : null,
       parsed_text: extractedText,
       parsed_at: new Date().toISOString(),
       parser_version: parserVersion,
@@ -189,48 +223,28 @@ export async function POST(request: Request): Promise<Response> {
     .single<{ id: string }>()
 
   if (docErr || !doc) {
-    console.error('[upload] insert governing_documents failed:', docErr?.message)
-    return NextResponse.json(
-      { error: 'insert_failed', message: docErr?.message },
-      { status: 500 },
-    )
+    await removeStoredObject()
+    checkWrite({ error: docErr }, 'governing-docs.upload.insert-doc', { orgId })
+    logRouteFailure('governing-docs.upload.insert-doc', null, { orgId, stage: 'no_row' })
+    throw new ApiRouteError('internal')
   }
 
-  // Chunk and insert. Markdown gets the section-aware chunker; everything
-  // else (PDF text, plain text) gets the paragraph chunker.
-  const chunks = isMarkdown
-    ? chunkByMarkdownSection(extractedText)
-    : chunkPlainText(extractedText)
-
-  if (chunks.length === 0) {
-    return NextResponse.json(
-      {
-        error: 'no_chunks_produced',
-        message: 'Text was extracted but produced zero chunks.',
-        documentId: doc.id,
-      },
-      { status: 422 },
-    )
-  }
-
-  const adminDb = createAdminClient()
-
-  // Generate embeddings up-front so they land with the chunks in one
-  // round-trip. Failure is non-fatal — we still insert the rows with
-  // NULL embeddings, and W1's retrieval handles the FTS fallback.
+  // Embeddings are generated up-front so they land with the chunks in one
+  // round-trip. Failure is non-fatal — the rows go in with NULL embeddings
+  // and W1's retrieval falls back to FTS.
   let embeddings: number[][] | null = null
-  let embeddingError: string | null = null
+  let embeddingFailed = false
   try {
     if (process.env.HUGGINGFACE_API_TOKEN || process.env.EMBEDDING_BASE_URL) {
       embeddings = await embedTexts(chunks.map((c) => c.text))
     }
   } catch (err) {
-    embeddingError = err instanceof Error ? err.message : String(err)
-    console.warn('[upload] embedding failed, inserting without:', embeddingError)
+    embeddingFailed = true
+    logRouteFailure('governing-docs.upload.embed', err, { orgId, documentId: doc.id, count: chunks.length })
   }
 
   const inserts = chunks.map((c, ordinal) => ({
-    organization_id: org.id,
+    organization_id: orgId,
     document_id: doc.id,
     section: c.section,
     page_number: null,
@@ -248,23 +262,39 @@ export async function POST(request: Request): Promise<Response> {
     .insert(inserts as never)
 
   if (chunkErr) {
-    console.error('[upload] insert chunks failed:', chunkErr.message)
-    return NextResponse.json(
-      {
-        error: 'chunks_failed',
-        message: chunkErr.message,
-        documentId: doc.id,
-      },
-      { status: 500 },
-    )
+    // Compensate in reverse order so a retry does not leave a chunkless
+    // duplicate document behind (R-19).
+    const { error: delErr } = await adminDb
+      .from('governing_documents' as never)
+      .delete()
+      .eq('id', doc.id)
+      .eq('organization_id', orgId)
+    if (delErr) {
+      // Cannot compensate. Left behind: the governing_documents row
+      // (documentId) with no chunks, AND its stored object at storage_path.
+      // The object is deliberately NOT removed: the surviving row still
+      // references it, and removing it would leave storage_path dangling.
+      // Logged (code + ids only) so the pair can be cleaned up together.
+      logRouteFailure('governing-docs.upload.compensate-doc', delErr, { orgId, documentId: doc.id })
+    } else {
+      await removeStoredObject()
+    }
+    checkWrite({ error: chunkErr }, 'governing-docs.upload.insert-chunks', {
+      orgId,
+      documentId: doc.id,
+      count: inserts.length,
+    })
+    throw new ApiRouteError('internal') // unreachable: checkWrite throws on an error
   }
 
-  return NextResponse.json({
-    documentId: doc.id,
-    chunkCount: inserts.length,
-    embeddedCount: embeddings ? embeddings.length : 0,
-    embeddingStatus: embeddings ? 'embedded' : embeddingError ? 'failed' : 'skipped',
-    embeddingError,
-    parserVersion,
-  })
-}
+  return NextResponse.json(
+    {
+      documentId: doc.id,
+      chunkCount: inserts.length,
+      embeddedCount: embeddings ? embeddings.length : 0,
+      embeddingStatus: embeddings ? 'embedded' : embeddingFailed ? 'failed' : 'skipped',
+      parserVersion,
+    },
+    { status: 201 },
+  )
+})
