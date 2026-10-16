@@ -15,6 +15,7 @@ import {
 import { Badge, Button, LoadFailed } from '@homeowner-portal/ui'
 import { getResidentDashboard, type OpenViolationRow } from '@/lib/resident-dashboard'
 import type { ResidentUnit } from '@/lib/resident'
+import { nextDueText } from '@/lib/resident-due-text'
 import type { TicketRow } from '@/lib/resident-tickets'
 import type { ArcRequestRow } from '@/lib/resident-submissions'
 import { GreetingHeadline } from '@/components/dashboard/GreetingHeadline'
@@ -211,7 +212,7 @@ function StatusHero({
           overdue
             ? `${dues.pastDueCount} past-due ${dues.pastDueCount === 1 ? 'charge' : 'charges'} · View dues`
             : dues.nextDueDate
-              ? `Next due ${format(new Date(dues.nextDueDate), 'PP')} · View dues`
+              ? `${nextDueText(dues.nextDueDate)} · View dues`
               : 'View dues'
         }
       />

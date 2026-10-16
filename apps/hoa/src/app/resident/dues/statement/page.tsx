@@ -9,6 +9,7 @@ import { statementWindow, type LedgerEntry } from '@/lib/resident-ledger'
 import { getCurrentOrg } from '@/lib/orgs'
 import { PrintStatementButton } from '@/components/resident/PrintStatementButton'
 import { ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
+import { formatDay } from '@/lib/money/format'
 
 export const metadata = { title: 'Statement' }
 export const dynamic = 'force-dynamic'
@@ -24,7 +25,8 @@ function balanceText(n: number): string {
   return n < 0 ? `${usd.format(-n)} credit` : usd.format(n)
 }
 
-const day = (iso: string) => format(new Date(`${iso}T00:00:00`), 'MMM d, yyyy')
+// Calendar dates ('YYYY-MM-DD'), formatted from their Y-M-D parts so no zone shifts them.
+const day = (iso: string) => formatDay(iso)
 
 /** Tight rows on paper so a year of monthly dues fits one page. */
 const PRINT_CELL = 'print:px-2 print:py-1 print:text-xs'

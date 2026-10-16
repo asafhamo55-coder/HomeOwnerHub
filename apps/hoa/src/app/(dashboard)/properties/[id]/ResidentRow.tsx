@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { format } from 'date-fns'
+import { formatDay } from '@/lib/money/format'
 import { Pencil } from 'lucide-react'
 import { Alert, Badge, Button, Checkbox, Field, Input, Select, Textarea, cn, useToast } from '@homeowner-portal/ui'
 import {
@@ -82,11 +82,11 @@ export function ResidentRow({
               ) : null}
               {resident.phone ? <span>{resident.phone}</span> : null}
               {resident.moved_in_at ? (
-                <span>moved in {format(new Date(resident.moved_in_at), 'PP')}</span>
+                <span>moved in {formatDay(resident.moved_in_at)}</span>
               ) : null}
               {resident.moved_out_at ? (
                 <span className="font-medium text-foreground-secondary">
-                  moved out {format(new Date(resident.moved_out_at), 'PP')}
+                  moved out {formatDay(resident.moved_out_at)}
                 </span>
               ) : null}
             </div>

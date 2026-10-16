@@ -1,10 +1,10 @@
 import Link from 'next/link'
-import { format } from 'date-fns'
 import { FileText, ReceiptText, Wallet } from 'lucide-react'
 import { Alert, Button, DataTable, EmptyState, LoadFailed, type DataTableColumn } from '@homeowner-portal/ui'
 import { getResidentLedger } from '@/lib/resident-dashboard'
 import type { LedgerEntry } from '@/lib/resident-ledger'
 import type { ResidentUnit } from '@/lib/resident'
+import { formatDay } from '@/lib/money/format'
 import { DuesTabs } from '@/components/resident/DuesTabs'
 import { ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
 
@@ -58,7 +58,7 @@ export default async function ResidentLedgerPage() {
     {
       key: 'date',
       header: 'Date',
-      cell: (e) => format(new Date(`${e.date}T00:00:00`), 'MMM d, yyyy'),
+      cell: (e) => formatDay(e.date),
       className: 'whitespace-nowrap',
     },
     {

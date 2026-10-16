@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
+import { formatDay } from '@/lib/money/format'
 import {
   Badge,
   Card,
@@ -28,7 +29,8 @@ export const metadata = { title: 'ARC application' }
 // though the write landed.
 export const dynamic = 'force-dynamic'
 
-const date = (iso: string | null) => (iso ? format(new Date(iso), 'PP') : null)
+// Only used for proposed_start/proposed_completion, which are DATE columns.
+const date = (iso: string | null) => (iso ? formatDay(iso) : null)
 
 export default async function ArcReviewDetailPage({
   params,

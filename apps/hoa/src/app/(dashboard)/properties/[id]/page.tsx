@@ -15,6 +15,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import { format } from 'date-fns'
+import { formatDay } from '@/lib/money/format'
 import {
   Alert,
   Button,
@@ -822,12 +823,12 @@ function DuesSection({ dues, pager }: { dues: AssessmentRow[]; pager: React.Reac
             mobilePrimary: true,
             cell: (d) => (
               <span>
-                {d.fiscal_period?.start_date ? format(new Date(d.fiscal_period.start_date), 'yyyy') : '—'}
+                {d.fiscal_period?.start_date ? formatDay(d.fiscal_period.start_date, 'year') : '—'}
                 <span className="ml-2 text-xs text-muted">{d.assessment_type.replace(/_/g, ' ')}</span>
               </span>
             ),
           },
-          { key: 'due', header: 'Due', cell: (d) => <span className="num text-muted">{format(new Date(d.due_date), 'PP')}</span> },
+          { key: 'due', header: 'Due', cell: (d) => <span className="num text-muted">{formatDay(d.due_date)}</span> },
           {
             key: 'amount',
             header: 'Amount',

@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
+import { formatDay } from '@/lib/money/format'
 import { Gavel } from 'lucide-react'
 import { Badge, KeyValue, KeyValueList } from '@homeowner-portal/ui'
 import { getMyArcRequest, type ArcStatus } from '@/lib/resident-submissions'
@@ -30,6 +31,8 @@ export default async function ResidentArcDetailPage({
 
   const pending = PENDING.includes(arc.status)
   const fmt = (d: string | null) => (d ? format(new Date(d), 'PP') : null)
+  // proposed_start/proposed_completion are DATE columns: calendar days, not instants.
+  const day = (d: string | null) => (d ? formatDay(d) : null)
 
   return (
     <div className="space-y-8">
@@ -61,8 +64,8 @@ export default async function ResidentArcDetailPage({
             {arc.scope_description}
           </p>
           <KeyValueList className="border-t border-border pt-4">
-            <KeyValue label="Proposed start" value={fmt(arc.proposed_start)} />
-            <KeyValue label="Proposed completion" value={fmt(arc.proposed_completion)} />
+            <KeyValue label="Proposed start" value={day(arc.proposed_start)} />
+            <KeyValue label="Proposed completion" value={day(arc.proposed_completion)} />
             <KeyValue label="Contractor" value={arc.contractor_name} />
             <KeyValue label="License #" value={arc.contractor_license} />
             <KeyValue label="Submitted" value={format(new Date(arc.submitted_at), 'PPp')} />

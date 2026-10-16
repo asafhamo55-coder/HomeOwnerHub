@@ -1,6 +1,6 @@
-import { format } from 'date-fns'
 import { cn } from '@homeowner-portal/ui'
 import type { PayLine } from '@/lib/pay-by-zelle'
+import { formatDay } from '@/lib/money/format'
 import { CopyButton } from './CopyButton'
 
 // The Pay-by-Zelle instructions a resident follows (backlog BL-006). Shared
@@ -65,7 +65,7 @@ export function ZellePayInstructions({
                     {line.label}
                     <span className="font-normal text-muted">
                       {' '}
-                      · {unit ? `${unit} · ` : ''}due {format(new Date(`${line.dueDate}T00:00:00`), 'MMM d')}
+                      · {unit ? `${unit} · ` : ''}due {formatDay(line.dueDate, 'short')}
                     </span>
                   </p>
                 ) : null}

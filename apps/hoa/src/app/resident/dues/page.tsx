@@ -1,10 +1,10 @@
 import Link from 'next/link'
-import { differenceInCalendarDays, format } from 'date-fns'
 import { AlertTriangle, CheckCircle2, CreditCard, FileText, Home, Send, Wallet } from 'lucide-react'
 import { Badge, Button, LoadFailed, StatusPill } from '@homeowner-portal/ui'
 import { getResidentDues, type ResidentCharge } from '@/lib/resident-dashboard'
 import type { ResidentUnit } from '@/lib/resident'
 import { chargeTypeLabel } from '@/lib/assessment-labels'
+import { chargeDueText, nextDueText } from '@/lib/resident-due-text'
 import { DuesTabs } from '@/components/resident/DuesTabs'
 import { Hero, Panel, RowGroup, ScreenEmpty, ScreenHeader, Section, TappableRow } from '@/components/resident/screen'
 
@@ -63,7 +63,7 @@ export default async function ResidentDuesPage() {
               overdue
                 ? `${dues.pastDueCount} past-due ${dues.pastDueCount === 1 ? 'charge' : 'charges'}`
                 : dues.nextDueDate
-                  ? `Next due ${format(new Date(dues.nextDueDate), 'PP')}`
+                  ? nextDueText(dues.nextDueDate)
                   : `${dues.openCount} open ${dues.openCount === 1 ? 'charge' : 'charges'}`
             }
           />
@@ -141,12 +141,7 @@ function unitLabel(units: ResidentUnit[], unitId: string): string | null {
 }
 
 function ChargeRow({ charge, unitLabel }: { charge: ResidentCharge; unitLabel: string | null }) {
-  const daysLate = charge.pastDue ? differenceInCalendarDays(new Date(), new Date(charge.dueDate)) : 0
-  const dueText = charge.pastDue
-    ? daysLate > 0
-      ? `Due ${format(new Date(charge.dueDate), 'PP')} · ${daysLate} ${daysLate === 1 ? 'day' : 'days'} late`
-      : `Due ${format(new Date(charge.dueDate), 'PP')} · due today`
-    : `Due ${format(new Date(charge.dueDate), 'PP')}`
+  const dueText = chargeDueText(charge)
 
   return (
     <TappableRow
