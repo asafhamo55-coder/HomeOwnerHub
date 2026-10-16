@@ -16,6 +16,33 @@ import { reportError } from '@homeowner-portal/observability/report'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sendEmail, appUrl } from '@/lib/email'
 import { isUsStateCode } from '@/lib/us-states'
+import { chunk, readAll } from '@/lib/supabase/read-all'
+
+type AdminDb = ReturnType<typeof createAdminClient>
+
+/**
+ * Every row a metrics query matches (BL-053). Each platform number below
+ * is counted from rows, and PostgREST caps a response at 1000 rows — a
+ * single read made "units under management" top out at 1000 silently.
+ * `build` returns a FRESH filtered query each call; it is ordered by
+ * `order` (a unique key) and paged to the end. A failed page throws (the
+ * admin error boundary renders it) rather than reporting a smaller count.
+ */
+function readAllRows<T>(build: () => unknown, order: string[] = ['id']): Promise<T[]> {
+  type Q = {
+    order: (c: string, o: { ascending: boolean }) => Q
+    range: (f: number, t: number) => PromiseLike<{ data: T[] | null; error: { code?: string; message?: string } | null }>
+  }
+  return readAll<T>(
+    (from, to) => {
+      let q = build() as Q
+      for (const c of order) q = q.order(c, { ascending: true })
+      return q.range(from, to)
+    },
+    // Code only: a PostgREST message/details can quote row values.
+    (e) => new Error(`platform-admin read failed (${e.code ?? 'no code'})`),
+  )
+}
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -159,19 +186,20 @@ export async function listTenants(): Promise<TenantRow[]> {
   await requirePlatformAdmin()
   const db = createAdminClient()
 
-  const { data: orgs } = await db
-    .from('orgs' as never)
-    .select('*')
-    .order('created_at', { ascending: false })
+  const orgs = await readAllRows<{ id: string; created_at: string | null }>(
+    () => db.from('orgs' as never).select('*'),
+  )
+  // Newest first, undated first — what `.order('created_at', desc)` gave.
+  orgs.sort((a, b) => (b.created_at ?? '9999').localeCompare(a.created_at ?? '9999'))
 
-  if (!orgs || orgs.length === 0) return []
+  if (orgs.length === 0) return []
 
   const orgIds = (orgs as Array<{ id: string }>).map((o) => o.id)
 
   // Counts via Promise.all so the listing stays a single round-trip
   // per relation, not per tenant.
   const [memberCounts, associationCounts, unitCounts] = await Promise.all([
-    countByOrg(db, 'org_members', 'org_id', orgIds),
+    countByOrg(db, 'org_members', 'org_id', orgIds, ['org_id', 'user_id']),
     countByOrg(db, 'associations', 'organization_id', orgIds),
     countByOrg(db, 'units', 'organization_id', orgIds),
   ])
@@ -197,17 +225,24 @@ export async function listTenants(): Promise<TenantRow[]> {
 }
 
 async function countByOrg(
-  db: ReturnType<typeof createAdminClient>,
+  db: AdminDb,
   table: string,
   orgColumn: string,
   orgIds: string[],
+  order: string[] = ['id'],
 ): Promise<Map<string, number>> {
-  const { data } = await db
-    .from(table as never)
-    .select(orgColumn as never)
-    .in(orgColumn as never, orgIds as never)
+  // Chunked (a long `.in()` overflows the URL) and paged (BL-053).
+  const rows: Array<Record<string, string>> = []
+  for (const ids of chunk(orgIds)) {
+    rows.push(
+      ...(await readAllRows<Record<string, string>>(
+        () => db.from(table as never).select(orgColumn as never).in(orgColumn as never, ids as never),
+        order,
+      )),
+    )
+  }
   const counts = new Map<string, number>()
-  for (const row of (data ?? []) as Array<Record<string, string>>) {
+  for (const row of rows) {
     const id = row[orgColumn]
     if (!id) continue
     counts.set(id, (counts.get(id) ?? 0) + 1)
@@ -241,30 +276,30 @@ export async function getTenantDetail(orgId: string): Promise<TenantStatistics |
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
   const thirtyDaysAgoIso = thirtyDaysAgo.toISOString()
 
+  // Row reads paged to the end (BL-053): each count below is a row count.
   const [
-    { data: memberRows },
+    memberRows,
     { count: units },
     { count: associations },
-    { data: vendorComplianceRows },
-    { data: rfpRows },
-    { data: bidRows },
-    { data: violationRows },
-    { data: duesRows },
+    vendorComplianceRows,
+    rfpRows,
+    bidRows,
+    violationRows,
+    duesRows,
     { count: aiRuns },
     { count: arcPending },
     { count: documents },
   ] = await Promise.all([
-    db.from('org_members').select('role').eq('org_id', orgId),
+    readAllRows<{ role: string }>(() => db.from('org_members').select('role').eq('org_id', orgId), ['org_id', 'user_id']),
     db.from('units' as never).select('id', { count: 'exact', head: true }).eq('organization_id', orgId),
     db.from('associations' as never).select('id', { count: 'exact', head: true }).eq('organization_id', orgId),
-    db.from('vendor_compliance' as never).select('coi_status').eq('organization_id', orgId),
-    db.from('rfps' as never).select('status').eq('organization_id', orgId),
-    db.from('bids' as never).select('status').eq('organization_id', orgId),
-    db.from('hoa_violations').select('status').eq('org_id', orgId),
-    db
-      .from('hoa_dues')
-      .select('amount_due, amount_paid, status')
-      .eq('org_id', orgId),
+    readAllRows<{ coi_status: string | null }>(() => db.from('vendor_compliance' as never).select('coi_status').eq('organization_id', orgId)),
+    readAllRows<{ status: string }>(() => db.from('rfps' as never).select('status').eq('organization_id', orgId)),
+    readAllRows<{ status: string }>(() => db.from('bids' as never).select('status').eq('organization_id', orgId)),
+    readAllRows<{ status: string }>(() => db.from('hoa_violations').select('status').eq('org_id', orgId)),
+    readAllRows<{ amount_due: number | null; amount_paid: number | null; status: string | null }>(() =>
+      db.from('hoa_dues').select('amount_due, amount_paid, status').eq('org_id', orgId),
+    ),
     db
       .from('ai_runs' as never)
       .select('id', { count: 'exact', head: true })
@@ -275,11 +310,12 @@ export async function getTenantDetail(orgId: string): Promise<TenantStatistics |
       .select('id', { count: 'exact', head: true })
       .eq('organization_id', orgId)
       .in('status', ['submitted', 'in_review']),
-    db.from('hoa_documents').select('id', { count: 'exact', head: true }),
+    // Was unscoped — every tenant's documents counted as this tenant's.
+    db.from('hoa_documents').select('id', { count: 'exact', head: true }).eq('org_id', orgId),
   ])
 
   const memberCounts = { admin: 0, board: 0, resident: 0, total: 0 }
-  for (const r of (memberRows ?? []) as Array<{ role: string }>) {
+  for (const r of memberRows) {
     memberCounts.total += 1
     if (r.role === 'admin') memberCounts.admin += 1
     else if (r.role === 'board') memberCounts.board += 1
@@ -287,7 +323,7 @@ export async function getTenantDetail(orgId: string): Promise<TenantStatistics |
   }
 
   const vendorCounts = { total: 0, green: 0, yellow: 0, red: 0, missing: 0 }
-  for (const r of (vendorComplianceRows ?? []) as unknown as Array<{ coi_status: string | null }>) {
+  for (const r of vendorComplianceRows) {
     vendorCounts.total += 1
     const s = r.coi_status ?? 'missing'
     if (s === 'green') vendorCounts.green += 1
@@ -297,7 +333,7 @@ export async function getTenantDetail(orgId: string): Promise<TenantStatistics |
   }
 
   const rfpCounts = { total: 0, draft: 0, open: 0, awarded: 0, cancelled: 0 }
-  for (const r of (rfpRows ?? []) as unknown as Array<{ status: string }>) {
+  for (const r of rfpRows) {
     rfpCounts.total += 1
     if (r.status === 'draft') rfpCounts.draft += 1
     else if (r.status === 'open' || r.status === 'evaluation') rfpCounts.open += 1
@@ -306,7 +342,7 @@ export async function getTenantDetail(orgId: string): Promise<TenantStatistics |
   }
 
   const bidCounts = { total: 0, submitted: 0, awarded: 0, declined: 0 }
-  for (const r of (bidRows ?? []) as unknown as Array<{ status: string }>) {
+  for (const r of bidRows) {
     bidCounts.total += 1
     if (r.status === 'submitted') bidCounts.submitted += 1
     else if (r.status === 'awarded') bidCounts.awarded += 1
@@ -314,7 +350,7 @@ export async function getTenantDetail(orgId: string): Promise<TenantStatistics |
   }
 
   const violationCounts = { open: 0, cured: 0, fined: 0, escalated: 0 }
-  for (const r of (violationRows ?? []) as Array<{ status: string }>) {
+  for (const r of violationRows) {
     if (r.status === 'open' || r.status === 'notice_sent') violationCounts.open += 1
     else if (r.status === 'cured' || r.status === 'resolved') violationCounts.cured += 1
     else if (r.status === 'fined') violationCounts.fined += 1
@@ -323,11 +359,7 @@ export async function getTenantDetail(orgId: string): Promise<TenantStatistics |
 
   let duesOutstanding = 0
   const duesPropertiesBehind = new Set<string>()
-  for (const r of (duesRows ?? []) as Array<{
-    amount_due: number | null
-    amount_paid: number | null
-    status: string | null
-  }>) {
+  for (const r of duesRows) {
     if (r.status === 'paid' || r.status === 'waived') continue
     const remainder = Number(r.amount_due ?? 0) - Number(r.amount_paid ?? 0)
     if (remainder > 0) duesOutstanding += remainder
@@ -358,15 +390,18 @@ export async function getPlatformStats(): Promise<PlatformStats> {
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
   const thirtyDaysAgoIso = thirtyDaysAgo.toISOString()
 
+  // Row reads paged to the end (BL-053).
   const [
-    { data: orgs },
+    orgs,
     { count: totalMembers },
     { count: totalUnits },
     { count: totalVendors },
     { count: aiRuns },
-    { data: aiRunsRows },
+    aiRunsRows,
   ] = await Promise.all([
-    db.from('orgs' as never).select('id, plan, created_at, suspended_at'),
+    readAllRows<{ id: string; plan: string; created_at: string | null; suspended_at: string | null }>(() =>
+      db.from('orgs' as never).select('id, plan, created_at, suspended_at'),
+    ),
     db.from('org_members').select('user_id', { count: 'exact', head: true }),
     db.from('units' as never).select('id', { count: 'exact', head: true }),
     db.from('vendors' as never).select('id', { count: 'exact', head: true }),
@@ -374,18 +409,12 @@ export async function getPlatformStats(): Promise<PlatformStats> {
       .from('ai_runs' as never)
       .select('id', { count: 'exact', head: true })
       .gte('created_at', thirtyDaysAgoIso),
-    db
-      .from('ai_runs' as never)
-      .select('workflow_id')
-      .gte('created_at', thirtyDaysAgoIso),
+    readAllRows<{ workflow_id: string }>(() =>
+      db.from('ai_runs' as never).select('workflow_id').gte('created_at', thirtyDaysAgoIso),
+    ),
   ])
 
-  const orgsTyped = (orgs ?? []) as Array<{
-    id: string
-    plan: string
-    created_at: string | null
-    suspended_at: string | null
-  }>
+  const orgsTyped = orgs
 
   const planCounts = new Map<string, number>()
   let activeTenants = 0
@@ -414,7 +443,7 @@ export async function getPlatformStats(): Promise<PlatformStats> {
 
   // Workflow usage in the last 30 days.
   const workflowCounts = new Map<string, number>()
-  for (const r of (aiRunsRows ?? []) as unknown as Array<{ workflow_id: string }>) {
+  for (const r of aiRunsRows) {
     workflowCounts.set(r.workflow_id, (workflowCounts.get(r.workflow_id) ?? 0) + 1)
   }
   const workflows30d = Array.from(workflowCounts.entries())
@@ -482,33 +511,37 @@ export async function getAnalyticsData(): Promise<PlatformAnalytics> {
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
   const thirtyDaysAgoIso = thirtyDaysAgo.toISOString()
 
+  // Every read paged to the end (BL-053) — each total below is a row count.
+  type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
   const [
-    { data: orgs },
-    { data: memberRows },
-    { data: unitRows },
-    { data: vendorRows },
-    { data: violationRows },
-    { data: aiRunRows },
-    { data: duesRows },
-    { data: associationRows },
-    { data: rfpOrgs },
-    { data: arcOrgs },
-    { data: docOrgs },
+    orgs,
+    memberRows,
+    unitRows,
+    vendorRows,
+    violationRows,
+    aiRunRows,
+    duesRows,
+    associationRows,
+    rfpOrgs,
+    arcOrgs,
+    docOrgs,
   ] = await Promise.all([
-    db.from('orgs' as never).select('id, name, plan, created_at, suspended_at'),
-    db.from('org_members').select('org_id, invited_at'),
-    db.from('units' as never).select('organization_id'),
-    db.from('vendor_compliance' as never).select('organization_id, coi_status'),
-    db.from('hoa_violations').select('org_id, status'),
-    db.from('ai_runs' as never).select('organization_id, workflow_id, created_at').gte('created_at', thirtyDaysAgoIso),
-    db.from('assessments' as never).select('organization_id, amount, status, payments(amount)').neq('status', 'paid').neq('status', 'waived').neq('status', 'written_off'),
-    db.from('associations' as never).select('organization_id'),
-    db.from('rfps' as never).select('organization_id'),
-    db.from('arc_requests' as never).select('organization_id'),
-    db.from('hoa_documents').select('org_id'),
+    readAllRows<R>(() => db.from('orgs' as never).select('id, name, plan, created_at, suspended_at')),
+    readAllRows<R>(() => db.from('org_members').select('org_id, invited_at'), ['org_id', 'user_id']),
+    readAllRows<R>(() => db.from('units' as never).select('organization_id')),
+    readAllRows<R>(() => db.from('vendor_compliance' as never).select('organization_id, coi_status')),
+    readAllRows<R>(() => db.from('hoa_violations').select('org_id, status')),
+    readAllRows<R>(() => db.from('ai_runs' as never).select('organization_id, workflow_id, created_at').gte('created_at', thirtyDaysAgoIso)),
+    readAllRows<R>(() =>
+      db.from('assessments' as never).select('organization_id, amount, status, payments(amount)').neq('status', 'paid').neq('status', 'waived').neq('status', 'written_off'),
+    ),
+    readAllRows<R>(() => db.from('associations' as never).select('organization_id')),
+    readAllRows<R>(() => db.from('rfps' as never).select('organization_id')),
+    readAllRows<R>(() => db.from('arc_requests' as never).select('organization_id')),
+    readAllRows<R>(() => db.from('hoa_documents').select('org_id')),
   ])
 
-  const orgsTyped = (orgs ?? []) as Array<{
+  const orgsTyped = orgs as Array<{
     id: string; name: string; plan: string; created_at: string | null; suspended_at: string | null
   }>
 
@@ -721,27 +754,30 @@ export async function getTenantPreview(
   start.setUTCHours(0, 0, 0, 0)
   const startIso = start.toISOString()
 
-  const [
-    { data: violations },
-    { data: vendorCompliance },
-    { data: viols30 },
-    { data: arc30 },
-    { data: invites30 },
-  ] = await Promise.all([
-    db.from('hoa_violations').select('status').eq('org_id', orgId),
-    db.from('vendor_compliance' as never).select('coi_status').eq('organization_id', orgId),
-    db.from('hoa_violations').select('created_at').eq('org_id', orgId).gte('created_at', startIso),
-    db.from('arc_requests' as never).select('submitted_at').eq('organization_id', orgId).gte('submitted_at', startIso),
-    db
-      .from('vendor_onboarding_invitations' as never)
-      .select('created_at')
-      .eq('organization_id', orgId)
-      .gte('created_at', startIso),
+  // Paged to the end (BL-053): each chart is a row count.
+  const [violations, vendorCompliance, viols30, arc30, invites30] = await Promise.all([
+    readAllRows<{ status: string | null }>(() => db.from('hoa_violations').select('status').eq('org_id', orgId)),
+    readAllRows<{ coi_status: string | null }>(() =>
+      db.from('vendor_compliance' as never).select('coi_status').eq('organization_id', orgId),
+    ),
+    readAllRows<{ created_at: string }>(() =>
+      db.from('hoa_violations').select('created_at').eq('org_id', orgId).gte('created_at', startIso),
+    ),
+    readAllRows<{ submitted_at: string }>(() =>
+      db.from('arc_requests' as never).select('submitted_at').eq('organization_id', orgId).gte('submitted_at', startIso),
+    ),
+    readAllRows<{ created_at: string }>(() =>
+      db
+        .from('vendor_onboarding_invitations' as never)
+        .select('created_at')
+        .eq('organization_id', orgId)
+        .gte('created_at', startIso),
+    ),
   ])
 
   // Violations donut.
   const vCounts: Record<string, number> = {}
-  for (const r of (violations ?? []) as Array<{ status: string | null }>) {
+  for (const r of violations) {
     const s = r.status ?? 'unknown'
     vCounts[s] = (vCounts[s] ?? 0) + 1
   }
@@ -756,7 +792,7 @@ export async function getTenantPreview(
 
   // Vendor compliance donut.
   const cCounts = { green: 0, yellow: 0, red: 0, missing: 0 }
-  for (const r of (vendorCompliance ?? []) as unknown as Array<{ coi_status: string | null }>) {
+  for (const r of vendorCompliance) {
     const k = (r.coi_status ?? 'missing') as keyof typeof cCounts
     if (k in cCounts) cCounts[k] += 1
     else cCounts.missing += 1
@@ -776,17 +812,17 @@ export async function getTenantPreview(
     const k = d.toISOString().slice(0, 10)
     buckets.set(k, { date: k, violations: 0, arc: 0, invitations: 0 })
   }
-  for (const r of (viols30 ?? []) as Array<{ created_at: string }>) {
+  for (const r of viols30) {
     const k = r.created_at.slice(0, 10)
     const b = buckets.get(k)
     if (b) b.violations += 1
   }
-  for (const r of (arc30 ?? []) as unknown as Array<{ submitted_at: string }>) {
+  for (const r of arc30) {
     const k = r.submitted_at.slice(0, 10)
     const b = buckets.get(k)
     if (b) b.arc += 1
   }
-  for (const r of (invites30 ?? []) as unknown as Array<{ created_at: string }>) {
+  for (const r of invites30) {
     const k = r.created_at.slice(0, 10)
     const b = buckets.get(k)
     if (b) b.invitations += 1

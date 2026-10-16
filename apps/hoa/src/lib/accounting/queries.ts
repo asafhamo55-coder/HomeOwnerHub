@@ -1032,7 +1032,7 @@ export async function getInvoice(
   const { data, error: dataErr } = await supabase
     .from('invoices')
     .select(
-      'id, invoice_number, invoice_date, due_date, amount, status, organization_id, association_id, ai_generated, vendor:vendor_id(id, legal_name, dba), payments(amount, paid_at)',
+      'id, invoice_number, invoice_date, due_date, amount, status, organization_id, association_id, ai_generated, vendor:vendor_id(id, legal_name, dba), payments(amount, paid_at, journal_entry_id)',
     )
     .eq('association_id', associationId)
     .eq('id', invoiceId)
@@ -1043,10 +1043,15 @@ export async function getInvoice(
 
   // JEs that reference this invoice. source_id is the invoice id for the
   // bill-itself JE, and the payment id for the bill-pay JE. We grab both
-  // via the union of (a) JEs where source_id = invoice.id and (b) JEs
-  // referenced by payments tied to this invoice.
-  const payIds = (data.payments as { amount: number; paid_at: string | null }[] | null) ?? []
-  void payIds
+  // via the union of (a) JEs where source_id = invoice.id and (b) the JEs
+  // this invoice's own payments point at.
+  //
+  // (b) used to list EVERY ap_invoice JE in the association and keep the
+  // ones whose payment matched — a single read PostgREST caps at 1000 rows,
+  // so past 1000 bill-pays the invoice's own entry could vanish from its
+  // detail page (BL-053). The invoice's payments already name their JEs.
+  const payments = (data.payments as { journal_entry_id: string | null }[] | null) ?? []
+  const payJeIds = [...new Set(payments.map((p) => p.journal_entry_id).filter((x): x is string => !!x))]
 
   const { data: directJes, error: directJesErr } = await supabase
     .from('journal_entries')
@@ -1056,24 +1061,18 @@ export async function getInvoice(
     .order('entry_date', { ascending: true })
   if (directJesErr) throw queryFailed(directJesErr)
 
-  const { data: paymentJes, error: paymentJesErr } = await supabase
-    .from('journal_entries')
-    .select('id, entry_number, entry_date, memo, source, payments!payments_journal_entry_id_fkey(invoice_id)')
-    .eq('association_id', associationId)
-    .eq('source', 'ap_invoice')
-  if (paymentJesErr) throw queryFailed(paymentJesErr)
-
-  type PayJe = {
-    id: string
-    entry_number: string
-    entry_date: string
-    memo: string
-    source: string
-    payments: { invoice_id: string | null }[]
+  // One invoice has a handful of payments, so this `.in()` is short.
+  let payJesForThis: { id: string; entry_number: string; entry_date: string; memo: string; source: string }[] = []
+  if (payJeIds.length > 0) {
+    const { data: paymentJes, error: paymentJesErr } = await supabase
+      .from('journal_entries')
+      .select('id, entry_number, entry_date, memo, source')
+      .eq('association_id', associationId)
+      .eq('source', 'ap_invoice')
+      .in('id', payJeIds)
+    if (paymentJesErr) throw queryFailed(paymentJesErr)
+    payJesForThis = paymentJes ?? []
   }
-  const payJesForThis = ((paymentJes ?? []) as unknown as PayJe[]).filter((je) =>
-    (je.payments ?? []).some((p) => p.invoice_id === invoiceId),
-  )
 
   const seen = new Set<string>()
   const merged: { id: string; entry_number: string; entry_date: string; memo: string; source: string }[] = []
@@ -1097,6 +1096,54 @@ export async function getInvoice(
     ai_generated: data.ai_generated,
     journalEntries: merged,
   }
+}
+
+export interface PaymentPlanRow {
+  id: string
+  total_amount: number
+  installment_amount: number
+  installment_count: number
+  start_date: string
+  status: string
+  unit: { address_line1: string | null; unit_number: string | null } | null
+}
+
+/**
+ * Every payment plan on this association's units, newest start first.
+ *
+ * payment_plans is org-scoped, so it is narrowed through the association's
+ * unit ids. Both reads are paged to the end (BL-053): the unit list used to
+ * be one read, so past 1000 units the plans on the rest were silently
+ * missing. The id list is chunked to keep each request URL short.
+ */
+export async function loadPaymentPlans(associationId: string): Promise<PaymentPlanRow[]> {
+  const supabase = await getSupabaseServerClient()
+  type Page<T> = PromiseLike<{ data: T[] | null; error: { code?: string; message?: string } | null }>
+  const units = await readAll<{ id: string }>(
+    (from, to) =>
+      supabase
+        .from('units')
+        .select('id')
+        .eq('association_id', associationId)
+        .order('id', { ascending: true })
+        .range(from, to) as unknown as Page<{ id: string }>,
+    queryFailed,
+  )
+  const plans: PaymentPlanRow[] = []
+  for (const ids of chunk(units.map((u) => u.id))) {
+    const rows = await readAll<PaymentPlanRow>(
+      (from, to) =>
+        supabase
+          .from('payment_plans')
+          .select('id, total_amount, installment_amount, installment_count, start_date, status, unit:unit_id(address_line1, unit_number)')
+          .in('unit_id', ids)
+          .order('id', { ascending: true })
+          .range(from, to) as unknown as Page<PaymentPlanRow>,
+      queryFailed,
+    )
+    plans.push(...rows)
+  }
+  return plans.sort((a, b) => b.start_date.localeCompare(a.start_date) || a.id.localeCompare(b.id))
 }
 
 export async function listBankAccounts(

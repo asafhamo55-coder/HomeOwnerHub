@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@homeowner-portal/db'
 import { sendEventAlertEmail } from '@/lib/events-alerts'
+import { readAllResult } from '@/lib/supabase/read-all'
 import type { RecurringEvent } from '@/lib/events'
 
 // Daily cron — scans every org for recurring events whose alert window
@@ -66,14 +67,20 @@ export async function GET(request: Request): Promise<Response> {
   // reason about per-row alert_days_before without a complex SQL expr.
   // Service-role bypass means we see every org's rows.
   const ninetyDaysFromNowIso = isoPlusDays(todayIso, 90)
-  const { data: rows, error } = await admin
-    .from('hoa_recurring_events' as never)
-    .select(
-      'id, organization_id, association_id, title, description, event_date, recurrence, alert_days_before, notify_channels, notify_audience, last_alert_sent_at, last_alert_sent_for, is_active, created_at',
-    )
-    .eq('is_active', true)
-    .lte('event_date', ninetyDaysFromNowIso)
-    .limit(1000)
+  // Paged to the end (BL-053): a single read stops at PostgREST's 1000-row
+  // cap, and events past it were never alerted. Every page is read before
+  // any send, so a failed page sends nothing.
+  const { data: rows, error } = await readAllResult<unknown>((from, to) =>
+    admin
+      .from('hoa_recurring_events' as never)
+      .select(
+        'id, organization_id, association_id, title, description, event_date, recurrence, alert_days_before, notify_channels, notify_audience, last_alert_sent_at, last_alert_sent_for, is_active, created_at',
+      )
+      .eq('is_active', true)
+      .lte('event_date', ninetyDaysFromNowIso)
+      .order('id', { ascending: true })
+      .range(from, to) as unknown as PromiseLike<{ data: unknown[] | null; error: { code?: string; message?: string } | null }>,
+  )
 
   if (error) {
     return NextResponse.json(

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { readAllResult } from '@/lib/supabase/read-all'
 
 // CSV export of the properties list, scoped to the current user's org
 // via RLS (the server client carries their session). Honors `?tenure=`
@@ -62,33 +63,40 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = await getSupabaseServerClient()
-  let query = supabase
-    .from('hoa_properties')
-    .select(
-      'id, address, unit_number, owner_name, owner_email, owner_phone, tenure, notes, created_at, updated_at',
-    )
-    .eq('org_id', org.id)
-    .order('address', { ascending: true })
-  if (activeTenure !== 'all') {
-    query = query.eq('tenure' as never, activeTenure)
-  }
-  if (search.length > 0) {
-    // Cap length to prevent pathological inputs, escape LIKE wildcards
-    // (`%`, `_`, `\`) so they don't match everything, and strip
-    // PostgREST `.or()` separators (`,`, `(`, `)`).
-    const safe = search
-      .slice(0, 100)
-      .replace(/[%_\\]/g, '\\$&')
-      .replace(/[,()]/g, ' ')
-    query = query.or(
-      `address.ilike.%${safe}%,unit_number.ilike.%${safe}%,owner_name.ilike.%${safe}%,owner_email.ilike.%${safe}%`,
-    )
-  }
-  const { data, error } = await query
+  // Cap length to prevent pathological inputs, escape LIKE wildcards
+  // (`%`, `_`, `\`) so they don't match everything, and strip
+  // PostgREST `.or()` separators (`,`, `(`, `)`).
+  const safe = search
+    .slice(0, 100)
+    .replace(/[%_\\]/g, '\\$&')
+    .replace(/[,()]/g, ' ')
+  // Paged to the end (BL-053): one read stops at PostgREST's 1000-row cap,
+  // so a larger community exported a silently short file. A fresh query
+  // per page, with `id` as the tiebreak so pages never overlap.
+  const { data, error } = await readAllResult<PropertyRow>((from, to) => {
+    let query = supabase
+      .from('hoa_properties')
+      .select(
+        'id, address, unit_number, owner_name, owner_email, owner_phone, tenure, notes, created_at, updated_at',
+      )
+      .eq('org_id', org.id)
+    if (activeTenure !== 'all') {
+      query = query.eq('tenure' as never, activeTenure)
+    }
+    if (search.length > 0) {
+      query = query.or(
+        `address.ilike.%${safe}%,unit_number.ilike.%${safe}%,owner_name.ilike.%${safe}%,owner_email.ilike.%${safe}%`,
+      )
+    }
+    return query
+      .order('address', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to) as unknown as PromiseLike<{ data: PropertyRow[] | null; error: { code?: string; message?: string } | null }>
+  })
   if (error) {
     return NextResponse.json({ error: 'query_failed', message: error.message }, { status: 500 })
   }
-  const rows = (data ?? []) as unknown as PropertyRow[]
+  const rows = data ?? []
 
   const header = [
     'Address',
