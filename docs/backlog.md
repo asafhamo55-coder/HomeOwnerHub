@@ -600,3 +600,10 @@ These go beyond the design-system v2 pass:
   only): /hoa, /compare, Madison Park case study, workflows grid still name
   Reserve Live / Minutes Engine. Out of HOA-app scope except where they sell the
   HOA product.
+- **BL-043 Association-timezone "today"** (found by the c2 date fix): `todayIso()`,
+  `resident-dashboard.ts` and the ledger's `paid_at.slice(0, 10)` use the UTC day,
+  so after ~8pm Eastern charges read "due today" a day early and late-evening
+  payments post to the next day. Dashboard overdue math (`dashboard/queries.ts`,
+  `charts.ts`, `community-qa/tools.ts`) parses date-only columns as UTC midnight.
+  `bank-rec.ts:164` stores `paid_at` from a date-only value — needs a decision.
+  Fix: one association timezone (default America/New_York) and date-only helpers.
