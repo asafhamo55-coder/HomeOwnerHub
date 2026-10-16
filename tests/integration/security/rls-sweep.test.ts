@@ -31,6 +31,10 @@ import { createClient } from '@supabase/supabase-js'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { buildRecipientIdentityFilters } from '../../../apps/hoa/src/lib/communications/resident-scope'
 import {
+  fetchResidentDocumentFile,
+  fetchResidentDocuments,
+} from '../../../apps/hoa/src/lib/resident-documents/query'
+import {
   adminDb,
   makeOrg,
   makeUnit,
@@ -121,8 +125,21 @@ async function seedWorld(): Promise<World> {
     if (error) throw new Error(`seed spare membership: ${error.message}`)
   }
 
+  // Owner contact and board notes on every property and unit (C-19): the
+  // columns a resident must never read for anyone else's row. Fictional.
   const prop = (label: string) =>
-    insertAs('hoa_properties', { org_id: org.orgId, address: `${rand()} ${label} Way` }, `prop ${label}`)
+    insertAs(
+      'hoa_properties',
+      {
+        org_id: org.orgId,
+        address: `${rand()} ${label} Way`,
+        owner_name: `Owner ${label}`,
+        owner_email: `owner-${label.toLowerCase()}-${rand()}@example.test`,
+        owner_phone: '555-0100',
+        notes: `board note ${label}`,
+      },
+      `prop ${label}`,
+    )
   const propMine = await prop('Mine')
   const propNeighbor = await prop('Neighbor')
   const propEmail = await prop('Email')
@@ -135,6 +152,7 @@ async function seedWorld(): Promise<World> {
         association_id: org.associationId,
         address_line1: `${rand()} ${label} Way`,
         legacy_hoa_property_id: legacy,
+        notes: `board note ${label}`,
       },
       `unit ${label}`,
     )
@@ -235,6 +253,50 @@ async function seedWorld(): Promise<World> {
     'governing_documents',
     { ...base, association_id: org.associationId, type: 'rules', title: 'Rules' },
     'gov doc',
+  )
+
+  // Board-only material in member-readable tables (C-19): a collection
+  // letter filed as "other", draft minutes, unreviewed / superseded
+  // governing documents and the chunks of one.
+  ids.docOther = await insertAs(
+    'hoa_documents',
+    { org_id: org.orgId, name: 'Collection letter', type: 'other', storage_path: `${org.orgId}/letter.pdf` },
+    'hoa doc other',
+  )
+  ids.docMinutes = await insertAs(
+    'hoa_documents',
+    { org_id: org.orgId, name: 'Draft minutes', type: 'minutes', storage_path: `${org.orgId}/minutes.pdf` },
+    'hoa doc minutes',
+  )
+  ids.meetingApproved = await insertAs(
+    'hoa_meeting_minutes',
+    { org_id: org.orgId, meeting_date: '2026-02-10', status: 'approved', raw_transcript: 'executive session' },
+    'meeting approved',
+  )
+  ids.govMinutes = await insertAs(
+    'governing_documents',
+    { ...base, association_id: org.associationId, type: 'minutes', title: 'Board minutes' },
+    'gov minutes',
+  )
+  ids.govSuperseded = await insertAs(
+    'governing_documents',
+    { ...base, association_id: org.associationId, type: 'rules', title: 'Old rules', superseded_at: new Date().toISOString() },
+    'gov superseded',
+  )
+  ids.govAi = await insertAs(
+    'governing_documents',
+    { ...base, association_id: org.associationId, type: 'policy', title: 'AI draft policy', ai_generated: true },
+    'gov ai',
+  )
+  ids.chunkVisible = await insertAs(
+    'governing_document_chunks',
+    { ...base, document_id: ids.govDoc, ordinal: 1, text: 'Quiet hours are 10pm.' },
+    'chunk visible',
+  )
+  ids.chunkHidden = await insertAs(
+    'governing_document_chunks',
+    { ...base, document_id: ids.govMinutes, ordinal: 1, text: 'The board discussed a delinquent owner.' },
+    'chunk hidden',
   )
 
   // Submission threads.
@@ -400,21 +462,24 @@ const MATRIX: Entry[] = [
     row: (w) => ({ organization_id: w.org.orgId, association_id: w.org.associationId, address_line1: `${rand()} Matrix Way` }),
     patch: { address_line1: 'tampered' },
     col: 'address_line1',
-    residentReadsOrgWide: true,
+    // C-19: residents read only their own / resident-visible rows.
+    residentReadsOrgWide: false,
   },
   {
     table: 'hoa_properties',
     row: (w) => ({ org_id: w.org.orgId, address: `${rand()} Matrix Way` }),
     patch: { owner_email: 'tampered@example.test' },
     col: 'owner_email',
-    residentReadsOrgWide: true,
+    // C-19: residents read only their own / resident-visible rows.
+    residentReadsOrgWide: false,
   },
   {
     table: 'hoa_documents',
     row: (w) => ({ org_id: w.org.orgId, name: 'Doc', type: 'other', storage_path: `${w.org.orgId}/${rand()}.pdf` }),
     patch: { name: 'tampered' },
     col: 'name',
-    residentReadsOrgWide: true,
+    // C-19: residents read only their own / resident-visible rows.
+    residentReadsOrgWide: false,
   },
   {
     table: 'hoa_document_versions',
@@ -434,7 +499,8 @@ const MATRIX: Entry[] = [
     row: (w) => ({ org_id: w.org.orgId, meeting_date: '2026-01-15', status: 'draft' }),
     patch: { status: 'approved' },
     col: 'status',
-    residentReadsOrgWide: true,
+    // C-19: residents read only their own / resident-visible rows.
+    residentReadsOrgWide: false,
   },
   {
     table: 'hoa_recurring_events',
@@ -814,6 +880,171 @@ describe('resident reads are scoped to what is theirs', () => {
     expect(await visible(w.resident.client, 'notifications', [w.ids.notifBoard, w.ids.notifResident])).toEqual([w.ids.notifResident])
     expect(await visible(w.resident.client, 'push_subscriptions', [w.ids.pushBoard])).toEqual([])
     expect(await visible(w.resident.client, 'resident_communication_preferences', [w.ids.prefNeighbor])).toEqual([])
+  })
+})
+
+// ─── C-19: owner contact list and board notes ───────────────────────
+//
+// hoa_properties holds owner_name / owner_email / owner_phone and the
+// board's notes; units holds board notes. Before the C-19 amendment 0063
+// left both readable by every org member, so one resident login plus the
+// anon key pulled the whole HOA's owner contact list over REST.
+
+const OWNER_PII = ['owner_name', 'owner_email', 'owner_phone', 'notes'] as const
+
+describe("owner privacy (C-19): a resident never reads another unit's owner contact or notes", () => {
+  it('hoa_properties: a bulk REST pull of the whole org returns only their own property', async () => {
+    for (const [user, expected] of [
+      [w.resident, [w.propMine]],
+      [w.emailResident, [w.propEmail]],
+      [w.neighbor, [w.propNeighbor]],
+    ] as const) {
+      const { data, error } = await user.client
+        .from('hoa_properties')
+        .select(`id, ${OWNER_PII.join(', ')}`)
+        .eq('org_id', w.org.orgId)
+      expect(error).toBeNull()
+      expect(((data ?? []) as unknown as Array<{ id: string }>).map((r) => r.id)).toEqual([...expected])
+    }
+  })
+
+  it("hoa_properties: the neighbour's row is invisible by id, column by column, and as a filter oracle", async () => {
+    for (const col of OWNER_PII) {
+      const { data, error } = await w.resident.client.from('hoa_properties').select(col).eq('id', w.propNeighbor)
+      expect(error).toBeNull()
+      expect(data ?? [], `resident read neighbour ${col}`).toEqual([])
+    }
+    // Filtering on a value must not confirm it either.
+    const neighbour = await readRow('hoa_properties', w.propNeighbor)
+    const { data: probe } = await w.resident.client
+      .from('hoa_properties')
+      .select('id')
+      .eq('owner_email', String(neighbour?.owner_email))
+    expect(probe ?? []).toEqual([])
+  })
+
+  it('units: only their own unit (board notes on anyone else stay hidden)', async () => {
+    for (const [user, expected] of [
+      [w.resident, [w.unitMine]],
+      [w.emailResident, [w.unitEmail]],
+    ] as const) {
+      const { data, error } = await user.client.from('units').select('id, notes').eq('organization_id', w.org.orgId)
+      expect(error).toBeNull()
+      expect((data ?? []).map((r) => r.id)).toEqual([...expected])
+    }
+  })
+
+  it("auth_resident_property_ids(): the caller's own ids only; anon cannot call it", async () => {
+    for (const [user, expected] of [
+      [w.resident, [w.propMine]],
+      [w.emailResident, [w.propEmail]],
+    ] as const) {
+      const { data, error } = await user.client.rpc('auth_resident_property_ids' as never)
+      expect(error).toBeNull()
+      expect([...((data ?? []) as string[])].sort()).toEqual([...expected])
+    }
+    // 0063 revokes EXECUTE from anon, but local-db-reset re-grants every
+    // routine to anon after replay (stock Supabase), so assert the part
+    // that holds either way: no login, no ids.
+    const anon = createClient(LOCAL_SUPABASE_URL, LOCAL_ANON_KEY, { auth: { persistSession: false } })
+    const { data: anonIds, error: anonErr } = await anon.rpc('auth_resident_property_ids' as never)
+    expect(anonErr !== null || ((anonIds ?? []) as string[]).length === 0).toBe(true)
+  })
+
+  it('board-only documents, minutes and governing drafts are invisible; the allowlisted ones are not', async () => {
+    expect(await visible(w.resident.client, 'hoa_documents', [w.ids.doc, w.ids.docOther, w.ids.docMinutes])).toEqual([w.ids.doc])
+    expect(await visible(w.resident.client, 'hoa_meeting_minutes', [w.ids.meeting, w.ids.meetingApproved])).toEqual([])
+    expect(
+      await visible(w.resident.client, 'governing_documents', [w.ids.govDoc, w.ids.govMinutes, w.ids.govSuperseded, w.ids.govAi]),
+    ).toEqual([w.ids.govDoc])
+    expect(await visible(w.resident.client, 'governing_document_chunks', [w.ids.chunkVisible, w.ids.chunkHidden])).toEqual([
+      w.ids.chunkVisible,
+    ])
+  })
+
+  it('every resident page still loads its data (exact app query shapes)', async () => {
+    // lib/resident.ts getOwnedUnits, ownership path: the units join.
+    const { data: owned } = await w.resident.client
+      .from('ownerships')
+      .select('unit_id, ownership_pct, valid_from, unit:units(unit_number, address_line1, association_id)')
+      .eq('owner_user_id', w.resident.id)
+      .is('valid_to', null)
+    const ownedRows = (owned ?? []) as unknown as Array<{ unit: { address_line1: string | null } | null }>
+    expect(ownedRows).toHaveLength(1)
+    expect(ownedRows[0]?.unit?.address_line1, 'ownership units join empty').toBeTruthy()
+
+    // getOwnedUnits email fallback: property_residents -> hoa_properties, then units.
+    const { data: pr } = await w.emailResident.client
+      .from('property_residents' as never)
+      .select('property_id, role, moved_in_at, property:hoa_properties(id, address, unit_number, org_id)')
+      .ilike('email' as never, w.emailResident.email)
+      .is('moved_out_at' as never, null)
+    const prRows = (pr ?? []) as unknown as Array<{ property: { id: string; address: string | null } | null }>
+    expect(prRows.map((r) => r.property?.id)).toEqual([w.propEmail])
+    expect(prRows[0]?.property?.address, 'email-fallback hoa_properties join empty').toBeTruthy()
+    const { data: links } = await w.emailResident.client
+      .from('units')
+      .select('id, legacy_hoa_property_id, association_id')
+      .in('legacy_hoa_property_id', [w.propEmail])
+    expect((links ?? []).map((u) => u.id)).toEqual([w.unitEmail])
+
+    // lib/resident-dashboard.ts getOpenViolations: unit -> legacy property -> violations.
+    const { data: unitRows, error: uErr } = await w.resident.client
+      .from('units')
+      .select('legacy_hoa_property_id')
+      .in('id', [w.unitMine])
+    expect(uErr).toBeNull()
+    expect((unitRows ?? []).map((u) => u.legacy_hoa_property_id)).toEqual([w.propMine])
+    const { data: vio } = await w.resident.client.from('hoa_violations').select('id').in('property_id', [w.propMine])
+    expect((vio ?? []).map((v) => v.id)).toEqual([w.ids.vioMine])
+
+    // /resident/documents (BL-049): the real query module, own client.
+    const docs = await fetchResidentDocuments(w.resident.client, w.org.orgId)
+    const docIds = docs.map((d) => d.id)
+    expect(docIds).toEqual(expect.arrayContaining([w.ids.doc, w.ids.govDoc]))
+    for (const hidden of [w.ids.docOther, w.ids.docMinutes, w.ids.govMinutes, w.ids.govSuperseded, w.ids.govAi]) {
+      expect(docIds).not.toContain(hidden)
+    }
+    expect(await fetchResidentDocumentFile(w.resident.client, w.org.orgId, 'hoa', w.ids.doc)).not.toBeNull()
+
+    // Pay screen: associations (name + Zelle block) is unchanged.
+    const { data: assoc } = await w.resident.client
+      .from('associations')
+      .select('id, name, slug, compliance_settings')
+      .eq('id', w.org.associationId)
+      .maybeSingle()
+    expect(assoc?.id).toBe(w.org.associationId)
+  })
+
+  it('board and admin still read every property, unit, document and minutes row in full', async () => {
+    for (const actor of [w.board, w.admin]) {
+      const { data: props, error } = await actor.client
+        .from('hoa_properties')
+        .select(`id, ${OWNER_PII.join(', ')}`)
+        .in('id', [w.propMine, w.propNeighbor, w.propEmail])
+      expect(error).toBeNull()
+      const rows = (props ?? []) as unknown as Array<Record<string, string | null>>
+      expect(rows).toHaveLength(3)
+      for (const r of rows) for (const col of OWNER_PII) expect(r[col], `board lost ${col}`).toBeTruthy()
+
+      const { data: units } = await actor.client
+        .from('units')
+        .select('id, notes')
+        .in('id', [w.unitMine, w.unitNeighbor, w.unitEmail])
+      expect((units ?? []).filter((u) => u.notes)).toHaveLength(3)
+
+      expect(await visible(actor.client, 'hoa_documents', [w.ids.doc, w.ids.docOther, w.ids.docMinutes])).toHaveLength(3)
+      expect(await visible(actor.client, 'hoa_meeting_minutes', [w.ids.meeting, w.ids.meetingApproved])).toHaveLength(2)
+      expect(
+        await visible(actor.client, 'governing_documents', [w.ids.govDoc, w.ids.govMinutes, w.ids.govSuperseded, w.ids.govAi]),
+      ).toHaveLength(4)
+      expect(await visible(actor.client, 'governing_document_chunks', [w.ids.chunkVisible, w.ids.chunkHidden])).toHaveLength(2)
+    }
+  })
+
+  it('a board member of another org reads none of it', async () => {
+    expect(await visible(w.foreignBoard.client, 'hoa_properties', [w.propMine, w.propNeighbor])).toEqual([])
+    expect(await visible(w.foreignBoard.client, 'units', [w.unitMine, w.unitNeighbor])).toEqual([])
   })
 })
 

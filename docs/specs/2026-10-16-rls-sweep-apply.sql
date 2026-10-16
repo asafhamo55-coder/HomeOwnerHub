@@ -13,7 +13,8 @@
 -- the new policies. Deploying the code first is the safer order.
 --
 -- Rollback: PART 1a's output is the rollback reference. Re-create the
--- listed policies verbatim (and DROP the 127 new ones) to restore the
+-- listed policies verbatim (and DROP the 127 new ones, plus
+-- DROP FUNCTION public.auth_resident_property_ids()) to restore the
 -- previous behaviour. Not expected to be needed; every resident and board
 -- path is covered by tests/integration/security/rls-sweep.test.ts.
 
@@ -44,7 +45,9 @@ SELECT tablename, policyname, cmd, roles::text, qual, with_check
 
 -- ─── PART 1b: pre-check, prerequisites + counts (read-only) ───────────
 -- Every has_* / *_exists column must be true. swept_tables_present must
--- be 33. current_policy_count is informational (compare with 1a's rows).
+-- be 33. current_policy_count is informational (compare with 1a's rows;
+-- 46 on a clean replay of 0000-0062). has_auth_resident_property_ids is
+-- informational too: false before part 2 (0063 creates it), true after.
 SELECT
   (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'public' AND c.relkind = 'r'
@@ -87,6 +90,19 @@ SELECT
            AND table_name = 'resident_violation_reports' AND column_name = 'hoa_violation_id') AS report_cols_exist,
   EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public'
            AND table_name = 'communication_recipients' AND column_name = 'email') AS recipient_email_exists,
+  -- C-19: the columns the new resident predicates read
+  (SELECT count(*) = 3 FROM information_schema.columns WHERE table_schema = 'public'
+           AND table_name = 'property_residents'
+           AND column_name IN ('property_id', 'email', 'moved_out_at'))         AS property_residents_cols_exist,
+  (SELECT count(*) = 3 FROM information_schema.columns WHERE table_schema = 'public'
+           AND table_name = 'governing_documents'
+           AND column_name IN ('type', 'superseded_at', 'ai_generated'))        AS governing_doc_cols_exist,
+  EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public'
+           AND table_name = 'hoa_documents' AND column_name = 'type')           AS hoa_doc_type_exists,
+  EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public'
+           AND table_name = 'governing_document_chunks' AND column_name = 'document_id') AS chunk_doc_link_exists,
+  -- informational: false before part 2, true after
+  to_regprocedure('public.auth_resident_property_ids()') IS NOT NULL           AS has_auth_resident_property_ids,
   -- informational: is the 0028 ops view currently open to anon? (0063 closes it)
   to_regclass('public.property_bridge_gaps') IS NOT NULL
     AND has_table_privilege('anon', 'public.property_bridge_gaps', 'SELECT')    AS bridge_gaps_open_to_anon;
@@ -94,15 +110,28 @@ SELECT
 -- ─── PART 2: apply ────────────────────────────────────────────────────
 -- Paste the ENTIRE contents of migrations/0063_rls_sweep.sql (one DO
 -- block, no BEGIN/COMMIT). Expected output:
---   NOTICE: 0063 ok: 33 tables swept, 127 policies on them.
+--   NOTICE: 0063 ok: 33 tables swept, 127 policies on them, 5 org-wide
+--   member SELECT policies (C-19), auth_resident_property_ids present.
+-- The 5 org-wide member reads are associations, hoa_recurring_events,
+-- communication_templates, hoa_document_versions (through its document,
+-- which is itself type-filtered) and orgs. Before the C-19 amendment the
+-- same count was 11 (units, hoa_properties, hoa_documents,
+-- hoa_meeting_minutes, governing_documents, governing_document_chunks).
 -- It is idempotent: re-running prints the same notice.
 
 -- ─── PART 3: verify (read-only) ───────────────────────────────────────
--- Every column must be true, except policy_count (a number, expect 127)
+-- Every column must be true, except policy_count (a number, expect 127),
+-- member_wide_select_tables (a list, expect exactly
+-- {associations,communication_templates,hoa_document_versions,hoa_recurring_events,orgs})
 -- and bridge_gaps_not_anon, which is defence in depth: the view is
 -- closed by security_invoker (RLS applies, and anon has no org), so a
 -- later blanket GRANT re-opening the table privilege does not re-open the
--- data. Expect true right after part 2.
+-- data. Expect true right after part 2. rp_helper_not_anon is defence in
+-- depth the same way: auth_resident_property_ids() returns {} without a
+-- login (no auth.uid(), empty email claim). Note: scripts/local-db-reset.ts
+-- re-grants every table and routine to anon AFTER replay, so on a fresh
+-- local reset both of these read false; they read true in production
+-- and after re-running part 2 locally.
 WITH swept(t) AS (
   VALUES ('units'), ('hoa_properties'), ('hoa_documents'), ('hoa_meeting_minutes'),
          ('hoa_recurring_events'), ('governing_documents'), ('governing_document_chunks'),
@@ -129,9 +158,11 @@ SELECT
   -- no FOR ALL policy left on any swept table
   NOT EXISTS (SELECT 1 FROM pol WHERE cmd = 'ALL')                                         AS no_for_all,
   (SELECT bool_and(c.relrowsecurity) FROM pg_class c JOIN swept s ON c.oid = ('public.' || s.t)::regclass) AS rls_enabled_all,
-  -- 13 tables x 4 (member-read 7 + board-only 6) + 6 own-read x 4 + associations 4
-  -- + templates 4 + doc versions 4 + notifications 2 + push 4 + prefs 4
-  -- + audit 2 + orgs 2 + tickets 4 + arc 5 + reports 4 + messages 3 x 4 = 127
+  -- 8 tables x 4 (member-read 1 + board-only 7) + 11 scoped-read x 4
+  -- (6 own-row + units, hoa_properties, hoa_documents, governing_documents,
+  -- governing_document_chunks) + associations 4 + templates 4 + doc versions 4
+  -- + notifications 2 + push 4 + prefs 4 + audit 2 + orgs 2 + tickets 4
+  -- + arc 5 + reports 4 + messages 3 x 4 = 127
   (SELECT count(*) FROM pol) = 127                                                         AS policy_count_127,
   (SELECT count(*) FROM pol)                                                               AS policy_count,
   -- every policy is TO authenticated (none for anon / public)
@@ -154,4 +185,33 @@ SELECT
   (SELECT coalesce('security_invoker=true' = ANY (reloptions), false)
      FROM pg_class WHERE oid = 'public.property_bridge_gaps'::regclass)                    AS bridge_gaps_invoker,
   -- ... and is not granted to anon (defence in depth, see header)
-  NOT has_table_privilege('anon', 'public.property_bridge_gaps', 'SELECT')                AS bridge_gaps_not_anon;
+  NOT has_table_privilege('anon', 'public.property_bridge_gaps', 'SELECT')                AS bridge_gaps_not_anon,
+  -- ─── C-19: owner contact, board notes, board-only documents ───────
+  -- RP helper exists, is SECURITY DEFINER, and anon cannot run it
+  (SELECT prosecdef FROM pg_proc WHERE oid = to_regprocedure('public.auth_resident_property_ids()')) AS rp_helper_definer,
+  NOT has_function_privilege('anon', 'public.auth_resident_property_ids()', 'EXECUTE')    AS rp_helper_not_anon,
+  has_function_privilege('authenticated', 'public.auth_resident_property_ids()', 'EXECUTE') AS rp_helper_authenticated,
+  -- residents read only their own properties / units
+  (SELECT qual LIKE '%auth_is_board_or_admin(org_id)%' AND qual LIKE '%auth_resident_property_ids()%'
+     FROM pol WHERE tablename = 'hoa_properties' AND cmd = 'SELECT')                       AS hoa_properties_select_own_only,
+  (SELECT qual LIKE '%auth_is_board_or_admin(organization_id)%' AND qual LIKE '%auth_resident_unit_ids()%'
+     FROM pol WHERE tablename = 'units' AND cmd = 'SELECT')                                AS units_select_own_only,
+  -- minutes are board-only for every command
+  (SELECT count(*) = 4 AND bool_and(coalesce(qual, with_check) LIKE '%auth_is_board_or_admin%')
+     FROM pol WHERE tablename = 'hoa_meeting_minutes')                                     AS minutes_board_only,
+  -- documents and chunks: board, or the resident-visible types only
+  (SELECT qual LIKE '%ccr%' AND qual NOT LIKE '%other%'
+     FROM pol WHERE tablename = 'hoa_documents' AND cmd = 'SELECT')                        AS hoa_documents_type_filtered,
+  (SELECT qual LIKE '%superseded_at IS NULL%' AND qual LIKE '%ai_generated IS NOT TRUE%'
+     FROM pol WHERE tablename = 'governing_documents' AND cmd = 'SELECT')                  AS governing_documents_filtered,
+  (SELECT qual LIKE '%superseded_at IS NULL%'
+     FROM pol WHERE tablename = 'governing_document_chunks' AND cmd = 'SELECT')            AS chunks_follow_their_document,
+  -- exactly these tables keep an org-wide member SELECT (no role or own-row term)
+  (SELECT array_agg(tablename::text ORDER BY tablename) FROM pol
+    WHERE cmd = 'SELECT' AND qual NOT LIKE '%auth_is_board_or_admin%'
+      AND qual NOT LIKE '%auth.uid()%' AND qual NOT LIKE '%auth.jwt()%')                   AS member_wide_select_tables,
+  (SELECT array_agg(tablename::text ORDER BY tablename) FROM pol
+    WHERE cmd = 'SELECT' AND qual NOT LIKE '%auth_is_board_or_admin%'
+      AND qual NOT LIKE '%auth.uid()%' AND qual NOT LIKE '%auth.jwt()%')
+    = ARRAY['associations', 'communication_templates', 'hoa_document_versions',
+            'hoa_recurring_events', 'orgs']                                                AS member_wide_select_expected;
