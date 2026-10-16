@@ -1,7 +1,7 @@
 import { serve } from 'inngest/next'
 import {
   inngest,
-  dailyDigestJob,
+  createDailyDigestJob,
   hoaLateFeeJob,
   pmLateFeeJob,
   evictionReminderJob,
@@ -19,6 +19,12 @@ import {
   recurringJeJob,
   plaidSyncJob,
 } from '@homeowner-portal/jobs'
+import { sendEmail, appUrl } from '@/lib/email'
+
+// The morning mailbox check emails the board when sync is broken (BL-003).
+// It takes this app's sendEmail — guarded by BL-004 — because the email
+// transport lives here, not in packages/jobs.
+const dailyDigestJob = createDailyDigestJob({ sendEmail, appUrl })
 
 // Seventeen functions (crons and event listeners) mount in the HOA app. Inngest is a single
 // app-id ("homeownerhub") so it doesn't matter where the handler lives —

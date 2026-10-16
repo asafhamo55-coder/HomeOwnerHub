@@ -1,5 +1,6 @@
 export { inngest } from './client'
-export { dailyDigestJob } from './daily-digest'
+export { createDailyDigestJob } from './daily-digest'
+export type { DailyDigestDeps } from './daily-digest'
 export { hoaLateFeeJob } from './hoa-late-fees'
 export { recurringJeJob } from './recurring-jes'
 export { plaidSyncJob } from './plaid-sync'
