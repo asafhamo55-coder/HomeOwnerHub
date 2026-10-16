@@ -39,9 +39,18 @@ const duesRemindersJob = createDuesRemindersJob(duesReminderDeps)
 // and apps/pm could mount the same handler if they need their own
 // inngest.send() event ingress, but for now they don't.
 //
-// Webhooks (which Stripe POSTs to /api/inngest from outside) are exempt
-// from auth middleware: the matcher in src/middleware.ts excludes
-// /api/inngest already.
+// Only Inngest calls this route (Stripe posts to /api/webhooks/stripe, not
+// here). It carries no user session, so the matcher in src/middleware.ts
+// excludes exactly /api/inngest (anchored with `$`). Auth is the SDK's
+// signature check on every request: in cloud mode serve() rejects an
+// unsigned or wrongly signed call with 401 and fails closed when
+// INNGEST_SIGNING_KEY is unset (route.test.ts pins both).
+//
+// Conventions exemption (api-route-conventions RC-10/RC-1): serve() owns
+// GET/POST/PUT, their bodies and statuses, so the handlers are not wrapped
+// in withRoute and do not use the error envelope. Job failures are reported
+// by the client's failure-reporting middleware, not by this route.
+//
 // Background work runs here, not in a request a human is waiting on: a
 // mailbox sync pages through Gmail, the embedding job makes a paid provider
 // call per chunk, and a send talks to the Gmail API. The platform default is
