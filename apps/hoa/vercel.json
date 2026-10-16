@@ -1,6 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
-    { "path": "/api/cron/recurring-events", "schedule": "0 14 * * *" }
-  ]
+    {
+      "path": "/api/cron/recurring-events",
+      "schedule": "0 14 * * *"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "claude/phase1-homeownerhub-setup-MILNu": true
+    }
+  }
 }

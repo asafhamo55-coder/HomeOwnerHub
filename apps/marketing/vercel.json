@@ -3,5 +3,11 @@
   "buildCommand": "cd ../.. && pnpm --filter marketing build",
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "outputDirectory": ".next",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "claude/phase1-homeownerhub-setup-MILNu": true
+    }
+  }
 }
