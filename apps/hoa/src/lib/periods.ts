@@ -6,6 +6,8 @@ import { postJournalEntry } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { readAll } from '@/lib/supabase/read-all'
+import { queryFailed, readLedgerLines } from '@/lib/accounting/queries'
 
 export type ClosePeriodResult =
   | { ok: true; closingJeIds: string[]; netIncome: number }
@@ -71,14 +73,47 @@ export async function closePeriod(input: {
     .eq('status', 'open') // optimistic concurrency
   if (tErr) return { ok: false, error: `tombstone: ${tErr.message}` }
 
-  // 3. Read every posted income/expense ledger entry for the period.
-  const { data: jes } = await supabase
-    .from('journal_entries')
-    .select('id')
-    .eq('association_id', assoc.id)
-    .eq('fiscal_period_id', period.id)
-    .eq('status', 'posted')
-  const jeIds = (jes ?? []).map((r) => r.id)
+  type LineShape = {
+    debit_amount: number
+    credit_amount: number
+    account_id: string
+    fund_id: string
+    account: { account_number: string; account_name: string; account_type: string } | null
+  }
+
+  // 3. Read every posted ledger line for the period. Both reads page to
+  // the end (BL-047): PostgREST caps a response at 1000 rows, and closing
+  // entries sized from a capped read post the WRONG amount to equity. A
+  // failed read (previously ignored, i.e. "no entries") now reopens the
+  // period and refuses.
+  let jeIds: string[]
+  let lines: LineShape[] = []
+  try {
+    const jes = await readAll<{ id: string }>(
+      (from, to) =>
+        supabase
+          .from('journal_entries')
+          .select('id')
+          .eq('association_id', assoc.id)
+          .eq('fiscal_period_id', period.id)
+          .eq('status', 'posted')
+          .order('id', { ascending: true })
+          .range(from, to),
+      queryFailed,
+    )
+    jeIds = jes.map((r) => r.id)
+    if (jeIds.length > 0) {
+      lines = await readLedgerLines<LineShape>(
+        supabase,
+        'id, debit_amount, credit_amount, account_id, fund_id, account:account_id(account_number, account_name, account_type)',
+        jeIds,
+      )
+    }
+  } catch (e) {
+    console.error('closePeriod: ledger read failed', { message: e instanceof Error ? e.message : 'unknown' })
+    await supabase.from('fiscal_periods').update({ status: 'open' }).eq('id', period.id)
+    return { ok: false, error: "Couldn't read this period's ledger, so nothing was closed. Try again." }
+  }
 
   const closingJeIds: string[] = []
 
@@ -95,21 +130,6 @@ export async function closePeriod(input: {
     return { ok: true, closingJeIds, netIncome: 0 }
   }
 
-  const { data: lines } = await supabase
-    .from('ledger_entries')
-    .select(
-      'debit_amount, credit_amount, account_id, fund_id, account:account_id(account_number, account_name, account_type)',
-    )
-    .in('journal_entry_id', jeIds)
-
-  type LineShape = {
-    debit_amount: number
-    credit_amount: number
-    account_id: string
-    fund_id: string
-    account: { account_number: string; account_name: string; account_type: string } | null
-  }
-
   // Aggregate per (fund_id, account_id). Track account_type so we know
   // which side to close.
   const agg = new Map<
@@ -117,7 +137,7 @@ export async function closePeriod(input: {
     { fundId: string; accountId: string; accountType: 'income' | 'expense'; debit: number; credit: number }
   >()
 
-  for (const l of (lines ?? []) as LineShape[]) {
+  for (const l of lines) {
     if (!l.account) continue
     const type = l.account.account_type
     if (type !== 'income' && type !== 'expense') continue

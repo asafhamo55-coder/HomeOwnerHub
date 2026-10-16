@@ -10,7 +10,7 @@ import { chunk, readAll } from '@/lib/supabase/read-all'
  * a balanced, empty one. Pages wrap these helpers in `tryLoad` and render
  * `LoadFailed` (docs/specs/2026-10-15-enterprise-ux-plan.md, finding 1).
  */
-function queryFailed(error: { code?: string; message?: string }): Error {
+export function queryFailed(error: { code?: string; message?: string }): Error {
   return new Error(`accounting query failed (${error.code ?? 'no code'}): ${error.message ?? ''}`)
 }
 
@@ -22,7 +22,7 @@ type ServerClient = Awaited<ReturnType<typeof getSupabaseServerClient>>
  * PostgREST caps a response at 1000 rows and a statement summed from a
  * capped read is silently wrong (UX decision 11).
  */
-async function readLedgerLines<T>(supabase: ServerClient, columns: string, jeIds: string[]): Promise<T[]> {
+export async function readLedgerLines<T>(supabase: ServerClient, columns: string, jeIds: string[]): Promise<T[]> {
   const out: T[] = []
   for (const ids of chunk(jeIds)) {
     const rows = await readAll<T>(
@@ -633,46 +633,56 @@ export async function computeCashFlow(
   const cashIds = new Set((cashAccts ?? []).map((a) => a.id))
 
   // Opening balance: posted entries up to (but not including) start_date.
-  const { data: priorJes, error: priorJesErr } = await supabase
-    .from('journal_entries')
-    .select('id')
-    .eq('association_id', associationId)
-    .eq('status', 'posted')
-    .lt('entry_date', period.start_date)
-  if (priorJesErr) throw queryFailed(priorJesErr)
-  const priorIds = (priorJes ?? []).map((r) => r.id)
+  // Inception-to-date, so both reads page to the end (BL-047) — a single
+  // read stopped at PostgREST's 1000-row cap and understated opening cash.
+  const priorJes = await readAll<{ id: string }>(
+    (from, to) =>
+      supabase
+        .from('journal_entries')
+        .select('id')
+        .eq('association_id', associationId)
+        .eq('status', 'posted')
+        .lt('entry_date', period.start_date)
+        .order('id', { ascending: true })
+        .range(from, to),
+    queryFailed,
+  )
+  const priorIds = priorJes.map((r) => r.id)
 
   let openingCash = 0
   if (priorIds.length > 0 && cashIds.size > 0) {
-    const { data: priorLines, error: priorLinesErr } = await supabase
-      .from('ledger_entries')
-      .select('debit_amount, credit_amount, account_id')
-      .in('journal_entry_id', priorIds)
-    if (priorLinesErr) throw queryFailed(priorLinesErr)
-    for (const l of priorLines ?? []) {
+    const priorLines = await readLedgerLines<{ debit_amount: number; credit_amount: number; account_id: string }>(
+      supabase,
+      'id, debit_amount, credit_amount, account_id',
+      priorIds,
+    )
+    for (const l of priorLines) {
       if (!cashIds.has(l.account_id)) continue
       openingCash += Number(l.debit_amount) - Number(l.credit_amount)
     }
   }
 
-  // Period movements grouped by source.
-  const { data: periodJes, error: periodJesErr } = await supabase
-    .from('journal_entries')
-    .select(
-      'id, source, lines:ledger_entries(debit_amount, credit_amount, account_id)',
-    )
-    .eq('association_id', associationId)
-    .eq('fiscal_period_id', periodId)
-    .eq('status', 'posted')
-  if (periodJesErr) throw queryFailed(periodJesErr)
-
+  // Period movements grouped by source. Paged over the period's JEs; the
+  // embedded lines are per-JE and not subject to the top-level row cap.
   type JeShape = {
     source: string
     lines: { debit_amount: number; credit_amount: number; account_id: string }[]
   }
+  const periodJes = await readAll<JeShape>(
+    (from, to) =>
+      supabase
+        .from('journal_entries')
+        .select('id, source, lines:ledger_entries(debit_amount, credit_amount, account_id)')
+        .eq('association_id', associationId)
+        .eq('fiscal_period_id', periodId)
+        .eq('status', 'posted')
+        .order('id', { ascending: true })
+        .range(from, to) as unknown as PromiseLike<{ data: JeShape[] | null; error: { code?: string; message?: string } | null }>,
+    queryFailed,
+  )
 
   const agg = new Map<string, CashFlowRow>()
-  for (const je of (periodJes ?? []) as JeShape[]) {
+  for (const je of periodJes) {
     let cashDelta = 0
     for (const l of je.lines ?? []) {
       if (!cashIds.has(l.account_id)) continue
@@ -951,17 +961,23 @@ export async function summarizeUnpaidInvoices(
   today: string,
 ): Promise<UnpaidInvoiceSummary> {
   const supabase = await getSupabaseServerClient()
-  const { data, error } = await supabase
-    .from('invoices')
-    .select('amount, due_date, payments(amount)')
-    .eq('association_id', associationId)
-    .is('deleted_at', null)
-    .in('status', ['received', 'coded', 'approved'])
-    // PostgREST's default row cap would quietly truncate the sum.
-    .range(0, 49_999)
-  if (error) throw queryFailed(error)
+  // Paged to the end (BL-047): the old `.range(0, 49_999)` was still capped
+  // at PostgREST's 1000 rows, so the headline stopped at 1000 invoices.
+  type UnpaidRow = { amount: number; due_date: string | null; payments: { amount: number }[] }
+  const data = await readAll<UnpaidRow>(
+    (from, to) =>
+      supabase
+        .from('invoices')
+        .select('id, amount, due_date, payments(amount)')
+        .eq('association_id', associationId)
+        .is('deleted_at', null)
+        .in('status', ['received', 'coded', 'approved'])
+        .order('id', { ascending: true })
+        .range(from, to) as unknown as PromiseLike<{ data: UnpaidRow[] | null; error: { code?: string; message?: string } | null }>,
+    queryFailed,
+  )
   const out: UnpaidInvoiceSummary = { count: 0, total: 0, overdueCount: 0, overdueTotal: 0 }
-  for (const r of (data ?? []) as unknown as { amount: number; due_date: string | null; payments: { amount: number }[] }[]) {
+  for (const r of data) {
     const paid = (r.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
     const open = Math.max(Number(r.amount) - paid, 0)
     out.count++
@@ -1407,27 +1423,32 @@ export async function computeTrialBalance(
 ): Promise<TrialBalance> {
   const supabase = await getSupabaseServerClient()
 
-  // JE ids in this period, posted only.
-  const { data: jeRows, error: jeRowsErr } = await supabase
-    .from('journal_entries')
-    .select('id')
-    .eq('association_id', associationId)
-    .eq('fiscal_period_id', periodId)
-    .eq('status', 'posted')
-  if (jeRowsErr) throw queryFailed(jeRowsErr)
+  // JE ids in this period, posted only. Both reads page to the end
+  // (BL-047): a busy period passes PostgREST's 1000-row cap, and a trial
+  // balance summed from a capped read is silently wrong.
+  const jeRows = await readAll<{ id: string }>(
+    (from, to) =>
+      supabase
+        .from('journal_entries')
+        .select('id')
+        .eq('association_id', associationId)
+        .eq('fiscal_period_id', periodId)
+        .eq('status', 'posted')
+        .order('id', { ascending: true })
+        .range(from, to),
+    queryFailed,
+  )
 
-  const jeIds = (jeRows ?? []).map((r) => r.id)
+  const jeIds = jeRows.map((r) => r.id)
   if (jeIds.length === 0) {
     return { rows: [], totalDebits: 0, totalCredits: 0 }
   }
 
-  const { data: lines, error: linesErr } = await supabase
-    .from('ledger_entries')
-    .select(
-      'debit_amount, credit_amount, account:account_id(id, account_number, account_name, account_type)',
-    )
-    .in('journal_entry_id', jeIds)
-  if (linesErr) throw queryFailed(linesErr)
+  const lines = await readLedgerLines<LineShape>(
+    supabase,
+    'id, debit_amount, credit_amount, account:account_id(id, account_number, account_name, account_type)',
+    jeIds,
+  )
 
   type LineShape = {
     debit_amount: number
@@ -1444,7 +1465,7 @@ export async function computeTrialBalance(
   let totalDr = 0
   let totalCr = 0
 
-  for (const l of (lines ?? []) as LineShape[]) {
+  for (const l of lines) {
     if (!l.account) continue
     const dr = Number(l.debit_amount)
     const cr = Number(l.credit_amount)

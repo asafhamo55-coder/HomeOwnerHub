@@ -38,6 +38,12 @@ vi.mock('@/lib/supabase/server', () => ({
       let patch: Record<string, unknown> | null = null
       const chain: Record<string, unknown> = {}
       for (const m of ['select', 'eq', 'in', 'is', 'order', 'limit', 'neq']) chain[m] = () => chain
+      // Reads page to the end (BL-047); each fixture is one page.
+      let from = 0
+      chain.range = (f: number) => {
+        from = f
+        return chain
+      }
       chain.update = (p: Record<string, unknown>) => {
         patch = p
         return chain
@@ -47,7 +53,7 @@ vi.mock('@/lib/supabase/server', () => ({
           state.updates.push({ table, patch })
           return Promise.resolve({ data: [{ id: ASSOC }], error: null }).then(resolve)
         }
-        return Promise.resolve({ data: state.tables[table] ?? [], error: null }).then(resolve)
+        return Promise.resolve({ data: from > 0 ? [] : (state.tables[table] ?? []), error: null }).then(resolve)
       }
       return chain
     },

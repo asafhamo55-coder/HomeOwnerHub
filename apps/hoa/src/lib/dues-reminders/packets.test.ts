@@ -7,6 +7,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 
 import { buildReminderPackets, daysBetween, unitLabel } from './packets'
+import { cappedFakeDb } from '@/lib/supabase/capped-fake-db'
 
 // The real client returns a thenable builder; every filter method returns
 // `this` and awaiting it yields { data, error }. This fake does the same so
@@ -18,8 +19,15 @@ function table(data: unknown[], error: { message: string } | null = null) {
   for (const m of ['select', 'eq', 'in', 'is', 'not', 'lt', 'order', 'limit']) {
     builder[m] = () => builder
   }
+  // Reads page to the end (BL-047); each fixture is one page, so a later
+  // page is empty. The 1000-row cap itself is covered at the bottom.
+  let from = 0
+  builder.range = (f: number) => {
+    from = f
+    return builder
+  }
   builder.then = (resolve: (v: { data: unknown[] | null; error: unknown }) => unknown) =>
-    resolve({ data: error ? null : data, error })
+    resolve({ data: error ? null : from > 0 ? [] : data, error })
   return builder
 }
 
@@ -283,5 +291,43 @@ describe('buildReminderPackets query failures', () => {
     await expect(buildReminderPackets('assoc-1')).rejects.toThrow(
       /column ownerships.valid_to does not exist/,
     )
+  })
+})
+
+describe('buildReminderPackets — past the 1000-row cap (BL-047)', () => {
+  const n = 2200
+  const assessments = Array.from({ length: n }, (_, i) => ({
+    id: `a${String(i).padStart(5, '0')}`,
+    association_id: 'assoc-1',
+    status: 'open',
+    deleted_at: null,
+    unit_id: `unit-${i % 1100}`,
+    amount: 100,
+    due_date: '2026-07-01',
+    assessment_type: 'regular',
+    payments: [],
+    unit: { id: `unit-${i % 1100}`, address_line1: 'Oak St', unit_number: String(i % 1100) },
+  }))
+  const ownerships = Array.from({ length: 1100 }, (_, i) => ({
+    id: `o${String(i).padStart(5, '0')}`,
+    unit_id: `unit-${i}`,
+    valid_to: null,
+    owner_name: 'Owner',
+    owner_email: `owner${i}@example.com`,
+    owner_user_id: null,
+  }))
+
+  it('every open charge and every owner is in the packets', async () => {
+    const { db } = cappedFakeDb({ assessments, ownerships })
+    mockFrom.mockImplementation((t: string) => db.from(t))
+    const { packets } = await buildReminderPackets('assoc-1')
+    expect(packets).toHaveLength(1100)
+    expect(packets.reduce((s, p) => s + p.totalDue, 0)).toBe(n * 100)
+  })
+
+  it('a failed later page throws — the panel shows its error, not a shorter list', async () => {
+    const { db } = cappedFakeDb({ assessments, ownerships }, { failAt: { table: 'assessments', from: 1000 } })
+    mockFrom.mockImplementation((t: string) => db.from(t))
+    await expect(buildReminderPackets('assoc-1')).rejects.toThrow(/assessments/)
   })
 })

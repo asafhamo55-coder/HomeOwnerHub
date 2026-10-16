@@ -20,6 +20,7 @@ function fakeDb(results: Record<string, TableResult>) {
       const filters: string[] = []
       seen.push({ table, filters })
       const result = results[table] ?? {}
+      let pageFrom = 0
 
       const chain: Record<string, unknown> = {
         select: () => chain,
@@ -31,15 +32,19 @@ function fakeDb(results: Record<string, TableResult>) {
           filters.push(`is:${col}=${String(val)}`)
           return chain
         },
+        order: () => chain,
         range: (from: number, to: number) => {
           filters.push(`range:${from}-${to}`)
+          pageFrom = from
           return chain
         },
+        // Reads now page to the end (BL-047): the fixture is one page, so
+        // any later page is empty. Row-cap behaviour is in row-cap.test.ts.
         then: (resolve: (v: unknown) => unknown) =>
           Promise.resolve(
             result.error
               ? { data: null, error: result.error }
-              : { data: result.data ?? [], error: null },
+              : { data: pageFrom > 0 ? [] : (result.data ?? []), error: null },
           ).then(resolve),
       }
       return chain

@@ -40,6 +40,7 @@ import {
   type PlannedSend,
 } from './plan'
 import { todayInZone } from './schedule'
+import { readAll } from '../read-all'
 
 /** Same marker the manual reminder writes (apps/hoa dues-reminders/queries.ts),
  *  so "Reminded 3d ago" on /dues counts automated reminders too. */
@@ -398,7 +399,6 @@ export async function runDuesReminders(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = { from: (table: string) => any }
 
-const MAX_ASSESSMENTS = 5000
 const IN_CHUNK = 100
 
 function chunks<T>(xs: T[], size = IN_CHUNK): T[][] {
@@ -445,17 +445,10 @@ export function supabaseReminderStore(db: Db): DuesReminderStore {
     },
 
     async loadOpenAssessments(associationId) {
-      const { data, error } = await db
-        .from('assessments')
-        .select(
-          'id, unit_id, amount, due_date, assessment_type, payments(amount), unit:unit_id(address_line1, unit_number)',
-        )
-        .eq('association_id', associationId)
-        .in('status', ['open', 'partial'])
-        .is('deleted_at', null)
-        .limit(MAX_ASSESSMENTS)
-      if (error) throw readError('assessments', error)
-      return ((data ?? []) as Array<{
+      // Paged to the end (BL-047). The old `.limit(5000)` could only lower
+      // what came back: PostgREST's max_rows (1000) applied underneath, so
+      // charges past the first 1000 never got their reminder.
+      type Row = {
         id: string
         unit_id: string
         amount: number
@@ -463,7 +456,22 @@ export function supabaseReminderStore(db: Db): DuesReminderStore {
         assessment_type: string
         payments: { amount: number }[] | null
         unit: { address_line1: string | null; unit_number: string | null } | null
-      }>).map((a) => ({
+      }
+      const data = await readAll<Row>(
+        (from, to) =>
+          db
+            .from('assessments')
+            .select(
+              'id, unit_id, amount, due_date, assessment_type, payments(amount), unit:unit_id(address_line1, unit_number)',
+            )
+            .eq('association_id', associationId)
+            .in('status', ['open', 'partial'])
+            .is('deleted_at', null)
+            .order('id', { ascending: true })
+            .range(from, to) as unknown as PromiseLike<{ data: Row[] | null; error: { code?: string; message?: string } | null }>,
+        (e) => readError('assessments', e),
+      )
+      return data.map((a) => ({
         id: a.id,
         unitId: a.unit_id,
         unitLabel: unitLabel(a.unit),

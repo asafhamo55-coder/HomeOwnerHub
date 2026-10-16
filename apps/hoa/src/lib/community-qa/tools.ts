@@ -11,6 +11,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import { queryGoverningDocs } from '@homeowner-portal/workflows/W1'
+import { readAll } from '@/lib/supabase/read-all'
 
 // Db matches what getSupabaseServerClient() returns. We keep the
 // Database generic so .from('assessments').select(...) is fully typed
@@ -56,13 +57,22 @@ const countUnitsByTenure: Tool = {
     },
   },
   async execute(_args, { db, orgId }) {
-    const { data } = await db
-      .from('hoa_properties')
-      .select('tenure')
-      .eq('org_id', orgId)
-      .is('deleted_at', null)
+    // Paged to the end, and a failed read throws (BL-047): a single read
+    // stopped at PostgREST's 1000-row cap, and an ignored error answered
+    // "0 properties". The agent turns a throw into a tool error.
+    const data = await readAll<{ tenure: string | null }>(
+      (from, to) =>
+        db
+          .from('hoa_properties')
+          .select('id, tenure')
+          .eq('org_id', orgId)
+          .is('deleted_at', null)
+          .order('id', { ascending: true })
+          .range(from, to) as never,
+      toolReadFailed('hoa_properties'),
+    )
     const counts = { owner_occupied: 0, leased: 0, unknown: 0, total: 0 }
-    for (const r of (data ?? []) as Array<{ tenure: string | null }>) {
+    for (const r of data) {
       counts.total += 1
       const t = (r.tenure ?? 'unknown') as keyof typeof counts
       if (t === 'owner_occupied' || t === 'leased' || t === 'unknown') counts[t] += 1
@@ -190,13 +200,20 @@ const countOpenViolations: Tool = {
     },
   },
   async execute(_args, { db, orgId }) {
-    const { data } = await db
-      .from('hoa_violations')
-      .select('status')
-      .eq('org_id', orgId)
-      .is('deleted_at', null)
+    // Paged to the end; a failed read throws (BL-047, as count_units_by_tenure).
+    const data = await readAll<{ status: string | null }>(
+      (from, to) =>
+        db
+          .from('hoa_violations')
+          .select('id, status')
+          .eq('org_id', orgId)
+          .is('deleted_at', null)
+          .order('id', { ascending: true })
+          .range(from, to) as never,
+      toolReadFailed('hoa_violations'),
+    )
     const counts: Record<string, number> = { total: 0 }
-    for (const r of (data ?? []) as Array<{ status: string | null }>) {
+    for (const r of data) {
       counts.total += 1
       const s = r.status ?? 'unknown'
       counts[s] = (counts[s] ?? 0) + 1
@@ -247,11 +264,13 @@ const countProperties: Tool = {
     parameters: { type: 'object', properties: {} },
   },
   async execute(_args, { db, orgId }) {
-    const { count } = await db
+    const { count, error } = await db
       .from('hoa_properties')
       .select('id', { count: 'exact', head: true })
       .eq('org_id', orgId)
       .is('deleted_at', null)
+    // An ignored error answered "0 properties" — a wrong fact, not a gap.
+    if (error) throw toolReadFailed('hoa_properties')(error)
     return { total_properties: count ?? 0 }
   },
 }
@@ -336,6 +355,11 @@ export const TOOL_BY_NAME: Record<string, Tool> = Object.fromEntries(
 )
 
 // ─── helpers ─────────────────────────────────────────────────────────
+
+/** Error code only — never row values — so the tool error is safe to log. */
+function toolReadFailed(table: string) {
+  return (e: { code?: string }) => new Error(`${table} read failed (${e.code ?? 'no code'})`)
+}
 
 function clampInt(v: unknown, min: number, max: number, fallback: number): number {
   const n = typeof v === 'number' ? v : Number(v)

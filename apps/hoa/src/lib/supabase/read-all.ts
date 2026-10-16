@@ -39,6 +39,33 @@ export async function readAll<T>(
   }
 }
 
+type QueryError = { code?: string; message?: string }
+
+class PageReadError extends Error {
+  constructor(readonly queryError: QueryError) {
+    super(`page read failed (${queryError.code ?? 'no code'})`)
+  }
+}
+
+/**
+ * `readAll` in the shape a Supabase query resolves to, for callers that
+ * branch on `{ data, error }` (a Promise.all of queries, `loadOrFail`)
+ * rather than catching a throw. On ANY failed page — or past `maxRows` —
+ * `data` is null and `error` is set: there is no partial-success shape,
+ * so a caller cannot sum a truncated result by accident.
+ */
+export async function readAllResult<T>(
+  page: (from: number, to: number) => PromiseLike<PageResponse<T>>,
+  maxRows?: number,
+): Promise<{ data: T[] | null; error: QueryError | null }> {
+  try {
+    return { data: await readAll<T>(page, (e) => new PageReadError(e), maxRows), error: null }
+  } catch (e) {
+    if (e instanceof PageReadError) return { data: null, error: e.queryError }
+    return { data: null, error: { code: 'read_all', message: e instanceof Error ? e.message : 'read failed' } }
+  }
+}
+
 /** Split a long `.in()` list so the request URL stays well under proxy limits. */
 export function chunk<T>(items: T[], size = 150): T[][] {
   const out: T[][] = []

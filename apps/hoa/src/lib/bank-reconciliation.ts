@@ -6,6 +6,8 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { fieldErrorsOf } from '@/lib/field-errors'
+import { chunk, readAll } from '@/lib/supabase/read-all'
+import { queryFailed } from '@/lib/accounting/queries'
 
 export type ReconcileResult =
   | { ok: true; reconciliationId: string; difference: number }
@@ -78,24 +80,43 @@ export async function reconcileBankAccount(input: {
   }
 
   // Sum ledger entries hitting this cash account through statementDate.
-  const { data: jeRows } = await supabase
-    .from('journal_entries')
-    .select('id')
-    .eq('association_id', assoc.id)
-    .eq('status', 'posted')
-    .lte('entry_date', value.statementDate)
-  const jeIds = (jeRows ?? []).map((r) => r.id)
-
+  // Inception-to-date, so it passes PostgREST's 1000-row cap quickly: both
+  // reads page to the end and the id list is chunked (BL-047). A failed
+  // read used to sum to a smaller balance and be STORED; it now refuses.
   let reconciledBalance = 0
-  if (jeIds.length > 0) {
-    const { data: lines } = await supabase
-      .from('ledger_entries')
-      .select('debit_amount, credit_amount')
-      .eq('account_id', cashAcct.id)
-      .in('journal_entry_id', jeIds)
-    for (const l of lines ?? []) {
-      reconciledBalance += Number(l.debit_amount) - Number(l.credit_amount)
+  try {
+    const jeRows = await readAll<{ id: string }>(
+      (from, to) =>
+        supabase
+          .from('journal_entries')
+          .select('id')
+          .eq('association_id', assoc.id)
+          .eq('status', 'posted')
+          .lte('entry_date', value.statementDate)
+          .order('id', { ascending: true })
+          .range(from, to),
+      queryFailed,
+    )
+    const jeIds = jeRows.map((r) => r.id)
+    if (jeIds.length > 0) {
+      for (const ids of chunk(jeIds)) {
+        const lines = await readAll<{ debit_amount: number; credit_amount: number }>(
+          (from, to) =>
+            supabase
+              .from('ledger_entries')
+              .select('id, debit_amount, credit_amount')
+              .eq('account_id', cashAcct.id)
+              .in('journal_entry_id', ids)
+              .order('id', { ascending: true })
+              .range(from, to),
+          queryFailed,
+        )
+        for (const l of lines) reconciledBalance += Number(l.debit_amount) - Number(l.credit_amount)
+      }
     }
+  } catch (e) {
+    console.error('reconcileBankAccount: ledger read failed', { message: e instanceof Error ? e.message : 'unknown' })
+    return { ok: false, error: "Couldn't read the ledger balance, so nothing was saved. Try again." }
   }
 
   // Write or update the reconciliation row. UNIQUE

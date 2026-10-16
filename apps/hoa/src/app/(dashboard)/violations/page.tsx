@@ -21,6 +21,8 @@ import {
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
+import { readViolationStatusRows } from '@/lib/violation-status-rows'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { VIOLATION_SEVERITY, VIOLATION_STATUS } from '@/lib/status/community'
 import { violationTabs } from './tabs'
 
@@ -104,13 +106,11 @@ export default async function ViolationsListPage({
   if (statuses) query = query.in('status', [...statuses])
 
   // Status column only, for the chip counts. Small (one short text per
-  // violation) and independent of paging; a failure just hides the counts.
+  // violation), independent of paging, and read to the END — a single read
+  // stopped at PostgREST's 1000-row cap (BL-047). A failure hides the counts.
   const [result, statusRes] = await Promise.all([
     loadOrFail('violations', query.range(from, to)),
-    loadOrFail(
-      'violation status counts',
-      supabase.from('hoa_violations').select('status').eq('org_id', org.id).is('deleted_at', null),
-    ),
+    loadOrFail('violation status counts', readViolationStatusRows(supabase as unknown as SupabaseClient, org.id)),
   ])
 
   const rows = result.ok ? ((result.data ?? []) as unknown as ViolationRow[]) : []

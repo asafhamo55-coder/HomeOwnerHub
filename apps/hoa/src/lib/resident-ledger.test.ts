@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { buildLedger, statementWindow, type LedgerAssessment, type LedgerPayment } from './resident-ledger'
+import { buildLedger, loadLedgerRows, statementWindow, type LedgerAssessment, type LedgerPayment } from './resident-ledger'
+import { cappedFakeDb } from '@/lib/supabase/capped-fake-db'
 
 const U1 = 'unit-1'
 
@@ -141,5 +142,29 @@ describe('statementWindow', () => {
   it('a window after the last entry shows only the balance forward', () => {
     const w = statementWindow(ledger, '2027-01-01')
     expect(w).toMatchObject({ openingBalance: 500, entries: [], closingBalance: 500 })
+  })
+})
+
+describe('loadLedgerRows — server row cap (BL-047)', () => {
+  it('flags a ledger the server capped at 1000 rows as truncated', async () => {
+    const assessments = Array.from({ length: 1200 }, (_, i) => ({
+      id: `a${String(i).padStart(5, '0')}`,
+      unit_id: 'u1',
+      deleted_at: null,
+      amount: 10,
+      due_date: '2026-01-01',
+      status: 'open',
+      assessment_type: 'regular',
+      memo_code: null,
+    }))
+    const { db } = cappedFakeDb({ assessments, payments: [] })
+    const r = await loadLedgerRows(db as never, ['u1'])
+    expect(r.ok && r.truncated).toBe(true)
+  })
+
+  it('a ledger under the cap is not truncated', async () => {
+    const { db } = cappedFakeDb({ assessments: [], payments: [] })
+    const r = await loadLedgerRows(db as never, ['u1'])
+    expect(r.ok && !r.truncated).toBe(true)
   })
 })
