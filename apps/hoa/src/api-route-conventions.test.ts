@@ -72,7 +72,6 @@ const ALLOWLIST: Record<string, Rule[]> = {
 
   'vendor-onboard/[token]/submit/route.ts': ['with-route', 'api-error', 'error-message'],
 
-  'vendors/[id]/documents/route.ts': ['with-route', 'api-error', 'error-message'],
 
   'violations/photo/route.ts': ['with-route', 'api-error', 'error-message'],
 

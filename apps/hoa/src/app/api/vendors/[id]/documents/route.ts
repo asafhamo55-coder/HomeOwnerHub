@@ -1,123 +1,146 @@
 import { NextResponse } from 'next/server'
-import { getCurrentOrg } from '@/lib/orgs'
+import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
+import { withRoute } from '@/lib/api/handler'
+import { ApiRouteError } from '@/lib/api/errors'
+import { requireOrgOwned, requireRouteBoardOrAdmin } from '@/lib/api/auth'
+import { parseForm, parseValue } from '@/lib/api/parse'
+import { zDateOnly, zUuid } from '@/lib/api/schemas'
+import { MAX_UPLOAD_BYTES } from '@/lib/api/limits'
+import { checkWrite } from '@/lib/api/db'
+import { errorCode, logRouteFailure } from '@/lib/api/log'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { removeStorageObjects } from '@/lib/storage-remove'
 
 const STORAGE_BUCKET = 'hoa-documents'
-const MAX_BYTES = 25 * 1024 * 1024 // 25 MB
-const ALLOWED_TYPES = new Set([
-  'application/pdf',
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/heic',
-])
-const ALLOWED_DOC_TYPES = new Set(['coi', 'w9', 'license', 'contract', 'other'])
 
-function safeName(original: string): string {
-  const dot = original.lastIndexOf('.')
-  const ext = dot > 0 ? original.slice(dot).toLowerCase() : ''
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`
+/** MIME allowlist → the extension the stored object gets. */
+const ALLOWED_TYPES: Record<string, string> = {
+  'application/pdf': '.pdf',
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/heic': '.heic',
 }
 
-// POST /api/vendors/[id]/documents
-// Multipart form with: file=<file>, docType=<coi|w9|license|contract|other>
-// On success returns { storagePath, documentId }.
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const org = await getCurrentOrg()
-  if (!org) return NextResponse.json({ error: 'no_org' }, { status: 403 })
+/**
+ * Some browsers send no MIME type for HEIC (and occasionally others). Fall
+ * back to the file extension, still against the same allowlist.
+ */
+const TYPE_BY_EXTENSION: Record<string, string> = {
+  '.pdf': 'application/pdf',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.heic': 'image/heic',
+}
 
-  const { id: vendorId } = await params
+const WRONG_TYPE = 'File must be PDF or image (JPG/PNG/WebP/HEIC).'
+const TOO_LARGE = `File must be under ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB.`
 
-  const formData = await request.formData()
-  const file = formData.get('file')
-  const docType = String(formData.get('docType') ?? '')
+const Fields = z.object({
+  docType: z.enum(['coi', 'w9', 'license', 'contract', 'other']),
+  expiresAt: zDateOnly.optional(),
+})
 
-  if (!ALLOWED_DOC_TYPES.has(docType)) {
-    return NextResponse.json({ error: 'bad_doc_type' }, { status: 400 })
+function resolveContentType(file: File): string | null {
+  // A multipart part with no type arrives as application/octet-stream.
+  if (file.type && file.type !== 'application/octet-stream') {
+    return file.type in ALLOWED_TYPES ? file.type : null
   }
-  if (!(file instanceof File) || file.size === 0) {
-    return NextResponse.json({ error: 'missing_file' }, { status: 400 })
-  }
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json(
-      { error: 'too_large', message: 'File must be under 25 MB.' },
-      { status: 400 },
-    )
-  }
-  if (file.type && !ALLOWED_TYPES.has(file.type)) {
-    return NextResponse.json(
-      { error: 'wrong_type', message: 'File must be PDF or image (JPG/PNG/WebP/HEIC).' },
-      { status: 400 },
-    )
-  }
+  const dot = file.name.lastIndexOf('.')
+  const ext = dot >= 0 ? file.name.slice(dot).toLowerCase() : ''
+  return TYPE_BY_EXTENSION[ext] ?? null
+}
 
-  const supabase = await getSupabaseServerClient()
+/** Server-built object name. Nothing from the client's file name reaches the path. */
+function objectName(contentType: string): string {
+  return `${Date.now()}-${crypto.randomUUID()}${ALLOWED_TYPES[contentType]}`
+}
 
-  // Confirm the vendor belongs to this org (RLS would also block, but
-  // checking explicitly gives a cleaner 404 instead of a generic 500).
-  const { data: vendor } = await supabase
-    .from('vendors' as never)
-    .select('id')
-    .eq('id', vendorId)
-    .maybeSingle<{ id: string }>()
-  if (!vendor) {
-    return NextResponse.json({ error: 'vendor_not_found' }, { status: 404 })
-  }
+// POST /api/vendors/[id]/documents — board-only (vendor compliance lives under (dashboard)).
+// Multipart form: file=<file>, docType=<coi|w9|license|contract|other>, expiresAt?=<YYYY-MM-DD>
+// 201 { storagePath, documentId }.
+export const POST = withRoute(
+  'vendors.documents.create',
+  async (request: Request, ctx: { params: Promise<{ id: string }> }) => {
+    const { orgId } = await requireRouteBoardOrAdmin()
 
-  const storagePath = `${org.id}/vendors/${vendorId}/${docType}/${safeName(file.name)}`
+    const { id } = await ctx.params
+    const vendorId = parseValue(zUuid, id)
 
-  const { error: uploadError } = await supabase.storage
-    .from(STORAGE_BUCKET)
-    .upload(storagePath, file, {
+    const form = await parseForm(request)
+    const fields = parseValue(Fields, {
+      docType: form.get('docType') ?? undefined,
+      expiresAt: form.get('expiresAt') || undefined,
+    })
+    const file = form.get('file')
+    if (!(file instanceof File) || file.size === 0) {
+      throw new ApiRouteError('validation_failed', 'Choose a file to upload.', {
+        issues: [{ path: 'file', message: 'Choose a file to upload.' }],
+      })
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      throw new ApiRouteError('payload_too_large', TOO_LARGE, { maxBytes: MAX_UPLOAD_BYTES })
+    }
+    const contentType = resolveContentType(file)
+    if (!contentType) throw new ApiRouteError('unsupported_media_type', WRONG_TYPE)
+
+    await requireOrgOwned('vendors', vendorId, orgId, { message: 'We could not find that vendor.' })
+
+    const supabase = await getSupabaseServerClient()
+    const storagePath = `${orgId}/vendors/${vendorId}/${fields.docType}/${objectName(contentType)}`
+
+    const { error: uploadError } = await supabase.storage.from(STORAGE_BUCKET).upload(storagePath, file, {
       cacheControl: '3600',
       upsert: false,
-      contentType: file.type || 'application/octet-stream',
+      contentType,
     })
-  if (uploadError) {
-    if (uploadError.message?.toLowerCase().includes('not found')) {
-      return NextResponse.json(
-        {
-          error: 'bucket_missing',
-          message:
-            "Couldn't find the 'hoa-documents' bucket. Create it (Private) in Supabase, then try again.",
-        },
-        { status: 500 },
-      )
+    if (uploadError) {
+      const code = errorCode(uploadError)
+      logRouteFailure('vendors.documents.upload', uploadError, { orgId, vendorId })
+      if (code === '404') {
+        throw new ApiRouteError('not_configured', 'Document storage is not set up yet. Contact support.')
+      }
+      if (code === '413') {
+        throw new ApiRouteError('payload_too_large', TOO_LARGE, { maxBytes: MAX_UPLOAD_BYTES })
+      }
+      throw new ApiRouteError('internal')
     }
-    return NextResponse.json(
-      { error: 'upload_failed', message: uploadError.message },
-      { status: 500 },
-    )
-  }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-  const { data: row, error: insertError } = await supabase
-    .from('vendor_documents' as never)
-    .insert({
-      organization_id: org.id,
-      vendor_id: vendorId,
-      doc_type: docType,
-      storage_path: storagePath,
-      uploaded_by: user?.id ?? null,
-    } as never)
-    .select('id')
-    .single<{ id: string }>()
+    const { data: row, error: insertError } = await supabase
+      .from('vendor_documents' as never)
+      .insert({
+        organization_id: orgId,
+        vendor_id: vendorId,
+        doc_type: fields.docType,
+        storage_path: storagePath,
+        expires_at: fields.expiresAt ?? null,
+        uploaded_by: user?.id ?? null,
+      } as never)
+      .select('id')
+      .single<{ id: string }>()
 
-  if (insertError || !row) {
-    // Best-effort cleanup of the orphaned upload so we don't leak bytes.
-    await removeStorageObjects(supabase, STORAGE_BUCKET, [storagePath], 'vendor document upload cleanup')
-    return NextResponse.json(
-      { error: 'record_failed', message: insertError?.message ?? 'unknown' },
-      { status: 500 },
-    )
-  }
+    if (insertError || !row) {
+      // Compensate (RC-6): remove the object we just uploaded so no orphan is left.
+      const { data: removed, error: removeError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .remove([storagePath])
+      if (removeError || (removed?.length ?? 0) < 1) {
+        // The orphaned object stays under ${orgId}/vendors/… with no vendor_documents row.
+        logRouteFailure('vendors.documents.cleanup', removeError ?? { code: 'not_removed' }, { orgId, vendorId })
+      }
+      checkWrite({ error: insertError }, 'vendor_documents.insert', { orgId, vendorId })
+      throw new ApiRouteError('internal')
+    }
 
-  return NextResponse.json({ storagePath, documentId: row.id })
-}
+    revalidatePath(`/vendors/${vendorId}`)
+    revalidatePath(`/vendors/${vendorId}/compliance`)
+
+    return NextResponse.json({ storagePath, documentId: row.id }, { status: 201 })
+  },
+)

@@ -15,6 +15,7 @@ import {
   useToast,
 } from '@homeowner-portal/ui'
 import { deleteVendorDocument, type VendorDocument } from '@/lib/vendors'
+import { responseErrorMessage } from '@/lib/api/client'
 
 const DOC_TYPE_LABEL: Record<VendorDocument['doc_type'], string> = {
   coi: 'Certificate of Insurance',
@@ -86,16 +87,12 @@ function UploadSlot({
         body: formData,
       })
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as {
-          message?: string
-          error?: string
-        }
-        setError(body.message ?? body.error ?? 'Upload failed.')
+        setError(await responseErrorMessage(res, 'Upload failed.'))
         return
       }
       router.refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed.')
+    } catch {
+      setError('Upload failed. Check your connection and try again.')
     } finally {
       setIsUploading(false)
       if (inputRef.current) inputRef.current.value = ''
