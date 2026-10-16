@@ -30,6 +30,7 @@ import {
   type WizardStep as StepperStep,
 } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
+import { responseErrorMessage } from '@/lib/api/client'
 import { createApprovedViolation } from '@/lib/violations'
 import { VIOLATION_SEVERITY } from '@/lib/status/community'
 import {
@@ -281,8 +282,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
         }),
       })
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        setSuggestionsError(body?.message ?? 'Could not generate suggestions.')
+        setSuggestionsError(await responseErrorMessage(res, 'Could not generate suggestions.'))
         return
       }
       const body = (await res.json()) as { suggestions: FieldSuggestion[] }

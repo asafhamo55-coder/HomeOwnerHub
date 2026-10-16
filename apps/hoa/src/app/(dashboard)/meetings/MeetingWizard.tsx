@@ -21,6 +21,7 @@ import {
   type WizardStep as StepperStep,
 } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
+import { responseErrorMessage } from '@/lib/api/client'
 import { approveMeetingMinutes } from '@/lib/meetings'
 import {
   saveDraft,
@@ -155,8 +156,7 @@ export function MeetingWizard({ initialDraft }: MeetingWizardProps) {
         }),
       })
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        setSuggestionsError(body?.message ?? 'Could not generate suggestions.')
+        setSuggestionsError(await responseErrorMessage(res, 'Could not generate suggestions.'))
         return
       }
       const body = (await res.json()) as { suggestions: FieldSuggestion[] }

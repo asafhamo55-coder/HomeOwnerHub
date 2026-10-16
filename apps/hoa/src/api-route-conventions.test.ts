@@ -64,7 +64,6 @@ const ALLOWLIST: Record<string, Rule[]> = {
 
   'ai/rewrite/route.ts': ['with-route', 'api-error', 'error-message', 'raw-zod'],
 
-  'ai/suggest-fields/route.ts': ['with-route', 'api-error', 'raw-zod'],
 
   'ai/violations/draft/route.ts': ['with-route', 'api-error', 'error-message', 'raw-zod'],
 
