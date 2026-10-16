@@ -110,6 +110,7 @@ const PAGE_CONTAINER_ROUTES = [
   '(dashboard)/leases',
   '(dashboard)/meetings/[id]',
   '(dashboard)/meetings/[id]/edit',
+  '(dashboard)/meetings/[id]/packet',
   '(dashboard)/meetings/new',
   '(dashboard)/meetings/schedule',
   '(dashboard)/properties/[id]/edit',
@@ -369,6 +370,8 @@ const SEMANTIC_TOKEN_PATHS = [
   'apps/hoa/src/components/knowledge',
   'apps/hoa/src/components/settings',
   'apps/hoa/src/components/vendors',
+  // BL-016 board packet (prints; dark tokens swap to light in print).
+  'apps/hoa/src/app/(dashboard)/meetings/[id]/packet',
 ]
 
 const PALETTE =

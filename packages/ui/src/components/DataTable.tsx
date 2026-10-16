@@ -80,7 +80,9 @@ export function TableScroll({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn('w-full overflow-x-auto', className)} {...props}>
+    // On paper there is no sideways scroll: a scroller would clip the
+    // right-hand columns, so print lets the table lay out at full width.
+    <div className={cn('w-full overflow-x-auto print:overflow-visible', className)} {...props}>
       {children}
     </div>
   )
