@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { ApiRouteError } from '@/lib/api/errors'
+import { requireBearerSecret } from '@/lib/api/secrets'
 
 // Deliberately throws, so whoever sets up Sentry can prove an event goes
 // all the way through: request error → onRequestError
@@ -8,21 +9,26 @@ import { NextResponse } from 'next/server'
 // from the session-auth redirect (these routes carry their own auth); it
 // is not scheduled in vercel.json.
 //
-// Fails CLOSED like api/cron/recurring-events: no CRON_SECRET configured
-// means 503, never an open endpoint. Bearer header only — no `?key=`
-// variant, so the secret never lands in a URL or access log.
+// RC-10 exemption: NOT wrapped in withRoute, because withRoute would turn
+// the deliberate throw into a JSON 500 and onRequestError would never see
+// it. Only the auth failures below are converted to the RC-1 envelope.
 //
-//   curl -H "Authorization: Bearer $CRON_SECRET" https://<hoa-host>/api/cron/sentry-test
+// RC-7: its own secret, SENTRY_TEST_SECRET — not CRON_SECRET, which is for
+// Vercel cron only (R-21 / C-06). Bearer header only, timing-safe, fails
+// CLOSED (503 not_configured when unset, 401 unauthenticated on a wrong or
+// missing token). No `?key=` variant, so the secret never lands in a URL
+// or access log.
+//
+//   curl -H "Authorization: Bearer $SENTRY_TEST_SECRET" https://<hoa-host>/api/cron/sentry-test
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request): Promise<Response> {
-  const secret = process.env.CRON_SECRET
-  if (!secret) {
-    return NextResponse.json({ error: 'cron_secret_not_configured' }, { status: 503 })
-  }
-  if (request.headers.get('authorization') !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  try {
+    requireBearerSecret(request, 'SENTRY_TEST_SECRET')
+  } catch (err) {
+    if (err instanceof ApiRouteError) return err.toResponse()
+    throw err
   }
 
   throw new Error(`Sentry test error from hoa (${process.env.VERCEL_GIT_COMMIT_SHA ?? 'local'})`)
