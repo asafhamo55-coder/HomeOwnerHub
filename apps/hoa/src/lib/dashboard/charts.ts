@@ -9,6 +9,7 @@
 
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { readAllResult } from '@/lib/supabase/read-all'
 
 type AnyClient = SupabaseClient<any, any, any>
 
@@ -85,11 +86,18 @@ export async function getViolationStatusDonut(
   client?: AnyClient,
 ): Promise<DonutData> {
   const supabase = await resolveClient(client)
-  const { data, error } = await supabase
-    .from('hoa_violations')
-    .select('status')
-    .eq('org_id', orgId)
-    .is('deleted_at', null)
+  // Every chart here counts rows, so every row read pages to the end
+  // (BL-047): PostgREST caps a response at 1000 rows, and a donut summed
+  // from a capped read shows a smaller community with no sign of it.
+  const { data, error } = await readAllResult<{ status: string | null }>((from, to) =>
+    supabase
+      .from('hoa_violations')
+      .select('id, status')
+      .eq('org_id', orgId)
+      .is('deleted_at', null)
+      .order('id', { ascending: true })
+      .range(from, to) as never,
+  )
   if (error) {
     console.error('getViolationStatusDonut failed', { code: error.code, message: error.message })
     return { segments: [], total: 0, failed: true }
@@ -135,11 +143,15 @@ export async function getTicketCategoryDonut(
   client?: AnyClient,
 ): Promise<DonutData> {
   const supabase = await resolveClient(client)
-  const { data, error } = await supabase
-    .from('tickets' as never)
-    .select('category')
-    .eq('organization_id', orgId)
-    .is('deleted_at', null)
+  const { data, error } = await readAllResult<{ category: string | null }>((from, to) =>
+    supabase
+      .from('tickets' as never)
+      .select('id, category')
+      .eq('organization_id', orgId)
+      .is('deleted_at', null)
+      .order('id', { ascending: true })
+      .range(from, to) as never,
+  )
   if (error) {
     console.error('getTicketCategoryDonut failed', { code: error.code, message: error.message })
     return { segments: [], total: 0, failed: true }
@@ -195,23 +207,35 @@ export async function getThirtyDayActivity(
   }
 
   const [violsRes, arcsRes, invitesRes] = await Promise.all([
-    supabase
-      .from('hoa_violations')
-      .select('created_at')
-      .eq('org_id', orgId)
-      .is('deleted_at', null)
-      .gte('created_at', startIso),
-    supabase
-      .from('arc_requests' as never)
-      .select('submitted_at')
-      .eq('organization_id', orgId)
-      .is('deleted_at', null)
-      .gte('submitted_at', startIso),
-    supabase
-      .from('vendor_onboarding_invitations' as never)
-      .select('created_at')
-      .eq('organization_id', orgId)
-      .gte('created_at', startIso),
+    readAllResult<{ created_at: string }>((from, to) =>
+      supabase
+        .from('hoa_violations')
+        .select('id, created_at')
+        .eq('org_id', orgId)
+        .is('deleted_at', null)
+        .gte('created_at', startIso)
+        .order('id', { ascending: true })
+        .range(from, to) as never,
+    ),
+    readAllResult<{ submitted_at: string }>((from, to) =>
+      supabase
+        .from('arc_requests' as never)
+        .select('id, submitted_at')
+        .eq('organization_id', orgId)
+        .is('deleted_at', null)
+        .gte('submitted_at', startIso)
+        .order('id', { ascending: true })
+        .range(from, to) as never,
+    ),
+    readAllResult<{ created_at: string }>((from, to) =>
+      supabase
+        .from('vendor_onboarding_invitations' as never)
+        .select('id, created_at')
+        .eq('organization_id', orgId)
+        .gte('created_at', startIso)
+        .order('id', { ascending: true })
+        .range(from, to) as never,
+    ),
   ])
 
   const failed = [violsRes, arcsRes, invitesRes].some((r) => {
@@ -274,14 +298,23 @@ export async function getDashboardKpis(
 
   let duesNow = 0
   let duesPrev = 0
-  const { data: assessmentRows, error: assessmentsError } = await supabase
-    .from('assessments')
-    .select('amount, status, due_date, payments(amount)')
-    .eq('organization_id', orgId)
-    .is('deleted_at', null)
-    .neq('status', 'paid')
-    .neq('status', 'waived')
-    .neq('status', 'written_off')
+  const { data: assessmentRows, error: assessmentsError } = await readAllResult<{
+    amount: number | string | null
+    status: string | null
+    due_date: string | null
+    payments: { amount: number | string }[]
+  }>((from, to) =>
+    supabase
+      .from('assessments')
+      .select('id, amount, status, due_date, payments(amount)')
+      .eq('organization_id', orgId)
+      .is('deleted_at', null)
+      .neq('status', 'paid')
+      .neq('status', 'waived')
+      .neq('status', 'written_off')
+      .order('id', { ascending: true })
+      .range(from, to) as never,
+  )
   note(assessmentsError)
   if (assessmentRows) {
     for (const r of assessmentRows as Array<{

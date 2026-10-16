@@ -191,8 +191,13 @@ export function statementWindow(ledger: Ledger, from: string): StatementWindow {
 
 // ─── read ───────────────────────────────────────────────────────────
 
-/** Generous cap; a resident's whole history is a few hundred rows at most. */
-const MAX_ROWS = 2000
+/**
+ * A resident's whole history is a few hundred rows at most. This MUST NOT
+ * exceed PostgREST's max_rows (1000): the server returns at most that many
+ * whatever `.limit()` asks for, so at 2000 the `truncated` check below could
+ * never fire and a capped ledger read as complete (BL-047).
+ */
+const MAX_ROWS = 1000
 
 export type LedgerRowsResult =
   | { ok: true; assessments: LedgerAssessment[]; payments: LedgerPayment[]; truncated: boolean }

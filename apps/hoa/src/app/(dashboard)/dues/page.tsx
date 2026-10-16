@@ -19,7 +19,9 @@ import {
 } from '@homeowner-portal/ui'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { loadOrFail } from '@/lib/load-or-fail'
+import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
+import { loadOverdueHeadline } from '@/lib/dues/overdue-headline'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { chargeTypeLabel } from '@/lib/assessment-labels'
 import { daysSince, formatDay, plural, todayIso, usd } from '@/lib/money/format'
 import { MarkPaidButton } from './MarkPaidButton'
@@ -48,13 +50,6 @@ interface AssessmentRow {
     unit_number: string | null
     address_line1: string | null
   } | null
-  payments: { amount: number }[]
-}
-
-interface OverdueRow {
-  amount: number
-  due_date: string
-  unit_id: string | null
   payments: { amount: number }[]
 }
 
@@ -106,21 +101,12 @@ export default async function DuesPage({
         .order('due_date', { ascending: false })
         .range(from, to),
     ),
-    // The headline's own query: the same predicate it always used (not
-    // paid, not waived, due before today), over every row rather than the
-    // first page.
-    loadOrFail(
-      'overdue dues total',
-      supabase
-        .from('assessments')
-        .select('amount, due_date, unit_id, payments(amount)')
-        .eq('association_id', assoc.id)
-        .is('deleted_at', null)
-        .neq('status', 'paid')
-        .neq('status', 'waived')
-        .lt('due_date', todayIsoStr)
-        // PostgREST's default row cap would quietly truncate the sum.
-        .range(0, 49_999),
+    // The headline's own read: the same predicate it always used (not
+    // paid, not waived, due before today), paged over EVERY row. Was a
+    // single `.range(0, 49_999)`, which PostgREST still capped at 1000
+    // rows (BL-047). A failed page fails the KPIs, never shrinks them.
+    tryLoad('overdue dues total', () =>
+      loadOverdueHeadline(supabase as unknown as SupabaseClient, assoc.id, todayIsoStr),
     ),
   ])
 
@@ -150,19 +136,10 @@ export default async function DuesPage({
 
   const currentMonthLabel = formatDay(todayIsoStr, 'monthShort')
 
-  const overdueRows = overdueResult.ok ? ((overdueResult.data ?? []) as unknown as OverdueRow[]) : []
-  let totalOverdue = 0
-  let oldestDue: string | null = null
-  const overdueUnits = new Set<string | null>()
-  for (const r of overdueRows) {
-    const paid = (r.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
-    const open = Math.max(Number(r.amount) - paid, 0)
-    totalOverdue += open
-    if (open > 0) {
-      overdueUnits.add(r.unit_id)
-      if (!oldestDue || r.due_date < oldestDue) oldestDue = r.due_date
-    }
-  }
+  const headline = overdueResult.ok ? overdueResult.data : null
+  const totalOverdue = headline?.totalOverdue ?? 0
+  const oldestDue = headline?.oldestDue ?? null
+  const unitsBehind = headline?.unitsBehind ?? 0
   const kpiState = overdueResult.ok ? 'ready' : 'failed'
 
   return (
@@ -189,7 +166,7 @@ export default async function DuesPage({
           hint={totalOverdue > 0 ? 'Past due and unpaid' : 'All caught up'}
           state={kpiState}
         />
-        <Kpi label="Properties behind" value={String(overdueUnits.size)} hint={overdueUnits.size > 0 ? 'With an overdue charge' : 'None'} state={kpiState} />
+        <Kpi label="Properties behind" value={String(unitsBehind)} hint={unitsBehind > 0 ? 'With an overdue charge' : 'None'} state={kpiState} />
         <Kpi
           className="col-span-2 lg:col-span-1"
           label="Oldest overdue"

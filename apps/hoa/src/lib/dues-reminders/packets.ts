@@ -1,4 +1,5 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { chunk, readAll } from '@/lib/supabase/read-all'
 import type {
   PacketBuildResult,
   ReminderCharge,
@@ -9,20 +10,11 @@ import type {
 
 const MS_PER_DAY = 86_400_000
 
-/** Explicit ceiling on the client's own request. This can only ever LOWER
- *  what comes back, never raise it — PostgREST's server-side db-max-rows
- *  cap still applies independently, underneath this, and a response
- *  truncated by either one is silent either way (no error, just fewer
- *  rows). This value is set an order of magnitude above any association
- *  we serve could plausibly have outstanding, so it's not expected to be
- *  the one that bites — but a very large association could still hit the
- *  server's cap and understate what somebody owes without either limit
- *  saying so. The dues page lists 500 rows because it is a screenful;
- *  this is meant to be every open charge in the association. */
-const MAX_ASSESSMENTS = 5000
-/** Ownerships are fetched for units that already made the cut above, and
- *  a unit rarely has more than two or three active owners. */
-const MAX_OWNERSHIPS = 5000
+/** Both reads below page to the end with `readAll` (BL-047). They used
+ *  to ask for `.limit(5000)`, but PostgREST's server-side max_rows (1000)
+ *  applies underneath whatever the client asks for, so an association
+ *  with more than 1000 open charges silently lost owners and understated
+ *  what they owed. A failed page throws (WhoOwesPanel's error path). */
 
 /** Whole days between two 'YYYY-MM-DD' dates. Both parse as UTC midnight,
  *  so this is timezone-stable — unlike a local-time date difference. */
@@ -88,26 +80,25 @@ export async function buildReminderPackets(
 ): Promise<PacketBuildResult> {
   const supabase = await getSupabaseServerClient()
 
-  const { data: assessmentData, error: assessmentError } = await supabase
-    .from('assessments')
-    .select(
-      'id, unit_id, amount, due_date, assessment_type, payments(amount), unit:unit_id(id, address_line1, unit_number)',
-    )
-    .eq('association_id', associationId)
-    .in('status', ['open', 'partial'])
-    .is('deleted_at', null)
-    .limit(MAX_ASSESSMENTS)
-
   // supabase-js RESOLVES on a query error rather than rejecting, so an
   // unread `error` turns an RLS change or a dropped column into `data:
   // null` — which reads downstream as "nobody owes anything", the exact
-  // shape of the healthy empty case. Throw so the caller's error path
-  // (WhoOwesPanel's allSettled branch) actually runs.
-  if (assessmentError) {
-    throw new Error(`Failed to load assessments: ${assessmentError.message}`)
-  }
-
-  const assessments = (assessmentData ?? []) as unknown as AssessmentRow[]
+  // shape of the healthy empty case. readAll throws on any failed page so
+  // the caller's error path (WhoOwesPanel's allSettled branch) runs.
+  const assessments = await readAll<AssessmentRow>(
+    (from, to) =>
+      supabase
+        .from('assessments')
+        .select(
+          'id, unit_id, amount, due_date, assessment_type, payments(amount), unit:unit_id(id, address_line1, unit_number)',
+        )
+        .eq('association_id', associationId)
+        .in('status', ['open', 'partial'])
+        .is('deleted_at', null)
+        .order('id', { ascending: true })
+        .range(from, to) as unknown as PromiseLike<{ data: AssessmentRow[] | null; error: { message?: string } | null }>,
+    (e) => new Error(`Failed to load assessments: ${e.message ?? ''}`),
+  )
   const today = new Date().toISOString().slice(0, 10)
 
   // Charges with a real remaining balance, bucketed by unit.
@@ -147,20 +138,24 @@ export async function buildReminderPackets(
     })
   }
 
-  const { data: ownershipData, error: ownershipError } = await supabase
-    .from('ownerships')
-    .select('unit_id, owner_name, owner_email, owner_user_id')
-    .in('unit_id', unitIds)
-    .is('valid_to', null)
-    .limit(MAX_OWNERSHIPS)
-
   // Same reasoning as the assessments read above: swallowing this error
-  // would mail nobody and report it as "all caught up".
-  if (ownershipError) {
-    throw new Error(`Failed to load ownerships: ${ownershipError.message}`)
+  // would mail nobody and report it as "all caught up". The unit list is
+  // chunked so a large association never builds one oversized `.in()` URL.
+  const ownerships: OwnershipRow[] = []
+  for (const ids of chunk(unitIds)) {
+    const rows = await readAll<OwnershipRow>(
+      (from, to) =>
+        supabase
+          .from('ownerships')
+          .select('id, unit_id, owner_name, owner_email, owner_user_id')
+          .in('unit_id', ids)
+          .is('valid_to', null)
+          .order('id', { ascending: true })
+          .range(from, to) as unknown as PromiseLike<{ data: OwnershipRow[] | null; error: { message?: string } | null }>,
+      (e) => new Error(`Failed to load ownerships: ${e.message ?? ''}`),
+    )
+    ownerships.push(...rows)
   }
-
-  const ownerships = (ownershipData ?? []) as unknown as OwnershipRow[]
 
   const byEmail = new Map<string, ReminderPacket>()
   const skipped: SkippedOwner[] = []

@@ -4,8 +4,82 @@ import {
   postJournalEntry,
 } from '@homeowner-portal/db'
 import { inngest } from './client'
+import { readAll } from './read-all'
 
 const HOA_LATE_FEE_RATE = 0.05 // 5% — typical default; per-row override later.
+
+/** memo_code `.in()` lists are chunked so the request URL stays small. */
+const MEMO_CHUNK = 150
+
+type Db = ReturnType<typeof createAdminClient>
+type QueryError = { code?: string; message?: string }
+
+export interface DefaultedAssessment {
+  id: string
+  unit_id: string
+  fiscal_period_id: string
+  amount: number
+  assessment_type: string
+}
+
+function readFailed(what: string, e: QueryError): Error {
+  // Code only: a PostgrestError message/details can echo row values.
+  return new Error(`hoa-late-fees: ${what} read failed (${e.code ?? 'no code'})`)
+}
+
+/**
+ * Every defaulted, non-late-fee assessment in `associationId` that has no
+ * late fee booked yet.
+ *
+ * Both reads page to the end and THROW on failure (BL-047). Before:
+ *  - the defaulted read was capped at PostgREST's 1000 rows, so charges
+ *    past the first 1000 waited for later nights;
+ *  - the "already charged?" read put every source id in ONE `.in()` and
+ *    ignored its error. At a large association that URL overflows, the
+ *    read fails, `existing` came back null, and every source looked
+ *    uncharged — a second late fee on each. A failed read now fails the
+ *    step (Inngest retries it) instead of charging.
+ */
+export async function findUnchargedDefaults(
+  db: Db,
+  associationId: string,
+  today: string,
+): Promise<{ defaulted: DefaultedAssessment[]; uncharged: DefaultedAssessment[] }> {
+  const defaulted = await readAll<DefaultedAssessment>(
+    (from, to) =>
+      db
+        .from('assessments')
+        .select('id, unit_id, fiscal_period_id, amount, assessment_type')
+        .eq('association_id', associationId)
+        .in('status', ['open', 'partial'])
+        .lt('due_date', today)
+        .neq('assessment_type', 'late_fee')
+        .order('id', { ascending: true })
+        .range(from, to) as unknown as PromiseLike<{ data: DefaultedAssessment[] | null; error: QueryError | null }>,
+    (e) => readFailed('defaulted assessments', e),
+  )
+
+  const memoCodes = defaulted.map((a) => `LATE-${a.id}`)
+  const alreadyCharged = new Set<string>()
+  for (let i = 0; i < memoCodes.length; i += MEMO_CHUNK) {
+    const part = memoCodes.slice(i, i + MEMO_CHUNK)
+    const rows = await readAll<{ memo_code: string | null }>(
+      (from, to) =>
+        db
+          .from('assessments')
+          .select('id, memo_code')
+          .eq('association_id', associationId)
+          .eq('assessment_type', 'late_fee')
+          .in('memo_code', part)
+          .order('id', { ascending: true })
+          .range(from, to) as unknown as PromiseLike<{ data: { memo_code: string | null }[] | null; error: QueryError | null }>,
+      (e) => readFailed('existing late fees', e),
+    )
+    for (const r of rows) if (r.memo_code) alreadyCharged.add(r.memo_code)
+  }
+
+  return { defaulted, uncharged: defaulted.filter((a) => !alreadyCharged.has(`LATE-${a.id}`)) }
+}
 
 /**
  * At midnight ET each day, find open/partial assessments past their due
@@ -65,50 +139,26 @@ export const hoaLateFeeJob = inngest.createFunction(
         // Defaulted, non-late-fee assessments. We never compound: a
         // late_fee that itself goes overdue is not eligible to spawn
         // another late_fee.
-        const { data: defaulted, error: dErr } = await db
-          .from('assessments')
-          .select('id, unit_id, fiscal_period_id, amount, assessment_type')
-          .eq('association_id', assoc.id)
-          .in('status', ['open', 'partial'])
-          .lt('due_date', today)
-          .neq('assessment_type', 'late_fee')
-
-        if (dErr) {
-          logger.warn(
-            `[hoa-late-fees] ${assoc.name} read failed: ${dErr.message}`,
-          )
+        // A failed read charges NOTHING for this association tonight (as a
+        // failed defaulted read always did) — never charge from a partial
+        // "already charged" set. Caught here so other associations still run.
+        let found: Awaited<ReturnType<typeof findUnchargedDefaults>>
+        try {
+          found = await findUnchargedDefaults(db, assoc.id, today)
+        } catch (e) {
+          logger.warn(`[hoa-late-fees] ${assoc.id}: ${e instanceof Error ? e.message : 'read failed'}; skipping`)
           return { evaluated: 0, charged: 0, skipped: 0 }
         }
-
-        const sourceIds = (defaulted ?? []).map((a) => a.id)
-        if (sourceIds.length === 0) {
+        const { defaulted, uncharged } = found
+        if (defaulted.length === 0) {
           return { evaluated: 0, charged: 0, skipped: 0 }
         }
-
-        // Find which sources already have a late fee booked — single
-        // round-trip rather than one-per-source.
-        const memoCodes = sourceIds.map((id) => `LATE-${id}`)
-        const { data: existing } = await db
-          .from('assessments')
-          .select('memo_code')
-          .eq('association_id', assoc.id)
-          .eq('assessment_type', 'late_fee')
-          .in('memo_code', memoCodes)
-        const alreadyCharged = new Set(
-          (existing ?? [])
-            .map((r) => r.memo_code)
-            .filter((c): c is string => !!c),
-        )
 
         let charged = 0
-        let skipped = 0
+        let skipped = defaulted.length - uncharged.length
 
-        for (const src of defaulted ?? []) {
+        for (const src of uncharged) {
           const memoCode = `LATE-${src.id}`
-          if (alreadyCharged.has(memoCode)) {
-            skipped += 1
-            continue
-          }
 
           const feeAmount = Math.round(
             Number(src.amount) * HOA_LATE_FEE_RATE * 100,
@@ -181,7 +231,7 @@ export const hoaLateFeeJob = inngest.createFunction(
           charged += 1
         }
 
-        return { evaluated: (defaulted ?? []).length, charged, skipped }
+        return { evaluated: defaulted.length, charged, skipped }
       })
 
       totalEvaluated += result.evaluated

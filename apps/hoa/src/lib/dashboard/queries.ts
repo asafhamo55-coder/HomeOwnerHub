@@ -1,6 +1,7 @@
 import { addDays, isSameDay, startOfMonth, endOfMonth } from 'date-fns'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { chunk, readAllResult } from '@/lib/supabase/read-all'
 import type { DayCell, DayLevel } from '@/components/dashboard/ComplianceHeatMap'
 
 // Optional `client` on every fetcher lets ./cached.ts pass an admin
@@ -491,14 +492,19 @@ export async function getLeaseSummary(
   }
 
   // 2. Resolve the units → properties for tenure roll-up.
-  const { data: unitsRows, error: unitsError } = await supabase
-    .from('units' as never)
-    .select('legacy_hoa_property_id')
-    .in('association_id', assocIds)
-    .not('legacy_hoa_property_id', 'is', null)
-    // PostgREST caps rows at 1000 by default. Without this the denominator
-    // in "N of M units leased" is a paging artefact, not the community.
-    .range(0, 49_999)
+  // Paged to the end (BL-047): PostgREST caps every response at 1000
+  // rows whatever range is asked for, so the old `.range(0, 49_999)` made
+  // the denominator in "N of M units leased" a paging artefact.
+  const { data: unitsRows, error: unitsError } = await readAllResult<{ legacy_hoa_property_id: string | null }>(
+    (from, to) =>
+      supabase
+        .from('units' as never)
+        .select('id, legacy_hoa_property_id')
+        .in('association_id', assocIds)
+        .not('legacy_hoa_property_id', 'is', null)
+        .order('id', { ascending: true })
+        .range(from, to) as never,
+  )
   note(unitsError)
   const propertyIds = ((unitsRows ?? []) as unknown as Array<{
     legacy_hoa_property_id: string | null
@@ -506,16 +512,18 @@ export async function getLeaseSummary(
     .map((r) => r.legacy_hoa_property_id)
     .filter((id): id is string => !!id)
 
+  // Count-only, chunked: a single `.in()` over thousands of ids overflows
+  // the request URL. A failed chunk marks the summary failed.
   let leasedCount = 0
-  if (propertyIds.length > 0) {
+  for (const ids of chunk(propertyIds)) {
     const { count, error: leasedError } = await supabase
       .from('hoa_properties')
       .select('id', { count: 'exact', head: true })
-      .in('id', propertyIds)
+      .in('id', ids)
       .is('deleted_at', null)
       .eq('tenure' as never, 'leased')
     note(leasedError)
-    leasedCount = count ?? 0
+    leasedCount += count ?? 0
   }
   const totalUnits = propertyIds.length
 
@@ -579,23 +587,30 @@ export async function getCommunitySnapshot(
 ): Promise<CommunitySnapshot> {
   const supabase = await resolveClient(client)
 
+  // Both paged to the end (BL-047). PostgREST caps every response at 1000
+  // rows whatever range is asked for: the property read had no range at
+  // all and the resident read's `.range(0, 19_999)` was capped just the
+  // same, so both counts topped out at 1000.
   const [propsResult, residentsResult] = await Promise.all([
-    supabase
-      .from('hoa_properties')
-      .select('id')
-      .eq('org_id', orgId)
-      .is('deleted_at', null),
-
-    supabase
-      .from('property_residents' as never)
-      .select('id, property_id')
-      .eq('organization_id', orgId)
-      .is('deleted_at', null)
-      .is('moved_out_at', null)
-      // PostgREST caps rows at 1000 by default. An HOA with more than
-      // 20k people in residence does not exist; the explicit range just
-      // stops the silent default cap from quietly truncating the count.
-      .range(0, 19_999),
+    readAllResult<{ id: string }>((from, to) =>
+      supabase
+        .from('hoa_properties')
+        .select('id')
+        .eq('org_id', orgId)
+        .is('deleted_at', null)
+        .order('id', { ascending: true })
+        .range(from, to) as never,
+    ),
+    readAllResult<{ id: string; property_id: string }>((from, to) =>
+      supabase
+        .from('property_residents' as never)
+        .select('id, property_id')
+        .eq('organization_id', orgId)
+        .is('deleted_at', null)
+        .is('moved_out_at', null)
+        .order('id', { ascending: true })
+        .range(from, to) as never,
+    ),
   ])
 
   const propertyIds = new Set(
@@ -791,27 +806,37 @@ export async function getComplianceHeatMap(
   if (assocError) logQueryError('getComplianceHeatMap', assocError)
   const assocIds = (assocs ?? []).map((a) => a.id)
 
+  // Paged to the end (BL-047): a capped read would leave whole red days grey.
   const duesPromise =
     assocIds.length > 0
-      ? supabase
-          .from('assessments')
-          .select('id, due_date, status')
-          .in('association_id', assocIds)
-          .is('deleted_at', null)
-          .gte('due_date', startISO)
-          .lte('due_date', endISO)
+      ? readAllResult<{ id: string; due_date: string; status: string }>((from, to) =>
+          supabase
+            .from('assessments')
+            .select('id, due_date, status')
+            .in('association_id', assocIds)
+            .is('deleted_at', null)
+            .gte('due_date', startISO)
+            .lte('due_date', endISO)
+            .order('id', { ascending: true })
+            .range(from, to) as never,
+        )
       : Promise.resolve({
           data: [] as { id: string; due_date: string; status: string }[],
           error: null,
         })
 
   const [violations, dues] = await Promise.all([
-    supabase
-      .from('hoa_violations')
-      .select('id, status, notice_sent_at, cure_period_days')
-      .eq('org_id', orgId)
-      .is('deleted_at', null)
-      .not('notice_sent_at', 'is', null),
+    readAllResult<{ id: string; status: string; notice_sent_at: string | null; cure_period_days: number | null }>(
+      (from, to) =>
+        supabase
+          .from('hoa_violations')
+          .select('id, status, notice_sent_at, cure_period_days')
+          .eq('org_id', orgId)
+          .is('deleted_at', null)
+          .not('notice_sent_at', 'is', null)
+          .order('id', { ascending: true })
+          .range(from, to) as never,
+    ),
     duesPromise,
   ])
 
@@ -909,17 +934,28 @@ export async function getAtRiskThisWeek(
   if (assocError) logQueryError('getAtRiskThisWeek', assocError)
   const assocIds = (assocs ?? []).map((a) => a.id)
 
+  // Both row reads below page to the end (BL-047): `counts` and
+  // `totalCount` are stated to the board, so they cannot stop at 1000.
   const assessmentsPromise =
     assocIds.length > 0
-      ? supabase
-          .from('assessments')
-          .select(
-            'id, due_date, amount, status, unit_id, unit:units(unit_number)',
-          )
-          .in('association_id', assocIds)
-          .is('deleted_at', null)
-          .not('status', 'in', '("paid","waived","written_off")')
-          .lt('due_date', thirtyDaysAgoISO)
+      ? readAllResult<{
+          id: string
+          due_date: string
+          amount: number
+          status: string
+          unit_id: string | null
+          unit: { unit_number: string | null } | null
+        }>((from, to) =>
+          supabase
+            .from('assessments')
+            .select('id, due_date, amount, status, unit_id, unit:units(unit_number)')
+            .in('association_id', assocIds)
+            .is('deleted_at', null)
+            .not('status', 'in', '("paid","waived","written_off")')
+            .lt('due_date', thirtyDaysAgoISO)
+            .order('id', { ascending: true })
+            .range(from, to) as never,
+        )
       : Promise.resolve({
           data: [] as {
             id: string
@@ -933,15 +969,19 @@ export async function getAtRiskThisWeek(
         })
 
   const [violations, assessments, cois] = await Promise.all([
-    supabase
-      .from('hoa_violations')
-      .select(
-        'id, description, notice_sent_at, cure_period_days, property:hoa_properties(address, unit_number)',
-      )
-      .eq('org_id', orgId)
-      .is('deleted_at', null)
-      .eq('status', 'notice_sent')
-      .not('notice_sent_at', 'is', null),
+    readAllResult((from, to) =>
+      supabase
+        .from('hoa_violations')
+        .select(
+          'id, description, notice_sent_at, cure_period_days, property:hoa_properties(address, unit_number)',
+        )
+        .eq('org_id', orgId)
+        .is('deleted_at', null)
+        .eq('status', 'notice_sent')
+        .not('notice_sent_at', 'is', null)
+        .order('id', { ascending: true })
+        .range(from, to) as never,
+    ),
 
     assessmentsPromise,
 
