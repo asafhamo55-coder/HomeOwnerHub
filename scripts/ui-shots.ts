@@ -119,6 +119,7 @@ const SHOTS: Shot[] = [
   { name: 'vendors', path: '/vendors', auth: true },
   { name: 'settings-members', path: '/settings/members', auth: true },
   { name: 'settings-payments', path: '/settings/payments', auth: true },
+  { name: 'settings-data', path: '/settings/data', auth: true },
 
   // Platform admin
   { name: 'admin', path: '/admin', auth: true },

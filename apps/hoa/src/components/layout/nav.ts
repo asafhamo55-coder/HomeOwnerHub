@@ -8,6 +8,7 @@ import {
   CalendarHeart,
   ClipboardCheck,
   CreditCard,
+  DatabaseBackup,
   FileText,
   Home,
   KeyRound,
@@ -98,12 +99,14 @@ export const ADMIN_ACCOUNT: HoaNavLink[] = [
   { href: '/settings/members', icon: Users, label: 'Members', keywords: ['board', 'invite'] },
   { href: '/settings/payments', icon: Send, label: 'Resident payments', keywords: ['zelle', 'pay', 'memo'] },
   { href: '/settings/billing', icon: CreditCard, label: 'Billing', keywords: ['subscription', 'plan'] },
+  { href: '/settings/data', icon: DatabaseBackup, label: 'Your data', keywords: ['export', 'download', 'backup', 'csv'] },
 ]
 
 export const BOARD_ACCOUNT: HoaNavLink[] = [
   { href: '/settings/members', icon: Users, label: 'Members', keywords: ['board', 'invite'] },
   { href: '/settings/payments', icon: Send, label: 'Resident payments', keywords: ['zelle', 'pay', 'memo'] },
   { href: '/settings/billing', icon: CreditCard, label: 'Billing', keywords: ['subscription', 'plan'] },
+  { href: '/settings/data', icon: DatabaseBackup, label: 'Your data', keywords: ['export', 'download', 'backup', 'csv'] },
 ]
 
 /** Quick-create actions offered in the palette. */
