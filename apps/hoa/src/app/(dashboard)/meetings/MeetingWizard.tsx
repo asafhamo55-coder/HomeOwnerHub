@@ -21,6 +21,7 @@ import {
   type WizardStep as StepperStep,
 } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
+import { responseErrorMessage } from '@/lib/api/client'
 import { approveMeetingMinutes } from '@/lib/meetings'
 import {
   saveDraft,
@@ -193,8 +194,7 @@ export function MeetingWizard({ initialDraft }: MeetingWizardProps) {
       })
       let summary: string
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        setAIError(body?.message ?? 'AI is offline.')
+        setAIError(await responseErrorMessage(res, 'AI is offline.'))
         summary = `[AI summary unavailable — edit the raw transcript below into formal minutes.]
 
 Meeting: ${meetingDate} (${meetingType})
