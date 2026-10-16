@@ -63,7 +63,6 @@ const ALLOWLIST: Record<string, Rule[]> = {
   'health/route.ts': ['with-route', 'error-message', 'query-secret', 'secret-header'],
 
 
-  'oauth/google/start/route.ts': ['with-route', 'error-message'],
 
   'plaid/exchange/route.ts': ['with-route', 'api-error', 'error-message', 'raw-zod'],
 

@@ -11,6 +11,7 @@ import {
   type ConnectPreview,
 } from '@/lib/inbox/queries'
 import { loadScopeOptions } from '@/lib/inbox/connect'
+import { connectErrorMessage } from '@/lib/inbox/connect-errors'
 import { MailboxConnectCard } from '../../(dashboard)/settings/mailbox/MailboxConnectCard'
 import { SetupChecklist } from './SetupChecklist'
 
@@ -88,7 +89,7 @@ export default async function SetupPage({
 
       {params.error ? (
         <Alert variant="error" title="Couldn’t connect the mailbox">
-          {params.error}
+          {connectErrorMessage(params.error)}
         </Alert>
       ) : null}
       {params.connected ? (

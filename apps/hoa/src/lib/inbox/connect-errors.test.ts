@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CONNECT_ERROR_MESSAGES, ConnectError, connectErrorMessage, isConnectErrorCode } from './connect-errors'
+import { CONNECT_ERROR_MESSAGES, ConnectError, connectErrorMessage, connectErrorRedirect, isConnectErrorCode } from './connect-errors'
 
 describe('connectErrorMessage', () => {
   it('maps a known code to its message', () => {
@@ -23,5 +23,10 @@ describe('connectErrorMessage', () => {
     expect(e).toBeInstanceOf(Error)
     expect(e.code).toBe('forbidden')
     expect(e.message).toBe('detail')
+  })
+
+  it('connectErrorRedirect appends the code without clobbering an existing query', () => {
+    const url = connectErrorRedirect('/settings/mailbox?tab=a', 'internal', 'https://app.example/x')
+    expect(url.toString()).toBe('https://app.example/settings/mailbox?tab=a&error=internal')
   })
 })

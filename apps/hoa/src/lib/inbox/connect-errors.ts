@@ -57,3 +57,10 @@ export class ConnectError extends Error {
     this.name = 'ConnectError'
   }
 }
+
+/** Build `${returnTo}?error=<code>` (keeping any query already on returnTo). */
+export function connectErrorRedirect(returnTo: string, code: ConnectErrorCode, base: string): URL {
+  const url = new URL(returnTo, base)
+  url.searchParams.set('error', code)
+  return url
+}
