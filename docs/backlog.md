@@ -585,3 +585,18 @@ These go beyond the design-system v2 pass:
 - **Field workflows on phones:** BL-028
 - **Print-quality outputs:** BL-010 statements, BL-016 board packet
 - **AI guidance at intake:** BL-024
+
+## Added 2026-10-15 (cycle 1)
+
+- **BL-041 Implement the recommended pricing** (docs/decisions/2026-10-pricing.md):
+  $1.00/door, $59/mo floor, optional AI add-on $0.50/door ($25 min), 10% off
+  annual; grandfather Madison Park. Owner pre-approved recommendations
+  2026-10-15. **Sequencing:** ship only after BL-006 (Pay-by-Zelle) is live, per
+  the decision doc. Needs new Stripe prices (owner's Stripe dashboard, or
+  Stripe API key in Vercel prod) — flag when BL-006 lands. Also fixes: homepage
+  teaser still shows flat $39/$79/$149 tiers contradicting /pricing; the
+  "$200 minimum" is actually $204.59 (41-door rounding).
+- **BL-042 Marketing truth pass, round 2** (low priority, HOA-relevant pages
+  only): /hoa, /compare, Madison Park case study, workflows grid still name
+  Reserve Live / Minutes Engine. Out of HOA-app scope except where they sell the
+  HOA product.
