@@ -1,6 +1,6 @@
 import type { Database } from '@homeowner-portal/db/types'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { getPrimaryAssociation } from '@/lib/vendors'
+import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { chunk, readAll } from '@/lib/supabase/read-all'
 
 /**
@@ -1229,11 +1229,15 @@ export interface AccountingContext {
 
 /**
  * One round-trip helper that every accounting page calls first. Returns
- * null when no HOA org is selected or no association has been seeded;
- * callers render a "Run seed:accounting" empty state in that case.
+ * null when no HOA org is selected or the org has no association yet;
+ * callers render `AccountingNotSetUp` (which can create it) in that case.
+ * A failed association read THROWS (→ `AccountingLoadFailed`) instead of
+ * reading as "not set up" (BL-046).
  */
 export async function getAccountingContext(): Promise<AccountingContext | null> {
-  const assoc = await getPrimaryAssociation()
+  const assocRes = await getPrimaryAssociationResult()
+  if (!assocRes.ok) throw queryFailed({ code: 'association', message: 'primary association read failed' })
+  const assoc = assocRes.data
   if (!assoc) return null
 
   const supabase = await getSupabaseServerClient()

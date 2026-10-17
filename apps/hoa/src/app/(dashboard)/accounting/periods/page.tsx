@@ -45,7 +45,7 @@ export default async function PeriodsPage() {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="Fiscal periods" what="fiscal periods" />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="Fiscal periods" />
+  if (!ctx) return <AccountingNotSetUp title="Fiscal periods" returnTo="/accounting/periods" />
 
   const res = await tryLoad('fiscal periods', () => listFiscalPeriods(ctx.associationId))
 

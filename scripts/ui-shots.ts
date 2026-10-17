@@ -72,6 +72,8 @@ interface Shot {
   auth?: boolean
   /** Render as a resident (admin role-override cookie). */
   resident?: boolean
+  /** Seed var naming the HOA org to make active (switcher cookie). */
+  org?: string
   /** Desktop sidebar collapsed to the icon rail. */
   rail?: boolean
   /** Board copilot panel open. */
@@ -123,6 +125,10 @@ const SHOTS: Shot[] = [
   { name: 'violations-new', path: '/violations/new', auth: true },
   { name: 'violations-approval-queue', path: '/violations/approval-queue', auth: true },
   { name: 'dues', path: '/dues', auth: true },
+  // BL-046: an HOA with no association — the inline "Set up your
+  // association" form on /dues and on every accounting page.
+  { name: 'dues-no-association', path: '/dues', auth: true, org: 'bareHoaOrgId' },
+  { name: 'accounting-no-association', path: '/accounting', auth: true, org: 'bareHoaOrgId' },
   { name: 'inbox', path: '/inbox', auth: true },
   { name: 'properties', path: '/properties', auth: true },
   { name: 'meetings', path: '/meetings', auth: true },
@@ -245,9 +251,11 @@ async function ensureOrg(
 ): Promise<{ id: string; created: boolean }> {
   const { data: rows } = await db
     .from('org_members')
-    .select('org_id, orgs!inner(hub_type)')
+    .select('org_id, orgs!inner(hub_type, name)')
     .eq('user_id', userId)
     .eq('orgs.hub_type', hub)
+    // By name too: the user also belongs to a second, bare HOA org (BL-046).
+    .eq('orgs.name', name)
     .limit(1)
   const existing = (rows?.[0] as { org_id?: string } | undefined)?.org_id
   if (existing) return { id: existing, created: false }
@@ -545,7 +553,8 @@ async function main() {
       if (overflowMode && shot.print) continue
       const app = shot.app ?? 'hoa'
       const path = fillPath(shot.path, seeded?.vars ?? {})
-      if (!path) {
+      const orgId = shot.org ? seeded?.vars[shot.org] : undefined
+      if (!path || (shot.org && !orgId)) {
         skipped++
         console.log(`shot skipped: ${shot.name} (no seed data for ${shot.path})`)
         continue
@@ -577,6 +586,9 @@ async function main() {
           await ctx.addInitScript('window.__name = window.__name || ((f) => f)')
           if (shot.resident) {
             await ctx.addCookies([{ name: 'hh_role_override', value: 'resident', url: bases.hoa }])
+          }
+          if (orgId) {
+            await ctx.addCookies([{ name: 'hoa_active_org_id', value: orgId, url: bases.hoa }])
           }
           const page = await ctx.newPage()
           const file = resolve(OUT, `${shot.name}--${width}-${theme}.png`)

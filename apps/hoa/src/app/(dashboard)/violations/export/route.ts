@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { readAllResult } from '@/lib/supabase/read-all'
+import { csvDocument } from '@/lib/csv'
 
 // CSV export of the violations list, scoped to the current user's org
 // via RLS. Honors the same `?q=` search the page uses so the exported
@@ -25,21 +26,6 @@ const STATUS_LABEL: Record<string, string> = {
   resolved: 'Resolved',
   fined: 'Fined',
   escalated: 'At attorney',
-}
-
-// CSV cell quoting (RFC 4180) + Excel/Sheets formula-injection defense.
-// Cells beginning with =, +, -, @, tab, or CR are interpreted as formulas
-// by spreadsheet apps — prepend a single quote to neutralize.
-function csvEscape(value: string | null | undefined): string {
-  if (value == null) return ''
-  let s = String(value)
-  if (/^[=+\-@\t\r]/.test(s)) {
-    s = `'${s}`
-  }
-  if (/[",\n\r]/.test(s)) {
-    return `"${s.replace(/"/g, '""')}"`
-  }
-  return s
 }
 
 export async function GET(request: NextRequest) {
@@ -92,24 +78,19 @@ export async function GET(request: NextRequest) {
     'Reported',
     'Notice sent',
   ]
-  const lines = [header.map(csvEscape).join(',')]
-  for (const r of rows) {
-    lines.push(
-      [
-        r.description,
-        STATUS_LABEL[r.status] ?? r.status,
-        r.severity ?? '',
-        r.ccr_section ?? '',
-        r.property?.address ?? '',
-        r.property?.unit_number ?? '',
-        r.created_at ?? '',
-        r.notice_sent_at ?? '',
-      ]
-        .map(csvEscape)
-        .join(','),
-    )
-  }
-  const body = '﻿' + lines.join('\r\n')
+  const body = csvDocument(
+    header,
+    rows.map((r) => [
+      r.description,
+      STATUS_LABEL[r.status] ?? r.status,
+      r.severity ?? '',
+      r.ccr_section ?? '',
+      r.property?.address ?? '',
+      r.property?.unit_number ?? '',
+      r.created_at ?? '',
+      r.notice_sent_at ?? '',
+    ]),
+  )
 
   const today = new Date().toISOString().slice(0, 10)
   const tag = search ? '-search' : ''

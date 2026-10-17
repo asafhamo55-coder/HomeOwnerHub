@@ -43,7 +43,7 @@ export default async function InvoicesPage({ searchParams }: PageProps) {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="Invoices" what="invoices" />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="Invoices" />
+  if (!ctx) return <AccountingNotSetUp title="Invoices" returnTo="/accounting/invoices" />
 
   const sp = await searchParams
   const status = sp.status && sp.status in INVOICE_STATUS ? sp.status : undefined

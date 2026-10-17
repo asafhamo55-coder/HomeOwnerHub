@@ -16,6 +16,7 @@ import { reportError } from '@homeowner-portal/observability/report'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sendEmail, appUrl } from '@/lib/email'
 import { isUsStateCode } from '@/lib/us-states'
+import { associationSlug } from '@/lib/association-setup'
 import { chunk, readAll } from '@/lib/supabase/read-all'
 
 type AdminDb = ReturnType<typeof createAdminClient>
@@ -941,14 +942,18 @@ export async function createTenant(
     return { ok: false, error: orgErr?.message ?? 'Could not create tenant.' }
   }
 
-  await db
+  // `slug` is NOT NULL (0006); without it this insert always failed, and
+  // the `as never` cast plus the ignored result hid that (found by BL-046).
+  const { error: assocErr } = await db
     .from('associations' as never)
     .insert({
       organization_id: orgRow.id,
       name: parsed.data.association_name,
       state: parsed.data.state,
       type: parsed.data.association_type,
+      slug: associationSlug(parsed.data.association_name),
     } as never)
+  if (assocErr) console.error('createTenant: association insert failed', { code: assocErr.code })
 
   // Optional: invite the initial admin. We create the Supabase Auth
   // user if needed and add them as `admin` of the new org.

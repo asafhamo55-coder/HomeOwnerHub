@@ -14,7 +14,7 @@ export default async function NewPlanPage() {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="New payment plan" what="the plan form" breadcrumbs={crumbs} width="narrow" />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="New payment plan" tabs={false} />
+  if (!ctx) return <AccountingNotSetUp title="New payment plan" tabs={false} returnTo="/accounting/payment-plans/new" />
 
   const supabase = await getSupabaseServerClient()
   const units = await loadOrFail(

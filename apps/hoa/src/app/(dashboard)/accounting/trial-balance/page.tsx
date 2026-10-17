@@ -35,7 +35,7 @@ export default async function TrialBalancePage({ searchParams }: PageProps) {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="Trial balance" what="the trial balance" />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="Trial balance" />
+  if (!ctx) return <AccountingNotSetUp title="Trial balance" returnTo="/accounting/trial-balance" />
 
   const sp = await searchParams
   const periodsRes = await tryLoad('fiscal periods', () => listFiscalPeriods(ctx.associationId))

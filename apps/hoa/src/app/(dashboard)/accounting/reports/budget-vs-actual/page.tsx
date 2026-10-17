@@ -28,7 +28,7 @@ export default async function BudgetVsActualPage({ searchParams }: PageProps) {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="Budget vs. actual" what="the report" breadcrumbs={crumbs} />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="Budget vs. actual" />
+  if (!ctx) return <AccountingNotSetUp title="Budget vs. actual" returnTo="/accounting/reports/budget-vs-actual" />
 
   const sp = await searchParams
   const budgetsRes = await tryLoad('budgets', () => listBudgets(ctx.associationId))

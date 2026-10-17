@@ -469,8 +469,9 @@ const EMPTY_STATE_ACTION_ROUTES: Record<string, string[]> = {
   '/events': ['(dashboard)/events/page.tsx'],
   '/communications': ['(dashboard)/communications/page.tsx'],
   '/tickets': ['(dashboard)/tickets/page.tsx'],
-  '/dues': ['(dashboard)/dues/page.tsx'],
-  '/accounting/bank': ['(dashboard)/accounting/bank/page.tsx'],
+  // BL-046: the no-association state is a shared component.
+  '/dues': ['(dashboard)/dues/page.tsx', '(dashboard)/_components/AssociationNotSetUp.tsx'],
+  '/accounting/bank': ['(dashboard)/accounting/bank/page.tsx', '(dashboard)/_components/AssociationNotSetUp.tsx'],
   '/vendors': ['(dashboard)/vendors/page.tsx'],
   '/documents': ['(dashboard)/documents/page.tsx'],
   // BL-014: the approvals inbox joined the sidebar.

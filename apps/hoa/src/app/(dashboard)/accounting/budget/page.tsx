@@ -33,7 +33,7 @@ export default async function BudgetsListPage() {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="Budgets" what="budgets" />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="Budgets" />
+  if (!ctx) return <AccountingNotSetUp title="Budgets" returnTo="/accounting/budget" />
 
   const res = await tryLoad('budgets', () => listBudgets(ctx.associationId))
 

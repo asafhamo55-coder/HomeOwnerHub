@@ -15,7 +15,7 @@ export default async function NewInvoicePage() {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="Enter a bill" what="the bill form" breadcrumbs={crumbs} width="narrow" />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="Enter a bill" tabs={false} />
+  if (!ctx) return <AccountingNotSetUp title="Enter a bill" tabs={false} returnTo="/accounting/invoices/new" />
 
   const [vendorsRes, accountsRes] = await Promise.all([
     tryLoad('vendors', () => listVendors()),

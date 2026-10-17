@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { listVendorsResult, type ComplianceStatus } from '@/lib/vendors'
+import { csvDocument } from '@/lib/csv'
 
 // CSV export of the vendor list. Honors `?q=` so the exported file
 // matches the filtered view on /vendors. RLS via `listVendors()` already
@@ -17,19 +18,6 @@ const STATUS_LABEL: Record<string, string> = {
   active: 'Active',
   inactive: 'Inactive',
   blacklisted: 'Blacklisted',
-}
-
-// CSV cell quoting (RFC 4180) + formula-injection defense.
-function csvEscape(value: string | null | undefined): string {
-  if (value == null) return ''
-  let s = String(value)
-  if (/^[=+\-@\t\r]/.test(s)) {
-    s = `'${s}`
-  }
-  if (/[",\n\r]/.test(s)) {
-    return `"${s.replace(/"/g, '""')}"`
-  }
-  return s
 }
 
 export async function GET(request: NextRequest) {
@@ -67,11 +55,11 @@ export async function GET(request: NextRequest) {
     'Phone',
     'Last reviewed',
   ]
-  const lines = [header.map(csvEscape).join(',')]
-  for (const v of vendors) {
-    const compliance = v.compliance?.status
-    lines.push(
-      [
+  const body = csvDocument(
+    header,
+    vendors.map((v) => {
+      const compliance = v.compliance?.status
+      return [
         v.legal_name,
         v.dba ?? '',
         STATUS_LABEL[v.status] ?? v.status,
@@ -81,11 +69,8 @@ export async function GET(request: NextRequest) {
         v.primary_phone ?? '',
         v.compliance?.last_reviewed_at ?? '',
       ]
-        .map(csvEscape)
-        .join(','),
-    )
-  }
-  const body = '﻿' + lines.join('\r\n')
+    }),
+  )
 
   const today = new Date().toISOString().slice(0, 10)
   const tag = search ? '-search' : ''

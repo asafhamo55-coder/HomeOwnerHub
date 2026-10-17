@@ -14,7 +14,7 @@ export default async function NewBudgetPage() {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="New budget" what="the budget form" breadcrumbs={crumbs} width="narrow" />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="New budget" tabs={false} />
+  if (!ctx) return <AccountingNotSetUp title="New budget" tabs={false} returnTo="/accounting/budget/new" />
 
   const [periods, funds] = await Promise.all([
     tryLoad('fiscal periods', () => listFiscalPeriods(ctx.associationId)),

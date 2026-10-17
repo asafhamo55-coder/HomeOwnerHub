@@ -20,7 +20,7 @@ export default async function BalanceSheetPage({ searchParams }: PageProps) {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="Balance sheet" what="the balance sheet" breadcrumbs={crumbs} />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="Balance sheet" />
+  if (!ctx) return <AccountingNotSetUp title="Balance sheet" returnTo="/accounting/reports/balance-sheet" />
 
   const sp = await searchParams
   // Default is today: "where do we stand" is the question this page answers.

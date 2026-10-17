@@ -34,7 +34,7 @@ export default async function IncomeStatementPage({ searchParams }: PageProps) {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="Income statement" what="the income statement" breadcrumbs={crumbs} />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="Income statement" />
+  if (!ctx) return <AccountingNotSetUp title="Income statement" returnTo="/accounting/reports/income-statement" />
 
   const sp = await searchParams
   const periodsRes = await tryLoad('fiscal periods', () => listFiscalPeriods(ctx.associationId))

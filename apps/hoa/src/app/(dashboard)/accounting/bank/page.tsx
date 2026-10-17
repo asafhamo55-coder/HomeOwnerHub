@@ -40,7 +40,7 @@ export default async function BankAccountsPage({ searchParams }: { searchParams:
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="Bank accounts" what="bank accounts" />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="Bank accounts" />
+  if (!ctx) return <AccountingNotSetUp title="Bank accounts" returnTo="/accounting/bank" />
 
   const page = parsePageParam((await searchParams).page)
   const [accounts, txns, unmatched, funds] = await Promise.all([

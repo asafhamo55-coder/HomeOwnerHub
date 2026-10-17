@@ -611,9 +611,9 @@ These go beyond the design-system v2 pass:
   the populated dry-run table has never been seen with real data; a message where every
   recipient was blocked by the guard is marked `failed`; the 600px email preview scrolls
   sideways at 375px (as on /dues).
-- **BL-045 Unify CSV escaping:** the four legacy export routes (properties, violations,
+- **BL-045 Unify CSV escaping — Done (c7):** the four legacy export routes (properties, violations,
   leases, vendors) should use `apps/hoa/src/lib/csv.ts`, which has a formula-injection guard.
-- **BL-046 Setup gaps found by BL-012:** /dues with no association links to a checklist
+- **BL-046 Setup gaps found by BL-012 — Done (c7):** /dues with no association links to a checklist
   that can't create one; `AccountingNotSetUp` has no action.
 - **BL-047 1000-row cap on totals (bug, high) — Done (c4)** (found by BL-016): `.range(0, 49_999)` reads
   are silently capped at 1000 rows by Supabase `max_rows`, so the `/dues` headline,
