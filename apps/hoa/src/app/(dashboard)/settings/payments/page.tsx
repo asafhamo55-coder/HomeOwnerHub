@@ -3,6 +3,7 @@ import { Alert, LoadFailed, Page } from '@homeowner-portal/ui'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getBoardZelleSettings } from '@/lib/pay-settings'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
+import { AssociationNotSetUp } from '../../_components/AssociationNotSetUp'
 import { ZelleSettingsForm } from './ZelleSettingsForm'
 
 export const metadata = { title: 'Resident payments' }
@@ -30,9 +31,10 @@ export default async function ResidentPaymentsSettingsPage() {
   if (!load.ok) {
     if (load.reason === 'no_association') {
       return page(
-        <Alert variant="info" title="No association set up yet">
-          Resident payments attach to your association’s accounting. Finish onboarding, then come back here.
-        </Alert>,
+        <AssociationNotSetUp
+          needFor="Resident payments attach to your association’s accounting, and this HOA doesn’t have one yet."
+          returnTo="/settings/payments"
+        />,
       )
     }
     return page(<LoadFailed what="your payment settings" />)

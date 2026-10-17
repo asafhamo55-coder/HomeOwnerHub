@@ -25,6 +25,7 @@ import {
   type BankAccountWithFund,
   type BankTransactionRow,
 } from '@/lib/accounting/queries'
+import { getCurrentUserRole } from '@/lib/auth'
 import { tryLoad } from '@/lib/load-or-fail'
 import { formatDay, formatStamp, plural, usd } from '@/lib/money/format'
 import { AccountingTabs } from '../AccountingTabs'
@@ -50,6 +51,8 @@ export default async function BankAccountsPage({ searchParams }: { searchParams:
     tryLoad('funds', () => listFunds(ctx.associationId)),
   ])
   const fundOptions = funds.ok ? funds.data.map((f) => ({ id: f.id, label: f.name })) : []
+  // BL-064: an admin can open the books from the dialog when there are no funds.
+  const canOpenBooks = (await getCurrentUserRole())?.role === 'admin'
   const hasAccounts = accounts.ok && accounts.data.length > 0
   const unmatchedCount = unmatched.ok ? unmatched.data.total : 0
 
@@ -60,7 +63,7 @@ export default async function BankAccountsPage({ searchParams }: { searchParams:
       tabs={<AccountingTabs />}
       // With no accounts yet, the empty state below carries the one primary
       // "Connect bank" action, so the header doesn't repeat it.
-      actions={funds.ok && (hasAccounts || !accounts.ok) ? <LinkPlaidButton funds={fundOptions} variant="secondary" /> : undefined}
+      actions={funds.ok && (hasAccounts || !accounts.ok) ? <LinkPlaidButton funds={fundOptions} canOpenBooks={canOpenBooks} variant="secondary" /> : undefined}
     >
       {unmatchedCount > 0 ? (
         <Alert
@@ -88,7 +91,7 @@ export default async function BankAccountsPage({ searchParams }: { searchParams:
           description="Link your operating and reserve accounts so transactions flow in and match to the ledger on their own."
           action={
             funds.ok ? (
-              <LinkPlaidButton funds={fundOptions} label="Connect bank" />
+              <LinkPlaidButton funds={fundOptions} canOpenBooks={canOpenBooks} label="Connect bank" />
             ) : (
               // Linking needs the fund list; when that read failed, reloading
               // is the honest next step (the dialog would offer no funds).

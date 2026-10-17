@@ -5,7 +5,6 @@ import {
   CardHeader,
   CardTitle,
   DataTable,
-  EmptyState,
   LoadFailed,
   Page,
   StatusPill,
@@ -15,6 +14,7 @@ import { getAccountingContext, listAccounts, listFunds, type AccountType, type C
 import { tryLoad } from '@/lib/load-or-fail'
 import { AccountingTabs } from '../AccountingTabs'
 import { AccountingLoadFailed, AccountingNotSetUp } from '../_components/shared'
+import { BooksNotOpen } from '../../_components/BooksNotOpen'
 
 export const metadata = { title: 'Chart of Accounts' }
 export const dynamic = 'force-dynamic'
@@ -85,10 +85,11 @@ export default async function ChartOfAccountsPage() {
       {!accounts.ok ? (
         <LoadFailed what="the chart of accounts" />
       ) : accounts.data.length === 0 ? (
-        <EmptyState
+        <BooksNotOpen
           icon={<BookOpen aria-hidden />}
           title="No accounts yet"
-          description="The standard chart is created when accounting is set up. Contact support to add it."
+          needFor="Every entry posts to an account, and this association’s chart of accounts is empty."
+          returnTo="/accounting/coa"
         />
       ) : (
         TYPE_ORDER.filter((t) => (byType.get(t) ?? []).length > 0).map((type) => {

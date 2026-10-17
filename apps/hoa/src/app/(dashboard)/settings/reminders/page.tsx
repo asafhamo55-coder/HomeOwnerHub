@@ -4,6 +4,7 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { appUrl } from '@/lib/email'
 import { getBoardReminderSettings, previewReminderRun } from '@/lib/reminder-settings'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
+import { AssociationNotSetUp } from '../../_components/AssociationNotSetUp'
 import { DuesRemindersForm } from './DuesRemindersForm'
 
 export const metadata = { title: 'Dues reminders' }
@@ -31,9 +32,10 @@ export default async function DuesRemindersSettingsPage() {
   if (!load.ok) {
     if (load.reason === 'no_association') {
       return page(
-        <Alert variant="info" title="No association set up yet">
-          Reminders go to the owners in your association. Finish onboarding, then come back here.
-        </Alert>,
+        <AssociationNotSetUp
+          needFor="Reminders go to the owners in your association, and this HOA doesn’t have one yet."
+          returnTo="/settings/reminders"
+        />,
       )
     }
     return page(<LoadFailed what="your reminder settings" />)

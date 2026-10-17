@@ -6,6 +6,7 @@ import { getCurrentUserRole } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
   parseNewAssociation,
+  readPrimaryAssociation,
   safeSetupReturnTo,
   setUpAssociationCore,
   type NewAssociationField,
@@ -50,5 +51,37 @@ export async function setUpAssociation(
   }
 
   revalidatePath('/', 'layout')
+  redirect(safeSetupReturnTo(formData.get('return_to')))
+}
+
+export interface OpenBooksState {
+  error?: string
+}
+
+/**
+ * BL-064: "Open the books" for an association that exists but has no
+ * funds, chart of accounts or fiscal period. Admin only, like the create
+ * form. It opens the books of the org's PRIMARY association (the one the
+ * accounting pages show) — the id is never taken from the form — and
+ * never creates an association.
+ */
+export async function openBooks(_prev: OpenBooksState, formData: FormData): Promise<OpenBooksState> {
+  const ctx = await getCurrentUserRole()
+  if (!ctx) return { error: 'Sign in to your HOA first.' }
+  if (ctx.role !== 'admin') return { error: 'Only an admin of your HOA can open the books.' }
+
+  const supabase = await getSupabaseServerClient()
+  const assoc = await readPrimaryAssociation(supabase, ctx.org.id)
+  if (!assoc.ok) return { error: 'We couldn’t check your association just now. Try again.' }
+  if (!assoc.data) return { error: 'Your HOA has no association yet. Set one up first.' }
+
+  const res = await setUpAssociationCore(supabase, {
+    orgId: ctx.org.id,
+    associationId: assoc.data.id,
+    year: new Date().getFullYear(),
+  })
+  // A part-way failure may have added some rows; refresh either way.
+  revalidatePath('/', 'layout')
+  if (!res.ok) return { error: res.error }
   redirect(safeSetupReturnTo(formData.get('return_to')))
 }

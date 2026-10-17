@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { AlertTriangle, Download, Home, KeyRound, ListOrdered, Percent } from 'lucide-react'
+import { Download, Home, KeyRound, ListOrdered, Percent } from 'lucide-react'
 import {
   Alert,
   Button,
@@ -17,7 +17,8 @@ import {
   StatusBadge,
   type DataTableColumn,
 } from '@homeowner-portal/ui'
-import { getPrimaryAssociation } from '@/lib/vendors'
+import { getPrimaryAssociationResult } from '@/lib/primary-association'
+import { AssociationNotSetUp } from '../_components/AssociationNotSetUp'
 import {
   getLeaseCap,
   listWaitingListCandidates,
@@ -36,23 +37,23 @@ export const dynamic = 'force-dynamic'
 const RECENT_DECISIONS = 10
 
 export default async function LeasesPage() {
-  const assoc = await getPrimaryAssociation()
-  if (!assoc) {
+  // A failed read is LoadFailed, never "not set up" (BL-064).
+  const assocRes = await getPrimaryAssociationResult()
+  if (!assocRes.ok || !assocRes.data) {
     return (
       <Page title="Leases" description="Rental cap, current leasing, and the waiting list.">
-        <EmptyState
-          icon={<AlertTriangle aria-hidden />}
-          title="No association configured"
-          description="Set up an association for this HOA in Settings before managing leases."
-          action={
-            <Button asChild>
-              <Link href="/settings">Open settings</Link>
-            </Button>
-          }
-        />
+        {!assocRes.ok ? (
+          <LoadFailed what="your association" />
+        ) : (
+          <AssociationNotSetUp
+            needFor="The rental cap and waiting list belong to an association, and this HOA doesn’t have one yet."
+            returnTo="/leases"
+          />
+        )}
       </Page>
     )
   }
+  const assoc = assocRes.data
 
   const [stats, cap, waiting, candidates] = await Promise.all([
     loadLeaseStats(assoc.id),

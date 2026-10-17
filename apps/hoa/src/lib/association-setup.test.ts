@@ -172,4 +172,55 @@ describe('setUpAssociationCore', () => {
     const res = await setUpAssociationCore(db as never, { orgId: 'o1', input, year })
     expect(res).toEqual({ ok: false, error: expect.stringMatching(/books/i), associationId: 'a1' })
   })
+
+  // BL-064: "Open the books" for an association that exists but has no
+  // funds / chart / fiscal period. It names the association; it never creates one.
+  describe('opening the books of a named association', () => {
+    it('reads that association scoped to the org and fills in only the books', async () => {
+      const { db, calls } = queuedSupabase({
+        associations: [ok({ id: 'a1' })],
+        funds: [
+          ok([]),
+          ok([
+            { id: 'f-op', code: 'OPERATING' },
+            { id: 'f-res', code: 'RESERVE' },
+          ]),
+        ],
+        chart_of_accounts: [ok([]), ok(null)],
+        fiscal_periods: [ok(null), ok(null)],
+      })
+      const res = await setUpAssociationCore(db as never, { orgId: 'o1', associationId: 'a1', year })
+      expect(res).toEqual({ ok: true, associationId: 'a1', created: false })
+      const eqs = calls[0]!.ops.filter(([op]) => op === 'eq').map(([, args]) => args)
+      expect(eqs).toEqual([
+        ['id', 'a1'],
+        ['organization_id', 'o1'],
+      ])
+      expect(payloadOf(calls, 'associations', 'insert')).toBeUndefined()
+      expect(payloadOf(calls, 'funds', 'insert')).toHaveLength(2)
+      expect(payloadOf(calls, 'chart_of_accounts', 'insert')).toHaveLength(DEFAULT_CHART_OF_ACCOUNTS.length)
+      expect(payloadOf(calls, 'fiscal_periods', 'insert')).toMatchObject({ association_id: 'a1', status: 'open' })
+    })
+
+    it('refuses, writing nothing, when the association is not in the org', async () => {
+      const { db, calls } = queuedSupabase({ associations: [ok(null)] })
+      const res = await setUpAssociationCore(db as never, { orgId: 'o1', associationId: 'other', year })
+      expect(res.ok).toBe(false)
+      expect(calls.map((c) => c.table)).toEqual(['associations'])
+    })
+
+    it('fails rather than creating one when the read fails', async () => {
+      const { db, calls } = queuedSupabase({ associations: [fail('500')] })
+      const res = await setUpAssociationCore(db as never, { orgId: 'o1', associationId: 'a1', year })
+      expect(res.ok).toBe(false)
+      expect(calls.map((c) => c.table)).toEqual(['associations'])
+    })
+
+    it('does not claim it just created the association when a books step fails', async () => {
+      const { db } = queuedSupabase({ associations: [ok({ id: 'a1' })], funds: [fail('500')] })
+      const res = await setUpAssociationCore(db as never, { orgId: 'o1', associationId: 'a1', year })
+      expect(res).toEqual({ ok: false, error: expect.stringMatching(/books/i), associationId: 'a1' })
+      if (!res.ok) expect(res.error).not.toMatch(/created/i)
+    })
+  })
 })

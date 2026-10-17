@@ -12,6 +12,7 @@ import { formatDayRange, periodLabel, usd } from '@/lib/money/format'
 import { AccountingTabs } from '../AccountingTabs'
 import { AccountLabel, AccountingLoadFailed, AccountingNotSetUp } from '../_components/shared'
 import { PeriodFilter } from '../_components/PeriodFilter'
+import { BooksNotOpen } from '../../_components/BooksNotOpen'
 
 export const metadata = { title: 'Trial Balance' }
 export const dynamic = 'force-dynamic'
@@ -47,7 +48,12 @@ export default async function TrialBalancePage({ searchParams }: PageProps) {
   if (!periodId || !period) {
     return (
       <Page title="Trial balance" tabs={<AccountingTabs />}>
-        <EmptyState icon={<LineChart aria-hidden />} title="No fiscal period yet" description="A trial balance covers one fiscal period. Contact support to open the first one." />
+        <BooksNotOpen
+          icon={<LineChart aria-hidden />}
+          title="No fiscal period yet"
+          needFor="A trial balance covers one fiscal period, and this association has none."
+          returnTo="/accounting/trial-balance"
+        />
       </Page>
     )
   }

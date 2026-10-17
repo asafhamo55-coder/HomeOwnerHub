@@ -155,20 +155,52 @@ function logFailure(step: string, error: { code?: string } | null): void {
 
 const BOOKS_FAILED =
   'The association was created, but opening its books failed part-way. Try again — it only adds what is missing.'
+const OPEN_BOOKS_FAILED = 'Opening the books failed part-way. Try again — it only adds what is missing.'
+const READ_FAILED = 'We couldn’t check your association just now. Try again.'
 
-export async function setUpAssociationCore(
-  db: Db,
-  { orgId, input, year }: { orgId: string; input: NewAssociation; year: number },
-): Promise<SetUpResult> {
-  // 1. The association — reuse the org's first one if it already has one.
-  const existing = await db.from('associations').select('id').eq('organization_id', orgId).limit(1).maybeSingle()
-  if (existing.error) {
-    logFailure('read association', existing.error)
-    return { ok: false, error: 'We couldn’t check your association just now. Try again.' }
+/**
+ * Two callers:
+ *   - `input` (BL-046 create form): reuse the org's association or create
+ *     one from `input`, then open its books;
+ *   - `associationId` (BL-064 "Open the books"): the association already
+ *     exists — it must belong to `orgId` — and only its funds, chart and
+ *     fiscal period are filled in. This path never creates an association.
+ */
+export type SetUpAssociationArgs = { orgId: string; year: number } & (
+  | { input: NewAssociation; associationId?: never }
+  | { associationId: string; input?: never }
+)
+
+export async function setUpAssociationCore(db: Db, args: SetUpAssociationArgs): Promise<SetUpResult> {
+  const { orgId, year } = args
+  let associationId: string | null
+
+  if (args.associationId !== undefined) {
+    // 1'. The named association, only if it is this org's.
+    const named = await db
+      .from('associations')
+      .select('id')
+      .eq('id', args.associationId)
+      .eq('organization_id', orgId)
+      .maybeSingle()
+    if (named.error) {
+      logFailure('read association', named.error)
+      return { ok: false, error: READ_FAILED }
+    }
+    associationId = (named.data as { id: string } | null)?.id ?? null
+    if (!associationId) return { ok: false, error: 'We couldn’t find that association in your HOA.' }
+  } else {
+    // 1. The association — reuse the org's first one if it already has one.
+    const existing = await db.from('associations').select('id').eq('organization_id', orgId).limit(1).maybeSingle()
+    if (existing.error) {
+      logFailure('read association', existing.error)
+      return { ok: false, error: READ_FAILED }
+    }
+    associationId = (existing.data as { id: string } | null)?.id ?? null
   }
-  let associationId = (existing.data as { id: string } | null)?.id ?? null
   const created = associationId === null
   if (!associationId) {
+    const input = args.input!
     const ins = await db
       .from('associations')
       .insert({
@@ -196,7 +228,7 @@ export async function setUpAssociationCore(
 
   const failBooks = (step: string, error: { code?: string } | null): SetUpResult => {
     logFailure(step, error)
-    return { ok: false, error: BOOKS_FAILED, associationId: associationId! }
+    return { ok: false, error: created ? BOOKS_FAILED : OPEN_BOOKS_FAILED, associationId: associationId! }
   }
 
   // 2. Funds.

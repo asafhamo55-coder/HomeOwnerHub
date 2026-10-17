@@ -1,11 +1,12 @@
 import Link from 'next/link'
 import { ArrowDownUp } from 'lucide-react'
-import { EmptyState, Kpi, LoadFailed, Page, StatementTable } from '@homeowner-portal/ui'
+import { Kpi, LoadFailed, Page, StatementTable } from '@homeowner-portal/ui'
 import { computeCashFlow, getAccountingContext, listFiscalPeriods } from '@/lib/accounting/queries'
 import { tryLoad } from '@/lib/load-or-fail'
 import { formatDayRange, periodLabel, usd, usdSigned } from '@/lib/money/format'
 import { sourceLabel } from '@/lib/money/status'
 import { AccountingLoadFailed, AccountingNotSetUp, accountingCrumbs } from '../../_components/shared'
+import { BooksNotOpen } from '../../../_components/BooksNotOpen'
 import { PeriodFilter } from '../../_components/PeriodFilter'
 
 export const metadata = { title: 'Cash Flow' }
@@ -33,7 +34,12 @@ export default async function CashFlowPage({ searchParams }: PageProps) {
   if (!periodId || !period) {
     return (
       <Page linkAs={Link} breadcrumbs={crumbs} title="Cash flow">
-        <EmptyState icon={<ArrowDownUp aria-hidden />} title="No fiscal period yet" description="Cash flow covers one fiscal period. Contact support to open the first one." />
+        <BooksNotOpen
+          icon={<ArrowDownUp aria-hidden />}
+          title="No fiscal period yet"
+          needFor="Cash flow covers one fiscal period, and this association has none."
+          returnTo="/accounting/reports/cash-flow"
+        />
       </Page>
     )
   }

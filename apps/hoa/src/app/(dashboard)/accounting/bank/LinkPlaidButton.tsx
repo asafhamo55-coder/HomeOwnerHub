@@ -1,11 +1,13 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { usePlaidLink, type PlaidLinkOnSuccessMetadata, type PlaidLinkOptions } from 'react-plaid-link'
 import { Link2 } from 'lucide-react'
 import { Alert, Button, Dialog, DialogContent, DialogTrigger, Field, Select, useToast } from '@homeowner-portal/ui'
 import { responseErrorMessage } from '@/lib/api/client'
+import { OpenBooksForm } from '../../_components/OpenBooksForm'
 
 interface FundOption {
   id: string
@@ -29,8 +31,11 @@ export function LinkPlaidButton({
   funds,
   variant = 'default',
   label = 'Link bank account',
+  canOpenBooks = false,
 }: {
   funds: FundOption[]
+  /** Org admin: an empty fund list offers "Open the books" (BL-064). */
+  canOpenBooks?: boolean
   variant?: 'default' | 'secondary'
   /** Trigger text; the empty state says "Connect bank". */
   label?: string
@@ -129,7 +134,24 @@ export function LinkPlaidButton({
         }
       >
         {funds.length === 0 ? (
-          <Alert variant="warning">This association has no funds yet, so there is nothing to attach an account to. Contact support.</Alert>
+          <Alert
+            variant="warning"
+            title="No funds yet"
+            actions={
+              canOpenBooks ? (
+                <OpenBooksForm returnTo="/accounting/bank" variant="secondary" />
+              ) : (
+                <Button asChild variant="secondary">
+                  <Link href="/settings/members">See your HOA’s admins</Link>
+                </Button>
+              )
+            }
+          >
+            A bank account attaches to a fund, and this association has none.{' '}
+            {canOpenBooks
+              ? 'Opening the books adds the Operating and Reserve funds, and anything else the books are missing.'
+              : 'Only an admin of your HOA can open the books.'}
+          </Alert>
         ) : (
           <div className="space-y-4">
             <Field label="Fund" required hint="Operating for day-to-day checking; Reserve for savings set aside for repairs.">

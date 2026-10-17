@@ -137,6 +137,19 @@ const SHOTS: Shot[] = [
   // association" form on /dues and on every accounting page.
   { name: 'dues-no-association', path: '/dues', auth: true, org: 'bareHoaOrgId' },
   { name: 'accounting-no-association', path: '/accounting', auth: true, org: 'bareHoaOrgId' },
+  // BL-064: the shared no-association state on leases and two settings pages.
+  { name: 'leases-no-association', path: '/leases', auth: true, org: 'bareHoaOrgId' },
+  { name: 'settings-payments-no-association', path: '/settings/payments', auth: true, org: 'bareHoaOrgId' },
+  { name: 'settings-reminders-no-association', path: '/settings/reminders', auth: true, org: 'bareHoaOrgId' },
+  // BL-064: an association whose books were never opened — "Open the books"
+  // for an admin, "See your HOA's admins" for a board member.
+  { name: 'books-not-open-periods', path: '/accounting/periods', auth: true, org: 'noBooksAdminOrgId' },
+  { name: 'books-not-open-trial-balance', path: '/accounting/trial-balance', auth: true, org: 'noBooksAdminOrgId' },
+  { name: 'books-not-open-coa', path: '/accounting/coa', auth: true, org: 'noBooksAdminOrgId' },
+  { name: 'books-not-open-invoices-new', path: '/accounting/invoices/new', auth: true, org: 'noBooksAdminOrgId' },
+  { name: 'books-not-open-cash-flow', path: '/accounting/reports/cash-flow', auth: true, org: 'noBooksAdminOrgId' },
+  { name: 'books-not-open-income-statement', path: '/accounting/reports/income-statement', auth: true, org: 'noBooksAdminOrgId' },
+  { name: 'books-not-open-board-periods', path: '/accounting/periods', auth: true, org: 'noBooksBoardOrgId' },
   { name: 'inbox', path: '/inbox', auth: true },
   { name: 'properties', path: '/properties', auth: true },
   { name: 'meetings', path: '/meetings', auth: true },

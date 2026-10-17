@@ -4,7 +4,9 @@ import { Button, Card, CardContent, CardHeader, CardTitle, EmptyState, Page } fr
 import { getAccountingContext, listAccounts } from '@/lib/accounting/queries'
 import { listVendors } from '@/lib/vendors'
 import { tryLoad } from '@/lib/load-or-fail'
+import { DEFAULT_CHART_OF_ACCOUNTS } from '@/lib/association-setup'
 import { AccountingLoadFailed, AccountingNotSetUp, accountingCrumbs } from '../../_components/shared'
+import { BooksNotOpen } from '../../../_components/BooksNotOpen'
 import { EnterBillForm } from './EnterBillForm'
 import { BillScanUpload } from './BillScanUpload'
 
@@ -28,6 +30,9 @@ export default async function NewInvoicePage() {
   const expenseAccounts = accountsRes.data
     .filter((a) => a.account_type === 'expense' && a.is_active)
     .map((a) => ({ id: a.id, label: `${a.account_number} — ${a.account_name}` }))
+  // BL-064: "Open the books" helps only if it would add an expense account.
+  const haveNumbers = new Set(accountsRes.data.map((a) => a.account_number))
+  const missingStandardExpense = DEFAULT_CHART_OF_ACCOUNTS.some((a) => a.type === 'expense' && !haveNumbers.has(a.number))
   const vendorOptions = vendorsRes.data
     .filter((v) => v.status !== 'blacklisted')
     .map((v) => ({ id: v.id, label: v.legal_name + (v.dba ? ` (d/b/a ${v.dba})` : '') }))
@@ -51,13 +56,21 @@ export default async function NewInvoicePage() {
             </Button>
           }
         />
+      ) : expenseAccounts.length === 0 && missingStandardExpense ? (
+        <BooksNotOpen
+          title="No expense accounts"
+          needFor="A bill posts to an expense account, and this association has no active ones yet (landscaping, utilities, insurance…)."
+          returnTo="/accounting/invoices/new"
+        />
       ) : expenseAccounts.length === 0 ? (
+        // Every standard expense account exists but is inactive: opening the
+        // books would add nothing, so point at the chart instead.
         <EmptyState
           icon={<BookOpen aria-hidden />}
-          title="No expense accounts"
-          description="Your chart of accounts has no active expense accounts yet. Contact support to add the standard ones (landscaping, utilities, insurance…)."
-          secondaryAction={
-            <Button asChild variant="ghost">
+          title="No active expense accounts"
+          description="Every expense account in your chart of accounts is marked inactive. Reactivate one to enter bills against it."
+          action={
+            <Button asChild variant="secondary">
               <Link href="/accounting/coa">View chart of accounts</Link>
             </Button>
           }

@@ -543,3 +543,48 @@ describe('empty states carry the next action (BL-012)', () => {
     expect(offenders, 'Give each EmptyState a real next step via `action` (an existing route or dialog).').toEqual([])
   })
 })
+
+// ── Rule 9: setup gaps offer the fix, not "Contact support" (BL-064) ─────
+
+/**
+ * An association can exist with incomplete books (no funds, chart of
+ * accounts or fiscal period). These states used to say "Contact support";
+ * an org admin can now open the books in place (`BooksNotOpen` /
+ * `OpenBooksForm`, which run `setUpAssociationCore`), and a board member
+ * is sent to the admins. A file may be added here, never removed.
+ */
+const OPEN_BOOKS_FILES = [
+  '(dashboard)/accounting/trial-balance/page.tsx',
+  '(dashboard)/accounting/periods/page.tsx',
+  '(dashboard)/accounting/coa/page.tsx',
+  '(dashboard)/accounting/invoices/new/page.tsx',
+  '(dashboard)/accounting/reports/cash-flow/page.tsx',
+  '(dashboard)/accounting/reports/income-statement/page.tsx',
+  '(dashboard)/accounting/bank/LinkPlaidButton.tsx',
+]
+
+/** Pages whose no-association state is the shared component (BL-046/064). */
+const ASSOCIATION_NOT_SET_UP_PAGES = [
+  '(dashboard)/leases/page.tsx',
+  '(dashboard)/settings/payments/page.tsx',
+  '(dashboard)/settings/reminders/page.tsx',
+]
+
+describe('setup gaps offer the fix (BL-064)', () => {
+  const read = (f: string) => readFileSync(path.join(repoRoot, 'apps/hoa/src/app', f), 'utf8')
+
+  it.each(OPEN_BOOKS_FILES)('%s offers "Open the books" instead of "Contact support"', (f) => {
+    const src = read(f)
+    expect(src).toMatch(/<(?:BooksNotOpen|OpenBooksForm)\b/)
+    // An invariant breach ("the database should not allow this") may still
+    // say contact support; a missing setup step may not.
+    expect(src).not.toMatch(/Contact support(?: to| if|\.)/i)
+  })
+
+  it.each(ASSOCIATION_NOT_SET_UP_PAGES)('%s uses AssociationNotSetUp and keeps LoadFailed', (f) => {
+    const src = read(f)
+    expect(src).toMatch(/<AssociationNotSetUp\b/)
+    expect(src).toMatch(/<LoadFailed\b/)
+    expect(src).not.toMatch(/No association (?:set up yet|configured)/)
+  })
+})

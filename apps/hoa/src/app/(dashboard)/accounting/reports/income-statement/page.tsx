@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { TrendingUp } from 'lucide-react'
-import { EmptyState, Field, Kpi, LoadFailed, Page, Select, StatementTable, filterFieldClass } from '@homeowner-portal/ui'
+import { Field, Kpi, LoadFailed, Page, Select, StatementTable, filterFieldClass } from '@homeowner-portal/ui'
 import {
   computeIncomeStatement,
   getAccountingContext,
@@ -11,6 +11,7 @@ import {
 import { tryLoad } from '@/lib/load-or-fail'
 import { formatDayRange, periodLabel, usd } from '@/lib/money/format'
 import { AccountLabel, AccountingLoadFailed, AccountingNotSetUp, accountingCrumbs } from '../../_components/shared'
+import { BooksNotOpen } from '../../../_components/BooksNotOpen'
 import { PeriodFilter } from '../../_components/PeriodFilter'
 
 export const metadata = { title: 'Income Statement' }
@@ -45,7 +46,12 @@ export default async function IncomeStatementPage({ searchParams }: PageProps) {
   if (!periodId || !period) {
     return (
       <Page linkAs={Link} breadcrumbs={crumbs} title="Income statement">
-        <EmptyState icon={<TrendingUp aria-hidden />} title="No fiscal period yet" description="An income statement covers one fiscal period. Contact support to open the first one." />
+        <BooksNotOpen
+          icon={<TrendingUp aria-hidden />}
+          title="No fiscal period yet"
+          needFor="An income statement covers one fiscal period, and this association has none."
+          returnTo="/accounting/reports/income-statement"
+        />
       </Page>
     )
   }

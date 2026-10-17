@@ -1,11 +1,12 @@
 import { CalendarClock } from 'lucide-react'
-import { DataTable, EmptyState, LoadFailed, Page, type DataTableColumn } from '@homeowner-portal/ui'
+import { DataTable, LoadFailed, Page, type DataTableColumn } from '@homeowner-portal/ui'
 import { getAccountingContext, listFiscalPeriods, type FiscalPeriod } from '@/lib/accounting/queries'
 import { tryLoad } from '@/lib/load-or-fail'
 import { formatDayRange, formatStamp, periodLabel } from '@/lib/money/format'
 import { PERIOD_STATUS } from '@/lib/money/status'
 import { AccountingTabs } from '../AccountingTabs'
 import { AccountingLoadFailed, AccountingNotSetUp, MoneyStatus } from '../_components/shared'
+import { BooksNotOpen } from '../../_components/BooksNotOpen'
 import { BoardPacketButton } from './BoardPacketButton'
 import { ClosePeriodButton } from './ClosePeriodButton'
 
@@ -65,11 +66,12 @@ export default async function PeriodsPage() {
           rows={res.data}
           rowKey={(p) => p.id}
           empty={
-            <EmptyState
+            <BooksNotOpen
               variant="compact"
               icon={<CalendarClock aria-hidden />}
               title="No fiscal periods"
-              description="The first period is created when accounting is set up. Contact support if it’s missing."
+              needFor="Entries post into a fiscal period, and this association has none yet."
+              returnTo="/accounting/periods"
             />
           }
         />
