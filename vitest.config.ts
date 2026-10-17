@@ -26,6 +26,9 @@ export default defineConfig({
     include: [
       'apps/**/src/**/*.test.{ts,tsx}',
       'packages/**/src/**/*.test.{ts,tsx}',
+      // Pure-ish tooling under scripts/ (release notes). Named *.test.ts,
+      // so the Postgres-backed scripts/test-*.ts runners never match.
+      'scripts/**/*.test.ts',
     ],
     environment: 'node',
     // Clear call history before every test.

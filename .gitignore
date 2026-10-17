@@ -66,3 +66,7 @@ Declaration*.pdf
 # Resident PII exports — never commit (secrets audit 2026-10-15)
 3552 Violation Sid/
 migrations/seed-*-collections-*.sql
+
+# release-notes previews (scripts/release-notes --dry-run default output)
+.release-notes/
+release-email/

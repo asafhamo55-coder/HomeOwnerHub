@@ -51,6 +51,11 @@ jobs:
       - name: Typecheck integration tests
         run: pnpm typecheck:integration
 
+      # scripts/release-notes is not in any package, so turbo's typecheck
+      # never sees it; this is its own program.
+      - name: Typecheck release-notes scripts
+        run: pnpm typecheck:scripts
+
       - name: Build
         run: pnpm turbo run build
         env:
