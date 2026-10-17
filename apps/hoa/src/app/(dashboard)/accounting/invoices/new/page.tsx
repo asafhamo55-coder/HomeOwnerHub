@@ -1,11 +1,12 @@
 import Link from 'next/link'
 import { BookOpen, Store } from 'lucide-react'
-import { Button, Card, CardContent, EmptyState, Page } from '@homeowner-portal/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, EmptyState, Page } from '@homeowner-portal/ui'
 import { getAccountingContext, listAccounts } from '@/lib/accounting/queries'
 import { listVendors } from '@/lib/vendors'
 import { tryLoad } from '@/lib/load-or-fail'
 import { AccountingLoadFailed, AccountingNotSetUp, accountingCrumbs } from '../../_components/shared'
 import { EnterBillForm } from './EnterBillForm'
+import { BillScanUpload } from './BillScanUpload'
 
 export const metadata = { title: 'Enter Bill' }
 
@@ -62,11 +63,18 @@ export default async function NewInvoicePage() {
           }
         />
       ) : (
-        <Card>
-          <CardContent className="pt-5">
-            <EnterBillForm vendors={vendorOptions} expenseAccounts={expenseAccounts} />
-          </CardContent>
-        </Card>
+        <>
+          {/* BL-021: the AI reads an uploaded bill into a proposal for /approvals. */}
+          <BillScanUpload />
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Enter by hand</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EnterBillForm vendors={vendorOptions} expenseAccounts={expenseAccounts} />
+            </CardContent>
+          </Card>
+        </>
       )}
     </Page>
   )

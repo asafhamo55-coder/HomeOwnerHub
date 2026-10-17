@@ -29,6 +29,9 @@ const OTHER_HANDLERS = {
   rejectVendor: notUsed,
   approveViolationDraft: notUsed,
   rejectViolationDraft: notUsed,
+  // BL-021 scanned bills.
+  approveBill: notUsed,
+  rejectBill: notUsed,
 }
 
 const AMOUNT = 180

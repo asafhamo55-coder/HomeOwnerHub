@@ -44,7 +44,7 @@ beforeEach(() => {
 })
 
 describe('decideApproval refuses a resident before touching the database', () => {
-  for (const kind of ['w18', 'w3', 'vendor'] as const) {
+  for (const kind of ['w18', 'bill', 'w3', 'vendor'] as const) {
     for (const decision of ['approve', 'reject'] as const) {
       it(`${kind} ${decision}`, async () => {
         expect(await decideApproval({ kind, id: ID, decision, reason: 'x' })).toEqual({ ok: false, error: BOARD_ONLY_DENIED })

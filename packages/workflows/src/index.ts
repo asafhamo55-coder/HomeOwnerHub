@@ -132,3 +132,24 @@ export type {
   DecisionResult,
   CashReceiptPayload,
 } from './approvals'
+
+// BL-021 — AP bill scan. Proposes only: the caller files a `w36.ap_bill`
+// approval request, and the bill is entered (apps/hoa enterBill) when a
+// board member approves it. The executor lives in apps/hoa because the
+// bill path it reuses (lib/invoices.ts) does.
+export {
+  scanBill,
+  runBillScan,
+  processBillScanResponse,
+  overallConfidence,
+  liveBillScanModel,
+  W36_AP_BILL,
+  MAX_BILL_AMOUNT,
+  MAX_BILL_TEXT_CHARS,
+} from './W36-bill-scan'
+export type {
+  BillScanInput,
+  BillScanOutput,
+  BillScanModel,
+  FieldConfidence,
+} from './W36-bill-scan'

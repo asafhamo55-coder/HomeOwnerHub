@@ -29,6 +29,10 @@ const EnterBillSchema = z.object({
   amount: z.number().positive('Enter an amount greater than $0.').max(1_000_000, 'Amounts over $1,000,000 need support to enter.'),
   expenseAccountId: z.string().uuid('Pick an expense account.'),
   memo: z.string().max(500).optional(),
+  /** BL-021: the W36 ai_runs id when the bill came from an approved AI scan. */
+  aiRunId: z.string().max(100).optional(),
+  /** BL-021: the scanned bill in hoa-documents, under the caller's org. */
+  rawDocumentPath: z.string().max(500).optional(),
 })
 
 /**
@@ -47,6 +51,8 @@ export async function enterBill(input: {
   amount: number
   expenseAccountId: string
   memo?: string
+  aiRunId?: string
+  rawDocumentPath?: string
 }): Promise<InvoiceActionResult> {
   const parsed = EnterBillSchema.safeParse(input)
   if (!parsed.success) {
@@ -126,6 +132,11 @@ export async function enterBill(input: {
     due_date: value.dueDate ?? null,
     amount: value.amount,
     status: 'received',
+    ai_generated: Boolean(value.aiRunId),
+    ai_workflow_id: value.aiRunId ?? null,
+    // Only a path under this org's prefix is recorded (storage is org-scoped by path).
+    raw_document_path:
+      value.rawDocumentPath && value.rawDocumentPath.startsWith(`${assocRow.organization_id}/`) ? value.rawDocumentPath : null,
   }
   const { data: invoice, error: iErr } = await supabase
     .from('invoices')

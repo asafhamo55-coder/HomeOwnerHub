@@ -114,6 +114,9 @@ const SHOTS: Shot[] = [
   { name: 'palette-records', path: '/', auth: true, viewport: true, palette: 'Sample' },
   { name: 'dashboard-viewport', path: '/', auth: true, viewport: true, scrollBottom: true, widths: [1440], themes: LIGHT },
   { name: 'approvals', path: '/approvals', auth: true },
+  // BL-021: the scanned-bill cards, and the upload screen.
+  { name: 'approvals-bills', path: '/approvals?type=bill', auth: true },
+  { name: 'accounting-invoices-new', path: '/accounting/invoices/new', auth: true },
   { name: 'violations', path: '/violations', auth: true },
   // BL-019: the state-law rule panel where the board creates and reviews
   // violation letter drafts.
