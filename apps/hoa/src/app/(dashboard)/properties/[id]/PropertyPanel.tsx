@@ -55,18 +55,25 @@ const LABELS: Record<PanelTab, string> = {
 }
 
 function money(n: number): string {
-  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: n >= 1000 ? 0 : 2 })
+  // Whole dollars so four tiles fit one row at 375; the tile's title and
+  // the Dues tab carry the cents.
+  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 }
 
 /** One cell of the stat strip. `value === null` means the read failed. */
 function Stat({
   label,
+  shortLabel,
   value,
   hint,
   tone,
   href,
+  title,
 }: {
   label: string
+  /** Shown below sm, where four tiles share 375px. */
+  shortLabel?: string
+  title?: string
   value: React.ReactNode | null
   hint?: React.ReactNode
   tone?: 'danger' | 'warning'
@@ -97,19 +104,31 @@ function Stat({
     )
   const inner = (
     <>
-      <p className="truncate text-2xs font-medium text-muted sm:text-xs">{label}</p>
+      <p className="truncate text-2xs font-medium text-muted sm:text-xs">
+        {shortLabel ? (
+          <>
+            <span className="sm:hidden" aria-hidden>
+              {shortLabel}
+            </span>
+            <span className="sr-only sm:not-sr-only">{label}</span>
+          </>
+        ) : (
+          label
+        )}
+      </p>
       {body}
     </>
   )
   return href ? (
     <Link
       href={href}
+      title={title}
       className="block min-w-0 bg-surface px-2.5 py-2 no-underline transition-colors hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-4 sm:py-3"
     >
       {inner}
     </Link>
   ) : (
-    <div className="min-w-0 bg-surface px-2.5 py-2 sm:px-4 sm:py-3">{inner}</div>
+    <div title={title} className="min-w-0 bg-surface px-2.5 py-2 sm:px-4 sm:py-3">{inner}</div>
   )
 }
 
@@ -219,6 +238,7 @@ export function PropertyPanel({
             hint={stats && stats.daysOverdue > 0 ? `${stats.daysOverdue} days overdue` : 'Current'}
             tone={stats && stats.balance > 0 && stats.daysOverdue > 0 ? 'danger' : undefined}
             href={linkHrefs.dues}
+            title={stats ? stats.balance.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : undefined}
           />
           <Stat
             label="Violations"
@@ -236,6 +256,7 @@ export function PropertyPanel({
           />
           <Stat
             label="Awaiting reply"
+            shortLabel="Replies"
             value={stats ? stats.threadsNeedingReply : null}
             hint={stats && stats.threadsNeedingReply > 0 ? 'in the inbox' : 'nothing waiting'}
             tone={stats && stats.threadsNeedingReply > 0 ? 'warning' : undefined}

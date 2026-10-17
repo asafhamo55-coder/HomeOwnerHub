@@ -30,6 +30,7 @@ export function ContactLink({
       {href ? (
         <a
           href={href}
+          title={value}
           className="inline-flex min-w-0 items-center gap-1.5 truncate text-primary no-underline hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {showIcon ? <Icon className="size-3.5 shrink-0" aria-hidden /> : null}
