@@ -1,6 +1,6 @@
 # Session handoff: HomeownerHub autonomous loop
 
-_Updated every cycle. Last update: 2026-10-17 ~16:45 ET._
+_Updated every cycle. Last update: 2026-10-17 17:05 ET._
 
 ## Start the next session with this prompt
 
@@ -41,7 +41,7 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 - **Integration branch:** `claude/quality-oracle`. All merges land here.
 - **Deploy:** run `/usr/bin/git merge-base --is-ancestor <prod> <tip>`, then `/usr/bin/git push origin <sha>:claude/phase1-homeownerhub-setup-MILNu`. A push made right after pushing quality-oracle fails once; retry it once.
 - **Verify:** poll `https://www.homeownerledger.com/api/health` until `version` equals the SHA. The public body is `{ok, app, version}`.
-- **Live in prod:** c56061f, deployed 2026-10-17 15:55 ET.
+- **Live in prod:** 69361f7, deployed 2026-10-17 17:03 ET. The next deploy is allowed after 18:03.
 
 ## Gates (the trusted forms)
 
@@ -63,12 +63,12 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 
 ## In flight at this update
 
-- **Gating, then deploying:** merged on quality-oracle: BL-051 board packet as of month end, BL-062 no owner email or phone sent to AI, BL-059 bill edits plus the query-string-preserving login redirect, and the auth-callback open-redirect fix.
+- **On quality-oracle, gating:** properties P0 (dual-write, typed ids, resolver, import, dues dead-end fix).
 - **Agents running:**
-  - properties P0 (dual-write, typed ids, resolver)
   - properties P1 (UX quick wins)
-  - release-notes email pipeline
-- **Plan:** docs/research/2026-10-properties-plan.md (P0–P5 plus the M-P1/M-P2 migrations).
+  - BL-071 (version indicator and What's new page)
+  - BL-070 guide phase 1, day 1 (articles, /help, "?" drawer, guide:check)
+- **Next:** guide day 2 (Ask the guide, What's new, checklist links), properties P2 (table and full property page), P4 (board-run import), P3 (record a sale).
 
 ## Decisions taken without the owner (reversible)
 
