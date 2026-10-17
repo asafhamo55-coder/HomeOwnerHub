@@ -17,6 +17,8 @@ export interface GuideShot extends Shot {
   highlight?: string
   /** Selector whose box is captured instead of the whole page. */
   clip?: string
+  /** Crop the clip box to at most this many CSS px tall (keeps phone images short). */
+  clipMaxHeight?: number
   /** Selectors masked out (timestamps, relative dates). */
   mask?: string[]
 }
@@ -119,15 +121,15 @@ export const GUIDE_SHOTS: GuideShot[] = [
   },
   { name: 'guide-ask-docs', path: '/ai/ask', route: '/ai/ask', auth: true, clip: MAIN, highlight: 'button:text-is("Ask")' },
   // 12. resident-portal-basics
-  { name: 'guide-resident-home', path: '/resident', route: '/resident', auth: true, resident: true, clip: MAIN, highlight: 'a:has-text("Pay $") >> visible=true' },
-  { name: 'guide-resident-pay', path: '/resident/dues/pay', route: '/resident/dues/pay', auth: true, resident: true, clip: MAIN },
+  { name: 'guide-resident-home', path: '/resident', route: '/resident', auth: true, resident: true, clip: MAIN, clipMaxHeight: 560, highlight: 'a:has-text("Pay $") >> visible=true' },
+  { name: 'guide-resident-pay', path: '/resident/dues/pay', route: '/resident/dues/pay', auth: true, resident: true, clip: MAIN, clipMaxHeight: 820 },
   {
     name: 'guide-resident-arc-new',
     path: '/resident/arc/new',
     route: '/resident/arc/new',
     auth: true,
     resident: true,
-    clip: MAIN,
+    clip: 'main form',
     highlight: 'button:has-text("Submit application")',
   },
 ]
