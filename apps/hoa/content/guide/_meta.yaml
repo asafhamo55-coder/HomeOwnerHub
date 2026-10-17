@@ -1,0 +1,80 @@
+# Topics and "Start here" paths for the user guide (BL-070).
+# Compiled by scripts/guide-build.ts into apps/hoa/src/generated/guide.ts.
+# Topic order here is the order on /help. A topic with no article for the
+# viewer's role is not shown.
+
+topics:
+  - id: setup
+    label: Getting started & setup
+    description: The setup checklist, properties, residents and inviting the board.
+  - id: dues
+    label: Dues & payments
+    description: Bill dues, record payments and see who owes.
+  - id: violations
+    label: Violations
+    description: Report a violation, approve the letter, follow the cure period.
+  - id: arc
+    label: ARC requests
+    description: Review architectural applications and record the decision.
+  - id: meetings
+    label: Meetings
+    description: Schedule meetings, file minutes and print the board packet.
+  - id: accounting
+    label: Accounting
+    description: The books, invoices, bank reconciliation and reports.
+  - id: communications
+    label: Communications
+    description: Announcements and messages to residents.
+  - id: people
+    label: Properties & people
+    description: Homes, owners, residents, members and roles.
+  - id: documents
+    label: Documents & AI
+    description: Governing documents, Ask the Docs and the Approvals queue.
+  - id: vendors
+    label: Vendors & RFPs
+    description: Vendors, invitations and bids.
+  - id: settings
+    label: Settings & account
+    description: HOA settings, payments, reminders and your data.
+  - id: resident
+    label: Your resident portal
+    description: Pay dues, ask for approval and report a problem.
+
+paths:
+  - id: setting-up
+    label: I'm setting up the HOA
+    description: The setup checklist, one step at a time, in any order.
+    roles: [admin]
+    articles:
+      - start-board-admin
+      - setup-properties-residents
+      - documents-governing-and-ask
+      - dues-generate-monthly
+      - members-invite-board
+      - dues-record-payment
+  - id: on-the-board
+    label: I'm on the board
+    description: The decisions the board makes most weeks.
+    roles: [admin, board]
+    articles:
+      - approvals-queue
+      - violations-report-and-letter
+      - arc-review-application
+      - meetings-schedule-and-minutes
+      - communications-send-announcement
+  - id: several-hoas
+    label: I manage several HOAs
+    description: Quick reference for managers who switch between communities.
+    roles: [admin]
+    articles:
+      - members-invite-board
+      - approvals-queue
+      - dues-record-payment
+      - violations-report-and-letter
+  - id: resident-start
+    label: New here?
+    description: Three things you can do from your phone.
+    roles: [resident]
+    articles:
+      - resident-portal-basics
