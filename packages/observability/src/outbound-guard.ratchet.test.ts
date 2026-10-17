@@ -62,6 +62,20 @@ const TRANSPORTS: Record<string, string> = {
   'apps/marketing/src/app/demo/actions.ts': 'resend (demo request to internal inbox)',
 }
 
+/**
+ * Internal, owner-only notifications that deliberately skip the guard. Each
+ * one must take its recipients from a single named env var and nowhere
+ * else; the behavioural proof is in the test file named alongside. Adding
+ * an entry here is a reviewed decision, never a way round a failing test
+ * for resident mail.
+ */
+const UNGUARDED_INTERNAL: Record<string, { recipientsEnv: string; provedBy: string }> = {
+  'scripts/release-notes/lib/send.ts': {
+    recipientsEnv: 'RELEASE_NOTES_TO',
+    provedBy: 'scripts/release-notes/release-notes.test.ts',
+  },
+}
+
 /** The Gmail transport: send.ts owns the HTTP call, mailbox-send guards it. */
 const GMAIL_SENDER = 'packages/mailbox/src/send.ts'
 const GMAIL_CALLERS = ['packages/jobs/src/mailbox-send.ts']
@@ -78,7 +92,7 @@ const IMPORTS_GUARD = /['"]@homeowner-portal\/observability\/outbound-guard['"]|
 describe('outbound ratchet', () => {
   it('scanned a real tree (guards against a broken walk passing vacuously)', () => {
     expect(sources.size).toBeGreaterThan(200)
-    for (const file of [...Object.keys(TRANSPORTS), GMAIL_SENDER, ...GMAIL_CALLERS]) {
+    for (const file of [...Object.keys(TRANSPORTS), ...Object.keys(UNGUARDED_INTERNAL), GMAIL_SENDER, ...GMAIL_CALLERS]) {
       expect(sources.has(file), `${file} is listed but does not exist`).toBe(true)
     }
   })
@@ -108,9 +122,27 @@ describe('outbound ratchet', () => {
 
   it('raw provider HTTP endpoints appear only in the Gmail transport', () => {
     const offenders = [...sources]
-      .filter(([file, src]) => file !== GMAIL_SENDER && RAW_ENDPOINT.test(src))
+      .filter(([file, src]) => file !== GMAIL_SENDER && !(file in UNGUARDED_INTERNAL) && RAW_ENDPOINT.test(src))
       .map(([file]) => file)
     expect(offenders).toEqual([])
+  })
+
+  it('each unguarded internal sender still sends, reads recipients from its env var, and has its proof test', () => {
+    const problems = Object.entries(UNGUARDED_INTERNAL).flatMap(([file, rule]) => {
+      const src = sources.get(file) ?? ''
+      const out: string[] = []
+      if (!RAW_ENDPOINT.test(src) && !PROVIDER_IMPORT.test(src)) out.push(`${file} no longer sends (remove it)`)
+      if (!src.includes(rule.recipientsEnv)) out.push(`${file} does not read ${rule.recipientsEnv}`)
+      let proof = ''
+      try {
+        proof = readFileSync(path.join(repoRoot, rule.provedBy), 'utf8')
+      } catch {
+        out.push(`${rule.provedBy} is missing`)
+      }
+      if (proof && !proof.includes(rule.recipientsEnv)) out.push(`${rule.provedBy} does not test ${rule.recipientsEnv}`)
+      return out
+    })
+    expect(problems).toEqual([])
   })
 
   it('the Gmail send (sendReply) is called only from the guarded mailbox-send job', () => {

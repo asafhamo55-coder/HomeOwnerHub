@@ -1,0 +1,251 @@
+name: Release notes
+
+# Emails the owner a branded release note after every HOA production deploy.
+# Convention and local usage: docs/releases/README.md.
+#
+# Vercel posts a deployment_status for each of its three projects (hoa, pm,
+# eviction) on every production push. Their environment names look like
+# "Production – home-owner-hub-hoa" (with an en-dash), so the hoa one is
+# picked by prefix + suffix rather than equality — see smoke.yml for the
+# history of the `== 'Production'` check that never matched.
+
+on:
+  deployment_status: {}
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Deployed commit SHA to (re-)send the release note for'
+        required: true
+      previous_sha:
+        description: 'Optional: previous production SHA (defaults to the last one that was notified)'
+        required: false
+        default: ''
+      force:
+        description: 'Send even if a release note was already sent for this SHA'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  deployments: read
+  # The "already sent" marker is a commit status on the deployed SHA.
+  statuses: write
+
+jobs:
+  notify:
+    name: Email release note
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.creator.login == 'vercel[bot]' &&
+       startsWith(github.event.deployment.environment, 'Production') &&
+       endsWith(github.event.deployment.environment, 'home-owner-hub-hoa'))
+
+    # Job-level, so pm/eviction events (skipped by `if`) never occupy the
+    # group — a workflow-level group would let them replace a pending hoa
+    # run. Two hoa events for one SHA run one after the other, and the
+    # second stops at the marker check.
+    concurrency:
+      group: release-notes-${{ github.event.deployment.sha || inputs.sha }}
+      cancel-in-progress: false
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      HOA_ENVIRONMENT: 'Production – home-owner-hub-hoa'
+      HEALTH_URL: https://www.homeownerledger.com/api/health
+      MARKER_CONTEXT: release-notes/email
+
+    steps:
+      - name: Identify deploy
+        id: ctx
+        env:
+          EVENT: ${{ github.event_name }}
+          DEPLOY_SHA: ${{ github.event.deployment.sha }}
+          DEPLOY_ENV: ${{ github.event.deployment.environment }}
+          DEPLOY_AT: ${{ github.event.deployment_status.created_at }}
+          INPUT_SHA: ${{ inputs.sha }}
+          INPUT_PREV: ${{ inputs.previous_sha }}
+          INPUT_FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            SHA="$INPUT_SHA"; AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; FORCE="$INPUT_FORCE"
+          else
+            SHA="$DEPLOY_SHA"; AT="$DEPLOY_AT"; FORCE=false
+            # Belt and braces on top of the job `if`: the environment must
+            # name the hoa project and no other.
+            lc=$(printf '%s' "$DEPLOY_ENV" | tr '[:upper:]' '[:lower:]')
+            case "$lc" in
+              production*home-owner-hub-hoa) ;;
+              *) echo "::notice::Not the HOA production deployment ($DEPLOY_ENV); nothing to do."; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
+            esac
+          fi
+          if ! printf '%s' "$SHA" | grep -Eq '^[0-9a-f]{7,40}$'; then
+            echo "::error::Not a commit SHA: $SHA"; exit 1
+          fi
+          if [ -n "$INPUT_PREV" ] && ! printf '%s' "$INPUT_PREV" | grep -Eq '^[0-9a-f]{7,40}$'; then
+            echo "::error::previous_sha is not a commit SHA"; exit 1
+          fi
+          {
+            echo "skip=false"
+            echo "sha=$SHA"
+            echo "deployed_at=$AT"
+            echo "force=$FORCE"
+            echo "prev_input=$INPUT_PREV"
+          } >> "$GITHUB_OUTPUT"
+          echo "Deploy $SHA at $AT (event: $EVENT)"
+
+      # The production branch head, not the deployed SHA: a note written
+      # after its deploy (a re-send) lives on a later commit. Full history
+      # for the prev..sha range.
+      - name: Checkout
+        if: steps.ctx.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Resolve SHA
+        id: sha
+        if: steps.ctx.outputs.skip != 'true'
+        env:
+          SHA_IN: ${{ steps.ctx.outputs.sha }}
+        run: |
+          set -euo pipefail
+          git cat-file -e "${SHA_IN}^{commit}" 2>/dev/null || git fetch --no-tags origin "$SHA_IN"
+          echo "full=$(git rev-parse "${SHA_IN}^{commit}")" >> "$GITHUB_OUTPUT"
+
+      - name: Already sent?
+        id: dedupe
+        if: steps.ctx.outputs.skip != 'true'
+        env:
+          SHA: ${{ steps.sha.outputs.full }}
+          FORCE: ${{ steps.ctx.outputs.force }}
+        run: |
+          set -euo pipefail
+          sent=$(gh api "repos/$REPO/commits/$SHA/statuses?per_page=100" \
+            --jq "[.[] | select(.context == \"$MARKER_CONTEXT\" and .state == \"success\")] | length")
+          if [ "$sent" != "0" ] && [ "$FORCE" != "true" ]; then
+            echo "::notice::A release note was already sent for $SHA; not sending again (dispatch with force to re-send)."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Wait for /api/health to report this SHA
+        id: live
+        if: steps.ctx.outputs.skip != 'true' && steps.dedupe.outputs.skip != 'true'
+        env:
+          SHA: ${{ steps.sha.outputs.full }}
+        run: |
+          set -uo pipefail
+          for i in $(seq 1 90); do   # 90 x 10s = 15 min
+            v=$(curl -fsS --max-time 15 "$HEALTH_URL" | jq -r '.version // empty' 2>/dev/null || true)
+            if [ -n "$v" ] && [ "${#v}" -ge 7 ]; then
+              case "$SHA" in "$v"*) echo "Live: $v"; echo "superseded=false" >> "$GITHUB_OUTPUT"; exit 0 ;; esac
+              # A newer deploy already replaced this one. Its own run will
+              # cover these changes (its range starts at the last notified SHA).
+              if git merge-base --is-ancestor "$SHA" "$v" 2>/dev/null; then
+                echo "::notice::Production already serves $v, a descendant of $SHA; leaving the email to that deploy."
+                echo "superseded=true" >> "$GITHUB_OUTPUT"; exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo "::error::$HEALTH_URL did not report $SHA within 15 minutes"
+          exit 1
+
+      - name: Previous production SHA
+        id: prev
+        if: steps.ctx.outputs.skip != 'true' && steps.dedupe.outputs.skip != 'true' && steps.live.outputs.superseded != 'true'
+        env:
+          SHA: ${{ steps.sha.outputs.full }}
+          PREV_INPUT: ${{ steps.ctx.outputs.prev_input }}
+        run: |
+          set -euo pipefail
+          if [ -n "$PREV_INPUT" ]; then echo "sha=$PREV_INPUT" >> "$GITHUB_OUTPUT"; exit 0; fi
+          # Earlier hoa production deploys, newest first, that are ancestors
+          # of this one. Prefer the newest that was notified (so a deploy
+          # that never got an email is folded into this one); else the
+          # newest successful one.
+          env_q=$(jq -rn --arg e "$HOA_ENVIRONMENT" '$e|@uri')
+          candidates=$(gh api "repos/$REPO/deployments?environment=$env_q&per_page=50" --jq '.[].sha' | awk '!seen[$0]++')
+          notified=""; deployed=""
+          for c in $candidates; do
+            [ "$c" = "$SHA" ] && continue
+            git merge-base --is-ancestor "$c" "$SHA" 2>/dev/null || continue
+            if [ -z "$deployed" ]; then deployed="$c"; fi
+            n=$(gh api "repos/$REPO/commits/$c/statuses?per_page=100" \
+              --jq "[.[] | select(.context == \"$MARKER_CONTEXT\" and .state == \"success\")] | length")
+            if [ "$n" != "0" ]; then notified="$c"; break; fi
+          done
+          prev="${notified:-$deployed}"
+          echo "Previous production SHA: ${prev:-none} (notified=${notified:-none}, last deployed=${deployed:-none})"
+          echo "sha=$prev" >> "$GITHUB_OUTPUT"
+
+      - name: Install pnpm
+        if: steps.prev.outcome == 'success'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node 22
+        if: steps.prev.outcome == 'success'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.prev.outcome == 'success'
+        run: pnpm install --frozen-lockfile
+
+      - name: Render
+        if: steps.prev.outcome == 'success'
+        env:
+          SHA: ${{ steps.sha.outputs.full }}
+          PREV: ${{ steps.prev.outputs.sha }}
+          AT: ${{ steps.ctx.outputs.deployed_at }}
+        run: |
+          set -euo pipefail
+          args=(--sha "$SHA" --deployed-at "$AT" --out release-email/preview.html --json release-email/payload.json)
+          if [ -n "$PREV" ]; then args+=(--prev "$PREV"); fi
+          pnpm exec tsx scripts/release-notes/render.ts "${args[@]}"
+
+      - name: Keep the preview
+        if: steps.prev.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-note-${{ steps.sha.outputs.full }}
+          path: release-email/preview.html
+          retention-days: 30
+
+      - name: Send
+        if: steps.prev.outcome == 'success'
+        env:
+          SHA: ${{ steps.sha.outputs.full }}
+          FORCE: ${{ steps.ctx.outputs.force }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RELEASE_NOTES_TO: ${{ secrets.RELEASE_NOTES_TO }}
+          RELEASE_NOTES_FROM: ${{ secrets.RELEASE_NOTES_FROM }}
+        run: |
+          set -euo pipefail
+          # Resend dedupes on this key for 24h; a forced re-send needs a fresh one.
+          key="release-notes-$SHA"
+          if [ "$FORCE" = "true" ]; then key="$key-${{ github.run_id }}"; fi
+          pnpm exec tsx scripts/release-notes/send.ts --payload release-email/payload.json --idempotency-key "$key"
+
+      - name: Mark as sent
+        if: steps.prev.outcome == 'success'
+        env:
+          SHA: ${{ steps.sha.outputs.full }}
+        run: |
+          gh api -X POST "repos/$REPO/statuses/$SHA" \
+            -f state=success -f context="$MARKER_CONTEXT" \
+            -f description="Release-note email sent" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > /dev/null
+          echo "Marked $SHA as notified."
