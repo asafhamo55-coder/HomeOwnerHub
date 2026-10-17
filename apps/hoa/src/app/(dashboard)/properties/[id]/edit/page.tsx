@@ -1,3 +1,5 @@
+import { propertyHref } from '@/lib/properties/href'
+import { asPropertyId } from '@/lib/properties/resolve'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Page } from '@homeowner-portal/ui'
@@ -23,7 +25,7 @@ export default async function EditPropertyPage({
       description="Changes apply to the property record. Residents and tenure are managed on the property itself."
       breadcrumbs={[
         { label: 'Properties', href: '/properties' },
-        { label: p.address, href: `/properties/${id}` },
+        { label: p.address, href: propertyHref(asPropertyId(id)) },
         { label: 'Edit' },
       ]}
       linkAs={Link}

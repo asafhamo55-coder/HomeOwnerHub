@@ -1,4 +1,6 @@
 'use server'
+import { propertyHref } from '@/lib/properties/href'
+import { asPropertyId } from '@/lib/properties/resolve'
 
 // Server actions for admin "enter owner portal" impersonation. Entering
 // refuses non-admins (via requireAdmin) and any target outside the admin's
@@ -163,5 +165,5 @@ export async function exitResidentPortal(): Promise<void> {
 
   revalidatePath('/resident')
   revalidatePath('/')
-  redirect(target?.propertyId ? `/properties/${target.propertyId}` : '/')
+  redirect(target?.propertyId ? propertyHref(asPropertyId(target.propertyId)) : '/')
 }

@@ -1,3 +1,5 @@
+import { propertyHref } from '@/lib/properties/href'
+import { asPropertyId } from '@/lib/properties/resolve'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { Download, Home, KeyRound, ListOrdered, Percent } from 'lucide-react'
@@ -234,7 +236,7 @@ function propertyLabel(e: WaitingListEntry): string {
 function PropertyLink({ entry }: { entry: WaitingListEntry }) {
   return (
     <Link
-      href={`/properties/${entry.property_id}`}
+      href={propertyHref(asPropertyId(entry.property_id))}
       className="font-medium text-foreground no-underline hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {propertyLabel(entry)}

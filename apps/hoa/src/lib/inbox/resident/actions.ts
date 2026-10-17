@@ -34,6 +34,8 @@ import { revalidatePath } from 'next/cache'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { logPropertyEvent } from '@/lib/property-events'
+import { propertyHref } from '@/lib/properties/href'
+import { asUnitId, resolvePropertyForUnit, type PropertyId } from '@/lib/properties/resolve'
 
 export interface UpdateResidentFromInboxFields {
   fullName: string
@@ -72,20 +74,16 @@ export async function updateResidentFromInbox(
   if (!thread?.unit_id) return { error: 'This thread is not filed under a property.' }
 
   // 2. Unit -> legacy hoa_properties id, which is what residents hang off.
-  const { data: unit, error: unitError } = await supabase
-    .from('units')
-    .select('legacy_hoa_property_id')
-    .eq('id', thread.unit_id)
-    .eq('organization_id', org.id)
-    .maybeSingle<{ legacy_hoa_property_id: string | null }>()
-
-  if (unitError) {
-    console.error(
-      `updateResidentFromInbox: unit read failed: ${unitError.code} ${unitError.message}`,
-    )
+  //    Through the bridge module, never a direct read of the column.
+  let propertyId: PropertyId | null
+  try {
+    propertyId = await resolvePropertyForUnit(supabase, org.id, asUnitId(thread.unit_id))
+  } catch (unitError) {
+    const e = unitError as { code?: string; message?: string }
+    console.error(`updateResidentFromInbox: unit read failed: ${e.code} ${e.message}`)
     return { error: 'Could not update this resident. Try again.' }
   }
-  if (!unit?.legacy_hoa_property_id) return { error: 'This property has no resident records.' }
+  if (!propertyId) return { error: 'This property has no resident records.' }
 
   // 3. The resident must belong to this org AND to this thread's property. A
   //    residentId arriving from a form is untrustworthy on both counts —
@@ -116,7 +114,7 @@ export async function updateResidentFromInbox(
   // mail to a unit for someone who has gone.
   if (
     !resident ||
-    resident.property_id !== unit.legacy_hoa_property_id ||
+    resident.property_id !== propertyId ||
     resident.moved_out_at !== null ||
     resident.deleted_at !== null
   ) {
@@ -164,7 +162,7 @@ export async function updateResidentFromInbox(
 
     // 6. Audit. Best-effort: a failed history row must not fail the edit.
     const event = await logPropertyEvent({
-      propertyId: unit.legacy_hoa_property_id,
+      propertyId,
       kind: 'note',
       payload: {
         field: 'email',
@@ -181,7 +179,7 @@ export async function updateResidentFromInbox(
 
   revalidatePath(`/inbox/${threadId}`)
   // Legacy hoa_properties id — that is what /properties/[id] resolves.
-  revalidatePath(`/properties/${unit.legacy_hoa_property_id}`)
+  revalidatePath(propertyHref(propertyId))
 
   return warning ? { ok: true, warning } : { ok: true }
 }

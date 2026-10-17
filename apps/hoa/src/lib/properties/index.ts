@@ -1,13 +1,17 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { logPropertyEvent } from '@/lib/property-events'
+import { todayIn } from '@/lib/association-time'
+import { orgTimeZone } from '@/lib/association-time-server'
+import { chooseAssociation, createLot, deleteLot, updateLot } from './lot'
+import { asPropertyId } from './resolve'
+import { propertyHref } from './href'
 import {
   listResidents,
   type PropertyResidentRow,
@@ -29,11 +33,15 @@ const PropertySchema = z.object({
     .or(z.literal('')),
   owner_phone: z.string().trim().optional().or(z.literal('')),
   notes: z.string().trim().optional().or(z.literal('')),
+  /** Required only when the org has more than one association. */
+  association_id: z.string().uuid('Choose a community from the list.').optional().or(z.literal('')),
 })
 
 export interface PropertyActionState {
   error?: string
   fieldErrors?: Record<string, string>
+  /** Set on success: where the new property lives. */
+  created?: { href: string }
 }
 
 function emptyToNull(s: string | undefined): string | null {
@@ -57,24 +65,44 @@ export async function createProperty(
     return { fieldErrors }
   }
 
-  const org = await getCurrentOrg()
-  if (!org) return { error: 'No HOA selected.' }
-
+  // The gate names the caller's org; every write below is scoped to it.
+  const orgId = gate.orgId
   const supabase = await getSupabaseServerClient()
-  const { error } = await supabase.from('hoa_properties').insert({
-    org_id: org.id,
+
+  const assoc = await chooseAssociation(supabase, orgId, emptyToNull(parsed.data.association_id))
+  if (!assoc.ok) {
+    return assoc.field ? { error: assoc.error, fieldErrors: { [assoc.field]: assoc.error } } : { error: assoc.error }
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  // Both sides of the lot, so it can be billed, mailed and reached in the
+  // portal from the moment it exists (lib/properties/lot.ts).
+  const created = await createLot(supabase, {
+    orgId,
+    associationId: assoc.data.associationId,
     address: parsed.data.address,
-    unit_number: emptyToNull(parsed.data.unit_number),
-    owner_name: emptyToNull(parsed.data.owner_name),
-    owner_email: emptyToNull(parsed.data.owner_email),
-    owner_phone: emptyToNull(parsed.data.owner_phone),
+    unitNumber: emptyToNull(parsed.data.unit_number),
+    owner: {
+      name: emptyToNull(parsed.data.owner_name),
+      email: emptyToNull(parsed.data.owner_email),
+      phone: emptyToNull(parsed.data.owner_phone),
+    },
     notes: emptyToNull(parsed.data.notes),
+    today: todayIn(await orgTimeZone(supabase, orgId)),
+    userId: user?.id ?? null,
   })
 
-  if (error) return { error: error.message }
+  if (!created.ok) return { error: created.error }
 
   revalidatePath('/properties')
-  redirect('/properties')
+  revalidatePath('/dues')
+  revalidatePath('/')
+  // The form shows a success toast and opens the new property's page
+  // (the server can't raise a toast across a redirect).
+  return { created: { href: propertyHref(created.data.propertyId) } }
 }
 
 // ─── Update property ────────────────────────────────────────────────
@@ -127,31 +155,36 @@ export async function updateProperty(
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.', fieldErrors }
   }
 
-  const org = await getCurrentOrg()
-  if (!org) return { ok: false, error: 'No HOA selected.' }
-  const role = await getCurrentUserRoleInOrg(org.id)
-  if (role !== 'admin' && role !== 'board') {
-    return { ok: false, error: "You don't have permission to perform this action." }
-  }
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  const orgId = gate.orgId
 
   const supabase = await getSupabaseServerClient()
-  const patch: Record<string, unknown> = {}
-  if (parsed.data.address !== undefined) patch.address = parsed.data.address
-  if (parsed.data.unit_number !== undefined) patch.unit_number = parsed.data.unit_number || null
-  if (parsed.data.owner_name !== undefined) patch.owner_name = parsed.data.owner_name || null
-  if (parsed.data.owner_email !== undefined) patch.owner_email = parsed.data.owner_email || null
-  if (parsed.data.owner_phone !== undefined) patch.owner_phone = parsed.data.owner_phone || null
-  if (parsed.data.notes !== undefined) patch.notes = parsed.data.notes || null
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const pid = asPropertyId(propertyId)
 
-  if (Object.keys(patch).length === 0) return { ok: true }
+  // The property row, its unit's address, and its current ownership move
+  // together (lib/properties/lot.ts), so fixing an owner's email here also
+  // changes where dues reminders and announcements go.
+  const result = await updateLot(supabase, {
+    orgId,
+    propertyId: pid,
+    patch: {
+      address: parsed.data.address,
+      unitNumber: parsed.data.unit_number,
+      ownerName: parsed.data.owner_name,
+      ownerEmail: parsed.data.owner_email,
+      ownerPhone: parsed.data.owner_phone,
+      notes: parsed.data.notes,
+    },
+    today: todayIn(await orgTimeZone(supabase, orgId)),
+    userId: user?.id ?? null,
+  })
+  if (!result.ok) return { ok: false, error: result.error }
 
-  const { error } = await supabase
-    .from('hoa_properties')
-    .update(patch as never)
-    .eq('id', propertyId)
-  if (error) return { ok: false, error: error.message }
-
-  revalidatePath(`/properties/${propertyId}`)
+  revalidatePath(propertyHref(pid))
   revalidatePath('/properties')
   return { ok: true }
 }
@@ -160,13 +193,17 @@ export async function deleteProperty(propertyId: string) {
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
   if (!gate.ok) throw new Error(gate.error)
   const supabase = await getSupabaseServerClient()
-  const { error } = await supabase
-    .from('hoa_properties')
-    .update({ deleted_at: new Date().toISOString() } as never)
-    .eq('id', propertyId)
-    .is('deleted_at', null)
-  if (error) throw new Error(error.message)
+  // Also closes the lot's current ownerships and active tenancies, which
+  // is what takes it out of audiences and dues reminders (units has no
+  // deleted_at of its own; see lib/properties/lot.ts deleteLot).
+  const result = await deleteLot(supabase, {
+    orgId: gate.orgId,
+    propertyId: asPropertyId(propertyId),
+    today: todayIn(await orgTimeZone(supabase, gate.orgId)),
+  })
+  if (!result.ok) throw new Error(result.error)
   revalidatePath('/properties')
+  revalidatePath('/dues')
 }
 
 // ─── 360 detail (used by /properties/[id]) ───────────────────────────
@@ -364,7 +401,7 @@ export async function setPropertyTenure(
     }
   }
 
-  revalidatePath(`/properties/${parsed.data.property_id}`)
+  revalidatePath(propertyHref(asPropertyId(parsed.data.property_id)))
   revalidatePath('/properties')
   revalidatePath('/leases')
   return { ok: true }

@@ -166,7 +166,12 @@ export function ImportForm({ orgs, associations }: Props): React.ReactElement {
 }
 
 function ImportResultDisplay({ result }: { result: ImportResult }): React.ReactElement {
-  const errored = result.units.errored + result.ownerships.errored + result.tenancies.errored
+  const errored =
+    result.properties.errored +
+    result.units.errored +
+    result.ownerships.errored +
+    result.residents.errored +
+    result.tenancies.errored
   return (
     <Card aria-live="polite">
       <CardHeader>
@@ -181,8 +186,10 @@ function ImportResultDisplay({ result }: { result: ImportResult }): React.ReactE
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
+          <Stat label="Properties" data={result.properties} />
           <Stat label="Units" data={result.units} />
           <Stat label="Ownerships" data={result.ownerships} />
+          <Stat label="Owner residents" data={result.residents} />
           <Stat label="Tenancies" data={result.tenancies} />
         </div>
         {result.skipped > 0 ? <p className="text-sm text-muted">{result.skipped} rows skipped.</p> : null}

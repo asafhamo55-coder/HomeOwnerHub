@@ -25,6 +25,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
+import { asUnitId, resolvePropertyForUnit } from '@/lib/properties/resolve'
 
 export type DraftDb = SupabaseClient<Database>
 
@@ -98,13 +99,9 @@ export async function approveViolationDraftWith(
   let propertyId: string | null = null
   const unitId = text(input.unitId)
   if (unitId) {
-    const { data: unit } = await db
-      .from('units')
-      .select('legacy_hoa_property_id')
-      .eq('id', unitId)
-      .eq('organization_id', orgId)
-      .maybeSingle()
-    propertyId = unit?.legacy_hoa_property_id ?? null
+    // A failed bridge read files with no property, as an unlinked unit does
+    // (the approval itself must not fail over it).
+    propertyId = await resolvePropertyForUnit(db, orgId, asUnitId(unitId)).catch(() => null)
   }
 
   const severity = text(output.recommendedSeverity)

@@ -8,6 +8,9 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { todayIn } from '@/lib/association-time'
 import { orgTimeZone } from '@/lib/association-time-server'
 import { logPropertyEvent } from '@/lib/property-events'
+import { propertyHref } from '@/lib/properties/href'
+import { asPropertyId } from '@/lib/properties/resolve'
+import { addOwnershipForProperty } from '@/lib/properties/lot'
 
 // property_residents lands in migration 0017. Owners, tenants, family
 // members and other occupants. moved_out_at NULL = currently in
@@ -98,7 +101,7 @@ export interface AddResidentInput {
 
 export async function addResident(
   input: AddResidentInput,
-): Promise<ActionResult<{ residentId: string }>> {
+): Promise<ActionResult<{ residentId: string; ownership: 'created' | 'existing' | 'no_unit' | null }>> {
   const parsed = AddResidentSchema.safeParse({
     property_id: input.propertyId,
     full_name: input.fullName,
@@ -129,6 +132,19 @@ export async function addResident(
     data: { user },
   } = await supabase.auth.getUser()
 
+  // The property must be a live one in the SELECTED org: RLS admits every
+  // org the caller is board in, and nothing in the schema ties a
+  // resident's organization_id to its property's org_id.
+  const { data: home, error: homeErr } = await supabase
+    .from('hoa_properties')
+    .select('id')
+    .eq('id', parsed.data.property_id)
+    .eq('org_id', org.id)
+    .is('deleted_at', null)
+    .maybeSingle<{ id: string }>()
+  if (homeErr) return { ok: false, error: 'Couldn’t load the property. Try again.' }
+  if (!home) return { ok: false, error: 'Property not found.' }
+
   const { data, error } = await supabase
     .from('property_residents' as never)
     .insert({
@@ -150,6 +166,40 @@ export async function addResident(
     return { ok: false, error: error?.message ?? 'Could not add resident.' }
   }
 
+  // An owner added here must also be an owner where dues reminders,
+  // owners-only announcements and the portal look: a current ownership on
+  // the lot's unit. If that write fails the resident row is removed again,
+  // so the card never shows an owner the rest of the app cannot see.
+  let ownership: 'created' | 'existing' | 'no_unit' | null = null
+  if (parsed.data.role === 'owner') {
+    const linked = await addOwnershipForProperty(supabase, {
+      orgId: org.id,
+      propertyId: asPropertyId(parsed.data.property_id),
+      owner: {
+        name: parsed.data.full_name,
+        email: parsed.data.email ?? null,
+        phone: parsed.data.phone ?? null,
+      },
+      today: parsed.data.moved_in_at?.slice(0, 10) || todayIn(await orgTimeZone(supabase, org.id)),
+      userId: user?.id ?? null,
+    })
+    if (!linked.ok) {
+      const { error: undoErr } = await supabase
+        .from('property_residents' as never)
+        .delete()
+        .eq('id', data.id)
+        .eq('organization_id', org.id)
+      if (undoErr) {
+        console.error('[property-residents.addResident] compensation failed', {
+          residentId: data.id,
+          code: (undoErr as { code?: string }).code ?? null,
+        })
+      }
+      return { ok: false, error: linked.error }
+    }
+    ownership = linked.data.outcome
+  }
+
   const ev = await logPropertyEvent({
     propertyId: parsed.data.property_id,
     kind: 'resident_added',
@@ -164,8 +214,8 @@ export async function addResident(
   }
 
   revalidatePath('/')  // dashboard rollup
-  revalidatePath(`/properties/${parsed.data.property_id}`)
-  return { ok: true, data: { residentId: data.id } }
+  revalidatePath(propertyHref(asPropertyId(parsed.data.property_id)))
+  return { ok: true, data: { residentId: data.id, ownership } }
 }
 
 const UpdateResidentSchema = z.object({
@@ -284,7 +334,7 @@ export async function updateResident(
     }
   }
 
-  revalidatePath(`/properties/${existing.property_id}`)
+  revalidatePath(propertyHref(asPropertyId(existing.property_id)))
   // The inbox rail renders residents via getPropertyContext, so an edit made
   // on the property page must invalidate it too — otherwise a thread open
   // beside it keeps showing the old name and address until a hard reload.
@@ -358,7 +408,7 @@ export async function removeResident(residentId: string): Promise<ActionResult> 
     console.error('[property-residents.removeResident] event log failed', ev.error)
   }
 
-  revalidatePath(`/properties/${existing.property_id}`)
+  revalidatePath(propertyHref(asPropertyId(existing.property_id)))
   // The inbox rail renders residents via getPropertyContext, so an edit made
   // on the property page must invalidate it too — otherwise a thread open
   // beside it keeps showing the old name and address until a hard reload.

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import {
   AlertTriangle,
   ArrowRightLeft,
@@ -38,6 +38,9 @@ import {
 } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPropertyDetail, type PropertyTenure } from '@/lib/properties'
+import { resolvePropertyUrl } from '@/lib/properties/canonical'
+import { propertyHref } from '@/lib/properties/href'
+import { resolveUnitForProperty, type UnitId } from '@/lib/properties/resolve'
 import { listProperties } from '@/lib/properties/list'
 import { parsePropertyListParams } from '@/lib/properties/list-params'
 import { getLeaseCap, getOpenWaitingListEntries } from '@/lib/leases'
@@ -141,12 +144,27 @@ export default async function PropertyDetailPage({
     tp?: string
   }>
 }) {
-  const { id } = await params
+  const { id: rawId } = await params
   const sp = await searchParams
   const tab = parsePanelTab(sp.tab)
   const tabPage = parsePageParam(sp.tp)
   const listParams = parsePropertyListParams(sp)
   const supabase = await getSupabaseServerClient()
+
+  // Only admins get the "Enter portal" impersonation control.
+  const ctx = await getCurrentUserRole()
+  const isAdmin = ctx?.role === 'admin'
+  if (!ctx) notFound()
+
+  // The segment may be a property id or a unit id (a unit-keyed screen
+  // linked here); a unit id redirects to its property's canonical URL.
+  const incoming = new URLSearchParams(
+    Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === 'string'),
+  )
+  const target = await resolvePropertyUrl(supabase, ctx.org.id, rawId, incoming)
+  if (target.kind === 'redirect') redirect(target.href)
+  if (target.kind === 'not_found') notFound()
+  const id = target.propertyId
 
   const detail = await getPropertyDetail(id)
   if (!detail) notFound()
@@ -166,20 +184,15 @@ export default async function PropertyDetailPage({
   // that the action would only reject as a duplicate.
   const openWaitingEntry = (await getOpenWaitingListEntries([id])).get(id) ?? null
 
-  // Resolve the v1 unit row for this legacy property (migration 0005
-  // backfills `units.legacy_hoa_property_id`). Assessments live keyed
-  // on units, not on hoa_properties. A failed read is NOT "no unit": the
-  // unit-keyed sections say they could not load instead of "not linked".
-  const unitRes = await loadOrFail(
-    'property unit',
-    supabase.from('units').select('id').eq('legacy_hoa_property_id', id).maybeSingle(),
-  )
+  // The unit this property means (lib/properties/resolve.ts: one rule,
+  // shared with the list view). Assessments, mail and collections are keyed
+  // on units. A failed read is NOT "no unit": the unit-keyed sections say
+  // they could not load instead of "not linked". Several linked units are
+  // not a failure either: the canonical one is used and the page says so.
+  const unitRes = await tryLoad('property unit', () => resolveUnitForProperty(supabase, ctx.org.id, id))
   const unitFailed = !unitRes.ok
-  const unitId = unitRes.ok ? ((unitRes.data as { id: string } | null)?.id ?? null) : null
-
-  // Only admins get the "Enter portal" impersonation control.
-  const ctx = await getCurrentUserRole()
-  const isAdmin = ctx?.role === 'admin'
+  const unitId: UnitId | null = unitRes.ok ? unitRes.data.unitId : null
+  const linkedUnitCount = unitRes.ok ? unitRes.data.unitCount : 0
 
   // Violations and dues are paged within their own tab (`tp`). On the other
   // tabs only the first page is read, for the counts on the overview.
@@ -317,7 +330,7 @@ export default async function PropertyDetailPage({
   const query = listQuery.toString()
   const listHref = query ? `/properties?${query}` : '/properties'
   const tabHref = (t: string, extra?: Record<string, string>) =>
-    `/properties/${id}?${new URLSearchParams({ ...Object.fromEntries(listQuery), tab: t, ...extra })}`
+    propertyHref(id, { query: { ...Object.fromEntries(listQuery), tab: t, ...extra } })
 
   return (
     <SplitPaneFrame>
@@ -368,6 +381,12 @@ export default async function PropertyDetailPage({
             listHref={listHref}
             actions={<PropertyActions propertyId={p.id} address={p.address} />}
           >
+            {linkedUnitCount > 1 ? (
+              <Alert variant="warning" title={`${linkedUnitCount} unit records are linked to this property`}>
+                Dues, mail and collections below come from the oldest one. Charges or mail filed under the others
+                don’t show here until the duplicates are merged.
+              </Alert>
+            ) : null}
             {tab === 'overview' ? (
               <OverviewTab
                 property={p}

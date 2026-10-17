@@ -1,4 +1,6 @@
 'use client'
+import { propertyHref } from '@/lib/properties/href'
+import { asPropertyId } from '@/lib/properties/resolve'
 
 import { useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
@@ -49,7 +51,7 @@ export function EditPropertyForm({ propertyId, defaultValues }: Props) {
         return
       }
       toast({ tone: 'success', message: 'Property updated.' })
-      router.push(`/properties/${propertyId}`)
+      router.push(propertyHref(asPropertyId(propertyId)))
     })
   }
 
@@ -93,7 +95,7 @@ export function EditPropertyForm({ propertyId, defaultValues }: Props) {
         </CardContent>
         <CardFooter className="justify-end">
           <Button asChild variant="ghost">
-            <Link href={`/properties/${propertyId}`}>Cancel</Link>
+            <Link href={propertyHref(asPropertyId(propertyId))}>Cancel</Link>
           </Button>
           <Button type="submit" loading={pending}>
             Save changes
