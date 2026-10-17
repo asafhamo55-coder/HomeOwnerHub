@@ -1,6 +1,6 @@
 # Session handoff: HomeownerHub autonomous loop
 
-_Updated every cycle. Last update: 2026-10-17 18:15 ET._
+_Updated every cycle. Last update: 2026-10-17 20:00 ET._
 
 ## Start the next session with this prompt
 
@@ -39,9 +39,9 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 
 - **Prod branch:** `claude/phase1-homeownerhub-setup-MILNu`. Vercel deploys only this branch. Asaf sometimes pushes here directly (e.g. d060e08); merge it into quality-oracle before deploying.
 - **Integration branch:** `claude/quality-oracle`. All merges land here.
-- **Deploy:** run `/usr/bin/git merge-base --is-ancestor <prod> <tip>`, then `/usr/bin/git push origin <sha>:claude/phase1-homeownerhub-setup-MILNu`. A push made right after pushing quality-oracle fails once; retry it once.
+- **Deploy:** run `/usr/bin/git merge-base --is-ancestor <prod> <tip>`, then `/usr/bin/git push origin <sha>:claude/phase1-homeownerhub-setup-MILNu`. Prod pushes FAIL when their output is redirected to /dev/null; always run them as `... 2>&1 | tail -3`, and retry up to 3 times.
 - **Verify:** poll `https://www.homeownerledger.com/api/health` until `version` equals the SHA. The public body is `{ok, app, version}`.
-- **Live in prod:** 809b442 (properties rebuild part 1), deployed 2026-10-17 18:13 ET. The next deploy is allowed after 19:13. Release-note emails work: the GitHub secrets were set on 2026-10-17.
+- **Live in prod:** 2ed5d8b (version label and What's new), deployed 2026-10-17 19:55 ET. The next deploy is allowed after 20:55: f26f475, the user guide phase 1, once CI is green.
 
 ## Gates (the trusted forms)
 
@@ -49,7 +49,7 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 - `pnpm typecheck:integration`
 - `pnpm test:unit`: send output to a file and grep the summary.
 - `rtk pnpm build`: if it fails with PageNotFoundError, an agent's `next dev` collided with it; rerun.
-- `pnpm db:local:reset && pnpm test:integration`: the suite holds a sleep block and an advisory DB lock, so overlapping runs queue.
+- **No local DB (owner rule 2026-10-17).** Integration runs only in GitHub CI, which has its own throwaway Supabase: push claude/quality-oracle and wait for CI to be green before deploying. Never run tests or seeds against prod. ui:shots waits for a CI job (BL-075).
 - Use `/usr/bin/git` and `/usr/bin/grep`, because rtk mangles some output.
 
 ## Waiting on Asaf (manual steps only)
