@@ -47,10 +47,16 @@ export interface PacketBudget {
   report: BudgetVsActual
 }
 
-/** [] when no budget covers the month (the section says so, it isn't a failure). */
+/**
+ * Year-to-date through the end of the packet month (BL-051): entries
+ * posted after the month — including ones posted before the meeting —
+ * are not part of this month's packet.
+ *
+ * [] when no budget covers the month (the section says so, it isn't a failure).
+ */
 export async function loadBudgetsVsActual(associationId: string, period: PacketPeriod): Promise<PacketBudget[]> {
   const picked = pickBudgetsForPeriod(await listBudgets(associationId), period)
-  const reports = await Promise.all(picked.map((b) => computeBudgetVsActual(associationId, b.id)))
+  const reports = await Promise.all(picked.map((b) => computeBudgetVsActual(associationId, b.id, { through: period.end })))
   return picked.flatMap((budget, i) => {
     const report = reports[i]
     return report ? [{ budget, report }] : []

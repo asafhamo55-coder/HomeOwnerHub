@@ -627,8 +627,10 @@ These go beyond the design-system v2 pass:
 - **BL-050 `notice_posted_at` on meetings (migration, batch M1)** (from BL-015): record when a
   meeting notice was posted so the 14-day/48-hour check can confirm compliance, not just
   flag late additions.
-- **BL-051 Board packet follow-ups** (from BL-016): budget vs actual cut off at the end of
+- **BL-051 Board packet follow-ups — Done except the Safari check** (from BL-016): budget vs actual cut off at the end of
   the packet month; delinquency as of the end of the month; a real Safari PDF check.
+  - Still open: the Safari print/PDF check needs a human. Waived and written-off charges are
+    still left out of month-end delinquency, because nothing records when they were waived.
 - **BL-052 Document visibility enforced by the database (migration, batch M1, security)** (from BL-049):
   residents can still read every `hoa_documents`/`governing_documents` row of their org and sign any
   object under their org's `hoa-documents` prefix (including `<org>/vendors/…`), because 0063 kept

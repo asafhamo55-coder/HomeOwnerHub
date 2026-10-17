@@ -62,26 +62,37 @@ function tally(rows: StatusRow[]): Record<string, number> {
 
 // ─── Delinquency ────────────────────────────────────────────────────
 
-/** Every unpaid charge due before `asOf`, summarised by unit. */
+/**
+ * Every charge that was overdue and unpaid at the start of `asOf` (the
+ * association's day in `timeZone`), summarised by unit. For the packet,
+ * `asOf` is the morning after the packet month (`PacketPeriod.after`), so
+ * charges due later and payments made later are left out (BL-051).
+ *
+ * Charges marked paid are read too — one paid since `asOf` still owed
+ * then; `summarizeDelinquency` works out how much from its payment dates.
+ * Waived and written-off charges carry no date for when that happened, so
+ * they stay out, as before.
+ */
 export async function loadDelinquency(
   db: SupabaseClient,
   associationId: string,
   asOf: string,
+  timeZone: string,
 ): Promise<DelinquencySummary> {
   const rows = await readAll<OverdueChargeRow>(
     (from, to) =>
       db
         .from('assessments')
-        .select('id, amount, due_date, unit_id, payments(amount), unit:unit_id(unit_number, address_line1)')
+        .select('id, amount, due_date, status, unit_id, payments(amount, paid_at), unit:unit_id(unit_number, address_line1)')
         .eq('association_id', associationId)
         .is('deleted_at', null)
-        .not('status', 'in', '("paid","waived","written_off")')
+        .not('status', 'in', '("waived","written_off")')
         .lt('due_date', asOf)
         .order('id', { ascending: true })
         .range(from, to) as unknown as Page<OverdueChargeRow>,
     (e) => failed('overdue charges', e),
   )
-  return summarizeDelinquency(rows, asOf)
+  return summarizeDelinquency(rows, asOf, timeZone)
 }
 
 // ─── Open violations / ARC ──────────────────────────────────────────

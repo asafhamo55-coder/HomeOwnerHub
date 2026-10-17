@@ -735,6 +735,8 @@ export interface BudgetVsActual {
   fundCode: string | null
   startDate: string
   endDate: string
+  /** The last day actuals were counted through, or null for the whole period. */
+  actualsThrough: string | null
   rows: BudgetVsActualRow[]
   totals: {
     budgetedIncome: number
@@ -752,11 +754,19 @@ export interface BudgetVsActual {
  * ledger_entries for the same period. Posted JEs only. Returns one
  * row per budget line item; accounts that have actuals but no budget
  * line are NOT shown (the manager budgets explicitly).
+ *
+ * `through` ('YYYY-MM-DD', inclusive) stops the actuals at that day — the
+ * board packet passes the end of its month (BL-051), so an entry posted
+ * after the month doesn't show up in that month's packet. Omitted, every
+ * posted entry in the fiscal period counts (the reports page). Budgeted
+ * amounts are the full-period figures either way.
  */
 export async function computeBudgetVsActual(
   associationId: string,
   budgetId: string,
+  opts: { through?: string } = {},
 ): Promise<BudgetVsActual | null> {
+  const through = opts.through ?? null
   const supabase = await getSupabaseServerClient()
   const { data: budget, error: budgetErr } = await supabase
     .from('budgets')
@@ -797,15 +807,18 @@ export async function computeBudgetVsActual(
   if (accountIds.length > 0) {
     // Paged to the end: a year of entries passes the 1000-row cap.
     const jes = await readAll<{ id: string }>(
-      (from, to) =>
-        supabase
+      (from, to) => {
+        let q = supabase
           .from('journal_entries')
           .select('id')
           .eq('association_id', associationId)
           .eq('fiscal_period_id', b.fiscal_period_id)
           .eq('status', 'posted')
-          .order('id', { ascending: true })
-          .range(from, to),
+        // entry_date is the association's calendar day (BL-043), so a
+        // plain date comparison is the cutoff — no instant involved.
+        if (through) q = q.lte('entry_date', through)
+        return q.order('id', { ascending: true }).range(from, to)
+      },
       queryFailed,
     )
     const jeIds = jes.map((r) => r.id)
@@ -873,6 +886,7 @@ export async function computeBudgetVsActual(
     fundCode: b.fund?.code ?? null,
     startDate: b.fiscalPeriod?.start_date ?? '',
     endDate: b.fiscalPeriod?.end_date ?? '',
+    actualsThrough: through,
     rows,
     totals: {
       budgetedIncome,
