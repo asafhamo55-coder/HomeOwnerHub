@@ -25,6 +25,8 @@ import { readViolationStatusRows } from '@/lib/violation-status-rows'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { VIOLATION_SEVERITY, VIOLATION_STATUS } from '@/lib/status/community'
 import { violationTabs } from './tabs'
+import { loadPropertyScope, withPropertyParam } from '@/lib/property-scope'
+import { PropertyScopeBanner } from '@/components/PropertyScopeBanner'
 
 export const metadata = { title: 'Violations' }
 export const dynamic = 'force-dynamic'
@@ -56,6 +58,7 @@ interface ViolationRow {
   created_at: string | null
   notice_sent_at: string | null
   cure_period_days: number | null
+  property_id: string | null
   property: { address: string; unit_number: string | null } | null
 }
 
@@ -72,9 +75,9 @@ function cureDue(v: ViolationRow): Date | null {
 export default async function ViolationsListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string; status?: string }>
+  searchParams: Promise<{ q?: string; page?: string; status?: string; property?: string }>
 }) {
-  const { q: qParam, page: pageParam, status: statusParam } = await searchParams
+  const { q: qParam, page: pageParam, status: statusParam, property: propertyParam } = await searchParams
   const search = (qParam ?? '').trim()
   const statusFilter = parseStatusFilter(statusParam)
   const page = parsePageParam(pageParam)
@@ -84,10 +87,12 @@ export default async function ViolationsListPage({
   if (!org) return <NoOrgSelected />
 
   const supabase = await getSupabaseServerClient()
+  // Opened from a property page: that home's violations only.
+  const scope = await loadPropertyScope(supabase as unknown as SupabaseClient, propertyParam)
   let query = supabase
     .from('hoa_violations')
     .select(
-      'id, description, status, severity, ccr_section, created_at, notice_sent_at, cure_period_days, property:hoa_properties(address, unit_number)',
+      'id, description, status, severity, ccr_section, created_at, notice_sent_at, cure_period_days, property_id, property:hoa_properties(address, unit_number)',
       { count: 'exact' },
     )
     .eq('org_id', org.id)
@@ -104,13 +109,14 @@ export default async function ViolationsListPage({
   }
   const statuses = STATUS_FILTERS[statusFilter].statuses
   if (statuses) query = query.in('status', [...statuses])
+  if (scope) query = query.eq('property_id', scope.id)
 
   // Status column only, for the chip counts. Small (one short text per
   // violation), independent of paging, and read to the END — a single read
   // stopped at PostgREST's 1000-row cap (BL-047). A failure hides the counts.
   const [result, statusRes] = await Promise.all([
     loadOrFail('violations', query.range(from, to)),
-    loadOrFail('violation status counts', readViolationStatusRows(supabase as unknown as SupabaseClient, org.id)),
+    loadOrFail('violation status counts', readViolationStatusRows(supabase as unknown as SupabaseClient, org.id, scope?.id ?? null)),
   ])
 
   const rows = result.ok ? ((result.data ?? []) as unknown as ViolationRow[]) : []
@@ -125,18 +131,19 @@ export default async function ViolationsListPage({
     }
   }
 
-  const href = (opts: { page?: number; status?: StatusFilter; q?: string }): string => {
+  const href = (opts: { page?: number; status?: StatusFilter; q?: string; dropProperty?: boolean }): string => {
     const params = new URLSearchParams()
     const q = opts.q ?? search
     const st = opts.status ?? statusFilter
     if (q) params.set('q', q)
     if (st !== 'all') params.set('status', st)
     if (opts.page && opts.page > 1) params.set('page', String(opts.page))
+    if (scope && !opts.dropProperty) params.set('property', scope.id)
     const qs = params.toString()
     return qs ? `/violations?${qs}` : '/violations'
   }
 
-  const filtered = search.length > 0 || statusFilter !== 'all'
+  const filtered = search.length > 0 || statusFilter !== 'all' || scope !== null
 
   const columns: DataTableColumn<ViolationRow>[] = [
     {
@@ -153,8 +160,15 @@ export default async function ViolationsListPage({
             {v.description}
           </Link>
           <p className="mt-0.5 truncate text-xs text-muted">
-            {v.property?.address ?? 'Property unknown'}
-            {v.property?.unit_number ? ` · ${v.property.unit_number}` : ''}
+            {v.property && v.property_id ? (
+              // P0: propertyHref
+              <Link href={`/properties/${v.property_id}`} className="text-muted hover:text-primary hover:underline">
+                {v.property.address}
+                {v.property.unit_number ? ` · ${v.property.unit_number}` : ''}
+              </Link>
+            ) : (
+              'Property unknown'
+            )}
             {v.created_at ? (
               <span className="md:hidden"> · {format(new Date(v.created_at), 'MMM d')}</span>
             ) : null}
@@ -227,7 +241,7 @@ export default async function ViolationsListPage({
             </a>
           </Button>
           <Button asChild>
-            <Link href="/violations/new">
+            <Link href={withPropertyParam('/violations/new', scope?.id ?? null)}>
               <Plus aria-hidden />
               Report violation
             </Link>
@@ -236,6 +250,7 @@ export default async function ViolationsListPage({
       }
       tabs={<Tabs items={violationTabs('/violations')} aria-label="Violation sections" linkAs={Link} />}
     >
+      {scope ? <PropertyScopeBanner scope={scope} noun="violations" clearHref={href({ dropProperty: true, page: 1 })} /> : null}
       <ListToolbar>
         <FilterChips
           label="Filter by status"
@@ -252,7 +267,7 @@ export default async function ViolationsListPage({
           label="Search violations"
           placeholder="Search description or CC&R"
           defaultValue={search}
-          keep={{ status: statusFilter === 'all' ? null : statusFilter }}
+          keep={{ status: statusFilter === 'all' ? null : statusFilter, property: scope?.id ?? null }}
           linkAs={Link}
         />
       </ListToolbar>
@@ -295,7 +310,9 @@ export default async function ViolationsListPage({
                 }
                 action={
                   <Button asChild variant="secondary" size="sm">
-                    <Link href="/violations">Clear filters</Link>
+                    <Link href={scope ? href({ status: 'all', q: '', page: 1 }) : '/violations'}>
+                      {scope ? 'Clear filters for this home' : 'Clear filters'}
+                    </Link>
                   </Button>
                 }
               />
