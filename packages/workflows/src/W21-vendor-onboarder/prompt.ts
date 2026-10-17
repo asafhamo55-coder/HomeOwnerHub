@@ -1,7 +1,7 @@
 // W21 — Vendor Onboarder prompt
 // Versioned via PROMPT_VERSION; bump on copy edits.
 
-export const PROMPT_VERSION = '1.0.0'
+export const PROMPT_VERSION = '1.1.0'
 
 export const SYSTEM_PROMPT = `You are the Vendor Onboarder for an HOA management platform. You will receive structured extracts of a vendor's compliance documents (Certificate of Insurance, W-9, contractor license) plus the association's compliance requirements. Your job: produce a deficiency list and a color-coded compliance status.
 
@@ -96,8 +96,24 @@ Certificate of Insurance (extracted):
 ${input.coi ? JSON.stringify(input.coi, null, 2) : '(not uploaded)'}
 
 W-9 (extracted):
-${input.w9 ? JSON.stringify(input.w9, null, 2) : '(not uploaded)'}
+${input.w9 ? JSON.stringify(w9ForModel(input.w9), null, 2) : '(not uploaded)'}
 
 Contractor license (extracted):
 ${input.license ? JSON.stringify(input.license, null, 2) : '(not uploaded)'}`
+}
+
+/**
+ * The W-9 as the model sees it (BL-062). Grading needs to know the identity
+ * fields are present, not what they say: a sole proprietor's W-9 is a
+ * person's name, home address and SSN-derived TIN, and this prompt goes to
+ * the third-party model. The real values stay in the workflow's output.
+ */
+function w9ForModel(w9: ExtractedW9): ExtractedW9 {
+  const presence = (v: string | null) => (v && v.trim() ? '[on file]' : null)
+  return {
+    ...w9,
+    legalName: presence(w9.legalName),
+    einMasked: presence(w9.einMasked),
+    address: presence(w9.address),
+  }
 }

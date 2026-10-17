@@ -14,6 +14,7 @@ import { queryGoverningDocs } from '@homeowner-portal/workflows/W1'
 import { readAll } from '@/lib/supabase/read-all'
 import { calendarDaysBetween, todayIn } from '@/lib/association-time'
 import { orgTimeZone } from '@/lib/association-time-server'
+import type { ContactVault } from './contact-placeholders'
 
 // Db matches what getSupabaseServerClient() returns. We keep the
 // Database generic so .from('assessments').select(...) is fully typed
@@ -35,10 +36,15 @@ export interface ToolContext {
   /** User-bound supabase client (RLS enforced). */
   db: Db
   orgId: string
-  /** Owner email / phone go to the model only when the caller's role may
-   *  see them (board and admin do: hoa_properties_select and the property
-   *  page). Explicit so a future resident-facing caller can't inherit it. */
+  /** Whether the caller's role may see owner email / phone (board and admin
+   *  do: hoa_properties_select and the property page). Explicit so a future
+   *  resident-facing caller can't inherit it. Even when true the model gets
+   *  only placeholder tokens (BL-062); see contactVault. */
   canSeeOwnerContact: boolean
+  /** Per-request store for owner contact. Tools put the real value here and
+   *  give the model a token like [OWNER_EMAIL_1]; the route swaps tokens in
+   *  the final answer for real values only for a caller who may see them. */
+  contactVault: ContactVault
   /** Optional — narrows governing-docs search to one association when
    *  the question is clearly about a specific community within a
    *  multi-association org. Null = search across all of org's docs. */
@@ -196,7 +202,7 @@ const getUnitOwner: Tool = {
   def: {
     name: 'get_unit_owner',
     description:
-      "Looks up the current owner(s) of a property by address (partial match allowed). Returns owner name, email, phone. Use for 'who owns 829 Pistace Ct'.",
+      "Looks up the current owner(s) of a property by address (partial match allowed). Returns owner name, whether contact is on file, and — for callers allowed to see it — email/phone as placeholder tokens like [OWNER_EMAIL_1] that the portal fills in. Use for 'who owns 829 Pistace Ct'.",
     parameters: {
       type: 'object',
       properties: {
@@ -205,7 +211,7 @@ const getUnitOwner: Tool = {
       required: ['address'],
     },
   },
-  async execute(args, { db, orgId, canSeeOwnerContact }) {
+  async execute(args, { db, orgId, canSeeOwnerContact, contactVault }) {
     const addr = String(args.address ?? '').trim().slice(0, 200)
     if (!addr) throw new ToolFailure('invalid_args')
     const { data: properties, error } = await db
@@ -225,16 +231,27 @@ const getUnitOwner: Tool = {
         owner_email: string | null
         owner_phone: string | null
         tenure: string | null
-      }>).map((p) => ({
-        address: p.address,
-        ownerName: p.owner_name,
-        ...(canSeeOwnerContact ? { ownerEmail: p.owner_email, ownerPhone: p.owner_phone } : {}),
-        tenure: p.tenure,
-      })),
+      }>).map((p) => {
+        const email = p.owner_email?.trim() || null
+        const phone = p.owner_phone?.trim() || null
+        // BL-062: the model gets a token, never the value. Only a caller who
+        // may see contact gets tokens at all; the route fills them in.
+        return {
+          address: p.address,
+          ownerName: p.owner_name,
+          contactOnFile: !!(email || phone),
+          ...(canSeeOwnerContact
+            ? {
+                ownerEmail: email ? contactVault.token('email', email) : null,
+                ownerPhone: phone ? contactVault.token('phone', phone) : null,
+              }
+            : {}),
+          tenure: p.tenure,
+        }
+      }),
     }
   },
-  // The model needs the contact to answer "how do I reach the owner of X";
-  // the response's data-sources log does not, so it never carries it.
+  // The response's data-sources log carries neither contact nor its tokens.
   toPublic(result) {
     const r = result as { matches: Array<{ address: string; ownerName: string | null; tenure: string | null }> }
     return {

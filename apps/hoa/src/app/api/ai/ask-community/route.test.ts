@@ -39,6 +39,7 @@ const askCommunity = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/community-qa/agent', () => ({ askCommunity }))
 
 import { POST } from './route'
+import { ContactVault } from '@/lib/community-qa/contact-placeholders'
 
 const ASSOC = '11111111-1111-4111-8111-111111111111'
 
@@ -158,6 +159,28 @@ describe('POST /api/ai/ask-community', () => {
   it('lets the agent see owner contact only because the caller is board or admin', async () => {
     await POST(req({ question: 'Who owns 829?' }))
     expect(askCommunity).toHaveBeenCalledWith('Who owns 829?', expect.objectContaining({ canSeeOwnerContact: true }))
+  })
+
+  it('fills contact tokens in the answer server-side for board/admin (BL-062)', async () => {
+    const vault = new ContactVault()
+    vault.token('email', 'pat@example.com')
+    vault.token('phone', '305-555-0142')
+    askCommunity.mockResolvedValue({
+      answer: 'Pat: [OWNER_EMAIL_1], [OWNER_PHONE_1], [OWNER_EMAIL_9].',
+      toolCalls: [],
+      steps: 2,
+      contactVault: vault,
+    })
+    for (const role of ['board', 'admin'] as const) {
+      h.role = role
+      const res = await POST(req({ question: 'How do I reach the owner of 829?' }))
+      // Same public shape as before: the vault itself never ships.
+      expect(await res.json()).toEqual({
+        answer: 'Pat: pat@example.com, 305-555-0142, (not on file).',
+        toolCalls: [],
+        steps: 2,
+      })
+    }
   })
 
   it('returns only the named response fields, camelCase', async () => {
