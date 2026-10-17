@@ -186,7 +186,9 @@ export type { AvatarProps } from './components/Avatar'
 export { UserMenu } from './components/UserMenu'
 export type { UserMenuProps } from './components/UserMenu'
 export { CommandPalette } from './components/CommandPalette'
-export type { PaletteCommand, CommandPaletteProps } from './components/CommandPalette'
+export type { PaletteCommand, PaletteSearchResult, CommandPaletteProps } from './components/CommandPalette'
+export { createDebouncedSearch } from './lib/debounced-search'
+export type { SearchState, DebouncedSearch, DebouncedSearchOptions } from './lib/debounced-search'
 
 // URL-driven list filters: segmented status chips + GET search box.
 export { ListToolbar, FilterChips, SearchForm } from './components/ListToolbar'

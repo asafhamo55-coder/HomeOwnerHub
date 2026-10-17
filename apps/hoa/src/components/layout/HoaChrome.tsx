@@ -2,15 +2,32 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useMemo } from 'react'
-import { LogOut, Monitor, Moon, Settings, Sun, Users } from 'lucide-react'
+import { useCallback, useMemo } from 'react'
+import {
+  AlertTriangle,
+  Briefcase,
+  Building2,
+  ClipboardCheck,
+  LogOut,
+  Mail,
+  MessageSquare,
+  Monitor,
+  Moon,
+  Settings,
+  Sun,
+  User,
+  Users,
+} from 'lucide-react'
 import {
   CommandPalette,
   DropdownMenuItem,
   UserMenu,
   useTheme,
   type PaletteCommand,
+  type PaletteSearchResult,
 } from '@homeowner-portal/ui'
+import { fetchRecordSearch } from '@/lib/search/client'
+import type { RecordType } from '@/lib/search/types'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { clearSessionCookiesOnSignOut } from '@/app/actions/sign-out'
 import { ADMIN_ACCOUNT, BOARD_ACCOUNT, HOA_CREATE, HOA_NAV } from './nav'
@@ -53,7 +70,22 @@ export function HoaUserMenu({
   )
 }
 
-/** ⌘K palette: every sidebar destination, quick-create actions, theme, sign out. */
+// Same icons as the sidebar entries for these areas (nav.ts).
+const RECORD_ICON: Record<RecordType, typeof User> = {
+  owner: User,
+  property: Building2,
+  violation: AlertTriangle,
+  arc: ClipboardCheck,
+  ticket: MessageSquare,
+  thread: Mail,
+  vendor: Briefcase,
+}
+
+/**
+ * ⌘K palette: every sidebar destination, quick-create actions, theme, sign
+ * out — and records in the current org (BL-022) via /api/search, which is
+ * board/admin-only and RLS-scoped.
+ */
 export function HoaCommandPalette({ role }: { role: 'admin' | 'board' }) {
   const router = useRouter()
   const { setTheme } = useTheme()
@@ -90,5 +122,16 @@ export function HoaCommandPalette({ role }: { role: 'admin' | 'board' }) {
     return [...go, ...account, ...create, ...prefs]
   }, [role, setTheme])
 
-  return <CommandPalette commands={commands} onNavigate={(href) => router.push(href)} />
+  const search = useCallback(async (query: string, signal: AbortSignal): Promise<PaletteSearchResult> => {
+    const { hits, notice } = await fetchRecordSearch(query, signal)
+    return {
+      notice,
+      commands: hits.map((h) => {
+        const Icon = RECORD_ICON[h.type]
+        return { id: h.id, label: h.label, hint: h.hint, href: h.href, group: h.group, icon: <Icon aria-hidden /> }
+      }),
+    }
+  }, [])
+
+  return <CommandPalette commands={commands} search={search} onNavigate={(href) => router.push(href)} />
 }

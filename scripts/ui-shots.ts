@@ -85,6 +85,8 @@ interface Shot {
   themes?: ('light' | 'dark')[]
   /** Render with print media (CSS `print:` styles), e.g. the resident statement. */
   print?: boolean
+  /** Open the ⌘K palette and type this query; waits for record search to settle (BL-022). */
+  palette?: string
 }
 
 const WIDTHS = [375, 1440]
@@ -107,6 +109,9 @@ const SHOTS: Shot[] = [
   // available width is what drives its icon-only / labelled states.
   { name: 'topbar-copilot', path: '/', auth: true, copilot: true, viewport: true, widths: [1024, 1280, 1440], themes: LIGHT },
   { name: 'topbar', path: '/', auth: true, viewport: true, widths: [768, 1024, 1440], themes: LIGHT },
+  // BL-022: ⌘K with record results ("Sample" hits the seeded long-address
+  // property and the violations on it).
+  { name: 'palette-records', path: '/', auth: true, viewport: true, palette: 'Sample' },
   { name: 'dashboard-viewport', path: '/', auth: true, viewport: true, scrollBottom: true, widths: [1440], themes: LIGHT },
   { name: 'approvals', path: '/approvals', auth: true },
   { name: 'violations', path: '/violations', auth: true },
@@ -582,6 +587,22 @@ async function main() {
             await page.goto(`${bases[app]}${path}`, { waitUntil: 'networkidle', timeout: 120_000 })
             // Hide Next's dev-mode indicator; it is not part of the product.
             await page.addStyleTag({ content: 'nextjs-portal{display:none!important}' })
+            if (shot.palette) {
+              await page.keyboard.press('Control+k')
+              await page.waitForSelector('[cmdk-input]', { timeout: 15_000 })
+              await page.keyboard.type(shot.palette)
+              // The first hit compiles /api/search under next dev; allow for it.
+              await page
+                .waitForSelector('[data-search-state="ready"], [data-search-state="error"]', { state: 'attached', timeout: 90_000 })
+                .catch(async (e: Error) => {
+                  const st = await page.getAttribute('[data-search-state]', 'data-search-state').catch(() => null)
+                  const typed = await page.inputValue('[cmdk-input]').catch(() => null)
+                  throw new Error(`palette search did not settle (state=${st}, typedChars=${typed?.length ?? 'n/a'}): ${e.message.split('\n')[0]}`)
+                })
+              const state = await page.getAttribute('[data-search-state]', 'data-search-state')
+              const hits = await page.locator('[cmdk-item]').count()
+              console.log(`palette: ${shot.name} ${width} search=${state} items=${hits}`)
+            }
             if (shot.scrollBottom) {
               await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
             }
