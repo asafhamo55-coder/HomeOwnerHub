@@ -179,6 +179,15 @@ const SHOTS: Shot[] = [
   { name: 'settings-data', path: '/settings/data', auth: true },
   { name: 'settings-reminders', path: '/settings/reminders', auth: true },
   { name: 'legal-compliance', path: '/legal/compliance', auth: true },
+  // BL-070 user guide: help centre, search (hit + no hit), topic, article,
+  // and the "?" drawer on a covered page and on one with no article.
+  { name: 'help', path: '/help', auth: true },
+  { name: 'help-search', path: '/help?q=owner+paid+by+check', auth: true, themes: LIGHT },
+  { name: 'help-search-empty', path: '/help?q=clubhouse+booking', auth: true, themes: LIGHT },
+  { name: 'help-topic', path: '/help/topics/dues', auth: true, themes: LIGHT },
+  { name: 'help-article', path: '/help/dues-record-payment', auth: true },
+  { name: 'help-drawer', path: '/violations', auth: true, viewport: true, click: 'button[aria-label="Help for this page"] >> visible=true' },
+  { name: 'help-drawer-fallback', path: '/accounting', auth: true, viewport: true, themes: LIGHT, click: 'button[aria-label="Help for this page"] >> visible=true' },
 
   // Platform admin
   { name: 'admin', path: '/admin', auth: true },
@@ -214,6 +223,16 @@ const SHOTS: Shot[] = [
   { name: 'resident-documents', path: '/resident/documents', auth: true, resident: true },
   { name: 'resident-account', path: '/resident/account', auth: true, resident: true },
   { name: 'resident-announcements', path: '/resident/announcements', auth: true, resident: true },
+  { name: 'resident-help', path: '/resident/help', auth: true, resident: true },
+  { name: 'resident-help-article', path: '/resident/help/resident-portal-basics', auth: true, resident: true },
+  {
+    name: 'resident-help-drawer',
+    path: '/resident/dues',
+    auth: true,
+    resident: true,
+    viewport: true,
+    click: 'button[aria-label="Help for this page"] >> visible=true',
+  },
 
   // PM Hub
   { name: 'pm-home', app: 'pm', path: '/', auth: true },
@@ -568,7 +587,7 @@ async function captureGuideShot(page: Page, shot: GuideShot, width: number): Pro
       x,
       y,
       width: Math.min(vp.width - x, box.width + GUIDE_PAD * 2),
-      height: Math.min(vp.height - y, box.height + GUIDE_PAD * 2),
+      height: Math.min(vp.height - y, box.height + GUIDE_PAD * 2, shot.clipMaxHeight ?? Infinity),
     }
   }
   const png = await page.screenshot({

@@ -1,4 +1,4 @@
-import { FileText, Home, Megaphone, Sparkles } from 'lucide-react'
+import { CircleHelp, FileText, Home, Megaphone, Sparkles } from 'lucide-react'
 import { Badge } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getResidentUnits } from '@/lib/resident'
@@ -112,6 +112,13 @@ export default async function ResidentAccountPage() {
           title="Ask the Docs"
           subtitle="Cited answers from your governing documents"
           tone="ai"
+        />
+        <TappableRow
+          href="/resident/help"
+          icon={<CircleHelp />}
+          title="Help"
+          subtitle="How to pay dues, ask for approval and more"
+          tone="info"
         />
         </RowGroup>
       </section>

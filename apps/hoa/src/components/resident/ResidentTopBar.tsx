@@ -13,7 +13,16 @@ function initialsFrom(value: string): string {
   return (letters || value.slice(0, 2)).toUpperCase()
 }
 
-export function ResidentTopBar({ orgName, userEmail }: { orgName: string; userEmail: string }) {
+export function ResidentTopBar({
+  orgName,
+  userEmail,
+  help,
+}: {
+  orgName: string
+  userEmail: string
+  /** The "?" help button (BL-070), shown beside the avatar. */
+  help?: React.ReactNode
+}) {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-surface/80 backdrop-blur print:hidden">
       <div className="mx-auto flex h-14 max-w-2xl items-center justify-between gap-3 px-4">
@@ -27,13 +36,16 @@ export function ResidentTopBar({ orgName, userEmail }: { orgName: string; userEm
           <span className="truncate text-sm font-semibold">{orgName}</span>
         </Link>
 
-        <Link
-          href="/resident/account"
-          aria-label="Account"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-subtle text-xs font-semibold text-foreground no-underline transition hover:bg-border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          {initialsFrom(userEmail)}
-        </Link>
+        <div className="flex shrink-0 items-center gap-1">
+          {help}
+          <Link
+            href="/resident/account"
+            aria-label="Account"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-subtle text-xs font-semibold text-foreground no-underline transition hover:bg-border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            {initialsFrom(userEmail)}
+          </Link>
+        </div>
       </div>
     </header>
   )
