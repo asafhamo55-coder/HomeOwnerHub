@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import { isUsStateCode } from '@/lib/us-states'
 import { loadOrFail, type LoadResult } from '@/lib/load-or-fail'
+import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone } from '@/lib/association-time'
 
 /**
  * In-app association setup (BL-046).
@@ -72,17 +73,24 @@ export function associationSlug(name: string): string {
  * `getPrimaryAssociation()` returns null for both, so a failed read
  * rendered "No association set up yet".
  */
-export function readPrimaryAssociation(db: Db, orgId: string): Promise<LoadResult<{ id: string; name: string } | null>> {
-  return loadOrFail(
+export async function readPrimaryAssociation(
+  db: Db,
+  orgId: string,
+): Promise<LoadResult<{ id: string; name: string; timeZone: string } | null>> {
+  const res = await loadOrFail(
     'association',
     db
       .from('associations')
-      .select('id, name')
+      .select(`id, name, ${ASSOCIATION_ZONE_COLUMNS}`)
       .eq('organization_id', orgId)
       .order('name', { ascending: true })
       .limit(1)
       .maybeSingle(),
   )
+  if (!res.ok || !res.data) return res as LoadResult<null>
+  const row = res.data as { id: string; name: string; state: string | null }
+  // timeZone: what "today" means for this association (BL-043).
+  return { ...res, data: { id: row.id, name: row.name, timeZone: associationTimeZone(row) } }
 }
 
 /** Where to land after setup: an in-app path, else /dues. */
