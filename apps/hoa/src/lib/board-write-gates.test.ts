@@ -13,6 +13,8 @@ import * as governingUpload from '../app/api/governing-docs/upload/route'
 import * as violationDraft from '../app/api/ai/violations/draft/route'
 import * as meetingSummary from '../app/api/ai/meeting-summary/route'
 import * as violationPhoto from '../app/api/violations/photo/route'
+import * as askCommunity from '../app/api/ai/ask-community/route'
+import * as plaidExchange from '../app/api/plaid/exchange/route'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
@@ -146,6 +148,34 @@ describe('board-only routes return 403 to a resident', () => {
       }),
     )
     expect(res.status).toBe(403)
+  })
+
+  it('POST /api/ai/ask-community (agent tools read owner contact and dues balances)', async () => {
+    vi.mocked(getSupabaseServerClient).mockClear()
+    const res = await askCommunity.POST(
+      new Request('http://x/api/ai/ask-community', {
+        method: 'POST',
+        body: '{not json',
+      }),
+    )
+    expect(res.status).toBe(403)
+    expect((await res.json()).error.code).toBe('forbidden')
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+  })
+
+  it('POST /api/plaid/exchange (must not mint a Plaid access token for a resident)', async () => {
+    vi.mocked(getSupabaseServerClient).mockClear()
+    vi.mocked(getPrimaryAssociation).mockClear()
+    const res = await plaidExchange.POST(
+      new Request('http://x/api/plaid/exchange', {
+        method: 'POST',
+        body: JSON.stringify({ publicToken: 'public-sandbox-x', fundId: ID }),
+      }),
+    )
+    expect(res.status).toBe(403)
+    expect((await res.json()).error.code).toBe('forbidden')
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+    expect(getPrimaryAssociation).not.toHaveBeenCalled()
   })
 
   it('POST /api/governing-docs/upload (would otherwise poison Ask-the-Docs)', async () => {

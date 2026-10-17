@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Send, Sparkles, X } from 'lucide-react'
 import { Button, Textarea, cn } from '@homeowner-portal/ui'
+import { apiErrorMessage } from '@/lib/api/client'
 import { CopilotMessage, type Citation, type Confidence, type Message } from './CopilotMessage'
 
 // Board copilot. Three pieces share one open/closed state:
@@ -175,18 +176,15 @@ export function Copilot() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: trimmed }),
       })
-      const json = (await res.json()) as
-        | AskResponse
-        | { error: string; message?: string }
+      const json: unknown = await res.json().catch(() => null)
 
-      if (!res.ok) {
-        const err = json as { error: string; message?: string }
+      if (!res.ok || !json) {
         replaceMessage(placeholderId, {
           id: placeholderId,
           role: 'assistant',
           content:
             "I couldn't answer that — please try again or use the full Ask the Docs page.",
-          error: err.message ?? err.error,
+          error: apiErrorMessage(json, 'The assistant is unavailable right now.'),
         })
       } else {
         const data = json as AskResponse

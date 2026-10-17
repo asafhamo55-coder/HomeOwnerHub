@@ -38,6 +38,8 @@ describe('buildEmailPayloads', () => {
         html: '<p>Hi Dana</p>',
         text: undefined,
         senderName: 'Madison Park HOA',
+        // The row id rides along so the send stamps our Message-ID on it.
+        recipientRef: 'r1',
       },
     ])
   })

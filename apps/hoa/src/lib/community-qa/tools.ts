@@ -33,6 +33,10 @@ export interface ToolContext {
   /** User-bound supabase client (RLS enforced). */
   db: Db
   orgId: string
+  /** Owner email / phone go to the model only when the caller's role may
+   *  see them (board and admin do: hoa_properties_select and the property
+   *  page). Explicit so a future resident-facing caller can't inherit it. */
+  canSeeOwnerContact: boolean
   /** Optional — narrows governing-docs search to one association when
    *  the question is clearly about a specific community within a
    *  multi-association org. Null = search across all of org's docs. */
@@ -41,7 +45,45 @@ export interface ToolContext {
 
 export interface Tool {
   def: ToolDefinition
+  /** Returns a camelCase result (money in *Cents) that is fed to the model.
+   *  Throws ToolFailure — never free text — when it cannot answer. */
   execute: (args: Record<string, unknown>, ctx: ToolContext) => Promise<unknown>
+  /** The part of the result the HTTP response may carry. Default: all of it. */
+  toPublic?: (result: unknown) => unknown
+}
+
+/**
+ * The only failure vocabulary a tool has (RC-2). The model and the HTTP
+ * response see `{ failed: true, code }`; a thrown DB/W1 message never
+ * reaches either, because it names tables and columns and can embed row
+ * values. The DB code is kept for the log line only.
+ */
+export type ToolErrorCode = 'lookup_failed' | 'docs_unavailable' | 'invalid_args' | 'unknown_tool'
+
+export class ToolFailure extends Error {
+  readonly dbCode: string | undefined
+  constructor(
+    readonly code: ToolErrorCode,
+    cause?: unknown,
+  ) {
+    super(code)
+    this.name = 'ToolFailure'
+    const c = (cause as { code?: unknown } | undefined)?.code
+    this.dbCode = typeof c === 'string' || typeof c === 'number' ? String(c) : undefined
+  }
+}
+
+export interface ToolFailed {
+  failed: true
+  code: ToolErrorCode
+}
+
+export function toolFailed(code: ToolErrorCode): ToolFailed {
+  return { failed: true, code }
+}
+
+export function isToolFailed(v: unknown): v is ToolFailed {
+  return !!v && typeof v === 'object' && (v as { failed?: unknown }).failed === true
 }
 
 // ─── count_units_by_tenure ──────────────────────────────────────────
@@ -69,13 +111,13 @@ const countUnitsByTenure: Tool = {
           .is('deleted_at', null)
           .order('id', { ascending: true })
           .range(from, to) as never,
-      toolReadFailed('hoa_properties'),
+      toolReadFailed(),
     )
-    const counts = { owner_occupied: 0, leased: 0, unknown: 0, total: 0 }
+    const counts = { ownerOccupied: 0, leased: 0, unknown: 0, total: 0 }
     for (const r of data) {
       counts.total += 1
-      const t = (r.tenure ?? 'unknown') as keyof typeof counts
-      if (t === 'owner_occupied' || t === 'leased' || t === 'unknown') counts[t] += 1
+      if (r.tenure === 'owner_occupied') counts.ownerOccupied += 1
+      else if (r.tenure === 'leased') counts.leased += 1
       else counts.unknown += 1
     }
     return counts
@@ -99,7 +141,7 @@ const listOverdueDues: Tool = {
   async execute(args, { db, orgId }) {
     const limit = clampInt(args.limit, 1, 100, 25)
     const today = new Date().toISOString().slice(0, 10)
-    const { data } = await db
+    const { data, error } = await db
       .from('assessments')
       .select(
         'id, amount, due_date, status, unit:units(address_line1, lot_number), payments(amount)',
@@ -112,6 +154,8 @@ const listOverdueDues: Tool = {
       .neq('status', 'written_off')
       .order('due_date', { ascending: true })
       .limit(limit)
+    // An ignored error answered "nobody is overdue" — a wrong fact.
+    if (error) throw new ToolFailure('lookup_failed', error)
     type Row = {
       id: string
       amount: number | string
@@ -121,19 +165,21 @@ const listOverdueDues: Tool = {
       payments: { amount: number | string }[]
     }
     return ((data ?? []) as unknown as Row[]).map((r) => {
-      const paid = (r.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
-      const remaining = Math.max(Number(r.amount) - paid, 0)
+      // numeric dollars → integer cents here, once (RC-11), before any
+      // arithmetic, so 125.10 - 25.05 is 10005 and not 100.04999….
+      const dueCents = dollarsToCents(r.amount)
+      const paidCents = (r.payments ?? []).reduce((s, p) => s + dollarsToCents(p.amount), 0)
       const daysOverdue = Math.max(
         0,
         Math.floor((Date.now() - new Date(r.due_date).getTime()) / 86_400_000),
       )
       return {
         address: r.unit?.address_line1 ?? '(unknown)',
-        lot_number: r.unit?.lot_number ?? null,
-        amount_due: Number(r.amount),
-        amount_remaining: remaining,
-        due_date: r.due_date,
-        days_overdue: daysOverdue,
+        lotNumber: r.unit?.lot_number ?? null,
+        amountDueCents: dueCents,
+        amountRemainingCents: Math.max(dueCents - paidCents, 0),
+        dueDate: r.due_date,
+        daysOverdue,
         status: r.status,
       }
     })
@@ -155,19 +201,18 @@ const getUnitOwner: Tool = {
       required: ['address'],
     },
   },
-  async execute(args, { db, orgId }) {
+  async execute(args, { db, orgId, canSeeOwnerContact }) {
     const addr = String(args.address ?? '').trim().slice(0, 200)
-    if (!addr) return { error: 'address required' }
-    const { data: properties } = await db
+    if (!addr) throw new ToolFailure('invalid_args')
+    const { data: properties, error } = await db
       .from('hoa_properties')
       .select('id, address, owner_name, owner_email, owner_phone, tenure')
       .eq('org_id', orgId)
       .is('deleted_at', null)
       .ilike('address', `%${addr.replace(/[%_\\]/g, '\\$&')}%`)
       .limit(5)
-    if (!properties || properties.length === 0) {
-      return { matches: [] as const, note: `No property found matching "${addr}".` }
-    }
+    if (error) throw new ToolFailure('lookup_failed', error)
+    if (!properties || properties.length === 0) return { matches: [] }
     return {
       matches: (properties as Array<{
         id: string
@@ -178,11 +223,18 @@ const getUnitOwner: Tool = {
         tenure: string | null
       }>).map((p) => ({
         address: p.address,
-        owner_name: p.owner_name,
-        owner_email: p.owner_email,
-        owner_phone: p.owner_phone,
+        ownerName: p.owner_name,
+        ...(canSeeOwnerContact ? { ownerEmail: p.owner_email, ownerPhone: p.owner_phone } : {}),
         tenure: p.tenure,
       })),
+    }
+  },
+  // The model needs the contact to answer "how do I reach the owner of X";
+  // the response's data-sources log does not, so it never carries it.
+  toPublic(result) {
+    const r = result as { matches: Array<{ address: string; ownerName: string | null; tenure: string | null }> }
+    return {
+      matches: r.matches.map((m) => ({ address: m.address, ownerName: m.ownerName, tenure: m.tenure })),
     }
   },
 }
@@ -210,15 +262,21 @@ const countOpenViolations: Tool = {
           .is('deleted_at', null)
           .order('id', { ascending: true })
           .range(from, to) as never,
-      toolReadFailed('hoa_violations'),
+      toolReadFailed(),
     )
-    const counts: Record<string, number> = { total: 0 }
+    // Statuses are values, not keys: a key per status would put snake_case
+    // DB enum values (notice_sent) into response field names (RC-11).
+    const byStatus = new Map<string, number>()
     for (const r of data) {
-      counts.total += 1
       const s = r.status ?? 'unknown'
-      counts[s] = (counts[s] ?? 0) + 1
+      byStatus.set(s, (byStatus.get(s) ?? 0) + 1)
     }
-    return counts
+    return {
+      total: data.length,
+      byStatus: [...byStatus.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([status, count]) => ({ status, count })),
+    }
   },
 }
 
@@ -238,19 +296,24 @@ const listRecentMeetings: Tool = {
   },
   async execute(args, { db, orgId }) {
     const limit = clampInt(args.limit, 1, 25, 5)
-    const { data } = await db
+    const { data, error } = await db
       .from('hoa_meeting_minutes')
       .select('id, meeting_date, meeting_type, status')
       .eq('org_id', orgId)
       .is('deleted_at', null)
       .order('meeting_date', { ascending: false })
       .limit(limit)
-    return (data ?? []) as Array<{
-      id: string
+    if (error) throw new ToolFailure('lookup_failed', error)
+    return ((data ?? []) as Array<{
       meeting_date: string | null
       meeting_type: string | null
       status: string | null
-    }>
+    }>).map((m) => ({
+      // meeting_date is a Postgres `date`: already YYYY-MM-DD.
+      meetingDate: m.meeting_date,
+      meetingType: m.meeting_type,
+      status: m.status,
+    }))
   },
 }
 
@@ -270,8 +333,8 @@ const countProperties: Tool = {
       .eq('org_id', orgId)
       .is('deleted_at', null)
     // An ignored error answered "0 properties" — a wrong fact, not a gap.
-    if (error) throw toolReadFailed('hoa_properties')(error)
-    return { total_properties: count ?? 0 }
+    if (error) throw new ToolFailure('lookup_failed', error)
+    return { totalProperties: count ?? 0 }
   },
 }
 
@@ -319,18 +382,30 @@ const searchGoverningDocs: Tool = {
   },
   async execute(args, { orgId, associationId }) {
     const question = String(args.question ?? '').trim().slice(0, 1000)
-    if (!question) return { error: 'question required' }
+    if (!question) throw new ToolFailure('invalid_args')
+    let result: DocsToolResult
     try {
-      const result = (await queryGoverningDocs(question, {
+      result = (await queryGoverningDocs(question, {
         organizationId: orgId,
         associationId: associationId ?? null,
       })) as DocsToolResult
-      return result
     } catch (err) {
-      return {
-        error: err instanceof Error ? err.message : 'doc search failed',
-      }
+      // W1's message can name the vector table or carry the provider body.
+      throw new ToolFailure('docs_unavailable', err)
     }
+    // Name every field: whatever else W1 grows must not ride along.
+    const out: DocsToolResult = {
+      answer: result.answer,
+      confidence: result.confidence,
+      citations: (result.citations ?? []).map((c) => ({
+        chunkId: c.chunkId,
+        documentId: c.documentId,
+        docType: c.docType,
+        section: c.section,
+      })),
+      runId: result.runId,
+    }
+    return out
   },
 }
 
@@ -356,9 +431,15 @@ export const TOOL_BY_NAME: Record<string, Tool> = Object.fromEntries(
 
 // ─── helpers ─────────────────────────────────────────────────────────
 
-/** Error code only — never row values — so the tool error is safe to log. */
-function toolReadFailed(table: string) {
-  return (e: { code?: string }) => new Error(`${table} read failed (${e.code ?? 'no code'})`)
+/** readAll's onError: a coded failure that keeps only the DB code. */
+function toolReadFailed() {
+  return (e: { code?: string }) => new ToolFailure('lookup_failed', e)
+}
+
+/** `numeric` dollars (string or number) → integer cents. The one conversion point here. */
+function dollarsToCents(v: number | string | null | undefined): number {
+  const n = Number(v ?? 0)
+  return Number.isFinite(n) ? Math.round(n * 100) : 0
 }
 
 function clampInt(v: unknown, min: number, max: number, fallback: number): number {

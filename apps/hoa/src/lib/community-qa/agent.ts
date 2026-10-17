@@ -16,7 +16,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import { resolveModel } from '@homeowner-portal/ai'
-import { TOOLS, TOOL_BY_NAME, type DocsCitation, type DocsToolResult } from './tools'
+import { logRouteFailure } from '@/lib/api/log'
+import {
+  TOOLS,
+  TOOL_BY_NAME,
+  ToolFailure,
+  isToolFailed,
+  toolFailed,
+  type DocsCitation,
+  type DocsToolResult,
+  type Tool,
+} from './tools'
 
 type Db = SupabaseClient<Database>
 
@@ -34,9 +44,10 @@ Some questions need BOTH — e.g. "How many violations do we have and what's the
 
 Style:
 - Be concise — 1–3 sentences for simple questions, a short bulleted list when listing rows.
-- Show $ amounts as "$1,234" (no decimals unless smaller than $10).
+- Money fields end in "Cents" and are integer cents: divide by 100 for dollars. Show $ amounts as "$1,234" (no decimals unless smaller than $10).
 - Show dates as "Jan 15, 2026".
 - If a tool returns 0 results or LOW confidence, say so directly — don't make up data.
+- If a tool result is {"failed": true, ...}, that lookup is unavailable right now: say so in one short sentence and don't guess its answer.
 - When search_governing_docs returns citations, paraphrase the rule and quote the section briefly. The UI shows the full citation separately.
 
 Next steps:
@@ -66,9 +77,19 @@ interface ToolCall {
   function: { name: string; arguments: string }
 }
 
+/** One entry of the response's data-sources log: a public, camelCase view. */
+export interface PublicToolCall {
+  name: string
+  args: Record<string, string | number | boolean>
+  result: unknown
+}
+
 export interface AgentResult {
   answer: string
-  toolCalls: Array<{ name: string; args: Record<string, unknown>; result: unknown }>
+  /** Built for the HTTP response, not the raw tool log: an unknown tool is
+   *  named `unknown`, args are only the tool's declared ones, and each
+   *  result goes through the tool's `toPublic`. */
+  toolCalls: PublicToolCall[]
   steps: number
   /** Aggregated citations from any search_governing_docs tool calls.
    *  Empty when the agent only used DB tools. */
@@ -83,7 +104,7 @@ export interface AgentResult {
 
 export async function askCommunity(
   question: string,
-  ctx: { db: Db; orgId: string; associationId?: string | null },
+  ctx: { db: Db; orgId: string; associationId?: string | null; canSeeOwnerContact: boolean },
 ): Promise<AgentResult> {
   const apiKey = process.env.AI_API_KEY
   const baseUrl = process.env.AI_BASE_URL ?? 'https://api.groq.com/openai/v1'
@@ -106,7 +127,13 @@ export async function askCommunity(
     { role: 'user', content: question },
   ]
 
-  const toolCallLog: AgentResult['toolCalls'] = []
+  const toolCallLog: RawToolCall[] = []
+  const finish = (answer: string, steps: number): AgentResult => ({
+    answer,
+    toolCalls: toolCallLog.map(toPublicCall),
+    steps,
+    ...extractDocsArtifacts(toolCallLog),
+  })
 
   for (let step = 1; step <= MAX_STEPS; step++) {
     const res = await fetch(`${baseUrl}/chat/completions`, {
@@ -125,8 +152,8 @@ export async function askCommunity(
     })
 
     if (!res.ok) {
-      const errText = await res.text().catch(() => '')
-      throw new Error(`LLM call failed: HTTP ${res.status} — ${errText.slice(0, 200)}`)
+      // Status only: the provider body can echo the key or the prompt.
+      throw new Error(`LLM call failed: HTTP ${res.status}`)
     }
 
     const body = (await res.json()) as {
@@ -154,12 +181,7 @@ export async function askCommunity(
 
     // No tool calls → final answer.
     if (!msg.tool_calls || msg.tool_calls.length === 0) {
-      return {
-        answer: msg.content?.trim() ?? '(no answer)',
-        toolCalls: toolCallLog,
-        steps: step,
-        ...extractDocsArtifacts(toolCallLog),
-      }
+      return finish(msg.content?.trim() || '(no answer)', step)
     }
 
     // Execute each requested tool, append a `tool` message per call.
@@ -176,18 +198,25 @@ export async function askCommunity(
 
       let result: unknown
       if (!tool) {
-        result = { error: `unknown tool: ${tc.function.name}` }
+        result = toolFailed('unknown_tool')
       } else {
         try {
           result = await tool.execute(parsedArgs, ctx)
         } catch (err) {
-          result = {
-            error: err instanceof Error ? err.message : 'tool execution failed',
-          }
+          // Only the fixed code goes back to the model (and so into its
+          // answer) and to the response. The log keeps ids and codes.
+          const code = err instanceof ToolFailure ? err.code : 'lookup_failed'
+          logRouteFailure('ai.ask-community.tool', err, {
+            orgId: ctx.orgId,
+            tool: tool.def.name,
+            toolCode: code,
+            dbCode: err instanceof ToolFailure ? (err.dbCode ?? null) : null,
+          })
+          result = toolFailed(code)
         }
       }
 
-      toolCallLog.push({ name: tc.function.name, args: parsedArgs, result })
+      toolCallLog.push({ tool, args: parsedArgs, result })
 
       messages.push({
         role: 'tool',
@@ -199,13 +228,37 @@ export async function askCommunity(
   }
 
   // Loop bound exhausted — model couldn't resolve. Return what we have.
-  return {
-    answer:
-      "I couldn't finish answering that within the step budget. Try a more specific question, or break it into smaller pieces.",
-    toolCalls: toolCallLog,
-    steps: MAX_STEPS,
-    ...extractDocsArtifacts(toolCallLog),
+  return finish(
+    "I couldn't finish answering that within the step budget. Try a more specific question, or break it into smaller pieces.",
+    MAX_STEPS,
+  )
+}
+
+interface RawToolCall {
+  /** Undefined when the model named a tool that does not exist. */
+  tool: Tool | undefined
+  args: Record<string, unknown>
+  result: unknown
+}
+
+const MAX_ARG_TEXT = 200
+
+/** Declared args only, primitives only, strings bounded: the model writes these. */
+function publicArgs(tool: Tool, args: Record<string, unknown>): PublicToolCall['args'] {
+  const out: PublicToolCall['args'] = {}
+  for (const key of Object.keys(tool.def.parameters.properties)) {
+    const v = args[key]
+    if (typeof v === 'string') out[key] = v.slice(0, MAX_ARG_TEXT)
+    else if (typeof v === 'number' && Number.isFinite(v)) out[key] = v
+    else if (typeof v === 'boolean') out[key] = v
   }
+  return out
+}
+
+function toPublicCall(c: RawToolCall): PublicToolCall {
+  if (!c.tool) return { name: 'unknown', args: {}, result: c.result }
+  const result = isToolFailed(c.result) || !c.tool.toPublic ? c.result : c.tool.toPublic(c.result)
+  return { name: c.tool.def.name, args: publicArgs(c.tool, c.args), result }
 }
 
 /**
@@ -218,9 +271,9 @@ export async function askCommunity(
  * "view audit trail" link).
  */
 function extractDocsArtifacts(
-  log: AgentResult['toolCalls'],
+  log: RawToolCall[],
 ): Pick<AgentResult, 'citations' | 'confidence' | 'runId'> {
-  const docsCalls = log.filter((c) => c.name === 'search_governing_docs')
+  const docsCalls = log.filter((c) => c.tool?.def.name === 'search_governing_docs')
   if (docsCalls.length === 0) return {}
   const citations: DocsCitation[] = []
   let bestConfidence: 'HIGH' | 'MEDIUM' | 'LOW' | undefined
@@ -229,9 +282,8 @@ function extractDocsArtifacts(
   // the UI shows the strongest evidence we found.
   const rank = { LOW: 1, MEDIUM: 2, HIGH: 3 } as const
   for (const c of docsCalls) {
-    const r = c.result as DocsToolResult | { error: string }
-    if (!r || (r as { error?: string }).error) continue
-    const ok = r as DocsToolResult
+    if (!c.result || isToolFailed(c.result)) continue
+    const ok = c.result as DocsToolResult
     citations.push(...ok.citations)
     if (!bestConfidence || rank[ok.confidence] > rank[bestConfidence]) {
       bestConfidence = ok.confidence

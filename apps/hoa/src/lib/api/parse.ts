@@ -75,6 +75,17 @@ export async function parseJson<S extends z.ZodTypeAny>(
 }
 
 /**
+ * The raw body as text, size-capped (413). For signed webhooks, which must
+ * verify the signature over the exact bytes before parsing them; validate
+ * the result afterwards with JSON.parse → parseValue.
+ */
+export async function parseText(request: Request, opts: { maxBytes?: number } = {}): Promise<string> {
+  const maxBytes = opts.maxBytes ?? MAX_JSON_BYTES
+  checkDeclaredLength(request, maxBytes)
+  return readCapped(request, maxBytes)
+}
+
+/**
  * multipart/form-data or urlencoded. A malformed body is a 400, not a thrown 500 (R-20).
  * The cap holds on the bytes actually read, not only the declared Content-Length, so a
  * chunked body (no Content-Length) cannot be buffered past maxBytes.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { ApiRouteError } from './errors'
-import { parseForm, parseJson, parseQuery } from './parse'
+import { parseForm, parseJson, parseQuery, parseText } from './parse'
 
 const Schema = z.object({ name: z.string().min(1).max(10), tags: z.array(z.string()).max(2).optional() })
 
@@ -134,5 +134,17 @@ describe('parseQuery', () => {
     const Q = z.object({ state: z.enum(['FL', 'CA']) })
     expect(parseQuery(new URL('http://x/?state=FL'), Q)).toEqual({ state: 'FL' })
     expect(() => parseQuery(new URL('http://x/?state=TX'), Q)).toThrow(ApiRouteError)
+  })
+})
+
+describe('parseText', () => {
+  it('returns the exact raw body (for signature verification)', async () => {
+    await expect(parseText(post('{"a": 1}'))).resolves.toBe('{"a": 1}')
+  })
+
+  it('rejects a body over maxBytes as 413 payload_too_large', async () => {
+    const e = await rejection(parseText(post('x'.repeat(20)), { maxBytes: 10 }))
+    expect(e.code).toBe('payload_too_large')
+    expect(e.status).toBe(413)
   })
 })

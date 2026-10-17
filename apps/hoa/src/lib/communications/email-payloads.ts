@@ -79,6 +79,8 @@ export function buildEmailPayloads({
         html: renderTemplateStrict(bodyHtml, bag),
         text: bodyText ? renderTemplateStrict(bodyText, bag) : undefined,
         senderName,
+        // Our own Message-ID, so a reply can be linked to this row.
+        recipientRef: recipient.id,
       })
       owners.push(recipient.id)
     } catch (err) {

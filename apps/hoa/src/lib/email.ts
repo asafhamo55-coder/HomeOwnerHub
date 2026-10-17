@@ -24,6 +24,7 @@ import {
   guardRecipients,
 } from '@homeowner-portal/observability/outbound-guard'
 import { formatFrom } from './email/sender-name'
+import { recipientMessageId } from './email/message-id'
 
 let _client: Resend | null = null
 
@@ -46,6 +47,18 @@ export interface SendEmailInput {
    * EMAIL_FROM exactly as configured.
    */
   senderName?: string | null
+  /**
+   * The communication_recipients row this email is for. When set, the email
+   * carries our own Message-ID (`<hoh-cr.{id}@{EMAIL_FROM domain}>`), so a
+   * reply's In-Reply-To / References names the row (email/message-id.ts).
+   */
+  recipientRef?: string | null
+}
+
+/** `{ headers: { 'Message-ID' } }` for a payload that names its recipient row, else nothing. */
+function threadingHeaders(input: SendEmailInput, envFrom: string): { headers?: Record<string, string> } {
+  const id = input.recipientRef ? recipientMessageId(input.recipientRef, envFrom) : null
+  return id ? { headers: { 'Message-ID': id } } : {}
 }
 
 /** Per-send context for the outbound guard. */
@@ -90,6 +103,7 @@ export async function sendEmail(
     subject: input.subject,
     html: input.html,
     text: input.text,
+    ...threadingHeaders(input, envFrom),
   })
 
   if (result.error) {
@@ -175,6 +189,7 @@ async function sendAllowedBatch(inputs: SendEmailInput[]): Promise<BatchSendResu
       subject: input.subject,
       html: input.html,
       text: input.text,
+      ...threadingHeaders(input, envFrom),
     }))
 
     let response
@@ -229,4 +244,41 @@ function mapChunkResults(
     cursor += 1
   }
   return out
+}
+
+export type ReceivedEmailResult =
+  | {
+      ok: true
+      email: {
+        /** Header names lower-cased; values as Resend returns them. */
+        headers: Record<string, string>
+        text: string | null
+        html: string | null
+      }
+    }
+  | { ok: false; reason: 'not_configured' | 'not_found' | 'upstream' }
+
+/**
+ * An inbound email's headers and body. Resend's `email.received` webhook
+ * carries metadata only (resend 6.x `ReceivedEmailEventData`: email_id,
+ * from, to, subject, message_id, attachments) — no In-Reply-To, References
+ * or body — so the webhook reads them here (GET /emails/receiving/{id}).
+ * Read-only; sends nothing. Never returns provider text.
+ */
+export async function getReceivedEmail(emailId: string): Promise<ReceivedEmailResult> {
+  const client = getClient()
+  if (!client) return { ok: false, reason: 'not_configured' }
+  try {
+    const res = await client.emails.receiving.get(emailId)
+    if (res.error || !res.data) {
+      return { ok: false, reason: res.error?.statusCode === 404 ? 'not_found' : 'upstream' }
+    }
+    const headers: Record<string, string> = {}
+    for (const [k, v] of Object.entries(res.data.headers ?? {})) {
+      if (typeof v === 'string') headers[k.toLowerCase()] = v
+    }
+    return { ok: true, email: { headers, text: res.data.text ?? null, html: res.data.html ?? null } }
+  } catch {
+    return { ok: false, reason: 'upstream' }
+  }
 }

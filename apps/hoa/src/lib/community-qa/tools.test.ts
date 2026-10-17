@@ -1,16 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
 import { cappedFakeDb } from '@/lib/supabase/capped-fake-db'
 
-vi.mock('@homeowner-portal/workflows/W1', () => ({ queryGoverningDocs: vi.fn() }))
+const W1 = vi.hoisted(() => ({ queryGoverningDocs: vi.fn() }))
+vi.mock('@homeowner-portal/workflows/W1', () => W1)
 
-const { TOOL_BY_NAME } = await import('./tools')
+const { TOOL_BY_NAME, ToolFailure } = await import('./tools')
 
 /**
  * BL-047: the Q&A agent states these counts to a board member as facts.
  * The fake caps each response at 1000 rows like PostgREST's max_rows.
  */
 const ORG = 'org-1'
-const ctx = (db: unknown) => ({ db: db as never, orgId: ORG })
+const ctx = (db: unknown, canSeeOwnerContact = true) => ({ db: db as never, orgId: ORG, canSeeOwnerContact })
 const id = (p: string, i: number) => `${p}${String(i).padStart(5, '0')}`
 
 const props = Array.from({ length: 1700 }, (_, i) => ({
@@ -23,31 +24,175 @@ const violations = Array.from({ length: 1300 }, (_, i) => ({
   id: id('v', i),
   org_id: ORG,
   deleted_at: null,
-  status: i < 1100 ? 'open' : 'fined',
+  status: i < 1100 ? 'open' : 'notice_sent',
 }))
 
+/** A query chain that resolves to one fixed `{ data, error }` whatever is asked. */
+function fixedDb(result: { data: unknown; error: unknown }) {
+  const q: Record<string, unknown> = {}
+  for (const m of ['select', 'eq', 'neq', 'is', 'lt', 'ilike', 'order', 'limit']) q[m] = () => q
+  q.then = (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve)
+  return { from: () => q }
+}
+
+/** True when no key anywhere in `v` contains an underscore (RC-11). */
+function camelOnly(v: unknown): boolean {
+  if (Array.isArray(v)) return v.every(camelOnly)
+  if (v && typeof v === 'object') {
+    return Object.entries(v).every(([k, x]) => !k.includes('_') && camelOnly(x))
+  }
+  return true
+}
+
 describe('community Q&A count tools', () => {
-  it('count_units_by_tenure counts every property', async () => {
+  it('count_units_by_tenure counts every property, camelCase', async () => {
     const { db } = cappedFakeDb({ hoa_properties: props })
     const r = await TOOL_BY_NAME.count_units_by_tenure!.execute({}, ctx(db))
-    expect(r).toEqual({ owner_occupied: 1300, leased: 400, unknown: 0, total: 1700 })
+    expect(r).toEqual({ ownerOccupied: 1300, leased: 400, unknown: 0, total: 1700 })
   })
 
-  it('count_open_violations counts every violation', async () => {
+  it('count_open_violations counts every violation, statuses as values not keys', async () => {
     const { db } = cappedFakeDb({ hoa_violations: violations })
     const r = await TOOL_BY_NAME.count_open_violations!.execute({}, ctx(db))
-    expect(r).toEqual({ total: 1300, open: 1100, fined: 200 })
+    expect(r).toEqual({
+      total: 1300,
+      byStatus: [
+        { status: 'notice_sent', count: 200 },
+        { status: 'open', count: 1100 },
+      ],
+    })
+    expect(camelOnly(r)).toBe(true)
   })
 
-  it('a failed later page throws instead of answering a smaller number', async () => {
+  it('a failed later page throws a coded ToolFailure, keeping the db code for the log only', async () => {
     const { db } = cappedFakeDb({ hoa_properties: props }, { failAt: { table: 'hoa_properties', from: 1000 } })
-    await expect(TOOL_BY_NAME.count_units_by_tenure!.execute({}, ctx(db))).rejects.toThrow(/57014/)
+    const p = TOOL_BY_NAME.count_units_by_tenure!.execute({}, ctx(db))
+    await expect(p).rejects.toBeInstanceOf(ToolFailure)
+    await expect(p).rejects.toMatchObject({ code: 'lookup_failed', dbCode: '57014', message: 'lookup_failed' })
   })
 
   it('count_properties throws on a failed count instead of answering 0', async () => {
     const { db } = cappedFakeDb({ hoa_properties: props }, { failAt: { table: 'hoa_properties' } })
-    await expect(TOOL_BY_NAME.count_properties!.execute({}, ctx(db))).rejects.toThrow(/57014/)
+    await expect(TOOL_BY_NAME.count_properties!.execute({}, ctx(db))).rejects.toMatchObject({ code: 'lookup_failed' })
     const ok = cappedFakeDb({ hoa_properties: props })
-    expect(await TOOL_BY_NAME.count_properties!.execute({}, ctx(ok.db))).toEqual({ total_properties: 1700 })
+    expect(await TOOL_BY_NAME.count_properties!.execute({}, ctx(ok.db))).toEqual({ totalProperties: 1700 })
+  })
+})
+
+describe('list_overdue_dues', () => {
+  it('returns camelCase rows with integer cents', async () => {
+    const db = fixedDb({
+      data: [
+        {
+          id: 'a1',
+          amount: '125.10',
+          due_date: '2026-01-01',
+          status: 'pending',
+          unit: { address_line1: '1 Elm St', lot_number: '7' },
+          payments: [{ amount: '25.05' }, { amount: 0.02 }],
+        },
+      ],
+      error: null,
+    })
+    const r = (await TOOL_BY_NAME.list_overdue_dues!.execute({}, ctx(db))) as Array<Record<string, unknown>>
+    expect(r).toHaveLength(1)
+    expect(r[0]).toMatchObject({
+      address: '1 Elm St',
+      lotNumber: '7',
+      amountDueCents: 12510,
+      amountRemainingCents: 10003,
+      dueDate: '2026-01-01',
+      status: 'pending',
+    })
+    expect(Number.isInteger(r[0]!.daysOverdue)).toBe(true)
+    expect(camelOnly(r)).toBe(true)
+  })
+
+  it('throws instead of answering "nobody is overdue" when the read fails', async () => {
+    const db = fixedDb({ data: null, error: { code: '42P01', message: 'relation "assessments" does not exist' } })
+    await expect(TOOL_BY_NAME.list_overdue_dues!.execute({}, ctx(db))).rejects.toMatchObject({
+      code: 'lookup_failed',
+      message: 'lookup_failed',
+    })
+  })
+})
+
+describe('get_unit_owner', () => {
+  const row = {
+    id: 'p1',
+    address: '829 Pistace Ct',
+    owner_name: 'Pat Owner',
+    owner_email: 'pat@example.com',
+    owner_phone: '555-0100',
+    tenure: 'owner_occupied',
+  }
+
+  it('gives the board the owner contact, camelCase', async () => {
+    const r = await TOOL_BY_NAME.get_unit_owner!.execute({ address: '829' }, ctx(fixedDb({ data: [row], error: null })))
+    expect(r).toEqual({
+      matches: [
+        { address: '829 Pistace Ct', ownerName: 'Pat Owner', ownerEmail: 'pat@example.com', ownerPhone: '555-0100', tenure: 'owner_occupied' },
+      ],
+    })
+  })
+
+  it('withholds email and phone from a caller who may not see owner contact', async () => {
+    const r = await TOOL_BY_NAME.get_unit_owner!.execute({ address: '829' }, ctx(fixedDb({ data: [row], error: null }), false))
+    expect(JSON.stringify(r)).not.toContain('pat@example.com')
+    expect(JSON.stringify(r)).not.toContain('555-0100')
+  })
+
+  it('the public view never carries owner contact', () => {
+    const pub = TOOL_BY_NAME.get_unit_owner!.toPublic!({
+      matches: [{ address: '829 Pistace Ct', ownerName: 'Pat Owner', ownerEmail: 'pat@example.com', ownerPhone: '555-0100', tenure: null }],
+    })
+    expect(pub).toEqual({ matches: [{ address: '829 Pistace Ct', ownerName: 'Pat Owner', tenure: null }] })
+  })
+
+  it('a missing address is a coded failure, not free text', async () => {
+    await expect(TOOL_BY_NAME.get_unit_owner!.execute({}, ctx(fixedDb({ data: [], error: null })))).rejects.toMatchObject({
+      code: 'invalid_args',
+    })
+  })
+
+  it('a failed read throws instead of answering "no match"', async () => {
+    const db = fixedDb({ data: null, error: { code: '57014', message: 'canceling statement' } })
+    await expect(TOOL_BY_NAME.get_unit_owner!.execute({ address: '829' }, ctx(db))).rejects.toMatchObject({ code: 'lookup_failed' })
+  })
+})
+
+describe('list_recent_meetings', () => {
+  it('returns camelCase rows and throws on a failed read', async () => {
+    const ok = fixedDb({ data: [{ id: 'm1', meeting_date: '2026-03-01', meeting_type: 'board', status: 'approved' }], error: null })
+    expect(await TOOL_BY_NAME.list_recent_meetings!.execute({}, ctx(ok))).toEqual([
+      { meetingDate: '2026-03-01', meetingType: 'board', status: 'approved' },
+    ])
+    const bad = fixedDb({ data: null, error: { code: '57014', message: 'x' } })
+    await expect(TOOL_BY_NAME.list_recent_meetings!.execute({}, ctx(bad))).rejects.toMatchObject({ code: 'lookup_failed' })
+  })
+})
+
+describe('search_governing_docs', () => {
+  it('a W1 failure is a coded docs_unavailable, never the provider text', async () => {
+    W1.queryGoverningDocs.mockRejectedValueOnce(new Error('pgvector: relation hoa_doc_chunks missing; key sk-live-123'))
+    const p = TOOL_BY_NAME.search_governing_docs!.execute({ question: 'pets' }, ctx(fixedDb({ data: null, error: null })))
+    await expect(p).rejects.toMatchObject({ code: 'docs_unavailable', message: 'docs_unavailable' })
+  })
+
+  it('returns only the fields it names', async () => {
+    W1.queryGoverningDocs.mockResolvedValueOnce({
+      answer: 'Two pets.',
+      confidence: 'HIGH',
+      citations: [{ chunkId: 'c1', documentId: 'd1', docType: 'ccrs', section: '4.2', passage: 'x' }],
+      runId: 'r1',
+      raw_debug: 'nope',
+    })
+    const r = await TOOL_BY_NAME.search_governing_docs!.execute({ question: 'pets' }, ctx(fixedDb({ data: null, error: null })))
+    expect(r).toEqual({
+      answer: 'Two pets.',
+      confidence: 'HIGH',
+      citations: [{ chunkId: 'c1', documentId: 'd1', docType: 'ccrs', section: '4.2' }],
+      runId: 'r1',
+    })
   })
 })

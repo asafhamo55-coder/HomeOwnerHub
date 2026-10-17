@@ -48,7 +48,6 @@ const ALLOWLIST: Record<string, Rule[]> = {
 
 
 
-  'ai/ask-community/route.ts': ['with-route', 'api-error', 'error-message', 'raw-zod'],
 
 
 
@@ -62,7 +61,6 @@ const ALLOWLIST: Record<string, Rule[]> = {
 
 
 
-  'plaid/exchange/route.ts': ['with-route', 'api-error', 'error-message', 'raw-zod'],
 
 
 
@@ -70,7 +68,6 @@ const ALLOWLIST: Record<string, Rule[]> = {
 
 
 
-  'webhooks/resend/route.ts': ['with-route', 'api-error'],
 
   'webhooks/stripe/route.ts': ['with-route', 'api-error'],
 }

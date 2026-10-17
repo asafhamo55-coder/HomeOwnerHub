@@ -10,6 +10,7 @@ import {
   SuggestedQuestions,
   Thinking,
 } from '@/components/knowledge/AskUI'
+import { apiErrorMessage } from '@/lib/api/client'
 import { GOVERNING_TYPE_LABELS, type AnswerConfidence } from '@/lib/status/knowledge'
 
 type Mode = 'docs' | 'community'
@@ -106,9 +107,8 @@ export function AskDocsClient() {
       const json = await res.json().catch(() => null)
 
       if (!res.ok || !json) {
-        const err = (json ?? {}) as { error?: string; message?: string }
         setErrorMessage(
-          err.message ?? err.error ?? 'The assistant is unavailable right now. Try again in a minute.',
+          apiErrorMessage(json, 'The assistant is unavailable right now. Try again in a minute.'),
         )
         setStatus('error')
         return

@@ -1,69 +1,71 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { askCommunity } from '@/lib/community-qa/agent'
-import { getCurrentUserRole } from '@/lib/auth'
+import { askCommunity, type AgentResult } from '@/lib/community-qa/agent'
+import { withRoute } from '@/lib/api/handler'
+import { ApiRouteError } from '@/lib/api/errors'
+import { requireOrgOwned, requireRouteBoardOrAdmin } from '@/lib/api/auth'
+import { parseJson } from '@/lib/api/parse'
+import { zText, zUuid } from '@/lib/api/schemas'
+import { logRouteFailure } from '@/lib/api/log'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 // POST /api/ai/ask-community
-// Body: { question: string }
-// → { answer, toolCalls, steps } | { error }
+// Body: { question: string, associationId?: uuid | null }
+// → 200 { answer, toolCalls, steps, citations?, confidence?, runId? }
+//   toolCalls[] is the agent's public data-sources log: { name, args, result }
+//   with camelCase results, money in *Cents, failures as { failed, code }
+//   and no owner email / phone (lib/community-qa/agent.ts toPublicCall).
+// → non-2xx: the RC-1 envelope { error: { code, message, … } }
 //
-// Board + admin only. Residents redirect to /resident in the layout
-// guards; this endpoint is the API analogue — 403 if the caller is a
-// resident or not a member of any org.
+// Board + admin only (RC-4): every in-app caller (the dashboard Ask page
+// and the Copilot) lives under app/(dashboard), and the agent's tools
+// read owner names, owner contact and dues balances. A resident gets 403.
+
+const MAX_QUESTION = 2000
 
 const AskSchema = z.object({
-  question: z.string().min(3).max(2000),
+  question: zText(MAX_QUESTION, 3),
   /** Optional — narrows search_governing_docs lookups to one
    *  association when the org has multiple. */
-  associationId: z.string().uuid().nullable().optional(),
+  associationId: zUuid.nullable().optional(),
 })
 
-export async function POST(request: Request): Promise<Response> {
-  // Role + org context. getCurrentUserRole bundles both and resolves
-  // the user's "current" org via the same logic the dashboard uses.
-  const ctx = await getCurrentUserRole()
-  if (!ctx) {
-    return NextResponse.json({ error: 'unauthenticated' }, { status: 401 })
-  }
-  if (ctx.role !== 'admin' && ctx.role !== 'board') {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-  }
+export const POST = withRoute('ai.ask-community', async (request) => {
+  const { orgId, role } = await requireRouteBoardOrAdmin()
+  const body = await parseJson(request, AskSchema)
+  const associationId = body.associationId ?? null
+  if (associationId) await requireOrgOwned('associations', associationId, orgId)
 
-  let body: unknown
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'invalid_json' }, { status: 400 })
-  }
-
-  const parsed = AskSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'invalid_input', issues: parsed.error.issues },
-      { status: 400 },
-    )
+  if (!process.env.AI_API_KEY) {
+    throw new ApiRouteError('not_configured', 'The assistant is not set up yet.')
   }
 
   const db = await getSupabaseServerClient()
+  let result: AgentResult
   try {
-    const result = await askCommunity(parsed.data.question, {
+    result = await askCommunity(body.question, {
       db,
-      orgId: ctx.org.id,
-      associationId: parsed.data.associationId ?? null,
+      orgId,
+      associationId,
+      // Board and admin both see owner contact on the property page and
+      // under hoa_properties_select; the gate above admits only them.
+      canSeeOwnerContact: role === 'board' || role === 'admin',
     })
-    return NextResponse.json(result)
   } catch (err) {
-    console.error('[ask-community] agent failed', err)
-    return NextResponse.json(
-      {
-        error: 'ai_unavailable',
-        message:
-          err instanceof Error
-            ? err.message
-            : 'The AI service is not reachable right now.',
-      },
-      { status: 503 },
+    logRouteFailure('ai.ask-community', err, { orgId, stage: 'agent' })
+    throw new ApiRouteError(
+      'upstream_unavailable',
+      'The assistant is not reachable right now. Try again in a minute.',
     )
   }
-}
+
+  // Fields named one by one so nothing the agent grows later rides along.
+  return NextResponse.json({
+    answer: result.answer,
+    toolCalls: result.toolCalls,
+    steps: result.steps,
+    ...(result.citations ? { citations: result.citations } : {}),
+    ...(result.confidence ? { confidence: result.confidence } : {}),
+    ...(result.runId ? { runId: result.runId } : {}),
+  })
+})

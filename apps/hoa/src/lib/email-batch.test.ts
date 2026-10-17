@@ -164,6 +164,15 @@ describe('sendEmailBatch', () => {
     expect(batchSend).not.toHaveBeenCalled()
   })
 
+  it('stamps our own Message-ID when the payload names its recipient row (reply linking)', async () => {
+    batchSend.mockResolvedValue({ data: { data: [{ id: 'id0' }, { id: 'id1' }], errors: [] }, error: null })
+    const id = '0f1e2d3c-4b5a-4968-8776-655443322110'
+    await (await fresh())([{ ...mk(1)[0]!, recipientRef: id }, mk(2)[1]!])
+    const [withRef, without] = batchSend.mock.calls[0][0]
+    expect(withRef.headers).toEqual({ 'Message-ID': `<hoh-cr.${id}@homeownerledger.com>` })
+    expect(without.headers).toBeUndefined()
+  })
+
   it('returns an empty array for no recipients without calling Resend', async () => {
     expect(await (await fresh())([])).toEqual([])
     expect(batchSend).not.toHaveBeenCalled()

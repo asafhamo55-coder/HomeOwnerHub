@@ -50,11 +50,14 @@ export function LinkPlaidButton({
         const res = await fetch('/api/plaid/exchange', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ public_token: publicToken, fundId }),
+          body: JSON.stringify({ publicToken, fundId }),
         })
-        const body = await res.json().catch(() => null)
-        if (!res.ok || !body?.ok) {
-          toast({ tone: 'error', title: 'Couldn’t link the account', message: body?.message ?? body?.error ?? `Exchange failed (${res.status}).` })
+        if (!res.ok) {
+          toast({
+            tone: 'error',
+            title: 'Couldn’t link the account',
+            message: await responseErrorMessage(res, `Exchange failed (${res.status}).`),
+          })
           return
         }
         toast({ tone: 'success', message: 'Bank account linked. Transactions will appear after the first sync.' })

@@ -315,7 +315,8 @@ async function deliverViaCommunications(
     rows.map(async (row) => {
       if (row.channel === 'email') {
         if (!row.email) return
-        const res = await sendEmail({ to: row.email, subject, html, text, senderName }, outbound)
+        // recipientRef: our Message-ID names this row, so a reply links back to it.
+        const res = await sendEmail({ to: row.email, subject, html, text, senderName, recipientRef: row.id }, outbound)
         if (res.ok) {
           sent += 1
           await markRecipient(admin, row.id, 'sent', res.messageId)

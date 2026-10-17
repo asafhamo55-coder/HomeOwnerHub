@@ -1,88 +1,137 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
+import { requireOrgOwned, requireRouteBoardOrAdmin } from '@/lib/api/auth'
+import { checkWrite } from '@/lib/api/db'
+import { ApiRouteError } from '@/lib/api/errors'
+import { withRoute } from '@/lib/api/handler'
+import { MAX_SHORT_TEXT } from '@/lib/api/limits'
+import { logRouteFailure } from '@/lib/api/log'
+import { parseJson, parseValue } from '@/lib/api/parse'
+import { zText, zUuid } from '@/lib/api/schemas'
 import { getPlaidClient } from '@/lib/plaid'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
 /**
- * POST /api/plaid/exchange
+ * POST /api/plaid/exchange — board/admin only (called from the
+ * (dashboard) accounting/bank LinkPlaidButton).
  *
- * Body: { public_token: string, fundId: string }
+ * Body: { publicToken: string, fundId: uuid }
  *
- * Steps:
- *   1. Exchange Plaid public_token → access_token + item_id.
- *   2. /accounts/get to enumerate the linked accounts (one Item can hold
- *      multiple). Caller picks which to import via fundId — we link
- *      every checking/savings account on the Item to the chosen fund.
- *   3. INSERT plaid_items + one bank_accounts row per Plaid account.
- *   4. Return the linked bank_accounts so the UI can show them.
+ *   1. Gate (board/admin), then config, then parse + validate.
+ *   2. The fund must belong to the caller's org AND its primary
+ *      association (R-18) — checked before any Plaid item is minted.
+ *   3. Exchange the public token → access_token + item_id.
+ *   4. /accounts/get (+ institution name).
+ *   5a. INSERT one bank_accounts row per depository account (checking /
+ *       savings / money market) in ONE statement — all-or-nothing.
+ *   5b. INSERT plaid_items (the access token) LAST.
+ *   6. 201 { itemId, institutionName, bankAccountIds }.
  *
- * Pre-req: migration 0009_plaid_items.sql must be applied. If the
- * plaid_items table is missing, the INSERT fails loud with a clear
- * Postgres error.
+ * Why this order (RC-6): every write must be undoable by the caller who
+ * made it. bank_accounts is board/admin DELETE-able (0061), plaid_items is
+ * INSERT-only for users (no user may read or delete a token). So the
+ * deletable rows go first and the undeletable row goes last; nothing can
+ * fail after it. Compensation runs in reverse order:
+ *   - 5a fails  → itemRemove (nothing stored).
+ *   - 5b fails  → DELETE our bank_accounts rows, then itemRemove.
+ * Each compensation step is best effort and logged by code; it never
+ * masks the original error. The one thing that cannot be compensated is
+ * the process dying between 5a and 5b: inert bank_accounts rows with no
+ * plaid_items row (plaid-sync reads plaid_items, so they never sync) and a
+ * live Item at Plaid.
+ *
+ * A 23505 on either insert means this Item is already stored (both are
+ * unique on plaid_item_id): 409 conflict reason already_linked, and the
+ * stored Item's token is NOT revoked.
  */
 
-const ExchangeSchema = z.object({
-  public_token: z.string().min(1),
-  fundId: z.string().uuid(),
+/** The body is two short fields; 16 KB is far above any legitimate request (lowered from MAX_JSON_BYTES). */
+const MAX_BODY_BYTES = 16 * 1024
+
+/** Plaid public tokens are ~60 ASCII chars; anything past this is a size violation (413), not a shape miss. */
+const MAX_PUBLIC_TOKEN = MAX_SHORT_TEXT
+
+const Body = z.object({
+  publicToken: zText(MAX_PUBLIC_TOKEN, 1),
+  fundId: zUuid,
 })
 
-export async function POST(request: Request) {
-  const client = getPlaidClient()
-  if (!client) {
-    return NextResponse.json(
-      { error: 'plaid_not_configured' },
-      { status: 503 },
-    )
-  }
+const DEPOSITORY = new Set(['checking', 'savings', 'money market'])
 
-  // Before the Plaid exchange: a caller the plaid_items INSERT policy
-  // (0061) would refuse must not get as far as minting an access token.
-  const gate = await requireBoardOrAdminForAction()
-  if (!gate.ok) return NextResponse.json({ error: 'forbidden', message: gate.error }, { status: 403 })
+const ALREADY_LINKED = { reason: 'already_linked', message: 'This bank connection is already linked.' }
+
+/** The Plaid error code (e.g. INVALID_PUBLIC_TOKEN), never its message. */
+function plaidErrorCode(err: unknown): string | null {
+  const data = (err as { response?: { data?: { error_code?: unknown } } } | null)?.response?.data
+  return typeof data?.error_code === 'string' ? data.error_code : null
+}
+
+export const POST = withRoute('plaid.exchange', async (request) => {
+  // Before anything else: a caller the plaid_items INSERT policy (0061)
+  // would refuse must not get as far as minting an access token.
+  const { orgId } = await requireRouteBoardOrAdmin()
+
+  const client = getPlaidClient()
+  if (!client) throw new ApiRouteError('not_configured', 'Bank linking is not set up yet.')
+
+  const raw = await parseJson(request, z.unknown(), { maxBytes: MAX_BODY_BYTES })
+  const token = (raw as { publicToken?: unknown } | null)?.publicToken
+  if (typeof token === 'string' && new TextEncoder().encode(token).byteLength > MAX_PUBLIC_TOKEN) {
+    throw new ApiRouteError('payload_too_large', 'That bank link token is too long.', { maxBytes: MAX_PUBLIC_TOKEN })
+  }
+  const body = parseValue(Body, raw)
 
   const assoc = await getPrimaryAssociation()
   if (!assoc) {
-    return NextResponse.json({ error: 'no_association' }, { status: 400 })
+    throw new ApiRouteError('not_found', 'This organization has no association set up yet.', {
+      reason: 'no_association',
+    })
   }
 
-  const body = await request.json().catch(() => null)
-  const parsed = ExchangeSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? 'invalid payload' },
-      { status: 400 },
-    )
-  }
+  const FUND_NOT_FOUND = 'We could not find that fund.'
+  await requireOrgOwned('funds', body.fundId, orgId, { message: FUND_NOT_FOUND })
 
-  // Exchange first — quick fail if the token is bad.
+  const supabase = await getSupabaseServerClient()
+
+  // The fund must also belong to the association the accounts attach to.
+  const { data: fund, error: fundErr } = await supabase
+    .from('funds')
+    .select('id')
+    .eq('id', body.fundId)
+    .eq('organization_id', orgId)
+    .eq('association_id', assoc.id)
+    .maybeSingle()
+  if (fundErr) {
+    logRouteFailure('plaid.exchange.fund', fundErr, { orgId })
+    throw new ApiRouteError('internal')
+  }
+  if (!fund) throw new ApiRouteError('not_found', FUND_NOT_FOUND)
+
+  // 3. Exchange.
   let accessToken: string
   let itemId: string
   try {
-    const resp = await client.itemPublicTokenExchange({
-      public_token: parsed.data.public_token,
-    })
+    const resp = await client.itemPublicTokenExchange({ public_token: body.publicToken })
     accessToken = resp.data.access_token
     itemId = resp.data.item_id
   } catch (err) {
-    return NextResponse.json(
-      {
-        error: 'plaid_exchange_failed',
-        message: err instanceof Error ? err.message : String(err),
-      },
-      { status: 500 },
-    )
+    logRouteFailure('plaid.exchange.token', err, { orgId, plaidErrorCode: plaidErrorCode(err) })
+    throw new ApiRouteError('upstream_unavailable', 'Plaid could not complete the bank link. Try linking again.')
   }
 
-  // Pull account details.
-  let accounts: Array<{
-    account_id: string
-    name: string
-    subtype: string | null
-    mask: string | null
-  }> = []
-  let institutionId: string | null = null
+  /** Revoke the just-minted Item. Best effort: a failure here is logged, never masks the original error. */
+  async function removeItem(stage: string): Promise<void> {
+    try {
+      await client!.itemRemove({ access_token: accessToken })
+    } catch (err) {
+      logRouteFailure('plaid.exchange.item_remove', err, { orgId, stage, plaidErrorCode: plaidErrorCode(err) })
+    }
+  }
+
+  // 4. Accounts + institution.
+  let accounts: Array<{ account_id: string; name: string; subtype: string | null; mask: string | null }>
+  let institutionId: string | null
   let institutionName: string | null = null
   try {
     const resp = await client.accountsGet({ access_token: accessToken })
@@ -101,34 +150,78 @@ export async function POST(request: Request) {
       institutionName = inst.data.institution.name
     }
   } catch (err) {
-    return NextResponse.json(
-      {
-        error: 'plaid_accounts_failed',
-        message: err instanceof Error ? err.message : String(err),
-      },
-      { status: 500 },
-    )
+    logRouteFailure('plaid.exchange.accounts', err, { orgId, plaidErrorCode: plaidErrorCode(err) })
+    await removeItem('accounts')
+    throw new ApiRouteError('upstream_unavailable', 'Plaid could not list the bank accounts. Try linking again.')
   }
 
-  const supabase = await getSupabaseServerClient()
-
-  // Resolve org_id for FK on plaid_items / bank_accounts.
-  const { data: assocRow } = await supabase
-    .from('associations')
-    .select('organization_id')
-    .eq('id', assoc.id)
-    .single()
-  if (!assocRow) {
-    return NextResponse.json({ error: 'association_not_found' }, { status: 404 })
+  /**
+   * Undo 5a. Best effort, like removeItem: a failure is logged by code and
+   * never masks the original error. `count: 'exact'` because an RLS-filtered
+   * delete "succeeds" having deleted nothing. If this fails, the rows left
+   * behind are inert bank_accounts with no plaid_items row (plaid-sync reads
+   * plaid_items, so they never sync); `left` in the log says how many.
+   */
+  async function deleteBankAccounts(ids: string[]): Promise<void> {
+    if (ids.length === 0) return
+    try {
+      const { error, count } = await supabase.from('bank_accounts').delete({ count: 'exact' }).in('id', ids)
+      if (error || count !== ids.length) {
+        logRouteFailure('plaid.exchange.compensate.bank_accounts', error ?? { code: 'partial_delete' }, {
+          orgId,
+          count: ids.length,
+          left: ids.length - (error ? 0 : (count ?? 0)),
+        })
+      }
+    } catch (err) {
+      logRouteFailure('plaid.exchange.compensate.bank_accounts', err, { orgId, count: ids.length, left: ids.length })
+    }
   }
 
-  // plaid_items table — not yet in regenerated types (migration 0009
-  // ships in this batch but needs manual apply via Supabase SQL editor).
-  // The `as never` cast unblocks typecheck; regenerate after applying.
+  // 5a. bank_accounts FIRST. Board/admin may DELETE them (0061 `simple`
+  // tables), so this is the step a later failure can undo. HOA accounting
+  // only tracks cash-equivalent accounts; credit cards etc. on the same
+  // Item are skipped. One statement, so the account set is all-or-nothing.
+  const rows = accounts
+    .filter((a) => a.subtype !== null && DEPOSITORY.has(a.subtype))
+    .map((a) => ({
+      organization_id: orgId,
+      association_id: assoc.id,
+      fund_id: body.fundId,
+      plaid_item_id: itemId,
+      plaid_account_id: a.account_id,
+      account_name: a.name,
+      bank_name: institutionName,
+      last4: a.mask,
+    }))
+
+  let bankAccountIds: string[] = []
+  if (rows.length > 0) {
+    const { data, error: baErr } = await supabase.from('bank_accounts').insert(rows).select('id')
+    if (baErr || !data) {
+      if (baErr && String(baErr.code) === '23505') {
+        // bank_accounts_plaid_uniq (plaid_item_id, plaid_account_id): this
+        // Item's accounts are already stored, so its token is live in
+        // plaid_items — revoking it would break the existing link.
+        checkWrite({ error: baErr }, 'plaid.exchange.bank_accounts', { orgId }, { conflict: ALREADY_LINKED })
+      }
+      await removeItem('bank_accounts')
+      checkWrite({ error: baErr ?? { code: 'no_rows' } }, 'plaid.exchange.bank_accounts', {
+        orgId,
+        count: rows.length,
+      })
+      throw new ApiRouteError('internal')
+    }
+    bankAccountIds = data.map((r) => r.id)
+  }
+
+  // 5b. plaid_items LAST: it is INSERT-only for users (0061 — no user can
+  // read or delete a token), so nothing after it may fail. Not yet in the
+  // regenerated types; the `as never` casts unblock typecheck. No .select().
   const { error: piErr } = await supabase
     .from('plaid_items' as never)
     .insert({
-      organization_id: assocRow.organization_id,
+      organization_id: orgId,
       association_id: assoc.id,
       plaid_item_id: itemId,
       access_token: accessToken,
@@ -136,60 +229,16 @@ export async function POST(request: Request) {
       institution_name: institutionName,
     } as never)
   if (piErr) {
-    return NextResponse.json(
-      {
-        error: 'plaid_items_insert_failed',
-        message:
-          piErr.message +
-          ' — confirm migrations/0009_plaid_items.sql has been applied.',
-      },
-      { status: 500 },
-    )
-  }
-
-  // Filter to depository accounts only (checking/savings). Plaid will
-  // also return credit cards on a typical link; HOA accounting cares
-  // only about the cash-equivalent ones.
-  const linkable = accounts.filter(
-    (a) =>
-      a.subtype === 'checking' ||
-      a.subtype === 'savings' ||
-      a.subtype === 'money market',
-  )
-
-  const insertedAccountIds: string[] = []
-  for (const a of linkable) {
-    const { data: row, error } = await supabase
-      .from('bank_accounts')
-      .insert({
-        organization_id: assocRow.organization_id,
-        association_id: assoc.id,
-        fund_id: parsed.data.fundId,
-        plaid_item_id: itemId,
-        plaid_account_id: a.account_id,
-        account_name: a.name,
-        bank_name: institutionName,
-        last4: a.mask,
-      })
-      .select('id')
-      .single()
-    if (error) {
-      // Duplicate plaid_account_id (re-link) is benign — keep going.
-      if (error.code !== '23505') {
-        return NextResponse.json(
-          { error: 'bank_account_insert_failed', message: error.message },
-          { status: 500 },
-        )
-      }
-    } else if (row) {
-      insertedAccountIds.push(row.id)
+    // Compensate in reverse order: our bank rows, then the Plaid Item.
+    await deleteBankAccounts(bankAccountIds)
+    if (String(piErr.code) === '23505') {
+      // plaid_item_id UNIQUE: another request stored this Item first. That
+      // row's token is live — do not revoke it.
+      checkWrite({ error: piErr }, 'plaid.exchange.plaid_items', { orgId }, { conflict: ALREADY_LINKED })
     }
+    await removeItem('plaid_items')
+    checkWrite({ error: piErr }, 'plaid.exchange.plaid_items', { orgId })
   }
 
-  return NextResponse.json({
-    ok: true,
-    item_id: itemId,
-    institution_name: institutionName,
-    bank_account_ids: insertedAccountIds,
-  })
-}
+  return NextResponse.json({ itemId, institutionName, bankAccountIds }, { status: 201 })
+})
