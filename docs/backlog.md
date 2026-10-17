@@ -675,13 +675,13 @@ These go beyond the design-system v2 pass:
 ## Added 2026-10-17 (cycles 7–8)
 
 - **BL-063 Retry cap gaps (needs a column, M1):** event alerts that never write a communications row (no association, no recipients, a failed insert) still retry daily. Add `hoa_recurring_events.alert_failed_attempts`.
-- **BL-064 "Open the books" for partial setups:** trial-balance, periods, coa, invoices/new, cash-flow, income-statement and the Plaid "no funds" alert still say "Contact support" when an association exists but its books are incomplete. Reuse `setUpAssociationCore`. The leases, settings/payments and reminders pages should use `AssociationNotSetUp`.
+- **BL-064 "Open the books" for partial setups — Done (c9):** trial-balance, periods, coa, invoices/new, cash-flow, income-statement and the Plaid "no funds" alert still say "Contact support" when an association exists but its books are incomplete. Reuse `setUpAssociationCore`. The leases, settings/payments and reminders pages should use `AssociationNotSetUp`.
 - **BL-065 Time zone leftovers (from BL-043): — Done (claude/bl-065)**
   - The events pages and the recurring-events cron still use the UTC day. Change them together.
   - recurring-jes uses one Eastern "today" for every association.
   - Client form date defaults are Eastern, not the association's zone.
   - The heat-map grid is built in server-local time.
-- **BL-066 admin-analytics overflows at 1440:** a `sm:grid-cols-[9rem_1fr]` grid spills out of its card (345px in 326px).
+- **BL-066 admin-analytics overflows at 1440 — Done (c9):** a `sm:grid-cols-[9rem_1fr]` grid spills out of its card (345px in 326px).
 - **BL-067 Grouped analytics counts:** getAnalyticsData now makes about 2 × tenants + 14 count queries. An RPC or view would make it one query (migration).
-- **T-07 Unit test with a slow import:** bill-scan `proposal.test.ts` imports the workflows package and timed out once under machine load. Give it a mock or a longer timeout.
+- **T-07 Unit test with a slow import — Done (c9):** bill-scan `proposal.test.ts` imports the workflows package and timed out once under machine load. Give it a mock or a longer timeout.
 
