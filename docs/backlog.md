@@ -739,3 +739,41 @@ These go beyond the design-system v2 pass:
     - Switching a module off stops its jobs for that tenant.
     - Residents never see a broken link.
   - **Scores:** impact 4, confidence 0.7, effort 3 agent-days, score 0.93 → Next. It needs a migration (M2) and the owner's sign-off on the module prices.
+
+- **BL-069 Monthly state-law sync from official sources and legislative APIs, with an email report to the owner** (owner request; Next; builds on W30 and `packages/jobs/src/state-law-refresh.ts`)
+  - **Today:**
+    - The refresh job runs weekly (Mondays 03:00 ET) and also on `law/refresh.requested`.
+    - Only FL has an official-source adapter.
+    - Changes are diffed by `content_hash`, then `law/statute.changed` is emitted, with an outbox for retries.
+    - CA rules come from secondary sources (BL-054). GA and TX have no adapter.
+    - In prod, FL has 0 rows because the first refresh has never been triggered.
+  - **What:**
+    - **Monthly full sync:** once a month (1st, 04:00 ET) the system checks every supported state.
+      - **Statute text** comes from official sources: FL Legislature (ch. 720/718), CA leginfo (Civ. Code §4000–6150; needs a fetch path that isn't blocked, per BL-054), GA Title 44 ch. 3, TX Prop. Code ch. 202/209.
+      - **Bills** come from legislative APIs:
+        - **Open States / Plural** (free API key) and/or **LegiScan** (free tier, about 30k queries a month).
+        - It watches HOA and condo bills (keywords plus the chapters above) through every status: introduced, passed, signed, effective date.
+      - **When text changes:**
+        - The statute rows, chunks and embeddings update automatically.
+        - Rules that depend on them (W3 state-rules, the FL compliance check, letter notices) are flagged "re-verify".
+        - Affected associations get an in-app notice.
+        - Nothing is silently rewritten in letters already sent.
+    - **Email to Asaf (asafhamo55@gmail.com), branded like the release-note email:**
+      - month and run time;
+      - per state: sections changed, with old vs new excerpts and links to the official text;
+      - new or advancing bills, with status and effective date;
+      - what the system updated automatically and what needs a human check;
+      - the count of associations affected.
+      - "No changes this month" is still sent, so silence never means "broken".
+      - If any source fails, the email says so: a failed source is reported, never skipped.
+  - **Build notes:**
+    - New adapters per state behind the existing `StateLawAdapter` interface, plus a `BillTracker` adapter (Open States first, LegiScan as fallback). The cron moves to monthly; the weekly cheap hash check can stay.
+    - The email reuses `scripts/release-notes/render.ts`, or a shared renderer in packages/observability, and Resend. The recipient comes from an env var (`LAW_REPORT_TO`), never from data.
+    - Store each run in `state_law_runs` (state, run_at, sections checked, changed, failed, bills seen). That table is a migration and joins batch M2.
+    - Tests use recorded fixtures (the FL fixture pattern in tests/integration/flows/state-law-refresh.test.ts), never live calls in CI.
+  - **Owner needs to provide:** an Open States API key (free at open.pluralpolicy.com) and/or a LegiScan key, plus `LAW_REPORT_TO` as an env var in Vercel production.
+  - **Acceptance:**
+    - A monthly run updates changed sections and sends one email listing every state's result, including failures.
+    - Re-running the same month sends no duplicate email and makes no duplicate writes.
+    - The FL first run populates prod. Today it has 0 rows.
+  - **Scores:** impact 4, confidence 0.7, effort 3 → 0.93, Next. Needs a migration (M2) and API keys from the owner.
