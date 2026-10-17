@@ -26,6 +26,10 @@ export interface AccountCandidate {
   accountName: string
 }
 
+/** BL-059: the fields a board member can correct on /approvals. */
+export const BILL_EDITABLE_FIELDS = ['vendor', 'invoiceNumber', 'invoiceDate', 'dueDate', 'total', 'expenseAccount', 'lineItems'] as const
+export type BillEditableField = (typeof BILL_EDITABLE_FIELDS)[number]
+
 const Confidence = z.enum(['high', 'medium', 'low'])
 type Confidence = z.infer<typeof Confidence>
 
@@ -45,7 +49,8 @@ const BillPayloadSchema = z.object({
     nameConfidence: Confidence,
     vendorId: z.string().uuid().nullable(),
     vendorLabel: Str.nullable(),
-    match: z.enum(['exact', 'close', 'ambiguous', 'none']),
+    /** 'manual': a board member picked the vendor (BL-059). */
+    match: z.enum(['exact', 'close', 'ambiguous', 'none', 'manual']),
     matchConfidence: Confidence,
   }),
   invoiceNumber: field(Str),
@@ -60,6 +65,18 @@ const BillPayloadSchema = z.object({
     confidence: Confidence,
   }),
   warnings: z.array(Str).max(20),
+  /**
+   * BL-059: the fields a board member corrected before approving, who did
+   * it last and when. Absent until the first edit. The AI's own reading
+   * stays on the ai_runs row (output), so nothing is lost by editing.
+   */
+  humanEdits: z
+    .object({
+      fields: z.array(z.enum(BILL_EDITABLE_FIELDS)).max(BILL_EDITABLE_FIELDS.length),
+      editedBy: z.string().uuid(),
+      editedAt: z.string().max(40),
+    })
+    .optional(),
 })
 
 export type BillProposalPayload = z.infer<typeof BillPayloadSchema>
@@ -93,7 +110,7 @@ export interface VendorMatch {
   candidates: Array<{ id: string; label: string }>
 }
 
-function label(v: VendorCandidate): string {
+export function vendorLabel(v: VendorCandidate): string {
   return v.legalName + (v.dba ? ` (d/b/a ${v.dba})` : '')
 }
 
@@ -115,9 +132,9 @@ export function matchVendor(name: string | null, vendors: VendorCandidate[]): Ve
   const names = (v: VendorCandidate) => [v.legalName, v.dba].filter((x): x is string => !!x).map(normalizeVendorName)
 
   const pick = (hits: VendorCandidate[], method: 'exact' | 'close', confidence: Confidence): VendorMatch | null => {
-    if (hits.length === 1) return { vendorId: hits[0]!.id, vendorLabel: label(hits[0]!), method, confidence, candidates: [] }
+    if (hits.length === 1) return { vendorId: hits[0]!.id, vendorLabel: vendorLabel(hits[0]!), method, confidence, candidates: [] }
     if (hits.length > 1) {
-      return { ...none, method: 'ambiguous', candidates: hits.slice(0, 5).map((v) => ({ id: v.id, label: label(v) })) }
+      return { ...none, method: 'ambiguous', candidates: hits.slice(0, 5).map((v) => ({ id: v.id, label: vendorLabel(v) })) }
     }
     return null
   }
@@ -188,9 +205,13 @@ export function buildBillProposal(scan: BillScanOutput & { runId: string }, ctx:
     warnings: warnings.slice(0, 20),
   }
 
-  const who = match.vendorLabel ?? (scan.vendorName.value ? `${scan.vendorName.value} (not on file)` : 'an unknown vendor')
-  const summary = `Bill from ${who}${scan.invoiceNumber.value ? ` · #${scan.invoiceNumber.value}` : ''}`
-  return { payload, summary: summary.slice(0, 300), amount: scan.total.value }
+  return { payload, summary: billSummary(payload), amount: scan.total.value }
+}
+
+/** The approval row's one-line summary, from the payload (recomputed after an edit). */
+export function billSummary(p: BillProposalPayload): string {
+  const who = p.vendor.vendorLabel ?? (p.vendor.extractedName ? `${p.vendor.extractedName} (not on file)` : 'an unknown vendor')
+  return `Bill from ${who}${p.invoiceNumber.value ? ` · #${p.invoiceNumber.value}` : ''}`.slice(0, 300)
 }
 
 /** Required fields the proposal does not have — approve is refused until there are none. */
@@ -207,7 +228,10 @@ export function billMissing(p: BillProposalPayload): string[] {
 /** Fields that ARE filled but were read with less than high confidence. */
 export function billNeedsCheck(p: BillProposalPayload): string[] {
   const out: string[] = []
-  if (p.vendor.vendorId && (p.vendor.matchConfidence !== 'high' || p.vendor.nameConfidence !== 'high')) out.push('vendor')
+  // A vendor a board member picked (BL-059) is not the AI's guess.
+  if (p.vendor.vendorId && p.vendor.match !== 'manual' && (p.vendor.matchConfidence !== 'high' || p.vendor.nameConfidence !== 'high')) {
+    out.push('vendor')
+  }
   const fields: Array<[string, { value: unknown; confidence: Confidence }]> = [
     ['invoice number', p.invoiceNumber],
     ['invoice date', p.invoiceDate],

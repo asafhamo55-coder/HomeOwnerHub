@@ -47,6 +47,9 @@ export async function middleware(request: NextRequest) {
   // to a 200 HTML page and the caller dies on `Unexpected token '<'`
   // (R-03 / C-03). They get the JSON 401 envelope instead.
   const isApi = path === '/api' || path.startsWith('/api/')
+  // Where to come back to after signing in — WITH the query string, so a
+  // filtered link (/approvals?type=bill) is not reopened unfiltered (BL-059).
+  const back = `${path}${request.nextUrl.search}`
 
   // Sessions are capped at 24h from sign-in (lib/session-cap.ts). Past that
   // the user is treated as signed out and has to enter their credentials
@@ -60,7 +63,7 @@ export async function middleware(request: NextRequest) {
     const target = DEV_AUTOLOGIN ? '/auth/dev-login' : '/login'
     const expiredUrl = new URL(target, request.url)
     if (!DEV_AUTOLOGIN) expiredUrl.searchParams.set('reason', 'session-expired')
-    if (path !== '/') expiredUrl.searchParams.set('redirect', path)
+    if (back !== '/') expiredUrl.searchParams.set('redirect', back)
     return clearAuthCookies(request, NextResponse.redirect(expiredUrl))
   }
 
@@ -68,7 +71,7 @@ export async function middleware(request: NextRequest) {
     if (isApi) return apiError('unauthenticated')
     const target = DEV_AUTOLOGIN ? '/auth/dev-login' : '/login'
     const loginUrl = new URL(target, request.url)
-    if (path !== '/') loginUrl.searchParams.set('redirect', path)
+    if (back !== '/') loginUrl.searchParams.set('redirect', back)
     return NextResponse.redirect(loginUrl)
   }
 

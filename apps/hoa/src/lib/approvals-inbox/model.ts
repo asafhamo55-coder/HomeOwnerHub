@@ -122,6 +122,19 @@ export interface BillCard {
   needsCheck: string[]
   /** A short-lived signed link to the uploaded bill; set by the page, null when unavailable. */
   documentUrl: string | null
+  /**
+   * BL-059: what Edit details may pick from — set by the page; null until
+   * then, or when the lists failed to load (the card then says editing is
+   * unavailable rather than offering a form that can't validate).
+   */
+  editOptions: BillEditOptionLists | null
+}
+
+export interface BillEditOptionLists {
+  vendors: Array<{ id: string; label: string }>
+  accounts: Array<{ id: string; label: string }>
+  /** The association's today, 'YYYY-MM-DD' — the latest invoice date allowed. */
+  today: string
 }
 
 export type InboxSection =
@@ -234,9 +247,10 @@ function joinList(items: string[]): string {
 }
 
 /**
- * BL-021 bill proposals. Never fills a gap: a missing field makes the
- * item reject-only (and says which), a low/medium-confidence field is
- * named so the approver checks it against the bill.
+ * BL-021 bill proposals. Never fills a gap: a missing field withholds
+ * approve (and says which) until a board member fills it in with Edit
+ * details (BL-059); a low/medium-confidence field is named so the approver
+ * checks it against the bill.
  */
 export function billItems(rows: BillProposalRow[]): InboxItem[] {
   return rows.map((r) => {
@@ -264,7 +278,7 @@ export function billItems(rows: BillProposalRow[]): InboxItem[] {
     const needsCheck = billNeedsCheck(payload)
     const detail =
       missing.length > 0
-        ? `Missing ${joinList(missing)}. Reject it and enter the bill by hand.`
+        ? `Missing ${joinList(missing)}. Fill ${missing.length === 1 ? 'it' : 'them'} in with Edit details, or reject it.`
         : needsCheck.length > 0
           ? `Check the ${joinList(needsCheck)} against the bill before approving.`
           : null
@@ -279,7 +293,7 @@ export function billItems(rows: BillProposalRow[]): InboxItem[] {
             ? `${needsCheck.length} field${needsCheck.length === 1 ? '' : 's'} to check`
             : 'High confidence',
       decision: { kind: 'bill', approvalRequestId: r.id, canApprove: missing.length === 0 },
-      bill: { payload, missing, needsCheck, documentUrl: null },
+      bill: { payload, missing, needsCheck, documentUrl: null, editOptions: null },
     }
   })
 }

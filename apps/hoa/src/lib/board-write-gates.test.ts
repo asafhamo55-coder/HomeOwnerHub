@@ -17,6 +17,7 @@ import * as askCommunity from '../app/api/ai/ask-community/route'
 import * as plaidExchange from '../app/api/plaid/exchange/route'
 import * as recordSearch from '../app/api/search/route'
 import * as billScan from '../app/api/accounting/bill-scan/route'
+import * as billScanActions from './bill-scan/actions'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { approveVendor, getPrimaryAssociation } from '@/lib/vendors'
 
@@ -99,6 +100,7 @@ describe('board-only server actions refuse a resident before touching the databa
     ['logPropertyEvent', () => propertyEvents.logPropertyEvent({ propertyId: ID, kind: 'note' }), DENIED],
     ['deleteCommunication', () => commActions.deleteCommunication(ID), DENIED],
     ['sendCommunication', () => commSend.sendCommunication({} as never), DENIED],
+    ['editBillProposal (BL-059: the only write path to a proposal payload)', () => billScanActions.editBillProposal({ approvalRequestId: ID }), DENIED],
   ]
 
   for (const [name, call, expected] of returning) {

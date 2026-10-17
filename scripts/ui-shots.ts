@@ -89,6 +89,8 @@ interface Shot {
   print?: boolean
   /** Open the ⌘K palette and type this query; waits for record search to settle (BL-022). */
   palette?: string
+  /** Click the first element matching this selector before the shot (opens a dialog, BL-059). */
+  click?: string
 }
 
 const WIDTHS = [375, 1440]
@@ -126,6 +128,8 @@ const SHOTS: Shot[] = [
   { name: 'approvals', path: '/approvals', auth: true },
   // BL-021: the scanned-bill cards, and the upload screen.
   { name: 'approvals-bills', path: '/approvals?type=bill', auth: true },
+  // BL-059: the Edit details dialog on the first scanned bill.
+  { name: 'approvals-bill-edit', path: '/approvals?type=bill', auth: true, viewport: true, click: 'button:has-text("Edit details") >> visible=true', themes: LIGHT },
   { name: 'accounting-invoices-new', path: '/accounting/invoices/new', auth: true },
   { name: 'violations', path: '/violations', auth: true },
   // BL-019: the state-law rule panel where the board creates and reviews
@@ -638,6 +642,11 @@ async function main() {
               const state = await page.getAttribute('[data-search-state]', 'data-search-state')
               const hits = await page.locator('[cmdk-item]').count()
               console.log(`palette: ${shot.name} ${width} search=${state} items=${hits}`)
+            }
+            if (shot.click) {
+              await page.locator(shot.click).first().click({ timeout: 30_000 })
+              await page.waitForSelector('[role="dialog"]', { timeout: 15_000 })
+              await page.waitForTimeout(400)
             }
             if (shot.scrollBottom) {
               await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))

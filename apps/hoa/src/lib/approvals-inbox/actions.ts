@@ -9,6 +9,7 @@ import { approveViolationDraft, rejectViolationDraft } from '@/lib/violations'
 import { enterBill } from '@/lib/invoices'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { makeBillExecutor } from '@/lib/bill-scan/executor'
+import { billInvoiceExists } from '@/lib/bill-scan/load'
 import { billHandlers, decideApprovalFor, postingHandlers, type InboxDecisionInput, type InboxDecisionOutcome } from './decide'
 
 /**
@@ -32,15 +33,7 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
   // action as "Enter a bill" — invoice row + Dr expense / Cr AP JE.
   const billExecutor = makeBillExecutor({
     primaryAssociationId: async () => (await getPrimaryAssociation())?.id ?? null,
-    invoiceExists: async (vendorId, invoiceNumber) => {
-      const { count, error } = await supabase
-        .from('invoices')
-        .select('id', { count: 'exact', head: true })
-        .eq('vendor_id', vendorId)
-        .eq('invoice_number', invoiceNumber)
-        .is('deleted_at', null)
-      return error ? { ok: false } : { ok: true, exists: (count ?? 0) > 0 }
-    },
+    invoiceExists: (vendorId, invoiceNumber) => billInvoiceExists(supabase, vendorId, invoiceNumber),
     enterBill,
   })
   const result = await decideApprovalFor(gate.role, input, {

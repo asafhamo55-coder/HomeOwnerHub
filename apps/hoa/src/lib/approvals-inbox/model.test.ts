@@ -295,9 +295,28 @@ describe('billItems (BL-021)', () => {
   it('a missing field makes it reject-only, and says what is missing', () => {
     const p = { ...complete, vendor: { ...complete.vendor, vendorId: null, vendorLabel: null, match: 'none', matchConfidence: 'low' } }
     const [item] = billItems([row(p)])
-    expect(item!.detail).toBe('Missing a vendor on file. Reject it and enter the bill by hand.')
+    expect(item!.detail).toBe('Missing a vendor on file. Fill it in with Edit details, or reject it.')
     expect(item!.confidenceLabel).toBe('Incomplete')
     expect(item!.decision).toMatchObject({ canApprove: false })
+    // BL-059: still a readable bill, so the card offers the edit.
+    expect(item!.bill).toBeDefined()
+  })
+
+  it('several missing fields read as a list (BL-059)', () => {
+    const p = { ...complete, invoiceNumber: { value: null, confidence: 'low' }, total: { value: null, confidence: 'low' } }
+    const [item] = billItems([row(p)])
+    expect(item!.detail).toBe('Missing the invoice number and the total. Fill them in with Edit details, or reject it.')
+  })
+
+  it('a board-picked vendor is not flagged for checking (BL-059)', () => {
+    const p = {
+      ...complete,
+      vendor: { ...complete.vendor, match: 'manual', matchConfidence: 'high', nameConfidence: 'low' },
+      humanEdits: { fields: ['vendor'], editedBy: '11111111-1111-4111-8111-111111111111', editedAt: '2026-10-17T12:00:00.000Z' },
+    }
+    const [item] = billItems([row(p)])
+    expect(item!.bill?.needsCheck).toEqual([])
+    expect(item!.bill?.payload.humanEdits?.fields).toEqual(['vendor'])
   })
 
   it('an unreadable payload is reject-only and says so — no invented fields', () => {

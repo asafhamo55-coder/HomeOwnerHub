@@ -283,6 +283,32 @@ export async function seed_approvals(db: SupabaseClient, ctx: SeedContext): Prom
           warnings: ['The line items add up to $495.00, not the $459.00 total — check the total against the bill.'],
         },
       },
+      // BL-059: a bill a board member already corrected (vendor picked,
+      // total fixed) — the card shows "Edited" in place of the AI's flags.
+      {
+        subject: 'b1110000-0000-5000-8000-000000000023',
+        summary: `Bill from ${vendor?.legal_name ?? 'an unknown vendor'} · #SL-2231`,
+        amount: 350,
+        payload: {
+          ...base,
+          vendor: {
+            extractedName: 'Sample Lawn & Landscape',
+            nameConfidence: 'medium',
+            vendorId: vendor?.id ?? null,
+            vendorLabel: vendor?.legal_name ?? null,
+            match: vendor ? 'manual' : 'none',
+            matchConfidence: vendor ? 'high' : 'low',
+          },
+          invoiceNumber: { value: 'SL-2231', confidence: 'high' },
+          invoiceDate: { value: '2026-10-05', confidence: 'high' },
+          dueDate: { value: '2026-11-04', confidence: 'medium' },
+          total: { value: 350, confidence: 'high' },
+          lineItems: [{ description: 'Irrigation repair, zone 3', amount: 350 }],
+          expenseAccount: accountField('Irrigation repair is grounds maintenance.', 'high'),
+          warnings: [],
+          humanEdits: { fields: ['vendor', 'total'], editedBy: ctx.userId, editedAt: iso(DAY / 6) },
+        },
+      },
     ]
     for (const b of bills) {
       const { data: found } = await db

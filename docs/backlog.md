@@ -659,10 +659,11 @@ These go beyond the design-system v2 pass:
 
 - **BL-058 Stored bills readable by residents (security, M1 with F-02):** uploaded bills sit in `hoa-documents` under `${orgId}/bills/`, which any org member can read by path. Vendor documents have the same problem. Move them to a board-only bucket or path policy as part of the M1 storage policies.
 - **BL-059 Bill scan follow-ups:**
-  - Let the board edit extracted fields before approving.
-  - Accept inbox attachments as a second way in.
-  - Run one real bill through the text and vision paths (not done yet; only a fake model has been tested).
-  - Find out why `/approvals?type=bill` showed the All view in the screenshot.
+  - ~~Let the board edit extracted fields before approving.~~ Done (claude/bl-059): "Edit details" on each /approvals bill card (vendor, invoice #, dates, total, expense account, line items). `editBillProposal` (board gate before any client) re-validates in code (`lib/bill-scan/edit.ts`): real dates, invoice not after the association's today, due ≥ invoice, total in (0, $1M] cents, priced line items sum to an edited total, vendor/account from the association's lists, duplicate vendor + invoice # refused. Edited fields are marked in `payload.humanEdits` and mirrored to `ai_runs.human_edited_output`. Reject-only cards are fixable by editing.
+  - Left: accept inbox attachments as a second way in.
+  - Left: run one real bill through the text and vision paths (only a fake model has been tested).
+  - ~~Find out why `/approvals?type=bill` showed the All view in the screenshot.~~ Done: not the tab filter. Middleware's sign-in redirect kept only the pathname, so every fresh ui:shots context (and any signed-out user following a filtered link) came back to `/approvals`. The redirect now keeps the query string.
+  - Left: `read-only:bg-subtle` in `controlBase` matches non-input elements, so every Select trigger and prefixed Input renders grey (design-system wide, not bill-specific).
 - **BL-060 ⌘K follow-ups:**
   - ~~Violations on the same lot look identical, so add the date and status to each row.~~ Done: every violation, ARC, ticket and inbox row carries a right-aligned status · day (association day, BL-043) that stays visible when the label truncates; ARC/tickets/threads also show the lot's address.
   - ~~Add documents and meetings.~~ Done: uploaded + current governing documents (one "Documents" group) and meetings (type/summary), board-only through `/api/search`, RLS client, 5 per type.
