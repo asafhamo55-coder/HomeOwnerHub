@@ -126,3 +126,13 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Issue:** dc1cf0a went red in CI. My merge fix changed `readPrimaryAssociation`'s output without updating its test. Fixed in 43ce04a, which is green.
 - **Deploy:** still blocked by the classifier, and prod is on d060e08.
 - **Next:** BL-064 open-the-books, BL-065 time zone leftovers, BL-066 overflow, and clean up about 90 stale agent worktrees.
+
+## 2026-10-17 (afternoon) — deploy resumed, cycle 9 part 1
+
+- **Owner authorization:** commit, push and deploy to prod at any time, at most once per hour. The cycle cron is now hourly and deploys gated tips.
+- **Merged:** Asaf's d060e08 (the api-audit-fix skill, pushed straight to prod), BL-064 "Open the books", and BL-065 (time zone leftovers: the events pages and the recurring-events cron together, recurring-jes per association, form date defaults, and the heat-map grid built from calendar dates).
+- **Gates at bb1418e:** typecheck 12/12, typecheck:integration, unit 3788/3788, build 4/4, integration 348/348.
+- **Deployed bb1418e to prod** (cycles 5–9). /api/health reports bb1418e, and the Vercel statuses say completed on hoa, pm and eviction.
+  - Smoke checks: /login 200; / and /dues 307 to login; /api/search and /api/accounting/bill-scan give a 401 JSON envelope.
+  - The public /api/health body is now {ok, app, version}. The detailed probes need the bearer key.
+- **Next:** merge BL-066 (overflow and T-07) when it reports, then BL-059 bill-scan edits, BL-051 board packet, BL-062 owner contact sent to the AI.
