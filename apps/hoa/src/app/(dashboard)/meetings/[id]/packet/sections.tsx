@@ -235,7 +235,8 @@ const delinquentColumns: DataTableColumn<DelinquentUnit>[] = [
   { key: 'amount', header: 'Overdue', numeric: true, cell: (u) => usd(u.amount) },
 ]
 
-export function DelinquencySection({ res }: { res: LoadResult<DelinquencySummary> }) {
+/** `asOf` is the last day of the packet month ('YYYY-MM-DD'); balances are at its close. */
+export function DelinquencySection({ res, asOf }: { res: LoadResult<DelinquencySummary>; asOf: string }) {
   if (!res.ok) return <LoadFailed what="the delinquency summary" hint="The rest of the packet is unaffected." />
   const d = res.data
   return (
@@ -267,7 +268,7 @@ export function DelinquencySection({ res }: { res: LoadResult<DelinquencySummary
         rows={d.units}
         rowKey={(u) => u.key}
         density="compact"
-        empty={<EmptyState variant="compact" icon={<ClipboardList aria-hidden />} title="No unit is behind" description="Every charge due before today is paid." />}
+        empty={<EmptyState variant="compact" icon={<ClipboardList aria-hidden />} title="No unit was behind" description={`Every charge due by ${formatDay(asOf)} was paid by the end of that day.`} />}
       />
     </>
   )

@@ -5,6 +5,7 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
 import { getAccountingContext } from '@/lib/accounting/queries'
+import { DEFAULT_ASSOCIATION_TIME_ZONE } from '@/lib/association-time'
 import { packetPeriod } from '@/lib/board-packet/period'
 import { loadPacketSections } from '@/lib/board-packet/sections'
 import { loadBalanceSheet, loadBudgetsVsActual, loadIncomeStatement } from '@/lib/board-packet/financials'
@@ -94,15 +95,18 @@ export default async function BoardPacketPage(props: { params: Promise<{ id: str
   // The association's day (BL-043); Eastern when the context didn't load.
   const today = todayIso(ctx?.timeZone)
   const assocId = ctx?.associationId ?? null
+  const timeZone = ctx?.timeZone ?? DEFAULT_ASSOCIATION_TIME_ZONE
 
   // Association-scoped sections need the accounting context; without one
   // they are skipped (and say why) rather than loaded against nothing.
+  // Every money figure is as of the close of the packet month (BL-051) —
+  // nothing posted, paid or due after `period.end` is in it.
   const s = await loadPacketSections({
     previous: () => loadPreviousMeeting(supabase, meeting.org_id, meeting.meeting_date),
     income: assocId ? () => loadIncomeStatement(assocId, period) : null,
     balance: assocId ? () => loadBalanceSheet(assocId, period) : null,
     budgets: assocId ? () => loadBudgetsVsActual(assocId, period) : null,
-    delinquency: assocId ? () => loadDelinquency(supabase, assocId, today) : null,
+    delinquency: assocId ? () => loadDelinquency(supabase, assocId, period.after, timeZone) : null,
     violations: () => loadOpenViolations(supabase, meeting.org_id),
     arc: () => loadOpenArc(supabase, meeting.org_id),
   })
@@ -153,13 +157,17 @@ export default async function BoardPacketPage(props: { params: Promise<{ id: str
         <PacketSection
           id="budget"
           title="Budget vs. actual"
-          subtitle="The fiscal-year budget covering this month, against every entry posted to it so far. Variance is positive when it helps."
+          subtitle={`The fiscal-year budget covering this month, against entries posted to it through ${formatDay(period.end)}. Variance is positive when it helps.`}
         >
           {money(<BudgetSection res={s.budgets} />)}
         </PacketSection>
 
-        <PacketSection id="delinquency" title="Delinquency" subtitle={`Every unpaid charge due before ${formatDay(today)}, by unit`}>
-          {money(<DelinquencySection res={s.delinquency} />)}
+        <PacketSection
+          id="delinquency"
+          title="Delinquency"
+          subtitle={`As of ${formatDay(period.end)}: charges due by then and still unpaid at the end of that day, by unit`}
+        >
+          {money(<DelinquencySection res={s.delinquency} asOf={period.end} />)}
         </PacketSection>
 
         <PacketSection id="violations" title="Open violations" subtitle="Not yet resolved, cured, waived or dismissed">

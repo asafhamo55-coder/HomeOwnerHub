@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { LIST_CAP, loadDelinquency, loadOpenArc, loadOpenViolations, loadPreviousMeeting } from './queries'
 import { readAll } from '@/lib/supabase/read-all'
+import { cappedFakeDb } from '@/lib/supabase/capped-fake-db'
 
 /**
  * A stand-in for the Supabase client that behaves like PostgREST where it
@@ -90,13 +91,14 @@ describe('loadDelinquency — totals from the full set, not a page', () => {
     amount: 100,
     due_date: '2026-09-01',
     unit_id: `u${i % 1300}`,
-    payments: i % 2 === 0 ? [{ amount: 25 }] : [],
+    status: i % 2 === 0 ? 'partial' : 'open',
+    payments: i % 2 === 0 ? [{ amount: 25, paid_at: '2026-09-10T15:00:00Z' }] : [],
     unit: { unit_number: `U${i % 1300}`, address_line1: null },
   }))
 
   it('sums every overdue charge even though each response holds at most 1000', async () => {
     const { db, calls } = fakeDb({ assessments: charges })
-    const s = await loadDelinquency(db, 'assoc-1', '2026-10-16')
+    const s = await loadDelinquency(db, 'assoc-1', '2026-10-16', 'America/New_York')
     // 1300 charges at 100 + 1300 at 75. A single capped read gave 1000 rows ($87,500).
     expect(s.totalOverdue).toBe(1300 * 100 + 1300 * 75)
     expect(s.chargeCount).toBe(2600)
@@ -104,20 +106,55 @@ describe('loadDelinquency — totals from the full set, not a page', () => {
     expect(ranges(calls, 'assessments').length).toBeGreaterThan(1)
   })
 
-  it('pages in a stable order and filters to unpaid, overdue, live charges', async () => {
+  it('pages in a stable order and filters to overdue, live, not-waived charges', async () => {
     const { db, calls } = fakeDb({ assessments: charges.slice(0, 10) })
-    await loadDelinquency(db, 'assoc-1', '2026-10-16')
+    await loadDelinquency(db, 'assoc-1', '2026-10-16', 'America/New_York')
     const ops = calls[0]!.ops
     expect(ops).toContainEqual(['order', 'id', { ascending: true }])
     expect(ops).toContainEqual(['eq', 'association_id', 'assoc-1'])
     expect(ops).toContainEqual(['is', 'deleted_at', null])
-    expect(ops).toContainEqual(['not', 'status', 'in', '("paid","waived","written_off")'])
+    // 'paid' is read too: a charge paid since the as-of day still owed then.
+    expect(ops).toContainEqual(['not', 'status', 'in', '("waived","written_off")'])
     expect(ops).toContainEqual(['lt', 'due_date', '2026-10-16'])
+    expect(ops).toContainEqual(['select', 'id, amount, due_date, status, unit_id, payments(amount, paid_at), unit:unit_id(unit_number, address_line1)'])
   })
 
   it('a failed page fails the section instead of reporting a smaller total', async () => {
     const { db } = fakeDb({ assessments: charges }, { failAt: { table: 'assessments', from: 2000 } })
-    await expect(loadDelinquency(db, 'assoc-1', '2026-10-16')).rejects.toThrow(/overdue charges failed \(57014\)/)
+    await expect(loadDelinquency(db, 'assoc-1', '2026-10-16', 'America/New_York')).rejects.toThrow(/overdue charges failed \(57014\)/)
+  })
+})
+
+describe('loadDelinquency — as of the close of the packet month (BL-051)', () => {
+  // Fixtures with activity after Sep 30. The fake evaluates the filters,
+  // so this proves the query and the summary together.
+  const unit = { unit_number: 'U1', address_line1: null }
+  const base = { association_id: 'assoc-1', deleted_at: null, unit }
+  const assessments = [
+    // Due in September, unpaid then, paid in full on Oct 12: owed $325 at month-end.
+    { ...base, id: 'a1', unit_id: 'u1', amount: 325, due_date: '2026-09-01', status: 'paid', payments: [{ amount: 325, paid_at: '2026-10-12T14:00:00Z' }] },
+    // Due in August, $100 paid in September, $150 more on Oct 5: owed $200.
+    { ...base, id: 'a2', unit_id: 'u2', amount: 300, due_date: '2026-08-01', status: 'partial', payments: [{ amount: 100, paid_at: '2026-09-20T16:00:00Z' }, { amount: 150, paid_at: '2026-10-05T16:00:00Z' }] },
+    // Due Oct 1 and Oct 10: not due yet at month-end.
+    { ...base, id: 'a3', unit_id: 'u3', amount: 999, due_date: '2026-10-01', status: 'open', payments: [] },
+    { ...base, id: 'a4', unit_id: 'u3', amount: 999, due_date: '2026-10-10', status: 'open', payments: [] },
+    // Paid in September: settled.
+    { ...base, id: 'a5', unit_id: 'u4', amount: 325, due_date: '2026-09-01', status: 'paid', payments: [{ amount: 325, paid_at: '2026-09-05T14:00:00Z' }] },
+    // Waived, and another association's charge: never counted.
+    { ...base, id: 'a6', unit_id: 'u5', amount: 50, due_date: '2026-09-01', status: 'waived', payments: [] },
+    { ...base, id: 'a7', unit_id: 'u6', association_id: 'assoc-2', amount: 70, due_date: '2026-09-01', status: 'open', payments: [] },
+  ]
+
+  it('counts what was owed at the close of Sep 30, not current balances', async () => {
+    const { db } = cappedFakeDb({ assessments })
+    const s = await loadDelinquency(db, 'assoc-1', '2026-10-01', 'America/New_York')
+    expect(s.asOf).toBe('2026-10-01')
+    expect(s.totalOverdue).toBe(525)
+    expect(s.chargeCount).toBe(2)
+    expect(s.units.map((u) => [u.key, u.amount, u.daysOverdue])).toEqual([
+      ['u1', 325, 30],
+      ['u2', 200, 61],
+    ])
   })
 })
 
