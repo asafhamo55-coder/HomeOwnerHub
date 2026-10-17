@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Alert, Button, Card, CardContent, CardFooter, Field, Input, Textarea, useToast } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { updateProperty } from '@/lib/properties'
+import { splitFormErrors } from '@/lib/field-errors'
 
 interface Props {
   propertyId: string
@@ -42,10 +43,12 @@ export function EditPropertyForm({ propertyId, defaultValues }: Props) {
         notes: (fd.get('notes') as string) || null,
       })
       if (!result.ok) {
-        // Field problems go under their field; anything else is a form-level alert.
-        const fe = result.fieldErrors ?? {}
-        if (Object.keys(fe).some((k) => k !== '_')) setFieldErrors(fe)
-        else setFormError(result.error)
+        // Field problems go under their field AND any form-level problem
+        // shows in the alert. This used to be either/or, so a form-level
+        // message beside a field error was silently dropped.
+        const { fields, form } = splitFormErrors(result)
+        setFieldErrors(fields)
+        setFormError(form)
         return
       }
       toast({ tone: 'success', message: 'Property updated.' })

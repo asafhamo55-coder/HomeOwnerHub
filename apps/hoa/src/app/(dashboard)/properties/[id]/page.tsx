@@ -9,6 +9,7 @@ import {
   Home,
   KeyRound,
   Mail,
+  Plus,
   UserMinus,
   UserPlus,
   Users,
@@ -74,6 +75,9 @@ import { AddResidentForm } from './AddResidentForm'
 import { PropertyActions } from './PropertyActions'
 import { ResidentRow as ResidentRowClient } from './ResidentRow'
 import { EnterPortalButton } from './EnterPortalButton'
+import { ContactLink } from '@/components/contact/ContactLink'
+import { readAllResult } from '@/lib/supabase/read-all'
+import { cureBy, cureState, sortByUrgency } from '@/lib/violation-cure'
 
 interface PropertyDetailRow {
   id: string
@@ -186,18 +190,20 @@ export default async function PropertyDetailPage({
   const violationsRange = pageRange(tab === 'violations' ? tabPage : 1, TAB_PAGE_SIZE)
   const duesRange = pageRange(tab === 'dues' ? tabPage : 1, TAB_PAGE_SIZE)
 
-  const [violationsRes, assessmentsRes, correspondenceOutcome, statsRes] = await Promise.all([
+  const [violationsRes, assessmentsRes, correspondenceOutcome, statsRes, arcRes] = await Promise.all([
+    // Every violation at this home (a handful, paged past the row cap), so
+    // the tab can sort by urgency — past cure first — before paging.
     loadOrFail(
       'property violations',
-      supabase
-        .from('hoa_violations')
-        .select('id, description, status, severity, created_at, cure_period_days, notice_sent_at', {
-          count: 'exact',
-        })
-        .eq('property_id', id)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false })
-        .range(violationsRange.from, violationsRange.to),
+      readAllResult<ViolationRow>((from, to) =>
+        supabase
+          .from('hoa_violations')
+          .select('id, description, status, severity, created_at, cure_period_days, notice_sent_at')
+          .eq('property_id', id)
+          .is('deleted_at', null)
+          .order('id', { ascending: true })
+          .range(from, to) as unknown as PromiseLike<{ data: ViolationRow[] | null; error: { message?: string } | null }>,
+      ),
     ),
     unitId
       ? loadOrFail(
@@ -235,10 +241,24 @@ export default async function PropertyDetailPage({
             .maybeSingle<PanelStatsRow>(),
         )
       : Promise.resolve({ ok: true, data: null, count: null } as const),
+    // Open ARC applications on this home's unit — a head-only count.
+    // Same "open" as the dashboard queue: submitted or in review.
+    unitId
+      ? loadOrFail(
+          'property open ARC',
+          supabase
+            .from('arc_requests')
+            .select('id', { count: 'exact', head: true })
+            .eq('unit_id', unitId)
+            .is('deleted_at', null)
+            .in('status', ['submitted', 'in_review']),
+        )
+      : Promise.resolve(null),
   ])
 
-  const violations = violationsRes.ok ? ((violationsRes.data ?? []) as ViolationRow[]) : []
-  const violationTotal = violationsRes.ok ? (violationsRes.count ?? violations.length) : null
+  const allViolations = violationsRes.ok ? sortByUrgency((violationsRes.data ?? []) as ViolationRow[], new Date()) : []
+  const violations = allViolations.slice(violationsRange.from, violationsRange.to + 1)
+  const violationTotal = violationsRes.ok ? allViolations.length : null
   const dues = assessmentsRes.ok ? ((assessmentsRes.data ?? []) as unknown as AssessmentRow[]) : []
   const duesTotal = assessmentsRes.ok ? (assessmentsRes.count ?? dues.length) : null
 
@@ -280,6 +300,7 @@ export default async function PropertyDetailPage({
         violationsPastCure: Number(statsRow?.violations_past_cure ?? 0),
         residents: residents.length,
         threadsNeedingReply: Number(statsRow?.threads_needing_reply ?? 0),
+        openArc: unitFailed ? null : !unitId ? 'unlinked' : arcRes?.ok ? (arcRes.count ?? 0) : null,
       }
     : null
 
@@ -346,7 +367,21 @@ export default async function PropertyDetailPage({
             currentTab={tab}
             query={query}
             listHref={listHref}
-            actions={<PropertyActions propertyId={p.id} address={p.address} />}
+            linkHrefs={{
+              // P0: propertyHref — these carry the hoa_properties id.
+              dues: `/dues?property=${id}`,
+              violations: tabHref('violations'),
+              arc: '/arc',
+              mail: tabHref('mail'),
+            }}
+            actions={
+              <PropertyActions
+                propertyId={p.id}
+                address={p.address}
+                balance={stats ? stats.balance : null}
+                openViolations={stats ? stats.openViolations : null}
+              />
+            }
           >
             {tab === 'overview' ? (
               <OverviewTab
@@ -372,6 +407,7 @@ export default async function PropertyDetailPage({
             {tab === 'violations' ? (
               violationsRes.ok ? (
                 <ViolationsSection
+                  propertyId={id}
                   violations={violations}
                   pager={
                     <Pager
@@ -392,6 +428,7 @@ export default async function PropertyDetailPage({
             {tab === 'dues' ? (
               assessmentsRes.ok ? (
                 <DuesSection
+                  propertyId={id}
                   dues={dues}
                   pager={
                     <Pager
@@ -491,17 +528,8 @@ function OverviewTab({
           <CardContent className="space-y-4">
             <KeyValueList className="lg:grid-cols-4 2xl:grid-cols-2">
               <KeyValue label="Name" value={p.owner_name} />
-              <KeyValue
-                label="Email"
-                value={
-                  p.owner_email ? (
-                    <a href={`mailto:${p.owner_email}`} className="text-primary hover:underline">
-                      {p.owner_email}
-                    </a>
-                  ) : null
-                }
-              />
-              <KeyValue label="Phone" value={p.owner_phone} />
+              <KeyValue label="Email" value={p.owner_email ? <ContactLink kind="email" value={p.owner_email} /> : null} />
+              <KeyValue label="Phone" value={p.owner_phone ? <ContactLink kind="phone" value={p.owner_phone} /> : null} />
               <KeyValue label="Added" value={p.created_at ? format(new Date(p.created_at), 'PP') : null} />
             </KeyValueList>
             {p.notes ? (
@@ -516,17 +544,14 @@ function OverviewTab({
         <Card className="2xl:col-span-2">
           <CardHeader actions={<StatusBadge status={tenure} tones={TENURE.tones} labels={TENURE.labels} />}>
             <CardTitle as="h2">Tenure</CardTitle>
-            <p className="text-xs text-muted">
-              {tenureUpdatedAt
-                ? `Updated ${format(new Date(tenureUpdatedAt), 'PP')}`
-                : 'Never recorded — set the current state below.'}
-            </p>
+            <p className="text-xs text-muted">{tenureNote(tenure, tenureUpdatedAt)}</p>
           </CardHeader>
           <CardContent className="space-y-3">
             {waitingSince ? (
               <Alert variant="info" title="On the lease waiting list">
                 Queued since {format(new Date(waitingSince), 'PP')}.{' '}
-                <Link href="/leases">Approve or withdraw on Leases</Link>.
+                {/* P0: propertyHref */}
+                <Link href={`/leases?property=${p.id}`}>Approve or withdraw on Leases</Link>.
               </Alert>
             ) : null}
             <TenureSelector
@@ -563,10 +588,13 @@ function OverviewTab({
                   {residents.length !== active.length ? ` · ${residents.length - active.length} moved out` : ''}
                 </p>
                 {primary ? (
-                  <p className="text-xs text-muted">
-                    {primary.full_name} · {ROLE_LABEL[primary.role]}
-                    {primary.email ? ` · ${primary.email}` : ''}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
+                    <span>
+                      {primary.full_name} · {ROLE_LABEL[primary.role]}
+                    </span>
+                    {primary.email ? <ContactLink kind="email" value={primary.email} /> : null}
+                    {primary.phone ? <ContactLink kind="phone" value={primary.phone} /> : null}
+                  </div>
                 ) : null}
               </div>
             )}
@@ -705,17 +733,36 @@ function HistorySection({ events }: { events: PropertyEventRow[] }) {
   )
 }
 
-function ViolationsSection({ violations, pager }: { violations: ViolationRow[]; pager: React.ReactNode }) {
+function ViolationsSection({
+  propertyId,
+  violations,
+  pager,
+}: {
+  propertyId: string
+  violations: ViolationRow[]
+  pager: React.ReactNode
+}) {
+  const now = new Date()
   return (
     <section aria-label="Violations" className="space-y-3">
       <SectionHeading
         title="Violations"
         action={
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/violations">All violations</Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button asChild variant="ghost" size="sm">
+              {/* P0: propertyHref */}
+              <Link href={`/violations?property=${propertyId}`}>All for this home</Link>
+            </Button>
+            <Button asChild variant="secondary" size="sm">
+              <Link href={`/violations/new?property=${propertyId}`}>
+                <Plus aria-hidden />
+                New violation here
+              </Link>
+            </Button>
+          </div>
         }
       />
+      <p className="text-xs text-muted">Most urgent first: past their cure date, then the soonest cure dates.</p>
       <DataTable
         caption="Violations at this property"
         mobile="cards"
@@ -753,8 +800,14 @@ function ViolationsSection({ violations, pager }: { violations: ViolationRow[]; 
               ),
           },
           {
+            key: 'cure',
+            header: 'Cure by',
+            cell: (v) => <CureByCell violation={v} now={now} />,
+          },
+          {
             key: 'reported',
             header: 'Reported',
+            hideBelowLg: true,
             cell: (v) => <span className="num text-muted">{v.created_at ? format(new Date(v.created_at), 'PP') : '—'}</span>,
           },
           {
@@ -773,14 +826,15 @@ const DUES_STATUS = {
   labels: { open: 'Open', partial: 'Partial', paid: 'Paid', waived: 'Waived', written_off: 'Written off' },
 }
 
-function DuesSection({ dues, pager }: { dues: AssessmentRow[]; pager: React.ReactNode }) {
+function DuesSection({ propertyId, dues, pager }: { propertyId: string; dues: AssessmentRow[]; pager: React.ReactNode }) {
   return (
     <section aria-label="Dues" className="space-y-3">
       <SectionHeading
         title="Dues"
         action={
           <Button asChild variant="ghost" size="sm">
-            <Link href="/dues">Full ledger</Link>
+            {/* P0: propertyHref */}
+            <Link href={`/dues?property=${propertyId}`}>All dues for this home</Link>
           </Button>
         }
       />
@@ -829,6 +883,31 @@ function DuesSection({ dues, pager }: { dues: AssessmentRow[]; pager: React.Reac
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
+
+/**
+ * The Tenure card's subtitle. It used to say "Never recorded" whenever no
+ * change date was stored — beside a badge reading "Owner-occupied", since
+ * imported homes carry a tenure but no tenure_updated_at.
+ */
+function tenureNote(tenure: PropertyTenure, updatedAt: string | null): string {
+  if (updatedAt) return `Updated ${format(new Date(updatedAt), 'PP')}`
+  if (tenure === 'unknown') return 'Not recorded yet — set the current state below.'
+  return 'Set before changes were tracked; no change date on file.'
+}
+
+function CureByCell({ violation, now }: { violation: ViolationRow; now: Date }) {
+  const due = cureBy(violation)
+  const state = cureState(violation, now)
+  if (!due || state === 'closed') return <span className="text-muted">—</span>
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <time dateTime={due.toISOString()} className={state === 'past' ? 'num font-medium text-danger' : 'num text-foreground-secondary'}>
+        {format(due, 'MMM d, yyyy')}
+      </time>
+      {state === 'past' ? <StatusPill tone="danger" size="sm" label="Past cure" icon={<Clock aria-hidden />} /> : null}
+    </span>
+  )
+}
 
 const ROLE_LABEL: Record<PropertyResidentRole, string> = {
   owner: 'Owner',
