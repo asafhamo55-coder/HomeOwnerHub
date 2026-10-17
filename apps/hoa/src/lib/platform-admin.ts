@@ -45,6 +45,26 @@ function readAllRows<T>(build: () => unknown, order: string[] = ['id']): Promise
   )
 }
 
+/**
+ * A `{ count: 'exact', head: true }` query's count (BL-057) — no rows come
+ * back. A failed count throws, like a failed page, rather than reading 0.
+ */
+async function headCount(build: () => unknown): Promise<number> {
+  const { count, error } = await (build() as PromiseLike<{ count: number | null; error: { code?: string } | null }>)
+  if (error) throw new Error(`platform-admin read failed (${error.code ?? 'no code'})`)
+  return count ?? 0
+}
+
+/** One head count per tenant, a few at a time so a large platform doesn't open hundreds of requests at once. */
+async function headCountPerOrg(orgIds: string[], build: (orgId: string) => unknown): Promise<Map<string, number>> {
+  const counts = new Map<string, number>()
+  for (const ids of chunk(orgIds, 20)) {
+    const got = await Promise.all(ids.map(async (id) => [id, await headCount(() => build(id))] as const))
+    for (const [id, n] of got) counts.set(id, n)
+  }
+  return counts
+}
+
 // ─── Types ──────────────────────────────────────────────────────────
 
 export interface TenantRow {
@@ -516,8 +536,8 @@ export async function getAnalyticsData(): Promise<PlatformAnalytics> {
   type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
   const [
     orgs,
-    memberRows,
-    unitRows,
+    totalMembers,
+    totalUnits,
     vendorRows,
     violationRows,
     aiRunRows,
@@ -528,8 +548,8 @@ export async function getAnalyticsData(): Promise<PlatformAnalytics> {
     docOrgs,
   ] = await Promise.all([
     readAllRows<R>(() => db.from('orgs' as never).select('id, name, plan, created_at, suspended_at')),
-    readAllRows<R>(() => db.from('org_members').select('org_id, invited_at'), ['org_id', 'user_id']),
-    readAllRows<R>(() => db.from('units' as never).select('organization_id')),
+    headCount(() => db.from('org_members').select('user_id', { count: 'exact', head: true })),
+    headCount(() => db.from('units' as never).select('id', { count: 'exact', head: true })),
     readAllRows<R>(() => db.from('vendor_compliance' as never).select('organization_id, coi_status')),
     readAllRows<R>(() => db.from('hoa_violations').select('org_id, status')),
     readAllRows<R>(() => db.from('ai_runs' as never).select('organization_id, workflow_id, created_at').gte('created_at', thirtyDaysAgoIso)),
@@ -571,31 +591,29 @@ export async function getAnalyticsData(): Promise<PlatformAnalytics> {
     if (bucket) bucket.count += 1
   }
 
-  // Members joined per month
-  const memberMonths: Array<{ month: string; count: number }> = []
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    memberMonths.push({ month: key, count: 0 })
-  }
-  for (const r of (memberRows ?? []) as Array<{ org_id: string; invited_at: string | null }>) {
-    if (!r.invited_at) continue
-    const d = new Date(r.invited_at)
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    const bucket = memberMonths.find((m) => m.month === key)
-    if (bucket) bucket.count += 1
-  }
+  // Members joined per month — one count per month bucket (BL-057). The
+  // bounds are local month starts, the same months the row loop bucketed
+  // `new Date(invited_at)` into; a null invited_at falls in no bucket.
+  const memberMonths = await Promise.all(
+    months.map(async ({ month }, i) => {
+      const start = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1).toISOString()
+      const end = new Date(now.getFullYear(), now.getMonth() - 10 + i, 1).toISOString()
+      const count = await headCount(() =>
+        db.from('org_members').select('user_id', { count: 'exact', head: true }).gte('invited_at', start).lt('invited_at', end),
+      )
+      return { month, count }
+    }),
+  )
 
-  // Per-org counts for tenant health table
-  const orgMemberCounts = new Map<string, number>()
-  for (const r of (memberRows ?? []) as Array<{ org_id: string }>) {
-    orgMemberCounts.set(r.org_id, (orgMemberCounts.get(r.org_id) ?? 0) + 1)
-  }
-
-  const orgUnitCounts = new Map<string, number>()
-  for (const r of (unitRows ?? []) as unknown as Array<{ organization_id: string }>) {
-    orgUnitCounts.set(r.organization_id, (orgUnitCounts.get(r.organization_id) ?? 0) + 1)
-  }
+  // Per-org counts for the tenant health table: a head count per tenant,
+  // not every member and unit row on the platform (BL-057).
+  const orgIds = orgsTyped.map((o) => o.id)
+  const [orgMemberCounts, orgUnitCounts] = await Promise.all([
+    headCountPerOrg(orgIds, (id) => db.from('org_members').select('user_id', { count: 'exact', head: true }).eq('org_id', id)),
+    headCountPerOrg(orgIds, (id) =>
+      db.from('units' as never).select('id', { count: 'exact', head: true }).eq('organization_id' as never, id as never),
+    ),
+  ])
 
   const orgAssocCounts = new Map<string, number>()
   for (const r of (associationRows ?? []) as unknown as Array<{ organization_id: string }>) {
@@ -687,8 +705,8 @@ export async function getAnalyticsData(): Promise<PlatformAnalytics> {
     total_tenants: totalT,
     active_tenants: activeTenants,
     suspended_tenants: suspendedTenants,
-    total_members: (memberRows ?? []).length,
-    total_units: (unitRows ?? []).length,
+    total_members: totalMembers,
+    total_units: totalUnits,
     total_vendors: orgVendorCounts.size > 0 ? Array.from(orgVendorCounts.values()).reduce((a, b) => a + b, 0) : 0,
     total_violations: (violationRows ?? []).length,
     total_open_violations: totalOpenViolations,

@@ -690,6 +690,11 @@ export async function deleteVendor(vendorId: string): Promise<ActionResult> {
 export async function approveVendor(
   vendorId: string,
 ): Promise<ActionResult> {
+  // BL-057: its own role gate — a server action is a public POST endpoint,
+  // so a resident is refused here before any client exists.
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+
   const supabase = await getSupabaseServerClient()
   const {
     data: { user },

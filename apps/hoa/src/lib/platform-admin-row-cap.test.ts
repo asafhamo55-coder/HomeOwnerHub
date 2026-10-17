@@ -105,7 +105,8 @@ describe('platform-admin metrics read past the row cap', () => {
   })
 
   it('a failed later page throws instead of reporting a smaller number', async () => {
-    ;({ db } = cappedFakeDb(tables, { failAt: { table: 'units', from: 1000 } }))
+    // units was the paged table here until BL-057 made it a head count.
+    ;({ db } = cappedFakeDb(tables, { failAt: { table: 'vendor_compliance', from: 1000 } }))
     await expect(getAnalyticsData()).rejects.toThrow(/57014/)
   })
 })

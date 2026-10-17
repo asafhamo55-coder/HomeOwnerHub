@@ -32,7 +32,7 @@ import {
   type InboxSection,
 } from '@/lib/approvals-inbox/model'
 import { formatStamp, usd } from '@/lib/money/format'
-import { ApprovalActions } from './ApprovalActions'
+import { ApprovalActions } from '@/components/approvals/ApprovalActions'
 import { BillDetails } from './BillDetails'
 
 export const metadata = { title: 'Approvals' }
