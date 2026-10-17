@@ -1,4 +1,6 @@
 'use server'
+import { propertyHref } from '@/lib/properties/href'
+import { asPropertyId, resolveUnitForProperty } from '@/lib/properties/resolve'
 
 // Member management. Lists, invites, role changes, removes.
 // All writes go through the user-bound RLS client. Per migration 0058,
@@ -371,12 +373,15 @@ async function attachToOrg(args: {
     }
 
     // 2) ownerships / tenancies — for /resident dashboard visibility
-    const { data: unitRow } = await admin
-      .from('units')
-      .select('id')
-      .eq('organization_id', args.orgId)
-      .eq('legacy_hoa_property_id', args.propertyId)
-      .maybeSingle<{ id: string }>()
+    // The one unit rule (lib/properties/resolve.ts): several bridged units
+    // used to make `.maybeSingle()` error and silently skip this link.
+    let unitRow: { id: string } | null = null
+    try {
+      const resolved = await resolveUnitForProperty(admin, args.orgId, asPropertyId(args.propertyId))
+      unitRow = resolved.unitId ? { id: resolved.unitId } : null
+    } catch {
+      unitRow = null
+    }
 
     if (!unitRow) {
       console.warn(
@@ -432,7 +437,7 @@ async function attachToOrg(args: {
 
   revalidatePath('/settings/members')
   revalidatePath('/')
-  if (args.propertyId) revalidatePath(`/properties/${args.propertyId}`)
+  if (args.propertyId) revalidatePath(propertyHref(asPropertyId(args.propertyId)))
   return {
     ok: true,
     data: { userId: args.userId, alreadyExisted: args.alreadyExisted },

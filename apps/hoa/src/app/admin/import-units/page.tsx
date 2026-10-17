@@ -14,8 +14,8 @@ export default async function ImportUnitsPage() {
       description={
         <>
           Bulk-load <code className="font-mono text-xs">Properties.csv</code> and{' '}
-          <code className="font-mono text-xs">Residents.csv</code> into a tenant. Properties become units; residents
-          become ownerships (owners) or tenancies (tenants).
+          <code className="font-mono text-xs">Residents.csv</code> into a tenant. Each property becomes a property (shown on /properties) and its unit; residents
+          become ownerships and owner residents (owners) or tenancies (tenants).
         </>
       }
     >

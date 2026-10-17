@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import { propertyHref } from '@/lib/properties/href'
+import { asPropertyId } from '@/lib/properties/resolve'
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
 import { CalendarClock, CheckCircle2, Clock, FileCheck2, Flag, Gavel, Mail, XCircle } from 'lucide-react'
@@ -44,6 +46,7 @@ interface ViolationDetail {
   resolved_at: string | null
   resolution_note: string | null
   fine_start_date: string | null
+  property_id: string | null
   property: { address: string; unit_number: string | null; owner_name: string | null } | null
 }
 
@@ -66,7 +69,7 @@ export default async function ViolationDetailPage({
     supabase
       .from('hoa_violations')
       .select(
-        'id, description, violation_type, status, severity, ccr_section, cure_period_days, fine_amount, notice_sent_at, approved_at, approved_letter, ai_draft_letter, photo_urls, created_at, resolved_at, resolution_note, fine_start_date, property:hoa_properties(address, unit_number, owner_name)',
+        'id, description, violation_type, status, severity, ccr_section, cure_period_days, fine_amount, notice_sent_at, approved_at, approved_letter, ai_draft_letter, photo_urls, created_at, resolved_at, resolution_note, fine_start_date, property_id, property:hoa_properties(address, unit_number, owner_name)',
       )
       .eq('id', id)
       .is('deleted_at', null)
@@ -156,8 +159,14 @@ export default async function ViolationDetailPage({
       }
       description={
         <>
-          {address}
-          {v.property?.unit_number ? ` · ${v.property.unit_number}` : ''}
+          {v.property && v.property_id ? (
+            <Link href={propertyHref(asPropertyId(v.property_id))} className="text-foreground-secondary hover:text-primary hover:underline">
+              {address}
+              {v.property.unit_number ? ` · ${v.property.unit_number}` : ''}
+            </Link>
+          ) : (
+            address
+          )}
           {v.ccr_section ? ` · ${v.ccr_section}` : ''}
         </>
       }
@@ -178,6 +187,17 @@ export default async function ViolationDetailPage({
                   value={
                     v.severity ? (
                       <StatusBadge status={v.severity} tones={VIOLATION_SEVERITY.tones} labels={VIOLATION_SEVERITY.labels} />
+                    ) : null
+                  }
+                />
+                <KeyValue
+                  label="Property"
+                  value={
+                    v.property && v.property_id ? (
+                      <Link href={propertyHref(asPropertyId(v.property_id))} className="text-primary hover:underline">
+                        {address}
+                        {v.property.unit_number ? ` · ${v.property.unit_number}` : ''}
+                      </Link>
                     ) : null
                   }
                 />

@@ -1,10 +1,33 @@
 import Link from 'next/link'
-import { Page } from '@homeowner-portal/ui'
-import { PropertyForm } from './PropertyForm'
+import { LoadFailed, Page } from '@homeowner-portal/ui'
+import { getCurrentOrg } from '@/lib/orgs'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { PropertyForm, type AssociationChoice } from './PropertyForm'
 
 export const metadata = { title: 'Add property' }
 
-export default function NewPropertyPage() {
+export default async function NewPropertyPage() {
+  // A new property also gets its unit record, which belongs to one
+  // community. Only an org with several asks the board to pick.
+  const org = await getCurrentOrg()
+  let associations: AssociationChoice[] = []
+  let loadFailed = false
+  if (org) {
+    const supabase = await getSupabaseServerClient()
+    const { data, error } = await supabase
+      .from('associations')
+      .select('id, name')
+      .eq('organization_id', org.id)
+      .order('name', { ascending: true })
+    if (error) {
+      // Without the list an org with several communities could not pick
+      // one, and the save would be refused. Say so instead.
+      console.error('NewPropertyPage: associations read failed', { code: error.code })
+      loadFailed = true
+    }
+    associations = (data ?? []) as AssociationChoice[]
+  }
+
   return (
     <Page
       width="narrow"
@@ -13,7 +36,11 @@ export default function NewPropertyPage() {
       breadcrumbs={[{ label: 'Properties', href: '/properties' }, { label: 'Add property' }]}
       linkAs={Link}
     >
-      <PropertyForm />
+      {loadFailed ? (
+        <LoadFailed what="your communities" />
+      ) : (
+        <PropertyForm associations={associations.length > 1 ? associations : []} />
+      )}
     </Page>
   )
 }

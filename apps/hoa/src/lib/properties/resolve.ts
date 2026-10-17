@@ -56,9 +56,32 @@ import { normalizeAddress } from './normalize-address'
 
 type Db = SupabaseClient<Database>
 
+// ─── Typed ids ──────────────────────────────────────────────────────
+//
+// A lot has two primary keys (hoa_properties.id and units.id), both bare
+// uuids, so passing one where the other belongs type-checks and 404s at
+// runtime (07160ec). The brands make that a compile error. Mint them only
+// at a boundary that KNOWS which table the id came from.
+
+declare const propertyIdBrand: unique symbol
+declare const unitIdBrand: unique symbol
+
+/** An `hoa_properties.id`. What `/properties/[id]` is canonically keyed by. */
+export type PropertyId = string & { readonly [propertyIdBrand]: 'PropertyId' }
+/** A `units.id`. What dues, mail, tickets, ARC and collections are keyed by. */
+export type UnitId = string & { readonly [unitIdBrand]: 'UnitId' }
+
+export function asPropertyId(id: string): PropertyId {
+  return id as PropertyId
+}
+
+export function asUnitId(id: string): UnitId {
+  return id as UnitId
+}
+
 export interface PropertyRef {
-  unitId: string
-  legacyPropertyId: string | null
+  unitId: UnitId
+  legacyPropertyId: PropertyId | null
   associationId: string | null
   address: string
   unitNumber: string | null
@@ -102,8 +125,8 @@ export function escapeLikePattern(value: string): string {
 
 function toRef(row: UnitRow): PropertyRef {
   return {
-    unitId: row.id,
-    legacyPropertyId: row.legacy_hoa_property_id,
+    unitId: asUnitId(row.id),
+    legacyPropertyId: row.legacy_hoa_property_id ? asPropertyId(row.legacy_hoa_property_id) : null,
     associationId: row.association_id,
     address: row.address_line1,
     unitNumber: row.unit_number,
@@ -311,4 +334,170 @@ export async function resolvePropertyByAddress(
   return ((data ?? []) as UnitRow[])
     .filter((row) => normalizeAddress(row.address_line1) === needle)
     .map(toRef)
+}
+
+// ─── The bridge: property ↔ unit ───────────────────────────────────
+//
+// ONE rule for which unit a property means, shared with the list view
+// (hoa_property_list_v, 0051: `ORDER BY created_at NULLS LAST, id LIMIT 1`).
+//
+// The bridge (units.legacy_hoa_property_id) is nullable and NOT unique:
+// 0005 created one unit per association for multi-association orgs, so a
+// property can have several. That is not an error to crash on (the detail
+// page's old `.maybeSingle()` turned it into "couldn't load" for dues,
+// mail and collections), and not something to hide either: the resolution
+// carries `unitCount` so the page can say "N units linked".
+//
+// Every function here THROWS on a query failure. A failed read must not be
+// indistinguishable from "not linked".
+
+export interface BridgedUnitRow {
+  id: string
+  legacy_hoa_property_id: string | null
+  created_at: string | null
+}
+
+/**
+ * The canonical unit among several bridged to one property: earliest
+ * `created_at` (nulls last), ties broken by id. Pure; exported for tests.
+ */
+export function pickCanonicalUnit<T extends { id: string; created_at: string | null }>(
+  rows: readonly T[],
+): T | null {
+  if (rows.length === 0) return null
+  return [...rows].sort((a, b) => {
+    if (a.created_at !== b.created_at) {
+      if (a.created_at === null) return 1
+      if (b.created_at === null) return -1
+      const ta = Date.parse(a.created_at)
+      const tb = Date.parse(b.created_at)
+      if (ta !== tb) return ta < tb ? -1 : 1
+    }
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+  })[0]
+}
+
+export interface UnitResolution {
+  /** The canonical unit, or null when the property has none. */
+  unitId: UnitId | null
+  /** Every bridged unit (the lot, for writes that must reach all of them). */
+  unitIds: UnitId[]
+  /** How many units are bridged to the property. */
+  unitCount: number
+  /** More than one unit is bridged; the page should say so. */
+  duplicate: boolean
+}
+
+/** Which unit a property means. 0 → null, 1 → it, many → the canonical one plus a flag. */
+export async function resolveUnitForProperty(
+  db: Db,
+  orgId: string,
+  propertyId: PropertyId,
+): Promise<UnitResolution> {
+  const { data, error } = await db
+    .from('units')
+    .select('id, legacy_hoa_property_id, created_at')
+    .eq('organization_id', orgId)
+    .eq('legacy_hoa_property_id', propertyId)
+
+  if (error) {
+    console.error(`resolveUnitForProperty: query on "units" failed (org ${orgId}): ${error.message}`)
+    throw error
+  }
+
+  const rows = (data ?? []) as BridgedUnitRow[]
+  const unit = pickCanonicalUnit(rows)
+  return {
+    unitId: unit ? asUnitId(unit.id) : null,
+    unitIds: rows.map((r) => asUnitId(r.id)),
+    unitCount: rows.length,
+    duplicate: rows.length > 1,
+  }
+}
+
+/** Which property a unit belongs to, or null when it is not bridged or not in the org. */
+export async function resolvePropertyForUnit(
+  db: Db,
+  orgId: string,
+  unitId: UnitId,
+): Promise<PropertyId | null> {
+  const { data, error } = await db
+    .from('units')
+    .select('legacy_hoa_property_id')
+    .eq('organization_id', orgId)
+    .eq('id', unitId)
+    .maybeSingle<{ legacy_hoa_property_id: string | null }>()
+
+  if (error) {
+    console.error(`resolvePropertyForUnit: query on "units" failed (org ${orgId}): ${error.message}`)
+    throw error
+  }
+
+  return data?.legacy_hoa_property_id ? asPropertyId(data.legacy_hoa_property_id) : null
+}
+
+/** Chunk size for `.in()` lists, which travel in the GET query string. */
+const IN_CHUNK = 150
+
+/** Bulk unit → property. Units that are not bridged (or not in the org) are absent. */
+export async function propertyIdsForUnits(
+  db: Db,
+  orgId: string,
+  unitIds: readonly string[],
+): Promise<Map<UnitId, PropertyId>> {
+  const out = new Map<UnitId, PropertyId>()
+  const ids = [...new Set(unitIds)]
+  for (let i = 0; i < ids.length; i += IN_CHUNK) {
+    const { data, error } = await db
+      .from('units')
+      .select('id, legacy_hoa_property_id')
+      .eq('organization_id', orgId)
+      .in('id', ids.slice(i, i + IN_CHUNK))
+
+    if (error) {
+      console.error(`propertyIdsForUnits: query on "units" failed (org ${orgId}): ${error.message}`)
+      throw error
+    }
+    for (const row of (data ?? []) as Array<{ id: string; legacy_hoa_property_id: string | null }>) {
+      if (row.legacy_hoa_property_id) out.set(asUnitId(row.id), asPropertyId(row.legacy_hoa_property_id))
+    }
+  }
+  return out
+}
+
+/**
+ * Bulk property → canonical unit (the same rule as resolveUnitForProperty).
+ * Properties with no unit are absent.
+ */
+export async function unitIdsForProperties(
+  db: Db,
+  orgId: string,
+  propertyIds: readonly string[],
+): Promise<Map<PropertyId, UnitId>> {
+  const grouped = new Map<string, BridgedUnitRow[]>()
+  const ids = [...new Set(propertyIds)]
+  for (let i = 0; i < ids.length; i += IN_CHUNK) {
+    const { data, error } = await db
+      .from('units')
+      .select('id, legacy_hoa_property_id, created_at')
+      .eq('organization_id', orgId)
+      .in('legacy_hoa_property_id', ids.slice(i, i + IN_CHUNK))
+
+    if (error) {
+      console.error(`unitIdsForProperties: query on "units" failed (org ${orgId}): ${error.message}`)
+      throw error
+    }
+    for (const row of (data ?? []) as BridgedUnitRow[]) {
+      if (!row.legacy_hoa_property_id) continue
+      const list = grouped.get(row.legacy_hoa_property_id) ?? []
+      list.push(row)
+      grouped.set(row.legacy_hoa_property_id, list)
+    }
+  }
+  const out = new Map<PropertyId, UnitId>()
+  for (const [pid, rows] of grouped) {
+    const unit = pickCanonicalUnit(rows)
+    if (unit) out.set(asPropertyId(pid), asUnitId(unit.id))
+  }
+  return out
 }

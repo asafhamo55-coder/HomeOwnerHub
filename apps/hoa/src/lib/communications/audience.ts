@@ -3,6 +3,7 @@ import type { Database } from '@homeowner-portal/db/types'
 import { createAdminClient } from '@homeowner-portal/db'
 import { todayIn } from '@/lib/association-time'
 import { associationTimeZoneById } from '@/lib/association-time-server'
+import { unitIdsOfDeletedProperties } from '@/lib/properties/lot'
 
 /**
  * Audience resolution — turns a high-level filter ("late on dues") into
@@ -161,6 +162,20 @@ export async function resolveAudience(
   const unitMap = new Map<string, UnitRow>(
     (units ?? []).map((u) => [u.id, u as UnitRow]),
   )
+
+  // A deleted property's unit is not part of the community any more
+  // (units has no deleted_at; lib/properties/lot.ts). Its ownerships were
+  // closed on delete, so without this it would still appear as "Resident
+  // (no contact on file)". A failed check keeps the roster as it was.
+  if (unitMap.size > 0) {
+    try {
+      for (const id of await unitIdsOfDeletedProperties(db, [...unitMap.keys()])) unitMap.delete(id)
+    } catch (err) {
+      console.error('[audience] deleted-lot filter failed', {
+        code: (err as { code?: string } | null)?.code ?? null,
+      })
+    }
+  }
 
   let candidateUnitIds = [...unitMap.keys()]
 

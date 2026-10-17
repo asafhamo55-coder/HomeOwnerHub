@@ -1,17 +1,46 @@
 'use client'
 
-import { useActionState, useRef } from 'react'
+import { useActionState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { Alert, Button, Card, CardContent, CardFooter, Field, Input, Textarea } from '@homeowner-portal/ui'
+import { useRouter } from 'next/navigation'
+import {
+  Alert,
+  Button,
+  Card,
+  CardContent,
+  CardFooter,
+  Field,
+  Input,
+  Select,
+  Textarea,
+  useToast,
+} from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { createProperty, type PropertyActionState } from '@/lib/properties'
 
 const initial: PropertyActionState = {}
 
-export function PropertyForm() {
+export interface AssociationChoice {
+  id: string
+  name: string
+}
+
+/** `associations` is non-empty only when the org has more than one community. */
+export function PropertyForm({ associations = [] }: { associations?: AssociationChoice[] }) {
   const [state, action, pending] = useActionState(createProperty, initial)
   const f = state.fieldErrors ?? {}
   const notesRef = useRef<HTMLTextAreaElement>(null)
+  const router = useRouter()
+  const toast = useToast()
+
+  const createdHref = state.created?.href
+  useEffect(() => {
+    if (!createdHref) return
+    toast({ tone: 'success', message: 'Property added.' })
+    router.push(createdHref)
+    // toast/router are stable for the purpose here; fire once per creation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createdHref])
 
   return (
     <Card>
@@ -27,6 +56,22 @@ export function PropertyForm() {
               disabled={pending}
             />
           </Field>
+
+          {associations.length > 0 ? (
+            <Field
+              label="Community"
+              required
+              hint="Dues and announcements for this property come from this community."
+              error={f.association_id}
+            >
+              <Select
+                name="association_id"
+                placeholder="Choose a community"
+                options={associations.map((a) => ({ value: a.id, label: a.name }))}
+                disabled={pending}
+              />
+            </Field>
+          ) : null}
 
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Unit / Lot #" optional error={f.unit_number}>

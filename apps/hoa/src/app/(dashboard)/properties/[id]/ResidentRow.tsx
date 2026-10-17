@@ -11,6 +11,8 @@ import {
   type PropertyResidentRole,
 } from '@/lib/property-residents'
 import { ResidentActions } from './ResidentActions'
+import { ContactLink } from '@/components/contact/ContactLink'
+import { isPlausibleEmail } from '@/lib/contact-links'
 import { EnterPortalButton } from './EnterPortalButton'
 
 // Inline-editable resident row. Click the pencil → row expands to a
@@ -72,15 +74,8 @@ export function ResidentRow({
               <Badge variant={roleVariant} size="sm">
                 {ROLE_LABEL[resident.role]}
               </Badge>
-              {resident.email ? (
-                <a
-                  href={`mailto:${resident.email}`}
-                  className="hover:text-foreground hover:underline"
-                >
-                  {resident.email}
-                </a>
-              ) : null}
-              {resident.phone ? <span>{resident.phone}</span> : null}
+              {resident.email ? <ContactLink kind="email" value={resident.email} /> : null}
+              {resident.phone ? <ContactLink kind="phone" value={resident.phone} /> : null}
               {resident.moved_in_at ? (
                 <span>moved in {formatDay(resident.moved_in_at)}</span>
               ) : null}
@@ -142,6 +137,7 @@ function ResidentEditForm({
   const toast = useToast()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{ fullName?: string; email?: string }>({})
 
   const [fullName, setFullName] = useState(resident.full_name)
   const [email, setEmail] = useState(resident.email ?? '')
@@ -154,10 +150,13 @@ function ResidentEditForm({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
-    if (fullName.trim().length === 0) {
-      setError('Name is required.')
-      return
-    }
+    // Checked here, under the field, before anything is sent: a typo'd
+    // address used to save and then silently never receive a notice.
+    const fe: { fullName?: string; email?: string } = {}
+    if (fullName.trim().length === 0) fe.fullName = 'Enter a name.'
+    if (email.trim() && !isPlausibleEmail(email)) fe.email = 'Enter a valid email, like name@example.com.'
+    setFieldErrors(fe)
+    if (fe.fullName || fe.email) return
 
     startTransition(async () => {
       const result = await updateResident(resident.id, {
@@ -180,19 +179,21 @@ function ResidentEditForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-border bg-subtle/40 p-4">
+    <form onSubmit={handleSubmit} noValidate aria-busy={pending} className="space-y-4 rounded-lg border border-border bg-subtle/40 p-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Full name">
+        <Field label="Full name" required error={fieldErrors.fullName}>
           <Input
             value={fullName}
             onChange={(e) => setFullName(e.currentTarget.value)}
             required
+            disabled={pending}
           />
         </Field>
         <Field label="Role">
           <Select
             value={role}
             onValueChange={(v) => setRole(v as PropertyResidentRole)}
+            disabled={pending}
           >
             {ROLES.map((r) => (
               <option key={r.value} value={r.value}>
@@ -201,20 +202,22 @@ function ResidentEditForm({
             ))}
           </Select>
         </Field>
-        <Field label="Email">
+        <Field label="Email" optional error={fieldErrors.email}>
           <Input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.currentTarget.value)}
             placeholder="name@example.com"
+            disabled={pending}
           />
         </Field>
-        <Field label="Phone">
+        <Field label="Phone" optional>
           <Input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.currentTarget.value)}
             placeholder="(555) 555-5555"
+            disabled={pending}
           />
         </Field>
         <Field label="Moved in">
@@ -222,6 +225,7 @@ function ResidentEditForm({
             type="date"
             value={movedInAt}
             onChange={(e) => setMovedInAt(e.currentTarget.value)}
+            disabled={pending}
           />
         </Field>
         <div className="flex items-end pb-1.5">
@@ -229,6 +233,7 @@ function ResidentEditForm({
             label="Primary resident for this property"
             checked={isPrimary}
             onChange={(e) => setIsPrimary(e.currentTarget.checked)}
+            disabled={pending}
           />
         </div>
       </div>
@@ -240,6 +245,7 @@ function ResidentEditForm({
           rows={2}
           maxLength={2000}
           placeholder="Optional — anything the board should know."
+          disabled={pending}
         />
       </Field>
 

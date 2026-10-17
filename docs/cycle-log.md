@@ -144,3 +144,12 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
   - Live at 15:55 on /api/health. /login 200, /dues 307, /api/search 401.
 - **Push quirk:** a prod push made right after pushing claude/quality-oracle fails once and works on retry. Retry once before treating it as a failure.
 - **Cycle 10 dispatched:** BL-059 (edit bill fields before approving, and the ?type=bill filter), BL-062 plus a sweep (no owner email or phone in AI prompts), BL-051 (board packet as of month-end, and the TZ leak T-05).
+
+## 2026-10-17 (17:03) â€” deploy 69361f7
+
+- **Live:** BL-051 (the board packet is as of month end), BL-062 (no owner email or phone sent to the AI; inbox drafts redacted; W21 sends no W-9 identity), BL-059 (bill edits before approval; the sign-in redirect keeps the query), and the auth-callback open-redirect fix. Also the release-notes pipeline (.github/workflows/release-notes.yml) and the first two release notes.
+- **Gates:** unit 3886/3886, integration 348/348, build 4/4, typecheck:scripts.
+- **Smoke:** /login 200, /dues 307, /api/search 401.
+- **Release-note email:** the workflow fired on deployment_status. The hoa run was queued; the pm/eviction runs were skipped. It can't send until the owner adds the GitHub secrets.
+- **Merged after the deploy, gating now:** properties P0 (653df38). Every create, update and delete writes both records, a unit-id URL redirects to the property, there's a ratchet for direct bridge reads, the import writes both sides, and the dues dead-end is fixed.
+- **In flight:** properties P1 quick wins, BL-071 version indicator, BL-070 guide phase 1 day 1.

@@ -164,6 +164,27 @@ const SHOTS: Shot[] = [
   { name: 'books-not-open-board-periods', path: '/accounting/periods', auth: true, org: 'noBooksBoardOrgId' },
   { name: 'inbox', path: '/inbox', auth: true },
   { name: 'properties', path: '/properties', auth: true },
+  // P1 quick wins. Query strings survive the dev auto-login now (the
+  // middleware keeps them in `redirect`), so filtered and tabbed views shoot.
+  { name: 'properties-attention', path: '/properties?filter=attention', auth: true, themes: LIGHT },
+  { name: 'properties-search', path: '/properties?q=Demo%20Court', auth: true },
+  { name: 'properties-search-empty', path: '/properties?filter=attention&q=Mock', auth: true, themes: LIGHT },
+  { name: 'properties-new', path: '/properties/new', auth: true, themes: LIGHT },
+  { name: 'properties-edit', path: '/properties/:propertyId/edit', auth: true, themes: LIGHT },
+  ...(['overview', 'residents', 'mail', 'violations', 'dues', 'collections', 'history'] as const).map(
+    (tab): Shot => ({
+      name: `properties-detail-${tab}`,
+      path: `/properties/:propertyId?tab=${tab}`,
+      auth: true,
+      themes: tab === 'overview' ? THEMES : LIGHT,
+    }),
+  ),
+  // The sticky header and tab strip at the scroll position a phone user sees.
+  { name: 'properties-detail-mobile-scrolled', path: '/properties/:propertyId?tab=violations', auth: true, viewport: true, scrollBottom: true, widths: [375], themes: LIGHT },
+  { name: 'properties-out-violations', path: '/violations?property=:propertyId', auth: true, themes: LIGHT },
+  { name: 'properties-out-violations-new', path: '/violations/new?property=:propertyId', auth: true, themes: LIGHT },
+  { name: 'properties-out-dues', path: '/dues?property=:propertyId', auth: true, themes: LIGHT },
+  { name: 'properties-out-leases', path: '/leases?property=:propertyId', auth: true, themes: LIGHT },
   { name: 'meetings', path: '/meetings', auth: true },
   { name: 'meeting-detail', path: '/meetings/:meetingId', auth: true, themes: LIGHT },
   // BL-016 board packet: screen at both widths and themes, plus paper

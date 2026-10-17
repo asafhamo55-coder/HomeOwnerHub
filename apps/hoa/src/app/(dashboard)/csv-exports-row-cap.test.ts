@@ -34,25 +34,66 @@ describe('properties CSV export', () => {
     owner_name: null,
     owner_email: null,
     owner_phone: null,
-    tenure: 'owner_occupied',
+    tenure: i % 7 === 0 ? 'leased' : 'owner_occupied',
     notes: null,
     created_at: null,
     updated_at: null,
+    // Read from the list view now (the same rows the page shows).
+    has_owner: false,
+    has_tenure: true,
+    needs_attention: i % 5 === 0,
+    on_waiting_list: false,
+    severity_rank: 6,
   }))
 
   it('exports every property, not the first 1000', async () => {
-    const fake = cappedFakeDb({ hoa_properties: props })
+    const fake = cappedFakeDb({ hoa_property_list_v: props })
     db = fake.db
     const res = await exportProperties(req('/properties/export'))
     expect(res.status).toBe(200)
     expect(await dataLines(res)).toBe(N)
-    expect(rangesFor(fake.calls, 'hoa_properties').length).toBeGreaterThan(2)
+    expect(rangesFor(fake.calls, 'hoa_property_list_v').length).toBeGreaterThan(2)
   })
 
   it('a failed later page is a 500, never a short file', async () => {
-    db = cappedFakeDb({ hoa_properties: props }, { failAt: { table: 'hoa_properties', from: 1000 } }).db
+    db = cappedFakeDb({ hoa_property_list_v: props }, { failAt: { table: 'hoa_property_list_v', from: 1000 } }).db
     const res = await exportProperties(req('/properties/export'))
     expect(res.status).toBe(500)
+  })
+})
+
+describe('properties CSV export follows the view', () => {
+  const props = Array.from({ length: 30 }, (_, i) => ({
+    id: id('p', i),
+    org_id: 'org-1',
+    address: `${[1200, 128, 13][i % 3]} Oak St ${i}`,
+    tenure: i % 2 === 0 ? 'leased' : 'owner_occupied',
+    has_owner: true,
+    has_tenure: true,
+    needs_attention: i % 3 === 0,
+    on_waiting_list: i === 4,
+    severity_rank: 6,
+  }))
+
+  it('?filter=attention exports only the homes needing attention', async () => {
+    db = cappedFakeDb({ hoa_property_list_v: props }).db
+    const res = await exportProperties(req('/properties/export?filter=attention'))
+    expect(await dataLines(res)).toBe(10)
+    expect(res.headers.get('content-disposition')).toContain('properties-attention-')
+  })
+
+  it('?filter=waiting exports the queue, and the old ?tenure= spelling still works', async () => {
+    db = cappedFakeDb({ hoa_property_list_v: props }).db
+    expect(await dataLines(await exportProperties(req('/properties/export?filter=waiting')))).toBe(1)
+    db = cappedFakeDb({ hoa_property_list_v: props }).db
+    expect(await dataLines(await exportProperties(req('/properties/export?tenure=leased')))).toBe(15)
+  })
+
+  it('rows come out in natural address order', async () => {
+    db = cappedFakeDb({ hoa_property_list_v: props }).db
+    const lines = (await (await exportProperties(req('/properties/export'))).text()).split('\r\n').filter(Boolean).slice(1)
+    const numbers = lines.map((l) => Number(l.split(' ')[0].replace(/\D/g, '')))
+    expect(numbers).toEqual([...numbers].sort((a, b) => a - b))
   })
 })
 

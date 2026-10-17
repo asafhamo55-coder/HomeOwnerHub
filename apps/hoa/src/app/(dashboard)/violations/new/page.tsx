@@ -7,6 +7,7 @@ import { loadOrFail } from '@/lib/load-or-fail'
 import { selectStateRules } from '@homeowner-portal/workflows/W3-state-rules'
 import { StateRulesPanel } from '@/components/violations/StateRulesPanel'
 import { Wizard } from './Wizard'
+import { parsePropertyParam } from '@/lib/property-scope'
 
 export const metadata = { title: 'New violation' }
 
@@ -18,6 +19,8 @@ interface PropertyOption {
 
 interface SearchParams {
   draft?: string
+  /** A property page's "New violation here". */
+  property?: string
 }
 
 export default async function NewViolationPage({
@@ -28,13 +31,15 @@ export default async function NewViolationPage({
   const supabase = await getSupabaseServerClient()
   const org = await getCurrentOrg()
   if (!org) return <NoOrgSelected />
-  const { draft: draftId } = await searchParams
+  const { draft: draftId, property: propertyParam } = await searchParams
 
   const [propsRes, ccrRes, initialDraft, assocRes] = await Promise.all([
     supabase
       .from('hoa_properties')
       .select('id, address, unit_number')
       .eq('org_id', org.id)
+      // Archived homes can't take a new violation.
+      .is('deleted_at', null)
       .order('address', { ascending: true }),
     supabase
       .from('hoa_documents')
@@ -64,6 +69,8 @@ export default async function NewViolationPage({
   // wizard would tell the board to add one).
   const propertiesFailed = Boolean(propsRes.error)
   const properties = (propsRes.data ?? []) as PropertyOption[]
+  const wanted = parsePropertyParam(propertyParam)
+  const initialPropertyId = wanted && properties.some((p) => p.id === wanted) ? wanted : null
   const hasParsedCCR = (ccrRes.count ?? 0) > 0
 
   // Only resume drafts of the right kind. If a foreign draft id is in the
@@ -113,6 +120,7 @@ export default async function NewViolationPage({
               properties={properties}
               hasParsedCCR={hasParsedCCR}
               initialDraft={usableDraft}
+              initialPropertyId={initialPropertyId}
             />
           </CardContent>
         </Card>

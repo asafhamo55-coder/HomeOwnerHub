@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { Database } from '@homeowner-portal/db/types'
+import { safeReturnPath } from '@/lib/auth-redirect'
 
 // Dev-only auto-login. Gated by DEV_AUTOLOGIN=1; returns 404 otherwise so
 // the route is invisible in prod. Uses the service-role key to mint a
@@ -53,6 +54,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse('dev-login failed', { status: 500 })
   }
 
-  const next = new URL(request.url).searchParams.get('redirect') ?? '/'
+  // Same-origin paths only, query kept (middleware forwards it).
+  const next = safeReturnPath(new URL(request.url).searchParams.get('redirect'))
   return NextResponse.redirect(new URL(next, request.url))
 }

@@ -29,6 +29,10 @@ import { MarkPaidButton } from './MarkPaidButton'
 import { MaterializeButton } from './MaterializeButton'
 import { DeleteAssessmentButton } from './DeleteAssessmentButton'
 import { WhoOwesPanel } from './WhoOwesPanel'
+import { asPropertyId, asUnitId, resolveUnitForProperty } from '@/lib/properties/resolve'
+import { propertyHref } from '@/lib/properties/href'
+import { loadPropertyScope } from '@/lib/property-scope'
+import { PropertyScopeBanner } from '@/components/PropertyScopeBanner'
 
 export const metadata = { title: 'Dues' }
 export const dynamic = 'force-dynamic'
@@ -50,6 +54,7 @@ interface AssessmentRow {
     id: string
     unit_number: string | null
     address_line1: string | null
+    /** The hoa_properties row this unit is bridged to, for the address link. */
   } | null
   payments: { amount: number }[]
 }
@@ -57,7 +62,7 @@ interface AssessmentRow {
 export default async function DuesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>
+  searchParams: Promise<{ page?: string; property?: string }>
 }) {
   // BL-046: "none yet" gets a working next step (create it inline, or —
   // for a board member — find an admin); a failed read is LoadFailed, not
@@ -79,7 +84,8 @@ export default async function DuesPage({
     )
   }
 
-  const page = parsePageParam((await searchParams).page)
+  const sp = await searchParams
+  const page = parsePageParam(sp.page)
   const { from, to } = pageRange(page, PAGE_SIZE)
 
   // Compared as date strings, not Dates: `new Date('2026-08-09') < today`
@@ -90,20 +96,44 @@ export default async function DuesPage({
   const todayIsoStr = todayIso(assoc.timeZone)
 
   const supabase = await getSupabaseServerClient()
-  const [listResult, overdueResult] = await Promise.all([
-    loadOrFail(
-      'dues',
-      supabase
-        .from('assessments')
-        .select(
-          'id, amount, due_date, status, assessment_type, fiscal_period:fiscal_period_id(id, start_date, end_date), unit:unit_id(id, unit_number, address_line1), payments(amount)',
-          { count: 'exact' },
+
+  // Opened from a property page (`?property=`): that home's charges only.
+  // Charges hang off units, so the scope resolves to the units bridged to
+  // the property. A failed unit lookup fails the list — it must never
+  // silently widen to the whole association.
+  const scope = await loadPropertyScope(supabase as unknown as SupabaseClient, sp.property)
+  // Every unit bridged to the home (duplicates included), via the one resolver.
+  const scopeUnits: { ok: boolean } | null = scope
+    ? scope.orgId
+      ? await resolveUnitForProperty(supabase as unknown as SupabaseClient, scope.orgId, asPropertyId(scope.id)).then(
+          (r) => ({ ok: true as const, ids: r.unitIds as string[] }),
+          () => ({ ok: false as const, ids: [] as string[] }),
         )
-        .eq('association_id', assoc.id)
-        .is('deleted_at', null)
-        .order('due_date', { ascending: false })
-        .range(from, to),
-    ),
+      : { ok: true as const, ids: [] as string[] }
+    : null
+  const scopeUnitIds = scopeUnits && 'ids' in scopeUnits ? (scopeUnits as { ids: string[] }).ids : []
+  const pageHref = (p: number) => {
+    const q = new URLSearchParams()
+    if (p > 1) q.set('page', String(p))
+    if (scope) q.set('property', scope.id)
+    const s = q.toString()
+    return s ? `/dues?${s}` : '/dues'
+  }
+
+  let listQuery = supabase
+    .from('assessments')
+    .select(
+      'id, amount, due_date, status, assessment_type, fiscal_period:fiscal_period_id(id, start_date, end_date), unit:unit_id(id, unit_number, address_line1), payments(amount)',
+      { count: 'exact' },
+    )
+    .eq('association_id', assoc.id)
+    .is('deleted_at', null)
+  if (scope) listQuery = listQuery.in('unit_id', scopeUnitIds.length ? scopeUnitIds : ['00000000-0000-0000-0000-000000000000'])
+
+  const [listResult, overdueResult] = await Promise.all([
+    scopeUnits && !scopeUnits.ok
+      ? Promise.resolve({ ok: false } as const)
+      : loadOrFail('dues', listQuery.order('due_date', { ascending: false }).range(from, to)),
     // The headline's own read: the same predicate it always used (not
     // paid, not waived, due before today), paged over EVERY row. Was a
     // single `.range(0, 49_999)`, which PostgREST still capped at 1000
@@ -115,6 +145,7 @@ export default async function DuesPage({
 
   const rows = listResult.ok ? ((listResult.data ?? []) as unknown as AssessmentRow[]) : []
   const total = listResult.ok ? (listResult.count ?? rows.length) : 0
+  const listData = listResult.ok ? listResult : null
 
   // Group by the month each charge is due, newest first, so the page reads
   // as a stack of billing months.
@@ -181,10 +212,34 @@ export default async function DuesPage({
 
       <WhoOwesPanel associationId={assoc.id} timeZone={assoc.timeZone} />
 
+      {scope ? (
+        <PropertyScopeBanner
+          scope={scope}
+          noun="dues"
+          clearHref="/dues"
+          note="the totals above still cover the whole association"
+        />
+      ) : null}
+
       {/* Never the raw error.message — this page used to render it, which is
           exactly what (dashboard)/error.tsx exists to prevent. */}
-      {!listResult.ok ? (
+      {!listData ? (
         <LoadFailed what="dues" />
+      ) : scope && rows.length === 0 ? (
+        <EmptyState
+          icon={<Wallet aria-hidden />}
+          title={scopeUnitIds.length === 0 ? 'This home isn’t linked to a billing unit' : 'No dues billed to this home'}
+          description={
+            scopeUnitIds.length === 0
+              ? 'Dues are billed to units, and no unit is linked to this property yet, so nothing can be billed to it.'
+              : 'No charges have been billed to this home yet.'
+          }
+          action={
+            <Button asChild variant="secondary">
+              <Link href="/dues">Show all dues</Link>
+            </Button>
+          }
+        />
       ) : rows.length === 0 && total === 0 ? (
         <EmptyState
           icon={<Wallet aria-hidden />}
@@ -208,7 +263,7 @@ export default async function DuesPage({
               pageSize={PAGE_SIZE}
               total={total}
               rowCount={rows.length}
-              hrefFor={(p) => (p > 1 ? `/dues?page=${p}` : '/dues')}
+              hrefFor={pageHref}
               linkAs={Link}
               noun="charges"
               className="rounded-xl border border-border bg-surface"
@@ -241,7 +296,17 @@ function MonthTable({ month, rows, today, partial }: { month: string; rows: Asse
       mobilePrimary: true,
       cell: (r) => (
         <span className="block">
-          <span className="block font-medium text-foreground">{r.unit?.address_line1 ?? 'Unknown property'}</span>
+          {r.unit?.id ? (
+            // A unit id: /properties/[id] redirects it to the home's page.
+            <Link
+              href={propertyHref(asUnitId(r.unit.id))}
+              className="block font-medium text-foreground no-underline hover:text-primary hover:underline"
+            >
+              {r.unit.address_line1 ?? 'Unknown property'}
+            </Link>
+          ) : (
+            <span className="block font-medium text-foreground">{r.unit?.address_line1 ?? 'Unknown property'}</span>
+          )}
           {r.unit?.unit_number ? <span className="block text-xs text-muted">Unit {r.unit.unit_number}</span> : null}
         </span>
       ),

@@ -10,6 +10,7 @@ import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { todayIn } from '@/lib/association-time'
 import { fieldErrorsOf } from '@/lib/field-errors'
+import { ensureUnitsForProperties, listBillableUnits } from '@/lib/properties/lot'
 
 type AssessmentInsert = Database['public']['Tables']['assessments']['Insert']
 type PaymentInsert = Database['public']['Tables']['payments']['Insert']
@@ -85,23 +86,39 @@ export async function materializeCurrentPeriodAssessments(input: {
     }
   }
 
+  // Properties added before /properties/new wrote both sides of a lot have
+  // no unit, so dues could never reach them ("Add units before generating
+  // assessments" right after the board added its properties). When the org
+  // has exactly one association there is no guess about where they belong:
+  // give them their unit now. Several associations → leave them, and say so.
+  const orgId = assocRow.organization_id
+  const { count: assocCount } = await supabase
+    .from('associations')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+  if (assocCount === 1) {
+    const ensured = await ensureUnitsForProperties(supabase, orgId, assoc.id)
+    if (!ensured.ok) return { ok: false, error: ensured.error }
+  }
+
   // Find units missing this period's regular assessment. unit_number
   // feeds the memo-code generator; unit_id is the fallback when null.
-  const [{ data: units }, { data: existing }] = await Promise.all([
-    supabase
-      .from('units')
-      .select('id, unit_number')
-      .eq('association_id', assoc.id),
-    supabase
-      .from('assessments')
-      .select('unit_id')
-      .eq('association_id', assoc.id)
-      .eq('fiscal_period_id', period.id)
-      .eq('assessment_type', 'regular'),
-  ])
+  // Units of a deleted property are not billed (lib/properties/lot.ts).
+  let units: Array<{ id: string; unit_number: string | null }>
+  try {
+    units = await listBillableUnits(supabase, orgId, assoc.id)
+  } catch {
+    return { ok: false, error: 'Couldn’t load the properties to bill. Try again.' }
+  }
+  const { data: existing } = await supabase
+    .from('assessments')
+    .select('unit_id')
+    .eq('association_id', assoc.id)
+    .eq('fiscal_period_id', period.id)
+    .eq('assessment_type', 'regular')
 
-  if (!units || units.length === 0) {
-    return { ok: false, error: 'Add units before generating assessments.' }
+  if (units.length === 0) {
+    return { ok: false, error: 'Add properties before generating dues.' }
   }
 
   const alreadyHave = new Set((existing ?? []).map((r) => r.unit_id))

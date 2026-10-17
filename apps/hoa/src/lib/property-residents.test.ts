@@ -31,6 +31,7 @@ vi.mock('next/cache', () => ({ revalidatePath: mockRevalidate }))
 vi.mock('./property-events', () => ({ logPropertyEvent: vi.fn(async () => ({ ok: true, id: 'e1' })) }))
 
 import { addResident, removeResident, updateResident } from './property-residents'
+import { memorySupabase } from './test-utils/memory-supabase'
 
 beforeEach(() => {
   mockGetRole.mockReset()
@@ -212,5 +213,62 @@ describe('addResident authorization', () => {
       addResident({ propertyId: '11111111-1111-4111-8111-111111111111', fullName: 'New Person', role: 'owner' }),
     ).resolves.toMatchObject({ ok: false })
     expect(mockFrom).not.toHaveBeenCalled()
+  })
+})
+
+describe('addResident(role=owner) also writes the ownership', () => {
+  const PROP = '11111111-1111-4111-8111-111111111111'
+  const seed = () => ({
+    hoa_properties: [{ id: PROP, org_id: 'org-1', deleted_at: null }],
+    units: [{ id: 'u1', organization_id: 'org-1', legacy_hoa_property_id: PROP, created_at: null }],
+  })
+  const useDb = (m: ReturnType<typeof memorySupabase>) =>
+    mockFrom.mockImplementation(((t: string) => m.client.from(t)) as never)
+
+  it('creates a current ownership on the lot’s unit', async () => {
+    mockGetRole.mockResolvedValue('board')
+    const m = memorySupabase(seed())
+    useDb(m)
+
+    const r = await addResident({ propertyId: PROP, fullName: 'Owner Two', email: 'two@example.test', role: 'owner' })
+
+    expect(r).toMatchObject({ ok: true, data: { ownership: 'created' } })
+    expect(m.rows('property_residents')).toHaveLength(1)
+    expect(m.rows('ownerships')[0]).toMatchObject({ organization_id: 'org-1', unit_id: 'u1', owner_email: 'two@example.test' })
+  })
+
+  it('removes the resident row again when the ownership write fails', async () => {
+    mockGetRole.mockResolvedValue('board')
+    const m = memorySupabase(seed(), {
+      failOn: (c) => (c.table === 'ownerships' && c.op === 'insert' ? { code: 'XX000', message: 'boom' } : null),
+    })
+    useDb(m)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const r = await addResident({ propertyId: PROP, fullName: 'Owner Two', email: 'two@example.test', role: 'owner' })
+
+    expect(r.ok).toBe(false)
+    expect(m.rows('property_residents')).toHaveLength(0)
+    expect(m.rows('ownerships')).toHaveLength(0)
+  })
+
+  it('a tenant writes no ownership', async () => {
+    mockGetRole.mockResolvedValue('board')
+    const m = memorySupabase(seed())
+    useDb(m)
+
+    const r = await addResident({ propertyId: PROP, fullName: 'Tenant', role: 'tenant' })
+    expect(r).toMatchObject({ ok: true, data: { ownership: null } })
+    expect(m.rows('ownerships')).toHaveLength(0)
+  })
+
+  it('refuses a property outside the selected org', async () => {
+    mockGetRole.mockResolvedValue('board')
+    const m = memorySupabase({ hoa_properties: [{ id: PROP, org_id: 'org-2', deleted_at: null }] })
+    useDb(m)
+
+    const r = await addResident({ propertyId: PROP, fullName: 'Owner', role: 'owner' })
+    expect(r).toEqual({ ok: false, error: 'Property not found.' })
+    expect(m.rows('property_residents')).toHaveLength(0)
   })
 })

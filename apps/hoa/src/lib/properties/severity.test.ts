@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   emptyListMessage,
+  effectiveSeverityRank,
+  missingDataLabel,
   reasonPills,
   severityDotClass,
   severityLabel,
@@ -84,24 +86,49 @@ describe('reasonPills', () => {
     expect(pills).toContainEqual({ text: '1 violation', tone: 'amber' })
   })
 
-  it('reports unread mail as amber', () => {
+  it('reports mail awaiting a reply as amber — the threads are not necessarily unread', () => {
     const pills = reasonPills({ ...clean, threadsNeedingReply: 3 })
-    expect(pills).toContainEqual({ text: '3 unread', tone: 'amber' })
+    expect(pills).toContainEqual({ text: '3 awaiting reply', tone: 'amber' })
   })
 
-  it('reports a data gap as slate', () => {
-    const pills = reasonPills({ ...clean, hasUnitLink: false })
-    expect(pills).toContainEqual({ text: 'Missing data', tone: 'slate' })
+  it('does not flag a missing unit link — the board cannot fix it', () => {
+    expect(reasonPills({ ...clean, hasUnitLink: false })).toEqual([])
+  })
+
+  it('names the missing field instead of "Missing data"', () => {
+    expect(reasonPills({ ...clean, hasOwner: false })).toContainEqual({ text: 'No owner', tone: 'slate' })
+    expect(reasonPills({ ...clean, hasTenure: false })).toContainEqual({ text: 'No tenure', tone: 'slate' })
   })
 
   it('collapses several data gaps into one pill', () => {
     const pills = reasonPills({ ...clean, hasOwner: false, hasTenure: false, hasUnitLink: false })
-    expect(pills.filter((p) => p.text === 'Missing data')).toHaveLength(1)
+    expect(pills.filter((p) => p.tone === 'slate')).toEqual([{ text: 'No owner or tenure', tone: 'slate' }])
   })
 
   it('does not emit a balance pill — balance renders in its own column', () => {
     const pills = reasonPills({ ...clean, balance: 1340, daysOverdue: 92 })
     expect(pills.every((p) => !/\$/.test(p.text))).toBe(true)
+  })
+})
+
+const noUnitLink: SeveritySource = { ...clean, hasUnitLink: false }
+
+describe('missingDataLabel', () => {
+  it('is null for a complete record', () => {
+    expect(missingDataLabel(clean)).toBeNull()
+    expect(missingDataLabel(noUnitLink)).toBeNull()
+  })
+})
+
+describe('effectiveSeverityRank', () => {
+  it('drops rank 5 to 6 when only the unit link is missing', () => {
+    expect(effectiveSeverityRank(5, noUnitLink)).toBe(6)
+  })
+  it('keeps rank 5 when the owner or tenure is missing', () => {
+    expect(effectiveSeverityRank(5, { ...clean, hasOwner: false })).toBe(5)
+  })
+  it('never touches the work ranks', () => {
+    for (const r of [1, 2, 3, 4, 6]) expect(effectiveSeverityRank(r, noUnitLink)).toBe(r)
   })
 })
 
