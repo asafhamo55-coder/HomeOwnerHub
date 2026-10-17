@@ -1,5 +1,6 @@
 import { createAdminClient, postJournalEntry } from '@homeowner-portal/db'
 import { inngest } from './client'
+import { DEFAULT_ASSOCIATION_TIME_ZONE, todayIn } from './association-time'
 
 /**
  * Daily at 1am ET: scan recurring_journal_entries where next_run_date
@@ -76,7 +77,9 @@ export async function runRecurringJes(
   db: ReturnType<typeof createAdminClient>,
   step: RecurringJesStep,
   logger: RecurringJesLogger,
-  today: string = new Date().toISOString().slice(0, 10),
+  // The Eastern day (BL-043), not the UTC day. Per-association days are
+  // a follow-up: this scan uses one `today` for every rule.
+  today: string = todayIn(DEFAULT_ASSOCIATION_TIME_ZONE),
 ): Promise<RecurringJesResult> {
   const rules = (await step.run('load-rules', async () => {
     const { data, error } = await db

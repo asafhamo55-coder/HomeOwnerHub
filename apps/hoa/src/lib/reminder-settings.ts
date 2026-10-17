@@ -32,6 +32,7 @@ import {
   type PlanSkips,
 } from '@homeowner-portal/jobs/dues-reminders'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
+import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone } from '@/lib/association-time'
 import { getCurrentOrg } from '@/lib/orgs'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { paySettingsSecret } from '@/lib/pay-by-zelle'
@@ -74,7 +75,13 @@ export type DryRunResult =
     }
   | { ok: false; error: string; fieldErrors?: Record<string, string> }
 
-type AssocRow = { id: string; name: string; organization_id: string; compliance_settings: unknown }
+type AssocRow = {
+  id: string
+  name: string
+  organization_id: string
+  compliance_settings: unknown
+  state?: string | null
+}
 
 async function loadPrimaryAssociation(): Promise<{ ok: true; row: AssocRow | null } | { ok: false }> {
   const org = await getCurrentOrg()
@@ -84,7 +91,7 @@ async function loadPrimaryAssociation(): Promise<{ ok: true; row: AssocRow | nul
     'reminder settings association',
     supabase
       .from('associations')
-      .select('id, name, organization_id, compliance_settings')
+      .select(`id, name, organization_id, compliance_settings, ${ASSOCIATION_ZONE_COLUMNS}`)
       .eq('organization_id', org.id)
       .order('name', { ascending: true })
       .limit(1),
@@ -193,7 +200,8 @@ export async function previewReminderRun(input: { offsets: number[] }): Promise<
   if (!assoc.ok) return { ok: false, error: 'Couldn’t load your association. Try again.' }
   if (!assoc.row) return { ok: false, error: 'No association is set up for this organization yet.' }
 
-  const runDate = nextRunDate(new Date())
+  // The association's day of the next 9am-Eastern run (BL-043).
+  const runDate = nextRunDate(new Date(), associationTimeZone(assoc.row))
   try {
     const supabase = await getSupabaseServerClient()
     const plan = await planForAssociation(supabaseReminderStore(supabase), {

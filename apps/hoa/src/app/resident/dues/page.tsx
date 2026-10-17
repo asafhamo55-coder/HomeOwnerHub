@@ -90,6 +90,7 @@ export default async function ResidentDuesPage() {
               <ChargeRow
                 key={charge.id}
                 charge={charge}
+                today={dues.today}
                 unitLabel={units.length > 1 ? unitLabel(units, charge.unitId) : null}
               />
             ))}
@@ -140,8 +141,16 @@ function unitLabel(units: ResidentUnit[], unitId: string): string | null {
   return unit.unit_number ?? unit.address ?? null
 }
 
-function ChargeRow({ charge, unitLabel }: { charge: ResidentCharge; unitLabel: string | null }) {
-  const dueText = chargeDueText(charge)
+function ChargeRow({
+  charge,
+  today,
+  unitLabel,
+}: {
+  charge: ResidentCharge
+  today: string
+  unitLabel: string | null
+}) {
+  const dueText = chargeDueText(charge, today)
 
   return (
     <TappableRow

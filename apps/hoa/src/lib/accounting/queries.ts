@@ -2,6 +2,7 @@ import type { Database } from '@homeowner-portal/db/types'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { chunk, readAll } from '@/lib/supabase/read-all'
+import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone } from '@/lib/association-time'
 
 /**
  * Every read below throws on a query error instead of resolving to `[]` /
@@ -1225,6 +1226,11 @@ export interface AccountingContext {
   associationName: string
   /** Open or most recent period; null when nothing has been seeded yet. */
   currentPeriod: FiscalPeriod | null
+  /**
+   * The association's IANA zone (BL-043): what "today" means on every
+   * accounting screen. Derived from its state until a timezone column exists.
+   */
+  timeZone: string
 }
 
 /**
@@ -1244,7 +1250,7 @@ export async function getAccountingContext(): Promise<AccountingContext | null> 
 
   const { data: assocRow, error: assocRowErr } = await supabase
     .from('associations')
-    .select('organization_id')
+    .select(`organization_id, ${ASSOCIATION_ZONE_COLUMNS}`)
     .eq('id', assoc.id)
     .maybeSingle()
   if (assocRowErr) throw queryFailed(assocRowErr)
@@ -1265,6 +1271,7 @@ export async function getAccountingContext(): Promise<AccountingContext | null> 
     associationId: assoc.id,
     associationName: assoc.name,
     currentPeriod: period,
+    timeZone: associationTimeZone(assocRow),
   }
 }
 

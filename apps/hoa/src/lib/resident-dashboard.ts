@@ -26,6 +26,14 @@ import { loadMyTickets, type TicketRow } from '@/lib/resident-tickets'
 import { loadMyArcRequests, type ArcRequestRow } from '@/lib/resident-submissions'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { buildLedger, loadLedgerRows, type Ledger } from '@/lib/resident-ledger'
+import { todayIn } from '@/lib/association-time'
+import {
+  emptyResidentDues,
+  residentTimeZone,
+  summarizeResidentDues,
+  type ResidentAssessmentRow,
+  type ResidentDues,
+} from '@/lib/resident-dues'
 
 // Violation statuses that mean "closed" — anything else is still open
 // against the resident. Excluding terminal states (rather than
@@ -45,38 +53,7 @@ export interface OpenViolationRow {
   created_at: string | null
 }
 
-/** One outstanding charge on a resident's account, net of partial payments. */
-export interface ResidentCharge {
-  /** Assessment id. */
-  id: string
-  /** Owning unit id, so a multi-unit resident can tell charges apart. */
-  unitId: string
-  /** e.g. "regular", "special", "late_fee", "fine" — humanized in the UI. */
-  assessmentType: string
-  /** ISO yyyy-mm-dd. */
-  dueDate: string
-  /** Remaining owed on this charge, net of any partial payment. */
-  amount: number
-  /** Already past its due date as of today. */
-  pastDue: boolean
-  /** The charge's full amount before any partial payment (what W18 matches against). */
-  fullAmount: number
-  /** assessments.memo_code as stored; the Pay screen validates it before showing it. */
-  memoCode: string | null
-}
-
-export interface ResidentDues {
-  /** Total still owed across every owned unit (net of partial payments). */
-  balance: number
-  /** Number of unpaid/partially-paid assessments. */
-  openCount: number
-  /** How many of those are already past their due date. */
-  pastDueCount: number
-  /** Earliest upcoming/overdue due date, ISO yyyy-mm-dd, or null. */
-  nextDueDate: string | null
-  /** Every outstanding charge, most urgent first (past-due, oldest first). */
-  charges: ResidentCharge[]
-}
+export type { ResidentCharge, ResidentDues } from '@/lib/resident-dues'
 
 export interface ResidentDashboard {
   /** First name for the greeting; falls back to the email local-part. */
@@ -101,14 +78,6 @@ export interface ResidentDashboard {
 
 type Supabase = SupabaseClient<Database>
 
-const EMPTY_DUES: ResidentDues = {
-  balance: 0,
-  openCount: 0,
-  pastDueCount: 0,
-  nextDueDate: null,
-  charges: [],
-}
-
 export async function getResidentDashboard(): Promise<ResidentDashboard> {
   const actor = await getResidentActor()
   const supabase = actor.client
@@ -120,11 +89,12 @@ export async function getResidentDashboard(): Promise<ResidentDashboard> {
   const units = await getResidentUnits()
 
   const unitIds = units.map((u) => u.unit_id)
+  const today = todayIn(residentTimeZone(units))
 
   const [firstName, openViolations, dues, tickets, arc, recentAnnouncements] = await Promise.all([
     resolveFirstName(supabase, actorUser),
     getOpenViolations(supabase, unitIds, actor.orgId),
-    getDues(supabase, unitIds, actor.orgId),
+    getDues(supabase, unitIds, actor.orgId, today),
     loadMyTickets(),
     loadMyArcRequests(),
     getRecentAnnouncements(supabase, org?.id ?? null, {
@@ -144,7 +114,7 @@ export async function getResidentDashboard(): Promise<ResidentDashboard> {
     orgName: org?.name ?? null,
     recentAnnouncements,
     openViolations: openViolations ?? [],
-    dues: dues ?? EMPTY_DUES,
+    dues: dues ?? emptyResidentDues(today),
     openTickets: tickets.ok
       ? tickets.data.filter((t) => t.status === 'open' || t.status === 'in_progress')
       : [],
@@ -170,8 +140,9 @@ export async function getResidentDues(): Promise<{
 }> {
   const actor = await getResidentActor()
   const units = await getResidentUnits()
-  const dues = await getDues(actor.client, units.map((u) => u.unit_id), actor.orgId)
-  return { units, dues: dues ?? EMPTY_DUES, failed: dues === null }
+  const today = todayIn(residentTimeZone(units))
+  const dues = await getDues(actor.client, units.map((u) => u.unit_id), actor.orgId, today)
+  return { units, dues: dues ?? emptyResidentDues(today), failed: dues === null }
 }
 
 /**
@@ -188,7 +159,11 @@ export async function getResidentLedger(): Promise<{
   const units = await getResidentUnits()
   const rows = await loadLedgerRows(actor.client, units.map((u) => u.unit_id), actor.orgId)
   if (!rows.ok) return { units, ledger: null, truncated: false }
-  return { units, ledger: buildLedger(rows.assessments, rows.payments), truncated: rows.truncated }
+  return {
+    units,
+    ledger: buildLedger(rows.assessments, rows.payments, residentTimeZone(units)),
+    truncated: rows.truncated,
+  }
 }
 
 /** Name and email for the printed statement's "Prepared for" line. */
@@ -272,8 +247,10 @@ async function getDues(
   supabase: Supabase,
   unitIds: string[],
   orgId: string | null,
+  /** The association's today (BL-043) — not the UTC day. */
+  today: string,
 ): Promise<ResidentDues | null> {
-  if (unitIds.length === 0) return EMPTY_DUES
+  if (unitIds.length === 0) return emptyResidentDues(today)
 
   let assessmentQuery = supabase
     .from('assessments')
@@ -286,16 +263,8 @@ async function getDues(
   if (!assessmentResult.ok) return null
   const rows = assessmentResult.data
 
-  const assessments = (rows ?? []) as Array<{
-    id: string
-    unit_id: string
-    amount: number
-    due_date: string
-    status: string
-    assessment_type: string
-    memo_code: string | null
-  }>
-  if (assessments.length === 0) return EMPTY_DUES
+  const assessments = (rows ?? []) as ResidentAssessmentRow[]
+  if (assessments.length === 0) return emptyResidentDues(today)
 
   // Without payments every partial charge would read as owed in full.
   let paymentQuery = supabase
@@ -316,41 +285,7 @@ async function getDues(
     paidByAssessment.set(p.assessment_id, (paidByAssessment.get(p.assessment_id) ?? 0) + Number(p.amount))
   }
 
-  const today = new Date().toISOString().slice(0, 10)
-  let balance = 0
-  let openCount = 0
-  let pastDueCount = 0
-  let nextDueDate: string | null = null
-  const charges: ResidentCharge[] = []
-
-  for (const a of assessments) {
-    const remaining = Number(a.amount) - (paidByAssessment.get(a.id) ?? 0)
-    if (remaining <= 0) continue
-    const pastDue = Boolean(a.due_date && a.due_date <= today)
-    balance += remaining
-    openCount++
-    if (pastDue) pastDueCount++
-    if (a.due_date && (nextDueDate === null || a.due_date < nextDueDate)) nextDueDate = a.due_date
-    charges.push({
-      id: a.id,
-      unitId: a.unit_id,
-      assessmentType: a.assessment_type,
-      dueDate: a.due_date,
-      amount: Math.round(remaining * 100) / 100,
-      pastDue,
-      fullAmount: Number(a.amount),
-      memoCode: a.memo_code,
-    })
-  }
-
-  // Most urgent first: past-due charges (oldest due date leading), then
-  // upcoming charges ordered by due date.
-  charges.sort((x, y) => {
-    if (x.pastDue !== y.pastDue) return x.pastDue ? -1 : 1
-    return x.dueDate < y.dueDate ? -1 : x.dueDate > y.dueDate ? 1 : 0
-  })
-
-  return { balance: Math.round(balance * 100) / 100, openCount, pastDueCount, nextDueDate, charges }
+  return summarizeResidentDues(assessments, paidByAssessment, today)
 }
 
 /**

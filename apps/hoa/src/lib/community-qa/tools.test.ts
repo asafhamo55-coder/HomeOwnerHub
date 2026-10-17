@@ -108,6 +108,36 @@ describe('list_overdue_dues', () => {
     expect(camelOnly(r)).toBe(true)
   })
 
+  it('counts days overdue on the association calendar at 23:30 Eastern (BL-043)', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-10-02T03:30:00Z')) // Oct 1, 23:30 EDT
+      const lt: unknown[] = []
+      const q: Record<string, unknown> = {}
+      for (const m of ['select', 'eq', 'neq', 'is', 'order', 'limit']) q[m] = () => q
+      q.lt = (_c: string, v: unknown) => {
+        lt.push(v)
+        return q
+      }
+      const rows = [
+        { id: 'a1', amount: 10, due_date: '2026-09-30', status: 'open', unit: null, payments: [] },
+      ]
+      q.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: rows, error: null }).then(resolve)
+      // associations → FL (Eastern); every other table → the overdue rows.
+      const db = {
+        from: (t: string) =>
+          t === 'associations'
+            ? { select: () => ({ eq: async () => ({ data: [{ name: 'A', state: 'FL' }], error: null }) }) }
+            : q,
+      }
+      const r = (await TOOL_BY_NAME.list_overdue_dues!.execute({}, ctx(db as never))) as Array<Record<string, unknown>>
+      expect(lt).toEqual(['2026-10-01']) // not the UTC '2026-10-02'
+      expect(r[0]!.daysOverdue).toBe(1) // not 2
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('throws instead of answering "nobody is overdue" when the read fails', async () => {
     const db = fixedDb({ data: null, error: { code: '42P01', message: 'relation "assessments" does not exist' } })
     await expect(TOOL_BY_NAME.list_overdue_dues!.execute({}, ctx(db))).rejects.toMatchObject({

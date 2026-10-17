@@ -161,7 +161,9 @@ export async function confirmFuzzyMatch(input: {
       amount,
       payment_method: 'zelle_assisted',
       external_ref: txn.id,
-      paid_at: new Date(txn.posted_date).toISOString(),
+      // posted_date is a calendar date. Noon UTC keeps it that day in every
+      // US zone; UTC midnight read as the evening before (BL-043).
+      paid_at: `${String(txn.posted_date).slice(0, 10)}T12:00:00Z`,
       journal_entry_id: je.journalEntryId,
     }),
     supabase

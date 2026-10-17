@@ -368,7 +368,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
           />
           <ActivityTrend buckets={activity.buckets} failed={activity.failed} />
         </div>
-        <ComplianceHeatMap cells={heatMap.cells} failed={heatMap.failed} />
+        <ComplianceHeatMap cells={heatMap.cells} failed={heatMap.failed} today={heatMap.today} />
       </section>
     </div>
   )

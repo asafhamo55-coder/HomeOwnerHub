@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cappedFakeDb, rangesFor } from '@/lib/supabase/capped-fake-db'
 import {
   getAtRiskThisWeek,
@@ -130,6 +130,17 @@ describe('getAtRiskThisWeek', () => {
 })
 
 describe('getComplianceHeatMap', () => {
+  // Pinned mid-day: "overdue" is judged on the association's calendar
+  // (BL-043), so a wall-clock run after 8pm Eastern would turn the UTC
+  // "yesterday" below into the association's today.
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-15T16:00:00Z'))
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('sees an overdue charge that sorts after the first 1000 rows', async () => {
     const today = new Date()
     const firstOfMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)).toISOString().slice(0, 10)

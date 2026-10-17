@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { format, subMonths } from 'date-fns'
 import { ReceiptText, Wallet } from 'lucide-react'
 import { DataTable, EmptyState, LoadFailed, Tabs, type DataTableColumn } from '@homeowner-portal/ui'
 import { getResidentDues, getResidentIdentity, getResidentLedger } from '@/lib/resident-dashboard'
@@ -40,15 +39,16 @@ export default async function ResidentStatementPage({
 }) {
   const { period } = await searchParams
   const all = period === 'all'
-  const today = new Date()
-  const from = all ? '0000-01-01' : format(subMonths(today, 12), 'yyyy-MM-dd')
-
   const [{ units, ledger, truncated }, identity, org, open] = await Promise.all([
     getResidentLedger(),
     getResidentIdentity(),
     getCurrentOrg(),
     getResidentDues(),
   ])
+  // The association's today (BL-043), not the server's UTC day. A calendar
+  // date, so the 12-month window is calendar math too (Feb 29 → Feb 28).
+  const today = open.dues.today
+  const from = all ? '0000-01-01' : sameDayLastYear(today)
 
   const tabs = (
     <Tabs
@@ -157,9 +157,9 @@ export default async function ResidentStatementPage({
           </div>
           <dl className="grid shrink-0 grid-cols-[auto_auto] gap-x-3 gap-y-0.5 text-sm sm:text-right">
             <dt className="text-muted">Statement date</dt>
-            <dd className="text-foreground">{format(today, 'MMM d, yyyy')}</dd>
+            <dd className="text-foreground">{formatDay(today)}</dd>
             <dt className="text-muted">Period</dt>
-            <dd className="text-foreground">{all ? 'All activity' : `${day(from)} – ${format(today, 'MMM d, yyyy')}`}</dd>
+            <dd className="text-foreground">{all ? 'All activity' : `${day(from)} – ${formatDay(today)}`}</dd>
           </dl>
         </header>
 
@@ -245,4 +245,10 @@ function Figure({ label, value, strong }: { label: string; value: string; strong
       <dd className={strong ? 'num text-lg font-semibold text-foreground' : 'num text-base text-foreground'}>{value}</dd>
     </div>
   )
+}
+
+/** 'YYYY-MM-DD' one year earlier; Feb 29 falls back to Feb 28. */
+function sameDayLastYear(day: string): string {
+  const prev = `${Number(day.slice(0, 4)) - 1}${day.slice(4)}`
+  return prev.endsWith('-02-29') ? `${prev.slice(0, 8)}28` : prev
 }

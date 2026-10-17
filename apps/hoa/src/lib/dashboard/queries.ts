@@ -1,8 +1,10 @@
-import { addDays, isSameDay, startOfMonth, endOfMonth } from 'date-fns'
+import { isSameDay } from 'date-fns'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { chunk, readAllResult } from '@/lib/supabase/read-all'
 import type { DayCell, DayLevel } from '@/components/dashboard/ComplianceHeatMap'
+import { ASSOCIATION_ZONE_COLUMNS, addCalendarDays, calendarDaysBetween, dayOf, todayIn } from '@/lib/association-time'
+import { orgTimeZone, primaryAssociationZone } from '@/lib/association-time-server'
 
 // Optional `client` on every fetcher lets ./cached.ts pass an admin
 // client (no cookies, so unstable_cache can memoize). Falls back to
@@ -12,6 +14,27 @@ type AnyClient = SupabaseClient<any, any, any>
 
 async function resolveClient(client?: AnyClient): Promise<AnyClient> {
   return client ?? ((await getSupabaseServerClient()) as unknown as AnyClient)
+}
+
+// ─── the association's day (BL-043) ─────────────────────────────────
+//
+// Date-only columns (due_date, meeting_date, coi_expiration_date) are
+// calendar dates: compared with whole calendar days against the
+// association's today, never via `new Date('2026-10-01')` (UTC midnight,
+// i.e. the evening before in every US zone) minus `Date.now()`.
+
+type ZoneRow = { name?: string | null; state?: string | null }
+const zoneOf = (assocs: ZoneRow[] | null | undefined) => primaryAssociationZone(assocs)
+
+/** A calendar day as the UTC-midnight Date the heat-map cells carry. */
+function cellDate(day: string): Date {
+  return new Date(`${day}T00:00:00Z`)
+}
+
+/** The day a cure period ends: the notice's day in the association's zone, plus N calendar days. */
+function cureDay(noticeSentAt: string, cureDays: number, timeZone: string): string | null {
+  const sent = dayOf(noticeSentAt, timeZone)
+  return sent ? addCalendarDays(sent, cureDays) : null
 }
 
 export interface DigestSnapshot {
@@ -47,6 +70,8 @@ export interface ComplianceHeatMapResult {
   cells: DayCell[]
   /** True when a source query errored — grey days are then unknown, not clear. */
   failed: boolean
+  /** The association's today ('YYYY-MM-DD') the levels were judged against. */
+  today: string
 }
 
 export interface NextMeetingResult {
@@ -678,20 +703,25 @@ export async function getComplianceHeatMap(
   client?: AnyClient,
 ): Promise<ComplianceHeatMapResult> {
   const supabase = await resolveClient(client)
-  const today = new Date()
-  const start = startOfMonth(today)
-  const end = endOfMonth(addDays(start, 3 * 32))
-  const startISO = start.toISOString().slice(0, 10)
-  const endISO = end.toISOString().slice(0, 10)
 
   // assessments replaces hoa_dues for the heat map's dues lane. Query
   // is org-wide via the associations FK.
   const { data: assocs, error: assocError } = await supabase
     .from('associations')
-    .select('id')
+    .select(`id, name, ${ASSOCIATION_ZONE_COLUMNS}`)
     .eq('organization_id', orgId)
   if (assocError) logQueryError('getComplianceHeatMap', assocError)
   const assocIds = (assocs ?? []).map((a) => a.id)
+
+  // The association's today (BL-043), and the window as calendar days.
+  const timeZone = zoneOf(assocs as ZoneRow[] | null)
+  const todayDay = todayIn(timeZone)
+  const startISO = `${todayDay.slice(0, 7)}-01`
+  // Last day of the third month after this one (UTC calendar math, so the
+  // machine's zone can't move it).
+  const endISO = new Date(Date.UTC(Number(todayDay.slice(0, 4)), Number(todayDay.slice(5, 7)) + 3, 0))
+    .toISOString()
+    .slice(0, 10)
 
   // Paged to the end (BL-047): a capped read would leave whole red days grey.
   const duesPromise =
@@ -729,11 +759,11 @@ export async function getComplianceHeatMap(
 
   const cellMap = new Map<string, DayCell>()
 
-  function setLevel(date: Date, level: DayLevel, note: string) {
-    const key = date.toISOString().slice(0, 10)
+  function setLevel(day: string, level: DayLevel, note: string) {
+    const key = day
     const existing = cellMap.get(key)
     if (!existing) {
-      cellMap.set(key, { date, level, notes: [note] })
+      cellMap.set(key, { date: cellDate(day), level, notes: [note] })
       return
     }
     // Worst level wins: red > yellow > green > grey.
@@ -743,36 +773,36 @@ export async function getComplianceHeatMap(
     existing.notes.push(note)
   }
 
-  // Violation cure deadlines.
+  // Violation cure deadlines: a calendar day, the notice's day + N.
   for (const v of violations.data ?? []) {
     if (!v.notice_sent_at || !v.cure_period_days) continue
-    const cureDate = new Date(
-      new Date(v.notice_sent_at).getTime() + v.cure_period_days * 86_400_000,
-    )
-    if (cureDate < start || cureDate > end) continue
+    const day = cureDay(v.notice_sent_at, v.cure_period_days, timeZone)
+    if (!day || day < startISO || day > endISO) continue
+    const daysLeft = calendarDaysBetween(todayDay, day)
     if (v.status === 'resolved' || v.status === 'cured') {
-      setLevel(cureDate, 'green', 'cure deadline (resolved)')
-    } else if (cureDate < today) {
-      setLevel(cureDate, 'red', 'cure deadline elapsed')
-    } else if (cureDate.getTime() - today.getTime() < 3 * 86_400_000) {
-      setLevel(cureDate, 'yellow', 'cure deadline within 3 days')
+      setLevel(day, 'green', 'cure deadline (resolved)')
+    } else if (daysLeft < 0) {
+      setLevel(day, 'red', 'cure deadline elapsed')
+    } else if (daysLeft < 3) {
+      setLevel(day, 'yellow', 'cure deadline within 3 days')
     } else {
-      setLevel(cureDate, 'green', 'cure deadline')
+      setLevel(day, 'green', 'cure deadline')
     }
   }
 
-  // Dues due dates.
+  // Dues due dates. Due today is not overdue (same boundary as /dues).
   for (const d of dues.data ?? []) {
     if (!d.due_date) continue
-    const dueDate = new Date(d.due_date)
+    const day = d.due_date.slice(0, 10)
+    const daysLeft = calendarDaysBetween(todayDay, day)
     if (d.status === 'paid') {
-      setLevel(dueDate, 'green', 'dues paid')
-    } else if (dueDate < today) {
-      setLevel(dueDate, 'red', 'dues overdue')
-    } else if (dueDate.getTime() - today.getTime() < 3 * 86_400_000) {
-      setLevel(dueDate, 'yellow', 'dues due within 3 days')
+      setLevel(day, 'green', 'dues paid')
+    } else if (daysLeft < 0) {
+      setLevel(day, 'red', 'dues overdue')
+    } else if (daysLeft < 3) {
+      setLevel(day, 'yellow', 'dues due within 3 days')
     } else {
-      setLevel(dueDate, 'green', 'dues due')
+      setLevel(day, 'green', 'dues due')
     }
   }
 
@@ -788,6 +818,7 @@ export async function getComplianceHeatMap(
   return {
     cells: Array.from(cellMap.values()).sort((a, b) => a.date.getTime() - b.date.getTime()),
     failed,
+    today: todayDay,
   }
 }
 
@@ -805,21 +836,21 @@ export async function getAtRiskThisWeek(
   client?: AnyClient,
 ): Promise<AtRiskResult> {
   const supabase = await resolveClient(client)
-  const today = new Date()
-  const todayMs = today.getTime()
-  const todayISO = today.toISOString().slice(0, 10)
-  const in30ISO = new Date(todayMs + 30 * 86_400_000).toISOString().slice(0, 10)
-  const thirtyDaysAgoISO = new Date(todayMs - 30 * 86_400_000)
-    .toISOString()
-    .slice(0, 10)
 
   // Tenant-scope assessments via associations FK.
   const { data: assocs, error: assocError } = await supabase
     .from('associations')
-    .select('id')
+    .select(`id, name, ${ASSOCIATION_ZONE_COLUMNS}`)
     .eq('organization_id', orgId)
   if (assocError) logQueryError('getAtRiskThisWeek', assocError)
   const assocIds = (assocs ?? []).map((a) => a.id)
+
+  // Every offset below is whole calendar days from the association's
+  // today (BL-043), not milliseconds from a UTC-midnight parse.
+  const timeZone = zoneOf(assocs as ZoneRow[] | null)
+  const todayISO = todayIn(timeZone)
+  const in30ISO = addCalendarDays(todayISO, 30)
+  const thirtyDaysAgoISO = addCalendarDays(todayISO, -30)
 
   // Both row reads below page to the end (BL-047): `counts` and
   // `totalCount` are stated to the board, so they cannot stop at 1000.
@@ -883,7 +914,6 @@ export async function getAtRiskThisWeek(
   ])
 
   const items: AtRiskItem[] = []
-  const sevenDayCutoff = todayMs + 7 * 86_400_000
 
   // 1) Violation cure deadlines.
   type VRow = {
@@ -895,10 +925,10 @@ export async function getAtRiskThisWeek(
   }
   for (const v of (violations.data ?? []) as unknown as VRow[]) {
     if (!v.notice_sent_at || !v.cure_period_days) continue
-    const cureMs =
-      new Date(v.notice_sent_at).getTime() + v.cure_period_days * 86_400_000
-    if (cureMs >= sevenDayCutoff) continue
-    const daysOffset = Math.round((cureMs - todayMs) / 86_400_000)
+    const day = cureDay(v.notice_sent_at, v.cure_period_days, timeZone)
+    if (!day) continue
+    const daysOffset = calendarDaysBetween(todayISO, day)
+    if (daysOffset >= 7) continue
     const place = v.property
       ? `${v.property.address}${v.property.unit_number ? ' · ' + v.property.unit_number : ''}`
       : 'Property unknown'
@@ -927,8 +957,7 @@ export async function getAtRiskThisWeek(
   const overdueUnitIds = new Set<string>()
   for (const a of (assessments.data ?? []) as unknown as ARow[]) {
     if (!a.due_date) continue
-    const dueMs = new Date(a.due_date).getTime()
-    const daysOffset = Math.round((dueMs - todayMs) / 86_400_000)
+    const daysOffset = calendarDaysBetween(todayISO, a.due_date)
     const amt = Number(a.amount).toLocaleString('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -958,8 +987,7 @@ export async function getAtRiskThisWeek(
   }
   for (const c of (cois.data ?? []) as unknown as CRow[]) {
     if (!c.coi_expiration_date) continue
-    const expMs = new Date(c.coi_expiration_date).getTime()
-    const daysOffset = Math.round((expMs - todayMs) / 86_400_000)
+    const daysOffset = calendarDaysBetween(todayISO, c.coi_expiration_date)
     const vendor = c.vendor?.legal_name ?? 'Vendor'
     items.push({
       kind: 'coi_expiring',
@@ -1019,8 +1047,8 @@ export async function getNextMeetingResult(
   client?: AnyClient,
 ): Promise<NextMeetingResult> {
   const supabase = await resolveClient(client)
-  const today = new Date()
-  const todayISO = today.toISOString().slice(0, 10)
+  // The association's today (BL-043); meeting_date is a calendar date.
+  const todayISO = todayIn(await orgTimeZone(supabase, orgId))
 
   // Soonest future meeting first.
   const { data: future, error: futureError } = await supabase
@@ -1038,9 +1066,7 @@ export async function getNextMeetingResult(
   }
   const pick = future?.[0]
   if (pick) {
-    const daysUntil = Math.round(
-      (new Date(pick.meeting_date).getTime() - today.getTime()) / 86_400_000,
-    )
+    const daysUntil = calendarDaysBetween(todayISO, pick.meeting_date)
     return {
       meeting: {
         id: pick.id,
@@ -1071,9 +1097,7 @@ export async function getNextMeetingResult(
   const fallback = past?.[0]
   if (!fallback) return { meeting: null, failed: false }
 
-  const daysUntil = Math.round(
-    (new Date(fallback.meeting_date).getTime() - today.getTime()) / 86_400_000,
-  )
+  const daysUntil = calendarDaysBetween(todayISO, fallback.meeting_date)
   return {
     meeting: {
       id: fallback.id,

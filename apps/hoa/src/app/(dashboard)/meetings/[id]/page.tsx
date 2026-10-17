@@ -19,6 +19,8 @@ import {
   StatusPill,
 } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { todayIn } from '@/lib/association-time'
+import { currentTimeZone } from '@/lib/association-time-current'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { loadActionItems } from '@/lib/meeting-action-items'
 import { MEETING_STATUS, MEETING_TYPE } from '@/lib/status/community'
@@ -93,7 +95,8 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
   const typeLabel = meeting.meeting_type
     ? `${MEETING_TYPE[meeting.meeting_type] ?? meeting.meeting_type} meeting`
     : 'Meeting'
-  const todayIso = format(new Date(), 'yyyy-MM-dd')
+  // The association's today (BL-043); the server clock is UTC.
+  const todayIso = todayIn(await currentTimeZone())
   const isUpcoming = meeting.meeting_date >= todayIso && meeting.status !== 'approved'
   const motions = meeting.motions ?? []
   const attendees = meeting.attendees ?? []

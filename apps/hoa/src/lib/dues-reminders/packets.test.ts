@@ -331,3 +331,36 @@ describe('buildReminderPackets — past the 1000-row cap (BL-047)', () => {
     await expect(buildReminderPackets('assoc-1')).rejects.toThrow(/assessments/)
   })
 })
+
+describe('buildReminderPackets — the association day, not the UTC day (BL-043)', () => {
+  const charge = (due: string) => ({
+    id: 'a1', unit_id: 'unit-a', amount: 310, due_date: due,
+    assessment_type: 'regular', payments: [], unit: UNIT_A,
+  })
+  const owner = { unit_id: 'unit-a', owner_name: 'Dana', owner_email: 'dana@example.com', owner_user_id: null }
+
+  it('at 23:30 Eastern a charge due today is not past due yet (UTC already says tomorrow)', async () => {
+    vi.setSystemTime(new Date('2026-10-02T03:30:00Z')) // Oct 1, 23:30 EDT; UTC says Oct 2
+    setupTables({ assessments: [charge('2026-10-01')], ownerships: [owner] })
+    const { packets } = await buildReminderPackets('assoc-1', 'America/New_York')
+    expect(packets[0].properties[0].charges[0].pastDue).toBe(false)
+    expect(packets[0].pastDueTotal).toBe(0)
+  })
+
+  it('a charge due yesterday is 1 day late at 23:30 Eastern, not 2', async () => {
+    vi.setSystemTime(new Date('2026-10-02T03:30:00Z'))
+    setupTables({ assessments: [charge('2026-09-30')], ownerships: [owner] })
+    const { packets } = await buildReminderPackets('assoc-1', 'America/New_York')
+    expect(packets[0].properties[0].charges[0].daysLate).toBe(1)
+  })
+
+  it('a Pacific association is judged on the Pacific day', async () => {
+    vi.setSystemTime(new Date('2026-10-02T06:30:00Z')) // Oct 2 02:30 EDT, Oct 1 23:30 PDT
+    setupTables({ assessments: [charge('2026-10-01')], ownerships: [owner] })
+    const east = await buildReminderPackets('assoc-1', 'America/New_York')
+    expect(east.packets[0].properties[0].charges[0].daysLate).toBe(1)
+    setupTables({ assessments: [charge('2026-10-01')], ownerships: [owner] })
+    const west = await buildReminderPackets('assoc-1', 'America/Los_Angeles')
+    expect(west.packets[0].pastDueTotal).toBe(0)
+  })
+})

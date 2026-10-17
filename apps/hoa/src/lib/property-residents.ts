@@ -5,6 +5,8 @@ import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { todayIn } from '@/lib/association-time'
+import { orgTimeZone } from '@/lib/association-time-server'
 import { logPropertyEvent } from '@/lib/property-events'
 
 // property_residents lands in migration 0017. Owners, tenants, family
@@ -332,7 +334,8 @@ export async function removeResident(residentId: string): Promise<ActionResult> 
     return { ok: false, error: 'Resident has already been removed.' }
   }
 
-  const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+  // YYYY-MM-DD in the association's zone (BL-043), not the UTC day.
+  const today = todayIn(await orgTimeZone(supabase, org.id))
   const { error } = await supabase
     .from('property_residents' as never)
     .update({ moved_out_at: today } as never)

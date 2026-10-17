@@ -5,6 +5,8 @@ import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { todayIn } from '@/lib/association-time'
+import { orgTimeZone } from '@/lib/association-time-server'
 import {
   COLLECTION_EVENT_TYPES,
   COLLECTION_STATUSES,
@@ -191,7 +193,8 @@ export async function setCollectionStatus(
     data: { user },
   } = await supabase.auth.getUser()
 
-  const today = new Date().toISOString().slice(0, 10)
+  // The association's day (BL-043): a case closed at 9pm Eastern closes that day.
+  const today = todayIn(await orgTimeZone(supabase, org.id))
   const terminal = v.status === 'resolved' || v.status === 'written_off'
 
   const { error } = await supabase

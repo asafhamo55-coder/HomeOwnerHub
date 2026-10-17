@@ -25,6 +25,12 @@ interface ComplianceHeatMapProps {
   failed?: boolean
   /** Number of months to render. The plan calls for a 3-month rolling view. */
   months?: number
+  /**
+   * The association's today, 'YYYY-MM-DD' (BL-043). The cells were judged
+   * against it, so the window and the "today" ring use it too; without it
+   * the server's clock (UTC) would already be tomorrow after ~8pm Eastern.
+   */
+  today?: string
 }
 
 /**
@@ -38,8 +44,9 @@ interface ComplianceHeatMapProps {
  * The page builds the cells server-side from hoa_violations +
  * assessments, so this component is purely visual.
  */
-export function ComplianceHeatMap({ cells, failed = false, months = 3 }: ComplianceHeatMapProps) {
-  const today = new Date()
+export function ComplianceHeatMap({ cells, failed = false, months = 3, today: todayDay }: ComplianceHeatMapProps) {
+  // Cells carry UTC-midnight dates; anchor "today" the same way.
+  const today = todayDay ? new Date(`${todayDay}T00:00:00Z`) : new Date()
   const start = startOfMonth(today)
   const end = endOfMonth(addDays(start, (months - 1) * 32))
 

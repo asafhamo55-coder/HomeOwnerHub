@@ -16,7 +16,7 @@ describe('resident due-date text under America/New_York', () => {
   })
 
   it('shows the calendar due date, not the day before', () => {
-    expect(chargeDueText({ dueDate: '2026-10-01', pastDue: false })).toBe('Due Oct 1, 2026')
+    expect(chargeDueText({ dueDate: '2026-10-01', pastDue: false }, '2026-09-20')).toBe('Due Oct 1, 2026')
     expect(nextDueText('2026-10-01')).toBe('Next due Oct 1, 2026')
     expect(formatDay('2026-10-01')).toBe('Oct 1, 2026')
     expect(formatDay('2026-10-01', 'short')).toBe('Oct 1')

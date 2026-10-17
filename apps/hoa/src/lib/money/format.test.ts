@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { daysSince, formatDay, formatDayRange, periodLabel, usd, usdSigned } from './format'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { daysSince, formatDay, formatDayRange, periodLabel, todayIso, usd, usdSigned } from './format'
 
 describe('money format', () => {
   it('formats USD with and without cents', () => {
@@ -31,5 +31,31 @@ describe('money format', () => {
   it('counts days between calendar dates', () => {
     expect(daysSince('2026-10-01', '2026-10-15')).toBe(14)
     expect(daysSince('2026-10-15', '2026-10-15')).toBe(0)
+  })
+})
+
+describe('todayIso — the association day (BL-043)', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('at 23:30 Eastern it is still today, not the UTC tomorrow', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-02T03:30:00Z')) // Oct 1, 23:30 EDT
+    expect(todayIso()).toBe('2026-10-01')
+    expect(todayIso('America/New_York')).toBe('2026-10-01')
+    expect(todayIso('America/Chicago')).toBe('2026-10-01')
+  })
+
+  it('a charge due tomorrow is not "due today" at 23:30 Eastern', () => {
+    const now = new Date('2026-10-02T03:30:00Z')
+    expect(daysSince('2026-10-02', todayIso('America/New_York', now))).toBe(-1)
+  })
+
+  it('around the fall-back transition', () => {
+    // 2026-11-01 23:30 EST = 11-02 04:30Z
+    expect(todayIso('America/New_York', new Date('2026-11-02T04:30:00Z'))).toBe('2026-11-01')
+    // 2026-11-02 00:30 EST
+    expect(todayIso('America/New_York', new Date('2026-11-02T05:30:00Z'))).toBe('2026-11-02')
   })
 })

@@ -12,6 +12,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import { queryGoverningDocs } from '@homeowner-portal/workflows/W1'
 import { readAll } from '@/lib/supabase/read-all'
+import { calendarDaysBetween, todayIn } from '@/lib/association-time'
+import { orgTimeZone } from '@/lib/association-time-server'
 
 // Db matches what getSupabaseServerClient() returns. We keep the
 // Database generic so .from('assessments').select(...) is fully typed
@@ -140,7 +142,9 @@ const listOverdueDues: Tool = {
   },
   async execute(args, { db, orgId }) {
     const limit = clampInt(args.limit, 1, 100, 25)
-    const today = new Date().toISOString().slice(0, 10)
+    // The association's today (BL-043): due_date is a calendar date, and
+    // "overdue" means due before today THERE, not on the UTC calendar.
+    const today = todayIn(await orgTimeZone(db, orgId))
     const { data, error } = await db
       .from('assessments')
       .select(
@@ -171,7 +175,7 @@ const listOverdueDues: Tool = {
       const paidCents = (r.payments ?? []).reduce((s, p) => s + dollarsToCents(p.amount), 0)
       const daysOverdue = Math.max(
         0,
-        Math.floor((Date.now() - new Date(r.due_date).getTime()) / 86_400_000),
+        calendarDaysBetween(r.due_date, today) || 0,
       )
       return {
         address: r.unit?.address_line1 ?? '(unknown)',

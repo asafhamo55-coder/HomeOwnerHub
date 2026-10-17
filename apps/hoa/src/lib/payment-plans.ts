@@ -8,6 +8,7 @@ import { memoCodeFor } from '@homeowner-portal/workflows'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { todayIn } from '@/lib/association-time'
 import { fieldErrorsOf } from '@/lib/field-errors'
 
 type PaymentPlanInsert = Database['public']['Tables']['payment_plans']['Insert']
@@ -163,7 +164,7 @@ export async function createPaymentPlan(input: {
       organizationId: assocRow.organization_id,
       associationId: assoc.id,
       fiscalPeriodId: period.id,
-      entryDate: new Date().toISOString().slice(0, 10),
+      entryDate: todayIn(assoc.timeZone), // the association's day (BL-043)
       memo: `Payment plan installment ${i + 1}/${value.installmentCount} (plan ${plan.id.slice(0, 8)})`,
       source: 'ar_payment',
       sourceId: assess.id,

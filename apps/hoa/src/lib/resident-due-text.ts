@@ -6,14 +6,15 @@
 // formatting and day math goes through lib/money/format, which works on the
 // Y-M-D parts in UTC so no zone can shift them.
 
-import { daysSince, formatDay, todayIso } from './money/format'
+import { daysSince, formatDay } from './money/format'
 
 /**
  * "Due Oct 1, 2026", plus "· N days late" / "· due today" for past-due charges.
- * `today` is 'YYYY-MM-DD' and defaults to the same UTC day `getResidentDues`
- * uses to decide `pastDue`, so the two can't disagree.
+ * `today` is 'YYYY-MM-DD' — pass `ResidentDues.today`, the association day
+ * `getResidentDues` judged `pastDue` against, so the two can't disagree.
+ * Required: a default here is how this once used the UTC day (BL-043).
  */
-export function chargeDueText(charge: { dueDate: string; pastDue: boolean }, today: string = todayIso()): string {
+export function chargeDueText(charge: { dueDate: string; pastDue: boolean }, today: string): string {
   const due = `Due ${formatDay(charge.dueDate)}`
   if (!charge.pastDue) return due
   const daysLate = daysSince(charge.dueDate, today)

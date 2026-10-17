@@ -26,7 +26,7 @@ export default async function BalanceSheetPage({ searchParams }: PageProps) {
   // Default is today: "where do we stand" is the question this page answers.
   // (It used to default to the end of the newest period — a date in the
   // future for an open year.)
-  const asOf = sp.asOf && /^\d{4}-\d{2}-\d{2}$/.test(sp.asOf) ? sp.asOf : todayIso()
+  const asOf = sp.asOf && /^\d{4}-\d{2}-\d{2}$/.test(sp.asOf) ? sp.asOf : todayIso(ctx.timeZone)
   const res = await tryLoad('balance sheet', () => computeBalanceSheet(ctx.associationId, asOf))
 
   return (

@@ -48,7 +48,7 @@ export default async function InvoicesPage({ searchParams }: PageProps) {
   const sp = await searchParams
   const status = sp.status && sp.status in INVOICE_STATUS ? sp.status : undefined
   const page = parsePageParam(sp.page)
-  const today = todayIso()
+  const today = todayIso(ctx.timeZone)
 
   const [list, summary] = await Promise.all([
     tryLoad('invoices', () => pageInvoices(ctx.associationId, { status }, pageRange(page, PAGE_SIZE))),

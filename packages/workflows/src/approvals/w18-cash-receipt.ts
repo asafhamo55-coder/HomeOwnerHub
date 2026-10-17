@@ -172,7 +172,9 @@ export const executeW18CashReceipt: ApprovalExecutor = async (db, request) => {
       amount: p.amount,
       payment_method: 'zelle_assisted',
       external_ref: p.bankTransactionId,
-      paid_at: new Date(p.postedDate).toISOString(),
+      // postedDate is a calendar date. Noon UTC keeps it that day in every
+      // US zone; UTC midnight read as the evening before (BL-043).
+      paid_at: `${p.postedDate}T12:00:00Z`,
       journal_entry_id: je.journalEntryId,
     }),
     db
