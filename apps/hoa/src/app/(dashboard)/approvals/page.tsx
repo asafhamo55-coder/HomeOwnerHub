@@ -32,6 +32,8 @@ import {
   type InboxSection,
 } from '@/lib/approvals-inbox/model'
 import { formatStamp, usd } from '@/lib/money/format'
+import { loadBillEditOptions } from '@/lib/bill-scan/load'
+import { vendorLabel } from '@/lib/bill-scan/proposal'
 import { ApprovalActions } from '@/components/approvals/ApprovalActions'
 import { BillDetails } from './BillDetails'
 
@@ -52,7 +54,9 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
 
   const [w18, bills, w3, vendors, byAssociation] = await Promise.all([
     loadW18Section(supabase, org.id),
-    loadBillSection(supabase, org.id).then((s) => withBillLinks(supabase, s)),
+    loadBillSection(supabase, org.id)
+      .then((s) => withBillLinks(supabase, s))
+      .then((s) => withBillEditOptions(supabase, org.id, s)),
     loadW3Section(supabase, org.id),
     listVendorsResult().then(vendorSection, () => ({ source: 'vendor', ok: false }) as const),
     loadVendorCountsByAssociation(supabase, org.id),
@@ -126,6 +130,44 @@ async function withBillLinks(
   return { ...section, items }
 }
 
+/**
+ * BL-059: the vendors and expense accounts Edit details offers, loaded once
+ * per association the waiting bills belong to (almost always one). A failed
+ * load leaves editOptions null; the card then says editing is unavailable.
+ */
+async function withBillEditOptions(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  orgId: string,
+  section: InboxSection,
+): Promise<InboxSection> {
+  if (!section.ok) return section
+  const ids = [...new Set(section.items.flatMap((i) => (i.bill ? [i.bill.payload.associationId] : [])))]
+  if (ids.length === 0) return section
+  const loaded = new Map(
+    await Promise.all(
+      ids.map(async (id) => {
+        const r = await loadBillEditOptions(supabase, orgId, id)
+        return [
+          id,
+          r.ok
+            ? {
+                vendors: r.vendors.map((v) => ({ id: v.id, label: vendorLabel(v) })),
+                accounts: r.accounts.map((a) => ({ id: a.id, label: `${a.accountNumber} — ${a.accountName}` })),
+                today: r.today,
+              }
+            : null,
+        ] as const
+      }),
+    ),
+  )
+  return {
+    ...section,
+    items: section.items.map((item) =>
+      item.bill ? { ...item, bill: { ...item.bill, editOptions: loaded.get(item.bill.payload.associationId) ?? null } } : item,
+    ),
+  }
+}
+
 function amountLabel(item: InboxItem): string | null {
   if (item.amount === null) return null
   return `${usd(item.amount)}${item.amountNote ? ` ${item.amountNote}` : ''}`
@@ -140,7 +182,7 @@ const COLUMNS: DataTableColumn<InboxItem>[] = [
       <div className="min-w-0 space-y-1">
         <p className="font-medium text-foreground">{item.title}</p>
         {item.detail ? <p className="line-clamp-2 text-xs text-foreground-secondary">{item.detail}</p> : null}
-        {item.bill ? <BillDetails bill={item.bill} /> : null}
+        {item.bill ? <BillDetails bill={item.bill} approvalRequestId={item.id} /> : null}
         {item.reasoning ? (
           <p className="flex items-start gap-1.5 text-xs text-foreground-secondary">
             <Sparkles className="mt-0.5 size-3.5 shrink-0 text-accent-fg" aria-hidden />

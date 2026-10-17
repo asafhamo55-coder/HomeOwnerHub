@@ -146,10 +146,15 @@ export function Select({
 
   const radixValue = toInternal(value ?? internal)
   const radixDefault = toInternal(defaultValue)
+  // Nothing chosen: Radix shows the placeholder only for '' — the sentinel
+  // is right only when an '' option ("All") exists to display (BL-059).
+  const hasEmptyOption = parsed.some((o) => o.value === EMPTY_SENTINEL)
+  const shown = radixValue ?? EMPTY_SENTINEL
+  const rootValue = shown === EMPTY_SENTINEL && !hasEmptyOption ? '' : shown
 
   return (
     <RS.Root
-      value={radixValue ?? EMPTY_SENTINEL}
+      value={rootValue}
       defaultValue={radixDefault}
       onValueChange={handleChange}
       disabled={disabled}

@@ -1,16 +1,20 @@
 import { AlertTriangle, ExternalLink } from 'lucide-react'
 import { Badge } from '@homeowner-portal/ui'
 import type { BillCard } from '@/lib/approvals-inbox/model'
+import type { BillEditableField } from '@/lib/bill-scan/proposal'
 import { usd } from '@/lib/money/format'
+import { BillEditDialog } from '@/components/approvals/BillEditDialog'
 
 // BL-021: what the AI read off the bill, field by field. A field it could
 // not read says "Not found" (never a placeholder value); a field it read
-// with less than high confidence carries a "Check" badge.
+// with less than high confidence carries a "Check" badge. A field a board
+// member corrected (BL-059) carries "Edited" instead of the AI's flag.
 
 type Conf = 'high' | 'medium' | 'low'
 
-function Flag({ value, confidence }: { value: unknown; confidence: Conf }) {
-  if (value === null) return <Badge variant="danger">Not found</Badge>
+function Flag({ value, confidence, edited }: { value: unknown; confidence: Conf; edited?: boolean }) {
+  if (value === null) return <Badge variant="danger">{edited ? 'Cleared' : 'Not found'}</Badge>
+  if (edited) return <Badge variant="neutral">Edited</Badge>
   if (confidence === 'high') return null
   return <Badge variant="warning">{confidence === 'low' ? 'Low confidence — check' : 'Check'}</Badge>
 }
@@ -27,36 +31,46 @@ function Row({ label, children, flag }: { label: string; children: React.ReactNo
 
 const dash = <span className="text-muted">—</span>
 
-export function BillDetails({ bill }: { bill: BillCard }) {
+export function BillDetails({ bill, approvalRequestId }: { bill: BillCard; approvalRequestId: string }) {
   const p = bill.payload
+  const edited = new Set<BillEditableField>(p.humanEdits?.fields ?? [])
   const vendor = p.vendor.vendorLabel
     ? p.vendor.vendorLabel
     : p.vendor.extractedName
       ? `“${p.vendor.extractedName}” — not on file`
       : null
   const vendorConfidence: Conf =
-    p.vendor.matchConfidence === 'high' && p.vendor.nameConfidence === 'high' ? 'high' : p.vendor.vendorId ? 'medium' : 'low'
+    p.vendor.match === 'manual' || (p.vendor.matchConfidence === 'high' && p.vendor.nameConfidence === 'high')
+      ? 'high'
+      : p.vendor.vendorId
+        ? 'medium'
+        : 'low'
 
   return (
     <div className="space-y-2 rounded-md border border-border bg-subtle p-3 text-xs">
       <dl className="grid gap-1.5 sm:grid-cols-2">
-        <Row label="Vendor" flag={<Flag value={p.vendor.vendorId} confidence={vendorConfidence} />}>
+        <Row label="Vendor" flag={<Flag value={p.vendor.vendorId} confidence={vendorConfidence} edited={edited.has('vendor')} />}>
           {vendor ?? dash}
-          {p.vendor.match === 'close' ? <span className="text-muted"> (similar name)</span> : null}
+          {p.vendor.match === 'close' && !edited.has('vendor') ? <span className="text-muted"> (similar name)</span> : null}
         </Row>
-        <Row label="Invoice #" flag={<Flag value={p.invoiceNumber.value} confidence={p.invoiceNumber.confidence} />}>
+        <Row label="Invoice #" flag={<Flag value={p.invoiceNumber.value} confidence={p.invoiceNumber.confidence} edited={edited.has('invoiceNumber')} />}>
           {p.invoiceNumber.value ?? dash}
         </Row>
-        <Row label="Invoice date" flag={<Flag value={p.invoiceDate.value} confidence={p.invoiceDate.confidence} />}>
+        <Row label="Invoice date" flag={<Flag value={p.invoiceDate.value} confidence={p.invoiceDate.confidence} edited={edited.has('invoiceDate')} />}>
           <span className="num">{p.invoiceDate.value ?? dash}</span>
         </Row>
-        <Row label="Due" flag={p.dueDate.value === null ? undefined : <Flag value={p.dueDate.value} confidence={p.dueDate.confidence} />}>
+        <Row
+          label="Due"
+          flag={
+            p.dueDate.value === null ? undefined : <Flag value={p.dueDate.value} confidence={p.dueDate.confidence} edited={edited.has('dueDate')} />
+          }
+        >
           <span className="num">{p.dueDate.value ?? 'Not stated'}</span>
         </Row>
-        <Row label="Total" flag={<Flag value={p.total.value} confidence={p.total.confidence} />}>
+        <Row label="Total" flag={<Flag value={p.total.value} confidence={p.total.confidence} edited={edited.has('total')} />}>
           <span className="num">{p.total.value === null ? dash : usd(p.total.value)}</span>
         </Row>
-        <Row label="Expense account" flag={<Flag value={p.expenseAccount.accountId} confidence={p.expenseAccount.confidence} />}>
+        <Row label="Expense account" flag={<Flag value={p.expenseAccount.accountId} confidence={p.expenseAccount.confidence} edited={edited.has('expenseAccount')} />}>
           {p.expenseAccount.label ?? dash}
         </Row>
       </dl>
@@ -65,6 +79,7 @@ export function BillDetails({ bill }: { bill: BillCard }) {
         <details className="group">
           <summary className="cursor-pointer font-medium text-foreground-secondary">
             {p.lineItems.length} line item{p.lineItems.length === 1 ? '' : 's'}
+            {edited.has('lineItems') ? <span className="font-normal text-muted"> · edited</span> : null}
           </summary>
           <ul className="mt-1.5 space-y-1">
             {p.lineItems.map((li, i) => (
@@ -88,19 +103,28 @@ export function BillDetails({ bill }: { bill: BillCard }) {
         </ul>
       ) : null}
 
-      {bill.documentUrl ? (
-        <a
-          href={bill.documentUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 font-medium text-primary"
-        >
-          View the bill <ExternalLink className="size-3.5" aria-hidden />
-          <span className="sr-only">(opens in a new tab)</span>
-        </a>
-      ) : (
-        <p className="text-muted">The uploaded bill isn’t available to view.</p>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {bill.editOptions ? (
+          <BillEditDialog approvalRequestId={approvalRequestId} payload={p} options={bill.editOptions} />
+        ) : null}
+        {bill.documentUrl ? (
+          <a
+            href={bill.documentUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 font-medium text-primary"
+          >
+            View the bill <ExternalLink className="size-3.5" aria-hidden />
+            <span className="sr-only">(opens in a new tab)</span>
+          </a>
+        ) : (
+          <p className="text-muted">The uploaded bill isn’t available to view.</p>
+        )}
+      </div>
+      {bill.editOptions ? null : (
+        <p className="text-muted">Couldn’t load the vendor and account lists, so these details can’t be edited right now.</p>
       )}
+      {p.humanEdits ? <p className="text-muted">Some details were corrected by a board member.</p> : null}
     </div>
   )
 }

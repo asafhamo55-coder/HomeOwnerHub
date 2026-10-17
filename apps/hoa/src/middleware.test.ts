@@ -47,6 +47,25 @@ describe('middleware: /api/* without a session (R-03 / C-03)', () => {
     expect(res.headers.get('location')).toContain('/login')
   })
 
+  it('keeps the query string in the redirect back (BL-059: /approvals?type=bill came back as /approvals)', async () => {
+    const res = await middleware(req('/approvals?type=bill'))
+    const loc = new URL(res.headers.get('location')!)
+    expect(loc.pathname).toBe('/login')
+    expect(loc.searchParams.get('redirect')).toBe('/approvals?type=bill')
+  })
+
+  it('keeps the query string when an expired session is sent back to sign in', async () => {
+    h.user = { id: 'u' }
+    h.sessionExpired = true
+    const res = await middleware(req('/approvals?type=bill'))
+    expect(new URL(res.headers.get('location')!).searchParams.get('redirect')).toBe('/approvals?type=bill')
+  })
+
+  it('still sends no redirect param for the dashboard root', async () => {
+    const res = await middleware(req('/'))
+    expect(new URL(res.headers.get('location')!).searchParams.has('redirect')).toBe(false)
+  })
+
   it('still redirects an expired page session to /login with the reason', async () => {
     h.user = { id: 'u' }
     h.sessionExpired = true
