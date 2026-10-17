@@ -32,13 +32,21 @@ import { WAITING_LIST_STATUS } from '@/lib/status/community'
 import { LeaseCapEditor } from './LeaseCapEditor'
 import { WaitingListActions } from './WaitingListActions'
 import { AddToWaitingList } from './AddToWaitingList'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadPropertyScope } from '@/lib/property-scope'
+import { PropertyScopeBanner } from '@/components/PropertyScopeBanner'
 
 export const metadata = { title: 'Leases' }
 export const dynamic = 'force-dynamic'
 
 const RECENT_DECISIONS = 10
 
-export default async function LeasesPage() {
+export default async function LeasesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ property?: string }>
+}) {
   // A failed read is LoadFailed, never "not set up" (BL-064).
   const assocRes = await getPrimaryAssociationResult()
   if (!assocRes.ok || !assocRes.data) {
@@ -56,14 +64,23 @@ export default async function LeasesPage() {
     )
   }
   const assoc = assocRes.data
+  // Opened from a property page (`?property=`): the waiting list and the
+  // decisions narrow to that home. The cap and the stats stay association-wide.
+  const scope = await loadPropertyScope(
+    (await getSupabaseServerClient()) as unknown as SupabaseClient,
+    (await searchParams).property,
+  )
 
-  const [stats, cap, waiting, candidates] = await Promise.all([
+  const [stats, cap, allWaiting, candidates] = await Promise.all([
     loadLeaseStats(assoc.id),
     getLeaseCap(assoc.id),
     loadWaitingList(assoc.id),
     listWaitingListCandidates(assoc.id),
   ])
 
+  const waiting = allWaiting === null ? null : scope ? allWaiting.filter((w) => w.property_id === scope.id) : allWaiting
+  // Queue position is association-wide even when one home is shown.
+  const positions = new Map((allWaiting ?? []).filter((w) => w.status === 'waiting').map((w, i) => [w.id, i + 1]))
   const openWaiting = (waiting ?? []).filter((w) => w.status === 'waiting')
   const decided = (waiting ?? []).filter((w) => w.status !== 'waiting')
   const resolvedWaiting = decided.slice(-RECENT_DECISIONS).reverse()
@@ -132,8 +149,8 @@ export default async function LeasesPage() {
               <p className="text-sm text-muted">
                 {stats.unknownCount} {stats.unknownCount === 1 ? 'unit has' : 'units have'} unknown tenure, so the
                 figures above may be low.{' '}
-                <Link href="/properties" className="font-medium text-primary hover:underline">
-                  Review properties
+                <Link href="/properties?filter=unknown" className="font-medium text-primary hover:underline">
+                  Review those homes
                 </Link>
               </p>
             ) : null}
@@ -160,6 +177,15 @@ export default async function LeasesPage() {
         </CardContent>
       </Card>
 
+      {scope ? (
+        <PropertyScopeBanner
+          scope={scope}
+          noun="the waiting list"
+          clearHref="/leases"
+          note="the figures above still cover the whole association"
+        />
+      ) : null}
+
       {/* ─── Waiting list ─── */}
       <section aria-labelledby="waiting-heading" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -179,7 +205,7 @@ export default async function LeasesPage() {
           <DataTable
             caption="Owners waiting to lease"
             columns={waitingColumns}
-            rows={openWaiting.map((e, i) => ({ ...e, position: i + 1 }))}
+            rows={openWaiting.map((e, i) => ({ ...e, position: positions.get(e.id) ?? i + 1 }))}
             rowKey={(e) => e.id}
             mobile="cards"
             linkAs={Link}

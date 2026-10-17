@@ -20,3 +20,17 @@ export function fieldErrorsOf(error: { issues: readonly IssueLike[] }): Record<s
   }
   return out
 }
+
+/**
+ * A failed action result split for a form: per-field messages for under
+ * each field, and the form-level one (the `_` key, or the message when no
+ * field was named) for the alert. Both can be present, and both show.
+ */
+export function splitFormErrors(result: { error: string; fieldErrors?: Record<string, string> }): {
+  fields: Record<string, string>
+  form: string | null
+} {
+  const { _: formLevel, ...fields } = result.fieldErrors ?? {}
+  const hasFields = Object.keys(fields).length > 0
+  return { fields, form: formLevel ?? (hasFields ? null : result.error) }
+}

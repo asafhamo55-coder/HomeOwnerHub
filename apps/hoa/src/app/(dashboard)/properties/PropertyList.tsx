@@ -3,7 +3,7 @@ import { Building2, Plus, Search } from 'lucide-react'
 import { Badge, Button, EmptyState, cn } from '@homeowner-portal/ui'
 import { TENURE } from '@/lib/status/community'
 import type { PropertyListRow } from '@/lib/properties/list'
-import type { PropertyListParams } from '@/lib/properties/list-params'
+import { propertyListHref, propertyListQuery, type PropertyListParams } from '@/lib/properties/list-params'
 import {
   emptyListMessage,
   reasonPills,
@@ -17,22 +17,12 @@ function money(n: number): string {
   return n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 }
 
-/** Preserves the current filter/sort/search/page when linking to a property. */
-function queryFor(params: PropertyListParams): string {
-  const q = new URLSearchParams()
-  if (params.filter !== 'attention') q.set('filter', params.filter)
-  if (params.sort !== 'severity') q.set('sort', params.sort)
-  if (params.search) q.set('q', params.search)
-  if (params.page > 1) q.set('page', String(params.page))
-  const s = q.toString()
-  return s ? `?${s}` : ''
-}
-
 export function PropertyList({
   rows,
   selectedId,
   params,
   noPropertiesYet = false,
+  allMatches = null,
 }: {
   rows: PropertyListRow[]
   selectedId?: string
@@ -44,6 +34,9 @@ export function PropertyList({
    * Unknown (count failed) stays false and falls back to the filter copy.
    */
   noPropertiesYet?: boolean
+  /** How many homes the search matches across ALL filters (null = unknown).
+   *  Lets an empty filtered search point at matches the filter hid. */
+  allMatches?: number | null
 }) {
   if (rows.length === 0 && noPropertiesYet && !params.search) {
     return (
@@ -64,17 +57,46 @@ export function PropertyList({
     )
   }
 
+  if (rows.length === 0 && params.search) {
+    const elsewhere = params.filter !== 'all' && allMatches !== null && allMatches > 0
+    return (
+      <EmptyState
+        variant="compact"
+        icon={<Search aria-hidden />}
+        title={`No ${params.filter === 'attention' ? 'homes needing attention' : 'homes'}${
+          params.filter !== 'all' && params.filter !== 'attention' ? ' in this view' : ''
+        } match “${params.search}”`}
+        description={
+          elsewhere
+            ? `${allMatches} ${allMatches === 1 ? 'home matches' : 'homes match'} in All.`
+            : 'Search looks at the address, unit, owner name and email. Try part of the street name or the house number.'
+        }
+        action={
+          elsewhere ? (
+            <Button asChild variant="secondary" size="sm">
+              <Link href={propertyListHref(params, { filter: 'all', page: 1 })}>Search all homes</Link>
+            </Button>
+          ) : (
+            <Button asChild variant="secondary" size="sm">
+              <Link href={propertyListHref(params, { search: '', page: 1 })}>Clear search</Link>
+            </Button>
+          )
+        }
+      />
+    )
+  }
+
   if (rows.length === 0) {
     return (
       <EmptyState
         variant="compact"
-        icon={params.search ? <Search aria-hidden /> : <Building2 aria-hidden />}
-        title={params.search ? `No properties match “${params.search}”` : 'Nothing in this view'}
-        description={params.search ? 'Try a shorter search, or clear it to see every home in this filter.' : emptyListMessage(params.filter)}
+        icon={<Building2 aria-hidden />}
+        title="Nothing in this view"
+        description={emptyListMessage(params.filter)}
         action={
-          params.filter !== 'all' || params.search ? (
+          params.filter !== 'all' ? (
             <Button asChild variant="secondary" size="sm">
-              <Link href="/properties?filter=all">Show all properties</Link>
+              <Link href="/properties">Show all homes</Link>
             </Button>
           ) : (
             <Button asChild size="sm">
@@ -86,7 +108,8 @@ export function PropertyList({
     )
   }
 
-  const qs = queryFor(params)
+  const query = propertyListQuery(params)
+  const qs = query ? `?${query}` : ''
 
   return (
     <ul className="divide-y divide-border">

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Pager } from '@homeowner-portal/ui'
-import type { PropertyListParams } from '@/lib/properties/list-params'
+import { propertyListHref, type PropertyListParams } from '@/lib/properties/list-params'
 
 /**
  * "Showing X–Y of Z" with Previous/Next for the properties aside.
@@ -23,15 +23,7 @@ export function PropertyListPager({
   /** Total rows matching the current filter and search. */
   total: number
 }) {
-  const hrefFor = (page: number): string => {
-    const q = new URLSearchParams({
-      filter: params.filter,
-      sort: params.sort,
-      ...(params.search ? { q: params.search } : {}),
-      page: String(page),
-    })
-    return `/properties?${q}`
-  }
+  const hrefFor = (page: number): string => propertyListHref(params, { page })
 
   return (
     <Pager

@@ -21,7 +21,6 @@ import {
   Field,
   Input,
   Label,
-  Select,
   StatusBadge,
   Textarea,
   WizardStepper,
@@ -30,6 +29,7 @@ import {
   type WizardStep as StepperStep,
 } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
+import { PropertyPicker } from './PropertyPicker'
 import { responseErrorMessage } from '@/lib/api/client'
 import { createApprovedViolation } from '@/lib/violations'
 import { VIOLATION_SEVERITY } from '@/lib/status/community'
@@ -69,6 +69,9 @@ interface WizardProps {
   hasParsedCCR: boolean
   /** When set, the wizard hydrates its state from this draft and resumes. */
   initialDraft?: WizardDraft | null
+  /** From `?property=` (the property page's "New violation here"). Only
+   *  ever a home in `properties`; otherwise nothing is preselected. */
+  initialPropertyId?: string | null
 }
 
 const STEPPER_STEPS: StepperStep[] = [
@@ -98,7 +101,7 @@ interface DraftPayload {
   analysis?: AnalysisResult | null
 }
 
-export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) {
+export function Wizard({ properties, hasParsedCCR, initialDraft, initialPropertyId = null }: WizardProps) {
   const router = useRouter()
   const confirm = useConfirm()
   const toast = useToast()
@@ -111,9 +114,9 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
   })
 
   const [draftId, setDraftId] = useState<string | null>(initialDraft?.id ?? null)
-  const [propertyId, setPropertyId] = useState(
-    initialPayload.propertyId ?? properties[0]?.id ?? '',
-  )
+  // No silent default. This was `properties[0]`, so a report could be filed
+  // against whichever home sorted first by someone who never picked it.
+  const [propertyId, setPropertyId] = useState(initialPayload.propertyId ?? initialPropertyId ?? '')
   const [notes, setNotes] = useState(initialPayload.notes ?? '')
   const [curePeriod, setCurePeriod] = useState(initialPayload.curePeriod ?? 14)
   const [fineAmount, setFineAmount] = useState(initialPayload.fineAmount ?? 25)
@@ -449,19 +452,8 @@ export function Wizard({ properties, hasParsedCCR, initialDraft }: WizardProps) 
             A violation is always recorded against a property. Add one first.
           </Alert>
         ) : (
-          <Field label="Property" required>
-            <Select
-              value={propertyId}
-              onValueChange={setPropertyId}
-              placeholder="Select property"
-            >
-              {properties.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.address}
-                  {p.unit_number ? ` · ${p.unit_number}` : ''}
-                </option>
-              ))}
-            </Select>
+          <Field label="Property" required hint={propertyId ? undefined : 'Search by street, house number or unit.'}>
+            <PropertyPicker options={properties} value={propertyId} onChange={setPropertyId} />
           </Field>
         )}
 

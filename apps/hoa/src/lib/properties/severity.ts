@@ -6,6 +6,7 @@
 // how a rank *reads*.
 
 import type { PropertyFilter } from './list-params'
+import { missingFields } from './list-view'
 
 export type SeverityTone = 'red' | 'amber' | 'slate' | 'clear'
 
@@ -79,7 +80,7 @@ export function severityLabel(rank: number): string {
     case 4:
       return 'Mail awaiting reply'
     case 5:
-      return 'Missing property data'
+      return 'Missing owner or tenure'
     default:
       return 'Nothing outstanding'
   }
@@ -119,17 +120,35 @@ export function reasonPills(row: SeveritySource): ReasonPill[] {
     })
   }
 
+  // "Awaiting reply", not "unread": the view counts threads whose status is
+  // needs_review or open — a board member may well have read them.
   if (row.threadsNeedingReply > 0) {
-    pills.push({ text: `${row.threadsNeedingReply} unread`, tone: 'amber' })
+    pills.push({ text: `${row.threadsNeedingReply} awaiting reply`, tone: 'amber' })
   }
 
-  // One pill however many fields are missing — three pills saying the same
-  // thing is noise, and the panel names the specifics.
-  if (!row.hasOwner || !row.hasTenure || !row.hasUnitLink) {
-    pills.push({ text: 'Missing data', tone: 'slate' })
-  }
+  // One pill however many fields are missing, naming them. The missing
+  // unit link is not counted: it is bookkeeping between two tables that no
+  // board member can fill in, and it put "Missing data" on 53 of 57 homes.
+  const missing = missingDataLabel(row)
+  if (missing) pills.push({ text: missing, tone: 'slate' })
 
   return pills
+}
+
+/** "No owner", "No tenure", "No owner or tenure" — or null when complete. */
+export function missingDataLabel(row: Pick<SeveritySource, 'hasOwner' | 'hasTenure'>): string | null {
+  const missing = missingFields(row)
+  return missing.length === 0 ? null : `No ${missing.join(' or ')}`
+}
+
+/**
+ * The view's rank 5 ("missing data") also fires for a missing unit link
+ * (0039), which is no longer treated as missing data. Without a migration
+ * the view cannot change, so a rank-5 row whose owner and tenure are both
+ * on file reads as rank 6 ("nothing outstanding") here.
+ */
+export function effectiveSeverityRank(rank: number, row: Pick<SeveritySource, 'hasOwner' | 'hasTenure'>): number {
+  return rank === 5 && missingFields(row).length === 0 ? 6 : rank
 }
 
 /**

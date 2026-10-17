@@ -15,6 +15,22 @@ export type PropertyFilter =
   | 'waiting'
   | 'unknown'
 
+/** The filters behind the list's "Filters" menu — everything except the
+ *  two views on the toggle (All, Needs attention). Order is display order. */
+export const MENU_FILTER_LABELS = {
+  incomplete: 'Incomplete record',
+  waiting: 'Waiting list',
+  owner_occupied: 'Owner-occupied',
+  leased: 'Leased',
+  unknown: 'Tenure unknown',
+} as const satisfies Partial<Record<PropertyFilter, string>>
+
+export type MenuFilter = keyof typeof MENU_FILTER_LABELS
+
+export function isMenuFilter(f: PropertyFilter): f is MenuFilter {
+  return f in MENU_FILTER_LABELS
+}
+
 export type PropertySort = 'severity' | 'address' | 'balance'
 
 export interface PropertyListParams {
@@ -42,9 +58,15 @@ const FILTERS: readonly PropertyFilter[] = [
 const SORTS: readonly PropertySort[] = ['severity', 'address', 'balance']
 
 /**
- * The page opens on the work queue, not on an alphabetical inventory —
- * hence 'attention' and 'severity' as the defaults rather than 'all'.
+ * The page opens on every home, worst first. It used to open on the
+ * 'attention' queue, and a search ran inside whatever filter was active —
+ * so a board member typing an address found nothing unless that home
+ * happened to need attention (UX audit, 2026-10). The queue is one click
+ * away ("Needs attention"); 'severity' still puts the work at the top.
  */
+export const DEFAULT_PROPERTY_FILTER: PropertyFilter = 'all'
+export const DEFAULT_PROPERTY_SORT: PropertySort = 'severity'
+
 export function parsePropertyListParams(raw: {
   filter?: string
   sort?: string
@@ -53,11 +75,11 @@ export function parsePropertyListParams(raw: {
 }): PropertyListParams {
   const filter = FILTERS.includes(raw.filter as PropertyFilter)
     ? (raw.filter as PropertyFilter)
-    : 'attention'
+    : DEFAULT_PROPERTY_FILTER
 
   const sort = SORTS.includes(raw.sort as PropertySort)
     ? (raw.sort as PropertySort)
-    : 'severity'
+    : DEFAULT_PROPERTY_SORT
 
   const parsedPage = Number.parseInt(raw.page ?? '', 10)
   const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1
@@ -70,6 +92,52 @@ export function parsePropertyListParams(raw: {
     offset: (page - 1) * PROPERTY_PAGE_SIZE,
     limit: PROPERTY_PAGE_SIZE,
   }
+}
+
+/**
+ * The list's query string (no leading `?`), defaults omitted. The one
+ * builder every properties link uses — the chips, sorts, pager, the row
+ * links and the detail route's breadcrumb used to carry four hand-copied
+ * versions, which is how a default change silently breaks one of them.
+ * Overrides replace a field; `page: 1` (or less) drops the page.
+ */
+export function propertyListQuery(
+  params: Pick<PropertyListParams, 'filter' | 'sort' | 'search' | 'page'>,
+  overrides: Partial<{ filter: PropertyFilter; sort: PropertySort; search: string; page: number }> = {},
+): string {
+  const filter = overrides.filter ?? params.filter
+  const sort = overrides.sort ?? params.sort
+  const search = overrides.search ?? params.search
+  const page = overrides.page ?? params.page
+  const q = new URLSearchParams()
+  if (filter !== DEFAULT_PROPERTY_FILTER) q.set('filter', filter)
+  if (sort !== DEFAULT_PROPERTY_SORT) q.set('sort', sort)
+  if (search) q.set('q', search)
+  if (page > 1) q.set('page', String(page))
+  return q.toString()
+}
+
+/** `/properties` plus the query above. */
+export function propertyListHref(
+  params: Pick<PropertyListParams, 'filter' | 'sort' | 'search' | 'page'>,
+  overrides: Parameters<typeof propertyListQuery>[1] = {},
+): string {
+  const s = propertyListQuery(params, overrides)
+  return s ? `/properties?${s}` : '/properties'
+}
+
+/**
+ * The CSV export of exactly the rows the list shows: the same filter and
+ * search, all pages. Used to forward only three tenure filters, so the
+ * "Needs attention", "Incomplete" and "Waiting list" views exported every
+ * home in the association.
+ */
+export function propertyExportHref(params: Pick<PropertyListParams, 'filter' | 'search'>): string {
+  const q = new URLSearchParams()
+  if (params.filter !== 'all') q.set('filter', params.filter)
+  if (params.search) q.set('q', params.search)
+  const s = q.toString()
+  return s ? `/properties/export?${s}` : '/properties/export'
 }
 
 /**
