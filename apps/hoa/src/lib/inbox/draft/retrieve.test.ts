@@ -27,6 +27,8 @@ import {
 } from './retrieve'
 import { getThreadDetail, getPropertyContext } from '@/lib/inbox/queries'
 import { queryGoverningDocs, askStateLaw } from '@homeowner-portal/workflows'
+import { findSimilarReplies } from './past-replies'
+import { findContactPII } from '@homeowner-portal/ai/pii'
 
 /**
  * Minimal chainable `.from().select().eq().in()` stand-in. Both fetch
@@ -447,5 +449,70 @@ describe('retrieveForThread — statute citation drop decision', () => {
     expect(result.fragments.every((f) => f.text !== '')).toBe(true)
     expect(result.fragments.some((f) => f.refId === 'law:s1')).toBe(false)
     expect(result.degraded).toContain('state_law_chunk_text')
+  })
+})
+
+// ─── BL-062: contact details the drafter does not need ──────────────────
+//
+// W1 / W30 get the latest inbound email as their search question, and W32
+// gets the conversation and past replies. None of them needs a resident's
+// email address or phone number, and every one is a third-party AI call.
+
+describe('retrieveForThread — contact PII stays out of AI inputs (BL-062)', () => {
+  function mockEmptySources() {
+    vi.mocked(getPropertyContext).mockResolvedValue(null)
+    vi.mocked(queryGoverningDocs).mockResolvedValue({
+      answer: '',
+      confidence: 'LOW',
+      citations: [],
+      clarification: null,
+      recommendation: null,
+      runId: 'r1',
+    })
+    vi.mocked(askStateLaw).mockResolvedValue({ answer: '', confidence: 'LOW', citations: [], disclaimer: '', runId: 'r2' })
+  }
+
+  it('sends no email or phone to W1, W30, the reply embedder, or W32', async () => {
+    const body = 'My fence blew down, how tall can the new one be?\n--\nPat Owner\npat@example.com\n(305) 555-0142'
+    const thread = threadWithInboundMessage()
+    thread.messages[0] = {
+      ...thread.messages[0]!,
+      fromName: null as never,
+      fromEmail: 'pat@example.com' as never,
+      bodyText: body,
+      strippedText: body,
+    }
+    vi.mocked(getThreadDetail).mockResolvedValue(thread)
+    mockEmptySources()
+    vi.mocked(findSimilarReplies).mockResolvedValueOnce({
+      replies: [{ messageId: 'x', subject: 'Re: gate', body: 'Thanks! Call Sam at 305-555-0199 or sam@example.org.' }],
+      degraded: [],
+    } as never)
+
+    const result = await retrieveForThread(buildCallerDb({ state: 'GA' }) as never, 'org-1', 'thread-1')
+
+    const sentToAi = JSON.stringify({
+      w1: vi.mocked(queryGoverningDocs).mock.calls.at(-1)![0],
+      w30: vi.mocked(askStateLaw).mock.calls.at(-1)![0],
+      embed: vi.mocked(findSimilarReplies).mock.calls.at(-1)![2],
+      // Everything retrieveForThread hands W32 (actions.ts createDraft).
+      w32: { messages: result.messages, fragments: result.fragments, voiceExamples: result.voiceExamples },
+    })
+    expect(findContactPII(sentToAi)).toEqual([])
+    // Not vacuous: the question and the tone sample still arrive.
+    expect(sentToAi).toContain('how tall can the new one be')
+    expect(sentToAi).toContain('Thanks! Call Sam at [phone removed]')
+    expect(result.messages[0]!.from).toBe('Resident')
+  })
+
+  it('caps the W1 / W30 question at their 2000-character schema limit', async () => {
+    const thread = threadWithInboundMessage()
+    const long = 'Fence question. '.repeat(200)
+    thread.messages[0] = { ...thread.messages[0]!, bodyText: long, strippedText: long }
+    vi.mocked(getThreadDetail).mockResolvedValue(thread)
+    mockEmptySources()
+    await retrieveForThread(buildCallerDb({ state: 'GA' }) as never, 'org-1', 'thread-1')
+    expect(vi.mocked(queryGoverningDocs).mock.calls.at(-1)![0].length).toBeLessThanOrEqual(2000)
+    expect(vi.mocked(askStateLaw).mock.calls.at(-1)![0].length).toBeLessThanOrEqual(2000)
   })
 })

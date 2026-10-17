@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { cappedFakeDb } from '@/lib/supabase/capped-fake-db'
+import { findContactPII } from '@homeowner-portal/ai/pii'
+import { ContactVault } from './contact-placeholders'
 
 const W1 = vi.hoisted(() => ({ queryGoverningDocs: vi.fn() }))
 vi.mock('@homeowner-portal/workflows/W1', () => W1)
@@ -11,7 +13,12 @@ const { TOOL_BY_NAME, ToolFailure } = await import('./tools')
  * The fake caps each response at 1000 rows like PostgREST's max_rows.
  */
 const ORG = 'org-1'
-const ctx = (db: unknown, canSeeOwnerContact = true) => ({ db: db as never, orgId: ORG, canSeeOwnerContact })
+const ctx = (db: unknown, canSeeOwnerContact = true, contactVault = new ContactVault()) => ({
+  db: db as never,
+  orgId: ORG,
+  canSeeOwnerContact,
+  contactVault,
+})
 const id = (p: string, i: number) => `${p}${String(i).padStart(5, '0')}`
 
 const props = Array.from({ length: 1700 }, (_, i) => ({
@@ -157,24 +164,53 @@ describe('get_unit_owner', () => {
     tenure: 'owner_occupied',
   }
 
-  it('gives the board the owner contact, camelCase', async () => {
-    const r = await TOOL_BY_NAME.get_unit_owner!.execute({ address: '829' }, ctx(fixedDb({ data: [row], error: null })))
+  it('gives the model contact tokens, never the raw email or phone (BL-062)', async () => {
+    const vault = new ContactVault()
+    const r = await TOOL_BY_NAME.get_unit_owner!.execute(
+      { address: '829' },
+      ctx(fixedDb({ data: [row], error: null }), true, vault),
+    )
     expect(r).toEqual({
       matches: [
-        { address: '829 Pistace Ct', ownerName: 'Pat Owner', ownerEmail: 'pat@example.com', ownerPhone: '555-0100', tenure: 'owner_occupied' },
+        {
+          address: '829 Pistace Ct',
+          ownerName: 'Pat Owner',
+          contactOnFile: true,
+          ownerEmail: '[OWNER_EMAIL_1]',
+          ownerPhone: '[OWNER_PHONE_1]',
+          tenure: 'owner_occupied',
+        },
       ],
     })
+    expect(findContactPII(JSON.stringify(r))).toEqual([])
+    expect(vault.resolve('[OWNER_EMAIL_1]')).toBe('pat@example.com')
+    expect(vault.resolve('[OWNER_PHONE_1]')).toBe('555-0100')
   })
 
-  it('withholds email and phone from a caller who may not see owner contact', async () => {
-    const r = await TOOL_BY_NAME.get_unit_owner!.execute({ address: '829' }, ctx(fixedDb({ data: [row], error: null }), false))
-    expect(JSON.stringify(r)).not.toContain('pat@example.com')
-    expect(JSON.stringify(r)).not.toContain('555-0100')
+  it('says no contact is on file without inventing a token', async () => {
+    const vault = new ContactVault()
+    const bare = { ...row, owner_email: null, owner_phone: '  ' }
+    const r = await TOOL_BY_NAME.get_unit_owner!.execute({ address: '829' }, ctx(fixedDb({ data: [bare], error: null }), true, vault))
+    expect(r).toEqual({
+      matches: [{ address: '829 Pistace Ct', ownerName: 'Pat Owner', contactOnFile: false, ownerEmail: null, ownerPhone: null, tenure: 'owner_occupied' }],
+    })
+    expect(vault.size).toBe(0)
   })
 
-  it('the public view never carries owner contact', () => {
+  it('a caller who may not see owner contact gets neither tokens nor vault entries', async () => {
+    const vault = new ContactVault()
+    const r = await TOOL_BY_NAME.get_unit_owner!.execute({ address: '829' }, ctx(fixedDb({ data: [row], error: null }), false, vault))
+    expect(r).toEqual({
+      matches: [{ address: '829 Pistace Ct', ownerName: 'Pat Owner', contactOnFile: true, tenure: 'owner_occupied' }],
+    })
+    expect(vault.size).toBe(0)
+  })
+
+  it('the public view never carries owner contact or its tokens', () => {
     const pub = TOOL_BY_NAME.get_unit_owner!.toPublic!({
-      matches: [{ address: '829 Pistace Ct', ownerName: 'Pat Owner', ownerEmail: 'pat@example.com', ownerPhone: '555-0100', tenure: null }],
+      matches: [
+        { address: '829 Pistace Ct', ownerName: 'Pat Owner', contactOnFile: true, ownerEmail: '[OWNER_EMAIL_1]', ownerPhone: '[OWNER_PHONE_1]', tenure: null },
+      ],
     })
     expect(pub).toEqual({ matches: [{ address: '829 Pistace Ct', ownerName: 'Pat Owner', tenure: null }] })
   })

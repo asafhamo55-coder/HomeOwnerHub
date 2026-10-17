@@ -3,6 +3,10 @@ import type { Database } from '@homeowner-portal/db/types'
 import { queryGoverningDocs, askStateLaw } from '@homeowner-portal/workflows'
 import { getThreadDetail, getPropertyContext, type PropertyContext } from '@/lib/inbox/queries'
 import { findSimilarReplies } from './past-replies'
+import { redactContactPII } from '@homeowner-portal/ai/pii'
+
+/** W1 and W30 cap their question at 2000 characters (their input schemas). */
+const MAX_POLICY_QUESTION = 2000
 
 export interface RetrievedFragment {
   refId: string
@@ -132,10 +136,12 @@ export function collectFragments(sources: SourceResults): {
   }
   // NOT pushed into `fragments`, and no refId is minted for them. The
   // `messageId` is dropped here on purpose: nothing downstream should have
-  // a handle it could turn back into a citable reference.
+  // a handle it could turn back into a citable reference. These are other
+  // households' emails, used for tone only: contact details are stripped
+  // before they reach the model (BL-062).
   const voiceExamples: VoiceExample[] = sources.pastReplies.map((r) => ({
-    subject: r.subject,
-    body: r.body,
+    subject: r.subject === null ? null : redactContactPII(r.subject),
+    body: redactContactPII(r.body),
   }))
 
   return { fragments, voiceExamples, degraded: sources.degraded }
@@ -398,12 +404,21 @@ export async function retrieveForThread(
     throw new Error(`retrieveForThread: thread ${threadId} not found in org ${orgId}`)
   }
 
-  const messages = thread.messages.map((m) => ({
-    direction: m.direction,
-    from: m.fromName ?? m.fromEmail ?? 'Unknown',
-    sentAt: m.sentAt,
-    text: m.strippedText ?? m.bodyText ?? '',
-  }))
+  // BL-062: W32 labels each message [HOA] / [RESIDENT] and never needs the
+  // sender's address, so a missing display name becomes a role, not the raw
+  // email. A resident's email / phone (their signature, usually) is stripped
+  // from inbound text: the draft replies on the thread and needs neither.
+  // Outbound text is the association's own writing and is left alone.
+  const messages = thread.messages.map((m) => {
+    const text = m.strippedText ?? m.bodyText ?? ''
+    const role = m.direction === 'inbound' ? 'Resident' : 'HOA'
+    return {
+      direction: m.direction,
+      from: m.fromName ? redactContactPII(m.fromName) : role,
+      sentAt: m.sentAt,
+      text: m.direction === 'inbound' ? redactContactPII(text) : text,
+    }
+  })
 
   const latestInbound =
     [...messages].reverse().find((m) => m.direction === 'inbound' && m.text.trim())?.text ?? null
@@ -425,9 +440,14 @@ export async function retrieveForThread(
 
   const degraded: string[] = []
 
+  // latestInbound is already contact-free (see messages above). W1 / W30
+  // reject a question over 2000 characters, which used to mark both
+  // sources degraded on any long email; send the head of it instead.
+  const policyQuestion = latestInbound.slice(0, MAX_POLICY_QUESTION)
+
   const [docsResult, statutesResult, propertyResult, repliesResult] = await Promise.allSettled([
-    queryGoverningDocs(latestInbound, { organizationId: orgId }),
-    fetchStatuteCitations(db, orgId, latestInbound),
+    queryGoverningDocs(policyQuestion, { organizationId: orgId }),
+    fetchStatuteCitations(db, orgId, policyQuestion),
     thread.unitId ? getPropertyContext(db, orgId, thread.unitId) : Promise.resolve(null),
     findSimilarReplies(db, orgId, latestInbound, threadId),
   ])

@@ -670,7 +670,7 @@ These go beyond the design-system v2 pass:
   - Left: match on inbox participants (needs a migration or RPC over message addresses).
   - Left: measure p50 latency.
 - **BL-061 Confirm Resend keeps our Message-ID:** send one real communication and check that the reply's In-Reply-To carries `<hoh-cr.…>`. If Resend overwrites it, add `smtp_message_id` (migration). Inbound replies also need Resend receiving and an `email.received` webhook set up for the EMAIL_FROM domain (dashboard/DNS, owner).
-- **BL-062 Owner contact sent to the AI provider:** ask-community sends owner email and phone to Groq on a board lookup. Consider redacting them, or sending them only when the question asks for contact details.
+- **BL-062 Owner contact sent to the AI provider — Done (claude/bl-062):** ask-community sends owner email and phone to Groq on a board lookup. Consider redacting them, or sending them only when the question asks for contact details.
 
 ## Added 2026-10-17 (cycles 7–8)
 

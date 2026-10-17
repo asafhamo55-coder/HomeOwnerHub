@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { askCommunity, type AgentResult } from '@/lib/community-qa/agent'
+import { ContactVault, fillContactPlaceholders } from '@/lib/community-qa/contact-placeholders'
 import { withRoute } from '@/lib/api/handler'
 import { ApiRouteError } from '@/lib/api/errors'
 import { requireOrgOwned, requireRouteBoardOrAdmin } from '@/lib/api/auth'
@@ -15,6 +16,9 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 //   toolCalls[] is the agent's public data-sources log: { name, args, result }
 //   with camelCase results, money in *Cents, failures as { failed, code }
 //   and no owner email / phone (lib/community-qa/agent.ts toPublicCall).
+//   The model never sees owner email / phone either (BL-062): it answers
+//   with tokens like [OWNER_EMAIL_1], filled in here, server-side, from the
+//   agent's per-request vault, only for a caller who may see owner contact.
 // → non-2xx: the RC-1 envelope { error: { code, message, … } }
 //
 // Board + admin only (RC-4): every in-app caller (the dashboard Ask page
@@ -40,6 +44,10 @@ export const POST = withRoute('ai.ask-community', async (request) => {
     throw new ApiRouteError('not_configured', 'The assistant is not set up yet.')
   }
 
+  // Board and admin both see owner contact on the property page and under
+  // hoa_properties_select; the gate above admits only them.
+  const canSeeOwnerContact = role === 'board' || role === 'admin'
+
   const db = await getSupabaseServerClient()
   let result: AgentResult
   try {
@@ -47,9 +55,7 @@ export const POST = withRoute('ai.ask-community', async (request) => {
       db,
       orgId,
       associationId,
-      // Board and admin both see owner contact on the property page and
-      // under hoa_properties_select; the gate above admits only them.
-      canSeeOwnerContact: role === 'board' || role === 'admin',
+      canSeeOwnerContact,
     })
   } catch (err) {
     logRouteFailure('ai.ask-community', err, { orgId, stage: 'agent' })
@@ -61,7 +67,10 @@ export const POST = withRoute('ai.ask-community', async (request) => {
 
   // Fields named one by one so nothing the agent grows later rides along.
   return NextResponse.json({
-    answer: result.answer,
+    answer: fillContactPlaceholders(
+      result.answer,
+      canSeeOwnerContact ? (result.contactVault ?? new ContactVault()) : null,
+    ),
     toolCalls: result.toolCalls,
     steps: result.steps,
     ...(result.citations ? { citations: result.citations } : {}),

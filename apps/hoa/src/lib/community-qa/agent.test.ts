@@ -10,6 +10,7 @@ vi.mock('@homeowner-portal/workflows/W1', () => W1)
 vi.mock('@homeowner-portal/ai', () => ({ resolveModel: () => 'test-model' }))
 
 const { askCommunity } = await import('./agent')
+const { findContactPII } = await import('@homeowner-portal/ai/pii')
 
 const SECRET = 'relation "hoa_properties" violates key (owner_email)=(pat@example.com)'
 
@@ -90,17 +91,64 @@ describe('askCommunity tool errors', () => {
     expect(r.toolCalls).toEqual([{ name: 'unknown', args: {}, result: { failed: true, code: 'unknown_tool' } }])
   })
 
-  it('the public tool log drops owner contact and unknown args, the model still gets the contact', async () => {
-    const { bodies } = fakeLlm([{ name: 'get_unit_owner', args: { address: '829', injected: 'x'.repeat(5000) } }])
+  it('the model gets contact tokens, never raw email/phone; the vault resolves them (BL-062)', async () => {
+    const { bodies } = fakeLlm(
+      [{ name: 'get_unit_owner', args: { address: '829', injected: 'x'.repeat(5000) } }],
+      'Pat owns it: [OWNER_EMAIL_1].',
+    )
     const db = fixedDb({
-      data: [{ id: 'p1', address: '829 Pistace Ct', owner_name: 'Pat', owner_email: 'pat@example.com', owner_phone: '555-0100', tenure: null }],
+      data: [{ id: 'p1', address: '829 Pistace Ct', owner_name: 'Pat', owner_email: 'pat@example.com', owner_phone: '(305) 555-0142', tenure: null }],
       error: null,
     })
     const r = await askCommunity('Who owns 829?', { db, orgId: 'org-1', canSeeOwnerContact: true })
-    expect(bodies[1]!.messages.find((m) => m.role === 'tool')!.content).toContain('pat@example.com')
+    const sent = JSON.stringify(bodies)
+    expect(findContactPII(sent)).toEqual([])
+    expect(sent).toContain('[OWNER_EMAIL_1]')
+    // The agent hands back the model's text; filling is the route's job.
+    expect(r.answer).toBe('Pat owns it: [OWNER_EMAIL_1].')
+    expect(r.contactVault.resolve('[OWNER_EMAIL_1]')).toBe('pat@example.com')
+    expect(r.contactVault.resolve('[OWNER_PHONE_1]')).toBe('(305) 555-0142')
     expect(r.toolCalls).toEqual([
       { name: 'get_unit_owner', args: { address: '829' }, result: { matches: [{ address: '829 Pistace Ct', ownerName: 'Pat', tenure: null }] } },
     ])
+  })
+
+  it('no tool sends fixture contact PII to the model (BL-062 guard)', async () => {
+    W1.queryGoverningDocs.mockResolvedValue({ answer: 'Two pets.', confidence: 'HIGH', citations: [], runId: 'run-1' })
+    const { bodies } = fakeLlm([
+      { name: 'count_units_by_tenure' },
+      { name: 'list_overdue_dues' },
+      { name: 'get_unit_owner', args: { address: '829' } },
+      { name: 'count_open_violations' },
+      { name: 'list_recent_meetings' },
+      { name: 'count_properties' },
+      { name: 'search_governing_docs', args: { question: 'pets' } },
+    ])
+    // Every row carries PII in every column a tool could select.
+    const pii = {
+      id: 'p1', address: '829 Pistace Ct', owner_name: 'Pat', owner_email: 'pat@example.com',
+      owner_phone: '305-555-0142', tenure: 'leased', status: 'open', amount: 100, due_date: '2026-01-01',
+      meeting_date: '2026-01-02', meeting_type: 'board', payments: [], unit: { address_line1: '829 Pistace Ct', lot_number: '12' },
+      email: 'pat@example.com', phone: '305-555-0142', timezone: 'America/New_York',
+    }
+    // Like fixedDb, but a paged read (readAll) sees the row on page one only.
+    const db = {
+      from: () => {
+        let page = 0
+        const q: Record<string, unknown> = {}
+        for (const m of ['select', 'eq', 'neq', 'is', 'lt', 'ilike', 'order', 'limit']) q[m] = () => q
+        q.range = (from: number) => ((page = from), q)
+        q.then = (resolve: (v: unknown) => unknown) =>
+          Promise.resolve({ data: page === 0 ? [pii] : [], error: null, count: 1 }).then(resolve)
+        return q
+      },
+    } as never
+    const r = await askCommunity('Everything?', { db, orgId: 'org-1', canSeeOwnerContact: true })
+    // Not vacuous: every tool really ran and returned data to the model.
+    expect(r.toolCalls.filter((c) => (c.result as { failed?: boolean })?.failed).map((c) => c.name)).toEqual([])
+    expect(r.toolCalls).toHaveLength(7)
+    expect(JSON.stringify(bodies)).toContain('829 Pistace Ct')
+    expect(findContactPII(JSON.stringify(bodies))).toEqual([])
   })
 
   it('a provider HTTP failure throws without the provider body', async () => {

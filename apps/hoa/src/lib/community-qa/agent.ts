@@ -17,6 +17,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import { resolveModel } from '@homeowner-portal/ai'
 import { logRouteFailure } from '@/lib/api/log'
+import { ContactVault } from './contact-placeholders'
 import {
   TOOLS,
   TOOL_BY_NAME,
@@ -49,6 +50,7 @@ Style:
 - If a tool returns 0 results or LOW confidence, say so directly — don't make up data.
 - If a tool result is {"failed": true, ...}, that lookup is unavailable right now: say so in one short sentence and don't guess its answer.
 - When search_governing_docs returns citations, paraphrase the rule and quote the section briefly. The UI shows the full citation separately.
+- Owner email and phone appear in tool results only as placeholder tokens such as [OWNER_EMAIL_1] or [OWNER_PHONE_1]. When the user asks how to reach an owner, copy the token exactly as given; the portal replaces it with the real value. Never invent a token, and never guess or make up contact details. If contactOnFile is false, say no contact is on file.
 
 Next steps:
 - After answering a rules/policy question that implies the reader wants to DO something, add a short "Recommended next step:" line pointing to the real action available in this portal:
@@ -100,6 +102,10 @@ export interface AgentResult {
   /** Run id from the most recent docs lookup, when applicable. The
    *  audit log links to ai_runs.id for traceability. */
   runId?: string
+  /** Real owner contact behind the tokens in `answer` (BL-062). Server-side
+   *  only: the route fills the answer from it for a caller who may see
+   *  contact, and never puts the vault itself in the response. */
+  contactVault: ContactVault
 }
 
 export async function askCommunity(
@@ -127,12 +133,17 @@ export async function askCommunity(
     { role: 'user', content: question },
   ]
 
+  // One vault per question: tokens are numbered within this answer only.
+  const contactVault = new ContactVault()
+  const toolCtx = { ...ctx, contactVault }
+
   const toolCallLog: RawToolCall[] = []
   const finish = (answer: string, steps: number): AgentResult => ({
     answer,
     toolCalls: toolCallLog.map(toPublicCall),
     steps,
     ...extractDocsArtifacts(toolCallLog),
+    contactVault,
   })
 
   for (let step = 1; step <= MAX_STEPS; step++) {
@@ -201,7 +212,7 @@ export async function askCommunity(
         result = toolFailed('unknown_tool')
       } else {
         try {
-          result = await tool.execute(parsedArgs, ctx)
+          result = await tool.execute(parsedArgs, toolCtx)
         } catch (err) {
           // Only the fixed code goes back to the model (and so into its
           // answer) and to the response. The log keeps ids and codes.
