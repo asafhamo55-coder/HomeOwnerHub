@@ -297,11 +297,16 @@ function Donut({ title, description, segments, emptyTitle }: { title: string; de
         <CardTitle as="h2">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>
+      {/* The legend sits beside the donut only when the CARD has room for
+          it (cq-sm), not the viewport: at 1440 three donuts share a row and
+          each card is ~20rem, too narrow for 9rem of donut plus labels
+          (BL-066). minmax(0,1fr) + min-w-0 let long labels truncate instead
+          of widening the grid past the card. */}
+      <CardContent className="cq">
         {total === 0 ? (
           <EmptyState variant="compact" title={emptyTitle} />
         ) : (
-          <div className="grid items-center gap-5 sm:grid-cols-[9rem_1fr] lg:grid-cols-1 xl:grid-cols-[9rem_1fr]">
+          <div className="grid grid-cols-1 items-center gap-5 cq-sm:grid-cols-[9rem_minmax(0,1fr)]">
             <div className="relative mx-auto size-36" aria-hidden>
               <Chart option={option} height="100%" />
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
@@ -309,14 +314,14 @@ function Donut({ title, description, segments, emptyTitle }: { title: string; de
                 <span className="text-xs text-muted">total</span>
               </div>
             </div>
-            <ul className="space-y-2 text-sm">
+            <ul className="min-w-0 space-y-2 text-sm">
               {segments.map((s) => (
                 <li key={s.key} className="flex items-center justify-between gap-3">
                   <span className="flex min-w-0 items-center gap-2">
                     <span className="size-2.5 shrink-0 rounded-full" style={{ background: s.color }} aria-hidden />
                     <span className="truncate text-foreground-secondary">{s.label}</span>
                   </span>
-                  <span className="num font-medium text-foreground">
+                  <span className="num shrink-0 whitespace-nowrap font-medium text-foreground">
                     {s.value.toLocaleString()}{' '}
                     <span className="font-normal text-muted">({Math.round((s.value / total) * 100)}%)</span>
                   </span>

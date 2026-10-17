@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import type { BillScanOutput } from '@homeowner-portal/workflows'
 import {
+  BILL_ACTION,
   billMissing,
   billNeedsCheck,
   billSubjectId,
@@ -164,10 +168,22 @@ describe('enterBillInputFrom', () => {
 })
 
 describe('BILL_ACTION', () => {
-  it('is the action_type W36 declares (kept local so client bundles skip the workflows package)', async () => {
-    const { W36_AP_BILL } = await import('@homeowner-portal/workflows')
-    const { BILL_ACTION } = await import('./proposal')
-    expect(BILL_ACTION).toBe(W36_AP_BILL)
+  // Read W36's declaration from source rather than importing the workflows
+  // package: its barrel pulls in openai and every workflow, which timed out
+  // once under machine load (T-07). The barrel check below keeps this honest —
+  // the constant read here is the one the package actually exports.
+  const workflowsSrc = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../packages/workflows/src')
+
+  it('is the action_type W36 declares (kept local so client bundles skip the workflows package)', () => {
+    const w36 = readFileSync(path.join(workflowsSrc, 'W36-bill-scan/index.ts'), 'utf8')
+    const declared = w36.match(/^export const W36_AP_BILL = '([^']+)'$/m)
+    expect(declared, 'W36_AP_BILL declaration not found').not.toBeNull()
+    expect(BILL_ACTION).toBe(declared![1])
+  })
+
+  it('the workflows package exports that W36_AP_BILL from W36', () => {
+    const barrel = readFileSync(path.join(workflowsSrc, 'index.ts'), 'utf8')
+    expect(barrel).toMatch(/export \{[^}]*\bW36_AP_BILL\b[^}]*\} from '\.\/W36-bill-scan'/)
   })
 })
 
