@@ -691,6 +691,13 @@ export interface ThreadDetail {
  * numeric default, rather than silently implying a false zero.
  */
 export interface PropertyContext {
+  /**
+   * The hoa_properties id that /properties/[id] is keyed by
+   * (units.legacy_hoa_property_id) — NOT the thread's unit id, which 404s
+   * there. Null when the unit has no property record: then there is no
+   * page to link to.
+   */
+  propertyId: string | null
   address: string
   unitNumber: string | null
   residents: Array<{
@@ -1083,6 +1090,7 @@ export async function getPropertyContext(
   }
 
   return {
+    propertyId: legacyId ?? null,
     address: unit.address_line1,
     unitNumber: unit.unit_number,
     residents: (residentsData ?? []).map((r) => ({

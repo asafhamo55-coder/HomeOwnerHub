@@ -42,6 +42,11 @@ export interface PaletteCommand {
   shortcut?: string
   /** One muted line after the label (e.g. the section it lives in). */
   hint?: string
+  /**
+   * Right-aligned muted detail that tells similar rows apart ("Open · Oct 3").
+   * Never truncated: the label and hint give way first.
+   */
+  meta?: string
 }
 
 export interface PaletteSearchResult {
@@ -211,6 +216,7 @@ export function CommandPalette({
               {cmd.label}
               {cmd.hint ? <span className="ml-2 text-xs text-muted">{cmd.hint}</span> : null}
             </span>
+            {cmd.meta ? <span className="num shrink-0 whitespace-nowrap text-xs text-muted">{cmd.meta}</span> : null}
             {cmd.shortcut ? (
               <kbd className="font-sans text-xs text-muted">{cmd.shortcut}</kbd>
             ) : (

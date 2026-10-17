@@ -1,7 +1,7 @@
 // BL-022 — record search behind the ⌘K palette.
 //
 // `ilike` across the org's owners, properties, violations, ARC requests,
-// tickets, inbox threads and vendors. No migration: a trigram index can come
+// tickets, inbox threads, meetings, documents and vendors. No migration: a trigram index can come
 // later in a batch if p50 drifts.
 //
 // SECURITY. The caller passes the *user's* server client (never the service
@@ -20,14 +20,23 @@
 //
 // Logs carry the org id, type and error code only — never the query text or
 // a Postgres message, which can embed row values.
+//
+// BL-060: rows on the same lot (three "Landscaping" violations) used to be
+// identical. Each row now carries a `detail` — status and the association's
+// day ("Open · Oct 3") — which the palette keeps visible when the label and
+// address truncate. Days are the association's day (BL-043), not UTC.
 
 import { logRouteFailure } from '@/lib/api/log'
+import { DEFAULT_ASSOCIATION_TIME_ZONE, dayOf, todayIn } from '@/lib/association-time'
 import {
   ARC_STATUS,
   INBOX_THREAD_STATUS,
+  MEETING_STATUS,
+  MEETING_TYPE,
   TICKET_STATUS,
   VIOLATION_STATUS,
 } from '@/lib/status/community'
+import { DOCUMENT_TYPE_LABELS, GOVERNING_TYPE_LABELS } from '@/lib/status/knowledge'
 import {
   RECORD_GROUP_LABEL,
   RECORD_TYPES,
@@ -114,6 +123,31 @@ function unitLabel(unit: string | null): string | null {
   return /^(?:(?:unit|apt|apartment|suite|ste|lot)\b|#)/i.test(unit.trim()) ? unit.trim() : `Unit ${unit.trim()}`
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/**
+ * "Oct 3" for a day this year, "Nov 20, 2025" otherwise; null for a missing
+ * or unparseable value. A timestamp is read as the association's day; a
+ * date-only column ('2026-10-03') is taken at face value.
+ */
+function shortDay(value: unknown, timeZone: string, thisYear: string): string | null {
+  const day = typeof value === 'string' ? dayOf(value, timeZone) : null
+  const m = day ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(day) : null
+  if (!m) return null
+  const label = `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}`
+  return m[1] === thisYear ? label : `${label}, ${m[1]}`
+}
+
+export interface SearchOptions {
+  /**
+   * The org's zone for dating rows (BL-043). A promise is accepted so the
+   * route can read it while the search runs. Defaults to America/New_York.
+   */
+  timeZone?: string | PromiseLike<string>
+  /** For tests. */
+  now?: Date
+}
+
 type Row = Record<string, unknown>
 
 async function run(
@@ -138,9 +172,12 @@ export async function searchRecords(
   supabase: SearchClient,
   orgId: string,
   rawQuery: string,
+  options: SearchOptions = {},
 ): Promise<RecordSearchResult> {
   const term = searchTerm(rawQuery)
   if (!term) return { groups: [], failed: [] }
+  // Started now, awaited after the queries — never an extra round-trip.
+  const zonePromise = Promise.resolve(options.timeZone ?? DEFAULT_ASSOCIATION_TIME_ZONE)
   // For deciding which group a property row belongs to (the DB matched it
   // case-insensitively; mirror that with the unescaped text).
   const needle = rawQuery.trim().toLowerCase()
@@ -153,6 +190,8 @@ export async function searchRecords(
     arc: [],
     ticket: [],
     thread: [],
+    meeting: [],
+    document: [],
     vendor: [],
   }
 
@@ -185,6 +224,7 @@ export async function searchRecords(
         type: 'owner',
         label: String(p.owner_name),
         hint: addressById.get(id) ?? null,
+        detail: null,
         href: `/properties/${id}`,
       })
     } else {
@@ -193,21 +233,29 @@ export async function searchRecords(
         type: 'property',
         label: address,
         hint: joinHint(unitLabel(unit), str(p.owner_name)),
+        detail: null,
         href: `/properties/${id}`,
       })
     }
   }
   const propertyIds = propRows.map((p) => String(p.id))
   const unitIds = [...new Set(propRows.map((p) => str(p.unit_id)).filter((u): u is string => !!u))]
+  // ARC, tickets and threads hang off units; show the lot they are on.
+  const addressByUnit = new Map<string, string>()
+  for (const p of propRows) {
+    const u = str(p.unit_id)
+    const a = addressById.get(String(p.id))
+    if (u && a) addressByUnit.set(u, a)
+  }
 
   // ── Round 2: everything else, in parallel ─────────────────────────
-  const [violations, arcs, tickets, threads, vendors] = await Promise.all([
+  const [violations, arcs, tickets, threads, vendors, documents, governing, meetings, timeZone] = await Promise.all([
     run(
       'violation',
       orgId,
       supabase
         .from('hoa_violations')
-        .select('id, violation_type, status, property_id')
+        .select('id, violation_type, status, property_id, created_at')
         .eq('org_id', orgId)
         .is('deleted_at', null)
         .or([...ilike(['violation_type', 'description'], term), ...inList('property_id', propertyIds)].join(','))
@@ -219,7 +267,7 @@ export async function searchRecords(
       orgId,
       supabase
         .from('arc_requests')
-        .select('id, summary, status, unit_id')
+        .select('id, summary, status, unit_id, submitted_at')
         .eq('organization_id', orgId)
         .is('deleted_at', null)
         .or([...ilike(['summary', 'contractor_name'], term), ...inList('unit_id', unitIds)].join(','))
@@ -231,7 +279,7 @@ export async function searchRecords(
       orgId,
       supabase
         .from('tickets')
-        .select('id, subject, status, unit_id')
+        .select('id, subject, status, unit_id, created_at')
         .eq('organization_id', orgId)
         .is('deleted_at', null)
         .or([...ilike(['subject'], term), ...inList('unit_id', unitIds)].join(','))
@@ -243,7 +291,7 @@ export async function searchRecords(
       orgId,
       supabase
         .from('inbox_threads')
-        .select('id, subject, status, unit_id')
+        .select('id, subject, status, unit_id, last_message_at')
         .eq('organization_id', orgId)
         .or([...ilike(['subject'], term), ...inList('unit_id', unitIds)].join(','))
         .order('last_message_at', { ascending: false, nullsFirst: false })
@@ -261,7 +309,55 @@ export async function searchRecords(
         .order('legal_name', { ascending: true })
         .limit(SEARCH_LIMIT_PER_TYPE),
     ),
+    // Documents: uploaded files and governing documents share one group.
+    // Neither table soft-deletes; a superseded governing document is the
+    // old version, so only the current one is searched.
+    run(
+      'document',
+      orgId,
+      supabase
+        .from('hoa_documents')
+        .select('id, name, type, created_at')
+        .eq('org_id', orgId)
+        .or(ilike(['name'], term).join(','))
+        .order('created_at', { ascending: false })
+        .limit(SEARCH_LIMIT_PER_TYPE),
+    ),
+    run(
+      'document',
+      orgId,
+      supabase
+        .from('governing_documents')
+        .select('id, title, type, effective_date, created_at')
+        .eq('organization_id', orgId)
+        .is('superseded_at', null)
+        .or(ilike(['title'], term).join(','))
+        .order('created_at', { ascending: false })
+        .limit(SEARCH_LIMIT_PER_TYPE),
+    ),
+    // Meetings have no title: matched on their type and AI summary.
+    run(
+      'meeting',
+      orgId,
+      supabase
+        .from('hoa_meeting_minutes')
+        .select('id, meeting_type, meeting_date, status')
+        .eq('org_id', orgId)
+        .is('deleted_at', null)
+        .or(ilike(['meeting_type', 'ai_summary'], term).join(','))
+        .order('meeting_date', { ascending: false })
+        .limit(SEARCH_LIMIT_PER_TYPE),
+    ),
+    zonePromise,
   ])
+
+  const thisYear = todayIn(timeZone, options.now ?? new Date()).slice(0, 4)
+  const day = (v: unknown) => shortDay(v, timeZone, thisYear)
+
+  const unitAddress = (u: unknown): string | null => {
+    const id = str(u)
+    return id ? (addressByUnit.get(id) ?? null) : null
+  }
 
   if (violations === null) failed.add('violation')
   for (const v of violations ?? []) {
@@ -271,7 +367,8 @@ export async function searchRecords(
       id,
       type: 'violation',
       label: str(v.violation_type) ?? 'Violation',
-      hint: joinHint(pid ? addressById.get(pid) : null, statusLabel(VIOLATION_STATUS.labels, v.status)),
+      hint: pid ? (addressById.get(pid) ?? null) : null,
+      detail: joinHint(statusLabel(VIOLATION_STATUS.labels, v.status), day(v.created_at)),
       href: `/violations/${id}`,
     })
   }
@@ -283,7 +380,8 @@ export async function searchRecords(
       id,
       type: 'arc',
       label: str(a.summary) ?? 'ARC request',
-      hint: statusLabel(ARC_STATUS.labels, a.status),
+      hint: unitAddress(a.unit_id),
+      detail: joinHint(statusLabel(ARC_STATUS.labels, a.status), day(a.submitted_at)),
       href: `/arc/${id}`,
     })
   }
@@ -295,7 +393,8 @@ export async function searchRecords(
       id,
       type: 'ticket',
       label: str(t.subject) ?? 'Ticket',
-      hint: statusLabel(TICKET_STATUS.labels, t.status),
+      hint: unitAddress(t.unit_id),
+      detail: joinHint(statusLabel(TICKET_STATUS.labels, t.status), day(t.created_at)),
       href: `/tickets/${id}`,
     })
   }
@@ -307,7 +406,8 @@ export async function searchRecords(
       id,
       type: 'thread',
       label: str(t.subject) ?? '(no subject)',
-      hint: statusLabel(INBOX_THREAD_STATUS.labels, t.status),
+      hint: unitAddress(t.unit_id),
+      detail: joinHint(statusLabel(INBOX_THREAD_STATUS.labels, t.status), day(t.last_message_at)),
       href: `/inbox/${id}`,
     })
   }
@@ -322,7 +422,49 @@ export async function searchRecords(
       type: 'vendor',
       label: dba ?? legal,
       hint: dba && dba !== legal ? legal : null,
+      detail: null,
       href: `/vendors/${id}`,
+    })
+  }
+
+  if (meetings === null) failed.add('meeting')
+  for (const m of meetings ?? []) {
+    const id = String(m.id)
+    const kind = str(m.meeting_type)
+    hits.meeting.push({
+      id,
+      type: 'meeting',
+      label: `${kind ? (MEETING_TYPE[kind] ?? kind) : 'Board'} meeting`,
+      hint: null,
+      detail: joinHint(day(m.meeting_date), statusLabel(MEETING_STATUS.labels, m.status)),
+      href: `/meetings/${id}`,
+    })
+  }
+
+  if (documents === null || governing === null) failed.add('document')
+  for (const d of documents ?? []) {
+    const id = String(d.id)
+    const kind = str(d.type)
+    hits.document.push({
+      id,
+      type: 'document',
+      label: str(d.name) ?? 'Document',
+      hint: kind ? (DOCUMENT_TYPE_LABELS[kind] ?? kind) : null,
+      detail: day(d.created_at),
+      href: `/documents/${id}`,
+    })
+  }
+  for (const g of governing ?? []) {
+    const kind = str(g.type)
+    const effective = day(g.effective_date)
+    hits.document.push({
+      id: String(g.id),
+      type: 'document',
+      label: str(g.title) ?? 'Governing document',
+      hint: joinHint('Governing', kind ? (GOVERNING_TYPE_LABELS[kind] ?? kind) : null),
+      detail: effective ? `Effective ${effective}` : day(g.created_at),
+      // Governing documents have no page of their own; the list is it.
+      href: '/documents/governing',
     })
   }
 

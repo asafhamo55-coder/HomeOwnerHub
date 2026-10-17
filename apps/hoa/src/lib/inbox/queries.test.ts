@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { countThreadsByStatus, getThreadDetail, listThreads, listThreadsForUnit } from './queries'
+import { countThreadsByStatus, getPropertyContext, getThreadDetail, listThreads, listThreadsForUnit } from './queries'
 
 /**
  * Minimal chainable `.from().select().eq().eq().order().limit()` stand-in,
@@ -488,5 +488,45 @@ describe('needs_review / awaiting_resident split', () => {
       )
       expect(listArgs.or).toEqual(countArgs.or)
     })
+  })
+})
+
+describe('getPropertyContext — property page link (BL-060)', () => {
+  // `inbox_threads.unit_id` is a units.id, but /properties/[id] is keyed by
+  // the hoa_properties id (units.legacy_hoa_property_id). The rail used to
+  // link the unit id, which 404s; the context now carries the right id.
+  function anyDb(unit: Record<string, unknown> | null) {
+    const builder = (table: string) => {
+      const b: Record<string, unknown> = {}
+      for (const op of ['select', 'eq', 'is', 'in', 'not', 'neq', 'order', 'limit']) b[op] = () => b
+      b.maybeSingle = async () => ({ data: table === 'units' ? unit : null, error: null })
+      b.then = (resolve: (v: unknown) => unknown) => resolve({ data: [], error: null, count: 0 })
+      return b
+    }
+    return { from: vi.fn(builder) }
+  }
+
+  it('returns the legacy hoa_properties id as propertyId, not the unit id', async () => {
+    const db = anyDb({
+      id: 'unit-1',
+      address_line1: '9 Elm St',
+      unit_number: null,
+      legacy_hoa_property_id: 'hp-1',
+      association: null,
+    })
+    const ctx = await getPropertyContext(db as never, 'org-1', 'unit-1')
+    expect(ctx?.propertyId).toBe('hp-1')
+  })
+
+  it('returns a null propertyId for a unit with no property record, so the rail does not link a 404', async () => {
+    const db = anyDb({
+      id: 'unit-1',
+      address_line1: '9 Elm St',
+      unit_number: null,
+      legacy_hoa_property_id: null,
+      association: null,
+    })
+    const ctx = await getPropertyContext(db as never, 'org-1', 'unit-1')
+    expect(ctx?.propertyId).toBeNull()
   })
 })

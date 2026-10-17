@@ -11,6 +11,8 @@ export interface RecordPaletteHit {
   type: RecordType
   label: string
   hint: string | undefined
+  /** Status and day — the palette's right-hand `meta` (BL-060). */
+  detail: string | undefined
   href: string
   group: string
 }
@@ -61,6 +63,7 @@ export async function fetchRecordSearch(
         type: item.type,
         label: item.label,
         hint: item.hint ?? undefined,
+        detail: item.detail ?? undefined,
         href: item.href,
         group: g.label,
       })

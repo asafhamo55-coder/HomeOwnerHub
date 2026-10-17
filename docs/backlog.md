@@ -664,11 +664,11 @@ These go beyond the design-system v2 pass:
   - Run one real bill through the text and vision paths (not done yet; only a fake model has been tested).
   - Find out why `/approvals?type=bill` showed the All view in the screenshot.
 - **BL-060 ⌘K follow-ups:**
-  - Violations on the same lot look identical, so add the date and status to each row.
-  - Add documents and meetings.
-  - Match on inbox participants.
-  - Measure p50 latency.
-  - Fix inbox links that use `/properties/${unitId}` when the page expects a property id (possible existing bug).
+  - ~~Violations on the same lot look identical, so add the date and status to each row.~~ Done: every violation, ARC, ticket and inbox row carries a right-aligned status · day (association day, BL-043) that stays visible when the label truncates; ARC/tickets/threads also show the lot's address.
+  - ~~Add documents and meetings.~~ Done: uploaded + current governing documents (one "Documents" group) and meetings (type/summary), board-only through `/api/search`, RLS client, 5 per type.
+  - ~~Fix inbox links that use `/properties/${unitId}`.~~ Confirmed bug (404): PropertyRail now links `PropertyContext.propertyId` (`units.legacy_hoa_property_id`), and shows the address unlinked when a unit has no property record. Search already used the hoa_properties id.
+  - Left: match on inbox participants (needs a migration or RPC over message addresses).
+  - Left: measure p50 latency.
 - **BL-061 Confirm Resend keeps our Message-ID:** send one real communication and check that the reply's In-Reply-To carries `<hoh-cr.…>`. If Resend overwrites it, add `smtp_message_id` (migration). Inbound replies also need Resend receiving and an `email.received` webhook set up for the EMAIL_FROM domain (dashboard/DNS, owner).
 - **BL-062 Owner contact sent to the AI provider:** ask-community sends owner email and phone to Groq on a board lookup. Consider redacting them, or sending them only when the question asks for contact details.
 

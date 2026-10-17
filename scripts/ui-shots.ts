@@ -119,6 +119,9 @@ const SHOTS: Shot[] = [
   // BL-022: ⌘K with record results ("Sample" hits the seeded long-address
   // property and the violations on it).
   { name: 'palette-records', path: '/', auth: true, viewport: true, palette: 'Sample' },
+  // BL-060: documents and meetings as record types ("ui-shots" hits the
+  // seeded documents, governing documents and meeting summaries).
+  { name: 'palette-records-docs', path: '/', auth: true, viewport: true, palette: 'ui-shots' },
   { name: 'dashboard-viewport', path: '/', auth: true, viewport: true, scrollBottom: true, widths: [1440], themes: LIGHT },
   { name: 'approvals', path: '/approvals', auth: true },
   // BL-021: the scanned-bill cards, and the upload screen.
