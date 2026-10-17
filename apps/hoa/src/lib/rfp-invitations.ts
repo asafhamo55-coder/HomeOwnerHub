@@ -27,6 +27,19 @@ export interface InvitableVendor {
   already_invited: boolean
 }
 
+/**
+ * Why one vendor's invitation did not go out. Stable codes only: never a
+ * Postgres or provider message, which embeds values (RC-2). The panel maps
+ * each to words.
+ */
+export type RfpInviteFailureReason =
+  | 'vendor_not_found'
+  | 'vendor_has_no_email'
+  | 'invitation_create_failed'
+  | 'email_send_failed'
+
+const LOAD_FAILED = 'We couldn’t load this RFP’s vendors right now. Nothing was sent — try again.'
+
 export interface RfpInvitationRow {
   id: string
   vendor_id: string
@@ -167,7 +180,7 @@ export async function inviteVendorsToRfp(
   ActionResult<{
     sent: number
     skipped: number
-    failed: Array<{ vendorId: string; reason: string }>
+    failed: Array<{ vendorId: string; reason: RfpInviteFailureReason }>
   }>
 > {
   const parsed = InviteSchema.safeParse({
@@ -189,7 +202,7 @@ export async function inviteVendorsToRfp(
 
   // Pull RFP + verify it's actually open. Sending invites for a draft
   // or cancelled RFP would let vendors see something they shouldn't.
-  const { data: rfp } = await supabase
+  const { data: rfp, error: rfpErr } = await supabase
     .from('rfps' as never)
     .select('id, title, rfp_number, status, submission_deadline')
     .eq('id', parsed.data.rfp_id)
@@ -200,6 +213,11 @@ export async function inviteVendorsToRfp(
       status: string
       submission_deadline: string
     }>()
+  // A failed read is ours, not "RFP not found". Code and ids only (RC-2).
+  if (rfpErr) {
+    logRouteFailure('rfp-invitations.invite.rfp_lookup', rfpErr, { orgId: org.id, rfpId: parsed.data.rfp_id })
+    return { ok: false, error: LOAD_FAILED }
+  }
   if (!rfp) return { ok: false, error: 'RFP not found.' }
   if (rfp.status !== 'open') {
     return {
@@ -209,10 +227,17 @@ export async function inviteVendorsToRfp(
   }
 
   // Vendor lookup — collect emails for sending.
-  const { data: vendorRows } = await supabase
+  const { data: vendorRows, error: vendorErr } = await supabase
     .from('vendors' as never)
     .select('id, legal_name, primary_email')
     .in('id', parsed.data.vendor_ids)
+  // Read failures stop before any send: a failed vendor read would report
+  // every vendor as missing, a failed existing-invitation read would try to
+  // re-invite vendors who already have a link.
+  if (vendorErr) {
+    logRouteFailure('rfp-invitations.invite.vendor_lookup', vendorErr, { orgId: org.id, rfpId: rfp.id })
+    return { ok: false, error: LOAD_FAILED }
+  }
   const vendors = (vendorRows ?? []) as unknown as Array<{
     id: string
     legal_name: string
@@ -222,11 +247,15 @@ export async function inviteVendorsToRfp(
 
   // Skip vendors that already have an invitation for this RFP — the
   // unique constraint would refuse the insert anyway.
-  const { data: existing } = await supabase
+  const { data: existing, error: existingErr } = await supabase
     .from('rfp_invitations' as never)
     .select('vendor_id')
     .eq('rfp_id', rfp.id)
     .in('vendor_id', parsed.data.vendor_ids)
+  if (existingErr) {
+    logRouteFailure('rfp-invitations.invite.existing_lookup', existingErr, { orgId: org.id, rfpId: rfp.id })
+    return { ok: false, error: LOAD_FAILED }
+  }
   const alreadyInvited = new Set(
     ((existing ?? []) as unknown as Array<{ vendor_id: string }>).map(
       (r) => r.vendor_id,
@@ -235,7 +264,7 @@ export async function inviteVendorsToRfp(
 
   let sent = 0
   let skipped = alreadyInvited.size
-  const failed: Array<{ vendorId: string; reason: string }> = []
+  const failed: Array<{ vendorId: string; reason: RfpInviteFailureReason }> = []
 
   for (const vendorId of parsed.data.vendor_ids) {
     if (alreadyInvited.has(vendorId)) continue
@@ -259,7 +288,8 @@ export async function inviteVendorsToRfp(
         unique_submission_token: token,
       } as never)
     if (insertErr) {
-      failed.push({ vendorId, reason: insertErr.message })
+      logRouteFailure('rfp-invitations.invite.insert', insertErr, { orgId: org.id, rfpId: rfp.id, vendorId })
+      failed.push({ vendorId, reason: 'invitation_create_failed' })
       continue
     }
 
@@ -283,18 +313,12 @@ export async function inviteVendorsToRfp(
       }),
     })
     if (!emailResult.ok) {
-      console.error(
-        '[rfp-invite] email send failed for vendor',
-        vendorId,
-        emailResult.error,
-      )
+      // Ids only: the provider's text can carry the recipient address.
+      console.error('[rfp-invite] email send failed', { orgId: org.id, rfpId: rfp.id, vendorId })
       // The DB invitation row exists, so the manager can still copy
       // the link from the dashboard — but the vendor never got an
       // email, so this is a failure, not a success.
-      failed.push({
-        vendorId,
-        reason: `email_send_failed: ${emailResult.error}`,
-      })
+      failed.push({ vendorId, reason: 'email_send_failed' })
       continue
     }
     sent += 1
@@ -319,7 +343,12 @@ export async function revokeRfpInvitation(
     .select('rfp_id')
     .single<{ rfp_id: string }>()
 
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    // .single() on zero matched rows: the invitation is gone (or not ours).
+    if (error.code === 'PGRST116') return { ok: false, error: 'That invitation no longer exists.' }
+    logRouteFailure('rfp-invitations.revoke', error, { invitationId })
+    return { ok: false, error: 'We couldn’t revoke this invitation. Try again.' }
+  }
   revalidatePath(`/rfps/${row.rfp_id}`)
   return { ok: true }
 }

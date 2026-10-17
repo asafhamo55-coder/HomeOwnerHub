@@ -1,6 +1,8 @@
 import { format } from 'date-fns'
 import { Alert, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import { validateRfpInvitationToken } from '@/lib/rfp-invitations'
+import { loadPublicInvitation } from '@/lib/public-invitation-load'
+import { InvitationUnavailable } from '@/components/public/InvitationUnavailable'
 import { PublicBidForm } from './PublicBidForm'
 
 export const metadata = { title: 'Submit your bid' }
@@ -11,7 +13,13 @@ interface PageProps {
 
 export default async function RfpBidPage({ params }: PageProps) {
   const { token } = await params
-  const validation = await validateRfpInvitationToken(token)
+  // A lookup that fails on our side is "try again", never "invalid link"
+  // and never Next's error page (BL-056).
+  const loaded = await loadPublicInvitation('rfp-bid.page', () => validateRfpInvitationToken(token))
+  if (loaded.state === 'unavailable') {
+    return <InvitationUnavailable retryHref={`/rfp-bid/${encodeURIComponent(token)}`} />
+  }
+  const validation = loaded.value
 
   if (!validation.ok) {
     return (

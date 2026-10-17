@@ -1,7 +1,10 @@
-import { notFound } from 'next/navigation'
 import { createAdminClient } from '@homeowner-portal/db'
 import { Alert, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
-import { validateInvitationToken } from '@/lib/vendor-invitations'
+import { validateInvitationToken, type ValidatedInvitation } from '@/lib/vendor-invitations'
+import { ApiRouteError } from '@/lib/api/errors'
+import { logRouteFailure } from '@/lib/api/log'
+import { loadPublicInvitation } from '@/lib/public-invitation-load'
+import { InvitationUnavailable } from '@/components/public/InvitationUnavailable'
 import { PublicOnboardingForm } from './PublicOnboardingForm'
 
 export const metadata = { title: 'Vendor onboarding' }
@@ -12,7 +15,13 @@ interface PageProps {
 
 export default async function VendorOnboardPage({ params }: PageProps) {
   const { token } = await params
-  const validation = await validateInvitationToken(token)
+  // A lookup that fails on our side (the token OR the inviting org's name)
+  // is "try again", never "invalid link" and never Next's error page (BL-056).
+  const loaded = await loadPublicInvitation('vendor-onboard.page', () => loadOnboarding(token))
+  if (loaded.state === 'unavailable') {
+    return <InvitationUnavailable retryHref={`/vendor-onboard/${encodeURIComponent(token)}`} />
+  }
+  const validation = loaded.value
 
   if (!validation.ok) {
     return (
@@ -31,18 +40,7 @@ export default async function VendorOnboardPage({ params }: PageProps) {
     )
   }
 
-  const invitation = validation.invitation
-
-  // Fetch the inviting org's name to show in the form header. Goes
-  // through the admin client because the visitor isn't authenticated.
-  const db = createAdminClient()
-  const { data: org } = await db
-    .from('orgs')
-    .select('name')
-    .eq('id', invitation.organizationId)
-    .maybeSingle<{ name: string }>()
-
-  if (!org) notFound()
+  const { invitation, org } = validation
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
@@ -82,14 +80,43 @@ export default async function VendorOnboardPage({ params }: PageProps) {
   )
 }
 
-function reasonTitle(reason: 'not_found' | 'expired' | 'consumed' | 'revoked'): string {
+type InvalidReason = 'not_found' | 'expired' | 'consumed' | 'revoked'
+
+// The token, then the inviting org's name for the header. Goes through the
+// admin client because the visitor isn't authenticated. A failed org read
+// throws (logged by code only, RC-2) so the page shows "try again"; an org
+// that is simply gone reads as an unknown invitation.
+async function loadOnboarding(
+  token: string,
+): Promise<
+  | { ok: true; invitation: ValidatedInvitation; org: { name: string } }
+  | { ok: false; reason: InvalidReason }
+> {
+  const validation = await validateInvitationToken(token)
+  if (!validation.ok) return validation
+
+  const db = createAdminClient()
+  const { data: org, error } = await db
+    .from('orgs')
+    .select('name')
+    .eq('id', validation.invitation.organizationId)
+    .maybeSingle<{ name: string }>()
+  if (error) {
+    logRouteFailure('vendor-onboard.page.org_lookup', error, { invitationId: validation.invitation.id })
+    throw new ApiRouteError('internal')
+  }
+  if (!org) return { ok: false, reason: 'not_found' }
+  return { ok: true, invitation: validation.invitation, org }
+}
+
+function reasonTitle(reason: InvalidReason): string {
   if (reason === 'expired') return 'Invitation expired'
   if (reason === 'consumed') return 'Already submitted'
   if (reason === 'revoked') return 'Invitation revoked'
   return 'Invitation not found'
 }
 
-function reasonDetail(reason: 'not_found' | 'expired' | 'consumed' | 'revoked'): string {
+function reasonDetail(reason: InvalidReason): string {
   if (reason === 'expired') {
     return 'This invitation has expired. Please ask the HOA for a fresh link.'
   }

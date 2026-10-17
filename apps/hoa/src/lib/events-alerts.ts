@@ -1,5 +1,9 @@
 import { createAdminClient } from '@homeowner-portal/db'
-import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
+import {
+  fetchOrgSandbox,
+  OUTBOUND_BLOCKED_ERROR,
+} from '@homeowner-portal/observability/outbound-guard'
+import { logRouteFailure } from '@/lib/api/log'
 import type { OutboundSendOptions } from '@/lib/email'
 import { sendEmail, appUrl } from '@/lib/email'
 import { buildSenderName } from '@/lib/email/sender-name'
@@ -144,7 +148,7 @@ export async function sendEventAlertEmail(
   // 5. Stamp the event so the cron skips this occurrence next run — only
   //    when at least one message went out (unchanged from before).
   if (result.sent > 0) {
-    await admin
+    const { error: stampErr } = await admin
       .from('hoa_recurring_events' as never)
       .update({
         last_alert_sent_at: new Date().toISOString(),
@@ -152,6 +156,10 @@ export async function sendEventAlertEmail(
         updated_at: new Date().toISOString(),
       } as never)
       .eq('id', event.id)
+    // The cron stamps again with its own check; a manual test send has no
+    // other stamp, so the event page keeps showing "due". Logged, not thrown:
+    // the messages already went out.
+    if (stampErr) logRouteFailure('events-alerts.stamp', stampErr, { eventId: event.id, organizationId })
   }
 
   return result
@@ -260,7 +268,8 @@ async function deliverViaCommunications(
 
   if (commErr || !comm) {
     // Couldn't persist the audit row — still try a direct send so the
-    // alert isn't silently dropped.
+    // alert isn't silently dropped. Code and ids only (RC-2).
+    logRouteFailure('events-alerts.communication_insert', commErr, { eventId, organizationId })
     return deliverDirect({ channels, recipients, subject, html, text, senderName, outbound })
   }
 
@@ -287,7 +296,7 @@ async function deliverViaCommunications(
   )
 
   if (recipientRows.length === 0) {
-    await admin.from('communications').update({ status: 'failed' }).eq('id', comm.id)
+    await setCommunicationStatus(admin, comm.id, { status: 'failed' }, eventId)
     return {
       sent: 0,
       failed: [
@@ -299,10 +308,23 @@ async function deliverViaCommunications(
     }
   }
 
-  const { data: inserted } = await admin
+  const { data: inserted, error: insertErr } = await admin
     .from('communication_recipients')
     .insert(recipientRows as never)
     .select('id, channel, email, phone')
+
+  if (insertErr) {
+    // Without recipient rows there is nothing to deliver against or audit.
+    // Mark the audit row failed (it is not "sending" forever) and fall back
+    // to a direct send, as for a failed communications insert above.
+    logRouteFailure('events-alerts.recipients_insert', insertErr, {
+      eventId,
+      communicationId: comm.id,
+      count: recipientRows.length,
+    })
+    await setCommunicationStatus(admin, comm.id, { status: 'failed' }, eventId)
+    return deliverDirect({ channels, recipients, subject, html, text, senderName, outbound })
+  }
 
   type Row = { id: string; channel: string; email: string | null; phone: string | null }
   const rows = (inserted ?? []) as unknown as Row[]
@@ -321,8 +343,9 @@ async function deliverViaCommunications(
           sent += 1
           await markRecipient(admin, row.id, 'sent', res.messageId)
         } else {
-          failed.push({ email: row.email, reason: res.error })
-          await markRecipientFailed(admin, row.id, res.error)
+          const code = deliveryErrorCode('email', res.error)
+          failed.push({ email: row.email, reason: code })
+          await markRecipientFailed(admin, row.id, code)
         }
         return
       }
@@ -334,8 +357,9 @@ async function deliverViaCommunications(
           sent += 1
           await markRecipient(admin, row.id, 'sent', res.messageSid)
         } else {
-          failed.push({ email: row.phone, reason: res.error })
-          await markRecipientFailed(admin, row.id, res.error)
+          const code = deliveryErrorCode('sms', res.error)
+          failed.push({ email: row.phone, reason: code })
+          await markRecipientFailed(admin, row.id, code)
         }
         return
       }
@@ -347,10 +371,12 @@ async function deliverViaCommunications(
     }),
   )
 
-  await admin
-    .from('communications')
-    .update({ status: sent > 0 ? 'sent' : 'failed', sent_at: new Date().toISOString() })
-    .eq('id', comm.id)
+  await setCommunicationStatus(
+    admin,
+    comm.id,
+    { status: sent > 0 ? 'sent' : 'failed', sent_at: new Date().toISOString() },
+    eventId,
+  )
 
   return { sent, failed }
 }
@@ -376,12 +402,12 @@ async function deliverDirect(args: DeliverDirectArgs): Promise<SendEventAlertRes
     if (channels.includes('email') && r.email) {
       const res = await sendEmail({ to: r.email, subject, html, text, senderName }, outbound)
       if (res.ok) sent += 1
-      else failed.push({ email: r.email, reason: res.error })
+      else failed.push({ email: r.email, reason: deliveryErrorCode('email', res.error) })
     }
     if (channels.includes('sms') && r.phone) {
       const res = await sendSms({ to: r.phone, body: buildSmsBody(subject, text, html, null) }, outbound)
       if (res.ok) sent += 1
-      else failed.push({ email: r.phone, reason: res.error })
+      else failed.push({ email: r.phone, reason: deliveryErrorCode('sms', res.error) })
     }
     // 'portal' has no surface without a communications row — silently
     // unsupported on the direct path (org-wide board-only events).
@@ -392,13 +418,17 @@ async function deliverDirect(args: DeliverDirectArgs): Promise<SendEventAlertRes
 
 // ─── Recipient status writers ────────────────────────────────────────
 
+// Status writes are logged (code + ids, RC-2), not thrown: the send they
+// describe has already happened, and one failed bookkeeping write must not
+// abandon the remaining recipients.
+
 async function markRecipient(
   admin: Admin,
   recipientId: string,
   status: 'sent',
   externalId: string | null,
 ): Promise<void> {
-  await admin
+  const { error } = await admin
     .from('communication_recipients')
     .update({
       delivery_status: status,
@@ -406,21 +436,159 @@ async function markRecipient(
       ...(externalId ? { external_id: externalId } : {}),
     } as never)
     .eq('id', recipientId)
+  if (error) logRouteFailure('events-alerts.mark_recipient_sent', error, { recipientId })
 }
 
 async function markRecipientFailed(
   admin: Admin,
   recipientId: string,
-  error: string,
+  errorCode: string,
 ): Promise<void> {
-  await admin
+  const { error } = await admin
     .from('communication_recipients')
     .update({
       delivery_status: 'failed',
       failed_at: new Date().toISOString(),
-      error_message: error,
+      // A short code (deliveryErrorCode), never provider text: the board
+      // reads this column on the communication page, and provider text can
+      // carry the recipient's address.
+      error_message: errorCode,
     } as never)
     .eq('id', recipientId)
+  if (error) logRouteFailure('events-alerts.mark_recipient_failed', error, { recipientId })
+}
+
+async function setCommunicationStatus(
+  admin: Admin,
+  communicationId: string,
+  patch: { status: 'sent' | 'failed'; sent_at?: string },
+  eventId: string,
+): Promise<void> {
+  const { error } = await admin.from('communications').update(patch).eq('id', communicationId)
+  if (error) logRouteFailure('events-alerts.communication_status', error, { communicationId, eventId })
+}
+
+/**
+ * The short code stored for a failed delivery, in place of the provider's
+ * text. Provider text (Resend, Vonage) can name the recipient's address.
+ */
+export function deliveryErrorCode(channel: 'email' | 'sms', providerError: string): string {
+  if (providerError === OUTBOUND_BLOCKED_ERROR) return 'outbound_blocked'
+  if (/not configured/i.test(providerError)) return `${channel}_not_configured`
+  return `${channel}_provider_error`
+}
+
+// ─── Retry cap support (used by /api/cron/recurring-events) ─────────
+
+/** notifications.kind for "this event's reminder was given up on". */
+export const ALERT_FAILED_NOTIFICATION_KIND = 'event_alert.failed'
+
+/**
+ * How many alert attempts for this event's current occurrence ended with
+ * nothing delivered: its `communications` rows (related_resource marks the
+ * event) with status 'failed', created on or after the day the occurrence's
+ * alert window opened. Each daily retry that reaches the communications
+ * pipeline writes exactly one such row, and a delivered attempt stamps the
+ * occurrence and ends the retries, so this is the count of failed days.
+ * No migration needed: it reads existing columns only.
+ */
+export async function countFailedAlertAttempts(
+  admin: Admin,
+  args: { eventId: string; organizationId: string; sinceIso: string },
+): Promise<{ ok: true; count: number } | { ok: false; error: unknown }> {
+  const { count, error } = await admin
+    .from('communications')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', args.organizationId)
+    .eq('related_resource->>type', 'recurring_event')
+    .eq('related_resource->>id', args.eventId)
+    .eq('status', 'failed')
+    .gte('created_at', `${args.sinceIso}T00:00:00Z`)
+  if (error) return { ok: false, error }
+  return { ok: true, count: count ?? 0 }
+}
+
+/**
+ * Tell the board (bell notifications, every board member and admin) that
+ * this occurrence's reminder was given up on. Once per occurrence: a member
+ * already notified on or after `sinceIso` is skipped; one notified for an
+ * earlier occurrence has that row re-surfaced as unread, because the
+ * (user_id, kind, entity_id) unique index allows one row per event. That
+ * index is partial, so PostgREST cannot upsert against it — read first,
+ * and treat a concurrent 23505 as the end state we wanted.
+ */
+export async function notifyBoardAlertGaveUp(
+  admin: Admin,
+  args: { event: RecurringEvent; organizationId: string; attempts: number; sinceIso: string },
+): Promise<{ ok: true; notified: number } | { ok: false; error: unknown }> {
+  const { event, organizationId, attempts, sinceIso } = args
+
+  const { data: members, error: membersErr } = await admin
+    .from('org_members')
+    .select('user_id')
+    .eq('org_id', organizationId)
+    .in('role', ['board', 'admin'])
+  if (membersErr) return { ok: false, error: membersErr }
+  const userIds = [
+    ...new Set(
+      ((members ?? []) as Array<{ user_id: string | null }>)
+        .map((m) => m.user_id)
+        .filter((id): id is string => !!id),
+    ),
+  ]
+  if (userIds.length === 0) return { ok: true, notified: 0 }
+
+  const { data: existing, error: existingErr } = await admin
+    .from('notifications' as never)
+    .select('id, user_id, created_at')
+    .eq('kind', ALERT_FAILED_NOTIFICATION_KIND)
+    .eq('entity_id', event.id)
+    .in('user_id', userIds)
+  if (existingErr) return { ok: false, error: existingErr }
+
+  const sinceMs = Date.parse(`${sinceIso}T00:00:00Z`)
+  const byUser = new Map(
+    ((existing ?? []) as Array<{ id: string; user_id: string; created_at: string }>).map((r) => [r.user_id, r]),
+  )
+  const content = {
+    title: `Reminder for “${event.title}” couldn’t be delivered`,
+    body: `We tried on ${attempts} days and nothing went out, so we stopped retrying. Check this event’s audience and channels, then send a test alert.`,
+    link: `/events/${event.id}`,
+  }
+
+  let notified = 0
+  const fresh: string[] = []
+  for (const userId of userIds) {
+    const prior = byUser.get(userId)
+    if (!prior) {
+      fresh.push(userId)
+      continue
+    }
+    if (Date.parse(prior.created_at) >= sinceMs) continue // this occurrence: already told
+    const { error } = await admin
+      .from('notifications' as never)
+      .update({ ...content, read_at: null, created_at: new Date().toISOString() } as never)
+      .eq('id', prior.id)
+    if (error) return { ok: false, error }
+    notified += 1
+  }
+
+  if (fresh.length > 0) {
+    const { error } = await admin.from('notifications' as never).insert(
+      fresh.map((userId) => ({
+        organization_id: organizationId,
+        user_id: userId,
+        kind: ALERT_FAILED_NOTIFICATION_KIND,
+        ...content,
+        entity_type: 'recurring_event',
+        entity_id: event.id,
+      })) as never,
+    )
+    if (error && (error as { code?: string }).code !== '23505') return { ok: false, error }
+    notified += fresh.length
+  }
+
+  return { ok: true, notified }
 }
 
 // ─── Message builders ────────────────────────────────────────────────

@@ -12,7 +12,11 @@ import { cappedFakeDb, rangesFor } from '@/lib/supabase/capped-fake-db'
 let db: SupabaseClient
 vi.mock('@homeowner-portal/db', () => ({ createAdminClient: () => db }))
 const sendEventAlertEmail = vi.fn(async () => ({ sent: 1, failed: [] as { email: string; reason: string }[] }))
-vi.mock('@/lib/events-alerts', () => ({ sendEventAlertEmail }))
+vi.mock('@/lib/events-alerts', () => ({
+  sendEventAlertEmail,
+  countFailedAlertAttempts: async () => ({ ok: true, count: 0 }),
+  notifyBoardAlertGaveUp: async () => ({ ok: true, notified: 0 }),
+}))
 
 const { GET } = await import('./route')
 

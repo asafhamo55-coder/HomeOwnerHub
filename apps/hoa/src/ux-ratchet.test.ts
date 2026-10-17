@@ -197,9 +197,7 @@ describe('phase-1 pages stay migrated', () => {
  * Auth calls (`auth.getUser()`) are not counted — a missing user redirects.
  * Shrink-only. Use `loadOrFail` (apps/hoa/src/lib/load-or-fail.ts).
  */
-const DISCARDS_ERROR_ALLOWLIST = [
-  'apps/hoa/src/app/vendor-onboard/[token]/page.tsx',
-]
+const DISCARDS_ERROR_ALLOWLIST: string[] = []
 
 /** Exported for the self-test below. */
 export function discardsQueryError(src: string): boolean {

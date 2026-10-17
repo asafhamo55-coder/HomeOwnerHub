@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@homeowner-portal/db'
-import { sendEventAlertEmail } from '@/lib/events-alerts'
+import {
+  countFailedAlertAttempts,
+  notifyBoardAlertGaveUp,
+  sendEventAlertEmail,
+} from '@/lib/events-alerts'
 import { readAllResult } from '@/lib/supabase/read-all'
 import type { RecurringEvent } from '@/lib/events'
 import { withRoute } from '@/lib/api/handler'
@@ -65,6 +69,20 @@ import { logRouteFailure } from '@/lib/api/log'
 // event in the 200 summary as ids and codes — never recipient emails,
 // phone numbers or provider text (RC-2, X-01). An occurrence that delivered
 // nothing without a reported failure (no recipient) is `nothing_delivered`.
+//
+// Retry cap (BL-056). An occurrence that never delivers used to retry every
+// day forever, adding a failed communications row each time. Before
+// claiming, the run counts this occurrence's failed attempts: its
+// communications rows with status 'failed' created since the alert window
+// opened (countFailedAlertAttempts — existing columns, no migration). At
+// ALERT_RETRY_CAP the run stops: no claim, no send, no new row. It reports
+// `retry_cap_reached` in the summary and puts a bell notification in front
+// of every board member and admin (notifyBoardAlertGaveUp, once per
+// occurrence). A passed annual occurrence then rolls forward so next year's
+// reminder still fires; it is never marked alerted. Attempts that never
+// reach the communications pipeline (no association in the org, no
+// recipient, a failed audit insert) write no row, are not counted, and keep
+// retrying daily as before.
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // walking events + sending emails
@@ -72,11 +90,14 @@ export const maxDuration = 60 // walking events + sending emails
 /** A claim younger than this is another run's in-flight send. Well over maxDuration, well under a day. */
 const CLAIM_LEASE_MS = 15 * 60 * 1000
 
+/** Failed days after which an occurrence stops retrying (BL-056). */
+const ALERT_RETRY_CAP = 3
+
 type EventRow = RecurringEvent & { organization_id: string }
 
 interface SummaryError {
   eventId: string
-  code: 'delivery_failed' | 'nothing_delivered' | 'send_failed' | 'write_failed'
+  code: 'delivery_failed' | 'nothing_delivered' | 'send_failed' | 'write_failed' | 'retry_cap_reached'
   count?: number
 }
 
@@ -141,6 +162,21 @@ export const GET = withRoute('cron.recurring-events', async (request) => {
   const update = (patch: Record<string, unknown>) =>
     (admin.from(TABLE).update(patch as never) as unknown as Update)
 
+  // Annual roll-forward to the next occurrence on or after today.
+  // Compare-and-swap on the old event_date: zero rows matched means another
+  // run already moved it, which is fine.
+  const rollForward = async (event: EventRow) => {
+    const nextDate = nextOccurrenceOnOrAfter(event.event_date, todayIso)
+    const { error: rollErr } = await update({
+      event_date: nextDate,
+      updated_at: new Date().toISOString(),
+    })
+      .eq('id', event.id)
+      .eq('event_date', event.event_date)
+      .select('id')
+    if (rollErr) writeFailed(event.id, 'roll-forward', rollErr)
+  }
+
   for (const event of events) {
     processed += 1
     const pastDate = event.event_date < todayIso
@@ -152,6 +188,36 @@ export const GET = withRoute('cron.recurring-events', async (request) => {
       const prevAt = event.last_alert_sent_at
       // Another run's live lease: leave the event (and its roll) to it.
       if (prevAt && now.getTime() - Date.parse(prevAt) < CLAIM_LEASE_MS) continue
+
+      // Retry cap (BL-056): count this occurrence's failed attempts first. A
+      // failed read is a persistence failure (500 after the sweep) and the
+      // event sends nothing this run — never retry blind past the cap.
+      const sinceIso = isoPlusDays(event.event_date, -event.alert_days_before)
+      const attempts = await countFailedAlertAttempts(admin, {
+        eventId: event.id,
+        organizationId: event.organization_id,
+        sinceIso,
+      })
+      if (!attempts.ok) {
+        writeFailed(event.id, 'attempts', attempts.error)
+        continue
+      }
+      if (attempts.count >= ALERT_RETRY_CAP) {
+        // Given up on: no claim, no send, so no new failed row. Never marked
+        // alerted. The board hears about it once per occurrence.
+        errors.push({ eventId: event.id, code: 'retry_cap_reached', count: attempts.count })
+        const notified = await notifyBoardAlertGaveUp(admin, {
+          event,
+          organizationId: event.organization_id,
+          attempts: attempts.count,
+          sinceIso,
+        })
+        if (!notified.ok) writeFailed(event.id, 'notify', notified.error)
+        // A passed annual occurrence rolls forward so next year's alert
+        // still fires; anything else stays as it is.
+        if (event.recurrence === 'annual' && pastDate) await rollForward(event)
+        continue
+      }
 
       const claimAt = now.toISOString()
       let claimQ = update({ last_alert_sent_at: claimAt }).eq('id', event.id).eq('event_date', event.event_date)
@@ -215,18 +281,7 @@ export const GET = withRoute('cron.recurring-events', async (request) => {
     // Reaching here with a passed date means the occurrence was alerted on
     // an earlier run, or step A just delivered it (a passed date always has
     // an open window, so an un-alerted one always goes through step A).
-    if (event.recurrence === 'annual' && pastDate) {
-      const nextDate = nextOccurrenceOnOrAfter(event.event_date, todayIso)
-      const { error: rollErr } = await update({
-        event_date: nextDate,
-        updated_at: new Date().toISOString(),
-      })
-        .eq('id', event.id)
-        .eq('event_date', event.event_date)
-        .select('id')
-      // Zero rows matched: another run already moved it. Nothing to do.
-      if (rollErr) writeFailed(event.id, 'roll-forward', rollErr)
-    }
+    if (event.recurrence === 'annual' && pastDate) await rollForward(event)
   }
 
   if (writeFailures > 0) {

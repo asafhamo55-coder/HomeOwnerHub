@@ -60,7 +60,8 @@ export async function listInvitationsResult(): Promise<
     .order('created_at', { ascending: false })
     .limit(100)
   if (error) {
-    console.error('listInvitations failed', { code: error.code, message: error.message })
+    // Code only: the message can embed row values (RC-2).
+    logRouteFailure('vendor-invitations.list', error, { orgId: org.id })
     return { ok: false }
   }
   return { ok: true, data: (data ?? []) as unknown as InvitationRow[] }
@@ -86,7 +87,6 @@ export async function createInvitation(
     token: string
     link: string
     emailSent: boolean
-    emailError?: string
   }>
 > {
   const parsed = CreateSchema.safeParse({
@@ -126,7 +126,8 @@ export async function createInvitation(
     .single<{ id: string }>()
 
   if (error || !row) {
-    return { ok: false, error: error?.message ?? 'Could not create invitation.' }
+    if (error) logRouteFailure('vendor-invitations.create', error, { orgId: org.id })
+    return { ok: false, error: 'We couldn’t create the invitation. Try again.' }
   }
 
   const link = appUrl(`/vendor-onboard/${token}`)
@@ -152,7 +153,8 @@ export async function createInvitation(
     // Keep the invitation row — the manager can copy the link below —
     // but report emailSent=false so the UI says so plainly instead of
     // claiming "We've emailed the vendor."
-    console.error('[invitation] email send failed', send.error)
+    // Ids only: the provider's text can carry the recipient address (RC-2).
+    console.error('[invitation] email send failed', { orgId: org.id, invitationId: row.id })
   }
 
   revalidatePath('/vendors/invitations')
@@ -163,7 +165,6 @@ export async function createInvitation(
       token,
       link,
       emailSent: send.ok,
-      emailError: send.ok ? undefined : send.error,
     },
   }
 }
@@ -175,7 +176,10 @@ export async function revokeInvitation(id: string): Promise<ActionResult> {
     .update({ status: 'revoked' } as never)
     .eq('id', id)
     .eq('status', 'pending')
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    logRouteFailure('vendor-invitations.revoke', error, { invitationId: id })
+    return { ok: false, error: 'We couldn’t revoke this invitation. Try again.' }
+  }
   revalidatePath('/vendors/invitations')
   return { ok: true }
 }

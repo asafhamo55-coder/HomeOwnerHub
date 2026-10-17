@@ -14,7 +14,6 @@ export function InviteVendorForm() {
   const [success, setSuccess] = useState<{
     link: string
     emailSent: boolean
-    emailError?: string
   } | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -40,7 +39,6 @@ export function InviteVendorForm() {
       setSuccess({
         link: result.data.link,
         emailSent: result.data.emailSent,
-        emailError: result.data.emailError,
       })
       router.refresh()
     })
@@ -81,7 +79,7 @@ export function InviteVendorForm() {
           <p>
             {success.emailSent
               ? 'We emailed the vendor. The link below also works if they need a copy.'
-              : `Email delivery failed${success.emailError ? ` (${success.emailError})` : ''}. Copy the link and send it to the vendor yourself.`}
+              : 'Email delivery failed. Copy the link and send it to the vendor yourself.'}
           </p>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
             <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-foreground">

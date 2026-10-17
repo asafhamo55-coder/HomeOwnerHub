@@ -32,7 +32,15 @@ import {
   revokeRfpInvitation,
   type InvitableVendor,
   type RfpInvitationRow,
+  type RfpInviteFailureReason,
 } from '@/lib/rfp-invitations'
+
+const FAILURE_LABEL: Record<RfpInviteFailureReason, string> = {
+  vendor_not_found: 'vendor not found',
+  vendor_has_no_email: 'no email on file',
+  invitation_create_failed: 'couldn’t create the invitation — try again',
+  email_send_failed: 'invitation created, but the email didn’t send',
+}
 
 
 interface Props {
@@ -49,8 +57,11 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
   const [summary, setSummary] = useState<{
     sent: number
     skipped: number
-    failed: Array<{ vendorId: string; reason: string }>
+    failed: Array<{ vendorId: string; reason: RfpInviteFailureReason }>
   } | null>(null)
+
+  const vendorName = (id: string) =>
+    invitableVendors.find((v) => v.id === id)?.legal_name ?? 'Vendor'
 
   const eligible = useMemo(
     () => invitableVendors.filter((v) => !v.already_invited),
@@ -151,7 +162,9 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
                   , {summary.failed.length} failed
                   <ul className="mt-1 list-disc pl-5 text-xs">
                     {summary.failed.map((f) => (
-                      <li key={f.vendorId}>{f.reason}</li>
+                      <li key={f.vendorId}>
+                        {vendorName(f.vendorId)}: {FAILURE_LABEL[f.reason] ?? 'not sent'}
+                      </li>
                     ))}
                   </ul>
                 </>

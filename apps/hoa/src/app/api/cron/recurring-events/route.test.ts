@@ -114,8 +114,12 @@ vi.mock('@homeowner-portal/db', () => ({
 }))
 
 const sendEventAlertEmail = vi.fn()
+const countFailedAlertAttempts = vi.fn()
+const notifyBoardAlertGaveUp = vi.fn()
 vi.mock('@/lib/events-alerts', () => ({
   sendEventAlertEmail: (...args: unknown[]) => sendEventAlertEmail(...args),
+  countFailedAlertAttempts: (...args: unknown[]) => countFailedAlertAttempts(...args),
+  notifyBoardAlertGaveUp: (...args: unknown[]) => notifyBoardAlertGaveUp(...args),
 }))
 
 import { GET } from './route'
@@ -166,6 +170,10 @@ describe('GET /api/cron/recurring-events', () => {
     db.updates = []
     sendEventAlertEmail.mockReset()
     sendEventAlertEmail.mockResolvedValue({ sent: 1, failed: [] })
+    countFailedAlertAttempts.mockReset()
+    countFailedAlertAttempts.mockResolvedValue({ ok: true, count: 0 })
+    notifyBoardAlertGaveUp.mockReset()
+    notifyBoardAlertGaveUp.mockResolvedValue({ ok: true, notified: 1 })
     errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
@@ -490,5 +498,92 @@ describe('GET /api/cron/recurring-events', () => {
     db.rows = [event({ recurrence: 'none', event_date: '2026-10-10', last_alert_sent_for: '2026-10-10' })]
     await GET(req(BEARER))
     expect(db.rows[0]!.event_date).toBe('2026-10-10')
+  })
+  // ─── BL-056: retry cap — stop after ALERT_RETRY_CAP failed days ─────
+
+  it('retries while fewer than 3 failed attempts are on record for this occurrence', async () => {
+    db.rows = [event()]
+    countFailedAlertAttempts.mockResolvedValue({ ok: true, count: 2 })
+    await GET(req(BEARER))
+    expect(sendEventAlertEmail).toHaveBeenCalledTimes(1)
+    // Counted from the day this occurrence's window opened (2026-10-20 − 7).
+    expect(countFailedAlertAttempts).toHaveBeenCalledWith(expect.anything(), {
+      eventId: 'evt-1',
+      organizationId: 'org-1',
+      sinceIso: '2026-10-13',
+    })
+  })
+
+  it('after 3 failed days it stops sending (no new failed row), reports it, and notifies the board', async () => {
+    db.rows = [event()]
+    countFailedAlertAttempts.mockResolvedValue({ ok: true, count: 3 })
+    const res = await GET(req(BEARER))
+    expect(res.status).toBe(200)
+    expect(sendEventAlertEmail).not.toHaveBeenCalled()
+    expect(updatesOf('claim')).toHaveLength(0)
+    const body = await res.json()
+    expect(body.errors).toEqual([{ eventId: 'evt-1', code: 'retry_cap_reached', count: 3 }])
+    expect(notifyBoardAlertGaveUp).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ organizationId: 'org-1', attempts: 3, sinceIso: '2026-10-13' }),
+    )
+    // Never shown as sent.
+    expect(db.rows[0]!.last_alert_sent_for).toBeNull()
+  })
+
+  it('a capped annual occurrence whose date passed rolls forward, so next year still alerts', async () => {
+    db.rows = [event({ event_date: '2026-10-10', alert_days_before: 0 })]
+    countFailedAlertAttempts.mockResolvedValue({ ok: true, count: 3 })
+    const res = await GET(req(BEARER))
+    expect(res.status).toBe(200)
+    expect(sendEventAlertEmail).not.toHaveBeenCalled()
+    expect(db.rows[0]!.event_date).toBe('2027-10-10')
+    expect(db.rows[0]!.last_alert_sent_for).toBeNull()
+  })
+
+  it('a capped one-time event is left as is (not rolled, not sent)', async () => {
+    db.rows = [event({ recurrence: 'none', event_date: '2026-10-10', alert_days_before: 0 })]
+    countFailedAlertAttempts.mockResolvedValue({ ok: true, count: 5 })
+    await GET(req(BEARER))
+    expect(sendEventAlertEmail).not.toHaveBeenCalled()
+    expect(db.rows[0]!.event_date).toBe('2026-10-10')
+  })
+
+  it('a failed attempts read sends nothing and answers 500 with no raw text', async () => {
+    db.rows = [event()]
+    countFailedAlertAttempts.mockResolvedValue({ ok: false, error: { code: '57014', message: 'timeout for jane@example.test' } })
+    const res = await GET(req(BEARER))
+    expect(res.status).toBe(500)
+    expect(sendEventAlertEmail).not.toHaveBeenCalled()
+    expect(JSON.stringify(errSpy.mock.calls)).toContain('57014')
+    expect(JSON.stringify(errSpy.mock.calls)).not.toContain('jane@example.test')
+  })
+
+  it('a failed board notification answers 500 (visible), still without sending', async () => {
+    db.rows = [event()]
+    countFailedAlertAttempts.mockResolvedValue({ ok: true, count: 3 })
+    notifyBoardAlertGaveUp.mockResolvedValue({ ok: false, error: { code: '08006', message: 'x' } })
+    const res = await GET(req(BEARER))
+    expect(res.status).toBe(500)
+    expect(sendEventAlertEmail).not.toHaveBeenCalled()
+  })
+
+  it('end to end: three failed days, then the fourth day gives up instead of a fourth failed row', async () => {
+    db.rows = [event()]
+    // Each failed attempt is one failed communications row (what the real
+    // countFailedAlertAttempts counts).
+    let failedRows = 0
+    countFailedAlertAttempts.mockImplementation(async () => ({ ok: true, count: failedRows }))
+    sendEventAlertEmail.mockImplementation(async () => {
+      failedRows += 1
+      return { sent: 0, failed: [{ email: 'x@example.test', reason: 'email_provider_error' }] }
+    })
+    for (const day of ['2026-10-16', '2026-10-17', '2026-10-18', '2026-10-19', '2026-10-20']) {
+      vi.setSystemTime(new Date(`${day}T14:00:00Z`))
+      expect((await GET(req(BEARER))).status).toBe(200)
+    }
+    expect(sendEventAlertEmail).toHaveBeenCalledTimes(3)
+    expect(failedRows).toBe(3)
+    expect(notifyBoardAlertGaveUp).toHaveBeenCalledTimes(2) // idempotent per occurrence inside the helper
   })
 })

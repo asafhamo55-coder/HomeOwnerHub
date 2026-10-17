@@ -98,6 +98,11 @@ const SHOTS: Shot[] = [
   { name: 'gallery-rail', path: '/ui-gallery', rail: true, widths: [1440] },
   { name: 'dashboard-rail', path: '/', auth: true, rail: true, widths: [1440], themes: LIGHT },
   { name: 'gallery-dialog', path: '/ui-gallery?overlay=dialog', themes: LIGHT },
+  // BL-056: public invitation pages — the "couldn't load" state (dev preview;
+  // a real DB failure can't be provoked here) next to the "invalid link" one.
+  { name: 'invitation-unavailable', path: '/ui-gallery/invitation-unavailable' },
+  { name: 'rfp-bid-invalid', path: '/rfp-bid/no-such-token', themes: LIGHT },
+  { name: 'vendor-onboard-invalid', path: '/vendor-onboard/no-such-token', themes: LIGHT },
   { name: 'gallery-sheet', path: '/ui-gallery?overlay=sheet', themes: LIGHT },
   { name: 'gallery-confirm', path: '/ui-gallery?overlay=confirm', themes: ['dark'] },
   { name: 'gallery-palette', path: '/ui-gallery?overlay=palette' },
