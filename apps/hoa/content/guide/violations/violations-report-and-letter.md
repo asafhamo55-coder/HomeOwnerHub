@@ -24,7 +24,7 @@ A violation goes from report, to notice, to cure period, to closed. HomeownerHub
 
 ## Steps
 1. Open **Violations** from the sidebar and select [[Report violation]].
-2. Pick the **Property** and add at least one photo. Add **Additional notes** if they help.
+2. Under **Property**, type an address or unit and pick the home from the list. Add at least one photo, and **Additional notes** if they help.
 3. Select [[Analyze with Covenant Brain]]. It reads the photo, matches the CC&R section and drafts the letter.
 4. Read the draft all the way to the bottom and fix anything that is wrong.
 5. Select [[Approve & mark notice sent]].
@@ -40,6 +40,7 @@ The violation is recorded with the notice marked as sent, and the cure period st
 - "Analysis failed": try again, or write the letter yourself.
 
 ## Good to know
+- Already on the property's page? Its **Violations** tab has [[New violation here]], which starts the report with that home picked.
 - **Nothing is sent from HomeownerHub.** Approving records that the notice went out and starts the cure clock. You send the letter.
 - The **State law for this letter** panel shows your state's rules for notices and fines, such as how many days' notice an owner gets and the largest fine allowed. Florida and California are covered.
 - Some letters are drafted for you by the AI and wait in the [[AI approval queue]] tab. Read each one and select [[Approve letter]], or [[Reject]] with a reason. Approving files it as an open violation.

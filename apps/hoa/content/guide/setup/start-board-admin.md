@@ -25,7 +25,7 @@ HomeownerHub keeps your board's work in one place: homes and residents, dues, vi
 
 ### The six steps
 - [[Connect the HOA mailbox]]: resident email comes into the Inbox, filed under the right home.
-- [[Add your properties]]: every address in the community. See [Add your properties and residents](guide:setup-properties-residents).
+- [[Add your properties]]: every address in the community. Each home you add can be billed straight away. See [Add your properties and residents](guide:setup-properties-residents).
 - [[Add owners and residents]]: who lives where, so mail and dues match a person.
 - [[Upload governing documents]]: your CC&Rs and bylaws, so answers cite your own rules. See [Upload your governing documents](guide:documents-governing-and-ask).
 - [[Set up dues]]: bill this month's dues so every home has a balance. See [Bill this month's dues](guide:dues-generate-monthly).
@@ -40,4 +40,4 @@ The checklist ticks itself off as the data appears, so do the steps in any order
 
 ## Good to know
 - Hiding the card only hides it in this browser. If a step stops being true later, the card comes back.
-- The sign-up setup page has its own short checklist. Its **Import properties** step uploads a spreadsheet, which is a support tool. Ask support to import your list of homes for you.
+- The sign-up setup page has its own short checklist. Its **Import properties** step uploads a spreadsheet, which is a support tool. Add homes one at a time in Properties instead, or ask support to import your list of homes.

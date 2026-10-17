@@ -20,7 +20,7 @@ A dues charge is money a home owes the association. Each charge posts to the led
 
 ## Before you start
 - Your HOA needs an association. If it has none, the Dues page shows [[Set up your association]] instead. An admin fills in the **Association name**, **State** and **Type**, then selects [[Create association]].
-- Dues are billed per home on your unit list. See [Add your properties and residents](guide:setup-properties-residents).
+- Dues are billed to the homes in Properties. Every home you add there can be billed. See [Add your properties and residents](guide:setup-properties-residents).
 
 ## Steps
 ### Every home, this month
@@ -43,7 +43,8 @@ The charges appear on the Dues page, grouped by month, with each home's status. 
 
 ## If something goes wrong
 - No charges yet: the page says **No dues billed yet**. If you have not added homes, select [[Add properties first]].
-- "Add units before generating assessments.": your HOA has no homes on its unit list yet. Ask support to import them.
+- An older home is missing from the bill: if your HOA has one community, generating dues first makes every home in Properties billable. With several communities, ask support to link the home to its community.
+- "Add properties before generating dues.": your HOA has no homes yet. Add them in Properties first.
 - "Assessments for this period are already on file.": this month's dues were already generated. Homes that already have regular dues this period are skipped.
 
 ![[guide-dues-no-association]]
