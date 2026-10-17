@@ -6,7 +6,7 @@ const { approveRequest, rejectRequest } = vi.hoisted(() => ({
 }))
 vi.mock('@homeowner-portal/workflows', () => ({ approveRequest, rejectRequest }))
 
-import { decideApprovalFor, postingHandlers, type InboxDecisionHandlers } from './decide'
+import { billHandlers, decideApprovalFor, postingHandlers, type InboxDecisionHandlers } from './decide'
 
 const ID = '11111111-1111-4111-8111-111111111111'
 
@@ -18,6 +18,8 @@ function handlers(over: Partial<InboxDecisionHandlers> = {}): InboxDecisionHandl
     rejectVendor: vi.fn(async () => ({ ok: true as const })),
     approveViolationDraft: vi.fn(async () => ({ ok: true as const, violationId: 'v1' })),
     rejectViolationDraft: vi.fn(async () => ({ ok: true as const })),
+    approveBill: vi.fn(async () => ({ ok: true as const, status: 'posted' as const, resultRef: 'inv', alreadyDecided: false })),
+    rejectBill: vi.fn(async () => ({ ok: true as const, status: 'rejected' as const, resultRef: null, alreadyDecided: false })),
     ...over,
   }
 }
@@ -25,7 +27,7 @@ function handlers(over: Partial<InboxDecisionHandlers> = {}): InboxDecisionHandl
 describe('decideApprovalFor — role gate', () => {
   it.each(['resident', null, 'owner'])('refuses %s before touching any module action', async (role) => {
     const h = handlers()
-    for (const kind of ['w18', 'w3', 'vendor'] as const) {
+    for (const kind of ['w18', 'bill', 'w3', 'vendor'] as const) {
       for (const decision of ['approve', 'reject'] as const) {
         const r = await decideApprovalFor(role, { kind, id: ID, decision, reason: 'x' }, h)
         expect(r.ok).toBe(false)
@@ -164,5 +166,89 @@ describe('postingHandlers', () => {
     await h.rejectPosting(ID, 'why')
     expect(approveRequest).toHaveBeenCalledWith(userDb, adminDb, ID)
     expect(rejectRequest).toHaveBeenCalledWith(userDb, ID, 'why')
+  })
+})
+
+describe('decideApprovalFor — scanned bills (BL-021)', () => {
+  it('approve goes to the bill handler and says the bill was entered', async () => {
+    const h = handlers()
+    const r = await decideApprovalFor('board', { kind: 'bill', id: ID, decision: 'approve' }, h)
+    expect(h.approveBill).toHaveBeenCalledWith(ID)
+    expect(h.approvePosting).not.toHaveBeenCalled()
+    expect(r).toEqual({ ok: true, message: 'Approved. The bill is entered and posted to accounts payable.' })
+  })
+
+  it('a second approve says nothing was entered again', async () => {
+    const h = handlers({
+      approveBill: vi.fn(async () => ({ ok: true as const, status: 'posted' as const, resultRef: 'inv', alreadyDecided: true })),
+    })
+    expect(await decideApprovalFor('board', { kind: 'bill', id: ID, decision: 'approve' }, h)).toEqual({
+      ok: true,
+      message: 'Already approved — the bill was not entered again.',
+    })
+  })
+
+  it('an executor refusal is passed through', async () => {
+    const h = handlers({ approveBill: vi.fn(async () => ({ ok: false as const, error: 'missing the total', status: 'failed' as const })) })
+    expect(await decideApprovalFor('board', { kind: 'bill', id: ID, decision: 'approve' }, h)).toEqual({
+      ok: false,
+      error: 'missing the total',
+    })
+  })
+
+  it('reject records the trimmed reason and enters nothing', async () => {
+    const h = handlers()
+    const r = await decideApprovalFor('admin', { kind: 'bill', id: ID, decision: 'reject', reason: ' duplicate ' }, h)
+    expect(h.rejectBill).toHaveBeenCalledWith(ID, 'duplicate')
+    expect(h.approveBill).not.toHaveBeenCalled()
+    expect(r).toEqual({ ok: true, message: 'Rejected. Nothing was entered in accounting.' })
+  })
+
+  it('reject needs a reason', async () => {
+    const h = handlers()
+    expect((await decideApprovalFor('board', { kind: 'bill', id: ID, decision: 'reject' }, h)).ok).toBe(false)
+    expect(h.rejectBill).not.toHaveBeenCalled()
+  })
+})
+
+describe('billHandlers', () => {
+  function userDb(actionType: string | null, error: unknown = null) {
+    const q = {
+      select: () => q,
+      eq: () => q,
+      maybeSingle: async () => ({ data: actionType ? { action_type: actionType } : null, error }),
+    }
+    return { from: vi.fn(() => q) }
+  }
+  const executor = vi.fn()
+
+  it('approves through the approval layer with ONLY the bill executor', async () => {
+    const u = userDb('w36.ap_bill')
+    const adminDb = { tag: 'admin' }
+    approveRequest.mockResolvedValueOnce({ ok: true, status: 'posted', resultRef: 'inv', alreadyDecided: false })
+    const r = await billHandlers(u as never, adminDb as never, executor).approveBill(ID)
+    expect(r.ok).toBe(true)
+    expect(approveRequest).toHaveBeenCalledWith(u, adminDb, ID, { 'w36.ap_bill': executor })
+  })
+
+  it('rejects through the approval layer', async () => {
+    const u = userDb('w36.ap_bill')
+    rejectRequest.mockResolvedValueOnce({ ok: true, status: 'rejected', resultRef: null, alreadyDecided: false })
+    await billHandlers(u as never, {} as never, executor).rejectBill(ID, 'why')
+    expect(rejectRequest).toHaveBeenCalledWith(u, ID, 'why')
+  })
+
+  it.each([['w18.cash_receipt'], [null]])('refuses a request that is not a scanned bill (%s) before deciding it', async (t) => {
+    const h = billHandlers(userDb(t) as never, {} as never, executor)
+    expect((await h.approveBill(ID)).ok).toBe(false)
+    expect((await h.rejectBill(ID, 'x')).ok).toBe(false)
+    expect(approveRequest).not.toHaveBeenCalled()
+    expect(rejectRequest).not.toHaveBeenCalled()
+  })
+
+  it('refuses when the kind check fails to load', async () => {
+    const h = billHandlers(userDb(null, { code: '500' }) as never, {} as never, executor)
+    expect((await h.approveBill(ID)).ok).toBe(false)
+    expect(approveRequest).not.toHaveBeenCalled()
   })
 })

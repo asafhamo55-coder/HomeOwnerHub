@@ -9,8 +9,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import { loadOrFail } from '../load-or-fail'
+import { BILL_ACTION } from '../bill-scan/proposal'
 import {
   SECTION_LIMIT,
+  billItems,
+  type BillProposalRow,
   type AssociationVendorCount,
   w18Items,
   w3Items,
@@ -59,6 +62,24 @@ export async function loadW18Section(db: InboxDb, orgId: string): Promise<InboxS
   )
   const items = w18Items(proposals, runs.ok ? ((runs.data ?? []) as unknown as W18RunRow[]) : null)
   return runs.ok ? { source: 'w18', ok: true, items, total } : { source: 'w18', ok: true, items, total, notesFailed: true }
+}
+
+/** BL-021: proposed bill entries, oldest first. Same read rule as W18. */
+export async function loadBillSection(db: InboxDb, orgId: string): Promise<InboxSection> {
+  const res = await loadOrFail(
+    'approvals: scanned bills',
+    db
+      .from('approval_requests')
+      .select('id, summary, amount, proposed_at, payload', { count: 'exact' })
+      .eq('organization_id', orgId)
+      .eq('action_type', BILL_ACTION)
+      .eq('status', 'proposed')
+      .order('proposed_at', { ascending: true })
+      .range(0, SECTION_LIMIT - 1),
+  )
+  if (!res.ok) return { source: 'bill', ok: false }
+  const rows = (res.data ?? []) as unknown as BillProposalRow[]
+  return { source: 'bill', ok: true, items: billItems(rows), total: res.count ?? rows.length }
 }
 
 export async function loadW3Section(db: InboxDb, orgId: string): Promise<InboxSection> {
@@ -135,7 +156,7 @@ export async function countPendingApprovals(db: InboxDb, orgId: string): Promise
     const primary = (assocs.data ?? [])[0]
     return primary ? countVendorsNeedingBoard(db, orgId, primary.id) : 0
   }
-  const [w18, w3, vendor] = await Promise.all([
+  const [w18, bill, w3, vendor] = await Promise.all([
     loadOrFail(
       'approvals badge: postings',
       db
@@ -143,6 +164,15 @@ export async function countPendingApprovals(db: InboxDb, orgId: string): Promise
         .select('id', { count: 'exact', head: true })
         .eq('organization_id', orgId)
         .eq('action_type', W18_ACTION)
+        .eq('status', 'proposed'),
+    ),
+    loadOrFail(
+      'approvals badge: scanned bills',
+      db
+        .from('approval_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .eq('action_type', BILL_ACTION)
         .eq('status', 'proposed'),
     ),
     loadOrFail(
@@ -157,7 +187,7 @@ export async function countPendingApprovals(db: InboxDb, orgId: string): Promise
     vendorCount(),
   ])
   const count = (r: { ok: true; count: number | null } | { ok: false }) => (r.ok ? (r.count ?? 0) : null)
-  return { w18: count(w18), w3: count(w3), vendor }
+  return { w18: count(w18), bill: count(bill), w3: count(w3), vendor }
 }
 
 /**

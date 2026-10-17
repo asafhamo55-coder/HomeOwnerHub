@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   approvalsBadge,
+  billItems,
   buildInbox,
   canUseApprovals,
   parseApprovalFilter,
@@ -165,7 +166,7 @@ describe('vendor queue predicate and items', () => {
 })
 
 describe('buildInbox (aggregation)', () => {
-  const ok = (source: 'w18' | 'w3' | 'vendor', n: number, total = n): InboxSection => ({
+  const ok = (source: 'w18' | 'bill' | 'w3' | 'vendor', n: number, total = n): InboxSection => ({
     source,
     ok: true,
     total,
@@ -186,16 +187,16 @@ describe('buildInbox (aggregation)', () => {
   })
 
   it('counts each source and the total from the totals, not just the rows shown', () => {
-    const inbox = buildInbox([ok('w18', 2, 120), ok('w3', 1), ok('vendor', 0)], 'all')
-    expect(inbox.counts).toEqual({ w18: 120, w3: 1, vendor: 0 })
-    expect(inbox.total).toBe(121)
+    const inbox = buildInbox([ok('w18', 2, 120), ok('bill', 2), ok('w3', 1), ok('vendor', 0)], 'all')
+    expect(inbox.counts).toEqual({ w18: 120, bill: 2, w3: 1, vendor: 0 })
+    expect(inbox.total).toBe(123)
     expect(inbox.anyFailed).toBe(false)
     expect(inbox.allClear).toBe(false)
-    expect(inbox.sections.map((s) => s.source)).toEqual(['w18', 'w3', 'vendor'])
+    expect(inbox.sections.map((s) => s.source)).toEqual(['w18', 'bill', 'w3', 'vendor'])
   })
 
   it('a failed source has an unknown count and the total is unknown — never 0', () => {
-    const inbox = buildInbox([ok('w18', 0), { source: 'w3', ok: false }, ok('vendor', 0)], 'all')
+    const inbox = buildInbox([ok('w18', 0), ok('bill', 0), { source: 'w3', ok: false }, ok('vendor', 0)], 'all')
     expect(inbox.counts.w3).toBeNull()
     expect(inbox.total).toBeNull()
     expect(inbox.anyFailed).toBe(true)
@@ -204,36 +205,110 @@ describe('buildInbox (aggregation)', () => {
   })
 
   it('is all clear only when every source loaded and is empty', () => {
-    expect(buildInbox([ok('w18', 0), ok('w3', 0), ok('vendor', 0)], 'all').allClear).toBe(true)
+    expect(buildInbox([ok('w18', 0), ok('bill', 0), ok('w3', 0), ok('vendor', 0)], 'all').allClear).toBe(true)
+    // BL-021: a bill source that never loaded is unknown, not empty.
+    expect(buildInbox([ok('w18', 0), ok('w3', 0), ok('vendor', 0)], 'all').allClear).toBe(false)
   })
 
   it('a type filter shows only that section but keeps every count for the tabs', () => {
-    const inbox = buildInbox([ok('w18', 2), ok('w3', 1), { source: 'vendor', ok: false }], 'w3')
+    const inbox = buildInbox([ok('w18', 2), ok('bill', 4), ok('w3', 1), { source: 'vendor', ok: false }], 'w3')
     expect(inbox.sections.map((s) => s.source)).toEqual(['w3'])
-    expect(inbox.counts).toEqual({ w18: 2, w3: 1, vendor: null })
+    expect(inbox.counts).toEqual({ w18: 2, bill: 4, w3: 1, vendor: null })
   })
 
   it('orders sections by source regardless of input order', () => {
-    const inbox = buildInbox([ok('vendor', 1), ok('w3', 1), ok('w18', 1)], 'all')
-    expect(inbox.sections.map((s) => s.source)).toEqual(['w18', 'w3', 'vendor'])
+    const inbox = buildInbox([ok('vendor', 1), ok('w3', 1), ok('bill', 1), ok('w18', 1)], 'all')
+    expect(inbox.sections.map((s) => s.source)).toEqual(['w18', 'bill', 'w3', 'vendor'])
   })
 })
 
 describe('approvalsBadge (sidebar)', () => {
   it('shows the total when every count loaded', () => {
-    expect(approvalsBadge({ w18: 2, w3: 1, vendor: 0 })).toBe('3')
+    expect(approvalsBadge({ w18: 2, bill: 1, w3: 1, vendor: 0 })).toBe('4')
   })
   it('shows no badge for zero', () => {
-    expect(approvalsBadge({ w18: 0, w3: 0, vendor: 0 })).toBeNull()
+    expect(approvalsBadge({ w18: 0, bill: 0, w3: 0, vendor: 0 })).toBeNull()
   })
   it('shows no badge — not 0 — when a count failed and nothing else is known', () => {
-    expect(approvalsBadge({ w18: null, w3: 0, vendor: 0 })).toBeNull()
-    expect(approvalsBadge({ w18: null, w3: null, vendor: null })).toBeNull()
+    expect(approvalsBadge({ w18: null, bill: 0, w3: 0, vendor: 0 })).toBeNull()
+    expect(approvalsBadge({ w18: null, bill: null, w3: null, vendor: null })).toBeNull()
   })
   it('marks a partial count as a lower bound', () => {
-    expect(approvalsBadge({ w18: 2, w3: null, vendor: 1 })).toBe('3+')
+    expect(approvalsBadge({ w18: 2, bill: null, w3: null, vendor: 1 })).toBe('3+')
   })
   it('caps at 99+', () => {
-    expect(approvalsBadge({ w18: 150, w3: 0, vendor: 0 })).toBe('99+')
+    expect(approvalsBadge({ w18: 150, bill: 0, w3: 0, vendor: 0 })).toBe('99+')
+  })
+})
+
+describe('billItems (BL-021)', () => {
+  const V = '11111111-1111-4111-8111-111111111111'
+  const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const complete = {
+    kind: 'w36.ap_bill',
+    version: 1,
+    associationId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    aiRunId: 'run-1',
+    storagePath: 'org/bills/x.pdf',
+    contentType: 'application/pdf',
+    source: 'pdf_text',
+    vendor: {
+      extractedName: 'Sample Landscaping Co',
+      nameConfidence: 'high',
+      vendorId: V,
+      vendorLabel: 'Sample Landscaping Co',
+      match: 'exact',
+      matchConfidence: 'high',
+    },
+    invoiceNumber: { value: 'SL-2210', confidence: 'high' },
+    invoiceDate: { value: '2026-10-01', confidence: 'high' },
+    dueDate: { value: '2026-10-31', confidence: 'high' },
+    total: { value: 1200, confidence: 'high' },
+    lineItems: [{ description: 'Mowing', amount: 1200 }],
+    expenseAccount: { accountId: A, label: '5100 — Landscaping', reasoning: 'Grounds work.', confidence: 'high' },
+    warnings: [],
+  }
+  const row = (payload: unknown) => ({ id: 'b1', summary: 'Bill from Sample Landscaping Co · #SL-2210', amount: 1200, proposed_at: T1, payload })
+
+  it('a complete, confident bill is approvable in one click, with the GL reasoning', () => {
+    const [item] = billItems([row(complete)])
+    expect(item).toMatchObject({
+      source: 'bill',
+      title: 'Bill from Sample Landscaping Co · #SL-2210',
+      amount: 1200,
+      reasoning: 'Grounds work.',
+      confidenceLabel: 'High confidence',
+      detail: null,
+      decision: { kind: 'bill', approvalRequestId: 'b1', canApprove: true },
+    })
+    expect(item!.bill).toMatchObject({ missing: [], needsCheck: [] })
+  })
+
+  it('low-confidence fields are named on the card and still approvable', () => {
+    const p = { ...complete, total: { value: 1200, confidence: 'low' }, invoiceNumber: { value: 'SL-22l0', confidence: 'medium' } }
+    const [item] = billItems([row(p)])
+    expect(item!.detail).toBe('Check the invoice number and total against the bill before approving.')
+    expect(item!.confidenceLabel).toBe('2 fields to check')
+    expect(item!.decision).toMatchObject({ canApprove: true })
+  })
+
+  it('a missing field makes it reject-only, and says what is missing', () => {
+    const p = { ...complete, vendor: { ...complete.vendor, vendorId: null, vendorLabel: null, match: 'none', matchConfidence: 'low' } }
+    const [item] = billItems([row(p)])
+    expect(item!.detail).toBe('Missing a vendor on file. Reject it and enter the bill by hand.')
+    expect(item!.confidenceLabel).toBe('Incomplete')
+    expect(item!.decision).toMatchObject({ canApprove: false })
+  })
+
+  it('an unreadable payload is reject-only and says so — no invented fields', () => {
+    const [item] = billItems([row({ demo: true })])
+    expect(item!.bill).toBeUndefined()
+    expect(item!.reasoning).toBeNull()
+    expect(item!.decision).toMatchObject({ canApprove: false })
+    expect(item!.detail).toMatch(/couldn’t be read/)
+  })
+
+  it('the bill source has its own tab', () => {
+    expect(parseApprovalFilter('bill')).toBe('bill')
   })
 })

@@ -29,6 +29,16 @@ const COPY: Record<InboxDecisionTarget['kind'], Copy> = {
     rejectConfirm: 'Reject match',
     rejectPlaceholder: 'The memo code belongs to a different unit.',
   },
+  bill: {
+    approveButton: 'Approve & enter',
+    approveTitle: 'Approve and enter this bill?',
+    approveDescription: (title, amount) =>
+      `${title}${amount ? ` (${amount})` : ''}. This enters the bill and posts it to accounts payable (Dr expense, Cr AP) exactly as "Enter a bill" does. It does not pay the vendor.`,
+    approveConfirm: 'Approve & enter',
+    rejectTitle: 'Reject this bill?',
+    rejectConfirm: 'Reject bill',
+    rejectPlaceholder: 'Duplicate of a bill already entered.',
+  },
   w3: {
     approveButton: 'Approve letter',
     approveTitle: 'Approve this violation letter?',
@@ -86,7 +96,7 @@ export function ApprovalActions({
   const kind = decision.kind
   const id = decisionId(decision)
   const copy = COPY[kind]
-  const canApprove = kind !== 'vendor' || decision.canApprove
+  const canApprove = decision.kind === 'vendor' || decision.kind === 'bill' ? decision.canApprove : true
 
   async function approve() {
     const r = await decideApproval({ kind, id, decision: 'approve' })

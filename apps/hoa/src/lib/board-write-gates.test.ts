@@ -13,6 +13,7 @@ import * as governingUpload from '../app/api/governing-docs/upload/route'
 import * as violationDraft from '../app/api/ai/violations/draft/route'
 import * as meetingSummary from '../app/api/ai/meeting-summary/route'
 import * as violationPhoto from '../app/api/violations/photo/route'
+import * as billScan from '../app/api/accounting/bill-scan/route'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
@@ -180,6 +181,18 @@ describe('board-only routes return 403 to a resident', () => {
       new Request('http://x/api/violations/photo', {
         method: 'POST',
         body: form({ file: new File([new Uint8Array([1, 2, 3])], 'a.png', { type: 'image/png' }) }),
+      }),
+    )
+    expect(res.status).toBe(403)
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+  })
+
+  it('POST /api/accounting/bill-scan (BL-021: runs W36 and files a proposal with the service role)', async () => {
+    vi.mocked(getSupabaseServerClient).mockClear()
+    const res = await billScan.POST(
+      new Request('http://x/api/accounting/bill-scan', {
+        method: 'POST',
+        body: form({ file: new File([new Uint8Array([1, 2, 3])], 'a.pdf', { type: 'application/pdf' }) }),
       }),
     )
     expect(res.status).toBe(403)

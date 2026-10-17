@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@homeowner-portal/observability/report', () => ({ reportError: vi.fn() }))
 
-import { countPendingApprovals, loadVendorCountsByAssociation, loadW18Section, loadW3Section, type InboxDb } from './load'
+import { countPendingApprovals, loadBillSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section, type InboxDb } from './load'
 
 /**
  * A minimal stand-in for the Supabase query builder: every chained call is
@@ -128,12 +128,12 @@ describe('countPendingApprovals (sidebar badge)', () => {
 
   it('counts each source with head-only queries; vendors only for the primary association the list shows', async () => {
     const { db, calls } = fakeDb({
-      approval_requests: [ok(2)],
+      approval_requests: [ok(2), ok(5)],
       ai_runs: [ok(1)],
       associations: [{ data: [ASSOC], error: null }],
       vendor_compliance: [ok(3), ok(1)],
     })
-    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 2, w3: 1, vendor: 4 })
+    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 2, bill: 5, w3: 1, vendor: 4 })
     for (const c of calls.filter((c) => c.table !== 'associations')) {
       const select = c.ops.find(([op]) => op === 'select')!
       expect(select[1][1], `${c.table} must be a head count`).toMatchObject({ count: 'exact', head: true })
@@ -152,31 +152,31 @@ describe('countPendingApprovals (sidebar badge)', () => {
 
   it('no association means no vendor in the list, so 0 — without counting', async () => {
     const { db, calls } = fakeDb({
-      approval_requests: [ok(0)],
+      approval_requests: [ok(0), ok(0)],
       ai_runs: [ok(0)],
       associations: [{ data: [], error: null }],
     })
-    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 0, w3: 0, vendor: 0 })
+    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 0, bill: 0, w3: 0, vendor: 0 })
     expect(calls.some((c) => c.table === 'vendor_compliance')).toBe(false)
   })
 
   it('a failed association lookup makes the vendor count unknown, not 0', async () => {
     const { db } = fakeDb({
-      approval_requests: [ok(0)],
+      approval_requests: [ok(0), ok(0)],
       ai_runs: [ok(0)],
       associations: [{ data: null, error: err }],
     })
-    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 0, w3: 0, vendor: null })
+    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 0, bill: 0, w3: 0, vendor: null })
   })
 
   it('a failed count is unknown (null), not zero', async () => {
     const { db } = fakeDb({
-      approval_requests: [{ data: null, error: err }],
+      approval_requests: [{ data: null, error: err }, ok(3)],
       ai_runs: [ok(0)],
       associations: [{ data: [ASSOC], error: null }],
       vendor_compliance: [ok(0), { data: null, error: err }],
     })
-    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: null, w3: 0, vendor: null })
+    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: null, bill: 3, w3: 0, vendor: null })
   })
 })
 
@@ -224,5 +224,51 @@ describe('loadVendorCountsByAssociation (BL-048 multi-association breakdown)', (
   it('a failed association read is a failure, not an empty breakdown', async () => {
     const { db } = fakeDb({ associations: [{ data: null, error: err }] })
     expect(await loadVendorCountsByAssociation(db, ORG)).toEqual({ ok: false })
+  })
+})
+
+describe('loadBillSection (BL-021)', () => {
+  const payload = {
+    kind: 'w36.ap_bill',
+    version: 1,
+    associationId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    aiRunId: 'run-1',
+    storagePath: `${ORG}/bills/x.pdf`,
+    contentType: 'application/pdf',
+    source: 'pdf_text',
+    vendor: { extractedName: 'Acme', nameConfidence: 'high', vendorId: null, vendorLabel: null, match: 'none', matchConfidence: 'low' },
+    invoiceNumber: { value: 'A-1', confidence: 'high' },
+    invoiceDate: { value: '2026-10-01', confidence: 'high' },
+    dueDate: { value: null, confidence: 'low' },
+    total: { value: 99.5, confidence: 'high' },
+    lineItems: [],
+    expenseAccount: { accountId: null, label: null, reasoning: null, confidence: 'low' },
+    warnings: [],
+  }
+
+  it('reads proposed w36.ap_bill requests for the org, oldest first, with an exact count', async () => {
+    const { db, calls } = fakeDb({
+      approval_requests: [
+        {
+          data: [{ id: 'b1', summary: 'Bill from Acme (not on file) · #A-1', amount: '99.50', proposed_at: '2026-10-01T00:00:00Z', payload }],
+          error: null,
+          count: 4,
+        },
+      ],
+    })
+    const s = await loadBillSection(db, ORG)
+    expect(s).toMatchObject({ source: 'bill', ok: true, total: 4 })
+    if (!s.ok) throw new Error('unreachable')
+    expect(s.items[0]).toMatchObject({ id: 'b1', amount: 99.5, decision: { kind: 'bill', approvalRequestId: 'b1', canApprove: false } })
+    const q = calls[0]!.ops
+    expect(q).toContainEqual(['eq', ['organization_id', ORG]])
+    expect(q).toContainEqual(['eq', ['action_type', 'w36.ap_bill']])
+    expect(q).toContainEqual(['eq', ['status', 'proposed']])
+    expect(q).toContainEqual(['order', ['proposed_at', { ascending: true }]])
+  })
+
+  it('a failed read is a failed section', async () => {
+    const { db } = fakeDb({ approval_requests: [{ data: null, error: err }] })
+    expect(await loadBillSection(db, ORG)).toEqual({ source: 'bill', ok: false })
   })
 })

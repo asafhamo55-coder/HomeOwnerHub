@@ -19,7 +19,7 @@ import {
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { listVendorsResult } from '@/lib/vendors'
-import { loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
+import { loadBillSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
 import {
   APPROVAL_SOURCES,
   SOURCE_META,
@@ -33,6 +33,7 @@ import {
 } from '@/lib/approvals-inbox/model'
 import { formatStamp, usd } from '@/lib/money/format'
 import { ApprovalActions } from './ApprovalActions'
+import { BillDetails } from './BillDetails'
 
 export const metadata = { title: 'Approvals' }
 export const dynamic = 'force-dynamic'
@@ -49,13 +50,14 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const filter = parseApprovalFilter((await searchParams).type)
   const supabase = await getSupabaseServerClient()
 
-  const [w18, w3, vendors, byAssociation] = await Promise.all([
+  const [w18, bills, w3, vendors, byAssociation] = await Promise.all([
     loadW18Section(supabase, org.id),
+    loadBillSection(supabase, org.id).then((s) => withBillLinks(supabase, s)),
     loadW3Section(supabase, org.id),
     listVendorsResult().then(vendorSection, () => ({ source: 'vendor', ok: false }) as const),
     loadVendorCountsByAssociation(supabase, org.id),
   ])
-  const inbox = buildInbox([w18, w3, vendors], filter)
+  const inbox = buildInbox([w18, bills, w3, vendors], filter)
 
   const tabs = [
     { label: 'All', href: '/approvals', active: filter === 'all', badge: inbox.total || null },
@@ -70,7 +72,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   return (
     <Page
       title="Approvals"
-      description="Everything the AI has proposed that needs a board decision — deposits to post, violation letters, vendors. Nothing here happens until someone approves it."
+      description="Everything the AI has proposed that needs a board decision — deposits to post, bills to enter, violation letters, vendors. Nothing here happens until someone approves it."
       linkAs={Link}
       meta={inbox.total ? <StatusPill tone="ai" label={`${inbox.total} waiting`} /> : undefined}
       tabs={<Tabs items={tabs} aria-label="Approval types" linkAs={Link} />}
@@ -79,7 +81,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
         <EmptyState
           icon={<CheckCircle2 aria-hidden />}
           title="Nothing waiting on the board"
-          description="New AI proposals — deposit matches, violation drafts, vendor results — land here for a decision."
+          description="New AI proposals — deposit matches, scanned bills, violation drafts, vendor results — land here for a decision."
           action={
             <Button asChild variant="secondary">
               <Link href="/">Back to the dashboard</Link>
@@ -100,6 +102,30 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   )
 }
 
+/**
+ * BL-021: a short-lived link to each uploaded bill so the approver can
+ * check the AI against it. Signed with the board member's own client
+ * (hoa-documents is org-prefix scoped); a signing failure just omits the
+ * link — the card says the bill isn't available rather than hiding that.
+ */
+async function withBillLinks(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  section: InboxSection,
+): Promise<InboxSection> {
+  if (!section.ok) return section
+  const items = await Promise.all(
+    section.items.map(async (item) => {
+      const path = item.bill?.payload.storagePath
+      if (!item.bill || !path) return item
+      const { data, error } = await supabase.storage.from('hoa-documents').createSignedUrl(path, 10 * 60)
+      // No link on failure; BillDetails then says the bill isn't available.
+      if (error || !data) return item
+      return { ...item, bill: { ...item.bill, documentUrl: data.signedUrl } }
+    }),
+  )
+  return { ...section, items }
+}
+
 function amountLabel(item: InboxItem): string | null {
   if (item.amount === null) return null
   return `${usd(item.amount)}${item.amountNote ? ` ${item.amountNote}` : ''}`
@@ -114,6 +140,7 @@ const COLUMNS: DataTableColumn<InboxItem>[] = [
       <div className="min-w-0 space-y-1">
         <p className="font-medium text-foreground">{item.title}</p>
         {item.detail ? <p className="line-clamp-2 text-xs text-foreground-secondary">{item.detail}</p> : null}
+        {item.bill ? <BillDetails bill={item.bill} /> : null}
         {item.reasoning ? (
           <p className="flex items-start gap-1.5 text-xs text-foreground-secondary">
             <Sparkles className="mt-0.5 size-3.5 shrink-0 text-accent-fg" aria-hidden />

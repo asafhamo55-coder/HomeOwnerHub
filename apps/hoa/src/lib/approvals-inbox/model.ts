@@ -1,13 +1,15 @@
 // BL-014 — one approvals inbox. Pure module: no Next, no Supabase, no `@/`
 // imports, so unit tests and tests/integration can load it directly.
 //
-// Three sources feed /approvals today, each READ from where its module
+// Four sources feed /approvals today, each READ from where its module
 // already keeps it (no migration, no copy of the data):
 //
 //   w18    approval_requests rows (action_type 'w18.cash_receipt',
 //          status 'proposed') — sub-project D, migration 0060.
 //   w3     ai_runs rows (workflow_id 'W3', status 'pending_human_approval')
 //          — the AI-drafted violation letters.
+//   bill   approval_requests rows (action_type 'w36.ap_bill', status
+//          'proposed') — vendor bills W36 read from an upload (BL-021).
 //   vendor the W21 vendor approval queue (/vendors/approval-queue):
 //          compliant prospects plus yellow/red/missing compliance.
 //
@@ -17,7 +19,9 @@
 // text, an active vendor with compliance gaps) and the row links to the
 // module's own page instead.
 
-export const APPROVAL_SOURCES = ['w18', 'w3', 'vendor'] as const
+import { billMissing, billNeedsCheck, readBillPayload, type BillProposalPayload } from '../bill-scan/proposal'
+
+export const APPROVAL_SOURCES = ['w18', 'bill', 'w3', 'vendor'] as const
 export type ApprovalSource = (typeof APPROVAL_SOURCES)[number]
 export type ApprovalFilter = 'all' | ApprovalSource
 
@@ -45,6 +49,15 @@ export const SOURCE_META: Record<ApprovalSource, SourceMeta> = {
     queueLabel: 'Open the matching queue',
     what: 'proposed postings',
   },
+  bill: {
+    title: 'Bills to enter',
+    tab: 'Bills',
+    description:
+      'Vendor bills the AI read from an upload. Nothing is entered in accounting until a board member approves. Anything the AI was unsure of is marked — check it against the bill.',
+    queueHref: '/accounting/invoices/new',
+    queueLabel: 'Scan or enter a bill',
+    what: 'scanned bills',
+  },
   w3: {
     title: 'Violation letters',
     tab: 'Violation letters',
@@ -66,6 +79,8 @@ export const SOURCE_META: Record<ApprovalSource, SourceMeta> = {
 /** Which existing module action decides this item in one click. */
 export type InboxDecisionTarget =
   | { kind: 'w18'; approvalRequestId: string }
+  /** BL-021: approve enters the bill (enterBill) — only when nothing required is missing; reject records why. */
+  | { kind: 'bill'; approvalRequestId: string; canApprove: boolean }
   /** BL-048: approve files the letter (lib/violations approveViolationDraft); reject records why. */
   | { kind: 'w3'; runId: string }
   /** A prospect: rejectable always; approvable only when compliance is green (approveVendor's gate). */
@@ -73,7 +88,7 @@ export type InboxDecisionTarget =
 
 /** The id the decision endpoint takes for a target. */
 export function decisionId(d: InboxDecisionTarget): string {
-  return d.kind === 'w18' ? d.approvalRequestId : d.kind === 'w3' ? d.runId : d.vendorId
+  return d.kind === 'w18' || d.kind === 'bill' ? d.approvalRequestId : d.kind === 'w3' ? d.runId : d.vendorId
 }
 
 export interface InboxItem {
@@ -95,6 +110,18 @@ export interface InboxItem {
   /** The module page for this item. */
   href: string
   decision: InboxDecisionTarget | null
+  /** BL-021: the extracted bill, for the card's field list. Absent for other sources and for an unreadable payload. */
+  bill?: BillCard
+}
+
+export interface BillCard {
+  payload: BillProposalPayload
+  /** Required fields that are empty — approve is withheld while any are. */
+  missing: string[]
+  /** Filled fields read with less than high confidence. */
+  needsCheck: string[]
+  /** A short-lived signed link to the uploaded bill; set by the page, null when unavailable. */
+  documentUrl: string | null
 }
 
 export type InboxSection =
@@ -190,6 +217,69 @@ export function w18Items(proposals: W18ProposalRow[], runs: W18RunRow[] | null):
       confidenceLabel: confidence === null ? null : `${Math.round(confidence * 100)}% confident`,
       href: '/accounting/bank/queue#proposed-postings',
       decision: { kind: 'w18', approvalRequestId: p.id },
+    }
+  })
+}
+
+export interface BillProposalRow {
+  id: string
+  summary: string
+  amount: number | string | null
+  proposed_at: string
+  payload: unknown
+}
+
+function joinList(items: string[]): string {
+  return items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
+}
+
+/**
+ * BL-021 bill proposals. Never fills a gap: a missing field makes the
+ * item reject-only (and says which), a low/medium-confidence field is
+ * named so the approver checks it against the bill.
+ */
+export function billItems(rows: BillProposalRow[]): InboxItem[] {
+  return rows.map((r) => {
+    const payload = readBillPayload(r.payload)
+    const base = {
+      source: 'bill' as const,
+      id: r.id,
+      title: r.summary,
+      amount: num(r.amount),
+      amountNote: null,
+      createdAt: r.proposed_at,
+      citations: [],
+      href: '/accounting/invoices/new',
+    }
+    if (!payload) {
+      return {
+        ...base,
+        detail: 'This scan couldn’t be read. Reject it and enter the bill by hand.',
+        reasoning: null,
+        confidenceLabel: null,
+        decision: { kind: 'bill', approvalRequestId: r.id, canApprove: false },
+      }
+    }
+    const missing = billMissing(payload)
+    const needsCheck = billNeedsCheck(payload)
+    const detail =
+      missing.length > 0
+        ? `Missing ${joinList(missing)}. Reject it and enter the bill by hand.`
+        : needsCheck.length > 0
+          ? `Check the ${joinList(needsCheck)} against the bill before approving.`
+          : null
+    return {
+      ...base,
+      detail,
+      reasoning: payload.expenseAccount.reasoning,
+      confidenceLabel:
+        missing.length > 0
+          ? 'Incomplete'
+          : needsCheck.length > 0
+            ? `${needsCheck.length} field${needsCheck.length === 1 ? '' : 's'} to check`
+            : 'High confidence',
+      decision: { kind: 'bill', approvalRequestId: r.id, canApprove: missing.length === 0 },
+      bill: { payload, missing, needsCheck, documentUrl: null },
     }
   })
 }

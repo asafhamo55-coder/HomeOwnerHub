@@ -181,6 +181,141 @@ export async function seed_approvals(db: SupabaseClient, ctx: SeedContext): Prom
     }
   }
 
+  // BL-021: two scanned-bill proposals — one complete (approvable, with a
+  // medium-confidence total to check) and one whose vendor is not on file
+  // (reject-only). Invented data; no file is stored, so the card says the
+  // bill isn't available to view.
+  if (associationId) {
+    const { data: lv } = await db
+      .from('vendors')
+      .select('id, legal_name')
+      .eq('organization_id', org)
+      .eq('legal_name', 'Sample Landscaping Co (demo)')
+      .limit(1)
+    const vendor = lv?.[0] as { id: string; legal_name: string } | undefined
+    const { data: acct } = await db
+      .from('chart_of_accounts')
+      .select('id, account_number, account_name')
+      .eq('association_id', associationId)
+      .eq('account_type', 'expense')
+      .order('account_number')
+      .limit(1)
+    let account = acct?.[0] as { id: string; account_number: string; account_name: string } | undefined
+    if (!account) {
+      // One demo expense account so the complete bill can show its GL suggestion.
+      const { data: made, error: acctErr } = await db
+        .from('chart_of_accounts')
+        .insert({
+          organization_id: org,
+          association_id: associationId,
+          account_number: '5100',
+          account_name: 'Landscaping (demo)',
+          account_type: 'expense',
+        })
+        .select('id, account_number, account_name')
+        .single()
+      if (acctErr) throw new Error(`chart_of_accounts insert: ${acctErr.code}`)
+      account = made as { id: string; account_number: string; account_name: string }
+    }
+    const accountField = (reasoning: string, confidence: string) =>
+      account
+        ? { accountId: account.id, label: `${account.account_number} — ${account.account_name}`, reasoning, confidence }
+        : { accountId: null, label: null, reasoning: null, confidence: 'low' }
+    const base = {
+      kind: 'w36.ap_bill',
+      version: 1,
+      associationId,
+      aiRunId: null,
+      storagePath: null,
+      contentType: 'application/pdf',
+      source: 'pdf_text',
+    }
+    const bills = [
+      {
+        subject: 'b1110000-0000-5000-8000-000000000021',
+        summary: `Bill from ${vendor?.legal_name ?? 'Sample Landscaping Co (demo)'} · #SL-2210`,
+        amount: 1200,
+        payload: {
+          ...base,
+          vendor: {
+            extractedName: 'Sample Landscaping Co',
+            nameConfidence: 'high',
+            vendorId: vendor?.id ?? null,
+            vendorLabel: vendor?.legal_name ?? null,
+            match: vendor ? 'exact' : 'none',
+            matchConfidence: vendor ? 'high' : 'low',
+          },
+          invoiceNumber: { value: 'SL-2210', confidence: 'high' },
+          invoiceDate: { value: '2026-10-01', confidence: 'high' },
+          dueDate: { value: '2026-10-31', confidence: 'high' },
+          total: { value: 1200, confidence: 'medium' },
+          lineItems: [
+            { description: 'October mowing, 4 visits', amount: 900 },
+            { description: 'Shrub trimming along the sample walkway', amount: 300 },
+          ],
+          expenseAccount: accountField('Mowing and trimming are grounds maintenance.', 'high'),
+          warnings: [],
+        },
+      },
+      {
+        subject: 'b1110000-0000-5000-8000-000000000022',
+        summary: 'Bill from Demo Fountain Repair (not on file) · #FR-88',
+        amount: 459,
+        payload: {
+          ...base,
+          vendor: {
+            extractedName: 'Demo Fountain Repair',
+            nameConfidence: 'high',
+            vendorId: null,
+            vendorLabel: null,
+            match: 'none',
+            matchConfidence: 'low',
+          },
+          invoiceNumber: { value: 'FR-88', confidence: 'high' },
+          invoiceDate: { value: '2026-10-02', confidence: 'high' },
+          dueDate: { value: null, confidence: 'low' },
+          total: { value: 459, confidence: 'low' },
+          lineItems: [
+            { description: 'Pump replacement', amount: 400 },
+            { description: 'Service call', amount: 95 },
+          ],
+          expenseAccount: accountField('Fountain upkeep is common-area maintenance.', 'medium'),
+          warnings: ['The line items add up to $495.00, not the $459.00 total — check the total against the bill.'],
+        },
+      },
+    ]
+    for (const b of bills) {
+      const { data: found } = await db
+        .from('approval_requests')
+        .select('id')
+        .eq('action_type', 'w36.ap_bill')
+        .eq('subject_id', b.subject)
+        .limit(1)
+      if (found?.[0]) {
+        // Keep an earlier run's row current (e.g. the account above was added since).
+        const { error } = await db
+          .from('approval_requests')
+          .update({ payload: b.payload, summary: b.summary, amount: b.amount })
+          .eq('id', (found[0] as { id: string }).id)
+          .eq('status', 'proposed')
+        if (error) throw new Error(`approval_requests bill update: ${error.code}`)
+        continue
+      }
+      const { error } = await db.from('approval_requests').insert({
+        organization_id: org,
+        workflow_id: 'W36',
+        action_type: 'w36.ap_bill',
+        subject_type: 'bill_document',
+        subject_id: b.subject,
+        payload: b.payload,
+        summary: b.summary,
+        amount: b.amount,
+        proposed_at: iso(DAY / 3),
+      })
+      if (error) throw new Error(`approval_requests bill insert: ${error.code}`)
+    }
+  }
+
   console.log('seed approvals: ok')
   return {}
 }

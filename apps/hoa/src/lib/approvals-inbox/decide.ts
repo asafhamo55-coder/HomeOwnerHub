@@ -12,6 +12,12 @@
 //                        green-compliance gate.
 //   vendor reject      → rejectVendor (lib/vendors.ts): prospect → inactive,
 //                        reason audited (BL-048).
+//   bill approve/reject→ approveRequest / rejectRequest with ONLY the
+//                        w36.ap_bill executor (lib/bill-scan/executor.ts),
+//                        which enters the bill through enterBill
+//                        (lib/invoices.ts). The row's action_type is checked
+//                        first, so a bill decision can never claim a W18
+//                        proposal (BL-021).
 //   w3 approve/reject  → approveViolationDraft / rejectViolationDraft
 //                        (lib/violations.ts → lib/violation-drafts.ts):
 //                        approve files the letter as an OPEN violation and
@@ -22,7 +28,8 @@
 // can drive the exact composition the server action uses.
 
 import { z } from 'zod'
-import { approveRequest, rejectRequest, type DecisionResult } from '@homeowner-portal/workflows'
+import { approveRequest, rejectRequest, type ApprovalExecutor, type DecisionResult } from '@homeowner-portal/workflows'
+import { BILL_ACTION } from '../bill-scan/proposal'
 import { canUseApprovals } from './model'
 import type { InboxDb } from './load'
 
@@ -35,12 +42,14 @@ export interface InboxDecisionHandlers {
   rejectVendor(vendorId: string, reason: string): Promise<Simple>
   approveViolationDraft(runId: string): Promise<{ ok: true; violationId: string } | { ok: false; error: string }>
   rejectViolationDraft(runId: string, reason: string): Promise<Simple>
+  approveBill(approvalRequestId: string): Promise<DecisionResult>
+  rejectBill(approvalRequestId: string, reason: string): Promise<DecisionResult>
 }
 
 export type InboxDecisionOutcome = { ok: true; message: string } | { ok: false; error: string }
 
 const DecisionSchema = z.object({
-  kind: z.enum(['w18', 'w3', 'vendor']),
+  kind: z.enum(['w18', 'bill', 'w3', 'vendor']),
   id: z.string().uuid(),
   decision: z.enum(['approve', 'reject']),
   reason: z.string().max(1000).optional(),
@@ -56,6 +65,28 @@ export function postingHandlers(
   return {
     approvePosting: (id) => approveRequest(userDb, adminDb, id),
     rejectPosting: (id, reason) => rejectRequest(userDb, id, reason),
+  }
+}
+
+/**
+ * BL-021: the approval layer's two calls for scanned bills. The kind check
+ * runs on the decider's own RLS client (board/admin can read
+ * approval_requests) BEFORE the claim, and the executor map holds only the
+ * bill executor — a W18 id sent as a bill is refused, never claimed.
+ */
+export function billHandlers(
+  userDb: InboxDb,
+  adminDb: InboxDb,
+  executor: ApprovalExecutor,
+): Pick<InboxDecisionHandlers, 'approveBill' | 'rejectBill'> {
+  const isBill = async (id: string): Promise<boolean> => {
+    const { data, error } = await userDb.from('approval_requests').select('action_type').eq('id', id).maybeSingle()
+    return !error && data?.action_type === BILL_ACTION
+  }
+  const notBill = { ok: false as const, error: 'That approval item isn’t a scanned bill.' }
+  return {
+    approveBill: async (id) => ((await isBill(id)) ? approveRequest(userDb, adminDb, id, { [BILL_ACTION]: executor }) : notBill),
+    rejectBill: async (id, reason) => ((await isBill(id)) ? rejectRequest(userDb, id, reason) : notBill),
   }
 }
 
@@ -97,6 +128,21 @@ export async function decideApprovalFor(
     return r.ok
       ? { ok: true, message: 'Letter approved and filed as an open violation. Nothing was sent to the homeowner.' }
       : { ok: false, error: r.error }
+  }
+
+  if (kind === 'bill') {
+    if (decision === 'reject') {
+      const r = await handlers.rejectBill(id, reason)
+      return r.ok ? { ok: true, message: 'Rejected. Nothing was entered in accounting.' } : { ok: false, error: r.error }
+    }
+    const r = await handlers.approveBill(id)
+    if (!r.ok) return { ok: false, error: r.error }
+    return {
+      ok: true,
+      message: r.alreadyDecided
+        ? 'Already approved — the bill was not entered again.'
+        : 'Approved. The bill is entered and posted to accounts payable.',
+    }
   }
 
   if (decision === 'reject') {
