@@ -14,7 +14,14 @@ import { COLLECTION_STATUSES, collectionStatusLabel, isTerminal } from '@/lib/co
  * of the ladder would mean recording a fiction and then immediately
  * correcting it.
  */
-export function OpenCollectionCase({ unitId }: { unitId: string }) {
+export function OpenCollectionCase({
+  unitId,
+  today,
+}: {
+  unitId: string
+  /** The association's today, 'YYYY-MM-DD', from the server (BL-065). */
+  today: string
+}) {
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -63,7 +70,7 @@ export function OpenCollectionCase({ unitId }: { unitId: string }) {
               </Select>
             </Field>
             <Field label="Opened on">
-              <Input type="date" name="openedOn" max={new Date().toISOString().slice(0, 10)} />
+              <Input type="date" name="openedOn" max={today} />
             </Field>
             <Field label="Attorney firm">
               <Input name="attorneyFirm" placeholder="Dorough &amp; Dorough, LLC" />

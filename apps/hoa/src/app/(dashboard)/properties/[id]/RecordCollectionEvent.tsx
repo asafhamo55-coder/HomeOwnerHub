@@ -21,9 +21,12 @@ import {
 export function RecordCollectionEvent({
   caseId,
   currentStatus,
+  today,
 }: {
   caseId: string
   currentStatus: CollectionStatus
+  /** The association's today, 'YYYY-MM-DD', from the server (BL-065). */
+  today: string
 }) {
   const [open, setOpen] = useState(false)
   const [eventType, setEventType] = useState<CollectionEventType>('note')
@@ -86,8 +89,8 @@ export function RecordCollectionEvent({
                 type="date"
                 name="occurredOn"
                 required
-                defaultValue={new Date().toISOString().slice(0, 10)}
-                max={new Date().toISOString().slice(0, 10)}
+                defaultValue={today}
+                max={today}
               />
             </Field>
             <Field label="Amount (optional)">

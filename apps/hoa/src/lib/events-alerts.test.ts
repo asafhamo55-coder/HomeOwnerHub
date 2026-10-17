@@ -91,6 +91,11 @@ import {
   sendEventAlertEmail,
 } from './events-alerts'
 
+/** The association day the cron judged the alert on (BL-065). */
+const TODAY = '2026-10-13'
+/** Midnight Eastern on Oct 13 2026: the window-open instant for a FL association. */
+const SINCE_AT = '2026-10-13T04:00:00.000Z'
+
 const PROVIDER_LEAK = 'Resend 422: invalid `to` field jane@example.com'
 const DB_LEAK = 'insert or update on table violates foreign key for jane@example.com'
 
@@ -153,10 +158,20 @@ describe('deliveryErrorCode', () => {
   })
 })
 
+describe('sendEventAlertEmail — the association day (BL-065)', () => {
+  it('counts "days away" from the given association today, not the UTC day', async () => {
+    await sendEventAlertEmail({ event, organizationId: 'org-1', today: '2026-10-13' })
+    expect(sendEmail.mock.calls[0]![0]).toMatchObject({ subject: 'Reminder: Annual meeting is in 7 days' })
+    sendEmail.mockClear()
+    await sendEventAlertEmail({ event, organizationId: 'org-1', today: '2026-10-20' })
+    expect(sendEmail.mock.calls[0]![0]).toMatchObject({ subject: 'Reminder: Annual meeting is today' })
+  })
+})
+
 describe('sendEventAlertEmail — recipient error codes', () => {
   it('stores a short code in communication_recipients, never the provider text', async () => {
     sendEmail.mockResolvedValue({ ok: false, error: PROVIDER_LEAK })
-    const r = await sendEventAlertEmail({ event, organizationId: 'org-1' })
+    const r = await sendEventAlertEmail({ event, organizationId: 'org-1', today: TODAY })
     expect(r.sent).toBe(0)
     const recUpdate = updatesOf('communication_recipients')[0]!
     expect(recUpdate.payload).toMatchObject({ delivery_status: 'failed', error_message: 'email_provider_error' })
@@ -167,7 +182,7 @@ describe('sendEventAlertEmail — recipient error codes', () => {
 
   it('a guard-blocked send is stored as outbound_blocked', async () => {
     sendEmail.mockResolvedValue({ ok: false, error: OUTBOUND_BLOCKED_ERROR })
-    await sendEventAlertEmail({ event, organizationId: 'org-1' })
+    await sendEventAlertEmail({ event, organizationId: 'org-1', today: TODAY })
     expect(updatesOf('communication_recipients')[0]!.payload).toMatchObject({ error_message: 'outbound_blocked' })
   })
 })
@@ -177,7 +192,7 @@ describe('sendEventAlertEmail — every write checks its error', () => {
 
   it('a failed recipient status write is logged by code and ids, never the message', async () => {
     results['communication_recipients.update'] = { data: null, error: dbErr }
-    const r = await sendEventAlertEmail({ event, organizationId: 'org-1' })
+    const r = await sendEventAlertEmail({ event, organizationId: 'org-1', today: TODAY })
     expect(r.sent).toBe(1) // the email went out; only the status write failed
     expect(logged()).toContain('08006')
     expect(logged()).toContain('rec-1')
@@ -186,7 +201,7 @@ describe('sendEventAlertEmail — every write checks its error', () => {
 
   it('a failed communications status write is logged', async () => {
     results['communications.update'] = { data: null, error: dbErr }
-    await sendEventAlertEmail({ event, organizationId: 'org-1' })
+    await sendEventAlertEmail({ event, organizationId: 'org-1', today: TODAY })
     expect(logged()).toContain('08006')
     expect(logged()).toContain('comm-1')
     expect(logged()).not.toContain('jane@example.com')
@@ -194,7 +209,7 @@ describe('sendEventAlertEmail — every write checks its error', () => {
 
   it('a failed communications insert is logged and still falls back to a direct send', async () => {
     results['communications.insert'] = { data: null, error: dbErr }
-    const r = await sendEventAlertEmail({ event, organizationId: 'org-1' })
+    const r = await sendEventAlertEmail({ event, organizationId: 'org-1', today: TODAY })
     expect(sendEmail).toHaveBeenCalledTimes(1)
     expect(r.sent).toBe(1)
     expect(logged()).toContain('08006')
@@ -203,7 +218,7 @@ describe('sendEventAlertEmail — every write checks its error', () => {
 
   it('a failed recipients insert is logged, marks the communication failed, and still sends directly', async () => {
     results['communication_recipients.insert'] = { data: null, error: dbErr }
-    const r = await sendEventAlertEmail({ event, organizationId: 'org-1' })
+    const r = await sendEventAlertEmail({ event, organizationId: 'org-1', today: TODAY })
     expect(logged()).toContain('08006')
     expect(logged()).not.toContain('foreign key')
     expect(updatesOf('communications').map((c) => c.payload)).toContainEqual(expect.objectContaining({ status: 'failed' }))
@@ -213,7 +228,7 @@ describe('sendEventAlertEmail — every write checks its error', () => {
 
   it('a failed event stamp is logged', async () => {
     results['hoa_recurring_events.update'] = { data: null, error: dbErr }
-    await sendEventAlertEmail({ event, organizationId: 'org-1' })
+    await sendEventAlertEmail({ event, organizationId: 'org-1', today: TODAY })
     expect(logged()).toContain('08006')
     expect(logged()).toContain('evt-1')
   })
@@ -224,7 +239,7 @@ describe('sendEventAlertEmail — every write checks its error', () => {
       summary: 'x',
     })
     results['communications.update'] = { data: null, error: dbErr }
-    const r = await sendEventAlertEmail({ event, organizationId: 'org-1' })
+    const r = await sendEventAlertEmail({ event, organizationId: 'org-1', today: TODAY })
     expect(r.sent).toBe(0)
     expect(logged()).toContain('08006')
   })
@@ -236,7 +251,7 @@ describe('countFailedAlertAttempts', () => {
     const r = await countFailedAlertAttempts(admin as never, {
       eventId: 'evt-1',
       organizationId: 'org-1',
-      sinceIso: '2026-10-13',
+      sinceAt: SINCE_AT,
     })
     expect(r).toEqual({ ok: true, count: 2 })
     const q = calls.find((c) => c.table === 'communications')!
@@ -246,20 +261,20 @@ describe('countFailedAlertAttempts', () => {
         ['eq', 'related_resource->>type', 'recurring_event'],
         ['eq', 'related_resource->>id', 'evt-1'],
         ['eq', 'status', 'failed'],
-        ['gte', 'created_at', '2026-10-13T00:00:00Z'],
+        ['gte', 'created_at', SINCE_AT],
       ]),
     )
   })
 
   it('reports a read failure instead of a zero', async () => {
     results['communications.select'] = { data: null, error: { code: '57014', message: DB_LEAK }, count: null }
-    const r = await countFailedAlertAttempts(admin as never, { eventId: 'evt-1', organizationId: 'org-1', sinceIso: '2026-10-13' })
+    const r = await countFailedAlertAttempts(admin as never, { eventId: 'evt-1', organizationId: 'org-1', sinceAt: SINCE_AT })
     expect(r.ok).toBe(false)
   })
 })
 
 describe('notifyBoardAlertGaveUp', () => {
-  const args = { event, organizationId: 'org-1', attempts: 3, sinceIso: '2026-10-13' }
+  const args = { event, organizationId: 'org-1', attempts: 3, sinceAt: SINCE_AT }
 
   it('notifies every board member and admin once, linking to the event', async () => {
     results['org_members.select'] = { data: [{ user_id: 'b-1' }, { user_id: 'a-1' }], error: null }
@@ -288,6 +303,18 @@ describe('notifyBoardAlertGaveUp', () => {
     const r = await notifyBoardAlertGaveUp(admin as never, args)
     expect(r).toEqual({ ok: true, notified: 0 })
     expect(calls.some((c) => c.table === 'notifications' && c.op !== 'select')).toBe(false)
+  })
+
+  it('a notification from before the window opened, on the association clock, is an earlier occurrence', async () => {
+    // 02:00Z Oct 13 is Oct 12 22:00 EDT — before this occurrence's window
+    // opened at Eastern midnight, though after UTC midnight.
+    results['org_members.select'] = { data: [{ user_id: 'b-1' }], error: null }
+    results['notifications.select'] = {
+      data: [{ id: 'n-1', user_id: 'b-1', created_at: '2026-10-13T02:00:00Z' }],
+      error: null,
+    }
+    const r = await notifyBoardAlertGaveUp(admin as never, args)
+    expect(r).toEqual({ ok: true, notified: 1 })
   })
 
   it("re-surfaces last occurrence's (read) notification as unread instead of a duplicate insert", async () => {

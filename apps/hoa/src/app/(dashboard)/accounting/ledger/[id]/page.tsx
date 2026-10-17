@@ -13,6 +13,7 @@ import {
 } from '@homeowner-portal/ui'
 import { getAccountingContext, getJournalEntry } from '@/lib/accounting/queries'
 import { tryLoad } from '@/lib/load-or-fail'
+import { todayIn } from '@/lib/association-time'
 import { formatDay, formatStamp, usd } from '@/lib/money/format'
 import { JOURNAL_STATUS, sourceLabel, statusOf } from '@/lib/money/status'
 import { AccountLabel, AccountingLoadFailed, accountingCrumbs } from '../../_components/shared'
@@ -63,7 +64,7 @@ export default async function JournalEntryDetailPage({ params }: PageProps) {
       actions={
         canAct ? (
           <>
-            <PromoteRecurringButton journalEntryId={header.id} />
+            <PromoteRecurringButton journalEntryId={header.id} today={todayIn(ctx.timeZone)} />
             <ReverseEntryButton journalEntryId={header.id} entryNumber={header.entry_number} />
           </>
         ) : undefined

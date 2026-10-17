@@ -5,7 +5,6 @@ import { useState, useTransition } from 'react'
 import { Repeat } from 'lucide-react'
 import { Button, Dialog, DialogContent, DialogTrigger, Field, Input, Select, useToast } from '@homeowner-portal/ui'
 import { promoteJeToRecurring } from '@/lib/journal-entries'
-import { todayIso } from '@/lib/money/format'
 
 const CADENCES = [
   { value: 'monthly', label: 'Monthly' },
@@ -16,12 +15,19 @@ const CADENCES = [
 ] as const
 type Cadence = (typeof CADENCES)[number]['value']
 
-export function PromoteRecurringButton({ journalEntryId }: { journalEntryId: string }) {
+export function PromoteRecurringButton({
+  journalEntryId,
+  today,
+}: {
+  journalEntryId: string
+  /** The association's today, 'YYYY-MM-DD', from the server (BL-065). */
+  today: string
+}) {
   const router = useRouter()
   const toast = useToast()
   const [open, setOpen] = useState(false)
   const [cadence, setCadence] = useState<Cadence>('monthly')
-  const [nextRunDate, setNextRunDate] = useState(todayIso())
+  const [nextRunDate, setNextRunDate] = useState(today)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [pending, startTransition] = useTransition()
 

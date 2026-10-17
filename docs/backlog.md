@@ -676,7 +676,7 @@ These go beyond the design-system v2 pass:
 
 - **BL-063 Retry cap gaps (needs a column, M1):** event alerts that never write a communications row (no association, no recipients, a failed insert) still retry daily. Add `hoa_recurring_events.alert_failed_attempts`.
 - **BL-064 "Open the books" for partial setups:** trial-balance, periods, coa, invoices/new, cash-flow, income-statement and the Plaid "no funds" alert still say "Contact support" when an association exists but its books are incomplete. Reuse `setUpAssociationCore`. The leases, settings/payments and reminders pages should use `AssociationNotSetUp`.
-- **BL-065 Time zone leftovers (from BL-043):**
+- **BL-065 Time zone leftovers (from BL-043): — Done (claude/bl-065)**
   - The events pages and the recurring-events cron still use the UTC day. Change them together.
   - recurring-jes uses one Eastern "today" for every association.
   - Client form date defaults are Eastern, not the association's zone.

@@ -19,6 +19,8 @@ import { adminDb, makeAccounting, makeOrg, type OrgFixture, type AccountingRefs 
 import { truncateAll } from '../fixtures/truncate'
 
 const TODAY = '2026-10-15'
+/** Noon Eastern on TODAY: the factory's FL association is on TODAY (BL-065). */
+const NOW = new Date('2026-10-15T16:00:00Z')
 
 /** Steps execute inline, exactly once — see the same fake at
  *  ticket-notifications.test.ts:16-19. */
@@ -106,7 +108,7 @@ describe('recurring-jes', () => {
     const ruleId = await seedRule(org, templateId, 'monthly', '2026-06-01')
 
     const logger = collectingLogger()
-    const result = await runRecurringJes(adminDb(), inlineStep(), logger, TODAY)
+    const result = await runRecurringJes(adminDb(), inlineStep(), logger, NOW)
 
     expect(result.posted).toBe(1)
     expect(result.failed).toBe(0)
@@ -159,7 +161,7 @@ describe('recurring-jes', () => {
     })
 
     const logger = collectingLogger()
-    const result = await runRecurringJes(adminDb(), inlineStep(), logger, TODAY)
+    const result = await runRecurringJes(adminDb(), inlineStep(), logger, NOW)
 
     expect(result.posted).toBe(0)
     expect(result.failed).toBe(0)
@@ -183,7 +185,7 @@ describe('recurring-jes', () => {
     const templateId = await seedTemplateJe(org, acct, '2026-01-01')
     const ruleId = await seedRule(org, templateId, 'monthly', '2026-11-01')
 
-    const result = await runRecurringJes(adminDb(), inlineStep(), collectingLogger(), TODAY)
+    const result = await runRecurringJes(adminDb(), inlineStep(), collectingLogger(), NOW)
 
     expect(result.rules).toBe(0)
     expect(result.posted).toBe(0)

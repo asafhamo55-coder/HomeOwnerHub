@@ -157,7 +157,7 @@ export function getCachedNextMeeting(orgId: string) {
 
 const _heatMap = unstable_cache(
   async (orgId: string) => getComplianceHeatMap(orgId, admin()),
-  ['compliance-heatmap-v2'],
+  ['compliance-heatmap-v3'],
   { revalidate: TTL_SEC, tags: [DASHBOARD_TAG] },
 )
 export function getCachedComplianceHeatMap(orgId: string) {

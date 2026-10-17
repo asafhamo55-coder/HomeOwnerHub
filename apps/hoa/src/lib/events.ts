@@ -7,6 +7,8 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sendEventAlertEmail } from '@/lib/events-alerts'
+import { todayIn } from '@/lib/association-time'
+import { currentScopeZones } from '@/lib/association-time-current'
 import type { AudienceDefinition } from '@/lib/communications/audience'
 
 // Recurring events — annual reminders that nudge the board ahead of
@@ -395,9 +397,13 @@ export async function sendTestAlert(
   const event = await getEvent(eventId)
   if (!event) return { ok: false, error: 'Event not found.' }
 
+  // The event's association day (BL-065), by the cron's rule, so a test
+  // send says "in N days" exactly as the real reminder will.
+  const today = todayIn((await currentScopeZones())(event.association_id))
   const result = await sendEventAlertEmail({
     event,
     organizationId: org.id,
+    today,
   })
 
   revalidatePath('/events')

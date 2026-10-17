@@ -21,6 +21,8 @@ import {
   leadTimeLabel,
   relativeDays,
 } from '../event-dates'
+import { dayOf, todayIn } from '@/lib/association-time'
+import { currentScopeZones } from '@/lib/association-time-current'
 
 export const metadata = { title: 'Event' }
 export const dynamic = 'force-dynamic'
@@ -44,8 +46,11 @@ export default async function EventDetailPage(props: { params: Promise<{ id: str
   if (!event) notFound()
   const properties = await listEventNotifyProperties()
 
-  const days = daysUntilDate(event.event_date)
-  const alert = alertState(event)
+  // The event's association day (BL-065), by the cron's rule.
+  const timeZone = (await currentScopeZones())(event.association_id)
+  const today = todayIn(timeZone)
+  const days = daysUntilDate(event.event_date, today)
+  const alert = alertState(event, today, timeZone)
   const reminder =
     alert.kind === 'paused'
       ? 'Paused — no reminder will be sent'
@@ -54,7 +59,7 @@ export default async function EventDetailPage(props: { params: Promise<{ id: str
         : alert.kind === 'due'
           ? 'Sending today'
           : alert.kind === 'scheduled'
-            ? `${formatDate(alert.on)} (${relativeDays(daysUntilDate(alert.on)).toLowerCase()})`
+            ? `${formatDate(alert.on)} (${relativeDays(daysUntilDate(alert.on, today)).toLowerCase()})`
             : 'None — this date has passed'
 
   return (
@@ -86,13 +91,13 @@ export default async function EventDetailPage(props: { params: Promise<{ id: str
               label="Last reminder sent"
               value={
                 event.last_alert_sent_at
-                  ? `${formatDate(event.last_alert_sent_at.slice(0, 10))}${
+                  ? `${formatDate(dayOf(event.last_alert_sent_at, timeZone) ?? event.last_alert_sent_at.slice(0, 10))}${
                       event.last_alert_sent_for ? ` (for ${formatDate(event.last_alert_sent_for)})` : ''
                     }`
                   : 'Never'
               }
             />
-            <KeyValue label="Created" value={formatDate(event.created_at.slice(0, 10))} />
+            <KeyValue label="Created" value={formatDate(dayOf(event.created_at, timeZone) ?? event.created_at.slice(0, 10))} />
           </KeyValueList>
         </CardContent>
       </Card>

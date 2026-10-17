@@ -2,7 +2,7 @@ import { isSameDay } from 'date-fns'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { chunk, readAllResult } from '@/lib/supabase/read-all'
-import type { DayCell, DayLevel } from '@/components/dashboard/ComplianceHeatMap'
+import type { DayCell, DayLevel } from '@/components/dashboard/heat-map-grid'
 import { ASSOCIATION_ZONE_COLUMNS, addCalendarDays, calendarDaysBetween, dayOf, todayIn } from '@/lib/association-time'
 import { orgTimeZone, primaryAssociationZone } from '@/lib/association-time-server'
 
@@ -25,11 +25,6 @@ async function resolveClient(client?: AnyClient): Promise<AnyClient> {
 
 type ZoneRow = { name?: string | null; state?: string | null }
 const zoneOf = (assocs: ZoneRow[] | null | undefined) => primaryAssociationZone(assocs)
-
-/** A calendar day as the UTC-midnight Date the heat-map cells carry. */
-function cellDate(day: string): Date {
-  return new Date(`${day}T00:00:00Z`)
-}
 
 /** The day a cure period ends: the notice's day in the association's zone, plus N calendar days. */
 function cureDay(noticeSentAt: string, cureDays: number, timeZone: string): string | null {
@@ -763,7 +758,7 @@ export async function getComplianceHeatMap(
     const key = day
     const existing = cellMap.get(key)
     if (!existing) {
-      cellMap.set(key, { date: cellDate(day), level, notes: [note] })
+      cellMap.set(key, { day, level, notes: [note] })
       return
     }
     // Worst level wins: red > yellow > green > grey.
@@ -816,7 +811,7 @@ export async function getComplianceHeatMap(
     })
 
   return {
-    cells: Array.from(cellMap.values()).sort((a, b) => a.date.getTime() - b.date.getTime()),
+    cells: Array.from(cellMap.values()).sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0)),
     failed,
     today: todayDay,
   }

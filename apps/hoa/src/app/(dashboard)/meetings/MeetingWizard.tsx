@@ -42,6 +42,8 @@ interface FieldSuggestion {
 
 interface MeetingWizardProps {
   initialDraft?: WizardDraft | null
+  /** The association's today, 'YYYY-MM-DD', from the server (BL-065): the meeting date's default. */
+  today: string
 }
 
 interface DraftPayload {
@@ -64,7 +66,7 @@ function stepIndex(step: Step): number {
   return 2
 }
 
-export function MeetingWizard({ initialDraft }: MeetingWizardProps) {
+export function MeetingWizard({ initialDraft, today }: MeetingWizardProps) {
   const router = useRouter()
   const confirm = useConfirm()
   const toast = useToast()
@@ -77,7 +79,7 @@ export function MeetingWizard({ initialDraft }: MeetingWizardProps) {
   const [draftId, setDraftId] = useState<string | null>(initialDraft?.id ?? null)
 
   const [meetingDate, setMeetingDate] = useState(
-    initialPayload.meetingDate ?? new Date().toISOString().slice(0, 10),
+    initialPayload.meetingDate ?? today,
   )
   const [meetingType, setMeetingType] = useState<MeetingType>(
     initialPayload.meetingType ?? 'regular',

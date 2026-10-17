@@ -30,11 +30,14 @@ export function CollectionsSection({
   openCase,
   events,
   closedCases,
+  today,
 }: {
   unitId: string | null
   openCase: CollectionCase | null
   events: CollectionEvent[]
   closedCases: CollectionCase[]
+  /** The association's today, 'YYYY-MM-DD', from the server (BL-065). */
+  today: string
 }) {
   // No bridged unit means no case can exist: collection_cases.unit_id is
   // NOT NULL and references units(id). Say so plainly rather than showing
@@ -57,7 +60,7 @@ export function CollectionsSection({
           title="No open collections case"
           description="Open a case to record collection letters, lien notices, and attorney activity for this property."
         />
-        <OpenCollectionCase unitId={unitId} />
+        <OpenCollectionCase unitId={unitId} today={today} />
         {closedCases.length > 0 ? <ClosedCases cases={closedCases} /> : null}
       </div>
     )
@@ -83,7 +86,7 @@ export function CollectionsSection({
         </CardContent>
       </Card>
 
-      <RecordCollectionEvent caseId={openCase.id} currentStatus={openCase.status} />
+      <RecordCollectionEvent caseId={openCase.id} currentStatus={openCase.status} today={today} />
 
       <Card>
         <CardHeader>

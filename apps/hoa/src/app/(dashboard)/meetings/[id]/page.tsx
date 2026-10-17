@@ -161,7 +161,7 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
               hint="The minutes above are correct; only this meeting's action items are missing."
             />
           ) : (
-            <ActionItemsSection meetingId={meeting.id} items={actionItems} />
+            <ActionItemsSection meetingId={meeting.id} items={actionItems} today={todayIso} />
           )}
 
           {/* Motions */}

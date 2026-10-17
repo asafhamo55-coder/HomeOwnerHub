@@ -1,6 +1,6 @@
 import { createAdminClient, postJournalEntry } from '@homeowner-portal/db'
 import { inngest } from './client'
-import { DEFAULT_ASSOCIATION_TIME_ZONE, todayIn } from './association-time'
+import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone, todayIn, type AssociationZoneSource } from './association-time'
 
 /**
  * Daily at 1am ET: scan recurring_journal_entries where next_run_date
@@ -31,6 +31,14 @@ import { DEFAULT_ASSOCIATION_TIME_ZONE, todayIn } from './association-time'
  *
  * Per-association iteration so one bad template can't poison the
  * others' runs; each Inngest step gets its own retries.
+ *
+ * Per-association day (BL-065): "today" is each rule's association's
+ * calendar day at the run's one instant (its zone from associations.state),
+ * not one Eastern day for every rule. A rule is due when next_run_date is
+ * on or before ITS today, posts dated that day, and advances past that day.
+ * At the 1am-Eastern run a western association is still on the previous
+ * day, so its rule due "today" posts on the next run instead — never a day
+ * early on its own calendar.
  */
 
 export interface RecurringJesStep {
@@ -67,19 +75,48 @@ interface RecurringRuleRow {
 
 type RuleStepResult = { posted: number; skipped: number; failed: number }
 
+/** A rule that is due, with the association day it runs on. */
+export type DueRule = RecurringRuleRow & { today: string }
+
+/**
+ * The zone furthest ahead of UTC (UTC+14). Its today is never behind any
+ * association's today, so it bounds the rule read; each rule is then judged
+ * against its own association's day.
+ */
+export const LATEST_TODAY_ZONE = 'Pacific/Kiritimati'
+
+/**
+ * The rules due on their own association's day at `now`, each carrying
+ * that day. An association with no zone row reads America/New_York, as
+ * associationTimeZone does for a missing state.
+ */
+export function dueRulesForAssociationDay(
+  rules: RecurringRuleRow[],
+  zones: Array<AssociationZoneSource & { id: string }>,
+  now: Date,
+): DueRule[] {
+  const zoneById = new Map(zones.map((z) => [z.id, associationTimeZone(z)]))
+  const out: DueRule[] = []
+  for (const rule of rules) {
+    const today = todayIn(zoneById.get(rule.association_id) ?? associationTimeZone(null), now)
+    if (rule.next_run_date <= today) out.push({ ...rule, today })
+  }
+  return out
+}
+
 /**
  * Runs the recurring-JE scan. Exported so it can be driven against a real
  * database in tests. The Inngest wrapper below is a thin shell: it
- * supplies the admin client and today's date, and holds no logic worth
+ * supplies the admin client and the run's instant, and holds no logic worth
  * testing on its own.
  */
 export async function runRecurringJes(
   db: ReturnType<typeof createAdminClient>,
   step: RecurringJesStep,
   logger: RecurringJesLogger,
-  // The Eastern day (BL-043), not the UTC day. Per-association days are
-  // a follow-up: this scan uses one `today` for every rule.
-  today: string = todayIn(DEFAULT_ASSOCIATION_TIME_ZONE),
+  // One instant for the whole run; each rule reads its association's day
+  // from it (BL-065).
+  now: Date = new Date(),
 ): Promise<RecurringJesResult> {
   const rules = (await step.run('load-rules', async () => {
     const { data, error } = await db
@@ -88,20 +125,39 @@ export async function runRecurringJes(
         'id, organization_id, association_id, template_je_id, cadence, next_run_date, is_active',
       )
       .eq('is_active', true)
-      .lte('next_run_date', today)
+      .lte('next_run_date', todayIn(LATEST_TODAY_ZONE, now))
 
     if (error) {
-      logger.error(`[recurring-jes] failed to load rules: ${error.message}`)
+      logger.error(`[recurring-jes] failed to load rules: ${error.code ?? 'unknown'}`)
       throw new Error(error.message)
     }
-    return data ?? []
-  })) as RecurringRuleRow[]
+    const candidates = (data ?? []) as RecurringRuleRow[]
+    if (candidates.length === 0) return []
+
+    // Each candidate's association zone. A failed read posts nothing this
+    // run (the step retries): never post on a guessed day.
+    const associationIds = [...new Set(candidates.map((r) => r.association_id))]
+    const { data: zones, error: zoneErr } = await db
+      .from('associations')
+      .select(`id, ${ASSOCIATION_ZONE_COLUMNS}`)
+      .in('id', associationIds)
+    if (zoneErr) {
+      logger.error(`[recurring-jes] failed to load association zones: ${zoneErr.code ?? 'unknown'}`)
+      throw new Error(zoneErr.message)
+    }
+    return dueRulesForAssociationDay(
+      candidates,
+      (zones ?? []) as Array<AssociationZoneSource & { id: string }>,
+      now,
+    )
+  })) as DueRule[]
 
   let posted = 0
   let skipped = 0
   let failed = 0
 
   for (const rule of rules) {
+    const today = rule.today
     const result = (await step.run(`rule-${rule.id}`, async () => {
       // Idempotency guard: has this rule already posted today? Covers
       // the case where a prior pass posted the JE but then failed to

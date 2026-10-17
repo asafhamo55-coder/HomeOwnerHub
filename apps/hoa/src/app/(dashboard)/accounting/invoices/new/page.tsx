@@ -5,6 +5,7 @@ import { getAccountingContext, listAccounts } from '@/lib/accounting/queries'
 import { listVendors } from '@/lib/vendors'
 import { tryLoad } from '@/lib/load-or-fail'
 import { DEFAULT_CHART_OF_ACCOUNTS } from '@/lib/association-setup'
+import { todayIn } from '@/lib/association-time'
 import { AccountingLoadFailed, AccountingNotSetUp, accountingCrumbs } from '../../_components/shared'
 import { BooksNotOpen } from '../../../_components/BooksNotOpen'
 import { EnterBillForm } from './EnterBillForm'
@@ -84,7 +85,7 @@ export default async function NewInvoicePage() {
               <CardTitle as="h2">Enter by hand</CardTitle>
             </CardHeader>
             <CardContent>
-              <EnterBillForm vendors={vendorOptions} expenseAccounts={expenseAccounts} />
+              <EnterBillForm vendors={vendorOptions} expenseAccounts={expenseAccounts} today={todayIn(ctx.timeZone)} />
             </CardContent>
           </Card>
         </>

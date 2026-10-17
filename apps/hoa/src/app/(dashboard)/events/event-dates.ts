@@ -1,18 +1,14 @@
 import type { RecurringEvent } from '@/lib/events'
+import { DEFAULT_ASSOCIATION_TIME_ZONE, addCalendarDays, calendarDaysBetween, dayOf } from '@/lib/association-time'
 
 // Date helpers for the events pages. Event dates are calendar dates
-// (YYYY-MM-DD) and the alert cron runs in UTC, so everything here is UTC.
+// (YYYY-MM-DD). "Today" is the event's association day (BL-065) — the
+// caller resolves it through association-zone-index.ts, the same rule the
+// recurring-events cron uses — and is always passed in, never read here.
 
-export function todayIsoUtc(): string {
-  const d = new Date()
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
-}
-
-export function daysUntilDate(yyyyMmDd: string): number {
-  const target = new Date(`${yyyyMmDd}T00:00:00Z`).getTime()
-  const now = new Date()
-  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-  return Math.round((target - todayUtc) / (24 * 60 * 60 * 1000))
+/** Whole calendar days from `today` to the date (negative when past). */
+export function daysUntilDate(yyyyMmDd: string, today: string): number {
+  return calendarDaysBetween(today, yyyyMmDd)
 }
 
 export function relativeDays(days: number): string {
@@ -33,12 +29,6 @@ export function formatDate(yyyyMmDd: string, style: 'short' | 'long' = 'short'):
   )
 }
 
-function addDays(yyyyMmDd: string, delta: number): string {
-  const d = new Date(`${yyyyMmDd}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + delta)
-  return d.toISOString().slice(0, 10)
-}
-
 export type AlertState =
   | { kind: 'paused' }
   | { kind: 'sent'; on: string | null }
@@ -50,14 +40,20 @@ export type AlertState =
  * Where this occurrence's reminder stands. Mirrors the cron's rules
  * (lib/events.ts header): it fires on event_date − alert_days_before, once
  * per occurrence, with last_alert_sent_for as the idempotency anchor.
+ * `today` is the event's association day and `timeZone` its zone (for the
+ * day the reminder went out).
  */
-export function alertState(event: RecurringEvent, today = todayIsoUtc()): AlertState {
+export function alertState(
+  event: RecurringEvent,
+  today: string,
+  timeZone: string = DEFAULT_ASSOCIATION_TIME_ZONE,
+): AlertState {
   if (!event.is_active) return { kind: 'paused' }
   if (event.last_alert_sent_for === event.event_date) {
-    return { kind: 'sent', on: event.last_alert_sent_at ? event.last_alert_sent_at.slice(0, 10) : null }
+    return { kind: 'sent', on: dayOf(event.last_alert_sent_at, timeZone) }
   }
   if (event.event_date < today) return { kind: 'none' }
-  const on = addDays(event.event_date, -event.alert_days_before)
+  const on = addCalendarDays(event.event_date, -event.alert_days_before)
   if (on <= today) return { kind: 'due' }
   return { kind: 'scheduled', on }
 }

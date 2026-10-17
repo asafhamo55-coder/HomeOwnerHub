@@ -4,6 +4,7 @@ import { Button, Card, CardContent, EmptyState, LoadFailed, Page } from '@homeow
 import { getAccountingContext } from '@/lib/accounting/queries'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
+import { todayIn } from '@/lib/association-time'
 import { AccountingLoadFailed, AccountingNotSetUp, accountingCrumbs } from '../../_components/shared'
 import { NewPlanForm } from './NewPlanForm'
 
@@ -49,7 +50,7 @@ export default async function NewPlanPage() {
       ) : (
         <Card>
           <CardContent className="pt-5">
-            <NewPlanForm units={options} />
+            <NewPlanForm units={options} today={todayIn(ctx.timeZone)} />
           </CardContent>
         </Card>
       )}
