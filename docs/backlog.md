@@ -600,7 +600,7 @@ These go beyond the design-system v2 pass:
   only): /hoa, /compare, Madison Park case study, workflows grid still name
   Reserve Live / Minutes Engine. Out of HOA-app scope except where they sell the
   HOA product.
-- **BL-043 Association-timezone "today"** (found by the c2 date fix): `todayIso()`,
+- **BL-043 Association-timezone "today" — Done (c7)** (found by the c2 date fix): `todayIso()`,
   `resident-dashboard.ts` and the ledger's `paid_at.slice(0, 10)` use the UTC day,
   so after ~8pm Eastern charges read "due today" a day early and late-evening
   payments post to the next day. Dashboard overdue math (`dashboard/queries.ts`,
@@ -645,12 +645,12 @@ These go beyond the design-system v2 pass:
 ## Added 2026-10-16 (cycle 5)
 
 - **BL-055 Route-conventions round 4 — Done (c6) except webhooks/stripe (M1).** Four rejected route fixes are still open: ai/ask-community (raw tool errors reach the model, and raw rows are returned), plaid/exchange (the write order can't be undone if a write fails), webhooks/resend (reply linking relies on Resend's API id, not the SMTP Message-ID), and webhooks/stripe (its 0064 can drop a paying org to the free plan when it switches subscriptions; this one needs a migration, so it joins batch M1). The routes-fix/*-r2 branches hold the earlier attempts.
-- **BL-056 Invitation pages and server actions follow-ups (from round 3):**
+- **BL-056 Invitation pages and server actions follow-ups (from round 3): — Done (c7)**
   - The rfp-bid and vendor-onboard pages now show Next's error page when the database fails. They should show a branded "try again".
   - `inviteVendorsToRfp`, `revokeRfpInvitation` and `listInvitations` still return or log raw `.message`.
   - `lib/events-alerts.ts` ignores errors on some of its writes and stores provider error text.
   - An event that never delivers now retries every day and adds a failed communications row each time. Add a retry cap.
-- **BL-057 Approvals follow-ups (from BL-048):**
+- **BL-057 Approvals follow-ups (from BL-048): — Done (c8)**
   - Add buttons to /violations/approval-queue using the new actions.
   - Give `approveVendor` its own role gate.
   - Make `getAnalyticsData` use count queries; it currently loads every unit and member row, up to the 200k cap.
@@ -671,4 +671,17 @@ These go beyond the design-system v2 pass:
   - Left: measure p50 latency.
 - **BL-061 Confirm Resend keeps our Message-ID:** send one real communication and check that the reply's In-Reply-To carries `<hoh-cr.…>`. If Resend overwrites it, add `smtp_message_id` (migration). Inbound replies also need Resend receiving and an `email.received` webhook set up for the EMAIL_FROM domain (dashboard/DNS, owner).
 - **BL-062 Owner contact sent to the AI provider:** ask-community sends owner email and phone to Groq on a board lookup. Consider redacting them, or sending them only when the question asks for contact details.
+
+## Added 2026-10-17 (cycles 7–8)
+
+- **BL-063 Retry cap gaps (needs a column, M1):** event alerts that never write a communications row (no association, no recipients, a failed insert) still retry daily. Add `hoa_recurring_events.alert_failed_attempts`.
+- **BL-064 "Open the books" for partial setups:** trial-balance, periods, coa, invoices/new, cash-flow, income-statement and the Plaid "no funds" alert still say "Contact support" when an association exists but its books are incomplete. Reuse `setUpAssociationCore`. The leases, settings/payments and reminders pages should use `AssociationNotSetUp`.
+- **BL-065 Time zone leftovers (from BL-043):**
+  - The events pages and the recurring-events cron still use the UTC day. Change them together.
+  - recurring-jes uses one Eastern "today" for every association.
+  - Client form date defaults are Eastern, not the association's zone.
+  - The heat-map grid is built in server-local time.
+- **BL-066 admin-analytics overflows at 1440:** a `sm:grid-cols-[9rem_1fr]` grid spills out of its card (345px in 326px).
+- **BL-067 Grouped analytics counts:** getAnalyticsData now makes about 2 × tenants + 14 count queries. An RPC or view would make it one query (migration).
+- **T-07 Unit test with a slow import:** bill-scan `proposal.test.ts` imports the workflows package and timed out once under machine load. Give it a mock or a longer timeout.
 

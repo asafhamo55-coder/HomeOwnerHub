@@ -110,3 +110,19 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Deploy:** blocked by the permission classifier. Prod is serving d060e08, which this loop did not push; the owner is asked to confirm where it came from.
 - **New items:** BL-058 to BL-062. BL-058 (stored bills readable by residents) joins the M1 storage policies.
 - **Next:** BL-051 board packet follow-ups, BL-043 association timezone, BL-056 invitation follow-ups. M1 waits on 0063.
+
+## 2026-10-17 — cycles 7 and 8
+
+- **Built and merged** (all gates pass at the tip: typecheck 12/12, typecheck:integration, unit 3733/3733, build 4/4, integration 348/348 after reset, first try):
+  - **c7:**
+    - **BL-043/044:** "today" is the association's day, worked out from its state; one helper shared by apps/hoa and jobs.
+    - **BL-045:** all CSV goes through `lib/csv.ts`, which has the formula guard, plus a ratchet test.
+    - **BL-046:** an inline "Set up your association" form creates the association, its funds, the chart of accounts and the fiscal year. The platform-admin `createTenant` association insert is fixed.
+    - **BL-056:** the invitation pages show a "try again" state, invitation errors use codes, events-alerts checks every write, and the alert retry cap is 3.
+  - **c8:**
+    - **Integration flake root cause:** the Mac idle-slept in the middle of a run (pmset `sleep 1`), and overlapping runs shared one local DB. The suite now holds a sleep block and an advisory lock, and `truncateAll` is async with a lock timeout. 3 clean runs.
+    - **BL-057:** approval-queue buttons, an `approveVendor` gate, and analytics as head counts.
+    - **BL-060:** ⌘K rows show status and day, documents and meetings are searchable, and the inbox property link (a unit id where a property id was expected, giving a 404) is fixed.
+- **Issue:** dc1cf0a went red in CI. My merge fix changed `readPrimaryAssociation`'s output without updating its test. Fixed in 43ce04a, which is green.
+- **Deploy:** still blocked by the classifier, and prod is on d060e08.
+- **Next:** BL-064 open-the-books, BL-065 time zone leftovers, BL-066 overflow, and clean up about 90 stale agent worktrees.
