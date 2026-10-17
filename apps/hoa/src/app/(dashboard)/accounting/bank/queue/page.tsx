@@ -45,7 +45,7 @@ export default async function ReconciliationQueuePage({ searchParams }: { search
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="Matching queue" what="the matching queue" breadcrumbs={crumbs} />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="Matching queue" />
+  if (!ctx) return <AccountingNotSetUp title="Matching queue" returnTo="/accounting/bank/queue" />
 
   const page = parsePageParam((await searchParams).page)
   const supabase = await getSupabaseServerClient()

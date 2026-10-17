@@ -32,7 +32,7 @@ export default async function ChartOfAccountsPage() {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="Chart of accounts" what="the chart of accounts" />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="Chart of accounts" />
+  if (!ctx) return <AccountingNotSetUp title="Chart of accounts" returnTo="/accounting/coa" />
 
   const [accounts, funds] = await Promise.all([
     tryLoad('chart of accounts', () => listAccounts(ctx.associationId)),

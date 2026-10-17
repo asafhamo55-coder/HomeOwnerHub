@@ -17,7 +17,8 @@ import {
   parsePageParam,
   type DataTableColumn,
 } from '@homeowner-portal/ui'
-import { getPrimaryAssociation } from '@/lib/vendors'
+import { getPrimaryAssociationResult } from '@/lib/primary-association'
+import { AssociationNotSetUp } from '../_components/AssociationNotSetUp'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
 import { loadOverdueHeadline } from '@/lib/dues/overdue-headline'
@@ -58,20 +59,22 @@ export default async function DuesPage({
 }: {
   searchParams: Promise<{ page?: string }>
 }) {
-  const assoc = await getPrimaryAssociation()
+  // BL-046: "none yet" gets a working next step (create it inline, or —
+  // for a board member — find an admin); a failed read is LoadFailed, not
+  // a claim that the association does not exist.
+  const assocRes = await getPrimaryAssociationResult()
+  if (!assocRes.ok) {
+    return (
+      <Page title="Dues" width="narrow">
+        <LoadFailed what="your association" />
+      </Page>
+    )
+  }
+  const assoc = assocRes.data
   if (!assoc) {
     return (
       <Page title="Dues" width="narrow">
-        <EmptyState
-          icon={<Wallet aria-hidden />}
-          title="No association set up yet"
-          description="Dues are billed per property in an association. Contact support to create yours; the setup checklist shows what else is left."
-          action={
-            <Button asChild>
-              <Link href="/onboarding/setup">Open the setup checklist</Link>
-            </Button>
-          }
-        />
+        <AssociationNotSetUp needFor="Dues are billed per property in an association." returnTo="/dues" />
       </Page>
     )
   }

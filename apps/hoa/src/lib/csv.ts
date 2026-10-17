@@ -5,8 +5,9 @@
 // spreadsheet apps, so they get a leading single quote. Real numbers are
 // written as-is — a negative amount must stay a number, not become text.
 //
-// Same rules as the csvEscape copies in the four list-export routes
-// (properties, violations, leases, vendors); new exports use this module.
+// The ONLY CSV writer in apps/hoa (BL-045): the list exports and the
+// data-export zip all use it, and src/csv-ratchet.test.ts fails if a file
+// serves CSV or escapes cells without it.
 
 const FORMULA_START = /^[=+\-@\t\r]/
 const NEEDS_QUOTES = /[",\n\r]/

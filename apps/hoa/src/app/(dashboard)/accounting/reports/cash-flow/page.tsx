@@ -22,7 +22,7 @@ export default async function CashFlowPage({ searchParams }: PageProps) {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="Cash flow" what="the cash flow report" breadcrumbs={crumbs} />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="Cash flow" />
+  if (!ctx) return <AccountingNotSetUp title="Cash flow" returnTo="/accounting/reports/cash-flow" />
 
   const sp = await searchParams
   const periodsRes = await tryLoad('fiscal periods', () => listFiscalPeriods(ctx.associationId))

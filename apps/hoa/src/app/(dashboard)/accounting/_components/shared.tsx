@@ -1,23 +1,29 @@
 import Link from 'next/link'
-import { Calculator } from 'lucide-react'
-import { EmptyState, LoadFailed, Page, StatusPill, type Crumb, type PageWidth } from '@homeowner-portal/ui'
+import { AssociationNotSetUp } from '../../_components/AssociationNotSetUp'
+import { LoadFailed, Page, StatusPill, type Crumb, type PageWidth } from '@homeowner-portal/ui'
 import { statusOf, type StatusDef } from '@/lib/money/status'
 import { AccountingTabs } from '../AccountingTabs'
 
 /**
- * Shown when there is no association or accounting has not been
- * bootstrapped (no funds / chart of accounts / fiscal period). The old
- * copy told board members to "run pnpm seed:accounting" — a developer
- * command they cannot run.
+ * Shown when `getAccountingContext()` found no association (it returned
+ * null after a SUCCESSFUL read; a failed one is AccountingLoadFailed).
+ * Older copy said "run pnpm seed:accounting", then "contact support" —
+ * neither a step a board can take. Now (BL-046) an admin creates the
+ * association inline, which also opens the books; a board member is sent
+ * to the admins.
  */
-export function AccountingNotSetUp({ title = 'Accounting', tabs = true }: { title?: string; tabs?: boolean }) {
+export function AccountingNotSetUp({
+  title = 'Accounting',
+  tabs = true,
+  returnTo = '/accounting',
+}: {
+  title?: string
+  tabs?: boolean
+  returnTo?: string
+}) {
   return (
     <Page title={title} width="default" tabs={tabs ? <AccountingTabs /> : undefined}>
-      <EmptyState
-        icon={<Calculator aria-hidden />}
-        title="Accounting isn’t set up yet"
-        description="Your association needs its funds, chart of accounts and first fiscal period before the books open. Contact support and we’ll set them up — it takes a few minutes."
-      />
+      <AssociationNotSetUp needFor="The books belong to an association, and this HOA doesn’t have one yet." returnTo={returnTo} />
     </Page>
   )
 }

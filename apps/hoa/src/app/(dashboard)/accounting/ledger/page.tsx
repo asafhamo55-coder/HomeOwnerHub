@@ -42,7 +42,7 @@ export default async function GeneralLedgerPage({ searchParams }: PageProps) {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="General ledger" what="the ledger" width="wide" />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="General ledger" />
+  if (!ctx) return <AccountingNotSetUp title="General ledger" returnTo="/accounting/ledger" />
 
   const sp = await searchParams
   const periodsRes = await tryLoad('fiscal periods', () => listFiscalPeriods(ctx.associationId))

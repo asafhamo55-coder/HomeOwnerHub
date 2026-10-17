@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { readAllResult } from '@/lib/supabase/read-all'
+import { csvDocument } from '@/lib/csv'
 
 // CSV export of the properties list, scoped to the current user's org
 // via RLS (the server client carries their session). Honors `?tenure=`
@@ -27,24 +28,6 @@ const TENURE_LABEL: Record<Tenure, string> = {
   owner_occupied: 'Owner-occupied',
   leased: 'Leased',
   unknown: 'Unknown',
-}
-
-function csvEscape(value: string | null | undefined): string {
-  if (value == null) return ''
-  let s = String(value)
-  // Defense against CSV formula injection: Excel/Google Sheets evaluate
-  // any cell whose first character is `=`, `+`, `-`, `@`, TAB, or CR as
-  // a formula on open. Prepend a single quote so the spreadsheet treats
-  // the cell as literal text. See OWASP "CSV Injection".
-  if (/^[=+\-@\t\r]/.test(s)) {
-    s = `'${s}`
-  }
-  // Quote when the value contains a comma, quote, or newline. Escape any
-  // embedded quotes by doubling them, per RFC 4180.
-  if (/[",\n\r]/.test(s)) {
-    return `"${s.replace(/"/g, '""')}"`
-  }
-  return s
 }
 
 export async function GET(request: NextRequest) {
@@ -109,26 +92,20 @@ export async function GET(request: NextRequest) {
     'Added',
     'Updated',
   ]
-  const lines = [header.map(csvEscape).join(',')]
-  for (const r of rows) {
-    lines.push(
-      [
-        r.address,
-        r.unit_number ?? '',
-        r.owner_name ?? '',
-        r.owner_email ?? '',
-        r.owner_phone ?? '',
-        TENURE_LABEL[r.tenure ?? 'unknown'],
-        r.notes ?? '',
-        r.created_at ?? '',
-        r.updated_at ?? '',
-      ]
-        .map(csvEscape)
-        .join(','),
-    )
-  }
-  // BOM helps Excel render UTF-8 correctly without prompting.
-  const body = '﻿' + lines.join('\r\n')
+  const body = csvDocument(
+    header,
+    rows.map((r) => [
+      r.address,
+      r.unit_number ?? '',
+      r.owner_name ?? '',
+      r.owner_email ?? '',
+      r.owner_phone ?? '',
+      TENURE_LABEL[r.tenure ?? 'unknown'],
+      r.notes ?? '',
+      r.created_at ?? '',
+      r.updated_at ?? '',
+    ]),
+  )
 
   const today = new Date().toISOString().slice(0, 10)
   const tag =

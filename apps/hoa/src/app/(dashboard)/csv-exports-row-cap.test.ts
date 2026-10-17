@@ -21,8 +21,9 @@ const { GET: exportLeases } = await import('./leases/export/route')
 const id = (p: string, i: number) => `${p}${String(i).padStart(5, '0')}`
 const N = 2345
 const req = (path: string) => new NextRequest(`http://localhost${path}`)
-/** Data rows in a CSV body (minus the BOM'd header). */
-const dataLines = async (res: Response) => (await res.text()).split('\r\n').length - 1
+/** Data rows in a CSV body (minus the BOM'd header). lib/csv ends every
+ *  record with CRLF (BL-045), so the trailing empty split is dropped. */
+const dataLines = async (res: Response) => (await res.text()).split('\r\n').filter(Boolean).length - 1
 
 describe('properties CSV export', () => {
   const props = Array.from({ length: N }, (_, i) => ({
@@ -99,7 +100,7 @@ describe('leases (waiting list) CSV export', () => {
     db = cappedFakeDb({ lease_waiting_list: entries }).db
     const res = await exportLeases()
     expect(res.status).toBe(200)
-    const lines = (await res.text()).split('\r\n').slice(1)
+    const lines = (await res.text()).split('\r\n').filter(Boolean).slice(1)
     expect(lines).toHaveLength(N)
     expect(lines.every((l) => l.includes('2026-02-01T00:00:00Z'))).toBe(true)
   })

@@ -37,7 +37,7 @@ export default async function AccountingIndexPage() {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="Accounting" what="accounting" width="wide" />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp />
+  if (!ctx) return <AccountingNotSetUp returnTo="/accounting" />
 
   const today = todayIso()
   const period = ctx.currentPeriod

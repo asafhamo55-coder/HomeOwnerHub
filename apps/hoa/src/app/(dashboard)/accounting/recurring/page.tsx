@@ -48,7 +48,7 @@ export default async function RecurringPage() {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="Recurring entries" what="recurring entries" />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="Recurring entries" />
+  if (!ctx) return <AccountingNotSetUp title="Recurring entries" returnTo="/accounting/recurring" />
 
   const supabase = await getSupabaseServerClient()
   const res = await loadOrFail(

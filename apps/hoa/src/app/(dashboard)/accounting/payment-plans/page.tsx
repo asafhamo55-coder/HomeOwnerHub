@@ -43,7 +43,7 @@ export default async function PaymentPlansPage() {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   if (!ctxRes.ok) return <AccountingLoadFailed title="Payment plans" what="payment plans" />
   const ctx = ctxRes.data
-  if (!ctx) return <AccountingNotSetUp title="Payment plans" />
+  if (!ctx) return <AccountingNotSetUp title="Payment plans" returnTo="/accounting/payment-plans" />
 
   const plansRes = await tryLoad('payment plans', () => loadPaymentPlans(ctx.associationId))
 
