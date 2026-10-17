@@ -13,6 +13,7 @@ import * as governingUpload from '../app/api/governing-docs/upload/route'
 import * as violationDraft from '../app/api/ai/violations/draft/route'
 import * as meetingSummary from '../app/api/ai/meeting-summary/route'
 import * as violationPhoto from '../app/api/violations/photo/route'
+import * as recordSearch from '../app/api/search/route'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 
@@ -169,6 +170,14 @@ describe('board-only routes return 403 to a resident', () => {
         body: '{not json',
       }),
     )
+    expect(res.status).toBe(403)
+    expect((await res.json()).error.code).toBe('forbidden')
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+  })
+
+  it('GET /api/search (BL-022: record search must not let a resident find other owners)', async () => {
+    vi.mocked(getSupabaseServerClient).mockClear()
+    const res = await recordSearch.GET(new Request('http://x/api/search?q=kaur'))
     expect(res.status).toBe(403)
     expect((await res.json()).error.code).toBe('forbidden')
     expect(getSupabaseServerClient).not.toHaveBeenCalled()
