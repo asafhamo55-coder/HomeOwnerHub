@@ -38,8 +38,7 @@ import {
 } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPropertyDetail, type PropertyTenure } from '@/lib/properties'
-import { listProperties } from '@/lib/properties/list'
-import { parsePropertyListParams } from '@/lib/properties/list-params'
+import { parsePropertyListParams, propertyListQuery } from '@/lib/properties/list-params'
 import { getLeaseCap, getOpenWaitingListEntries } from '@/lib/leases'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { DEFAULT_ASSOCIATION_TIME_ZONE, todayIn } from '@/lib/association-time'
@@ -58,6 +57,7 @@ import { PropertyList } from '../PropertyList'
 import { PropertyListFilters } from '../PropertyListFilters'
 import { PropertyListPager } from '../PropertyListPager'
 import { PropertiesHeader } from '../PropertiesHeader'
+import { loadPropertyListPane } from '../load-list-pane'
 import {
   resolveCorrespondenceState,
   type CorrespondenceSectionState,
@@ -286,35 +286,14 @@ export default async function PropertyDetailPage({
   // The list beside the panel, read the same way /properties reads it: a
   // failure narrows the page to the panel, and a failed count shows no
   // number rather than a 0.
-  const countQuery = (orgId: string) =>
-    supabase.from(LIST_VIEW as never).select('*', { count: 'exact', head: true }).eq('org_id' as never, orgId)
-  const [list, attentionCount, incompleteCount, allCount, waitingCount] = ctx
-    ? await Promise.all([
-        tryLoad('properties', () => listProperties(supabase, ctx.org.id, listParams)),
-        loadOrFail('property attention count', countQuery(ctx.org.id).eq('needs_attention' as never, true)),
-        loadOrFail('property incomplete count', countQuery(ctx.org.id).eq('is_incomplete' as never, true)),
-        loadOrFail('property count', countQuery(ctx.org.id)),
-        loadOrFail('property waiting-list count', countQuery(ctx.org.id).eq('on_waiting_list' as never, true)),
-      ])
-    : [null, null, null, null, null]
-  const counts =
-    attentionCount?.ok && incompleteCount?.ok && allCount?.ok && waitingCount?.ok
-      ? {
-          attention: attentionCount.count ?? 0,
-          incomplete: incompleteCount.count ?? 0,
-          all: allCount.count ?? 0,
-          waiting: waitingCount.count ?? 0,
-        }
-      : null
+  const pane = ctx ? await loadPropertyListPane(supabase, ctx.org.id, listParams) : null
+  const list = pane?.list ?? null
+  const counts = pane?.counts ?? null
 
   // The list state this property was opened from, carried on every tab link
   // and on the phone breadcrumb so filter/sort/search/page survive.
-  const listQuery = new URLSearchParams()
-  if (listParams.filter !== 'attention') listQuery.set('filter', listParams.filter)
-  if (listParams.sort !== 'severity') listQuery.set('sort', listParams.sort)
-  if (listParams.search) listQuery.set('q', listParams.search)
-  if (listParams.page > 1) listQuery.set('page', String(listParams.page))
-  const query = listQuery.toString()
+  const query = propertyListQuery(listParams)
+  const listQuery = new URLSearchParams(query)
   const listHref = query ? `/properties?${query}` : '/properties'
   const tabHref = (t: string, extra?: Record<string, string>) =>
     `/properties/${id}?${new URLSearchParams({ ...Object.fromEntries(listQuery), tab: t, ...extra })}`
@@ -328,8 +307,9 @@ export default async function PropertyDetailPage({
           orgName={ctx?.org.name ?? ''}
           filter={listParams.filter}
           total={list?.ok ? list.data.total : null}
-          allCount={counts ? counts.all : null}
+          allCount={pane?.allCount ?? null}
           search={listParams.search}
+          searchMatches={pane?.searchMatches ?? null}
           onDetailRoute
         />
       </SplitPaneHeader>
@@ -346,7 +326,7 @@ export default async function PropertyDetailPage({
             <LoadFailed what="properties" className="m-3" />
           ) : (
             <>
-              <PropertyList rows={list.data.rows} selectedId={id} params={listParams} />
+              <PropertyList rows={list.data.rows} selectedId={id} params={listParams} allMatches={counts?.all ?? null} />
               <PropertyListPager params={listParams} rowCount={list.data.rows.length} total={list.data.total} />
             </>
           )}

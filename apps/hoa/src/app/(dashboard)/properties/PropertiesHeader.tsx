@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { Download, Plus } from 'lucide-react'
 import { Button, PageHeader } from '@homeowner-portal/ui'
-import type { PropertyFilter } from '@/lib/properties/list-params'
+import { propertyExportHref, type PropertyFilter } from '@/lib/properties/list-params'
+import { propertyCountLabel } from '@/lib/properties/count-label'
 
 /**
  * Shared chrome for /properties and /properties/[id] so opening a property
@@ -16,16 +17,19 @@ export function PropertiesHeader({
   total,
   allCount,
   search,
+  searchMatches = null,
   onDetailRoute = false,
 }: {
   orgName: string
   filter: PropertyFilter
-  /** Row count for the *current* filter — only meaningful to show for 'attention'. */
+  /** Row count for the current filter (and search). */
   total: number | null
-  /** Row count across the whole org, unfiltered. Null when it could not be
-   *  loaded — shown as unavailable, never as "0 homes". */
+  /** Homes in the whole org, unfiltered and unsearched. Null when it could
+   *  not be loaded — shown as unavailable, never as "0 homes". */
   allCount: number | null
   search: string
+  /** Homes the search matched across every filter (null = no search or unknown). */
+  searchMatches?: number | null
   /**
    * True on /properties/[id]. There, the open property's address is the
    * page's subject and owns the `h1` (PropertyPanel), so this title steps
@@ -37,34 +41,11 @@ export function PropertiesHeader({
    */
   onDetailRoute?: boolean
 }) {
-  // Export must see exactly what the list pane is showing: forward the
-  // search term, and forward tenure only for the three filters the export
-  // route actually understands ('attention' and 'all' have no tenure
-  // equivalent there, so they forward nothing).
-  const exportParams = new URLSearchParams()
-  if (search) exportParams.set('q', search)
-  if (filter === 'owner_occupied' || filter === 'leased' || filter === 'unknown') {
-    exportParams.set('tenure', filter)
-  }
-  const exportQuery = exportParams.toString()
-  const exportHref = exportQuery ? `/properties/export?${exportQuery}` : '/properties/export'
+  // Export sees exactly what the list pane shows: every filter and the
+  // search are forwarded (it used to forward only the three tenures).
+  const exportHref = propertyExportHref({ filter, search })
 
-  const homesLabel =
-    allCount === null
-      ? 'home count unavailable'
-      : `${allCount} ${allCount === 1 ? 'home' : 'homes'}`
-  // Both subset filters name what they selected, so the number is never
-  // mistaken for the association's size. 'incomplete' says "record" rather
-  // than "needing attention": an unfilled tenure field is data-entry
-  // backlog, not something the board owes anyone work on.
-  const countLabel =
-    total === null
-      ? homesLabel
-      : filter === 'attention'
-      ? `${total} needing attention · ${homesLabel}`
-      : filter === 'incomplete'
-        ? `${total} incomplete ${total === 1 ? 'record' : 'records'} · ${homesLabel}`
-        : homesLabel
+  const description = `${propertyCountLabel({ filter, total, allCount, search, searchMatches })} in ${orgName}`
 
   const actions = (
     <>
@@ -83,8 +64,6 @@ export function PropertiesHeader({
       </Button>
     </>
   )
-  const description = `${countLabel} in ${orgName}`
-
   if (!onDetailRoute) {
     return <PageHeader title="Properties" description={description} actions={actions} />
   }

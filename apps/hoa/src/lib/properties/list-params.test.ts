@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest'
 import {
   PROPERTY_PAGE_SIZE,
   parsePropertyListParams,
+  propertyExportHref,
+  propertyListQuery,
   sanitizeSearch,
 } from './list-params'
 
 describe('parsePropertyListParams', () => {
-  it('defaults to the attention queue sorted by severity, page 1', () => {
+  it('defaults to every home (search must find any home), sorted by severity, page 1', () => {
     expect(parsePropertyListParams({})).toEqual({
-      filter: 'attention',
+      filter: 'all',
       sort: 'severity',
       search: '',
       page: 1,
@@ -30,8 +32,12 @@ describe('parsePropertyListParams', () => {
     }
   })
 
-  it('falls back to attention on an unknown filter', () => {
-    expect(parsePropertyListParams({ filter: 'nonsense' }).filter).toBe('attention')
+  it('falls back to all on an unknown filter', () => {
+    expect(parsePropertyListParams({ filter: 'nonsense' }).filter).toBe('all')
+  })
+
+  it('accepts the waiting filter', () => {
+    expect(parsePropertyListParams({ filter: 'waiting' }).filter).toBe('waiting')
   })
 
   it('falls back to severity on an unknown sort', () => {
@@ -84,5 +90,40 @@ describe('sanitizeSearch', () => {
 
   it('handles an empty term', () => {
     expect(sanitizeSearch('')).toBe('')
+  })
+})
+
+describe('propertyListQuery', () => {
+  it('omits defaults so the bare list is /properties', () => {
+    expect(propertyListQuery(parsePropertyListParams({}))).toBe('')
+  })
+
+  it('keeps filter, sort, search and page', () => {
+    const p = parsePropertyListParams({ filter: 'attention', sort: 'address', q: '12 Oak', page: '2' })
+    expect(propertyListQuery(p)).toBe('filter=attention&sort=address&q=12+Oak&page=2')
+  })
+
+  it('applies overrides, and a filter/sort change can drop the page', () => {
+    const p = parsePropertyListParams({ filter: 'leased', q: 'x', page: '4' })
+    expect(propertyListQuery(p, { filter: 'all', page: 1 })).toBe('q=x')
+    expect(propertyListQuery(p, { search: '' })).toBe('filter=leased&page=4')
+  })
+})
+
+describe('propertyExportHref', () => {
+  it('exports everything from the default view', () => {
+    expect(propertyExportHref(parsePropertyListParams({}))).toBe('/properties/export')
+  })
+
+  it('forwards every filter the list understands, plus the search', () => {
+    for (const filter of ['attention', 'incomplete', 'waiting', 'owner_occupied', 'leased', 'unknown']) {
+      expect(propertyExportHref(parsePropertyListParams({ filter, q: 'Oak' }))).toBe(
+        `/properties/export?filter=${filter}&q=Oak`,
+      )
+    }
+  })
+
+  it('never forwards sort or page — an export is the whole view', () => {
+    expect(propertyExportHref(parsePropertyListParams({ sort: 'balance', page: '3' }))).toBe('/properties/export')
   })
 })
