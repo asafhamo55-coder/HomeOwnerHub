@@ -832,3 +832,13 @@ These go beyond the design-system v2 pass:
   - Ask the Docs (board): `/api/ai/ask-community` always returns `toolCalls`, so the "Cited sections" view never renders.
   - The SMS hint says long messages are "split" at 279 characters, but the server truncates them. Pick one behaviour and make the hint say it.
   - The invite form's role hint always shows the Resident text, whatever role is picked.
+
+- **BL-073 Month-end board report email** (owner question, 2026-10-17; Now; no migration if possible)
+  - **When:** sent automatically on the 1st at 08:00 ET to every association's board and admin members, covering the previous month in the association's own time zone. Admins can also preview it and choose "Send now".
+  - **What it contains:** it reuses the board-packet numbers:
+    - financials;
+    - budget vs actual through month end;
+    - delinquency as of month end, including 90+ days;
+    - violations, ARC, waiting approvals and the next meeting;
+    - a link to the full packet.
+  - **Rules:** each member can opt out. Each org gets at most one report per month. It is sent through the outbound guard. A section whose data failed says "couldn't load".
