@@ -10,6 +10,8 @@ import { ImpersonationBanner } from '@/components/ImpersonationBanner'
 import { ResidentProviders } from '@/components/resident/ResidentProviders'
 import { AppVersion } from '@/components/layout/AppVersion'
 import { appVersion } from '@/lib/app-version'
+import { HelpDrawer } from '@/components/guide/HelpDrawer'
+import { drawerData } from '@/lib/guide'
 
 // Resident-only route tree. Unlike the board/admin dashboard (fixed
 // sidebar shell), the resident portal wears a consumer app shell: a slim
@@ -54,7 +56,11 @@ export default async function ResidentLayout({
         <RoleSwitcherMount placement="banner" />
       </div>
 
-      <ResidentTopBar orgName={org.name} userEmail={userEmail} />
+      <ResidentTopBar
+        orgName={org.name}
+        userEmail={userEmail}
+        help={<HelpDrawer variant="resident" data={drawerData('resident')} />}
+      />
 
       <main id="main" className="mx-auto w-full max-w-2xl flex-1 px-4 pb-10 pt-5 sm:pt-8 print:max-w-none print:p-0">
         {impersonation ? (

@@ -7,6 +7,7 @@ import {
   Calculator,
   CalendarDays,
   CalendarHeart,
+  CircleHelp,
   ClipboardCheck,
   CreditCard,
   DatabaseBackup,
@@ -109,6 +110,7 @@ export const ADMIN_ACCOUNT: HoaNavLink[] = [
   { href: '/settings/reminders', icon: BellRing, label: 'Dues reminders', keywords: ['reminder', 'late', 'dues', 'chaser'] },
   { href: '/settings/billing', icon: CreditCard, label: 'Billing', keywords: ['subscription', 'plan'] },
   { href: '/settings/data', icon: DatabaseBackup, label: 'Your data', keywords: ['export', 'download', 'backup', 'csv'] },
+  { href: '/help', icon: CircleHelp, label: 'Help', keywords: ['guide', 'how do i', 'how to', 'support', 'tutorial'] },
 ]
 
 export const BOARD_ACCOUNT: HoaNavLink[] = [
@@ -117,6 +119,7 @@ export const BOARD_ACCOUNT: HoaNavLink[] = [
   { href: '/settings/reminders', icon: BellRing, label: 'Dues reminders', keywords: ['reminder', 'late', 'dues', 'chaser'] },
   { href: '/settings/billing', icon: CreditCard, label: 'Billing', keywords: ['subscription', 'plan'] },
   { href: '/settings/data', icon: DatabaseBackup, label: 'Your data', keywords: ['export', 'download', 'backup', 'csv'] },
+  { href: '/help', icon: CircleHelp, label: 'Help', keywords: ['guide', 'how do i', 'how to', 'support', 'tutorial'] },
 ]
 
 /** Quick-create actions offered in the palette. */

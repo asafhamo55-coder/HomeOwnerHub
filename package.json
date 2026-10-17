@@ -11,7 +11,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "typecheck:integration": "tsc --noEmit -p tsconfig.integration.json",
-    "typecheck:scripts": "tsc --noEmit -p scripts/release-notes/tsconfig.json",
+    "typecheck:scripts": "tsc --noEmit -p scripts/release-notes/tsconfig.json && tsc --noEmit -p scripts/guide/tsconfig.json",
     "release-notes:preview": "tsx scripts/release-notes/send.ts --dry-run",
     "dev:hoa": "turbo run dev --filter=hoa",
     "dev:eviction": "turbo run dev --filter=eviction",
@@ -51,11 +51,14 @@
     "db:local:reset": "tsx scripts/local-db-reset.ts",
     "ui:shots": "tsx scripts/ui-shots.ts",
     "ui:overflow": "tsx scripts/ui-shots.ts --overflow",
+    "guide:build": "tsx scripts/guide-build.ts",
+    "guide:check": "tsx scripts/guide-check.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.105.3",
     "@types/node": "^22",
+    "marked": "^18.1.1",
     "playwright": "^1.46.0",
     "playwright-extra": "^4.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
@@ -63,6 +66,8 @@
     "tsx": "^4.19.0",
     "turbo": "latest",
     "typescript": "^5",
-    "vitest": "^2.1.9"
+    "vitest": "^2.1.9",
+    "yaml": "^2.8.4",
+    "zod": "^3.25.76"
   }
 }

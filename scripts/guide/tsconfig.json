@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "incremental": false,
+    "noEmit": true
+  },
+  "include": ["./**/*.ts", "../guide-build.ts", "../guide-check.ts", "../guide-shots.ts", "../ui-shots.ts", "../ui-shots-seed/guide.ts"]
+}

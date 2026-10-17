@@ -1,0 +1,222 @@
+{
+  "guide-approvals": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/approvals",
+    "sha": "1d6afbd",
+    "sourceHash": "6db5510f34576e27958cbc851e7a38c19aa2db07",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-approvals-bill-edit": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/approvals",
+    "sha": "1d6afbd",
+    "sourceHash": "6db5510f34576e27958cbc851e7a38c19aa2db07",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-arc-detail": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/arc/[id]",
+    "sha": "1d6afbd",
+    "sourceHash": "e9f8dfacdf02558d758f1697dd5463a24271ce05",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-arc-list": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/arc",
+    "sha": "1d6afbd",
+    "sourceHash": "838503a281a59edbfdd16fdd84ca5c3e6b322ad2",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-ask-docs": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/ai/ask",
+    "sha": "1d6afbd",
+    "sourceHash": "dd420e94c9ba6a0906c7e46797693ca1516a4013",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-communications-list": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/communications",
+    "sha": "1d6afbd",
+    "sourceHash": "0f7909b423cadb0bd7371d16d22caa9bb2bc149c",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-communications-new": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/communications/new",
+    "sha": "1d6afbd",
+    "sourceHash": "904d3746b6bf491005413d3c5efa43955b7cd6c5",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-dashboard-setup": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/",
+    "sha": "e391aba",
+    "sourceHash": "51e6950fb81aded5b356e323b9d356dc8b62b31a",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-documents-governing": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/documents/governing",
+    "sha": "1d6afbd",
+    "sourceHash": "3a576faa43c59fb155c7507ff9a5c2a45ca8e7e0",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-dues-charges": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/dues",
+    "sha": "e391aba",
+    "sourceHash": "3c0b7c10c8e42e50fd1bd60dfff37811a762874f",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-dues-no-association": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/dues",
+    "sha": "e391aba",
+    "sourceHash": "3c0b7c10c8e42e50fd1bd60dfff37811a762874f",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-dues-record-payment": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/dues",
+    "sha": "e391aba",
+    "sourceHash": "3c0b7c10c8e42e50fd1bd60dfff37811a762874f",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-meetings-list": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/meetings",
+    "sha": "1d6afbd",
+    "sourceHash": "f0d7687b03290ff65356ff0abc6bd01530db682a",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-meetings-packet": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/meetings/[id]/packet",
+    "sha": "1d6afbd",
+    "sourceHash": "e5b9845487fb50cf6012440936048a3c8fdbd3fd",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-members-invite": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/settings/members",
+    "sha": "e391aba",
+    "sourceHash": "34307369b9e9f06e01c2eeee8a7a6fedec0956c9",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-properties-list": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/properties",
+    "sha": "e391aba",
+    "sourceHash": "ea12bba71a19a22149a2a69f9ef4c028dc9945ab",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-properties-new": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/properties/new",
+    "sha": "e391aba",
+    "sourceHash": "3f9ff3045a37211829afa71ffe28cf135453ed38",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-resident-arc-new": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/resident/arc/new",
+    "sha": "310e1fb",
+    "sourceHash": "556db785478eb0a9abb532071441ec91bebb2196",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-resident-home": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/resident",
+    "sha": "310e1fb",
+    "sourceHash": "7935d1b38e5fce6073e9b8ed05e147c34055b8ab",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-resident-pay": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/resident/dues/pay",
+    "sha": "310e1fb",
+    "sourceHash": "414153b70264e9cb9ed44b5af70b13bc27e6a353",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-violations-approval-queue": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/violations/approval-queue",
+    "sha": "1d6afbd",
+    "sourceHash": "b04f7208aa74a5e2b9a1bce99a19adc1a58508aa",
+    "capturedAt": "2026-10-17"
+  },
+  "guide-violations-new": {
+    "widths": [
+      375,
+      1440
+    ],
+    "route": "/violations/new",
+    "sha": "e391aba",
+    "sourceHash": "188b76185056aa99408cbf9648eabd9e4b21757f",
+    "capturedAt": "2026-10-17"
+  }
+}

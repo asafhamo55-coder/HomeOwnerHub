@@ -20,6 +20,7 @@ import { seed_compliance } from './ui-shots-seed/compliance'
 import { seed_approvals } from './ui-shots-seed/approvals'
 import { seed_meetings } from './ui-shots-seed/meetings'
 import { seed_setup } from './ui-shots-seed/setup'
+import { seed_guide } from './ui-shots-seed/guide'
 import { seed_properties } from './ui-shots-seed/properties'
 
 export interface SeedContext {
@@ -33,7 +34,7 @@ type Seeder = (db: SupabaseClient, ctx: SeedContext) => Promise<Record<string, s
 
 // One file per area under scripts/ui-shots-seed/.
 // properties after dashboard: it reuses the fiscal period dashboard creates.
-const SEEDERS: Seeder[] = [seed_dashboard, seed_properties, seed_compliance, seed_approvals, seed_meetings, seed_setup, seed_resident, seed_pm, seed_eviction]
+const SEEDERS: Seeder[] = [seed_dashboard, seed_properties, seed_compliance, seed_approvals, seed_meetings, seed_setup, seed_resident, seed_guide, seed_pm, seed_eviction]
 
 export async function seedExtras(db: SupabaseClient, ctx: SeedContext): Promise<Record<string, string>> {
   const vars: Record<string, string> = {}

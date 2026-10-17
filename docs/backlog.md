@@ -842,3 +842,6 @@ These go beyond the design-system v2 pass:
     - violations, ARC, waiting approvals and the next meeting;
     - a link to the full packet.
   - **Rules:** each member can opt out. Each org gets at most one report per month. It is sent through the outbound guard. A section whose data failed says "couldn't load".
+
+- **BL-074 Page navigation performance** (owner request, 2026-10-17; Now): measure, find root causes, then fix. Candidates: loading.tsx skeletons, `cache()` for per-request lookups, parallel loaders, middleware auth cost, router cache and prefetch, function region vs DB region. In progress.
+- **BL-075 Screenshots and integration only in CI** (owner rule, 2026-10-17: no local DB): a GitHub Actions job that boots the throwaway Supabase, seeds, runs `ui:shots` and `ui:overflow`, and uploads the shots as artifacts for review and release notes. Integration is already CI-only from now on.

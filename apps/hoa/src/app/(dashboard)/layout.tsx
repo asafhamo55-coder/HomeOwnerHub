@@ -25,6 +25,8 @@ import { Copilot, CopilotTrigger } from '@/components/copilot/Copilot'
 import { countPendingApprovals } from '@/lib/approvals-inbox/load'
 import { approvalsBadge } from '@/lib/approvals-inbox/model'
 import { appVersion } from '@/lib/app-version'
+import { HelpDrawer } from '@/components/guide/HelpDrawer'
+import { drawerData } from '@/lib/guide'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await getSupabaseServerClient()
@@ -99,6 +101,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                   floats over page content. Renders nothing for non-admins. */}
               <RoleSwitcherMount placement="toolbar" />
               {role === 'admin' && <PlatformAdminLink />}
+              <HelpDrawer data={drawerData(role)} />
               <CopilotTrigger />
               {/* Wrapped in Suspense so two extra queries on the shared
                   dashboard chrome cannot delay first paint of the page
