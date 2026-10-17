@@ -71,6 +71,17 @@ describe('GET /api/health — public (no Authorization header)', () => {
     expect(await res.json()).toEqual({ ok: true, app: 'hoa', version: 'abc1234' })
   })
 
+  it('reports the same commit sha the in-app version label shows (BL-071)', async () => {
+    const { appCommitSha, appVersion } = await import('@/lib/app-version')
+    vi.stubEnv('VERCEL_GIT_COMMIT_SHA', 'c56061f0123456789abcdef0123456789abcdef0')
+    const body = await (await GET(req())).json()
+    expect(body.version).toBe(appCommitSha())
+    expect(appVersion().sha).toBe(body.version)
+    expect(body.version.startsWith(appVersion().shortSha)).toBe(true)
+    vi.stubEnv('VERCEL_GIT_COMMIT_SHA', '')
+    expect((await (await GET(req())).json()).version).toBe('local')
+  })
+
   it('makes no outbound (billed) call on an unauthenticated poll', async () => {
     await GET(req({ query: '?probe=embedding' }))
     expect(fetchMock).not.toHaveBeenCalled()

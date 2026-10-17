@@ -1,5 +1,7 @@
 import { Lock, ScrollText } from 'lucide-react'
 import { cn } from '@homeowner-portal/ui'
+import { AppVersion } from '@/components/layout/AppVersion'
+import { appVersion } from '@/lib/app-version'
 
 /**
  * The signed-out (and pre-org) frame: a calm canvas, the product mark, one
@@ -42,6 +44,8 @@ export function AuthShell({
                 Encrypted connection · sessions end after 24 hours
               </p>
             )}
+            {/* BL-071: which build is running, on every signed-out screen. */}
+            <AppVersion version={appVersion()} className="mt-2" />
           </div>
         </div>
       </main>

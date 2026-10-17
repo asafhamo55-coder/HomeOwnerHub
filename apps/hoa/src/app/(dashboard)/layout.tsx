@@ -24,6 +24,7 @@ import { RoleSwitcherMount } from '@/components/dev/RoleSwitcherMount'
 import { Copilot, CopilotTrigger } from '@/components/copilot/Copilot'
 import { countPendingApprovals } from '@/lib/approvals-inbox/load'
 import { approvalsBadge } from '@/lib/approvals-inbox/model'
+import { appVersion } from '@/lib/app-version'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await getSupabaseServerClient()
@@ -84,6 +85,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             hoaOrgs={role === 'admin' ? hoaOrgs : hoaOrgs.filter((o) => o.id === org.id)}
             role={role}
             badges={{ '/approvals': approvalsBadge(approvalCounts) }}
+            version={appVersion()}
           />
         </AppShellSidebar>
         <AppShellMain>

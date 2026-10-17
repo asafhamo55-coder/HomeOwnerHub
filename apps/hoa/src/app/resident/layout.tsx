@@ -8,6 +8,8 @@ import { ResidentTabBar } from '@/components/resident/ResidentTabBar'
 import { RoleSwitcherMount } from '@/components/dev/RoleSwitcherMount'
 import { ImpersonationBanner } from '@/components/ImpersonationBanner'
 import { ResidentProviders } from '@/components/resident/ResidentProviders'
+import { AppVersion } from '@/components/layout/AppVersion'
+import { appVersion } from '@/lib/app-version'
 
 // Resident-only route tree. Unlike the board/admin dashboard (fixed
 // sidebar shell), the resident portal wears a consumer app shell: a slim
@@ -61,6 +63,10 @@ export default async function ResidentLayout({
           </div>
         ) : null}
         {children}
+        {/* BL-071: residents see the running version too (no link). */}
+        <footer className="mt-10 text-center print:hidden">
+          <AppVersion version={appVersion()} />
+        </footer>
       </main>
 
       <ResidentTabBar />

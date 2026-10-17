@@ -10,6 +10,7 @@ import { withRoute } from '@/lib/api/handler'
 import { ApiRouteError } from '@/lib/api/errors'
 import { requireBearerSecret } from '@/lib/api/secrets'
 import { errorCode } from '@/lib/api/log'
+import { appCommitSha } from '@/lib/app-version'
 
 // GET /api/health
 //
@@ -227,7 +228,8 @@ function requiredEnvPresent(): boolean {
 const DETAILS_SECRET_ENV = 'EMBEDDING_PROBE_KEY'
 
 export const GET = withRoute('health.get', async (request: Request) => {
-  const version = process.env.VERCEL_GIT_COMMIT_SHA ?? 'local'
+  // Same reader as the in-app version label (BL-071), so they cannot drift.
+  const version = appCommitSha()
 
   // Public tier: no Authorization header at all. Only our own DB is probed,
   // so an unauthenticated poll makes no outbound or billed call.

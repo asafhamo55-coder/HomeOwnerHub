@@ -41,6 +41,18 @@ const SECURITY_HEADERS = [
 ]
 
 const config: NextConfig = {
+  // BL-071: the in-app version label (apps/hoa/src/lib/app-version.ts).
+  // Vercel exposes no commit date, so the build stamps its own time; the
+  // commit sha is read from VERCEL_GIT_COMMIT_SHA, the same var
+  // /api/health reports as `version`.
+  env: {
+    NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
+  },
+  // /whats-new reads docs/releases/*.md (outside the app dir) at runtime;
+  // trace it into that route's bundle so the files ship with the deploy.
+  outputFileTracingIncludes: {
+    '/whats-new': ['../../docs/releases/**/*'],
+  },
   // Client-side Router Cache tuning. Next 15 defaults `dynamic` to 0s,
   // which means every navigation to a dynamic (auth + per-org DB) page
   // throws away the <Link prefetch> payload and re-fetches from the

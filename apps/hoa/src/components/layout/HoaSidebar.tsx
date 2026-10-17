@@ -12,7 +12,9 @@ import {
   SidebarSection,
 } from '@homeowner-portal/ui'
 import { OrgSwitcher } from '@/components/layout/OrgSwitcher'
+import { AppVersion } from '@/components/layout/AppVersion'
 import type { UserHoaOrg } from '@/lib/orgs'
+import type { AppVersion as AppVersionInfo } from '@/lib/app-version'
 import { ADMIN_ACCOUNT, BOARD_ACCOUNT, HOA_NAV, isActive, type HoaNavLink } from './nav'
 
 interface HoaSidebarProps {
@@ -22,6 +24,8 @@ interface HoaSidebarProps {
   role: 'admin' | 'board'
   /** Count badges keyed by nav href (e.g. pending approvals). Null/absent = no badge. */
   badges?: Record<string, string | null>
+  /** BL-071: running version, resolved on the server by the layout. */
+  version: AppVersionInfo
 }
 
 /** The single most specific nav href that matches — so /settings/members
@@ -34,7 +38,7 @@ function bestMatch(pathname: string, links: HoaNavLink[]): string | null {
   return best
 }
 
-export function HoaSidebar({ currentOrgId, currentOrgName, hoaOrgs, role, badges }: HoaSidebarProps) {
+export function HoaSidebar({ currentOrgId, currentOrgName, hoaOrgs, role, badges, version }: HoaSidebarProps) {
   const pathname = usePathname()
   const account = role === 'admin' ? ADMIN_ACCOUNT : BOARD_ACCOUNT
   const active = bestMatch(pathname, [...HOA_NAV.flatMap((g) => g.items), ...account])
@@ -79,7 +83,10 @@ export function HoaSidebar({ currentOrgId, currentOrgName, hoaOrgs, role, badges
         <SidebarSection label="Account">{account.map(item)}</SidebarSection>
       </SidebarNav>
 
-      <SidebarFooter className="hidden justify-end md:flex">
+      {/* Same sidebar is the mobile drawer, so the version shows in both.
+          In the collapsed rail only the toggle remains. */}
+      <SidebarFooter className="justify-between">
+        <AppVersion version={version} href="/whats-new" compact className="min-w-0 truncate px-1.5 md:in-rail:hidden" />
         <SidebarCollapseToggle />
       </SidebarFooter>
     </>
