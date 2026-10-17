@@ -42,6 +42,8 @@ import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import type { GmailThreadState } from '@homeowner-portal/mailbox'
 import { resolveForDisplay } from '@/lib/communications/display'
+import { todayIn } from '@/lib/association-time'
+import { orgTimeZone } from '@/lib/association-time-server'
 
 type Db = SupabaseClient<Database>
 
@@ -1007,7 +1009,8 @@ export async function getPropertyContext(
         )
       }
 
-      const today = new Date().toISOString().slice(0, 10)
+      // Overdue = due on/before the association's today (BL-043).
+      const today = todayIn(await orgTimeZone(db, orgId))
       for (const a of assessments) {
         const remaining = Number(a.amount) - (paidByAssessment.get(a.id) ?? 0)
         if (remaining <= 0) continue

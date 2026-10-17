@@ -15,6 +15,7 @@
  * `formatShortDate` in the association's zone instead.
  */
 import { formatShortDate } from '@/lib/format-datetime'
+import { DEFAULT_ASSOCIATION_TIME_ZONE, todayIn } from '@/lib/association-time'
 
 const USD_CENTS = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -100,9 +101,14 @@ export function formatStamp(value: string | null | undefined): string {
   return formatShortDate(value) || '—'
 }
 
-/** Today as 'YYYY-MM-DD' (UTC), for date-string comparisons. */
-export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
+/**
+ * Today as 'YYYY-MM-DD' in the association's zone (BL-043), for comparing
+ * against date-only columns. Server code passes the zone from
+ * `currentTimeZone()`; without one this is the Eastern day — never the UTC
+ * day, which after ~8pm Eastern is already tomorrow.
+ */
+export function todayIso(timeZone: string = DEFAULT_ASSOCIATION_TIME_ZONE, now: Date = new Date()): string {
+  return todayIn(timeZone, now)
 }
 
 /** Whole days from a calendar date to today (positive = in the past). */

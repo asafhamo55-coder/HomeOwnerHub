@@ -67,7 +67,7 @@ function portalUrl(): string {
 }
 
 async function loadContext(): Promise<
-  { ok: true; associationId: string; associationName: string } | { ok: false; error: string }
+  { ok: true; associationId: string; associationName: string; timeZone: string } | { ok: false; error: string }
 > {
   const org = await getCurrentOrg()
   if (!org) return { ok: false, error: 'No organization found.' }
@@ -78,7 +78,7 @@ async function loadContext(): Promise<
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 
-  return { ok: true, associationId: assoc.id, associationName: assoc.name }
+  return { ok: true, associationId: assoc.id, associationName: assoc.name, timeZone: assoc.timeZone }
 }
 
 /** Bulk targets past-due owners only; an explicit email list targets
@@ -111,7 +111,7 @@ export async function previewDuesReminders(
   const ctx = await loadContext()
   if (!ctx.ok) return ctx
 
-  const { packets: all, skipped } = await buildReminderPackets(ctx.associationId)
+  const { packets: all, skipped } = await buildReminderPackets(ctx.associationId, ctx.timeZone)
   const selected = selectPackets(all, input?.emails)
   const lastRemindedResult = await getLastRemindedByEmail(ctx.associationId)
   // A failed lookup degrades to "we don't know" (empty map, flag set)
@@ -175,7 +175,7 @@ export async function sendDuesReminders(
     return { ok: false, error: 'Email delivery is not configured, so nothing would be sent.' }
   }
 
-  const { packets: all } = await buildReminderPackets(ctx.associationId)
+  const { packets: all } = await buildReminderPackets(ctx.associationId, ctx.timeZone)
   const selected = selectPackets(all, input.emails)
   if (selected.length === 0) {
     return { ok: false, error: 'None of the selected owners currently owe anything.' }

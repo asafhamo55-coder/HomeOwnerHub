@@ -84,7 +84,7 @@ export default async function DuesPage({
   // charge due TODAY counted as overdue here while the Who owes panel
   // directly below, which compares 'YYYY-MM-DD' strings, called it current.
   // Due today is not late; this is the boundary both now use.
-  const todayIsoStr = todayIso()
+  const todayIsoStr = todayIso(assoc.timeZone)
 
   const supabase = await getSupabaseServerClient()
   const [listResult, overdueResult] = await Promise.all([
@@ -176,7 +176,7 @@ export default async function DuesPage({
         />
       </section>
 
-      <WhoOwesPanel associationId={assoc.id} />
+      <WhoOwesPanel associationId={assoc.id} timeZone={assoc.timeZone} />
 
       {/* Never the raw error.message — this page used to render it, which is
           exactly what (dashboard)/error.tsx exists to prevent. */}

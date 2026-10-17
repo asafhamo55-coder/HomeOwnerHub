@@ -315,3 +315,59 @@ describe('runDuesReminders — which associations run', () => {
     expect(summary).toMatchObject({ associations: 4, enabled: 1, sent: 1 })
   })
 })
+
+describe('runDuesReminders — each association runs on its own day (BL-043)', () => {
+  const approval = { approvedAt: '2026-10-01T00:00:00Z', approvedBy: 'u-board' }
+  const enabled = (id: string, offsets: number[], timeZone?: string): StoredAssociation => ({
+    id,
+    name: `Assoc ${id}`,
+    organizationId: ORG,
+    complianceSettings: withDuesReminderSettings(
+      {},
+      signDuesReminderSettings(id, { enabled: true, offsets, note: null }, approval, SECRET),
+    ),
+    timeZone,
+  })
+
+  it('at 23:30 Eastern a "3 days before" reminder does not go out a day early', async () => {
+    // Oct 6, 23:30 EDT. Due Oct 10: the −3 step is Oct 7 — tomorrow in
+    // New York, but already "today" on the UTC calendar.
+    const now = new Date('2026-10-07T03:30:00Z')
+    const id = 'a0000000-0000-4000-8000-0000000000e1'
+    const { store } = memoryStore({
+      associations: [enabled(id, [-3], 'America/New_York')],
+      assessments: [assessment({ dueDate: '2026-10-10' })],
+      ownerships: [OWNER],
+    })
+    const summary = await runDuesReminders(store, deps(), now, logger())
+    expect(summary).toMatchObject({ enabled: 1, planned: 0, sent: 0 })
+  })
+
+  it('one cron instant is a different day in New York and Honolulu', async () => {
+    // 05:30 EDT Oct 6 = 23:30 HST Oct 5. Due Oct 1 with a +5 step.
+    // Separate stores: the memory store shares one assessment, and a
+    // claim by the first association would mask the second's plan.
+    const now = new Date('2026-10-06T09:30:00Z')
+    const run = async (id: string, timeZone: string) => {
+      const { store } = memoryStore({
+        associations: [enabled(id, [5], timeZone)],
+        assessments: [assessment()],
+        ownerships: [OWNER],
+      })
+      return (await runDuesReminders(store, deps(), now, logger())).planned
+    }
+    expect(await run('a0000000-0000-4000-8000-0000000000e2', 'America/New_York')).toBe(1)
+    expect(await run('a0000000-0000-4000-8000-0000000000e3', 'Pacific/Honolulu')).toBe(0)
+  })
+
+  it('an association with no zone runs on the Eastern day', async () => {
+    const now = new Date('2026-10-07T03:30:00Z')
+    const id = 'a0000000-0000-4000-8000-0000000000e4'
+    const { store } = memoryStore({
+      associations: [enabled(id, [-3])],
+      assessments: [assessment({ dueDate: '2026-10-10' })],
+      ownerships: [OWNER],
+    })
+    expect(await runDuesReminders(store, deps(), now, logger())).toMatchObject({ planned: 0 })
+  })
+})

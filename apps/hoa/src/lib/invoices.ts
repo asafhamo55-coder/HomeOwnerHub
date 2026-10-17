@@ -7,6 +7,7 @@ import { loadAccountingRefs, postJournalEntry } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { todayIn } from '@/lib/association-time'
 import { fieldErrorsOf } from '@/lib/field-errors'
 
 type InvoiceInsert = Database['public']['Tables']['invoices']['Insert']
@@ -294,7 +295,9 @@ export async function markInvoicePaid(input: {
     .maybeSingle()
   if (!period) return { ok: false, error: 'No open fiscal period.' }
 
-  const paidAt = (value.paidAt ?? new Date().toISOString().slice(0, 10)) + 'T12:00:00Z'
+  // Noon UTC: the same calendar day in every US zone; default is the
+  // association's today, not the UTC day (BL-043).
+  const paidAt = (value.paidAt ?? todayIn(assoc.timeZone)) + 'T12:00:00Z'
 
   // payments has a CHECK (assessment_id XOR invoice_id). amount can be
   // signed; for AP outflow we want positive on the invoice/payment side

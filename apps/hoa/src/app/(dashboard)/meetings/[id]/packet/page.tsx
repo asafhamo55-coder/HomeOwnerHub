@@ -89,9 +89,10 @@ export default async function BoardPacketPage(props: { params: Promise<{ id: str
     )
   }
 
-  const today = todayIso()
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
   const ctx = ctxRes.ok ? ctxRes.data : null
+  // The association's day (BL-043); Eastern when the context didn't load.
+  const today = todayIso(ctx?.timeZone)
   const assocId = ctx?.associationId ?? null
 
   // Association-scoped sections need the accounting context; without one

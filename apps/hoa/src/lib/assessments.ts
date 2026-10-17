@@ -8,6 +8,7 @@ import { memoCodeFor } from '@homeowner-portal/workflows'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { todayIn } from '@/lib/association-time'
 import { fieldErrorsOf } from '@/lib/field-errors'
 
 type AssessmentInsert = Database['public']['Tables']['assessments']['Insert']
@@ -154,7 +155,7 @@ export async function materializeCurrentPeriodAssessments(input: {
       organizationId: assocRow.organization_id,
       associationId: assoc.id,
       fiscalPeriodId: period.id,
-      entryDate: new Date().toISOString().slice(0, 10),
+      entryDate: todayIn(assoc.timeZone), // the association's day (BL-043)
       memo: `Assessment billed: regular dues for unit ${u.id.slice(0, 8)}`,
       source: 'ar_payment',
       sourceId: inserted.id,
@@ -341,7 +342,7 @@ export async function createDues(
         organizationId: assocRow.organization_id,
         associationId: assoc.id,
         fiscalPeriodId: period.id,
-        entryDate: new Date().toISOString().slice(0, 10),
+        entryDate: todayIn(assoc.timeZone), // the association's day (BL-043)
         memo: memoTxt,
         source: 'ar_payment',
         sourceId: inserted.id,
@@ -547,7 +548,7 @@ export async function markAssessmentPaid(input: {
     organizationId: assessment.organization_id,
     associationId: assoc.id,
     fiscalPeriodId: assessment.fiscal_period_id,
-    entryDate: paidAt.slice(0, 10),
+    entryDate: todayIn(assoc.timeZone, new Date(paidAt)), // the association's day (BL-043)
     memo: `Payment received against assessment ${assessment.id.slice(0, 8)}`,
     source: 'ar_payment',
     sourceId: payment.id,

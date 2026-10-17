@@ -23,12 +23,12 @@ function errorMessage(reason: unknown): string {
  * only past-due owners — so its label carries the real count rather than
  * a bare "Send reminders".
  */
-export async function WhoOwesPanel({ associationId }: { associationId: string }) {
+export async function WhoOwesPanel({ associationId, timeZone }: { associationId: string; timeZone: string }) {
   // allSettled, not all: this component has no error boundary of its own,
   // so an unhandled rejection here would bubble to the dashboard layout's
   // and replace the period tables below too, not just this panel.
   const [packetsResult, lastRemindedResult] = await Promise.allSettled([
-    buildReminderPackets(associationId),
+    buildReminderPackets(associationId, timeZone),
     getLastRemindedByEmail(associationId),
   ])
 

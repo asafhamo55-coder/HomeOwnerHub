@@ -10,6 +10,8 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { readAllResult } from '@/lib/supabase/read-all'
+import { addCalendarDays, dayOf, instantAtLocalTime, todayIn } from '@/lib/association-time'
+import { orgTimeZone } from '@/lib/association-time-server'
 
 type AnyClient = SupabaseClient<any, any, any>
 
@@ -191,18 +193,17 @@ export async function getThirtyDayActivity(
   client?: AnyClient,
 ): Promise<ActivityData> {
   const supabase = await resolveClient(client)
-  const start = new Date()
-  start.setUTCDate(start.getUTCDate() - 29)
-  start.setUTCHours(0, 0, 0, 0)
-  const startIso = start.toISOString()
+  // Days are the association's (BL-043): a violation logged at 9pm
+  // Eastern belongs to that day's bar, not the next UTC day's.
+  const timeZone = await orgTimeZone(supabase, orgId)
+  const firstDay = addCalendarDays(todayIn(timeZone), -29)
+  const startIso = instantAtLocalTime(firstDay, 0, timeZone).toISOString()
 
   // Initialize empty buckets for every day in the 30-day window so the
   // chart shows a continuous x-axis even when nothing happened.
   const buckets = new Map<string, ActivityBucket>()
   for (let i = 0; i < 30; i++) {
-    const d = new Date(start)
-    d.setUTCDate(start.getUTCDate() + i)
-    const key = d.toISOString().slice(0, 10)
+    const key = addCalendarDays(firstDay, i)
     buckets.set(key, { date: key, violations: 0, arc: 0, invitations: 0 })
   }
 
@@ -248,18 +249,15 @@ export async function getThirtyDayActivity(
   const invites = invitesRes.data
 
   for (const r of (viols ?? []) as Array<{ created_at: string }>) {
-    const k = r.created_at.slice(0, 10)
-    const bucket = buckets.get(k)
+    const bucket = buckets.get(dayOf(r.created_at, timeZone) ?? '')
     if (bucket) bucket.violations += 1
   }
   for (const r of (arcs ?? []) as unknown as Array<{ submitted_at: string }>) {
-    const k = r.submitted_at.slice(0, 10)
-    const bucket = buckets.get(k)
+    const bucket = buckets.get(dayOf(r.submitted_at, timeZone) ?? '')
     if (bucket) bucket.arc += 1
   }
   for (const r of (invites ?? []) as unknown as Array<{ created_at: string }>) {
-    const k = r.created_at.slice(0, 10)
-    const bucket = buckets.get(k)
+    const bucket = buckets.get(dayOf(r.created_at, timeZone) ?? '')
     if (bucket) bucket.invitations += 1
   }
 
@@ -277,6 +275,9 @@ export async function getDashboardKpis(
   const today = new Date()
   const thirtyDaysAgo = new Date(today)
   thirtyDaysAgo.setUTCDate(today.getUTCDate() - 30)
+  // due_date is a calendar date: compare it with the association's
+  // calendar day 30 days ago, not a UTC-midnight parse (BL-043).
+  const thirtyDaysAgoDay = addCalendarDays(todayIn(await orgTimeZone(supabase, orgId), today), -30)
 
   // Outstanding dues — sum of remaining unpaid balance across all
   // assessments rows. Replaces the legacy hoa_dues path which is no
@@ -329,8 +330,7 @@ export async function getDashboardKpis(
       const remainder = Math.max(Number(r.amount ?? 0) - paid, 0)
       if (remainder <= 0) continue
       duesNow += remainder
-      const due = r.due_date ? new Date(r.due_date) : null
-      if (due && due < thirtyDaysAgo) duesPrev += remainder
+      if (r.due_date && r.due_date.slice(0, 10) < thirtyDaysAgoDay) duesPrev += remainder
     }
   }
 

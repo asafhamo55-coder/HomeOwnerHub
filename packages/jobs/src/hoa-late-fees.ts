@@ -5,6 +5,7 @@ import {
 } from '@homeowner-portal/db'
 import { inngest } from './client'
 import { readAll } from './read-all'
+import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone, todayIn } from './association-time'
 
 const HOA_LATE_FEE_RATE = 0.05 // 5% — typical default; per-row override later.
 
@@ -103,13 +104,16 @@ export const hoaLateFeeJob = inngest.createFunction(
   { cron: 'TZ=America/New_York 0 0 * * *' },
   async ({ step, logger }) => {
     const db = createAdminClient()
-    const today = new Date().toISOString().slice(0, 10)
+    // One instant for the whole run; each association reads its own day
+    // from it (BL-043). The UTC day was right at midnight Eastern only by
+    // accident, and a day early for an association west of Eastern.
+    const now = new Date()
 
     // All HOA associations — joined to their org so the `hub_type` filter
     // stays applied even though we're now keyed on association_id.
     const { data: associations, error } = await db
       .from('associations')
-      .select('id, name, organization_id, orgs:organization_id(hub_type)')
+      .select(`id, name, organization_id, ${ASSOCIATION_ZONE_COLUMNS}, orgs:organization_id(hub_type)`)
 
     if (error) {
       logger.error('[hoa-late-fees] failed to load associations', error)
@@ -127,6 +131,7 @@ export const hoaLateFeeJob = inngest.createFunction(
 
     for (const assoc of hoaAssocs) {
       const result = await step.run(`late-fees-${assoc.id}`, async () => {
+        const today = todayIn(associationTimeZone(assoc), now)
         // Resolve accounting refs once per association.
         const refs = await loadAccountingRefs(db, assoc.id)
         if (!refs) {

@@ -39,7 +39,7 @@ export default async function AccountingIndexPage() {
   const ctx = ctxRes.data
   if (!ctx) return <AccountingNotSetUp />
 
-  const today = todayIso()
+  const today = todayIso(ctx.timeZone)
   const period = ctx.currentPeriod
   const aid = ctx.associationId
 

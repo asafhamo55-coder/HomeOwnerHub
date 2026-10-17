@@ -7,6 +7,7 @@ import { postJournalEntry } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { todayIn } from '@/lib/association-time'
 import { fieldErrorsOf } from '@/lib/field-errors'
 
 type RecurringInsert =
@@ -97,7 +98,7 @@ export async function reverseJournalEntry(input: {
     organizationId: original.organization_id,
     associationId: assoc.id,
     fiscalPeriodId: original.fiscal_period_id,
-    entryDate: new Date().toISOString().slice(0, 10),
+    entryDate: todayIn(assoc.timeZone), // the association's day (BL-043)
     memo:
       parsed.data.reason
         ? `Reversal of ${original.memo}: ${parsed.data.reason}`

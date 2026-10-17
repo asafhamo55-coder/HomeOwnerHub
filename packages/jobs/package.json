@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./mailbox-tokens": "./src/mailbox-tokens.ts",
     "./db-error": "./src/db-error.ts",
-    "./dues-reminders": "./src/dues-reminders/index.ts"
+    "./dues-reminders": "./src/dues-reminders/index.ts",
+    "./association-time": "./src/association-time.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

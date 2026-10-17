@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import { createAdminClient } from '@homeowner-portal/db'
+import { todayIn } from '@/lib/association-time'
+import { associationTimeZoneById } from '@/lib/association-time-server'
 
 /**
  * Audience resolution — turns a high-level filter ("late on dues") into
@@ -174,7 +176,8 @@ export async function resolveAudience(
       // Both branches resolve below via contact lookup — no narrowing here.
       break
     case 'late_on_dues': {
-      const today = new Date().toISOString().slice(0, 10)
+      // "Late" = due before the association's today (BL-043), not the UTC day.
+      const today = todayIn(await associationTimeZoneById(db, associationId))
       const { data: late } = await db
         .from('assessments')
         .select('unit_id')
@@ -707,7 +710,8 @@ export async function countAudiences(
     }
   }
 
-  const today = new Date().toISOString().slice(0, 10)
+  // Same boundary as resolveAudience's late_on_dues (BL-043).
+  const today = todayIn(await associationTimeZoneById(db, associationId))
   const legacyIds = unitRows
     .map((u) => u.legacy_hoa_property_id)
     .filter((id): id is string => !!id)

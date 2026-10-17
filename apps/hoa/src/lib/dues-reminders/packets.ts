@@ -1,5 +1,6 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { chunk, readAll } from '@/lib/supabase/read-all'
+import { DEFAULT_ASSOCIATION_TIME_ZONE, calendarDaysBetween, todayIn } from '@/lib/association-time'
 import type {
   PacketBuildResult,
   ReminderCharge,
@@ -8,18 +9,15 @@ import type {
   SkippedOwner,
 } from './types'
 
-const MS_PER_DAY = 86_400_000
-
 /** Both reads below page to the end with `readAll` (BL-047). They used
  *  to ask for `.limit(5000)`, but PostgREST's server-side max_rows (1000)
  *  applies underneath whatever the client asks for, so an association
  *  with more than 1000 open charges silently lost owners and understated
  *  what they owed. A failed page throws (WhoOwesPanel's error path). */
 
-/** Whole days between two 'YYYY-MM-DD' dates. Both parse as UTC midnight,
- *  so this is timezone-stable — unlike a local-time date difference. */
+/** Whole calendar days between two 'YYYY-MM-DD' dates (zone-free). */
 export function daysBetween(fromIso: string, toIso: string): number {
-  return Math.round((Date.parse(toIso) - Date.parse(fromIso)) / MS_PER_DAY)
+  return calendarDaysBetween(fromIso, toIso)
 }
 
 export function unitLabel(u: {
@@ -77,6 +75,8 @@ interface OwnershipRow {
  */
 export async function buildReminderPackets(
   associationId: string,
+  /** The association's zone: "past due" is judged against ITS today (BL-043). */
+  timeZone: string = DEFAULT_ASSOCIATION_TIME_ZONE,
 ): Promise<PacketBuildResult> {
   const supabase = await getSupabaseServerClient()
 
@@ -99,7 +99,7 @@ export async function buildReminderPackets(
         .range(from, to) as unknown as PromiseLike<{ data: AssessmentRow[] | null; error: { message?: string } | null }>,
     (e) => new Error(`Failed to load assessments: ${e.message ?? ''}`),
   )
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayIn(timeZone)
 
   // Charges with a real remaining balance, bucketed by unit.
   const chargesByUnit = new Map<string, ReminderCharge[]>()

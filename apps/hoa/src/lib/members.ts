@@ -11,6 +11,8 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { todayIn } from '@/lib/association-time'
+import { orgTimeZone } from '@/lib/association-time-server'
 import { requireBoardOrAdmin, type Role } from '@/lib/auth'
 
 export type MemberRole = Role
@@ -338,6 +340,8 @@ async function attachToOrg(args: {
   // unit exists, only the legacy row gets written and we log a warning.
   if (args.propertyId) {
     const residencyRole = args.residencyRole ?? 'owner'
+    // Move-in / valid-from / lease-start: the association's day (BL-043).
+    const today = todayIn(await orgTimeZone(admin, args.orgId))
 
     // 1) property_residents — skip if a matching active row already exists
     const { data: existing } = await admin
@@ -359,7 +363,7 @@ async function attachToOrg(args: {
           email: args.email,
           role: residencyRole,
           is_primary: false,
-          moved_in_at: new Date().toISOString().slice(0, 10),
+          moved_in_at: today,
         } as never)
       if (residErr) {
         console.warn('[members] property_residents insert failed:', residErr.message)
@@ -395,14 +399,13 @@ async function attachToOrg(args: {
           owner_name: args.fullName,
           owner_email: args.email,
           ownership_pct: 100,
-          valid_from: new Date().toISOString().slice(0, 10),
+          valid_from: today,
           source: 'member_invite',
         } as never)
         if (ownErr) console.warn('[members] ownership insert failed:', ownErr.message)
       }
     } else if (residencyRole === 'tenant') {
       // Skip if an active tenancy already exists for this user + unit.
-      const today = new Date().toISOString().slice(0, 10)
       const { data: existingTen } = await admin
         .from('tenancies')
         .select('id')

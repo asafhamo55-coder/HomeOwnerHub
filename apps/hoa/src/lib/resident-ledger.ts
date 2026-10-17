@@ -10,6 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import { chargeTypeLabel } from './assessment-labels'
+import { DEFAULT_ASSOCIATION_TIME_ZONE, dayOf } from './association-time'
 
 export interface LedgerAssessment {
   id: string
@@ -77,9 +78,33 @@ const CLOSED_LABELS: Record<string, string> = {
 const cents = (n: number) => Math.round(Number(n) * 100)
 const dollars = (c: number) => c / 100
 
+/**
+ * Bank-matched payments (bank-rec, W18) stored their date-only posted_date
+ * as UTC midnight until BL-043 (now noon UTC). That value is a calendar
+ * date, not an instant — read in Eastern it would be the evening before —
+ * so exact UTC midnight is taken at its face date. Anything else is an
+ * instant, dated in the association's zone.
+ */
+const UTC_MIDNIGHT = /^(\d{4}-\d{2}-\d{2})[T ]00:00:00(?:\.0+)?(?:Z|[+-]00(?::?00)?)$/
+
+export function paymentDay(paidAt: string, timeZone: string): string {
+  const legacy = UTC_MIDNIGHT.exec(paidAt)
+  if (legacy) return legacy[1]!
+  return dayOf(paidAt, timeZone) ?? paidAt.slice(0, 10)
+}
+
 const KIND_ORDER: Record<LedgerEntry['kind'], number> = { charge: 0, credit: 1, payment: 2 }
 
-export function buildLedger(assessments: LedgerAssessment[], payments: LedgerPayment[]): Ledger {
+/**
+ * `timeZone` is the association's (BL-043): a payment is dated by the day
+ * it was made THERE. `paid_at.slice(0, 10)` was the UTC day, so a 10pm
+ * Eastern payment posted to the next day.
+ */
+export function buildLedger(
+  assessments: LedgerAssessment[],
+  payments: LedgerPayment[],
+  timeZone: string = DEFAULT_ASSOCIATION_TIME_ZONE,
+): Ledger {
   const unitByAssessment = new Map(assessments.map((a) => [a.id, a.unit_id]))
   const paidCents = new Map<string, number>()
   for (const p of payments) {
@@ -121,7 +146,7 @@ export function buildLedger(assessments: LedgerAssessment[], payments: LedgerPay
     const method = METHOD_LABELS[p.payment_method]
     drafts.push({
       id: p.id,
-      date: p.paid_at.slice(0, 10),
+      date: paymentDay(p.paid_at, timeZone),
       kind: 'payment',
       description: method ? `Payment · ${method}` : 'Payment',
       unitId: p.unit_id ?? (p.assessment_id ? unitByAssessment.get(p.assessment_id) ?? null : null),

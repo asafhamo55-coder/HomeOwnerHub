@@ -40,6 +40,7 @@ import {
   type PlannedSend,
 } from './plan'
 import { todayInZone } from './schedule'
+import { ASSOCIATION_ZONE_COLUMNS, DEFAULT_ASSOCIATION_TIME_ZONE, associationTimeZone } from '../association-time'
 import { readAll } from '../read-all'
 
 /** Same marker the manual reminder writes (apps/hoa dues-reminders/queries.ts),
@@ -97,6 +98,9 @@ export interface StoredAssociation {
   name: string
   organizationId: string
   complianceSettings: unknown
+  /** The association's IANA zone (BL-043): reminders fire on ITS day.
+   *  Absent → America/New_York. */
+  timeZone?: string
 }
 
 export interface ClaimInput {
@@ -355,7 +359,6 @@ export async function runDuesReminders(
 ): Promise<DuesRemindersSummary> {
   const associations = await store.loadAssociations()
   const secret = deps.settingsSecret()
-  const today = todayInZone(now)
   const summary: DuesRemindersSummary = {
     associations: associations.length,
     enabled: 0,
@@ -373,6 +376,8 @@ export async function runDuesReminders(
     const settings = effectiveDuesReminderSettings(read)
     if (!settings.enabled) continue
     summary.enabled += 1
+    // Per association (BL-043): one cron instant can be different days.
+    const today = todayInZone(now, a.timeZone ?? DEFAULT_ASSOCIATION_TIME_ZONE)
 
     try {
       const r = await runStep(a.id, () =>
@@ -426,13 +431,14 @@ export function supabaseReminderStore(db: Db): DuesReminderStore {
     async loadAssociations() {
       const { data, error } = await db
         .from('associations')
-        .select('id, name, organization_id, compliance_settings, orgs:organization_id(hub_type)')
+        .select(`id, name, organization_id, compliance_settings, ${ASSOCIATION_ZONE_COLUMNS}, orgs:organization_id(hub_type)`)
       if (error) throw readError('associations', error)
       return ((data ?? []) as Array<{
         id: string
         name: string
         organization_id: string
         compliance_settings: unknown
+        state: string | null
         orgs: { hub_type: string } | null
       }>)
         .filter((a) => a.orgs?.hub_type === 'hoa')
@@ -441,6 +447,7 @@ export function supabaseReminderStore(db: Db): DuesReminderStore {
           name: a.name,
           organizationId: a.organization_id,
           complianceSettings: a.compliance_settings,
+          timeZone: associationTimeZone(a),
         }))
     },
 

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { buildLedger, loadLedgerRows, statementWindow, type LedgerAssessment, type LedgerPayment } from './resident-ledger'
+import {
+  buildLedger,
+  loadLedgerRows,
+  paymentDay,
+  statementWindow,
+  type LedgerAssessment,
+  type LedgerPayment,
+} from './resident-ledger'
 import { cappedFakeDb } from '@/lib/supabase/capped-fake-db'
 
 const U1 = 'unit-1'
@@ -166,5 +173,48 @@ describe('loadLedgerRows — server row cap (BL-047)', () => {
     const { db } = cappedFakeDb({ assessments: [], payments: [] })
     const r = await loadLedgerRows(db as never, ['u1'])
     expect(r.ok && !r.truncated).toBe(true)
+  })
+})
+
+describe('buildLedger — payments dated on the association day (BL-043)', () => {
+  it('a 22:15 Eastern payment posts to that day, not the next UTC day', () => {
+    const { entries } = buildLedger(
+      [charge({ id: 'a1', due_date: '2026-10-01', amount: 325 })],
+      [pay({ id: 'p1', paid_at: '2026-10-02T02:15:00+00:00', amount: 325, assessment_id: 'a1' })],
+      'America/New_York',
+    )
+    expect(entries.find((e) => e.id === 'p1')?.date).toBe('2026-10-01')
+  })
+
+  it('a 23:30 Eastern payment on the fall-back night stays on Nov 1', () => {
+    const { entries } = buildLedger(
+      [],
+      [pay({ id: 'p1', paid_at: '2026-11-02T04:30:00Z', amount: 10 })],
+      'America/New_York',
+    )
+    expect(entries[0].date).toBe('2026-11-01')
+  })
+
+  it('the same instant is a different day for a Pacific association', () => {
+    const paid = [pay({ id: 'p1', paid_at: '2026-10-02T06:30:00Z', amount: 10 })] // 02:30 EDT / 23:30 PDT
+    expect(buildLedger([], paid, 'America/New_York').entries[0].date).toBe('2026-10-02')
+    expect(buildLedger([], paid, 'America/Los_Angeles').entries[0].date).toBe('2026-10-01')
+  })
+
+  it('a legacy bank-matched paid_at at exact UTC midnight keeps its face date', () => {
+    // bank-rec / W18 wrote posted_date as UTC midnight before BL-043.
+    expect(paymentDay('2026-10-01T00:00:00+00:00', 'America/New_York')).toBe('2026-10-01')
+    expect(paymentDay('2026-10-01T00:00:00.000Z', 'America/Los_Angeles')).toBe('2026-10-01')
+    expect(paymentDay('2026-10-01 00:00:00+00', 'America/New_York')).toBe('2026-10-01')
+    // …and the noon-UTC form they write now is the same day everywhere in the US.
+    expect(paymentDay('2026-10-01T12:00:00Z', 'Pacific/Honolulu')).toBe('2026-10-01')
+    expect(paymentDay('2026-10-01T12:00:00Z', 'America/New_York')).toBe('2026-10-01')
+    // One second later is an instant again.
+    expect(paymentDay('2026-10-01T00:00:01Z', 'America/New_York')).toBe('2026-09-30')
+  })
+
+  it('a date-only paid_at is a calendar date and is kept as-is', () => {
+    const { entries } = buildLedger([], [pay({ id: 'p1', paid_at: '2026-10-01', amount: 10 })], 'Pacific/Honolulu')
+    expect(entries[0].date).toBe('2026-10-01')
   })
 })

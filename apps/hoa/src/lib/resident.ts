@@ -11,6 +11,7 @@ import type { Database } from '@homeowner-portal/db'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getResidentActor, type ResidentActor } from '@/lib/impersonation'
 import { exactIlike } from '@/lib/impersonation-target'
+import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone } from '@/lib/association-time'
 import {
   countNewAnnouncements,
   fetchMyAnnouncementRows,
@@ -23,6 +24,8 @@ export interface ResidentUnit {
   address: string | null
   association_id: string | null
   association_name: string | null
+  /** The association's IANA zone (BL-043); set by getResidentUnits. */
+  association_time_zone?: string | null
   ownership_pct: number | null
   valid_from: string
 }
@@ -63,22 +66,23 @@ async function attachAssociationNames(
 
   let q = supabase
     .from('associations' as never)
-    .select('id, name')
+    .select(`id, name, ${ASSOCIATION_ZONE_COLUMNS}`)
     .in('id', associationIds)
   if (orgId) q = q.eq('organization_id' as never, orgId)
   const { data } = await q
 
-  const nameById = new Map(
-    ((data ?? []) as unknown as Array<{ id: string; name: string | null }>).map((a) => [
-      a.id,
-      a.name,
-    ]),
-  )
+  const rows = (data ?? []) as unknown as Array<{ id: string; name: string | null; state?: string | null }>
+  const byId = new Map(rows.map((a) => [a.id, a]))
 
-  return units.map((u) => ({
-    ...u,
-    association_name: u.association_id ? nameById.get(u.association_id) ?? null : null,
-  }))
+  return units.map((u) => {
+    const a = u.association_id ? byId.get(u.association_id) : undefined
+    return {
+      ...u,
+      association_name: a?.name ?? null,
+      // Unknown association → the default zone (Eastern), never the UTC day.
+      association_time_zone: a ? associationTimeZone(a) : null,
+    }
+  })
 }
 
 // Raw lookup of every unit currently owned by the signed-in user. Primary

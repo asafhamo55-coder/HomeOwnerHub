@@ -72,6 +72,25 @@ describe('nextRunDate — when the 9am Eastern cron fires next', () => {
   it('is tomorrow from 9am Eastern on', () => {
     expect(nextRunDate(new Date('2026-10-01T13:00:00Z'))).toBe('2026-10-02') // 9:00 EDT
   })
+
+  it('at 23:30 Eastern the next run is tomorrow, not the day after', () => {
+    // UTC already says Oct 2; the next run is Oct 2 09:00 EDT.
+    expect(nextRunDate(new Date('2026-10-02T03:30:00Z'))).toBe('2026-10-02')
+  })
+
+  it('on the DST-change days the 9am boundary moves with the clock', () => {
+    expect(nextRunDate(new Date('2026-03-08T12:59:00Z'))).toBe('2026-03-08') // 8:59 EDT, spring-forward day
+    expect(nextRunDate(new Date('2026-03-08T13:00:00Z'))).toBe('2026-03-09') // 9:00 EDT
+    expect(nextRunDate(new Date('2026-11-01T13:59:00Z'))).toBe('2026-11-01') // 8:59 EST, fall-back day
+    expect(nextRunDate(new Date('2026-11-01T14:00:00Z'))).toBe('2026-11-02') // 9:00 EST
+  })
+
+  it("is the association's day of that 9am-Eastern run", () => {
+    // Jan 15 09:00 EST = 14:00Z = Jan 16 00:00 in Guam.
+    expect(nextRunDate(new Date('2026-01-15T10:00:00Z'), 'Pacific/Guam')).toBe('2026-01-16')
+    // Same run is Jan 15 04:00 in Honolulu.
+    expect(nextRunDate(new Date('2026-01-15T10:00:00Z'), 'Pacific/Honolulu')).toBe('2026-01-15')
+  })
 })
 
 describe('dueStep — which configured offset fires today', () => {
