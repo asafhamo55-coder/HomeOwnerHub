@@ -823,3 +823,12 @@ These go beyond the design-system v2 pass:
 - **BL-071 Version indicator in the app** (owner request, 2026-10-17; Now; small; no migration)
   - Shows the running version as "v2026.10.17 · c56061f": the build date in ET plus the short SHA, the same source as /api/health.
   - Where: the sidebar and mobile nav footer (linking to a "What's new" page built from docs/releases), the login page, the resident portal footer, and the platform-admin header.
+
+## Added 2026-10-17 (found while writing the user guide)
+
+- **BL-072 Guide-found UX bugs** (Now, small, no migration):
+  - /onboarding/setup "Upload CSV" links to the platform-admin-only /admin/import-units, so a normal admin is just redirected away. This goes away with properties P4; until then, hide or relabel the link.
+  - The Generate dues and Record payment flows can show developer text ("run pnpm seed:accounting"). Replace it with user-facing messages and the "Open the books" action.
+  - Ask the Docs (board): `/api/ai/ask-community` always returns `toolCalls`, so the "Cited sections" view never renders.
+  - The SMS hint says long messages are "split" at 279 characters, but the server truncates them. Pick one behaviour and make the hint say it.
+  - The invite form's role hint always shows the Resident text, whatever role is picked.
