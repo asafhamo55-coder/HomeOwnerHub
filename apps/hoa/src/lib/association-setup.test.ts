@@ -59,9 +59,12 @@ describe('safeSetupReturnTo', () => {
 
 describe('readPrimaryAssociation', () => {
   it('returns the first association by name', async () => {
-    const { db, calls } = queuedSupabase({ associations: [ok({ id: 'a1', name: 'Willow Creek' })] })
+    const { db, calls } = queuedSupabase({
+      associations: [ok({ id: 'a1', name: 'Willow Creek', state: 'FL', timezone: 'America/Chicago' })],
+    })
     const res = await readPrimaryAssociation(db as never, 'o1')
-    expect(res).toEqual({ ok: true, data: { id: 'a1', name: 'Willow Creek' }, count: null })
+    // dc1cf0a added timeZone to the result (BL-043): the explicit zone wins.
+    expect(res).toEqual({ ok: true, data: { id: 'a1', name: 'Willow Creek', timeZone: 'America/Chicago' }, count: null })
     expect(calls[0]!.ops.map(([op]) => op)).toEqual(['select', 'eq', 'order', 'limit', 'maybeSingle'])
   })
 
