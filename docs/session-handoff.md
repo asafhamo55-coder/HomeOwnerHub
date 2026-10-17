@@ -1,6 +1,6 @@
 # Session handoff: HomeownerHub autonomous loop
 
-_Updated every cycle. Last update: 2026-10-17 17:05 ET._
+_Updated every cycle. Last update: 2026-10-17 18:15 ET._
 
 ## Start the next session with this prompt
 
@@ -41,7 +41,7 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 - **Integration branch:** `claude/quality-oracle`. All merges land here.
 - **Deploy:** run `/usr/bin/git merge-base --is-ancestor <prod> <tip>`, then `/usr/bin/git push origin <sha>:claude/phase1-homeownerhub-setup-MILNu`. A push made right after pushing quality-oracle fails once; retry it once.
 - **Verify:** poll `https://www.homeownerledger.com/api/health` until `version` equals the SHA. The public body is `{ok, app, version}`.
-- **Live in prod:** 69361f7, deployed 2026-10-17 17:03 ET. The next deploy is allowed after 18:03.
+- **Live in prod:** 809b442 (properties rebuild part 1), deployed 2026-10-17 18:13 ET. The next deploy is allowed after 19:13. Release-note emails work: the GitHub secrets were set on 2026-10-17.
 
 ## Gates (the trusted forms)
 
@@ -57,18 +57,16 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 1. **Migration 0063:** run Part 1a from `docs/specs/2026-10-16-rls-sweep-apply.sql` and send the output. Then Parts 1b, 2 and 3, using the updated versions; don't use the old Part 2.
 2. **FL state-law first refresh:** signed in as platform admin, run `fetch('/api/admin/refresh-state-law',{method:'POST'})` in the browser console. Prod has 0 FL statutes.
 3. **S-01 audit query:** run it read-only, on its own in the SQL editor. It lists resident_portal.enter rows outside the acting org.
-4. **GitHub secrets for release-note emails:** RESEND_API_KEY, RELEASE_NOTES_TO=asafhamo55@gmail.com, RELEASE_NOTES_FROM.
+4. ~~GitHub secrets for release-note emails~~: done 2026-10-17.
 5. **Later:** an Open States and/or LegiScan API key (BL-069), and `LAW_REPORT_TO` as a Vercel env var.
 6. **After 0063:** migration batch M1: BL-020, BL-050, BL-052, BL-058, BL-063 and Stripe 0064. Then the properties expand/backfill (M-P1, M-P2). Then M2: BL-068 modules and BL-069 run log.
 
 ## In flight at this update
 
-- **On quality-oracle, gating:** properties P0 (dual-write, typed ids, resolver, import, dues dead-end fix).
-- **Agents running:**
-  - properties P1 (UX quick wins)
-  - BL-071 (version indicator and What's new page)
-  - BL-070 guide phase 1, day 1 (articles, /help, "?" drawer, guide:check)
-- **Next:** guide day 2 (Ask the guide, What's new, checklist links), properties P2 (table and full property page), P4 (board-run import), P3 (record a sale).
+- **Agents:**
+  - BL-070 guide phase 1, rebasing onto the properties work and updating the properties articles.
+  - BL-071 version indicator.
+- **Next:** guide day 2 (Ask the guide, What's new, checklist links), BL-072 guide-found bugs, properties P2 (table and 360 page), P4 (board-run import), P3 (record a sale).
 
 ## Decisions taken without the owner (reversible)
 

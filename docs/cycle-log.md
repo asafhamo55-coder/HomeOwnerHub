@@ -153,3 +153,17 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **Release-note email:** the workflow fired on deployment_status. The hoa run was queued; the pm/eviction runs were skipped. It can't send until the owner adds the GitHub secrets.
 - **Merged after the deploy, gating now:** properties P0 (653df38). Every create, update and delete writes both records, a unit-id URL redirects to the property, there's a ratchet for direct bridge reads, the import writes both sides, and the dues dead-end is fixed.
 - **In flight:** properties P1 quick wins, BL-071 version indicator, BL-070 guide phase 1 day 1.
+
+## 2026-10-17 (18:13) â€” deploy 809b442: properties rebuild part 1
+
+- **Live:** properties P0 and P1.
+  - Every home is one record: create, update, archive and import write both sides. A unit-id URL redirects to the property. The dues dead-end is fixed.
+  - Search covers every home, with All as the default view and a Filters menu.
+  - Contact actions; addresses link to the property everywhere; `?property=` scopes Violations, Dues and Leases.
+  - The violation wizard picker no longer preselects a home.
+  - Archive with warnings, a Cure-by column, and a compact mobile header.
+  - The sign-in redirect keeps the query string.
+- **Gates at d1e2143:** unit 4013/4013, integration 354/354, build 4/4. CI green.
+- **Release-note email:** sent (status `release-notes/email` success at 22:13Z). The 69361f7 and c56061f notes were also sent, by manual dispatch, after the GitHub secrets were set from Vercel.
+- **Push quirk:** the first one or two prod pushes fail and a retry works. Keep retrying up to 3 times.
+- **Next deploy allowed after 19:13.** Queued for it: BL-070 guide phase 1 (being rebased) and BL-071 version indicator.
