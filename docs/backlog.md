@@ -687,3 +687,55 @@ These go beyond the design-system v2 pass:
 - **BL-067 Grouped analytics counts:** getAnalyticsData now makes about 2 × tenants + 14 count queries. An RPC or view would make it one query (migration).
 - **T-07 Unit test with a slow import — Done (c9):** bill-scan `proposal.test.ts` imports the workflows package and timed out once under machine load. Give it a mock or a longer timeout.
 
+
+## Added 2026-10-17 (owner request)
+
+- **BL-068 Per-tenant module switches, with license pricing per module** (owner request; Next; migration batch M2; prices are an owner decision on top of BL-001)
+  - **What:**
+    - In platform admin → tenant, switch each module on or off for that tenant.
+    - The license price recalculates live as modules change, showing a "this tenant pays $X/mo, $Y less without Accounting" preview.
+    - Modules that are off disappear from the tenant's nav, ⌘K, dashboard cards, approvals kinds and setup checklist.
+    - Their routes show a short "This module isn't on your plan" page, with a request-it link to the board.
+    - Their Inngest jobs skip that tenant.
+    - **Data is kept, never deleted.** Switching a module back on restores everything.
+  - **Proposed modules:**
+    - **Core** (always on): properties and owners, resident portal, communications, documents and state-law Q&A, violations, ARC, meetings, tickets, events.
+    - **Optional:**
+      - **Accounting:** GL, bank reconciliation and Plaid, AP and bills, budgets, financial reports, board-packet financials, payment plans, collections.
+      - **Dues & online payments:** assessments, reminders, resident Pay. If Accounting is off, dues run as a simple ledger.
+      - **AI assistant:** W3/W32/W34/W22-23 drafts, Copilot, bill scan, digest narrative. This is the "AI add-on" in docs/decisions/2026-10-pricing.md.
+      - **Shared HOA mailbox / inbox.**
+      - **Vendors & RFPs.**
+      - **Leases & rentals.**
+      - Later, as they ship: amenities, mailed letters.
+  - **Pricing suggestion:** this extends scenario A in docs/decisions/2026-10-pricing.md and keeps its totals.
+    - **Prices:**
+
+      | Module | Per door | Monthly minimum |
+      |---|---|---|
+      | Core | $0.60 | $39 |
+      | Accounting (includes Dues & payments) | $0.40 | $20 |
+      | AI assistant | $0.50 | $25 |
+      | Mailbox | $0.10 | $5 |
+      | Vendors & RFPs | $0.10 | $5 |
+      | Leases | $0.10 | $5 |
+
+    - **50-door HOA:** Core only $39. Core plus Accounting $59 (matches scenario A's base). Everything $84 plus the small modules.
+    - **400-door HOA:** Core $240, with Accounting $400, with AI $600.
+    - **Why it competes:** a self-managed board that only wants communications, violations and the portal pays $39, which competes with PayHOA's $54–65 and GnomeOwner's $29–59. Accounting is the upsell that justifies the price gap.
+    - **Discount option:** a bundle discount (e.g. 10% off with 3 or more optional modules) so "everything" is not a penalty.
+  - **Build notes:**
+    - **Migration:** an `org_modules` table (org_id, module, enabled, changed_by, changed_at), or an `orgs.modules jsonb` column, plus an audit_log row on every change.
+    - **Code:**
+      - one `moduleEnabled(org, 'accounting')` helper, used by nav, middleware or route gate, server actions, API routes and jobs;
+      - a ratchet test that every module route checks its gate;
+      - `packages/billing/src/pricing.ts` computes price from enabled modules and doors;
+      - Stripe gets one subscription item per paid module, with proration on change.
+    - **Admin UI:** module toggles and a price preview on the tenant page.
+    - **Tenant UI:** settings → billing lists the modules and their prices.
+  - **Acceptance:**
+    - Switching Accounting off hides it everywhere for that tenant, nothing else changes, and its data is intact after switching it back on.
+    - The price preview matches what Stripe charges.
+    - Switching a module off stops its jobs for that tenant.
+    - Residents never see a broken link.
+  - **Scores:** impact 4, confidence 0.7, effort 3 agent-days, score 0.93 → Next. It needs a migration (M2) and the owner's sign-off on the module prices.
