@@ -136,3 +136,11 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
   - Smoke checks: /login 200; / and /dues 307 to login; /api/search and /api/accounting/bill-scan give a 401 JSON envelope.
   - The public /api/health body is now {ok, app, version}. The detailed probes need the bearer key.
 - **Next:** merge BL-066 (overflow and T-07) when it reports, then BL-059 bill-scan edits, BL-051 board packet, BL-062 owner contact sent to the AI.
+
+## 2026-10-17 (16:00) â€” cycle 9 done, cycle 10 started
+
+- **Deployed c56061f:** BL-066 (admin analytics donut cards now lay out by the card's own width) and T-07 (the bill-scan test reads the W36 constant from source, so it no longer imports the workflows package).
+  - Gates: unit 3789/3789, integration 348/348, build 4/4.
+  - Live at 15:55 on /api/health. /login 200, /dues 307, /api/search 401.
+- **Push quirk:** a prod push made right after pushing claude/quality-oracle fails once and works on retry. Retry once before treating it as a failure.
+- **Cycle 10 dispatched:** BL-059 (edit bill fields before approving, and the ?type=bill filter), BL-062 plus a sweep (no owner email or phone in AI prompts), BL-051 (board packet as of month-end, and the TZ leak T-05).
