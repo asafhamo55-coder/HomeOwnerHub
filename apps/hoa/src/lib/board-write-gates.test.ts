@@ -18,7 +18,7 @@ import * as plaidExchange from '../app/api/plaid/exchange/route'
 import * as recordSearch from '../app/api/search/route'
 import * as billScan from '../app/api/accounting/bill-scan/route'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { getPrimaryAssociation } from '@/lib/vendors'
+import { approveVendor, getPrimaryAssociation } from '@/lib/vendors'
 
 // Server actions are public POST endpoints: the (dashboard) layout
 // redirecting residents does not stop one calling an action id directly.
@@ -47,7 +47,10 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('@/lib/orgs', () => ({
   getCurrentOrg: vi.fn(async () => ({ id: 'org-1', name: 'Test HOA' })),
 }))
-vi.mock('@/lib/vendors', () => ({
+// Partial: approveVendor (BL-057) is exercised for real; other modules'
+// getPrimaryAssociation calls hit the spy.
+vi.mock('@/lib/vendors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/vendors')>()),
   getPrimaryAssociation: vi.fn(async () => ({ id: 'assoc-1', name: 'Test' })),
 }))
 vi.mock('next/cache', () => ({
@@ -82,6 +85,7 @@ describe('board-only server actions refuse a resident before touching the databa
     ['updateViolationStatus', () => violations.updateViolationStatus({ violationId: ID, status: 'resolved' } as never), DENIED],
     ['approveViolationDraft (BL-048)', () => violations.approveViolationDraft(ID), DENIED],
     ['rejectViolationDraft (BL-048)', () => violations.rejectViolationDraft(ID, 'wrong lot'), DENIED],
+    ['approveVendor (BL-057)', () => approveVendor(ID), DENIED],
     ['createActionItem', () => actionItems.createActionItem(form({ meeting_id: ID, title: 'x' })), DENIED],
     ['setActionItemStatus', () => actionItems.setActionItemStatus(ID, 'done'), DENIED],
     ['updateActionItem', () => actionItems.updateActionItem(ID, { title: 'x' }), DENIED],

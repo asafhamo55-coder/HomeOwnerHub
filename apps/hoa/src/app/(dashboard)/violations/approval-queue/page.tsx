@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { AlertTriangle, ListChecks, Sparkles } from 'lucide-react'
+import { AlertTriangle, ListChecks, Plus, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Alert,
@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
   EmptyState,
@@ -30,6 +31,7 @@ import { VIOLATION_SEVERITY } from '@/lib/status/community'
 import { violationTabs } from '../tabs'
 import { StateRulesOutputSchema } from '@homeowner-portal/workflows/W3-state-rules'
 import { StateRulesPanel } from '@/components/violations/StateRulesPanel'
+import { ApprovalActions } from '@/components/approvals/ApprovalActions'
 
 export const metadata = { title: 'Violation Approval Queue' }
 export const dynamic = 'force-dynamic'
@@ -84,7 +86,7 @@ export default async function ApprovalQueuePage({
     <Page
       title="Violations"
       width="wide"
-      description="AI-drafted violation notices awaiting board review. Nothing here reaches a homeowner until the board approves it."
+      description="AI-drafted violation notices awaiting board review. Approving files the letter as an open violation; nothing is sent to the homeowner from here."
       linkAs={Link}
       actions={
         <Button asChild variant="secondary" icon={<ListChecks aria-hidden />}>
@@ -100,6 +102,11 @@ export default async function ApprovalQueuePage({
           icon={<Sparkles aria-hidden />}
           title="Nothing waiting for approval"
           description="Drafts from Covenant Brain land here until the board reviews them."
+          action={
+            <Button asChild icon={<Plus aria-hidden />}>
+              <Link href="/violations/new">Draft a violation</Link>
+            </Button>
+          }
         />
       ) : (
         <div className="space-y-4">
@@ -149,6 +156,7 @@ function PendingRunCard({ run }: { run: PendingRun }) {
   // written under, with only the statute quotes that passed validation.
   const stateRules = StateRulesOutputSchema.safeParse((run.output as { stateRules?: unknown }).stateRules)
 
+  const violationLabel = input.violationType ?? 'Untyped violation'
   const confidenceLabel = typeof output.confidence === 'string' ? output.confidence.toUpperCase() : 'LOW'
   const severity = output.recommendedSeverity ?? 'low'
   const fineDollars =
@@ -176,7 +184,7 @@ function PendingRunCard({ run }: { run: PendingRun }) {
           }
         >
           <CardTitle as="h2" className="capitalize">
-            {input.violationType ?? 'Untyped violation'}
+            {violationLabel}
           </CardTitle>
           <p className="text-xs text-muted">
             Drafted <time dateTime={run.created_at}>{format(new Date(run.created_at), 'PPp')}</time> · Draft{' '}
@@ -227,6 +235,16 @@ function PendingRunCard({ run }: { run: PendingRun }) {
             </p>
           )}
         </CardContent>
+        {/* BL-057: decide here, through the same control as /approvals
+            — the W3 draft actions in lib/violations.ts. */}
+        <CardFooter className="justify-end">
+          <ApprovalActions
+            decision={{ kind: 'w3', runId: run.id }}
+            title={`${violationLabel} · Draft ${run.id.slice(0, 8)}`}
+            amountLabel={null}
+            href="/violations/approval-queue"
+          />
+        </CardFooter>
       </Card>
     </li>
   )
