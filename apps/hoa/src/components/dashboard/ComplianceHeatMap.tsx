@@ -1,15 +1,9 @@
 import { AlertCircle, Check, Clock } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, cn } from '@homeowner-portal/ui'
-import { addDays, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns'
 import { FailedNote } from './BreakdownList'
+import { buildHeatMapMonths, formatCalendarDay, type DayLevel, type DayCell, type HeatMapDay, type HeatMapMonth } from './heat-map-grid'
 
-export type DayLevel = 'red' | 'yellow' | 'green' | 'grey'
-
-export interface DayCell {
-  date: Date
-  level: DayLevel
-  notes: string[]
-}
+export type { DayCell, DayLevel } from './heat-map-grid'
 
 interface ComplianceHeatMapProps {
   /**
@@ -27,10 +21,10 @@ interface ComplianceHeatMapProps {
   months?: number
   /**
    * The association's today, 'YYYY-MM-DD' (BL-043). The cells were judged
-   * against it, so the window and the "today" ring use it too; without it
-   * the server's clock (UTC) would already be tomorrow after ~8pm Eastern.
+   * against it, so the window and the "today" ring use it too. The grid is
+   * built from calendar dates (BL-065), never the server's own zone.
    */
-  today?: string
+  today: string
 }
 
 /**
@@ -44,22 +38,8 @@ interface ComplianceHeatMapProps {
  * The page builds the cells server-side from hoa_violations +
  * assessments, so this component is purely visual.
  */
-export function ComplianceHeatMap({ cells, failed = false, months = 3, today: todayDay }: ComplianceHeatMapProps) {
-  // Cells carry UTC-midnight dates; anchor "today" the same way.
-  const today = todayDay ? new Date(`${todayDay}T00:00:00Z`) : new Date()
-  const start = startOfMonth(today)
-  const end = endOfMonth(addDays(start, (months - 1) * 32))
-
-  const monthGrids: { label: string; days: DayCell[] }[] = []
-  for (let i = 0; i < months; i++) {
-    const monthStart = startOfMonth(addDays(start, i * 32))
-    const monthEnd = endOfMonth(monthStart)
-    const days = eachDayOfInterval({ start: monthStart, end: monthEnd }).map((d) => {
-      const cell = cells.find((c) => isSameDay(c.date, d))
-      return cell ?? { date: d, level: 'grey' as DayLevel, notes: [] }
-    })
-    monthGrids.push({ label: format(monthStart, 'MMMM yyyy'), days })
-  }
+export function ComplianceHeatMap({ cells, failed = false, months = 3, today }: ComplianceHeatMapProps) {
+  const grid = buildHeatMapMonths(today, cells, months)
 
   const counts = { red: 0, yellow: 0 }
   for (const c of cells) {
@@ -73,7 +53,7 @@ export function ComplianceHeatMap({ cells, failed = false, months = 3, today: to
         <div className="space-y-1">
           <CardTitle as="h3">Compliance calendar</CardTitle>
           <p className="text-sm text-muted">
-            Cure deadlines and dues dates, {format(start, 'MMM')} – {format(end, 'MMM yyyy')}
+            Cure deadlines and dues dates, {formatCalendarDay(grid.start, 'month')} – {formatCalendarDay(grid.end, 'monthYear')}
             {!failed && (counts.red > 0 || counts.yellow > 0)
               ? ` · ${counts.red} overdue ${counts.red === 1 ? 'day' : 'days'}, ${counts.yellow} due soon`
               : ''}
@@ -86,8 +66,8 @@ export function ComplianceHeatMap({ cells, failed = false, months = 3, today: to
           <FailedNote what="the compliance calendar" />
         ) : (
           <div className="grid gap-6 cq-md:grid-cols-3">
-            {monthGrids.map((m) => (
-              <MonthGrid key={m.label} label={m.label} days={m.days} today={today} />
+            {grid.months.map((m) => (
+              <MonthGrid key={m.key} month={m} />
             ))}
           </div>
         )}
@@ -96,16 +76,15 @@ export function ComplianceHeatMap({ cells, failed = false, months = 3, today: to
   )
 }
 
-function MonthGrid({ label, days, today }: { label: string; days: DayCell[]; today: Date }) {
-  // Pad the leading days so weekday-1 in our grid lines up with Sun..Sat.
-  const firstDow = days[0]?.date.getDay() ?? 0
-  const padded = Array.from({ length: firstDow })
-    .map(() => null as DayCell | null)
-    .concat(days)
+function MonthGrid({ month }: { month: HeatMapMonth }) {
+  // Pad the leading days so the 1st lines up under its weekday (Sun..Sat).
+  const padded = Array.from({ length: month.leadingBlanks })
+    .map(() => null as HeatMapDay | null)
+    .concat(month.days)
 
   return (
     <div>
-      <p className="mb-2 text-sm font-medium text-foreground">{label}</p>
+      <p className="mb-2 text-sm font-medium text-foreground">{month.label}</p>
       <div className="grid grid-cols-7 gap-1">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
           <div key={`hdr-${i}`} className="text-center text-2xs font-semibold uppercase text-muted" aria-hidden>
@@ -114,10 +93,10 @@ function MonthGrid({ label, days, today }: { label: string; days: DayCell[]; tod
         ))}
         {padded.map((cell, idx) => {
           if (!cell) return <div key={`pad-${idx}`} className="h-8" aria-hidden />
-          const isToday = isSameDay(cell.date, today)
+          const isToday = cell.isToday
           const meta = LEVEL_META[cell.level]
           const Icon = meta.icon
-          const dateLabel = format(cell.date, 'PP')
+          const dateLabel = formatCalendarDay(cell.day, 'medium')
           // Spoken and tooltip text carry the status in words: colour alone
           // is invisible to screen readers and to colour-blind users, and a
           // `title` never surfaces on touch devices.
@@ -127,7 +106,7 @@ function MonthGrid({ label, days, today }: { label: string; days: DayCell[]; tod
               : `${dateLabel}: ${meta.label} — ${cell.notes.join('; ')}`
           return (
             <div
-              key={cell.date.toISOString()}
+              key={cell.day}
               role="img"
               aria-label={isToday ? `Today, ${description}` : description}
               title={description}
@@ -137,7 +116,7 @@ function MonthGrid({ label, days, today }: { label: string; days: DayCell[]; tod
                 isToday && 'ring-2 ring-ring ring-offset-1 ring-offset-surface',
               )}
             >
-              {cell.date.getDate()}
+              {cell.dayOfMonth}
               {Icon ? (
                 <Icon className="absolute right-0.5 top-0.5 size-2.5" strokeWidth={3} aria-hidden />
               ) : null}

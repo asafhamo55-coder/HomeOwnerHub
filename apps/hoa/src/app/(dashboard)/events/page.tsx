@@ -16,9 +16,13 @@ import {
   daysUntilDate,
   formatDate,
   relativeDays,
-  todayIsoUtc,
   CHANNEL_LABEL,
 } from './event-dates'
+import { todayIn } from '@/lib/association-time'
+import { currentScopeZones } from '@/lib/association-time-current'
+
+/** An event's association day and zone (BL-065), the cron's rule. */
+type EventDay = (e: RecurringEvent) => { today: string; timeZone: string }
 
 export const metadata = { title: 'Events' }
 export const dynamic = 'force-dynamic'
@@ -43,10 +47,17 @@ export default async function EventsListPage() {
     )
   }
 
-  const today = todayIsoUtc()
-  const upcoming = events.filter((e) => e.event_date >= today)
+  // Each event reads its own association's day (an org-wide event, the
+  // primary association's), exactly as the recurring-events cron does.
+  const zoneOf = await currentScopeZones()
+  const now = new Date()
+  const dayOfEvent: EventDay = (e) => {
+    const timeZone = zoneOf(e.association_id)
+    return { today: todayIn(timeZone, now), timeZone }
+  }
+  const upcoming = events.filter((e) => e.event_date >= dayOfEvent(e).today)
   // Already ascending from the DB; past reads newest first.
-  const past = events.filter((e) => e.event_date < today).reverse()
+  const past = events.filter((e) => e.event_date < dayOfEvent(e).today).reverse()
 
   return (
     <Page
@@ -69,7 +80,7 @@ export default async function EventsListPage() {
             </h2>
             <DataTable
               caption="Upcoming events"
-              columns={columns(today)}
+              columns={columns(dayOfEvent)}
               rows={upcoming}
               rowKey={(e) => e.id}
               mobile="cards"
@@ -97,7 +108,7 @@ export default async function EventsListPage() {
               </h2>
               <DataTable
                 caption="Past events"
-                columns={columns(today).filter((c) => c.key !== 'alert')}
+                columns={columns(dayOfEvent).filter((c) => c.key !== 'alert')}
                 rows={past}
                 rowKey={(e) => e.id}
                 mobile="cards"
@@ -111,7 +122,7 @@ export default async function EventsListPage() {
   )
 }
 
-function columns(today: string): DataTableColumn<RecurringEvent>[] {
+function columns(dayOfEvent: EventDay): DataTableColumn<RecurringEvent>[] {
   return [
     {
       key: 'title',
@@ -137,7 +148,7 @@ function columns(today: string): DataTableColumn<RecurringEvent>[] {
       cell: (e) => (
         <div className="whitespace-nowrap">
           <span className="num text-foreground">{formatDate(e.event_date)}</span>
-          <span className="block text-xs text-muted">{relativeDays(daysUntilDate(e.event_date))}</span>
+          <span className="block text-xs text-muted">{relativeDays(daysUntilDate(e.event_date, dayOfEvent(e).today))}</span>
         </div>
       ),
     },
@@ -158,7 +169,7 @@ function columns(today: string): DataTableColumn<RecurringEvent>[] {
     {
       key: 'alert',
       header: 'Reminder',
-      cell: (e) => <AlertCell event={e} today={today} />,
+      cell: (e) => <AlertCell event={e} {...dayOfEvent(e)} />,
     },
     {
       key: 'notify',
@@ -177,8 +188,8 @@ function columns(today: string): DataTableColumn<RecurringEvent>[] {
   ]
 }
 
-function AlertCell({ event, today }: { event: RecurringEvent; today: string }) {
-  const s = alertState(event, today)
+function AlertCell({ event, today, timeZone }: { event: RecurringEvent; today: string; timeZone: string }) {
+  const s = alertState(event, today, timeZone)
   switch (s.kind) {
     case 'paused':
       return <StatusPill tone="neutral" label="Paused" />
@@ -190,7 +201,7 @@ function AlertCell({ event, today }: { event: RecurringEvent; today: string }) {
       return (
         <span className="num whitespace-nowrap text-foreground-secondary">
           {formatDate(s.on)}
-          <span className="block text-xs text-muted">{relativeDays(daysUntilDate(s.on))}</span>
+          <span className="block text-xs text-muted">{relativeDays(daysUntilDate(s.on, today))}</span>
         </span>
       )
     default:

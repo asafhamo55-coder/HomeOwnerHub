@@ -20,6 +20,7 @@ import {
 import { getAccountingContext, listBankAccounts } from '@/lib/accounting/queries'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
+import { todayIn } from '@/lib/association-time'
 import { formatDay, formatStamp, usd } from '@/lib/money/format'
 import { AccountingLoadFailed, accountingCrumbs } from '../../../_components/shared'
 import { ReconcileForm } from './ReconcileForm'
@@ -119,7 +120,7 @@ export default async function ReconcilePage({ params, searchParams }: PageProps)
           <CardDescription>We compute the ledger balance through the statement date and record both numbers.</CardDescription>
         </CardHeader>
         <CardContent>
-          <ReconcileForm bankAccountId={accountId} />
+          <ReconcileForm bankAccountId={accountId} today={todayIn(ctx.timeZone)} />
         </CardContent>
       </Card>
 

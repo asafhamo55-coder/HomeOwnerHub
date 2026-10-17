@@ -27,7 +27,10 @@ interface UpdateCall {
 
 const db = {
   rows: [] as Row[],
+  /** The `associations` rows the zone index reads (BL-065); none = Eastern. */
+  associations: [] as Row[],
   failSelect: null as null | DbErr,
+  failAssociations: null as null | DbErr,
   /** Runs before an update is applied; return an error to fail it, or mutate db.rows to race it. */
   beforeUpdate: null as null | ((call: { kind: UpdateKind; patch: Record<string, unknown> }) => DbErr | void),
   updates: [] as UpdateCall[],
@@ -43,7 +46,8 @@ function kindOf(patch: Record<string, unknown>, eqs: Record<string, unknown>): U
   return 'release'
 }
 
-function builder() {
+function builder(table: string) {
+  const source = () => (table === 'associations' ? db.associations : db.rows)
   const filters: Array<(r: Row) => boolean> = []
   const eqs: Record<string, unknown> = {}
   let mode: 'select' | 'update' = 'select'
@@ -66,6 +70,10 @@ function builder() {
       filters.push((r) => (r[col] ?? null) === val)
       return b
     },
+    in: (col: string, vals: unknown[]) => {
+      filters.push((r) => vals.includes(r[col]))
+      return b
+    },
     lte: (col: string, val: string) => {
       filters.push((r) => String(r[col]) <= val)
       return b
@@ -82,8 +90,9 @@ function builder() {
     then(resolve: (v: unknown) => void, reject: (e: unknown) => void) {
       try {
         if (mode === 'select') {
-          if (db.failSelect) return resolve({ data: null, error: db.failSelect })
-          let out = db.rows
+          const fail = table === 'associations' ? db.failAssociations : db.failSelect
+          if (fail) return resolve({ data: null, error: fail })
+          let out = source()
             .filter((r) => filters.every((f) => f(r)))
             .sort((a, c) => (a.id < c.id ? -1 : 1))
           if (range) out = out.slice(range[0], range[1] + 1)
@@ -110,7 +119,7 @@ function builder() {
 }
 
 vi.mock('@homeowner-portal/db', () => ({
-  createAdminClient: vi.fn(() => ({ from: vi.fn(() => builder()) })),
+  createAdminClient: vi.fn(() => ({ from: vi.fn((table: string) => builder(table)) })),
 }))
 
 const sendEventAlertEmail = vi.fn()
@@ -165,7 +174,9 @@ describe('GET /api/cron/recurring-events', () => {
     vi.useFakeTimers({ now: new Date(`${TODAY}T14:00:00Z`), toFake: ['Date'] })
     vi.stubEnv('CRON_SECRET', SECRET)
     db.rows = []
+    db.associations = []
     db.failSelect = null
+    db.failAssociations = null
     db.beforeUpdate = null
     db.updates = []
     sendEventAlertEmail.mockReset()
@@ -506,11 +517,12 @@ describe('GET /api/cron/recurring-events', () => {
     countFailedAlertAttempts.mockResolvedValue({ ok: true, count: 2 })
     await GET(req(BEARER))
     expect(sendEventAlertEmail).toHaveBeenCalledTimes(1)
-    // Counted from the day this occurrence's window opened (2026-10-20 − 7).
+    // Counted from midnight Eastern (no association rows: the default zone)
+    // of the day this occurrence's window opened (2026-10-20 − 7).
     expect(countFailedAlertAttempts).toHaveBeenCalledWith(expect.anything(), {
       eventId: 'evt-1',
       organizationId: 'org-1',
-      sinceIso: '2026-10-13',
+      sinceAt: '2026-10-13T04:00:00.000Z',
     })
   })
 
@@ -525,7 +537,7 @@ describe('GET /api/cron/recurring-events', () => {
     expect(body.errors).toEqual([{ eventId: 'evt-1', code: 'retry_cap_reached', count: 3 }])
     expect(notifyBoardAlertGaveUp).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ organizationId: 'org-1', attempts: 3, sinceIso: '2026-10-13' }),
+      expect.objectContaining({ organizationId: 'org-1', attempts: 3, sinceAt: '2026-10-13T04:00:00.000Z' }),
     )
     // Never shown as sent.
     expect(db.rows[0]!.last_alert_sent_for).toBeNull()
@@ -585,5 +597,78 @@ describe('GET /api/cron/recurring-events', () => {
     expect(sendEventAlertEmail).toHaveBeenCalledTimes(3)
     expect(failedRows).toBe(3)
     expect(notifyBoardAlertGaveUp).toHaveBeenCalledTimes(2) // idempotent per occurrence inside the helper
+  })
+
+  // ─── BL-065: the association's day, not the UTC day ─────────────────
+  // Instants are absolute; zones come from the fake associations rows.
+
+  describe('association day (BL-065)', () => {
+    const CA = { id: 'assoc-ca', organization_id: 'org-1', name: 'Bay View', state: 'CA' }
+    const FL = { id: 'assoc-fl', organization_id: 'org-1', name: 'Atlantic Shores', state: 'FL' }
+    // 01:00 EDT Oct 16 = 22:00 PDT Oct 15. The UTC day is Oct 16.
+    const LATE_PACIFIC = new Date('2026-10-16T05:00:00Z')
+
+    beforeEach(() => {
+      db.associations = [CA, FL]
+      vi.setSystemTime(LATE_PACIFIC)
+    })
+
+    it('a window that opens on Oct 16 waits for the California association day', async () => {
+      // Oct 23 − 7 days = Oct 16.
+      db.rows = [
+        event({ id: 'evt-ca', association_id: 'assoc-ca', event_date: '2026-10-23' }),
+        event({ id: 'evt-fl', association_id: 'assoc-fl', event_date: '2026-10-23' }),
+      ]
+      expect((await GET(req(BEARER))).status).toBe(200)
+      expect(sendEventAlertEmail.mock.calls.map((c) => (c[0] as { event: Row }).event.id)).toEqual(['evt-fl'])
+      expect(sendEventAlertEmail.mock.calls[0]![0]).toMatchObject({ today: '2026-10-16' })
+    })
+
+    it('an org-wide event reads the primary association (first by name)', async () => {
+      db.associations = [{ ...CA, name: 'Aardvark Hills' }, FL] // the CA one is now primary
+      db.rows = [event({ id: 'evt-org', association_id: null, event_date: '2026-10-23' })]
+      await GET(req(BEARER))
+      expect(sendEventAlertEmail).not.toHaveBeenCalled()
+    })
+
+    it('an annual occurrence is not rolled forward while it is still today in California', async () => {
+      db.rows = [
+        event({
+          association_id: 'assoc-ca',
+          event_date: '2026-10-15',
+          last_alert_sent_for: '2026-10-15',
+          last_alert_sent_at: '2026-10-08T15:00:00Z',
+        }),
+      ]
+      await GET(req(BEARER))
+      expect(updatesOf('roll')).toHaveLength(0)
+      expect(db.rows[0]!.event_date).toBe('2026-10-15')
+
+      // Next morning in California it has passed: it rolls to next year.
+      vi.setSystemTime(new Date('2026-10-16T15:00:00Z'))
+      await GET(req(BEARER))
+      expect(db.rows[0]!.event_date).toBe('2027-10-15')
+    })
+
+    it('the retry cap counts from midnight of the window day in the association zone', async () => {
+      vi.setSystemTime(new Date('2026-10-16T15:00:00Z')) // 08:00 PDT Oct 16
+      db.rows = [event({ association_id: 'assoc-ca', event_date: '2026-10-23' })]
+      await GET(req(BEARER))
+      expect(countFailedAlertAttempts).toHaveBeenCalledWith(expect.anything(), {
+        eventId: 'evt-1',
+        organizationId: 'org-1',
+        sinceAt: '2026-10-16T07:00:00.000Z', // 00:00 PDT
+      })
+    })
+
+    it('a failed zone read sends nothing and answers a generic 500', async () => {
+      db.rows = [event({ association_id: 'assoc-fl', event_date: '2026-10-23' })]
+      db.failAssociations = { code: '08006', message: 'connection failure near jane@example.test' }
+      const res = await GET(req(BEARER))
+      expect(res.status).toBe(500)
+      expect(sendEventAlertEmail).not.toHaveBeenCalled()
+      expect(updatesOf('claim')).toHaveLength(0)
+      expect(JSON.stringify(errSpy.mock.calls)).not.toContain('jane@example.test')
+    })
   })
 })

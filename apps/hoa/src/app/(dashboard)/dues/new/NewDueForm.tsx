@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Wallet } from 'lucide-react'
 import { Button, ChoiceGroup, Field, Fieldset, Input, Radio, Select, useToast } from '@homeowner-portal/ui'
 import { createDues } from '@/lib/assessments'
-import { todayIso, usd } from '@/lib/money/format'
+import { usd } from '@/lib/money/format'
 
 interface UnitOption {
   id: string
@@ -20,7 +20,14 @@ const FREQUENCIES = [
   { value: 'annual', label: 'Annually', description: 'One charge per property for the year.' },
 ] as const
 
-export function NewDueForm({ units }: { units: UnitOption[] }): React.ReactElement {
+export function NewDueForm({
+  units,
+  today,
+}: {
+  units: UnitOption[]
+  /** The association's today, 'YYYY-MM-DD', from the server (BL-065). */
+  today: string
+}): React.ReactElement {
   const router = useRouter()
   const toast = useToast()
   const [isPending, startTransition] = useTransition()
@@ -31,7 +38,7 @@ export function NewDueForm({ units }: { units: UnitOption[] }): React.ReactEleme
   const [frequency, setFrequency] = useState<'one_time' | 'monthly' | 'annual'>('one_time')
   const [assessmentType, setAssessmentType] = useState<'regular' | 'special'>('regular')
   const [amount, setAmount] = useState('')
-  const [firstDueDate, setFirstDueDate] = useState(todayIso())
+  const [firstDueDate, setFirstDueDate] = useState(today)
   const [memo, setMemo] = useState('')
 
   const amt = Number(amount.replace(/[$,\s]/g, ''))

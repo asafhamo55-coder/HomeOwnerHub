@@ -3,7 +3,6 @@
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, ListChecks, Plus, User2 } from 'lucide-react'
-import { isPast, isToday } from 'date-fns'
 import {
   Button,
   Card,
@@ -31,22 +30,17 @@ import {
   type ActionItemStatus,
   type MeetingActionItem,
 } from '@/lib/meeting-action-items'
+import { isActionItemOverdue } from './action-item-dates'
 
 interface ActionItemsSectionProps {
   meetingId: string
   items: MeetingActionItem[]
+  /** The association's today, 'YYYY-MM-DD', from the server (BL-065): what "overdue" is judged against. */
+  today: string
 }
 
-function isOverdue(item: MeetingActionItem): boolean {
-  return (
-    (item.status === 'open' || item.status === 'in_progress') &&
-    item.due_date != null &&
-    isPast(new Date(item.due_date + 'T23:59:59')) &&
-    !isToday(new Date(item.due_date + 'T00:00:00'))
-  )
-}
-
-export function ActionItemsSection({ meetingId, items }: ActionItemsSectionProps) {
+export function ActionItemsSection({ meetingId, items, today }: ActionItemsSectionProps) {
+  const isOverdue = (item: MeetingActionItem) => isActionItemOverdue(item, today)
   const router = useRouter()
   const toast = useToast()
   const [showForm, setShowForm] = useState(false)

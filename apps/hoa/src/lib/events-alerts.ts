@@ -16,6 +16,7 @@ import {
   type ResolvedRecipient,
 } from '@/lib/communications/audience'
 import type { NotifyChannel, RecurringEvent } from '@/lib/events'
+import { calendarDaysBetween } from '@/lib/association-time'
 
 // Fires a recurring-event alert to the event's configured audience on its
 // configured channels (email / SMS / portal — migration 0021). Called from:
@@ -36,6 +37,12 @@ import type { NotifyChannel, RecurringEvent } from '@/lib/events'
 export interface SendEventAlertInput {
   event: RecurringEvent
   organizationId: string
+  /**
+   * The event's association day, 'YYYY-MM-DD' (BL-065), that "is today" /
+   * "in N days" is counted from — the same day the cron judged the window
+   * on (association-zone-index.ts), never the UTC day.
+   */
+  today: string
 }
 
 export interface SendEventAlertResult {
@@ -48,7 +55,7 @@ type Admin = ReturnType<typeof createAdminClient>
 export async function sendEventAlertEmail(
   input: SendEventAlertInput,
 ): Promise<SendEventAlertResult> {
-  const { event, organizationId } = input
+  const { event, organizationId, today } = input
   const admin = createAdminClient()
 
   const channels: NotifyChannel[] =
@@ -118,7 +125,7 @@ export async function sendEventAlertEmail(
   }
 
   // 3. Build the message body.
-  const { subject, html, text } = buildEventMessage(event)
+  const { subject, html, text } = buildEventMessage(event, today)
 
   // 4. Deliver — through the communications tables when we have an
   //    association (enables portal + audit), else a direct send. Both go
@@ -494,7 +501,9 @@ export const ALERT_FAILED_NOTIFICATION_KIND = 'event_alert.failed'
  */
 export async function countFailedAlertAttempts(
   admin: Admin,
-  args: { eventId: string; organizationId: string; sinceIso: string },
+  /** `sinceAt`: the instant the occurrence's window opened — midnight of
+   *  its open day in the association's zone (BL-065), not UTC midnight. */
+  args: { eventId: string; organizationId: string; sinceAt: string },
 ): Promise<{ ok: true; count: number } | { ok: false; error: unknown }> {
   const { count, error } = await admin
     .from('communications')
@@ -503,7 +512,7 @@ export async function countFailedAlertAttempts(
     .eq('related_resource->>type', 'recurring_event')
     .eq('related_resource->>id', args.eventId)
     .eq('status', 'failed')
-    .gte('created_at', `${args.sinceIso}T00:00:00Z`)
+    .gte('created_at', args.sinceAt)
   if (error) return { ok: false, error }
   return { ok: true, count: count ?? 0 }
 }
@@ -511,7 +520,7 @@ export async function countFailedAlertAttempts(
 /**
  * Tell the board (bell notifications, every board member and admin) that
  * this occurrence's reminder was given up on. Once per occurrence: a member
- * already notified on or after `sinceIso` is skipped; one notified for an
+ * already notified on or after `sinceAt` is skipped; one notified for an
  * earlier occurrence has that row re-surfaced as unread, because the
  * (user_id, kind, entity_id) unique index allows one row per event. That
  * index is partial, so PostgREST cannot upsert against it — read first,
@@ -519,9 +528,9 @@ export async function countFailedAlertAttempts(
  */
 export async function notifyBoardAlertGaveUp(
   admin: Admin,
-  args: { event: RecurringEvent; organizationId: string; attempts: number; sinceIso: string },
+  args: { event: RecurringEvent; organizationId: string; attempts: number; sinceAt: string },
 ): Promise<{ ok: true; notified: number } | { ok: false; error: unknown }> {
-  const { event, organizationId, attempts, sinceIso } = args
+  const { event, organizationId, attempts, sinceAt } = args
 
   const { data: members, error: membersErr } = await admin
     .from('org_members')
@@ -546,7 +555,7 @@ export async function notifyBoardAlertGaveUp(
     .in('user_id', userIds)
   if (existingErr) return { ok: false, error: existingErr }
 
-  const sinceMs = Date.parse(`${sinceIso}T00:00:00Z`)
+  const sinceMs = Date.parse(sinceAt)
   const byUser = new Map(
     ((existing ?? []) as Array<{ id: string; user_id: string; created_at: string }>).map((r) => [r.user_id, r]),
   )
@@ -608,12 +617,12 @@ function buildSmsBody(
   return combined.slice(0, 279)
 }
 
-function buildEventMessage(event: RecurringEvent): {
+function buildEventMessage(event: RecurringEvent, today: string): {
   subject: string
   html: string
   text: string
 } {
-  const daysUntil = daysUntilDate(event.event_date)
+  const daysUntil = calendarDaysBetween(today, event.event_date)
   const subject =
     daysUntil <= 0
       ? `Reminder: ${event.title} is today`
@@ -660,20 +669,6 @@ function isSyntheticUnit(unitId: string | null): boolean {
 }
 
 // ─── Date helpers ────────────────────────────────────────────────────
-
-// Days until a date in YYYY-MM-DD form. Negative if past.
-// Computed in UTC to match the cron's UTC schedule.
-function daysUntilDate(yyyyMmDd: string): number {
-  const target = new Date(`${yyyyMmDd}T00:00:00Z`)
-  const today = new Date()
-  const todayUtc = Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate(),
-  )
-  const targetUtc = target.getTime()
-  return Math.round((targetUtc - todayUtc) / (24 * 60 * 60 * 1000))
-}
 
 function formatEventDate(yyyyMmDd: string): string {
   const d = new Date(`${yyyyMmDd}T00:00:00Z`)

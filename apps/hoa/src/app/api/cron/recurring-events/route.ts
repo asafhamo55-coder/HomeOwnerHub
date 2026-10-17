@@ -11,13 +11,26 @@ import { withRoute } from '@/lib/api/handler'
 import { ApiRouteError } from '@/lib/api/errors'
 import { requireBearerSecret } from '@/lib/api/secrets'
 import { logRouteFailure } from '@/lib/api/log'
+import { addCalendarDays, instantAtLocalTime, todayIn } from '@/lib/association-time'
+import { loadZoneIndex } from '@/lib/association-time-server'
+import { scopeTimeZone } from '@/lib/association-zone-index'
 
 // Daily cron — scans every org for recurring events whose alert window
 // has arrived, alerts the configured audience, and rolls annual
 // occurrences forward.
 //
 // Schedule (vercel.json): "0 14 * * *" — 14:00 UTC ≈ 9 AM US/Eastern,
-// safely after midnight in any timezone so date math is unambiguous.
+// after midnight in every US zone (Hawaii: 4 AM).
+//
+// The association's day (BL-065). "Today" is each event's association's
+// calendar day at the run's one instant — an org-wide event (no
+// association_id) reads the org's primary association, first by name —
+// resolved through lib/association-zone-index.ts, the same rule the events
+// pages use, so the page's "Sending today" and this run agree. The alert
+// window (step A), the roll-forward (step B) and the retry cap's day
+// boundary (midnight of the window's first day in that zone) all use that
+// one day. A failed zone read answers 500 before anything is sent: never
+// alert or roll on a guessed day.
 //
 // Auth (RC-7): Vercel injects `Authorization: Bearer ${CRON_SECRET}`.
 // Bearer only, timing-safe, fail closed (503 when unset). The old `?key=`
@@ -74,7 +87,8 @@ import { logRouteFailure } from '@/lib/api/log'
 // day forever, adding a failed communications row each time. Before
 // claiming, the run counts this occurrence's failed attempts: its
 // communications rows with status 'failed' created since the alert window
-// opened (countFailedAlertAttempts — existing columns, no migration). At
+// opened — midnight of its first day in the association's zone, BL-065
+// (countFailedAlertAttempts — existing columns, no migration). At
 // ALERT_RETRY_CAP the run stops: no claim, no send, no new row. It reports
 // `retry_cap_reached` in the summary and puts a bell notification in front
 // of every board member and admin (notifyBoardAlertGaveUp, once per
@@ -110,13 +124,13 @@ export const GET = withRoute('cron.recurring-events', async (request) => {
 
   const admin = createAdminClient()
   const now = new Date()
-  const todayIso = toIsoDate(now)
 
   // Pull active events whose event_date isn't more than 90 days out (the
-  // schema's max alert_days_before). We narrow further in JS so we can
-  // reason about per-row alert_days_before without a complex SQL expr.
+  // schema's max alert_days_before) on ANY association's calendar — bounded
+  // by the zone furthest ahead, so no association's window is cut off. We
+  // narrow further in JS per event, on its own association day.
   // Service-role bypass means we see every org's rows.
-  const ninetyDaysFromNowIso = isoPlusDays(todayIso, 90)
+  const ninetyDaysFromNowIso = addCalendarDays(todayIn(LATEST_TODAY_ZONE, now), 90)
   // Paged to the end (BL-053): a single read stops at PostgREST's 1000-row
   // cap, and events past it were never alerted. Every page is read before
   // any send, so a failed page sends nothing.
@@ -139,6 +153,17 @@ export const GET = withRoute('cron.recurring-events', async (request) => {
   }
 
   const events = (rows ?? []) as unknown as EventRow[]
+
+  // Every event's association zone, read once for all their orgs.
+  const zones = await loadZoneIndex(
+    admin,
+    events.map((e) => e.organization_id),
+  )
+  if (!zones.ok) {
+    logRouteFailure('cron.recurring-events.zones', zones.error)
+    throw new ApiRouteError('internal')
+  }
+  const zoneIndex = zones.index
 
   let processed = 0
   let alertsSent = 0
@@ -165,7 +190,7 @@ export const GET = withRoute('cron.recurring-events', async (request) => {
   // Annual roll-forward to the next occurrence on or after today.
   // Compare-and-swap on the old event_date: zero rows matched means another
   // run already moved it, which is fine.
-  const rollForward = async (event: EventRow) => {
+  const rollForward = async (event: EventRow, todayIso: string) => {
     const nextDate = nextOccurrenceOnOrAfter(event.event_date, todayIso)
     const { error: rollErr } = await update({
       event_date: nextDate,
@@ -179,9 +204,13 @@ export const GET = withRoute('cron.recurring-events', async (request) => {
 
   for (const event of events) {
     processed += 1
+    // This event's association day (BL-065): window, roll and cap share it.
+    const timeZone = scopeTimeZone(zoneIndex, event.organization_id, event.association_id)
+    const todayIso = todayIn(timeZone, now)
+    const windowOpensOn = addCalendarDays(event.event_date, -event.alert_days_before)
     const pastDate = event.event_date < todayIso
     const alerted = event.last_alert_sent_for === event.event_date
-    const windowOpen = isoPlusDays(event.event_date, -event.alert_days_before) <= todayIso
+    const windowOpen = windowOpensOn <= todayIso
 
     // ── A. Alert this occurrence ──────────────────────────────────────
     if (!alerted && windowOpen) {
@@ -192,11 +221,12 @@ export const GET = withRoute('cron.recurring-events', async (request) => {
       // Retry cap (BL-056): count this occurrence's failed attempts first. A
       // failed read is a persistence failure (500 after the sweep) and the
       // event sends nothing this run — never retry blind past the cap.
-      const sinceIso = isoPlusDays(event.event_date, -event.alert_days_before)
+      // Midnight of the window's first day on the association's clock.
+      const sinceAt = instantAtLocalTime(windowOpensOn, 0, timeZone).toISOString()
       const attempts = await countFailedAlertAttempts(admin, {
         eventId: event.id,
         organizationId: event.organization_id,
-        sinceIso,
+        sinceAt,
       })
       if (!attempts.ok) {
         writeFailed(event.id, 'attempts', attempts.error)
@@ -210,12 +240,12 @@ export const GET = withRoute('cron.recurring-events', async (request) => {
           event,
           organizationId: event.organization_id,
           attempts: attempts.count,
-          sinceIso,
+          sinceAt,
         })
         if (!notified.ok) writeFailed(event.id, 'notify', notified.error)
         // A passed annual occurrence rolls forward so next year's alert
         // still fires; anything else stays as it is.
-        if (event.recurrence === 'annual' && pastDate) await rollForward(event)
+        if (event.recurrence === 'annual' && pastDate) await rollForward(event, todayIso)
         continue
       }
 
@@ -232,7 +262,7 @@ export const GET = withRoute('cron.recurring-events', async (request) => {
 
       let delivered = 0
       try {
-        const result = await sendEventAlertEmail({ event, organizationId: event.organization_id })
+        const result = await sendEventAlertEmail({ event, organizationId: event.organization_id, today: todayIso })
         delivered = result.sent
         alertsSent += result.sent
         if (result.failed.length > 0) {
@@ -281,7 +311,7 @@ export const GET = withRoute('cron.recurring-events', async (request) => {
     // Reaching here with a passed date means the occurrence was alerted on
     // an earlier run, or step A just delivered it (a passed date always has
     // an open window, so an un-alerted one always goes through step A).
-    if (event.recurrence === 'annual' && pastDate) await rollForward(event)
+    if (event.recurrence === 'annual' && pastDate) await rollForward(event, todayIso)
   }
 
   if (writeFailures > 0) {
@@ -297,16 +327,14 @@ export const GET = withRoute('cron.recurring-events', async (request) => {
   return NextResponse.json({ processed, alertsSent, errors })
 })
 
-// Date helpers — strings only, UTC-anchored to dodge timezone drift.
+// Date helpers — calendar-date strings only (Y-M-D arithmetic on Date.UTC),
+// so the machine zone cannot move them.
+
+/** The zone furthest ahead of UTC (UTC+14): its today bounds every association's. */
+const LATEST_TODAY_ZONE = 'Pacific/Kiritimati'
 
 function toIsoDate(d: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
-}
-
-function isoPlusDays(yyyyMmDd: string, days: number): string {
-  const d = new Date(`${yyyyMmDd}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + days)
-  return toIsoDate(d)
 }
 
 // The first yearly anniversary of `yyyyMmDd` that falls on or after `todayIso`.

@@ -5,12 +5,19 @@ import { useState, useTransition } from 'react'
 import { Scale } from 'lucide-react'
 import { Alert, Button, Field, Input, useToast } from '@homeowner-portal/ui'
 import { reconcileBankAccount } from '@/lib/bank-reconciliation'
-import { todayIso, usd } from '@/lib/money/format'
+import { usd } from '@/lib/money/format'
 
-export function ReconcileForm({ bankAccountId }: { bankAccountId: string }) {
+export function ReconcileForm({
+  bankAccountId,
+  today,
+}: {
+  bankAccountId: string
+  /** The association's today, 'YYYY-MM-DD', from the server (BL-065). */
+  today: string
+}) {
   const router = useRouter()
   const toast = useToast()
-  const [statementDate, setStatementDate] = useState(todayIso())
+  const [statementDate, setStatementDate] = useState(today)
   const [statementBalance, setStatementBalance] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [difference, setDifference] = useState<number | null>(null)
@@ -45,7 +52,7 @@ export function ReconcileForm({ bankAccountId }: { bankAccountId: string }) {
     <form onSubmit={submit} noValidate className="space-y-5">
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Statement date" required hint="The closing date on the bank statement." error={errors.statementDate}>
-          <Input type="date" value={statementDate} max={todayIso()} onChange={(e) => setStatementDate(e.target.value)} disabled={pending} />
+          <Input type="date" value={statementDate} max={today} onChange={(e) => setStatementDate(e.target.value)} disabled={pending} />
         </Field>
         <Field label="Ending balance" required hint="As printed on the statement." error={errors.statementBalance}>
           <Input inputMode="decimal" prefix="$" placeholder="0.00" value={statementBalance} onChange={(e) => setStatementBalance(e.target.value)} disabled={pending} />

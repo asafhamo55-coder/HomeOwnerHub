@@ -42,6 +42,7 @@ import { listProperties } from '@/lib/properties/list'
 import { parsePropertyListParams } from '@/lib/properties/list-params'
 import { getLeaseCap, getOpenWaitingListEntries } from '@/lib/leases'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { DEFAULT_ASSOCIATION_TIME_ZONE, todayIn } from '@/lib/association-time'
 import { getCurrentUserRole } from '@/lib/auth'
 import {
   listThreadsForUnit,
@@ -437,6 +438,7 @@ export default async function PropertyDetailPage({
                   openCase={collections?.ok ? collections.openCase : null}
                   events={collections?.ok ? collections.events : []}
                   closedCases={collections?.ok ? collections.closed : []}
+                  today={todayIn(assoc?.timeZone ?? DEFAULT_ASSOCIATION_TIME_ZONE)}
                 />
               )
             ) : null}

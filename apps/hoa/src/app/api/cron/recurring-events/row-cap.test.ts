@@ -21,7 +21,10 @@ vi.mock('@/lib/events-alerts', () => ({
 const { GET } = await import('./route')
 
 const SECRET = 'test-cron-secret'
-const today = new Date().toISOString().slice(0, 10)
+// Pinned (BL-065): the cron judges each event on its association day, so a
+// wall-clock UTC "today" would be tomorrow for Eastern after 8pm.
+const today = '2026-10-15'
+const NOW = new Date('2026-10-15T16:00:00Z')
 const id = (p: string, i: number) => `${p}${String(i).padStart(5, '0')}`
 const events = Array.from({ length: 2345 }, (_, i) => ({
   id: id('ev', i),
@@ -43,10 +46,14 @@ const call = () => GET(new Request('http://localhost/api/cron/recurring-events',
 
 describe('recurring-events cron worklist', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ now: NOW, toFake: ['Date'] })
     vi.stubEnv('CRON_SECRET', SECRET)
     sendEventAlertEmail.mockClear()
   })
-  afterEach(() => vi.unstubAllEnvs())
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllEnvs()
+  })
 
   it('processes every due event, not the first 1000', async () => {
     const fake = cappedFakeDb({ hoa_recurring_events: events })

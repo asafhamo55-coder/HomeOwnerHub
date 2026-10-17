@@ -155,10 +155,10 @@ describe('getComplianceHeatMap', () => {
     const { db } = cappedFakeDb({ associations: assoc, assessments: [...paid, late], hoa_violations: [] })
     const r = await getComplianceHeatMap(ORG, db)
     expect(r.failed).toBe(false)
-    const lateCell = r.cells.find((c) => c.date.toISOString().slice(0, 10) === late.due_date)
+    const lateCell = r.cells.find((c) => c.day === late.due_date)
     // Only when the due date falls inside the rendered window (it does unless today is the 1st).
     if (late.due_date >= firstOfMonth) expect(lateCell?.level).toBe('red')
-    expect(r.cells.find((c) => c.date.toISOString().slice(0, 10) === firstOfMonth)?.notes.length).toBe(
+    expect(r.cells.find((c) => c.day === firstOfMonth)?.notes.length).toBe(
       late.due_date === firstOfMonth ? 1201 : 1200,
     )
   })

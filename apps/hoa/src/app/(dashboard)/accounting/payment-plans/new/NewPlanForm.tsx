@@ -5,20 +5,27 @@ import { useState, useTransition } from 'react'
 import { Plus } from 'lucide-react'
 import { Button, Field, Input, Select, useToast } from '@homeowner-portal/ui'
 import { createPaymentPlan } from '@/lib/payment-plans'
-import { todayIso, usd } from '@/lib/money/format'
+import { usd } from '@/lib/money/format'
 
 interface UnitOption {
   id: string
   label: string
 }
 
-export function NewPlanForm({ units }: { units: UnitOption[] }) {
+export function NewPlanForm({
+  units,
+  today,
+}: {
+  units: UnitOption[]
+  /** The association's today, 'YYYY-MM-DD', from the server (BL-065). */
+  today: string
+}) {
   const router = useRouter()
   const toast = useToast()
   const [unitId, setUnitId] = useState('')
   const [total, setTotal] = useState('')
   const [count, setCount] = useState('3')
-  const [startDate, setStartDate] = useState(todayIso())
+  const [startDate, setStartDate] = useState(today)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [pending, startTransition] = useTransition()
 

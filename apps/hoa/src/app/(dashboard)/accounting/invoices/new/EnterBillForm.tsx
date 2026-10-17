@@ -5,7 +5,7 @@ import { useState, useTransition } from 'react'
 import { Plus } from 'lucide-react'
 import { Button, Field, Input, Select, useToast } from '@homeowner-portal/ui'
 import { enterBill } from '@/lib/invoices'
-import { todayIso, usd } from '@/lib/money/format'
+import { usd } from '@/lib/money/format'
 
 interface Option {
   id: string
@@ -14,13 +14,22 @@ interface Option {
 
 type Errors = Partial<Record<'vendorId' | 'expenseAccountId' | 'invoiceNumber' | 'invoiceDate' | 'dueDate' | 'amount' | 'memo', string>>
 
-export function EnterBillForm({ vendors, expenseAccounts }: { vendors: Option[]; expenseAccounts: Option[] }) {
+export function EnterBillForm({
+  vendors,
+  expenseAccounts,
+  today,
+}: {
+  vendors: Option[]
+  expenseAccounts: Option[]
+  /** The association's today, 'YYYY-MM-DD', from the server (BL-065). */
+  today: string
+}) {
   const router = useRouter()
   const toast = useToast()
   const [vendorId, setVendorId] = useState(vendors.length === 1 ? vendors[0].id : '')
   const [expenseAccountId, setExpenseAccountId] = useState('')
   const [invoiceNumber, setInvoiceNumber] = useState('')
-  const [invoiceDate, setInvoiceDate] = useState(todayIso())
+  const [invoiceDate, setInvoiceDate] = useState(today)
   const [dueDate, setDueDate] = useState('')
   const [amount, setAmount] = useState('')
   const [memo, setMemo] = useState('')

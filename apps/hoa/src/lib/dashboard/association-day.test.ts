@@ -39,7 +39,7 @@ describe('getComplianceHeatMap', () => {
     const { db } = cappedFakeDb({ associations: FL, assessments: [charge('a1', '2026-10-01')], hoa_violations: [] })
     const r = await getComplianceHeatMap(ORG, db)
     expect(r.today).toBe('2026-10-01')
-    const cell = r.cells.find((c) => c.date.toISOString().slice(0, 10) === '2026-10-01')
+    const cell = r.cells.find((c) => c.day === '2026-10-01')
     expect(cell?.level).toBe('yellow')
   })
 
@@ -60,7 +60,7 @@ describe('getComplianceHeatMap', () => {
       ],
     })
     const r = await getComplianceHeatMap(ORG, db)
-    expect(r.cells.map((c) => [c.date.toISOString().slice(0, 10), c.level])).toEqual([['2026-10-01', 'yellow']])
+    expect(r.cells.map((c) => [c.day, c.level])).toEqual([['2026-10-01', 'yellow']])
   })
 })
 
