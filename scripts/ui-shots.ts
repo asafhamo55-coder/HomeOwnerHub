@@ -91,6 +91,8 @@ interface Shot {
   palette?: string
   /** Click the first element matching this selector before the shot (opens a dialog, BL-059). */
   click?: string
+  /** Selector that must appear after `click` (default: a dialog). */
+  clickWaitFor?: string
 }
 
 const WIDTHS = [375, 1440]
@@ -113,6 +115,12 @@ const SHOTS: Shot[] = [
   { name: 'gallery-menu', path: '/ui-gallery?overlay=menu', widths: [1440], themes: LIGHT },
   { name: 'gallery-toast', path: '/ui-gallery?overlay=toast', themes: LIGHT },
   { name: 'dashboard', path: '/', auth: true },
+  // BL-071: the version line in the mobile nav drawer, and its "What's new" target.
+  { name: 'dashboard-nav-drawer', path: '/', auth: true, viewport: true, click: 'button[aria-label="Open navigation"]', clickWaitFor: 'button[aria-label="Close navigation"]', widths: [375] },
+  { name: 'whats-new', path: '/whats-new', auth: true },
+  // /login itself always redirects under DEV_AUTOLOGIN; /forgot-password
+  // wears the same AuthShell (and its footer version line).
+  { name: 'login-shell', path: '/forgot-password' },
   { name: 'dashboard-copilot', path: '/', auth: true, copilot: true },
   // Top bar with the Copilot column open, across laptop widths: the bar's
   // available width is what drives its icon-only / labelled states.
@@ -587,6 +595,9 @@ async function main() {
       // Overflow mode: layout is theme-independent, so light only, and
       // always both reference widths regardless of the shot's own list.
       for (const width of overflowMode ? WIDTHS : (shot.widths ?? WIDTHS)) {
+        // A click shot's control may only exist at its own widths (the
+        // mobile nav button is md:hidden), so don't force it elsewhere.
+        if (overflowMode && shot.click && shot.widths && !shot.widths.includes(width)) continue
         for (const theme of overflowMode ? LIGHT : (shot.themes ?? THEMES)) {
           const ctx = await browser.newContext({
             viewport: { width, height: width < 768 ? 812 : 900 },
@@ -645,7 +656,7 @@ async function main() {
             }
             if (shot.click) {
               await page.locator(shot.click).first().click({ timeout: 30_000 })
-              await page.waitForSelector('[role="dialog"]', { timeout: 15_000 })
+              await page.waitForSelector(shot.clickWaitFor ?? '[role="dialog"]', { timeout: 15_000 })
               await page.waitForTimeout(400)
             }
             if (shot.scrollBottom) {

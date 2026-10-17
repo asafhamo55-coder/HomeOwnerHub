@@ -10,6 +10,8 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { isPlatformAdmin } from '@/lib/platform-admin'
 import { AdminSidebar } from '@/components/layout/AdminSidebar'
 import { AdminProviders } from '@/components/layout/AdminProviders'
+import { AppVersion } from '@/components/layout/AppVersion'
+import { appVersion } from '@/lib/app-version'
 
 // Platform-admin tree. Gated server-side by the platform_admins table
 // (migration 0019). Renders a distinct UI shell so it's visually
@@ -38,7 +40,8 @@ export default async function AdminLayout({
       </AppShellSidebar>
       <AppShellMain>
         <AppShellHeader>
-          <div className="ml-auto flex items-center gap-2 text-xs">
+          <div className="ml-auto flex items-center gap-3 text-xs">
+            <AppVersion version={appVersion()} href="/whats-new" className="hidden sm:inline" />
             <span className="rounded-full bg-destructive/10 px-2 py-0.5 font-mono uppercase tracking-wide text-destructive">
               Platform admin
             </span>
