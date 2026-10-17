@@ -819,3 +819,7 @@ These go beyond the design-system v2 pass:
     - a "What's new" page fed by docs/releases.
   - **Acceptance:** a new board member can find "how do I…" for each core task in 2 clicks or one question, and every answer cites an article. A CI check fails when a referenced screenshot or route no longer exists.
 
+
+- **BL-071 Version indicator in the app** (owner request, 2026-10-17; Now; small; no migration)
+  - Shows the running version as "v2026.10.17 · c56061f": the build date in ET plus the short SHA, the same source as /api/health.
+  - Where: the sidebar and mobile nav footer (linking to a "What's new" page built from docs/releases), the login page, the resident portal footer, and the platform-admin header.
