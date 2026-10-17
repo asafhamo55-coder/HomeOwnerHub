@@ -47,6 +47,12 @@ describe('middleware: /api/* without a session (R-03 / C-03)', () => {
     expect(res.headers.get('location')).toContain('/login')
   })
 
+  it('keeps the query string in the return path', async () => {
+    const res = await middleware(req('/properties?filter=attention&q=Oak'))
+    const location = new URL(res.headers.get('location')!)
+    expect(location.searchParams.get('redirect')).toBe('/properties?filter=attention&q=Oak')
+  })
+
   it('still redirects an expired page session to /login with the reason', async () => {
     h.user = { id: 'u' }
     h.sessionExpired = true

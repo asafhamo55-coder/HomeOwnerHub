@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { clearAuthCookies, updateSession } from '@/lib/supabase/middleware'
 import { apiError } from '@/lib/api/errors'
+import { returnToParam } from '@/lib/auth-redirect'
 
 // Routes a signed-out user is allowed to hit. The /onboarding page handles
 // its own "already onboarded? bounce home" check, so we don't gate on
@@ -60,7 +61,8 @@ export async function middleware(request: NextRequest) {
     const target = DEV_AUTOLOGIN ? '/auth/dev-login' : '/login'
     const expiredUrl = new URL(target, request.url)
     if (!DEV_AUTOLOGIN) expiredUrl.searchParams.set('reason', 'session-expired')
-    if (path !== '/') expiredUrl.searchParams.set('redirect', path)
+    const returnTo = returnToParam(path, request.nextUrl.search)
+    if (returnTo) expiredUrl.searchParams.set('redirect', returnTo)
     return clearAuthCookies(request, NextResponse.redirect(expiredUrl))
   }
 
@@ -68,7 +70,8 @@ export async function middleware(request: NextRequest) {
     if (isApi) return apiError('unauthenticated')
     const target = DEV_AUTOLOGIN ? '/auth/dev-login' : '/login'
     const loginUrl = new URL(target, request.url)
-    if (path !== '/') loginUrl.searchParams.set('redirect', path)
+    const returnTo = returnToParam(path, request.nextUrl.search)
+    if (returnTo) loginUrl.searchParams.set('redirect', returnTo)
     return NextResponse.redirect(loginUrl)
   }
 
