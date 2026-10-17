@@ -100,3 +100,13 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Not deployed:** the push of e92da24 to the production branch was refused by the permission classifier. Prod stays on 0439e1e until the owner allows the push.
 - **New items:** BL-055 to BL-057.
 - **Next:** deploy (needs the owner's OK), 0063 apply (Asaf), then the M1 batch (BL-020, BL-050, BL-052, and the Stripe 0064 fix).
+
+## 2026-10-16 (night) — cycle 6
+
+- **Built and merged into claude/quality-oracle** (all gates pass: typecheck 12/12, typecheck:integration, unit 3584/3584, build 4/4, integration 348/348 after reset):
+  - **BL-022, ⌘K record search:** the new board-only `/api/search` covers owners, units, violations, ARC, tickets, threads and vendors. It runs on the user's RLS client, and residents get 403.
+  - **BL-021, AI bill scan:** a bill upload becomes a "Bills to enter" approval, and approving enters it through `enterBill`. Workflow W36. Only a fake model has been tested.
+  - **BL-055, route conventions round 4:** ask-community (coded tool errors, a camelCase public shape, owner contact shown only to board), plaid/exchange (a write order that can be undone), and webhooks/resend (our own Message-ID, with the reply fetched through Resend's received-email API).
+- **Deploy:** blocked by the permission classifier. Prod is serving d060e08, which this loop did not push; the owner is asked to confirm where it came from.
+- **New items:** BL-058 to BL-062. BL-058 (stored bills readable by residents) joins the M1 storage policies.
+- **Next:** BL-051 board packet follow-ups, BL-043 association timezone, BL-056 invitation follow-ups. M1 waits on 0063.

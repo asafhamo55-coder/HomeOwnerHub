@@ -52,8 +52,8 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 | 18 | BL-018 | Mailbox reconnect skips a completed backfill | 1 | 0.8 | 0.5 | **1.60** | no | no | Next |
 | 19 | BL-019 | Statute-aware violation letters (W3 + W30) | 4 | 0.7 | 2 | **1.40** | no | no | **Done (c4)** |
 | 20 | BL-020 | Per-member email consent (CA §4040) | 3 | 0.7 | 1.5 | **1.40** | **yes (M1)** | no | Now |
-| 21 | BL-021 | AI bill scan → AP bill proposal | 4 | 0.8 | 2.5 | **1.28** | no | no | Next |
-| 22 | BL-022 | ⌘K searches records, not just pages | 3 | 0.8 | 2 | **1.20** | no | no | Next |
+| 21 | BL-021 | AI bill scan → AP bill proposal | 4 | 0.8 | 2.5 | **1.28** | no | no | **Done (c6)** |
+| 22 | BL-022 | ⌘K searches records, not just pages | 3 | 0.8 | 2 | **1.20** | no | no | **Done (c6)** |
 | 23 | BL-023 | Polls and surveys (non-binding) | 4 | 0.8 | 3 | **1.07** | **yes (M2)** | no | Next |
 | 24 | BL-024 | Resident ARC pre-check against guidelines (W1) | 3 | 0.7 | 2 | **1.05** | no | no | Next |
 | 25 | BL-025 | Bilingual (EN/ES) communications | 3 | 0.7 | 2 | **1.05** | no | no | Next |
@@ -644,7 +644,7 @@ These go beyond the design-system v2 pass:
 
 ## Added 2026-10-16 (cycle 5)
 
-- **BL-055 Route-conventions round 4.** Four rejected route fixes are still open: ai/ask-community (raw tool errors reach the model, and raw rows are returned), plaid/exchange (the write order can't be undone if a write fails), webhooks/resend (reply linking relies on Resend's API id, not the SMTP Message-ID), and webhooks/stripe (its 0064 can drop a paying org to the free plan when it switches subscriptions; this one needs a migration, so it joins batch M1). The routes-fix/*-r2 branches hold the earlier attempts.
+- **BL-055 Route-conventions round 4 — Done (c6) except webhooks/stripe (M1).** Four rejected route fixes are still open: ai/ask-community (raw tool errors reach the model, and raw rows are returned), plaid/exchange (the write order can't be undone if a write fails), webhooks/resend (reply linking relies on Resend's API id, not the SMTP Message-ID), and webhooks/stripe (its 0064 can drop a paying org to the free plan when it switches subscriptions; this one needs a migration, so it joins batch M1). The routes-fix/*-r2 branches hold the earlier attempts.
 - **BL-056 Invitation pages and server actions follow-ups (from round 3):**
   - The rfp-bid and vendor-onboard pages now show Next's error page when the database fails. They should show a branded "try again".
   - `inviteVendorsToRfp`, `revokeRfpInvitation` and `listInvitations` still return or log raw `.message`.
@@ -654,4 +654,21 @@ These go beyond the design-system v2 pass:
   - Add buttons to /violations/approval-queue using the new actions.
   - Give `approveVendor` its own role gate.
   - Make `getAnalyticsData` use count queries; it currently loads every unit and member row, up to the 200k cap.
+
+## Added 2026-10-16 (cycle 6)
+
+- **BL-058 Stored bills readable by residents (security, M1 with F-02):** uploaded bills sit in `hoa-documents` under `${orgId}/bills/`, which any org member can read by path. Vendor documents have the same problem. Move them to a board-only bucket or path policy as part of the M1 storage policies.
+- **BL-059 Bill scan follow-ups:**
+  - Let the board edit extracted fields before approving.
+  - Accept inbox attachments as a second way in.
+  - Run one real bill through the text and vision paths (not done yet; only a fake model has been tested).
+  - Find out why `/approvals?type=bill` showed the All view in the screenshot.
+- **BL-060 ⌘K follow-ups:**
+  - Violations on the same lot look identical, so add the date and status to each row.
+  - Add documents and meetings.
+  - Match on inbox participants.
+  - Measure p50 latency.
+  - Fix inbox links that use `/properties/${unitId}` when the page expects a property id (possible existing bug).
+- **BL-061 Confirm Resend keeps our Message-ID:** send one real communication and check that the reply's In-Reply-To carries `<hoh-cr.…>`. If Resend overwrites it, add `smtp_message_id` (migration). Inbound replies also need Resend receiving and an `email.received` webhook set up for the EMAIL_FROM domain (dashboard/DNS, owner).
+- **BL-062 Owner contact sent to the AI provider:** ask-community sends owner email and phone to Groq on a board lookup. Consider redacting them, or sending them only when the question asks for contact details.
 
