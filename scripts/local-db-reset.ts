@@ -10,6 +10,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { MIGRATION_MANIFEST, SCHEMA_SEEDS, STORAGE_BUCKETS } from '../tests/integration/schema/manifest'
+import { acquireSuiteLock } from '../tests/integration/setup/suite-lock'
 
 const REPO_ROOT = resolve(__dirname, '..')
 const LOCAL_DB = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
@@ -117,4 +118,20 @@ function main(): void {
   console.log('[local-db-reset] grants verified: service_role/authenticated/anon can read public')
 }
 
-main()
+// Take the same local-DB lock the integration suite holds: dropping the
+// public schema under a running suite fails it in confusing ways, and two
+// resets racing each other leave a half-replayed schema.
+async function run(): Promise<void> {
+  assertLoopback(LOCAL_DB)
+  const release = await acquireSuiteLock(LOCAL_DB, 'db-reset')
+  try {
+    main()
+  } finally {
+    await release()
+  }
+}
+
+run().catch((e) => {
+  console.error(e instanceof Error ? e.message : e)
+  process.exit(1)
+})

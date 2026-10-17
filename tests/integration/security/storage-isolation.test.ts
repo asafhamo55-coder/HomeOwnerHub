@@ -90,7 +90,7 @@ describe('storage tenant isolation', () => {
         '-c',
         `insert into storage.objects (bucket_id, name) values ('hoa-documents', 'not-a-uuid/rogue.txt');`,
       ],
-      { stdio: ['ignore', 'ignore', 'inherit'] },
+      { stdio: ['ignore', 'ignore', 'inherit'], timeout: 15_000 },
     )
 
     const list = await boardA.client.storage.from('hoa-documents').list(orgA.orgId)
@@ -190,7 +190,9 @@ function objectExists(bucket: string, name: string): boolean {
       '-tAc',
       `select count(*) from storage.objects where bucket_id = '${bucket}' and name = '${name}'`,
     ],
-    { stdio: ['ignore', 'pipe', 'inherit'] },
+    // Sync blocks the event loop, so bound it: a stuck psql must not
+    // outlive vitest's testTimeout (which cannot fire while we block).
+    { stdio: ['ignore', 'pipe', 'inherit'], timeout: 15_000 },
   )
   return out.toString().trim() === '1'
 }
