@@ -1,3 +1,5 @@
+import { propertyHref } from '@/lib/properties/href'
+import { asPropertyId } from '@/lib/properties/resolve'
 import Link from 'next/link'
 import { ArrowRight, Home } from 'lucide-react'
 import { Alert, StatusPill, cn } from '@homeowner-portal/ui'
@@ -72,7 +74,7 @@ export function PropertyRail({ thread, context, contextLoadFailed, suggestedProp
               no page, so its address is shown without a link. */}
           {context.propertyId ? (
             <Link
-              href={`/properties/${context.propertyId}`}
+              href={propertyHref(asPropertyId(context.propertyId))}
               className="group flex items-start gap-2 rounded-lg no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Home className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />

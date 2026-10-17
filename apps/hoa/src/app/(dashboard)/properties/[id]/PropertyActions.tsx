@@ -1,4 +1,6 @@
 'use client'
+import { propertyHref } from '@/lib/properties/href'
+import { asPropertyId } from '@/lib/properties/resolve'
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -12,7 +14,7 @@ export function PropertyActions({ propertyId, address }: { propertyId: string; a
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button asChild size="sm" variant="secondary">
-        <Link href={`/properties/${propertyId}/edit`}>
+        <Link href={propertyHref(asPropertyId(propertyId), { edit: true })}>
           <Pencil aria-hidden />
           Edit
         </Link>

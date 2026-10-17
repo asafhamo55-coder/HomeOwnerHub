@@ -9,6 +9,8 @@ import { getPrimaryAssociation } from '@/lib/vendors'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { readAllResult } from '@/lib/supabase/read-all'
 import { logPropertyEvent } from '@/lib/property-events'
+import { propertyHref } from '@/lib/properties/href'
+import { asPropertyId } from '@/lib/properties/resolve'
 
 // Lease management — cap policy + waiting list + current state.
 //
@@ -658,7 +660,7 @@ export async function addToWaitingList(
 
   revalidatePath('/leases')
   revalidatePath('/properties')
-  revalidatePath(`/properties/${parsed.data.property_id}`)
+  revalidatePath(propertyHref(asPropertyId(parsed.data.property_id)))
   return { ok: true, data: { entryId: data.id } }
 }
 
@@ -787,7 +789,7 @@ export async function approveWaitingListEntry(
 
   revalidatePath('/leases')
   revalidatePath('/properties')
-  revalidatePath(`/properties/${entry.property_id}`)
+  revalidatePath(propertyHref(asPropertyId(entry.property_id)))
   return { ok: true }
 }
 
@@ -855,7 +857,7 @@ export async function denyWaitingListEntry(
 
   revalidatePath('/leases')
   revalidatePath('/properties')
-  revalidatePath(`/properties/${entry.property_id}`)
+  revalidatePath(propertyHref(asPropertyId(entry.property_id)))
   return { ok: true }
 }
 
@@ -924,6 +926,6 @@ export async function withdrawWaitingListEntry(
 
   revalidatePath('/leases')
   revalidatePath('/properties')
-  revalidatePath(`/properties/${entry.property_id}`)
+  revalidatePath(propertyHref(asPropertyId(entry.property_id)))
   return { ok: true }
 }

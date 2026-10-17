@@ -1,4 +1,6 @@
 'use client'
+import { propertyHref } from '@/lib/properties/href'
+import { asPropertyId } from '@/lib/properties/resolve'
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -84,7 +86,7 @@ export function MemberRow({
           <p className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-muted">
             <Home className="size-3" aria-hidden />
             <Link
-              href={`/properties/${member.linkedProperty.propertyId}`}
+              href={propertyHref(asPropertyId(member.linkedProperty.propertyId))}
               className="font-medium text-foreground hover:text-primary hover:underline"
             >
               {member.linkedProperty.address}

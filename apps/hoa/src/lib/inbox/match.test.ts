@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { applyMatch, applyVendorMatch, decideMatch, extractAddressCandidates } from './match'
 import type { MatchOutcome, MatchSignals } from './match'
-import type { PropertyMatch } from '../properties/resolve'
+import { asPropertyId, asUnitId, type PropertyMatch } from '../properties/resolve'
 
 function emptySignals(over: Partial<MatchSignals> = {}): MatchSignals {
   return {
@@ -18,8 +18,8 @@ function emptySignals(over: Partial<MatchSignals> = {}): MatchSignals {
 function propertyMatch(unitId: string, residentId: string | null): PropertyMatch {
   return {
     ref: {
-      unitId,
-      legacyPropertyId: `legacy-${unitId}`,
+      unitId: asUnitId(unitId),
+      legacyPropertyId: asPropertyId(`legacy-${unitId}`),
       associationId: 'assoc-1',
       address: `${unitId} Oak Ln`,
       unitNumber: null,
