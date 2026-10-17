@@ -26,6 +26,11 @@
  *   --only=<substr>        only shots whose name contains substr
  *                          (comma-separated list allowed)
  *   --gallery-only         skip app routes
+ *   --guide                user-guide screenshots (scripts/guide-shots.ts):
+ *                          light theme, 375 + 1440, frozen clock, highlight /
+ *                          clip / mask, written as webp to
+ *                          apps/hoa/public/guide/shots/ with manifest.json
+ *                          (BL-070, docs/specs/2026-10-17-user-guide.md §5.2)
  *   --overflow             `pnpm ui:overflow`: no screenshots — load every
  *                          selected route at 375 and 1440 (light) and FAIL
  *                          (exit 1) when the page scrolls horizontally
@@ -40,12 +45,15 @@
  *
  * Logs ids and counts only — never names, emails or addresses.
  */
-import { spawn, type ChildProcess } from 'node:child_process'
-import { mkdirSync } from 'node:fs'
+import { execSync, spawn, type ChildProcess } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { chromium, webkit, type Browser } from 'playwright'
+import { chromium, webkit, type Browser, type Page } from 'playwright'
+import sharp from 'sharp'
 import { seedExtras } from './ui-shots-seed'
+import { GUIDE_SHOTS, guideShotWidths, type GuideShot } from './guide-shots'
+import { routeSourceHash } from './guide/fs'
 
 const ROOT = resolve(__dirname, '..')
 const OUT = resolve(ROOT, '.ui-shots')
@@ -62,7 +70,7 @@ const SHOTS_EMAIL = 'ui-shots-admin@example.test' // reserved TLD; never routes
 type App = 'hoa' | 'pm' | 'eviction' | 'marketing'
 const APP_PORT: Record<App, number> = { hoa: PORT, pm: PORT + 1, eviction: PORT + 2, marketing: PORT + 3 }
 
-interface Shot {
+export interface Shot {
   name: string
   /** Route. `:var` segments are filled from the seed's vars; the shot is
    *  skipped when a var is missing. */
@@ -487,6 +495,120 @@ function probeOverflow(): OverflowReport {
   return { scrollWidth: doc.scrollWidth, clientWidth: vw, offscreen: uniq(offscreen), spills: uniq(spills) }
 }
 
+const GUIDE_OUT = resolve(ROOT, 'apps', 'hoa', 'public', 'guide', 'shots')
+const GUIDE_MANIFEST = resolve(GUIDE_OUT, 'manifest.json')
+const GUIDE_CLOCK = new Date('2026-10-01T15:00:00')
+const GUIDE_DESKTOP_MAX = 900
+const GUIDE_PAD = 12
+
+interface GuideManifestEntry {
+  widths: number[]
+  route: string
+  sha: string
+  sourceHash: string | null
+  capturedAt: string
+}
+
+/**
+ * Guide capture: highlight one control (brand outline over a dimmed page,
+ * drawn by an overlay so no stacking context can hide it), crop to an
+ * element, mask volatile text, and write a webp. The page has already
+ * loaded with a frozen clock.
+ */
+async function captureGuideShot(page: Page, shot: GuideShot, width: number): Promise<void> {
+  await page.evaluate(() => document.fonts.ready.then(() => undefined))
+  if (shot.click) {
+    await page.locator(shot.click).first().click({ timeout: 30_000 })
+    await page.waitForSelector('[role="dialog"], [role="alertdialog"]', { timeout: 15_000 })
+    await page.waitForTimeout(400)
+  } else {
+    // Whole document in one viewport, so clip boxes are in viewport coordinates.
+    const h = await page.evaluate(() => document.documentElement.scrollHeight)
+    const vh = width < 768 ? 812 : 900
+    if (h > vh) {
+      await page.setViewportSize({ width, height: Math.min(h, 12_000) })
+      await page.waitForTimeout(250)
+    }
+  }
+  if (shot.highlight) {
+    const target = page.locator(shot.highlight).first()
+    await target.waitFor({ state: 'visible', timeout: 15_000 })
+    const box = await target.boundingBox()
+    if (!box) throw new Error(`highlight target has no box: ${shot.highlight}`)
+    await page.evaluate(
+      ([x, y, w, h]) => {
+        const o = document.createElement('div')
+        o.setAttribute('data-guide-highlight', '')
+        o.setAttribute('aria-hidden', 'true')
+        Object.assign(o.style, {
+          position: 'absolute',
+          left: `${x + window.scrollX - 4}px`,
+          top: `${y + window.scrollY - 4}px`,
+          width: `${w + 8}px`,
+          height: `${h + 8}px`,
+          borderRadius: '10px',
+          outline: '3px solid hsl(var(--primary))',
+          boxShadow: '0 0 0 9999px rgb(15 23 42 / 0.28)',
+          pointerEvents: 'none',
+          zIndex: '2147483647',
+        })
+        document.body.appendChild(o)
+      },
+      [box.x, box.y, box.width, box.height] as const,
+    )
+  }
+  let clip: { x: number; y: number; width: number; height: number } | undefined
+  if (shot.clip) {
+    const box = await page.locator(shot.clip).first().boundingBox()
+    if (!box) throw new Error(`clip target has no box: ${shot.clip}`)
+    const vp = page.viewportSize()!
+    const x = Math.max(0, box.x - GUIDE_PAD)
+    const y = Math.max(0, box.y - GUIDE_PAD)
+    clip = {
+      x,
+      y,
+      width: Math.min(vp.width - x, box.width + GUIDE_PAD * 2),
+      height: Math.min(vp.height - y, box.height + GUIDE_PAD * 2),
+    }
+  }
+  const png = await page.screenshot({
+    clip,
+    fullPage: false,
+    mask: (shot.mask ?? []).map((m) => page.locator(m)),
+    maskColor: '#e2e8f0',
+    animations: 'disabled',
+  })
+  mkdirSync(GUIDE_OUT, { recursive: true })
+  let img = sharp(png)
+  if (width >= 768) img = img.resize({ width: GUIDE_DESKTOP_MAX, withoutEnlargement: true })
+  await img.webp({ quality: 80 }).toFile(resolve(GUIDE_OUT, `${shot.name}--${width}.webp`))
+}
+
+function writeGuideManifest(done: GuideShot[]): void {
+  if (done.length === 0) return
+  const manifest: Record<string, GuideManifestEntry> = existsSync(GUIDE_MANIFEST)
+    ? (JSON.parse(readFileSync(GUIDE_MANIFEST, 'utf8')) as Record<string, GuideManifestEntry>)
+    : {}
+  let sha = 'unknown'
+  try {
+    sha = execSync('git rev-parse --short HEAD', { cwd: ROOT }).toString().trim()
+  } catch {
+    // not a git checkout
+  }
+  const today = new Date().toISOString().slice(0, 10)
+  for (const s of done) {
+    manifest[s.name] = {
+      widths: guideShotWidths(s),
+      route: s.route,
+      sha,
+      sourceHash: routeSourceHash(resolve(ROOT, 'apps', 'hoa', 'src', 'app'), s.route),
+      capturedAt: today,
+    }
+  }
+  const sorted = Object.fromEntries(Object.entries(manifest).sort(([a], [b]) => a.localeCompare(b)))
+  writeFileSync(GUIDE_MANIFEST, `${JSON.stringify(sorted, null, 2)}\n`)
+}
+
 function fillPath(path: string, vars: Record<string, string>): string | null {
   let missing = false
   const out = path.replace(/:([A-Za-z]\w*)/g, (_, k: string) => {
@@ -503,6 +625,7 @@ async function main() {
   const only = onlyArg ? onlyArg.split(',').filter(Boolean) : null
   const galleryOnly = args.includes('--gallery-only')
   const overflowMode = args.includes('--overflow')
+  const guideMode = args.includes('--guide')
   mkdirSync(OUT, { recursive: true })
 
   // `--serve=hoa,pm` just runs those dev servers (seeded, same env) until
@@ -523,7 +646,8 @@ async function main() {
     await new Promise(() => {})
   }
 
-  const selected = SHOTS.filter(
+  const pool: Shot[] = guideMode ? GUIDE_SHOTS : SHOTS
+  const selected = pool.filter(
     (s) => (!only || only.some((o) => s.name.includes(o))) && (!galleryOnly || s.name.startsWith('gallery')),
   )
   const needsSeed = selected.some((s) => s.auth)
@@ -566,6 +690,7 @@ async function main() {
   let failed = 0
   let skipped = 0
   const overflowFailures: string[] = []
+  const guideDone = new Map<string, number>()
   try {
     await Promise.all(
       [...apps, ...(external ? (['hoa'] as App[]) : [])].map((a) =>
@@ -586,8 +711,9 @@ async function main() {
       }
       // Overflow mode: layout is theme-independent, so light only, and
       // always both reference widths regardless of the shot's own list.
-      for (const width of overflowMode ? WIDTHS : (shot.widths ?? WIDTHS)) {
-        for (const theme of overflowMode ? LIGHT : (shot.themes ?? THEMES)) {
+      const widths = guideMode ? guideShotWidths(shot as GuideShot) : overflowMode ? WIDTHS : (shot.widths ?? WIDTHS)
+      for (const width of widths) {
+        for (const theme of overflowMode || guideMode ? LIGHT : (shot.themes ?? THEMES)) {
           const ctx = await browser.newContext({
             viewport: { width, height: width < 768 ? 812 : 900 },
             deviceScaleFactor: width < 768 ? 2 : 1,
@@ -616,6 +742,8 @@ async function main() {
             await ctx.addCookies([{ name: 'hoa_active_org_id', value: orgId, url: bases.hoa }])
           }
           const page = await ctx.newPage()
+          // Guide shots: a frozen clock so client-rendered dates never drift.
+          if (guideMode) await page.clock.setFixedTime(GUIDE_CLOCK)
           const file = resolve(OUT, `${shot.name}--${width}-${theme}.png`)
           try {
             if (shot.auth && app !== 'hoa') {
@@ -627,6 +755,14 @@ async function main() {
             await page.goto(`${bases[app]}${path}`, { waitUntil: 'networkidle', timeout: 120_000 })
             // Hide Next's dev-mode indicator; it is not part of the product.
             await page.addStyleTag({ content: 'nextjs-portal{display:none!important}' })
+            if (guideMode) {
+              await page.waitForTimeout(300)
+              await captureGuideShot(page, shot as GuideShot, width)
+              guideDone.set(shot.name, (guideDone.get(shot.name) ?? 0) + 1)
+              written++
+              console.log(`guide shot: ${shot.name} ${width}`)
+              continue
+            }
             if (shot.palette) {
               await page.keyboard.press('Control+k')
               await page.waitForSelector('[cmdk-input]', { timeout: 15_000 })
@@ -696,6 +832,10 @@ async function main() {
   } finally {
     await browser?.close()
     stop()
+  }
+  if (guideMode) {
+    // Only shots captured at every width enter the manifest.
+    writeGuideManifest(GUIDE_SHOTS.filter((s) => guideDone.get(s.name) === guideShotWidths(s).length))
   }
   if (overflowMode) {
     console.log(

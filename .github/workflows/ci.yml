@@ -56,6 +56,19 @@ jobs:
       - name: Typecheck release-notes scripts
         run: pnpm typecheck:scripts
 
+      # BL-070 user guide. The compiled guide is committed like a lockfile:
+      # regenerate it and fail on any difference, so a markdown edit can't
+      # ship without its compiled module (or the reverse).
+      - name: Guide is up to date
+        run: |
+          pnpm guide:build
+          git diff --exit-code -- apps/hoa/src/generated/guide.ts
+
+      # Fails when an article points at a screenshot, route, [[button
+      # label]] or article that no longer exists (docs/specs/2026-10-17-user-guide.md §5.3).
+      - name: Guide check
+        run: pnpm guide:check
+
       - name: Build
         run: pnpm turbo run build
         env:
