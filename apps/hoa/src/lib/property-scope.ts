@@ -23,6 +23,8 @@ export interface PropertyScope {
   /** Null when the home could not be read (failed read, or not in this org). */
   address: string | null
   unitNumber: string | null
+  /** The home's org, for resolver lookups. Null when it could not be read. */
+  orgId: string | null
 }
 
 /**
@@ -38,10 +40,10 @@ export async function loadPropertyScope(
   if (!id) return null
   const { data } = await supabase
     .from('hoa_properties')
-    .select('address, unit_number')
+    .select('address, unit_number, organization_id')
     .eq('id', id)
     .is('deleted_at', null)
     .maybeSingle()
-  const row = data as { address: string; unit_number: string | null } | null
-  return { id, address: row?.address ?? null, unitNumber: row?.unit_number ?? null }
+  const row = data as { address: string; unit_number: string | null; organization_id: string } | null
+  return { id, address: row?.address ?? null, unitNumber: row?.unit_number ?? null, orgId: row?.organization_id ?? null }
 }

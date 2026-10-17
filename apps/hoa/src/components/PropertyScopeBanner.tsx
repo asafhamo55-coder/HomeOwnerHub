@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import { propertyHref } from '@/lib/properties/href'
+import { asPropertyId } from '@/lib/properties/resolve'
 import { Building2, X } from 'lucide-react'
 import type { PropertyScope } from '@/lib/property-scope'
 
@@ -34,8 +36,7 @@ export function PropertyScopeBanner({
       <p className="min-w-0 flex-1 text-foreground">
         Showing {noun} for{' '}
         {scope.address ? (
-          // P0: propertyHref
-          <Link href={`/properties/${scope.id}`} className="font-semibold text-foreground hover:text-primary hover:underline">
+          <Link href={propertyHref(asPropertyId(scope.id))} className="font-semibold text-foreground hover:text-primary hover:underline">
             {label}
           </Link>
         ) : (

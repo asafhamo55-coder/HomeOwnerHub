@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import { propertyHref } from '@/lib/properties/href'
+import { asPropertyId } from '@/lib/properties/resolve'
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
 import { CalendarClock, CheckCircle2, Clock, FileCheck2, Flag, Gavel, Mail, XCircle } from 'lucide-react'
@@ -158,8 +160,7 @@ export default async function ViolationDetailPage({
       description={
         <>
           {v.property && v.property_id ? (
-            // P0: propertyHref
-            <Link href={`/properties/${v.property_id}`} className="text-foreground-secondary hover:text-primary hover:underline">
+            <Link href={propertyHref(asPropertyId(v.property_id))} className="text-foreground-secondary hover:text-primary hover:underline">
               {address}
               {v.property.unit_number ? ` · ${v.property.unit_number}` : ''}
             </Link>
@@ -193,7 +194,7 @@ export default async function ViolationDetailPage({
                   label="Property"
                   value={
                     v.property && v.property_id ? (
-                      <Link href={`/properties/${v.property_id}`} className="text-primary hover:underline">
+                      <Link href={propertyHref(asPropertyId(v.property_id))} className="text-primary hover:underline">
                         {address}
                         {v.property.unit_number ? ` · ${v.property.unit_number}` : ''}
                       </Link>

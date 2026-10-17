@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import { propertyHref } from '@/lib/properties/href'
+import { asPropertyId } from '@/lib/properties/resolve'
 import { AlertTriangle, Download, Plus, Search } from 'lucide-react'
 import { format } from 'date-fns'
 import {
@@ -161,8 +163,7 @@ export default async function ViolationsListPage({
           </Link>
           <p className="mt-0.5 truncate text-xs text-muted">
             {v.property && v.property_id ? (
-              // P0: propertyHref
-              <Link href={`/properties/${v.property_id}`} className="text-muted hover:text-primary hover:underline">
+              <Link href={propertyHref(asPropertyId(v.property_id))} className="text-muted hover:text-primary hover:underline">
                 {v.property.address}
                 {v.property.unit_number ? ` · ${v.property.unit_number}` : ''}
               </Link>

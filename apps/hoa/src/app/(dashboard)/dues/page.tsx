@@ -29,6 +29,8 @@ import { MarkPaidButton } from './MarkPaidButton'
 import { MaterializeButton } from './MaterializeButton'
 import { DeleteAssessmentButton } from './DeleteAssessmentButton'
 import { WhoOwesPanel } from './WhoOwesPanel'
+import { asPropertyId, asUnitId, resolveUnitForProperty } from '@/lib/properties/resolve'
+import { propertyHref } from '@/lib/properties/href'
 import { loadPropertyScope } from '@/lib/property-scope'
 import { PropertyScopeBanner } from '@/components/PropertyScopeBanner'
 
@@ -53,7 +55,6 @@ interface AssessmentRow {
     unit_number: string | null
     address_line1: string | null
     /** The hoa_properties row this unit is bridged to, for the address link. */
-    legacy_hoa_property_id: string | null
   } | null
   payments: { amount: number }[]
 }
@@ -101,13 +102,16 @@ export default async function DuesPage({
   // the property. A failed unit lookup fails the list — it must never
   // silently widen to the whole association.
   const scope = await loadPropertyScope(supabase as unknown as SupabaseClient, sp.property)
-  const scopeUnits = scope
-    ? await loadOrFail(
-        'property units',
-        supabase.from('units').select('id').eq('legacy_hoa_property_id', scope.id),
-      )
+  // Every unit bridged to the home (duplicates included), via the one resolver.
+  const scopeUnits: { ok: boolean } | null = scope
+    ? scope.orgId
+      ? await resolveUnitForProperty(supabase as unknown as SupabaseClient, scope.orgId, asPropertyId(scope.id)).then(
+          (r) => ({ ok: true as const, ids: r.unitIds as string[] }),
+          () => ({ ok: false as const, ids: [] as string[] }),
+        )
+      : { ok: true as const, ids: [] as string[] }
     : null
-  const scopeUnitIds = scopeUnits?.ok ? ((scopeUnits.data ?? []) as { id: string }[]).map((u) => u.id) : []
+  const scopeUnitIds = scopeUnits && 'ids' in scopeUnits ? (scopeUnits as { ids: string[] }).ids : []
   const pageHref = (p: number) => {
     const q = new URLSearchParams()
     if (p > 1) q.set('page', String(p))
@@ -119,7 +123,7 @@ export default async function DuesPage({
   let listQuery = supabase
     .from('assessments')
     .select(
-      'id, amount, due_date, status, assessment_type, fiscal_period:fiscal_period_id(id, start_date, end_date), unit:unit_id(id, unit_number, address_line1, legacy_hoa_property_id), payments(amount)',
+      'id, amount, due_date, status, assessment_type, fiscal_period:fiscal_period_id(id, start_date, end_date), unit:unit_id(id, unit_number, address_line1), payments(amount)',
       { count: 'exact' },
     )
     .eq('association_id', assoc.id)
@@ -292,10 +296,10 @@ function MonthTable({ month, rows, today, partial }: { month: string; rows: Asse
       mobilePrimary: true,
       cell: (r) => (
         <span className="block">
-          {r.unit?.legacy_hoa_property_id ? (
-            // P0: propertyHref
+          {r.unit?.id ? (
+            // A unit id: /properties/[id] redirects it to the home's page.
             <Link
-              href={`/properties/${r.unit.legacy_hoa_property_id}`}
+              href={propertyHref(asUnitId(r.unit.id))}
               className="block font-medium text-foreground no-underline hover:text-primary hover:underline"
             >
               {r.unit.address_line1 ?? 'Unknown property'}
