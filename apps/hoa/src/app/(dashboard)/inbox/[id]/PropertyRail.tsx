@@ -67,17 +67,30 @@ export function PropertyRail({ thread, context, contextLoadFailed, suggestedProp
       <div className="space-y-4 p-4">
         <div className="space-y-2">
           <RailLabel>Property</RailLabel>
-          <Link
-            href={`/properties/${thread.unitId}`}
-            className="group flex items-start gap-2 rounded-lg no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Home className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />
-            <span className="min-w-0 flex-1 text-sm font-semibold text-foreground group-hover:text-primary">
-              {context.address}
-              {context.unitNumber ? ` #${context.unitNumber}` : ''}
-            </span>
-            <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted group-hover:text-primary" aria-hidden />
-          </Link>
+          {/* /properties/[id] takes the hoa_properties id, not the thread's
+              unit id (which 404s there). A unit with no property record has
+              no page, so its address is shown without a link. */}
+          {context.propertyId ? (
+            <Link
+              href={`/properties/${context.propertyId}`}
+              className="group flex items-start gap-2 rounded-lg no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Home className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />
+              <span className="min-w-0 flex-1 text-sm font-semibold text-foreground group-hover:text-primary">
+                {context.address}
+                {context.unitNumber ? ` #${context.unitNumber}` : ''}
+              </span>
+              <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted group-hover:text-primary" aria-hidden />
+            </Link>
+          ) : (
+            <div className="flex items-start gap-2">
+              <Home className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />
+              <span className="min-w-0 flex-1 text-sm font-semibold text-foreground">
+                {context.address}
+                {context.unitNumber ? ` #${context.unitNumber}` : ''}
+              </span>
+            </div>
+          )}
           <p className="text-xs text-muted">
             Matched via {String(thread.matchReason?.rule ?? 'unknown')}
             {thread.matchSource === 'manual' ? ' (manual)' : ''}

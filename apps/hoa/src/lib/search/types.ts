@@ -1,13 +1,29 @@
 // Shared by the server search (records.ts) and the palette client
 // (client.ts). Plain module: no server or React imports.
 
-export type RecordType = 'owner' | 'property' | 'violation' | 'arc' | 'ticket' | 'thread' | 'vendor'
+export type RecordType =
+  | 'owner'
+  | 'property'
+  | 'violation'
+  | 'arc'
+  | 'ticket'
+  | 'thread'
+  | 'meeting'
+  | 'document'
+  | 'vendor'
 
 export interface RecordHit {
   id: string
   type: RecordType
   label: string
+  /** Muted text after the label: where the record lives (address, document kind). */
   hint: string | null
+  /**
+   * What tells this row apart from its neighbours — status and day
+   * ("Open · Oct 3"). The palette keeps it visible when the label and hint
+   * truncate, so three violations on one lot never read as one row (BL-060).
+   */
+  detail: string | null
   href: string
 }
 
@@ -24,7 +40,17 @@ export interface RecordSearchResult {
 }
 
 /** Display order of the groups, and their headings. */
-export const RECORD_TYPES: readonly RecordType[] = ['owner', 'property', 'violation', 'arc', 'ticket', 'thread', 'vendor']
+export const RECORD_TYPES: readonly RecordType[] = [
+  'owner',
+  'property',
+  'violation',
+  'arc',
+  'ticket',
+  'thread',
+  'meeting',
+  'document',
+  'vendor',
+]
 
 export const RECORD_GROUP_LABEL: Record<RecordType, string> = {
   owner: 'Owners',
@@ -33,5 +59,7 @@ export const RECORD_GROUP_LABEL: Record<RecordType, string> = {
   arc: 'ARC requests',
   ticket: 'Tickets',
   thread: 'Inbox',
+  meeting: 'Meetings',
+  document: 'Documents',
   vendor: 'Vendors',
 }

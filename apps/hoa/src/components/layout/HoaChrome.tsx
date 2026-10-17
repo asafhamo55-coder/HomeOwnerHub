@@ -7,7 +7,9 @@ import {
   AlertTriangle,
   Briefcase,
   Building2,
+  CalendarDays,
   ClipboardCheck,
+  FileText,
   LogOut,
   Mail,
   MessageSquare,
@@ -78,6 +80,8 @@ const RECORD_ICON: Record<RecordType, typeof User> = {
   arc: ClipboardCheck,
   ticket: MessageSquare,
   thread: Mail,
+  meeting: CalendarDays,
+  document: FileText,
   vendor: Briefcase,
 }
 
@@ -128,7 +132,7 @@ export function HoaCommandPalette({ role }: { role: 'admin' | 'board' }) {
       notice,
       commands: hits.map((h) => {
         const Icon = RECORD_ICON[h.type]
-        return { id: h.id, label: h.label, hint: h.hint, href: h.href, group: h.group, icon: <Icon aria-hidden /> }
+        return { id: h.id, label: h.label, hint: h.hint, meta: h.detail, href: h.href, group: h.group, icon: <Icon aria-hidden /> }
       }),
     }
   }, [])

@@ -61,7 +61,8 @@ describe('readPrimaryAssociation', () => {
   it('returns the first association by name', async () => {
     const { db, calls } = queuedSupabase({ associations: [ok({ id: 'a1', name: 'Willow Creek' })] })
     const res = await readPrimaryAssociation(db as never, 'o1')
-    expect(res).toEqual({ ok: true, data: { id: 'a1', name: 'Willow Creek' }, count: null })
+    // dc1cf0a: the result carries the association's zone (no state → the default).
+    expect(res).toEqual({ ok: true, data: { id: 'a1', name: 'Willow Creek', timeZone: 'America/New_York' }, count: null })
     expect(calls[0]!.ops.map(([op]) => op)).toEqual(['select', 'eq', 'order', 'limit', 'maybeSingle'])
   })
 

@@ -7,12 +7,14 @@ const OK_BODY = {
     {
       type: 'owner',
       label: 'Owners',
-      items: [{ id: 'p2', type: 'owner', label: 'Amrit Kaur', hint: '9 Elm St', href: '/properties/p2' }],
+      items: [{ id: 'p2', type: 'owner', label: 'Amrit Kaur', hint: '9 Elm St', detail: null, href: '/properties/p2' }],
     },
     {
       type: 'violation',
       label: 'Violations',
-      items: [{ id: 'v1', type: 'violation', label: 'parking', hint: null, href: '/violations/v1' }],
+      items: [
+        { id: 'v1', type: 'violation', label: 'parking', hint: null, detail: 'Open · Oct 3', href: '/violations/v1' },
+      ],
     },
   ],
   failed: [],
@@ -38,8 +40,24 @@ describe('fetchRecordSearch', () => {
   it('maps groups to palette hits, keyed by type so ids never collide', async () => {
     const res = await fetchRecordSearch('kaur', new AbortController().signal, fetchReturning(200, OK_BODY))
     expect(res.hits).toEqual([
-      { id: 'owner:p2', type: 'owner', label: 'Amrit Kaur', hint: '9 Elm St', href: '/properties/p2', group: 'Owners' },
-      { id: 'violation:v1', type: 'violation', label: 'parking', hint: undefined, href: '/violations/v1', group: 'Violations' },
+      {
+        id: 'owner:p2',
+        type: 'owner',
+        label: 'Amrit Kaur',
+        hint: '9 Elm St',
+        detail: undefined,
+        href: '/properties/p2',
+        group: 'Owners',
+      },
+      {
+        id: 'violation:v1',
+        type: 'violation',
+        label: 'parking',
+        hint: undefined,
+        detail: 'Open · Oct 3',
+        href: '/violations/v1',
+        group: 'Violations',
+      },
     ])
     expect(res.notice).toBeUndefined()
   })

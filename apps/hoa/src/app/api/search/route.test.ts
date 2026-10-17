@@ -7,7 +7,8 @@ const h = vi.hoisted(() => ({
   supabaseCalls: 0,
   result: { groups: [], failed: [] } as unknown,
   throws: null as Error | null,
-  searchCalls: [] as Array<{ client: unknown; orgId: string; q: string }>,
+  searchCalls: [] as Array<{ client: unknown; orgId: string; q: string; timeZone: unknown }>,
+  zoneCalls: [] as Array<{ client: unknown; orgId: string }>,
   userClient: { tag: 'user-client' },
 }))
 
@@ -38,12 +39,19 @@ const { createAdminClient } = vi.hoisted(() => ({
 }))
 vi.mock('@homeowner-portal/db', () => ({ createAdminClient }))
 
+vi.mock('@/lib/association-time-server', () => ({
+  orgTimeZone: vi.fn(async (client: unknown, orgId: string) => {
+    h.zoneCalls.push({ client, orgId })
+    return 'America/Chicago'
+  }),
+}))
+
 vi.mock('@/lib/search/records', async (orig) => {
   const real = await orig<typeof import('@/lib/search/records')>()
   return {
     ...real,
-    searchRecords: vi.fn(async (client: unknown, orgId: string, q: string) => {
-      h.searchCalls.push({ client, orgId, q })
+    searchRecords: vi.fn(async (client: unknown, orgId: string, q: string, opts?: { timeZone?: unknown }) => {
+      h.searchCalls.push({ client, orgId, q, timeZone: await opts?.timeZone })
       if (h.throws) throw h.throws
       return h.result
     }),
@@ -64,6 +72,7 @@ beforeEach(() => {
   h.result = { groups: [], failed: [] }
   h.throws = null
   h.searchCalls = []
+  h.zoneCalls = []
 })
 
 describe('GET /api/search', () => {
@@ -111,10 +120,23 @@ describe('GET /api/search', () => {
     expect(res.headers.get('cache-control')).toBe('private, no-store')
   })
 
+  it('dates rows in the org zone, read with the same user-bound client', async () => {
+    const res = await GET(get('kaur'))
+    expect(res.status).toBe(200)
+    expect(h.searchCalls[0].timeZone).toBe('America/Chicago')
+    expect(h.zoneCalls).toEqual([{ client: expect.objectContaining({ tag: 'user-client' }), orgId: 'org-1' }])
+  })
+
+  it('does not call it an outage when only some types failed', async () => {
+    h.result = { groups: [], failed: ['owner', 'property', 'violation', 'arc', 'ticket', 'thread', 'vendor'] }
+    const res = await GET(get('kaur'))
+    expect(res.status).toBe(200)
+  })
+
   it('500s with the generic envelope when every type failed', async () => {
     h.result = {
       groups: [],
-      failed: ['owner', 'property', 'violation', 'arc', 'ticket', 'thread', 'vendor'],
+      failed: ['owner', 'property', 'violation', 'arc', 'ticket', 'thread', 'meeting', 'document', 'vendor'],
     }
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const res = await GET(get('kaur'))

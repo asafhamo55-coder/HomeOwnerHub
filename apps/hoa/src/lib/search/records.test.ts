@@ -17,6 +17,9 @@ interface Call {
 }
 
 const ORG = 'org-1'
+const TZ = 'America/New_York'
+const NOW = new Date('2026-10-17T16:00:00Z')
+const OPTS = { timeZone: TZ, now: NOW }
 
 let calls: Call[]
 let rows: Record<string, unknown[]>
@@ -101,6 +104,9 @@ describe('searchRecords', () => {
       tickets: 'organization_id',
       inbox_threads: 'organization_id',
       vendors: 'organization_id',
+      hoa_documents: 'org_id',
+      governing_documents: 'organization_id',
+      hoa_meeting_minutes: 'org_id',
     }
     expect(new Set(calls.map((c) => c.table))).toEqual(new Set(Object.keys(expected)))
     for (const [table, col] of Object.entries(expected)) {
@@ -123,11 +129,16 @@ describe('searchRecords', () => {
     expect(v?.items).toHaveLength(SEARCH_LIMIT_PER_TYPE)
   })
 
-  it('excludes soft-deleted violations, ARC requests, tickets and vendors', async () => {
+  it('excludes soft-deleted violations, ARC requests, tickets, vendors and meetings', async () => {
     await searchRecords(client(), ORG, 'kaur')
-    for (const t of ['hoa_violations', 'arc_requests', 'tickets', 'vendors']) {
+    for (const t of ['hoa_violations', 'arc_requests', 'tickets', 'vendors', 'hoa_meeting_minutes']) {
       expect(opsFor(t), t).toContainEqual(['is', 'deleted_at', null])
     }
+  })
+
+  it('excludes superseded governing documents (they have no deleted_at)', async () => {
+    await searchRecords(client(), ORG, 'kaur')
+    expect(opsFor('governing_documents')).toContainEqual(['is', 'superseded_at', null])
   })
 
   it('puts an owner-name match under Owners and an address match under Properties', async () => {
@@ -136,10 +147,10 @@ describe('searchRecords', () => {
     const owners = res.groups.find((g) => g.type === 'owner')
     const props = res.groups.find((g) => g.type === 'property')
     expect(owners?.items).toEqual([
-      { id: 'p2', type: 'owner', label: 'Amrit Kaur', hint: '9 Elm St · Unit 4B', href: '/properties/p2' },
+      { id: 'p2', type: 'owner', label: 'Amrit Kaur', hint: '9 Elm St · Unit 4B', detail: null, href: '/properties/p2' },
     ])
     expect(props?.items).toEqual([
-      { id: 'p1', type: 'property', label: '12 Kaur Lane', hint: 'Jane Doe', href: '/properties/p1' },
+      { id: 'p1', type: 'property', label: '12 Kaur Lane', hint: 'Jane Doe', detail: null, href: '/properties/p1' },
     ])
     expect(orFilter('hoa_property_list_v')).toBe(
       'address.ilike.%Kaur%,unit_number.ilike.%Kaur%,owner_name.ilike.%Kaur%',
@@ -148,11 +159,17 @@ describe('searchRecords', () => {
 
   it('finds violations, ARC, tickets and threads linked to a matched property', async () => {
     rows.hoa_property_list_v = [P1, P2]
-    rows.hoa_violations = [{ id: 'v1', violation_type: 'parking', status: 'open', property_id: 'p2' }]
-    rows.arc_requests = [{ id: 'a1', summary: 'New fence', status: 'submitted', unit_id: 'u2' }]
-    rows.tickets = [{ id: 't1', subject: 'Gate broken', status: 'open', unit_id: 'u2' }]
-    rows.inbox_threads = [{ id: 'th1', subject: null, status: 'open', unit_id: 'u2' }]
-    const res = await searchRecords(client(), ORG, 'Kaur')
+    rows.hoa_violations = [
+      { id: 'v1', violation_type: 'parking', status: 'open', property_id: 'p2', created_at: '2026-10-03T14:00:00Z' },
+    ]
+    rows.arc_requests = [
+      { id: 'a1', summary: 'New fence', status: 'submitted', unit_id: 'u2', submitted_at: '2026-09-30T14:00:00Z' },
+    ]
+    rows.tickets = [{ id: 't1', subject: 'Gate broken', status: 'open', unit_id: 'u2', created_at: '2026-10-01T14:00:00Z' }]
+    rows.inbox_threads = [
+      { id: 'th1', subject: null, status: 'open', unit_id: 'u2', last_message_at: '2026-10-02T14:00:00Z' },
+    ]
+    const res = await searchRecords(client(), ORG, 'Kaur', OPTS)
 
     expect(orFilter('hoa_violations')).toBe(
       'violation_type.ilike.%Kaur%,description.ilike.%Kaur%,property_id.in.(p1,p2)',
@@ -163,11 +180,33 @@ describe('searchRecords', () => {
 
     const byType = Object.fromEntries(res.groups.map((g) => [g.type, g.items]))
     expect(byType.violation).toEqual([
-      { id: 'v1', type: 'violation', label: 'parking', hint: '9 Elm St · Unit 4B · Open', href: '/violations/v1' },
+      {
+        id: 'v1',
+        type: 'violation',
+        label: 'parking',
+        hint: '9 Elm St · Unit 4B',
+        detail: 'Open · Oct 3',
+        href: '/violations/v1',
+      },
     ])
-    expect(byType.arc[0]).toMatchObject({ label: 'New fence', href: '/arc/a1' })
-    expect(byType.ticket[0]).toMatchObject({ label: 'Gate broken', href: '/tickets/t1' })
-    expect(byType.thread[0]).toMatchObject({ label: '(no subject)', href: '/inbox/th1' })
+    expect(byType.arc[0]).toMatchObject({
+      label: 'New fence',
+      hint: '9 Elm St · Unit 4B',
+      detail: 'Submitted · Sep 30',
+      href: '/arc/a1',
+    })
+    expect(byType.ticket[0]).toMatchObject({
+      label: 'Gate broken',
+      hint: '9 Elm St · Unit 4B',
+      detail: 'Open · Oct 1',
+      href: '/tickets/t1',
+    })
+    expect(byType.thread[0]).toMatchObject({
+      label: '(no subject)',
+      hint: '9 Elm St · Unit 4B',
+      detail: 'Open · Oct 2',
+      href: '/inbox/th1',
+    })
     expect(res.failed).toEqual([])
   })
 
@@ -204,5 +243,113 @@ describe('searchRecords', () => {
     expect(res.failed).toEqual(['owner', 'property'])
     expect(orFilter('tickets')).toBe('subject.ilike.%Kaur%')
     expect(orFilter('hoa_violations')).toBe('violation_type.ilike.%Kaur%,description.ilike.%Kaur%')
+  })
+
+  it('tells apart several violations on the same lot by status and date', async () => {
+    rows.hoa_property_list_v = [P2]
+    rows.hoa_violations = [
+      { id: 'v1', violation_type: 'Landscaping', status: 'open', property_id: 'p2', created_at: '2026-10-03T14:00:00Z' },
+      { id: 'v2', violation_type: 'Landscaping', status: 'cured', property_id: 'p2', created_at: '2026-06-12T14:00:00Z' },
+      { id: 'v3', violation_type: 'Landscaping', status: 'fined', property_id: 'p2', created_at: '2025-11-20T14:00:00Z' },
+    ]
+    const res = await searchRecords(client(), ORG, 'Kaur', OPTS)
+    const items = res.groups.find((g) => g.type === 'violation')?.items ?? []
+    expect(items.map((i) => i.detail)).toEqual(['Open · Oct 3', 'Cured · Jun 12', 'Fined · Nov 20, 2025'])
+    expect(new Set(items.map((i) => `${i.label}|${i.hint}|${i.detail}`)).size).toBe(3)
+  })
+
+  it('dates a row by the association day, not the UTC day', async () => {
+    // 9:30 PM Eastern on Oct 3 is already Oct 4 in UTC.
+    rows.hoa_violations = [
+      { id: 'v1', violation_type: 'Trash', status: 'open', property_id: null, created_at: '2026-10-04T01:30:00Z' },
+    ]
+    const east = await searchRecords(client(), ORG, 'trash', OPTS)
+    expect(east.groups[0].items[0].detail).toBe('Open · Oct 3')
+    const utc = await searchRecords(client(), ORG, 'trash', { timeZone: 'UTC', now: NOW })
+    expect(utc.groups[0].items[0].detail).toBe('Open · Oct 4')
+  })
+
+  it('accepts the time zone as a promise, so the route can read it alongside the search', async () => {
+    rows.tickets = [{ id: 't1', subject: 'Trash pickup', status: 'open', unit_id: null, created_at: '2026-10-04T01:30:00Z' }]
+    const res = await searchRecords(client(), ORG, 'trash', { timeZone: Promise.resolve(TZ), now: NOW })
+    expect(res.groups[0].items[0].detail).toBe('Open · Oct 3')
+  })
+
+  it('leaves out a missing date instead of printing a blank or "Invalid Date"', async () => {
+    rows.tickets = [{ id: 't1', subject: 'Trash pickup', status: 'open', unit_id: null, created_at: null }]
+    const res = await searchRecords(client(), ORG, 'trash', OPTS)
+    expect(res.groups[0].items[0].detail).toBe('Open')
+  })
+
+  it('finds documents by name or title across uploaded and governing documents', async () => {
+    rows.hoa_documents = [{ id: 'd1', name: 'Pool rules 2026', type: 'rules', created_at: '2026-03-02T14:00:00Z' }]
+    rows.governing_documents = [
+      { id: 'g1', title: 'Amended pool policy', type: 'policy', effective_date: '2025-07-01', created_at: '2025-07-02T14:00:00Z' },
+    ]
+    const res = await searchRecords(client(), ORG, 'pool', OPTS)
+    expect(orFilter('hoa_documents')).toBe('name.ilike.%pool%')
+    expect(orFilter('governing_documents')).toBe('title.ilike.%pool%')
+    for (const t of ['hoa_documents', 'governing_documents']) {
+      expect(opsFor(t), t).toContainEqual(['limit', SEARCH_LIMIT_PER_TYPE])
+    }
+    const docs = res.groups.find((g) => g.type === 'document')
+    expect(docs?.label).toBe('Documents')
+    expect(docs?.items).toEqual([
+      { id: 'd1', type: 'document', label: 'Pool rules 2026', hint: 'Rules', detail: 'Mar 2', href: '/documents/d1' },
+      {
+        id: 'g1',
+        type: 'document',
+        label: 'Amended pool policy',
+        hint: 'Governing · Policy',
+        detail: 'Effective Jul 1, 2025',
+        href: '/documents/governing',
+      },
+    ])
+  })
+
+  it('caps documents at the per-type limit across both tables', async () => {
+    rows.hoa_documents = Array.from({ length: 5 }, (_, i) => ({ id: `d${i}`, name: `Pool ${i}`, type: 'rules', created_at: null }))
+    rows.governing_documents = Array.from({ length: 5 }, (_, i) => ({
+      id: `g${i}`,
+      title: `Pool ${i}`,
+      type: 'policy',
+      effective_date: null,
+      created_at: null,
+    }))
+    const res = await searchRecords(client(), ORG, 'pool', OPTS)
+    expect(res.groups.find((g) => g.type === 'document')?.items).toHaveLength(SEARCH_LIMIT_PER_TYPE)
+  })
+
+  it('finds meetings by type or summary and dates them by their meeting day', async () => {
+    rows.hoa_meeting_minutes = [
+      { id: 'm1', meeting_type: 'annual', meeting_date: '2026-10-03', status: 'approved' },
+      { id: 'm2', meeting_type: null, meeting_date: '2025-12-09', status: 'draft' },
+    ]
+    const res = await searchRecords(client(), ORG, 'budget', OPTS)
+    expect(orFilter('hoa_meeting_minutes')).toBe('meeting_type.ilike.%budget%,ai_summary.ilike.%budget%')
+    expect(opsFor('hoa_meeting_minutes')).toContainEqual(['limit', SEARCH_LIMIT_PER_TYPE])
+    const meetings = res.groups.find((g) => g.type === 'meeting')
+    expect(meetings?.label).toBe('Meetings')
+    expect(meetings?.items).toEqual([
+      { id: 'm1', type: 'meeting', label: 'Annual meeting', hint: null, detail: 'Oct 3 · Approved', href: '/meetings/m1' },
+      { id: 'm2', type: 'meeting', label: 'Board meeting', hint: null, detail: 'Dec 9, 2025 · Draft', href: '/meetings/m2' },
+    ])
+  })
+
+  it('reports documents as failed when either documents table errors, and keeps what loaded', async () => {
+    rows.hoa_documents = [{ id: 'd1', name: 'Pool rules', type: 'rules', created_at: null }]
+    errors.governing_documents = { code: '42501', message: 'denied' }
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const res = await searchRecords(client(), ORG, 'pool', OPTS)
+    expect(res.failed).toEqual(['document'])
+    expect(res.groups.find((g) => g.type === 'document')?.items).toHaveLength(1)
+  })
+
+  it('links every property row to the hoa_properties id, never the unit id', async () => {
+    rows.hoa_property_list_v = [P1, P2]
+    const res = await searchRecords(client(), ORG, 'Kaur', OPTS)
+    const hrefs = res.groups.flatMap((g) => g.items.map((i) => i.href))
+    expect(hrefs).toEqual(expect.arrayContaining(['/properties/p1', '/properties/p2']))
+    expect(hrefs.some((h) => /\/properties\/u\d/.test(h))).toBe(false)
   })
 })

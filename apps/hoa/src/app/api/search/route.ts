@@ -14,6 +14,7 @@ import { requireRouteBoardOrAdmin } from '@/lib/api/auth'
 import { parseQuery } from '@/lib/api/parse'
 import { zText } from '@/lib/api/schemas'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { orgTimeZone } from '@/lib/association-time-server'
 import { RECORD_GROUP_LABEL, SEARCH_MAX_LENGTH, searchRecords, type SearchClient } from '@/lib/search/records'
 
 const Query = z.object({ q: zText(SEARCH_MAX_LENGTH, 1) })
@@ -25,7 +26,11 @@ export const GET = withRoute('search.records', async (request) => {
   const { q } = parseQuery(new URL(request.url), Query)
 
   const supabase = await getSupabaseServerClient()
-  const result = await searchRecords(supabase as unknown as SearchClient, orgId, q)
+  // Rows are dated in the association's day (BL-043/BL-060); the zone is
+  // read with the same RLS-bound client, alongside the search.
+  const result = await searchRecords(supabase as unknown as SearchClient, orgId, q, {
+    timeZone: orgTimeZone(supabase, orgId),
+  })
 
   // Every type failed: that is an outage, not "no matches".
   if (result.failed.length === ALL_TYPES) throw new ApiRouteError('internal')

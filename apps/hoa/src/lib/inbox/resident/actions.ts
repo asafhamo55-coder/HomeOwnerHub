@@ -21,9 +21,10 @@
  * (property-residents.ts:268, :328).
  *
  * An earlier version of this file claimed the route took the unit id,
- * inferred from PropertyRail's "Open property →" link. That link is itself
- * a pre-existing bug (it 404s); it was evidence of a defect, not of the
- * routing contract.
+ * inferred from PropertyRail's "Open property →" link. That link was itself
+ * a pre-existing bug (it 404'd); it was evidence of a defect, not of the
+ * routing contract. BL-060 fixed it: the rail now links
+ * `PropertyContext.propertyId`, the legacy id.
  *
  * Never log an email address, subject, or body — resident PII.
  * `PostgrestError.code`/`.message` only, never `.details`.
