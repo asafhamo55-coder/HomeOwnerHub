@@ -1,6 +1,6 @@
 import Link from 'next/link'
-import { Download, Plus, Upload } from 'lucide-react'
-import { Button, PageHeader } from '@homeowner-portal/ui'
+import { Download, MoreHorizontal, Plus, ScrollText, Upload } from 'lucide-react'
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, PageHeader } from '@homeowner-portal/ui'
 import { propertyExportHref, type PropertyFilter } from '@/lib/properties/list-params'
 import { propertyCountLabel } from '@/lib/properties/count-label'
 
@@ -49,6 +49,20 @@ export function PropertiesHeader({
           Import
         </Link>
       </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" aria-label="More property actions" icon={<MoreHorizontal aria-hidden />} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {/* Statutory owner roster and voter list (Properties P5). */}
+          <DropdownMenuItem asChild>
+            <Link href="/properties/roster" className="no-underline">
+              <ScrollText aria-hidden />
+              <span className="flex-1">Owner roster & voter list</span>
+            </Link>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <Button asChild>
         <Link href="/properties/new">
           <Plus aria-hidden />
