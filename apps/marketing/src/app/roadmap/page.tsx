@@ -10,7 +10,7 @@ import { cn } from '@/lib/cn'
 export const metadata: Metadata = {
   title: 'Roadmap — Every workflow, every bar, in public',
   description:
-    'The public Ledger roadmap. All 17 workflows with their current quality bar, shipped/building/planned status, and target month.',
+    'The public Ledger roadmap. Every workflow with its current quality bar, shipped/building/planned status, and target month.',
 }
 
 const barIcon: Record<Bar, typeof ShieldCheck> = {
@@ -112,7 +112,7 @@ export default function RoadmapPage() {
           <div className="mb-10 md:flex md:items-end md:justify-between md:gap-12">
             <div className="max-w-xl">
               <h2 className="text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-                All 17 workflows
+                All {WORKFLOWS.length} workflows
               </h2>
               <p className="mt-3 text-base leading-relaxed text-muted">
                 Filter by hub, bar, or status. Updates land here within 24 hours

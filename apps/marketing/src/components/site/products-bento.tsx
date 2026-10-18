@@ -44,14 +44,14 @@ export function ProductsBento() {
               Run a self-managed HOA without a management company.
             </h3>
             <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-foreground-secondary">
-              Nine AI workflows — Covenant Brain, Violation Drafter, Minutes
-              Engine, Reserve Live, ARC Recommender, Vendor Oracle, Multilingual
-              Comms, Resident Portal, Board Copilot.
+              AI workflows boards use today — Covenant Brain, Violation Drafter,
+              AI meeting minutes, bill scan, Board Copilot, inbox reply drafts,
+              vendor bids, state-law answers and the resident portal.
             </p>
 
             <ul className="mt-8 grid gap-3 sm:grid-cols-2">
               <Feature Icon={FileText} label="Covenant Brain · 4-second cited answers" />
-              <Feature Icon={Calendar} label="Minutes Engine · same-night drafts" />
+              <Feature Icon={Calendar} label="AI minutes · drafted from your transcript" />
               <Feature Icon={ShieldCheck} label="Citations on every legal answer" />
               <Feature Icon={AlertCircle} label="Violation drafter · tap to approve" />
             </ul>

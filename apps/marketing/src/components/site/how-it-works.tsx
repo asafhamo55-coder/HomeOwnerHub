@@ -9,28 +9,28 @@ const steps = [
     Icon: Upload,
     title: 'Drop your documents',
     body:
-      'Upload your CC&R, bylaws, budget, and recent minutes. PDFs, scans, even 1987 photocopies. We handle the messy stuff.',
+      'Upload your CC&R, bylaws and rules as PDF, text or Markdown. A scanned PDF needs a text layer (OCR) first.',
   },
   {
     n: '02',
     Icon: ScanSearch,
     title: 'AI reads everything',
     body:
-      'Pillar DIC extracts rules, deadlines, contacts, and structure. You see a confidence score per document. No black boxes.',
+      'Each document is split into its sections and indexed, so every answer can point to the exact section it came from.',
   },
   {
     n: '03',
     Icon: MessageCircleQuestion,
     title: 'Ask your first question',
     body:
-      'Covenant Brain answers in plain English, citing the exact section. The "aha" usually arrives inside 15 minutes.',
+      'Covenant Brain answers in plain English, citing the exact section — and says so when your documents don’t cover it.',
   },
   {
     n: '04',
     Icon: Users,
-    title: 'Roll out to the board',
+    title: 'Bring in the board and the roster',
     body:
-      'Invite the rest of the board. We send them a 2-minute tour. The first violation notice goes out the same week.',
+      'Invite the board, import your roster from a spreadsheet (CINC exports are recognised) and open the books in Accounting. The built-in guide walks each step.',
   },
 ]
 

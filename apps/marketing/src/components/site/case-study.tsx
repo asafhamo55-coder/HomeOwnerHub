@@ -6,7 +6,7 @@ import { Quote } from 'lucide-react'
 const stats = [
   { label: 'Hours saved per month', value: '32+', sub: 'Treasurer + secretary combined' },
   { label: 'Covenant questions answered', value: '247', sub: 'In the first 30 days' },
-  { label: 'Onboarding time', value: '17 min', sub: 'From upload to first cited answer' },
+  { label: 'First cited answer', value: '17 min', sub: 'From document upload' },
 ]
 
 export function CaseStudy() {

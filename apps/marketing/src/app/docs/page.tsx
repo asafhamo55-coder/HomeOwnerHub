@@ -8,21 +8,21 @@ import { PageHero } from '@/components/site/page-hero'
 export const metadata: Metadata = {
   title: 'Docs',
   description:
-    'Product documentation, API reference, and operational runbooks for Ledger. Coming as we onboard our first cohort.',
+    'Product documentation for Ledger. The step-by-step user guide lives inside the app; API reference and runbooks come later.',
 }
 
 const sections = [
   {
     Icon: Compass,
     title: 'Getting started',
-    body: 'Onboarding from zero — upload your CC&R, configure your board, run your first Covenant Brain query.',
-    when: 'Live when pilot cohort opens',
+    body: 'The Help centre inside the app: step-by-step articles with screenshots for the jobs a new board does first, from setting up the HOA and importing the roster to billing dues. Ask the guide answers how-to questions from those articles.',
+    when: 'Live in the app (Help)',
   },
   {
     Icon: FileText,
     title: 'Workflow guides',
-    body: 'Per-workflow guides for all 17: how it works, what bar it ships at, what to expect.',
-    when: 'Live with each workflow',
+    body: 'Per-workflow guides: how it works, what bar it ships at, what to expect. Help on every page shows the articles for the screen you are on.',
+    when: 'Growing with each release',
   },
   {
     Icon: Wrench,

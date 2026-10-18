@@ -15,10 +15,10 @@ export const metadata: Metadata = {
 const timeline = [
   { day: 'Day 1', title: 'Documents uploaded', body: 'CC&R (1996, restated 2024), Bylaws, 2025 budget, last 12 months of minutes. 47 PDFs total.' },
   { day: 'Day 1 · 15 min', title: 'First Aha', body: 'Linda asks Covenant Brain: "Can residents paint their fence?" Answer cited Section 3.4. Sent to the board over text.' },
-  { day: 'Week 1', title: 'Board onboarded', body: 'Three remaining board members invited. All trained themselves via the 2-minute tour. Zero support tickets.' },
-  { day: 'Week 2', title: 'First violation notice', body: 'Drafter generated a fence-color violation. Linda approved in 90 seconds. Resident replied within 48 hours.' },
-  { day: 'Week 3', title: 'Reserve discrepancy caught', body: 'Reserve Live flagged a $4,200 variance between the spreadsheet and the bank reconciliation. Three-year-old error.' },
-  { day: 'Month 1', title: 'Meeting minutes shipped same night', body: 'Minutes Engine recorded the March board meeting. Draft minutes ready before the board got home.' },
+  { day: 'Week 1', title: 'Board onboarded', body: 'Three remaining board members invited. Zero support tickets.' },
+  { day: 'Week 2', title: 'First violation notice', body: 'The Violation Drafter drafted a fence-color letter. Linda approved it in 90 seconds. Resident replied within 48 hours.' },
+  { day: 'Week 3', title: 'Reserve discrepancy caught', body: 'A $4,200 gap turned up between the reserve spreadsheet and the bank. A three-year-old error.' },
+  { day: 'Month 1', title: 'Meeting minutes the same night', body: 'Minutes for the March board meeting were drafted from its transcript that night, ready for the board to approve.' },
 ]
 
 export default function MadisonParkCase() {
@@ -60,7 +60,7 @@ export default function MadisonParkCase() {
                   Workflows live
                 </p>
                 <p className="mt-1 text-sm text-foreground">
-                  Covenant Brain · Violation Drafter · Minutes Engine · Reserve Live · Onboarding Agent
+                  Covenant Brain · Violation Drafter · AI meeting minutes · Document onboarding
                 </p>
               </div>
             </aside>

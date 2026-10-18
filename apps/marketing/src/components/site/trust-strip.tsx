@@ -1,9 +1,9 @@
-import { ShieldCheck, FileSearch, Languages, Scale } from 'lucide-react'
+import { ShieldCheck, FileSearch, UserCheck, Scale } from 'lucide-react'
 
 const items = [
   { Icon: ShieldCheck, label: 'Citations on every legal answer' },
   { Icon: FileSearch, label: 'Audit log on every AI action' },
-  { Icon: Languages, label: 'Multilingual resident comms' },
+  { Icon: UserCheck, label: 'Board approves every AI draft' },
   { Icon: Scale, label: 'Attorney-reviewed eviction templates' },
 ]
 

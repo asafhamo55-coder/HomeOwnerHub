@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { BookOpen, FileText, Calendar, PiggyBank, MessageSquare, Wallet, Globe, Scale } from 'lucide-react'
+import { BookOpen, FileText, Calendar, Receipt, MessageSquare, Wallet, Mail, Scale } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
@@ -32,7 +32,7 @@ const AGENTS: Agent[] = [
     fill: 'bg-primary-subtle',
     pulse: 'bg-success-solid',
     bar: 'C',
-    blurb: 'Answers any rule question in 4s, cited to the CC&R section.',
+    blurb: 'Answers any rule question in seconds, cited to the CC&R section.',
   },
   {
     name: 'Violation Drafter',
@@ -42,27 +42,27 @@ const AGENTS: Agent[] = [
     fill: 'bg-success-subtle',
     pulse: 'bg-warning-solid',
     bar: 'B',
-    blurb: 'Photo + caption in. Legally formatted notice out. Board approves.',
+    blurb: 'Photo + caption in. Drafted letter out, rule cited. Board approves.',
   },
   {
-    name: 'Minutes Engine',
+    name: 'Minutes Drafter',
     role: 'Meeting scribe',
     Icon: Calendar,
     ring: 'from-eviction to-eviction',
     fill: 'bg-eviction-subtle',
     pulse: 'bg-warning-solid',
     bar: 'B',
-    blurb: 'Records the meeting. Drafts board-ready minutes the night of.',
+    blurb: 'Turns your meeting transcript into board-ready minutes to approve.',
   },
   {
-    name: 'Reserve Live',
-    role: 'Fund watcher',
-    Icon: PiggyBank,
+    name: 'Bill Scanner',
+    role: 'Bookkeeper',
+    Icon: Receipt,
     ring: 'from-accent to-accent',
     fill: 'bg-accent-subtle',
     pulse: 'bg-warning-solid',
     bar: 'B',
-    blurb: 'Real-time reserve projection. Flags variance before it hurts.',
+    blurb: 'Reads a vendor bill into Approvals. Nothing is entered until the board approves.',
   },
   {
     name: 'Delinquency Coach',
@@ -75,14 +75,14 @@ const AGENTS: Agent[] = [
     blurb: 'Reads tenant history. Suggests check-in, not escalation, first.',
   },
   {
-    name: 'Multilingual Comms',
-    role: 'Translator',
-    Icon: Globe,
+    name: 'Inbox Drafter',
+    role: 'Correspondent',
+    Icon: Mail,
     ring: 'from-info-solid to-primary',
     fill: 'bg-info-subtle',
-    pulse: 'bg-success-solid',
-    bar: 'C',
-    blurb: 'Every outbound message auto-translated to recipient preference.',
+    pulse: 'bg-warning-solid',
+    bar: 'B',
+    blurb: 'Drafts replies in your shared HOA inbox. A person edits and sends.',
   },
   {
     name: 'Resident Portal',

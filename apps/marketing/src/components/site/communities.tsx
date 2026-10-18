@@ -8,7 +8,7 @@ const items = [
   { photo: PHOTOS.suburbanAerial, label: 'Planned communities', sub: '50–800 doors' },
   { photo: PHOTOS.brickHomeManicured, label: 'Self-managed HOAs', sub: 'All-volunteer boards' },
   { photo: PHOTOS.grayWoodenHouse, label: 'Single-family rentals', sub: 'For 2–50 unit landlords' },
-  { photo: PHOTOS.rockingChairsPorch, label: 'The residents you serve', sub: 'Multilingual comms · resident portal' },
+  { photo: PHOTOS.rockingChairsPorch, label: 'The residents you serve', sub: 'Resident portal · Ask the Docs' },
 ]
 
 export function Communities() {

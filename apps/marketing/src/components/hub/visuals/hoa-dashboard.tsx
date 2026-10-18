@@ -26,8 +26,8 @@ export function HoaDashboardVisual() {
             Icon={AlertCircle}
             iconClass="text-warning bg-warning-subtle"
             title="ARC request: 415 Park Ln"
-            sub="Deck addition — review packet ready"
-            chip="Bar B · Review"
+            sub="Deck addition — waiting on the board"
+            chip="Review"
             chipClass="bg-warning-subtle text-warning ring-warning/15"
           />
           <Row
@@ -36,16 +36,16 @@ export function HoaDashboardVisual() {
             iconClass="text-success bg-success-subtle"
             title="Violation notice drafted"
             sub="Unapproved fence color at 211 Oak"
-            chip="Tap to approve"
+            chip="Approve"
             chipClass="bg-success-subtle text-success ring-success/15"
           />
           <Row
             delay={0.2}
             Icon={Sparkles}
             iconClass="text-primary bg-primary-subtle"
-            title="Reserve Live updated"
-            sub="Projection: +$4,200 vs. last month"
-            chip="View"
+            title="Bill scanned: Green Lawn Co."
+            sub="$1,240 · Landscaping — check and approve"
+            chip="Approvals"
             chipClass="bg-primary-subtle text-primary ring-primary/15"
           />
         </div>

@@ -5,6 +5,7 @@ import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { PageHero } from '@/components/site/page-hero'
 import { cn } from '@/lib/cn'
+import { HOA_PRICING, annualBillUsd, formatUsd, monthlyBillUsd } from '@/lib/hoa-pricing'
 
 export const metadata: Metadata = {
   title: 'Ledger vs management companies, Vantaca, and DIY',
@@ -29,9 +30,15 @@ const columns = [
   { key: 'diy', name: 'DIY spreadsheet', sub: 'Google Sheets + email' },
 ] as const
 
+// Ledger's price at 180 doors comes from lib/hoa-pricing.ts (what checkout
+// charges). Competitor figures are the ranges this page has always shown.
+const DOORS = 180
+const hhMonthly = monthlyBillUsd(DOORS)
+const hhAnnual = annualBillUsd(DOORS)
+
 const cost: Row = {
-  label: 'Monthly cost (180 doors)',
-  hh: '$79',
+  label: `Monthly cost (${DOORS} doors)`,
+  hh: formatUsd(hhMonthly, { withCents: true }),
   mgmt: '$1,800–$3,500',
   vantaca: '$450–$900',
   diy: '$0',
@@ -42,10 +49,10 @@ const sections: { title: string; rows: Row[] }[] = [
     title: 'Cost & onboarding',
     rows: [
       cost,
-      { label: 'Setup time', hh: '15 minutes', mgmt: '4–6 weeks', vantaca: '2–4 weeks', diy: 'Always ongoing' },
+      { label: 'Setup', hh: 'Self-serve: create the HOA, import the roster, open the books', mgmt: '4–6 weeks', vantaca: '2–4 weeks', diy: 'Always ongoing' },
       { label: 'Implementation fee', hh: '$0', mgmt: '$2,500–$10,000', vantaca: '$1,500–$5,000', diy: '$0' },
       { label: 'Free pilot', hh: '6 months', mgmt: false, vantaca: false, diy: 'n/a' },
-      { label: 'Annual contract required', hh: false, mgmt: true, vantaca: true, diy: false },
+      { label: 'Annual contract required', hh: `First ${HOA_PRICING.COMMIT_MONTHS} months, after the pilot`, mgmt: true, vantaca: true, diy: false },
     ],
   },
   {
@@ -53,9 +60,9 @@ const sections: { title: string; rows: Row[] }[] = [
     rows: [
       { label: 'Covenant Brain (cited answers)', hh: true, mgmt: false, vantaca: false, diy: false },
       { label: 'Violation Drafter (AI-drafted notices)', hh: true, mgmt: 'partial', vantaca: false, diy: false },
-      { label: 'Minutes Engine (auto-drafted minutes)', hh: true, mgmt: 'partial', vantaca: false, diy: false },
-      { label: 'Reserve Live (real-time projections)', hh: true, mgmt: false, vantaca: 'partial', diy: false },
-      { label: 'Multilingual resident comms', hh: true, mgmt: false, vantaca: false, diy: false },
+      { label: 'AI meeting minutes (drafted from your transcript)', hh: true, mgmt: 'partial', vantaca: false, diy: false },
+      { label: 'Reserve fund projections', hh: 'Roadmap', mgmt: false, vantaca: 'partial', diy: false },
+      { label: 'Multilingual resident comms', hh: 'Roadmap', mgmt: false, vantaca: false, diy: false },
       { label: 'Bar A/B/C quality labels on every workflow', hh: true, mgmt: false, vantaca: false, diy: false },
     ],
   },
@@ -66,7 +73,7 @@ const sections: { title: string; rows: Row[] }[] = [
       { label: 'Audit log on every AI action', hh: true, mgmt: false, vantaca: 'partial', diy: false },
       { label: 'Operating + reserve fund DB-level separation', hh: true, mgmt: 'partial', vantaca: true, diy: false },
       { label: 'GA attorney-reviewed templates (where applicable)', hh: true, mgmt: 'partial', vantaca: false, diy: false },
-      { label: 'You own your data — one-click export', hh: true, mgmt: false, vantaca: 'partial', diy: true },
+      { label: 'You own your data — one-click export of every record', hh: true, mgmt: false, vantaca: 'partial', diy: true },
       { label: 'Public roadmap', hh: true, mgmt: false, vantaca: false, diy: 'n/a' },
     ],
   },
@@ -182,8 +189,8 @@ export default function ComparePage() {
           <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-3">
             <SummaryCard
               title="vs Management company"
-              body="A 180-door HOA spends $21,600 to $42,000/year on a management firm. Ledger is $948/year. The math isn't close — and the AI does more of the actual work."
-              note="At 180 doors, a single management quote = ~18 months of Ledger."
+              body={`A ${DOORS}-door HOA spends $21,600 to $42,000 a year on a management firm. Ledger is ${formatUsd(hhAnnual)} a year on the annual plan. The board still does the governing; the AI does the paperwork.`}
+              note={`${formatUsd(hhMonthly)} a month on the monthly plan, against $1,800–$3,500 for a firm.`}
             />
             <SummaryCard
               title="vs Vantaca / AppFolio"

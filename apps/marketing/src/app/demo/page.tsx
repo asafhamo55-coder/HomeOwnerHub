@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
+import { HOA_PRICE_COPY } from '@/lib/hoa-pricing'
 import { DemoForm } from './demo-form'
 
 export const metadata: Metadata = {
@@ -37,7 +38,7 @@ const agenda = [
   {
     Icon: ShieldCheck,
     title: 'No data migration',
-    body: 'We don\'t need integrations or a service rep. The doc upload is the implementation.',
+    body: 'We don\'t need integrations or a service rep. Start with your documents. When you\'re ready, the board imports its own roster from a spreadsheet and opens the books in Accounting.',
   },
 ]
 
@@ -159,8 +160,10 @@ export default function DemoPage() {
                 {[
                   'Answer covenant questions with the exact section cited',
                   'Draft violation notices for board approval',
-                  'Generate meeting minutes the same night',
-                  'Reconcile bank feeds to the GL automatically',
+                  'Draft meeting minutes from your transcript',
+                  'Bring in bank feeds and reconcile them to the general ledger',
+                  'Read vendor bills into an approvals queue',
+                  'Email the board a month-end report on the 1st',
                   'Show resident-facing rule lookups in plain English',
                 ].map((b) => (
                   <li key={b} className="flex gap-2.5 text-sm leading-relaxed text-foreground">
@@ -231,8 +234,8 @@ export default function DemoPage() {
               Read the public roadmap.
             </h3>
             <p className="mt-3 text-sm leading-relaxed text-foreground-secondary">
-              Every workflow's quality bar (A / B / C) is published, auto-updated
-              from the workflows directory, and visible before you commit anything.
+              Every workflow&apos;s status and quality bar (A / B / C) is published,
+              so you can see what is live and what is not before you commit anything.
             </p>
             <a
               href="/roadmap"
@@ -257,7 +260,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: 'What happens to data we already have?',
-    a: 'You upload your CC&R and bylaws as PDFs. We do not need a migration, a service-rep handoff, or integrations to start. Your roster, GL, and history can come over when you are ready — most boards run in parallel for the first month.',
+    a: 'You upload your CC&R and bylaws as PDFs. We do not need a migration, a service-rep handoff, or integrations to start. Your roster comes over when you are ready: the board uploads a CSV or Excel file (CINC exports are recognised), checks what will happen to every row, then imports. Balances in the file are shown for reference, not posted, and past accounting history is not imported — most boards run in parallel for the first month.',
   },
   {
     q: 'How is the AI prevented from making things up?',
@@ -265,15 +268,15 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: 'What about privacy and data security?',
-    a: 'Your tenant is RLS-isolated in Postgres — no other association can read your rows. We do not train on your data. Documents stay in your tenant; you can export or delete on request.',
+    a: 'Your tenant is RLS-isolated in Postgres — no other association can read your rows. We do not train on your data. Documents stay in your tenant. Board members can download every record from Settings → Your data at any time, and we delete on request.',
   },
   {
     q: 'What does it cost after the six-month pilot?',
-    a: 'Pricing is per-door, billed annually, no per-feature add-ons. We publish the bands on /pricing before the demo so the board sees the full picture upfront. No auto-conversion — you opt in.',
+    a: `Pricing is per door with no per-feature add-ons: ${HOA_PRICE_COPY.summary} It is published on /pricing so the board sees the full picture before the demo. No auto-conversion — you opt in.`,
   },
   {
     q: 'How long until our community is live?',
-    a: 'Covenant Brain is answering questions the same day you upload the CC&R. Full onboarding (resident roster, GL setup, vendor list) usually takes one to two weeks of part-time work, depending on the state of your records.',
+    a: 'Covenant Brain is answering questions the same day you upload the CC&R. The board can do the rest itself: create the association and open the books from Accounting, import the roster from a spreadsheet, and invite the board. The built-in guide walks each step. How long that takes depends on the state of your records.',
   },
 ]
 
