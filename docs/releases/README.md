@@ -27,6 +27,45 @@ the email is built from its commit subjects instead.
 The email footer always shows the SHA that was actually deployed, taken from
 the workflow, never from the note.
 
+### `whats_new`: the in-app "What's new" feed (optional)
+
+The note itself is for the owner. Changes that boards or residents should
+hear about **inside the app** go in a `whats_new:` list in the frontmatter.
+`pnpm guide:build` collects them into the app's What's new page and the
+unread dot on the sidebar version link (BL-070, user-guide spec §6.5).
+
+```yaml
+---
+title: Edit scanned bills before approving
+whats_new:
+  - title: Edit a scanned bill before you approve it
+    body: Fix the vendor, amount or due date the AI read from a bill, right in Approvals.
+    roles: [admin, board]          # who sees it: admin | board | resident
+    article: approvals-queue       # optional: the guide article for "Learn how"
+    label: improvement             # new | improvement | fix
+---
+```
+
+Rules, checked by `pnpm guide:build` (and so by CI):
+
+- **No block, no entries.** That is the default. Refactors, migrations and
+  internal changes stay out of the feed simply by not having a block.
+- `title` is at most 100 characters; `body` is 1 to 3 plain sentences and at
+  most 280 characters.
+- No links in `title` or `body`. Link a guide article with `article:`; it
+  must be an existing article id.
+- `roles` is required, so a resident-facing change is a deliberate choice.
+- Only top-level frontmatter keys are read by the email, so an entry's
+  `title:` never replaces the note's own.
+- If the note's `title` contains `: `, quote it. The block is parsed as YAML,
+  and an unquoted colon fails the build.
+- After adding or editing a block, run `pnpm guide:build` and commit
+  `apps/hoa/src/generated/guide.ts` with the note, or CI's
+  "Guide is up to date" step fails.
+
+An entry's id is `<note file stem>#<n>`, so do not reorder or delete entries
+once they have shipped: the unread dot compares the newest id.
+
 ### Sections
 
 Use `## ` headings, spelled exactly as below. Any other heading is ignored.

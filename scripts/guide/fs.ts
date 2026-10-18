@@ -101,6 +101,15 @@ export function readSourceCorpus(dir: string, exclude: string[]): string {
   return parts.join('\n')
 }
 
+/** docs/releases notes, sorted by file name. A missing folder is no notes (spec §6.5). */
+export function readReleaseNotes(dir: string, isNote: (name: string) => boolean): { file: string; src: string }[] {
+  if (!existsSync(dir)) return []
+  return readdirSync(dir)
+    .filter(isNote)
+    .sort()
+    .map((name) => ({ file: `docs/releases/${name}`, src: readFileSync(join(dir, name), 'utf8') }))
+}
+
 export function readIfExists(path: string): string | null {
   return existsSync(path) && statSync(path).isFile() ? readFileSync(path, 'utf8') : null
 }
