@@ -98,6 +98,7 @@ describe('board-only server actions refuse a resident before touching the databa
     ['restoreDocumentVersion', () => documents.restoreDocumentVersion({ versionId: ID }), DENIED],
     ['createProperty', () => properties.createProperty({}, form({ address: '1 Main' })), { error: BOARD_ONLY_DENIED }],
     ['logPropertyEvent', () => propertyEvents.logPropertyEvent({ propertyId: ID, kind: 'note' }), DENIED],
+    ['logPropertyNote (P2 "Log note")', () => propertyEvents.logPropertyNote(ID, 'Called about the gate'), DENIED],
     ['deleteCommunication', () => commActions.deleteCommunication(ID), DENIED],
     ['sendCommunication', () => commSend.sendCommunication({} as never), DENIED],
     ['editBillProposal (BL-059: the only write path to a proposal payload)', () => billScanActions.editBillProposal({ approvalRequestId: ID }), DENIED],

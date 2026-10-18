@@ -40,7 +40,7 @@ The violation is recorded with the notice marked as sent, and the cure period st
 - "Analysis failed": try again, or write the letter yourself.
 
 ## Good to know
-- Already on the property's page? Its **Violations** tab has [[New violation here]], which starts the report with that home picked.
+- Already on the property's page? [[New violation]] at the top starts the report with that home picked.
 - **Nothing is sent from HomeownerHub.** Approving records that the notice went out and starts the cure clock. You send the letter.
 - The **State law for this letter** panel shows your state's rules for notices and fines, such as how many days' notice an owner gets and the largest fine allowed. Florida and California are covered.
 - Some letters are drafted for you by the AI and wait in the [[AI approval queue]] tab. Read each one and select [[Approve letter]], or [[Reject]] with a reason. Approving files it as an open violation.

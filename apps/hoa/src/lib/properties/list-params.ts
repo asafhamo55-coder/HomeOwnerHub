@@ -31,11 +31,41 @@ export function isMenuFilter(f: PropertyFilter): f is MenuFilter {
   return f in MENU_FILTER_LABELS
 }
 
-export type PropertySort = 'severity' | 'address' | 'balance'
+/** Severity (the default) plus one sort per column of the list table. */
+export type PropertySort =
+  | 'severity'
+  | 'address'
+  | 'owner'
+  | 'contact'
+  | 'tenure'
+  | 'balance'
+  | 'violations'
+  | 'arc'
+  | 'activity'
+
+export type SortDir = 'asc' | 'desc'
+
+/**
+ * The direction a column sorts in when its header is first clicked: text
+ * A→Z, money and counts biggest first, activity newest first. Severity
+ * "asc" is worst first (rank 1 is the most urgent).
+ */
+export const DEFAULT_SORT_DIR: Record<PropertySort, SortDir> = {
+  severity: 'asc',
+  address: 'asc',
+  owner: 'asc',
+  contact: 'asc',
+  tenure: 'asc',
+  balance: 'desc',
+  violations: 'desc',
+  arc: 'desc',
+  activity: 'desc',
+}
 
 export interface PropertyListParams {
   filter: PropertyFilter
   sort: PropertySort
+  dir: SortDir
   search: string
   page: number
   offset: number
@@ -55,7 +85,7 @@ const FILTERS: readonly PropertyFilter[] = [
   'unknown',
 ]
 
-const SORTS: readonly PropertySort[] = ['severity', 'address', 'balance']
+const SORTS = Object.keys(DEFAULT_SORT_DIR) as readonly PropertySort[]
 
 /**
  * The page opens on every home, worst first. It used to open on the
@@ -70,6 +100,7 @@ export const DEFAULT_PROPERTY_SORT: PropertySort = 'severity'
 export function parsePropertyListParams(raw: {
   filter?: string
   sort?: string
+  dir?: string
   q?: string
   page?: string
 }): PropertyListParams {
@@ -84,9 +115,12 @@ export function parsePropertyListParams(raw: {
   const parsedPage = Number.parseInt(raw.page ?? '', 10)
   const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1
 
+  const dir: SortDir = raw.dir === 'asc' || raw.dir === 'desc' ? raw.dir : DEFAULT_SORT_DIR[sort]
+
   return {
     filter,
     sort,
+    dir,
     search: (raw.q ?? '').trim(),
     page,
     offset: (page - 1) * PROPERTY_PAGE_SIZE,
@@ -102,16 +136,20 @@ export function parsePropertyListParams(raw: {
  * Overrides replace a field; `page: 1` (or less) drops the page.
  */
 export function propertyListQuery(
-  params: Pick<PropertyListParams, 'filter' | 'sort' | 'search' | 'page'>,
-  overrides: Partial<{ filter: PropertyFilter; sort: PropertySort; search: string; page: number }> = {},
+  params: Pick<PropertyListParams, 'filter' | 'sort' | 'search' | 'page'> & { dir?: SortDir },
+  overrides: Partial<{ filter: PropertyFilter; sort: PropertySort; dir: SortDir; search: string; page: number }> = {},
 ): string {
   const filter = overrides.filter ?? params.filter
   const sort = overrides.sort ?? params.sort
+  // A new sort starts in its own default direction unless one is given.
+  const dir =
+    overrides.dir ?? (overrides.sort !== undefined && overrides.sort !== params.sort ? undefined : params.dir) ?? DEFAULT_SORT_DIR[sort]
   const search = overrides.search ?? params.search
   const page = overrides.page ?? params.page
   const q = new URLSearchParams()
   if (filter !== DEFAULT_PROPERTY_FILTER) q.set('filter', filter)
   if (sort !== DEFAULT_PROPERTY_SORT) q.set('sort', sort)
+  if (dir !== DEFAULT_SORT_DIR[sort]) q.set('dir', dir)
   if (search) q.set('q', search)
   if (page > 1) q.set('page', String(page))
   return q.toString()
@@ -119,7 +157,7 @@ export function propertyListQuery(
 
 /** `/properties` plus the query above. */
 export function propertyListHref(
-  params: Pick<PropertyListParams, 'filter' | 'sort' | 'search' | 'page'>,
+  params: Parameters<typeof propertyListQuery>[0],
   overrides: Parameters<typeof propertyListQuery>[1] = {},
 ): string {
   const s = propertyListQuery(params, overrides)

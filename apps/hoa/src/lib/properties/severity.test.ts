@@ -7,6 +7,7 @@ import {
   severityDotClass,
   severityLabel,
   severityTone,
+  statusLine,
   streetOf,
   type SeveritySource,
 } from './severity'
@@ -194,5 +195,39 @@ describe('emptyListMessage', () => {
     ] as const) {
       expect(emptyListMessage(f).length).toBeGreaterThan(0)
     }
+  })
+})
+
+describe('statusLine (the one line on a phone card)', () => {
+  const base = {
+    balance: 0,
+    daysOverdue: 0,
+    openViolations: 0,
+    violationsPastCure: 0,
+    threadsNeedingReply: 0,
+    hasOwner: true,
+    hasTenure: true,
+    hasUnitLink: true,
+    openArc: 0 as number | null,
+  }
+  it('names the most urgent thing first', () => {
+    expect(statusLine({ ...base, violationsPastCure: 1, openViolations: 2, balance: 50, daysOverdue: 40 })).toEqual({
+      text: '1 violation past cure',
+      tone: 'danger',
+    })
+    expect(statusLine({ ...base, balance: 50, daysOverdue: 40, openViolations: 2 })).toEqual({
+      text: '40 days overdue',
+      tone: 'danger',
+    })
+    expect(statusLine({ ...base, openViolations: 2 })).toEqual({ text: '2 open violations', tone: 'warning' })
+    expect(statusLine({ ...base, threadsNeedingReply: 1 })).toEqual({ text: '1 email awaiting reply', tone: 'warning' })
+    expect(statusLine({ ...base, openArc: 1 })).toEqual({ text: '1 ARC request to decide', tone: 'warning' })
+    expect(statusLine({ ...base, hasOwner: false })).toEqual({ text: 'Owner details missing', tone: 'neutral' })
+  })
+  it('a balance not yet due is not "overdue"', () => {
+    expect(statusLine({ ...base, balance: 50, daysOverdue: 0 })).toEqual({ text: 'Balance not yet due', tone: 'neutral' })
+  })
+  it('says so when nothing is outstanding', () => {
+    expect(statusLine(base)).toEqual({ text: 'Nothing outstanding', tone: 'neutral' })
   })
 })

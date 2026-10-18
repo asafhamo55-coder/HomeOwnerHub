@@ -35,5 +35,5 @@ The charge shows **Paid**, the home's balance goes down, and the payment posts t
 
 ## Good to know
 - **Mark paid** always records the full amount still owed on that charge, dated today. You can't enter a partial amount, a different date or the payment method on this screen.
-- The property page shows the home's dues but has no Mark paid button. Record payments from the Dues page.
+- On a property's page, [[Record payment]] opens the Dues page showing only that home's charges, so you can mark the right one paid.
 - Residents can pay dues online with Zelle. Set it up in [[Resident payments]] in the Account section of the sidebar: enter the Zelle email or phone your association's bank account receives payments on, then select [[Turn on Pay by Zelle]]. Zelle is the only online option.

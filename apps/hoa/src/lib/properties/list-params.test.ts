@@ -12,6 +12,7 @@ describe('parsePropertyListParams', () => {
     expect(parsePropertyListParams({})).toEqual({
       filter: 'all',
       sort: 'severity',
+      dir: 'asc',
       search: '',
       page: 1,
       offset: 0,
@@ -45,9 +46,32 @@ describe('parsePropertyListParams', () => {
   })
 
   it('accepts every valid sort', () => {
-    for (const s of ['severity', 'address', 'balance'] as const) {
+    for (const s of [
+      'severity',
+      'address',
+      'owner',
+      'contact',
+      'tenure',
+      'balance',
+      'violations',
+      'arc',
+      'activity',
+    ] as const) {
       expect(parsePropertyListParams({ sort: s }).sort).toBe(s)
     }
+  })
+
+  it('each sort has a natural default direction (money and counts biggest first)', () => {
+    expect(parsePropertyListParams({ sort: 'address' }).dir).toBe('asc')
+    expect(parsePropertyListParams({ sort: 'owner' }).dir).toBe('asc')
+    expect(parsePropertyListParams({ sort: 'balance' }).dir).toBe('desc')
+    expect(parsePropertyListParams({ sort: 'violations' }).dir).toBe('desc')
+    expect(parsePropertyListParams({ sort: 'activity' }).dir).toBe('desc')
+  })
+
+  it('accepts an explicit direction and ignores garbage', () => {
+    expect(parsePropertyListParams({ sort: 'balance', dir: 'asc' }).dir).toBe('asc')
+    expect(parsePropertyListParams({ sort: 'balance', dir: 'sideways' }).dir).toBe('desc')
   })
 
   it('computes offset from page', () => {
@@ -107,6 +131,22 @@ describe('propertyListQuery', () => {
     const p = parsePropertyListParams({ filter: 'leased', q: 'x', page: '4' })
     expect(propertyListQuery(p, { filter: 'all', page: 1 })).toBe('q=x')
     expect(propertyListQuery(p, { search: '' })).toBe('filter=leased&page=4')
+  })
+})
+
+describe('propertyListQuery: direction', () => {
+  it('omits the direction when it is the sort’s default', () => {
+    expect(propertyListQuery(parsePropertyListParams({ sort: 'balance', dir: 'desc' }))).toBe('sort=balance')
+  })
+
+  it('keeps a non-default direction', () => {
+    expect(propertyListQuery(parsePropertyListParams({ sort: 'balance', dir: 'asc' }))).toBe('sort=balance&dir=asc')
+  })
+
+  it('a new sort without a direction override takes that sort’s default', () => {
+    const p = parsePropertyListParams({ sort: 'address', dir: 'desc' })
+    expect(propertyListQuery(p, { sort: 'balance' })).toBe('sort=balance')
+    expect(propertyListQuery(p, { sort: 'balance', dir: 'asc' })).toBe('sort=balance&dir=asc')
   })
 })
 

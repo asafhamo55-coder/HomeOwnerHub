@@ -46,9 +46,6 @@ const LEGACY_COLUMN_ALLOWLIST: Record<string, number> = {
 
 const HREF_ALLOWLIST: Record<string, number> = {
   'apps/hoa/src/lib/properties/href.ts': 1, // the helper itself
-  // Owned by the parallel UI pass; marked `// P0: propertyHref` there.
-  'apps/hoa/src/app/(dashboard)/properties/PropertyList.tsx': 1,
-  'apps/hoa/src/app/(dashboard)/properties/[id]/PropertyPanel.tsx': 1,
   'apps/hoa/src/lib/search/records.ts': 2,
 }
 

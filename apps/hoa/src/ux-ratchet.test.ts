@@ -116,6 +116,10 @@ const PAGE_CONTAINER_ROUTES = [
   '(dashboard)/meetings/schedule',
   '(dashboard)/properties/[id]/edit',
   '(dashboard)/properties/new',
+  // Properties P2: the list is a full-width table and the property is a
+  // page of its own; neither is a split pane any more.
+  '(dashboard)/properties',
+  '(dashboard)/properties/[id]',
   '(dashboard)/tickets/[id]',
   '(dashboard)/violations/[id]',
   '(dashboard)/violations/[id]/edit',
@@ -143,10 +147,10 @@ const PAGE_CONTAINER_ROUTES = [
 ]
 
 /**
- * Phase-1 pages that are NOT wrapped in <Page>, with the reason. Inbox and
- * properties are full-height split panes; a fixed-width container breaks
- * them. Resident pages keep their own ScreenHeader kit (plan decision 2).
- * They must still use the shared Pager.
+ * Phase-1 pages that are NOT wrapped in <Page>, with the reason. The inbox
+ * is a full-height split pane; a fixed-width container breaks it. Resident
+ * pages keep their own ScreenHeader kit (plan decision 2). They must still
+ * use the shared Pager (properties' pager is checked here too).
  */
 const PAGER_ONLY_ROUTES = ['(dashboard)/inbox', '(dashboard)/properties/PropertyListPager']
 

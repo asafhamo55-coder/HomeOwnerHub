@@ -501,3 +501,36 @@ export async function unitIdsForProperties(
   }
   return out
 }
+
+/** PostgREST's max_rows; mirrors lib/supabase/read-all.ts (not importable here, see the header). */
+const INDEX_PAGE_ROWS = 1000
+
+/**
+ * Every bridged unit in the org → its property, for list surfaces that
+ * attribute unit-keyed rows (ARC, payments, mail) to homes. One paged
+ * read whatever the roster size — never one lookup per home. Every unit
+ * counts, not just the canonical one, so a row filed under a duplicate
+ * unit still lands on its home. Throws on any failed page: a partial
+ * index would silently drop homes' activity.
+ */
+export async function unitPropertyIndex(db: Db, orgId: string): Promise<Map<UnitId, PropertyId>> {
+  const out = new Map<UnitId, PropertyId>()
+  for (let from = 0; ; ) {
+    const { data, error } = await db
+      .from('units')
+      .select('id, legacy_hoa_property_id')
+      .eq('organization_id', orgId)
+      .order('id', { ascending: true })
+      .range(from, from + INDEX_PAGE_ROWS - 1)
+    if (error) {
+      console.error(`unitPropertyIndex: query on "units" failed (org ${orgId}): ${error.message}`)
+      throw error
+    }
+    const rows = (data ?? []) as Array<{ id: string; legacy_hoa_property_id: string | null }>
+    if (rows.length === 0) return out
+    for (const row of rows) {
+      if (row.legacy_hoa_property_id) out.set(asUnitId(row.id), asPropertyId(row.legacy_hoa_property_id))
+    }
+    from += rows.length
+  }
+}

@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatDay } from '@/lib/money/format'
-import { Pencil } from 'lucide-react'
+import Link from 'next/link'
+import { MessageSquare, Pencil } from 'lucide-react'
 import { Alert, Badge, Button, Checkbox, Field, Input, Select, Textarea, cn, useToast } from '@homeowner-portal/ui'
 import {
   updateResident,
@@ -42,11 +43,14 @@ export function ResidentRow({
   isAdmin = false,
   propertyId,
   unitId,
+  messageHref = null,
 }: {
   resident: PropertyResidentRow
   isAdmin?: boolean
   propertyId?: string
   unitId?: string | null
+  /** The household composer (this home's residents preselected), or null. */
+  messageHref?: string | null
 }) {
   const [editing, setEditing] = useState(false)
   const isActive = resident.moved_out_at === null
@@ -87,6 +91,13 @@ export function ResidentRow({
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {isActive && messageHref && (resident.email || resident.phone) ? (
+              <Button asChild variant="ghost" size="icon-sm" aria-label={`Message ${resident.full_name}`} title="Message">
+                <Link href={messageHref}>
+                  <MessageSquare aria-hidden />
+                </Link>
+              </Button>
+            ) : null}
             {isAdmin && isActive && resident.role === 'owner' && propertyId ? (
               <EnterPortalButton
                 email={resident.email}

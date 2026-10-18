@@ -3,6 +3,10 @@
 import { getCurrentOrg } from '@/lib/orgs'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+import { checkNote } from '@/lib/properties/note'
+import { propertyHref } from '@/lib/properties/href'
+import { asPropertyId } from '@/lib/properties/resolve'
 
 // property_events lands in migration 0017. One row per meaningful change
 // to a property — tenure flip, resident add/remove, lease start/end,
@@ -82,4 +86,26 @@ export async function logPropertyEvent(args: {
     return { ok: false, error: error?.message ?? 'Could not log event.' }
   }
   return { ok: true, id: data.id }
+}
+
+/**
+ * "Log note" on the property page: a dated note in the home's history.
+ * Board/admin only (logPropertyEvent gates, before any read or write).
+ * The note text is never logged; a failure returns a generic message.
+ */
+export async function logPropertyNote(
+  propertyId: string,
+  note: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  const checked = checkNote(note)
+  if (!checked.ok) return { ok: false, error: checked.error }
+  const res = await logPropertyEvent({ propertyId, kind: 'note', notes: checked.note })
+  if (!res.ok) {
+    console.error('logPropertyNote: insert failed', { propertyId })
+    return { ok: false, error: 'Couldn’t save the note. Try again.' }
+  }
+  revalidatePath(propertyHref(asPropertyId(propertyId)))
+  return { ok: true }
 }

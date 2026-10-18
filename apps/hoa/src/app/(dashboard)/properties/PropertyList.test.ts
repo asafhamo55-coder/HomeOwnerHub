@@ -39,6 +39,9 @@ const row = (over: Partial<PropertyListRow> = {}): PropertyListRow => ({
   needsAttention: false,
   isIncomplete: false,
   onWaitingList: false,
+  openArc: 0,
+  lastActivityAt: null,
+  lastActivityKind: null,
   ...over,
 })
 
@@ -69,7 +72,7 @@ describe('PropertyList empty states', () => {
   it('a search with no matches anywhere says what search looks at and offers to clear it', () => {
     const html = render({ filter: 'all', q: 'maple' }, true, 0)
     expect(html).toContain('No homes match')
-    expect(html).toContain('address, unit, owner name and email')
+    expect(html).toContain('address, unit, owner name, email and phone, and at everyone living there')
     expect(html).toContain('Clear search')
     expect(html).toContain('href="/properties"')
   })
@@ -104,5 +107,63 @@ describe('PropertyList rows', () => {
       h(PropertyList, { rows: [row()], params: parsePropertyListParams({ filter: 'leased', q: 'Way' }) }),
     )
     expect(html).toContain('href="/properties/p1?filter=leased&amp;q=Way"')
+  })
+})
+
+describe('PropertyList table and cards', () => {
+  const list = (rows: PropertyListRow[], raw: Record<string, string> = {}, signalsOk = true) =>
+    renderToStaticMarkup(h(PropertyList, { rows, params: parsePropertyListParams(raw), signalsOk }))
+
+  it('every column header is a sort link with aria-sort; inactive money columns start biggest first', () => {
+    const html = list([row()], { sort: 'address' })
+    for (const label of ['Address · Unit', 'Owner', 'Contact', 'Tenure', 'Balance', 'Violations', 'Open ARC', 'Last activity']) {
+      expect(html).toContain(`<span>${label}</span>`)
+    }
+    expect(html).toContain('aria-sort="ascending"')
+    expect(html.match(/aria-sort="none"/g)?.length).toBe(7)
+    // Address is active ascending: its header flips to descending.
+    expect(html).toContain('href="/properties?sort=address&amp;dir=desc"')
+    // Balance is inactive: first click sorts biggest first (its default, so no dir).
+    expect(html).toContain('href="/properties?sort=balance"')
+  })
+
+  it('the default severity sort marks no column as sorted', () => {
+    const html = list([row()])
+    expect(html).not.toContain('aria-sort="ascending"')
+    expect(html).not.toContain('aria-sort="descending"')
+  })
+
+  it('a row is one link to the home (keyboard-navigable), with call and email as their own targets', () => {
+    const html = list([row({ ownerPhone: '(555) 010-1234', ownerEmail: 'pat@example.test' })])
+    expect(html).toContain('data-row-link')
+    expect(html).toContain('href="/properties/p1"')
+    expect(html).toContain('aria-label="Call Pat Example"')
+    expect(html).toContain('href="tel:5550101234"')
+    expect(html).toContain('aria-label="Email Pat Example"')
+  })
+
+  it('shows days overdue beside the balance, and past-cure violations in red with words, not colour alone', () => {
+    const html = list([row({ balance: 420, daysOverdue: 45, openViolations: 2, violationsPastCure: 1 })])
+    expect(html).toContain('$420')
+    expect(html).toContain('45d overdue')
+    expect(html).toContain('1 past cure')
+    expect(html).toContain('text-danger')
+  })
+
+  it('a phone card has street, owner, balance and the one most urgent status line', () => {
+    const html = list([row({ address: '12 Sample Way, Demo, FL 33000', balance: 420, daysOverdue: 45, openViolations: 2 })])
+    expect(html).toContain('12 Sample Way')
+    expect(html).toContain('45 days overdue')
+    expect(html).not.toContain('2 open violations')
+  })
+
+  it('open ARC and last activity say they could not load rather than showing 0', () => {
+    const html = list([row({ openArc: null })], {}, false)
+    expect(html).toContain('(couldn’t load)')
+  })
+
+  it('a quiet home says so instead of a blank cell', () => {
+    expect(list([row()])).toContain('None this year')
+    expect(list([row({ lastActivityAt: '2026-10-15T14:00:00Z', lastActivityKind: 'payment' })])).toContain('Payment')
   })
 })

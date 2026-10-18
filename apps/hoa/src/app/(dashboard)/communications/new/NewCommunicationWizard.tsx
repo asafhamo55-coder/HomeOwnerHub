@@ -105,14 +105,22 @@ export function NewCommunicationWizard({
   templates,
   audienceCounts,
   properties,
+  initialPropertyId = null,
 }: {
   templates: TemplateOption[]
   audienceCounts: AudienceCounts
   properties: PropertyOption[]
+  /**
+   * Opened from a property page ("Message owner"): start on the
+   * "Specific property" audience with that home picked, so its residents
+   * load already checked. Ignored unless it is one of `properties`.
+   */
+  initialPropertyId?: string | null
 }) {
+  const preselect = initialPropertyId && properties.some((p) => p.id === initialPropertyId) ? initialPropertyId : null
   const router = useRouter()
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>('announcement')
-  const [audience, setAudience] = useState<AudienceKind>('everyone')
+  const [audience, setAudience] = useState<AudienceKind>(preselect ? 'specific_property' : 'everyone')
   const [templateId, setTemplateId] = useState<string>('')
   const [answers, setAnswers] = useState<AnswerMap>({})
   const [subject, setSubject] = useState('')
@@ -129,7 +137,7 @@ export function NewCommunicationWizard({
   // selectedPropertyId — single property at a time keeps the UI simple.
   // residents — loaded via server action when a property is picked.
   // checkedResidentIds — which named residents at that property to send to.
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('')
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>(preselect ?? '')
   const [residents, setResidents] = useState<ResidentOption[]>([])
   const [residentsLoading, setResidentsLoading] = useState(false)
   const [checkedResidentIds, setCheckedResidentIds] = useState<Set<string>>(new Set())
