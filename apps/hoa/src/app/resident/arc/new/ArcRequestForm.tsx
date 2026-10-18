@@ -225,6 +225,9 @@ export function ArcPrecheckStep({
         loading={checking}
         disabled={disabled}
         onClick={onCheck}
+        // The label is long: full width on phones and allowed to wrap, so it
+        // never spills out of its card at 375 (caught by CI ui:overflow).
+        className="h-auto min-h-10 w-full whitespace-normal py-2 text-center sm:w-auto"
       >
         {result ? 'Check again' : 'Check my request against the rules'}
       </Button>
