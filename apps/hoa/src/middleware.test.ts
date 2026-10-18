@@ -16,6 +16,7 @@ vi.mock('@/lib/supabase/middleware', () => ({
 }))
 
 import { config, middleware } from './middleware'
+import { updateSession } from '@/lib/supabase/middleware'
 
 const req = (path: string) => new NextRequest(new URL(path, 'http://hoa.test'))
 
@@ -96,6 +97,26 @@ describe('middleware: /api/* without a session (R-03 / C-03)', () => {
     h.user = { id: 'u' }
     const res = await middleware(req('/api/ai/rewrite'))
     expect(res.status).toBe(200)
+  })
+})
+
+describe('middleware: which requests confirm the session with the auth server (BL-074)', () => {
+  const strictFor = async (path: string) => {
+    vi.mocked(updateSession).mockClear()
+    await middleware(req(path))
+    return vi.mocked(updateSession).mock.calls[0]?.[1]?.strict
+  }
+
+  it('only the sign-in pages, which bounce a signed-in user into the app', async () => {
+    expect(await strictFor('/login')).toBe(true)
+    expect(await strictFor('/signup')).toBe(true)
+  })
+
+  it('not app pages, prefetches or API calls — those verify the JWT locally', async () => {
+    expect(await strictFor('/')).toBe(false)
+    expect(await strictFor('/properties')).toBe(false)
+    expect(await strictFor('/api/ai/rewrite')).toBe(false)
+    expect(await strictFor('/login-help')).toBe(false)
   })
 })
 

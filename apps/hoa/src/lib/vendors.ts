@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { vendorOnboarder } from '@homeowner-portal/workflows'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone } from '@/lib/association-time'
+import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { removeStorageObjects } from '@/lib/storage-remove'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { rejectProspectVendor } from '@/lib/vendor-decisions'
@@ -81,20 +81,11 @@ export interface VendorDetail extends VendorRow {
 // Picks the first association for the current HOA org. Self-managed HOAs
 // have exactly one; management-company orgs aren't yet supported here.
 export async function getPrimaryAssociation(): Promise<{ id: string; name: string; timeZone: string } | null> {
-  const org = await getCurrentOrg()
-  if (!org) return null
-
-  const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
-    .from('associations' as never)
-    .select(`id, name, ${ASSOCIATION_ZONE_COLUMNS}`)
-    .eq('organization_id', org.id)
-    .order('name', { ascending: true })
-    .limit(1)
-    .single<{ id: string; name: string; state: string | null }>()
-
-  // timeZone: what "today" means for this association (BL-043).
-  return data ? { id: data.id, name: data.name, timeZone: associationTimeZone(data) } : null
+  // The per-request memoized read (BL-074). A failed read is null here, as
+  // it always was; pages that must tell "none" from "failed" use the
+  // Result form directly.
+  const res = await getPrimaryAssociationResult()
+  return res.ok ? res.data : null
 }
 
 /**

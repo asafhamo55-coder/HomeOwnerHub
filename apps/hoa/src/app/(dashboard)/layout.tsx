@@ -9,7 +9,7 @@ import {
   AppShellSidebar,
 } from '@homeowner-portal/ui'
 import { createAdminClient } from '@homeowner-portal/db'
-import { getCurrentOrg, getUserHoaOrgs, getUserHubs } from '@/lib/orgs'
+import { getCurrentOrg, getSignedInUser, getUserHoaOrgs, getUserHubs } from '@/lib/orgs'
 import { getEffectiveRoleInOrg } from '@/lib/role-override'
 import { isPlatformAdmin } from '@/lib/platform-admin'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -29,10 +29,7 @@ import { HelpDrawer } from '@/components/guide/HelpDrawer'
 import { drawerData } from '@/lib/guide'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await getSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const [supabase, user] = await Promise.all([getSupabaseServerClient(), getSignedInUser()])
   if (!user) redirect('/login')
 
   const [org, userHubs, hoaOrgs] = await Promise.all([

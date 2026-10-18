@@ -10,7 +10,7 @@ import {
   Page,
   Skeleton,
 } from '@homeowner-portal/ui'
-import { getCurrentOrg } from '@/lib/orgs'
+import { getCurrentOrg, getSignedInUser } from '@/lib/orgs'
 // EMERGENCY ROLLBACK (v2 — second attempt) 2026-05-25: cached layer
 // broke prod AGAIN at runtime with reference 2236965075. Both the
 // dynamic factory pattern (v1) and the canonical module-scoped pattern
@@ -87,19 +87,26 @@ export default async function DashboardHome() {
   // email-prefix only when no name has been set yet, so the greeting
   // always shows something. Editable on /settings via ProfileForm.
   const supabase = await getSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  const profile = user
-    ? await loadOrFail(
-        'profile name',
-        supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('id', user.id)
-          .maybeSingle<{ full_name: string | null }>(),
-      )
-    : null
+  // Memoized: getCurrentOrg above already resolved the user. The name and
+  // the setup checklist are independent reads — fetched together (BL-074;
+  // they used to run one after the other before anything rendered).
+  const user = await getSignedInUser()
+  const [profile, checklist, cookieStore] = await Promise.all([
+    user
+      ? loadOrFail(
+          'profile name',
+          supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .maybeSingle<{ full_name: string | null }>(),
+        )
+      : Promise.resolve(null),
+    // Each step's read fails on its own ("Couldn't check"), so this never
+    // takes the dashboard down.
+    loadSetupChecklist(supabase, org.id),
+    cookies(),
+  ])
   // A failed name lookup only costs the greeting its name; the email
   // prefix below is a fine stand-in. Logged by loadOrFail either way.
   const profileRow = profile?.ok ? profile.data : null
@@ -108,11 +115,9 @@ export default async function DashboardHome() {
   const userName =
     firstName ?? (user?.email ? user.email.split('@')[0] : null)
 
-  // Each step's read fails on its own ("Couldn't check"), so this never
-  // takes the dashboard down. The dismiss cookie only counts while the
-  // checklist is still complete — a step that regresses brings it back.
-  const checklist = await loadSetupChecklist(supabase, org.id)
-  const dismissed = (await cookies()).get(setupDismissedCookie(org.id))?.value === '1'
+  // The dismiss cookie only counts while the checklist is still complete —
+  // a step that regresses brings it back.
+  const dismissed = cookieStore.get(setupDismissedCookie(org.id))?.value === '1'
   const showChecklist = !(checklist.complete && dismissed)
 
   return (
@@ -153,6 +158,7 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     community,
     residentQueues,
     staleApprovals,
+    newSinceBaseline,
   ] = await Promise.all([
     getDashboardKpis(orgId),
     getViolationStatusDonut(orgId),
@@ -168,12 +174,12 @@ async function DashboardContent({ orgId }: { orgId: string }) {
     getCommunitySnapshot(orgId),
     getResidentQueueCounts(orgId),
     getStaleApprovalCount(orgId, STALE_APPROVAL_DAYS),
+    // "New since this morning" — two dependent reads, run alongside the
+    // rest instead of after it (BL-074).
+    readBaseline(supabase, orgId, todayISO()).then((baseline) =>
+      baseline !== null ? countNewSince(supabase, orgId, baseline.capturedAt) : null,
+    ),
   ])
-
-  const today = todayISO()
-  const baseline = await readBaseline(supabase, orgId, today)
-  const newSinceBaseline =
-    baseline !== null ? await countNewSince(supabase, orgId, baseline.capturedAt) : null
 
   const bullets = buildBullets({
     newSinceBaseline,

@@ -6,8 +6,7 @@
 // redirect instead of a cryptic DB error.
 
 import { redirect } from 'next/navigation'
-import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentOrg, type CurrentOrg } from '@/lib/orgs'
+import { getCurrentOrg, getMembershipRole, type CurrentOrg } from '@/lib/orgs'
 
 export type Role = 'admin' | 'board' | 'resident'
 
@@ -16,21 +15,9 @@ export type Role = 'admin' | 'board' | 'resident'
 export async function getCurrentUserRoleInOrg(
   orgId: string,
 ): Promise<Role | null> {
-  const supabase = await getSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data } = await supabase
-    .from('org_members')
-    .select('role')
-    .eq('org_id', orgId)
-    .eq('user_id', user.id)
-    .maybeSingle<{ role: Role | string }>()
-
-  if (!data) return null
-  const role = data.role
+  // Per-request memoized and answered from the one membership read
+  // (lib/orgs.ts) — this ran on every guard, bell and action check.
+  const role = await getMembershipRole(orgId)
   if (role === 'admin' || role === 'board' || role === 'resident') return role
   return null
 }

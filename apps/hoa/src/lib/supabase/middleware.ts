@@ -25,7 +25,24 @@ function sessionCapSecret(): string | undefined {
 // rotates refresh tokens forever, so without this a session never ends.
 // `sessionExpired` tells the caller to bounce the user to /login — the
 // caller owns that redirect, so it must clear the auth cookies itself.
-export async function updateSession(request: NextRequest) {
+//
+// Identity (BL-074): this runs before every page request, prefetch and RSC
+// navigation, so it verifies the session JWT with getClaims() instead of
+// getUser(). The project signs tokens with asymmetric (ES256) keys, so
+// getClaims checks the signature and expiry locally against the cached JWKS
+// — no auth-server round trip — and still refreshes an expired access token
+// first, exactly as getUser did. (With a symmetric key it falls back to a
+// getUser call by itself.) What it cannot see is a session revoked
+// server-side before its access token expires; that is covered downstream:
+// every page render still calls getUser (once, memoized — lib/orgs.ts) and
+// redirects to /login, and RLS checks the token on every query.
+//
+// `strict` asks the auth server anyway. The middleware passes it on the
+// sign-in pages: there a "signed in" answer bounces the user into the app,
+// and for a revoked-but-unexpired token the app would bounce them straight
+// back — a redirect loop. Those pages are rare enough that the round trip
+// does not matter.
+export async function updateSession(request: NextRequest, options: { strict?: boolean } = {}) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient<Database>(
@@ -47,9 +64,7 @@ export async function updateSession(request: NextRequest) {
     },
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = options.strict ? await serverVerifiedUser(supabase) : await locallyVerifiedUser(supabase)
 
   if (!user) return { user, response: supabaseResponse, sessionExpired: false }
 
@@ -61,9 +76,8 @@ export async function updateSession(request: NextRequest) {
     )
   }
 
-  // getUser() above already authenticated this token against Supabase, so
-  // reading session_id straight out of it is both safe and free — getClaims()
-  // would cost another round-trip on every request.
+  // The token was verified just above (getClaims / getUser), so reading
+  // session_id straight out of it is safe; getSession is local (cookies).
   const { data: sessionData } = await supabase.auth.getSession()
 
   const decision = await evaluateSessionCap({
@@ -101,6 +115,26 @@ export async function updateSession(request: NextRequest) {
   }
 
   return { user, response: supabaseResponse, sessionExpired: false }
+}
+
+type MiddlewareClient = ReturnType<typeof createServerClient<Database>>
+
+/** The signed-in user per the session JWT, verified locally (no request). */
+async function locallyVerifiedUser(supabase: MiddlewareClient): Promise<{ id: string; email?: string } | null> {
+  const { data, error } = await supabase.auth.getClaims()
+  if (error || !data) return null
+  const sub = data.claims.sub
+  if (typeof sub !== 'string' || !sub) return null
+  const email = typeof data.claims.email === 'string' ? data.claims.email : undefined
+  return { id: sub, email }
+}
+
+/** The signed-in user per the auth server (one round trip). */
+async function serverVerifiedUser(supabase: MiddlewareClient): Promise<{ id: string; email?: string } | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  return user ? { id: user.id, email: user.email } : null
 }
 
 /**
