@@ -285,3 +285,21 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - guide first-week cards.
   - Local gates: unit 5137/5137, build 4/4, guide:eval pass.
 - **Agents running:** M1 migration batch prep (ready for when 0063 is applied), PR-10 owner self-service contact, guide phase 2 (~15 articles).
+
+## 2026-10-18 (07:04) — deploy 0d47f20: roster and voter list, ARC photos and letters, owner contact updates, guide phase 2
+
+- **Live:**
+  - P5 statutory roster and voter list;
+  - BL-079 ARC photo findings and code-built decision letters;
+  - PR-10 owner contact updates through Approvals;
+  - guide phase 2 (42 articles);
+  - first-week cards;
+  - /inspect idempotency.
+- **M1 SQL validated in CI:** migration 0064 replayed on CI's throwaway Supabase. All M1 integration tests passed, including the six Stripe delivery orders and the storage and RLS checks. **The M1 apply file docs/specs/2026-10-18-m1-apply.sql is ready to hand to Asaf once he confirms 0063 is applied.** The app code stays behind `M1_APPLIED = false` until then.
+- **CI fix:** the PR-10 integration seed had a bulk insert with a missing `is_primary` key; PostgREST sends null for it.
+- **Merged and pushed for CI:**
+  - BL-080/081: payment plans complete automatically (behind-on-plan is shown to the board); edit, pause, resume and stop recurring entries.
+  - BL-083/084: vendor insurance expiry reminders (a new daily job, now 20 jobs; vendors only), and Settings → Vendors with insurance minimums (HMAC-signed in compliance_settings).
+  - Fixed along the way: W22 used to send the whole compliance_settings blob to the model.
+  - Guide refresh PR #9 merged.
+- **Local gates:** unit 5359/5359, build 4/4, guide 43 articles with 0 errors.

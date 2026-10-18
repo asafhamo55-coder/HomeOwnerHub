@@ -1,6 +1,6 @@
 # Session handoff: HomeownerHub autonomous loop
 
-_Updated every cycle. Last update: 2026-10-18 05:45 ET._
+_Updated every cycle. Last update: 2026-10-18 07:20 ET._
 
 ## Start the next session with this prompt
 
@@ -41,7 +41,7 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 - **Integration branch:** `claude/quality-oracle`. All merges land here.
 - **Deploy:** run `/usr/bin/git merge-base --is-ancestor <prod> <tip>`, then `/usr/bin/git push origin <sha>:claude/phase1-homeownerhub-setup-MILNu`. Prod pushes FAIL when their output is redirected to /dev/null; always run them as `... 2>&1 | tail -3`, and retry up to 3 times.
 - **Verify:** poll `https://www.homeownerledger.com/api/health` until `version` equals the SHA. The public body is `{ok, app, version}`.
-- **Live in prod:** 4b76788 (/inspect and inbox reliability), deployed 2026-10-18 05:42 ET. The next deploy is allowed after 06:42: P5 roster, BL-079 ARC letters and photos, /inspect idempotency and the first-week cards, once CI is green.
+- **Live in prod:** 0d47f20 (roster, ARC letters, contact updates, guide phase 2), deployed 2026-10-18 07:04 ET. The next deploy is allowed after 08:04: BL-080/081 and BL-083/084, once CI is green.
 
 ## Gates (the trusted forms)
 
@@ -59,11 +59,11 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 3. **S-01 audit query:** run it read-only, on its own in the SQL editor. It lists resident_portal.enter rows outside the acting org.
 4. ~~GitHub secrets for release-note emails~~: done 2026-10-17.
 5. **Later:** an Open States and/or LegiScan API key (BL-069), and `LAW_REPORT_TO` as a Vercel env var.
-6. **After 0063:** migration batch M1: BL-020, BL-050, BL-052, BL-058, BL-063 and Stripe 0064. Then the properties expand/backfill (M-P1, M-P2). Then M2: BL-068 modules and BL-069 run log.
+6. **After 0063:** migration batch M1, READY and CI-validated: docs/specs/2026-10-18-m1-apply.sql (then flip packages/db/src/m1.ts M1_APPLIED=true): BL-020, BL-050, BL-052, BL-058, BL-063 and Stripe 0064. Then the properties expand/backfill (M-P1, M-P2). Then M2: BL-068 modules and BL-069 run log.
 
 ## In flight at this update
 
-- **Agents:** M1 migration batch prep, PR-10 owner self-service contact, guide phase 2.
+- **No agents running.**
 - **UI shots CI** opens "Refresh guide screenshots" PRs automatically. Review two images, then squash-merge.
 - **Next, by priority:**
   - BL-079: ARC photos and letter draft.

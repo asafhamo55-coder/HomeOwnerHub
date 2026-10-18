@@ -861,3 +861,10 @@ These go beyond the design-system v2 pass:
 - **BL-083 Vendor insurance expiry reminders:** vendors get no automatic email before a certificate expires. Add a reminder job, sent to vendors only and never to residents.
 - **BL-084 RFP insurance minimums settings:** add a settings screen for the minimum coverage per RFP.
 - **Eval note:** the Ask-the-guide rules classifier sends some how-to questions to Ask the Docs ("how long can", "allowed", "declaration"). Tune it next time.
+
+- **BL-085 Columns wanted for M2** (from BL-080/081/083):
+  - `assessments.payment_plan_id`: the plan is linked today by parsing a memo.
+  - `payment_plans.completed_at`.
+  - `recurring_journal_entries.status` (active / paused / stopped) and `end_date`.
+  - Once these exist, replace the memo and audit-row stand-ins.
+- **BL-086 Check vendor COI reply routing in prod:** vendor reminder emails ask vendors to reply. Confirm one real reply reaches the board's inbox.
