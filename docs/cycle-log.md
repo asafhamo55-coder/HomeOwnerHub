@@ -272,3 +272,16 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - BL-028: /inspect mobile inspection mode with an offline queue; drafts land in Approvals.
   - Local gates: unit 4990/4990, build 4/4, guide:check 0 errors.
 - **Open:** Asaf to try /inspect on an iPhone (camera, and Safari keeping queued photos after the tab closes).
+
+## 2026-10-18 (05:42) — deploy 4b76788: /inspect mobile inspection and inbox reliability
+
+- **Live:** BL-028 /inspect (offline queue, drafts land in Approvals, photos carry over on approval) and BL-017/018 (attachment Retry and per-org fairness; reconnect skips a completed backfill).
+- **Smoke:** /inspect 307, /inbox 307, /login 200.
+- **UI shots CI:** green, 0 overflow. Guide refresh PR #8 (violations approval queue, dates masked) reviewed and merged.
+- **Merged and pushed for CI:**
+  - P5 statutory owner roster and voter list (FL §720.305(4) flag, never auto-suspends);
+  - BL-079 ARC photo findings and code-built decision letters;
+  - /inspect idempotency key;
+  - guide first-week cards.
+  - Local gates: unit 5137/5137, build 4/4, guide:eval pass.
+- **Agents running:** M1 migration batch prep (ready for when 0063 is applied), PR-10 owner self-service contact, guide phase 2 (~15 articles).
