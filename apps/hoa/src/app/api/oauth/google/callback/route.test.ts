@@ -16,9 +16,25 @@ vi.mock('@homeowner-portal/jobs', () => ({
 
 let markError: { code: string; message: string } | null = null
 const updates: Array<{ table: string; values: unknown; id: unknown }> = []
+// BL-018: the account's backfill state, read after completeConnect.
+const FRESH_ACCOUNT = {
+  backfill_status: 'pending',
+  backfill_progress: null,
+  scope_mode: 'all',
+  scope_value: null,
+  last_synced_at: null,
+  sync_cursor: null,
+}
+let accountRow: Record<string, unknown> | null = FRESH_ACCOUNT
+let accountReadError: { code: string; message: string } | null = null
 vi.mock('@homeowner-portal/db', () => ({
   createAdminClient: () => ({
     from: (table: string) => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({ data: accountReadError ? null : accountRow, error: accountReadError }),
+        }),
+      }),
       update: (values: unknown) => ({
         eq: async (_col: string, id: unknown) => {
           updates.push({ table, values, id })
@@ -57,6 +73,8 @@ beforeEach(() => {
   inngestSend.mockReset()
   markError = null
   updates.length = 0
+  accountRow = FRESH_ACCOUNT
+  accountReadError = null
   logs = []
   const capture = (...args: unknown[]) => {
     logs.push(args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '))
@@ -184,5 +202,67 @@ describe('GET /api/oauth/google/callback', () => {
     expect(logText).not.toContain('permission denied')
     expect(logText).not.toContain(SECRET_TEXT)
     expect(logText).toContain('42501')
+  })
+})
+
+describe('BL-018 — reconnecting does not redo a completed backfill', () => {
+  const now = Date.now()
+  const done = (over: Record<string, unknown> = {}) => ({
+    backfill_status: 'done',
+    backfill_progress: { done: 4200, has_more: false, total_estimate: 4100, scope: 'address:board@hoa.test' },
+    scope_mode: 'address',
+    scope_value: 'board@hoa.test',
+    last_synced_at: new Date(now - 2 * 86_400_000).toISOString(),
+    sync_cursor: '987654',
+    ...over,
+  })
+
+  beforeEach(() => {
+    completeConnect.mockResolvedValue({ accountId: 'acct-1', orgId: 'org-1', returnTo: '/settings/mailbox' })
+    inngestSend.mockResolvedValue(undefined)
+  })
+
+  it('complete, same scope, recent sync: no backfill event — incremental sync takes over', async () => {
+    accountRow = done()
+    const url = location(await call('?code=c&state=s'))
+    expect(url.searchParams.get('connected')).toBe('1')
+    expect(inngestSend).not.toHaveBeenCalled()
+    expect(updates).toEqual([])
+  })
+
+  it('complete, long gap: a bounded backfill window, not twelve months', async () => {
+    accountRow = done({ last_synced_at: new Date(now - 40 * 86_400_000).toISOString() })
+    await call('?code=c&state=s')
+    expect(inngestSend).toHaveBeenCalledTimes(1)
+    const event = inngestSend.mock.calls[0]![0] as { name: string; data: { accountId: string; afterDate: string } }
+    expect(event.name).toBe('mailbox/backfill.requested')
+    expect(event.data.accountId).toBe('acct-1')
+    expect(event.data.afterDate).toBe(new Date(now - 41 * 86_400_000).toISOString().slice(0, 10).replace(/-/g, '/'))
+  })
+
+  it('failed backfill: reconnect re-runs the full backfill', async () => {
+    accountRow = done({ backfill_status: 'failed' })
+    await call('?code=c&state=s')
+    expect(inngestSend).toHaveBeenCalledWith({ name: 'mailbox/backfill.requested', data: { accountId: 'acct-1' } })
+  })
+
+  it('wedged backfill (stuck running): reconnect still rescues it with a full backfill', async () => {
+    accountRow = done({ backfill_status: 'running', backfill_progress: { done: 300, has_more: true } })
+    await call('?code=c&state=s')
+    expect(inngestSend).toHaveBeenCalledWith({ name: 'mailbox/backfill.requested', data: { accountId: 'acct-1' } })
+  })
+
+  it('scope changed since the import: full backfill', async () => {
+    accountRow = done({ scope_mode: 'label', scope_value: 'HOA' })
+    await call('?code=c&state=s')
+    expect(inngestSend).toHaveBeenCalledWith({ name: 'mailbox/backfill.requested', data: { accountId: 'acct-1' } })
+  })
+
+  it('if the state read fails, falls back to the full backfill (ingest is idempotent), logging only the code', async () => {
+    accountReadError = { code: '57014', message: `timeout reading ${SECRET_TEXT}` }
+    await call('?code=c&state=s')
+    expect(inngestSend).toHaveBeenCalledWith({ name: 'mailbox/backfill.requested', data: { accountId: 'acct-1' } })
+    expect(logs.join('\n')).toContain('57014')
+    expect(logs.join('\n')).not.toContain(SECRET_TEXT)
   })
 })
