@@ -40,4 +40,5 @@ The checklist ticks itself off as the data appears, so do the steps in any order
 
 ## Good to know
 - Hiding the card only hides it in this browser. If a step stops being true later, the card comes back.
-- The sign-up setup page has its own short checklist. Its **Import properties** step uploads a spreadsheet, which is a support tool. Add homes one at a time in Properties instead, or ask support to import your list of homes.
+- The sign-up setup page has its own short checklist. Its [[Add properties]] step opens the same page as the one here, where you add homes one at a time.
+- Have a spreadsheet of homes? Contact support at `support@homeownerledger.com` and we'll import it.

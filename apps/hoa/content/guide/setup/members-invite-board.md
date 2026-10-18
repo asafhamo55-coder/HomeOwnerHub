@@ -23,7 +23,7 @@ Each board member should have their own login, so every approval and decision sh
 ## Steps
 1. Open **Members** from the Account section of the sidebar.
 2. In the [[Invite a member]] card, enter their **Email**. The **Name** is optional.
-3. Pick a **Role**: Admin, Board or Resident.
+3. Pick a **Role**: Admin, Board or Resident. The line under it says what the role you picked can do.
 4. For a resident, you can also pick a **Property** under [[Link to a property]].
 5. Select [[Send invitation]].
 

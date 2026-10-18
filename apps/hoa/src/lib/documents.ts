@@ -252,11 +252,11 @@ export async function replaceDocumentFile(
       reason: parsed.data.reason ?? null,
     } as never)
   if (vErr) {
-    return {
-      error:
-        vErr.message +
-        ' — confirm migrations/0010_hoa_document_versions.sql has been applied.',
-    }
+    // Ids and codes only. A missing table here means migration 0010
+    // (hoa_document_versions) is not applied — an operator's fix, so the
+    // user gets plain words and the log says which (BL-072).
+    console.error('replaceDocumentFile: archive version failed', { orgId: org.id, documentId: current.id, code: vErr.code, message: vErr.message })
+    return { error: 'We couldn’t keep a copy of the current version, so the document was not replaced. Try again in a minute.' }
   }
 
   // Upload the new file at a fresh path so we don't clobber the

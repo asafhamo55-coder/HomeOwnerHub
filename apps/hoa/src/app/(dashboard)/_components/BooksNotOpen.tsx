@@ -2,10 +2,10 @@ import Link from 'next/link'
 import { BookOpen } from 'lucide-react'
 import { Button, EmptyState } from '@homeowner-portal/ui'
 import { getCurrentUserRole } from '@/lib/auth'
+import { OPEN_BOOKS_ADDS } from '@/lib/accounting/books-not-open'
 import { OpenBooksForm } from './OpenBooksForm'
 
-export const OPEN_BOOKS_ADDS =
-  'Opening the books adds whatever is missing — Operating and Reserve funds, a standard chart of accounts and this year’s fiscal period — and never changes what is already there.'
+export { OPEN_BOOKS_ADDS }
 
 /**
  * The association exists but its books are incomplete: no fiscal period,

@@ -7,6 +7,7 @@ import { loadAccountingRefs, postJournalEntry } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { booksNotOpen, type BooksNotOpenFailure } from '@/lib/accounting/books-not-open'
 import { todayIn } from '@/lib/association-time'
 import { fieldErrorsOf } from '@/lib/field-errors'
 
@@ -15,7 +16,8 @@ type PaymentInsert = Database['public']['Tables']['payments']['Insert']
 
 export type InvoiceActionResult =
   | { ok: true; invoiceId: string }
-  | { ok: false; error: string; fieldErrors?: Record<string, string> }
+  | { ok: false; error: string; fieldErrors?: Record<string, string>; code?: undefined }
+  | BooksNotOpenFailure
 
 // ─── enterBill ───────────────────────────────────────────────────────
 
@@ -90,12 +92,12 @@ export async function enterBill(input: {
     .limit(1)
     .maybeSingle()
   if (!period) {
-    return { ok: false, error: 'No open fiscal period — run pnpm seed:accounting first.' }
+    return booksNotOpen(gate.role)
   }
 
   const refs = await loadAccountingRefs(supabase, assoc.id)
   if (!refs) {
-    return { ok: false, error: 'Accounting not set up — run pnpm seed:accounting.' }
+    return booksNotOpen(gate.role)
   }
 
   // Confirm the chosen expense account is a real 5xxx in this assoc.
@@ -283,7 +285,7 @@ export async function markInvoicePaid(input: {
   }
 
   const refs = await loadAccountingRefs(supabase, assoc.id)
-  if (!refs) return { ok: false, error: 'Accounting not set up — run pnpm seed:accounting.' }
+  if (!refs) return booksNotOpen(gate.role)
 
   const { data: period } = await supabase
     .from('fiscal_periods')
@@ -293,7 +295,7 @@ export async function markInvoicePaid(input: {
     .order('start_date', { ascending: false })
     .limit(1)
     .maybeSingle()
-  if (!period) return { ok: false, error: 'No open fiscal period.' }
+  if (!period) return booksNotOpen(gate.role)
 
   // Noon UTC: the same calendar day in every US zone; default is the
   // association's today, not the UTC day (BL-043).

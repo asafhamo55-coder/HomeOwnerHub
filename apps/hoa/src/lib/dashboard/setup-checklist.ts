@@ -16,6 +16,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
+import { SUPPORT_EMAIL } from '@/lib/support'
 
 type Db = SupabaseClient<Database>
 
@@ -76,6 +77,20 @@ export function stepStateFrom(counts: Array<number | null>, min = 1): SetupStepS
   return 'todo'
 }
 
+/**
+ * The properties step, shared word for word with the sign-up setup page
+ * (lib/inbox/queries.ts getSetupProgress). Both used to differ, and that
+ * one linked to the platform-admin CSV import, which a board admin cannot
+ * open (BL-072). Until a board-run import exists, support imports a
+ * spreadsheet on request.
+ */
+export const PROPERTIES_STEP_COPY = {
+  title: 'Add your properties',
+  description: `Every address in the community. Have a spreadsheet? Contact support at ${SUPPORT_EMAIL} and we’ll import it.`,
+  href: '/properties/new',
+  cta: 'Add properties',
+} as const
+
 const STEP_COPY: Record<SetupChecklistKey, Omit<SetupChecklistStep, 'key' | 'state'>> = {
   mailbox: {
     title: 'Connect the HOA mailbox',
@@ -86,12 +101,7 @@ const STEP_COPY: Record<SetupChecklistKey, Omit<SetupChecklistStep, 'key' | 'sta
     href: '/inbox',
     cta: 'Connect',
   },
-  properties: {
-    title: 'Add your properties',
-    description: 'Every address in the community.',
-    href: '/properties/new',
-    cta: 'Add properties',
-  },
+  properties: PROPERTIES_STEP_COPY,
   residents: {
     title: 'Add owners and residents',
     description: 'Who lives where, so mail and dues match a person.',

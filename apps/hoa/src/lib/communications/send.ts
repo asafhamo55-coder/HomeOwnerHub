@@ -19,6 +19,7 @@ import { buildEmailPayloads } from './email-payloads'
 import { buildRecipientBag } from './merge-bag'
 import { recoverFromRenderedSubject, unresolvedFields } from './merge-recovery'
 import { normalizeSuppliedFields } from './supplied-fields'
+import { composeSmsBody } from './sms-body'
 import { renderTemplateStrict, type MergeBag } from './templates'
 
 type CommInsert = Database['public']['Tables']['communications']['Insert']
@@ -410,19 +411,13 @@ export async function sendCommunication(
         await markFailed(supabase, recipient.id, 'no phone number', subject)
         return 'skipped'
       }
-      // SMS body — squash to plain text and cap aggressively (one or
-      // two SMS segments at most). Long-form SMS triggers US-carrier
-      // filtering for unregistered A2P traffic. If the message is long,
-      // truncate and append a "more in portal" link rather than blasting
-      // 10 segments to a carrier that will drop them.
+      // SMS body — squash to plain text, then one message of at most 279
+      // characters; a longer one is shortened and links to the full
+      // message in the portal (composeSmsBody, which the wizard's hint
+      // describes).
       const PORTAL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.homeownerledger.com'
       const portalLink = `${PORTAL.replace(/\/$/, '')}/communications/${commId}`
-      const rawBody = text ?? htmlToSmsBody(html, 200)
-      const truncated = rawBody.length >= 200
-      const combined = `${subject}: ${rawBody}`
-      const smsBody = truncated
-        ? `${combined.slice(0, 240)}… see ${portalLink}`.slice(0, 279)
-        : combined.slice(0, 279)
+      const smsBody = composeSmsBody({ subject, body: text ?? htmlToSmsBody(html, 200), portalLink })
       const result = await sendSms({ to: phone, body: smsBody }, outbound)
       if (result.ok) {
         await supabase

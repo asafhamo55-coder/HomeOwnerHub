@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 /**
@@ -586,5 +587,64 @@ describe('setup gaps offer the fix (BL-064)', () => {
     expect(src).toMatch(/<AssociationNotSetUp\b/)
     expect(src).toMatch(/<LoadFailed\b/)
     expect(src).not.toMatch(/No association (?:set up yet|configured)/)
+  })
+})
+
+// ── Rule 10: no developer instructions in user-facing text (BL-072) ──────
+
+/**
+ * Generate dues and Record payment used to tell a board "run pnpm
+ * seed:accounting". Every string literal, template piece and JSX text in
+ * apps/hoa/src (tests, test utilities and comments excluded) is read with
+ * the TypeScript parser, so a comment or an identifier never counts and a
+ * string always does. No allowlist: this stays at zero.
+ */
+export function devInstructionStrings(src: string, fileName = 'x.tsx'): string[] {
+  const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX)
+  const hits: string[] = []
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isStringLiteral(node) ||
+      ts.isNoSubstitutionTemplateLiteral(node) ||
+      ts.isTemplateHead(node) ||
+      ts.isTemplateMiddle(node) ||
+      ts.isTemplateTail(node) ||
+      ts.isJsxText(node)
+    ) {
+      if (/pnpm |seed:/i.test(node.text)) hits.push(node.text.trim())
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return hits
+}
+
+describe('no developer instructions in user-facing text (BL-072)', () => {
+  it('the scanner sees strings, JSX text and templates — not comments', () => {
+    expect(devInstructionStrings(`// run pnpm seed:accounting\nconst a = 1`)).toEqual([])
+    expect(devInstructionStrings(`/* pnpm seed:x */ const seed = { seed: 1 }`)).toEqual([])
+    expect(devInstructionStrings(`const e = 'Accounting not set up — run pnpm seed:accounting.'`)).toHaveLength(1)
+    expect(devInstructionStrings('const e = `run pnpm ${x} now`')).toHaveLength(1)
+    expect(devInstructionStrings(`const p = <p>Run seed:accounting first</p>`)).toHaveLength(1)
+  })
+
+  it('apps/hoa/src has no string containing "pnpm " or "seed:"', () => {
+    const offenders = walkSource(path.join(repoRoot, 'apps/hoa/src'))
+      .filter((f) => !f.includes(`${path.sep}test-utils${path.sep}`))
+      .flatMap((f) =>
+        devInstructionStrings(readFileSync(f, 'utf8'), f).map((s) => `${path.relative(repoRoot, f)}: ${s.slice(0, 80)}`),
+      )
+    expect(offenders).toEqual([])
+  })
+
+  it.each([
+    '(dashboard)/dues/MaterializeButton.tsx',
+    '(dashboard)/dues/new/NewDueForm.tsx',
+    '(dashboard)/dues/MarkPaidButton.tsx',
+    '(dashboard)/accounting/invoices/[id]/MarkInvoicePaidButton.tsx',
+  ])('%s turns books_not_open into the "Open the books" notice', (f) => {
+    const src = readFileSync(path.join(repoRoot, 'apps/hoa/src/app', f), 'utf8')
+    expect(src).toMatch(/isBooksNotOpen\(/)
+    expect(src).toMatch(/<BooksNotOpenNotice\b/)
   })
 })

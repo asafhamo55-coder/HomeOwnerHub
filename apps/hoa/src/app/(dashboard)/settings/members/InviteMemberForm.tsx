@@ -11,7 +11,9 @@ import {
   type ResidencyRole,
 } from '@/lib/members'
 
-const ALL_ROLES: Array<{ value: MemberRole; label: string; help: string }> = [
+type RoleOption = { value: MemberRole; label: string; help: string }
+
+export const INVITE_ROLES: RoleOption[] = [
   { value: 'admin', label: 'Admin', help: 'Full control — can manage members + everything Board can do.' },
   { value: 'board', label: 'Board', help: 'Can manage vendors, RFPs, violations, dues. Cannot manage members.' },
   { value: 'resident', label: 'Resident', help: 'Homeowner portal — view dues, submit ARC/violation reports.' },
@@ -25,13 +27,14 @@ const RESIDENCY_ROLES: Array<{ value: ResidencyRole; label: string }> = [
 ]
 
 export function InviteMemberForm({ properties, role }: { properties: PropertyOption[]; role: 'admin' | 'board' }) {
-  const ROLES = role === 'admin' ? ALL_ROLES : ALL_ROLES.filter((r) => r.value === 'resident')
+  const ROLES = role === 'admin' ? INVITE_ROLES : INVITE_ROLES.filter((r) => r.value === 'resident')
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [propertyId, setPropertyId] = useState<string>('')
   const [residencyRole, setResidencyRole] = useState<ResidencyRole>('owner')
+  const [memberRole, setMemberRole] = useState<MemberRole>('resident')
 
   async function handleSubmit(formData: FormData) {
     setError(null)
@@ -76,15 +79,7 @@ export function InviteMemberForm({ properties, role }: { properties: PropertyOpt
         </Field>
       </div>
 
-      <Field label="Role" required hint={ROLES.find((r) => r.value === 'resident')?.help}>
-        <Select name="role" required defaultValue="resident">
-          {ROLES.map((r) => (
-            <option key={r.value} value={r.value}>
-              {r.label}
-            </option>
-          ))}
-        </Select>
-      </Field>
+      <InviteRoleField roles={ROLES} value={memberRole} onValueChange={setMemberRole} />
 
       <Fieldset
         legend="Link to a property"
@@ -132,5 +127,32 @@ export function InviteMemberForm({ properties, role }: { properties: PropertyOpt
         </Button>
       </div>
     </form>
+  )
+}
+
+/**
+ * Role picker whose hint follows the picked role. It used to look up the
+ * Resident text unconditionally, so picking Admin still described a
+ * resident (BL-072).
+ */
+export function InviteRoleField({
+  roles,
+  value,
+  onValueChange,
+}: {
+  roles: RoleOption[]
+  value: MemberRole
+  onValueChange: (role: MemberRole) => void
+}) {
+  return (
+    <Field label="Role" required hint={roles.find((r) => r.value === value)?.help}>
+      <Select name="role" required value={value} onValueChange={(v) => onValueChange(v as MemberRole)}>
+        {roles.map((r) => (
+          <option key={r.value} value={r.value}>
+            {r.label}
+          </option>
+        ))}
+      </Select>
+    </Field>
   )
 }
