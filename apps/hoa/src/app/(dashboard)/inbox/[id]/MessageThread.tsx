@@ -1,7 +1,73 @@
-import { AlertTriangle, Download, Loader2, Paperclip } from 'lucide-react'
+import { AlertTriangle, Download, Loader2, Paperclip, RotateCw } from 'lucide-react'
 import { Avatar, Badge, cn } from '@homeowner-portal/ui'
 import type { ThreadMessage } from '@/lib/inbox/queries'
+import { attachmentView } from '@/lib/inbox/attachment-state'
 import { formatMessageTimestamp } from '@/lib/format-datetime'
+import { AttachmentRetryButton } from './AttachmentRetryButton'
+
+type Attachment = ThreadMessage['attachments'][number]
+
+const CHIP = 'inline-flex max-w-full items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs'
+
+/**
+ * BL-017 — one attachment's state, said plainly: stored (download link),
+ * downloading, retrying (attempt n of 4), failed with a Retry, or failed
+ * for good (too large / not available — open it in Gmail).
+ */
+export function AttachmentChip({ file }: { file: Attachment }) {
+  const view = attachmentView(file)
+
+  if (view.kind === 'stored') {
+    return (
+      <a
+        href={`/inbox/attachment/${file.id}`}
+        className={cn(
+          CHIP,
+          'border-border bg-subtle font-medium text-foreground no-underline transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        )}
+      >
+        <Paperclip className="size-3.5 shrink-0 text-muted" aria-hidden />
+        <span className="truncate">{file.fileName}</span>
+        <Download className="size-3.5 shrink-0 text-muted" aria-hidden />
+      </a>
+    )
+  }
+
+  if (view.kind === 'downloading' || view.kind === 'retrying') {
+    const Icon = view.kind === 'retrying' ? RotateCw : Loader2
+    return (
+      <span className={cn(CHIP, 'border-border text-muted')}>
+        <Icon className={cn('size-3.5 shrink-0', view.kind === 'downloading' && 'animate-spin')} aria-hidden />
+        <span className="truncate">
+          {file.fileName} —{' '}
+          {view.kind === 'retrying'
+            ? `retrying (attempt ${view.attempt} of ${view.of})…`
+            : 'downloading…'}
+        </span>
+      </span>
+    )
+  }
+
+  const reason = view.canRetry
+    ? view.reason === 'disconnected'
+      ? 'couldn’t download — the mailbox was disconnected'
+      : 'couldn’t download'
+    : view.reason === 'too_large'
+      ? 'too large to download here — open it in Gmail'
+      : 'not available here — open it in Gmail'
+
+  return (
+    <span className="inline-flex max-w-full flex-wrap items-center gap-2">
+      <span className={cn(CHIP, 'border-warning/30 bg-warning-subtle text-warning')}>
+        <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+        <span className="truncate">
+          {file.fileName} — {reason}
+        </span>
+      </span>
+      {view.canRetry ? <AttachmentRetryButton attachmentId={file.id} fileLabel={file.fileName} /> : null}
+    </span>
+  )
+}
 
 export function MessageThread({ messages }: { messages: ThreadMessage[] }) {
   return (
@@ -66,28 +132,7 @@ export function MessageThread({ messages }: { messages: ThreadMessage[] }) {
                 <ul aria-label="Attachments" className="flex flex-wrap gap-2 border-t border-border px-4 py-3">
                   {message.attachments.map((file) => (
                     <li key={file.id} className="min-w-0 max-w-full">
-                      {file.fetchStatus === 'stored' ? (
-                        <a
-                          href={`/inbox/attachment/${file.id}`}
-                          className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-border bg-subtle px-2.5 py-1.5 text-xs font-medium text-foreground no-underline transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          <Paperclip className="size-3.5 shrink-0 text-muted" aria-hidden />
-                          <span className="truncate">{file.fileName}</span>
-                          <Download className="size-3.5 shrink-0 text-muted" aria-hidden />
-                        </a>
-                      ) : file.fetchStatus === 'pending' ? (
-                        <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted">
-                          <Loader2 className="size-3.5 shrink-0 animate-spin" aria-hidden />
-                          <span className="truncate">{file.fileName} — downloading…</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-warning/30 bg-warning-subtle px-2.5 py-1.5 text-xs text-warning">
-                          <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
-                          <span className="truncate">
-                            {file.fileName} — couldn&apos;t retrieve, open in Gmail
-                          </span>
-                        </span>
-                      )}
+                      <AttachmentChip file={file} />
                     </li>
                   ))}
                 </ul>

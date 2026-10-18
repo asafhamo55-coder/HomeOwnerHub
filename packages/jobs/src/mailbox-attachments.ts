@@ -1,13 +1,80 @@
 import { createHash } from 'node:crypto'
 import { createAdminClient } from '@homeowner-portal/db'
 import { GmailClient, MailboxAuthError } from '@homeowner-portal/mailbox'
+import {
+  DISCONNECTED_FETCH_ERROR,
+  dueForAttemptFilter,
+  MAX_FETCH_ATTEMPTS,
+  MISSING_SOURCE_FETCH_ERROR,
+} from '../../../apps/hoa/src/lib/inbox/attachment-state'
 import { inngest } from './client'
 import { logDbError } from './db-error'
 import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
+import { readAll } from './read-all'
 
 const BUCKET = 'hoa-documents'
-const BATCH_SIZE = 20
-const MAX_ATTEMPTS = 2
+/** Attachments downloaded per run, across every tenant. */
+export const ATTACHMENT_BATCH_SIZE = 20
+const MAX_ATTEMPTS = MAX_FETCH_ATTEMPTS
+/** The cron period; the org rotation advances once per period. */
+const ROTATION_PERIOD_MS = 5 * 60_000
+
+type AdminDb = ReturnType<typeof createAdminClient>
+
+interface AttachmentFetcher {
+  getAttachment(gmailMessageId: string, gmailAttachmentId: string): Promise<Buffer>
+}
+
+export interface AttachmentFetchDeps {
+  now?: () => Date
+  /** One per mailbox account. Tests inject a fake; production builds a GmailClient. */
+  clientFor?: (db: AdminDb, mailboxAccountId: string) => Promise<AttachmentFetcher>
+}
+
+interface JobLogger {
+  info: (message: string) => void
+  warn: (message: string) => void
+  error: (message: string) => void
+}
+
+interface PendingAttachment {
+  id: string
+  organization_id: string
+  thread_id: string
+  message_id: string
+  file_name: string
+  content_type: string | null
+  gmail_attachment_id: string | null
+  fetch_attempts: number
+}
+
+/** `items` starting at `offset`, wrapping round. */
+export function rotate<T>(items: T[], offset: number): T[] {
+  if (items.length === 0) return []
+  const start = ((offset % items.length) + items.length) % items.length
+  return [...items.slice(start), ...items.slice(0, start)]
+}
+
+/**
+ * Round-robin across per-org queues: one from each org in turn, then a
+ * second from each, until `batchSize` is reached or every queue is empty.
+ * A lone org still gets the whole batch — fairness must not leave
+ * capacity idle.
+ */
+export function pickFairBatch<T>(queues: T[][], batchSize: number): T[] {
+  const picked: T[] = []
+  for (let round = 0; picked.length < batchSize; round++) {
+    let tookAny = false
+    for (const queue of queues) {
+      if (round >= queue.length) continue
+      picked.push(queue[round]!)
+      tookAny = true
+      if (picked.length >= batchSize) break
+    }
+    if (!tookAny) break
+  }
+  return picked
+}
 
 /**
  * Attachment fetcher.
@@ -35,35 +102,106 @@ const MAX_ATTEMPTS = 2
 export const mailboxAttachmentsJob = inngest.createFunction(
   { id: 'mailbox-attachments', name: 'Mailbox Attachment Fetch' },
   [{ cron: '*/5 * * * *' }, { event: 'mailbox/attachments.queued' }],
-  async ({ logger }) => {
-    const db = createAdminClient()
+  async ({ logger }) => runAttachmentFetch(createAdminClient(), logger),
+)
 
-    const { data: pending, error: pendingError } = await db
+/**
+ * One run of the fetcher. Exported, with an injectable clock and Gmail
+ * client, so fairness and retry behaviour are unit-testable without Gmail.
+ *
+ * BL-017 — per-tenant fairness. The queue used to be one global
+ * `order(created_at).limit(20)`, so an org importing a year of history
+ * with thousands of attachments owned every batch until it drained, and
+ * every other HOA's fresh attachments sat at "downloading…" for hours.
+ * Now each org with a mailbox gets its own due queue (up to a batch each)
+ * and the batch is filled round-robin, one per org per round. The org
+ * order rotates by a full batch width every cron period, so even with more
+ * orgs than batch slots every org is reached within a few runs (the
+ * shifts are multiples of gcd(batch, orgs), which is ≤ the batch width).
+ *
+ * BL-017 — bounded retry with backoff. A failed attempt leaves the row
+ * 'pending' with one more attempt recorded; the due filter
+ * (`dueForAttemptFilter`) holds it back until its next slot in
+ * RETRY_DELAYS_MS, and after MAX_FETCH_ATTEMPTS it is 'failed', where a
+ * board member can Retry it from the thread view (which resets attempts).
+ */
+export async function runAttachmentFetch(
+  db: AdminDb,
+  logger: JobLogger,
+  deps: AttachmentFetchDeps = {},
+): Promise<{ fetched: number; attempted: number; orgs: number }> {
+  const now = (deps.now ?? (() => new Date()))()
+  const clientFor =
+    deps.clientFor ??
+    (async (adminDb: AdminDb, accountId: string) =>
+      new GmailClient(await getAccessTokenFor(adminDb, accountId)))
+
+  // Every org that has (or had) a mailbox. Disconnected accounts are
+  // included on purpose: their still-pending attachments must reach the
+  // "disconnected" branch below and fail visibly rather than sit at
+  // "downloading…" forever.
+  // readAll: a silent 1000-row cap here would drop whole tenants from the
+  // rotation. A failed read is not "nothing pending" — it throws.
+  const accountRows = await readAll<{ organization_id: string }>(
+    (from, to) =>
+      db.from('mailbox_accounts').select('organization_id').order('id').range(from, to),
+    (error) => {
+      logDbError('mailboxAttachmentsJob', 'mailbox_accounts', {}, {
+        code: error.code,
+        message: error.message ?? 'unknown',
+      })
+      return new Error(
+        `mailboxAttachmentsJob: failed to load pending attachments (orgs): ${error.code ?? 'unknown'}`,
+      )
+    },
+  )
+
+  const orgIds = [...new Set(accountRows.map((r) => r.organization_id))].sort()
+  if (orgIds.length === 0) return { fetched: 0, attempted: 0, orgs: 0 }
+
+  const slot = Math.floor(now.getTime() / ROTATION_PERIOD_MS)
+  const ordered = rotate(orgIds, slot * ATTACHMENT_BATCH_SIZE)
+  const dueFilter = dueForAttemptFilter(now)
+
+  const queues: PendingAttachment[][] = []
+  let failedQueries = 0
+  for (const orgId of ordered) {
+    const { data, error } = await db
       .from('inbox_attachments')
       .select(
         'id, organization_id, thread_id, message_id, file_name, content_type, gmail_attachment_id, fetch_attempts',
       )
+      .eq('organization_id', orgId)
       .eq('fetch_status', 'pending')
       .lt('fetch_attempts', MAX_ATTEMPTS)
+      .or(dueFilter)
       .order('created_at')
-      .limit(BATCH_SIZE)
+      .limit(ATTACHMENT_BATCH_SIZE)
 
-    if (pendingError) {
-      // A failed read here is NOT "nothing pending" — falling into that
-      // branch would silently skip a whole run's worth of attachments.
-      // Throw so the run fails visibly and Inngest retries.
-      logDbError('mailboxAttachmentsJob', 'inbox_attachments', {}, pendingError)
-      throw new Error(
-        `mailboxAttachmentsJob: failed to load pending attachments: ${pendingError.message}`,
-      )
+    if (error) {
+      // One org's failed read must not stall every other tenant, but it is
+      // not "nothing pending" either: logged here, and if EVERY org's read
+      // failed the run throws below so Inngest retries it visibly.
+      failedQueries++
+      logDbError('mailboxAttachmentsJob', 'inbox_attachments', { orgId }, error)
+      continue
     }
+    if (data && data.length > 0) queues.push(data as PendingAttachment[])
+  }
 
-    if (!pending || pending.length === 0) return { fetched: 0 }
+  if (failedQueries === ordered.length) {
+    throw new Error(
+      `mailboxAttachmentsJob: failed to load pending attachments for all ${failedQueries} org(s)`,
+    )
+  }
+
+  const pending = pickFairBatch(queues, ATTACHMENT_BATCH_SIZE)
+  if (pending.length === 0) return { fetched: 0, attempted: 0, orgs: 0 }
 
     // One Gmail client per mailbox account, not per attachment.
-    const clientCache = new Map<string, GmailClient>()
+    const clientCache = new Map<string, AttachmentFetcher>()
     // Whether each account is still connected, resolved at most once per
-    // run. This queue is global across tenants and an account can be
+    // run. This queue spans tenants and an account can be
     // disconnected while its attachments are still pending, so the check
     // cannot be hoisted out of the loop the way the other
     // getAccessTokenFor callers hoist `.is('disconnected_at', null)` into
@@ -123,7 +261,7 @@ export const mailboxAttachmentsJob = inngest.createFunction(
             .from('inbox_attachments')
             .update({
               fetch_status: 'failed',
-              fetch_error: 'Missing message, thread, or Gmail attachment id.',
+              fetch_error: MISSING_SOURCE_FETCH_ERROR,
               fetch_attempts: attachment.fetch_attempts + 1,
             })
             .eq('id', attachment.id)
@@ -179,7 +317,7 @@ export const mailboxAttachmentsJob = inngest.createFunction(
             .from('inbox_attachments')
             .update({
               fetch_status: 'failed',
-              fetch_error: 'Mailbox was disconnected before this attachment was downloaded.',
+              fetch_error: DISCONNECTED_FETCH_ERROR,
               fetch_attempts: attachment.fetch_attempts + 1,
             })
             .eq('id', attachment.id)
@@ -197,7 +335,7 @@ export const mailboxAttachmentsJob = inngest.createFunction(
 
         let client = clientCache.get(thread.mailbox_account_id)
         if (!client) {
-          client = new GmailClient(await getAccessTokenFor(db, thread.mailbox_account_id))
+          client = await clientFor(db, thread.mailbox_account_id)
           clientCache.set(thread.mailbox_account_id, client)
         }
 
@@ -348,7 +486,9 @@ export const mailboxAttachmentsJob = inngest.createFunction(
       }
     }
 
-    logger.info(`[mailbox-attachments] stored ${fetched}/${pending.length}`)
-    return { fetched }
-  },
-)
+    // Counts only — never a file name or address.
+    logger.info(
+      `[mailbox-attachments] stored ${fetched}/${pending.length} across ${queues.length} org(s)`,
+    )
+    return { fetched, attempted: pending.length, orgs: queues.length }
+}

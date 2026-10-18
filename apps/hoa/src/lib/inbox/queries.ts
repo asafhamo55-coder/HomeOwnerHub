@@ -658,6 +658,9 @@ export interface ThreadMessage {
     fileName: string
     sizeBytes: number | null
     fetchStatus: string
+    /** BL-017: drive the per-attachment state and Retry (see attachment-state.ts). */
+    fetchError?: string | null
+    fetchAttempts?: number
   }>
   /**
    * Who an outbound message was forwarded to, if it was a forward. Derived
@@ -796,7 +799,7 @@ export async function getThreadDetail(
     messageIds.length > 0
       ? await db
           .from('inbox_attachments')
-          .select('id, message_id, file_name, size_bytes, fetch_status')
+          .select('id, message_id, file_name, size_bytes, fetch_status, fetch_error, fetch_attempts')
           .in('message_id', messageIds)
           .neq('fetch_status', 'skipped')
       : {
@@ -806,6 +809,8 @@ export async function getThreadDetail(
             file_name: string
             size_bytes: number | null
             fetch_status: string
+            fetch_error: string | null
+            fetch_attempts: number
           }>,
           error: null,
         }
@@ -843,6 +848,8 @@ export async function getThreadDetail(
           fileName: a.file_name,
           sizeBytes: a.size_bytes,
           fetchStatus: a.fetch_status,
+          fetchError: a.fetch_error,
+          fetchAttempts: a.fetch_attempts,
         })),
       forwardedTo: forwardedTo.get(message.gmail_message_id) ?? null,
     })),
