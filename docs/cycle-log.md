@@ -223,3 +223,19 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Open:**
   - Billing rounding: the in-app annual figure is $9,700.56 but Stripe charges $9,698.40 at 180 doors.
   - Unverified marketing numbers (Madison Park figures, conversion rates, uptime) are left for the owner.
+
+## 2026-10-18 (02:03) — deploy 5116b2d: record a sale, marketing truth pass, ui-shots CI
+
+- **Live:**
+  - P3 record a sale: closes the seller's ownership, opens the buyer's, ends the seller's portal access, and the buyer sees only post-sale charges in the app.
+  - BL-042: marketing pricing from one source that matches checkout; false claims and composite testimonials removed.
+  - BL-075: the ui-shots CI workflow.
+- **First ui-shots CI run:**
+  - login, seeding and 281 overflow checks worked;
+  - 1 real overflow, vendors @375 (the search form couldn't shrink): fixed;
+  - the .ui-shots artifact wasn't uploaded because upload-artifact skips dot-dirs: fixed with include-hidden-files;
+  - the refresh PR was blocked by a repo setting. Enabled (Actions may create PRs; default token stays read-only).
+- **Merged and pushed for CI:**
+  - BL-029: budget first draft from last year plus actuals, and billing displays equal Stripe's unit amount × quantity.
+  - BL-024/027: ARC AI pre-check for residents and a cited board review in /approvals (W37).
+- **New items:** BL-076 to BL-079, including BL-077, a high-priority accounting bug: closing entries net closed-year actuals to about zero in reports.

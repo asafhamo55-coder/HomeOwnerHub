@@ -1,6 +1,6 @@
 # Session handoff: HomeownerHub autonomous loop
 
-_Updated every cycle. Last update: 2026-10-17 23:45 ET._
+_Updated every cycle. Last update: 2026-10-18 02:20 ET._
 
 ## Start the next session with this prompt
 
@@ -41,7 +41,7 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 - **Integration branch:** `claude/quality-oracle`. All merges land here.
 - **Deploy:** run `/usr/bin/git merge-base --is-ancestor <prod> <tip>`, then `/usr/bin/git push origin <sha>:claude/phase1-homeownerhub-setup-MILNu`. Prod pushes FAIL when their output is redirected to /dev/null; always run them as `... 2>&1 | tail -3`, and retry up to 3 times.
 - **Verify:** poll `https://www.homeownerledger.com/api/health` until `version` equals the SHA. The public body is `{ok, app, version}`.
-- **Live in prod:** b31729f (Ask the guide, BL-072), deployed 2026-10-17 23:41 ET. The next deploy is allowed after 00:41: properties P2 and P4, once CI is green.
+- **Live in prod:** 5116b2d (record a sale, marketing truth, ui-shots CI), deployed 2026-10-18 02:03 ET. The next deploy is allowed after 03:03: BL-029 budget draft, billing displays, BL-024/027 ARC AI and the vendors overflow fix, once CI is green.
 
 ## Gates (the trusted forms)
 
@@ -63,15 +63,21 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 
 ## In flight at this update
 
-- **On quality-oracle, CI pending:** properties P2 (table and 360 page) and P4 (roster import).
 - **No agents running.**
-- **Next:**
-  - properties P3: record a sale;
-  - BL-042 marketing truth pass: the import now exists, so "roster can come over" can be true;
-  - BL-075 CI screenshot job: 15 stale guide shots;
-  - BL-024 / BL-027 ARC AI.
-- **Waiting on Asaf:** confirm that support@homeownerledger.com is a real inbox.
+- **Next, by priority:**
+  - BL-077: the closing-entries accounting bug (high).
+  - BL-076: open the next fiscal year.
+  - BL-078: ARC pre-check rate limit.
+  - BL-028: mobile inspection.
+  - BL-017 / BL-018: inbox follow-ups.
+- **Screenshots:** they come from the "UI shots" CI workflow now; fetch them with scripts/ci/fetch-ui-shots.sh <sha>.
+- **Waiting on Asaf:**
+  - confirm that support@homeownerledger.com is a real inbox;
+  - the FL refresh, the S-01 audit query and the 0063 Part 1a SQL;
+  - unverified marketing numbers (Madison Park figures, conversion rates, uptime).
 
 ## Decisions taken without the owner (reversible)
+
+- 2026-10-18: removed the composite marketing testimonials. Marketing shows only the price checkout charges today. Enabled the repo setting that lets Actions create PRs (default token read-only).
 
 - **Module pricing (BL-068):** Core $0.60/door ($39 min); Accounting $0.40 ($20 min); AI $0.50 ($25 min); Mailbox, Vendors and Leases $0.10 each ($5 min). This extends pricing scenario A. Existing subscriptions keep their price until renewal. The decision doc will be written when BL-068 is built.
