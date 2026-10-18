@@ -1,12 +1,12 @@
 ---
 id: resident-portal-basics
-title: "Your resident portal: pay dues, ask for approval, report a problem"
-summary: Pay your dues, ask the board to approve a change to your home, and report a problem, from your phone.
+title: "Your resident portal: pay dues, ask for approval, report a problem, update your details"
+summary: Pay your dues, ask the board to approve a change to your home, report a problem and keep your phone, email and mailing address up to date, from your phone.
 topic: resident
 roles: [resident]
-routes: ["/resident", "/resident/dues", "/resident/dues/pay", "/resident/arc", "/resident/arc/new", "/resident/tickets/new", "/resident/report-violation"]
+routes: ["/resident", "/resident/dues", "/resident/dues/pay", "/resident/arc", "/resident/arc/new", "/resident/tickets/new", "/resident/report-violation", "/resident/account"]
 primary_route: /resident
-keywords: [pay, dues, balance, zelle, statement, arc, approval, paint, fence, request, problem, repair, report, concern, announcements, documents, rules, check, guidelines]
+keywords: [phone, email, mailing, address, contact, details, update, pay, dues, balance, zelle, statement, arc, approval, paint, fence, request, problem, repair, report, concern, announcements, documents, rules, check, guidelines]
 shots:
   - name: guide-resident-home
     alt: The resident home screen with the Pay button highlighted
@@ -44,9 +44,16 @@ Everything you need is in the tabs at the bottom of the screen: Home, Dues, Requ
 1. Tap **Requests**, then [[New support request]] for a repair or question. Tap [[Send request]].
 2. Or tap [[Report a concern]] to tell the board about a rule being broken. Tap [[Send report]].
 
+### Update your contact details
+1. Tap **Account**. **My contact details** shows the phone, the email for notices and the mailing address the board has on file.
+2. Tap [[Change my details]].
+3. Change what's wrong. Leave **Mailing address** empty if your mail goes to the home.
+4. Tap [[Send to the board]].
+
 ## What happens next
 - Your payment is matched to your home by the memo. Your balance updates when it arrives.
 - The board answers your requests in the portal. Check **Requests** to see the status.
+- A contact change shows **Waiting for the board** until a board member approves it. Then it's used for notices and mail.
 
 ## Good to know
 - To see every charge, open **Dues**, then [[View statement]].
@@ -54,3 +61,5 @@ Everything you need is in the tabs at the bottom of the screen: Home, Dues, Requ
 - Have a question about the rules? Tap **Ask** to use Ask the Docs.
 - The rules check is not a decision. Only the board approves or denies an application.
 - Wait for the board's written approval before you start work on your home.
+- The email you sign in with doesn't change here. Only the email for notices does.
+- If you sign in with the email on file, you can't change that email here. Ask the board.

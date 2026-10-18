@@ -1,12 +1,12 @@
 ---
 id: approvals-queue
 title: "The Approvals queue: nothing happens until you approve"
-summary: Review what the AI proposed (deposits, scanned bills, violation letters, ARC reviews and vendors) and approve or reject each one.
+summary: Review what the AI proposed, and residents' contact updates, then approve or reject each one.
 topic: documents
 roles: [admin, board]
 routes: ["/approvals"]
 primary_route: /approvals
-keywords: [approve, approval, queue, pending, deposit, bill, invoice, scanned, vendor, letter, reject, ai, decision, arc, architectural]
+keywords: [approve, approval, queue, pending, deposit, bill, invoice, scanned, vendor, letter, reject, ai, decision, arc, architectural, contact, phone, email, mailing, address, owner, resident]
 shots:
   - name: guide-approvals
     alt: The Approvals page with a deposit and the Approve & post button highlighted
@@ -20,9 +20,9 @@ The AI prepares work for the board, but it never posts or sends anything on its 
 
 ## Steps
 1. Open **Approvals** from the sidebar. The number beside it is how many items are waiting.
-2. Pick a tab to see one kind: Deposits, Bills, Violation letters, ARC reviews or Vendors.
+2. Pick a tab to see one kind: Deposits, Bills, Violation letters, ARC reviews, Contact updates or Vendors.
 3. Read the item. For a scanned bill, compare it with the bill itself.
-4. Approve it: [[Approve & post]] for a deposit, [[Approve & enter]] for a bill, [[Approve letter]] for a violation letter, or [[Approve]] for a vendor.
+4. Approve it: [[Approve & post]] for a deposit, [[Approve & enter]] for a bill, [[Approve letter]] for a violation letter, [[Approve & update]] for a contact update, or [[Approve]] for a vendor.
 5. Or select [[Reject]] and give a **Reason**. The reason is kept in the audit trail.
 6. For an ARC review, select [[Approve]], [[Deny]] or [[Request info]].
 
@@ -33,6 +33,7 @@ The AI prepares work for the board, but it never posts or sends anything on its 
 - An approved bill is entered in accounts payable. It does not pay the vendor.
 - An approved violation letter is filed as an open violation. Nothing is sent to the homeowner.
 - An approved vendor becomes active.
+- An approved contact update changes that person's records on the home: their resident record, their ownership or lease, and the home's owner contact when it is theirs. The property page then shows **Updated by owner on** the date. A rejected one tells the resident your reason.
 - An ARC decision is the same as deciding on the application's own page. The resident sees your response in their portal.
 
 ## If something goes wrong
@@ -44,3 +45,4 @@ The AI prepares work for the board, but it never posts or sends anything on its 
 ## Good to know
 - There is no "approve all". Each item needs its own decision.
 - A bill whose vendor is not on file shows **Review** instead of approve. Add the vendor first.
+- A contact update never changes the email someone signs in with. If they sign in with the email on file, the new email is held so they aren't locked out. Invite them to the portal first.
