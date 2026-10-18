@@ -156,6 +156,8 @@ jobs:
         with:
           name: ui-shots-${{ github.sha }}
           path: .ui-shots/
+          # .ui-shots is a dot-directory; upload-artifact v4 skips hidden files by default.
+          include-hidden-files: true
           retention-days: 14
           if-no-files-found: warn
 

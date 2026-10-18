@@ -142,7 +142,7 @@ export default async function VendorsListPage({
         />
       ) : (
         <div className="space-y-4">
-          <form action="/vendors" method="get" role="search" className="flex max-w-md items-center gap-2">
+          <form action="/vendors" method="get" role="search" className="flex w-full min-w-0 max-w-md items-center gap-2">
             <Input
               type="search"
               name="q"
@@ -150,7 +150,7 @@ export default async function VendorsListPage({
               placeholder="Search name, email or trade"
               aria-label="Search vendors"
               prefix={<Search aria-hidden />}
-              className="flex-1"
+              className="min-w-0 flex-1"
             />
             <Button type="submit" variant="secondary">
               Search
