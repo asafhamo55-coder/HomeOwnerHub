@@ -3,6 +3,7 @@ import {
   computeBudgetVsActual,
   computeIncomeStatementForRange,
   listBudgets,
+  type AccountingDb,
   type BalanceSheet,
   type BudgetSummary,
   type BudgetVsActual,
@@ -14,16 +15,19 @@ import type { PacketPeriod } from './period'
  * The packet's money sections, built on the same report queries the
  * /accounting/reports pages use (which throw on failure). Each is a full
  * aggregation over posted ledger lines — no paged list is summed anywhere.
+ *
+ * `db` is optional: pages omit it (the signed-in user's RLS client); the
+ * month-end board report job (BL-073) passes its own, having no request.
  */
 
 /** Income statement for exactly the packet month (accrual basis). */
-export function loadIncomeStatement(associationId: string, period: PacketPeriod): Promise<IncomeStatement> {
-  return computeIncomeStatementForRange(associationId, period.start, period.end, 'accrual')
+export function loadIncomeStatement(associationId: string, period: PacketPeriod, db?: AccountingDb): Promise<IncomeStatement> {
+  return computeIncomeStatementForRange(associationId, period.start, period.end, 'accrual', db)
 }
 
 /** Position at the close of the packet month. */
-export function loadBalanceSheet(associationId: string, period: PacketPeriod): Promise<BalanceSheet> {
-  return computeBalanceSheet(associationId, period.end)
+export function loadBalanceSheet(associationId: string, period: PacketPeriod, db?: AccountingDb): Promise<BalanceSheet> {
+  return computeBalanceSheet(associationId, period.end, db)
 }
 
 /**
@@ -54,9 +58,15 @@ export interface PacketBudget {
  *
  * [] when no budget covers the month (the section says so, it isn't a failure).
  */
-export async function loadBudgetsVsActual(associationId: string, period: PacketPeriod): Promise<PacketBudget[]> {
-  const picked = pickBudgetsForPeriod(await listBudgets(associationId), period)
-  const reports = await Promise.all(picked.map((b) => computeBudgetVsActual(associationId, b.id, { through: period.end })))
+export async function loadBudgetsVsActual(
+  associationId: string,
+  period: PacketPeriod,
+  db?: AccountingDb,
+): Promise<PacketBudget[]> {
+  const picked = pickBudgetsForPeriod(await listBudgets(associationId, db), period)
+  const reports = await Promise.all(
+    picked.map((b) => computeBudgetVsActual(associationId, b.id, db ? { through: period.end, client: db } : { through: period.end })),
+  )
   return picked.flatMap((budget, i) => {
     const report = reports[i]
     return report ? [{ budget, report }] : []

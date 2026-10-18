@@ -9,7 +9,8 @@
     "./mailbox-tokens": "./src/mailbox-tokens.ts",
     "./db-error": "./src/db-error.ts",
     "./dues-reminders": "./src/dues-reminders/index.ts",
-    "./association-time": "./src/association-time.ts"
+    "./association-time": "./src/association-time.ts",
+    "./monthly-board-report": "./src/monthly-board-report/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

@@ -157,17 +157,39 @@ export function buildMailboxAlert(args: {
 
 // ─── Recipients ─────────────────────────────────────────────────────
 
-/** Board/admin email addresses for one org. Never residents. */
-async function boardEmails(db: Db, orgId: string, logger: DigestLogger): Promise<string[]> {
+/** One board/admin member who can be emailed. */
+export interface BoardRecipient {
+  userId: string
+  email: string
+}
+
+/** Why `loadBoardRecipients` could not answer. Carries the query's code only. */
+export class BoardRecipientsError extends Error {
+  constructor(
+    readonly stage: 'members' | 'profiles',
+    readonly code: string | undefined,
+  ) {
+    super(`board recipients: ${stage} read failed (${code ?? 'no code'})`)
+    this.name = 'BoardRecipientsError'
+  }
+}
+
+/**
+ * Board/admin members of one org with an email address, one per address.
+ * Never residents. THROWS `BoardRecipientsError` on a failed read, so a
+ * caller cannot mistake "couldn't look" for "nobody to tell".
+ *
+ * The recipient rule for every board-facing email (this alert and the
+ * month-end board report, BL-073): org_members role in BOARD_ROLES →
+ * profiles.email.
+ */
+export async function loadBoardRecipients(db: Db, orgId: string): Promise<BoardRecipient[]> {
   const { data: members, error } = await db
     .from('org_members')
     .select('user_id, role')
     .eq('org_id', orgId)
     .in('role', [...BOARD_ROLES])
-  if (error) {
-    logger.error(`[daily-digest] ${orgId}: failed to load board members`, { code: error.code })
-    return []
-  }
+  if (error) throw new BoardRecipientsError('members', error.code)
 
   // Re-checked in code: the role filter above is the query's job, but the
   // promise that a resident is never emailed should not rest on one
@@ -182,17 +204,31 @@ async function boardEmails(db: Db, orgId: string, logger: DigestLogger): Promise
     .from('profiles')
     .select('id, email')
     .in('id', userIds)
-  if (profileError) {
-    logger.error(`[daily-digest] ${orgId}: failed to load board profiles`, {
-      code: profileError.code,
-    })
+  if (profileError) throw new BoardRecipientsError('profiles', profileError.code)
+
+  const wanted = new Set(userIds)
+  const seen = new Set<string>()
+  const out: BoardRecipient[] = []
+  for (const p of (profiles ?? []) as { id: string; email: string | null }[]) {
+    if (!wanted.has(p.id) || !p.email) continue
+    const email = p.email.trim()
+    if (!email || seen.has(email)) continue
+    seen.add(email)
+    out.push({ userId: p.id, email })
+  }
+  return out
+}
+
+/** Board/admin email addresses for one org. Never residents. [] (logged) on a failed read. */
+async function boardEmails(db: Db, orgId: string, logger: DigestLogger): Promise<string[]> {
+  try {
+    return (await loadBoardRecipients(db, orgId)).map((r) => r.email)
+  } catch (err) {
+    if (!(err instanceof BoardRecipientsError)) throw err
+    const what = err.stage === 'members' ? 'board members' : 'board profiles'
+    logger.error(`[daily-digest] ${orgId}: failed to load ${what}`, { code: err.code })
     return []
   }
-  const wanted = new Set(userIds)
-  const emails = ((profiles ?? []) as { id: string; email: string | null }[])
-    .filter((p) => wanted.has(p.id) && p.email)
-    .map((p) => (p.email as string).trim())
-  return [...new Set(emails)]
 }
 
 // ─── Job ────────────────────────────────────────────────────────────

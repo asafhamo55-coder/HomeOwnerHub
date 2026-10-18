@@ -13,7 +13,7 @@
  * ../association-time.ts — derived from its state).
  */
 
-import { createHash } from 'node:crypto'
+import { deterministicUuid } from '../deterministic-id'
 import { DEFAULT_ASSOCIATION_TIME_ZONE, addCalendarDays, calendarDaysBetween, hourIn, instantAtLocalTime, todayIn } from '../association-time'
 
 /** The CRON's zone (job.ts fires at 9am here). Not an association's zone:
@@ -93,13 +93,5 @@ export function dueStep(dueDate: string, today: string, offsets: readonly number
  * ("custom") UUID so it is a valid `uuid` value.
  */
 export function reminderCommunicationId(assessmentId: string, step: number): string {
-  const hex = createHash('sha256').update(`homeownerhub:dues-reminder:v1:${assessmentId}:${step}`).digest('hex')
-  const variant = ((parseInt(hex[16], 16) & 0x3) | 0x8).toString(16)
-  return [
-    hex.slice(0, 8),
-    hex.slice(8, 12),
-    `8${hex.slice(13, 16)}`,
-    `${variant}${hex.slice(17, 20)}`,
-    hex.slice(20, 32),
-  ].join('-')
+  return deterministicUuid(`homeownerhub:dues-reminder:v1:${assessmentId}:${step}`)
 }

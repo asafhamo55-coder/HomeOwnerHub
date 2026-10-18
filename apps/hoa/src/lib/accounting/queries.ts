@@ -18,6 +18,15 @@ export function queryFailed(error: { code?: string; message?: string }): Error {
 type ServerClient = Awaited<ReturnType<typeof getSupabaseServerClient>>
 
 /**
+ * A client the report helpers below can be handed instead of the request's
+ * own (BL-073): the month-end board report runs in a background job with no
+ * request and therefore no cookies, so it passes a service-role client and
+ * scopes every read by association id itself. Omitted, each helper uses the
+ * signed-in user's RLS client exactly as before.
+ */
+export type AccountingDb = ServerClient
+
+/**
  * Every ledger line for `jeIds`. The id list is chunked (a long `.in()`
  * overflows the request URL) and each chunk is paged to the end, because
  * PostgREST caps a response at 1000 rows and a statement summed from a
@@ -80,8 +89,8 @@ export interface BudgetSummary {
   lineItemCount: number
 }
 
-export async function listBudgets(associationId: string): Promise<BudgetSummary[]> {
-  const supabase = await getSupabaseServerClient()
+export async function listBudgets(associationId: string, client?: AccountingDb): Promise<BudgetSummary[]> {
+  const supabase = client ?? (await getSupabaseServerClient())
   const { data, error: dataErr } = await supabase
     .from('budgets')
     .select(
@@ -230,8 +239,9 @@ export interface BalanceSheet {
 export async function computeBalanceSheet(
   associationId: string,
   asOfDate: string,
+  client?: AccountingDb,
 ): Promise<BalanceSheet> {
-  const supabase = await getSupabaseServerClient()
+  const supabase = client ?? (await getSupabaseServerClient())
 
   // All posted JE ids with entry_date <= asOfDate. Inception-to-date runs
   // past PostgREST's 1000-row cap within a year or two, so both this and
@@ -434,8 +444,9 @@ export async function computeIncomeStatementForRange(
   startDate: string,
   endDate: string,
   basis: AccountingBasis = 'accrual',
+  client?: AccountingDb,
 ): Promise<IncomeStatement> {
-  const supabase = await getSupabaseServerClient()
+  const supabase = client ?? (await getSupabaseServerClient())
   const jeRows = await readAll<{ id: string; source: string }>(
     (from, to) =>
       supabase
@@ -764,10 +775,10 @@ export interface BudgetVsActual {
 export async function computeBudgetVsActual(
   associationId: string,
   budgetId: string,
-  opts: { through?: string } = {},
+  opts: { through?: string; client?: AccountingDb } = {},
 ): Promise<BudgetVsActual | null> {
   const through = opts.through ?? null
-  const supabase = await getSupabaseServerClient()
+  const supabase = opts.client ?? (await getSupabaseServerClient())
   const { data: budget, error: budgetErr } = await supabase
     .from('budgets')
     .select(

@@ -17,6 +17,9 @@ import { describe, expect, it } from 'vitest'
 
 const REPO_ROOT = resolve(__dirname, '../../..')
 
+/** An event name, as a grep -E pattern (see sentEventNames). */
+const EVENT_NAME = '[a-z]+/[a-z0-9._-]+'
+
 function read(rel: string): string {
   return readFileSync(resolve(REPO_ROOT, rel), 'utf8')
 }
@@ -81,17 +84,18 @@ function registeredJobNames(): string[] {
 /**
  * Every inngest.send({ name: '...' }) across the repo.
  *
- * Limitation (deferred, documented rather than fixed): the pattern
- * `[a-z]+/[a-z.]+` only matches lowercase letters and dots, so an event
- * name containing a digit, hyphen, or underscore would silently not be
- * found. All seven event names in this repo today fit the pattern.
+ * The name pattern is `[a-z]+/[a-z0-9._-]+` (EVENT_NAME): lowercase
+ * letters, digits, dots, hyphens and underscores after the slash. It used
+ * to stop at letters and dots, which made a hyphenated name such as
+ * 'board/monthly-report.requested' (BL-073) invisible on BOTH sides —
+ * neither sent nor listened — so the check passed while proving nothing.
  */
 function sentEventNames(): string[] {
   const out = execFileSync(
     'grep',
     [
       '-rhoE',
-      "name:\\s*'[a-z]+/[a-z.]+'",
+      `name:\\s*'${EVENT_NAME}'`,
       '--include=*.ts',
       '--include=*.tsx',
       // Test fixtures build fake events (packages/jobs/src/failure-reporting.test.ts
@@ -104,24 +108,24 @@ function sentEventNames(): string[] {
     ],
     { cwd: REPO_ROOT, encoding: 'utf8' },
   )
-  const names = [...out.matchAll(/'([a-z]+\/[a-z.]+)'/g)].map((m) => m[1])
+  const names = [...out.matchAll(/'([a-z]+\/[a-z0-9._-]+)'/g)].map((m) => m[1])
   return [...new Set(names)].sort()
 }
 
-/** Every { event: '...' } trigger in packages/jobs. Same pattern limitation as above. */
+/** Every { event: '...' } trigger in packages/jobs. Same EVENT_NAME pattern as above. */
 function listenedEventNames(): string[] {
   const out = execFileSync(
     'grep',
     [
       '-rhoE',
-      "event:\\s*'[a-z]+/[a-z.]+'",
+      `event:\\s*'${EVENT_NAME}'`,
       '--include=*.ts',
       '--exclude-dir=node_modules',
       'packages/jobs/src',
     ],
     { cwd: REPO_ROOT, encoding: 'utf8' },
   )
-  const names = [...out.matchAll(/'([a-z]+\/[a-z.]+)'/g)].map((m) => m[1])
+  const names = [...out.matchAll(/'([a-z]+\/[a-z0-9._-]+)'/g)].map((m) => m[1])
   return [...new Set(names)].sort()
 }
 
@@ -153,7 +157,7 @@ describe('inngest wiring contract', () => {
     // job sharing a multi-symbol `export { a, b } from '...'` line) cannot
     // silently regress. If a new job is added to packages/jobs, this
     // assertion fails loudly — the correct outcome for a contract test.
-    expect(exported).toHaveLength(18)
+    expect(exported).toHaveLength(19)
     expect(exported).toEqual(
       expect.arrayContaining(['mailboxSyncJob', 'mailboxWatchdogJob', 'mailboxReconcileJob']),
     )

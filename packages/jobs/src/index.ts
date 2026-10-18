@@ -1,6 +1,8 @@
 export { inngest } from './client'
 export { createDailyDigestJob } from './daily-digest'
 export type { DailyDigestDeps } from './daily-digest'
+export { createMonthlyBoardReportJob } from './monthly-board-report/job'
+export type { MonthlyReportDeps, BuildMonthlyReportInput, MonthlyReportContent } from './monthly-board-report/run'
 export { createDuesRemindersJob } from './dues-reminders/job'
 export type { DuesRemindersDeps, ReminderRenderInput } from './dues-reminders/run'
 export { hoaLateFeeJob } from './hoa-late-fees'
