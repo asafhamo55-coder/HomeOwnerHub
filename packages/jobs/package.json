@@ -11,7 +11,8 @@
     "./dues-reminders": "./src/dues-reminders/index.ts",
     "./association-time": "./src/association-time.ts",
     "./fiscal-periods": "./src/fiscal-periods.ts",
-    "./monthly-board-report": "./src/monthly-board-report/index.ts"
+    "./monthly-board-report": "./src/monthly-board-report/index.ts",
+    "./vendor-coi-reminders": "./src/vendor-coi-reminders/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
