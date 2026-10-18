@@ -20,6 +20,7 @@ import { nextDueText } from '@/lib/resident-due-text'
 import type { TicketRow } from '@/lib/resident-tickets'
 import type { ArcRequestRow } from '@/lib/resident-submissions'
 import { GreetingHeadline } from '@/components/dashboard/GreetingHeadline'
+import { ResidentFirstWeek } from '@/components/guide/FirstWeekGate'
 import {
   Hero,
   IconTile,
@@ -145,6 +146,9 @@ export default async function ResidentDashboard() {
           ) : null}
         </>
       )}
+
+      {/* First visits only, until dismissed; after the account's standing, never above it. */}
+      {data.orgId ? <ResidentFirstWeek scope={data.orgId} /> : null}
 
       <Section label="Quick actions">
         {/* Seven tiles: the odd one out spans the last row rather than sitting alone. */}

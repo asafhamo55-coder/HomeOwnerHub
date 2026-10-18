@@ -25,6 +25,7 @@ vi.mock('../dashboard/DismissSetupButton', () => ({ DismissSetupButton: () => Re
 const { AskGuide } = await import('./AskGuide')
 const { WhatsNewEntries } = await import('./WhatsNewEntries')
 const { HowThisWorks } = await import('./HowThisWorks')
+const { FirstWeekCard } = await import('./FirstWeekCard')
 const { SetupChecklistCard } = await import('../dashboard/SetupChecklistCard')
 const { AppVersion } = await import('../layout/AppVersion')
 const { EmptyState, Button, Card, CardContent } = await import('@homeowner-portal/ui')
@@ -64,6 +65,8 @@ const PREVIEWS: Record<string, { title: string; body: React.ReactElement }> = {
   'ask-rules': { title: 'Ask the guide — rules question → Ask the Docs', body: <AskGuide initialQuestion="Can I paint my front door red?" initialState={{ status: 'done', result: rules as never }} /> },
   'ask-unavailable': { title: 'Ask the guide — model unavailable → matching articles', body: <AskGuide initialQuestion="How do I record a check payment?" initialState={{ status: 'done', result: unavailable as never }} /> },
   'ask-idle': { title: 'Ask the guide — empty box', body: <AskGuide /> },
+  'first-week-board': { title: 'Board dashboard — Your first week on the board', body: <FirstWeekCard variant="board" onDismiss={() => {}} /> },
+  'first-week-resident': { title: 'Resident home — New here? (first visits)', body: <FirstWeekCard variant="resident" onDismiss={() => {}} /> },
   'setup-checklist-how': { title: 'Setup checklist with How? links', body: <SetupChecklistCard checklist={buildSetupChecklist(NOTHING)} /> },
   'empty-state-how-this-works': {
     title: 'EmptyState with How this works (Dues)',

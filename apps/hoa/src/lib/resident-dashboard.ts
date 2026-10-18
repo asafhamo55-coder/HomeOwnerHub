@@ -61,6 +61,8 @@ export interface ResidentDashboard {
   firstName: string | null
   units: ResidentUnit[]
   associationName: string | null
+  /** The active HOA org (scopes browser-remembered UI such as the first-week card). */
+  orgId: string | null
   orgName: string | null
   recentAnnouncements: number
   openViolations: OpenViolationRow[]
@@ -112,6 +114,7 @@ export async function getResidentDashboard(): Promise<ResidentDashboard> {
     firstName,
     units,
     associationName,
+    orgId: org?.id ?? null,
     orgName: org?.name ?? null,
     recentAnnouncements,
     openViolations: openViolations ?? [],

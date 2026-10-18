@@ -58,6 +58,7 @@ import { LeaseSummaryCard } from '@/components/dashboard/LeaseSummaryCard'
 import { NextMeeting } from '@/components/dashboard/NextMeeting'
 import { GreetingHeadline } from '@/components/dashboard/GreetingHeadline'
 import { SetupChecklistCard } from '@/components/dashboard/SetupChecklistCard'
+import { BoardFirstWeek } from '@/components/guide/FirstWeekGate'
 
 export const metadata = { title: 'Dashboard' }
 
@@ -91,7 +92,7 @@ export default async function DashboardHome() {
   // the setup checklist are independent reads — fetched together (BL-074;
   // they used to run one after the other before anything rendered).
   const user = await getSignedInUser()
-  const [profile, checklist, cookieStore] = await Promise.all([
+  const [profile, checklist, cookieStore, orgRow] = await Promise.all([
     user
       ? loadOrFail(
           'profile name',
@@ -106,6 +107,12 @@ export default async function DashboardHome() {
     // takes the dashboard down.
     loadSetupChecklist(supabase, org.id),
     cookies(),
+    // The org's age decides the "Your first week" card. A failed read just
+    // leaves the card off; logged by loadOrFail.
+    loadOrFail(
+      'org created date',
+      supabase.from('orgs').select('created_at').eq('id', org.id).maybeSingle<{ created_at: string | null }>(),
+    ),
   ])
   // A failed name lookup only costs the greeting its name; the email
   // prefix below is a fine stand-in. Logged by loadOrFail either way.
@@ -132,6 +139,7 @@ export default async function DashboardHome() {
       }
     >
       {showChecklist ? <SetupChecklistCard checklist={checklist} /> : null}
+      <BoardFirstWeek orgId={org.id} orgCreatedAt={orgRow.ok ? (orgRow.data?.created_at ?? null) : null} />
 
       <Suspense fallback={<DashboardSkeleton />}>
         <DashboardContent orgId={org.id} />
