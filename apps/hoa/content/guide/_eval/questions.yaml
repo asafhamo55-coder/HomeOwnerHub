@@ -8,7 +8,10 @@
 #
 # expect:
 #   <article-id>  a how-to: that article must be in the top 3 retrieved and
-#                 the gate must let the question through to the model
+#                 the gate must let the question through to the model.
+#                 Phase 2 (ids a-.. to f-..) keeps a few questions that still
+#                 miss: they are known retrieval gaps, not mistakes in the set.
+#                 Phase 2 refusal canaries sit with their topic group.
 #   refuse        a refusal canary: a feature HomeownerHub does not have.
 #                 The gate must refuse before the model is called. Each one
 #                 was checked against the code before it was added.
@@ -71,7 +74,9 @@ questions:
 
   # ── Refusal canaries: features HomeownerHub does not have ─────────────
   - { id: c01, role: admin, expect: refuse, q: "Can residents book the clubhouse for a party?" }
-  - { id: c02, role: admin, expect: refuse, q: "How do I turn on autopay by credit card?" }
+  # c02 was a refusal canary until settings-resident-payments said plainly
+  # that there is no autopay and no card payment; the guide now answers it.
+  - { id: c02, role: admin, expect: settings-resident-payments, q: "How do I turn on autopay by credit card?" }
   - { id: c03, role: board, expect: refuse, q: "How do I run an online election with secret ballots?" }
   - { id: c04, role: admin, expect: refuse, q: "How do I sync our books with QuickBooks?" }
   - { id: c05, role: board, expect: refuse, q: "How do I give visitors a guest pass for the gate?" }
@@ -87,3 +92,166 @@ questions:
   - { id: d03, role: resident, expect: rules, q: "Am I allowed to keep two dogs?" }
   - { id: d04, role: admin, expect: rules, q: "How tall can a fence be under our bylaws?" }
   - { id: d05, role: resident, expect: rules, q: "Are short-term rentals allowed in our community?" }
+
+  # ── Phase 2 how-to: accounting reports, bank, monthly board report ──────
+  - { id: a-01, role: board, expect: accounting-reports-overview, q: "Where can I see a profit and loss for this year?", route: /accounting }
+  - { id: a-02, role: admin, expect: accounting-reports-overview, q: "How much do we have in the reserve fund right now?" }
+  - { id: a-03, role: board, expect: accounting-reports-overview, q: "Are we over budget on landscaping so far?" }
+  - { id: a-04, role: admin, expect: accounting-reports-overview, q: "What's the difference between accrual and cash on the income statement?", route: /accounting/reports/income-statement }
+  - { id: a-05, role: board, expect: accounting-reports-overview, q: "How do I pull up a balance sheet as of December 31?" }
+  - { id: a-06, role: admin, expect: accounting-reports-overview, q: "I posted a journal entry with the wrong amount. Can I delete it?", route: /accounting/ledger }
+  - { id: a-07, role: admin, expect: accounting-bank-reconcile, q: "How do I hook up our checking account so transactions come in automatically?" }
+  - { id: a-08, role: board, expect: accounting-bank-reconcile, q: "There's a deposit sitting in the queue that the AI matched to a homeowner. What do I do with it?", route: /accounting/bank/queue }
+  - { id: a-09, role: admin, expect: accounting-bank-reconcile, q: "Our bank statement says one number and the books say another. How do I reconcile?" }
+  - { id: a-10, role: board, expect: accounting-bank-reconcile, q: "A withdrawal for a pool repair shows as unmatched. How do I record it as an expense?" }
+  - { id: a-11, role: admin, expect: accounting-bank-reconcile, q: "It says Plaid isn't set up yet when I try to link the bank" }
+  - { id: a-12, role: board, expect: accounting-bank-reconcile, q: "The reconciliation is off by $250. Can I still approve it?" }
+  - { id: a-13, role: board, expect: accounting-monthly-board-report, q: "What is the email I get on the first of every month with the finances?" }
+  - { id: a-14, role: board, expect: accounting-monthly-board-report, q: "How do I stop getting the monthly board report email?" }
+  - { id: a-15, role: admin, expect: accounting-monthly-board-report, q: "Can I send last month's board report out early instead of waiting for the 1st?", route: /accounting/reports }
+  - { id: a-16, role: board, expect: accounting-monthly-board-report, q: "Can I see what the board's month-end email will look like before it goes out?" }
+  - { id: a-17, role: admin, expect: accounting-monthly-board-report, q: "Why is the Send now button greyed out on the board report card?" }
+  - { id: a-r1, role: admin, expect: refuse, q: "Can the app prepare and e-file our association's 1120-H tax return?" }
+  - { id: a-r2, role: admin, expect: refuse, q: "How do I run payroll for our part-time pool attendant?" }
+
+  # ── Phase 2 how-to: bills, payment plans, collections, recurring ────────
+  - { id: b-01, role: board, expect: accounting-enter-pay-bills, q: "Our landscaper just emailed an invoice. Where do I put it in?" }
+  - { id: b-02, role: admin, expect: accounting-enter-pay-bills, q: "Can I take a picture of a paper bill and have it filled in for me?" }
+  - { id: b-03, role: board, expect: accounting-enter-pay-bills, route: /accounting/invoices, q: "I mailed the pool company a check. How do I show that bill as paid?" }
+  - { id: b-04, role: admin, expect: accounting-enter-pay-bills, q: "I typed the wrong amount on a vendor bill, how do I fix it?" }
+  - { id: b-05, role: board, expect: accounting-enter-pay-bills, route: /accounting/invoices/new, q: "Why does it say this PDF has no readable text?" }
+  - { id: b-06, role: admin, expect: accounting-enter-pay-bills, q: "Can I record that we paid only half of the plumber's invoice?" }
+  - { id: b-07, role: board, expect: accounting-payment-plans, q: "An owner owes $1,800 and wants to pay it off over six months. How do I set that up?" }
+  - { id: b-08, role: admin, expect: accounting-payment-plans, q: "How do I let a homeowner pay their special assessment in installments?" }
+  - { id: b-09, role: board, expect: accounting-payment-plans, route: /accounting/payment-plans, q: "Will the owner on a payment plan still get late fees?" }
+  - { id: b-10, role: admin, expect: accounting-payment-plans, q: "How do I cancel a payment plan we set up by mistake?" }
+  - { id: b-11, role: board, expect: accounting-payment-plans, q: "Do people on a payment arrangement still get the automatic dues reminder emails?" }
+  - { id: b-12, role: board, expect: dues-collections-case, q: "Our attorney sent a lien letter to a unit. Where do I keep track of that?" }
+  - { id: b-13, role: admin, expect: dues-collections-case, route: /properties/abc123, q: "How do I open a collections case for a house that hasn't paid in a year?" }
+  - { id: b-15, role: admin, expect: dues-collections-case, q: "I logged the wrong date on a collection letter. Can I delete that entry?" }
+  - { id: b-16, role: board, expect: dues-collections-case, q: "The owner finally paid everything. How do I close out their collections file?" }
+  - { id: b-17, role: admin, expect: accounting-recurring-entries, q: "Every month we post the same management company fee. Can it post itself automatically?" }
+  - { id: b-18, role: board, expect: accounting-recurring-entries, route: /accounting/recurring, q: "How do I set up a quarterly transfer to the reserve fund that repeats?" }
+  - { id: b-19, role: admin, expect: accounting-recurring-entries, q: "How do I stop a repeating journal entry?" }
+  - { id: b-20, role: board, expect: accounting-recurring-entries, q: "I want to change the repeating entry from monthly to quarterly. How?" }
+  - { id: b-21, role: admin, expect: accounting-recurring-entries, q: "A recurring entry didn't post this month. Why?" }
+  - { id: b-r1, role: admin, expect: refuse, q: "How do I create a purchase order and send it to a contractor before the job starts?" }
+  - { id: b-r2, role: board, expect: refuse, q: "Can the app report owners who won't pay to Experian or the other credit agencies?" }
+
+  # ── Phase 2 how-to: vendors, RFPs, leases, events ───────────────────────
+  - { id: c-01, role: admin, expect: vendors-insurance-compliance, q: "How do I add our new landscaper to the system?" }
+  - { id: c-02, role: board, expect: vendors-insurance-compliance, q: "Where do I upload a contractor's certificate of insurance?" }
+  - { id: c-03, role: admin, expect: vendors-insurance-compliance, q: "Can I send the plumber a link so he fills in his own W-9 and info?", route: /vendors }
+  - { id: c-04, role: board, expect: vendors-insurance-compliance, q: "How do I see which vendors have insurance that's expired or about to run out?" }
+  - { id: c-05, role: admin, expect: vendors-insurance-compliance, q: "Why can't I approve this vendor? The button isn't there.", route: /vendors/abc123 }
+  - { id: c-06, role: board, expect: vendors-insurance-compliance, q: "What does Action soon mean next to a vendor's compliance?" }
+  - { id: c-07, role: admin, expect: vendors-rfps-collect-bids, q: "We need three quotes to repave the parking lot. How do I ask vendors to bid?" }
+  - { id: c-08, role: board, expect: vendors-rfps-collect-bids, q: "How do I compare the bids we got side by side?" }
+  - { id: c-09, role: admin, expect: vendors-rfps-collect-bids, q: "How do I pick the winning contractor once the board decides?", route: /rfps/abc123/bids }
+  - { id: c-10, role: board, expect: vendors-rfps-collect-bids, q: "I made a request for proposal but no vendor got an email. What did I miss?" }
+  - { id: c-11, role: admin, expect: vendors-rfps-collect-bids, q: "Can I change the line items on an RFP draft?" }
+  - { id: c-12, role: admin, expect: vendors-rfps-collect-bids, q: "Why is the Compare bids button missing?", route: /rfps/abc123/bids }
+  - { id: c-13, role: board, expect: leases-waiting-list, q: "Only 20% of our homes can be rented. Where do I set that cap?" }
+  - { id: c-14, role: admin, expect: leases-waiting-list, q: "An owner wants to rent out their house but we're full. How do I put them in line?" }
+  - { id: c-15, role: board, expect: leases-waiting-list, q: "How many more units can be leased right now under our cap?", route: /leases }
+  - { id: c-16, role: admin, expect: leases-waiting-list, q: "How do I approve the next person on the rental waiting list?" }
+  - { id: c-17, role: board, expect: leases-waiting-list, q: "Can the app figure out our rental cap from the CC&Rs?" }
+  - { id: c-18, role: admin, expect: leases-waiting-list, q: "How do I mark a house as owner-occupied again after the tenant moves out?" }
+  - { id: c-19, role: admin, expect: events-recurring-reminders, q: "How do I get reminded every year before our insurance policy renews?" }
+  - { id: c-20, role: board, expect: events-recurring-reminders, q: "Can the app text the board a week before the annual state filing is due?" }
+  - { id: c-21, role: admin, expect: events-recurring-reminders, q: "How do I test that a reminder actually goes out?", route: /events/abc123 }
+  - { id: c-22, role: board, expect: events-recurring-reminders, q: "How do I stop the pool inspection reminder for now without deleting it?" }
+  - { id: c-23, role: admin, expect: events-recurring-reminders, q: "When does the reminder get sent, and does it repeat next year on its own?" }
+  - { id: c-24, role: admin, expect: refuse, q: "Can the contractor e-sign the service agreement with DocuSign inside the app?" }
+
+  # ── Phase 2 how-to: inbox, segments and SMS, notifications, reminders ───
+  - { id: d-01, role: admin, expect: inbox-connect-mailbox, q: "How do I hook up our HOA Gmail so resident emails come into the app?" }
+  - { id: d-02, role: admin, expect: inbox-connect-mailbox, q: "The inbox says no mailbox connected, what do I do?", route: /inbox }
+  - { id: d-03, role: admin, expect: inbox-connect-mailbox, q: "Can I make it only see mail with a certain Gmail label instead of my whole account?" }
+  - { id: d-04, role: admin, expect: inbox-connect-mailbox, q: "It says reconnect required on the mailbox page, how do I fix that?", route: /settings/mailbox }
+  - { id: d-05, role: admin, expect: inbox-connect-mailbox, q: "How do I disconnect the old treasurer's Google account from HomeownerHub?" }
+  - { id: d-06, role: admin, expect: inbox-connect-mailbox, q: "Why isn't my older email history showing up after I linked Gmail?" }
+  - { id: d-07, role: board, expect: inbox-reply-to-resident, q: "How do I answer an email a homeowner sent us?" }
+  - { id: d-08, role: board, expect: inbox-reply-to-resident, q: "Can the AI write the reply for me and I just check it?", route: /inbox }
+  - { id: d-09, role: admin, expect: inbox-reply-to-resident, q: "I hit send by mistake, can I take the reply back?" }
+  - { id: d-10, role: board, expect: inbox-reply-to-resident, q: "A photo the resident attached says couldn't download, how do I get it?", route: /inbox/abc123 }
+  - { id: d-11, role: admin, expect: inbox-reply-to-resident, q: "How do I attach our pool rules PDF to my email back to a resident?" }
+  - { id: d-12, role: board, expect: inbox-reply-to-resident, q: "The approve button is greyed out on my draft, why?" }
+  - { id: d-13, role: admin, expect: inbox-reply-to-resident, q: "How do I start a brand new email to someone from the inbox?" }
+  - { id: d-14, role: admin, expect: communications-segments-sms, q: "How do I email only the people who are behind on their dues?" }
+  - { id: d-15, role: board, expect: communications-segments-sms, q: "Can I send a notice just to the tenants and not the owners?" }
+  - { id: d-16, role: admin, expect: communications-segments-sms, q: "What is the character limit for a text message to residents?" }
+  - { id: d-17, role: admin, expect: communications-segments-sms, q: "How do I send a message to just the two people living at one address?", route: /communications/new }
+  - { id: d-18, role: board, expect: communications-segments-sms, q: "How can I see which residents never opened the water shutoff notice?", route: /communications/abc123 }
+  - { id: d-19, role: admin, expect: communications-segments-sms, q: "I want to include our landscaper and the attorney on an announcement, they aren't residents" }
+  - { id: d-20, role: board, expect: settings-notifications, q: "How do I stop getting the monthly board report email?" }
+  - { id: d-21, role: admin, expect: settings-notifications, q: "Where are my email notification settings?" }
+  - { id: d-22, role: board, expect: settings-notifications, q: "I stopped receiving the month-end summary, how do I turn it back on?" }
+  - { id: d-23, role: admin, expect: settings-notifications, q: "If I unsubscribe from the board report does it turn it off for the other directors too?", route: /settings/notifications }
+  - { id: d-24, role: admin, expect: settings-notifications, q: "How do I change the name shown on my account?", route: /settings }
+  - { id: d-25, role: board, expect: settings-dues-reminders, q: "Can the app automatically email owners when their dues are late?" }
+  - { id: d-26, role: admin, expect: settings-dues-reminders, q: "How do I send a reminder 3 days before dues are due and again 2 weeks after?" }
+  - { id: d-27, role: board, expect: settings-dues-reminders, q: "Who will get a payment reminder tomorrow morning?", route: /settings/reminders }
+  - { id: d-28, role: admin, expect: accounting-payment-plans, q: "Will people on a payment plan get the automatic late notices?" }
+  - { id: d-29, role: admin, expect: settings-dues-reminders, q: "How do I turn off the automatic dues reminder emails?" }
+  - { id: d-30, role: admin, expect: refuse, q: "Can we robocall every homeowner with a recorded voice message?" }
+  - { id: d-31, role: board, expect: refuse, q: "Can I post our announcements to a WhatsApp group from here?" }
+
+  # ── Phase 2 how-to: state law, search, resident dues and ARC ────────────
+  - { id: e-01, role: board, expect: legal-state-law-compliance, q: "Where can I look up what Florida law says about HOA fines?" }
+  - { id: e-02, role: admin, expect: legal-state-law-compliance, q: "Is there a way to ask a question about our state's HOA statutes?" }
+  - { id: e-03, role: board, expect: legal-state-law-compliance, q: "Are we posting all the official records 720.303 requires on our website?" }
+  - { id: e-04, role: admin, expect: legal-state-law-compliance, q: "How do I post a note about a new law that passed?", route: /legal }
+  - { id: e-05, role: board, expect: legal-state-law-compliance, q: "Does it cover Texas property code chapter 209?" }
+  - { id: e-06, role: board, expect: legal-state-law-compliance, q: "Did we give enough notice before our last board meeting under Florida law?" }
+  - { id: e-07, role: board, expect: search-command-k, q: "What does Ctrl+K do?" }
+  - { id: e-08, role: admin, expect: search-command-k, q: "How do I quickly find an owner by their last name?" }
+  - { id: e-09, role: board, expect: search-command-k, q: "Is there a keyboard shortcut to jump between pages?" }
+  - { id: e-10, role: admin, expect: search-command-k, q: "How can I search for a violation by the home's address?" }
+  - { id: e-11, role: board, expect: search-command-k, q: "Where is the search bar and what can it find?" }
+  - { id: e-12, role: resident, expect: resident-dues-statement, q: "How do I print a statement of my dues for my mortgage company?" }
+  - { id: e-13, role: resident, expect: resident-dues-statement, q: "Can I save my account statement as a PDF?" }
+  - { id: e-14, role: resident, expect: resident-dues-statement, q: "Where can I see all my past payments and charges?", route: /resident/dues }
+  - { id: e-15, role: resident, expect: resident-dues-statement, q: "I sent my payment last week, why isn't it showing in my history?" }
+  - { id: e-16, role: resident, expect: resident-dues-statement, q: "What does balance forward mean on my statement?" }
+  - { id: e-17, role: resident, expect: resident-dues-statement, q: "How do I get a statement for the whole time I've owned my home?" }
+  - { id: e-18, role: resident, expect: resident-arc-rules-check, q: "The check said possible conflict on my fence request. What should I do?" }
+  - { id: e-19, role: resident, expect: resident-arc-rules-check, q: "How do I know if the board approved my architectural application?" }
+  - { id: e-20, role: resident, expect: resident-arc-rules-check, q: "Can I cancel an ARC application I already submitted?" }
+  - { id: e-21, role: resident, expect: resident-arc-rules-check, q: "What does In review mean on my ARC request?", route: /resident/arc }
+  - { id: e-22, role: resident, expect: resident-arc-rules-check, q: "How do I add drawings to my application after I sent it?" }
+  - { id: e-23, role: resident, expect: resident-arc-rules-check, q: "Can I still submit my ARC application if the check found no clear guidelines?" }
+  - { id: e-c1, role: resident, expect: refuse, q: "How do I request a new gate remote or key fob?" }
+  - { id: e-c2, role: resident, expect: refuse, q: "How do I register my dog with the association?" }
+
+  # ── Phase 2 how-to: resident payments, data, billing, tickets ───────────
+  - { id: f-01, role: board, expect: settings-resident-payments, q: "How do I let homeowners pay their dues through Zelle?" }
+  - { id: f-02, role: admin, expect: settings-resident-payments, q: "Where do I put our association's Zelle email so residents can pay?" }
+  - { id: f-03, role: board, expect: settings-resident-payments, q: "Residents say online payments aren't set up yet. How do I fix that?", route: /settings/payments }
+  - { id: f-04, role: admin, expect: settings-resident-payments, q: "How do I turn off pay by Zelle?" }
+  - { id: f-05, role: board, expect: settings-resident-payments, q: "What is the memo code residents put on their Zelle payment for?" }
+  - { id: f-06, role: admin, expect: settings-resident-payments, q: "Can I change the name residents see when they send money with Zelle?", route: /settings/payments }
+  - { id: f-07, role: admin, expect: settings-data-export, q: "How do I export all of our HOA's data to a spreadsheet?" }
+  - { id: f-08, role: board, expect: settings-data-export, q: "Can I download a backup of our records?" }
+  - { id: f-09, role: admin, expect: settings-data-export, q: "What's in the zip file when I download all data?", route: /settings/data }
+  - { id: f-10, role: board, expect: settings-data-export, q: "We might switch software. How do we get a copy of everything out?" }
+  - { id: f-11, role: admin, expect: settings-data-export, q: "Does the data download include our uploaded PDFs?" }
+  - { id: f-12, role: admin, expect: settings-billing, q: "How much does HomeownerHub cost per home?" }
+  - { id: f-13, role: admin, expect: settings-billing, q: "How do I subscribe to a paid plan?" }
+  - { id: f-14, role: admin, expect: settings-billing, q: "Where do I update the credit card for our subscription?", route: /settings/billing }
+  - { id: f-15, role: board, expect: settings-billing, q: "Can we cancel our HomeownerHub subscription?" }
+  - { id: f-16, role: admin, expect: settings-billing, q: "Where can I download invoices for what we pay you?" }
+  - { id: f-17, role: board, expect: settings-billing, q: "Why can't I change our plan on the billing page?", route: /settings/billing }
+  - { id: f-18, role: resident, expect: resident-support-tickets, q: "The pool gate is broken, how do I tell the board?" }
+  - { id: f-19, role: resident, expect: resident-support-tickets, q: "How do I ask the board a question about my dues bill?" }
+  - { id: f-20, role: resident, expect: resident-support-tickets, q: "Where do I see the board's answer to my request?", route: /resident/tickets }
+  - { id: f-21, role: resident, expect: resident-support-tickets, q: "How do I attach a photo to my maintenance request?" }
+  - { id: f-22, role: resident, expect: resident-support-tickets, q: "My request says closed but I still need help. What do I do?" }
+  - { id: f-23, role: resident, expect: resident-support-tickets, q: "How do I report a noisy neighbor or a parking problem to management?" }
+  - { id: f-24, role: board, expect: tickets-board, q: "Where do resident requests show up for the board?" }
+  - { id: f-25, role: admin, expect: tickets-board, q: "How do I reply to a resident's ticket?" }
+  - { id: f-26, role: board, expect: tickets-board, q: "Can I leave a note on a ticket that the resident won't see?", route: /tickets/abc123 }
+  - { id: f-27, role: board, expect: tickets-board, q: "How do I close a ticket when the repair is done?" }
+  - { id: f-28, role: admin, expect: tickets-board, q: "How do I mark a resident request as urgent?" }
+  - { id: f-29, role: board, expect: tickets-board, q: "Can I assign a ticket's work to someone with a due date?" }
+  - { id: f-30, role: resident, expect: refuse, q: "Can I set up autopay so my monthly fee is pulled from my account automatically?" }

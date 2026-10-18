@@ -55,19 +55,20 @@ describe('drawer route mapping', () => {
   })
 
   it('returns nothing (so the drawer shows Start here) for an uncovered page', () => {
-    expect(articlesForPath('/accounting/invoices', 'admin')).toEqual([])
+    expect(articlesForPath('/documents', 'admin')).toEqual([])
     // The dashboard article is admin-only.
     expect(articlesForPath('/', 'board')).toEqual([])
   })
 
   it('residents get the resident article on resident pages only', () => {
-    expect(articlesForPath('/resident/dues/pay', 'resident').map((a) => a.id)).toEqual(['resident-portal-basics'])
+    expect(articlesForPath('/resident/dues/pay', 'resident').map((a) => a.id)).toEqual(['resident-dues-statement', 'resident-portal-basics'])
     expect(articlesForPath('/dues', 'resident')).toEqual([])
   })
 
   it('drawer data is role-filtered and has steps for each article', () => {
     const d = drawerData('resident')
-    expect(Object.keys(d.articles)).toEqual(['resident-portal-basics'])
+    expect(Object.keys(d.articles)).toContain('resident-portal-basics')
+    expect(Object.values(d.articles).every((a) => a.href.startsWith('/resident/help/'))).toBe(true)
     expect(d.articles['resident-portal-basics']!.href).toBe('/resident/help/resident-portal-basics')
     expect(d.articles['resident-portal-basics']!.steps.some((b) => b.t === 'steps')).toBe(true)
     expect(d.articles['resident-portal-basics']!.steps.some((b) => b.t === 'shot')).toBe(false)

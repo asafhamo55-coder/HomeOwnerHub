@@ -64,6 +64,9 @@ paths:
       - arc-review-application
       - meetings-schedule-and-minutes
       - communications-send-announcement
+      - inbox-reply-to-resident
+      - accounting-enter-pay-bills
+      - accounting-monthly-board-report
   - id: several-hoas
     label: I manage several HOAs
     description: Quick reference for managers who switch between communities.
@@ -73,9 +76,13 @@ paths:
       - approvals-queue
       - dues-record-payment
       - violations-report-and-letter
+      - search-command-k
   - id: resident-start
     label: New here?
-    description: Three things you can do from your phone.
+    description: The things you can do from your phone.
     roles: [resident]
     articles:
       - resident-portal-basics
+      - resident-dues-statement
+      - resident-arc-rules-check
+      - resident-support-tickets

@@ -97,7 +97,10 @@ export const GUIDE_PATHS: readonly GuidePath[] = [
       "violations-report-and-letter",
       "arc-review-application",
       "meetings-schedule-and-minutes",
-      "communications-send-announcement"
+      "communications-send-announcement",
+      "inbox-reply-to-resident",
+      "accounting-enter-pay-bills",
+      "accounting-monthly-board-report"
     ]
   },
   {
@@ -111,18 +114,22 @@ export const GUIDE_PATHS: readonly GuidePath[] = [
       "members-invite-board",
       "approvals-queue",
       "dues-record-payment",
-      "violations-report-and-letter"
+      "violations-report-and-letter",
+      "search-command-k"
     ]
   },
   {
     "id": "resident-start",
     "label": "New here?",
-    "description": "Three things you can do from your phone.",
+    "description": "The things you can do from your phone.",
     "roles": [
       "resident"
     ],
     "articles": [
-      "resident-portal-basics"
+      "resident-portal-basics",
+      "resident-dues-statement",
+      "resident-arc-rules-check",
+      "resident-support-tickets"
     ]
   }
 ]
@@ -452,6 +459,389 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
       }
     ],
     "source": "apps/hoa/content/guide/setup/members-invite-board.md"
+  },
+  {
+    "id": "search-command-k",
+    "title": "Search for anything with ⌘K",
+    "summary": "Press ⌘K or Ctrl+K to jump to any page, find an owner, home or record, open a help article, or ask the guide.",
+    "topic": "setup",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/help"
+    ],
+    "primaryRoute": "/help",
+    "keywords": [
+      "search",
+      "find",
+      "look up",
+      "lookup",
+      "command palette",
+      "cmd k",
+      "command k",
+      "ctrl k",
+      "control k",
+      "keyboard shortcut",
+      "shortcut",
+      "jump to",
+      "go to",
+      "quick search",
+      "search bar",
+      "find owner",
+      "find property",
+      "find address",
+      "find violation",
+      "find document",
+      "find vendor",
+      "dark mode",
+      "theme",
+      "sign out"
+    ],
+    "shots": [],
+    "related": [
+      "start-board-admin"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "The search box opens a quick menu that works from every board page. Use it to get somewhere fast without the sidebar."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open search: press ⌘K on a Mac or Ctrl+K on Windows. You can also press / when you aren't typing in a field, or click "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Search or jump to…"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " in the top bar. On a phone, tap the search icon."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Type a few letters: a page name, an owner's name, an address or a word from a record."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Look through the groups. "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Go to"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Create"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " are pages and quick actions. "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Help"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " is guide articles. Below them are your records, such as "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Owners"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Properties"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Violations"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "ARC requests"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Tickets"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Inbox"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Meetings"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Documents"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Vendors"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Use the up and down arrow keys to pick a row, then press Enter. Or click the row."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If nothing matches, pick "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Ask the guide: …"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " to ask your question in the help panel."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Press Esc to close search without opening anything."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "The page, record or help article opens. Search clears its text each time it closes."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Couldn’t search records.\": record search failed, but pages and help still show. Try again in a moment."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"… couldn’t be searched, so results may be incomplete.\": some record types failed. A missing result isn't proof the record doesn't exist."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"No records match …\": no owner, home or record has that text. Try fewer letters, part of the address, or the owner's last name."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Record search starts once you type 2 letters, and shows up to 5 matches per group."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Searching an owner's name or an address also finds the violations, ARC requests, tickets and inbox threads on that home."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Search only looks in the HOA you're working in right now."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Meetings are found by their type and summary, documents by their title, and vendors by their name."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You can also switch to the light or dark theme, or sign out, from search."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Residents don't have this search. Only board members and admins can search records."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/setup/search-command-k.md"
   },
   {
     "id": "setup-import-roster",
@@ -1869,6 +2259,466 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
       }
     ],
     "source": "apps/hoa/content/guide/setup/start-board-admin.md"
+  },
+  {
+    "id": "dues-collections-case",
+    "title": "Track a delinquent account in the collections file",
+    "summary": "Open a collections case on a property and log each letter, lien and attorney step, so the board has one dated record of the account.",
+    "topic": "dues",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/properties/[id]"
+    ],
+    "primaryRoute": "/properties/[id]",
+    "keywords": [
+      "collections",
+      "collection",
+      "collections case",
+      "delinquent",
+      "delinquency",
+      "past due",
+      "behind on dues",
+      "lien",
+      "lien letter",
+      "lien warning",
+      "30-day lien warning",
+      "attorney",
+      "lawyer",
+      "demand letter",
+      "suit",
+      "lawsuit",
+      "foreclosure",
+      "write off",
+      "collection letter",
+      "bad debt",
+      "owner won't pay",
+      "arrears",
+      "app",
+      "logged",
+      "delete entry",
+      "paid in full",
+      "paid everything",
+      "close out",
+      "close file"
+    ],
+    "shots": [],
+    "related": [
+      "accounting-payment-plans",
+      "dues-record-payment"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use this when an owner's account is seriously past due and the board starts sending letters or hands it to an attorney. The collections file is a dated record of what was done."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Board admins and board members can open cases and record actions."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "A home can have only one open case at a time."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Properties"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and select the home."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Go to its "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Money"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " section and find "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Collections file"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Open a collections case"
+                },
+                {
+                  "t": "text",
+                  "v": ". Choose the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Current stage"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", for example \"Lien letter sent\" if that already happened. Add the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Opened on"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " date and the attorney's details if you have them."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Open case"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Each time something happens, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Record an action"
+                },
+                {
+                  "t": "text",
+                  "v": ". In "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "What happened"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", choose what was done, and set "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Date it happened"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Add an amount, your initials or a note if they help. Leave "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Also move this case to …"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " ticked to move the case to the matching stage."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Record"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "The stage shows at the top of the case and in the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Collections"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " box on the property's page."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Each action is added to "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Activity"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", newest dates first, with the date you entered."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To close the case, record \"Case closed\". The case moves to "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Resolved"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and appears under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Earlier cases"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"This property already has an open collections case.\": someone opened one already. Reload the page to see it."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"That date is in the future.\": the file records things that already happened. Use today or an earlier date."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"No unit record\": this home isn't linked to a unit yet, so it can't have a case. Link it first."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "HomeownerHub doesn't send collection notices or lien letters. You send them yourself or through your attorney, then record them here."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Actions can't be edited or deleted once saved. To fix a mistake, add a note."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You can't mark a case \"Written off\" or pick a stage by hand after the case is open. The stage moves only when you record an action that matches it."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Payment received\" and \"Payment plan agreed\" are notes on the file only. They don't record money. Record the payment on the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Dues"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " page, and set up the plan in "
+                },
+                {
+                  "t": "link",
+                  "kind": "guide",
+                  "href": "accounting-payment-plans",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "payment plans"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Once a case is at \"Board authorized suit\", \"With attorney — presuit\" or \"Suit filed\", automatic dues reminders stop emailing that owner."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/dues/dues-collections-case.md"
   },
   {
     "id": "dues-generate-monthly",
@@ -3461,7 +4311,7 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
             "c": [
               {
                 "t": "text",
-                "v": "Residents apply for exterior changes, like paint, a fence or a roof, from their portal. Applications land in ARC review for the board to decide."
+                "v": "Residents send architectural requests for exterior changes, like paint, a fence or a roof, from their portal. They show up in ARC review for the board to decide."
               }
             ]
           }
@@ -3865,6 +4715,598 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
     "source": "apps/hoa/content/guide/arc/arc-review-application.md"
   },
   {
+    "id": "events-recurring-reminders",
+    "title": "Set up a yearly reminder for a deadline the board can't miss",
+    "summary": "Add an event like an insurance renewal or annual filing, choose who gets reminded and how, and it repeats every year.",
+    "topic": "meetings",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/events",
+      "/events/new",
+      "/events/[id]"
+    ],
+    "primaryRoute": "/events",
+    "keywords": [
+      "event",
+      "events",
+      "reminder",
+      "reminders",
+      "recurring",
+      "yearly",
+      "annual",
+      "every year",
+      "deadline",
+      "due date",
+      "calendar",
+      "annual meeting",
+      "annual filing",
+      "annual report",
+      "insurance renewal",
+      "inspection",
+      "budget deadline",
+      "alert",
+      "heads up",
+      "notify board",
+      "remind residents",
+      "lead time",
+      "pause reminder",
+      "test alert",
+      "policy renews",
+      "renewal"
+    ],
+    "shots": [],
+    "related": [
+      "meetings-schedule-and-minutes",
+      "settings-notifications",
+      "communications-send-announcement"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use this for dates that come around every year, like the annual meeting, the insurance renewal, a state filing or a yearly inspection. The app sends a reminder ahead of each one, so nobody has to remember."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Only board admins and board members can add and change events."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Have the date of the next time it happens."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Events"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " from the sidebar and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "New event"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Enter a "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Title"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", and a "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Description"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " if you want to note who is responsible."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Pick the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Next occurrence"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " date. Under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Repeats"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", choose "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Every year"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Does not repeat"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Set the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Lead time"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ": how many days before the date the reminder goes out. It's 7 unless you change it. 0 sends on the day itself."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "How to notify"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", tick "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Email"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "SMS"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and/or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "In-app portal"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Who to notify"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", choose "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "All community"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Board"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Specific resident"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". For the board, tick the members you want, or use "
+                },
+                {
+                  "t": "ui",
+                  "label": "Select all"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Create event"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "The app checks events every morning. When an event's lead time arrives, it sends the reminder to the people and channels you picked. The event page shows "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Next reminder"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " and "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Last reminder sent"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": "."
+              }
+            ]
+          },
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "For a yearly event, once the date passes the event moves forward a year, and next year's reminder goes out the same way. A one-time event moves to "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Past"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " after its date."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Pick the date of the next occurrence.\" or \"Give the event a title.\": fill in the missing field."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Use a whole number from 0 to 90.\": the lead time must be between 0 and 90 days."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Pick at least one notification channel.\" or \"Pick at least one board member, or choose Select all.\": tick at least one box."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"No recipients available to alert. Check the event audience has contact info on file.\": the people you picked have no email or phone on file."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If a reminder fails to send 3 times, the app stops trying for that date and puts a notification in front of every board member and admin."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "To check it works, open the event's "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "More actions"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " menu and choose "
+                },
+                {
+                  "t": "ui",
+                  "label": "Send test alert now"
+                },
+                {
+                  "t": "text",
+                  "v": ". This counts as this year's reminder, so the scheduled one won't go out again for this date."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To stop reminders for a while, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Pause reminders"
+                },
+                {
+                  "t": "text",
+                  "v": ". Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Resume reminders"
+                },
+                {
+                  "t": "text",
+                  "v": " to turn them back on."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To change an event, open it, edit the form below the details and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Save changes"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "SMS is skipped for board members and admins, because no phone number is on file for those roles."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If the app missed a reminder, it still sends it late rather than skipping it."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Deleting an event removes the reminder and its history. You can't undo it."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Events are reminders only. To schedule a board meeting with an agenda and minutes, use "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Meetings"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/meetings/events-recurring-reminders.md"
+  },
+  {
     "id": "meetings-schedule-and-minutes",
     "title": "Schedule a meeting and file the minutes",
     "summary": "Put a board meeting on the calendar, print the board packet, and turn a transcript into minutes.",
@@ -4247,6 +5689,669 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
       }
     ],
     "source": "apps/hoa/content/guide/meetings/meetings-schedule-and-minutes.md"
+  },
+  {
+    "id": "accounting-bank-reconcile",
+    "title": "Connect your bank, match transactions and reconcile",
+    "summary": "Link the bank through Plaid, clear the matching queue, then check the bank statement against the books each month.",
+    "topic": "accounting",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/bank",
+      "/accounting/bank/queue",
+      "/accounting/bank/[accountId]/reconcile"
+    ],
+    "primaryRoute": "/accounting/bank",
+    "keywords": [
+      "bank",
+      "bank account",
+      "connect bank",
+      "link bank",
+      "plaid",
+      "checking",
+      "savings",
+      "operating account",
+      "reserve account",
+      "bank feed",
+      "bank sync",
+      "transactions",
+      "bank transactions",
+      "unmatched",
+      "matching queue",
+      "match deposit",
+      "deposit",
+      "categorize",
+      "expense",
+      "ignore transaction",
+      "ai match",
+      "suggested match",
+      "reconcile",
+      "reconciliation",
+      "bank reconciliation",
+      "bank statement",
+      "statement balance",
+      "ending balance",
+      "month end",
+      "doesn't match",
+      "off by",
+      "difference",
+      "balance the checkbook",
+      "hook up bank",
+      "transactions come in automatically",
+      "withdrawal",
+      "shows unmatched",
+      "record expense"
+    ],
+    "shots": [],
+    "related": [
+      "accounting-reports-overview",
+      "accounting-enter-pay-bills",
+      "approvals-queue",
+      "accounting-monthly-board-report"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use this to bring the association's bank activity into the books and, once a month, prove that the bank statement and the books agree."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Board admins and board members can link a bank, work the queue and reconcile."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "A bank account belongs to a fund, like "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Operating"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Reserve"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". If your association has no funds yet, an admin opens the books first. The link dialog offers this."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Have your bank sign-in ready for Plaid, and your latest bank statement for reconciling."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Accounting"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then the "
+                },
+                {
+                  "t": "ui",
+                  "label": "Bank"
+                },
+                {
+                  "t": "text",
+                  "v": " tab, and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Connect bank"
+                },
+                {
+                  "t": "text",
+                  "v": " (or "
+                },
+                {
+                  "t": "ui",
+                  "label": "Link bank account"
+                },
+                {
+                  "t": "text",
+                  "v": " once one is linked)."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Pick the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Fund"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " the account belongs to, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Continue to Plaid"
+                },
+                {
+                  "t": "text",
+                  "v": ", and sign in to your bank in Plaid's window."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "When transactions arrive, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Review queue"
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "ui",
+                  "label": "Matching queue"
+                },
+                {
+                  "t": "text",
+                  "v": ". Under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Suggested matches"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Approve & post"
+                },
+                {
+                  "t": "text",
+                  "v": " for each deposit the AI paired with an owner's charge, or "
+                },
+                {
+                  "t": "ui",
+                  "label": "Reject"
+                },
+                {
+                  "t": "text",
+                  "v": " and give a "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Reason"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Unmatched transactions"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", deal with each one. For a deposit with a hint, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Confirm match"
+                },
+                {
+                  "t": "text",
+                  "v": ". For a payment out, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Categorize"
+                },
+                {
+                  "t": "text",
+                  "v": ", pick the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Expense account"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then "
+                },
+                {
+                  "t": "ui",
+                  "label": "Post expense"
+                },
+                {
+                  "t": "text",
+                  "v": ". Otherwise select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Re-match"
+                },
+                {
+                  "t": "text",
+                  "v": " to have the matcher try again."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Each month, go back to "
+                },
+                {
+                  "t": "ui",
+                  "label": "Bank"
+                },
+                {
+                  "t": "text",
+                  "v": " and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Reconcile"
+                },
+                {
+                  "t": "text",
+                  "v": " on the account's card."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Enter the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Statement date"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Ending balance"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " printed on the statement, then select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Reconcile"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "In "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "History"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Approve"
+                },
+                {
+                  "t": "text",
+                  "v": " on that row. If there is a difference, the app asks first. Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Approve anyway"
+                },
+                {
+                  "t": "text",
+                  "v": " to keep the difference on record."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "After linking, transactions appear after the first sync, usually within a few hours. After that they sync every few hours and most are matched to the ledger on their own."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Approving a suggested match posts the payment and marks the owner's charge paid. Rejecting it sends the deposit back to the matching queue."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "An approved reconciliation shows "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Approved"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " with the date in "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "History"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Bank linking is not set up yet. Ask support to enable Plaid.\": bank linking isn't turned on for your account. Contact support."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Plaid is not reachable right now. Try again shortly.\": wait a minute and try again."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"This bank connection is already linked.\": that bank is already connected. You'll see its accounts on the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Bank"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " page."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"No funds yet\": a bank account needs a fund. An admin selects "
+                },
+                {
+                  "t": "ui",
+                  "label": "Open the books"
+                },
+                {
+                  "t": "text",
+                  "v": " in the dialog. A board member is pointed to the admins."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Off by"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " a dollar amount after you reconcile: usually deposits or cleared checks the books don't have yet. Match them in the queue, then reconcile again with the same statement date. Or approve with the difference on record."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Cash account for this fund is missing in the COA.\": the fund has no cash account to compare against. Contact support."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Couldn't read the ledger balance, so nothing was saved. Try again.\": nothing was recorded. Try again."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Only checking, savings and money market accounts are added. Credit cards on the same bank login are skipped."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Plaid handles your bank sign-in. The app never sees your bank password."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "A suggested match never posts, and no charge is marked paid, until a board member approves it. You can also approve these from "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Approvals"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Ignore (mark reviewed)"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", in the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "More actions"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " menu, records that you looked at a transaction without posting anything. It still stays in the unmatched list."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Reconciling compares the statement with the books' cash balance for that account's fund, through the statement date. If you reconcile again for the same date, the new numbers replace the old ones."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You can't type in or import bank transactions by hand. They only come from the linked bank."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/accounting/accounting-bank-reconcile.md"
   },
   {
     "id": "accounting-draft-budget",
@@ -4711,6 +6816,3365 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
     "source": "apps/hoa/content/guide/accounting/accounting-draft-budget.md"
   },
   {
+    "id": "accounting-enter-pay-bills",
+    "title": "Enter a vendor bill and mark it paid",
+    "summary": "Enter a vendor's bill by hand or let the AI read a photo or PDF of it, then record the payment when you pay the vendor.",
+    "topic": "accounting",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/invoices",
+      "/accounting/invoices/new",
+      "/accounting/invoices/[id]"
+    ],
+    "primaryRoute": "/accounting/invoices/new",
+    "keywords": [
+      "bill",
+      "bills",
+      "vendor bill",
+      "invoice",
+      "invoices",
+      "enter bill",
+      "pay bill",
+      "pay vendor",
+      "pay a vendor",
+      "mark paid",
+      "bill paid",
+      "accounts payable",
+      "payables",
+      "ap",
+      "expense",
+      "scan bill",
+      "scan a bill",
+      "upload bill",
+      "bill photo",
+      "bill pdf",
+      "ai bill",
+      "read by ai",
+      "receipt",
+      "landscaper bill",
+      "contractor invoice",
+      "check number",
+      "past due bill",
+      "unpaid bills",
+      "delete invoice",
+      "picture",
+      "photo",
+      "paper bill",
+      "fill in",
+      "mailed a check",
+      "paid by check",
+      "partial payment",
+      "pay half",
+      "pay part"
+    ],
+    "shots": [],
+    "related": [
+      "approvals-queue",
+      "accounting-reports-overview",
+      "accounting-bank-reconcile",
+      "vendors-insurance-compliance"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use this when a vendor sends the association a bill. Entering it records what you owe. Marking it paid records that you paid it."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Board admins and board members can enter and pay bills."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The vendor must be on file. If you have no vendors yet, the page says \"Add a vendor first\" and links to "
+                },
+                {
+                  "t": "ui",
+                  "label": "Add vendor"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The books must be open, with at least one active expense account."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Accounting"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Invoices"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " tab, and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Enter bill"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To let the AI read it, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Choose a bill"
+                },
+                {
+                  "t": "text",
+                  "v": " under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Scan a bill"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and pick a PDF or a photo of the bill. Then select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Review in Approvals"
+                },
+                {
+                  "t": "text",
+                  "v": " and approve it there (see below)."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To enter it by hand instead, fill in "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Vendor"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Invoice number"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Amount"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Invoice date"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Expense account"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Due date"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Memo"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " are optional."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Enter bill"
+                },
+                {
+                  "t": "text",
+                  "v": ". The bill's page opens."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "When you pay the vendor, open the bill from "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Invoices"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". Under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Record payment"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", choose how you paid in "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Paid by"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " (check, ACH, card, cash or other)."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Optional: type the check number or confirmation code in "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Reference"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Mark paid"
+                },
+                {
+                  "t": "text",
+                  "v": ". The button shows the full amount of the bill."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "An entered bill shows "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Approved · unpaid"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". The expense posts to the ledger right away, and the bill counts in "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Unpaid"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " on the Invoices page. A late bill shows how many days late it is."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "A scanned bill is not entered yet. It waits in "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Approvals"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Bills"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". When a board member selects "
+                },
+                {
+                  "t": "ui",
+                  "label": "Approve & enter"
+                },
+                {
+                  "t": "text",
+                  "v": ", it is entered just like a bill you typed, and its page shows "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Read by AI"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". See "
+                },
+                {
+                  "t": "link",
+                  "kind": "guide",
+                  "href": "approvals-queue",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "the Approvals queue"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", including how to fix anything the AI read wrong with "
+                },
+                {
+                  "t": "ui",
+                  "label": "Edit details"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Marking a bill paid posts the payment from operating cash and changes the bill to "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Paid"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Sent to Approvals — incomplete\": the AI couldn't find part of the bill, so it left it blank instead of guessing. Reject it in Approvals and enter the bill by hand."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Low confidence on the …\": check those parts against the paper bill before you approve it."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"This bill is already waiting for approval\": the same file was scanned before. Open it in Approvals instead."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"This PDF has no readable text (it is probably a scan). Upload a photo of the bill (JPG or PNG) instead.\""
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Photos of a bill must be under 3 MB. Try a smaller photo or a PDF.\""
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"The AI couldn’t read this bill right now. Try again, or enter it by hand.\""
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"The books aren’t open yet\" when you mark a bill paid: an admin selects "
+                },
+                {
+                  "t": "ui",
+                  "label": "Open the books"
+                },
+                {
+                  "t": "text",
+                  "v": ", then tries again. A board member is pointed to the admins."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Not ready to pay\": the bill was saved but not fully entered, so it can't be paid from here. Contact support."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "The AI scan takes PDF, JPG, PNG or WebP files. A PDF must have real text in it; a scanned PDF won't work, so use a photo."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Nothing the AI reads is entered until a board member approves it. Paying is always a separate step."
+                }
+              ],
+              [
+                {
+                  "t": "ui",
+                  "label": "Mark paid"
+                },
+                {
+                  "t": "text",
+                  "v": " records the full amount, dated today. You can't record a partial payment or pick a different date."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The app records that you paid. It doesn't send money to the vendor. Pay by check or through your bank as usual."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You can't edit a bill after you enter it. To fix a mistake, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Delete"
+                },
+                {
+                  "t": "text",
+                  "v": " on an unpaid bill and enter it again. Deleting hides the bill, but its ledger entry stays. Reverse that entry in the ledger if it was wrong."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You can't delete a bill once it's paid."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Vendors marked as blacklisted don't appear in the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Vendor"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " list."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/accounting/accounting-enter-pay-bills.md"
+  },
+  {
+    "id": "accounting-monthly-board-report",
+    "title": "The monthly board report email",
+    "summary": "Every board member gets last month's numbers by email on the 1st. Preview it, send it early, or turn it off for yourself.",
+    "topic": "accounting",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/reports/monthly-report",
+      "/accounting/reports",
+      "/settings/notifications"
+    ],
+    "primaryRoute": "/accounting/reports/monthly-report",
+    "keywords": [
+      "monthly report",
+      "board report",
+      "monthly board report",
+      "month end",
+      "month-end report",
+      "treasurer report",
+      "financial summary",
+      "email report",
+      "board email",
+      "report email",
+      "send report",
+      "send now",
+      "preview report",
+      "1st of the month",
+      "first of the month",
+      "stop emails",
+      "unsubscribe",
+      "turn off report",
+      "opt out",
+      "email settings",
+      "notifications",
+      "collections",
+      "overdue dues",
+      "cash summary",
+      "board update",
+      "finances",
+      "monthly email"
+    ],
+    "shots": [],
+    "related": [
+      "accounting-reports-overview",
+      "settings-notifications",
+      "accounting-bank-reconcile"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "The app emails every board member a short report on the 1st of each month. It covers last month's cash, collections, overdue dues, income and expenses, budget, violations, architectural requests, what's waiting on the board and the next meeting. You don't have to do anything for it to go out."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Board admins and board members can preview the report. Only board admins can send it early."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The report is built from your association's books, so the association needs to be set up."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Accounting"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then the "
+                },
+                {
+                  "t": "ui",
+                  "label": "Reports"
+                },
+                {
+                  "t": "text",
+                  "v": " tab. The "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Monthly board report"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " card shows when the last one went out and which month is next."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Preview"
+                },
+                {
+                  "t": "text",
+                  "v": " to see exactly the email the board will get for last month, including its subject line."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To send last month's report now instead of waiting for the 1st, an admin selects "
+                },
+                {
+                  "t": "ui",
+                  "label": "Send now"
+                },
+                {
+                  "t": "text",
+                  "v": " on the card."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To stop getting the email yourself, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Your email settings"
+                },
+                {
+                  "t": "text",
+                  "v": " on the card (or open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Settings"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then "
+                },
+                {
+                  "t": "ui",
+                  "label": "Notifications"
+                },
+                {
+                  "t": "text",
+                  "v": ") and turn off "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Monthly board report"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". It saves right away."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "On the 1st, at 8:00 AM Eastern, the report for the month that just ended goes to every board member and admin who hasn't turned it off."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "After "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Send now"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", board members have it in their inbox in a few minutes. The card then shows that month as done, and "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Send now"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " turns off until the next month."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"The [month] report has already been sent.\": each month's report goes out only once, whether it was sent on the 1st or with "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Send now"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Couldn’t queue the report. Try again in a minute.\": nothing was sent. Wait a minute and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Send now"
+                },
+                {
+                  "t": "text",
+                  "v": " again."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Not delivered"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " next to the last report: nobody received it. That month can't be sent again from this card. Contact support."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"You don't have permission to perform this action.\": only board admins can use "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Send now"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". Board members can still preview the report."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Couldn’t save your choice. Try again.\": your email setting didn't change. Try the switch again."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "The report always covers the last full month. You can't pick a different month, change what's in it, or add your own notes."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The preview builds the email live, so it shows today's numbers for last month. Nothing is sent from the preview."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If part of the report can't load, that section says so in the email rather than showing a wrong number."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Turning the email off only affects you. It applies to every association you're on the board of, and other board members still get it."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If every board member turns it off, no report is sent that month."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Residents never get this email."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/accounting/accounting-monthly-board-report.md"
+  },
+  {
+    "id": "accounting-payment-plans",
+    "title": "Set up a payment plan for an owner who is behind",
+    "summary": "Spread a balance an owner can't pay at once into monthly installments. Each installment becomes its own charge on the owner's account.",
+    "topic": "accounting",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/payment-plans",
+      "/accounting/payment-plans/new"
+    ],
+    "primaryRoute": "/accounting/payment-plans/new",
+    "keywords": [
+      "payment plan",
+      "payment plans",
+      "installment",
+      "installments",
+      "monthly payments",
+      "pay over time",
+      "payment arrangement",
+      "payment agreement",
+      "behind on dues",
+      "past due",
+      "delinquent",
+      "delinquency",
+      "owner can't pay",
+      "hardship",
+      "catch up",
+      "special assessment",
+      "spread balance",
+      "split balance",
+      "arrears",
+      "collections",
+      "late fee",
+      "owes",
+      "pay off",
+      "pay it off over months",
+      "six months",
+      "monthly installments"
+    ],
+    "shots": [],
+    "related": [
+      "dues-collections-case",
+      "dues-record-payment",
+      "dues-generate-monthly"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use this when the board agrees to let an owner pay a past-due balance or a special assessment over several months."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Board admins and board members can create payment plans."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Agree on the total, the number of months and the first due date with the owner first."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The home must be on file, and the books must have an open fiscal period."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Accounting"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Payment plans"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " tab, and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "New plan"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Choose the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Property"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Enter the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Balance to spread"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Enter the number of "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Installments"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", from 2 to 60."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Pick the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "First due"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " date. The rest are due on the same day of each month after it."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Check "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Each installment"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " below the fields. It shows the monthly amount."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Create plan"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "The plan shows on "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Payment plans"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " as "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Active"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", with its schedule, start date and total."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "One charge is created for each installment, due monthly. They show on the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Dues"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " page as special assessments, and each posts to the ledger right away."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The property's page shows the plan under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Payment plan"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " in its Money section."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You record each installment the owner pays like any other charge. See "
+                },
+                {
+                  "t": "link",
+                  "kind": "guide",
+                  "href": "dues-record-payment",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Record a payment by check or cash"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Between 2 and 60 installments.\": change the number of installments."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Enter the balance to spread, greater than $0.\": type an amount, like 1200."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"No open fiscal period.\": the books have no current period, so the charges can't post. An admin opens one on "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Accounting"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Periods"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Couldn’t create the plan\": nothing was saved. Try again; if it keeps failing, contact support."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "A plan adds new charges for the full amount. It does not close or replace charges already on the owner's account. Those stay open unless the board deals with them."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If the total doesn't split evenly, the last installment absorbs the leftover cents."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You can't edit, cancel or delete a plan in the app. The plan also doesn't change to "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Completed"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " on its own when the owner finishes paying."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Automatic dues reminders skip a home with an active payment plan. You can see how many were skipped in "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Settings"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Dues reminders"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Late fees are not paused by a plan. Every night the app adds a one-time 5% late fee to each charge still unpaid after its due date, including late installments."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "HomeownerHub doesn't send collection letters. To keep a record of letters, liens and attorney work, use the "
+                },
+                {
+                  "t": "link",
+                  "kind": "guide",
+                  "href": "dues-collections-case",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "collections file"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " on the property's page."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/accounting/accounting-payment-plans.md"
+  },
+  {
+    "id": "accounting-recurring-entries",
+    "title": "Make a ledger entry repeat on a schedule",
+    "summary": "Turn a posted journal entry, like a monthly management fee or reserve transfer, into one that posts itself again each month, quarter or year.",
+    "topic": "accounting",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/recurring",
+      "/accounting/ledger/[id]"
+    ],
+    "primaryRoute": "/accounting/recurring",
+    "keywords": [
+      "recurring",
+      "recurring entry",
+      "recurring entries",
+      "repeat",
+      "repeating",
+      "automatic entry",
+      "auto post",
+      "schedule",
+      "scheduled entry",
+      "monthly entry",
+      "journal entry",
+      "template",
+      "management fee",
+      "reserve transfer",
+      "reserve contribution",
+      "monthly",
+      "quarterly",
+      "annually",
+      "weekly",
+      "make recurring",
+      "every month",
+      "post itself",
+      "automatically",
+      "management company fee"
+    ],
+    "shots": [],
+    "related": [
+      "accounting-reports-overview",
+      "accounting-draft-budget"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use this for an entry the treasurer posts the same way every time, such as a monthly management fee or a transfer to the reserve fund."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Board admins and board members can make an entry recurring."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The entry must already be posted in the ledger. It becomes the model for every copy."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Accounting"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Ledger"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " tab, and select the entry you want to repeat."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Make recurring"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "In "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Repeats"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", choose Monthly, Quarterly, Annually, Weekly or Daily."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "In "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "First run"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", pick the first date a copy should post."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Save recurring entry"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "The entry is listed on the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Recurring"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " tab with how often it repeats, its "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Next run"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " date and "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Active"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Early each morning on a run date, a fresh copy of the entry's lines posts to the ledger, dated that day and marked "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Recurring"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". The next run date then moves forward."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If a run was missed, the app posts one copy, not one for every missed period."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Couldn’t save the template\": nothing changed. Try again."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "No copy posted on the run date: copies post only into the current open fiscal period. Check "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Accounting"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Periods"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "To change how often it repeats or the next date, open the same entry and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Make recurring"
+                },
+                {
+                  "t": "text",
+                  "v": " again. It updates the schedule instead of adding a second one."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You can't pause, stop or delete a recurring entry in the app, and reversing the original entry doesn't stop the copies. Contact support to stop one."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You can't change the amounts. Every copy uses the original entry's lines. For a new amount, post a new entry and make that one recurring, and ask support to stop the old one."
+                }
+              ],
+              [
+                {
+                  "t": "ui",
+                  "label": "Make recurring"
+                },
+                {
+                  "t": "text",
+                  "v": " isn't shown on an entry that was reversed."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/accounting/accounting-recurring-entries.md"
+  },
+  {
+    "id": "accounting-reports-overview",
+    "title": "Read your financial reports",
+    "summary": "See where the money stands on the Accounting overview, then open the balance sheet, income statement, cash flow or budget vs. actual.",
+    "topic": "accounting",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting",
+      "/accounting/reports",
+      "/accounting/reports/income-statement",
+      "/accounting/reports/budget-vs-actual",
+      "/accounting/reports/balance-sheet",
+      "/accounting/reports/cash-flow",
+      "/accounting/trial-balance",
+      "/accounting/ledger",
+      "/accounting/ledger/[id]",
+      "/accounting/coa"
+    ],
+    "primaryRoute": "/accounting/reports",
+    "keywords": [
+      "reports",
+      "financial reports",
+      "financial statements",
+      "financials",
+      "balance sheet",
+      "income statement",
+      "profit and loss",
+      "p&l",
+      "profit loss",
+      "net income",
+      "net loss",
+      "cash flow",
+      "budget vs actual",
+      "budget versus actual",
+      "variance",
+      "over budget",
+      "under budget",
+      "trial balance",
+      "debits",
+      "credits",
+      "general ledger",
+      "ledger",
+      "journal entries",
+      "journal entry",
+      "chart of accounts",
+      "accounts",
+      "operating cash",
+      "reserve cash",
+      "reserves",
+      "owed by owners",
+      "accounts receivable",
+      "accrual",
+      "cash basis",
+      "modified accrual",
+      "treasurer report",
+      "how much money",
+      "bank balance",
+      "fund balance",
+      "equity",
+      "accounting overview",
+      "reverse entry",
+      "right now",
+      "pull up",
+      "as of date",
+      "year end",
+      "december 31",
+      "finances"
+    ],
+    "shots": [],
+    "related": [
+      "accounting-monthly-board-report",
+      "accounting-draft-budget",
+      "accounting-bank-reconcile",
+      "accounting-enter-pay-bills"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use this when you want to know where the association's money stands, or you need numbers for a board meeting. Every report is worked out live from the books each time you open it."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Board admins and board members can see every report. Residents can't."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The reports need your books to be open (a fiscal period and a chart of accounts). If they aren't, the report says so and an admin can open them from there."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Accounting"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " from the sidebar. The "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Overview"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " shows "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Operating cash"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Reserve cash"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Owed by owners"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Net income"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " for the current period. Select any of them to go to the page behind it."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Check "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Needs attention"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " for work waiting on the board, like bank transactions to match, past-due bills or draft entries. Select a line to go straight to it."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select the "
+                },
+                {
+                  "t": "ui",
+                  "label": "Reports"
+                },
+                {
+                  "t": "text",
+                  "v": " tab, then pick a report: "
+                },
+                {
+                  "t": "ui",
+                  "label": "Balance sheet"
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "ui",
+                  "label": "Income statement"
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "ui",
+                  "label": "Cash flow"
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "ui",
+                  "label": "Budget vs. actual"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Choose what the report covers, then select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Apply"
+                },
+                {
+                  "t": "text",
+                  "v": ". The balance sheet uses an "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "As of"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " date. The income statement and cash flow use a "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Period"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". Budget vs. actual uses a "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Budget"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Reset"
+                },
+                {
+                  "t": "text",
+                  "v": " to go back to the default."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Read the totals at the top, then the lines below them, grouped by account."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To see the entries behind a number, select the "
+                },
+                {
+                  "t": "ui",
+                  "label": "Ledger"
+                },
+                {
+                  "t": "text",
+                  "v": " tab. Filter by "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Period"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Source"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Status"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", and select an entry to see its lines."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "For a quick check that the books add up, select the "
+                },
+                {
+                  "t": "ui",
+                  "label": "Trial balance"
+                },
+                {
+                  "t": "text",
+                  "v": " tab. It shows "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Balanced"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " when debits equal credits."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Nothing changes when you read a report. Numbers update on their own as dues are charged, owners pay, bills are entered and bank deposits are matched."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"No fiscal period yet\": the association has no fiscal period, so there is nothing for the report to cover. An admin can open the books from that message. A board member is pointed to the admins."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"No budget to compare against\": budget vs. actual needs a budget first. Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "New budget"
+                },
+                {
+                  "t": "text",
+                  "v": ", or see "
+                },
+                {
+                  "t": "link",
+                  "kind": "guide",
+                  "href": "accounting-draft-budget",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "how to draft next year's budget"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"This budget has no lines yet\": the budget you picked is empty. Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Edit budget"
+                },
+                {
+                  "t": "text",
+                  "v": " to add lines."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Out of balance"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " on the balance sheet or trial balance: the numbers don't add up, which should never happen. Don't rely on the figures. Contact support."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "A tile on the overview says it couldn't load: only that figure failed. Refresh the page. It never shows $0 in place of a failed number."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Reports count "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "posted"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " entries only. Draft entries don't show up until they are posted."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The balance sheet shows today unless you pick another date. "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Total equity"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " includes net income so far this period."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The income statement has three ways to count: "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Accrual"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " (income and expenses when billed), "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Cash"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " (only entries that moved cash) and "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Modified accrual"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " (income when collected, expenses when billed). Accrual is the default."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "In budget vs. actual, a positive variance is good news: income above plan, or spending below it."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Cash flow covers operating and reserve cash, grouped by where each movement came from, from opening to closing balance."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You can't download these reports from their pages. For a PDF board packet with the balance sheet, income statement and cash flow, open the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Periods"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " tab. For a monthly email to the board, see "
+                },
+                {
+                  "t": "link",
+                  "kind": "guide",
+                  "href": "accounting-monthly-board-report",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "the monthly board report"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "A posted entry can't be edited or deleted. On the entry's page, "
+                },
+                {
+                  "t": "ui",
+                  "label": "Reverse"
+                },
+                {
+                  "t": "text",
+                  "v": " posts an equal and opposite entry dated today, and the original stays on the books marked reversed."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The "
+                },
+                {
+                  "t": "ui",
+                  "label": "Accounts"
+                },
+                {
+                  "t": "text",
+                  "v": " tab lists your chart of accounts. You can read it, but you can't add or change accounts there."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/accounting/accounting-reports-overview.md"
+  },
+  {
+    "id": "communications-segments-sms",
+    "title": "Choose who gets a message, and send it by text",
+    "summary": "Pick an audience like late on dues or one property, add text messages, and check who each message reached.",
+    "topic": "communications",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/communications/new",
+      "/communications/[id]"
+    ],
+    "primaryRoute": "/communications/new",
+    "keywords": [
+      "audience",
+      "segment",
+      "group",
+      "recipients",
+      "who gets it",
+      "owners only",
+      "tenants only",
+      "late on dues",
+      "delinquent",
+      "open violations",
+      "specific property",
+      "one home",
+      "board only",
+      "custom contacts",
+      "vendor",
+      "attorney",
+      "sms",
+      "text message",
+      "texting",
+      "character limit",
+      "279 characters",
+      "long text",
+      "delivery",
+      "delivered",
+      "opened",
+      "bounced",
+      "failed",
+      "resend",
+      "not opened",
+      "notice",
+      "who opened",
+      "outside people",
+      "non-residents"
+    ],
+    "shots": [],
+    "related": [
+      "communications-send-announcement",
+      "inbox-reply-to-resident"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use this when a message is only for some people, or should also go out as a text. The basic send is in "
+              },
+              {
+                "t": "link",
+                "kind": "guide",
+                "href": "communications-send-announcement",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "send an announcement"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": "."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Communications"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "New message"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Audience"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", pick who gets it: "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Everyone"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Owners only"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Tenants only"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Late on dues"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Units with open violations"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Specific property"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Board"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Custom contacts"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " (people who aren't residents, like a vendor or your attorney). Each one shows how many people it reaches right now."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "For "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Specific property"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", choose the home, then tick the people. "
+                },
+                {
+                  "t": "ui",
+                  "label": "Owners"
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "ui",
+                  "label": "Tenants"
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "ui",
+                  "label": "All"
+                },
+                {
+                  "t": "text",
+                  "v": " and "
+                },
+                {
+                  "t": "ui",
+                  "label": "None"
+                },
+                {
+                  "t": "text",
+                  "v": " tick them for you."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "For "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Board"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", tick the board members. For "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Custom contacts"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", type a name, email or US phone and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Add"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Continue"
+                },
+                {
+                  "t": "text",
+                  "v": ", write the message, then select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Continue"
+                },
+                {
+                  "t": "text",
+                  "v": " again."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Channels"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", tick "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "SMS"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " to also send a text."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Check the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Review"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " box, then select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Send now"
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "ui",
+                  "label": "Schedule"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "The message's own page shows "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Delivered"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": ", "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Opened"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": ", "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Replied"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " and "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Failed"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": ". Filter the recipient list by "
+              },
+              {
+                "t": "ui",
+                "label": "Failed"
+              },
+              {
+                "t": "text",
+                "v": ", "
+              },
+              {
+                "t": "ui",
+                "label": "Opened"
+              },
+              {
+                "t": "text",
+                "v": " or "
+              },
+              {
+                "t": "ui",
+                "label": "Not opened"
+              },
+              {
+                "t": "text",
+                "v": " to see each person's status. If some emails failed, select "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Resend to … failed"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " to try those people again."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Nobody matches right now\": that group has nobody with contact details on file, so you can't pick it."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Pick at least one resident at that property.\": tick at least one person before you continue."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"No active residents recorded for this property. Add residents on the property page first.\": add people to that home, then come back."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"… doesn't look like a US phone number.\": custom contacts only take US numbers."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Everyone"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Late on dues"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Units with open violations"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " reach one person per home: the owner, or the tenant if no owner is on file."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Late on dues"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " means a charge was due before today and isn't fully paid."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "A text holds up to 279 characters, subject included. Longer ones are cut short and end with a link to the full message in the portal. Each person gets one text, never a chain of texts."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "People with no phone number on file get no text. Board members are never texted."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Resend"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " only retries failed emails, not texts."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Picking a template sets "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Channels"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " to that template's own choices. Check "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Channels"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " before you send."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/communications/communications-segments-sms.md"
+  },
+  {
     "id": "communications-send-announcement",
     "title": "Send an announcement to residents",
     "summary": "Write one message, pick who gets it, and send it by email, text and the resident portal.",
@@ -5069,6 +10533,1977 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
       }
     ],
     "source": "apps/hoa/content/guide/communications/communications-send-announcement.md"
+  },
+  {
+    "id": "inbox-connect-mailbox",
+    "title": "Connect the HOA mailbox to the Inbox",
+    "summary": "Link your HOA's Gmail account so email residents send lands in the Inbox, filed under the right home.",
+    "topic": "communications",
+    "roles": [
+      "admin"
+    ],
+    "routes": [
+      "/settings/mailbox",
+      "/inbox"
+    ],
+    "primaryRoute": "/settings/mailbox",
+    "keywords": [
+      "mailbox",
+      "gmail",
+      "google",
+      "connect",
+      "link email",
+      "hoa email",
+      "inbox setup",
+      "sync",
+      "import",
+      "reconnect",
+      "disconnect",
+      "label",
+      "scope",
+      "email account",
+      "google workspace",
+      "resident email",
+      "hook up",
+      "come into the app"
+    ],
+    "shots": [],
+    "related": [
+      "inbox-reply-to-resident",
+      "members-invite-board"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Do this once, so the email residents send to your HOA address shows up in "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Inbox"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " next to each home's dues and ARC history."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Only HOA admins can connect or disconnect the mailbox. Board members can read the Inbox but not change this."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You need the sign-in for the HOA's Google (Gmail) account."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "HOA mailbox"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " in the Account section of the sidebar. From an empty "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Inbox"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " you can also select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Connect mailbox"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Continue with Google"
+                },
+                {
+                  "t": "text",
+                  "v": " and sign in to the HOA's Google account. Allow access when Google asks."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Back on "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "HOA mailbox"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", choose "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Which mail should HomeownerHub see?"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ": mail sent to a specific address, only mail with a Gmail label, or everything in this inbox."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Save scope"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Check "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "What we found in the last 30 days"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". It shows how many threads matched a property and how many need review, with a sample to check."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "HomeownerHub imports your recent mail history while you keep working. After that, new mail arrives every 2 minutes. Mail that matches a home is filed under it. Mail it can't match waits under "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Needs review"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " in the Inbox."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Google consent was cancelled, so no mailbox was connected.\": you closed or declined the Google screen. Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Continue with Google"
+                },
+                {
+                  "t": "text",
+                  "v": " again."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"This organization already has … connected\": your HOA already has a different mailbox linked. Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Disconnect mailbox"
+                },
+                {
+                  "t": "text",
+                  "v": " first, or start again and pick that same account on Google's account picker."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Google did not return a refresh token.\": remove HomeownerHub at myaccount.google.com/permissions, then connect again."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Reconnect required"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ": Google rejected the stored sign-in, so mail is not syncing. Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Reconnect"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Sync has stalled"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ": no successful sync in over 30 minutes. Resident email may not be arriving."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "History import stopped"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ": older mail may be missing. New mail still syncs. Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Reconnect"
+                },
+                {
+                  "t": "text",
+                  "v": " to restart the import."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Only Google (Gmail) mailboxes can be connected."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Mail sent to a specific address"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " is the recommended choice. It keeps other mail in that account private. "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Everything in this inbox"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " makes all of that account's mail visible to the whole board, so use it only for a mailbox used just for the HOA."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Nothing is ever sent from the mailbox without someone approving it first."
+                }
+              ],
+              [
+                {
+                  "t": "ui",
+                  "label": "Disconnect mailbox"
+                },
+                {
+                  "t": "text",
+                  "v": " asks you to click twice. It stops syncing and removes Google access. Mail already imported stays in the Inbox."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/communications/inbox-connect-mailbox.md"
+  },
+  {
+    "id": "inbox-reply-to-resident",
+    "title": "Reply to a resident's email from the Inbox",
+    "summary": "Open an email, let AI draft a reply from your documents, check it, add files and approve it to send.",
+    "topic": "communications",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/inbox",
+      "/inbox/[id]",
+      "/inbox/compose"
+    ],
+    "primaryRoute": "/inbox",
+    "keywords": [
+      "inbox",
+      "reply",
+      "respond",
+      "answer email",
+      "ai draft",
+      "draft reply",
+      "resident email",
+      "attachment",
+      "attach file",
+      "retry attachment",
+      "failed attachment",
+      "undo send",
+      "forward",
+      "new email",
+      "compose",
+      "write email",
+      "needs review",
+      "file under property"
+    ],
+    "shots": [],
+    "related": [
+      "inbox-connect-mailbox",
+      "communications-send-announcement"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use the Inbox to answer one resident's email. The reply goes out from your HOA mailbox."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "An HOA admin must connect the HOA mailbox first. See "
+                },
+                {
+                  "t": "link",
+                  "kind": "guide",
+                  "href": "inbox-connect-mailbox",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "connect the HOA mailbox"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Board members and admins can both read and reply."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Inbox"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " from the sidebar and select a conversation. Use the filters, like "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Needs review"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "All"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", to find it."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Read the thread. The panel beside it shows the home's dues, open violations and ARC requests."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Draft a reply"
+                },
+                {
+                  "t": "text",
+                  "v": ". AI writes a draft from your documents and this home's record."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Read the draft. Edit "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "To"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Subject"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Message"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". Fill in or remove every highlighted blank, and check the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Sources"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " it quotes."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To add files, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Upload a file"
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "ui",
+                  "label": "From this thread"
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "ui",
+                  "label": "From documents"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Approve and send"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "The reply waits 30 seconds before it sends. Select "
+              },
+              {
+                "t": "ui",
+                "label": "Undo"
+              },
+              {
+                "t": "text",
+                "v": " in that time to cancel it. Once sent, the panel shows "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Reply sent"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": "."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Could not draft a reply right now.\": nothing was drafted. Try "
+                },
+                {
+                  "t": "ui",
+                  "label": "Draft a reply"
+                },
+                {
+                  "t": "text",
+                  "v": " again."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Fill in or remove every highlighted blank before sending.\": the draft still has a blank AI was not allowed to fill, like a money amount or a rule decision. You decide it."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Sending this reply failed"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ": the reply may still have reached the resident. Check the thread or the mailbox's Sent folder first. "
+                },
+                {
+                  "t": "ui",
+                  "label": "Write a new draft"
+                },
+                {
+                  "t": "text",
+                  "v": " starts a fresh draft. It does not resend the old one."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "An attachment on a resident's email says \"couldn’t download\": select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Retry"
+                },
+                {
+                  "t": "text",
+                  "v": ". It tries again on its own up to 4 times first. A file marked too large or not available can only be opened in Gmail."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Nothing sends until someone selects "
+                },
+                {
+                  "t": "ui",
+                  "label": "Approve and send"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Attachments on one message can total up to 15 MB."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If an email isn't filed under a home yet, pick the home in the side panel and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "File under property"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To write a brand-new email, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "New email"
+                },
+                {
+                  "t": "text",
+                  "v": " on the Inbox, then "
+                },
+                {
+                  "t": "ui",
+                  "label": "Start writing"
+                },
+                {
+                  "t": "text",
+                  "v": ". It appears in the Inbox within a couple of minutes after it sends."
+                }
+              ],
+              [
+                {
+                  "t": "ui",
+                  "label": "Forward"
+                },
+                {
+                  "t": "text",
+                  "v": " at the top of a thread sends the resident's email on to someone else."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "For a message to many homes at once, use "
+                },
+                {
+                  "t": "link",
+                  "kind": "guide",
+                  "href": "communications-send-announcement",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Communications"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " instead."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/communications/inbox-reply-to-resident.md"
+  },
+  {
+    "id": "tickets-board",
+    "title": "Answer residents' support requests (tickets)",
+    "summary": "Reply to a resident's request, add private board notes, set the status and priority, and turn the request into an action item.",
+    "topic": "communications",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/tickets",
+      "/tickets/[id]"
+    ],
+    "primaryRoute": "/tickets",
+    "keywords": [
+      "tickets",
+      "ticket",
+      "support request",
+      "resident request",
+      "maintenance request",
+      "repair",
+      "complaint",
+      "reply to resident",
+      "respond",
+      "answer",
+      "internal note",
+      "private note",
+      "close ticket",
+      "status",
+      "priority",
+      "urgent",
+      "action item",
+      "assign",
+      "follow up",
+      "delete ticket"
+    ],
+    "shots": [],
+    "related": [
+      "resident-support-tickets",
+      "communications-send-announcement"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Residents send support requests from the portal, like a broken gate or a dues question. They land in "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Tickets"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " for the board to answer."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Board admins and board members can see and answer tickets."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The board is notified when a resident opens a new ticket."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Tickets"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " from the sidebar. Use the filters "
+                },
+                {
+                  "t": "ui",
+                  "label": "All"
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Open"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "In progress"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Closed"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " to narrow the list."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select a ticket's subject to open it. The resident's request is at the top of "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Conversation"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Type in "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Reply to resident"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Send reply"
+                },
+                {
+                  "t": "text",
+                  "v": ". The resident sees it in their portal."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "For a note only the board should see, tick "
+                },
+                {
+                  "t": "ui",
+                  "label": "Internal note"
+                },
+                {
+                  "t": "text",
+                  "v": " first, then select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Add note"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Details"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", set "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Status"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Priority"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". Each change saves right away."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To track work, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Add action item"
+                },
+                {
+                  "t": "text",
+                  "v": " under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Action items"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". Enter a title, and optionally an assignee, due date and priority. Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Create action item"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "When it's done, set "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Status"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " to "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Closed"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Closing a ticket records who closed it and when. The resident sees "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Closed"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and can't reply anymore."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Internal notes are highlighted for the board and never shown to the resident."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Write a reply first.\" or \"Write the note first.\": the box is empty. Type your message."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Give the action item a title.\": action items need a title."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "A status or priority change shows an error under the field: nothing changed. Try again."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "The resident gets no email or text when you reply. They see it the next time they open their request in the portal."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You can't create a ticket for a resident here. Residents open them from the portal."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To reopen a closed ticket, set "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Status"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " back to "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Open"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "In progress"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "ui",
+                  "label": "Delete"
+                },
+                {
+                  "t": "text",
+                  "v": " removes the ticket and its conversation from the board's list and the resident's portal. To finish a request without removing it, close it instead."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You and the resident can attach files under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Documents"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " with "
+                },
+                {
+                  "t": "ui",
+                  "label": "Attach document"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Press ⌘ or Ctrl + Enter to send a reply from the keyboard."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/setup/tickets-board.md"
+  },
+  {
+    "id": "leases-waiting-list",
+    "title": "Set the rental cap and manage the lease waiting list",
+    "summary": "Set how many homes may be rented, see how many are leased now, and approve owners from the waiting list in order.",
+    "topic": "people",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/leases",
+      "/properties/[id]"
+    ],
+    "primaryRoute": "/leases",
+    "keywords": [
+      "lease",
+      "leases",
+      "leasing",
+      "rental",
+      "rentals",
+      "rent out",
+      "renting",
+      "tenant",
+      "tenants",
+      "landlord",
+      "rental cap",
+      "lease cap",
+      "rental restriction",
+      "rental limit",
+      "percent leased",
+      "headroom",
+      "waiting list",
+      "wait list",
+      "queue",
+      "approve lease",
+      "deny lease",
+      "tenure",
+      "owner-occupied",
+      "owner occupied",
+      "leased",
+      "declaration",
+      "ccr"
+    ],
+    "shots": [],
+    "related": [
+      "setup-properties-residents",
+      "documents-governing-and-ask",
+      "properties-record-a-sale"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use this when your declaration limits how many homes can be rented at once. The "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Leases"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " page shows how close you are to the cap and keeps owners who want to rent in a first-come, first-served line."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Only board admins and board members can change the cap or the waiting list."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The numbers come from each home's tenure: "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Owner-occupied"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Leased"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Unknown"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". You set it on the property's page with "
+                },
+                {
+                  "t": "ui",
+                  "label": "Change tenure"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Leases"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " from the sidebar. The top shows "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Leased"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Rental cap"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Headroom"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", which is how many more homes can still be leased."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Cap policy"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Set cap"
+                },
+                {
+                  "t": "text",
+                  "v": " (or "
+                },
+                {
+                  "t": "ui",
+                  "label": "Edit cap"
+                },
+                {
+                  "t": "text",
+                  "v": "). Enter the percent of units that may be leased, then select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Save cap"
+                },
+                {
+                  "t": "text",
+                  "v": ". Not sure? Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Suggest from declaration"
+                },
+                {
+                  "t": "text",
+                  "v": " to have AI read your governing documents, then "
+                },
+                {
+                  "t": "ui",
+                  "label": "Use this"
+                },
+                {
+                  "t": "text",
+                  "v": " if it found a cap."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "When an owner asks to rent and you're at the cap, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Add to waiting list"
+                },
+                {
+                  "t": "text",
+                  "v": ". Search for their property, add a note if you like, then select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Add to waiting list"
+                },
+                {
+                  "t": "text",
+                  "v": " again."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "When a leased home goes back to owner-occupied, find the first owner in line and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Approve"
+                },
+                {
+                  "t": "text",
+                  "v": ", then confirm."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If an owner changes their mind, open the row's menu and choose "
+                },
+                {
+                  "t": "ui",
+                  "label": "Withdraw from list"
+                },
+                {
+                  "t": "text",
+                  "v": ". To turn a request down, choose "
+                },
+                {
+                  "t": "ui",
+                  "label": "Deny request"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Approving marks that home "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Leased"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " and records the approval in the property's history, so it counts against the cap. Approved, denied and withdrawn requests move to "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Recent decisions"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": ". Select "
+              },
+              {
+                "t": "ui",
+                "label": "Export CSV"
+              },
+              {
+                "t": "text",
+                "v": " for the full history."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Cap must be a number between 0 and 100.\": enter a percent from 0 to 100, or leave the box blank to remove the cap."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"This property is already on the waiting list.\": each home can only be in line once at a time."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"AI couldn't find a cap clause in your declaration — set one manually if you have one.\": upload your declaration under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Documents"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", or type the cap yourself."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Add to waiting list"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " is greyed out: every home is already leased or already on the list."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "A line saying some units \"have unknown tenure\": the figures may be low. Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Review those homes"
+                },
+                {
+                  "t": "text",
+                  "v": " and set each one's tenure."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "The app doesn't block approvals over the cap. When "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Headroom"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " is 0, approve the next owner only after a leased home returns to owner-occupied."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The app doesn't tell owners about the board's decision. Let them know yourself."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Leases"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " page only counts which homes are leased. It doesn't show tenants or lease dates. When a tenant and lease are on file, they show on that home's own page."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "A cap of 0 or a blank cap means no cap, not \"no leasing\"."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The line's position is first come, first served by request date."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "On a property's page, an owner-occupied home also has an "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Add to waiting list"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " button once a cap is set."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/people/leases-waiting-list.md"
   },
   {
     "id": "properties-record-a-sale",
@@ -6718,6 +14153,4584 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
     "source": "apps/hoa/content/guide/documents/documents-governing-and-ask.md"
   },
   {
+    "id": "legal-state-law-compliance",
+    "title": "Look up your state's HOA law and check Florida records rules",
+    "summary": "Ask a question about your state's HOA statutes, read the cited sections, follow law updates, and run the Florida records and notices check.",
+    "topic": "documents",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/legal",
+      "/legal/ask",
+      "/legal/browse",
+      "/legal/browse/[id]",
+      "/legal/updates",
+      "/legal/updates/new",
+      "/legal/compliance"
+    ],
+    "primaryRoute": "/legal",
+    "keywords": [
+      "state law",
+      "statute",
+      "statutes",
+      "legal",
+      "law",
+      "attorney",
+      "lawyer",
+      "legal question",
+      "florida",
+      "georgia",
+      "california",
+      "texas",
+      "chapter 720",
+      "720.303",
+      "chapter 718",
+      "davis-stirling",
+      "property code 209",
+      "poa act",
+      "official records",
+      "website posting",
+      "meeting notice",
+      "14 days",
+      "compliance",
+      "law updates",
+      "legislation",
+      "new law",
+      "citation",
+      "fines",
+      "liens",
+      "foreclosure",
+      "records request",
+      "law passed",
+      "post a note",
+      "add an update"
+    ],
+    "shots": [],
+    "related": [
+      "documents-governing-and-ask",
+      "meetings-schedule-and-minutes"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "State Law"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " when you need to know what your state's HOA law says, not just your own CC&Rs. Answers cite the statute section they came from."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Board members and admins use this page from the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Knowledge"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " section of the sidebar."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "It works for associations in Georgia, Florida, California and Texas. Your association's state comes from its setup."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The statutes for your state must be loaded first. If they aren't, you see \"Statutes aren’t loaded yet\". Contact support to load them."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "State Law"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " from the sidebar. The "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Overview"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " tab shows your state's code, how many sections are indexed, and recent law updates."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To ask a question, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Ask a question"
+                },
+                {
+                  "t": "text",
+                  "v": ". Type your question, or pick one under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Try asking"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Ask"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Read the answer, its confidence level and the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Cited statutes"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". Select a citation to read that section's full text."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To read the law yourself, open the "
+                },
+                {
+                  "t": "ui",
+                  "label": "Statutes"
+                },
+                {
+                  "t": "text",
+                  "v": " tab. Pick a topic such as "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Meetings & elections"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Fines & enforcement"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", or "
+                },
+                {
+                  "t": "ui",
+                  "label": "All topics"
+                },
+                {
+                  "t": "text",
+                  "v": ", then open a section."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "On a section's page, "
+                },
+                {
+                  "t": "ui",
+                  "label": "Ask about this law"
+                },
+                {
+                  "t": "text",
+                  "v": " takes you back to the question box. "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Official source"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " links to the state's own copy."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To share a change in the law, open "
+                },
+                {
+                  "t": "ui",
+                  "label": "Law updates"
+                },
+                {
+                  "t": "text",
+                  "v": " and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Post update"
+                },
+                {
+                  "t": "text",
+                  "v": ". Fill in "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Headline"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Summary"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " (at least 20 characters), then select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Post update"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Florida associations: open the "
+                },
+                {
+                  "t": "ui",
+                  "label": "Compliance"
+                },
+                {
+                  "t": "text",
+                  "v": " tab to see which official records are on file, which owners can see, and whether recent and upcoming meetings were added early enough for notice."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "A live law update shows under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Recent law updates"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " on the State law page for every board in your state, not just yours. Use "
+                },
+                {
+                  "t": "ui",
+                  "label": "Archive"
+                },
+                {
+                  "t": "text",
+                  "v": " to hide it, and "
+                },
+                {
+                  "t": "ui",
+                  "label": "Restore"
+                },
+                {
+                  "t": "text",
+                  "v": " to bring it back."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The Florida check updates every time you open it. Fix a missing record by selecting "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Upload it"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", or open the meeting to check its notice."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Your state isn’t covered yet\": your association isn't in Georgia, Florida, California or Texas, or its state isn't set. If you see "
+                },
+                {
+                  "t": "ui",
+                  "label": "Finish setup"
+                },
+                {
+                  "t": "text",
+                  "v": ", finish setting up your association first."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Couldn’t get an answer\": nothing was saved, and your question is still in the box. Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Try again"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Question is too short.\" or \"Question is too long (>2000 chars).\": ask in at least 3 and at most 2,000 characters."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"No statutes loaded yet\" on the Statutes tab: your state's text hasn't been loaded for your association. Contact support."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Available for Florida associations\" on the Compliance tab: the check follows Florida's § 720.303 only, so it doesn't apply to other states."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Every page says \"Informational, not legal advice.\" Answers are grounded in the statute text, but they don't replace an attorney. For decisions about your association, consult a licensed attorney in your state."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If the statutes don't cover your question, the assistant says so instead of guessing."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The Florida check is \"an aid for your board, not a certification of compliance.\" It only sees what is on file in HomeownerHub, not documents or notices posted anywhere else."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "HomeownerHub doesn't record when a meeting notice was posted. The check only knows when the meeting was added, so you need to confirm the notice yourself."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Deleting a law update removes it for every board in your state and can't be undone. Archive it instead if you may need it again."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "For questions about your own CC&Rs and bylaws, use "
+                },
+                {
+                  "t": "link",
+                  "kind": "guide",
+                  "href": "documents-governing-and-ask",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Ask the Docs"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " instead."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/documents/legal-state-law-compliance.md"
+  },
+  {
+    "id": "vendors-insurance-compliance",
+    "title": "Add a vendor and check their insurance, W-9 and license",
+    "summary": "Add or invite a vendor, enter their COI, W-9 and license, run the compliance check, then approve them for work.",
+    "topic": "vendors",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/vendors",
+      "/vendors/new",
+      "/vendors/[id]",
+      "/vendors/[id]/edit",
+      "/vendors/[id]/compliance",
+      "/vendors/invitations",
+      "/vendors/approval-queue"
+    ],
+    "primaryRoute": "/vendors",
+    "keywords": [
+      "vendor",
+      "contractor",
+      "add vendor",
+      "new vendor",
+      "invite vendor",
+      "onboarding",
+      "onboard",
+      "coi",
+      "certificate of insurance",
+      "insurance",
+      "expired insurance",
+      "insurance expiring",
+      "w-9",
+      "w9",
+      "ein",
+      "tax id",
+      "1099",
+      "license",
+      "contractor license",
+      "compliance",
+      "compliant",
+      "non-compliant",
+      "general liability",
+      "workers comp",
+      "additional insured",
+      "approve vendor",
+      "approval queue",
+      "prospect",
+      "landscaper",
+      "plumber",
+      "send a link",
+      "own info",
+      "fill in their own details"
+    ],
+    "shots": [],
+    "related": [
+      "vendors-rfps-collect-bids",
+      "approvals-queue",
+      "accounting-enter-pay-bills"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use this before you hire a new contractor. You set up the vendor, record their insurance (COI), W-9 and license, and the app grades them so the board knows they're safe to use."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Only board admins and board members can add, check and approve vendors."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Have the vendor's legal name, EIN and trade ready, plus an email or phone. If you'd rather the vendor fill this in, invite them instead (step 1)."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Vendors"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " from the sidebar. Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Add vendor"
+                },
+                {
+                  "t": "text",
+                  "v": " to enter the details yourself, or "
+                },
+                {
+                  "t": "ui",
+                  "label": "Invite"
+                },
+                {
+                  "t": "text",
+                  "v": " to send the vendor a form. To invite, enter the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Vendor email"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Send invitation"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If you're adding the vendor yourself, fill in "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Legal name"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "EIN"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Trades"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " (comma-separated), plus a "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Primary email"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Primary phone"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". Then select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Create and continue"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "On the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Compliance check"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " page, under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Documents"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Choose file"
+                },
+                {
+                  "t": "text",
+                  "v": " for the COI, W-9 and license to keep a copy on file."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Type what's on each document into the form: the COI carrier, policy number, dates and coverage amounts, the W-9 legal name, and the license number. Leave a section's first field blank to skip that document."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Run compliance check"
+                },
+                {
+                  "t": "text",
+                  "v": ". The result shows "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Compliant"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Action soon"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Non-compliant"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Docs missing"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", with a list of any problems."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Open the vendor's page. If they're "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Compliant"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and still a "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Prospect"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Approve vendor"
+                },
+                {
+                  "t": "text",
+                  "v": ", then confirm."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "An approved vendor's status changes to "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Active"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": ". The "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Vendors"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " list shows each vendor's compliance and when their COI expires. A COI that expires within 30 days shows how many days are left, and an expired one shows "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Expired"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": ". COIs expiring within 30 days also appear under "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "At risk this week"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " on your dashboard."
+              }
+            ]
+          },
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "The "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Approval queue"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " tab lists every vendor that needs the board: compliant prospects ready to approve, vendors with gaps, and vendors whose documents aren't entered yet. Select "
+              },
+              {
+                "t": "ui",
+                "label": "Review"
+              },
+              {
+                "t": "text",
+                "v": " to open one."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Fix the highlighted fields and try again.\": a required field is missing or in the wrong format. Each problem shows under its field."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Couldn’t create the invitation\" or \"Invitation created, but the email was not sent\": if only the email failed, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Copy link"
+                },
+                {
+                  "t": "text",
+                  "v": " and send the link to the vendor yourself."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Vendor is not green for this association. Approval is blocked.\": only a "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Compliant"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " vendor can be approved. Fix the problems listed and run the check again."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"File must be PDF or image (JPG/PNG/WebP/HEIC).\": upload a PDF or a photo. Files must be under 25 MB."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"The compliance check didn’t run\": nothing was graded. Try again in a minute."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Finish setting up this vendor"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ": the vendor has no EIN or no trade yet. Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Edit details"
+                },
+                {
+                  "t": "text",
+                  "v": " and add them. Until then they can't be used for 1099 reporting, RFP invitations or compliance checks."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "The app doesn't read the PDFs for you yet. You upload them for your records and type the values into the form."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "When a vendor fills in the invitation form, their details and files arrive as a "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Prospect"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". The check doesn't run by itself. Enter the values and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Run compliance check"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "An invitation link works once and expires after 7 days. You can revoke one that hasn't been used from the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Invitations"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " tab."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "A board admin or board member can set the grade by hand under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Manual override"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", for example after confirming a policy by phone with the carrier. Add a reason so the board can see why."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The app doesn't email vendors when their COI is about to expire. Watch the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "COI expires"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " column and the dashboard."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To remove a vendor, open the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "More vendor actions"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " menu on their page and choose "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Delete vendor"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". Their past invoices and bids keep their history."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Vendor details and ratings are private to your association."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/vendors/vendors-insurance-compliance.md"
+  },
+  {
+    "id": "vendors-rfps-collect-bids",
+    "title": "Get bids from vendors with an RFP and pick the winner",
+    "summary": "Describe the job, let the composer draft an RFP, invite vendors to bid, compare their bids and award one.",
+    "topic": "vendors",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/rfps",
+      "/rfps/new",
+      "/rfps/[id]",
+      "/rfps/[id]/bids",
+      "/rfps/[id]/bids/[bidId]",
+      "/rfps/[id]/comparison"
+    ],
+    "primaryRoute": "/rfps",
+    "keywords": [
+      "rfp",
+      "request for proposal",
+      "bid",
+      "bids",
+      "quote",
+      "quotes",
+      "estimate",
+      "proposal",
+      "get quotes",
+      "compare bids",
+      "bid comparison",
+      "compare quotes",
+      "award",
+      "award bid",
+      "choose vendor",
+      "pick contractor",
+      "hire contractor",
+      "tender",
+      "scope of work",
+      "line items",
+      "deadline",
+      "landscaping contract",
+      "roofing",
+      "paving",
+      "three quotes",
+      "ask vendors",
+      "ask for bids",
+      "repave",
+      "parking lot"
+    ],
+    "shots": [],
+    "related": [
+      "vendors-insurance-compliance",
+      "accounting-enter-pay-bills"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use this when the association needs a job done and wants several vendors to quote on the same scope, so the board can compare them side by side."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Only board admins and board members can create RFPs and award bids."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Add the vendors you want to invite first, with an email on file. See "
+                },
+                {
+                  "t": "link",
+                  "kind": "guide",
+                  "href": "vendors-insurance-compliance",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Add a vendor"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Vendors"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", select the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "RFPs"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " tab, then select "
+                },
+                {
+                  "t": "ui",
+                  "label": "New RFP"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "What does the association need?"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", describe the job in your own words. Add a budget range if you have one, check "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Bids due"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Draft RFP"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Read the draft. Change the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Title"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Scope"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", budget or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Bids due"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " if you need to, and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Save draft"
+                },
+                {
+                  "t": "text",
+                  "v": ". When it's right, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Publish"
+                },
+                {
+                  "t": "text",
+                  "v": ", then confirm."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Invite vendors"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", tick the vendors you want, then select the send button (it reads, for example, "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Send 3 invites"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "). Each vendor gets their own email link to submit a bid."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "When bids arrive, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "View bids"
+                },
+                {
+                  "t": "text",
+                  "v": ". Select a vendor's name to see their pricing, timeline and line items."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Once at least two bids are in, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Compare bids"
+                },
+                {
+                  "t": "text",
+                  "v": ". The comparison shows each line side by side, items a vendor left out or added, payment terms, warranty and a recommendation memo."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Open the bid the board chose and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Award this bid"
+                },
+                {
+                  "t": "text",
+                  "v": ", then confirm."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "The RFP shows "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Awarded"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": ". The winning bid is marked "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Awarded"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " and every other submitted bid is marked "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Declined"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": ". Vendor bid links stop working once the RFP is awarded or cancelled, or the bid deadline passes."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Couldn’t draft the RFP\": nothing was saved. Try again. If you left "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Bids due"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " empty you'll see \"Submission deadline is required.\""
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Add at least one line item before publishing.\": the draft has no line items, so it can't be published. Rewrite the need with more detail and draft a new RFP."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Couldn’t send invitations\": nothing was sent. Try again. If one vendor shows \"no email on file\", add an email on their page and invite them again."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"invitation created, but the email didn’t send\": the vendor is invited, but the email failed to go out."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Compare bids"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " doesn't appear: you need at least two submitted bids. The bids page says \"comparison needs at least 2 submitted bids\"."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "The insurance minimums in the RFP come from your association's settings. The composer doesn't make them up."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Line items come from the draft. You can edit the title, scope, budget and deadline, but not the line items."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Nothing goes to vendors until you publish. After publishing, the scope and line items shouldn't change."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The recommendation memo is an AI draft for discussion. The board makes the decision."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Awarding can't be undone. The app doesn't email the vendors to tell them who won, so let them know yourself."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To call it off, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Cancel RFP"
+                },
+                {
+                  "t": "text",
+                  "v": ". Open invitations stop working and vendors can't submit bids."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Blocked vendors don't appear in the invite list. Others show their compliance and status so you can see who's approved."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/vendors/vendors-rfps-collect-bids.md"
+  },
+  {
+    "id": "settings-billing",
+    "title": "See your plan and subscribe to HomeownerHub",
+    "summary": "Check your association's HomeownerHub plan and price per door, subscribe monthly or yearly, and update your card or download invoices.",
+    "topic": "settings",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/billing"
+    ],
+    "primaryRoute": "/settings/billing",
+    "keywords": [
+      "billing",
+      "subscription",
+      "subscribe",
+      "plan",
+      "price",
+      "pricing",
+      "cost",
+      "how much",
+      "per door",
+      "doors",
+      "free plan",
+      "annual",
+      "yearly",
+      "monthly",
+      "invoice",
+      "receipt",
+      "credit card",
+      "card on file",
+      "payment method",
+      "cancel",
+      "cancel subscription",
+      "stripe",
+      "upgrade"
+    ],
+    "shots": [],
+    "related": [
+      "settings-data-export"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use this to see what your association pays for HomeownerHub, and to start or manage the subscription. This is your association's bill to us, not residents' dues."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Board admins and board members can see the plan. Only admins can subscribe, change the plan or update the card. Board members see \"Only admins can change the plan or payment method.\""
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The price is per door (home), with a minimum. "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Doors on file"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " shows how many homes your account is billed for."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "In the sidebar, open "
+                },
+                {
+                  "t": "ui",
+                  "label": "Billing"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Current plan"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", check your plan, "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Doors on file"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", and the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Monthly"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Annual"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " totals."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Choose a plan"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", pick "
+                },
+                {
+                  "t": "ui",
+                  "label": "Monthly"
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "ui",
+                  "label": "Annual"
+                },
+                {
+                  "t": "text",
+                  "v": ". Annual saves 10%."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Read the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "First-year commitment"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " note."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Subscribe"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " button. It shows the price."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Enter your payment details on the secure Stripe checkout page. When you finish, you come back to "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Billing"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Your plan shows as current. An admin can then select "
+              },
+              {
+                "t": "ui",
+                "label": "Manage subscription"
+              },
+              {
+                "t": "text",
+                "v": " to update the card or download invoices in Stripe."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Couldn’t start checkout"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ": checkout didn't open, and you weren't charged. Try again. If it keeps happening, contact support."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Stripe isn’t configured\": billing isn't set up yet on this server, so checkout will fail. Contact support."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Doors on file"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " is wrong: contact support. You can't change it on this page."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "The first 12 months can't be cancelled. From month 13, you can cancel any time under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Manage subscription"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The free plan is temporary. It's for a small group of early partner associations and will end after that phase."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Small associations pay the minimum. The page shows \"(minimum)\" when it applies."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You pay HomeownerHub through Stripe's checkout page, not by check or Zelle."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To keep a copy of your records, see "
+                },
+                {
+                  "t": "link",
+                  "kind": "guide",
+                  "href": "settings-data-export",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Download a full copy of your association's data"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/settings/settings-billing.md"
+  },
+  {
+    "id": "settings-data-export",
+    "title": "Download a full copy of your association's data",
+    "summary": "Download one zip file with a spreadsheet (CSV) for each area, such as owners, dues, payments, the books, violations and tickets.",
+    "topic": "settings",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/data"
+    ],
+    "primaryRoute": "/settings/data",
+    "keywords": [
+      "export",
+      "download",
+      "backup",
+      "back up",
+      "csv",
+      "excel",
+      "spreadsheet",
+      "zip",
+      "your data",
+      "all data",
+      "data export",
+      "copy of records",
+      "take my data",
+      "leave",
+      "switch software",
+      "cancel",
+      "records",
+      "owners list",
+      "roster export",
+      "google sheets",
+      "numbers"
+    ],
+    "shots": [],
+    "related": [
+      "settings-billing",
+      "setup-import-roster"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use this when you want your own copy of everything, for example for a backup, an audit, a new board, or moving to other software. Your records belong to your association."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Board admins and board members can download the data. Residents can't."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The file holds owners' and residents' names, emails and phone numbers. Save it somewhere private."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "In the sidebar, open "
+                },
+                {
+                  "t": "ui",
+                  "label": "Your data"
+                },
+                {
+                  "t": "text",
+                  "v": ". It's also a tab in "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Settings"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Read "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "What’s included"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " to see each area and its file name."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Download all data"
+                },
+                {
+                  "t": "text",
+                  "v": ". The button shows \"Preparing download…\" while it works."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Your browser saves a zip file named "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "association-data-"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " plus today's date."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Open the zip. Open any CSV file in Excel, Numbers or Google Sheets."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "The zip has one CSV per area: units, properties list, owners, residents, assessments (dues charges), payments, journal entries, journal lines, violations, ARC requests, tickets, documents index, governing docs, vendors and meetings. It also has a README.txt. Each download is recorded in your association's audit log."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"The export could not be started. Check your connection and try again.\": the request didn't reach the server. Check your internet and try again."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"The download stopped before it finished, so no file was saved. Try again.\": nothing partial was saved. Try again."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Download failed"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " shows another message, the export was refused or failed before any data was sent. Try again, and contact support if it keeps happening."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "It's always the full set. You can't pick certain areas or a date range."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Not included: the uploaded files themselves (the documents index lists them), bank and payment connections, sign-in details, and vendor tax ids."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Nothing is stored on our side. The zip is built when you select the button."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You can download as often as you like."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/settings/settings-data-export.md"
+  },
+  {
+    "id": "settings-dues-reminders",
+    "title": "Set up automatic dues reminder emails",
+    "summary": "Pick the days before and after each due date when owners with a balance get a reminder email, then approve it.",
+    "topic": "settings",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/reminders"
+    ],
+    "primaryRoute": "/settings/reminders",
+    "keywords": [
+      "dues reminders",
+      "automatic reminders",
+      "reminder schedule",
+      "late notice",
+      "past due",
+      "overdue",
+      "chase payments",
+      "nudge owners",
+      "before due date",
+      "after due date",
+      "reminder email",
+      "cadence",
+      "auto reminder",
+      "collections",
+      "turn off reminders",
+      "app",
+      "automatically",
+      "late notices",
+      "people",
+      "tomorrow",
+      "next reminder"
+    ],
+    "shots": [],
+    "related": [
+      "dues-generate-monthly",
+      "dues-record-payment",
+      "settings-resident-payments"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use this so owners who owe dues get a friendly email on the days you choose, without anyone sending it by hand."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Board members and admins can change this."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Reminders are off until someone turns them on and saves."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Dues reminders"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " in the Account section of the sidebar."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Tick "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Send automatic dues reminders"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "When to send"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", set each reminder's days and pick before due, on the due date or after due. Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Add a reminder"
+                },
+                {
+                  "t": "text",
+                  "v": " for another one."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Add a "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Message to owners"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " if you like, such as how to pay or who to call."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Preview next run"
+                },
+                {
+                  "t": "text",
+                  "v": " to see who would get a reminder next time. Nothing is sent."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Approve and save"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "The page shows "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "On — sending daily at 9am Eastern"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " and when it was approved. Each day, owners with a balance whose reminder day has come get one email. It shows their own charges and balance. "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "What owners receive"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " shows a sample."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Automatic reminders are paused"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ": the saved settings were changed outside this screen, so nothing will send. Check them and save again."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Email isn’t set up on this server"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ": reminders are saved, but none go out until email delivery is set up. Contact support."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Check the highlighted fields.\": fix the reminder days or message shown in red, then save."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Couldn’t save the reminder settings. Try again.\": nothing changed. Save again."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "You can have up to 5 reminders, from 30 days before to 90 days after the due date. The message can be up to 500 characters."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Saving approves the schedule and message in your name. Any later change is a new approval."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Owners on an active payment plan, and accounts with the association's attorney, never get an automatic reminder. Owners with no email on file are skipped too."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Reminders are email only. They are not sent by text."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To stop them, untick "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Send automatic dues reminders"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Save"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/settings/settings-dues-reminders.md"
+  },
+  {
+    "id": "settings-notifications",
+    "title": "Turn the monthly board report email on or off",
+    "summary": "Choose whether HomeownerHub emails you the monthly board report. Your choice affects only you.",
+    "topic": "settings",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/notifications",
+      "/settings"
+    ],
+    "primaryRoute": "/settings/notifications",
+    "keywords": [
+      "notifications",
+      "email notifications",
+      "emails",
+      "unsubscribe",
+      "stop emails",
+      "too many emails",
+      "monthly report",
+      "board report",
+      "month-end report",
+      "opt out",
+      "turn off",
+      "settings",
+      "preferences",
+      "profile",
+      "change my name"
+    ],
+    "shots": [],
+    "related": [
+      "accounting-monthly-board-report",
+      "settings-dues-reminders"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use this to stop, or start again, the monthly board report email that comes to you."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Settings"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " from the sidebar. Board members can open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Members"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " instead."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select the "
+                },
+                {
+                  "t": "ui",
+                  "label": "Notifications"
+                },
+                {
+                  "t": "text",
+                  "v": " tab."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Board emails"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", flip the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Monthly board report"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " switch on or off."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Your choice saves right away. You see \"Monthly board report turned off.\" or \"You’ll get the monthly board report.\" The report comes on the 1st of each month. It covers last month's cash, collections, overdue dues, budget, violations and what's waiting on the board."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Not saved"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ": the switch flips back. Try again. \"You’re signed out. Sign in and try again.\" means your sign-in ran out."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Couldn’t load your email settings\": refresh the page."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "The monthly board report is the only email you can switch off here. It is on unless you turn it off."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Your choice applies to every association you're on the board of. It does not change anyone else's emails."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Alerts that need action, like a disconnected mailbox, always come through."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "General"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " tab shows your profile and your association. Admins can change their name there and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Save name"
+                },
+                {
+                  "t": "text",
+                  "v": ". Your sign-in email can't be changed there."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/settings/settings-notifications.md"
+  },
+  {
+    "id": "settings-resident-payments",
+    "title": "Turn on online dues payments with Zelle",
+    "summary": "Enter your association's Zelle email or phone so residents get a Pay button with the exact amount and a memo code that matches the payment to their home.",
+    "topic": "settings",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/payments",
+      "/accounting/bank/queue"
+    ],
+    "primaryRoute": "/settings/payments",
+    "keywords": [
+      "zelle",
+      "online payment",
+      "pay online",
+      "pay dues online",
+      "resident payments",
+      "pay button",
+      "turn on payments",
+      "set up payments",
+      "enable payments",
+      "memo",
+      "memo code",
+      "recipient",
+      "treasurer",
+      "receive payments",
+      "collect dues",
+      "accept payments",
+      "credit card",
+      "ach",
+      "venmo",
+      "turn off zelle",
+      "payment settings"
+    ],
+    "shots": [],
+    "related": [
+      "dues-record-payment",
+      "resident-portal-basics",
+      "dues-generate-monthly"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Do this once so residents can pay their dues from their phone. Until you do, residents see \"Online payments aren’t set up yet\" and are asked to contact the board."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Board admins and board members can set this up. It's usually the treasurer's job."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Use the Zelle email or mobile number of your "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "association's bank account"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". Never use a board member's personal account."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Your association must be set up in the app first. If it isn't, the page tells you so."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "In the sidebar, open "
+                },
+                {
+                  "t": "ui",
+                  "label": "Resident payments"
+                },
+                {
+                  "t": "text",
+                  "v": ". It's also a tab in "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Settings"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "In "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Zelle email or mobile number"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", enter what residents should type into \"Send to\" in their bank app. Use an email or a 10-digit US mobile number."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Optional: in "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Name Zelle shows"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", enter the account name residents will see before they confirm. It starts as your association's name."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Optional: in "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Note to residents"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", add other ways to pay or who to call."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Check "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "What residents see"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". It's a live preview of the Pay screen for a sample $325.00 charge."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Turn on Pay by Zelle"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "The status changes to "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "On — residents can pay"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", and residents see a "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Pay"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " button with the steps."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Each dues charge has its own memo code. Residents send one Zelle payment per charge, with that amount and memo."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "When the deposit shows up in your bank feed, the app matches it to the charge by its memo code. A board member approves every match in the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Matching queue"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " ("
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Accounting"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Bank"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ") before it posts."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To change the details later, edit them and select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Save changes"
+                },
+                {
+                  "t": "text",
+                  "v": ". To stop, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Turn off"
+                },
+                {
+                  "t": "text",
+                  "v": " and confirm."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Enter the email or US mobile number your association’s Zelle is registered to.\": the Zelle field is empty. Fill it in."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Use an email address or a 10-digit US mobile number.\": check the email or number for typos."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Payment settings can’t be saved on this server yet. Contact support.\": the app isn't fully set up for this yet. Contact support."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Couldn’t save the payment settings. Try again.\": nothing was saved. Try again."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Residents can’t see your Zelle details right now\": the saved details were changed outside this screen, so they're hidden from residents. Check them and save again."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Zelle is the only online payment option. Residents can't pay by credit card or ACH in the portal."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "There is no autopay. Each resident sends each payment from their own bank."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "No money goes through HomeownerHub. Residents send Zelle from their own bank straight to your association's account."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Turning it off doesn't stop payments already sent. They still arrive and match."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If a charge is already partly paid, the resident still sees a memo, but the board confirms that payment by hand."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If a charge has no memo code, residents are told to put their street address in the memo, and the board matches it by hand."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "For checks or cash, see "
+                },
+                {
+                  "t": "link",
+                  "kind": "guide",
+                  "href": "dues-record-payment",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Record a payment by check or cash"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/settings/settings-resident-payments.md"
+  },
+  {
+    "id": "resident-arc-rules-check",
+    "title": "Check your ARC request against the rules and track the board's decision",
+    "summary": "Run the optional rules check on a home-change request, understand what it found, submit, and follow your application to a decision.",
+    "topic": "resident",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/arc",
+      "/resident/arc/new",
+      "/resident/arc/[id]"
+    ],
+    "primaryRoute": "/resident/arc/new",
+    "keywords": [
+      "arc",
+      "architectural",
+      "application",
+      "rules check",
+      "check against rules",
+      "guidelines",
+      "covenants",
+      "ccrs",
+      "possible conflict",
+      "needs detail",
+      "looks consistent",
+      "status",
+      "submitted",
+      "in review",
+      "approved",
+      "denied",
+      "withdrawn",
+      "withdraw",
+      "cancel request",
+      "decision",
+      "board decision",
+      "how long",
+      "30 days",
+      "attach plans",
+      "photos",
+      "message the board",
+      "question about my application"
+    ],
+    "shots": [
+      {
+        "name": "guide-resident-arc-new",
+        "alt": "The New ARC application form with the Submit application button highlighted"
+      }
+    ],
+    "related": [
+      "resident-portal-basics"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "The rules check shows you, before you submit, which of your community's rules likely apply to your change. Afterwards, your application page shows where the board is with it."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Your account must be linked to your home. If it isn't, you see \"No home linked yet\"."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Tap "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Requests"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then "
+                },
+                {
+                  "t": "ui",
+                  "label": "Architectural request (ARC)"
+                },
+                {
+                  "t": "text",
+                  "v": " under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Start something new"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Pick the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Type of change"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", write a "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "One-line summary"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", and fill in the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Detailed description"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " with sizes, materials, colors and location."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Tap "
+                },
+                {
+                  "t": "ui",
+                  "label": "Check my request against the rules"
+                },
+                {
+                  "t": "text",
+                  "v": ". Read "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Rules that likely apply"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ": each rule is marked "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Looks consistent"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Possible conflict"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Needs detail"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". Read "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "The board will probably ask about"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " too."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If a rule may conflict, change your request or explain in the description why it fits. Tap "
+                },
+                {
+                  "t": "ui",
+                  "label": "Check again"
+                },
+                {
+                  "t": "text",
+                  "v": " to re-run it."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Tap "
+                },
+                {
+                  "t": "ui",
+                  "label": "Submit application"
+                },
+                {
+                  "t": "text",
+                  "v": ". Your application page opens."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Add plans or photos under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Documents"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " with "
+                },
+                {
+                  "t": "ui",
+                  "label": "Attach document"
+                },
+                {
+                  "t": "text",
+                  "v": ". Ask the board a question under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Conversation"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then tap "
+                },
+                {
+                  "t": "ui",
+                  "label": "Send"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To follow up later, tap "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Requests"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "ARC applications"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Track"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". Each application shows its status."
+                }
+              ]
+            ]
+          },
+          {
+            "t": "shot",
+            "name": "guide-resident-arc-new",
+            "alt": "The New ARC application form with the Submit application button highlighted"
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Your application shows "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Submitted"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "In review"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " while the board looks at it, then "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Approved"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Denied"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The board's written decision appears at the top of the application page, with its date."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The board can see what the rules check showed you before you submitted."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Pick the type of change and describe it first, then check it against the rules.\": choose a type and write a longer description, then check again."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"The rules check isn’t available right now. You can still submit your application.\": the check failed. You can still submit."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"No clear rules found\": the check couldn't find a rule that clearly applies. The board still reviews your application."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Describe the scope in more detail.\": the description needs at least 20 characters."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"This application can no longer be withdrawn.\": the board has already decided it."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "The rules check is optional, and it is never a decision. You can submit whatever it says. Only the board approves or denies."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Don't start work before the board approves it in writing. Work started without approval may need to be removed at your expense."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "While an application is "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Submitted"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "In review"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", you can tap "
+                },
+                {
+                  "t": "ui",
+                  "label": "Withdraw"
+                },
+                {
+                  "t": "text",
+                  "v": ", then "
+                },
+                {
+                  "t": "ui",
+                  "label": "Withdraw application"
+                },
+                {
+                  "t": "text",
+                  "v": ". To make the change later, you'll need a new application."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Once an application is decided or withdrawn, the conversation closes. To propose a new change, start a new application."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Attachments can be a PDF, an image, or a Word or Excel file, up to 10 MB."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/resident/resident-arc-rules-check.md"
+  },
+  {
+    "id": "resident-dues-statement",
+    "title": "See your dues history and print a statement",
+    "summary": "Check every charge and payment on your account, and print or save a dues statement as a PDF for your records.",
+    "topic": "resident",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/dues",
+      "/resident/dues/ledger",
+      "/resident/dues/statement",
+      "/resident/dues/pay"
+    ],
+    "primaryRoute": "/resident/dues/statement",
+    "keywords": [
+      "statement",
+      "account statement",
+      "ledger",
+      "history",
+      "payment history",
+      "transactions",
+      "charges",
+      "receipt",
+      "proof of payment",
+      "print",
+      "pdf",
+      "save as pdf",
+      "download statement",
+      "balance",
+      "balance forward",
+      "credit",
+      "past due",
+      "late",
+      "overdue",
+      "open charges",
+      "waived",
+      "paid",
+      "missing payment",
+      "taxes",
+      "mortgage",
+      "closing",
+      "whole time",
+      "since I bought",
+      "full history",
+      "all time"
+    ],
+    "shots": [],
+    "related": [
+      "resident-portal-basics"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use this when you want to see what you were charged and paid, or need a statement for your records, a lender or a sale."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Your account must be linked to your home. If it isn't, you see \"No home linked yet\". Ask your board to link you."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Tap "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Dues"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " at the bottom of the screen. The "
+                },
+                {
+                  "t": "ui",
+                  "label": "Balance"
+                },
+                {
+                  "t": "text",
+                  "v": " tab shows what you owe now and your open charges, past due first."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Tap the "
+                },
+                {
+                  "t": "ui",
+                  "label": "Ledger"
+                },
+                {
+                  "t": "text",
+                  "v": " tab to see every charge and payment, newest first. The top shows your total "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Charges"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Paid & credited"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Balance"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "For a statement, tap "
+                },
+                {
+                  "t": "ui",
+                  "label": "Printable statement"
+                },
+                {
+                  "t": "text",
+                  "v": " on the Ledger tab, or "
+                },
+                {
+                  "t": "ui",
+                  "label": "View statement"
+                },
+                {
+                  "t": "text",
+                  "v": " on the Balance tab."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Pick "
+                },
+                {
+                  "t": "ui",
+                  "label": "Last 12 months"
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "ui",
+                  "label": "All time"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Tap "
+                },
+                {
+                  "t": "ui",
+                  "label": "Print or save PDF"
+                },
+                {
+                  "t": "text",
+                  "v": ". To keep a file, choose \"Save as PDF\" in the print window."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "The statement shows your association, the statement date, your homes, and a "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Balance due"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": " (or "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "Credit balance"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": "). Activity is listed oldest first. If your board takes Zelle, it ends with "
+              },
+              {
+                "t": "strong",
+                "c": [
+                  {
+                    "t": "text",
+                    "v": "How to pay"
+                  }
+                ]
+              },
+              {
+                "t": "text",
+                "v": ", with the memo code for each open charge."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Couldn’t load your dues\" or \"Couldn’t load your ledger\": the page couldn't read your account. Your balance is unknown, not zero. Try again in a minute."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "A payment you just sent isn't listed: payments appear after your board approves them, so anything sent in the last few days may not show yet."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Showing your most recent history\": your account has more entries than the screen shows. Ask your board for a full statement."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "A minus sign means money off your balance. A balance shown as a \"credit\" is in your favor."
+                }
+              ],
+              [
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Last 12 months"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " starts with a "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Balance forward"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " line, so older activity still counts in the total."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "A charge your board waived or wrote off shows as a credit, such as \"Waived\"."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If you have more than one home, each ledger row says which home it's for."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To pay, tap the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Pay"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " button on the Balance tab. See "
+                },
+                {
+                  "t": "link",
+                  "kind": "guide",
+                  "href": "resident-portal-basics",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Your resident portal"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " for the Zelle steps."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You can't change or dispute a charge here. Send your board a support request from "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Requests"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " instead."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/resident/resident-dues-statement.md"
+  },
+  {
     "id": "resident-portal-basics",
     "title": "Your resident portal: pay dues, ask for approval, report a problem",
     "summary": "Pay your dues, ask the board to approve a change to your home, and report a problem, from your phone.",
@@ -7200,6 +19213,512 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
       }
     ],
     "source": "apps/hoa/content/guide/resident/resident-portal-basics.md"
+  },
+  {
+    "id": "resident-support-tickets",
+    "title": "Send the board a support request and follow the replies",
+    "summary": "Ask the board about a repair, noise, parking, a billing question and more, then read their replies and answer back in the portal.",
+    "topic": "resident",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/requests",
+      "/resident/tickets",
+      "/resident/tickets/new",
+      "/resident/tickets/[id]"
+    ],
+    "primaryRoute": "/resident/tickets/new",
+    "keywords": [
+      "support request",
+      "request",
+      "ticket",
+      "help",
+      "question",
+      "repair",
+      "maintenance",
+      "broken",
+      "fix",
+      "noise",
+      "parking",
+      "common area",
+      "pool",
+      "gate",
+      "key",
+      "access",
+      "billing question",
+      "dues question",
+      "safety",
+      "contact board",
+      "message board",
+      "reply",
+      "status",
+      "follow up",
+      "attach photo"
+    ],
+    "shots": [],
+    "related": [
+      "resident-portal-basics"
+    ],
+    "reviewed": "2026-10-18",
+    "sections": [
+      {
+        "id": "overview",
+        "heading": null,
+        "blocks": [
+          {
+            "t": "p",
+            "c": [
+              {
+                "t": "text",
+                "v": "Use a support request when you need the board's help: a repair, a noise or parking problem, a gate key, or a question about your dues. Everything you and the board write stays in one place."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "before-you-start",
+        "heading": "Before you start",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Your account must be linked to your home. If it isn't, you see \"No home linked yet\". Ask your board to link you."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "steps",
+        "heading": "Steps",
+        "blocks": [
+          {
+            "t": "steps",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "Tap "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Requests"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " at the bottom of the screen, then "
+                },
+                {
+                  "t": "ui",
+                  "label": "New support request"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If you have more than one home, pick the "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Home"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Pick a "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Category"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", for example "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Maintenance request"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Billing / dues question"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Write a short "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Subject"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", like \"Pool gate latch is sticking\"."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "In "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Description"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", say what's going on, where and when. Write at least 20 characters. Optional: tap "
+                },
+                {
+                  "t": "ui",
+                  "label": "Improve with AI"
+                },
+                {
+                  "t": "text",
+                  "v": " for rewrites, then "
+                },
+                {
+                  "t": "ui",
+                  "label": "Use this"
+                },
+                {
+                  "t": "text",
+                  "v": " on the one you like."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Tap "
+                },
+                {
+                  "t": "ui",
+                  "label": "Send request"
+                },
+                {
+                  "t": "text",
+                  "v": ". The request opens so you can follow it."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To add a photo or file, tap "
+                },
+                {
+                  "t": "ui",
+                  "label": "Attach document"
+                },
+                {
+                  "t": "text",
+                  "v": " under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Documents"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "what-happens-next",
+        "heading": "What happens next",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "The board is notified of your new request."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Replies show under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Conversation"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". To answer, type in the box and tap "
+                },
+                {
+                  "t": "ui",
+                  "label": "Send"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Find your requests later under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Requests"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", then "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Support requests"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ". Each shows "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Open"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "In progress"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Closed"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "if-something-goes-wrong",
+        "heading": "If something goes wrong",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "\"Subject is too short.\": use at least 5 characters."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Describe your issue in more detail.\": the description needs at least 20 characters."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Choose a category.\": pick a category from the list."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"You can only submit tickets for units you own.\": the home you picked isn't linked to your account. Ask your board."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "\"Couldn’t send your request\": nothing was sent. Try again."
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "good-to-know",
+        "heading": "Good to know",
+        "blocks": [
+          {
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "You get no email or text when the board replies. Check "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Support requests"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " for new replies."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Once the board closes a request, you can't reply to it. Open a new request if you need more help."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "You can't edit, close or delete a request after you send it."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Files can be a PDF, an image, or a Word or Excel file, up to 10 MB."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "To report someone breaking a community rule, use "
+                },
+                {
+                  "t": "ui",
+                  "label": "Report a concern"
+                },
+                {
+                  "t": "text",
+                  "v": " instead. To ask for approval to change your home, use "
+                },
+                {
+                  "t": "ui",
+                  "label": "Architectural request (ARC)"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "source": "apps/hoa/content/guide/resident/resident-support-tickets.md"
   }
 ]
 
@@ -7274,6 +19793,71 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
     ],
     "routes": [
       "/settings/members"
+    ]
+  },
+  {
+    "articleId": "search-command-k",
+    "sectionId": "overview",
+    "heading": "Search for anything with ⌘K",
+    "text": "The search box opens a quick menu that works from every board page. Use it to get somewhere fast without the sidebar.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/help"
+    ]
+  },
+  {
+    "articleId": "search-command-k",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open search: press ⌘K on a Mac or Ctrl+K on Windows. You can also press / when you aren't typing in a field, or click Search or jump to… in the top bar. On a phone, tap the search icon.\nType a few letters: a page name, an owner's name, an address or a word from a record.\nLook through the groups. Go to and Create are pages and quick actions. Help is guide articles. Below them are your records, such as Owners, Properties, Violations, ARC requests, Tickets, Inbox, Meetings, Documents and Vendors.\nUse the up and down arrow keys to pick a row, then press Enter. Or click the row.\nIf nothing matches, pick Ask the guide: … to ask your question in the help panel.\nPress Esc to close search without opening anything.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/help"
+    ]
+  },
+  {
+    "articleId": "search-command-k",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "The page, record or help article opens. Search clears its text each time it closes.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/help"
+    ]
+  },
+  {
+    "articleId": "search-command-k",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Couldn’t search records.\": record search failed, but pages and help still show. Try again in a moment.\n\"… couldn’t be searched, so results may be incomplete.\": some record types failed. A missing result isn't proof the record doesn't exist.\n\"No records match …\": no owner, home or record has that text. Try fewer letters, part of the address, or the owner's last name.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/help"
+    ]
+  },
+  {
+    "articleId": "search-command-k",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "Record search starts once you type 2 letters, and shows up to 5 matches per group.\nSearching an owner's name or an address also finds the violations, ARC requests, tickets and inbox threads on that home.\nSearch only looks in the HOA you're working in right now.\nMeetings are found by their type and summary, documents by their title, and vendors by their name.\nYou can also switch to the light or dark theme, or sign out, from search.\nResidents don't have this search. Only board members and admins can search records.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/help"
     ]
   },
   {
@@ -7507,6 +20091,84 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
     "routes": [
       "/",
       "/onboarding/setup"
+    ]
+  },
+  {
+    "articleId": "dues-collections-case",
+    "sectionId": "overview",
+    "heading": "Track a delinquent account in the collections file",
+    "text": "Use this when an owner's account is seriously past due and the board starts sending letters or hands it to an attorney. The collections file is a dated record of what was done.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/properties/[id]"
+    ]
+  },
+  {
+    "articleId": "dues-collections-case",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Board admins and board members can open cases and record actions.\nA home can have only one open case at a time.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/properties/[id]"
+    ]
+  },
+  {
+    "articleId": "dues-collections-case",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open Properties and select the home.\nGo to its Money section and find Collections file.\nSelect Open a collections case. Choose the Current stage, for example \"Lien letter sent\" if that already happened. Add the Opened on date and the attorney's details if you have them.\nSelect Open case.\nEach time something happens, select Record an action. In What happened, choose what was done, and set Date it happened.\nAdd an amount, your initials or a note if they help. Leave Also move this case to … ticked to move the case to the matching stage.\nSelect Record.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/properties/[id]"
+    ]
+  },
+  {
+    "articleId": "dues-collections-case",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "The stage shows at the top of the case and in the Collections box on the property's page.\nEach action is added to Activity, newest dates first, with the date you entered.\nTo close the case, record \"Case closed\". The case moves to Resolved and appears under Earlier cases.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/properties/[id]"
+    ]
+  },
+  {
+    "articleId": "dues-collections-case",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"This property already has an open collections case.\": someone opened one already. Reload the page to see it.\n\"That date is in the future.\": the file records things that already happened. Use today or an earlier date.\n\"No unit record\": this home isn't linked to a unit yet, so it can't have a case. Link it first.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/properties/[id]"
+    ]
+  },
+  {
+    "articleId": "dues-collections-case",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "HomeownerHub doesn't send collection notices or lien letters. You send them yourself or through your attorney, then record them here.\nActions can't be edited or deleted once saved. To fix a mistake, add a note.\nYou can't mark a case \"Written off\" or pick a stage by hand after the case is open. The stage moves only when you record an action that matches it.\n\"Payment received\" and \"Payment plan agreed\" are notes on the file only. They don't record money. Record the payment on the Dues page, and set up the plan in payment plans.\nOnce a case is at \"Board authorized suit\", \"With attorney — presuit\" or \"Suit filed\", automatic dues reminders stop emailing that owner.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/properties/[id]"
     ]
   },
   {
@@ -7867,7 +20529,7 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
     "articleId": "arc-review-application",
     "sectionId": "overview",
     "heading": "Review an ARC application",
-    "text": "Residents apply for exterior changes, like paint, a fence or a roof, from their portal. Applications land in ARC review for the board to decide.",
+    "text": "Residents send architectural requests for exterior changes, like paint, a fence or a roof, from their portal. They show up in ARC review for the board to decide.",
     "roles": [
       "admin",
       "board"
@@ -7917,6 +20579,96 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
     "routes": [
       "/arc",
       "/arc/[id]"
+    ]
+  },
+  {
+    "articleId": "events-recurring-reminders",
+    "sectionId": "overview",
+    "heading": "Set up a yearly reminder for a deadline the board can't miss",
+    "text": "Use this for dates that come around every year, like the annual meeting, the insurance renewal, a state filing or a yearly inspection. The app sends a reminder ahead of each one, so nobody has to remember.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/events",
+      "/events/new",
+      "/events/[id]"
+    ]
+  },
+  {
+    "articleId": "events-recurring-reminders",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Only board admins and board members can add and change events.\nHave the date of the next time it happens.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/events",
+      "/events/new",
+      "/events/[id]"
+    ]
+  },
+  {
+    "articleId": "events-recurring-reminders",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open Events from the sidebar and select New event.\nEnter a Title, and a Description if you want to note who is responsible.\nPick the Next occurrence date. Under Repeats, choose Every year or Does not repeat.\nSet the Lead time: how many days before the date the reminder goes out. It's 7 unless you change it. 0 sends on the day itself.\nUnder How to notify, tick Email, SMS and/or In-app portal.\nUnder Who to notify, choose All community, Board or Specific resident. For the board, tick the members you want, or use Select all.\nSelect Create event.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/events",
+      "/events/new",
+      "/events/[id]"
+    ]
+  },
+  {
+    "articleId": "events-recurring-reminders",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "The app checks events every morning. When an event's lead time arrives, it sends the reminder to the people and channels you picked. The event page shows Next reminder and Last reminder sent.\nFor a yearly event, once the date passes the event moves forward a year, and next year's reminder goes out the same way. A one-time event moves to Past after its date.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/events",
+      "/events/new",
+      "/events/[id]"
+    ]
+  },
+  {
+    "articleId": "events-recurring-reminders",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Pick the date of the next occurrence.\" or \"Give the event a title.\": fill in the missing field.\n\"Use a whole number from 0 to 90.\": the lead time must be between 0 and 90 days.\n\"Pick at least one notification channel.\" or \"Pick at least one board member, or choose Select all.\": tick at least one box.\n\"No recipients available to alert. Check the event audience has contact info on file.\": the people you picked have no email or phone on file.\nIf a reminder fails to send 3 times, the app stops trying for that date and puts a notification in front of every board member and admin.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/events",
+      "/events/new",
+      "/events/[id]"
+    ]
+  },
+  {
+    "articleId": "events-recurring-reminders",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "To check it works, open the event's More actions menu and choose Send test alert now. This counts as this year's reminder, so the scheduled one won't go out again for this date.\nTo stop reminders for a while, select Pause reminders. Select Resume reminders to turn them back on.\nTo change an event, open it, edit the form below the details and select Save changes.\nSMS is skipped for board members and admins, because no phone number is on file for those roles.\nIf the app missed a reminder, it still sends it late rather than skipping it.\nDeleting an event removes the reminder and its history. You can't undo it.\nEvents are reminders only. To schedule a board meeting with an agenda and minutes, use Meetings.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/events",
+      "/events/new",
+      "/events/[id]"
     ]
   },
   {
@@ -7985,6 +20737,96 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
       "/meetings/schedule",
       "/meetings/[id]",
       "/meetings/[id]/packet"
+    ]
+  },
+  {
+    "articleId": "accounting-bank-reconcile",
+    "sectionId": "overview",
+    "heading": "Connect your bank, match transactions and reconcile",
+    "text": "Use this to bring the association's bank activity into the books and, once a month, prove that the bank statement and the books agree.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/bank",
+      "/accounting/bank/queue",
+      "/accounting/bank/[accountId]/reconcile"
+    ]
+  },
+  {
+    "articleId": "accounting-bank-reconcile",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Board admins and board members can link a bank, work the queue and reconcile.\nA bank account belongs to a fund, like Operating or Reserve. If your association has no funds yet, an admin opens the books first. The link dialog offers this.\nHave your bank sign-in ready for Plaid, and your latest bank statement for reconciling.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/bank",
+      "/accounting/bank/queue",
+      "/accounting/bank/[accountId]/reconcile"
+    ]
+  },
+  {
+    "articleId": "accounting-bank-reconcile",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open Accounting, then the Bank tab, and select Connect bank (or Link bank account once one is linked).\nPick the Fund the account belongs to, select Continue to Plaid, and sign in to your bank in Plaid's window.\nWhen transactions arrive, select Review queue or Matching queue. Under Suggested matches, select Approve & post for each deposit the AI paired with an owner's charge, or Reject and give a Reason.\nUnder Unmatched transactions, deal with each one. For a deposit with a hint, select Confirm match. For a payment out, select Categorize, pick the Expense account, then Post expense. Otherwise select Re-match to have the matcher try again.\nEach month, go back to Bank and select Reconcile on the account's card.\nEnter the Statement date and the Ending balance printed on the statement, then select Reconcile.\nIn History, select Approve on that row. If there is a difference, the app asks first. Select Approve anyway to keep the difference on record.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/bank",
+      "/accounting/bank/queue",
+      "/accounting/bank/[accountId]/reconcile"
+    ]
+  },
+  {
+    "articleId": "accounting-bank-reconcile",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "After linking, transactions appear after the first sync, usually within a few hours. After that they sync every few hours and most are matched to the ledger on their own.\nApproving a suggested match posts the payment and marks the owner's charge paid. Rejecting it sends the deposit back to the matching queue.\nAn approved reconciliation shows Approved with the date in History.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/bank",
+      "/accounting/bank/queue",
+      "/accounting/bank/[accountId]/reconcile"
+    ]
+  },
+  {
+    "articleId": "accounting-bank-reconcile",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Bank linking is not set up yet. Ask support to enable Plaid.\": bank linking isn't turned on for your account. Contact support.\n\"Plaid is not reachable right now. Try again shortly.\": wait a minute and try again.\n\"This bank connection is already linked.\": that bank is already connected. You'll see its accounts on the Bank page.\n\"No funds yet\": a bank account needs a fund. An admin selects Open the books in the dialog. A board member is pointed to the admins.\nOff by a dollar amount after you reconcile: usually deposits or cleared checks the books don't have yet. Match them in the queue, then reconcile again with the same statement date. Or approve with the difference on record.\n\"Cash account for this fund is missing in the COA.\": the fund has no cash account to compare against. Contact support.\n\"Couldn't read the ledger balance, so nothing was saved. Try again.\": nothing was recorded. Try again.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/bank",
+      "/accounting/bank/queue",
+      "/accounting/bank/[accountId]/reconcile"
+    ]
+  },
+  {
+    "articleId": "accounting-bank-reconcile",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "Only checking, savings and money market accounts are added. Credit cards on the same bank login are skipped.\nPlaid handles your bank sign-in. The app never sees your bank password.\nA suggested match never posts, and no charge is marked paid, until a board member approves it. You can also approve these from Approvals.\nIgnore (mark reviewed), in the More actions menu, records that you looked at a transaction without posting anything. It still stays in the unmatched list.\nReconciling compares the statement with the books' cash balance for that account's fund, through the statement date. If you reconcile again for the same date, the new numbers replace the old ones.\nYou can't type in or import bank transactions by hand. They only come from the linked bank.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/bank",
+      "/accounting/bank/queue",
+      "/accounting/bank/[accountId]/reconcile"
     ]
   },
   {
@@ -8084,6 +20926,556 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
     ]
   },
   {
+    "articleId": "accounting-enter-pay-bills",
+    "sectionId": "overview",
+    "heading": "Enter a vendor bill and mark it paid",
+    "text": "Use this when a vendor sends the association a bill. Entering it records what you owe. Marking it paid records that you paid it.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/invoices",
+      "/accounting/invoices/new",
+      "/accounting/invoices/[id]"
+    ]
+  },
+  {
+    "articleId": "accounting-enter-pay-bills",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Board admins and board members can enter and pay bills.\nThe vendor must be on file. If you have no vendors yet, the page says \"Add a vendor first\" and links to Add vendor.\nThe books must be open, with at least one active expense account.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/invoices",
+      "/accounting/invoices/new",
+      "/accounting/invoices/[id]"
+    ]
+  },
+  {
+    "articleId": "accounting-enter-pay-bills",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open Accounting, then the Invoices tab, and select Enter bill.\nTo let the AI read it, select Choose a bill under Scan a bill and pick a PDF or a photo of the bill. Then select Review in Approvals and approve it there (see below).\nTo enter it by hand instead, fill in Vendor, Invoice number, Amount, Invoice date and Expense account. Due date and Memo are optional.\nSelect Enter bill. The bill's page opens.\nWhen you pay the vendor, open the bill from Invoices. Under Record payment, choose how you paid in Paid by (check, ACH, card, cash or other).\nOptional: type the check number or confirmation code in Reference.\nSelect Mark paid. The button shows the full amount of the bill.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/invoices",
+      "/accounting/invoices/new",
+      "/accounting/invoices/[id]"
+    ]
+  },
+  {
+    "articleId": "accounting-enter-pay-bills",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "An entered bill shows Approved · unpaid. The expense posts to the ledger right away, and the bill counts in Unpaid on the Invoices page. A late bill shows how many days late it is.\nA scanned bill is not entered yet. It waits in Approvals under Bills. When a board member selects Approve & enter, it is entered just like a bill you typed, and its page shows Read by AI. See the Approvals queue, including how to fix anything the AI read wrong with Edit details.\nMarking a bill paid posts the payment from operating cash and changes the bill to Paid.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/invoices",
+      "/accounting/invoices/new",
+      "/accounting/invoices/[id]"
+    ]
+  },
+  {
+    "articleId": "accounting-enter-pay-bills",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Sent to Approvals — incomplete\": the AI couldn't find part of the bill, so it left it blank instead of guessing. Reject it in Approvals and enter the bill by hand.\n\"Low confidence on the …\": check those parts against the paper bill before you approve it.\n\"This bill is already waiting for approval\": the same file was scanned before. Open it in Approvals instead.\n\"This PDF has no readable text (it is probably a scan). Upload a photo of the bill (JPG or PNG) instead.\"\n\"Photos of a bill must be under 3 MB. Try a smaller photo or a PDF.\"\n\"The AI couldn’t read this bill right now. Try again, or enter it by hand.\"\n\"The books aren’t open yet\" when you mark a bill paid: an admin selects Open the books, then tries again. A board member is pointed to the admins.\n\"Not ready to pay\": the bill was saved but not fully entered, so it can't be paid from here. Contact support.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/invoices",
+      "/accounting/invoices/new",
+      "/accounting/invoices/[id]"
+    ]
+  },
+  {
+    "articleId": "accounting-enter-pay-bills",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "The AI scan takes PDF, JPG, PNG or WebP files. A PDF must have real text in it; a scanned PDF won't work, so use a photo.\nNothing the AI reads is entered until a board member approves it. Paying is always a separate step.\nMark paid records the full amount, dated today. You can't record a partial payment or pick a different date.\nThe app records that you paid. It doesn't send money to the vendor. Pay by check or through your bank as usual.\nYou can't edit a bill after you enter it. To fix a mistake, select Delete on an unpaid bill and enter it again. Deleting hides the bill, but its ledger entry stays. Reverse that entry in the ledger if it was wrong.\nYou can't delete a bill once it's paid.\nVendors marked as blacklisted don't appear in the Vendor list.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/invoices",
+      "/accounting/invoices/new",
+      "/accounting/invoices/[id]"
+    ]
+  },
+  {
+    "articleId": "accounting-monthly-board-report",
+    "sectionId": "overview",
+    "heading": "The monthly board report email",
+    "text": "The app emails every board member a short report on the 1st of each month. It covers last month's cash, collections, overdue dues, income and expenses, budget, violations, architectural requests, what's waiting on the board and the next meeting. You don't have to do anything for it to go out.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/reports/monthly-report",
+      "/accounting/reports",
+      "/settings/notifications"
+    ]
+  },
+  {
+    "articleId": "accounting-monthly-board-report",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Board admins and board members can preview the report. Only board admins can send it early.\nThe report is built from your association's books, so the association needs to be set up.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/reports/monthly-report",
+      "/accounting/reports",
+      "/settings/notifications"
+    ]
+  },
+  {
+    "articleId": "accounting-monthly-board-report",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open Accounting, then the Reports tab. The Monthly board report card shows when the last one went out and which month is next.\nSelect Preview to see exactly the email the board will get for last month, including its subject line.\nTo send last month's report now instead of waiting for the 1st, an admin selects Send now on the card.\nTo stop getting the email yourself, select Your email settings on the card (or open Settings, then Notifications) and turn off Monthly board report. It saves right away.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/reports/monthly-report",
+      "/accounting/reports",
+      "/settings/notifications"
+    ]
+  },
+  {
+    "articleId": "accounting-monthly-board-report",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "On the 1st, at 8:00 AM Eastern, the report for the month that just ended goes to every board member and admin who hasn't turned it off.\nAfter Send now, board members have it in their inbox in a few minutes. The card then shows that month as done, and Send now turns off until the next month.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/reports/monthly-report",
+      "/accounting/reports",
+      "/settings/notifications"
+    ]
+  },
+  {
+    "articleId": "accounting-monthly-board-report",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"The [month] report has already been sent.\": each month's report goes out only once, whether it was sent on the 1st or with Send now.\n\"Couldn’t queue the report. Try again in a minute.\": nothing was sent. Wait a minute and select Send now again.\nNot delivered next to the last report: nobody received it. That month can't be sent again from this card. Contact support.\n\"You don't have permission to perform this action.\": only board admins can use Send now. Board members can still preview the report.\n\"Couldn’t save your choice. Try again.\": your email setting didn't change. Try the switch again.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/reports/monthly-report",
+      "/accounting/reports",
+      "/settings/notifications"
+    ]
+  },
+  {
+    "articleId": "accounting-monthly-board-report",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "The report always covers the last full month. You can't pick a different month, change what's in it, or add your own notes.\nThe preview builds the email live, so it shows today's numbers for last month. Nothing is sent from the preview.\nIf part of the report can't load, that section says so in the email rather than showing a wrong number.\nTurning the email off only affects you. It applies to every association you're on the board of, and other board members still get it.\nIf every board member turns it off, no report is sent that month.\nResidents never get this email.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/reports/monthly-report",
+      "/accounting/reports",
+      "/settings/notifications"
+    ]
+  },
+  {
+    "articleId": "accounting-payment-plans",
+    "sectionId": "overview",
+    "heading": "Set up a payment plan for an owner who is behind",
+    "text": "Use this when the board agrees to let an owner pay a past-due balance or a special assessment over several months.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/payment-plans",
+      "/accounting/payment-plans/new"
+    ]
+  },
+  {
+    "articleId": "accounting-payment-plans",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Board admins and board members can create payment plans.\nAgree on the total, the number of months and the first due date with the owner first.\nThe home must be on file, and the books must have an open fiscal period.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/payment-plans",
+      "/accounting/payment-plans/new"
+    ]
+  },
+  {
+    "articleId": "accounting-payment-plans",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open Accounting, then the Payment plans tab, and select New plan.\nChoose the Property.\nEnter the Balance to spread.\nEnter the number of Installments, from 2 to 60.\nPick the First due date. The rest are due on the same day of each month after it.\nCheck Each installment below the fields. It shows the monthly amount.\nSelect Create plan.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/payment-plans",
+      "/accounting/payment-plans/new"
+    ]
+  },
+  {
+    "articleId": "accounting-payment-plans",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "The plan shows on Payment plans as Active, with its schedule, start date and total.\nOne charge is created for each installment, due monthly. They show on the Dues page as special assessments, and each posts to the ledger right away.\nThe property's page shows the plan under Payment plan in its Money section.\nYou record each installment the owner pays like any other charge. See Record a payment by check or cash.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/payment-plans",
+      "/accounting/payment-plans/new"
+    ]
+  },
+  {
+    "articleId": "accounting-payment-plans",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Between 2 and 60 installments.\": change the number of installments.\n\"Enter the balance to spread, greater than $0.\": type an amount, like 1200.\n\"No open fiscal period.\": the books have no current period, so the charges can't post. An admin opens one on Accounting, then Periods.\n\"Couldn’t create the plan\": nothing was saved. Try again; if it keeps failing, contact support.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/payment-plans",
+      "/accounting/payment-plans/new"
+    ]
+  },
+  {
+    "articleId": "accounting-payment-plans",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "A plan adds new charges for the full amount. It does not close or replace charges already on the owner's account. Those stay open unless the board deals with them.\nIf the total doesn't split evenly, the last installment absorbs the leftover cents.\nYou can't edit, cancel or delete a plan in the app. The plan also doesn't change to Completed on its own when the owner finishes paying.\nAutomatic dues reminders skip a home with an active payment plan. You can see how many were skipped in Settings, then Dues reminders.\nLate fees are not paused by a plan. Every night the app adds a one-time 5% late fee to each charge still unpaid after its due date, including late installments.\nHomeownerHub doesn't send collection letters. To keep a record of letters, liens and attorney work, use the collections file on the property's page.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/payment-plans",
+      "/accounting/payment-plans/new"
+    ]
+  },
+  {
+    "articleId": "accounting-recurring-entries",
+    "sectionId": "overview",
+    "heading": "Make a ledger entry repeat on a schedule",
+    "text": "Use this for an entry the treasurer posts the same way every time, such as a monthly management fee or a transfer to the reserve fund.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/recurring",
+      "/accounting/ledger/[id]"
+    ]
+  },
+  {
+    "articleId": "accounting-recurring-entries",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Board admins and board members can make an entry recurring.\nThe entry must already be posted in the ledger. It becomes the model for every copy.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/recurring",
+      "/accounting/ledger/[id]"
+    ]
+  },
+  {
+    "articleId": "accounting-recurring-entries",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open Accounting, then the Ledger tab, and select the entry you want to repeat.\nSelect Make recurring.\nIn Repeats, choose Monthly, Quarterly, Annually, Weekly or Daily.\nIn First run, pick the first date a copy should post.\nSelect Save recurring entry.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/recurring",
+      "/accounting/ledger/[id]"
+    ]
+  },
+  {
+    "articleId": "accounting-recurring-entries",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "The entry is listed on the Recurring tab with how often it repeats, its Next run date and Active.\nEarly each morning on a run date, a fresh copy of the entry's lines posts to the ledger, dated that day and marked Recurring. The next run date then moves forward.\nIf a run was missed, the app posts one copy, not one for every missed period.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/recurring",
+      "/accounting/ledger/[id]"
+    ]
+  },
+  {
+    "articleId": "accounting-recurring-entries",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Couldn’t save the template\": nothing changed. Try again.\nNo copy posted on the run date: copies post only into the current open fiscal period. Check Accounting, then Periods.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/recurring",
+      "/accounting/ledger/[id]"
+    ]
+  },
+  {
+    "articleId": "accounting-recurring-entries",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "To change how often it repeats or the next date, open the same entry and select Make recurring again. It updates the schedule instead of adding a second one.\nYou can't pause, stop or delete a recurring entry in the app, and reversing the original entry doesn't stop the copies. Contact support to stop one.\nYou can't change the amounts. Every copy uses the original entry's lines. For a new amount, post a new entry and make that one recurring, and ask support to stop the old one.\nMake recurring isn't shown on an entry that was reversed.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting/recurring",
+      "/accounting/ledger/[id]"
+    ]
+  },
+  {
+    "articleId": "accounting-reports-overview",
+    "sectionId": "overview",
+    "heading": "Read your financial reports",
+    "text": "Use this when you want to know where the association's money stands, or you need numbers for a board meeting. Every report is worked out live from the books each time you open it.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting",
+      "/accounting/reports",
+      "/accounting/reports/income-statement",
+      "/accounting/reports/budget-vs-actual",
+      "/accounting/reports/balance-sheet",
+      "/accounting/reports/cash-flow",
+      "/accounting/trial-balance",
+      "/accounting/ledger",
+      "/accounting/ledger/[id]",
+      "/accounting/coa"
+    ]
+  },
+  {
+    "articleId": "accounting-reports-overview",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Board admins and board members can see every report. Residents can't.\nThe reports need your books to be open (a fiscal period and a chart of accounts). If they aren't, the report says so and an admin can open them from there.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting",
+      "/accounting/reports",
+      "/accounting/reports/income-statement",
+      "/accounting/reports/budget-vs-actual",
+      "/accounting/reports/balance-sheet",
+      "/accounting/reports/cash-flow",
+      "/accounting/trial-balance",
+      "/accounting/ledger",
+      "/accounting/ledger/[id]",
+      "/accounting/coa"
+    ]
+  },
+  {
+    "articleId": "accounting-reports-overview",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open Accounting from the sidebar. The Overview shows Operating cash, Reserve cash, Owed by owners and Net income for the current period. Select any of them to go to the page behind it.\nCheck Needs attention for work waiting on the board, like bank transactions to match, past-due bills or draft entries. Select a line to go straight to it.\nSelect the Reports tab, then pick a report: Balance sheet, Income statement, Cash flow or Budget vs. actual.\nChoose what the report covers, then select Apply. The balance sheet uses an As of date. The income statement and cash flow use a Period. Budget vs. actual uses a Budget. Select Reset to go back to the default.\nRead the totals at the top, then the lines below them, grouped by account.\nTo see the entries behind a number, select the Ledger tab. Filter by Period, Source or Status, and select an entry to see its lines.\nFor a quick check that the books add up, select the Trial balance tab. It shows Balanced when debits equal credits.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting",
+      "/accounting/reports",
+      "/accounting/reports/income-statement",
+      "/accounting/reports/budget-vs-actual",
+      "/accounting/reports/balance-sheet",
+      "/accounting/reports/cash-flow",
+      "/accounting/trial-balance",
+      "/accounting/ledger",
+      "/accounting/ledger/[id]",
+      "/accounting/coa"
+    ]
+  },
+  {
+    "articleId": "accounting-reports-overview",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "Nothing changes when you read a report. Numbers update on their own as dues are charged, owners pay, bills are entered and bank deposits are matched.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting",
+      "/accounting/reports",
+      "/accounting/reports/income-statement",
+      "/accounting/reports/budget-vs-actual",
+      "/accounting/reports/balance-sheet",
+      "/accounting/reports/cash-flow",
+      "/accounting/trial-balance",
+      "/accounting/ledger",
+      "/accounting/ledger/[id]",
+      "/accounting/coa"
+    ]
+  },
+  {
+    "articleId": "accounting-reports-overview",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"No fiscal period yet\": the association has no fiscal period, so there is nothing for the report to cover. An admin can open the books from that message. A board member is pointed to the admins.\n\"No budget to compare against\": budget vs. actual needs a budget first. Select New budget, or see how to draft next year's budget.\n\"This budget has no lines yet\": the budget you picked is empty. Select Edit budget to add lines.\nOut of balance on the balance sheet or trial balance: the numbers don't add up, which should never happen. Don't rely on the figures. Contact support.\nA tile on the overview says it couldn't load: only that figure failed. Refresh the page. It never shows $0 in place of a failed number.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting",
+      "/accounting/reports",
+      "/accounting/reports/income-statement",
+      "/accounting/reports/budget-vs-actual",
+      "/accounting/reports/balance-sheet",
+      "/accounting/reports/cash-flow",
+      "/accounting/trial-balance",
+      "/accounting/ledger",
+      "/accounting/ledger/[id]",
+      "/accounting/coa"
+    ]
+  },
+  {
+    "articleId": "accounting-reports-overview",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "Reports count posted entries only. Draft entries don't show up until they are posted.\nThe balance sheet shows today unless you pick another date. Total equity includes net income so far this period.\nThe income statement has three ways to count: Accrual (income and expenses when billed), Cash (only entries that moved cash) and Modified accrual (income when collected, expenses when billed). Accrual is the default.\nIn budget vs. actual, a positive variance is good news: income above plan, or spending below it.\nCash flow covers operating and reserve cash, grouped by where each movement came from, from opening to closing balance.\nYou can't download these reports from their pages. For a PDF board packet with the balance sheet, income statement and cash flow, open the Periods tab. For a monthly email to the board, see the monthly board report.\nA posted entry can't be edited or deleted. On the entry's page, Reverse posts an equal and opposite entry dated today, and the original stays on the books marked reversed.\nThe Accounts tab lists your chart of accounts. You can read it, but you can't add or change accounts there.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/accounting",
+      "/accounting/reports",
+      "/accounting/reports/income-statement",
+      "/accounting/reports/budget-vs-actual",
+      "/accounting/reports/balance-sheet",
+      "/accounting/reports/cash-flow",
+      "/accounting/trial-balance",
+      "/accounting/ledger",
+      "/accounting/ledger/[id]",
+      "/accounting/coa"
+    ]
+  },
+  {
+    "articleId": "communications-segments-sms",
+    "sectionId": "overview",
+    "heading": "Choose who gets a message, and send it by text",
+    "text": "Use this when a message is only for some people, or should also go out as a text. The basic send is in send an announcement.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/communications/new",
+      "/communications/[id]"
+    ]
+  },
+  {
+    "articleId": "communications-segments-sms",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open Communications and select New message.\nUnder Audience, pick who gets it: Everyone, Owners only, Tenants only, Late on dues, Units with open violations, Specific property, Board or Custom contacts (people who aren't residents, like a vendor or your attorney). Each one shows how many people it reaches right now.\nFor Specific property, choose the home, then tick the people. Owners, Tenants, All and None tick them for you.\nFor Board, tick the board members. For Custom contacts, type a name, email or US phone and select Add.\nSelect Continue, write the message, then select Continue again.\nUnder Channels, tick SMS to also send a text.\nCheck the Review box, then select Send now or Schedule.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/communications/new",
+      "/communications/[id]"
+    ]
+  },
+  {
+    "articleId": "communications-segments-sms",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "The message's own page shows Delivered, Opened, Replied and Failed. Filter the recipient list by Failed, Opened or Not opened to see each person's status. If some emails failed, select Resend to … failed to try those people again.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/communications/new",
+      "/communications/[id]"
+    ]
+  },
+  {
+    "articleId": "communications-segments-sms",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Nobody matches right now\": that group has nobody with contact details on file, so you can't pick it.\n\"Pick at least one resident at that property.\": tick at least one person before you continue.\n\"No active residents recorded for this property. Add residents on the property page first.\": add people to that home, then come back.\n\"… doesn't look like a US phone number.\": custom contacts only take US numbers.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/communications/new",
+      "/communications/[id]"
+    ]
+  },
+  {
+    "articleId": "communications-segments-sms",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "Everyone, Late on dues and Units with open violations reach one person per home: the owner, or the tenant if no owner is on file.\nLate on dues means a charge was due before today and isn't fully paid.\nA text holds up to 279 characters, subject included. Longer ones are cut short and end with a link to the full message in the portal. Each person gets one text, never a chain of texts.\nPeople with no phone number on file get no text. Board members are never texted.\nResend only retries failed emails, not texts.\nPicking a template sets Channels to that template's own choices. Check Channels before you send.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/communications/new",
+      "/communications/[id]"
+    ]
+  },
+  {
     "articleId": "communications-send-announcement",
     "sectionId": "overview",
     "heading": "Send an announcement to residents",
@@ -8156,6 +21548,342 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
       "/communications",
       "/communications/new",
       "/communications/[id]"
+    ]
+  },
+  {
+    "articleId": "inbox-connect-mailbox",
+    "sectionId": "overview",
+    "heading": "Connect the HOA mailbox to the Inbox",
+    "text": "Do this once, so the email residents send to your HOA address shows up in Inbox next to each home's dues and ARC history.",
+    "roles": [
+      "admin"
+    ],
+    "routes": [
+      "/settings/mailbox",
+      "/inbox"
+    ]
+  },
+  {
+    "articleId": "inbox-connect-mailbox",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Only HOA admins can connect or disconnect the mailbox. Board members can read the Inbox but not change this.\nYou need the sign-in for the HOA's Google (Gmail) account.",
+    "roles": [
+      "admin"
+    ],
+    "routes": [
+      "/settings/mailbox",
+      "/inbox"
+    ]
+  },
+  {
+    "articleId": "inbox-connect-mailbox",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open HOA mailbox in the Account section of the sidebar. From an empty Inbox you can also select Connect mailbox.\nSelect Continue with Google and sign in to the HOA's Google account. Allow access when Google asks.\nBack on HOA mailbox, choose Which mail should HomeownerHub see?: mail sent to a specific address, only mail with a Gmail label, or everything in this inbox.\nSelect Save scope.\nCheck What we found in the last 30 days. It shows how many threads matched a property and how many need review, with a sample to check.",
+    "roles": [
+      "admin"
+    ],
+    "routes": [
+      "/settings/mailbox",
+      "/inbox"
+    ]
+  },
+  {
+    "articleId": "inbox-connect-mailbox",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "HomeownerHub imports your recent mail history while you keep working. After that, new mail arrives every 2 minutes. Mail that matches a home is filed under it. Mail it can't match waits under Needs review in the Inbox.",
+    "roles": [
+      "admin"
+    ],
+    "routes": [
+      "/settings/mailbox",
+      "/inbox"
+    ]
+  },
+  {
+    "articleId": "inbox-connect-mailbox",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Google consent was cancelled, so no mailbox was connected.\": you closed or declined the Google screen. Select Continue with Google again.\n\"This organization already has … connected\": your HOA already has a different mailbox linked. Select Disconnect mailbox first, or start again and pick that same account on Google's account picker.\n\"Google did not return a refresh token.\": remove HomeownerHub at myaccount.google.com/permissions, then connect again.\nReconnect required: Google rejected the stored sign-in, so mail is not syncing. Select Reconnect.\nSync has stalled: no successful sync in over 30 minutes. Resident email may not be arriving.\nHistory import stopped: older mail may be missing. New mail still syncs. Select Reconnect to restart the import.",
+    "roles": [
+      "admin"
+    ],
+    "routes": [
+      "/settings/mailbox",
+      "/inbox"
+    ]
+  },
+  {
+    "articleId": "inbox-connect-mailbox",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "Only Google (Gmail) mailboxes can be connected.\nMail sent to a specific address is the recommended choice. It keeps other mail in that account private. Everything in this inbox makes all of that account's mail visible to the whole board, so use it only for a mailbox used just for the HOA.\nNothing is ever sent from the mailbox without someone approving it first.\nDisconnect mailbox asks you to click twice. It stops syncing and removes Google access. Mail already imported stays in the Inbox.",
+    "roles": [
+      "admin"
+    ],
+    "routes": [
+      "/settings/mailbox",
+      "/inbox"
+    ]
+  },
+  {
+    "articleId": "inbox-reply-to-resident",
+    "sectionId": "overview",
+    "heading": "Reply to a resident's email from the Inbox",
+    "text": "Use the Inbox to answer one resident's email. The reply goes out from your HOA mailbox.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/inbox",
+      "/inbox/[id]",
+      "/inbox/compose"
+    ]
+  },
+  {
+    "articleId": "inbox-reply-to-resident",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "An HOA admin must connect the HOA mailbox first. See connect the HOA mailbox.\nBoard members and admins can both read and reply.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/inbox",
+      "/inbox/[id]",
+      "/inbox/compose"
+    ]
+  },
+  {
+    "articleId": "inbox-reply-to-resident",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open Inbox from the sidebar and select a conversation. Use the filters, like Needs review or All, to find it.\nRead the thread. The panel beside it shows the home's dues, open violations and ARC requests.\nSelect Draft a reply. AI writes a draft from your documents and this home's record.\nRead the draft. Edit To, Subject and Message. Fill in or remove every highlighted blank, and check the Sources it quotes.\nTo add files, select Upload a file, From this thread or From documents.\nSelect Approve and send.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/inbox",
+      "/inbox/[id]",
+      "/inbox/compose"
+    ]
+  },
+  {
+    "articleId": "inbox-reply-to-resident",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "The reply waits 30 seconds before it sends. Select Undo in that time to cancel it. Once sent, the panel shows Reply sent.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/inbox",
+      "/inbox/[id]",
+      "/inbox/compose"
+    ]
+  },
+  {
+    "articleId": "inbox-reply-to-resident",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Could not draft a reply right now.\": nothing was drafted. Try Draft a reply again.\n\"Fill in or remove every highlighted blank before sending.\": the draft still has a blank AI was not allowed to fill, like a money amount or a rule decision. You decide it.\nSending this reply failed: the reply may still have reached the resident. Check the thread or the mailbox's Sent folder first. Write a new draft starts a fresh draft. It does not resend the old one.\nAn attachment on a resident's email says \"couldn’t download\": select Retry. It tries again on its own up to 4 times first. A file marked too large or not available can only be opened in Gmail.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/inbox",
+      "/inbox/[id]",
+      "/inbox/compose"
+    ]
+  },
+  {
+    "articleId": "inbox-reply-to-resident",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "Nothing sends until someone selects Approve and send.\nAttachments on one message can total up to 15 MB.\nIf an email isn't filed under a home yet, pick the home in the side panel and select File under property.\nTo write a brand-new email, select New email on the Inbox, then Start writing. It appears in the Inbox within a couple of minutes after it sends.\nForward at the top of a thread sends the resident's email on to someone else.\nFor a message to many homes at once, use Communications instead.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/inbox",
+      "/inbox/[id]",
+      "/inbox/compose"
+    ]
+  },
+  {
+    "articleId": "tickets-board",
+    "sectionId": "overview",
+    "heading": "Answer residents' support requests (tickets)",
+    "text": "Residents send support requests from the portal, like a broken gate or a dues question. They land in Tickets for the board to answer.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/tickets",
+      "/tickets/[id]"
+    ]
+  },
+  {
+    "articleId": "tickets-board",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Board admins and board members can see and answer tickets.\nThe board is notified when a resident opens a new ticket.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/tickets",
+      "/tickets/[id]"
+    ]
+  },
+  {
+    "articleId": "tickets-board",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open Tickets from the sidebar. Use the filters All, Open, In progress or Closed to narrow the list.\nSelect a ticket's subject to open it. The resident's request is at the top of Conversation.\nType in Reply to resident and select Send reply. The resident sees it in their portal.\nFor a note only the board should see, tick Internal note first, then select Add note.\nUnder Details, set Status and Priority. Each change saves right away.\nTo track work, select Add action item under Action items. Enter a title, and optionally an assignee, due date and priority. Select Create action item.\nWhen it's done, set Status to Closed.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/tickets",
+      "/tickets/[id]"
+    ]
+  },
+  {
+    "articleId": "tickets-board",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "Closing a ticket records who closed it and when. The resident sees Closed and can't reply anymore.\nInternal notes are highlighted for the board and never shown to the resident.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/tickets",
+      "/tickets/[id]"
+    ]
+  },
+  {
+    "articleId": "tickets-board",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Write a reply first.\" or \"Write the note first.\": the box is empty. Type your message.\n\"Give the action item a title.\": action items need a title.\nA status or priority change shows an error under the field: nothing changed. Try again.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/tickets",
+      "/tickets/[id]"
+    ]
+  },
+  {
+    "articleId": "tickets-board",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "The resident gets no email or text when you reply. They see it the next time they open their request in the portal.\nYou can't create a ticket for a resident here. Residents open them from the portal.\nTo reopen a closed ticket, set Status back to Open or In progress.\nDelete removes the ticket and its conversation from the board's list and the resident's portal. To finish a request without removing it, close it instead.\nYou and the resident can attach files under Documents with Attach document.\nPress ⌘ or Ctrl + Enter to send a reply from the keyboard.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/tickets",
+      "/tickets/[id]"
+    ]
+  },
+  {
+    "articleId": "leases-waiting-list",
+    "sectionId": "overview",
+    "heading": "Set the rental cap and manage the lease waiting list",
+    "text": "Use this when your declaration limits how many homes can be rented at once. The Leases page shows how close you are to the cap and keeps owners who want to rent in a first-come, first-served line.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/leases",
+      "/properties/[id]"
+    ]
+  },
+  {
+    "articleId": "leases-waiting-list",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Only board admins and board members can change the cap or the waiting list.\nThe numbers come from each home's tenure: Owner-occupied, Leased or Unknown. You set it on the property's page with Change tenure.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/leases",
+      "/properties/[id]"
+    ]
+  },
+  {
+    "articleId": "leases-waiting-list",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open Leases from the sidebar. The top shows Leased, Rental cap and Headroom, which is how many more homes can still be leased.\nUnder Cap policy, select Set cap (or Edit cap). Enter the percent of units that may be leased, then select Save cap. Not sure? Select Suggest from declaration to have AI read your governing documents, then Use this if it found a cap.\nWhen an owner asks to rent and you're at the cap, select Add to waiting list. Search for their property, add a note if you like, then select Add to waiting list again.\nWhen a leased home goes back to owner-occupied, find the first owner in line and select Approve, then confirm.\nIf an owner changes their mind, open the row's menu and choose Withdraw from list. To turn a request down, choose Deny request.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/leases",
+      "/properties/[id]"
+    ]
+  },
+  {
+    "articleId": "leases-waiting-list",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "Approving marks that home Leased and records the approval in the property's history, so it counts against the cap. Approved, denied and withdrawn requests move to Recent decisions. Select Export CSV for the full history.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/leases",
+      "/properties/[id]"
+    ]
+  },
+  {
+    "articleId": "leases-waiting-list",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Cap must be a number between 0 and 100.\": enter a percent from 0 to 100, or leave the box blank to remove the cap.\n\"This property is already on the waiting list.\": each home can only be in line once at a time.\n\"AI couldn't find a cap clause in your declaration — set one manually if you have one.\": upload your declaration under Documents, or type the cap yourself.\nAdd to waiting list is greyed out: every home is already leased or already on the list.\nA line saying some units \"have unknown tenure\": the figures may be low. Select Review those homes and set each one's tenure.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/leases",
+      "/properties/[id]"
+    ]
+  },
+  {
+    "articleId": "leases-waiting-list",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "The app doesn't block approvals over the cap. When Headroom is 0, approve the next owner only after a leased home returns to owner-occupied.\nThe app doesn't tell owners about the board's decision. Let them know yourself.\nThe Leases page only counts which homes are leased. It doesn't show tenants or lease dates. When a tenant and lease are on file, they show on that home's own page.\nA cap of 0 or a blank cap means no cap, not \"no leasing\".\nThe line's position is first come, first served by request date.\nOn a property's page, an owner-occupied home also has an Add to waiting list button once a cap is set.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/leases",
+      "/properties/[id]"
     ]
   },
   {
@@ -8462,6 +22190,904 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
     ]
   },
   {
+    "articleId": "legal-state-law-compliance",
+    "sectionId": "overview",
+    "heading": "Look up your state's HOA law and check Florida records rules",
+    "text": "Use State Law when you need to know what your state's HOA law says, not just your own CC&Rs. Answers cite the statute section they came from.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/legal",
+      "/legal/ask",
+      "/legal/browse",
+      "/legal/browse/[id]",
+      "/legal/updates",
+      "/legal/updates/new",
+      "/legal/compliance"
+    ]
+  },
+  {
+    "articleId": "legal-state-law-compliance",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Board members and admins use this page from the Knowledge section of the sidebar.\nIt works for associations in Georgia, Florida, California and Texas. Your association's state comes from its setup.\nThe statutes for your state must be loaded first. If they aren't, you see \"Statutes aren’t loaded yet\". Contact support to load them.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/legal",
+      "/legal/ask",
+      "/legal/browse",
+      "/legal/browse/[id]",
+      "/legal/updates",
+      "/legal/updates/new",
+      "/legal/compliance"
+    ]
+  },
+  {
+    "articleId": "legal-state-law-compliance",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open State Law from the sidebar. The Overview tab shows your state's code, how many sections are indexed, and recent law updates.\nTo ask a question, select Ask a question. Type your question, or pick one under Try asking, then select Ask.\nRead the answer, its confidence level and the Cited statutes. Select a citation to read that section's full text.\nTo read the law yourself, open the Statutes tab. Pick a topic such as Meetings & elections or Fines & enforcement, or All topics, then open a section.\nOn a section's page, Ask about this law takes you back to the question box. Official source links to the state's own copy.\nTo share a change in the law, open Law updates and select Post update. Fill in Headline and Summary (at least 20 characters), then select Post update.\nFlorida associations: open the Compliance tab to see which official records are on file, which owners can see, and whether recent and upcoming meetings were added early enough for notice.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/legal",
+      "/legal/ask",
+      "/legal/browse",
+      "/legal/browse/[id]",
+      "/legal/updates",
+      "/legal/updates/new",
+      "/legal/compliance"
+    ]
+  },
+  {
+    "articleId": "legal-state-law-compliance",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "A live law update shows under Recent law updates on the State law page for every board in your state, not just yours. Use Archive to hide it, and Restore to bring it back.\nThe Florida check updates every time you open it. Fix a missing record by selecting Upload it, or open the meeting to check its notice.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/legal",
+      "/legal/ask",
+      "/legal/browse",
+      "/legal/browse/[id]",
+      "/legal/updates",
+      "/legal/updates/new",
+      "/legal/compliance"
+    ]
+  },
+  {
+    "articleId": "legal-state-law-compliance",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Your state isn’t covered yet\": your association isn't in Georgia, Florida, California or Texas, or its state isn't set. If you see Finish setup, finish setting up your association first.\n\"Couldn’t get an answer\": nothing was saved, and your question is still in the box. Select Try again.\n\"Question is too short.\" or \"Question is too long (>2000 chars).\": ask in at least 3 and at most 2,000 characters.\n\"No statutes loaded yet\" on the Statutes tab: your state's text hasn't been loaded for your association. Contact support.\n\"Available for Florida associations\" on the Compliance tab: the check follows Florida's § 720.303 only, so it doesn't apply to other states.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/legal",
+      "/legal/ask",
+      "/legal/browse",
+      "/legal/browse/[id]",
+      "/legal/updates",
+      "/legal/updates/new",
+      "/legal/compliance"
+    ]
+  },
+  {
+    "articleId": "legal-state-law-compliance",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "Every page says \"Informational, not legal advice.\" Answers are grounded in the statute text, but they don't replace an attorney. For decisions about your association, consult a licensed attorney in your state.\nIf the statutes don't cover your question, the assistant says so instead of guessing.\nThe Florida check is \"an aid for your board, not a certification of compliance.\" It only sees what is on file in HomeownerHub, not documents or notices posted anywhere else.\nHomeownerHub doesn't record when a meeting notice was posted. The check only knows when the meeting was added, so you need to confirm the notice yourself.\nDeleting a law update removes it for every board in your state and can't be undone. Archive it instead if you may need it again.\nFor questions about your own CC&Rs and bylaws, use Ask the Docs instead.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/legal",
+      "/legal/ask",
+      "/legal/browse",
+      "/legal/browse/[id]",
+      "/legal/updates",
+      "/legal/updates/new",
+      "/legal/compliance"
+    ]
+  },
+  {
+    "articleId": "vendors-insurance-compliance",
+    "sectionId": "overview",
+    "heading": "Add a vendor and check their insurance, W-9 and license",
+    "text": "Use this before you hire a new contractor. You set up the vendor, record their insurance (COI), W-9 and license, and the app grades them so the board knows they're safe to use.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/vendors",
+      "/vendors/new",
+      "/vendors/[id]",
+      "/vendors/[id]/edit",
+      "/vendors/[id]/compliance",
+      "/vendors/invitations",
+      "/vendors/approval-queue"
+    ]
+  },
+  {
+    "articleId": "vendors-insurance-compliance",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Only board admins and board members can add, check and approve vendors.\nHave the vendor's legal name, EIN and trade ready, plus an email or phone. If you'd rather the vendor fill this in, invite them instead (step 1).",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/vendors",
+      "/vendors/new",
+      "/vendors/[id]",
+      "/vendors/[id]/edit",
+      "/vendors/[id]/compliance",
+      "/vendors/invitations",
+      "/vendors/approval-queue"
+    ]
+  },
+  {
+    "articleId": "vendors-insurance-compliance",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open Vendors from the sidebar. Select Add vendor to enter the details yourself, or Invite to send the vendor a form. To invite, enter the Vendor email, then select Send invitation.\nIf you're adding the vendor yourself, fill in Legal name, EIN and Trades (comma-separated), plus a Primary email or Primary phone. Then select Create and continue.\nOn the Compliance check page, under Documents, select Choose file for the COI, W-9 and license to keep a copy on file.\nType what's on each document into the form: the COI carrier, policy number, dates and coverage amounts, the W-9 legal name, and the license number. Leave a section's first field blank to skip that document.\nSelect Run compliance check. The result shows Compliant, Action soon, Non-compliant or Docs missing, with a list of any problems.\nOpen the vendor's page. If they're Compliant and still a Prospect, select Approve vendor, then confirm.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/vendors",
+      "/vendors/new",
+      "/vendors/[id]",
+      "/vendors/[id]/edit",
+      "/vendors/[id]/compliance",
+      "/vendors/invitations",
+      "/vendors/approval-queue"
+    ]
+  },
+  {
+    "articleId": "vendors-insurance-compliance",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "An approved vendor's status changes to Active. The Vendors list shows each vendor's compliance and when their COI expires. A COI that expires within 30 days shows how many days are left, and an expired one shows Expired. COIs expiring within 30 days also appear under At risk this week on your dashboard.\nThe Approval queue tab lists every vendor that needs the board: compliant prospects ready to approve, vendors with gaps, and vendors whose documents aren't entered yet. Select Review to open one.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/vendors",
+      "/vendors/new",
+      "/vendors/[id]",
+      "/vendors/[id]/edit",
+      "/vendors/[id]/compliance",
+      "/vendors/invitations",
+      "/vendors/approval-queue"
+    ]
+  },
+  {
+    "articleId": "vendors-insurance-compliance",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Fix the highlighted fields and try again.\": a required field is missing or in the wrong format. Each problem shows under its field.\n\"Couldn’t create the invitation\" or \"Invitation created, but the email was not sent\": if only the email failed, select Copy link and send the link to the vendor yourself.\n\"Vendor is not green for this association. Approval is blocked.\": only a Compliant vendor can be approved. Fix the problems listed and run the check again.\n\"File must be PDF or image (JPG/PNG/WebP/HEIC).\": upload a PDF or a photo. Files must be under 25 MB.\n\"The compliance check didn’t run\": nothing was graded. Try again in a minute.\nFinish setting up this vendor: the vendor has no EIN or no trade yet. Select Edit details and add them. Until then they can't be used for 1099 reporting, RFP invitations or compliance checks.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/vendors",
+      "/vendors/new",
+      "/vendors/[id]",
+      "/vendors/[id]/edit",
+      "/vendors/[id]/compliance",
+      "/vendors/invitations",
+      "/vendors/approval-queue"
+    ]
+  },
+  {
+    "articleId": "vendors-insurance-compliance",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "The app doesn't read the PDFs for you yet. You upload them for your records and type the values into the form.\nWhen a vendor fills in the invitation form, their details and files arrive as a Prospect. The check doesn't run by itself. Enter the values and select Run compliance check.\nAn invitation link works once and expires after 7 days. You can revoke one that hasn't been used from the Invitations tab.\nA board admin or board member can set the grade by hand under Manual override, for example after confirming a policy by phone with the carrier. Add a reason so the board can see why.\nThe app doesn't email vendors when their COI is about to expire. Watch the COI expires column and the dashboard.\nTo remove a vendor, open the More vendor actions menu on their page and choose Delete vendor. Their past invoices and bids keep their history.\nVendor details and ratings are private to your association.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/vendors",
+      "/vendors/new",
+      "/vendors/[id]",
+      "/vendors/[id]/edit",
+      "/vendors/[id]/compliance",
+      "/vendors/invitations",
+      "/vendors/approval-queue"
+    ]
+  },
+  {
+    "articleId": "vendors-rfps-collect-bids",
+    "sectionId": "overview",
+    "heading": "Get bids from vendors with an RFP and pick the winner",
+    "text": "Use this when the association needs a job done and wants several vendors to quote on the same scope, so the board can compare them side by side.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/rfps",
+      "/rfps/new",
+      "/rfps/[id]",
+      "/rfps/[id]/bids",
+      "/rfps/[id]/bids/[bidId]",
+      "/rfps/[id]/comparison"
+    ]
+  },
+  {
+    "articleId": "vendors-rfps-collect-bids",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Only board admins and board members can create RFPs and award bids.\nAdd the vendors you want to invite first, with an email on file. See Add a vendor.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/rfps",
+      "/rfps/new",
+      "/rfps/[id]",
+      "/rfps/[id]/bids",
+      "/rfps/[id]/bids/[bidId]",
+      "/rfps/[id]/comparison"
+    ]
+  },
+  {
+    "articleId": "vendors-rfps-collect-bids",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open Vendors, select the RFPs tab, then select New RFP.\nUnder What does the association need?, describe the job in your own words. Add a budget range if you have one, check Bids due, then select Draft RFP.\nRead the draft. Change the Title, Scope, budget or Bids due if you need to, and select Save draft. When it's right, select Publish, then confirm.\nUnder Invite vendors, tick the vendors you want, then select the send button (it reads, for example, Send 3 invites). Each vendor gets their own email link to submit a bid.\nWhen bids arrive, select View bids. Select a vendor's name to see their pricing, timeline and line items.\nOnce at least two bids are in, select Compare bids. The comparison shows each line side by side, items a vendor left out or added, payment terms, warranty and a recommendation memo.\nOpen the bid the board chose and select Award this bid, then confirm.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/rfps",
+      "/rfps/new",
+      "/rfps/[id]",
+      "/rfps/[id]/bids",
+      "/rfps/[id]/bids/[bidId]",
+      "/rfps/[id]/comparison"
+    ]
+  },
+  {
+    "articleId": "vendors-rfps-collect-bids",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "The RFP shows Awarded. The winning bid is marked Awarded and every other submitted bid is marked Declined. Vendor bid links stop working once the RFP is awarded or cancelled, or the bid deadline passes.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/rfps",
+      "/rfps/new",
+      "/rfps/[id]",
+      "/rfps/[id]/bids",
+      "/rfps/[id]/bids/[bidId]",
+      "/rfps/[id]/comparison"
+    ]
+  },
+  {
+    "articleId": "vendors-rfps-collect-bids",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Couldn’t draft the RFP\": nothing was saved. Try again. If you left Bids due empty you'll see \"Submission deadline is required.\"\n\"Add at least one line item before publishing.\": the draft has no line items, so it can't be published. Rewrite the need with more detail and draft a new RFP.\n\"Couldn’t send invitations\": nothing was sent. Try again. If one vendor shows \"no email on file\", add an email on their page and invite them again.\n\"invitation created, but the email didn’t send\": the vendor is invited, but the email failed to go out.\nCompare bids doesn't appear: you need at least two submitted bids. The bids page says \"comparison needs at least 2 submitted bids\".",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/rfps",
+      "/rfps/new",
+      "/rfps/[id]",
+      "/rfps/[id]/bids",
+      "/rfps/[id]/bids/[bidId]",
+      "/rfps/[id]/comparison"
+    ]
+  },
+  {
+    "articleId": "vendors-rfps-collect-bids",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "The insurance minimums in the RFP come from your association's settings. The composer doesn't make them up.\nLine items come from the draft. You can edit the title, scope, budget and deadline, but not the line items.\nNothing goes to vendors until you publish. After publishing, the scope and line items shouldn't change.\nThe recommendation memo is an AI draft for discussion. The board makes the decision.\nAwarding can't be undone. The app doesn't email the vendors to tell them who won, so let them know yourself.\nTo call it off, select Cancel RFP. Open invitations stop working and vendors can't submit bids.\nBlocked vendors don't appear in the invite list. Others show their compliance and status so you can see who's approved.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/rfps",
+      "/rfps/new",
+      "/rfps/[id]",
+      "/rfps/[id]/bids",
+      "/rfps/[id]/bids/[bidId]",
+      "/rfps/[id]/comparison"
+    ]
+  },
+  {
+    "articleId": "settings-billing",
+    "sectionId": "overview",
+    "heading": "See your plan and subscribe to HomeownerHub",
+    "text": "Use this to see what your association pays for HomeownerHub, and to start or manage the subscription. This is your association's bill to us, not residents' dues.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/billing"
+    ]
+  },
+  {
+    "articleId": "settings-billing",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Board admins and board members can see the plan. Only admins can subscribe, change the plan or update the card. Board members see \"Only admins can change the plan or payment method.\"\nThe price is per door (home), with a minimum. Doors on file shows how many homes your account is billed for.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/billing"
+    ]
+  },
+  {
+    "articleId": "settings-billing",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "In the sidebar, open Billing.\nUnder Current plan, check your plan, Doors on file, and the Monthly and Annual totals.\nUnder Choose a plan, pick Monthly or Annual. Annual saves 10%.\nRead the First-year commitment note.\nSelect the Subscribe button. It shows the price.\nEnter your payment details on the secure Stripe checkout page. When you finish, you come back to Billing.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/billing"
+    ]
+  },
+  {
+    "articleId": "settings-billing",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "Your plan shows as current. An admin can then select Manage subscription to update the card or download invoices in Stripe.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/billing"
+    ]
+  },
+  {
+    "articleId": "settings-billing",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "Couldn’t start checkout: checkout didn't open, and you weren't charged. Try again. If it keeps happening, contact support.\n\"Stripe isn’t configured\": billing isn't set up yet on this server, so checkout will fail. Contact support.\nDoors on file is wrong: contact support. You can't change it on this page.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/billing"
+    ]
+  },
+  {
+    "articleId": "settings-billing",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "The first 12 months can't be cancelled. From month 13, you can cancel any time under Manage subscription.\nThe free plan is temporary. It's for a small group of early partner associations and will end after that phase.\nSmall associations pay the minimum. The page shows \"(minimum)\" when it applies.\nYou pay HomeownerHub through Stripe's checkout page, not by check or Zelle.\nTo keep a copy of your records, see Download a full copy of your association's data.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/billing"
+    ]
+  },
+  {
+    "articleId": "settings-data-export",
+    "sectionId": "overview",
+    "heading": "Download a full copy of your association's data",
+    "text": "Use this when you want your own copy of everything, for example for a backup, an audit, a new board, or moving to other software. Your records belong to your association.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/data"
+    ]
+  },
+  {
+    "articleId": "settings-data-export",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Board admins and board members can download the data. Residents can't.\nThe file holds owners' and residents' names, emails and phone numbers. Save it somewhere private.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/data"
+    ]
+  },
+  {
+    "articleId": "settings-data-export",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "In the sidebar, open Your data. It's also a tab in Settings.\nRead What’s included to see each area and its file name.\nSelect Download all data. The button shows \"Preparing download…\" while it works.\nYour browser saves a zip file named association-data- plus today's date.\nOpen the zip. Open any CSV file in Excel, Numbers or Google Sheets.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/data"
+    ]
+  },
+  {
+    "articleId": "settings-data-export",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "The zip has one CSV per area: units, properties list, owners, residents, assessments (dues charges), payments, journal entries, journal lines, violations, ARC requests, tickets, documents index, governing docs, vendors and meetings. It also has a README.txt. Each download is recorded in your association's audit log.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/data"
+    ]
+  },
+  {
+    "articleId": "settings-data-export",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"The export could not be started. Check your connection and try again.\": the request didn't reach the server. Check your internet and try again.\n\"The download stopped before it finished, so no file was saved. Try again.\": nothing partial was saved. Try again.\nIf Download failed shows another message, the export was refused or failed before any data was sent. Try again, and contact support if it keeps happening.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/data"
+    ]
+  },
+  {
+    "articleId": "settings-data-export",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "It's always the full set. You can't pick certain areas or a date range.\nNot included: the uploaded files themselves (the documents index lists them), bank and payment connections, sign-in details, and vendor tax ids.\nNothing is stored on our side. The zip is built when you select the button.\nYou can download as often as you like.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/data"
+    ]
+  },
+  {
+    "articleId": "settings-dues-reminders",
+    "sectionId": "overview",
+    "heading": "Set up automatic dues reminder emails",
+    "text": "Use this so owners who owe dues get a friendly email on the days you choose, without anyone sending it by hand.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/reminders"
+    ]
+  },
+  {
+    "articleId": "settings-dues-reminders",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Board members and admins can change this.\nReminders are off until someone turns them on and saves.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/reminders"
+    ]
+  },
+  {
+    "articleId": "settings-dues-reminders",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open Dues reminders in the Account section of the sidebar.\nTick Send automatic dues reminders.\nUnder When to send, set each reminder's days and pick before due, on the due date or after due. Select Add a reminder for another one.\nAdd a Message to owners if you like, such as how to pay or who to call.\nSelect Preview next run to see who would get a reminder next time. Nothing is sent.\nSelect Approve and save.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/reminders"
+    ]
+  },
+  {
+    "articleId": "settings-dues-reminders",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "The page shows On — sending daily at 9am Eastern and when it was approved. Each day, owners with a balance whose reminder day has come get one email. It shows their own charges and balance. What owners receive shows a sample.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/reminders"
+    ]
+  },
+  {
+    "articleId": "settings-dues-reminders",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "Automatic reminders are paused: the saved settings were changed outside this screen, so nothing will send. Check them and save again.\nEmail isn’t set up on this server: reminders are saved, but none go out until email delivery is set up. Contact support.\n\"Check the highlighted fields.\": fix the reminder days or message shown in red, then save.\n\"Couldn’t save the reminder settings. Try again.\": nothing changed. Save again.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/reminders"
+    ]
+  },
+  {
+    "articleId": "settings-dues-reminders",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "You can have up to 5 reminders, from 30 days before to 90 days after the due date. The message can be up to 500 characters.\nSaving approves the schedule and message in your name. Any later change is a new approval.\nOwners on an active payment plan, and accounts with the association's attorney, never get an automatic reminder. Owners with no email on file are skipped too.\nReminders are email only. They are not sent by text.\nTo stop them, untick Send automatic dues reminders and select Save.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/reminders"
+    ]
+  },
+  {
+    "articleId": "settings-notifications",
+    "sectionId": "overview",
+    "heading": "Turn the monthly board report email on or off",
+    "text": "Use this to stop, or start again, the monthly board report email that comes to you.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/notifications",
+      "/settings"
+    ]
+  },
+  {
+    "articleId": "settings-notifications",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Open Settings from the sidebar. Board members can open Members instead.\nSelect the Notifications tab.\nUnder Board emails, flip the Monthly board report switch on or off.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/notifications",
+      "/settings"
+    ]
+  },
+  {
+    "articleId": "settings-notifications",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "Your choice saves right away. You see \"Monthly board report turned off.\" or \"You’ll get the monthly board report.\" The report comes on the 1st of each month. It covers last month's cash, collections, overdue dues, budget, violations and what's waiting on the board.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/notifications",
+      "/settings"
+    ]
+  },
+  {
+    "articleId": "settings-notifications",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "Not saved: the switch flips back. Try again. \"You’re signed out. Sign in and try again.\" means your sign-in ran out.\n\"Couldn’t load your email settings\": refresh the page.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/notifications",
+      "/settings"
+    ]
+  },
+  {
+    "articleId": "settings-notifications",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "The monthly board report is the only email you can switch off here. It is on unless you turn it off.\nYour choice applies to every association you're on the board of. It does not change anyone else's emails.\nAlerts that need action, like a disconnected mailbox, always come through.\nThe General tab shows your profile and your association. Admins can change their name there and select Save name. Your sign-in email can't be changed there.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/notifications",
+      "/settings"
+    ]
+  },
+  {
+    "articleId": "settings-resident-payments",
+    "sectionId": "overview",
+    "heading": "Turn on online dues payments with Zelle",
+    "text": "Do this once so residents can pay their dues from their phone. Until you do, residents see \"Online payments aren’t set up yet\" and are asked to contact the board.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/payments",
+      "/accounting/bank/queue"
+    ]
+  },
+  {
+    "articleId": "settings-resident-payments",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Board admins and board members can set this up. It's usually the treasurer's job.\nUse the Zelle email or mobile number of your association's bank account. Never use a board member's personal account.\nYour association must be set up in the app first. If it isn't, the page tells you so.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/payments",
+      "/accounting/bank/queue"
+    ]
+  },
+  {
+    "articleId": "settings-resident-payments",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "In the sidebar, open Resident payments. It's also a tab in Settings.\nIn Zelle email or mobile number, enter what residents should type into \"Send to\" in their bank app. Use an email or a 10-digit US mobile number.\nOptional: in Name Zelle shows, enter the account name residents will see before they confirm. It starts as your association's name.\nOptional: in Note to residents, add other ways to pay or who to call.\nCheck What residents see. It's a live preview of the Pay screen for a sample $325.00 charge.\nSelect Turn on Pay by Zelle.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/payments",
+      "/accounting/bank/queue"
+    ]
+  },
+  {
+    "articleId": "settings-resident-payments",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "The status changes to On — residents can pay, and residents see a Pay button with the steps.\nEach dues charge has its own memo code. Residents send one Zelle payment per charge, with that amount and memo.\nWhen the deposit shows up in your bank feed, the app matches it to the charge by its memo code. A board member approves every match in the Matching queue (Accounting, then Bank) before it posts.\nTo change the details later, edit them and select Save changes. To stop, select Turn off and confirm.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/payments",
+      "/accounting/bank/queue"
+    ]
+  },
+  {
+    "articleId": "settings-resident-payments",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Enter the email or US mobile number your association’s Zelle is registered to.\": the Zelle field is empty. Fill it in.\n\"Use an email address or a 10-digit US mobile number.\": check the email or number for typos.\n\"Payment settings can’t be saved on this server yet. Contact support.\": the app isn't fully set up for this yet. Contact support.\n\"Couldn’t save the payment settings. Try again.\": nothing was saved. Try again.\n\"Residents can’t see your Zelle details right now\": the saved details were changed outside this screen, so they're hidden from residents. Check them and save again.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/payments",
+      "/accounting/bank/queue"
+    ]
+  },
+  {
+    "articleId": "settings-resident-payments",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "Zelle is the only online payment option. Residents can't pay by credit card or ACH in the portal.\nThere is no autopay. Each resident sends each payment from their own bank.\nNo money goes through HomeownerHub. Residents send Zelle from their own bank straight to your association's account.\nTurning it off doesn't stop payments already sent. They still arrive and match.\nIf a charge is already partly paid, the resident still sees a memo, but the board confirms that payment by hand.\nIf a charge has no memo code, residents are told to put their street address in the memo, and the board matches it by hand.\nFor checks or cash, see Record a payment by check or cash.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "routes": [
+      "/settings/payments",
+      "/accounting/bank/queue"
+    ]
+  },
+  {
+    "articleId": "resident-arc-rules-check",
+    "sectionId": "overview",
+    "heading": "Check your ARC request against the rules and track the board's decision",
+    "text": "The rules check shows you, before you submit, which of your community's rules likely apply to your change. Afterwards, your application page shows where the board is with it.",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/arc",
+      "/resident/arc/new",
+      "/resident/arc/[id]"
+    ]
+  },
+  {
+    "articleId": "resident-arc-rules-check",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Your account must be linked to your home. If it isn't, you see \"No home linked yet\".",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/arc",
+      "/resident/arc/new",
+      "/resident/arc/[id]"
+    ]
+  },
+  {
+    "articleId": "resident-arc-rules-check",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Tap Requests, then Architectural request (ARC) under Start something new.\nPick the Type of change, write a One-line summary, and fill in the Detailed description with sizes, materials, colors and location.\nTap Check my request against the rules. Read Rules that likely apply: each rule is marked Looks consistent, Possible conflict or Needs detail. Read The board will probably ask about too.\nIf a rule may conflict, change your request or explain in the description why it fits. Tap Check again to re-run it.\nTap Submit application. Your application page opens.\nAdd plans or photos under Documents with Attach document. Ask the board a question under Conversation, then tap Send.\nTo follow up later, tap Requests, then ARC applications under Track. Each application shows its status.",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/arc",
+      "/resident/arc/new",
+      "/resident/arc/[id]"
+    ]
+  },
+  {
+    "articleId": "resident-arc-rules-check",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "Your application shows Submitted, then In review while the board looks at it, then Approved or Denied.\nThe board's written decision appears at the top of the application page, with its date.\nThe board can see what the rules check showed you before you submitted.",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/arc",
+      "/resident/arc/new",
+      "/resident/arc/[id]"
+    ]
+  },
+  {
+    "articleId": "resident-arc-rules-check",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Pick the type of change and describe it first, then check it against the rules.\": choose a type and write a longer description, then check again.\n\"The rules check isn’t available right now. You can still submit your application.\": the check failed. You can still submit.\n\"No clear rules found\": the check couldn't find a rule that clearly applies. The board still reviews your application.\n\"Describe the scope in more detail.\": the description needs at least 20 characters.\n\"This application can no longer be withdrawn.\": the board has already decided it.",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/arc",
+      "/resident/arc/new",
+      "/resident/arc/[id]"
+    ]
+  },
+  {
+    "articleId": "resident-arc-rules-check",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "The rules check is optional, and it is never a decision. You can submit whatever it says. Only the board approves or denies.\nDon't start work before the board approves it in writing. Work started without approval may need to be removed at your expense.\nWhile an application is Submitted or In review, you can tap Withdraw, then Withdraw application. To make the change later, you'll need a new application.\nOnce an application is decided or withdrawn, the conversation closes. To propose a new change, start a new application.\nAttachments can be a PDF, an image, or a Word or Excel file, up to 10 MB.",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/arc",
+      "/resident/arc/new",
+      "/resident/arc/[id]"
+    ]
+  },
+  {
+    "articleId": "resident-dues-statement",
+    "sectionId": "overview",
+    "heading": "See your dues history and print a statement",
+    "text": "Use this when you want to see what you were charged and paid, or need a statement for your records, a lender or a sale.",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/dues",
+      "/resident/dues/ledger",
+      "/resident/dues/statement",
+      "/resident/dues/pay"
+    ]
+  },
+  {
+    "articleId": "resident-dues-statement",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Your account must be linked to your home. If it isn't, you see \"No home linked yet\". Ask your board to link you.",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/dues",
+      "/resident/dues/ledger",
+      "/resident/dues/statement",
+      "/resident/dues/pay"
+    ]
+  },
+  {
+    "articleId": "resident-dues-statement",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Tap Dues at the bottom of the screen. The Balance tab shows what you owe now and your open charges, past due first.\nTap the Ledger tab to see every charge and payment, newest first. The top shows your total Charges, Paid & credited and Balance.\nFor a statement, tap Printable statement on the Ledger tab, or View statement on the Balance tab.\nPick Last 12 months or All time.\nTap Print or save PDF. To keep a file, choose \"Save as PDF\" in the print window.",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/dues",
+      "/resident/dues/ledger",
+      "/resident/dues/statement",
+      "/resident/dues/pay"
+    ]
+  },
+  {
+    "articleId": "resident-dues-statement",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "The statement shows your association, the statement date, your homes, and a Balance due (or Credit balance). Activity is listed oldest first. If your board takes Zelle, it ends with How to pay, with the memo code for each open charge.",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/dues",
+      "/resident/dues/ledger",
+      "/resident/dues/statement",
+      "/resident/dues/pay"
+    ]
+  },
+  {
+    "articleId": "resident-dues-statement",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Couldn’t load your dues\" or \"Couldn’t load your ledger\": the page couldn't read your account. Your balance is unknown, not zero. Try again in a minute.\nA payment you just sent isn't listed: payments appear after your board approves them, so anything sent in the last few days may not show yet.\n\"Showing your most recent history\": your account has more entries than the screen shows. Ask your board for a full statement.",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/dues",
+      "/resident/dues/ledger",
+      "/resident/dues/statement",
+      "/resident/dues/pay"
+    ]
+  },
+  {
+    "articleId": "resident-dues-statement",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "A minus sign means money off your balance. A balance shown as a \"credit\" is in your favor.\nLast 12 months starts with a Balance forward line, so older activity still counts in the total.\nA charge your board waived or wrote off shows as a credit, such as \"Waived\".\nIf you have more than one home, each ledger row says which home it's for.\nTo pay, tap the Pay button on the Balance tab. See Your resident portal for the Zelle steps.\nYou can't change or dispute a charge here. Send your board a support request from Requests instead.",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/dues",
+      "/resident/dues/ledger",
+      "/resident/dues/statement",
+      "/resident/dues/pay"
+    ]
+  },
+  {
     "articleId": "resident-portal-basics",
     "sectionId": "overview",
     "heading": "Your resident portal: pay dues, ask for approval, report a problem",
@@ -8532,6 +23158,96 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
       "/resident/tickets/new",
       "/resident/report-violation"
     ]
+  },
+  {
+    "articleId": "resident-support-tickets",
+    "sectionId": "overview",
+    "heading": "Send the board a support request and follow the replies",
+    "text": "Use a support request when you need the board's help: a repair, a noise or parking problem, a gate key, or a question about your dues. Everything you and the board write stays in one place.",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/requests",
+      "/resident/tickets",
+      "/resident/tickets/new",
+      "/resident/tickets/[id]"
+    ]
+  },
+  {
+    "articleId": "resident-support-tickets",
+    "sectionId": "before-you-start",
+    "heading": "Before you start",
+    "text": "Your account must be linked to your home. If it isn't, you see \"No home linked yet\". Ask your board to link you.",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/requests",
+      "/resident/tickets",
+      "/resident/tickets/new",
+      "/resident/tickets/[id]"
+    ]
+  },
+  {
+    "articleId": "resident-support-tickets",
+    "sectionId": "steps",
+    "heading": "Steps",
+    "text": "Tap Requests at the bottom of the screen, then New support request.\nIf you have more than one home, pick the Home.\nPick a Category, for example Maintenance request or Billing / dues question.\nWrite a short Subject, like \"Pool gate latch is sticking\".\nIn Description, say what's going on, where and when. Write at least 20 characters. Optional: tap Improve with AI for rewrites, then Use this on the one you like.\nTap Send request. The request opens so you can follow it.\nTo add a photo or file, tap Attach document under Documents.",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/requests",
+      "/resident/tickets",
+      "/resident/tickets/new",
+      "/resident/tickets/[id]"
+    ]
+  },
+  {
+    "articleId": "resident-support-tickets",
+    "sectionId": "what-happens-next",
+    "heading": "What happens next",
+    "text": "The board is notified of your new request.\nReplies show under Conversation. To answer, type in the box and tap Send.\nFind your requests later under Requests, then Support requests. Each shows Open, In progress or Closed.",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/requests",
+      "/resident/tickets",
+      "/resident/tickets/new",
+      "/resident/tickets/[id]"
+    ]
+  },
+  {
+    "articleId": "resident-support-tickets",
+    "sectionId": "if-something-goes-wrong",
+    "heading": "If something goes wrong",
+    "text": "\"Subject is too short.\": use at least 5 characters.\n\"Describe your issue in more detail.\": the description needs at least 20 characters.\n\"Choose a category.\": pick a category from the list.\n\"You can only submit tickets for units you own.\": the home you picked isn't linked to your account. Ask your board.\n\"Couldn’t send your request\": nothing was sent. Try again.",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/requests",
+      "/resident/tickets",
+      "/resident/tickets/new",
+      "/resident/tickets/[id]"
+    ]
+  },
+  {
+    "articleId": "resident-support-tickets",
+    "sectionId": "good-to-know",
+    "heading": "Good to know",
+    "text": "You get no email or text when the board replies. Check Support requests for new replies.\nOnce the board closes a request, you can't reply to it. Open a new request if you need more help.\nYou can't edit, close or delete a request after you send it.\nFiles can be a PDF, an image, or a Word or Excel file, up to 10 MB.\nTo report someone breaking a community rule, use Report a concern instead. To ask for approval to change your home, use Architectural request (ARC).",
+    "roles": [
+      "resident"
+    ],
+    "routes": [
+      "/resident/requests",
+      "/resident/tickets",
+      "/resident/tickets/new",
+      "/resident/tickets/[id]"
+    ]
   }
 ]
 
@@ -8539,6 +23255,19 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
 export const GUIDE_ROUTE_INDEX: Readonly<Record<string, readonly string[]>> = {
   "/": [
     "start-board-admin"
+  ],
+  "/accounting": [
+    "accounting-reports-overview"
+  ],
+  "/accounting/bank": [
+    "accounting-bank-reconcile"
+  ],
+  "/accounting/bank/[accountId]/reconcile": [
+    "accounting-bank-reconcile"
+  ],
+  "/accounting/bank/queue": [
+    "accounting-bank-reconcile",
+    "settings-resident-payments"
   ],
   "/accounting/budget": [
     "accounting-draft-budget"
@@ -8549,8 +23278,58 @@ export const GUIDE_ROUTE_INDEX: Readonly<Record<string, readonly string[]>> = {
   "/accounting/budget/new": [
     "accounting-draft-budget"
   ],
+  "/accounting/coa": [
+    "accounting-reports-overview"
+  ],
+  "/accounting/invoices": [
+    "accounting-enter-pay-bills"
+  ],
+  "/accounting/invoices/[id]": [
+    "accounting-enter-pay-bills"
+  ],
+  "/accounting/invoices/new": [
+    "accounting-enter-pay-bills"
+  ],
+  "/accounting/ledger": [
+    "accounting-reports-overview"
+  ],
+  "/accounting/ledger/[id]": [
+    "accounting-recurring-entries",
+    "accounting-reports-overview"
+  ],
+  "/accounting/payment-plans": [
+    "accounting-payment-plans"
+  ],
+  "/accounting/payment-plans/new": [
+    "accounting-payment-plans"
+  ],
   "/accounting/periods": [
     "accounting-draft-budget"
+  ],
+  "/accounting/recurring": [
+    "accounting-recurring-entries"
+  ],
+  "/accounting/reports": [
+    "accounting-monthly-board-report",
+    "accounting-reports-overview"
+  ],
+  "/accounting/reports/balance-sheet": [
+    "accounting-reports-overview"
+  ],
+  "/accounting/reports/budget-vs-actual": [
+    "accounting-reports-overview"
+  ],
+  "/accounting/reports/cash-flow": [
+    "accounting-reports-overview"
+  ],
+  "/accounting/reports/income-statement": [
+    "accounting-reports-overview"
+  ],
+  "/accounting/reports/monthly-report": [
+    "accounting-monthly-board-report"
+  ],
+  "/accounting/trial-balance": [
+    "accounting-reports-overview"
   ],
   "/ai/ask": [
     "documents-governing-and-ask"
@@ -8568,9 +23347,11 @@ export const GUIDE_ROUTE_INDEX: Readonly<Record<string, readonly string[]>> = {
     "communications-send-announcement"
   ],
   "/communications/[id]": [
+    "communications-segments-sms",
     "communications-send-announcement"
   ],
   "/communications/new": [
+    "communications-segments-sms",
     "communications-send-announcement"
   ],
   "/documents/governing": [
@@ -8583,11 +23364,55 @@ export const GUIDE_ROUTE_INDEX: Readonly<Record<string, readonly string[]>> = {
   "/dues/new": [
     "dues-generate-monthly"
   ],
+  "/events": [
+    "events-recurring-reminders"
+  ],
+  "/events/[id]": [
+    "events-recurring-reminders"
+  ],
+  "/events/new": [
+    "events-recurring-reminders"
+  ],
+  "/help": [
+    "search-command-k"
+  ],
+  "/inbox": [
+    "inbox-connect-mailbox",
+    "inbox-reply-to-resident"
+  ],
+  "/inbox/[id]": [
+    "inbox-reply-to-resident"
+  ],
+  "/inbox/compose": [
+    "inbox-reply-to-resident"
+  ],
   "/inspect": [
     "violations-inspection-mode"
   ],
+  "/leases": [
+    "leases-waiting-list"
+  ],
+  "/legal": [
+    "legal-state-law-compliance"
+  ],
+  "/legal/ask": [
+    "legal-state-law-compliance"
+  ],
+  "/legal/browse": [
+    "legal-state-law-compliance"
+  ],
+  "/legal/browse/[id]": [
+    "legal-state-law-compliance"
+  ],
   "/legal/compliance": [
-    "properties-statutory-roster"
+    "properties-statutory-roster",
+    "legal-state-law-compliance"
+  ],
+  "/legal/updates": [
+    "legal-state-law-compliance"
+  ],
+  "/legal/updates/new": [
+    "legal-state-law-compliance"
   ],
   "/meetings": [
     "meetings-schedule-and-minutes"
@@ -8613,7 +23438,9 @@ export const GUIDE_ROUTE_INDEX: Readonly<Record<string, readonly string[]>> = {
   ],
   "/properties/[id]": [
     "setup-properties-residents",
+    "dues-collections-case",
     "dues-record-payment",
+    "leases-waiting-list",
     "properties-record-a-sale"
   ],
   "/properties/import": [
@@ -8629,25 +23456,115 @@ export const GUIDE_ROUTE_INDEX: Readonly<Record<string, readonly string[]>> = {
     "resident-portal-basics"
   ],
   "/resident/arc": [
+    "resident-arc-rules-check",
     "resident-portal-basics"
   ],
+  "/resident/arc/[id]": [
+    "resident-arc-rules-check"
+  ],
   "/resident/arc/new": [
+    "resident-arc-rules-check",
     "resident-portal-basics"
   ],
   "/resident/dues": [
+    "resident-dues-statement",
     "resident-portal-basics"
   ],
+  "/resident/dues/ledger": [
+    "resident-dues-statement"
+  ],
   "/resident/dues/pay": [
+    "resident-dues-statement",
     "resident-portal-basics"
+  ],
+  "/resident/dues/statement": [
+    "resident-dues-statement"
   ],
   "/resident/report-violation": [
     "resident-portal-basics"
   ],
+  "/resident/requests": [
+    "resident-support-tickets"
+  ],
+  "/resident/tickets": [
+    "resident-support-tickets"
+  ],
+  "/resident/tickets/[id]": [
+    "resident-support-tickets"
+  ],
   "/resident/tickets/new": [
-    "resident-portal-basics"
+    "resident-portal-basics",
+    "resident-support-tickets"
+  ],
+  "/rfps": [
+    "vendors-rfps-collect-bids"
+  ],
+  "/rfps/[id]": [
+    "vendors-rfps-collect-bids"
+  ],
+  "/rfps/[id]/bids": [
+    "vendors-rfps-collect-bids"
+  ],
+  "/rfps/[id]/bids/[bidId]": [
+    "vendors-rfps-collect-bids"
+  ],
+  "/rfps/[id]/comparison": [
+    "vendors-rfps-collect-bids"
+  ],
+  "/rfps/new": [
+    "vendors-rfps-collect-bids"
+  ],
+  "/settings": [
+    "settings-notifications"
+  ],
+  "/settings/billing": [
+    "settings-billing"
+  ],
+  "/settings/data": [
+    "settings-data-export"
+  ],
+  "/settings/mailbox": [
+    "inbox-connect-mailbox"
   ],
   "/settings/members": [
     "members-invite-board"
+  ],
+  "/settings/notifications": [
+    "accounting-monthly-board-report",
+    "settings-notifications"
+  ],
+  "/settings/payments": [
+    "settings-resident-payments"
+  ],
+  "/settings/reminders": [
+    "settings-dues-reminders"
+  ],
+  "/tickets": [
+    "tickets-board"
+  ],
+  "/tickets/[id]": [
+    "tickets-board"
+  ],
+  "/vendors": [
+    "vendors-insurance-compliance"
+  ],
+  "/vendors/[id]": [
+    "vendors-insurance-compliance"
+  ],
+  "/vendors/[id]/compliance": [
+    "vendors-insurance-compliance"
+  ],
+  "/vendors/[id]/edit": [
+    "vendors-insurance-compliance"
+  ],
+  "/vendors/approval-queue": [
+    "vendors-insurance-compliance"
+  ],
+  "/vendors/invitations": [
+    "vendors-insurance-compliance"
+  ],
+  "/vendors/new": [
+    "vendors-insurance-compliance"
   ],
   "/violations": [
     "violations-inspection-mode",
@@ -8665,7 +23582,7 @@ export const GUIDE_ROUTE_INDEX: Readonly<Record<string, readonly string[]>> = {
   ]
 }
 
-export const GUIDE_SEARCH_INDEX: GuideSearchIndex = {"articles":{"ids":["members-invite-board","setup-import-roster","setup-properties-residents","start-board-admin","dues-generate-monthly","dues-record-payment","violations-inspection-mode","violations-report-and-letter","arc-review-application","meetings-schedule-and-minutes","accounting-draft-budget","communications-send-announcement","properties-record-a-sale","properties-statutory-roster","approvals-queue","documents-governing-and-ask","resident-portal-basics"],"lengths":[46,57,51,36,47,46,65,52,82,48,90,43,72,103,63,55,72],"avgLength":60.471,"postings":{"12":[[10,1]],"303":[[13,2]],"305":[[13,2]],"306":[[13,2]],"720":[[13,6]],"access":[[0,3],[12,1]],"action":[[9,2]],"actual":[[10,3]],"add":[[0,2],[2,4],[4,1]],"address":[[2,3],[13,2]],"admin":[[0,2]],"agenda":[[9,2]],"ai":[[8,3],[14,3],[15,2]],"amendment":[[15,2]],"announcement":[[11,5],[16,2]],"annual":[[9,2],[10,2],[13,2]],"answer":[[15,1]],"any":[[13,1]],"application":[[8,5]],"approv":[[7,4],[8,5],[14,6],[16,1]],"approval":[[14,5],[16,5]],"arc":[[8,5],[14,3],[16,2]],"architectural":[[8,3],[14,2]],"archiv":[[2,2]],"ask":[[8,1],[15,6],[16,4]],"assessment":[[4,4]],"association":[[4,2]],"balanc":[[5,1],[16,2]],"becom":[[12,1]],"befor":[[7,1]],"begin":[[3,2]],"bill":[[2,1],[4,5],[14,3]],"blank":[[8,2]],"board":[[0,6],[6,1],[9,4],[10,2],[16,1]],"brain":[[7,1],[15,1]],"broadcast":[[11,2]],"budget":[[10,13]],"bulk":[[1,2]],"buyer":[[12,3]],"bylaw":[[15,3]],"calendar":[[9,1]],"camera":[[6,2]],"cash":[[5,5]],"cc":[[7,1],[15,1]],"ccr":[[7,2],[15,4]],"chang":[[0,1],[12,5],[16,1]],"charg":[[4,4],[5,1]],"check":[[1,1],[3,1],[5,5],[16,2]],"checklist":[[3,3]],"chequ":[[5,2]],"choos":[[0,1]],"cinc":[[1,3]],"clos":[[7,2],[12,2]],"co":[[12,2]],"committe":[[8,2]],"community":[[6,3]],"complianc":[[7,2]],"concern":[[16,2]],"condition":[[8,4]],"contribution":[[10,2]],"couldn":[[3,1]],"covenant":[[7,3],[15,3]],"creat":[[4,1]],"csv":[[1,3],[2,2],[13,3]],"cure":[[7,4]],"dashboard":[[3,1]],"date":[[13,3]],"decision":[[8,2],[14,2]],"declaration":[[15,2]],"deed":[[12,2]],"delinquent":[[13,2]],"delivery":[[11,2]],"deny":[[8,3]],"deposit":[[14,3]],"detail":[[8,2]],"doc":[[15,1]],"document":[[15,6],[16,2]],"draft":[[6,1],[7,1],[10,6]],"driv":[[6,5]],"due":[[4,6],[5,1],[16,6]],"duplicat":[[1,2]],"each":[[1,1],[2,1],[3,1],[6,1],[14,1]],"election":[[13,2]],"eligibl":[[13,2]],"email":[[11,3]],"end":[[12,1]],"even":[[6,1]],"every":[[1,1],[4,1],[10,1]],"excel":[[1,3]],"export":[[1,1]],"family":[[2,1]],"fee":[[4,2]],"fenc":[[8,2],[16,2]],"file":[[9,3]],"find":[[8,2]],"fine":[[7,2]],"first":[[3,2]],"fiscal":[[10,6]],"former":[[12,2]],"generat":[[4,2]],"get":[[11,1]],"gett":[[3,2]],"goe":[[7,1]],"govern":[[15,5]],"guidelin":[[16,2]],"hand":[[12,3]],"happen":[[1,1],[14,3]],"history":[[12,1]],"hoa":[[0,2],[3,3]],"home":[[1,4],[2,3],[4,1],[6,4],[12,3],[16,1]],"homeowner":[[1,2]],"hous":[[2,2]],"import":[[1,6],[2,2]],"inflation":[[10,2]],"info":[[8,2]],"information":[[8,3]],"inspect":[[6,5]],"inspection":[[6,4]],"invit":[[0,5],[12,2]],"invoic":[[4,2],[14,2]],"item":[[9,2]],"kept":[[12,1]],"last":[[10,7]],"ledger":[[5,2]],"let":[[7,1]],"letter":[[6,1],[7,6],[8,4],[14,3]],"line":[[10,1]],"list":[[1,2],[13,8]],"live":[[2,1]],"load":[[15,1]],"log":[[6,2]],"login":[[0,3]],"lot":[[2,2]],"mail":[[13,2]],"make":[[13,1]],"manager":[[0,2]],"mark":[[5,3]],"mean":[[3,1]],"meet":[[9,10],[13,3]],"member":[[0,3],[2,1],[13,4]],"membership":[[13,2]],"messag":[[11,3]],"migrat":[[1,2]],"minut":[[9,6]],"miss":[[8,2]],"mobil":[[6,2]],"modification":[[8,2]],"month":[[4,4],[10,1]],"monthly":[[4,2]],"more":[[8,3]],"mov":[[12,2]],"neighborhood":[[6,2]],"neighbourhood":[[6,2]],"new":[[3,2],[12,2]],"newsletter":[[11,2]],"next":[[10,8]],"note":[[2,2]],"noth":[[14,3]],"notic":[[7,2],[11,2]],"off":[[4,1]],"official":[[13,2]],"offlin":[[6,2]],"onboard":[[3,2]],"once":[[1,1]],"one":[[4,3],[11,1],[14,1]],"onlin":[[5,2]],"open":[[10,2]],"out":[[7,1]],"outsid":[[5,1]],"own":[[0,1],[15,1]],"owner":[[1,4],[2,3],[4,2],[5,1],[12,12],[13,5]],"ownership":[[12,2]],"packet":[[9,3],[10,2]],"page":[[13,1]],"paid":[[5,6]],"paint":[[8,2],[16,2]],"pay":[[16,6]],"payment":[[5,7]],"pdf":[[13,2]],"pend":[[14,2]],"period":[[7,2],[10,2]],"phon":[[6,5],[16,1]],"photo":[[6,2],[7,1],[8,4]],"photograph":[[6,1]],"pick":[[11,1]],"policy":[[15,2]],"portal":[[5,1],[11,1],[12,1],[16,3]],"previous":[[12,2]],"print":[[9,3],[13,6]],"prior":[[10,2]],"problem":[[6,1],[16,6]],"property":[[2,5],[4,1]],"propos":[[10,2],[14,1]],"put":[[9,1]],"question":[[15,5]],"queu":[[6,2],[14,5]],"quorum":[[13,2]],"read":[[8,1]],"reason":[[10,1]],"record":[[5,5],[12,4],[13,7]],"reject":[[14,3]],"remov":[[0,3]],"repair":[[16,2]],"report":[[7,6],[16,6]],"request":[[8,5],[13,3],[16,2]],"reserv":[[10,2]],"resident":[[0,1],[2,5],[8,1],[11,6],[16,3]],"resolv":[[7,2]],"rest":[[0,3]],"review":[[6,1],[8,6],[14,2]],"right":[[5,1]],"role":[[0,3]],"roof":[[8,2]],"roster":[[1,3],[13,10]],"row":[[1,1]],"rs":[[7,1],[15,1]],"rule":[[8,2],[15,3],[16,2]],"sale":[[12,6]],"save":[[6,1],[10,1]],"scann":[[14,3]],"schedul":[[9,5],[11,2]],"search":[[2,2]],"sell":[[12,3]],"seller":[[12,3]],"send":[[0,1],[11,6]],"sett":[[3,3]],"settlement":[[12,2]],"setup":[[3,3]],"signal":[[6,3]],"sms":[[11,2]],"sold":[[12,2]],"sort":[[2,2]],"special":[[4,2]],"spreadsheet":[[1,5],[2,2]],"start":[[3,5],[10,1]],"statement":[[16,2]],"step":[[3,1],[4,1]],"such":[[1,1]],"suggestion":[[8,2]],"suspend":[[13,2]],"suspension":[[13,2]],"switch":[[0,2]],"system":[[1,1]],"templat":[[1,2]],"tenant":[[2,3]],"text":[[11,3]],"transcript":[[9,3]],"transfer":[[12,2]],"treasurer":[[10,2]],"turn":[[9,1]],"unit":[[2,2]],"until":[[14,3]],"up":[[3,3]],"upload":[[1,3],[6,2],[15,5]],"user":[[0,2]],"vendor":[[14,3]],"violation":[[6,2],[7,6],[14,1]],"vot":[[13,2]],"voter":[[13,10]],"walk":[[6,5]],"walkthrough":[[6,2]],"writ":[[11,1]],"xlsx":[[1,2]],"year":[[10,18]],"zell":[[5,2],[16,2]]}},"sections":{"ids":["members-invite-board#overview","members-invite-board#before-you-start","members-invite-board#steps","members-invite-board#what-happens-next","members-invite-board#if-something-goes-wrong","members-invite-board#good-to-know","setup-import-roster#overview","setup-import-roster#before-you-start","setup-import-roster#steps","setup-import-roster#what-happens-next","setup-import-roster#if-something-goes-wrong","setup-import-roster#good-to-know","setup-properties-residents#overview","setup-properties-residents#before-you-start","setup-properties-residents#steps","setup-properties-residents#what-happens-next","setup-properties-residents#if-something-goes-wrong","setup-properties-residents#good-to-know","start-board-admin#overview","start-board-admin#steps","start-board-admin#what-happens-next","start-board-admin#if-something-goes-wrong","start-board-admin#good-to-know","dues-generate-monthly#overview","dues-generate-monthly#before-you-start","dues-generate-monthly#steps","dues-generate-monthly#what-happens-next","dues-generate-monthly#if-something-goes-wrong","dues-generate-monthly#good-to-know","dues-record-payment#overview","dues-record-payment#before-you-start","dues-record-payment#steps","dues-record-payment#what-happens-next","dues-record-payment#if-something-goes-wrong","dues-record-payment#good-to-know","violations-inspection-mode#overview","violations-inspection-mode#before-you-start","violations-inspection-mode#steps","violations-inspection-mode#what-happens-next","violations-inspection-mode#if-something-goes-wrong","violations-inspection-mode#good-to-know","violations-report-and-letter#overview","violations-report-and-letter#before-you-start","violations-report-and-letter#steps","violations-report-and-letter#what-happens-next","violations-report-and-letter#if-something-goes-wrong","violations-report-and-letter#good-to-know","arc-review-application#overview","arc-review-application#steps","arc-review-application#what-happens-next","arc-review-application#good-to-know","meetings-schedule-and-minutes#overview","meetings-schedule-and-minutes#steps","meetings-schedule-and-minutes#what-happens-next","meetings-schedule-and-minutes#good-to-know","accounting-draft-budget#overview","accounting-draft-budget#before-you-start","accounting-draft-budget#steps","accounting-draft-budget#what-happens-next","accounting-draft-budget#if-something-goes-wrong","accounting-draft-budget#good-to-know","communications-send-announcement#overview","communications-send-announcement#steps","communications-send-announcement#what-happens-next","communications-send-announcement#if-something-goes-wrong","communications-send-announcement#good-to-know","properties-record-a-sale#overview","properties-record-a-sale#before-you-start","properties-record-a-sale#steps","properties-record-a-sale#what-happens-next","properties-record-a-sale#if-something-goes-wrong","properties-record-a-sale#good-to-know","properties-statutory-roster#overview","properties-statutory-roster#before-you-start","properties-statutory-roster#steps","properties-statutory-roster#what-happens-next","properties-statutory-roster#if-something-goes-wrong","properties-statutory-roster#good-to-know","approvals-queue#overview","approvals-queue#steps","approvals-queue#what-happens-next","approvals-queue#if-something-goes-wrong","approvals-queue#good-to-know","documents-governing-and-ask#overview","documents-governing-and-ask#steps","documents-governing-and-ask#what-happens-next","documents-governing-and-ask#if-something-goes-wrong","documents-governing-and-ask#good-to-know","resident-portal-basics#overview","resident-portal-basics#steps","resident-portal-basics#what-happens-next","resident-portal-basics#good-to-know"],"lengths":[17,33,34,20,29,54,28,59,81,28,72,65,21,23,66,51,38,131,39,103,23,38,46,22,37,66,30,94,33,18,11,19,14,40,67,27,26,55,35,75,41,23,23,54,29,27,69,21,80,38,128,16,65,28,66,31,37,125,22,105,106,14,49,28,30,34,30,54,79,88,69,48,42,43,52,86,40,53,27,57,43,28,22,21,47,23,23,42,26,101,19,39],"avgLength":46.293,"postings":{"10":[[37,1]],"12":[[11,2],[25,1],[59,1],[60,1]],"24":[[57,1]],"25":[[39,1],[40,1]],"26":[[57,1]],"90":[[75,1]],"100":[[57,1],[68,1],[70,1],[75,1]],"279":[[65,1]],"2026":[[25,1]],"000":[[7,1],[10,1],[57,1]],"accept":[[67,1]],"access":[[17,1],[67,1],[68,1],[69,1],[71,1]],"account":[[2,1],[11,1],[26,1],[27,1],[33,1],[34,2],[57,3],[71,1],[80,1],[88,1],[91,1]],"act":[[17,1]],"action":[[15,1],[17,2],[53,1],[54,2]],"activ":[[80,1]],"activity":[[15,1],[17,2],[59,1],[60,1],[69,1]],"actual":[[49,1],[54,1],[57,2],[60,2]],"actually":[[55,1]],"add":[[3,1],[6,1],[9,1],[10,3],[11,1],[12,3],[13,1],[14,6],[17,1],[19,4],[22,2],[24,2],[25,2],[27,4],[28,2],[37,2],[43,1],[50,1],[52,1],[53,1],[54,2],[59,2],[60,1],[68,3],[70,3],[74,1],[76,1],[82,1],[89,1]],"additional":[[43,1]],"address":[[7,2],[10,2],[11,1],[13,1],[14,1],[16,2],[17,1],[19,1],[40,1],[43,1],[67,1],[70,2],[72,1],[73,1],[75,2],[89,1]],"adjustment":[[57,1],[60,1]],"admin":[[1,3],[2,1],[4,3],[5,2],[7,1],[13,1],[24,1],[27,2],[30,1],[33,2],[36,1],[39,1],[42,1],[56,2],[57,1],[59,1],[67,1],[73,1]],"adopt":[[58,1]],"advic":[[77,1]],"after":[[5,1],[50,1],[67,1]],"afterward":[[89,1]],"again":[[10,3],[17,1],[27,1],[28,1],[33,2],[39,1],[40,1],[45,1],[50,1],[59,2],[70,1],[76,2],[81,1],[86,1]],"against":[[54,1],[89,1]],"agenda":[[52,1],[54,1]],"agre":[[49,1]],"ai":[[18,1],[38,1],[46,2],[48,3],[49,1],[50,5],[52,1],[57,1],[60,1],[78,1],[81,1]],"all":[[12,1],[17,2],[21,1],[43,1],[82,1]],"allocat":[[75,1]],"allow":[[46,1]],"already":[[3,1],[6,1],[8,1],[11,1],[13,1],[27,3],[46,1],[59,3]],"also":[[2,1],[50,1],[57,1],[74,1]],"alway":[[28,1],[34,1]],"amount":[[25,2],[28,2],[31,1],[34,2],[57,1],[59,1],[81,1],[89,2]],"analysis":[[45,1]],"analyz":[[43,1]],"announcement":[[61,2],[91,1]],"annually":[[25,1]],"another":[[64,1]],"answer":[[18,1],[19,1],[85,1],[87,2],[90,1]],"any":[[8,1],[17,1],[19,1],[20,1],[29,1],[48,2],[60,1],[63,1],[72,1]],"anyon":[[54,1]],"anyth":[[43,1],[52,1],[61,1],[78,1],[89,1]],"apart":[[10,1]],"app":[[54,1],[59,1],[60,1],[89,1]],"appear":[[3,1],[9,2],[15,1],[20,1],[26,1],[85,1]],"application":[[47,3],[48,2],[49,1],[50,1],[54,1],[80,1],[89,2],[91,1]],"apply":[[47,1],[48,1],[50,1],[57,1],[89,1]],"approv":[[18,1],[35,1],[38,1],[41,3],[43,2],[46,3],[48,3],[52,1],[58,2],[78,2],[79,6],[80,4],[81,2],[82,2],[91,1]],"approval":[[0,1],[38,2],[46,1],[50,1],[78,2],[79,1],[88,2],[91,1]],"arc":[[15,1],[47,3],[48,1],[50,1],[54,1],[79,2],[80,1],[89,2]],"architectural":[[18,1],[89,1]],"archiv":[[17,2]],"aren":[[27,1],[33,1],[59,1],[60,1],[77,1]],"arriv":[[90,1]],"ask":[[4,1],[27,1],[39,1],[57,1],[77,1],[83,3],[84,3],[85,1],[87,2],[88,3],[89,2],[91,2]],"assessment":[[25,1],[27,1]],"association":[[23,1],[24,4],[27,1],[33,1],[34,1],[74,1],[77,1]],"attach":[[48,1],[89,1]],"attende":[[52,1]],"attention":[[17,1],[39,1]],"attorney":[[77,1]],"audienc":[[62,1],[64,2]],"audit":[[79,1]],"automatically":[[26,1]],"away":[[3,1],[9,1],[15,1],[19,1],[39,1],[60,1],[69,1]],"back":[[19,1],[22,1],[39,1],[57,1],[67,1],[69,1]],"badg":[[85,1]],"balanc":[[11,2],[15,1],[17,1],[19,1],[23,1],[26,1],[32,1],[54,1],[69,1],[90,1]],"bank":[[34,1],[89,1]],"becaus":[[67,1]],"becom":[[35,1],[66,2],[69,1],[80,1]],"befor":[[1,2],[7,2],[13,2],[21,1],[24,2],[27,1],[30,2],[36,2],[42,2],[48,1],[50,3],[54,1],[56,2],[67,2],[73,2],[77,1],[91,1]],"behind":[[54,1]],"being":[[22,1],[89,1]],"belong":[[14,1]],"below":[[3,1],[56,1],[60,1]],"besid":[[79,1]],"between":[[5,1]],"bill":[[9,1],[15,1],[19,3],[23,2],[24,2],[25,1],[27,2],[28,1],[57,1],[79,4],[80,1],[81,2],[82,1]],"billabl":[[27,1]],"blank":[[10,1],[16,1],[50,1],[55,1],[62,1],[70,1]],"board":[[0,3],[1,3],[2,1],[4,2],[7,2],[11,1],[13,2],[18,2],[19,3],[27,1],[30,2],[33,1],[35,2],[36,2],[38,1],[41,1],[42,2],[47,1],[48,1],[49,2],[50,1],[51,1],[52,2],[54,2],[55,1],[56,2],[57,3],[58,1],[65,1],[67,2],[69,1],[72,1],[73,3],[74,1],[75,1],[78,2],[89,2],[90,1],[91,2]],"boat":[[37,1]],"body":[[62,1]],"book":[[27,2],[33,2],[56,1],[57,1],[59,2],[60,2]],"bottom":[[43,1],[88,1]],"bought":[[68,1]],"box":[[15,1],[48,1]],"brain":[[36,1],[38,1],[42,1],[43,1],[83,1],[85,1]],"bring":[[17,1],[51,1]],"broken":[[89,1]],"browser":[[22,1],[39,1]],"budget":[[54,1],[55,3],[56,1],[57,6],[58,2],[59,6],[60,2]],"build":[[10,1],[72,1]],"but":[[18,1],[41,1],[50,1],[56,1],[59,1],[78,1]],"button":[[5,1],[17,2],[25,1],[89,1]],"buyer":[[66,1],[67,1],[68,6],[69,3],[70,4],[75,1]],"bylaw":[[19,1],[74,1],[84,1]],"calculat":[[60,1]],"california":[[46,1],[77,2]],"call":[[19,1]],"camera":[[37,1]],"card":[[2,1],[19,1],[20,1],[21,1],[22,2],[48,2],[50,2],[69,1]],"carefully":[[45,1]],"cash":[[29,3]],"cc":[[19,1],[36,2],[42,2],[43,1],[45,2],[84,1]],"cell":[[10,1]],"chang":[[5,1],[8,1],[11,1],[17,1],[47,1],[57,2],[60,1],[66,2],[70,2],[71,2],[73,1],[81,2],[89,2]],"channel":[[62,1]],"character":[[65,1]],"charg":[[23,2],[25,4],[26,1],[27,1],[28,3],[31,1],[32,1],[34,2],[69,1],[71,1],[91,1]],"chart":[[27,1],[33,1]],"check":[[6,1],[8,2],[16,1],[21,2],[29,3],[31,1],[39,1],[57,2],[74,1],[77,1],[89,2],[90,1],[91,1]],"checklist":[[18,1],[20,1],[21,1],[22,1]],"choic":[[62,1]],"choos":[[8,3],[16,1],[25,2],[59,1],[62,1],[68,1],[74,1],[84,1]],"cinc":[[7,1],[17,1]],"cit":[[45,1],[48,1]],"cite":[[19,1],[42,1],[48,1],[83,1],[85,1]],"city":[[7,1]],"clear":[[37,1],[69,1]],"clock":[[46,1]],"clos":[[40,1],[41,1],[60,1]],"co":[[68,1]],"collect":[[55,1],[71,1]],"color":[[89,1]],"column":[[8,1],[17,1]],"com":[[22,1]],"come":[[19,2],[22,1],[67,1]],"communication":[[15,1],[54,1],[61,1],[62,1],[63,1]],"community":[[8,2],[12,1],[14,2],[16,2],[19,1],[27,3],[35,1],[61,1],[83,1],[89,1]],"compar":[[79,1]],"complianc":[[15,1]],"computer":[[65,1]],"concern":[[89,1]],"condition":[[48,3],[50,1]],"confidenc":[[50,1]],"confirm":[[5,1],[48,1],[57,1],[67,1],[68,1]],"confirmation":[[31,1]],"conflict":[[89,1]],"connect":[[19,1]],"contact":[[14,1],[22,1],[33,1],[59,1],[64,1],[70,1]],"continu":[[62,2]],"contribution":[[60,1]],"conversation":[[49,1],[50,1]],"copy":[[89,2]],"correct":[[81,1]],"couldn":[[10,1],[21,2],[33,1],[70,1],[76,2],[81,1]],"count":[[8,1],[21,1],[75,1]],"covenant":[[36,1],[38,1],[42,1],[43,1],[83,1],[85,1]],"cover":[[46,1],[60,2],[76,1],[87,1]],"creat":[[24,1],[25,1],[59,2]],"csv":[[7,2],[8,1],[10,1],[72,1],[74,1]],"cure":[[15,1],[41,1],[44,2],[46,1]],"current":[[9,1],[15,1],[50,1],[57,2],[70,2],[71,1]],"dashboard":[[18,1],[19,2]],"dat":[[17,1],[34,1]],"data":[[20,1],[21,1]],"date":[[15,1],[25,1],[28,3],[34,1],[44,1],[52,2],[57,1],[66,1],[67,3],[68,1],[69,4],[70,1],[71,1],[72,2],[73,1],[74,1],[75,2],[76,3],[77,2],[81,1]],"day":[[1,2],[46,1],[60,1],[67,1],[74,1],[75,2],[76,1]],"deal":[[17,1]],"decid":[[47,1],[48,1],[49,1],[50,1],[80,1]],"decision":[[0,1],[48,4],[49,2],[80,1],[82,1],[91,1]],"declaration":[[84,1]],"deed":[[67,1]],"delet":[[28,2],[39,1],[50,1],[87,1]],"delinquent":[[54,1]],"deliver":[[63,1]],"delivery":[[63,1]],"demot":[[4,1]],"deny":[[48,2],[79,1],[91,1]],"deposit":[[79,2],[80,1]],"describ":[[60,1]],"detail":[[8,1],[14,1],[17,1],[48,1],[64,1],[69,1],[70,1],[71,1],[81,1]],"didn":[[59,1]],"different":[[11,1],[28,1],[34,1],[57,1],[59,1]],"differently":[[75,1]],"discuss":[[52,1]],"dismiss":[[20,1]],"distanc":[[40,1]],"doc":[[83,1],[84,1],[85,1],[87,2],[91,1]],"document":[[1,1],[19,2],[36,1],[42,1],[48,2],[50,1],[52,1],[72,1],[75,1],[77,1],[83,3],[84,4],[85,2],[87,3],[89,1],[91,1]],"doesn":[[11,1],[40,1],[71,1],[75,1]],"doing":[[15,1]],"dollar":[[60,1]],"don":[[71,1],[77,1],[87,1]],"done":[[19,1],[20,1],[21,2],[68,1]],"down":[[32,1]],"download":[[7,1],[8,1],[10,1],[72,1],[74,1],[75,1]],"draft":[[18,1],[35,1],[38,3],[41,1],[43,2],[46,1],[48,1],[52,2],[55,2],[56,3],[57,3],[58,1],[59,5]],"driv":[[35,1]],"driveway":[[37,1]],"drop":[[8,1]],"dropdown":[[5,1]],"due":[[1,1],[12,1],[15,1],[17,2],[18,1],[19,4],[23,3],[24,2],[25,8],[26,2],[27,6],[28,3],[31,1],[34,2],[44,1],[54,1],[57,1],[62,1],[68,1],[69,1],[75,1],[77,1],[80,1],[88,3],[89,2],[91,1]],"each":[[0,1],[8,3],[9,1],[10,1],[19,1],[23,1],[26,1],[35,1],[38,1],[40,1],[46,1],[48,1],[57,1],[58,1],[60,1],[62,1],[63,1],[67,1],[68,1],[72,1],[73,1],[75,3],[82,1]],"earlier":[[54,1],[59,1]],"edit":[[17,1],[28,1],[48,1],[58,1],[66,1],[67,1],[70,1],[71,2],[81,1],[87,1]],"election":[[77,1]],"eligibl":[[72,1]],"else":[[4,1]],"email":[[2,1],[3,1],[7,1],[10,3],[13,1],[15,1],[16,3],[17,1],[19,1],[34,1],[43,1],[49,1],[62,1],[64,1],[65,1],[67,1],[68,1],[69,1],[70,1],[73,1]],"end":[[17,1],[65,1],[67,1],[69,2]],"enter":[[2,1],[11,1],[14,1],[15,1],[16,1],[25,2],[34,2],[52,1],[59,1],[68,1],[79,1],[80,1],[89,1]],"entry":[[57,1],[70,1]],"error":[[8,3],[10,1]],"estimat":[[50,1]],"even":[[40,1]],"every":[[0,1],[4,1],[6,2],[12,1],[17,1],[19,2],[20,1],[21,1],[24,1],[25,2],[27,1],[28,1],[41,1],[55,1],[57,1],[59,1],[60,1],[63,1],[69,1],[91,1]],"everyon":[[17,1],[62,1]],"everyth":[[1,1],[15,1],[39,1],[78,1],[88,1]],"exactly":[[70,1],[89,1]],"exampl":[[25,1],[39,2],[57,1]],"excel":[[7,2]],"exist":[[59,1],[71,1],[76,1],[77,1]],"explain":[[1,1],[87,1]],"export":[[7,1],[17,1],[76,1]],"exterior":[[47,1]],"extract":[[86,1]],"fail":[[33,1],[45,1],[50,1],[64,2],[86,1]],"failur":[[63,1]],"family":[[14,1]],"fenc":[[47,1]],"field":[[8,1],[16,1],[28,1]],"figur":[[60,1]],"fil":[[19,1],[35,1],[38,1],[53,1],[54,1],[80,1]],"file":[[7,3],[8,4],[10,5],[11,1],[17,1],[27,1],[46,1],[48,1],[51,3],[52,2],[64,1],[71,1],[75,1],[82,1],[84,2]],"fill":[[7,1],[8,1],[14,1],[16,1],[24,1],[50,1]],"filter":[[17,1]],"find":[[31,1],[36,1],[50,1]],"fine":[[46,2]],"finish":[[8,1],[19,1],[21,1],[40,1],[59,1],[68,1]],"first":[[4,1],[8,1],[12,1],[14,1],[17,1],[27,3],[45,1],[60,1],[68,1],[82,1],[83,1]],"fiscal":[[27,1],[33,1],[56,1],[57,2],[59,3],[60,3]],"fix":[[8,1],[10,1],[43,1],[52,1],[70,1]],"fixe":[[44,1]],"flag":[[77,1]],"flagg":[[75,2]],"floor":[[60,1]],"florida":[[46,1],[74,1],[75,1],[77,1]],"follow":[[53,1],[60,1]],"form":[[3,1],[37,1]],"formula":[[11,1]],"found":[[50,1],[85,1]],"full":[[14,1],[16,1],[34,1],[48,1],[60,1],[68,1],[69,1]],"fund":[[56,2],[57,1],[59,3]],"futur":[[67,1],[70,1]],"gave":[[50,1]],"generat":[[25,3],[27,4],[28,1],[52,1]],"get":[[15,1],[46,1],[69,1]],"give":[[19,1],[68,2],[75,1],[79,1],[84,1]],"go":[[6,1],[14,1],[37,2],[50,1],[57,1],[65,1],[68,1],[69,1]],"goe":[[4,2],[9,1],[10,2],[16,2],[21,2],[27,2],[32,1],[33,2],[38,1],[39,2],[41,1],[45,2],[59,2],[64,2],[69,1],[70,2],[76,2],[81,2],[86,2]],"going":[[39,1]],"good":[[5,2],[11,2],[17,2],[22,2],[28,2],[34,2],[40,2],[46,2],[50,2],[54,2],[60,2],[65,2],[71,2],[77,2],[82,2],[87,2],[91,2]],"govern":[[19,2],[36,1],[42,1],[48,1],[75,1],[77,1],[83,2],[84,1]],"group":[[26,1],[61,1]],"guess":[[87,1]],"guid":[[87,1]],"hand":[[9,1],[66,2]],"hang":[[12,1]],"happen":[[3,2],[9,2],[15,2],[20,2],[26,2],[32,2],[38,2],[44,2],[49,2],[53,2],[58,2],[63,2],[69,2],[75,2],[78,2],[80,2],[85,2],[90,2]],"has":[[7,1],[8,1],[10,2],[14,1],[16,1],[19,1],[22,1],[24,1],[27,3],[33,1],[39,2],[59,2],[60,1],[64,1],[70,2]],"have":[[0,1],[3,1],[6,2],[8,1],[13,1],[14,1],[17,1],[22,1],[27,2],[54,1],[68,1],[91,1]],"head":[[17,1]],"hear":[[61,1]],"heic":[[40,1]],"help":[[37,1],[43,1],[50,1],[87,1]],"hid":[[21,1],[22,1]],"hidden":[[21,1]],"hide":[[20,1],[22,1]],"history":[[17,1],[44,1],[69,1],[71,1],[77,1]],"hoa":[[3,1],[4,1],[5,3],[8,1],[14,1],[16,1],[18,2],[19,2],[20,1],[24,1],[27,2],[56,1],[57,1],[59,1]],"hold":[[54,1],[65,1],[73,1]],"home":[[6,4],[7,1],[8,3],[9,2],[10,2],[11,5],[12,1],[14,1],[15,2],[17,10],[18,1],[19,3],[22,2],[23,1],[24,2],[25,1],[26,1],[27,6],[28,1],[31,1],[32,1],[34,1],[35,3],[37,5],[38,1],[39,2],[40,4],[43,1],[46,1],[54,1],[61,1],[66,3],[67,1],[68,1],[69,3],[70,1],[71,1],[72,3],[73,1],[75,4],[76,1],[77,3],[88,1],[89,2],[90,1],[91,1]],"homeowner":[[7,1],[80,1]],"homeownerhub":[[3,1],[18,1],[40,1],[41,1],[46,1],[54,1],[75,1],[87,1]],"homeownerledger":[[22,1]],"hous":[[37,1]],"household":[[17,1],[68,1],[69,1],[70,2]],"hub":[[5,1]],"import":[[6,3],[7,2],[8,4],[9,1],[10,3],[11,1],[13,1],[17,2],[22,1],[75,1]],"inbox":[[19,1],[65,1]],"includ":[[89,1]],"incom":[[54,1]],"index":[[84,2],[85,1]],"inflation":[[57,1],[60,1]],"info":[[48,1],[49,1],[79,1]],"inspect":[[35,2],[36,1],[37,2],[40,1]],"inspection":[[35,1]],"instead":[[5,1],[6,1],[11,1],[13,1],[17,1],[24,1],[40,1],[55,1],[57,1],[59,1],[66,1],[70,1],[75,1],[76,1],[82,1],[86,1]],"internal":[[50,1]],"invit":[[0,2],[1,2],[2,1],[4,2],[19,2],[68,2],[69,1],[71,2]],"invitation":[[2,1],[5,3],[69,1]],"isn":[[10,1],[39,1],[57,1],[59,1],[60,1],[67,2],[69,1],[75,1],[77,1]],"issu":[[37,1]],"item":[[53,2],[54,2],[79,2],[82,1]],"itself":[[20,1],[50,1],[79,1]],"jpg":[[40,1]],"keep":[[8,1],[18,1],[33,1],[39,2],[57,1],[58,2],[71,1]],"kept":[[17,1],[49,1],[70,1],[79,1]],"kind":[[25,1],[37,1],[79,1]],"know":[[5,2],[11,2],[17,2],[22,2],[28,2],[34,2],[40,2],[46,2],[50,2],[54,2],[60,2],[65,2],[71,2],[77,2],[82,2],[87,2],[91,2]],"known":[[77,1]],"labell":[[75,1]],"land":[[47,1],[63,1]],"landscap":[[37,1]],"largest":[[46,1]],"last":[[4,1],[5,1],[17,1],[54,1],[55,2],[57,2],[59,1],[60,3]],"late":[[62,1]],"later":[[22,1]],"law":[[46,1],[73,1],[74,1]],"lawn":[[37,1]],"leas":[[15,1],[69,2]],"least":[[4,1],[43,1]],"leav":[[8,1],[10,1],[16,1],[50,1],[62,1],[68,1],[70,1],[71,1]],"ledger":[[23,1],[32,1],[69,1],[71,1],[80,1]],"left":[[50,1],[60,1],[69,1]],"legal":[[77,1]],"less":[[60,1]],"let":[[26,1]],"letter":[[18,1],[35,1],[38,2],[41,2],[43,2],[45,2],[46,4],[48,1],[49,1],[50,2],[79,3],[80,1],[85,1]],"like":[[47,1]],"likely":[[89,1]],"line":[[2,1],[50,1],[55,1],[57,2],[58,1],[59,2],[60,2]],"link":[[2,1],[3,1],[15,1],[19,1],[27,1],[65,1],[67,1],[71,1]],"list":[[3,1],[5,2],[7,1],[8,1],[9,1],[13,1],[15,1],[16,1],[17,1],[26,1],[39,1],[43,1],[48,2],[54,1],[60,1],[63,1],[68,1],[69,1],[70,1],[72,3],[74,2],[75,1],[77,1]],"liv":[[17,2]],"live":[[19,1],[68,1]],"ll":[[22,1]],"load":[[85,1]],"location":[[40,1]],"log":[[17,1],[76,1]],"logg":[[75,1]],"login":[[0,1],[3,1],[19,1]],"longer":[[17,1],[65,1]],"look":[[5,1],[17,1],[50,1]],"lot":[[7,1],[14,1]],"low":[[50,1]],"made":[[0,1]],"mail":[[7,1],[12,1],[18,1],[19,1],[43,1],[67,1],[70,2],[72,1],[75,1]],"mailbox":[[19,1]],"main":[[57,1]],"make":[[27,1],[50,1],[73,1]],"manager":[[5,1]],"many":[[17,1],[39,1],[46,1],[60,1],[62,1],[63,1],[79,1]],"map":[[40,1]],"mark":[[31,1],[34,2],[43,1],[44,1],[48,1],[49,1],[50,1],[60,1],[80,1]],"markdown":[[84,1]],"match":[[8,2],[11,1],[19,1],[36,1],[43,1],[64,1],[80,1],[90,1]],"material":[[89,1]],"may":[[75,1],[89,1]],"mb":[[7,1],[39,1],[40,1],[50,1]],"medium":[[50,1]],"meet":[[18,1],[51,3],[52,8],[53,4],[54,4],[74,1],[75,1]],"member":[[0,1],[1,3],[2,2],[3,1],[4,2],[5,1],[7,1],[13,1],[14,1],[27,1],[30,1],[33,1],[35,1],[36,1],[42,1],[56,1],[57,1],[65,1],[67,1],[73,1],[78,1]],"memo":[[89,1],[90,1]],"menu":[[74,1]],"messag":[[17,1],[49,1],[50,1],[54,1],[62,1],[63,2],[64,1],[65,2]],"method":[[34,1]],"minut":[[51,3],[52,5],[53,1],[54,4]],"miss":[[27,1],[48,1],[50,1]],"mode":[[35,1]],"moment":[[86,1]],"money":[[15,1],[23,2],[69,1]],"month":[[19,2],[23,2],[25,2],[26,1],[27,1],[31,1],[59,1],[60,3]],"monthly":[[25,1],[59,1],[60,2]],"more":[[8,1],[10,1],[14,1],[17,1],[68,1],[75,1]],"most":[[8,1]],"mov":[[7,1],[69,1]],"move":[[70,1]],"must":[[16,2],[40,1],[56,1],[68,1],[73,1]],"name":[[2,1],[5,1],[7,1],[13,1],[14,1],[16,2],[17,1],[24,1],[25,1],[57,1],[66,1],[67,1],[68,1],[87,1]],"narrow":[[17,1]],"need":[[4,1],[7,1],[13,1],[15,2],[16,1],[17,3],[24,1],[39,1],[48,1],[67,2],[82,1],[83,1],[88,1]],"never":[[11,3],[49,1],[50,1],[54,1],[60,1],[65,1],[78,1]],"new":[[5,2],[8,1],[9,1],[14,1],[17,1],[46,1],[50,1],[60,1],[62,1],[68,1],[70,1],[89,1]],"next":[[3,2],[9,2],[15,2],[20,2],[26,2],[32,2],[37,1],[38,2],[44,2],[49,2],[53,2],[55,4],[56,1],[57,4],[58,2],[59,3],[60,1],[63,2],[68,1],[69,2],[74,1],[75,2],[80,2],[85,2],[90,2]],"nobody":[[64,1]],"none":[[24,1],[60,1]],"note":[[17,2],[37,1],[43,1],[50,2],[58,1]],"noth":[[6,1],[10,1],[18,1],[27,1],[33,1],[35,1],[38,1],[46,1],[58,1],[59,2],[66,1],[70,2],[75,1],[76,1],[78,2],[80,1],[81,1],[86,1]],"notic":[[14,1],[41,2],[43,1],[44,1],[46,3],[68,2],[69,1],[75,1]],"notify":[[54,1]],"now":[[21,1],[39,1],[62,1],[64,1],[69,1],[85,1]],"nowher":[[59,1]],"number":[[7,1],[10,2],[11,1],[37,1],[60,2],[73,1],[79,1],[85,1]],"oak":[[11,2]],"oct":[[25,1]],"off":[[12,1],[20,1],[25,1]],"offer":[[50,2],[64,1]],"often":[[25,1],[49,1]],"old":[[10,1]],"older":[[27,1]],"once":[[21,1],[25,1],[67,1]],"one":[[4,1],[6,2],[7,1],[8,1],[9,1],[10,1],[14,1],[15,1],[16,1],[18,1],[22,2],[25,2],[27,1],[34,1],[43,1],[46,1],[50,2],[56,2],[57,1],[59,1],[64,1],[67,1],[68,1],[72,1],[75,4],[79,1]],"onlin":[[34,2],[39,1]],"only":[[1,2],[4,1],[5,1],[7,1],[11,1],[16,1],[21,1],[22,1],[30,1],[34,2],[36,1],[42,1],[50,1],[54,1],[60,2],[62,1],[69,2],[75,1],[91,1]],"open":[[2,1],[8,2],[11,2],[14,2],[17,3],[19,1],[22,1],[25,1],[26,1],[27,2],[31,1],[33,2],[34,1],[36,1],[37,2],[38,1],[39,1],[40,1],[43,1],[44,2],[46,1],[48,5],[50,2],[52,2],[53,1],[54,2],[56,2],[57,3],[58,1],[59,4],[60,1],[62,1],[63,1],[64,1],[67,1],[68,1],[73,1],[74,2],[76,1],[79,1],[80,1],[84,2],[87,1],[89,2],[91,1]],"operat":[[56,1]],"operation":[[1,1]],"option":[[34,1]],"optional":[[2,1],[13,1],[57,1],[67,1],[89,1]],"order":[[20,1]],"other":[[14,1],[29,1]],"out":[[39,1],[46,1]],"outsid":[[29,1]],"over":[[39,1],[50,1],[51,1],[77,1]],"overdu":[[15,1]],"overwritten":[[66,1]],"owe":[[23,1],[26,1]],"owed":[[23,1],[34,1],[71,1]],"own":[[0,1],[1,1],[19,2],[22,1],[50,2],[54,1],[62,1],[63,1],[65,1],[72,1],[78,1],[80,1],[82,1],[83,1]],"owner":[[6,2],[7,1],[9,2],[10,1],[11,4],[12,1],[13,1],[14,2],[15,2],[16,1],[17,4],[19,1],[26,2],[29,1],[38,1],[43,1],[44,1],[46,1],[62,1],[66,3],[68,2],[69,3],[70,2],[71,2],[72,5],[73,4],[74,2],[75,4],[76,2],[77,2]],"ownership":[[69,1],[71,1],[76,1],[77,1]],"packet":[[51,1],[52,2],[54,1],[57,1]],"page":[[1,1],[5,1],[7,1],[8,2],[14,2],[15,1],[17,2],[19,2],[21,1],[22,2],[24,1],[25,1],[26,1],[27,1],[34,2],[36,1],[39,3],[40,1],[46,1],[50,1],[52,1],[53,1],[57,2],[58,1],[60,2],[63,2],[64,1],[65,1],[66,1],[67,1],[68,1],[72,2],[73,1],[77,1],[80,1],[87,1]],"paid":[[28,1],[29,1],[31,1],[32,1],[34,2],[80,1]],"paint":[[47,1]],"panel":[[26,1],[46,1]],"paper":[[74,1]],"paragraph":[[57,1]],"park":[[37,1]],"pars":[[45,1]],"part":[[10,1],[21,1]],"partial":[[34,1]],"past":[[15,1],[52,1],[53,1],[54,1],[75,1],[84,2],[86,1]],"pay":[[34,2],[80,1],[88,2],[89,2]],"payabl":[[80,1]],"payment":[[17,1],[29,2],[30,1],[31,1],[32,1],[33,3],[34,4],[69,1],[71,1],[90,1]],"pdf":[[50,1],[52,1],[74,2],[84,1],[86,2],[87,1]],"pend":[[5,1]],"peopl":[[14,2],[15,1],[17,1],[62,1],[63,1],[69,1],[71,1]],"per":[[7,1],[25,2],[50,1],[72,1]],"period":[[27,3],[33,1],[41,1],[44,1],[56,1],[57,1],[59,3],[60,4]],"person":[[14,1],[19,1],[63,1],[68,1]],"phon":[[7,1],[13,1],[14,1],[17,1],[34,1],[35,3],[37,2],[39,2],[40,1],[67,1],[68,1],[73,1]],"photo":[[37,2],[38,2],[39,2],[40,1],[43,2],[48,3],[50,6],[89,1]],"pick":[[2,3],[5,2],[14,2],[16,1],[17,1],[19,1],[37,2],[43,1],[46,1],[52,1],[62,3],[64,1],[72,1],[76,1],[77,1],[79,1],[84,1],[89,1]],"plac":[[15,1],[18,1],[71,1]],"placeholder":[[50,1]],"plan":[[89,1]],"plus":[[68,1]],"png":[[40,1]],"point":[[27,1],[33,1]],"portal":[[17,1],[29,1],[47,1],[49,1],[62,1],[65,1],[68,2],[69,3],[71,3],[80,1],[88,2],[90,1]],"post":[[11,1],[18,1],[23,1],[27,1],[32,1],[33,1],[57,1],[58,1],[59,1],[78,1],[79,1],[80,1]],"prepar":[[78,1]],"previous":[[66,1],[69,2]],"primary":[[14,1],[68,1],[69,1]],"print":[[52,2],[72,3],[74,1]],"privat":[[39,1]],"probably":[[86,1],[89,1]],"problem":[[44,1],[88,2],[89,1]],"produc":[[74,1]],"promot":[[4,1]],"properly":[[75,1]],"property":[[2,2],[7,1],[8,1],[9,1],[12,4],[13,1],[14,6],[15,1],[17,4],[19,2],[22,1],[24,2],[25,3],[27,4],[34,1],[39,1],[43,1],[46,1],[68,1],[74,2],[75,1]],"propos":[[48,1],[78,1]],"provid":[[77,1]],"pull":[[54,1]],"put":[[57,1]],"quarterly":[[59,1]],"question":[[83,2],[84,2],[87,1],[89,1],[91,1]],"queu":[[38,1],[46,1],[78,2]],"quot":[[77,1]],"ran":[[50,1]],"rather":[[59,1],[87,1]],"re":[[39,1],[60,1],[68,1]],"reach":[[62,1],[68,1]],"read":[[8,1],[10,1],[11,1],[21,1],[39,1],[43,2],[46,1],[48,3],[50,2],[52,1],[57,1],[65,1],[68,1],[73,1],[79,1],[81,1],[87,1]],"ready":[[9,1],[15,1]],"real":[[76,1]],"reason":[[8,1],[39,1],[46,1],[48,1],[50,1],[55,1],[57,1],[58,1],[60,1],[79,2]],"receiv":[[34,1]],"recipient":[[63,1],[64,1]],"recognis":[[10,1]],"recognition":[[87,1]],"record":[[9,1],[11,1],[15,2],[17,3],[29,2],[30,1],[31,1],[33,2],[34,2],[39,1],[44,1],[46,1],[52,1],[54,2],[66,3],[67,3],[68,2],[69,2],[70,2],[73,3],[74,2],[75,2],[76,3],[77,1]],"recurr":[[57,1]],"referenc":[[11,1]],"refus":[[39,1]],"regular":[[25,1],[27,1]],"reject":[[46,1],[79,1]],"reload":[[21,1]],"rely":[[50,1]],"remind":[[26,1]],"reminder":[[26,2],[69,1]],"remov":[[5,2],[39,1]],"repair":[[89,1]],"repeat":[[11,1],[25,1]],"replac":[[11,1],[50,1]],"reply":[[65,2]],"report":[[17,1],[23,1],[41,3],[42,1],[43,1],[46,1],[88,2],[89,3]],"request":[[1,1],[15,1],[18,1],[48,1],[49,1],[79,1],[88,1],[89,6],[90,2]],"requir":[[7,1],[16,1],[73,1]],"resend":[[64,1]],"resent":[[5,1]],"reserv":[[60,2]],"resident":[[1,2],[2,2],[4,1],[9,1],[12,3],[14,2],[16,2],[17,1],[18,1],[19,3],[24,1],[34,2],[36,1],[47,1],[49,2],[50,6],[61,2],[73,2],[80,1],[88,2]],"resolv":[[44,1]],"respons":[[48,1],[80,1]],"rest":[[0,2],[19,2],[65,1]],"retry":[[39,2]],"revers":[[17,1]],"review":[[37,1],[45,1],[47,3],[48,4],[49,1],[50,8],[52,1],[56,1],[79,2],[82,1]],"right":[[19,2],[23,1],[27,1],[34,1],[64,1],[73,1]],"role":[[1,1],[2,2],[5,2],[14,1]],"roof":[[47,1]],"roster":[[72,4],[73,3],[74,3],[75,1],[76,1]],"round":[[60,1]],"row":[[5,2],[6,1],[7,2],[8,5],[10,5],[11,2],[31,1]],"rs":[[19,1],[36,1],[42,1],[45,2],[84,1]],"rule":[[19,1],[46,1],[48,2],[50,2],[75,1],[77,1],[83,1],[87,1],[89,3],[91,2]],"run":[[1,1],[11,1],[50,2]],"safe":[[70,1]],"sale":[[11,1],[17,1],[66,3],[67,2],[68,2],[69,2],[70,3],[71,1],[73,2],[75,1],[76,1]],"same":[[9,1],[11,2],[22,1],[28,1],[59,1],[60,1],[70,1],[80,1]],"sav":[[6,1],[10,1],[11,1],[33,1],[38,1],[39,1],[54,1],[60,1],[70,1],[86,1]],"save":[[5,1],[10,1],[14,1],[35,1],[37,1],[52,2],[56,3],[57,2],[59,5],[67,1],[74,1],[81,1]],"saw":[[48,1],[50,1]],"say":[[2,1],[8,3],[10,1],[14,1],[20,1],[27,1],[50,1],[57,1],[59,1],[60,1],[67,1],[87,2],[89,1]],"scal":[[60,1]],"scan":[[86,1]],"scann":[[79,1],[87,1]],"schedul":[[51,3],[52,3],[54,2],[62,1]],"screen":[[34,1],[88,1]],"search":[[17,1],[40,1]],"second":[[11,1],[59,1]],"section":[[2,1],[26,1],[34,1],[36,1],[42,1],[43,1],[45,1],[85,1],[87,1]],"see":[[1,1],[17,2],[19,4],[24,1],[36,1],[42,1],[44,1],[49,2],[50,2],[57,1],[64,1],[69,2],[79,1],[80,1],[89,1],[90,1],[91,1]],"select":[[2,1],[7,1],[8,4],[14,4],[17,5],[24,1],[25,4],[27,2],[31,2],[33,1],[34,1],[37,3],[39,2],[43,3],[44,1],[46,1],[48,2],[50,1],[52,7],[53,1],[57,6],[59,3],[62,5],[68,5],[69,1],[70,1],[74,3],[76,1],[79,2],[81,2],[84,2]],"seller":[[17,1],[66,1],[67,1],[69,1],[71,2],[75,1]],"send":[[2,1],[5,1],[26,1],[43,1],[46,1],[49,1],[54,1],[61,2],[62,2],[63,1],[65,1],[68,1],[69,1],[78,1],[89,3]],"sent":[[18,1],[35,1],[38,1],[43,1],[44,1],[46,1],[49,1],[50,1],[54,1],[80,1]],"set":[[11,1],[19,2],[20,1],[24,1],[28,1],[34,1],[44,1],[57,1],[69,1],[74,2]],"sett":[[18,2]],"settl":[[70,1]],"settlement":[[66,1],[67,2],[68,1],[69,3],[70,1],[75,1]],"setup":[[18,1],[22,1]],"several":[[5,1],[10,2],[16,1],[27,1]],"shar":[[10,1],[68,2],[70,2],[72,1],[73,1],[75,2]],"sheet":[[54,1],[55,1]],"short":[[22,1],[37,1],[57,1]],"shorten":[[65,1]],"show":[[0,1],[15,1],[21,1],[24,1],[32,1],[34,1],[39,1],[46,1],[53,2],[57,1],[60,1],[62,1],[63,2],[65,1],[69,2],[71,1],[74,1],[75,3],[76,2],[77,1],[82,1],[84,1],[89,1]],"shown":[[11,1],[50,1],[60,1],[75,1],[76,1],[89,2]],"sidebar":[[2,1],[5,1],[8,1],[14,1],[19,1],[25,1],[26,1],[31,1],[34,1],[43,1],[48,1],[52,1],[62,1],[79,1],[84,2]],"sign":[[3,1],[22,1],[39,1]],"signal":[[39,1]],"six":[[19,1],[21,1]],"size":[[89,1]],"skip":[[8,1],[50,1]],"skipp":[[8,1],[11,1],[27,1]],"sms":[[62,1]],"sold":[[17,1],[66,1],[68,1]],"sole":[[75,1]],"some":[[8,1],[46,1],[64,1]],"someon":[[4,1],[5,1],[18,1],[70,1]],"someth":[[4,2],[10,2],[15,1],[16,2],[17,1],[21,3],[27,2],[33,2],[39,2],[45,2],[59,2],[64,2],[70,2],[76,2],[81,2],[86,2]],"soon":[[5,1],[67,1]],"sort":[[17,1],[40,1]],"special":[[25,1]],"spent":[[55,1]],"split":[[10,1]],"spreadsheet":[[6,3],[11,2],[13,1],[17,2],[22,1],[74,1]],"st":[[11,1]],"start":[[1,2],[7,2],[13,2],[17,2],[18,3],[24,2],[30,2],[36,2],[42,2],[44,1],[46,2],[50,2],[55,2],[56,3],[57,2],[59,2],[60,3],[67,2],[71,1],[73,2],[91,1]],"stat":[[7,1],[24,1],[46,2],[73,1],[74,1]],"statement":[[54,1],[91,1]],"status":[[26,1],[44,2],[63,1],[90,1]],"statut":[[77,1]],"stay":[[17,1],[23,1],[39,1],[40,1],[57,1],[63,1],[68,1],[69,1],[71,1]],"step":[[2,2],[8,2],[14,2],[19,5],[20,2],[21,4],[22,2],[25,2],[31,2],[37,2],[43,2],[48,2],[52,2],[56,1],[57,2],[59,1],[62,2],[68,2],[74,2],[79,2],[84,2],[89,2]],"still":[[34,1],[59,1],[69,1],[71,1]],"stop":[[22,1]],"stor":[[39,1],[40,1],[75,1]],"straight":[[3,1],[9,1],[15,2],[19,1],[39,1],[69,1]],"street":[[11,1],[37,1]],"subject":[[62,1]],"submit":[[1,1],[50,1],[89,2]],"submitt":[[50,2]],"such":[[17,1],[37,2],[46,1],[62,1],[75,1],[84,1]],"suggest":[[48,2],[60,1]],"suggestion":[[49,1],[50,2],[57,3],[60,1]],"summary":[[57,1],[60,2]],"support":[[22,2],[27,1],[33,1],[59,1],[89,1]],"suspend":[[75,2],[77,1]],"suspension":[[75,1]],"switch":[[5,2],[17,1]],"system":[[7,1],[17,1]],"tab":[[9,1],[14,1],[38,2],[46,1],[79,1],[84,1],[88,1],[91,1]],"take":[[19,1],[37,1]],"tap":[[89,9],[91,1]],"task":[[19,1]],"tell":[[10,1],[49,1],[50,1],[59,1],[89,1]],"templat":[[7,1],[62,1]],"tenant":[[14,1],[68,1],[69,1]],"tenur":[[7,1],[11,1],[17,1],[69,2]],"text":[[49,1],[65,2],[77,1],[84,2],[86,2],[87,2]],"through":[[17,1]],"thrown":[[60,1]],"tick":[[14,1],[20,1],[50,1],[68,1],[70,1]],"time":[[6,1],[22,1],[56,1],[62,1],[65,1],[74,1]],"titl":[[84,1]],"today":[[34,1],[57,1],[76,1],[77,1]],"told":[[87,1]],"too":[[71,1]],"top":[[5,1],[15,1],[17,1],[18,1],[19,1],[25,1],[39,1],[46,1],[68,1]],"topic":[[52,1],[62,1]],"total":[[57,1]],"track":[[53,1]],"trail":[[79,1]],"trailer":[[37,1]],"transcript":[[52,1]],"transferr":[[67,1]],"trash":[[5,1]],"treasurer":[[55,1]],"true":[[22,1]],"try":[[33,1],[39,1],[45,1],[70,1],[76,1],[81,1],[86,1]],"turn":[[34,1],[59,1]],"twic":[[10,1]],"two":[[72,1]],"typ":[[77,1]],"type":[[24,1],[37,1],[43,1],[48,1],[52,2],[57,1],[84,2],[89,1]],"under":[[2,2],[5,1],[8,2],[14,1],[19,1],[25,2],[37,2],[38,1],[39,1],[40,1],[43,1],[48,1],[50,1],[53,3],[57,2],[62,1],[69,3],[71,1],[74,2],[85,1]],"unit":[[7,1],[10,2],[11,1],[14,1],[17,1],[39,1],[43,1],[67,1]],"unknown":[[69,1]],"unless":[[57,1],[73,1],[75,1]],"unpaid":[[28,1],[77,1]],"until":[[6,1],[8,1],[18,1],[21,1],[35,1],[39,1],[40,1],[56,1],[57,1],[60,1],[70,1],[78,2]],"up":[[7,1],[18,2],[19,2],[20,1],[22,1],[24,1],[34,1],[37,1],[50,2],[60,1],[65,1],[68,1],[70,2]],"upcom":[[53,2]],"updat":[[8,2],[11,1],[44,1],[90,1]],"upload":[[7,1],[19,2],[36,2],[38,1],[39,4],[40,2],[42,2],[45,2],[83,2],[84,2],[86,1]],"ups":[[53,1]],"urgent":[[49,1]],"use":[[5,1],[17,1],[28,1],[29,1],[48,1],[54,1],[55,1],[57,1],[60,3],[61,1],[65,1],[71,1],[74,1],[75,1],[86,1],[87,1],[89,1],[91,1]],"used":[[7,1],[54,1],[57,1],[87,1]],"valid":[[10,1],[16,1]],"valu":[[11,1]],"vehicl":[[37,1]],"vendor":[[79,2],[80,2],[81,1],[82,2]],"view":[[91,1]],"violation":[[12,1],[15,1],[17,4],[18,1],[35,1],[37,1],[38,3],[41,3],[42,1],[43,2],[44,2],[46,2],[54,1],[79,2],[80,2],[85,1]],"vot":[[75,2]],"vote":[[72,1],[75,3],[77,1]],"voter":[[72,3],[74,2],[75,1],[77,1]],"vs":[[57,1]],"wait":[[15,1],[39,2],[40,1],[46,1],[50,2],[70,1],[78,1],[79,1],[84,1],[91,1]],"walk":[[35,1]],"want":[[57,1],[89,1]],"way":[[29,1],[43,1],[77,1]],"webp":[[40,1]],"went":[[10,1],[46,1]],"whatever":[[77,1],[89,1]],"wherever":[[57,1]],"whether":[[68,1]],"whil":[[50,1],[84,1]],"whol":[[19,1],[60,1],[61,1]],"whos":[[77,1],[82,1]],"window":[[39,1]],"without":[[71,1],[87,1]],"word":[[41,1],[49,2],[84,1]],"work":[[18,1],[48,1],[78,1],[91,1]],"writ":[[17,1],[45,1],[50,1],[57,1],[62,1],[89,1]],"written":[[55,1],[76,1],[91,1]],"wrong":[[4,2],[8,1],[10,2],[16,2],[21,3],[27,2],[33,2],[37,1],[39,2],[43,1],[45,2],[52,1],[59,2],[64,2],[70,2],[76,2],[81,3],[86,2]],"xls":[[10,1]],"xlsx":[[7,1],[10,1]],"year":[[55,5],[56,1],[57,9],[59,6],[60,7]],"yearly":[[59,1],[60,2]],"yet":[[7,1],[19,1],[27,4],[33,1],[39,1],[45,1],[50,1],[57,1],[59,2],[87,1]],"yourself":[[5,1],[43,1],[45,1],[49,1],[54,1],[59,1]],"zell":[[34,4],[89,2]],"zip":[[7,1]],"zone":[[74,1]]}}}
+export const GUIDE_SEARCH_INDEX: GuideSearchIndex = {"articles":{"ids":["members-invite-board","search-command-k","setup-import-roster","setup-properties-residents","start-board-admin","dues-collections-case","dues-generate-monthly","dues-record-payment","violations-inspection-mode","violations-report-and-letter","arc-review-application","events-recurring-reminders","meetings-schedule-and-minutes","accounting-bank-reconcile","accounting-draft-budget","accounting-enter-pay-bills","accounting-monthly-board-report","accounting-payment-plans","accounting-recurring-entries","accounting-reports-overview","communications-segments-sms","communications-send-announcement","inbox-connect-mailbox","inbox-reply-to-resident","tickets-board","leases-waiting-list","properties-record-a-sale","properties-statutory-roster","approvals-queue","documents-governing-and-ask","legal-state-law-compliance","vendors-insurance-compliance","vendors-rfps-collect-bids","settings-billing","settings-data-export","settings-dues-reminders","settings-notifications","settings-resident-payments","resident-arc-rules-check","resident-dues-statement","resident-portal-basics","resident-support-tickets"],"lengths":[46,94,57,51,36,127,47,46,65,52,82,114,48,157,90,160,133,126,111,188,123,43,77,86,89,113,72,103,63,55,149,126,116,84,90,106,80,108,115,112,72,97],"avgLength":93.071,"postings":{"12":[[14,1]],"14":[[30,2]],"30":[[5,2],[38,2]],"31":[[19,2]],"209":[[30,2]],"279":[[20,2]],"303":[[27,2],[30,2]],"305":[[27,2]],"306":[[27,2]],"718":[[30,2]],"720":[[27,6],[30,4]],"1099":[[31,2]],"1st":[[16,3]],"accept":[[37,2]],"access":[[0,3],[26,1],[41,2]],"account":[[5,4],[13,6],[15,2],[17,1],[19,9],[22,3],[39,3]],"accrual":[[19,4]],"ach":[[37,2]],"act":[[30,2]],"action":[[12,2],[24,3]],"actual":[[14,3],[19,5]],"add":[[0,2],[3,4],[6,1],[11,1],[20,1],[23,1],[24,1],[30,2],[31,6]],"additional":[[31,2]],"address":[[1,2],[3,3],[27,2]],"admin":[[0,2]],"affect":[[36,1]],"after":[[35,3]],"again":[[18,1]],"against":[[13,1],[38,5]],"agenda":[[12,2]],"agreement":[[17,2]],"ai":[[10,3],[13,2],[15,5],[23,3],[28,3],[29,2]],"alert":[[11,4]],"all":[[34,2],[39,2]],"amendment":[[29,2]],"amount":[[37,1]],"announcement":[[21,5],[40,2]],"annual":[[11,9],[12,2],[14,2],[27,2],[33,2]],"annually":[[18,2]],"answer":[[23,2],[24,5],[29,1],[41,1]],"any":[[1,1],[27,1]],"anyth":[[1,3]],"ap":[[15,2]],"app":[[5,2],[22,2],[35,2]],"application":[[10,5],[38,5]],"approv":[[9,4],[10,5],[23,1],[25,3],[28,6],[31,3],[35,1],[38,2],[40,1]],"approval":[[28,5],[31,2],[40,5]],"arc":[[10,5],[28,3],[38,5],[40,2]],"architectural":[[10,3],[28,2],[38,2]],"archiv":[[3,2]],"area":[[34,1],[41,2]],"arrangement":[[17,2]],"arrear":[[5,2],[17,2]],"articl":[[1,1]],"ask":[[1,1],[10,1],[29,6],[30,1],[32,4],[40,4],[41,1]],"assessment":[[6,4],[17,2]],"assign":[[24,2]],"association":[[6,2],[33,1],[34,3],[37,1]],"attach":[[23,2],[38,2],[41,2]],"attachment":[[23,6]],"attorney":[[5,3],[20,2],[30,2]],"audienc":[[20,3]],"auto":[[18,2],[35,2]],"automatic":[[18,2],[35,5]],"automatically":[[13,2],[18,2],[35,2]],"award":[[32,5]],"back":[[34,2],[41,1]],"backup":[[34,2]],"bad":[[5,2]],"balanc":[[7,1],[13,6],[17,5],[19,9],[35,1],[39,4],[40,2]],"bank":[[13,25],[19,2]],"bar":[[1,2]],"basis":[[19,2]],"becom":[[17,1],[26,1]],"befor":[[9,1],[35,3]],"begin":[[4,2]],"behind":[[5,2],[17,5]],"bid":[[32,17]],"bill":[[3,1],[6,5],[15,36],[28,3],[33,2],[41,3]],"blank":[[10,2]],"board":[[0,6],[5,1],[8,1],[11,5],[12,4],[14,2],[16,12],[20,2],[24,1],[36,6],[38,7],[40,1],[41,8]],"book":[[13,1],[34,1]],"bought":[[39,2]],"bounc":[[20,2]],"brain":[[9,1],[29,1]],"broadcast":[[21,2]],"broken":[[41,2]],"budget":[[11,2],[14,13],[19,9]],"bulk":[[2,2]],"button":[[37,3]],"buyer":[[26,3]],"bylaw":[[29,3]],"cadenc":[[35,2]],"calendar":[[11,2],[12,1]],"california":[[30,2]],"camera":[[8,2]],"cancel":[[33,4],[34,2],[38,2]],"cap":[[25,7]],"card":[[33,5],[37,2]],"case":[[5,3]],"cash":[[7,5],[16,2],[19,9]],"catch":[[17,2]],"categoriz":[[13,2]],"cc":[[9,1],[29,1]],"ccr":[[9,2],[25,2],[29,4],[38,2]],"certificat":[[31,2]],"chang":[[0,1],[26,5],[36,2],[38,1],[40,1]],"chapter":[[30,4]],"character":[[20,4]],"charg":[[6,4],[7,1],[17,1],[39,5]],"chart":[[19,2]],"chas":[[35,2]],"check":[[2,1],[4,1],[7,5],[13,3],[15,6],[20,1],[23,1],[30,4],[31,4],[33,1],[38,8],[39,1],[40,2]],"checkbook":[[13,2]],"checklist":[[4,3]],"chequ":[[7,2]],"choic":[[36,1]],"choos":[[0,1],[11,1],[20,3],[32,2],[36,1]],"cinc":[[2,3]],"cit":[[30,1]],"citation":[[30,2]],"clear":[[13,1]],"clos":[[5,4],[9,2],[24,2],[26,2],[39,2]],"cmd":[[1,2]],"co":[[26,2]],"code":[[30,2],[37,3]],"coi":[[31,3]],"collect":[[37,2]],"collection":[[5,12],[16,2],[17,2],[35,2]],"come":[[13,2],[22,2]],"command":[[1,4]],"committe":[[10,2]],"common":[[41,2]],"community":[[8,3]],"comp":[[31,2]],"company":[[18,2]],"compar":[[32,5]],"comparison":[[32,2]],"complaint":[[24,2]],"complianc":[[9,2],[30,2],[31,3]],"compliant":[[31,4]],"compos":[[23,2]],"composer":[[32,1]],"concern":[[40,2]],"condition":[[10,4]],"conflict":[[38,2]],"connect":[[13,5],[22,5]],"consistent":[[38,2]],"contact":[[20,2],[41,2]],"contract":[[32,2]],"contractor":[[15,2],[31,4],[32,4]],"contribution":[[14,2],[18,2]],"control":[[1,2]],"copy":[[34,5]],"cost":[[33,2]],"couldn":[[4,1]],"covenant":[[9,3],[29,3],[38,2]],"creat":[[6,1]],"credit":[[19,2],[33,2],[37,2],[39,2]],"csv":[[2,3],[3,2],[27,3],[34,3]],"ctrl":[[1,3]],"cure":[[9,4]],"custom":[[20,2]],"dark":[[1,2]],"dashboard":[[4,1]],"dat":[[5,1]],"data":[[34,11]],"date":[[11,2],[19,2],[27,3],[35,5]],"davis":[[30,2]],"day":[[5,2],[30,2],[35,1],[38,2]],"deadlin":[[11,7],[32,2]],"debit":[[19,2]],"debt":[[5,2]],"december":[[19,2]],"decision":[[10,2],[28,2],[38,8]],"declaration":[[25,2],[29,2]],"deed":[[26,2]],"delet":[[5,2],[15,2],[24,2]],"delinquency":[[5,2],[17,2]],"delinquent":[[5,5],[17,2],[20,2],[27,2]],"deliver":[[20,2]],"delivery":[[20,2],[21,2]],"demand":[[5,2]],"deni":[[38,2]],"deny":[[10,3],[25,2]],"deposit":[[13,4],[28,3]],"describ":[[32,1]],"detail":[[10,2],[31,2],[38,2]],"differenc":[[13,2]],"disconnect":[[22,2]],"doc":[[29,1]],"document":[[1,2],[23,1],[29,6],[40,2]],"doesn":[[13,2]],"door":[[33,5]],"download":[[33,1],[34,6],[39,2]],"draft":[[8,1],[9,1],[14,6],[23,5],[32,1]],"driv":[[8,5]],"due":[[5,4],[6,6],[7,1],[11,2],[15,2],[16,2],[17,4],[20,3],[34,1],[35,12],[37,7],[39,6],[40,6],[41,2]],"duplicat":[[2,2]],"each":[[2,1],[3,1],[4,1],[5,1],[8,1],[13,1],[17,1],[18,1],[20,1],[28,1],[34,1],[35,1]],"early":[[16,1]],"ein":[[31,2]],"election":[[27,2]],"eligibl":[[27,2]],"email":[[16,16],[21,3],[22,9],[23,12],[35,6],[36,12],[37,1]],"enabl":[[37,2]],"end":[[13,4],[16,4],[19,2],[26,1],[36,2]],"enter":[[15,6],[31,1],[37,1]],"entry":[[5,2],[18,16],[19,6]],"equity":[[19,2]],"estimat":[[32,2]],"even":[[8,1]],"event":[[11,5]],"every":[[2,1],[6,1],[11,3],[14,1],[16,1],[18,2],[39,1]],"everyth":[[5,2]],"exact":[[37,1]],"excel":[[2,3],[34,2]],"expens":[[13,4],[15,2]],"expir":[[31,4]],"export":[[2,1],[34,6]],"fail":[[20,2],[23,2]],"family":[[3,1]],"fee":[[6,2],[17,2],[18,5]],"feed":[[13,2]],"fenc":[[10,2],[40,2]],"fil":[[11,3],[22,1]],"file":[[5,5],[12,3],[23,5],[33,2],[34,1]],"fill":[[15,2],[31,2]],"financ":[[16,2],[19,2]],"financial":[[16,2],[19,9]],"find":[[1,15],[10,2]],"fine":[[9,2],[30,2]],"first":[[4,2],[16,2]],"fiscal":[[14,6]],"fix":[[41,2]],"florida":[[30,6]],"flow":[[19,3]],"follow":[[24,2],[30,1],[38,1],[41,5]],"foreclosur":[[5,2],[30,2]],"former":[[26,2]],"forward":[[23,2],[39,2]],"found":[[38,1]],"free":[[33,2]],"full":[[5,2],[34,3],[39,2]],"fund":[[19,2]],"gate":[[41,2]],"general":[[19,2],[31,2]],"generat":[[6,2]],"georgia":[[30,2]],"get":[[11,1],[16,1],[20,5],[21,1]],"gett":[[4,2]],"gmail":[[22,3]],"go":[[1,2]],"goe":[[9,1]],"googl":[[22,4],[34,2]],"govern":[[29,5]],"group":[[20,2]],"guid":[[1,1]],"guidelin":[[38,2],[40,2]],"half":[[15,2]],"hand":[[15,1],[26,3]],"happen":[[2,1],[28,3]],"hardship":[[17,2]],"has":[[5,1]],"head":[[11,2]],"headroom":[[25,2]],"help":[[1,1],[41,2]],"hire":[[32,2]],"history":[[26,1],[39,9]],"hoa":[[0,2],[4,3],[22,6],[30,4]],"home":[[1,1],[2,4],[3,3],[6,1],[8,4],[20,2],[22,1],[25,1],[26,3],[37,1],[38,1],[40,1]],"homeowner":[[2,2]],"homeownerhub":[[33,4],[36,1]],"hook":[[13,2],[22,2]],"hous":[[3,2]],"id":[[31,2]],"ignor":[[13,2]],"import":[[2,6],[3,2],[22,2]],"inbox":[[22,6],[23,5]],"incom":[[19,5]],"inflation":[[14,2]],"info":[[10,2],[31,2]],"information":[[10,3]],"inspect":[[8,5]],"inspection":[[8,4],[11,2]],"installment":[[17,8]],"insur":[[31,2]],"insuranc":[[11,3],[31,11]],"internal":[[24,2]],"invit":[[0,5],[26,2],[31,3],[32,1]],"invoic":[[6,2],[15,8],[28,2],[33,3]],"item":[[12,2],[24,3],[32,2]],"itself":[[18,3]],"job":[[32,1]],"journal":[[18,3],[19,4]],"jump":[[1,3]],"kept":[[26,1]],"key":[[41,2]],"keyboard":[[1,2]],"label":[[22,2]],"land":[[22,1]],"landlord":[[25,2]],"landscap":[[32,2]],"landscaper":[[15,2],[31,2]],"last":[[14,7],[16,1]],"late":[[17,2],[20,3],[35,4],[39,2]],"law":[[30,14]],"lawsuit":[[5,2]],"lawyer":[[5,2],[30,2]],"lead":[[11,2]],"leas":[[25,20]],"leav":[[34,2]],"ledger":[[7,2],[18,3],[19,4],[39,2]],"legal":[[30,4]],"legislation":[[30,2]],"let":[[9,1],[15,1],[23,1],[32,1]],"letter":[[5,7],[8,1],[9,6],[10,4],[28,3]],"liability":[[31,2]],"licens":[[31,8]],"lien":[[5,9],[30,2]],"like":[[11,1],[18,1],[20,1]],"limit":[[20,2],[25,2]],"line":[[14,1],[32,2]],"link":[[13,3],[22,3],[31,2]],"list":[[2,2],[25,8],[27,8],[34,2]],"live":[[3,1]],"load":[[29,1]],"log":[[5,1],[8,2]],"logg":[[5,2]],"login":[[0,3]],"long":[[20,2],[38,2]],"look":[[1,2],[30,3],[38,2]],"lookup":[[1,2]],"loss":[[19,6]],"lot":[[3,2],[32,2]],"mail":[[15,2],[27,2]],"mailbox":[[22,5]],"maintenanc":[[24,2],[41,2]],"make":[[18,5],[27,1]],"manag":[[25,3]],"management":[[18,5]],"manager":[[0,2]],"many":[[25,2],[36,2]],"mark":[[7,3],[15,5]],"match":[[13,14],[37,1]],"may":[[25,1]],"mean":[[4,1]],"meet":[[11,2],[12,10],[27,3],[30,2]],"member":[[0,3],[3,1],[16,1],[27,4]],"membership":[[27,2]],"memo":[[37,5]],"messag":[[20,7],[21,3],[38,2],[41,2]],"method":[[33,2]],"migrat":[[2,2]],"minut":[[12,6]],"miss":[[10,2],[11,3],[39,2]],"mobil":[[8,2]],"mode":[[1,2]],"modifi":[[19,2]],"modification":[[10,2]],"money":[[19,3]],"month":[[6,4],[13,3],[14,1],[16,9],[17,4],[18,3],[36,2]],"monthly":[[6,2],[16,9],[17,5],[18,5],[33,3],[36,6]],"more":[[10,3],[41,1]],"mortgag":[[39,2]],"mov":[[26,2]],"much":[[19,2],[33,2]],"name":[[36,2]],"need":[[23,2],[38,2]],"neighborhood":[[8,2]],"neighbourhood":[[8,2]],"net":[[19,4]],"new":[[4,2],[23,2],[26,2],[30,2],[31,2]],"newsletter":[[21,2]],"next":[[14,8],[35,2]],"nois":[[41,3]],"non":[[20,2],[31,2]],"note":[[3,2],[24,5],[30,2]],"noth":[[28,3]],"notic":[[9,2],[20,2],[21,2],[30,3],[35,4]],"notification":[[16,2],[36,4]],"notify":[[11,2]],"now":[[16,2],[19,2],[25,1]],"nudg":[[35,2]],"number":[[15,2],[16,1],[34,2]],"occupi":[[25,4]],"off":[[5,2],[6,1],[13,2],[16,3],[17,4],[35,2],[36,5],[37,2]],"official":[[27,2],[30,2]],"offlin":[[8,2]],"onboard":[[4,2],[31,4]],"once":[[2,1],[17,1]],"one":[[5,1],[6,3],[18,1],[20,3],[21,1],[28,1],[32,1],[34,1]],"onlin":[[7,2],[37,9]],"only":[[20,6],[36,1]],"open":[[1,1],[5,1],[14,2],[19,1],[20,8],[23,1],[39,2]],"operat":[[13,2],[19,2]],"opt":[[16,2],[36,2]],"optional":[[38,1]],"order":[[25,1]],"out":[[1,2],[5,2],[9,1],[16,2],[25,2],[36,2]],"outsid":[[7,1],[20,2]],"over":[[17,4],[19,2]],"overdu":[[16,2],[35,2],[39,2]],"overview":[[19,3]],"owe":[[17,2]],"owed":[[19,2]],"own":[[0,1],[17,1],[29,1],[31,4]],"owner":[[1,3],[2,4],[3,3],[5,2],[6,2],[7,1],[17,7],[19,2],[20,2],[25,5],[26,12],[27,5],[34,3],[35,3]],"ownership":[[26,2]],"packet":[[12,3],[14,2]],"page":[[1,1],[27,1]],"paid":[[5,4],[7,6],[15,9],[39,2]],"paint":[[10,2],[40,2]],"palett":[[1,2]],"paper":[[15,2]],"park":[[32,2],[41,3]],"part":[[15,2]],"partial":[[15,2]],"pass":[[30,2]],"past":[[5,2],[15,2],[17,2],[35,2],[39,2]],"paus":[[11,2]],"pav":[[32,2]],"pay":[[5,2],[15,11],[17,9],[37,7],[40,6]],"payabl":[[15,4]],"payment":[[7,7],[15,3],[17,13],[33,2],[34,1],[35,2],[37,20],[39,7]],"pdf":[[15,3],[27,2],[39,5]],"pend":[[28,2]],"peopl":[[20,2],[35,2]],"per":[[33,3]],"percent":[[25,2]],"period":[[9,2],[14,2]],"phon":[[8,5],[37,1],[40,1]],"photo":[[8,2],[9,1],[10,4],[15,5],[38,2],[41,2]],"photograph":[[8,1]],"pick":[[20,1],[21,1],[32,5],[35,1]],"pictur":[[15,2]],"plaid":[[13,3]],"plan":[[17,7],[33,8],[38,2]],"plumber":[[31,2]],"poa":[[30,2]],"policy":[[11,2],[29,2]],"pool":[[41,2]],"portal":[[7,1],[21,1],[26,1],[40,3],[41,1]],"possibl":[[38,2]],"post":[[18,6],[30,4]],"preferenc":[[36,2]],"press":[[1,1]],"preview":[[16,3]],"previous":[[26,2]],"pric":[[33,5]],"print":[[12,3],[27,6],[39,6]],"prior":[[14,2]],"priority":[[24,3]],"privat":[[24,3]],"problem":[[8,1],[40,6]],"profil":[[36,2]],"profit":[[19,4]],"proof":[[39,2]],"property":[[1,2],[3,5],[5,1],[6,1],[20,3],[23,2],[30,2]],"propos":[[14,2],[28,1]],"proposal":[[32,4]],"prospect":[[31,2]],"pull":[[19,2]],"put":[[12,1]],"quarter":[[18,1]],"quarterly":[[18,2]],"question":[[29,5],[30,3],[38,2],[41,7]],"queu":[[8,2],[13,3],[25,2],[28,5],[31,2]],"quick":[[1,2]],"quorum":[[27,2]],"quot":[[32,10]],"reach":[[20,1]],"read":[[10,1],[15,3],[19,3],[30,1],[41,1]],"reason":[[14,1]],"receipt":[[15,2],[33,2],[39,2]],"receiv":[[37,2]],"receivabl":[[19,2]],"recipient":[[20,2],[37,2]],"reconcil":[[13,5]],"reconciliation":[[13,4]],"reconnect":[[22,2]],"record":[[1,1],[5,1],[7,5],[13,2],[15,1],[26,4],[27,7],[30,8],[34,4],[39,1]],"recurr":[[11,2],[18,8]],"reject":[[28,3]],"remind":[[11,3]],"reminder":[[11,9],[35,18]],"remov":[[0,3]],"renew":[[11,2]],"renewal":[[11,5]],"rent":[[25,5]],"rental":[[25,13]],"repair":[[24,2],[40,2],[41,3]],"repav":[[32,2]],"repeat":[[11,1],[18,7]],"reply":[[23,8],[24,3],[41,6]],"report":[[9,6],[11,2],[16,23],[19,9],[36,10],[40,6]],"request":[[10,5],[24,11],[27,3],[30,2],[32,2],[38,6],[40,2],[41,7]],"resend":[[20,2]],"reserv":[[13,2],[14,2],[18,5],[19,4]],"resident":[[0,1],[3,5],[10,1],[11,2],[20,2],[21,6],[22,3],[23,5],[24,8],[37,3],[40,3]],"resolv":[[9,2]],"respond":[[23,2],[24,2]],"rest":[[0,3]],"restriction":[[25,2]],"retry":[[23,2]],"revers":[[19,2]],"review":[[8,1],[10,6],[23,2],[28,2],[38,2]],"rfp":[[32,6]],"right":[[7,1],[19,2],[22,1]],"role":[[0,3]],"roof":[[10,2],[32,2]],"roster":[[2,3],[27,10],[34,2]],"row":[[2,1]],"rs":[[9,1],[29,1]],"rule":[[10,2],[29,3],[30,3],[38,8],[40,2]],"run":[[30,1],[31,1],[38,1]],"safety":[[41,2]],"sale":[[26,6]],"sav":[[13,2]],"save":[[8,1],[14,1],[39,3]],"scan":[[15,4]],"scann":[[28,3]],"schedul":[[12,5],[18,7],[21,2],[35,2]],"scop":[[22,2],[32,2]],"search":[[1,9],[3,2]],"section":[[30,1]],"see":[[19,1],[25,1],[33,3],[39,3]],"segment":[[20,2]],"sell":[[26,3]],"seller":[[26,3]],"send":[[0,1],[16,5],[20,3],[21,6],[22,1],[23,3],[31,2],[41,3]],"set":[[11,3],[17,3],[24,1],[25,4],[35,3],[37,2]],"sett":[[4,3],[16,2],[36,2],[37,2]],"settlement":[[26,2]],"setup":[[4,3],[22,2]],"sheet":[[19,3],[34,2]],"shortcut":[[1,4]],"show":[[13,2]],"sign":[[1,2]],"signal":[[8,3]],"sinc":[[39,2]],"six":[[17,2]],"sms":[[20,2],[21,2]],"softwar":[[34,2]],"sold":[[26,2]],"sort":[[3,2]],"special":[[6,2],[17,2]],"specific":[[20,2]],"split":[[17,2]],"spread":[[17,3]],"spreadsheet":[[2,5],[3,2],[34,3]],"stand":[[19,1]],"start":[[4,5],[14,1]],"stat":[[30,6]],"statement":[[13,5],[19,5],[39,10],[40,2]],"status":[[24,3],[38,2],[41,2]],"statut":[[30,5]],"step":[[4,1],[5,1],[6,1]],"stirl":[[30,2]],"stop":[[16,2],[36,2]],"strip":[[33,2]],"submit":[[38,1]],"submitt":[[38,2]],"subscrib":[[33,6]],"subscription":[[33,4]],"such":[[2,1],[34,1]],"suggest":[[13,2]],"suggestion":[[10,2]],"suit":[[5,2]],"summary":[[16,4]],"support":[[24,5],[41,5]],"suspend":[[27,2]],"suspension":[[27,2]],"switch":[[0,2],[34,2]],"sync":[[13,2],[22,2]],"system":[[2,1]],"take":[[34,2]],"tax":[[31,2]],"taxe":[[39,2]],"templat":[[2,2],[18,2]],"tenant":[[3,3],[20,2],[25,4]],"tender":[[32,2]],"tenur":[[25,2]],"test":[[11,2]],"texa":[[30,2]],"text":[[20,10],[21,3]],"them":[[1,2]],"thre":[[32,2]],"through":[[13,1]],"ticket":[[24,11],[34,1],[41,2]],"time":[[11,2],[17,2],[39,4]],"tomorrow":[[35,2]],"too":[[36,2]],"track":[[5,3],[38,3]],"transaction":[[13,11],[39,2]],"transcript":[[12,3]],"transfer":[[18,3],[26,2]],"treasurer":[[14,2],[16,2],[19,2],[37,2]],"trial":[[19,2]],"turn":[[12,1],[16,3],[18,1],[24,1],[35,2],[36,5],[37,7]],"under":[[19,2],[22,1],[23,2]],"understand":[[38,1]],"undo":[[23,2]],"unit":[[3,2]],"unmatch":[[13,4]],"unpaid":[[15,2]],"unsubscrib":[[16,2],[36,2]],"until":[[28,3]],"up":[[1,2],[4,3],[11,5],[13,2],[17,5],[19,2],[22,2],[24,2],[30,3],[34,2],[35,3],[37,2],[41,2]],"updat":[[16,2],[30,5],[33,1]],"upgrad":[[33,2]],"upload":[[2,3],[8,2],[15,2],[29,5]],"urgent":[[24,2]],"user":[[0,2]],"varianc":[[19,2]],"vendor":[[1,2],[15,11],[20,2],[28,3],[31,14],[32,8]],"venmo":[[37,2]],"versus":[[19,2]],"violation":[[1,2],[8,2],[9,6],[20,2],[28,1],[34,1]],"vot":[[27,2]],"voter":[[27,10]],"vs":[[19,3]],"w9":[[31,2]],"wait":[[25,8]],"waiv":[[39,2]],"walk":[[8,5]],"walkthrough":[[8,2]],"warn":[[5,4]],"websit":[[30,2]],"weekly":[[18,2]],"whether":[[36,1]],"whol":[[39,2]],"winner":[[32,3]],"withdraw":[[38,2]],"withdrawal":[[13,2]],"withdrawn":[[38,2]],"won":[[5,2]],"work":[[31,1],[32,2]],"worker":[[31,2]],"workspac":[[22,2]],"writ":[[5,2],[21,1],[23,2]],"xlsx":[[2,2]],"year":[[11,3],[14,18],[18,1],[19,2]],"yearly":[[11,5],[33,3]],"yourself":[[16,1]],"zell":[[7,2],[37,8],[40,2]],"zip":[[34,3]]}},"sections":{"ids":["members-invite-board#overview","members-invite-board#before-you-start","members-invite-board#steps","members-invite-board#what-happens-next","members-invite-board#if-something-goes-wrong","members-invite-board#good-to-know","search-command-k#overview","search-command-k#steps","search-command-k#what-happens-next","search-command-k#if-something-goes-wrong","search-command-k#good-to-know","setup-import-roster#overview","setup-import-roster#before-you-start","setup-import-roster#steps","setup-import-roster#what-happens-next","setup-import-roster#if-something-goes-wrong","setup-import-roster#good-to-know","setup-properties-residents#overview","setup-properties-residents#before-you-start","setup-properties-residents#steps","setup-properties-residents#what-happens-next","setup-properties-residents#if-something-goes-wrong","setup-properties-residents#good-to-know","start-board-admin#overview","start-board-admin#steps","start-board-admin#what-happens-next","start-board-admin#if-something-goes-wrong","start-board-admin#good-to-know","dues-collections-case#overview","dues-collections-case#before-you-start","dues-collections-case#steps","dues-collections-case#what-happens-next","dues-collections-case#if-something-goes-wrong","dues-collections-case#good-to-know","dues-generate-monthly#overview","dues-generate-monthly#before-you-start","dues-generate-monthly#steps","dues-generate-monthly#what-happens-next","dues-generate-monthly#if-something-goes-wrong","dues-generate-monthly#good-to-know","dues-record-payment#overview","dues-record-payment#before-you-start","dues-record-payment#steps","dues-record-payment#what-happens-next","dues-record-payment#if-something-goes-wrong","dues-record-payment#good-to-know","violations-inspection-mode#overview","violations-inspection-mode#before-you-start","violations-inspection-mode#steps","violations-inspection-mode#what-happens-next","violations-inspection-mode#if-something-goes-wrong","violations-inspection-mode#good-to-know","violations-report-and-letter#overview","violations-report-and-letter#before-you-start","violations-report-and-letter#steps","violations-report-and-letter#what-happens-next","violations-report-and-letter#if-something-goes-wrong","violations-report-and-letter#good-to-know","arc-review-application#overview","arc-review-application#steps","arc-review-application#what-happens-next","arc-review-application#good-to-know","events-recurring-reminders#overview","events-recurring-reminders#before-you-start","events-recurring-reminders#steps","events-recurring-reminders#what-happens-next","events-recurring-reminders#if-something-goes-wrong","events-recurring-reminders#good-to-know","meetings-schedule-and-minutes#overview","meetings-schedule-and-minutes#steps","meetings-schedule-and-minutes#what-happens-next","meetings-schedule-and-minutes#good-to-know","accounting-bank-reconcile#overview","accounting-bank-reconcile#before-you-start","accounting-bank-reconcile#steps","accounting-bank-reconcile#what-happens-next","accounting-bank-reconcile#if-something-goes-wrong","accounting-bank-reconcile#good-to-know","accounting-draft-budget#overview","accounting-draft-budget#before-you-start","accounting-draft-budget#steps","accounting-draft-budget#what-happens-next","accounting-draft-budget#if-something-goes-wrong","accounting-draft-budget#good-to-know","accounting-enter-pay-bills#overview","accounting-enter-pay-bills#before-you-start","accounting-enter-pay-bills#steps","accounting-enter-pay-bills#what-happens-next","accounting-enter-pay-bills#if-something-goes-wrong","accounting-enter-pay-bills#good-to-know","accounting-monthly-board-report#overview","accounting-monthly-board-report#before-you-start","accounting-monthly-board-report#steps","accounting-monthly-board-report#what-happens-next","accounting-monthly-board-report#if-something-goes-wrong","accounting-monthly-board-report#good-to-know","accounting-payment-plans#overview","accounting-payment-plans#before-you-start","accounting-payment-plans#steps","accounting-payment-plans#what-happens-next","accounting-payment-plans#if-something-goes-wrong","accounting-payment-plans#good-to-know","accounting-recurring-entries#overview","accounting-recurring-entries#before-you-start","accounting-recurring-entries#steps","accounting-recurring-entries#what-happens-next","accounting-recurring-entries#if-something-goes-wrong","accounting-recurring-entries#good-to-know","accounting-reports-overview#overview","accounting-reports-overview#before-you-start","accounting-reports-overview#steps","accounting-reports-overview#what-happens-next","accounting-reports-overview#if-something-goes-wrong","accounting-reports-overview#good-to-know","communications-segments-sms#overview","communications-segments-sms#steps","communications-segments-sms#what-happens-next","communications-segments-sms#if-something-goes-wrong","communications-segments-sms#good-to-know","communications-send-announcement#overview","communications-send-announcement#steps","communications-send-announcement#what-happens-next","communications-send-announcement#if-something-goes-wrong","communications-send-announcement#good-to-know","inbox-connect-mailbox#overview","inbox-connect-mailbox#before-you-start","inbox-connect-mailbox#steps","inbox-connect-mailbox#what-happens-next","inbox-connect-mailbox#if-something-goes-wrong","inbox-connect-mailbox#good-to-know","inbox-reply-to-resident#overview","inbox-reply-to-resident#before-you-start","inbox-reply-to-resident#steps","inbox-reply-to-resident#what-happens-next","inbox-reply-to-resident#if-something-goes-wrong","inbox-reply-to-resident#good-to-know","tickets-board#overview","tickets-board#before-you-start","tickets-board#steps","tickets-board#what-happens-next","tickets-board#if-something-goes-wrong","tickets-board#good-to-know","leases-waiting-list#overview","leases-waiting-list#before-you-start","leases-waiting-list#steps","leases-waiting-list#what-happens-next","leases-waiting-list#if-something-goes-wrong","leases-waiting-list#good-to-know","properties-record-a-sale#overview","properties-record-a-sale#before-you-start","properties-record-a-sale#steps","properties-record-a-sale#what-happens-next","properties-record-a-sale#if-something-goes-wrong","properties-record-a-sale#good-to-know","properties-statutory-roster#overview","properties-statutory-roster#before-you-start","properties-statutory-roster#steps","properties-statutory-roster#what-happens-next","properties-statutory-roster#if-something-goes-wrong","properties-statutory-roster#good-to-know","approvals-queue#overview","approvals-queue#steps","approvals-queue#what-happens-next","approvals-queue#if-something-goes-wrong","approvals-queue#good-to-know","documents-governing-and-ask#overview","documents-governing-and-ask#steps","documents-governing-and-ask#what-happens-next","documents-governing-and-ask#if-something-goes-wrong","documents-governing-and-ask#good-to-know","legal-state-law-compliance#overview","legal-state-law-compliance#before-you-start","legal-state-law-compliance#steps","legal-state-law-compliance#what-happens-next","legal-state-law-compliance#if-something-goes-wrong","legal-state-law-compliance#good-to-know","vendors-insurance-compliance#overview","vendors-insurance-compliance#before-you-start","vendors-insurance-compliance#steps","vendors-insurance-compliance#what-happens-next","vendors-insurance-compliance#if-something-goes-wrong","vendors-insurance-compliance#good-to-know","vendors-rfps-collect-bids#overview","vendors-rfps-collect-bids#before-you-start","vendors-rfps-collect-bids#steps","vendors-rfps-collect-bids#what-happens-next","vendors-rfps-collect-bids#if-something-goes-wrong","vendors-rfps-collect-bids#good-to-know","settings-billing#overview","settings-billing#before-you-start","settings-billing#steps","settings-billing#what-happens-next","settings-billing#if-something-goes-wrong","settings-billing#good-to-know","settings-data-export#overview","settings-data-export#before-you-start","settings-data-export#steps","settings-data-export#what-happens-next","settings-data-export#if-something-goes-wrong","settings-data-export#good-to-know","settings-dues-reminders#overview","settings-dues-reminders#before-you-start","settings-dues-reminders#steps","settings-dues-reminders#what-happens-next","settings-dues-reminders#if-something-goes-wrong","settings-dues-reminders#good-to-know","settings-notifications#overview","settings-notifications#steps","settings-notifications#what-happens-next","settings-notifications#if-something-goes-wrong","settings-notifications#good-to-know","settings-resident-payments#overview","settings-resident-payments#before-you-start","settings-resident-payments#steps","settings-resident-payments#what-happens-next","settings-resident-payments#if-something-goes-wrong","settings-resident-payments#good-to-know","resident-arc-rules-check#overview","resident-arc-rules-check#before-you-start","resident-arc-rules-check#steps","resident-arc-rules-check#what-happens-next","resident-arc-rules-check#if-something-goes-wrong","resident-arc-rules-check#good-to-know","resident-dues-statement#overview","resident-dues-statement#before-you-start","resident-dues-statement#steps","resident-dues-statement#what-happens-next","resident-dues-statement#if-something-goes-wrong","resident-dues-statement#good-to-know","resident-portal-basics#overview","resident-portal-basics#steps","resident-portal-basics#what-happens-next","resident-portal-basics#good-to-know","resident-support-tickets#overview","resident-support-tickets#before-you-start","resident-support-tickets#steps","resident-support-tickets#what-happens-next","resident-support-tickets#if-something-goes-wrong","resident-support-tickets#good-to-know"],"lengths":[17,33,34,20,29,54,18,83,15,51,62,28,59,81,28,72,65,21,23,66,51,38,131,39,103,23,38,46,27,19,63,33,41,76,22,37,66,30,94,33,18,11,19,14,40,67,27,26,55,35,75,41,23,23,54,29,27,69,23,80,38,128,38,17,64,49,74,81,16,65,28,66,23,40,108,45,108,85,31,37,125,22,105,106,22,33,81,67,101,94,40,23,60,38,78,64,26,29,41,53,45,96,25,20,31,44,27,65,25,25,116,20,85,129,23,84,31,52,79,14,49,28,30,34,23,22,60,30,90,57,19,21,57,20,82,64,24,17,75,20,35,56,35,27,91,27,75,76,30,54,79,88,69,48,42,43,52,86,40,53,27,57,43,28,22,21,47,23,23,42,35,36,111,40,78,84,29,29,103,65,100,98,25,23,109,29,88,81,20,38,45,16,40,52,26,22,45,43,51,37,24,14,51,30,57,57,21,22,34,28,47,27,36,62,62,70,78,31,13,94,28,63,67,20,16,59,28,53,64,26,101,19,39,32,16,60,29,45,56],"avgLength":48.318,"postings":{"10":[[48,1],[190,1],[213,1],[215,1],[222,1],[238,1]],"12":[[16,2],[36,1],[82,1],[83,1],[193,1],[225,1],[228,1]],"13":[[193,1]],"15":[[135,1]],"20":[[172,1],[221,1],[235,1],[237,1]],"24":[[80,1]],"25":[[50,1],[51,1],[180,1]],"26":[[80,1]],"30":[[126,1],[128,1],[133,1],[179,2],[205,1]],"60":[[98,1],[100,1]],"90":[[66,2],[157,1],[205,1]],"100":[[80,1],[146,2],[150,1],[152,1],[157,1]],"279":[[118,1],[123,1]],"303":[[174,1]],"325":[[213,1]],"500":[[205,1]],"720":[[174,1]],"1099":[[180,1]],"1200":[[100,1]],"2000":[[174,1]],"2026":[[36,1]],"00":[[93,1],[213,1]],"000":[[12,1],[15,1],[80,1],[174,1]],"1st":[[90,1],[92,1],[93,1],[94,1],[208,1]],"9am":[[203,1]],"abov":[[113,1]],"absorb":[[101,1]],"accept":[[149,1]],"access":[[22,1],[126,1],[129,1],[149,1],[150,1],[151,1],[153,1]],"account":[[2,1],[16,1],[28,3],[37,1],[38,1],[44,1],[45,2],[73,1],[74,5],[76,5],[77,2],[80,3],[85,1],[86,2],[92,1],[98,1],[100,1],[101,1],[104,1],[106,1],[109,1],[110,2],[113,3],[125,1],[126,2],[128,2],[129,2],[153,1],[162,1],[189,1],[202,1],[205,1],[212,2],[213,1],[214,1],[216,1],[218,1],[224,1],[227,2],[229,1],[232,1],[234,1],[237,1]],"accrual":[[113,3]],"ach":[[86,1],[216,1]],"act":[[22,1]],"action":[[7,1],[20,1],[22,2],[29,1],[30,1],[31,1],[33,2],[67,1],[70,1],[71,2],[77,1],[94,1],[138,3],[140,2],[178,1],[181,1],[210,1]],"activ":[[85,1],[99,1],[101,1],[105,1],[117,1],[162,1],[179,1],[205,1]],"activity":[[20,1],[22,2],[31,1],[72,1],[82,1],[83,1],[151,1],[226,1],[228,1]],"actual":[[60,1],[71,1],[80,2],[83,2],[110,2],[112,1],[113,1]],"actually":[[78,1]],"add":[[3,1],[11,1],[14,1],[15,3],[16,1],[17,3],[18,1],[19,6],[22,1],[24,4],[27,2],[30,2],[31,1],[33,1],[35,2],[36,2],[38,4],[39,2],[48,2],[54,1],[61,1],[63,1],[69,1],[70,1],[71,2],[77,1],[82,2],[83,1],[85,2],[95,1],[101,2],[107,1],[110,1],[112,2],[113,1],[115,1],[117,2],[132,1],[138,2],[144,3],[146,1],[147,1],[150,3],[152,3],[156,1],[158,1],[164,1],[172,1],[175,1],[176,2],[177,1],[178,2],[180,1],[181,1],[183,2],[184,2],[186,2],[202,2],[213,1],[219,1],[230,1],[235,1]],"additional":[[54,1]],"address":[[7,1],[9,1],[10,1],[12,2],[15,2],[16,1],[18,1],[19,1],[21,2],[22,1],[24,1],[51,1],[54,1],[124,1],[126,1],[129,1],[149,1],[152,2],[154,1],[155,1],[157,2],[215,1],[216,1],[230,1]],"adjustment":[[80,1],[83,1]],"admin":[[1,3],[2,1],[4,3],[5,2],[10,1],[12,1],[18,1],[29,1],[35,1],[38,2],[41,1],[44,2],[47,1],[50,1],[53,1],[63,1],[66,1],[67,1],[73,2],[76,2],[79,2],[80,1],[82,1],[85,1],[88,2],[91,2],[92,1],[93,1],[94,1],[97,1],[100,1],[103,1],[109,2],[112,2],[125,1],[131,2],[137,1],[143,1],[149,1],[155,1],[171,1],[177,1],[181,1],[183,1],[189,3],[191,1],[195,1],[201,1],[210,1],[212,1]],"adopt":[[81,1]],"advic":[[159,1],[175,1]],"affect":[[95,1]],"after":[[5,1],[33,1],[61,1],[65,1],[75,3],[76,1],[89,1],[93,1],[98,1],[101,1],[127,1],[135,1],[147,1],[149,1],[181,2],[187,1],[193,1],[202,1],[205,1],[227,1],[238,1]],"afterward":[[217,1],[230,1]],"again":[[9,1],[15,3],[22,1],[38,1],[39,1],[44,2],[50,1],[51,1],[56,1],[61,1],[67,1],[74,1],[76,5],[77,1],[82,2],[88,2],[89,1],[94,5],[100,1],[106,1],[107,1],[115,1],[116,1],[128,3],[134,2],[140,1],[144,1],[152,1],[158,2],[163,1],[168,1],[174,1],[175,1],[180,3],[186,3],[192,1],[198,5],[204,3],[206,1],[209,2],[215,3],[219,1],[221,1],[227,1],[237,1]],"against":[[71,1],[76,1],[88,1],[112,1],[145,1],[217,2],[219,1],[221,1],[230,1]],"agenda":[[67,1],[69,1],[71,1]],"agre":[[33,1],[60,1],[72,1],[96,1],[97,1]],"ahead":[[62,1]],"ai":[[23,1],[49,1],[57,2],[59,3],[60,1],[61,5],[69,1],[74,1],[80,1],[83,1],[86,1],[87,2],[88,2],[89,2],[132,1],[134,1],[144,1],[146,1],[160,1],[163,1],[187,1],[235,1]],"aid":[[175,1]],"alert":[[66,1],[67,1],[210,1]],"all":[[17,1],[22,2],[26,1],[54,1],[64,2],[66,1],[115,1],[129,1],[132,1],[138,1],[164,1],[172,1],[196,1],[225,1]],"allocat":[[157,1]],"allow":[[57,1],[126,1],[134,1]],"already":[[3,1],[11,1],[13,1],[16,1],[18,1],[30,1],[32,3],[38,3],[57,1],[76,2],[82,3],[88,1],[94,1],[101,1],[103,1],[128,2],[129,1],[146,3],[216,2],[221,1]],"also":[[2,1],[7,1],[10,2],[30,1],[61,1],[77,1],[80,1],[101,1],[114,1],[115,1],[126,1],[147,1],[156,1],[179,1],[196,1],[197,1],[213,1]],"alway":[[39,1],[45,1],[89,1],[95,1],[199,1],[210,1]],"amount":[[30,1],[36,2],[39,2],[42,1],[45,2],[76,1],[80,1],[82,1],[86,2],[89,1],[98,1],[100,1],[101,1],[107,2],[134,1],[163,1],[178,1],[214,1],[230,2]],"analysis":[[56,1]],"analyz":[[54,1]],"announcement":[[114,1],[119,2],[232,1]],"annual":[[62,1],[190,3]],"annually":[[36,1],[104,1]],"another":[[113,1],[122,1],[198,1],[202,1]],"answer":[[23,1],[24,1],[130,1],[136,3],[137,1],[167,1],[169,2],[170,1],[172,1],[174,1],[175,1],[231,1],[236,1]],"any":[[13,1],[22,1],[24,1],[25,1],[40,1],[59,2],[83,1],[99,1],[110,1],[121,1],[154,1],[178,1],[193,1],[196,1],[198,1],[205,1]],"anymor":[[139,1]],"anyon":[[71,1],[200,1],[210,1]],"anyth":[[6,2],[7,1],[54,1],[69,1],[77,1],[87,1],[90,1],[119,1],[160,1],[227,1],[230,1]],"anyway":[[74,1]],"anywher":[[175,1]],"apart":[[15,1]],"app":[[62,1],[64,1],[65,1],[66,1],[67,1],[71,1],[74,1],[77,1],[82,1],[83,1],[89,1],[90,1],[101,2],[105,1],[107,1],[147,2],[176,1],[181,2],[187,1],[212,1],[213,1],[214,1],[215,1],[230,1]],"appear":[[3,1],[14,2],[20,1],[25,1],[31,1],[37,1],[75,1],[89,1],[135,1],[167,1],[179,1],[186,1],[187,1],[220,1],[227,1]],"application":[[58,2],[59,2],[60,1],[61,1],[71,1],[162,1],[217,1],[219,4],[220,2],[221,3],[222,5],[230,2],[232,1]],"apply":[[59,1],[61,1],[80,1],[95,1],[110,1],[174,1],[193,1],[210,1],[217,1],[219,1],[221,1],[230,1]],"approv":[[23,1],[46,1],[49,1],[52,3],[54,2],[57,3],[59,3],[69,1],[74,3],[75,3],[76,1],[77,2],[81,2],[86,1],[87,2],[88,1],[89,1],[129,1],[132,1],[135,1],[144,1],[145,2],[147,1],[160,2],[161,6],[162,4],[163,2],[164,2],[177,1],[178,1],[179,2],[180,1],[187,1],[202,1],[203,1],[205,1],[214,1],[220,1],[222,2],[227,1],[232,1]],"approval":[[0,1],[49,2],[57,1],[61,1],[77,1],[86,1],[87,2],[88,4],[145,1],[147,1],[160,2],[161,1],[179,1],[180,1],[205,1],[222,1],[229,2],[232,1],[238,1]],"arc":[[7,1],[10,1],[20,1],[58,3],[59,1],[61,1],[71,1],[124,1],[132,1],[161,2],[162,1],[197,1],[217,2],[219,2],[230,2],[238,1]],"architectural":[[23,1],[58,1],[90,1],[219,1],[230,1],[238,1]],"archiv":[[22,2],[173,1],[175,1]],"area":[[196,1],[197,1],[199,1]],"aren":[[7,1],[38,1],[44,1],[82,1],[83,1],[88,1],[109,1],[115,1],[159,1],[171,2],[179,1],[211,1]],"around":[[62,1]],"arriv":[[65,1],[74,1],[127,1],[128,1],[181,1],[184,1],[216,1],[231,1]],"arrow":[[7,1]],"articl":[[7,1],[8,1]],"ask":[[4,1],[7,2],[38,1],[50,1],[74,1],[76,1],[80,1],[107,1],[126,1],[129,1],[144,1],[159,1],[165,3],[166,3],[167,1],[169,2],[172,5],[174,1],[175,1],[211,1],[219,2],[224,1],[227,1],[229,3],[230,2],[232,2],[234,1],[237,1],[238,1]],"assessment":[[36,1],[38,1],[96,1],[99,1],[197,1]],"assigne":[[138,1]],"assistant":[[175,1]],"association":[[34,1],[35,4],[38,1],[44,1],[45,1],[72,1],[73,1],[84,1],[91,2],[95,1],[108,1],[112,1],[156,1],[159,1],[171,2],[172,1],[174,4],[175,1],[180,1],[181,1],[182,1],[184,1],[187,1],[188,2],[193,3],[194,3],[196,1],[197,1],[205,1],[210,2],[212,2],[213,1],[215,1],[216,1],[226,1]],"attach":[[59,1],[141,2],[219,1],[230,1],[235,1]],"attachment":[[134,1],[135,1],[222,1]],"attende":[[69,1]],"attention":[[22,1],[50,1],[110,1]],"attorney":[[28,1],[30,1],[33,2],[101,1],[115,1],[159,1],[175,2],[205,1]],"audienc":[[66,1],[115,1],[120,1],[122,2]],"audit":[[161,1],[194,1],[197,1]],"authoriz":[[33,1]],"automatic":[[33,1],[101,1],[200,2],[202,1],[204,1],[205,2]],"automatically":[[37,1]],"autopay":[[216,1]],"availabl":[[66,1],[134,1],[174,1],[221,1]],"award":[[183,1],[184,1],[185,3],[187,1]],"away":[[3,1],[14,1],[20,1],[24,1],[50,1],[83,1],[87,1],[92,1],[99,1],[138,1],[151,1],[208,1]],"back":[[24,1],[27,1],[50,1],[67,1],[74,1],[75,1],[80,1],[110,1],[117,1],[126,1],[141,1],[144,1],[149,1],[151,1],[172,1],[173,1],[190,1],[209,1]],"backup":[[194,1]],"badg":[[167,1]],"balanc":[[16,2],[20,1],[22,1],[24,1],[34,1],[37,1],[43,1],[71,1],[74,1],[76,1],[77,1],[96,1],[98,1],[100,1],[110,4],[112,3],[113,3],[151,1],[203,2],[225,3],[226,2],[227,1],[228,4],[231,1]],"bank":[[45,1],[72,4],[73,4],[74,5],[76,6],[77,5],[89,1],[110,1],[111,1],[199,1],[212,1],[213,1],[214,2],[216,2],[230,1]],"bar":[[7,1]],"basic":[[114,1]],"becaus":[[67,1],[149,1]],"becom":[[46,1],[103,1],[148,2],[151,1],[162,1]],"been":[[94,1],[174,1],[181,1]],"befor":[[1,2],[12,2],[18,2],[26,1],[29,2],[35,2],[38,1],[41,2],[47,2],[53,2],[59,1],[61,3],[63,2],[64,1],[71,1],[73,2],[79,2],[85,2],[88,2],[91,2],[97,2],[103,2],[109,2],[117,1],[118,2],[125,2],[131,2],[133,1],[134,1],[137,2],[143,2],[149,2],[155,2],[159,1],[171,2],[176,1],[177,2],[183,2],[186,1],[189,2],[195,2],[198,2],[201,2],[202,1],[205,1],[212,2],[213,1],[214,1],[217,1],[218,2],[220,1],[222,1],[224,2],[232,1],[234,2]],"behind":[[71,1],[96,2],[110,2]],"being":[[27,1],[230,1]],"belong":[[19,1],[73,1],[74,1],[194,1]],"below":[[3,1],[7,1],[67,1],[79,1],[83,1],[86,1],[98,1],[110,1],[113,1]],"besid":[[132,1],[161,1]],"between":[[5,1],[66,1],[100,1],[146,1]],"bid":[[181,1],[182,2],[183,1],[184,9],[185,4],[186,5],[187,1]],"bill":[[14,1],[20,1],[24,3],[34,2],[35,2],[36,1],[38,2],[39,1],[80,1],[84,3],[85,1],[86,8],[87,8],[88,9],[89,4],[110,1],[111,1],[113,2],[161,4],[162,1],[163,2],[164,1],[188,1],[189,1],[190,2],[192,1],[235,1]],"billabl":[[38,1]],"blacklist":[[89,1]],"blank":[[15,1],[21,1],[61,1],[78,1],[88,1],[120,1],[132,1],[134,2],[146,1],[147,1],[152,1],[178,1]],"block":[[147,1],[180,1],[187,1]],"board":[[0,3],[1,3],[2,1],[4,2],[6,1],[10,1],[12,2],[16,1],[18,2],[23,2],[24,3],[28,1],[29,2],[33,1],[38,1],[41,2],[44,1],[46,2],[47,2],[49,1],[52,1],[53,2],[58,1],[59,1],[60,2],[61,1],[62,2],[63,2],[64,2],[66,2],[67,2],[68,1],[69,2],[71,2],[73,2],[76,1],[77,1],[78,1],[79,2],[80,3],[81,1],[85,2],[87,1],[88,1],[89,1],[90,4],[91,3],[92,3],[93,2],[94,2],[95,3],[96,1],[97,2],[101,1],[103,2],[108,1],[109,2],[110,1],[112,1],[113,3],[115,3],[118,1],[123,1],[125,1],[129,1],[131,1],[136,1],[137,3],[138,1],[139,1],[141,1],[143,2],[147,1],[149,2],[151,1],[154,1],[155,3],[156,1],[157,1],[160,2],[171,1],[173,1],[175,2],[176,1],[177,2],[179,1],[181,3],[182,1],[183,2],[184,1],[187,1],[189,3],[194,1],[195,2],[201,1],[206,3],[207,3],[208,3],[210,2],[211,1],[212,3],[214,1],[216,2],[217,3],[219,2],[220,3],[221,2],[222,2],[224,1],[226,1],[227,2],[228,2],[230,2],[231,1],[232,2],[233,4],[234,1],[236,1],[237,1],[238,2]],"boat":[[48,1]],"body":[[120,1]],"book":[[38,2],[44,2],[72,2],[73,1],[76,2],[77,1],[79,1],[80,1],[82,2],[83,2],[85,1],[88,2],[91,1],[97,1],[100,1],[108,1],[109,1],[110,1],[112,1],[113,1]],"both":[[131,1]],"bottom":[[54,1],[225,1],[229,1],[235,1]],"bought":[[150,1]],"box":[[6,1],[20,1],[31,1],[59,1],[66,1],[115,1],[140,1],[146,1],[172,1],[174,1],[236,1]],"brain":[[47,1],[49,1],[53,1],[54,1],[165,1],[167,1]],"brand":[[135,1]],"break":[[238,1]],"bring":[[22,1],[68,1],[72,1],[173,1]],"broken":[[136,1],[230,1]],"browser":[[27,1],[50,1],[196,1]],"budget":[[71,1],[78,3],[79,1],[80,6],[81,2],[82,6],[83,2],[90,1],[110,3],[112,8],[113,1],[184,2],[187,1],[208,1]],"build":[[15,1],[95,1],[154,1]],"built":[[91,1],[199,1]],"but":[[9,1],[23,1],[52,1],[61,1],[79,1],[82,1],[88,1],[89,1],[113,1],[125,1],[160,1],[175,1],[180,1],[186,2],[187,1],[204,1],[216,1]],"button":[[5,1],[22,2],[36,1],[86,1],[147,1],[184,1],[190,1],[196,1],[199,1],[214,1],[228,1],[230,1]],"buyer":[[148,1],[149,1],[150,6],[151,3],[152,4],[157,1]],"bylaw":[[24,1],[156,1],[166,1],[175,1]],"calculat":[[83,1]],"california":[[57,1],[159,2],[171,1],[174,1]],"call":[[24,1],[187,1],[202,1],[213,1]],"came":[[113,1],[170,1]],"camera":[[48,1]],"cancel":[[101,1],[133,1],[187,1],[193,1]],"cancell":[[128,1],[185,1],[193,1]],"cap":[[142,3],[143,1],[144,7],[145,1],[146,4],[147,5]],"card":[[2,1],[24,1],[25,1],[26,1],[27,2],[59,2],[61,2],[74,1],[77,1],[86,1],[92,3],[93,1],[94,1],[151,1],[189,1],[191,1],[216,1]],"carefully":[[56,1]],"carrier":[[178,1],[181,1]],"case":[[29,2],[30,4],[31,5],[32,2],[33,3]],"cash":[[40,3],[76,2],[77,1],[86,1],[87,1],[90,1],[99,1],[110,4],[113,5],[208,1],[216,2]],"categoriz":[[74,1]],"category":[[235,1],[237,2]],"cc":[[24,1],[47,2],[53,2],[54,1],[56,2],[166,1],[170,1],[175,1]],"cell":[[15,1]],"cent":[[101,1]],"certain":[[199,1]],"certification":[[175,1]],"chain":[[118,1]],"chang":[[5,1],[13,1],[16,1],[22,1],[58,1],[63,1],[64,1],[67,2],[80,2],[83,1],[87,1],[94,1],[95,1],[100,1],[101,1],[106,1],[107,2],[111,1],[113,1],[125,1],[138,1],[140,2],[143,2],[144,1],[148,2],[152,2],[153,2],[155,1],[163,2],[172,1],[179,1],[184,1],[187,1],[189,2],[192,1],[201,1],[204,2],[205,1],[210,3],[214,3],[215,1],[217,1],[219,2],[221,1],[222,2],[228,1],[230,2],[238,1]],"channel":[[65,1],[66,1],[115,1],[118,2],[120,1]],"char":[[174,1]],"character":[[118,1],[123,1],[172,1],[174,1],[205,1],[221,1],[235,1],[237,2]],"charg":[[34,2],[36,4],[37,1],[38,1],[39,3],[42,1],[43,1],[45,2],[74,1],[75,1],[77,1],[99,2],[100,1],[101,3],[111,1],[118,1],[151,1],[153,1],[192,1],[197,1],[203,1],[213,1],[214,3],[216,2],[223,1],[225,3],[226,1],[228,2],[232,1]],"chart":[[38,1],[44,1],[109,1],[113,1]],"check":[[11,1],[13,2],[21,1],[26,2],[40,3],[42,1],[50,1],[65,1],[66,1],[67,1],[76,1],[77,1],[80,2],[86,2],[88,1],[89,1],[98,1],[99,1],[106,1],[110,2],[115,1],[118,1],[126,2],[132,1],[134,1],[156,1],[159,1],[170,2],[173,2],[174,1],[175,2],[176,2],[177,1],[178,2],[180,3],[181,2],[184,1],[190,1],[193,1],[198,2],[204,2],[213,1],[215,2],[216,2],[217,3],[219,2],[220,1],[221,5],[222,1],[230,2],[231,1],[232,1],[238,1]],"checklist":[[23,1],[25,1],[26,1],[27,1]],"checkout":[[190,1],[192,3],[193,1]],"choic":[[94,1],[118,1],[120,1],[129,1],[208,1],[210,1]],"choos":[[13,3],[21,1],[30,2],[36,2],[64,2],[66,1],[67,1],[82,1],[86,2],[98,1],[104,1],[110,1],[114,2],[115,1],[120,1],[126,1],[144,2],[150,1],[156,1],[166,1],[178,1],[181,1],[190,1],[200,1],[221,1],[225,1],[237,1]],"chos":[[184,1]],"cinc":[[12,1],[22,1]],"cit":[[56,1],[59,1],[172,1]],"citation":[[172,1]],"cite":[[24,1],[53,1],[59,1],[165,1],[167,1],[170,1]],"city":[[12,1]],"claus":[[146,1]],"clear":[[8,1],[48,1],[76,1],[151,1],[221,1]],"clearly":[[221,1]],"click":[[7,2],[129,1]],"clock":[[57,1]],"clos":[[7,1],[8,1],[31,2],[51,1],[52,1],[83,1],[101,1],[113,1],[128,1],[138,2],[139,3],[141,2],[142,1],[222,1],[236,1],[238,2]],"co":[[150,1]],"coa":[[76,1]],"code":[[86,1],[172,1],[214,2],[216,1],[226,1]],"coi":[[176,1],[178,2],[179,2],[181,2]],"cois":[[179,1]],"collect":[[78,1],[113,1],[153,1]],"collection":[[28,3],[30,2],[31,1],[32,1],[33,1],[90,1],[101,2],[208,1]],"color":[[219,1],[230,1]],"column":[[13,1],[22,1],[181,1]],"com":[[27,1],[128,1]],"come":[[24,2],[27,1],[62,1],[77,1],[117,1],[142,1],[143,1],[147,1],[149,1],[171,1],[187,2],[190,1],[203,1],[206,1],[208,1],[210,1]],"comma":[[178,1]],"commitment":[[190,1]],"communication":[[20,1],[71,1],[115,1],[119,1],[120,1],[121,1],[135,1]],"community":[[13,2],[17,1],[19,2],[21,2],[24,1],[38,3],[46,1],[64,1],[119,1],[165,1],[217,1],[230,1],[238,1]],"compar":[[76,1],[77,1],[112,1],[161,1],[182,1],[184,1],[186,1]],"comparison":[[184,1],[186,1]],"complet":[[101,1]],"complianc":[[20,1],[172,1],[174,1],[175,1],[178,2],[179,1],[180,2],[181,1],[187,1]],"compliant":[[178,3],[179,1],[180,1]],"composer":[[187,1]],"computer":[[123,1]],"concern":[[230,1],[238,1]],"condition":[[59,3],[61,1]],"confidenc":[[61,1],[88,1],[172,1]],"configur":[[192,1]],"confirm":[[5,1],[59,1],[74,1],[80,1],[144,1],[149,1],[150,1],[175,1],[178,1],[181,1],[184,2],[213,1],[214,1],[216,1]],"confirmation":[[42,1],[86,1]],"conflict":[[219,2],[230,1]],"connect":[[24,1],[72,2],[74,1],[76,1],[124,2],[125,1],[126,1],[128,3],[129,1],[131,2]],"connection":[[76,1],[198,1],[199,1]],"consent":[[128,1]],"consistent":[[219,1]],"consult":[[175,1]],"contact":[[19,1],[27,1],[44,1],[66,1],[76,2],[82,1],[88,1],[94,1],[100,1],[107,1],[112,1],[115,2],[117,2],[122,1],[152,1],[171,1],[174,1],[192,3],[198,1],[204,1],[211,1],[215,2]],"continu":[[74,1],[115,2],[117,1],[120,2],[126,1],[128,1],[178,1]],"contractor":[[176,1]],"contribution":[[83,1]],"conversation":[[60,1],[61,1],[132,1],[138,1],[141,1],[219,1],[222,1],[236,1]],"copy":[[103,1],[104,1],[105,2],[106,2],[107,2],[172,1],[178,1],[180,1],[193,2],[194,3],[230,2]],"correct":[[163,1]],"couldn":[[9,2],[15,1],[26,2],[44,1],[76,1],[88,2],[94,2],[100,1],[106,1],[112,1],[134,1],[146,1],[152,1],[158,2],[163,1],[174,1],[180,1],[186,2],[192,1],[204,1],[209,1],[215,1],[221,1],[227,3],[237,1]],"count":[[13,1],[26,1],[67,1],[87,1],[113,2],[145,1],[147,1],[157,1],[228,1]],"coupl":[[135,1]],"covenant":[[47,1],[49,1],[53,1],[54,1],[165,1],[167,1]],"cover":[[57,1],[83,2],[90,1],[95,1],[110,1],[112,1],[113,1],[158,1],[169,1],[174,1],[175,1],[208,1]],"coverag":[[178,1]],"creat":[[7,1],[35,1],[36,1],[64,1],[82,2],[97,1],[98,1],[99,1],[100,1],[138,1],[141,1],[178,1],[180,2],[183,1],[186,1]],"credit":[[77,1],[110,1],[216,1],[225,1],[226,1],[228,2]],"csv":[[12,2],[13,1],[15,1],[145,1],[154,1],[156,1],[196,1],[197,1]],"ctrl":[[7,1],[141,1]],"cure":[[20,1],[52,1],[55,2],[57,1]],"current":[[14,1],[20,1],[30,1],[61,1],[80,2],[100,1],[106,1],[110,1],[152,2],[153,1],[190,1],[191,1]],"custom":[[115,2],[117,1]],"cut":[[118,1]],"daily":[[104,1],[203,1]],"dark":[[10,1]],"dashboard":[[23,1],[24,2],[179,1],[181,1]],"dat":[[22,1],[28,1],[45,1],[89,1],[105,1],[113,1]],"data":[[25,1],[26,1],[193,1],[194,2],[195,1],[196,3],[198,1]],"date":[[20,1],[30,2],[31,2],[32,2],[36,1],[39,3],[45,1],[55,1],[62,1],[63,1],[64,2],[65,2],[66,2],[67,1],[69,2],[74,1],[75,1],[76,1],[77,2],[80,1],[86,2],[89,1],[97,1],[98,1],[99,1],[101,1],[104,1],[105,3],[106,1],[107,1],[110,1],[113,1],[138,1],[147,2],[148,1],[149,3],[150,1],[151,4],[152,1],[153,1],[154,2],[155,1],[156,1],[157,2],[158,3],[159,2],[163,1],[178,1],[196,1],[199,1],[202,1],[205,1],[220,1],[226,1]],"day":[[1,2],[57,1],[64,2],[66,1],[83,1],[87,1],[98,1],[105,1],[126,1],[149,1],[156,1],[157,2],[158,1],[179,3],[181,1],[200,1],[202,1],[203,2],[204,1],[205,2],[227,1]],"deadlin":[[62,2],[185,1],[186,1],[187,1]],"deal":[[22,1],[74,1],[101,1]],"debit":[[110,1]],"decid":[[58,1],[59,1],[60,1],[61,1],[134,1],[162,1],[221,1],[222,1]],"decision":[[0,1],[59,4],[60,2],[134,1],[145,1],[147,1],[162,1],[164,1],[175,1],[187,1],[217,2],[220,1],[222,1],[232,1]],"declaration":[[142,1],[144,1],[146,2],[166,1]],"declin":[[128,1],[185,1]],"deed":[[149,1]],"default":[[110,1],[113,1]],"delet":[[33,1],[39,2],[50,1],[61,1],[67,1],[89,3],[101,1],[107,1],[113,1],[141,1],[169,1],[175,1],[181,1],[238,1]],"delinquent":[[28,2],[71,1]],"deliver":[[94,1],[116,1],[121,1]],"delivery":[[121,1],[204,1]],"demot":[[4,1]],"deni":[[145,1],[220,1]],"deny":[[59,2],[144,1],[161,1],[222,1],[232,1]],"deposit":[[74,2],[75,1],[76,1],[111,1],[161,2],[162,1],[214,1]],"describ":[[83,1],[184,1],[221,2],[237,1]],"description":[[64,1],[219,2],[221,2],[235,1],[237,1]],"detail":[[13,1],[19,1],[22,1],[30,1],[59,1],[67,1],[87,1],[117,1],[122,1],[138,1],[151,1],[152,1],[153,1],[163,1],[178,1],[180,1],[181,2],[186,1],[190,1],[199,1],[214,1],[215,2],[219,2],[221,1],[237,1]],"dialog":[[73,1],[76,1]],"didn":[[82,1],[94,1],[180,1],[186,1],[192,1],[198,1]],"differenc":[[74,2],[76,1]],"different":[[16,1],[39,1],[45,1],[80,1],[82,1],[89,1],[95,1],[128,1]],"differently":[[157,1]],"digit":[[213,1],[215,1]],"disconnect":[[125,1],[128,1],[129,1],[210,1]],"discuss":[[69,1]],"discussion":[[187,1]],"dismiss":[[25,1]],"disput":[[228,1]],"distanc":[[51,1]],"doc":[[165,1],[166,1],[167,1],[169,2],[175,1],[178,1],[197,1],[232,1]],"document":[[1,1],[7,1],[10,1],[24,2],[47,1],[53,1],[59,2],[61,1],[69,1],[132,2],[141,2],[144,1],[146,1],[154,1],[157,1],[159,1],[165,3],[166,4],[167,2],[169,3],[175,1],[178,3],[179,1],[197,1],[199,1],[219,2],[230,1],[232,1],[235,2]],"doesn":[[9,1],[16,1],[33,1],[51,1],[89,1],[101,3],[107,1],[117,1],[147,3],[153,1],[157,1],[174,1],[175,1],[181,3],[186,1],[187,2],[216,1]],"doing":[[20,1]],"dollar":[[76,1],[83,1]],"don":[[10,1],[33,1],[76,1],[89,1],[90,1],[94,1],[112,2],[113,1],[153,1],[159,1],[169,1],[175,2],[187,1],[222,1]],"done":[[24,1],[25,1],[26,2],[28,1],[30,1],[93,1],[138,1],[150,1],[182,1]],"door":[[189,2],[190,1],[192,1]],"down":[[7,1],[43,1],[144,1]],"download":[[12,1],[13,1],[15,1],[113,1],[134,1],[154,1],[156,1],[157,1],[191,1],[193,1],[194,2],[195,1],[196,2],[197,1],[198,2],[199,1]],"draft":[[23,1],[46,1],[49,3],[52,1],[54,2],[57,1],[59,1],[69,2],[78,2],[79,3],[80,3],[81,1],[82,5],[110,1],[112,1],[113,1],[132,3],[134,6],[184,3],[186,3],[187,2]],"driv":[[46,1]],"driveway":[[48,1]],"drop":[[13,1]],"dropdown":[[5,1]],"due":[[1,1],[17,1],[20,1],[22,2],[23,1],[24,4],[28,1],[33,2],[34,3],[35,2],[36,8],[37,2],[38,6],[39,3],[42,1],[45,2],[55,1],[71,1],[80,1],[86,1],[90,1],[96,1],[97,1],[98,2],[99,2],[101,3],[110,1],[111,1],[115,1],[118,3],[120,1],[124,1],[132,1],[136,1],[138,1],[150,1],[151,1],[157,1],[159,1],[162,1],[184,2],[186,1],[188,1],[197,1],[200,3],[202,5],[205,2],[208,1],[211,3],[214,1],[223,2],[225,2],[226,1],[227,1],[229,3],[230,2],[232,1],[233,1],[235,1]],"each":[[0,1],[8,1],[13,3],[14,1],[15,1],[24,1],[30,1],[31,1],[34,1],[37,1],[46,1],[49,1],[51,1],[57,1],[59,1],[62,1],[74,3],[80,1],[81,1],[83,1],[90,1],[94,1],[98,2],[99,3],[101,1],[105,1],[108,1],[113,1],[115,1],[116,1],[118,1],[120,1],[121,1],[124,1],[138,1],[143,1],[146,2],[149,1],[150,1],[154,1],[155,1],[157,3],[164,1],[178,1],[179,1],[180,1],[184,2],[196,1],[197,1],[202,1],[203,1],[208,1],[214,1],[216,2],[219,2],[226,1],[228,1],[236,1]],"earlier":[[31,1],[32,1],[71,1],[82,1]],"early":[[91,1],[105,1],[172,1],[193,1]],"eastern":[[93,1],[203,1]],"edit":[[22,1],[33,1],[39,1],[59,1],[67,1],[81,1],[87,1],[89,1],[101,1],[112,1],[113,1],[132,1],[144,1],[148,1],[149,1],[152,1],[153,2],[163,1],[169,1],[180,1],[187,1],[214,1],[238,1]],"ein":[[177,1],[178,1],[180,1]],"election":[[159,1],[172,1]],"eligibl":[[154,1]],"else":[[4,1],[135,1],[175,1],[210,1]],"email":[[2,1],[3,1],[12,1],[15,3],[18,1],[20,1],[21,3],[22,1],[24,1],[33,1],[45,1],[54,1],[60,1],[64,1],[66,1],[90,3],[92,3],[94,1],[95,4],[113,1],[115,1],[116,1],[118,1],[120,1],[122,1],[123,1],[124,1],[128,1],[130,3],[134,1],[135,4],[141,1],[149,1],[150,1],[151,1],[152,1],[155,1],[177,1],[178,2],[180,2],[181,1],[183,1],[184,1],[186,4],[187,1],[195,1],[200,3],[203,1],[204,2],[205,2],[206,3],[207,1],[209,1],[210,3],[212,1],[213,2],[215,3],[238,1]],"empty":[[112,1],[126,1],[140,1],[186,1],[215,1]],"enabl":[[76,1]],"end":[[22,1],[74,1],[93,1],[118,1],[123,1],[149,1],[151,2],[193,1],[226,1]],"enforcement":[[172,1]],"enough":[[172,1]],"enter":[[2,1],[7,1],[16,1],[19,1],[20,1],[21,1],[31,1],[36,2],[45,2],[64,1],[69,1],[74,1],[82,1],[84,3],[85,1],[86,3],[87,4],[88,3],[89,3],[98,2],[100,1],[111,1],[138,1],[141,1],[144,1],[146,1],[150,1],[161,1],[162,1],[178,2],[179,1],[181,1],[190,1],[213,2],[215,1],[230,1]],"entry":[[80,1],[89,2],[102,3],[103,2],[104,2],[105,2],[107,6],[110,3],[113,6],[152,1],[197,1],[227,1]],"equal":[[110,1],[113,1]],"equity":[[113,1]],"error":[[13,3],[15,1],[140,1]],"esc":[[7,1]],"estimat":[[61,1]],"even":[[51,1]],"evenly":[[101,1]],"event":[[63,1],[64,3],[65,6],[66,2],[67,4]],"ever":[[129,1]],"every":[[0,1],[4,1],[6,1],[11,2],[17,1],[22,1],[24,2],[25,1],[26,1],[35,1],[36,2],[38,1],[39,1],[52,1],[62,1],[64,1],[65,1],[66,1],[75,1],[78,1],[80,1],[82,1],[83,1],[90,1],[93,1],[95,2],[101,1],[102,1],[103,1],[105,1],[107,1],[108,1],[109,1],[121,1],[127,1],[132,1],[134,1],[146,1],[151,1],[173,2],[175,2],[179,1],[185,1],[210,1],[214,1],[225,1],[232,1]],"everyon":[[22,1],[115,1],[118,1],[120,1]],"everyth":[[1,1],[20,1],[50,1],[126,1],[129,1],[160,1],[194,1],[229,1],[233,1]],"exactly":[[92,1],[152,1],[230,1]],"exampl":[[30,1],[36,1],[50,2],[80,1],[181,1],[184,1],[194,1],[235,1]],"excel":[[12,2],[196,1],[222,1],[238,1]],"exist":[[9,1],[82,1],[153,1],[158,1],[159,1]],"expens":[[74,2],[85,1],[86,1],[87,1],[90,1],[113,2],[222,1]],"expir":[[179,5],[181,3]],"explain":[[1,1],[169,1],[219,1]],"export":[[12,1],[22,1],[145,1],[158,1],[198,2]],"exterior":[[58,1]],"extract":[[168,1]],"fail":[[9,2],[44,1],[56,1],[61,1],[66,1],[100,1],[112,2],[116,4],[118,1],[122,2],[134,1],[168,1],[180,1],[186,1],[192,1],[198,2],[221,1]],"failur":[[121,1]],"family":[[19,1]],"far":[[113,1]],"fast":[[6,1]],"favor":[[228,1]],"fee":[[101,2],[102,1]],"feed":[[214,1]],"fenc":[[58,1]],"few":[[7,1],[75,2],[93,1],[227,1]],"fewer":[[9,1]],"field":[[7,1],[13,1],[21,1],[39,1],[66,1],[98,1],[140,1],[178,1],[180,3],[204,1],[215,1]],"figur":[[83,1],[112,2],[146,1]],"fil":[[24,1],[33,1],[46,1],[49,1],[62,1],[70,1],[71,1],[127,1],[135,1],[162,1]],"file":[[12,3],[13,4],[15,5],[16,1],[22,1],[28,3],[30,1],[32,1],[33,1],[38,1],[57,1],[59,1],[66,2],[67,1],[68,3],[69,2],[85,1],[88,1],[89,1],[97,1],[101,1],[117,1],[118,2],[122,1],[132,2],[134,1],[135,1],[141,1],[147,1],[153,1],[157,1],[164,1],[166,2],[172,1],[175,1],[178,2],[180,2],[181,1],[183,1],[186,1],[189,1],[190,1],[192,1],[195,1],[196,3],[198,1],[199,1],[205,1],[222,1],[225,1],[235,1],[238,2]],"fill":[[12,1],[13,1],[19,1],[21,1],[35,1],[61,1],[66,1],[86,1],[132,1],[134,2],[172,1],[177,1],[178,1],[181,1],[215,1],[219,1]],"filter":[[22,1],[110,1],[116,1],[132,1],[138,1]],"financial":[[108,2]],"find":[[10,1],[30,1],[42,1],[47,1],[61,1],[88,1],[132,1],[144,1],[146,1],[221,1],[236,1]],"fine":[[57,2],[172,1]],"finish":[[13,1],[24,1],[26,1],[51,1],[82,1],[101,1],[141,1],[150,1],[174,2],[180,1],[190,1],[198,1]],"first":[[4,1],[13,1],[17,1],[19,1],[22,1],[31,1],[32,1],[38,3],[56,1],[73,1],[74,1],[75,1],[83,1],[85,1],[97,2],[98,1],[104,2],[112,1],[117,1],[128,1],[129,1],[131,1],[134,2],[138,1],[140,2],[142,2],[144,1],[147,2],[150,1],[164,1],[165,1],[171,1],[174,1],[178,1],[183,1],[190,1],[193,1],[212,1],[221,1],[225,2],[226,1]],"fiscal":[[38,1],[44,1],[79,1],[80,2],[82,3],[83,3],[97,1],[100,1],[106,1],[109,1],[112,2]],"fit":[[219,1]],"fix":[[13,1],[15,1],[33,1],[54,1],[69,1],[87,1],[89,1],[152,1],[173,1],[180,2],[204,1]],"fixe":[[55,1]],"flag":[[159,1]],"flagg":[[157,2]],"flip":[[207,1],[209,1]],"floor":[[83,1]],"florida":[[57,1],[156,1],[157,1],[159,1],[170,2],[171,1],[172,1],[173,1],[174,3],[175,1]],"flow":[[110,2],[113,2]],"folder":[[134,1]],"follow":[[70,1],[83,1],[174,1],[219,1],[233,2],[235,1]],"form":[[3,1],[48,1],[67,1],[178,2],[181,2]],"format":[[180,1]],"formula":[[16,1]],"forward":[[65,1],[105,1],[135,1],[228,1]],"found":[[10,1],[61,1],[126,1],[144,1],[167,1],[221,1]],"free":[[193,1]],"fresh":[[105,1],[134,1]],"friendly":[[200,1]],"front":[[66,1]],"full":[[19,1],[21,1],[45,1],[59,1],[83,1],[86,1],[89,1],[95,1],[101,1],[118,1],[145,1],[150,1],[151,1],[172,1],[193,1],[194,2],[199,1],[227,1]],"fully":[[88,1],[118,1],[215,1]],"fund":[[73,2],[74,1],[76,4],[77,1],[79,2],[80,1],[82,3],[102,1]],"futur":[[32,1],[149,1],[152,1]],"gap":[[179,1]],"gate":[[136,1],[233,1],[235,1]],"gave":[[61,1]],"general":[[210,1]],"generat":[[36,3],[38,4],[39,1],[69,1]],"georgia":[[171,1],[174,1]],"get":[[20,1],[57,1],[114,2],[115,1],[118,1],[141,1],[151,1],[184,1]],"gett":[[92,1]],"give":[[24,1],[66,1],[74,1],[140,1],[150,2],[157,1],[161,1],[166,1]],"gmail":[[125,1],[126,1],[129,1],[134,1]],"go":[[7,1],[11,1],[19,1],[30,1],[48,2],[61,1],[67,1],[74,1],[80,1],[90,1],[110,3],[114,1],[123,1],[150,1],[151,1],[186,1],[204,1]],"goe":[[4,2],[9,2],[14,1],[15,2],[21,2],[26,2],[32,2],[38,2],[43,1],[44,2],[49,1],[50,2],[52,1],[56,2],[64,1],[65,1],[66,2],[76,2],[82,2],[88,2],[93,1],[94,3],[100,2],[106,2],[112,2],[117,2],[122,2],[128,2],[130,1],[134,2],[140,2],[144,1],[146,2],[151,1],[152,2],[158,2],[163,2],[168,2],[174,2],[180,2],[186,2],[187,1],[192,2],[198,2],[204,2],[209,2],[215,2],[216,1],[221,2],[227,2],[237,2]],"going":[[50,1],[235,1]],"good":[[5,2],[10,2],[16,2],[22,2],[27,2],[33,2],[39,2],[45,2],[51,2],[57,2],[61,2],[67,2],[71,2],[77,2],[83,2],[89,2],[95,2],[101,2],[107,2],[113,3],[118,2],[123,2],[129,2],[135,2],[141,2],[147,2],[153,2],[159,2],[164,2],[169,2],[175,2],[181,2],[187,2],[193,2],[199,2],[205,2],[210,2],[216,2],[222,2],[228,2],[232,2],[238,2]],"googl":[[125,1],[126,3],[128,7],[129,2],[196,1]],"govern":[[24,2],[47,1],[53,1],[59,1],[144,1],[157,1],[159,1],[165,2],[166,1],[197,1]],"grad":[[176,1],[180,1],[181,1]],"greater":[[100,1]],"green":[[180,1]],"grey":[[146,1]],"ground":[[175,1]],"group":[[7,1],[10,1],[37,1],[110,1],[113,1],[117,1],[119,1],[193,1]],"guess":[[88,1],[169,1],[175,1]],"guid":[[7,2],[169,1]],"hand":[[14,1],[28,1],[33,1],[77,1],[86,1],[88,2],[148,2],[181,1],[200,1],[216,2]],"handl":[[77,1]],"hang":[[17,1]],"happen":[[3,2],[8,2],[14,2],[20,2],[25,2],[30,4],[31,2],[32,1],[37,2],[43,2],[49,2],[55,2],[60,2],[63,1],[65,2],[70,2],[75,2],[81,2],[87,2],[93,2],[99,2],[105,2],[111,2],[112,1],[116,2],[121,2],[127,2],[133,2],[139,2],[145,2],[151,2],[157,2],[160,2],[162,2],[167,2],[173,2],[179,2],[185,2],[191,2],[192,1],[197,2],[198,1],[203,2],[208,2],[214,2],[220,2],[226,2],[231,2],[236,2]],"has":[[9,1],[12,1],[13,1],[15,2],[19,1],[21,1],[24,1],[27,1],[32,1],[35,1],[38,3],[44,1],[50,2],[62,1],[66,1],[73,1],[76,1],[82,2],[83,1],[88,1],[94,1],[112,2],[113,1],[117,1],[122,1],[128,3],[134,1],[147,1],[152,2],[180,1],[186,1],[197,2],[203,1],[214,1],[216,1],[221,1],[227,1]],"hasn":[[93,1],[174,1],[181,1]],"have":[[0,1],[3,1],[10,1],[11,2],[13,1],[18,1],[19,1],[22,1],[27,1],[29,1],[30,1],[32,1],[38,2],[63,1],[66,1],[71,1],[73,1],[74,1],[76,1],[85,1],[89,1],[90,1],[93,1],[94,1],[97,1],[100,1],[134,1],[144,1],[146,2],[150,1],[177,1],[184,1],[205,1],[228,1],[232,1],[235,1]],"head":[[22,1]],"headlin":[[172,1]],"headroom":[[144,1],[147,1]],"hear":[[119,1]],"heic":[[51,1],[180,1]],"help":[[7,2],[8,1],[9,1],[30,1],[48,1],[54,1],[61,1],[169,1],[233,1],[238,1]],"hid":[[26,1],[27,1]],"hidden":[[26,1],[215,1]],"hide":[[25,1],[27,1],[89,1],[173,1]],"highlight":[[132,1],[134,1],[139,1],[180,1],[204,1]],"hint":[[74,1]],"hire":[[176,1]],"history":[[22,1],[55,1],[67,1],[74,1],[75,1],[124,1],[127,1],[128,1],[145,2],[151,1],[153,1],[159,1],[181,1],[223,2],[227,1]],"hoa":[[3,1],[4,1],[5,3],[10,1],[13,1],[19,1],[21,1],[23,2],[24,2],[25,1],[35,1],[38,2],[79,1],[80,1],[82,1],[124,3],[125,2],[126,3],[128,1],[129,1],[130,1],[131,3],[170,3]],"hold":[[71,1],[118,1],[123,1],[155,1],[195,1]],"home":[[9,1],[10,1],[11,4],[12,1],[13,3],[14,2],[15,2],[16,5],[17,1],[19,1],[20,2],[22,10],[23,1],[24,3],[27,2],[29,1],[30,1],[32,1],[34,1],[35,2],[36,1],[37,1],[38,6],[39,1],[42,1],[43,1],[45,1],[46,3],[48,5],[49,1],[50,2],[51,4],[54,1],[57,1],[71,1],[97,1],[101,1],[115,1],[117,1],[118,1],[119,1],[124,1],[127,1],[132,2],[135,3],[142,1],[143,1],[144,2],[145,1],[146,3],[147,4],[148,3],[149,1],[150,1],[151,3],[152,1],[153,1],[154,3],[155,1],[157,4],[158,1],[159,3],[189,2],[218,2],[224,2],[226,1],[228,2],[229,1],[230,2],[231,1],[232,1],[234,2],[235,2],[237,1],[238,1]],"homeowner":[[12,1],[162,1]],"homeownerhub":[[3,1],[23,1],[33,1],[51,1],[52,1],[57,1],[71,1],[101,1],[126,1],[127,1],[128,1],[157,1],[169,1],[175,2],[188,3],[193,1],[216,1]],"homeownerledger":[[27,1]],"hour":[[75,2]],"hous":[[48,1]],"household":[[22,1],[150,1],[151,1],[152,2]],"hub":[[5,1]],"icon":[[7,1]],"ids":[[199,1]],"ignor":[[77,1]],"imag":[[180,1],[222,1],[238,1]],"import":[[11,3],[12,2],[13,4],[14,1],[15,3],[16,1],[18,1],[22,2],[27,1],[77,1],[127,1],[128,2],[129,1],[157,1]],"improv":[[235,1]],"inbox":[[7,1],[10,1],[24,1],[93,1],[123,1],[124,3],[125,1],[126,2],[127,1],[129,2],[130,3],[132,1],[135,2]],"includ":[[87,1],[92,1],[101,1],[113,1],[118,1],[196,1],[199,1],[230,1]],"incom":[[71,1],[90,1],[110,3],[113,6]],"incomplet":[[9,1],[88,1]],"index":[[166,2],[167,1],[172,1],[197,1],[199,1]],"inflation":[[80,1],[83,1]],"info":[[59,1],[60,1],[66,1],[161,1]],"informational":[[175,1]],"initial":[[30,1]],"inspect":[[46,2],[47,1],[48,2],[51,1]],"inspection":[[46,1],[62,1]],"installment":[[98,2],[99,2],[100,2],[101,2]],"instead":[[5,1],[11,1],[16,1],[18,1],[22,1],[35,1],[51,1],[78,1],[80,1],[82,1],[86,1],[88,3],[92,1],[107,1],[135,1],[141,1],[148,1],[152,1],[157,1],[158,1],[164,1],[168,1],[175,3],[177,1],[207,1],[228,1],[238,1]],"insuranc":[[62,1],[176,3],[187,1]],"internal":[[61,1],[138,1],[139,1]],"internet":[[198,1]],"invit":[[0,2],[1,2],[2,1],[4,2],[24,2],[150,2],[151,1],[153,2],[177,1],[178,2],[183,1],[184,2],[186,2],[187,1]],"invitation":[[2,1],[5,3],[151,1],[178,1],[180,3],[181,3],[186,2],[187,1]],"invoic":[[86,4],[87,1],[181,1],[191,1]],"isn":[[9,1],[15,1],[32,1],[50,1],[76,1],[80,1],[82,1],[83,1],[107,1],[118,1],[135,1],[149,2],[151,1],[157,1],[159,1],[174,3],[192,2],[204,1],[212,1],[215,1],[218,1],[221,1],[224,1],[227,1],[234,1],[237,1]],"issu":[[48,1],[237,1]],"item":[[70,2],[71,2],[138,3],[140,2],[161,2],[164,1],[184,2],[186,2],[187,3]],"itself":[[25,1],[61,1],[64,1],[161,1],[181,1]],"job":[[182,1],[184,1],[212,1]],"journal":[[197,2]],"jpg":[[51,1],[88,1],[89,1],[180,1]],"jump":[[7,1]],"keep":[[13,1],[23,1],[44,1],[50,2],[74,1],[80,1],[81,2],[100,1],[101,1],[127,1],[129,1],[142,1],[153,1],[178,1],[181,1],[192,1],[193,1],[198,1],[225,1]],"kept":[[22,1],[60,1],[152,1],[161,1]],"key":[[7,1],[233,1]],"keyboard":[[141,1]],"kind":[[36,1],[48,1],[161,1]],"know":[[5,2],[10,2],[16,2],[22,2],[27,2],[33,2],[39,2],[45,2],[51,2],[57,2],[61,2],[67,2],[71,2],[77,2],[83,2],[89,2],[95,2],[101,2],[107,2],[108,1],[113,2],[118,2],[123,2],[129,2],[135,2],[141,2],[147,3],[153,2],[159,2],[164,2],[169,2],[170,1],[175,3],[176,1],[181,2],[187,3],[193,2],[199,2],[205,2],[210,2],[216,2],[222,2],[228,2],[232,2],[238,2]],"knowledg":[[171,1]],"known":[[159,1]],"label":[[126,1]],"labell":[[157,1]],"land":[[121,1],[136,1]],"landscap":[[48,1]],"larg":[[134,1]],"largest":[[57,1]],"last":[[4,1],[5,1],[9,1],[22,1],[65,1],[71,1],[78,2],[80,2],[82,1],[83,3],[90,1],[92,3],[94,1],[95,2],[101,1],[126,1],[208,1],[225,1],[227,1],[228,1]],"latch":[[235,1]],"late":[[67,1],[87,2],[101,3],[115,1],[118,2],[120,1]],"later":[[27,1],[205,1],[214,1],[219,1],[222,1],[236,1]],"latest":[[73,1]],"law":[[57,1],[155,1],[156,1],[170,4],[172,6],[173,3],[175,1]],"lawn":[[48,1]],"lead":[[64,1],[65,1],[66,1]],"leas":[[20,1],[142,3],[143,1],[144,5],[145,1],[146,1],[147,6],[151,2]],"least":[[4,1],[54,1],[66,3],[85,1],[117,2],[172,1],[174,1],[184,1],[186,3],[221,1],[235,1],[237,2]],"leav":[[13,1],[15,1],[21,1],[30,1],[61,1],[120,1],[146,1],[150,1],[152,1],[153,1],[178,1]],"ledger":[[34,1],[43,1],[75,1],[76,1],[87,1],[89,2],[99,1],[102,2],[103,1],[104,1],[105,1],[110,1],[151,1],[153,1],[162,1],[225,2],[227,1],[228,1]],"left":[[61,1],[83,1],[88,1],[151,1],[179,1],[184,1],[186,1]],"leftover":[[101,1]],"legal":[[159,1],[175,1],[177,1],[178,2]],"lender":[[223,1]],"less":[[83,1]],"let":[[37,1],[86,1],[96,1],[147,1],[187,1]],"letter":[[7,1],[9,1],[10,1],[23,1],[28,1],[30,1],[33,1],[46,1],[49,2],[52,2],[54,2],[56,2],[57,4],[59,1],[60,1],[61,2],[101,2],[161,3],[162,1],[167,1]],"level":[[172,1]],"licens":[[175,1],[176,3],[178,2]],"lien":[[30,1],[33,1],[101,1]],"light":[[10,1]],"like":[[58,1],[62,1],[73,1],[87,1],[99,1],[100,1],[110,1],[115,1],[117,1],[132,1],[134,1],[136,1],[144,1],[199,1],[202,1],[210,1],[235,2]],"likely":[[217,1],[219,1],[230,1]],"limit":[[142,1]],"line":[[2,1],[61,1],[78,1],[80,2],[81,1],[82,2],[83,2],[92,1],[105,1],[107,1],[110,3],[112,2],[142,1],[144,1],[146,2],[147,1],[184,2],[186,2],[187,3],[197,1],[219,1],[228,1]],"link":[[2,1],[3,1],[20,1],[24,1],[32,2],[38,1],[73,2],[74,2],[75,1],[76,3],[77,1],[85,1],[118,1],[123,1],[128,1],[149,1],[153,1],[172,1],[180,2],[181,1],[184,1],[185,1],[218,2],[224,3],[234,3],[237,1]],"list":[[3,1],[5,2],[12,1],[13,1],[14,1],[18,1],[20,1],[21,1],[22,1],[37,1],[50,1],[54,1],[59,2],[71,1],[77,1],[83,1],[89,1],[105,1],[113,1],[116,1],[121,1],[138,1],[141,1],[142,2],[143,1],[144,3],[146,3],[147,1],[150,1],[151,1],[152,1],[154,3],[156,2],[157,1],[159,1],[178,1],[179,2],[180,1],[187,1],[197,1],[199,1],[226,1],[227,1],[237,1]],"liv":[[22,2]],"live":[[24,1],[95,1],[108,1],[150,1],[173,1],[213,1]],"ll":[[27,1],[76,1],[186,1],[208,1],[222,1]],"load":[[95,1],[112,1],[167,1],[171,3],[174,2],[209,1],[227,2]],"location":[[51,1],[219,1]],"log":[[22,1],[158,1],[197,1]],"logg":[[157,1]],"login":[[0,1],[3,1],[24,1],[77,1]],"long":[[174,1]],"longer":[[22,1],[118,1],[123,1],[221,2]],"look":[[5,1],[7,1],[10,1],[22,1],[61,1],[77,1],[117,1],[170,2],[219,1],[220,1]],"lot":[[12,1],[19,1]],"low":[[61,1],[88,1],[146,1]],"mac":[[7,1]],"made":[[0,1]],"mail":[[12,1],[17,1],[23,1],[24,1],[54,1],[126,3],[127,4],[128,3],[129,4],[149,1],[152,2],[154,1],[157,1]],"mailbox":[[24,1],[124,2],[125,1],[126,3],[128,3],[129,4],[130,1],[131,2],[134,1],[210,1]],"main":[[80,1]],"maintenanc":[[235,1]],"make":[[38,1],[61,1],[102,2],[103,1],[104,1],[107,3],[129,1],[155,1],[187,2],[222,1]],"manag":[[142,2],[188,1],[191,1],[193,1]],"management":[[102,1]],"manager":[[5,1]],"manual":[[181,1]],"manually":[[146,1]],"many":[[22,1],[50,1],[57,1],[64,1],[83,1],[87,1],[101,1],[115,1],[120,1],[121,1],[126,2],[135,1],[142,1],[144,1],[161,1],[172,1],[179,1],[189,1]],"map":[[51,1]],"mark":[[33,1],[42,1],[45,2],[54,1],[55,1],[59,1],[60,1],[61,1],[75,1],[77,2],[83,1],[84,3],[86,1],[87,1],[88,1],[89,2],[105,1],[113,1],[134,1],[145,1],[162,1],[185,2],[219,1]],"markdown":[[166,1]],"market":[[77,1]],"match":[[7,1],[9,1],[10,1],[13,2],[16,1],[24,1],[30,1],[33,1],[47,1],[54,1],[72,2],[74,4],[75,3],[76,1],[77,1],[110,1],[111,1],[117,1],[122,1],[126,1],[127,2],[162,1],[214,3],[216,2],[231,1]],"matcher":[[74,1]],"material":[[219,1],[230,1]],"may":[[9,1],[128,2],[134,1],[144,1],[146,1],[157,1],[175,1],[219,1],[222,1],[227,1],[230,1]],"mb":[[12,1],[50,1],[51,1],[61,1],[88,1],[135,1],[180,1],[222,1],[238,1]],"mean":[[118,1],[147,1],[209,1],[228,1]],"medium":[[61,1]],"meet":[[7,1],[10,1],[23,1],[62,1],[67,2],[68,3],[69,8],[70,4],[71,4],[90,1],[108,1],[156,1],[157,1],[172,2],[173,1],[175,2],[197,1]],"member":[[0,1],[1,3],[2,2],[3,1],[4,2],[5,1],[10,1],[12,1],[18,1],[19,1],[29,1],[38,1],[41,1],[44,1],[46,1],[47,1],[53,1],[63,1],[64,1],[66,2],[67,1],[73,1],[76,1],[77,1],[79,1],[80,1],[85,1],[87,1],[88,1],[89,1],[90,1],[91,1],[93,2],[94,1],[95,2],[97,1],[103,1],[109,1],[112,1],[115,1],[118,1],[123,1],[125,1],[131,1],[137,1],[143,1],[149,1],[155,1],[160,1],[171,1],[177,1],[181,1],[183,1],[189,2],[195,1],[201,1],[207,2],[212,2],[214,1]],"memo":[[86,1],[184,1],[187,1],[214,3],[216,3],[226,1],[230,1],[231,1]],"menu":[[6,1],[67,1],[77,1],[144,1],[156,1],[181,1]],"messag":[[22,1],[60,1],[61,1],[71,1],[112,1],[114,3],[115,2],[116,1],[118,1],[120,1],[121,2],[122,1],[123,2],[132,1],[135,2],[140,1],[198,1],[202,1],[204,1],[205,2]],"method":[[45,1],[189,1]],"mind":[[144,1]],"minimum":[[187,1],[189,1],[193,2]],"minus":[[228,1]],"minut":[[67,1],[68,3],[69,5],[70,1],[71,4],[76,1],[93,1],[94,2],[127,1],[128,1],[135,1],[180,1],[227,1]],"miss":[[9,1],[38,1],[59,1],[61,1],[62,2],[66,1],[67,1],[76,1],[105,2],[128,1],[173,1],[178,1],[180,1]],"mistak":[[33,1],[89,1]],"mobil":[[212,1],[213,2],[215,2]],"mode":[[46,1]],"model":[[103,1]],"modifi":[[113,1]],"moment":[[9,1],[168,1]],"money":[[20,1],[30,1],[33,1],[34,2],[77,1],[89,1],[99,1],[108,1],[134,1],[151,1],[216,1],[228,1]],"month":[[24,2],[34,2],[36,2],[37,1],[38,1],[42,1],[72,1],[74,1],[82,1],[83,3],[90,2],[92,3],[93,3],[94,3],[95,4],[96,1],[97,1],[98,1],[193,2],[208,2],[225,1],[228,1]],"monthly":[[36,1],[82,1],[83,2],[90,2],[92,2],[98,1],[99,1],[102,1],[104,1],[113,2],[190,2],[206,3],[207,1],[208,2],[210,1]],"more":[[13,1],[15,1],[19,1],[22,1],[67,1],[77,1],[144,1],[150,1],[157,1],[181,1],[186,1],[221,1],[227,1],[228,1],[235,1],[237,1],[238,1]],"morn":[[65,1],[105,1]],"most":[[13,1],[75,1],[174,1],[227,1]],"mov":[[12,1],[113,1],[151,1],[194,1]],"move":[[30,2],[31,1],[33,1],[65,2],[105,1],[145,1],[152,1]],"movement":[[113,1]],"must":[[21,2],[51,1],[66,1],[79,1],[85,2],[88,1],[89,1],[97,2],[103,1],[131,1],[146,1],[150,1],[155,1],[171,1],[180,2],[212,1],[218,1],[224,1],[234,1]],"myaccount":[[128,1]],"nam":[[196,1]],"name":[[2,1],[5,1],[7,2],[9,1],[10,2],[12,1],[18,1],[19,1],[21,2],[22,1],[35,1],[36,1],[80,1],[115,1],[148,1],[149,1],[150,1],[169,1],[177,1],[178,2],[184,1],[195,1],[196,1],[205,1],[210,2],[213,3]],"narrow":[[22,1],[138,1]],"need":[[4,1],[12,1],[18,1],[20,2],[21,1],[22,3],[35,1],[50,1],[59,1],[76,1],[91,1],[108,1],[109,1],[110,1],[112,1],[125,1],[126,1],[127,1],[132,1],[140,1],[149,2],[164,1],[165,1],[170,1],[175,2],[179,1],[182,1],[184,2],[186,3],[210,1],[219,1],[221,1],[222,2],[223,1],[229,1],[233,1],[237,1],[238,1]],"net":[[110,1],[113,1]],"never":[[16,3],[60,1],[61,1],[71,1],[77,2],[83,1],[95,1],[112,2],[118,2],[123,1],[139,1],[160,1],[205,1],[212,1],[222,1]],"new":[[5,2],[13,1],[14,1],[19,1],[22,1],[57,1],[61,1],[64,1],[77,1],[83,1],[98,1],[101,1],[107,2],[112,1],[113,1],[115,1],[120,1],[127,1],[128,1],[134,1],[135,2],[137,1],[150,1],[152,1],[176,1],[184,1],[186,1],[194,1],[205,1],[219,1],[222,3],[230,1],[235,1],[236,1],[238,2]],"newest":[[31,1],[225,1]],"next":[[3,2],[8,2],[14,2],[20,2],[25,2],[31,2],[37,2],[43,2],[48,1],[49,2],[55,2],[60,2],[63,1],[64,1],[65,4],[66,1],[70,2],[75,2],[78,4],[79,1],[80,4],[81,2],[82,3],[83,1],[87,2],[90,1],[92,1],[93,3],[94,1],[99,2],[105,4],[107,1],[111,2],[112,1],[116,2],[121,2],[124,1],[127,2],[133,2],[139,2],[141,1],[145,2],[147,1],[150,1],[151,2],[156,1],[157,2],[162,2],[167,2],[173,2],[179,2],[185,2],[191,2],[197,2],[202,2],[203,2],[208,2],[214,2],[220,2],[226,2],[231,2],[236,2]],"night":[[101,1]],"nobody":[[62,1],[94,1],[117,2],[122,1]],"nois":[[233,1]],"non":[[178,1]],"none":[[35,1],[83,1],[115,1],[204,1]],"note":[[22,2],[30,1],[33,2],[48,1],[54,1],[61,2],[64,1],[81,1],[95,1],[138,3],[139,1],[140,1],[144,1],[190,1],[213,1]],"noth":[[7,1],[11,1],[15,1],[23,1],[38,1],[44,1],[46,1],[49,1],[57,1],[76,2],[81,1],[82,2],[89,1],[94,1],[95,1],[100,1],[106,1],[111,1],[112,1],[129,1],[134,1],[135,1],[140,1],[148,1],[152,2],[157,1],[158,1],[160,2],[162,1],[163,1],[168,1],[174,1],[180,1],[186,2],[187,1],[198,1],[199,1],[202,1],[204,2],[215,1],[237,1]],"notic":[[19,1],[33,1],[52,2],[54,1],[55,1],[57,3],[150,2],[151,1],[157,1],[172,1],[173,1],[175,3]],"notifi":[[137,1],[236,1]],"notification":[[66,2],[92,1],[207,1]],"notify":[[64,2],[71,1]],"now":[[10,1],[26,1],[50,1],[67,1],[76,1],[88,1],[92,2],[93,2],[94,3],[115,2],[117,1],[120,1],[122,1],[134,1],[151,1],[167,1],[215,1],[221,1],[225,1]],"nowher":[[82,1]],"number":[[12,1],[15,2],[16,1],[48,1],[66,1],[67,1],[77,1],[83,2],[86,2],[95,2],[97,1],[98,1],[100,1],[108,1],[110,1],[111,1],[112,2],[117,2],[118,1],[143,1],[146,1],[155,1],[161,1],[167,1],[178,2],[195,1],[196,1],[212,1],[213,2],[215,3]],"oak":[[16,2]],"occupi":[[143,1],[144,1],[147,2]],"occurrenc":[[64,1],[66,1]],"oct":[[36,1]],"off":[[17,1],[25,1],[33,1],[36,1],[76,1],[92,1],[93,2],[95,2],[187,1],[201,1],[206,2],[207,1],[208,1],[210,2],[214,1],[216,1],[228,2]],"offer":[[61,2],[73,1],[122,1]],"official":[[172,2]],"often":[[36,1],[60,1],[105,1],[107,1],[199,1]],"old":[[15,1],[77,1],[107,1],[134,1]],"older":[[38,1],[128,1],[228,1]],"oldest":[[226,1]],"once":[[10,1],[26,1],[33,2],[36,1],[65,1],[72,1],[74,1],[89,1],[94,1],[124,1],[133,1],[135,1],[142,1],[146,1],[147,1],[149,1],[181,1],[184,1],[185,1],[211,1],[222,1],[238,1]],"one":[[4,1],[11,2],[12,1],[13,1],[14,1],[15,1],[19,1],[20,1],[21,1],[23,1],[27,2],[29,1],[32,1],[36,2],[38,1],[45,1],[54,1],[57,1],[61,2],[62,1],[65,1],[66,3],[67,1],[74,2],[77,1],[79,2],[80,1],[82,1],[85,1],[92,1],[99,1],[100,1],[101,1],[105,2],[107,4],[115,1],[117,2],[118,3],[122,1],[130,1],[134,1],[135,1],[146,3],[149,1],[150,1],[154,1],[157,4],[161,1],[172,1],[179,2],[181,1],[184,1],[186,2],[197,1],[202,1],[203,1],[214,1],[219,1],[228,1],[233,1],[235,2]],"onlin":[[45,2],[50,1],[211,3],[216,1]],"only":[[1,2],[4,1],[5,1],[10,2],[12,1],[16,1],[21,1],[26,1],[27,1],[29,1],[33,2],[41,1],[45,2],[47,1],[53,1],[61,1],[63,1],[67,1],[71,1],[77,2],[83,2],[91,1],[94,2],[95,1],[106,1],[112,1],[113,2],[114,1],[115,2],[117,1],[118,1],[120,1],[125,1],[126,1],[129,2],[134,1],[138,1],[143,1],[146,1],[147,2],[151,2],[157,1],[174,1],[175,2],[177,1],[180,2],[183,1],[189,2],[205,1],[210,1],[216,1],[222,1],[232,1],[237,1]],"open":[[2,1],[6,1],[7,2],[8,1],[13,2],[16,2],[19,2],[22,3],[24,1],[27,1],[29,2],[30,4],[32,2],[33,1],[36,1],[37,1],[38,2],[42,1],[44,2],[45,1],[47,1],[48,2],[49,1],[50,1],[51,1],[54,1],[55,2],[57,1],[59,5],[61,2],[64,1],[67,2],[69,2],[70,1],[71,2],[73,1],[74,1],[76,1],[79,2],[80,3],[81,1],[82,4],[83,1],[85,1],[86,3],[88,3],[92,2],[97,1],[98,1],[100,2],[101,1],[104,1],[106,1],[107,1],[108,1],[109,2],[110,1],[112,1],[113,2],[115,2],[116,3],[118,1],[120,1],[121,1],[122,1],[126,1],[132,2],[134,1],[137,1],[138,3],[141,3],[144,2],[149,1],[150,1],[155,1],[156,2],[158,1],[161,1],[162,1],[166,2],[169,1],[172,5],[173,2],[178,2],[179,1],[181,1],[184,2],[187,1],[190,1],[192,1],[196,3],[202,1],[207,2],[213,1],[219,1],[225,1],[226,1],[230,2],[232,1],[235,1],[236,1],[238,1]],"operat":[[73,1],[79,1],[87,1],[110,1],[113,1]],"operation":[[1,1]],"opposit":[[113,1]],"option":[[45,1],[216,1]],"optional":[[2,1],[18,1],[80,1],[86,2],[149,1],[213,2],[222,1],[230,1],[235,1]],"optionally":[[138,1]],"order":[[25,1]],"organization":[[128,1]],"original":[[107,2],[113,1]],"other":[[19,1],[40,1],[86,1],[95,1],[99,1],[129,1],[174,1],[185,1],[187,1],[194,1],[213,1]],"otherwis":[[74,1]],"out":[[10,1],[50,1],[57,1],[64,1],[65,1],[67,1],[74,1],[90,1],[92,1],[94,1],[108,1],[112,1],[114,1],[130,1],[146,1],[184,1],[186,1],[204,1],[209,2]],"outsid":[[40,1],[204,1],[215,1]],"over":[[50,1],[61,1],[68,1],[96,1],[128,1],[147,1],[159,1]],"overdu":[[20,1],[90,1],[208,1]],"overrid":[[181,1]],"overview":[[110,1],[112,1],[172,1]],"overwritten":[[148,1]],"owe":[[34,1],[37,1],[84,1],[200,1],[225,1]],"owed":[[34,1],[45,1],[110,1],[153,1]],"own":[[0,1],[1,1],[24,2],[27,1],[61,2],[71,1],[75,1],[95,1],[101,1],[111,1],[116,1],[118,1],[120,1],[121,1],[123,1],[134,1],[147,1],[154,1],[160,1],[162,1],[164,1],[165,1],[170,1],[172,1],[175,1],[184,2],[194,1],[203,1],[214,1],[216,2],[237,1]],"owner":[[7,2],[9,2],[10,1],[11,2],[12,1],[14,2],[15,1],[16,4],[17,1],[18,1],[19,2],[20,2],[21,1],[22,4],[24,1],[28,1],[33,1],[37,2],[40,1],[49,1],[54,1],[55,1],[57,1],[74,1],[75,1],[96,3],[97,1],[99,1],[101,2],[110,1],[111,1],[115,2],[118,2],[120,1],[142,1],[143,1],[144,4],[147,4],[148,3],[150,2],[151,3],[152,2],[153,2],[154,5],[155,4],[156,2],[157,4],[158,2],[159,2],[172,1],[195,1],[197,1],[200,1],[202,1],[203,2],[205,2]],"ownership":[[151,1],[153,1],[158,1],[159,1]],"packet":[[68,1],[69,2],[71,1],[80,1],[113,1]],"page":[[1,1],[5,1],[6,1],[7,2],[8,1],[9,1],[12,1],[13,2],[19,2],[20,1],[22,2],[24,2],[26,1],[27,2],[31,1],[32,1],[33,1],[35,1],[36,1],[37,1],[38,1],[45,2],[47,1],[50,3],[51,1],[57,1],[61,1],[65,1],[69,1],[70,1],[76,1],[80,2],[81,1],[83,2],[85,1],[86,1],[87,2],[99,2],[101,1],[110,1],[112,1],[113,2],[116,1],[117,1],[121,2],[122,1],[123,1],[142,1],[143,1],[147,3],[148,1],[149,1],[150,1],[154,2],[155,1],[159,1],[162,1],[169,1],[171,1],[172,1],[173,1],[175,1],[178,2],[181,1],[186,2],[190,1],[192,1],[193,2],[203,1],[209,1],[212,1],[217,1],[219,1],[220,1],[227,1]],"paid":[[39,1],[40,1],[42,1],[43,1],[45,2],[75,1],[77,1],[84,4],[86,3],[87,2],[88,2],[89,3],[118,1],[162,1],[216,1],[223,1],[225,1]],"paint":[[58,1]],"pair":[[74,1]],"panel":[[7,1],[37,1],[57,1],[132,1],[133,1],[135,1]],"paper":[[88,1],[156,1]],"paragraph":[[80,1]],"park":[[48,1],[233,1]],"pars":[[56,1]],"part":[[9,1],[15,1],[26,1],[88,2],[95,1]],"partial":[[45,1],[89,1],[198,1]],"partly":[[216,1]],"partner":[[193,1]],"pass":[[65,1],[185,1]],"password":[[77,1]],"past":[[20,1],[28,1],[65,1],[69,1],[70,1],[71,1],[96,1],[110,1],[157,1],[166,2],[168,1],[181,1],[225,1]],"paus":[[67,1],[101,1],[107,1],[204,1]],"pay":[[45,2],[85,1],[86,1],[88,1],[89,2],[96,1],[99,1],[101,1],[111,1],[162,1],[188,1],[193,2],[202,1],[211,1],[213,3],[214,2],[216,1],[226,1],[228,2],[229,2],[230,2]],"payabl":[[162,1]],"payment":[[22,1],[33,4],[40,2],[41,1],[42,1],[43,1],[44,3],[45,4],[74,1],[75,1],[86,1],[87,1],[89,1],[96,2],[97,1],[98,1],[99,3],[101,1],[151,1],[153,1],[184,1],[189,1],[190,1],[197,1],[199,1],[205,1],[211,3],[213,1],[214,1],[215,2],[216,5],[225,1],[227,2],[231,1]],"pdf":[[61,1],[69,1],[86,1],[88,2],[89,3],[113,1],[156,2],[166,1],[168,2],[169,1],[180,2],[181,1],[222,1],[225,2],[238,1]],"pend":[[5,1]],"peopl":[[19,2],[20,1],[22,1],[65,1],[66,1],[114,1],[115,3],[116,1],[117,1],[118,1],[120,1],[121,1],[151,1],[153,1]],"per":[[10,1],[12,1],[36,2],[61,1],[118,1],[154,1],[189,1],[197,1],[214,1]],"percent":[[144,1],[146,1]],"perform":[[94,1]],"period":[[38,3],[44,1],[52,1],[55,1],[79,1],[80,1],[82,3],[83,4],[97,1],[100,3],[105,1],[106,2],[109,1],[110,3],[112,2],[113,2]],"permission":[[94,1],[128,1]],"person":[[19,1],[24,1],[116,1],[117,1],[118,2],[121,1],[150,1]],"personal":[[212,1]],"phas":[[193,1]],"phon":[[7,1],[12,1],[18,1],[19,1],[22,1],[45,1],[46,3],[48,2],[50,2],[51,1],[66,1],[67,1],[115,1],[117,1],[118,1],[149,1],[150,1],[155,1],[177,1],[178,1],[181,1],[195,1],[211,1]],"photo":[[48,2],[49,2],[50,2],[51,1],[54,2],[59,3],[61,6],[86,1],[88,3],[89,1],[180,1],[219,1],[230,1],[235,1]],"pick":[[2,3],[5,2],[7,2],[19,2],[21,1],[22,1],[24,1],[33,1],[48,2],[54,1],[57,1],[64,1],[65,1],[66,4],[69,1],[74,2],[86,1],[89,1],[95,1],[98,1],[104,1],[110,1],[112,1],[113,1],[115,1],[117,2],[118,1],[120,3],[122,1],[128,1],[135,1],[154,1],[158,1],[159,1],[161,1],[166,1],[172,2],[182,2],[190,1],[199,1],[202,1],[219,1],[221,1],[225,1],[230,1],[235,2],[237,2]],"picker":[[128,1]],"plac":[[20,1],[23,1],[112,1],[153,1],[233,1]],"placeholder":[[61,1]],"plaid":[[73,1],[74,2],[76,2],[77,1]],"plan":[[33,3],[96,2],[97,1],[98,3],[99,4],[100,1],[101,5],[113,1],[188,2],[189,3],[190,3],[191,1],[193,1],[205,1],[219,1],[230,1]],"plus":[[150,1],[177,1],[178,1],[196,1]],"png":[[51,1],[88,1],[89,1],[180,1]],"point":[[38,1],[44,1],[76,1],[88,1],[112,1]],"policy":[[144,1],[178,1],[181,1]],"pool":[[235,1]],"portal":[[22,1],[40,1],[58,1],[60,1],[64,1],[118,1],[120,1],[123,1],[136,1],[138,1],[141,3],[150,2],[151,3],[153,3],[162,1],[216,1],[228,1],[229,2],[231,1]],"position":[[147,1]],"positiv":[[113,1]],"possibl":[[219,1]],"post":[[16,1],[23,1],[34,1],[38,1],[43,1],[44,1],[74,2],[75,1],[77,2],[80,1],[81,1],[82,1],[87,2],[99,1],[100,1],[102,1],[103,1],[104,1],[105,2],[106,2],[107,1],[113,4],[160,1],[161,1],[162,1],[172,2],[175,2],[214,1]],"prepar":[[160,1],[196,1]],"press":[[7,4],[141,1]],"presuit":[[33,1]],"preview":[[91,1],[92,1],[94,1],[95,2],[202,1],[213,1]],"previous":[[148,1],[151,2]],"pric":[[184,1],[189,1],[190,1]],"primary":[[19,1],[150,1],[151,1],[178,2]],"print":[[69,2],[74,1],[154,3],[156,1],[223,2],[225,2]],"printabl":[[225,1]],"priority":[[138,2],[140,1]],"privat":[[50,1],[129,1],[181,1],[195,1]],"probably":[[88,1],[168,1],[219,1],[230,1]],"problem":[[55,1],[178,1],[180,2],[229,2],[230,1],[233,1]],"produc":[[156,1]],"profil":[[210,1]],"progress":[[138,1],[141,1],[236,1]],"promot":[[4,1]],"proof":[[9,1]],"properly":[[157,1]],"property":[[2,2],[7,1],[12,1],[13,1],[14,1],[17,4],[18,1],[19,6],[20,1],[22,4],[24,2],[27,1],[30,1],[31,1],[32,1],[35,2],[36,3],[38,4],[45,1],[50,1],[54,1],[57,1],[98,1],[99,1],[101,1],[115,2],[117,3],[126,1],[135,1],[143,1],[144,1],[145,1],[146,1],[147,1],[150,1],[156,2],[157,1],[197,1]],"propos":[[59,1],[160,1],[222,1]],"prospect":[[178,1],[179,1],[181,1]],"prov":[[72,1]],"provid":[[159,1]],"publish":[[184,1],[186,2],[187,2]],"pull":[[71,1]],"put":[[66,1],[80,1],[216,1]],"quarterly":[[82,1],[104,1]],"question":[[7,1],[136,1],[165,2],[166,2],[169,1],[172,4],[174,3],[175,2],[219,1],[230,1],[232,1],[233,1],[235,1]],"queu":[[49,1],[57,1],[73,1],[74,2],[75,1],[76,1],[87,1],[94,1],[160,2],[179,1],[214,1]],"quick":[[6,1],[7,1],[110,1]],"quot":[[132,1],[159,1],[182,1]],"ran":[[61,1],[209,1]],"rang":[[184,1],[199,1]],"rat":[[181,1]],"rather":[[67,1],[82,1],[95,1],[169,1],[177,1]],"re":[[10,1],[50,1],[74,1],[83,1],[95,1],[144,1],[150,1],[176,1],[178,2],[209,1],[210,1],[215,1],[219,1]],"reach":[[115,1],[118,1],[120,1],[134,1],[150,1],[198,1]],"reachabl":[[76,1]],"read":[[13,1],[15,1],[16,1],[26,1],[50,1],[54,2],[57,1],[59,3],[61,2],[69,1],[76,1],[80,1],[86,1],[87,2],[88,1],[89,1],[108,2],[110,1],[111,1],[113,1],[123,1],[125,1],[131,1],[132,2],[144,1],[150,1],[155,1],[161,1],[163,1],[169,1],[172,3],[181,1],[184,2],[190,1],[196,1],[219,2],[227,1]],"readabl":[[88,1]],"readm":[[197,1]],"ready":[[14,1],[20,1],[73,1],[88,1],[177,1],[179,1]],"real":[[89,1],[158,1]],"reason":[[13,1],[50,1],[57,1],[59,1],[61,1],[74,1],[78,1],[80,1],[81,1],[83,1],[161,2],[181,1]],"receiv":[[33,1],[45,1],[94,1],[203,1]],"recent":[[127,1],[145,1],[172,2],[173,1],[227,1]],"recipient":[[66,1],[116,1],[121,1],[122,1]],"recognis":[[15,1]],"recognition":[[169,1]],"recommend":[[129,1]],"recommendation":[[184,1],[187,1]],"reconcil":[[72,2],[73,2],[74,2],[76,2],[77,2]],"reconciliation":[[75,1]],"reconnect":[[128,3]],"record":[[7,2],[8,1],[9,6],[10,2],[14,1],[16,1],[20,2],[22,3],[28,1],[29,1],[30,2],[31,1],[32,2],[33,4],[40,2],[41,1],[42,1],[44,2],[45,2],[50,1],[55,1],[57,1],[69,1],[71,2],[74,1],[76,2],[77,1],[84,2],[86,1],[89,3],[99,2],[101,1],[117,1],[132,1],[139,1],[145,1],[148,3],[149,3],[150,2],[151,2],[152,2],[155,3],[156,2],[157,2],[158,3],[159,1],[170,2],[172,1],[173,1],[175,1],[176,1],[181,1],[193,1],[194,1],[197,1],[216,1],[223,1]],"recurr":[[80,1],[103,1],[104,2],[105,2],[107,4]],"red":[[204,1]],"referenc":[[16,1],[86,1]],"refresh":[[112,1],[128,1],[209,1]],"refus":[[50,1],[198,1]],"register":[[215,1]],"regular":[[36,1],[38,1]],"reject":[[57,1],[74,1],[75,1],[88,1],[128,1],[161,1]],"reload":[[26,1],[32,1]],"rely":[[61,1],[112,1]],"remember":[[62,1]],"remind":[[37,1]],"reminder":[[33,1],[37,2],[62,3],[64,1],[65,4],[66,1],[67,7],[101,2],[151,1],[200,2],[201,1],[202,5],[203,1],[204,4],[205,4]],"remov":[[5,2],[50,1],[67,1],[128,1],[129,1],[132,1],[134,1],[141,2],[146,1],[175,1],[181,1],[222,1]],"renewal":[[62,1]],"rent":[[142,2],[144,1]],"rental":[[142,2],[144,1]],"reopen":[[141,1]],"repair":[[230,1],[233,1]],"repeat":[[16,1],[36,1],[64,2],[102,2],[104,2],[105,1],[107,1]],"replac":[[16,1],[61,1],[77,1],[101,1],[175,1]],"repli":[[116,1]],"reply":[[123,2],[130,3],[131,1],[132,1],[133,2],[134,4],[138,2],[139,1],[140,1],[141,2],[233,2],[236,1],[238,3]],"report":[[22,1],[34,1],[52,3],[53,1],[54,1],[57,1],[90,3],[91,2],[92,4],[93,1],[94,5],[95,3],[108,3],[109,3],[110,3],[111,1],[112,1],[113,3],[180,1],[206,3],[207,1],[208,3],[210,1],[229,2],[230,3],[238,2]],"request":[[1,1],[7,1],[10,1],[20,1],[23,1],[58,1],[59,1],[60,1],[90,1],[132,1],[136,3],[138,1],[141,2],[144,2],[145,1],[147,1],[161,1],[197,1],[198,1],[217,2],[219,5],[228,2],[229,1],[230,6],[231,2],[233,3],[235,5],[236,4],[237,1],[238,5]],"requir":[[12,1],[21,1],[128,1],[155,1],[180,1],[186,1]],"resend":[[116,1],[118,1],[122,1],[134,1]],"resent":[[5,1]],"reserv":[[73,1],[83,2],[102,1],[110,1],[113,1]],"reset":[[110,1]],"resident":[[1,2],[2,2],[4,1],[10,1],[14,1],[17,3],[19,2],[21,2],[22,1],[23,1],[24,3],[35,1],[45,2],[47,1],[58,1],[60,2],[61,6],[64,1],[95,1],[109,1],[115,1],[117,3],[119,2],[124,1],[128,1],[130,3],[134,2],[135,1],[136,3],[137,1],[138,3],[139,2],[141,5],[155,2],[162,1],[188,1],[195,2],[197,1],[211,2],[213,5],[214,3],[215,2],[216,5],[228,1],[229,2]],"resolv":[[31,1],[55,1]],"respons":[[59,1],[162,1]],"responsibl":[[64,1]],"rest":[[0,2],[24,2],[98,1],[123,1]],"restart":[[128,1]],"restor":[[173,1]],"result":[[9,2],[178,1]],"resum":[[67,1]],"retry":[[50,2],[118,1],[134,1]],"return":[[128,1],[147,1]],"revers":[[22,1],[89,1],[107,2],[113,2]],"review":[[48,1],[56,1],[58,3],[59,4],[60,1],[61,8],[69,1],[74,1],[77,1],[79,1],[86,1],[115,1],[126,1],[127,1],[132,1],[146,1],[161,2],[164,1],[179,1],[220,1],[221,1],[222,1]],"revok":[[181,1]],"rewrit":[[186,1],[235,1]],"rfp":[[180,1],[182,2],[183,1],[184,3],[185,2],[186,2],[187,2]],"right":[[10,1],[24,2],[34,1],[38,1],[45,1],[76,1],[87,1],[88,1],[92,1],[99,1],[115,1],[117,1],[122,1],[134,1],[138,1],[155,1],[184,1],[208,1],[215,1],[221,1]],"risk":[[179,1]],"role":[[1,1],[2,2],[5,2],[19,1],[67,1]],"roof":[[58,1]],"roster":[[154,4],[155,3],[156,3],[157,1],[158,1]],"round":[[83,1]],"row":[[5,2],[7,2],[11,1],[12,2],[13,5],[15,5],[16,2],[42,1],[74,1],[144,1],[228,1]],"rs":[[24,1],[47,1],[53,1],[56,2],[166,1],[170,1],[175,1]],"rule":[[24,1],[57,1],[59,2],[61,2],[134,1],[157,1],[159,1],[165,1],[169,1],[170,2],[217,4],[219,4],[220,1],[221,4],[222,1],[230,3],[232,2],[238,1]],"run":[[1,1],[16,1],[61,2],[104,1],[105,4],[106,1],[178,1],[180,2],[181,2],[202,1],[219,1]],"safe":[[152,1],[176,1]],"sale":[[16,1],[22,1],[148,3],[149,2],[150,2],[151,2],[152,3],[153,1],[155,2],[157,1],[158,1],[223,1]],"same":[[14,1],[16,2],[27,1],[39,1],[65,1],[76,1],[77,2],[82,1],[83,1],[88,1],[98,1],[102,1],[107,1],[128,1],[152,1],[162,1],[182,1]],"sampl":[[126,1],[203,1],[213,1]],"sav":[[11,1],[15,1],[16,1],[33,1],[44,1],[49,1],[50,1],[71,1],[76,1],[77,1],[83,1],[88,1],[100,1],[152,1],[168,1],[174,1],[186,1],[198,2],[204,2],[205,1],[209,1],[215,3]],"save":[[5,1],[15,1],[19,1],[46,1],[48,1],[67,1],[69,2],[79,3],[80,2],[82,5],[92,1],[94,1],[104,1],[106,1],[126,1],[138,1],[144,1],[149,1],[156,1],[163,1],[184,1],[190,1],[195,1],[196,1],[201,1],[202,1],[204,4],[205,1],[208,1],[210,1],[214,1],[215,2],[225,2]],"saw":[[59,1],[61,1]],"say":[[2,1],[13,3],[15,1],[19,1],[25,1],[38,1],[61,1],[80,1],[82,1],[83,1],[85,1],[95,1],[109,1],[112,1],[134,1],[146,1],[149,1],[169,2],[170,1],[175,2],[186,1],[222,1],[228,1],[230,1],[235,1]],"scal":[[83,1]],"scan":[[86,1],[88,1],[89,1],[168,1]],"scann":[[87,1],[88,1],[89,1],[161,1],[169,1]],"schedul":[[67,2],[68,3],[69,3],[71,2],[99,1],[102,2],[107,1],[115,1],[120,1],[205,1]],"scop":[[126,1],[182,1],[184,1],[187,2],[221,1]],"screen":[[45,1],[128,1],[204,1],[213,1],[215,1],[225,1],[227,1],[229,1],[235,1]],"search":[[6,3],[7,4],[8,1],[9,3],[10,6],[22,1],[51,1],[144,1]],"second":[[16,1],[82,1],[107,1],[133,1]],"section":[[2,1],[30,1],[37,1],[45,1],[47,1],[53,1],[54,1],[56,1],[95,1],[99,1],[126,1],[167,1],[169,1],[170,1],[171,1],[172,4],[178,1],[202,1]],"secur":[[190,1]],"see":[[1,1],[22,2],[24,4],[32,1],[35,1],[47,1],[53,1],[55,1],[60,2],[61,2],[76,1],[77,1],[80,1],[86,1],[87,1],[92,1],[99,1],[101,1],[109,1],[110,2],[112,1],[113,1],[116,1],[122,1],[126,1],[131,1],[137,1],[138,2],[139,1],[141,1],[151,2],[161,1],[162,1],[171,1],[172,2],[174,1],[175,1],[181,1],[183,1],[184,1],[186,1],[187,1],[188,3],[189,2],[193,1],[196,1],[202,1],[208,1],[211,1],[213,2],[214,1],[215,1],[216,2],[218,1],[220,1],[223,3],[224,1],[225,1],[228,1],[230,1],[231,1],[232,1],[234,1]],"select":[[2,1],[12,1],[13,4],[19,4],[22,5],[30,5],[35,1],[36,4],[38,2],[42,2],[44,1],[45,1],[48,3],[50,2],[54,3],[55,1],[57,1],[59,2],[61,1],[64,3],[66,1],[67,3],[69,7],[70,1],[74,11],[76,1],[80,6],[82,3],[86,5],[87,1],[88,1],[89,1],[92,3],[94,1],[98,2],[104,3],[107,1],[110,8],[112,2],[115,5],[116,1],[120,5],[126,3],[128,4],[132,4],[133,1],[134,1],[135,3],[138,5],[144,6],[145,1],[146,1],[150,5],[151,1],[152,1],[156,3],[158,1],[161,2],[163,2],[166,2],[172,5],[173,1],[174,1],[178,6],[179,1],[180,2],[181,1],[184,10],[187,1],[190,1],[191,1],[196,1],[199,1],[202,3],[205,1],[207,1],[210,1],[213,1],[214,2]],"seller":[[22,1],[148,1],[149,1],[151,1],[153,2],[157,1]],"send":[[2,1],[5,1],[28,1],[33,2],[37,1],[54,1],[57,1],[58,1],[60,1],[62,1],[64,1],[65,1],[66,1],[67,2],[71,1],[75,1],[84,1],[89,1],[91,1],[92,2],[93,2],[94,3],[101,1],[114,4],[115,2],[118,1],[119,2],[120,2],[121,1],[123,1],[124,1],[132,1],[133,1],[134,2],[135,4],[136,1],[138,1],[141,1],[150,1],[151,1],[160,1],[178,2],[180,1],[184,2],[186,2],[200,1],[202,2],[203,1],[204,1],[205,1],[213,1],[214,1],[216,2],[219,1],[228,1],[230,3],[233,2],[235,1],[236,1],[237,1],[238,1]],"sent":[[23,1],[30,1],[46,1],[49,1],[54,1],[55,1],[57,1],[60,1],[61,1],[65,1],[71,1],[88,1],[94,4],[95,2],[126,1],[129,2],[133,2],[134,1],[162,1],[180,1],[186,1],[198,1],[202,1],[205,1],[216,1],[227,2],[237,1]],"separat":[[89,1],[178,1]],"seriously":[[28,1]],"serv":[[142,1],[147,1]],"server":[[192,1],[198,1],[204,1],[215,1]],"set":[[16,1],[24,2],[25,1],[30,1],[33,1],[35,1],[39,1],[45,1],[55,1],[62,2],[64,1],[76,1],[80,1],[91,1],[96,2],[118,1],[138,2],[141,1],[142,2],[143,1],[144,1],[146,2],[147,1],[151,1],[156,2],[174,1],[176,1],[181,1],[192,1],[199,1],[200,2],[202,1],[204,2],[211,1],[212,2],[215,1]],"sett":[[23,2],[92,2],[94,1],[101,1],[174,1],[180,1],[187,1],[196,1],[204,2],[207,1],[209,1],[213,1],[215,2]],"settl":[[152,1]],"settlement":[[148,1],[149,2],[150,1],[151,3],[152,1],[157,1]],"setup":[[23,1],[27,1],[171,1],[174,1]],"several":[[5,1],[15,2],[21,1],[38,1],[96,1],[182,1]],"shar":[[15,1],[150,2],[152,2],[154,1],[155,1],[157,2],[172,1]],"sheet":[[71,1],[78,1],[110,2],[112,1],[113,2],[196,1]],"short":[[27,1],[48,1],[80,1],[90,1],[118,1],[174,1],[235,1],[237,1]],"shorten":[[123,1]],"shortly":[[76,1]],"shouldn":[[187,1]],"show":[[0,1],[9,1],[10,1],[20,1],[26,1],[31,1],[35,1],[43,1],[45,1],[50,1],[57,1],[58,1],[65,1],[70,2],[75,1],[80,1],[83,1],[86,1],[87,3],[92,1],[93,1],[95,2],[98,1],[99,3],[110,2],[112,1],[113,2],[115,1],[116,1],[120,1],[121,2],[123,1],[124,1],[126,1],[132,1],[133,1],[140,1],[142,1],[144,1],[147,2],[151,2],[153,1],[156,1],[157,3],[158,2],[159,1],[164,1],[166,1],[172,1],[173,1],[178,1],[179,3],[180,1],[184,1],[185,1],[186,1],[187,1],[189,1],[190,1],[191,1],[193,1],[196,1],[198,1],[203,3],[210,1],[213,1],[214,1],[217,2],[219,1],[220,2],[225,2],[226,1],[227,3],[228,1],[230,1],[236,2]],"shown":[[16,1],[61,1],[83,1],[107,1],[139,1],[157,1],[158,1],[204,1],[228,1],[230,2]],"side":[[135,1],[182,2],[184,2],[199,1]],"sidebar":[[2,1],[5,1],[6,1],[13,1],[19,1],[24,1],[36,1],[37,1],[42,1],[45,1],[54,1],[59,1],[64,1],[69,1],[110,1],[120,1],[126,1],[132,1],[138,1],[144,1],[161,1],[166,2],[171,1],[172,1],[178,1],[190,1],[196,1],[202,1],[207,1],[213,1]],"sign":[[3,1],[10,1],[27,1],[50,1],[73,1],[74,1],[77,1],[125,1],[126,1],[128,1],[199,1],[209,3],[210,1],[228,1]],"signal":[[50,1]],"six":[[24,1],[26,1]],"size":[[219,1],[230,1]],"skip":[[13,1],[61,1],[101,1],[178,1]],"skipp":[[13,1],[16,1],[38,1],[67,2],[77,1],[101,1],[205,1]],"small":[[193,2]],"smaller":[[88,1]],"sms":[[64,1],[67,1],[115,1],[120,1]],"softwar":[[194,1]],"sold":[[22,1],[148,1],[150,1]],"sole":[[157,1]],"some":[[9,1],[13,1],[57,1],[114,1],[116,1],[122,1],[146,1]],"someon":[[4,1],[5,1],[23,1],[32,1],[129,1],[135,2],[152,1],[201,1],[238,1]],"someth":[[4,2],[9,2],[15,2],[20,1],[21,2],[22,1],[26,3],[30,1],[32,2],[38,2],[44,2],[50,2],[56,2],[66,2],[76,2],[82,2],[88,2],[94,2],[100,2],[106,2],[112,2],[117,2],[122,2],[128,2],[134,2],[140,2],[146,2],[152,2],[158,2],[163,2],[168,2],[174,2],[180,2],[186,2],[192,2],[198,2],[204,2],[209,2],[215,2],[219,1],[221,2],[227,2],[237,2]],"somewher":[[6,1],[195,1]],"soon":[[5,1],[149,1],[178,1]],"sort":[[22,1],[51,1]],"sourc":[[110,1],[132,1],[172,1]],"special":[[36,1],[96,1],[99,1]],"specific":[[64,1],[115,2],[126,1],[129,1]],"spend":[[113,1]],"spent":[[78,1]],"split":[[15,1],[101,1]],"spread":[[98,1],[100,1]],"spreadsheet":[[11,3],[16,2],[18,1],[22,2],[27,1],[156,1]],"st":[[16,1]],"stag":[[30,2],[31,1],[33,2]],"stall":[[128,1]],"stand":[[108,1]],"start":[[1,2],[10,1],[12,2],[18,2],[22,2],[23,3],[28,1],[29,2],[35,2],[41,2],[47,2],[53,2],[55,1],[57,2],[61,2],[63,2],[73,2],[78,2],[79,3],[80,2],[82,2],[83,3],[85,2],[91,2],[97,2],[99,1],[103,2],[109,2],[125,2],[128,1],[131,2],[134,1],[135,1],[137,2],[143,2],[149,2],[153,1],[155,2],[171,2],[177,2],[183,2],[188,1],[189,2],[192,1],[195,2],[198,1],[201,2],[206,1],[212,2],[213,1],[218,2],[219,1],[222,3],[224,2],[228,1],[232,1],[234,2]],"stat":[[12,1],[35,1],[57,2],[62,1],[155,1],[156,1],[170,4],[171,2],[172,3],[173,2],[174,4],[175,2]],"statement":[[71,1],[72,1],[73,1],[74,2],[76,1],[77,2],[110,2],[113,2],[223,3],[225,3],[226,2],[227,1],[232,1]],"status":[[37,1],[55,2],[110,1],[116,1],[121,1],[138,2],[140,1],[141,1],[179,1],[187,1],[214,1],[219,1],[231,1]],"statut":[[159,1],[170,1],[171,2],[172,2],[174,2],[175,2]],"stay":[[22,1],[34,1],[50,1],[51,1],[77,1],[80,1],[89,1],[101,1],[113,1],[121,1],[129,1],[150,1],[151,1],[153,1],[233,1]],"step":[[2,2],[7,2],[13,2],[19,2],[24,5],[25,2],[26,4],[27,2],[30,2],[36,2],[42,2],[48,2],[54,2],[59,2],[64,2],[69,2],[74,2],[79,1],[80,2],[82,1],[86,2],[89,1],[92,2],[98,2],[104,2],[110,2],[115,2],[120,2],[126,2],[132,2],[138,2],[144,2],[150,2],[156,2],[161,2],[166,2],[172,2],[177,1],[178,2],[184,2],[190,2],[196,2],[202,2],[207,2],[213,2],[214,1],[219,2],[225,2],[228,1],[230,2],[235,2]],"stick":[[235,1]],"still":[[9,1],[45,1],[67,1],[77,1],[82,1],[94,1],[95,1],[101,1],[128,1],[134,2],[144,1],[151,1],[153,1],[174,1],[178,1],[216,2],[221,3],[228,1]],"stop":[[27,1],[33,1],[66,1],[67,1],[92,1],[107,4],[129,1],[185,1],[187,1],[205,1],[206,1],[214,1],[216,1]],"stopp":[[128,1],[198,1]],"stor":[[50,1],[51,1],[128,1],[157,1],[199,1]],"straight":[[3,1],[14,1],[20,2],[24,1],[50,1],[110,1],[151,1],[216,1]],"street":[[16,1],[48,1],[216,1]],"strip":[[190,1],[191,1],[192,1],[193,1]],"subject":[[92,1],[118,1],[120,1],[132,1],[138,1],[235,1],[237,1]],"submission":[[186,1]],"submit":[[1,1],[61,1],[184,1],[187,1],[217,1],[219,1],[221,2],[222,1],[230,2],[237,1]],"submitt":[[61,2],[185,1],[186,2],[220,2],[222,1]],"subscrib":[[188,2],[189,1],[190,1]],"subscription":[[188,1],[191,1],[193,1]],"successful":[[128,1]],"such":[[7,1],[22,1],[48,2],[57,1],[102,1],[120,1],[157,1],[166,1],[172,1],[202,1],[228,1]],"suggest":[[59,2],[74,1],[75,1],[77,1],[83,1],[144,1]],"suggestion":[[60,1],[61,2],[80,3],[83,1]],"suit":[[33,2]],"summary":[[10,1],[80,1],[83,2],[172,1],[219,1]],"support":[[27,2],[38,1],[44,1],[76,3],[82,1],[88,1],[94,1],[100,1],[107,2],[112,1],[136,3],[171,1],[174,1],[192,3],[198,1],[204,1],[215,2],[228,1],[230,1],[233,3],[235,1],[236,1],[238,1]],"sure":[[144,1]],"suspend":[[157,2],[159,1]],"suspension":[[157,1]],"switch":[[5,2],[10,1],[22,1],[94,1],[207,1],[209,1],[210,1]],"sync":[[75,2],[128,4],[129,1]],"system":[[12,1],[22,1]],"tab":[[14,1],[19,1],[49,2],[57,1],[74,1],[86,1],[92,1],[98,1],[104,1],[105,1],[110,3],[113,2],[161,1],[166,1],[172,3],[174,2],[179,1],[181,1],[184,1],[196,1],[207,1],[210,1],[213,1],[225,4],[228,1],[229,1],[232,1]],"take":[[24,1],[48,1],[89,1],[117,1],[172,1],[226,1]],"tap":[[7,1],[219,6],[222,1],[225,4],[228,1],[230,9],[232,1],[235,4],[236,1]],"task":[[24,1]],"tax":[[199,1]],"tell":[[15,1],[60,1],[61,1],[82,1],[147,1],[187,1],[212,1],[230,1]],"templat":[[12,1],[106,1],[118,2],[120,1]],"temporary":[[193,1]],"tenant":[[19,1],[115,2],[118,1],[147,2],[150,1],[151,1]],"tenur":[[12,1],[16,1],[22,1],[143,2],[146,2],[151,2]],"term":[[184,1]],"test":[[67,1]],"texa":[[171,1],[174,1]],"text":[[8,1],[9,1],[60,1],[88,1],[89,1],[114,3],[115,1],[118,6],[123,2],[141,1],[159,1],[166,2],[168,2],[169,2],[172,1],[174,1],[175,1],[205,1],[238,1]],"them":[[10,1]],"themselv":[[199,1]],"thing":[[32,1]],"thre":[[113,1]],"thread":[[10,1],[126,1],[132,2],[134,1],[135,1]],"through":[[7,1],[22,1],[33,1],[77,1],[89,1],[193,1],[210,1],[216,1]],"thrown":[[83,1]],"tick":[[19,1],[25,1],[30,1],[61,1],[64,2],[66,1],[115,4],[117,1],[138,1],[150,1],[152,1],[184,1],[202,1]],"ticket":[[7,1],[10,1],[136,3],[137,2],[138,2],[139,1],[141,3],[197,1],[237,1]],"tile":[[112,1]],"time":[[8,1],[11,1],[27,1],[29,1],[30,1],[63,1],[64,1],[65,2],[66,2],[79,1],[101,1],[102,1],[108,1],[120,1],[123,1],[133,1],[134,1],[141,1],[146,1],[156,1],[173,1],[193,1],[202,1],[225,1]],"timelin":[[184,1]],"titl":[[10,1],[64,1],[66,1],[138,1],[140,2],[166,1],[184,1],[187,1]],"today":[[32,1],[45,1],[80,1],[89,1],[95,1],[113,2],[118,1],[158,1],[159,1],[196,1]],"token":[[128,1]],"told":[[169,1],[216,1]],"too":[[134,1],[153,1],[174,2],[205,1],[219,1],[237,1]],"top":[[5,1],[7,1],[20,1],[22,1],[23,1],[24,1],[31,1],[36,1],[50,1],[57,1],[110,1],[135,1],[138,1],[144,1],[150,1],[220,1],[225,1]],"topic":[[69,1],[120,1],[172,2]],"total":[[80,1],[97,1],[99,1],[101,1],[110,1],[113,1],[135,1],[190,1],[225,1],[228,1]],"track":[[28,2],[70,1],[138,1],[217,2],[219,1]],"trad":[[177,1],[178,1],[180,1]],"trail":[[161,1]],"trailer":[[48,1]],"transaction":[[72,2],[74,2],[75,1],[77,2],[110,1]],"transcript":[[69,1]],"transfer":[[102,1]],"transferr":[[149,1]],"trash":[[5,1]],"treasurer":[[78,1],[102,1],[212,1]],"trial":[[110,1],[112,1]],"true":[[27,1]],"try":[[9,2],[44,1],[50,1],[56,1],[66,1],[74,1],[76,4],[88,3],[94,3],[100,1],[106,1],[116,1],[134,2],[140,1],[152,1],[158,1],[163,1],[168,1],[172,1],[174,1],[180,2],[186,2],[192,1],[198,5],[204,1],[209,2],[215,2],[227,1],[237,1]],"turn":[[45,1],[67,1],[76,1],[82,1],[92,1],[93,2],[95,2],[144,1],[201,1],[206,2],[208,1],[210,1],[211,2],[213,1],[214,1],[216,1]],"twic":[[15,1],[129,1]],"two":[[154,1],[184,1],[186,1]],"txt":[[197,1]],"typ":[[7,1],[87,1],[159,1]],"type":[[7,1],[9,1],[10,2],[35,1],[48,1],[54,1],[59,1],[69,2],[77,1],[80,1],[86,1],[100,1],[115,1],[138,1],[140,1],[146,1],[166,2],[172,1],[178,1],[181,1],[213,1],[219,1],[221,2],[230,1],[236,1]],"typo":[[215,1]],"under":[[2,2],[5,1],[13,2],[19,1],[24,1],[31,1],[36,2],[48,2],[49,1],[50,1],[51,1],[54,1],[59,1],[61,1],[64,3],[70,3],[74,2],[80,2],[86,2],[87,1],[88,1],[99,1],[115,2],[120,1],[127,2],[135,2],[138,2],[140,1],[141,1],[144,1],[146,1],[151,3],[153,1],[156,2],[167,1],[172,1],[173,1],[178,1],[179,1],[180,2],[181,1],[184,2],[190,2],[193,1],[202,1],[207,1],[219,4],[235,1],[236,2]],"undo":[[67,1],[133,1]],"undon":[[175,1],[187,1]],"unit":[[12,1],[15,2],[16,1],[19,1],[22,1],[32,2],[50,1],[54,1],[115,1],[118,1],[144,1],[146,1],[149,1],[197,1],[237,1]],"unknown":[[143,1],[146,1],[151,1],[227,1]],"unless":[[64,1],[80,1],[101,1],[113,1],[155,1],[157,1],[210,1]],"unmatch":[[74,1],[77,1]],"unpaid":[[39,1],[87,2],[89,1],[101,1],[159,1]],"untick":[[205,1]],"until":[[11,1],[13,1],[23,1],[26,1],[46,1],[50,1],[51,1],[77,1],[79,1],[80,1],[83,1],[89,1],[93,1],[113,1],[135,1],[152,1],[160,2],[180,1],[187,1],[201,1],[204,1],[211,1]],"up":[[7,1],[10,1],[12,1],[23,2],[24,2],[25,1],[27,1],[33,1],[35,1],[45,1],[48,1],[58,1],[61,2],[62,2],[76,1],[83,1],[91,1],[96,2],[110,1],[112,1],[113,1],[118,1],[123,1],[124,1],[134,1],[135,1],[150,1],[152,2],[170,2],[174,1],[176,1],[180,1],[187,1],[192,1],[200,2],[204,2],[205,2],[211,1],[212,2],[214,1],[215,1],[219,1],[222,1],[238,1]],"upcom":[[70,2],[172,1]],"updat":[[13,2],[16,1],[55,1],[107,1],[111,1],[172,4],[173,3],[175,1],[189,1],[191,1],[231,1]],"upload":[[12,1],[24,2],[47,2],[49,1],[50,4],[51,2],[53,2],[56,2],[88,1],[132,1],[146,1],[165,2],[166,2],[168,1],[173,1],[180,1],[181,1],[199,1]],"ups":[[70,1]],"urgent":[[60,1]],"use":[[5,1],[6,1],[7,1],[22,1],[28,1],[32,1],[39,1],[40,1],[59,1],[62,1],[64,1],[66,1],[67,1],[71,1],[72,1],[78,1],[80,1],[83,3],[84,1],[89,1],[94,1],[96,1],[101,1],[102,1],[107,1],[108,1],[110,3],[114,1],[119,1],[123,1],[129,1],[130,1],[132,1],[135,1],[138,1],[142,1],[144,1],[153,1],[156,1],[157,1],[168,1],[169,1],[170,1],[171,1],[173,1],[175,1],[176,2],[182,1],[188,1],[194,1],[200,1],[206,1],[212,2],[213,1],[215,1],[223,1],[230,1],[232,1],[233,1],[235,1],[237,1],[238,2]],"used":[[12,1],[71,1],[80,1],[129,1],[169,1],[180,1],[181,1]],"usual":[[89,1]],"usually":[[75,1],[76,1],[212,1]],"valid":[[15,1],[21,1]],"valu":[[16,1],[181,2]],"varianc":[[113,1]],"vehicl":[[48,1]],"vendor":[[7,1],[10,1],[84,3],[85,4],[86,2],[89,3],[115,1],[161,2],[162,2],[163,1],[164,2],[176,3],[177,3],[178,7],[179,6],[180,5],[181,6],[182,3],[183,2],[184,6],[185,1],[186,2],[187,4],[197,1],[199,1]],"view":[[184,1],[225,1],[232,1]],"violation":[[7,1],[10,1],[17,1],[20,1],[22,4],[23,1],[46,1],[48,1],[49,3],[52,3],[53,1],[54,2],[55,2],[57,2],[71,1],[90,1],[115,1],[118,1],[132,1],[161,2],[162,2],[167,1],[197,1],[208,1]],"visibl":[[129,1]],"vot":[[157,2]],"vote":[[154,1],[157,3],[159,1]],"voter":[[154,3],[156,2],[157,1],[159,1]],"vs":[[80,1],[110,2],[112,1],[113,1]],"wait":[[20,1],[50,2],[51,1],[57,1],[61,2],[76,1],[87,1],[88,1],[90,1],[92,1],[94,1],[110,1],[127,1],[133,1],[142,2],[143,1],[144,2],[146,2],[147,1],[152,1],[160,1],[161,1],[166,1],[208,1],[232,1]],"waiv":[[228,2]],"walk":[[46,1]],"want":[[64,2],[80,1],[104,1],[108,1],[142,1],[182,1],[183,1],[184,1],[194,1],[223,1],[230,1]],"warranty":[[184,1]],"watch":[[181,1]],"way":[[40,1],[54,1],[65,1],[102,1],[113,1],[159,1],[213,1]],"webp":[[51,1],[89,1],[180,1]],"week":[[179,1]],"weekly":[[104,1]],"went":[[15,1],[57,1],[92,1]],"weren":[[192,1]],"whatever":[[159,1],[222,1],[230,1]],"wherever":[[80,1]],"whether":[[94,1],[150,1],[172,1]],"whil":[[61,1],[67,1],[127,1],[166,1],[196,1],[220,1],[222,1]],"whol":[[24,1],[66,1],[83,1],[119,1],[129,1]],"whos":[[159,1],[164,1],[179,1],[203,1]],"window":[[7,1],[50,1],[74,1],[225,1]],"winn":[[185,1]],"winner":[[182,2]],"withdraw":[[144,1],[222,2]],"withdrawn":[[145,1],[221,1],[222,1]],"within":[[75,1],[135,1],[179,2]],"without":[[6,1],[7,1],[77,1],[129,1],[141,1],[153,1],[169,1],[200,1],[222,1]],"won":[[67,1],[89,1],[187,1]],"word":[[7,1],[52,1],[60,2],[166,1],[184,1],[222,1],[238,1]],"work":[[6,1],[10,1],[23,1],[59,1],[67,1],[73,1],[89,1],[101,1],[108,1],[110,1],[127,1],[138,1],[160,1],[171,1],[181,1],[185,1],[187,1],[196,1],[222,2],[232,1]],"writ":[[22,1],[56,1],[61,1],[80,1],[115,1],[120,1],[132,1],[134,1],[135,2],[140,2],[219,1],[221,1],[222,1],[230,1],[233,1],[235,2]],"written":[[33,1],[78,1],[158,1],[220,1],[232,1]],"wrong":[[4,2],[9,2],[13,1],[15,2],[21,2],[26,3],[32,2],[38,2],[44,2],[48,1],[50,2],[54,1],[56,2],[66,2],[69,1],[76,2],[82,2],[87,1],[88,2],[89,1],[94,2],[95,1],[100,2],[106,2],[112,2],[117,2],[122,2],[128,2],[134,2],[140,2],[146,2],[152,2],[158,2],[163,3],[168,2],[174,2],[180,3],[186,2],[192,3],[198,2],[204,2],[209,2],[215,2],[221,2],[227,2],[237,2]],"wrot":[[228,1]],"xls":[[15,1]],"xlsx":[[12,1],[15,1]],"year":[[62,1],[64,1],[65,2],[67,1],[78,5],[79,1],[80,9],[82,6],[83,7],[112,1],[190,1]],"yearly":[[62,3],[65,1],[82,1],[83,2]],"yet":[[12,1],[24,1],[32,1],[38,4],[44,1],[50,1],[56,1],[61,1],[73,1],[76,3],[80,1],[82,2],[85,1],[87,1],[88,1],[112,2],[135,1],[169,1],[171,1],[174,2],[179,1],[180,1],[181,1],[192,1],[211,1],[215,2],[218,1],[224,1],[227,1],[234,1]],"your":[[173,1]],"yourself":[[5,1],[33,1],[54,1],[56,1],[60,1],[71,1],[82,1],[92,1],[146,1],[147,1],[172,1],[175,1],[178,2],[180,1],[187,1]],"zell":[[45,4],[193,1],[211,2],[212,1],[213,3],[214,1],[215,3],[216,2],[226,1],[228,1],[230,2]],"zero":[[227,1]],"zip":[[12,1],[196,2],[197,1],[199,1]],"zone":[[156,1]]}}}
 
 /** What's new entries from docs/releases `whats_new:` blocks, newest first. */
 export const WHATS_NEW: readonly WhatsNewEntry[] = [
