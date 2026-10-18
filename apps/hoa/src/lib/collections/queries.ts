@@ -31,13 +31,13 @@ export interface CollectionEvent {
   createdAt: string
 }
 
-const CASE_COLUMNS =
+export const CASE_COLUMNS =
   'id, unit_id, status, attorney_firm, attorney_reference, opened_on, closed_on, closed_reason'
 
-const EVENT_COLUMNS =
+export const EVENT_COLUMNS =
   'id, event_type, occurred_on, note, amount, actor_initials, communication_id, created_at'
 
-function toCase(r: Record<string, unknown>): CollectionCase {
+export function toCase(r: Record<string, unknown>): CollectionCase {
   return {
     id: String(r.id),
     unitId: String(r.unit_id),
@@ -117,7 +117,12 @@ export async function listEventsForCase(
 
   if (error) throw new Error(`collections: event list failed: ${error.message}`)
 
-  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+  return ((data ?? []) as Record<string, unknown>[]).map(toEvent)
+}
+
+/** A collection_events row (EVENT_COLUMNS) in the shape the UI reads. */
+export function toEvent(r: Record<string, unknown>): CollectionEvent {
+  return {
     id: String(r.id),
     eventType: r.event_type as CollectionEventType,
     occurredOn: String(r.occurred_on),
@@ -128,7 +133,12 @@ export async function listEventsForCase(
     actorInitials: (r.actor_initials as string | null) ?? null,
     communicationId: (r.communication_id as string | null) ?? null,
     createdAt: String(r.created_at),
-  }))
+  }
+}
+
+/** Newest first, as listEventsForCase orders them (occurred_on, then created_at). */
+export function sortEventsNewestFirst(events: CollectionEvent[]): CollectionEvent[] {
+  return [...events].sort((a, b) => b.occurredOn.localeCompare(a.occurredOn) || b.createdAt.localeCompare(a.createdAt))
 }
 
 /**

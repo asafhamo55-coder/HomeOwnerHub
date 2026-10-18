@@ -99,6 +99,9 @@ export function cappedFakeDb(
       builder.delete = rec('delete')
       const one = (strict: boolean) => () => {
         call.ops.push([strict ? 'single' : 'maybeSingle'])
+        if (opts.failAt && opts.failAt.table === table && opts.failAt.from === undefined) {
+          return Promise.resolve({ data: null, error: { code: '57014', message: 'timeout' } })
+        }
         if (inserted) return Promise.resolve({ data: { id: `${table}-inserted`, ...inserted }, error: null })
         const rows = (tables[table] ?? []).filter((r) => preds.every((p) => p(r)))
         const data = rows[0] ?? null
