@@ -9,6 +9,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { todayIn } from '@/lib/association-time'
+import { readCurrentOpenPeriod } from '@homeowner-portal/jobs/fiscal-periods'
 import { fieldErrorsOf } from '@/lib/field-errors'
 
 type PaymentPlanInsert = Database['public']['Tables']['payment_plans']['Insert']
@@ -75,14 +76,9 @@ export async function createPaymentPlan(input: {
     return { ok: false, error: 'Unit not found in this association.' }
   }
 
-  const { data: period } = await supabase
-    .from('fiscal_periods')
-    .select('id')
-    .eq('association_id', assoc.id)
-    .eq('status', 'open')
-    .order('start_date', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  // The open period that has STARTED, on the association's day (BL-076):
+  // next year, opened early, waits for its first day.
+  const { data: period } = await readCurrentOpenPeriod(supabase, assoc.id, todayIn(assoc.timeZone))
   if (!period) return { ok: false, error: 'No open fiscal period.' }
 
   const refs = await loadAccountingRefs(supabase, assoc.id)

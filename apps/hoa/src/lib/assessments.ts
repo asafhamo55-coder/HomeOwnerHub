@@ -10,6 +10,7 @@ import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { booksNotOpen, type BooksNotOpenFailure } from '@/lib/accounting/books-not-open'
 import { todayIn } from '@/lib/association-time'
+import { readCurrentOpenPeriod } from '@homeowner-portal/jobs/fiscal-periods'
 import { fieldErrorsOf } from '@/lib/field-errors'
 import { ensureUnitsForProperties, listBillableUnits } from '@/lib/properties/lot'
 
@@ -65,14 +66,9 @@ export async function materializeCurrentPeriodAssessments(input: {
     .single()
   if (!assocRow) return { ok: false, error: 'Association not found.' }
 
-  const { data: period } = await supabase
-    .from('fiscal_periods')
-    .select('id, start_date, end_date')
-    .eq('association_id', assoc.id)
-    .eq('status', 'open')
-    .order('start_date', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  // The open period that has STARTED, on the association's day (BL-076):
+  // next year, opened early, waits for its first day.
+  const { data: period } = await readCurrentOpenPeriod(supabase, assoc.id, todayIn(assoc.timeZone))
   if (!period) {
     return booksNotOpen(gate.role)
   }
@@ -269,14 +265,9 @@ export async function createDues(
     .single()
   if (!assocRow) return { ok: false, error: 'Association not found.' }
 
-  const { data: period } = await supabase
-    .from('fiscal_periods')
-    .select('id, start_date, end_date')
-    .eq('association_id', assoc.id)
-    .eq('status', 'open')
-    .order('start_date', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  // The open period that has STARTED, on the association's day (BL-076):
+  // next year, opened early, waits for its first day.
+  const { data: period } = await readCurrentOpenPeriod(supabase, assoc.id, todayIn(assoc.timeZone))
   if (!period) {
     return booksNotOpen(gate.role)
   }

@@ -10,6 +10,7 @@
     "./db-error": "./src/db-error.ts",
     "./dues-reminders": "./src/dues-reminders/index.ts",
     "./association-time": "./src/association-time.ts",
+    "./fiscal-periods": "./src/fiscal-periods.ts",
     "./monthly-board-report": "./src/monthly-board-report/index.ts"
   },
   "scripts": {

@@ -31,6 +31,8 @@ import {
   type DraftSource,
 } from '@/lib/accounting/budget-draft'
 import { saveDraftBudget, summarizeDraftBudget } from '@/lib/budget-draft-actions'
+import type { NextFiscalYearOffer } from '@/lib/accounting/open-next-fiscal-year'
+import { OpenNextFiscalYearButton } from '../../_components/OpenNextFiscalYearButton'
 
 interface Option {
   id: string
@@ -48,6 +50,11 @@ export interface BudgetDraftEditorProps {
   yearLabel: string
   /** Set when next year isn't a fiscal period yet. */
   nextYearMissingLabel: string | null
+  /**
+   * BL-076: what "Open next fiscal year" would add, when the viewer is an
+   * admin and the books' structure allows it; null otherwise.
+   */
+  openNextYear?: NextFiscalYearOffer | null
   /** "FY 2026 budget (approved)", or null when there's no earlier budget. */
   sourceLabel: string | null
   windowLabel: string
@@ -64,7 +71,7 @@ const signed = (n: number) => (n >= 0 ? `+${wholeUsd(n)}` : wholeUsd(n))
  * confirmed, and what's saved is a DRAFT through the normal budget path.
  */
 export function BudgetDraftEditor(props: BudgetDraftEditorProps) {
-  const { funds, fundId, fundName, targets, targetId, yearLabel, nextYearMissingLabel, sourceLabel, windowLabel, source } = props
+  const { funds, fundId, fundName, targets, targetId, yearLabel, nextYearMissingLabel, openNextYear = null, sourceLabel, windowLabel, source } = props
   const router = useRouter()
   const toast = useToast()
   const confirm = useConfirm()
@@ -160,10 +167,17 @@ export function BudgetDraftEditor(props: BudgetDraftEditorProps) {
   return (
     <div className="space-y-6">
       {nextYearMissingLabel ? (
-        <Alert variant="warning" title={`${nextYearMissingLabel} isn’t open in the books yet`}>
+        <Alert
+          variant="warning"
+          title={`${nextYearMissingLabel} isn’t open in the books yet`}
+          actions={openNextYear ? <OpenNextFiscalYearButton {...openNextYear} variant="default" /> : null}
+        >
           {targets.length > 0
             ? `There’s no fiscal period for ${nextYearMissingLabel}, so the draft can only be saved to a year that is open. Review it now, or save it once ${nextYearMissingLabel} exists.`
-            : `There’s no fiscal period for ${nextYearMissingLabel}, so there’s nowhere to save this draft yet. You can review and adjust it now; saving turns on once ${nextYearMissingLabel} is open in Accounting.`}
+            : `There’s no fiscal period for ${nextYearMissingLabel}, so there’s nowhere to save this draft yet. You can review and adjust it now; saving turns on once ${nextYearMissingLabel} is open in Accounting.`}{' '}
+          {openNextYear
+            ? `Open it now — ${openNextYear.currentLabel ?? 'the current year'} stays the current year until ${openNextYear.label} starts, and this draft stays on screen.`
+            : 'An admin of your HOA can open it from Accounting › Fiscal periods.'}
         </Alert>
       ) : null}
 

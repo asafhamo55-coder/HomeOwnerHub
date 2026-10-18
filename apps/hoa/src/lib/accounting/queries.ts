@@ -2,7 +2,7 @@ import type { Database } from '@homeowner-portal/db/types'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { chunk, readAll } from '@/lib/supabase/read-all'
-import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone } from '@/lib/association-time'
+import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone, todayIn } from '@/lib/association-time'
 import { isClosingEntry, withoutClosingEntries } from './closing-entries'
 
 /**
@@ -1261,7 +1261,7 @@ export interface AccountingContext {
   organizationId: string
   associationId: string
   associationName: string
-  /** Open or most recent period; null when nothing has been seeded yet. */
+  /** The latest period that has started (never a future one); null when none has. */
   currentPeriod: FiscalPeriod | null
   /**
    * The association's IANA zone (BL-043): what "today" means on every
@@ -1294,10 +1294,14 @@ export async function getAccountingContext(): Promise<AccountingContext | null> 
 
   if (!assocRow) return null
 
+  // The latest period that has STARTED on the association's day (BL-076):
+  // next year, opened early, is not current until its first day.
+  const timeZone = associationTimeZone(assocRow)
   const { data: period, error: periodErr } = await supabase
     .from('fiscal_periods')
     .select('*')
     .eq('association_id', assoc.id)
+    .lte('start_date', todayIn(timeZone))
     .order('start_date', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -1308,7 +1312,7 @@ export async function getAccountingContext(): Promise<AccountingContext | null> 
     associationId: assoc.id,
     associationName: assoc.name,
     currentPeriod: period,
-    timeZone: associationTimeZone(assocRow),
+    timeZone,
   }
 }
 
