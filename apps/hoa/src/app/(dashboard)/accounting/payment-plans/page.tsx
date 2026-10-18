@@ -1,43 +1,17 @@
 import Link from 'next/link'
 import { HandCoins, Plus } from 'lucide-react'
-import { Button, DataTable, EmptyState, LoadFailed, Page, type DataTableColumn } from '@homeowner-portal/ui'
-import { getAccountingContext, loadPaymentPlans, type PaymentPlanRow } from '@/lib/accounting/queries'
+import { Alert, Button, DataTable, EmptyState, LoadFailed, Page } from '@homeowner-portal/ui'
+import { getAccountingContext, loadPaymentPlans } from '@/lib/accounting/queries'
+import { loadPlanStandings } from '@/lib/accounting/plan-standings'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { todayIn } from '@/lib/association-time'
 import { tryLoad } from '@/lib/load-or-fail'
-import { formatDay, usd } from '@/lib/money/format'
-import { PLAN_STATUS } from '@/lib/money/status'
 import { AccountingTabs } from '../AccountingTabs'
-import { AccountingLoadFailed, AccountingNotSetUp, MoneyStatus } from '../_components/shared'
+import { AccountingLoadFailed, AccountingNotSetUp } from '../_components/shared'
+import { behindCount, paymentPlanColumns } from './columns'
 
 export const metadata = { title: 'Payment Plans' }
 export const dynamic = 'force-dynamic'
-
-const COLUMNS: DataTableColumn<PaymentPlanRow>[] = [
-  {
-    key: 'unit',
-    header: 'Property',
-    mobilePrimary: true,
-    cell: (p) => (
-      <span className="block">
-        <span className="block font-medium text-foreground">{p.unit?.address_line1 ?? 'Unknown property'}</span>
-        {p.unit?.unit_number ? <span className="block text-xs text-muted">Unit {p.unit.unit_number}</span> : null}
-      </span>
-    ),
-  },
-  {
-    key: 'schedule',
-    header: 'Schedule',
-    className: 'whitespace-nowrap',
-    cell: (p) => (
-      <span className="num">
-        {p.installment_count} × {usd(Number(p.installment_amount))}
-        <span className="text-muted"> / month</span>
-      </span>
-    ),
-  },
-  { key: 'start', header: 'Starts', className: 'whitespace-nowrap text-muted', cell: (p) => formatDay(p.start_date) },
-  { key: 'total', header: 'Total', numeric: true, cell: (p) => usd(Number(p.total_amount)) },
-  { key: 'status', header: 'Status', cell: (p) => <MoneyStatus registry={PLAN_STATUS} status={p.status} /> },
-]
 
 export default async function PaymentPlansPage() {
   const ctxRes = await tryLoad('accounting context', getAccountingContext)
@@ -46,6 +20,15 @@ export default async function PaymentPlansPage() {
   if (!ctx) return <AccountingNotSetUp title="Payment plans" returnTo="/accounting/payment-plans" />
 
   const plansRes = await tryLoad('payment plans', () => loadPaymentPlans(ctx.associationId))
+  // BL-080: how each plan is going, on the association's day. A failed
+  // read leaves the list up and says "Couldn't load" in Progress.
+  const standingsRes = plansRes.ok
+    ? await tryLoad('payment plan progress', async () =>
+        loadPlanStandings(await getSupabaseServerClient(), ctx, plansRes.data, todayIn(ctx.timeZone)),
+      )
+    : null
+  const standings = standingsRes?.ok ? standingsRes.data : null
+  const behind = behindCount(standings)
 
   return (
     <Page
@@ -61,13 +44,18 @@ export default async function PaymentPlansPage() {
         </Button>
       }
     >
+      {behind > 0 ? (
+        <Alert variant="warning" title={behind === 1 ? '1 plan is behind' : `${behind} plans are behind`} className="mb-4">
+          An installment is past its due date and not paid. Automatic dues reminders don’t go to a home on an active plan, so follow up with the owner yourself.
+        </Alert>
+      ) : null}
       {!plansRes.ok ? (
         <LoadFailed what="payment plans" />
       ) : (
         <DataTable
           caption="Payment plans"
           mobile="cards"
-          columns={COLUMNS}
+          columns={paymentPlanColumns(standings)}
           rows={plansRes.data}
           rowKey={(p) => p.id}
           empty={

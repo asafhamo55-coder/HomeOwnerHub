@@ -4,6 +4,7 @@ import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { chunk, readAll } from '@/lib/supabase/read-all'
 import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone, todayIn } from '@/lib/association-time'
 import { isClosingEntry, withoutClosingEntries } from './closing-entries'
+import { TEMPLATE_ENTRY_PREFIX } from './recurring-edit'
 
 /**
  * Every read below throws on a query error instead of resolving to `[]` /
@@ -1036,6 +1037,9 @@ export async function countDraftJournalEntries(associationId: string): Promise<n
     .select('id', { count: 'exact', head: true })
     .eq('association_id', associationId)
     .eq('status', 'draft')
+    // A recurring entry's edited template (BL-081) is a draft by design,
+    // never meant to post — not a draft waiting for someone.
+    .not('entry_number', 'like', `${TEMPLATE_ENTRY_PREFIX}%`)
   if (error) throw queryFailed(error)
   return count ?? 0
 }
@@ -1138,6 +1142,7 @@ export async function getInvoice(
 
 export interface PaymentPlanRow {
   id: string
+  unit_id: string
   total_amount: number
   installment_amount: number
   installment_count: number
@@ -1173,7 +1178,7 @@ export async function loadPaymentPlans(associationId: string): Promise<PaymentPl
       (from, to) =>
         supabase
           .from('payment_plans')
-          .select('id, total_amount, installment_amount, installment_count, start_date, status, unit:unit_id(address_line1, unit_number)')
+          .select('id, unit_id, total_amount, installment_amount, installment_count, start_date, status, unit:unit_id(address_line1, unit_number)')
           .in('unit_id', ids)
           .order('id', { ascending: true })
           .range(from, to) as unknown as Page<PaymentPlanRow>,
@@ -1399,6 +1404,8 @@ export async function pageJournalEntries(
       { count: 'exact' },
     )
     .eq('association_id', associationId)
+    // Edited recurring templates (BL-081) are models, not ledger entries.
+    .not('entry_number', 'like', `${TEMPLATE_ENTRY_PREFIX}%`)
     .order('entry_date', { ascending: false })
     .order('entry_number', { ascending: false })
     .range(range.from, range.to)

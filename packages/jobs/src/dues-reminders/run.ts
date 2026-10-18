@@ -42,6 +42,7 @@ import {
 import { todayInZone } from './schedule'
 import { ASSOCIATION_ZONE_COLUMNS, DEFAULT_ASSOCIATION_TIME_ZONE, associationTimeZone } from '../association-time'
 import { readAll } from '../read-all'
+import { completePaidOffPlans } from '@homeowner-portal/workflows/payment-plans'
 
 /** Same marker the manual reminder writes (apps/hoa dues-reminders/queries.ts),
  *  so "Reminded 3d ago" on /dues counts automated reminders too. */
@@ -138,6 +139,15 @@ export interface DuesReminderStore {
   ): Promise<{ id: string; email: string; name: string }[]>
   markRecipient(id: string, outcome: RecipientOutcome): Promise<void>
   finish(communicationId: string, status: 'sent' | 'failed'): Promise<void>
+  /** BL-080: complete the association's paid-off payment plans (writes
+   *  status + an audit row). Optional: the settings dry run's store has
+   *  none, and a test store may leave it out. */
+  completePaidOffPlans?(association: StoredAssociation, today: string): Promise<PlanSweepResult>
+}
+
+export interface PlanSweepResult {
+  checked: number
+  completed: number
 }
 
 // ─── planning (shared with the settings screen's dry run) ───────────
@@ -343,6 +353,8 @@ export interface DuesRemindersSummary {
   sent: number
   suppressed: number
   failed: number
+  /** Payment plans moved to completed by tonight's sweep (BL-080). */
+  plansCompleted: number
 }
 
 /** Runs every enabled association. `runStep` wraps each one (Inngest's
@@ -356,6 +368,7 @@ export async function runDuesReminders(
     _id,
     fn,
   ) => fn(),
+  planStep: (associationId: string, fn: () => Promise<PlanSweepResult>) => Promise<PlanSweepResult> = (_id, fn) => fn(),
 ): Promise<DuesRemindersSummary> {
   const associations = await store.loadAssociations()
   const secret = deps.settingsSecret()
@@ -366,9 +379,28 @@ export async function runDuesReminders(
     sent: 0,
     suppressed: 0,
     failed: 0,
+    plansCompleted: 0,
   }
 
   for (const a of associations) {
+    // Per association (BL-043): one cron instant can be different days.
+    const today = todayInZone(now, a.timeZone ?? DEFAULT_ASSOCIATION_TIME_ZONE)
+
+    // BL-080, first and for EVERY association (reminders on or off): a
+    // plan paid off since yesterday completes now, so its home is planned
+    // as a normal home below instead of being skipped. Its own step: a
+    // failure here is logged and the reminders still run.
+    const sweep = store.completePaidOffPlans
+    if (sweep) {
+      try {
+        const r = await planStep(a.id, () => sweep.call(store, a, today))
+        summary.plansCompleted += r.completed
+        if (r.completed > 0) logger.info(`[dues-reminders] ${a.id}: ${r.completed} payment plan(s) completed`)
+      } catch (err) {
+        logger.error(`[dues-reminders] ${a.id}: payment plan sweep failed`, { error: err instanceof Error ? err.name : 'unknown' })
+      }
+    }
+
     const read = readDuesReminderSettings(a.id, a.complianceSettings, secret)
     if (read.state === 'unverified') {
       logger.warn(`[dues-reminders] ${a.id}: config present but not verified; treated as off`)
@@ -376,8 +408,6 @@ export async function runDuesReminders(
     const settings = effectiveDuesReminderSettings(read)
     if (!settings.enabled) continue
     summary.enabled += 1
-    // Per association (BL-043): one cron instant can be different days.
-    const today = todayInZone(now, a.timeZone ?? DEFAULT_ASSOCIATION_TIME_ZONE)
 
     try {
       const r = await runStep(a.id, () =>
@@ -553,6 +583,17 @@ export function supabaseReminderStore(db: Db): DuesReminderStore {
 
     orgSandbox(organizationId) {
       return fetchOrgSandbox(db, organizationId)
+    },
+
+    async completePaidOffPlans(a, today) {
+      const r = await completePaidOffPlans(db, {
+        organizationId: a.organizationId,
+        associationId: a.id,
+        today,
+        actorUserId: null,
+        trigger: 'nightly',
+      })
+      return { checked: r.checked, completed: r.completed.length }
     },
 
     async claim(c) {

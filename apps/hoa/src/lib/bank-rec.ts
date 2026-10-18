@@ -10,6 +10,7 @@ import { getPrimaryAssociation } from '@/lib/vendors'
 import { todayIn } from '@/lib/association-time'
 import { readCurrentOpenPeriod } from '@homeowner-portal/jobs/fiscal-periods'
 import { fieldErrorsOf } from '@/lib/field-errors'
+import { completePlansAfterPayment } from '@/lib/accounting/plan-completion'
 
 export type BankRecActionResult =
   | { ok: true; matchMethod: string; confidence: number; notes: string }
@@ -185,6 +186,14 @@ export async function confirmFuzzyMatch(input: {
     }),
   ])
 
+  // BL-080: this payment may have paid off the unit's payment plan.
+  await completePlansAfterPayment(supabase, {
+    organizationId: txn.organization_id,
+    associationId: assoc.id,
+    unitId: assessment.unit_id,
+    today: todayIn(assoc.timeZone),
+  })
+
   revalidatePaths()
   return { ok: true, journalEntryId: je.journalEntryId }
 }
@@ -358,4 +367,5 @@ function revalidatePaths(): void {
   revalidatePath('/accounting/bank')
   revalidatePath('/accounting/bank/queue')
   revalidatePath('/accounting/ledger')
+  revalidatePath('/accounting/payment-plans')
 }

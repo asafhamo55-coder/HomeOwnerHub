@@ -13,6 +13,7 @@ import { todayIn } from '@/lib/association-time'
 import { readCurrentOpenPeriod } from '@homeowner-portal/jobs/fiscal-periods'
 import { fieldErrorsOf } from '@/lib/field-errors'
 import { ensureUnitsForProperties, listBillableUnits } from '@/lib/properties/lot'
+import { completePlansAfterPayment } from '@/lib/accounting/plan-completion'
 
 type AssessmentInsert = Database['public']['Tables']['assessments']['Insert']
 type PaymentInsert = Database['public']['Tables']['payments']['Insert']
@@ -480,8 +481,8 @@ const MarkPaidSchema = z.object({
  * Record a payment against an assessment. Posts the cash-receipt JE
  * (Dr Cash / Cr AR) and links it back to the payments row. The
  * assessment status flips to 'partial' if amountPaid < amount, otherwise
- * 'paid'. Overpayments collapse to 'paid' — overage handling lands when
- * payment_plans is wired in Phase 4+.
+ * 'paid'. Overpayments collapse to 'paid'. Afterwards, an active payment
+ * plan on the unit that is now paid in full moves to completed (BL-080).
  */
 export async function markAssessmentPaid(input: {
   assessmentId: string
@@ -588,6 +589,15 @@ export async function markAssessmentPaid(input: {
     .from('assessments')
     .update({ status: newStatus })
     .eq('id', assessment.id)
+
+  // BL-080: this payment may have paid off the unit's payment plan.
+  const completed = await completePlansAfterPayment(supabase, {
+    organizationId: assessment.organization_id,
+    associationId: assoc.id,
+    unitId: assessment.unit_id,
+    today: todayIn(assoc.timeZone),
+  })
+  if (completed.length > 0) revalidatePath('/accounting/payment-plans')
 
   revalidatePath('/dues')
   revalidatePath('/')

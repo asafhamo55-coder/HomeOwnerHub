@@ -150,6 +150,21 @@ function busyHome(): Data {
   } as Data
 }
 
+function planHome(kind: 'behind' | 'completed'): Data {
+  const d = busyHome()
+  const plan = { id: 'pp1', unit_id: 'u1', status: kind === 'behind' ? 'active' : 'completed', installment_amount: 150, installment_count: 6, total_amount: 900, start_date: '2026-05-01', created_at: '2026-04-20T00:00:00Z' }
+  return {
+    ...d,
+    plans: ok([plan]),
+    planStandings: ok({
+      pp1:
+        kind === 'behind'
+          ? { standing: 'behind' as const, found: 6, settled: 2, overdue: 1, nextDueDate: '2026-07-01', completedOn: null }
+          : { standing: null, found: 0, settled: 0, overdue: 0, nextDueDate: null, completedOn: '2026-10-02' },
+    }),
+  }
+}
+
 function quietHome(): Data {
   const d = busyHome()
   return {
@@ -288,6 +303,21 @@ describe('property 360 (rendered)', () => {
     expect(out).toContain('aria-current="page"')
   })
 
+  // BL-080: the Payment plan tile says how the plan is going.
+  it('a plan that is behind reads "Behind on plan" with the overdue count, and links to Payment plans', () => {
+    const out = html(view(planHome('behind'), 'money'))
+    expect(out).toContain('Behind on plan')
+    expect(out).toContain('1 installment overdue · 2 of 6 paid')
+    expect(out).toContain('href="/accounting/payment-plans"')
+  })
+
+  it('a completed plan shows its completion day; an unread standing falls back to the schedule', () => {
+    expect(html(view(planHome('completed'), 'money'))).toContain('Paid in full · completed Oct 2, 2026')
+    const unread = html(view({ ...planHome('behind'), planStandings: FAILED }, 'money'))
+    expect(unread).not.toContain('Behind on plan')
+    expect(unread).toContain('6 × $150.00 from May 1, 2026')
+  })
+
   it('the loading skeleton names the sections', () => {
     const out = renderToStaticMarkup(<PropertyLoading />)
     expect(out).toContain('aria-busy="true"')
@@ -304,6 +334,8 @@ const PREVIEWS: Record<string, { title: string; body: () => React.ReactElement }
   'list-empty-search': { title: 'Properties list — search with no match', body: () => <ListPage rows={[]} raw={{ q: 'maple' }} /> },
   'detail-busy': { title: 'Property 360 — busy home (People tab on phone)', body: () => view(busyHome()) },
   'detail-busy-money': { title: 'Property 360 — busy home (Money tab on phone)', body: () => view(busyHome(), 'money') },
+  'detail-plan-behind': { title: 'Property 360 — payment plan behind (BL-080)', body: () => view(planHome('behind'), 'money') },
+  'detail-plan-completed': { title: 'Property 360 — payment plan completed (BL-080)', body: () => view(planHome('completed'), 'money') },
   'detail-quiet': { title: 'Property 360 — quiet home (no strip)', body: () => view(quietHome()) },
   'detail-unlinked': { title: 'Property 360 — no unit linked', body: () => view(unlinkedHome()) },
   'detail-failed': { title: 'Property 360 — failed sections', body: () => view(failingHome(), 'activity') },

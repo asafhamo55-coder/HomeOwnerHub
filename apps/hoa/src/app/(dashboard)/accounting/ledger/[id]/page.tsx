@@ -13,6 +13,7 @@ import {
 } from '@homeowner-portal/ui'
 import { getAccountingContext, getJournalEntry } from '@/lib/accounting/queries'
 import { tryLoad } from '@/lib/load-or-fail'
+import { isTemplateEntryNumber } from '@/lib/accounting/recurring-edit'
 import { todayIn } from '@/lib/association-time'
 import { formatDay, formatStamp, usd } from '@/lib/money/format'
 import { JOURNAL_STATUS, sourceLabel, statusOf } from '@/lib/money/status'
@@ -88,7 +89,15 @@ export default async function JournalEntryDetailPage({ params }: PageProps) {
           .
         </Alert>
       ) : null}
-      {header.status === 'draft' ? (
+      {header.status === 'draft' && isTemplateEntryNumber(header.entry_number) ? (
+        <Alert variant="info" title="Recurring entry template">
+          The model an edited recurring entry copies on each run. It is never on the books itself — each copy posts as its own entry.{' '}
+          <Link href="/accounting/recurring" className="font-medium text-primary underline">
+            See recurring entries
+          </Link>
+          .
+        </Alert>
+      ) : header.status === 'draft' ? (
         <Alert variant="info" title="Draft">
           Not on the books yet — drafts don’t appear in balances or reports.
         </Alert>

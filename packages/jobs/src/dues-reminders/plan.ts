@@ -9,7 +9,11 @@
  * whole open balance, exactly like the manual reminder on /dues.
  *
  * SKIPS (counted, never silent):
- *   - paymentPlan  the unit has a payment_plans row with status 'active'
+ *   - paymentPlan  the unit has a payment_plans row with status 'active'.
+ *                  A plan paid in full is completed before planning
+ *                  (BL-080, run.ts), so the skip ends with the plan; a
+ *                  plan that is behind still skips — there is no plan
+ *                  reminder yet, and the board sees "Behind on plan"
  *   - attorney     the unit has an open collection_cases row at the
  *                  attorney stage ('attorney_presuit' or 'suit_filed') —
  *                  once counsel has the account, the association should
