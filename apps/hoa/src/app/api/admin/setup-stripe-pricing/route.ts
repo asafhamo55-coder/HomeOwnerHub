@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type Stripe from 'stripe'
-import { getStripe, isStripeConfigured } from '@homeowner-portal/billing'
+import { ANNUAL_UNIT_CENTS, MONTHLY_UNIT_CENTS, getStripe, isStripeConfigured } from '@homeowner-portal/billing'
 import { withRoute } from '@/lib/api/handler'
 import { ApiRouteError } from '@/lib/api/errors'
 import { requireRoutePlatformAdmin } from '@/lib/api/auth'
@@ -30,9 +30,10 @@ const PRODUCT_NAME = 'HOA Hub'
 const MONTHLY_LOOKUP_KEY = 'hoa_per_door_monthly'
 const ANNUAL_LOOKUP_KEY = 'hoa_per_door_annual'
 
-// Stripe wants amounts in cents.
-const MONTHLY_UNIT_CENTS = 499  // $4.99
-const ANNUAL_UNIT_CENTS = 5388  // $53.88 ($4.99 × 12 × 0.9, the 10% discount baked in)
+// Stripe wants amounts in cents. MONTHLY_UNIT_CENTS (499, $4.99) and
+// ANNUAL_UNIT_CENTS (5388, $53.88 = $4.99 × 12 × 0.9) live in
+// packages/billing/src/pricing.ts so every in-app price display is the
+// same unit_amount × quantity Stripe charges.
 
 const SETUP_SECRET_ENV = 'STRIPE_PRICING_SETUP_SECRET'
 

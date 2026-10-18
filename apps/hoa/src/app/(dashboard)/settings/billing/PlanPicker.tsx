@@ -3,11 +3,8 @@
 import { useActionState, useState } from 'react'
 import { Check, Sparkles, Lock } from 'lucide-react'
 import { Alert, Badge, Button, Card, CardContent, StatusPill, cn } from '@homeowner-portal/ui'
-import {
-  PRICING,
-  billingSummary,
-  formatUsd,
-} from '@homeowner-portal/billing'
+import { PRICING, billingSummary, formatUsd } from '@homeowner-portal/billing'
+import { billingPriceCopy } from './price-display'
 import {
   startHoaCheckout,
   type BillingActionResult,
@@ -29,19 +26,22 @@ const FEATURE_BULLETS = [
 export function PlanPicker({
   currentPlan,
   doors,
+  initialCadence = 'annual',
 }: {
   currentPlan: string
   doors: number
+  initialCadence?: Cadence
 }) {
   const [state, action, pending] = useActionState(startHoaCheckout, initial)
-  const [cadence, setCadence] = useState<Cadence>('annual')
+  const [cadence, setCadence] = useState<Cadence>(initialCadence)
+  const copy = billingPriceCopy()
 
   const summary = billingSummary(doors)
   const activePrice =
     cadence === 'annual' ? summary.annualUsd : summary.monthlyUsd
   const billedAsText =
     cadence === 'annual'
-      ? `Billed once a year — saves ${formatUsd(summary.annualSavingsUsd)} vs paying monthly.`
+      ? `Billed once a year — saves ${formatUsd(summary.annualSavingsUsd, { withCents: true })} vs paying monthly.`
       : `Billed every month.`
 
   const isCurrent = currentPlan !== 'free' && currentPlan !== ''
@@ -85,13 +85,13 @@ export function PlanPicker({
                 HOA Hub
               </p>
               <p className="num text-3xl font-semibold tracking-tight text-foreground">
-                {formatUsd(activePrice)}
+                {formatUsd(activePrice, { withCents: true })}
                 <span className="ml-1 text-sm font-normal text-muted">{cadence === 'annual' ? '/ year' : '/ month'}</span>
               </p>
               <p className="text-sm text-muted">
-                {formatUsd(PRICING.PER_DOOR_USD, { withCents: true })} per door · {summary.billableDoors}{' '}
-                {summary.billableDoors === 1 ? 'door' : 'doors'}
-                {summary.minApplied ? ` (minimum ${formatUsd(PRICING.MIN_MONTHLY_USD)}/month applied)` : ''}. {billedAsText}
+                {cadence === 'annual' ? `${copy.perDoorAnnual} per door per year` : `${copy.perDoorMonthly} per door per month`} ·{' '}
+                {summary.billableDoors} {summary.billableDoors === 1 ? 'door' : 'doors'}
+                {summary.minApplied ? ` (${copy.minimum} applied)` : ''}. {billedAsText}
               </p>
             </div>
             {isCurrent ? <StatusPill tone="success" label="Current" size="sm" /> : null}
@@ -120,7 +120,7 @@ export function PlanPicker({
             <input type="hidden" name="plan" value={cadence === 'annual' ? 'annual' : 'monthly'} />
             <input type="hidden" name="doors" value={String(summary.billableDoors)} />
             <Button type="submit" size="lg" className="w-full" loading={pending} disabled={isCurrent}>
-              {isCurrent ? 'Current plan' : `Subscribe ${cadence === 'annual' ? 'annually' : 'monthly'} · ${formatUsd(activePrice)}`}
+              {isCurrent ? 'Current plan' : `Subscribe ${cadence === 'annual' ? 'annually' : 'monthly'} · ${formatUsd(activePrice, { withCents: true })}`}
             </Button>
           </form>
         </CardContent>

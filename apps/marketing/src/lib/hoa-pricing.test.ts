@@ -22,15 +22,16 @@ const marketingSrc = path.resolve(here, '..')
 const repoRoot = path.resolve(marketingSrc, '../../..')
 const read = (rel: string) => readFileSync(path.join(marketingSrc, rel), 'utf8')
 
-// The Stripe Prices checkout charges are created by this route with
-// literal cent amounts. Pin the marketing numbers to them too.
+// The Stripe Prices checkout charges are created by the setup route from
+// the cent constants in packages/billing/src/pricing.ts. Pin the marketing
+// numbers to them too.
 function stripeUnitCents(name: 'MONTHLY_UNIT_CENTS' | 'ANNUAL_UNIT_CENTS'): number {
   const src = readFileSync(
-    path.join(repoRoot, 'apps/hoa/src/app/api/admin/setup-stripe-pricing/route.ts'),
+    path.join(repoRoot, 'packages/billing/src/pricing.ts'),
     'utf8',
   )
-  const m = src.match(new RegExp(`const ${name} = (\\d+)`))
-  if (!m) throw new Error(`${name} not found in setup-stripe-pricing route`)
+  const m = src.match(new RegExp(`export const ${name} = (\\d+)`))
+  if (!m) throw new Error(`${name} not found in packages/billing/src/pricing.ts`)
   return Number(m[1])
 }
 

@@ -1,5 +1,5 @@
-import { Alert, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Kpi, LoadFailed, NoOrgSelected, Page, StatusPill } from '@homeowner-portal/ui'
-import { isStripeConfigured, billingSummary, formatUsd, PRICING } from '@homeowner-portal/billing'
+import { Alert, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, LoadFailed, NoOrgSelected, Page, StatusPill } from '@homeowner-portal/ui'
+import { isStripeConfigured, PRICING } from '@homeowner-portal/billing'
 import { getCurrentOrg } from '@/lib/orgs'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -7,6 +7,7 @@ import { loadOrFail } from '@/lib/load-or-fail'
 import { openHoaPortal } from '@/lib/billing'
 import { humanize } from '@/lib/money/status'
 import { PlanPicker } from './PlanPicker'
+import { PlanTotals, billingPriceCopy } from './price-display'
 
 export const metadata = { title: 'Billing' }
 
@@ -22,7 +23,7 @@ export default async function BillingPage() {
     supabase.from('orgs').select('plan, doors_count, stripe_customer_id, stripe_sub_id').eq('id', org.id).maybeSingle(),
   )
 
-  const description = `${formatUsd(PRICING.PER_DOOR_USD, { withCents: true })} per door per month, ${formatUsd(PRICING.MIN_MONTHLY_USD)}/month minimum. Pay annually and save ${PRICING.ANNUAL_DISCOUNT_PCT}%.`
+  const description = billingPriceCopy().description
 
   // A failed read must not render as "Free plan, 0 doors" and invite an
   // admin to subscribe again.
@@ -39,7 +40,6 @@ export default async function BillingPage() {
   const doors = (orgRow?.doors_count as number | null) ?? 0
   const stripeCustomerId = (orgRow?.stripe_customer_id as string | null) ?? null
   const stripeReady = isStripeConfigured()
-  const summary = billingSummary(doors)
   const isFree = plan === 'free' || plan === ''
 
   return (
@@ -59,15 +59,7 @@ export default async function BillingPage() {
           <CardDescription>What this association would pay at today’s door count.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-3 sm:gap-4">
-            <Kpi label="Doors on file" value={String(doors)} hint={summary.minApplied ? `Billed as ${summary.billableDoors} (minimum)` : undefined} />
-            <Kpi label="Monthly" value={formatUsd(summary.monthlyUsd)} hint="per month" />
-            <Kpi
-              label={`Annual · save ${PRICING.ANNUAL_DISCOUNT_PCT}%`}
-              value={formatUsd(summary.annualUsd)}
-              hint={`per year · ${formatUsd(summary.annualSavingsUsd)} less than monthly`}
-            />
-          </div>
+          <PlanTotals doors={doors} />
           {isFree ? (
             <Alert variant="warning" title="The free plan is temporary">
               It’s offered to a small group of design-partner associations while we refine the platform, and will be retired after
