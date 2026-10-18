@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { CalendarDays, ExternalLink, Eye, EyeOff, FileText, Scale, ShieldCheck } from 'lucide-react'
+import { CalendarDays, ExternalLink, Eye, EyeOff, FileText, Scale, ScrollText, ShieldCheck } from 'lucide-react'
 import {
   Alert,
   Badge,
@@ -229,6 +229,15 @@ export default async function CompliancePage() {
         <p className="text-sm text-muted">
           Matched from document types (CC&amp;Rs, bylaws, rules) and, for anything else, from document titles.
           The age windows for “may be out of date” are our rule of thumb, not the statute’s.
+        </p>
+        <p className="text-sm text-foreground-secondary">
+          <ScrollText className="mr-1 inline size-3.5 align-[-2px] text-muted" aria-hidden />
+          The current roster of members, with their mailing addresses (§ 720.303(4)(a)7), comes from your homes and
+          owners here:{' '}
+          <Link href="/properties/roster" className="font-medium text-primary hover:underline">
+            Owner roster &amp; voter list
+          </Link>
+          . It’s board-only and holds contact details owners can’t inspect (§ 720.303(5)).
         </p>
         {!records ? (
           <LoadFailed what="your documents" retryHref="/legal/compliance" />
