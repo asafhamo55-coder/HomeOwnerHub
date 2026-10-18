@@ -19,7 +19,7 @@ import {
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { listVendorsResult } from '@/lib/vendors'
-import { loadArcSection, loadBillSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
+import { loadArcSection, loadBillSection, loadContactSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
 import {
   APPROVAL_SOURCES,
   SOURCE_META,
@@ -37,6 +37,7 @@ import { vendorLabel } from '@/lib/bill-scan/proposal'
 import { ApprovalActions } from '@/components/approvals/ApprovalActions'
 import { ArcReviewActions } from '@/components/arc-review/ArcReviewActions'
 import { BillDetails } from './BillDetails'
+import { ContactDetails } from './ContactDetails'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
 import { guideHref } from '@/lib/guide'
 
@@ -55,17 +56,18 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const filter = parseApprovalFilter((await searchParams).type)
   const supabase = await getSupabaseServerClient()
 
-  const [w18, bills, w3, arc, vendors, byAssociation] = await Promise.all([
+  const [w18, bills, w3, arc, contact, vendors, byAssociation] = await Promise.all([
     loadW18Section(supabase, org.id),
     loadBillSection(supabase, org.id)
       .then((s) => withBillLinks(supabase, s))
       .then((s) => withBillEditOptions(supabase, org.id, s)),
     loadW3Section(supabase, org.id),
     loadArcSection(supabase, org.id),
+    loadContactSection(supabase, org.id),
     listVendorsResult().then(vendorSection, () => ({ source: 'vendor', ok: false }) as const),
     loadVendorCountsByAssociation(supabase, org.id),
   ])
-  const inbox = buildInbox([w18, bills, w3, arc, vendors], filter)
+  const inbox = buildInbox([w18, bills, w3, arc, contact, vendors], filter)
 
   const tabs = [
     { label: 'All', href: '/approvals', active: filter === 'all', badge: inbox.total || null },
@@ -80,7 +82,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   return (
     <Page
       title="Approvals"
-      description="Everything the AI has proposed that needs a board decision — deposits to post, bills to enter, violation letters, ARC reviews, vendors. Nothing here happens until someone approves it."
+      description="Everything waiting on a board decision — deposits to post, bills to enter, violation letters, ARC reviews, residents’ contact updates, vendors. Nothing here happens until someone approves it."
       linkAs={Link}
       meta={inbox.total ? <StatusPill tone="ai" label={`${inbox.total} waiting`} /> : undefined}
       tabs={<Tabs items={tabs} aria-label="Approval types" linkAs={Link} />}
@@ -188,6 +190,7 @@ const COLUMNS: DataTableColumn<InboxItem>[] = [
         <p className="font-medium text-foreground">{item.title}</p>
         {item.detail ? <p className="line-clamp-2 text-xs text-foreground-secondary">{item.detail}</p> : null}
         {item.bill ? <BillDetails bill={item.bill} approvalRequestId={item.id} /> : null}
+        {item.contact ? <ContactDetails contact={item.contact} /> : null}
         {item.arc && item.arc.conditions.length > 0 ? (
           <ul className="list-disc space-y-0.5 pl-5 text-xs text-foreground-secondary" aria-label="Suggested conditions">
             {item.arc.conditions.map((c) => (

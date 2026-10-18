@@ -3,6 +3,7 @@ import {
   approvalsBadge,
   arcItems,
   billItems,
+  contactItems,
   decisionId,
   buildInbox,
   canUseApprovals,
@@ -168,7 +169,7 @@ describe('vendor queue predicate and items', () => {
 })
 
 describe('buildInbox (aggregation)', () => {
-  const ok = (source: 'w18' | 'bill' | 'w3' | 'arc' | 'vendor', n: number, total = n): InboxSection => ({
+  const ok = (source: 'w18' | 'bill' | 'w3' | 'arc' | 'contact' | 'vendor', n: number, total = n): InboxSection => ({
     source,
     ok: true,
     total,
@@ -189,16 +190,16 @@ describe('buildInbox (aggregation)', () => {
   })
 
   it('counts each source and the total from the totals, not just the rows shown', () => {
-    const inbox = buildInbox([ok('w18', 2, 120), ok('bill', 2), ok('w3', 1), ok('arc', 3), ok('vendor', 0)], 'all')
-    expect(inbox.counts).toEqual({ w18: 120, bill: 2, w3: 1, arc: 3, vendor: 0 })
-    expect(inbox.total).toBe(126)
+    const inbox = buildInbox([ok('w18', 2, 120), ok('bill', 2), ok('w3', 1), ok('arc', 3), ok('contact', 2), ok('vendor', 0)], 'all')
+    expect(inbox.counts).toEqual({ w18: 120, bill: 2, w3: 1, arc: 3, contact: 2, vendor: 0 })
+    expect(inbox.total).toBe(128)
     expect(inbox.anyFailed).toBe(false)
     expect(inbox.allClear).toBe(false)
-    expect(inbox.sections.map((s) => s.source)).toEqual(['w18', 'bill', 'w3', 'arc', 'vendor'])
+    expect(inbox.sections.map((s) => s.source)).toEqual(['w18', 'bill', 'w3', 'arc', 'contact', 'vendor'])
   })
 
   it('a failed source has an unknown count and the total is unknown — never 0', () => {
-    const inbox = buildInbox([ok('w18', 0), ok('bill', 0), { source: 'w3', ok: false }, ok('arc', 0), ok('vendor', 0)], 'all')
+    const inbox = buildInbox([ok('w18', 0), ok('bill', 0), { source: 'w3', ok: false }, ok('arc', 0), ok('contact', 0), ok('vendor', 0)], 'all')
     expect(inbox.counts.w3).toBeNull()
     expect(inbox.total).toBeNull()
     expect(inbox.anyFailed).toBe(true)
@@ -207,7 +208,9 @@ describe('buildInbox (aggregation)', () => {
   })
 
   it('is all clear only when every source loaded and is empty', () => {
-    expect(buildInbox([ok('w18', 0), ok('bill', 0), ok('w3', 0), ok('arc', 0), ok('vendor', 0)], 'all').allClear).toBe(true)
+    expect(buildInbox([ok('w18', 0), ok('bill', 0), ok('w3', 0), ok('arc', 0), ok('contact', 0), ok('vendor', 0)], 'all').allClear).toBe(true)
+    // PR-10: a contact source that never loaded is unknown, not empty.
+    expect(buildInbox([ok('w18', 0), ok('bill', 0), ok('w3', 0), ok('arc', 0), ok('vendor', 0)], 'all').allClear).toBe(false)
     // BL-027: an ARC source that never loaded is unknown, not empty.
     expect(buildInbox([ok('w18', 0), ok('bill', 0), ok('w3', 0), ok('vendor', 0)], 'all').allClear).toBe(false)
     // BL-021: a bill source that never loaded is unknown, not empty.
@@ -215,33 +218,33 @@ describe('buildInbox (aggregation)', () => {
   })
 
   it('a type filter shows only that section but keeps every count for the tabs', () => {
-    const inbox = buildInbox([ok('w18', 2), ok('bill', 4), ok('w3', 1), ok('arc', 2), { source: 'vendor', ok: false }], 'w3')
+    const inbox = buildInbox([ok('w18', 2), ok('bill', 4), ok('w3', 1), ok('arc', 2), ok('contact', 1), { source: 'vendor', ok: false }], 'w3')
     expect(inbox.sections.map((s) => s.source)).toEqual(['w3'])
-    expect(inbox.counts).toEqual({ w18: 2, bill: 4, w3: 1, arc: 2, vendor: null })
+    expect(inbox.counts).toEqual({ w18: 2, bill: 4, w3: 1, arc: 2, contact: 1, vendor: null })
   })
 
   it('orders sections by source regardless of input order', () => {
-    const inbox = buildInbox([ok('vendor', 1), ok('arc', 1), ok('w3', 1), ok('bill', 1), ok('w18', 1)], 'all')
-    expect(inbox.sections.map((s) => s.source)).toEqual(['w18', 'bill', 'w3', 'arc', 'vendor'])
+    const inbox = buildInbox([ok('vendor', 1), ok('contact', 1), ok('arc', 1), ok('w3', 1), ok('bill', 1), ok('w18', 1)], 'all')
+    expect(inbox.sections.map((s) => s.source)).toEqual(['w18', 'bill', 'w3', 'arc', 'contact', 'vendor'])
   })
 })
 
 describe('approvalsBadge (sidebar)', () => {
   it('shows the total when every count loaded', () => {
-    expect(approvalsBadge({ w18: 2, bill: 1, w3: 1, arc: 0, vendor: 0 })).toBe('4')
+    expect(approvalsBadge({ w18: 2, bill: 1, w3: 1, arc: 0, contact: 0, vendor: 0 })).toBe('4')
   })
   it('shows no badge for zero', () => {
-    expect(approvalsBadge({ w18: 0, bill: 0, w3: 0, arc: 0, vendor: 0 })).toBeNull()
+    expect(approvalsBadge({ w18: 0, bill: 0, w3: 0, arc: 0, contact: 0, vendor: 0 })).toBeNull()
   })
   it('shows no badge — not 0 — when a count failed and nothing else is known', () => {
-    expect(approvalsBadge({ w18: null, bill: 0, w3: 0, arc: 0, vendor: 0 })).toBeNull()
-    expect(approvalsBadge({ w18: null, bill: null, w3: null, arc: 0, vendor: null })).toBeNull()
+    expect(approvalsBadge({ w18: null, bill: 0, w3: 0, arc: 0, contact: 0, vendor: 0 })).toBeNull()
+    expect(approvalsBadge({ w18: null, bill: null, w3: null, arc: 0, contact: 0, vendor: null })).toBeNull()
   })
   it('marks a partial count as a lower bound', () => {
-    expect(approvalsBadge({ w18: 2, bill: null, w3: null, arc: 0, vendor: 1 })).toBe('3+')
+    expect(approvalsBadge({ w18: 2, bill: null, w3: null, arc: 0, contact: 0, vendor: 1 })).toBe('3+')
   })
   it('caps at 99+', () => {
-    expect(approvalsBadge({ w18: 150, bill: 0, w3: 0, arc: 0, vendor: 0 })).toBe('99+')
+    expect(approvalsBadge({ w18: 150, bill: 0, w3: 0, arc: 0, contact: 0, vendor: 0 })).toBe('99+')
   })
 })
 
@@ -381,5 +384,61 @@ describe('arcItems (BL-027)', () => {
 
   it('skips a run that names no application', () => {
     expect(arcItems([{ id: 'r3', created_at: T3, input: {}, output }])).toEqual([])
+  })
+})
+
+describe('contactItems (PR-10)', () => {
+  const ticket = (id: string) => ({
+    id,
+    unit_id: 'u1',
+    submitted_by: 'user-1',
+    subject: 'Contact details update',
+    description: '',
+    status: 'open',
+    created_at: T1,
+  })
+  const ctx = {
+    request: { signInEmail: 'pat@example.test', changes: { phone: '(555) 222-3333', mailing: null } },
+    submitterId: 'user-1',
+    residents: [{ id: 'r1', full_name: 'Pat Example', email: 'pat@example.test', phone: '(555) 123-4567', notes: 'Mailing address: PO Box 1', role: 'owner' }],
+    ownerships: [],
+    tenancies: [],
+    property: null,
+  }
+  const entry = (over: Record<string, unknown> = {}) => ({
+    ticket: ticket('tk1'),
+    request: ctx.request,
+    home: '12 Oak Street',
+    propertyId: 'p1',
+    current: { phone: '(555) 123-4567', email: 'pat@example.test', mailing: 'PO Box 1' },
+    context: ctx,
+    ...over,
+  })
+
+  it('shows each change from -> to, who it is for, and is approvable when it can apply', () => {
+    const [item] = contactItems([ticket('tk1')], [entry() as never])
+    expect(item).toMatchObject({
+      source: 'contact',
+      title: 'Contact details — 12 Oak Street',
+      detail: 'From Pat Example',
+      href: '/tickets/tk1',
+      decision: { kind: 'contact', ticketId: 'tk1', canApprove: true },
+    })
+    expect(item!.contact!.changes).toEqual([
+      { label: 'Phone', from: '(555) 123-4567', to: '(555) 222-3333' },
+      { label: 'Mailing address', from: 'PO Box 1', to: 'Same as the home' },
+    ])
+    expect(item!.contact!.problem).toBeNull()
+  })
+
+  it('withholds approve, and says why, when nothing on the home is theirs', () => {
+    const [item] = contactItems([ticket('tk1')], [entry({ context: { ...ctx, residents: [] } }) as never])
+    expect(item!.decision).toEqual({ kind: 'contact', ticketId: 'tk1', canApprove: false })
+    expect(item!.contact!.problem).toMatch(/Nothing on file/)
+  })
+
+  it('a ticket that is not a readable request still lists, with no decision', () => {
+    const [item] = contactItems([ticket('tk2')], [])
+    expect(item).toMatchObject({ id: 'tk2', decision: null, href: '/tickets/tk2' })
   })
 })

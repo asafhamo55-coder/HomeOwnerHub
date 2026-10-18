@@ -10,10 +10,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import { loadOrFail } from '../load-or-fail'
 import { BILL_ACTION } from '../bill-scan/proposal'
+import { contactTicketsQuery, loadContactEntries, type ContactTicketRow } from '../contact-updates/apply'
 import {
   SECTION_LIMIT,
   arcItems,
   billItems,
+  contactItems,
   type ArcRunRow,
   type BillProposalRow,
   type AssociationVendorCount,
@@ -121,6 +123,28 @@ export async function loadArcSection(db: InboxDb, orgId: string): Promise<InboxS
 }
 
 /**
+ * PR-10: residents' contact updates still open, oldest first, with each
+ * one's home and records (a fixed number of queries). Tickets are
+ * board-readable by RLS (0063). A failed read of the records fails the
+ * section: approving needs them, so the rows are not shown half-known.
+ */
+export async function loadContactSection(db: InboxDb, orgId: string): Promise<InboxSection> {
+  const res = await loadOrFail(
+    'approvals: contact updates',
+    contactTicketsQuery(db, orgId)
+      .order('created_at' as never, { ascending: true })
+      .range(0, SECTION_LIMIT - 1),
+  )
+  if (!res.ok) return { source: 'contact', ok: false }
+  const tickets = (res.data ?? []) as unknown as ContactTicketRow[]
+  const total = res.count ?? tickets.length
+  if (tickets.length === 0) return { source: 'contact', ok: true, items: [], total }
+  const loaded = await loadContactEntries(db, orgId, tickets)
+  if (!loaded.ok) return { source: 'contact', ok: false }
+  return { source: 'contact', ok: true, items: contactItems(tickets, loaded.entries), total }
+}
+
+/**
  * Vendors needing the board in ONE association: two index-backed head
  * counts mirroring vendorNeedsBoard (yellow/red/missing, or green on a
  * prospect; deleted vendors excluded). Scoped to an association because
@@ -177,7 +201,7 @@ export async function countPendingApprovals(db: InboxDb, orgId: string): Promise
     const primary = (assocs.data ?? [])[0]
     return primary ? countVendorsNeedingBoard(db, orgId, primary.id) : 0
   }
-  const [w18, bill, w3, arc, vendor] = await Promise.all([
+  const [w18, bill, w3, arc, contact, vendor] = await Promise.all([
     loadOrFail(
       'approvals badge: postings',
       db
@@ -214,10 +238,11 @@ export async function countPendingApprovals(db: InboxDb, orgId: string): Promise
         .eq('workflow_id', W37)
         .eq('status', 'pending_human_approval'),
     ),
+    loadOrFail('approvals badge: contact updates', contactTicketsQuery(db, orgId, { head: true })),
     vendorCount(),
   ])
   const count = (r: { ok: true; count: number | null } | { ok: false }) => (r.ok ? (r.count ?? 0) : null)
-  return { w18: count(w18), bill: count(bill), w3: count(w3), arc: count(arc), vendor }
+  return { w18: count(w18), bill: count(bill), w3: count(w3), arc: count(arc), contact: count(contact), vendor }
 }
 
 /**

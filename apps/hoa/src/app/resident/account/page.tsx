@@ -2,6 +2,8 @@ import { CircleHelp, FileText, Home, Megaphone, Sparkles } from 'lucide-react'
 import { Badge } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getResidentUnits } from '@/lib/resident'
+import { loadMyContacts } from '@/lib/contact-updates/resident-load'
+import { MyContactDetails } from './MyContactDetails'
 import { getResidentActor } from '@/lib/impersonation'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { SignOutButton } from '@/components/resident/SignOutButton'
@@ -25,7 +27,8 @@ export default async function ResidentAccountPage() {
     },
     actor,
     units,
-  ] = await Promise.all([supabase.auth.getUser(), getResidentActor(), getResidentUnits()])
+    contacts,
+  ] = await Promise.all([supabase.auth.getUser(), getResidentActor(), getResidentUnits(), loadMyContacts()])
 
   const email = (actor.impersonating ? actor.email : user?.email) ?? ''
 
@@ -88,6 +91,13 @@ export default async function ResidentAccountPage() {
           </RowGroup>
         </section>
       ) : null}
+
+      {/* PR-10: my contact details (a change goes to the board for approval) */}
+      <MyContactDetails
+        homes={contacts.ok ? contacts.data.homes : null}
+        signInEmail={contacts.ok ? contacts.data.signInEmail : null}
+        readOnly={actor.impersonating}
+      />
 
       {/* Community */}
       <section className="space-y-2.5">

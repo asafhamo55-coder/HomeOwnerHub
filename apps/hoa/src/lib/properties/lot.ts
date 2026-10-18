@@ -30,6 +30,7 @@ import {
   type PropertyId,
   type UnitId,
 } from './resolve'
+import type { ApplyPlan } from '../contact-updates/model'
 
 type Db = SupabaseClient<Database>
 
@@ -841,4 +842,68 @@ export async function linkOwnershipForMember(
     return { ok: false, error: generic }
   }
   return { ok: true, data: { outcome: 'opened' } }
+}
+
+// ─── A resident's own contact details (PR-10) ───────────────────────
+
+/**
+ * Apply an approved self-service contact update (lib/contact-updates):
+ * the resident rows, ownerships, tenancies and the home's owner fields
+ * the plan names, so every place a notice is addressed from says the same
+ * thing. The plan (planContactApply) already decided WHICH rows are the
+ * resident's and which fields are held; this only writes, in order, and
+ * on a failure puts every earlier row back in reverse order.
+ *
+ * Takes the deciding board member's RLS client — these tables are
+ * board/admin-write only (0041, 0063). Logs ids and codes only.
+ */
+export async function applySelfContact(
+  db: Db,
+  input: { orgId: string; propertyId: string; plan: ApplyPlan },
+): Promise<LotResult<{ residents: number; ownerships: number; tenancies: number; property: boolean }>> {
+  const { orgId, propertyId, plan } = input
+  const undo: Array<() => Promise<void>> = []
+
+  type Step = {
+    table: 'property_residents' | 'ownerships' | 'tenancies' | 'hoa_properties'
+    id: string
+    patch: object
+    before: object
+  }
+  const steps: Step[] = [
+    ...plan.residents.map((r) => ({ table: 'property_residents' as const, ...r })),
+    ...plan.ownerships.map((o) => ({ table: 'ownerships' as const, ...o })),
+    ...plan.tenancies.map((t) => ({ table: 'tenancies' as const, ...t })),
+    ...(plan.property ? [{ table: 'hoa_properties' as const, id: propertyId, ...plan.property }] : []),
+  ]
+
+  for (const s of steps) {
+    const orgCol = s.table === 'hoa_properties' ? 'org_id' : 'organization_id'
+    const write = (values: object) =>
+      db
+        .from(s.table as never)
+        .update(values as never)
+        .eq('id' as never, s.id as never)
+        .eq(orgCol as never, orgId as never)
+    const { error } = await write(s.patch)
+    if (error) {
+      logFailure(`self_contact.${s.table}`, error, { orgId, propertyId, id: s.id })
+      for (const u of undo) await u()
+      return {
+        ok: false,
+        error: 'Couldn’t apply the update to every record for this home. Nothing was changed. Try again.',
+      }
+    }
+    undo.unshift(() => compensate(`self_contact.${s.table}`, { orgId, id: s.id }, () => write(s.before)))
+  }
+
+  return {
+    ok: true,
+    data: {
+      residents: plan.residents.length,
+      ownerships: plan.ownerships.length,
+      tenancies: plan.tenancies.length,
+      property: plan.property !== null,
+    },
+  }
 }

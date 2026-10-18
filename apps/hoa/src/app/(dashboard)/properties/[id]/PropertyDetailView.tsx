@@ -232,7 +232,7 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
           </div>
 
           <Section id="people" title="People" active={section === 'people'} action={data.residents.ok ? <AddResidentForm propertyId={p.id} /> : null}>
-            <PeopleSection people={people} residents={data.residents} ownerships={data.ownerships} isAdmin={isAdmin} canManage={canManage} propertyId={p.id} unitId={unitId} messageHref={householdCount > 0 ? scoped('/communications/new') : null} />
+            <PeopleSection people={people} residents={data.residents} ownerships={data.ownerships} selfUpdates={data.selfUpdates?.ok ? data.selfUpdates.data : {}} isAdmin={isAdmin} canManage={canManage} propertyId={p.id} unitId={unitId} messageHref={householdCount > 0 ? scoped('/communications/new') : null} />
           </Section>
 
           <Section
@@ -442,6 +442,7 @@ function PeopleSection({
   people,
   residents,
   ownerships,
+  selfUpdates,
   isAdmin,
   canManage,
   propertyId,
@@ -451,6 +452,8 @@ function PeopleSection({
   people: ReturnType<typeof buildPeople>
   residents: Part<unknown>
   ownerships: UnitPart<unknown>
+  /** PR-10: id → when the person last updated their own contact details. */
+  selfUpdates: Record<string, string>
   isAdmin: boolean
   canManage: boolean
   propertyId: string
@@ -488,7 +491,7 @@ function PeopleSection({
           ) : (
             <ul className="divide-y divide-border">
               {people.owners.map((o) => (
-                <OwnerRow key={o.key} owner={o} isAdmin={isAdmin} canManage={canManage} propertyId={propertyId} unitId={unitId} />
+                <OwnerRow key={o.key} owner={o} selfUpdatedAt={selfUpdates[o.key] ?? null} isAdmin={isAdmin} canManage={canManage} propertyId={propertyId} unitId={unitId} />
               ))}
             </ul>
           )}
@@ -538,7 +541,7 @@ function PeopleSection({
           ) : (
             <ul className="divide-y divide-border">
               {people.residents.map((r) => (
-                <ResidentRow key={r.id} resident={r} isAdmin={isAdmin} propertyId={propertyId} unitId={unitId} messageHref={messageHref} />
+                <ResidentRow key={r.id} resident={r} selfUpdatedAt={selfUpdates[r.id] ?? null} isAdmin={isAdmin} propertyId={propertyId} unitId={unitId} messageHref={messageHref} />
               ))}
               {people.leaseTenants.map((t) => (
                 <li key={t.key} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
@@ -577,12 +580,14 @@ function PeopleSection({
 
 function OwnerRow({
   owner,
+  selfUpdatedAt = null,
   isAdmin,
   canManage,
   propertyId,
   unitId,
 }: {
   owner: Owner
+  selfUpdatedAt?: string | null
   isAdmin: boolean
   canManage: boolean
   propertyId: string
@@ -604,6 +609,7 @@ function OwnerRow({
           {owner.since ? <span className="num">Since {formatDay(owner.since)}</span> : null}
           {owner.portal === true ? <span>Portal account</span> : owner.portal === false ? <span>No portal account</span> : null}
           {owner.email ? <span className="hidden truncate sm:inline">{owner.email}</span> : null}
+          {selfUpdatedAt ? <span>Updated by owner on {formatDay(selfUpdatedAt)}</span> : null}
         </p>
       </div>
       <div className="-ml-2 flex shrink-0 flex-wrap items-center gap-1 sm:ml-0">

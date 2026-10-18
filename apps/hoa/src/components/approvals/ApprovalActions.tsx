@@ -52,6 +52,16 @@ const COPY: Record<ApprovalTarget['kind'], Copy> = {
     rejectConfirm: 'Reject draft',
     rejectPlaceholder: 'The photo shows the neighbor’s lot, not this one.',
   },
+  contact: {
+    approveButton: 'Approve & update',
+    approveTitle: 'Update these contact details?',
+    approveDescription: (title) =>
+      `${title}. The new details replace what is on file for this person on the home: their resident record, their ownership or lease, and the home's owner contact when it is theirs. They are told in their request.`,
+    approveConfirm: 'Approve & update',
+    rejectTitle: 'Reject this change?',
+    rejectConfirm: 'Reject change',
+    rejectPlaceholder: 'Please call the office so we can confirm the new number.',
+  },
   vendor: {
     approveButton: 'Approve',
     approveTitle: 'Approve this vendor?',
@@ -99,7 +109,8 @@ export function ApprovalActions({
   const kind = decision.kind
   const id = decisionId(decision)
   const copy = COPY[kind]
-  const canApprove = decision.kind === 'vendor' || decision.kind === 'bill' ? decision.canApprove : true
+  const canApprove =
+    decision.kind === 'vendor' || decision.kind === 'bill' || decision.kind === 'contact' ? decision.canApprove : true
 
   async function approve() {
     const r = await decideApproval({ kind, id, decision: 'approve' })
@@ -165,7 +176,7 @@ export function ApprovalActions({
           }
         >
           <form id={`reject-${id}`} onSubmit={reject}>
-            <Field label="Reason" required hint="Kept in the audit trail." error={reasonError}>
+            <Field label="Reason" required hint={kind === 'contact' ? 'The resident sees this in their request.' : 'Kept in the audit trail.'} error={reasonError}>
               <Textarea
                 value={reason}
                 onChange={(e) => {

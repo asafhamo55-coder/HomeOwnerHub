@@ -20,6 +20,8 @@ function handlers(over: Partial<InboxDecisionHandlers> = {}): InboxDecisionHandl
     rejectViolationDraft: vi.fn(async () => ({ ok: true as const })),
     approveBill: vi.fn(async () => ({ ok: true as const, status: 'posted' as const, resultRef: 'inv', alreadyDecided: false })),
     rejectBill: vi.fn(async () => ({ ok: true as const, status: 'rejected' as const, resultRef: null, alreadyDecided: false })),
+    approveContact: vi.fn(async () => ({ ok: true as const, message: 'Contact details updated: phone.' })),
+    rejectContact: vi.fn(async () => ({ ok: true as const, message: 'Rejected. Nothing on file changed; the resident sees your reason.' })),
     ...over,
   }
 }
@@ -27,7 +29,7 @@ function handlers(over: Partial<InboxDecisionHandlers> = {}): InboxDecisionHandl
 describe('decideApprovalFor — role gate', () => {
   it.each(['resident', null, 'owner'])('refuses %s before touching any module action', async (role) => {
     const h = handlers()
-    for (const kind of ['w18', 'bill', 'w3', 'vendor'] as const) {
+    for (const kind of ['w18', 'bill', 'w3', 'vendor', 'contact'] as const) {
       for (const decision of ['approve', 'reject'] as const) {
         const r = await decideApprovalFor(role, { kind, id: ID, decision, reason: 'x' }, h)
         expect(r.ok).toBe(false)
@@ -62,6 +64,26 @@ describe('decideApprovalFor — input', () => {
   it('refuses an unknown kind', async () => {
     const h = handlers()
     expect((await decideApprovalFor('admin', { kind: 'w99', id: ID, decision: 'approve' }, h)).ok).toBe(false)
+  })
+})
+
+describe('decideApprovalFor — contact updates (PR-10)', () => {
+  it('approve goes to approveContact and passes its message through', async () => {
+    const h = handlers()
+    const r = await decideApprovalFor('board', { kind: 'contact', id: ID, decision: 'approve' }, h)
+    expect(h.approveContact).toHaveBeenCalledWith(ID)
+    expect(r).toEqual({ ok: true, message: 'Contact details updated: phone.' })
+  })
+  it('reject needs a reason and passes it on', async () => {
+    const h = handlers()
+    expect(await decideApprovalFor('board', { kind: 'contact', id: ID, decision: 'reject' }, h)).toEqual({ ok: false, error: 'A reason is required to reject.' })
+    expect(h.rejectContact).not.toHaveBeenCalled()
+    await decideApprovalFor('admin', { kind: 'contact', id: ID, decision: 'reject', reason: ' Call us. ' }, h)
+    expect(h.rejectContact).toHaveBeenCalledWith(ID, 'Call us.')
+  })
+  it('a refusal from the module is the answer', async () => {
+    const h = handlers({ approveContact: vi.fn(async () => ({ ok: false as const, error: 'Someone already handled this request.' })) })
+    expect(await decideApprovalFor('board', { kind: 'contact', id: ID, decision: 'approve' }, h)).toEqual({ ok: false, error: 'Someone already handled this request.' })
   })
 })
 
