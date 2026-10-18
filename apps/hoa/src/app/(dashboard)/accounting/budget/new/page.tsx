@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Card, CardContent, Page } from '@homeowner-portal/ui'
+import { Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Page } from '@homeowner-portal/ui'
 import { getAccountingContext, listFiscalPeriods, listFunds } from '@/lib/accounting/queries'
 import { tryLoad } from '@/lib/load-or-fail'
 import { periodLabel } from '@/lib/money/format'
@@ -33,7 +33,23 @@ export default async function NewBudgetPage() {
       description="Pick the fund and fiscal period. You’ll add line items on the next screen."
     >
       <Card>
-        <CardContent className="pt-5">
+        <CardHeader>
+          <CardTitle as="h2">Draft from last year</CardTitle>
+          <CardDescription>
+            Start from last year’s budget and the last 12 months of actuals, with a reason on every line. Nothing saves until the board confirms.
+          </CardDescription>
+        </CardHeader>
+        <CardFooter>
+          <Button asChild variant="secondary">
+            <Link href="/accounting/budget/draft">Draft next year’s budget</Link>
+          </Button>
+        </CardFooter>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Start blank</CardTitle>
+        </CardHeader>
+        <CardContent>
           <NewBudgetForm
             periods={periods.data.map((p) => ({ id: p.id, label: `${periodLabel(p)} · ${statusOf(PERIOD_STATUS, p.status).label}` }))}
             funds={funds.data.map((f) => ({ id: f.id, label: f.name }))}

@@ -59,6 +59,14 @@ export type { Intent } from './tasks/classify-intent'
 export { runViolationWorkflow } from './tasks/violation-workflow'
 export type { ViolationWorkflowResult } from './tasks/violation-workflow'
 
+export {
+  generateBudgetNarrative,
+  acceptBudgetNarrative,
+  budgetNarrativeFacts,
+  MAX_BUDGET_NARRATIVE_CHARS,
+} from './tasks/budget-narrative'
+export type { BudgetNarrativeInput } from './tasks/budget-narrative'
+
 export { suggestFieldValues } from './tasks/suggest-fields'
 export type { FieldSuggestion, SuggestFieldsInput } from './tasks/suggest-fields'
 

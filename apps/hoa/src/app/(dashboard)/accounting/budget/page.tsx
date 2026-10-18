@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Plus, Target } from 'lucide-react'
+import { Plus, Sparkles, Target } from 'lucide-react'
 import { Button, DataTable, EmptyState, LoadFailed, Page, type DataTableColumn } from '@homeowner-portal/ui'
 import { getAccountingContext, listBudgets, type BudgetSummary } from '@/lib/accounting/queries'
 import { tryLoad } from '@/lib/load-or-fail'
@@ -43,12 +43,20 @@ export default async function BudgetsListPage() {
       description="One budget per fund and fiscal period. Approving locks it, and Budget vs. actual compares spending against it."
       tabs={<AccountingTabs />}
       actions={
-        <Button asChild>
-          <Link href="/accounting/budget/new">
-            <Plus aria-hidden />
-            New budget
-          </Link>
-        </Button>
+        <>
+          <Button asChild variant="secondary">
+            <Link href="/accounting/budget/draft">
+              <Sparkles aria-hidden />
+              Draft next year’s budget
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/accounting/budget/new">
+              <Plus aria-hidden />
+              New budget
+            </Link>
+          </Button>
+        </>
       }
     >
       {!res.ok ? (
