@@ -1,0 +1,73 @@
+# "Ask the guide" eval set (BL-070, spec §6.3). Not published: the `_`
+# prefix keeps this folder out of the compiled guide.
+#
+# `pnpm guide:eval` runs every question through the same retrieval, gate and
+# rules classifier the /api/help/ask route uses, with no model call. CI runs
+# that. GUIDE_EVAL_MODEL=1 also calls the model (needs AI_API_KEY); that mode
+# is for a person before a guide release, never CI.
+#
+# expect:
+#   <article-id>  a how-to: that article must be in the top 3 retrieved and
+#                 the gate must let the question through to the model
+#   refuse        a refusal canary: a feature HomeownerHub does not have.
+#                 The gate must refuse before the model is called. Each one
+#                 was checked against the code before it was added.
+#   rules         a question about the community's own rules: routed to
+#                 Ask the Docs, never answered from the guide
+#
+# role: admin | board | resident (the viewer). route: the page the question
+# was asked from (optional; the drawer sends it).
+
+questions:
+  # ── How-to: board ─────────────────────────────────────────────────────
+  - { id: h01, role: admin, expect: start-board-admin, q: "Where do I start setting up our HOA?" }
+  - { id: h02, role: admin, expect: start-board-admin, q: "What is the setup checklist on my dashboard?" }
+  - { id: h03, role: board, expect: setup-properties-residents, q: "How do I add a property?" }
+  - { id: h04, role: admin, expect: setup-properties-residents, q: "How do I add an owner to a home?" }
+  - { id: h05, role: admin, expect: setup-properties-residents, q: "Can I import all our homes from a spreadsheet?" }
+  - { id: h06, role: admin, expect: members-invite-board, q: "How do I invite another board member?" }
+  - { id: h07, role: admin, expect: members-invite-board, q: "How do I change someone's role to admin?" }
+  - { id: h08, role: board, expect: dues-generate-monthly, q: "How do I bill this month's dues?" }
+  - { id: h09, role: admin, expect: dues-generate-monthly, q: "How do I add a special assessment charge?" }
+  - { id: h10, role: board, expect: dues-record-payment, q: "An owner paid by check. How do I record it?" }
+  - { id: h11, role: admin, expect: dues-record-payment, q: "How do I mark a dues charge as paid?" }
+  - { id: h12, role: admin, expect: dues-record-payment, q: "How do residents pay online with Zelle?" }
+  - { id: h13, role: board, expect: violations-report-and-letter, q: "How do I report a violation?" }
+  - { id: h14, role: board, expect: violations-report-and-letter, q: "How do I approve a violation letter before it is sent?", route: /violations/approval-queue }
+  - { id: h15, role: admin, expect: violations-report-and-letter, q: "What is the cure period and how do I close a violation?" }
+  - { id: h16, role: board, expect: arc-review-application, q: "How do I approve or deny an ARC application?" }
+  - { id: h17, role: board, expect: arc-review-application, q: "Where do architectural requests from residents show up?" }
+  - { id: h18, role: board, expect: meetings-schedule-and-minutes, q: "How do I schedule a board meeting?" }
+  - { id: h19, role: admin, expect: meetings-schedule-and-minutes, q: "Can AI write the minutes from a transcript?" }
+  - { id: h20, role: board, expect: meetings-schedule-and-minutes, q: "How do I print the board packet?", route: /meetings/1f3a/packet }
+  - { id: h21, role: board, expect: approvals-queue, q: "What is waiting in the approvals queue?" }
+  - { id: h22, role: admin, expect: approvals-queue, q: "How do I approve a scanned bill?" }
+  - { id: h23, role: board, expect: communications-send-announcement, q: "How do I send an announcement email to all residents?" }
+  - { id: h24, role: board, expect: communications-send-announcement, q: "Can I send a text message to residents?" }
+  - { id: h25, role: admin, expect: documents-governing-and-ask, q: "How do I upload our CC&Rs?" }
+  - { id: h26, role: board, expect: documents-governing-and-ask, q: "What is the difference between Ask the Docs and Ask the guide?" }
+
+  # ── How-to: resident ──────────────────────────────────────────────────
+  - { id: r01, role: resident, expect: resident-portal-basics, q: "How do I pay my dues?" }
+  - { id: r02, role: resident, expect: resident-portal-basics, q: "How do I ask permission to paint my house?" }
+  - { id: r03, role: resident, expect: resident-portal-basics, q: "How do I report a problem in the community?" }
+  - { id: r04, role: resident, expect: resident-portal-basics, q: "Where can I see my balance and statement?", route: /resident/dues }
+
+  # ── Refusal canaries: features HomeownerHub does not have ─────────────
+  - { id: c01, role: admin, expect: refuse, q: "Can residents book the clubhouse for a party?" }
+  - { id: c02, role: admin, expect: refuse, q: "How do I turn on autopay by credit card?" }
+  - { id: c03, role: board, expect: refuse, q: "How do I run an online election with secret ballots?" }
+  - { id: c04, role: admin, expect: refuse, q: "How do I sync our books with QuickBooks?" }
+  - { id: c05, role: board, expect: refuse, q: "How do I give visitors a guest pass for the gate?" }
+  - { id: c06, role: resident, expect: refuse, q: "Can I sell my old bike in a community marketplace?" }
+  - { id: c07, role: admin, expect: refuse, q: "How do I order an estoppel certificate for a home sale?" }
+  - { id: c08, role: resident, expect: refuse, q: "Can I switch the portal to Spanish?" }
+  - { id: c09, role: resident, expect: refuse, q: "Is there a forum where neighbors can chat?" }
+  - { id: c10, role: admin, expect: refuse, q: "How do I run a background check on a new tenant?" }
+
+  # ── Rules questions: Ask the Docs, not the guide ──────────────────────
+  - { id: d01, role: resident, expect: rules, q: "Can I paint my front door red?" }
+  - { id: d02, role: board, expect: rules, q: "What does our CC&R say about fences?" }
+  - { id: d03, role: resident, expect: rules, q: "Am I allowed to keep two dogs?" }
+  - { id: d04, role: admin, expect: rules, q: "How tall can a fence be under our bylaws?" }
+  - { id: d05, role: resident, expect: rules, q: "Are short-term rentals allowed in our community?" }

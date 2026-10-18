@@ -69,6 +69,12 @@ jobs:
       - name: Guide check
         run: pnpm guide:check
 
+      # "Ask the guide" eval, retrieval only: the rules classifier, BM25 and
+      # the refuse-before-the-model gate over content/guide/_eval. No model
+      # call and no key (GUIDE_EVAL_MODEL is never set here).
+      - name: Guide eval
+        run: pnpm guide:eval
+
       - name: Build
         run: pnpm turbo run build
         env:

@@ -3,7 +3,8 @@
   "compilerOptions": {
     "types": ["node"],
     "incremental": false,
-    "noEmit": true
+    "noEmit": true,
+    "paths": { "@/*": ["../../apps/hoa/src/*"] }
   },
-  "include": ["./**/*.ts", "../guide-build.ts", "../guide-check.ts", "../guide-shots.ts", "../ui-shots.ts", "../ui-shots-seed/guide.ts"]
+  "include": ["./**/*.ts", "../guide-build.ts", "../guide-check.ts", "../guide-eval.ts", "../guide-shots.ts", "../ui-shots.ts", "../ui-shots-seed/guide.ts"]
 }
