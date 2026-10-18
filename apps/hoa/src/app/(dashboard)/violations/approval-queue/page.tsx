@@ -32,6 +32,7 @@ import { violationTabs } from '../tabs'
 import { StateRulesOutputSchema } from '@homeowner-portal/workflows/W3-state-rules'
 import { StateRulesPanel } from '@/components/violations/StateRulesPanel'
 import { ApprovalActions } from '@/components/approvals/ApprovalActions'
+import { orgPhotoPaths } from '@/lib/violation-photo-paths'
 
 export const metadata = { title: 'Violation Approval Queue' }
 export const dynamic = 'force-dynamic'
@@ -81,6 +82,7 @@ export default async function ApprovalQueuePage({
 
   const pending = result.ok ? ((result.data ?? []) as PendingRun[]) : []
   const total = result.ok ? (result.count ?? pending.length) : 0
+  const photoUrls = await signDraftPhotos(supabase, org.id, pending)
 
   return (
     <Page
@@ -115,7 +117,7 @@ export default async function ApprovalQueuePage({
           </p>
           <ul className="space-y-4">
             {pending.map((run) => (
-              <PendingRunCard key={run.id} run={run} />
+              <PendingRunCard key={run.id} run={run} photos={photoUrls.get(run.id) ?? []} />
             ))}
           </ul>
           {total > PAGE_SIZE || page > 1 ? (
@@ -137,7 +139,31 @@ export default async function ApprovalQueuePage({
   )
 }
 
-function PendingRunCard({ run }: { run: PendingRun }) {
+/**
+ * BL-028: inspection drafts carry photo keys. One batch signing call for
+ * the page (short-lived URLs, display only). A failure shows the drafts
+ * without thumbnails rather than failing the queue.
+ */
+async function signDraftPhotos(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  orgId: string,
+  runs: PendingRun[],
+): Promise<Map<string, string[]>> {
+  const byRun = new Map(runs.map((r) => [r.id, orgPhotoPaths(orgId, r.input?.photoPaths)]))
+  const all = [...byRun.values()].flat()
+  const out = new Map<string, string[]>()
+  if (all.length === 0) return out
+  const { data, error } = await supabase.storage.from('hoa-photos').createSignedUrls(all, 60 * 60)
+  if (error || !data) {
+    console.error('approval queue: photo signing failed', { orgId, count: all.length })
+    return out
+  }
+  const url = new Map(data.flatMap((d) => (d.path && d.signedUrl ? [[d.path, d.signedUrl] as const] : [])))
+  for (const [runId, paths] of byRun) out.set(runId, paths.flatMap((p) => (url.has(p) ? [url.get(p)!] : [])))
+  return out
+}
+
+function PendingRunCard({ run, photos }: { run: PendingRun; photos: string[] }) {
   const input = run.input as {
     violationType?: string
     description?: string
@@ -204,6 +230,19 @@ function PendingRunCard({ run }: { run: PendingRun }) {
               value={output.citedSection ? <Badge variant="neutral">{output.citedSection}</Badge> : null}
             />
           </KeyValueList>
+
+          {photos.length > 0 ? (
+            <ul className="grid grid-cols-3 gap-2 sm:grid-cols-6" aria-label="Inspection photos">
+              {photos.map((src, i) => (
+                <li key={src} className="aspect-square overflow-hidden rounded-lg border border-border bg-subtle">
+                  <a href={src} target="_blank" rel="noreferrer">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- short-lived signed storage URL */}
+                    <img src={src} alt={`Inspection photo ${i + 1}`} className="size-full object-cover" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
           {output.citedSection ? null : (
             <Alert variant="warning" title="No CC&R section cited">

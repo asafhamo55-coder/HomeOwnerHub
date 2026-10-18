@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { propertyHref } from '@/lib/properties/href'
 import { asPropertyId } from '@/lib/properties/resolve'
-import { AlertTriangle, Download, Plus, Search } from 'lucide-react'
+import { AlertTriangle, Camera, Download, Plus, Search } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Button,
@@ -242,6 +242,12 @@ export default async function ViolationsListPage({
               <Download aria-hidden />
               Export CSV
             </a>
+          </Button>
+          <Button asChild variant="secondary">
+            <Link href="/inspect">
+              <Camera aria-hidden />
+              Inspect homes
+            </Link>
           </Button>
           <Button asChild>
             <Link href={withPropertyParam('/violations/new', scope?.id ?? null)}>

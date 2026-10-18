@@ -26,6 +26,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import { asUnitId, resolvePropertyForUnit } from '@/lib/properties/resolve'
+import { orgPhotoPaths } from '@/lib/violation-photo-paths'
 
 export type DraftDb = SupabaseClient<Database>
 
@@ -55,9 +56,16 @@ function logFailure(stage: string, runId: string, code: string | undefined): voi
 
 export async function approveViolationDraftWith(
   db: DraftDb,
-  args: { orgId: string; runId: string; userId: string },
+  args: {
+    orgId: string
+    runId: string
+    userId: string
+    /** BL-028: turns the draft's photo keys into URLs for photo_urls (the
+     *  wizard stores signed URLs there too). Absent → photos not filed. */
+    signPhotos?: (paths: string[]) => Promise<string[]>
+  },
 ): Promise<DraftApprovalResult> {
-  const { orgId, runId, userId } = args
+  const { orgId, runId, userId, signPhotos } = args
 
   const { data: run, error: readError } = await db
     .from('ai_runs')
@@ -104,6 +112,19 @@ export async function approveViolationDraftWith(
     propertyId = await resolvePropertyForUnit(db, orgId, asUnitId(unitId)).catch(() => null)
   }
 
+  // BL-028: an inspection draft carries the photos it was taken with. Only
+  // this org's keys are signed (the route checked them; re-checked here as
+  // the run's input is just JSON). A signing failure files the violation
+  // without photos rather than failing the approval.
+  const photoPaths = orgPhotoPaths(orgId, input.photoPaths)
+  let photoUrls: string[] = []
+  if (photoPaths.length > 0 && signPhotos) {
+    photoUrls = await signPhotos(photoPaths).catch(() => {
+      logFailure('sign_photos', runId, undefined)
+      return []
+    })
+  }
+
   const severity = text(output.recommendedSeverity)
   const fineCents = int(output.recommendedFineAmountCents)
   const cureDays = int(output.recommendedCurePeriodDays)
@@ -118,6 +139,7 @@ export async function approveViolationDraftWith(
       severity: severity && SEVERITIES.has(severity) ? severity : null,
       cure_period_days: cureDays !== null && cureDays >= 1 && cureDays <= 180 ? cureDays : null,
       fine_amount: fineCents !== null && fineCents >= 0 ? fineCents / 100 : null,
+      photo_urls: photoUrls.length > 0 ? photoUrls : null,
       ai_draft_letter: letter,
       approved_letter: letter,
       approved_at: now,

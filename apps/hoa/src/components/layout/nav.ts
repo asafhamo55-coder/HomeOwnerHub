@@ -5,6 +5,7 @@ import {
   Briefcase,
   Building2,
   Calculator,
+  Camera,
   CalendarDays,
   CalendarHeart,
   CircleHelp,
@@ -125,6 +126,7 @@ export const BOARD_ACCOUNT: HoaNavLink[] = [
 /** Quick-create actions offered in the palette. */
 export const HOA_CREATE: HoaNavLink[] = [
   { href: '/violations/new', icon: AlertTriangle, label: 'New violation' },
+  { href: '/inspect', icon: Camera, label: 'Inspect homes (drive-by photos)', keywords: ['inspection', 'walk', 'drive', 'camera', 'mobile'] },
   { href: '/communications/new', icon: Megaphone, label: 'New message to residents' },
   { href: '/meetings/schedule', icon: CalendarDays, label: 'Schedule a meeting' },
   { href: '/dues/new', icon: Wallet, label: 'Add a due' },

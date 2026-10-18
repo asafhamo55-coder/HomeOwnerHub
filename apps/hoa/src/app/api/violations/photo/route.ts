@@ -1,5 +1,6 @@
 // POST /api/violations/photo — the violation wizard's photo upload
-// ((dashboard)/violations/new/Wizard.tsx, its only caller). Board-only
+// ((dashboard)/violations/new/Wizard.tsx) and inspection mode's
+// (lib/inspect/transport.ts, BL-028). Board-only
 // (RC-4): the hoa-photos storage INSERT policy admits any org member, so
 // this route is the only role boundary for the bucket.
 //
