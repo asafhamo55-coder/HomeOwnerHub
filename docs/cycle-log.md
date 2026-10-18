@@ -303,3 +303,12 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - Fixed along the way: W22 used to send the whole compliance_settings blob to the model.
   - Guide refresh PR #9 merged.
 - **Local gates:** unit 5359/5359, build 4/4, guide 43 articles with 0 errors.
+
+## 2026-10-18 (10:16) — deploy 3fc343e: payment plans, recurring entries, vendor insurance; loop paused
+
+- **Live:** BL-080/081 (payment plans complete automatically, behind-on-plan is visible to the board; edit, pause, resume and stop recurring entries) and BL-083/084 (vendor COI expiry reminders, Settings → Vendors minimums).
+- **Smoke:** /accounting/payment-plans, /accounting/recurring and /settings/vendors 307; /login 200.
+- **Release-note recipients:** now asafhamo55@gmail.com and dvirmilo@gmail.com, set in the RELEASE_NOTES_TO secret at the owner's request.
+- **Weekly usage limit reached:** three agents stopped mid-work (BL-082, M1 UI, guide classifier tuning) and their partial work is left in their worktrees.
+  - At the owner's request the loop is paused until the limit resets on Oct 19 at 11:00 ET.
+  - A one-shot cron at Oct 19 11:12 resumes the hourly loop and re-dispatches the three items.

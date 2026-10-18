@@ -1,6 +1,6 @@
 # Session handoff: HomeownerHub autonomous loop
 
-_Updated every cycle. Last update: 2026-10-18 07:20 ET._
+_Updated every cycle. Last update: 2026-10-18 10:20 ET (loop paused until the weekly limit resets Oct 19 11:00 ET)._
 
 ## Start the next session with this prompt
 
@@ -13,7 +13,7 @@ _Updated every cycle. Last update: 2026-10-18 07:20 ET._
   - Record each decision in docs/decisions/ or the backlog.
   - Deploy at most once per hour.
 - **Holds:** the only reasons to stop are SQL that Asaf pastes into the Supabase editor, and keys or accounts only he can create.
-- **Release notes:** every deploy writes `docs/releases/<YYYY-MM-DD-HHMM>-<sha>.md`, and the release-notes GitHub Action emails it. See docs/releases/README.md once it lands.
+- **Release notes** go to asafhamo55@gmail.com and dvirmilo@gmail.com (RELEASE_NOTES_TO). Every deploy writes `docs/releases/<YYYY-MM-DD-HHMM>-<sha>.md`, and the release-notes GitHub Action emails it. See docs/releases/README.md once it lands.
 - **Never:**
   - send real email or SMS to residents;
   - put PII in logs or script output;
@@ -41,7 +41,7 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 - **Integration branch:** `claude/quality-oracle`. All merges land here.
 - **Deploy:** run `/usr/bin/git merge-base --is-ancestor <prod> <tip>`, then `/usr/bin/git push origin <sha>:claude/phase1-homeownerhub-setup-MILNu`. Prod pushes FAIL when their output is redirected to /dev/null; always run them as `... 2>&1 | tail -3`, and retry up to 3 times.
 - **Verify:** poll `https://www.homeownerledger.com/api/health` until `version` equals the SHA. The public body is `{ok, app, version}`.
-- **Live in prod:** 0d47f20 (roster, ARC letters, contact updates, guide phase 2), deployed 2026-10-18 07:04 ET. The next deploy is allowed after 08:04: BL-080/081 and BL-083/084, once CI is green.
+- **Live in prod:** 3fc343e (payment plans, recurring entries, vendor insurance), deployed 2026-10-18 10:16 ET.
 
 ## Gates (the trusted forms)
 
@@ -63,7 +63,7 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 
 ## In flight at this update
 
-- **No agents running.**
+- **Paused:** the loop is paused for the weekly usage limit. On resume, re-dispatch BL-082 resident notifications, the M1 UI behind the flag and the guide classifier tuning; partial diffs are in .claude/worktrees/agent-a1496b73cd811725c, agent-abd18994e3c673a61 and agent-a0c6a9e45dd9f07e0.
 - **UI shots CI** opens "Refresh guide screenshots" PRs automatically. Review two images, then squash-merge.
 - **Next, by priority:**
   - BL-079: ARC photos and letter draft.
