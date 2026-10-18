@@ -134,10 +134,10 @@ describe('topVariances', () => {
 
 describe('approvalsWaiting', () => {
   it('sums every source', () => {
-    expect(approvalsWaiting({ w18: 2, bill: 1, w3: 0, vendor: 3 })).toEqual({ ok: true, data: 6 })
+    expect(approvalsWaiting({ w18: 2, bill: 1, w3: 0, arc: 0, vendor: 3 })).toEqual({ ok: true, data: 6 })
   })
 
   it('is unknown — not a lower number — when any source failed', () => {
-    expect(approvalsWaiting({ w18: 2, bill: null, w3: 0, vendor: 3 })).toEqual({ ok: false })
+    expect(approvalsWaiting({ w18: 2, bill: null, w3: 0, arc: 0, vendor: 3 })).toEqual({ ok: false })
   })
 })

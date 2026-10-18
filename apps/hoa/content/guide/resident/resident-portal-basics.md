@@ -6,7 +6,7 @@ topic: resident
 roles: [resident]
 routes: ["/resident", "/resident/dues", "/resident/dues/pay", "/resident/arc", "/resident/arc/new", "/resident/tickets/new", "/resident/report-violation"]
 primary_route: /resident
-keywords: [pay, dues, balance, zelle, statement, arc, approval, paint, fence, request, problem, repair, report, concern, announcements, documents, rules]
+keywords: [pay, dues, balance, zelle, statement, arc, approval, paint, fence, request, problem, repair, report, concern, announcements, documents, rules, check, guidelines]
 shots:
   - name: guide-resident-home
     alt: The resident home screen with the Pay button highlighted
@@ -15,7 +15,7 @@ shots:
   - name: guide-resident-arc-new
     alt: The New ARC application form with the Submit application button highlighted
 related: []
-reviewed: 2026-10-17
+reviewed: 2026-10-18
 ---
 
 Everything you need is in the tabs at the bottom of the screen: Home, Dues, Requests, Ask and Account.
@@ -33,9 +33,10 @@ Everything you need is in the tabs at the bottom of the screen: Home, Dues, Requ
 
 ### Ask to change your home (ARC)
 1. Tap **Requests**, then [[Architectural request (ARC)]].
-2. Pick the **Type of change** and write what you want to do.
-3. Tap [[Submit application]].
-4. Add photos or plans afterwards: open the application and tap [[Attach document]].
+2. Pick the **Type of change** and write what you want to do. Include sizes, materials and colors.
+3. Optional: tap [[Check my request against the rules]]. You see which of your community's rules likely apply, anything that may conflict, and what the board will probably ask about.
+4. Tap [[Submit application]]. You can submit whatever the check says.
+5. Add photos or plans afterwards: open the application and tap [[Attach document]].
 
 ![[guide-resident-arc-new]]
 
@@ -51,4 +52,5 @@ Everything you need is in the tabs at the bottom of the screen: Home, Dues, Requ
 - To see every charge, open **Dues**, then [[View statement]].
 - **Announcements** and **Documents** are in the **Account** tab.
 - Have a question about the rules? Tap **Ask** to use Ask the Docs.
+- The rules check is not a decision. Only the board approves or denies an application.
 - Wait for the board's written approval before you start work on your home.

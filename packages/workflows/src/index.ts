@@ -153,3 +153,33 @@ export type {
   BillScanModel,
   FieldConfidence,
 } from './W36-bill-scan'
+
+// BL-024 / BL-027 — ARC Review. Advisory only: the resident pre-check never
+// says approved/denied, and the board draft lands as pending_human_approval;
+// the board decides with the existing ARC actions.
+export {
+  reviewArcRequest,
+  runArcReview,
+  processArcReviewResponse,
+  buildArcFacts,
+  detectMissingInfo,
+  stripVerdicts,
+  liveArcReviewModel,
+  W37_WORKFLOW_ID,
+  ARC_DECISIONS,
+  ARC_MISSING_INFO,
+  ARC_PRECHECK_DISCLAIMER,
+  ARC_REVIEW_DISCLAIMER,
+} from './W37-arc-review'
+export type {
+  ArcReviewInput,
+  ArcReviewOutput,
+  ArcReviewModel,
+  ArcRetrieve,
+  ArcFacts,
+  ArcRule,
+  ArcSuggestion,
+  ArcSuggestedDecision,
+  ArcMissingInfo,
+  ArcRequestFields,
+} from './W37-arc-review'

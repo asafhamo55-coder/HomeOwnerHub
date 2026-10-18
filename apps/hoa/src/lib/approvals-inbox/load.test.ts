@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@homeowner-portal/observability/report', () => ({ reportError: vi.fn() }))
 
-import { countPendingApprovals, loadBillSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section, type InboxDb } from './load'
+import { countPendingApprovals, loadArcSection, loadBillSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section, type InboxDb } from './load'
 
 /**
  * A minimal stand-in for the Supabase query builder: every chained call is
@@ -129,11 +129,11 @@ describe('countPendingApprovals (sidebar badge)', () => {
   it('counts each source with head-only queries; vendors only for the primary association the list shows', async () => {
     const { db, calls } = fakeDb({
       approval_requests: [ok(2), ok(5)],
-      ai_runs: [ok(1)],
+      ai_runs: [ok(1), ok(2)],
       associations: [{ data: [ASSOC], error: null }],
       vendor_compliance: [ok(3), ok(1)],
     })
-    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 2, bill: 5, w3: 1, vendor: 4 })
+    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 2, bill: 5, w3: 1, arc: 2, vendor: 4 })
     for (const c of calls.filter((c) => c.table !== 'associations')) {
       const select = c.ops.find(([op]) => op === 'select')!
       expect(select[1][1], `${c.table} must be a head count`).toMatchObject({ count: 'exact', head: true })
@@ -153,30 +153,30 @@ describe('countPendingApprovals (sidebar badge)', () => {
   it('no association means no vendor in the list, so 0 — without counting', async () => {
     const { db, calls } = fakeDb({
       approval_requests: [ok(0), ok(0)],
-      ai_runs: [ok(0)],
+      ai_runs: [ok(0), ok(0)],
       associations: [{ data: [], error: null }],
     })
-    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 0, bill: 0, w3: 0, vendor: 0 })
+    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 0, bill: 0, w3: 0, arc: 0, vendor: 0 })
     expect(calls.some((c) => c.table === 'vendor_compliance')).toBe(false)
   })
 
   it('a failed association lookup makes the vendor count unknown, not 0', async () => {
     const { db } = fakeDb({
       approval_requests: [ok(0), ok(0)],
-      ai_runs: [ok(0)],
+      ai_runs: [ok(0), ok(0)],
       associations: [{ data: null, error: err }],
     })
-    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 0, bill: 0, w3: 0, vendor: null })
+    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 0, bill: 0, w3: 0, arc: 0, vendor: null })
   })
 
   it('a failed count is unknown (null), not zero', async () => {
     const { db } = fakeDb({
       approval_requests: [{ data: null, error: err }, ok(3)],
-      ai_runs: [ok(0)],
+      ai_runs: [ok(0), ok(0)],
       associations: [{ data: [ASSOC], error: null }],
       vendor_compliance: [ok(0), { data: null, error: err }],
     })
-    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: null, bill: 3, w3: 0, vendor: null })
+    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: null, bill: 3, w3: 0, arc: 0, vendor: null })
   })
 })
 
@@ -270,5 +270,31 @@ describe('loadBillSection (BL-021)', () => {
   it('a failed read is a failed section', async () => {
     const { db } = fakeDb({ approval_requests: [{ data: null, error: err }] })
     expect(await loadBillSection(db, ORG)).toEqual({ source: 'bill', ok: false })
+  })
+})
+
+describe('loadArcSection (BL-027)', () => {
+  it('reads pending W37 drafts for the org, oldest first, with an exact count', async () => {
+    const { db, calls } = fakeDb({
+      ai_runs: [
+        {
+          data: [{ id: 'r1', created_at: '2026-10-01T00:00:00Z', input: { arcRequestId: 'a1', facts: { summary: 'Fence' } }, output: {} }],
+          error: null,
+          count: 4,
+        },
+      ],
+    })
+    const s = await loadArcSection(db, ORG)
+    expect(s).toMatchObject({ source: 'arc', ok: true, total: 4 })
+    const q = calls[0]!.ops
+    expect(q).toContainEqual(['eq', ['organization_id', ORG]])
+    expect(q).toContainEqual(['eq', ['workflow_id', 'W37']])
+    expect(q).toContainEqual(['eq', ['status', 'pending_human_approval']])
+    expect(q).toContainEqual(['order', ['created_at', { ascending: true }]])
+  })
+
+  it('a failed read is a failed section', async () => {
+    const { db } = fakeDb({ ai_runs: [{ data: null, error: err }] })
+    expect(await loadArcSection(db, ORG)).toEqual({ source: 'arc', ok: false })
   })
 })

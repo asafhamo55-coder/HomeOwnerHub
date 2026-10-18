@@ -15,6 +15,10 @@ import {
   StatusBadge,
 } from '@homeowner-portal/ui'
 import { getArcRequestForBoard, getArcMessagesForBoard } from '@/lib/board-review'
+import { requireBoardOrAdmin } from '@/lib/auth'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadArcReview } from '@/lib/arc-review/load'
+import { ArcReviewPanel } from '@/components/arc-review/ArcReviewPanel'
 import { listSubmissionAttachments } from '@/lib/submission-attachments'
 import { SubmissionAttachments } from '@/components/attachments/SubmissionAttachments'
 import { BoardConversation } from '@/components/board-review/BoardConversation'
@@ -38,11 +42,18 @@ export default async function ArcReviewDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
+  // Board-only gate before any client is created (the dashboard layout
+  // already sends residents away).
+  const { org } = await requireBoardOrAdmin()
   const arc = await getArcRequestForBoard(id)
   if (!arc) notFound()
-  const [messages, attachments] = await Promise.all([
+  const supabase = await getSupabaseServerClient()
+  const [messages, attachments, aiReview] = await Promise.all([
     getArcMessagesForBoard(id),
     listSubmissionAttachments('arc', id),
+    // BL-027: the W37 draft (and the resident's BL-024 pre-check). A failed
+    // read is its own state on the card; the application still renders.
+    loadArcReview(supabase, org.id, id),
   ])
 
   const decided = arc.status === 'approved' || arc.status === 'denied'
@@ -85,6 +96,10 @@ export default async function ArcReviewDetailPage({
               </KeyValueList>
             </CardContent>
           </Card>
+
+          {arc.status === 'withdrawn' && !(aiReview.ok && aiReview.review) ? null : (
+            <ArcReviewPanel arcId={arc.id} title={arc.summary} arcStatus={arc.status} load={aiReview} />
+          )}
 
           <Card>
             <CardHeader>

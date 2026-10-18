@@ -14,6 +14,7 @@ import { z } from 'zod'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { loadOrFail } from '@/lib/load-or-fail'
+import { closeReviewsWithoutDecision, recordBoardDecisionOnReview } from '@/lib/arc-review/record'
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
 type ActionErr = { ok: false; error: string }
@@ -234,7 +235,7 @@ export async function respondToArcRequest(
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
   }
 
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   const {
     data: { user },
@@ -255,16 +256,76 @@ export async function respondToArcRequest(
 
   if (error) return { ok: false, error: error.message }
 
+  // BL-027: close the W37 draft with the board's decision (human_approved =
+  // whether the board did what the AI suggested). The decision above already
+  // stands; a failure here is logged by ids and costs only the metric.
+  if (parsed.data.decision !== 'in_review') {
+    await recordBoardDecisionOnReview(supabase, {
+      orgId: org.id,
+      arcId: parsed.data.arc_id,
+      userId: user.id,
+      decision: parsed.data.decision,
+    })
+    revalidatePath('/approvals')
+    revalidatePath('/', 'layout')
+  }
+
   revalidatePath('/')  // dashboard rollup
   revalidatePath('/arc')
   revalidatePath(`/arc/${parsed.data.arc_id}`)
   return { ok: true }
 }
 
+// ─── Request more information (BL-027) ──────────────────────────────
+
+const RequestInfoSchema = z.object({
+  arcId: z.string().uuid(),
+  message: z.string().trim().min(1, 'Write what the resident should send.').max(4000),
+})
+
+/**
+ * "Request info": the existing reply action (postArcMessage, not internal —
+ * the resident sees it in their portal) plus, for a fresh application, the
+ * existing Mark in review. No logic of its own beyond composing the two and
+ * recording the decision on the AI draft.
+ */
+export async function requestArcInfo(input: { arcId: string; message: string }): Promise<ActionResult> {
+  const parsed = RequestInfoSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  }
+  const { org } = await requireBoardOrAdmin()
+  const arc = await getArcRequestForBoard(parsed.data.arcId)
+  if (!arc) return { ok: false, error: 'That application no longer exists.' }
+  if (arc.status !== 'submitted' && arc.status !== 'in_review') {
+    return { ok: false, error: 'This application is already decided or withdrawn.' }
+  }
+
+  const posted = await postArcMessage({ arcId: arc.id, body: parsed.data.message, internal: false })
+  if (!posted.ok) return posted
+  if (arc.status === 'submitted') {
+    const moved = await respondToArcRequest({ arcId: arc.id, decision: 'in_review', boardResponse: arc.board_response })
+    if (!moved.ok) return moved
+  }
+
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (user) {
+    await recordBoardDecisionOnReview(supabase, { orgId: org.id, arcId: arc.id, userId: user.id, decision: 'more_info' })
+  }
+  revalidatePath('/approvals')
+  revalidatePath('/', 'layout')
+  revalidatePath('/arc')
+  revalidatePath(`/arc/${arc.id}`)
+  return { ok: true }
+}
+
 // ─── Delete ARC request ─────────────────────────────────────────────
 
 export async function deleteArcRequest(arcId: string): Promise<ActionResult> {
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   const { error } = await supabase
     .from('arc_requests' as never)
@@ -273,6 +334,10 @@ export async function deleteArcRequest(arcId: string): Promise<ActionResult> {
     .is('deleted_at', null)
   if (error) return { ok: false, error: error.message }
 
+  // BL-027: a deleted application leaves nothing for the AI draft to decide.
+  await closeReviewsWithoutDecision(supabase, { orgId: org.id, arcId, reason: 'deleted' })
+  revalidatePath('/approvals')
+  revalidatePath('/', 'layout')
   revalidatePath('/arc')
   return { ok: true }
 }

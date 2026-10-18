@@ -18,7 +18,10 @@ interface Copy {
   rejectPlaceholder: string
 }
 
-const COPY: Record<InboxDecisionTarget['kind'], Copy> = {
+/** ARC reviews are decided by ArcReviewActions (the ARC actions), never here. */
+type ApprovalTarget = Exclude<InboxDecisionTarget, { kind: 'arc' }>
+
+const COPY: Record<ApprovalTarget['kind'], Copy> = {
   w18: {
     approveButton: 'Approve & post',
     approveTitle: 'Approve and post this deposit?',
@@ -73,7 +76,7 @@ export function ApprovalActions({
   amountLabel,
   href,
 }: {
-  decision: InboxDecisionTarget | null
+  decision: ApprovalTarget | null
   title: string
   amountLabel: string | null
   href: string

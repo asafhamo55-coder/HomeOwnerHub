@@ -12,7 +12,9 @@ import { loadOrFail } from '../load-or-fail'
 import { BILL_ACTION } from '../bill-scan/proposal'
 import {
   SECTION_LIMIT,
+  arcItems,
   billItems,
+  type ArcRunRow,
   type BillProposalRow,
   type AssociationVendorCount,
   w18Items,
@@ -27,6 +29,7 @@ import {
 export type InboxDb = SupabaseClient<Database>
 
 const W18_ACTION = 'w18.cash_receipt'
+const W37 = 'W37'
 
 export async function loadW18Section(db: InboxDb, orgId: string): Promise<InboxSection> {
   const res = await loadOrFail(
@@ -99,6 +102,24 @@ export async function loadW3Section(db: InboxDb, orgId: string): Promise<InboxSe
   return { source: 'w3', ok: true, items: w3Items(runs), total: res.count ?? runs.length }
 }
 
+/** BL-027: pending W37 ARC review drafts, oldest first. Same read rule as W3. */
+export async function loadArcSection(db: InboxDb, orgId: string): Promise<InboxSection> {
+  const res = await loadOrFail(
+    'approvals: ARC reviews',
+    db
+      .from('ai_runs')
+      .select('id, created_at, input, output', { count: 'exact' })
+      .eq('organization_id', orgId)
+      .eq('workflow_id', W37)
+      .eq('status', 'pending_human_approval')
+      .order('created_at', { ascending: true })
+      .range(0, SECTION_LIMIT - 1),
+  )
+  if (!res.ok) return { source: 'arc', ok: false }
+  const runs = (res.data ?? []) as unknown as ArcRunRow[]
+  return { source: 'arc', ok: true, items: arcItems(runs), total: res.count ?? runs.length }
+}
+
 /**
  * Vendors needing the board in ONE association: two index-backed head
  * counts mirroring vendorNeedsBoard (yellow/red/missing, or green on a
@@ -156,7 +177,7 @@ export async function countPendingApprovals(db: InboxDb, orgId: string): Promise
     const primary = (assocs.data ?? [])[0]
     return primary ? countVendorsNeedingBoard(db, orgId, primary.id) : 0
   }
-  const [w18, bill, w3, vendor] = await Promise.all([
+  const [w18, bill, w3, arc, vendor] = await Promise.all([
     loadOrFail(
       'approvals badge: postings',
       db
@@ -184,10 +205,19 @@ export async function countPendingApprovals(db: InboxDb, orgId: string): Promise
         .eq('workflow_id', 'W3')
         .eq('status', 'pending_human_approval'),
     ),
+    loadOrFail(
+      'approvals badge: ARC reviews',
+      db
+        .from('ai_runs')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .eq('workflow_id', W37)
+        .eq('status', 'pending_human_approval'),
+    ),
     vendorCount(),
   ])
   const count = (r: { ok: true; count: number | null } | { ok: false }) => (r.ok ? (r.count ?? 0) : null)
-  return { w18: count(w18), bill: count(bill), w3: count(w3), vendor }
+  return { w18: count(w18), bill: count(bill), w3: count(w3), arc: count(arc), vendor }
 }
 
 /**

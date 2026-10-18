@@ -3018,7 +3018,7 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
   {
     "id": "arc-review-application",
     "title": "Review an ARC application",
-    "summary": "Read a resident's architectural request, then approve it, deny it or mark it in review.",
+    "summary": "Read a resident's architectural request and the AI review of it, then approve it, deny it or ask for more information.",
     "topic": "arc",
     "roles": [
       "admin",
@@ -3040,7 +3040,15 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
       "fence",
       "roof",
       "modification",
-      "committee"
+      "committee",
+      "ai",
+      "review",
+      "suggestion",
+      "conditions",
+      "rules",
+      "request info",
+      "more information",
+      "missing details"
     ],
     "shots": [
       {
@@ -3053,9 +3061,10 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
       }
     ],
     "related": [
+      "approvals-queue",
       "communications-send-announcement"
     ],
-    "reviewed": "2026-10-17",
+    "reviewed": "2026-10-18",
     "sections": [
       {
         "id": "overview",
@@ -3134,34 +3143,56 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
               [
                 {
                   "t": "text",
-                  "v": "Ask the resident a question in "
+                  "v": "Read the "
                 },
                 {
                   "t": "strong",
                   "c": [
                     {
                       "t": "text",
-                      "v": "Conversation"
+                      "v": "AI review"
                     }
                   ]
                 },
                 {
                   "t": "text",
-                  "v": " if you need more, and select "
-                },
-                {
-                  "t": "ui",
-                  "label": "Send reply"
-                },
-                {
-                  "t": "text",
-                  "v": "."
+                  "v": " card. It cites the rules from your governing documents that apply, suggests a decision with its reasons, and lists any conditions and missing details."
                 }
               ],
               [
                 {
                   "t": "text",
-                  "v": "In the "
+                  "v": "Decide from the AI review: select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Approve"
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "ui",
+                  "label": "Deny"
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "ui",
+                  "label": "Request info"
+                },
+                {
+                  "t": "text",
+                  "v": ". The text box starts with the AI's draft. Edit it, then confirm."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Or use the "
                 },
                 {
                   "t": "strong",
@@ -3174,7 +3205,7 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
                 },
                 {
                   "t": "text",
-                  "v": " card, type a "
+                  "v": " card as before: type a "
                 },
                 {
                   "t": "strong",
@@ -3187,13 +3218,7 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
                 },
                 {
                   "t": "text",
-                  "v": " if you have conditions or a reason."
-                }
-              ],
-              [
-                {
-                  "t": "text",
-                  "v": "Select "
+                  "v": " and select "
                 },
                 {
                   "t": "ui",
@@ -3239,12 +3264,43 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
         "heading": "What happens next",
         "blocks": [
           {
-            "t": "p",
-            "c": [
-              {
-                "t": "text",
-                "v": "The resident sees the decision and your board response in their portal. No email or text is sent, so tell them yourself if it is urgent."
-              }
+            "t": "list",
+            "items": [
+              [
+                {
+                  "t": "text",
+                  "v": "The resident sees the decision and your board response in their portal. No email or text is sent, so tell them yourself if it is urgent."
+                }
+              ],
+              [
+                {
+                  "t": "ui",
+                  "label": "Request info"
+                },
+                {
+                  "t": "text",
+                  "v": " sends your message to the resident in "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Conversation"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " and marks the application in review."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The AI never decides. Its suggestion is kept with the board's actual decision, so you can see how often the board agreed."
+                }
+              ]
             ]
           }
         ]
@@ -3287,15 +3343,72 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
               [
                 {
                   "t": "text",
-                  "v": "There is no \"request changes\" decision. Use "
+                  "v": "The AI review starts by itself when a resident submits. If it is missing or failed, select "
                 },
                 {
                   "t": "ui",
-                  "label": "Mark in review"
+                  "label": "Run AI review"
                 },
                 {
                   "t": "text",
-                  "v": " and ask in Conversation."
+                  "v": "."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "No rules found? The card says so and makes no suggestion. Decide on your own reading of the documents."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "If the resident looked up the rules before submitting, open "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "What the resident saw before submitting"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": " to see what they were shown."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "New AI reviews also wait in "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "Approvals"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": ", under "
+                },
+                {
+                  "t": "strong",
+                  "c": [
+                    {
+                      "t": "text",
+                      "v": "ARC reviews"
+                    }
+                  ]
+                },
+                {
+                  "t": "text",
+                  "v": "."
                 }
               ]
             ]
@@ -4979,7 +5092,7 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
   {
     "id": "approvals-queue",
     "title": "The Approvals queue: nothing happens until you approve",
-    "summary": "Review what the AI proposed (deposits, scanned bills, violation letters and vendors) and approve or reject each one.",
+    "summary": "Review what the AI proposed (deposits, scanned bills, violation letters, ARC reviews and vendors) and approve or reject each one.",
     "topic": "documents",
     "roles": [
       "admin",
@@ -5002,7 +5115,9 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
       "letter",
       "reject",
       "ai",
-      "decision"
+      "decision",
+      "arc",
+      "architectural"
     ],
     "shots": [
       {
@@ -5016,9 +5131,10 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
     ],
     "related": [
       "violations-report-and-letter",
+      "arc-review-application",
       "meetings-schedule-and-minutes"
     ],
-    "reviewed": "2026-10-17",
+    "reviewed": "2026-10-18",
     "sections": [
       {
         "id": "overview",
@@ -5064,7 +5180,7 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
               [
                 {
                   "t": "text",
-                  "v": "Pick a tab to see one kind: Deposits, Bills, Violation letters or Vendors."
+                  "v": "Pick a tab to see one kind: Deposits, Bills, Violation letters, ARC reviews or Vendors."
                 }
               ],
               [
@@ -5137,6 +5253,36 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
                   "t": "text",
                   "v": ". The reason is kept in the audit trail."
                 }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "For an ARC review, select "
+                },
+                {
+                  "t": "ui",
+                  "label": "Approve"
+                },
+                {
+                  "t": "text",
+                  "v": ", "
+                },
+                {
+                  "t": "ui",
+                  "label": "Deny"
+                },
+                {
+                  "t": "text",
+                  "v": " or "
+                },
+                {
+                  "t": "ui",
+                  "label": "Request info"
+                },
+                {
+                  "t": "text",
+                  "v": "."
+                }
               ]
             ]
           },
@@ -5176,6 +5322,12 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
                 {
                   "t": "text",
                   "v": "An approved vendor becomes active."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "An ARC decision is the same as deciding on the application's own page. The resident sees your response in their portal."
                 }
               ]
             ]
@@ -5648,7 +5800,9 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
       "concern",
       "announcements",
       "documents",
-      "rules"
+      "rules",
+      "check",
+      "guidelines"
     ],
     "shots": [
       {
@@ -5665,7 +5819,7 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
       }
     ],
     "related": [],
-    "reviewed": "2026-10-17",
+    "reviewed": "2026-10-18",
     "sections": [
       {
         "id": "overview",
@@ -5826,7 +5980,21 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
                 },
                 {
                   "t": "text",
-                  "v": " and write what you want to do."
+                  "v": " and write what you want to do. Include sizes, materials and colors."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "Optional: tap "
+                },
+                {
+                  "t": "ui",
+                  "label": "Check my request against the rules"
+                },
+                {
+                  "t": "text",
+                  "v": ". You see which of your community's rules likely apply, anything that may conflict, and what the board will probably ask about."
                 }
               ],
               [
@@ -5840,7 +6008,7 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
                 },
                 {
                   "t": "text",
-                  "v": "."
+                  "v": ". You can submit whatever the check says."
                 }
               ],
               [
@@ -6060,6 +6228,12 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
                 {
                   "t": "text",
                   "v": " to use Ask the Docs."
+                }
+              ],
+              [
+                {
+                  "t": "text",
+                  "v": "The rules check is not a decision. Only the board approves or denies an application."
                 }
               ],
               [
@@ -6665,7 +6839,7 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
     "articleId": "arc-review-application",
     "sectionId": "steps",
     "heading": "Steps",
-    "text": "Open ARC review from the sidebar. It opens on applications that need a decision.\nOpen an application.\nRead Proposed work and open any files under Documents.\nAsk the resident a question in Conversation if you need more, and select Send reply.\nIn the Decision card, type a Board response if you have conditions or a reason.\nSelect Approve, Deny or Mark in review.",
+    "text": "Open ARC review from the sidebar. It opens on applications that need a decision.\nOpen an application.\nRead Proposed work and open any files under Documents.\nRead the AI review card. It cites the rules from your governing documents that apply, suggests a decision with its reasons, and lists any conditions and missing details.\nDecide from the AI review: select Approve, Deny or Request info. The text box starts with the AI's draft. Edit it, then confirm.\nOr use the Decision card as before: type a Board response and select Approve, Deny or Mark in review.",
     "roles": [
       "admin",
       "board"
@@ -6679,7 +6853,7 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
     "articleId": "arc-review-application",
     "sectionId": "what-happens-next",
     "heading": "What happens next",
-    "text": "The resident sees the decision and your board response in their portal. No email or text is sent, so tell them yourself if it is urgent.",
+    "text": "The resident sees the decision and your board response in their portal. No email or text is sent, so tell them yourself if it is urgent.\nRequest info sends your message to the resident in Conversation and marks the application in review.\nThe AI never decides. Its suggestion is kept with the board's actual decision, so you can see how often the board agreed.",
     "roles": [
       "admin",
       "board"
@@ -6693,7 +6867,7 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
     "articleId": "arc-review-application",
     "sectionId": "good-to-know",
     "heading": "Good to know",
-    "text": "No applications yet? The page offers Tell residents how to apply, which starts a message to residents.\nTick Internal note in Conversation to leave a note only the board sees.\nThere is no \"request changes\" decision. Use Mark in review and ask in Conversation.",
+    "text": "No applications yet? The page offers Tell residents how to apply, which starts a message to residents.\nTick Internal note in Conversation to leave a note only the board sees.\nThe AI review starts by itself when a resident submits. If it is missing or failed, select Run AI review.\nNo rules found? The card says so and makes no suggestion. Decide on your own reading of the documents.\nIf the resident looked up the rules before submitting, open What the resident saw before submitting to see what they were shown.\nNew AI reviews also wait in Approvals, under ARC reviews.",
     "roles": [
       "admin",
       "board"
@@ -7031,7 +7205,7 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
     "articleId": "approvals-queue",
     "sectionId": "steps",
     "heading": "Steps",
-    "text": "Open Approvals from the sidebar. The number beside it is how many items are waiting.\nPick a tab to see one kind: Deposits, Bills, Violation letters or Vendors.\nRead the item. For a scanned bill, compare it with the bill itself.\nApprove it: Approve & post for a deposit, Approve & enter for a bill, Approve letter for a violation letter, or Approve for a vendor.\nOr select Reject and give a Reason. The reason is kept in the audit trail.",
+    "text": "Open Approvals from the sidebar. The number beside it is how many items are waiting.\nPick a tab to see one kind: Deposits, Bills, Violation letters, ARC reviews or Vendors.\nRead the item. For a scanned bill, compare it with the bill itself.\nApprove it: Approve & post for a deposit, Approve & enter for a bill, Approve letter for a violation letter, or Approve for a vendor.\nOr select Reject and give a Reason. The reason is kept in the audit trail.\nFor an ARC review, select Approve, Deny or Request info.",
     "roles": [
       "admin",
       "board"
@@ -7044,7 +7218,7 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
     "articleId": "approvals-queue",
     "sectionId": "what-happens-next",
     "heading": "What happens next",
-    "text": "An approved deposit posts to the ledger and marks the matching dues paid.\nAn approved bill is entered in accounts payable. It does not pay the vendor.\nAn approved violation letter is filed as an open violation. Nothing is sent to the homeowner.\nAn approved vendor becomes active.",
+    "text": "An approved deposit posts to the ledger and marks the matching dues paid.\nAn approved bill is entered in accounts payable. It does not pay the vendor.\nAn approved violation letter is filed as an open violation. Nothing is sent to the homeowner.\nAn approved vendor becomes active.\nAn ARC decision is the same as deciding on the application's own page. The resident sees your response in their portal.",
     "roles": [
       "admin",
       "board"
@@ -7171,7 +7345,7 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
     "articleId": "resident-portal-basics",
     "sectionId": "steps",
     "heading": "Steps",
-    "text": "Pay your dues\nOn Home or Dues, tap the Pay button. It shows the amount.\nOpen Zelle in your bank's app.\nSend to the Zelle address shown. Use Copy to copy it.\nEnter the amount and the memo exactly as shown.\nAsk to change your home (ARC)\nTap Requests, then Architectural request (ARC).\nPick the Type of change and write what you want to do.\nTap Submit application.\nAdd photos or plans afterwards: open the application and tap Attach document.\nReport a problem\nTap Requests, then New support request for a repair or question. Tap Send request.\nOr tap Report a concern to tell the board about a rule being broken. Tap Send report.",
+    "text": "Pay your dues\nOn Home or Dues, tap the Pay button. It shows the amount.\nOpen Zelle in your bank's app.\nSend to the Zelle address shown. Use Copy to copy it.\nEnter the amount and the memo exactly as shown.\nAsk to change your home (ARC)\nTap Requests, then Architectural request (ARC).\nPick the Type of change and write what you want to do. Include sizes, materials and colors.\nOptional: tap Check my request against the rules. You see which of your community's rules likely apply, anything that may conflict, and what the board will probably ask about.\nTap Submit application. You can submit whatever the check says.\nAdd photos or plans afterwards: open the application and tap Attach document.\nReport a problem\nTap Requests, then New support request for a repair or question. Tap Send request.\nOr tap Report a concern to tell the board about a rule being broken. Tap Send report.",
     "roles": [
       "resident"
     ],
@@ -7207,7 +7381,7 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
     "articleId": "resident-portal-basics",
     "sectionId": "good-to-know",
     "heading": "Good to know",
-    "text": "To see every charge, open Dues, then View statement.\nAnnouncements and Documents are in the Account tab.\nHave a question about the rules? Tap Ask to use Ask the Docs.\nWait for the board's written approval before you start work on your home.",
+    "text": "To see every charge, open Dues, then View statement.\nAnnouncements and Documents are in the Account tab.\nHave a question about the rules? Tap Ask to use Ask the Docs.\nThe rules check is not a decision. Only the board approves or denies an application.\nWait for the board's written approval before you start work on your home.",
     "roles": [
       "resident"
     ],
@@ -7338,7 +7512,7 @@ export const GUIDE_ROUTE_INDEX: Readonly<Record<string, readonly string[]>> = {
   ]
 }
 
-export const GUIDE_SEARCH_INDEX: GuideSearchIndex = {"articles":{"ids":["members-invite-board","setup-import-roster","setup-properties-residents","start-board-admin","dues-generate-monthly","dues-record-payment","violations-report-and-letter","arc-review-application","meetings-schedule-and-minutes","accounting-draft-budget","communications-send-announcement","properties-record-a-sale","approvals-queue","documents-governing-and-ask","resident-portal-basics"],"lengths":[46,57,51,36,47,46,52,39,48,74,43,72,57,55,68],"avgLength":52.733,"postings":{"12":[[9,1]],"access":[[0,3],[11,1]],"action":[[8,2]],"actual":[[9,3]],"add":[[0,2],[2,4],[4,1]],"address":[[2,3]],"admin":[[0,2]],"agenda":[[8,2]],"ai":[[12,3],[13,2]],"amendment":[[13,2]],"announcement":[[10,5],[14,2]],"annual":[[8,2],[9,2]],"answer":[[13,1]],"application":[[7,5]],"approv":[[6,4],[7,3],[12,6],[14,1]],"approval":[[12,5],[14,5]],"arc":[[7,5],[14,2]],"architectural":[[7,3]],"archiv":[[2,2]],"ask":[[13,6],[14,4]],"assessment":[[4,4]],"association":[[4,2]],"balanc":[[5,1],[14,2]],"becom":[[11,1]],"befor":[[6,1]],"begin":[[3,2]],"bill":[[2,1],[4,5],[12,3]],"board":[[0,6],[8,4],[9,2],[14,1]],"brain":[[6,1],[13,1]],"broadcast":[[10,2]],"budget":[[9,13]],"bulk":[[1,2]],"buyer":[[11,3]],"bylaw":[[13,3]],"calendar":[[8,1]],"cash":[[5,5]],"cc":[[6,1],[13,1]],"ccr":[[6,2],[13,4]],"chang":[[0,1],[11,5],[14,1]],"charg":[[4,4],[5,1]],"check":[[1,1],[3,1],[5,5]],"checklist":[[3,3]],"chequ":[[5,2]],"choos":[[0,1]],"cinc":[[1,3]],"clos":[[6,2],[11,2]],"co":[[11,2]],"committe":[[7,2]],"complianc":[[6,2]],"concern":[[14,2]],"contribution":[[9,2]],"couldn":[[3,1]],"covenant":[[6,3],[13,3]],"creat":[[4,1]],"csv":[[1,3],[2,2]],"cure":[[6,4]],"dashboard":[[3,1]],"decision":[[12,2]],"declaration":[[13,2]],"deed":[[11,2]],"delivery":[[10,2]],"deny":[[7,3]],"deposit":[[12,3]],"doc":[[13,1]],"document":[[13,6],[14,2]],"draft":[[6,1],[9,6]],"due":[[4,6],[5,1],[14,6]],"duplicat":[[1,2]],"each":[[1,1],[2,1],[3,1],[12,1]],"email":[[10,3]],"end":[[11,1]],"every":[[1,1],[4,1],[9,1]],"excel":[[1,3]],"export":[[1,1]],"family":[[2,1]],"fee":[[4,2]],"fenc":[[7,2],[14,2]],"file":[[8,3]],"fine":[[6,2]],"first":[[3,2]],"former":[[11,2]],"generat":[[4,2]],"get":[[10,1]],"gett":[[3,2]],"goe":[[6,1]],"govern":[[13,5]],"hand":[[11,3]],"happen":[[1,1],[12,3]],"history":[[11,1]],"hoa":[[0,2],[3,3]],"home":[[1,4],[2,3],[4,1],[11,3],[14,1]],"homeowner":[[1,2]],"hous":[[2,2]],"import":[[1,6],[2,2]],"inflation":[[9,2]],"invit":[[0,5],[11,2]],"invoic":[[4,2],[12,2]],"item":[[8,2]],"kept":[[11,1]],"last":[[9,7]],"ledger":[[5,2]],"let":[[6,1]],"letter":[[6,6],[12,3]],"line":[[9,1]],"list":[[1,2]],"live":[[2,1]],"load":[[13,1]],"login":[[0,3]],"lot":[[2,2]],"manager":[[0,2]],"mark":[[5,3],[7,1]],"mean":[[3,1]],"meet":[[8,10]],"member":[[0,3],[2,1]],"messag":[[10,3]],"migrat":[[1,2]],"minut":[[8,6]],"modification":[[7,2]],"month":[[4,4],[9,1]],"monthly":[[4,2]],"mov":[[11,2]],"new":[[3,2],[11,2]],"newsletter":[[10,2]],"next":[[9,6]],"note":[[2,2]],"noth":[[12,3]],"notic":[[6,2],[10,2]],"off":[[4,1]],"onboard":[[3,2]],"once":[[1,1]],"one":[[4,3],[10,1],[12,1]],"onlin":[[5,2]],"out":[[6,1]],"outsid":[[5,1]],"own":[[0,1],[13,1]],"owner":[[1,4],[2,3],[4,2],[5,1],[11,12]],"ownership":[[11,2]],"packet":[[8,3],[9,2]],"paid":[[5,6]],"paint":[[7,2],[14,2]],"pay":[[14,6]],"payment":[[5,7]],"pend":[[12,2]],"period":[[6,2]],"phon":[[14,1]],"photo":[[6,1]],"pick":[[10,1]],"policy":[[13,2]],"portal":[[5,1],[10,1],[11,1],[14,3]],"previous":[[11,2]],"print":[[8,3]],"prior":[[9,2]],"problem":[[14,6]],"property":[[2,5],[4,1]],"propos":[[9,2],[12,1]],"put":[[8,1]],"question":[[13,5]],"queu":[[12,5]],"read":[[7,1]],"reason":[[9,1]],"record":[[5,5],[11,4]],"reject":[[12,3]],"remov":[[0,3]],"repair":[[14,2]],"report":[[6,6],[14,6]],"request":[[7,3],[14,2]],"reserv":[[9,2]],"resident":[[0,1],[2,5],[7,1],[10,6],[14,3]],"resolv":[[6,2]],"rest":[[0,3]],"review":[[7,4],[12,1]],"right":[[5,1]],"role":[[0,3]],"roof":[[7,2]],"roster":[[1,3]],"row":[[1,1]],"rs":[[6,1],[13,1]],"rule":[[13,3],[14,2]],"sale":[[11,6]],"save":[[9,1]],"scann":[[12,3]],"schedul":[[8,5],[10,2]],"search":[[2,2]],"sell":[[11,3]],"seller":[[11,3]],"send":[[0,1],[10,6]],"sett":[[3,3]],"settlement":[[11,2]],"setup":[[3,3]],"sms":[[10,2]],"sold":[[11,2]],"sort":[[2,2]],"special":[[4,2]],"spreadsheet":[[1,5],[2,2]],"start":[[3,5],[9,1]],"statement":[[14,2]],"step":[[3,1],[4,1]],"such":[[1,1]],"switch":[[0,2]],"system":[[1,1]],"templat":[[1,2]],"tenant":[[2,3]],"text":[[10,3]],"transcript":[[8,3]],"transfer":[[11,2]],"treasurer":[[9,2]],"turn":[[8,1]],"unit":[[2,2]],"until":[[12,3]],"up":[[3,3]],"upload":[[1,3],[13,5]],"user":[[0,2]],"vendor":[[12,3]],"violation":[[6,6],[12,1]],"writ":[[10,1]],"xlsx":[[1,2]],"year":[[9,14]],"zell":[[5,2],[14,2]]}},"sections":{"ids":["members-invite-board#overview","members-invite-board#before-you-start","members-invite-board#steps","members-invite-board#what-happens-next","members-invite-board#if-something-goes-wrong","members-invite-board#good-to-know","setup-import-roster#overview","setup-import-roster#before-you-start","setup-import-roster#steps","setup-import-roster#what-happens-next","setup-import-roster#if-something-goes-wrong","setup-import-roster#good-to-know","setup-properties-residents#overview","setup-properties-residents#before-you-start","setup-properties-residents#steps","setup-properties-residents#what-happens-next","setup-properties-residents#if-something-goes-wrong","setup-properties-residents#good-to-know","start-board-admin#overview","start-board-admin#steps","start-board-admin#what-happens-next","start-board-admin#if-something-goes-wrong","start-board-admin#good-to-know","dues-generate-monthly#overview","dues-generate-monthly#before-you-start","dues-generate-monthly#steps","dues-generate-monthly#what-happens-next","dues-generate-monthly#if-something-goes-wrong","dues-generate-monthly#good-to-know","dues-record-payment#overview","dues-record-payment#before-you-start","dues-record-payment#steps","dues-record-payment#what-happens-next","dues-record-payment#if-something-goes-wrong","dues-record-payment#good-to-know","violations-report-and-letter#overview","violations-report-and-letter#before-you-start","violations-report-and-letter#steps","violations-report-and-letter#what-happens-next","violations-report-and-letter#if-something-goes-wrong","violations-report-and-letter#good-to-know","arc-review-application#overview","arc-review-application#steps","arc-review-application#what-happens-next","arc-review-application#good-to-know","meetings-schedule-and-minutes#overview","meetings-schedule-and-minutes#steps","meetings-schedule-and-minutes#what-happens-next","meetings-schedule-and-minutes#good-to-know","accounting-draft-budget#overview","accounting-draft-budget#before-you-start","accounting-draft-budget#steps","accounting-draft-budget#what-happens-next","accounting-draft-budget#if-something-goes-wrong","accounting-draft-budget#good-to-know","communications-send-announcement#overview","communications-send-announcement#steps","communications-send-announcement#what-happens-next","communications-send-announcement#if-something-goes-wrong","communications-send-announcement#good-to-know","properties-record-a-sale#overview","properties-record-a-sale#before-you-start","properties-record-a-sale#steps","properties-record-a-sale#what-happens-next","properties-record-a-sale#if-something-goes-wrong","properties-record-a-sale#good-to-know","approvals-queue#overview","approvals-queue#steps","approvals-queue#what-happens-next","approvals-queue#if-something-goes-wrong","approvals-queue#good-to-know","documents-governing-and-ask#overview","documents-governing-and-ask#steps","documents-governing-and-ask#what-happens-next","documents-governing-and-ask#if-something-goes-wrong","documents-governing-and-ask#good-to-know","resident-portal-basics#overview","resident-portal-basics#steps","resident-portal-basics#what-happens-next","resident-portal-basics#good-to-know"],"lengths":[17,33,34,20,29,54,28,59,81,28,72,65,21,23,66,51,38,131,39,103,23,38,46,22,37,66,30,94,33,18,11,19,14,40,67,23,23,54,29,27,69,21,42,16,31,16,65,28,66,31,31,84,22,79,75,14,49,28,30,34,30,54,79,88,69,48,27,48,32,28,22,21,47,23,23,42,26,76,19,31],"avgLength":42.125,"postings":{"12":[[11,2],[25,1],[53,1],[54,1]],"24":[[51,1]],"26":[[51,1]],"100":[[51,1],[62,1],[64,1]],"279":[[59,1]],"2026":[[25,1]],"000":[[7,1],[10,1],[51,1]],"accept":[[61,1]],"access":[[17,1],[61,1],[62,1],[63,1],[65,1]],"account":[[2,1],[11,1],[26,1],[27,1],[33,1],[34,2],[51,2],[65,1],[68,1],[76,1],[79,1]],"act":[[17,1]],"action":[[15,1],[17,2],[47,1],[48,2]],"activ":[[68,1]],"activity":[[15,1],[17,2],[53,1],[54,1],[63,1]],"actual":[[48,1],[51,2],[54,2]],"actually":[[49,1]],"add":[[3,1],[6,1],[9,1],[10,3],[11,1],[12,3],[13,1],[14,6],[17,1],[19,4],[22,2],[24,2],[25,2],[27,4],[28,2],[37,1],[46,1],[47,1],[48,2],[54,1],[62,3],[64,3],[70,1],[77,1]],"additional":[[37,1]],"address":[[7,2],[10,2],[11,1],[13,1],[14,1],[16,2],[17,1],[19,1],[37,1],[61,1],[64,2],[77,1]],"adjustment":[[51,1],[54,1]],"admin":[[1,3],[2,1],[4,3],[5,2],[7,1],[13,1],[24,1],[27,2],[30,1],[33,2],[36,1],[50,1],[61,1]],"adopt":[[52,1]],"after":[[5,1],[61,1]],"afterward":[[77,1]],"again":[[10,3],[17,1],[27,1],[28,1],[33,2],[39,1],[53,1],[64,1],[69,1],[74,1]],"against":[[48,1]],"agenda":[[46,1],[48,1]],"ai":[[18,1],[40,2],[46,1],[51,1],[54,1],[66,1],[69,1]],"all":[[12,1],[17,2],[21,1],[37,1],[70,1]],"allow":[[40,1]],"already":[[3,1],[6,1],[8,1],[11,1],[13,1],[27,3],[40,1],[53,2]],"also":[[2,1]],"alway":[[28,1],[34,1]],"amount":[[25,2],[28,2],[31,1],[34,2],[51,1],[53,1],[69,1],[77,2]],"analysis":[[39,1]],"analyz":[[37,1]],"announcement":[[55,2],[79,1]],"annually":[[25,1]],"another":[[58,1]],"answer":[[18,1],[19,1],[73,1],[75,2],[78,1]],"any":[[8,1],[17,1],[19,1],[20,1],[29,1],[42,1],[54,1],[57,1]],"anyon":[[48,1]],"anyth":[[37,1],[46,1],[55,1],[66,1]],"apart":[[10,1]],"app":[[48,1],[54,1],[77,1]],"appear":[[3,1],[9,2],[15,1],[20,1],[26,1],[73,1]],"application":[[41,3],[42,2],[44,1],[48,1],[77,2]],"apply":[[41,1],[44,1],[51,1]],"approv":[[18,1],[35,3],[37,2],[40,3],[42,1],[46,1],[52,2],[66,2],[67,5],[68,4],[69,2],[70,2]],"approval":[[0,1],[40,1],[66,2],[67,1],[76,2],[79,1]],"arc":[[15,1],[41,3],[42,1],[48,1],[77,2]],"architectural":[[18,1],[77,1]],"archiv":[[17,2]],"aren":[[27,1],[33,1],[54,1]],"arriv":[[78,1]],"ask":[[4,1],[27,1],[42,1],[44,1],[71,3],[72,3],[73,1],[75,2],[76,3],[77,1],[79,2]],"assessment":[[25,1],[27,1]],"association":[[23,1],[24,4],[27,1],[33,1],[34,1]],"attach":[[77,1]],"attende":[[46,1]],"attention":[[17,1]],"audienc":[[56,1],[58,2]],"audit":[[67,1]],"automatically":[[26,1]],"away":[[3,1],[9,1],[15,1],[19,1],[54,1],[63,1]],"back":[[19,1],[22,1],[51,1],[61,1],[63,1]],"badg":[[73,1]],"balanc":[[11,2],[15,1],[17,1],[19,1],[23,1],[26,1],[32,1],[48,1],[63,1],[78,1]],"bank":[[34,1],[77,1]],"becaus":[[61,1]],"becom":[[60,2],[63,1],[68,1]],"befor":[[1,2],[7,2],[13,2],[21,1],[24,2],[27,1],[30,2],[36,2],[48,1],[50,2],[61,2],[79,1]],"behind":[[48,1]],"being":[[22,1],[77,1]],"belong":[[14,1]],"below":[[3,1],[54,1]],"besid":[[67,1]],"between":[[5,1]],"bill":[[9,1],[15,1],[19,3],[23,2],[24,2],[25,1],[27,2],[28,1],[67,4],[68,1],[69,2],[70,1]],"billabl":[[27,1]],"blank":[[10,1],[16,1],[49,1],[56,1],[64,1]],"board":[[0,3],[1,3],[2,1],[4,2],[7,2],[11,1],[13,2],[18,2],[19,3],[27,1],[30,2],[33,1],[35,1],[36,2],[41,1],[42,1],[43,1],[44,1],[45,1],[46,2],[48,2],[49,1],[50,2],[51,2],[52,1],[59,1],[61,2],[63,1],[66,2],[77,1],[78,1],[79,1]],"body":[[56,1]],"book":[[27,2],[33,2],[50,1],[53,1],[54,1]],"bottom":[[37,1],[76,1]],"bought":[[62,1]],"box":[[15,1]],"brain":[[36,1],[37,1],[71,1],[73,1]],"bring":[[17,1],[45,1]],"broken":[[77,1]],"browser":[[22,1]],"budget":[[48,1],[49,3],[50,1],[51,6],[52,2],[53,6],[54,2]],"build":[[10,1]],"but":[[18,1],[35,1],[50,1],[53,1],[66,1]],"button":[[5,1],[17,2],[25,1],[77,1]],"buyer":[[60,1],[61,1],[62,6],[63,3],[64,4]],"bylaw":[[19,1],[72,1]],"calculat":[[54,1]],"california":[[40,1]],"call":[[19,1]],"card":[[2,1],[19,1],[20,1],[21,1],[22,2],[42,1],[63,1]],"carefully":[[39,1]],"cash":[[29,3]],"cc":[[19,1],[36,2],[37,1],[39,2],[72,1]],"cell":[[10,1]],"chang":[[5,1],[8,1],[11,1],[17,1],[41,1],[44,1],[51,2],[54,1],[60,2],[64,2],[65,2],[69,2],[77,2]],"channel":[[56,1]],"character":[[59,1]],"charg":[[23,2],[25,4],[26,1],[27,1],[28,3],[31,1],[32,1],[34,2],[63,1],[65,1],[79,1]],"chart":[[27,1],[33,1]],"check":[[6,1],[8,2],[16,1],[21,2],[29,3],[31,1],[51,2],[78,1]],"checklist":[[18,1],[20,1],[21,1],[22,1]],"choic":[[56,1]],"choos":[[8,3],[16,1],[25,2],[53,1],[56,1],[62,1],[72,1]],"cinc":[[7,1],[17,1]],"cit":[[39,1]],"cite":[[19,1],[36,1],[71,1],[73,1]],"city":[[7,1]],"clear":[[63,1]],"clock":[[40,1]],"clos":[[35,1]],"co":[[62,1]],"collect":[[49,1],[65,1]],"column":[[8,1],[17,1]],"com":[[22,1]],"come":[[19,2],[22,1],[61,1]],"communication":[[15,1],[48,1],[55,1],[56,1],[57,1]],"community":[[8,2],[12,1],[14,2],[16,2],[19,1],[27,3],[55,1],[71,1]],"compar":[[67,1]],"complianc":[[15,1]],"computer":[[59,1]],"concern":[[77,1]],"condition":[[42,1]],"confirm":[[5,1],[61,1],[62,1]],"confirmation":[[31,1]],"connect":[[19,1]],"contact":[[14,1],[22,1],[33,1],[58,1],[64,1]],"continu":[[56,2]],"contribution":[[54,1]],"conversation":[[42,1],[44,2]],"copy":[[77,2]],"correct":[[69,1]],"couldn":[[10,1],[21,2],[33,1],[64,1],[69,1]],"count":[[8,1],[21,1]],"covenant":[[36,1],[37,1],[71,1],[73,1]],"cover":[[40,1],[54,2],[75,1]],"creat":[[24,1],[25,1],[53,2]],"csv":[[7,2],[8,1],[10,1]],"cure":[[15,1],[35,1],[38,2],[40,1]],"current":[[9,1],[15,1],[64,2],[65,1]],"dashboard":[[18,1],[19,2]],"dat":[[17,1],[34,1]],"data":[[20,1],[21,1]],"date":[[15,1],[25,1],[28,3],[34,1],[38,1],[46,2],[51,1],[60,1],[61,3],[62,1],[63,4],[64,1],[65,1],[69,1]],"day":[[1,2],[40,1],[61,1]],"deal":[[17,1]],"decid":[[41,1]],"decision":[[0,1],[42,2],[43,1],[44,1],[70,1]],"declaration":[[72,1]],"deed":[[61,1]],"delet":[[28,2],[75,1]],"delinquent":[[48,1]],"deliver":[[57,1]],"delivery":[[57,1]],"demot":[[4,1]],"deny":[[42,1]],"deposit":[[67,2],[68,1]],"describ":[[54,1]],"detail":[[8,1],[14,1],[17,1],[58,1],[63,1],[64,1],[65,1],[69,1]],"didn":[[53,1]],"different":[[11,1],[28,1],[34,1],[51,1],[53,1]],"discuss":[[46,1]],"dismiss":[[20,1]],"doc":[[71,1],[72,1],[73,1],[75,2],[79,1]],"document":[[1,1],[19,2],[36,1],[42,1],[46,1],[71,3],[72,4],[73,2],[75,3],[77,1],[79,1]],"doesn":[[11,1],[65,1]],"doing":[[15,1]],"dollar":[[54,1]],"don":[[65,1],[75,1]],"done":[[19,1],[20,1],[21,2],[62,1]],"down":[[32,1]],"download":[[7,1],[8,1],[10,1]],"draft":[[18,1],[35,1],[37,2],[40,1],[46,2],[49,2],[50,3],[51,3],[52,1],[53,5]],"drop":[[8,1]],"dropdown":[[5,1]],"due":[[1,1],[12,1],[15,1],[17,2],[18,1],[19,4],[23,3],[24,2],[25,8],[26,2],[27,6],[28,3],[31,1],[34,2],[38,1],[48,1],[56,1],[62,1],[63,1],[68,1],[76,3],[77,2],[79,1]],"each":[[0,1],[8,3],[9,1],[10,1],[19,1],[23,1],[26,1],[40,1],[51,1],[52,1],[54,1],[56,1],[57,1],[61,1],[62,1],[70,1]],"earlier":[[48,1],[53,1]],"edit":[[17,1],[28,1],[52,1],[60,1],[61,1],[64,1],[65,2],[69,1],[75,1]],"else":[[4,1]],"email":[[2,1],[3,1],[7,1],[10,3],[13,1],[15,1],[16,3],[17,1],[19,1],[34,1],[37,1],[43,1],[56,1],[58,1],[59,1],[61,1],[62,1],[63,1],[64,1]],"end":[[17,1],[59,1],[61,1],[63,2]],"enter":[[2,1],[11,1],[14,1],[15,1],[16,1],[25,2],[34,2],[46,1],[53,1],[62,1],[67,1],[68,1],[77,1]],"entry":[[64,1]],"error":[[8,3],[10,1]],"every":[[0,1],[4,1],[6,2],[12,1],[17,1],[19,2],[20,1],[21,1],[24,1],[25,2],[27,1],[28,1],[35,1],[49,1],[51,1],[53,1],[54,1],[57,1],[63,1],[79,1]],"everyon":[[17,1],[56,1]],"everyth":[[1,1],[15,1],[66,1],[76,1]],"exactly":[[64,1],[77,1]],"exampl":[[25,1],[51,1]],"excel":[[7,2]],"exist":[[53,1],[65,1]],"explain":[[1,1],[75,1]],"export":[[7,1],[17,1]],"exterior":[[41,1]],"extract":[[74,1]],"fail":[[33,1],[39,1],[58,2],[74,1]],"failur":[[57,1]],"family":[[14,1]],"fenc":[[41,1]],"field":[[8,1],[16,1],[28,1]],"figur":[[54,1]],"fil":[[19,1],[47,1],[48,1],[68,1]],"file":[[7,3],[8,4],[10,5],[11,1],[17,1],[27,1],[40,1],[42,1],[45,3],[46,2],[58,1],[65,1],[70,1],[72,2]],"fill":[[7,1],[8,1],[14,1],[16,1],[24,1]],"filter":[[17,1]],"find":[[31,1]],"fine":[[40,2]],"finish":[[8,1],[19,1],[21,1],[53,1],[62,1]],"first":[[4,1],[8,1],[12,1],[14,1],[17,1],[27,3],[39,1],[62,1],[70,1],[71,1]],"fiscal":[[27,1],[33,1],[50,1],[53,1]],"fix":[[8,1],[10,1],[37,1],[46,1],[64,1]],"fixe":[[38,1]],"floor":[[54,1]],"florida":[[40,1]],"follow":[[47,1]],"form":[[3,1]],"formula":[[11,1]],"found":[[73,1]],"full":[[14,1],[16,1],[34,1],[54,1],[62,1],[63,1]],"fund":[[50,2],[51,1],[53,3]],"futur":[[61,1],[64,1]],"generat":[[25,3],[27,4],[28,1],[46,1]],"get":[[15,1],[40,1],[63,1]],"give":[[19,1],[62,2],[67,1],[72,1]],"go":[[6,1],[14,1],[51,1],[59,1],[62,1],[63,1]],"goe":[[4,2],[9,1],[10,2],[16,2],[21,2],[27,2],[32,1],[33,2],[35,1],[39,2],[53,2],[58,2],[63,1],[64,2],[69,2],[74,2]],"good":[[5,2],[11,2],[17,2],[22,2],[28,2],[34,2],[40,2],[44,2],[48,2],[54,2],[59,2],[65,2],[70,2],[75,2],[79,2]],"govern":[[19,2],[36,1],[71,2],[72,1]],"group":[[26,1],[55,1]],"guess":[[75,1]],"guid":[[75,1]],"hand":[[9,1],[60,2]],"hang":[[12,1]],"happen":[[3,2],[9,2],[15,2],[20,2],[26,2],[32,2],[38,2],[43,2],[47,2],[52,2],[57,2],[63,2],[66,2],[68,2],[73,2],[78,2]],"has":[[7,1],[8,1],[10,2],[14,1],[16,1],[19,1],[22,1],[24,1],[27,3],[33,1],[53,2],[58,1],[64,2]],"have":[[0,1],[3,1],[6,2],[8,1],[13,1],[14,1],[17,1],[22,1],[27,2],[42,1],[48,1],[62,1],[79,1]],"head":[[17,1]],"hear":[[55,1]],"help":[[37,1],[75,1]],"hid":[[21,1],[22,1]],"hidden":[[21,1]],"hide":[[20,1],[22,1]],"history":[[17,1],[38,1],[63,1],[65,1]],"hoa":[[3,1],[4,1],[5,3],[8,1],[14,1],[16,1],[18,2],[19,2],[20,1],[24,1],[27,2]],"hold":[[48,1],[59,1]],"home":[[6,4],[7,1],[8,3],[9,2],[10,2],[11,5],[12,1],[14,1],[15,2],[17,10],[18,1],[19,3],[22,2],[23,1],[24,2],[25,1],[26,1],[27,6],[28,1],[31,1],[32,1],[34,1],[37,1],[40,1],[48,1],[55,1],[60,3],[61,1],[62,1],[63,3],[64,1],[65,1],[76,1],[77,2],[78,1],[79,1]],"homeowner":[[7,1],[68,1]],"homeownerhub":[[3,1],[18,1],[35,1],[40,1],[48,1],[75,1]],"homeownerledger":[[22,1]],"household":[[17,1],[62,1],[63,1],[64,2]],"hub":[[5,1]],"import":[[6,3],[7,2],[8,4],[9,1],[10,3],[11,1],[13,1],[17,2],[22,1]],"inbox":[[19,1],[59,1]],"incom":[[48,1]],"index":[[72,2],[73,1]],"inflation":[[51,1],[54,1]],"instead":[[5,1],[6,1],[11,1],[13,1],[17,1],[24,1],[49,1],[53,1],[60,1],[64,1],[70,1],[74,1]],"internal":[[44,1]],"invit":[[0,2],[1,2],[2,1],[4,2],[19,2],[62,2],[63,1],[65,2]],"invitation":[[2,1],[5,3],[63,1]],"isn":[[10,1],[53,1],[54,1],[61,2],[63,1]],"item":[[47,2],[48,2],[67,2],[70,1]],"itself":[[20,1],[67,1]],"keep":[[8,1],[18,1],[33,1],[52,2],[65,1]],"kept":[[17,1],[64,1],[67,1]],"kind":[[25,1],[67,1]],"know":[[5,2],[11,2],[17,2],[22,2],[28,2],[34,2],[40,2],[44,2],[48,2],[54,2],[59,2],[65,2],[70,2],[75,2],[79,2]],"land":[[41,1],[57,1]],"largest":[[40,1]],"last":[[4,1],[5,1],[17,1],[48,1],[49,2],[51,2],[53,1],[54,3]],"late":[[56,1]],"later":[[22,1]],"law":[[40,1]],"leas":[[15,1],[63,2]],"least":[[4,1],[37,1]],"leav":[[8,1],[10,1],[16,1],[44,1],[56,1],[62,1],[64,1],[65,1]],"ledger":[[23,1],[32,1],[63,1],[65,1],[68,1]],"left":[[54,1],[63,1]],"less":[[54,1]],"let":[[26,1]],"letter":[[18,1],[35,2],[37,2],[39,2],[40,4],[67,3],[68,1],[73,1]],"like":[[41,1]],"line":[[2,1],[49,1],[51,2],[52,1],[53,2],[54,2]],"link":[[2,1],[3,1],[15,1],[19,1],[27,1],[59,1],[61,1],[65,1]],"list":[[3,1],[5,2],[7,1],[8,1],[9,1],[13,1],[15,1],[16,1],[17,1],[26,1],[37,1],[48,1],[54,1],[57,1],[62,1],[63,1],[64,1]],"liv":[[17,2]],"live":[[19,1],[62,1]],"ll":[[22,1]],"load":[[73,1]],"log":[[17,1]],"login":[[0,1],[3,1],[19,1]],"longer":[[17,1],[59,1]],"look":[[5,1],[17,1]],"lot":[[7,1],[14,1]],"made":[[0,1]],"mail":[[7,1],[12,1],[18,1],[19,1],[37,1],[61,1],[64,2]],"mailbox":[[19,1]],"main":[[51,1]],"make":[[27,1]],"manager":[[5,1]],"many":[[17,1],[40,1],[54,1],[56,1],[57,1],[67,1]],"mark":[[31,1],[34,2],[37,1],[38,1],[42,1],[44,1],[54,1],[68,1]],"markdown":[[72,1]],"match":[[8,2],[11,1],[19,1],[37,1],[58,1],[68,1],[78,1]],"mb":[[7,1]],"meet":[[18,1],[45,3],[46,8],[47,4],[48,4]],"member":[[0,1],[1,3],[2,2],[3,1],[4,2],[5,1],[7,1],[13,1],[14,1],[27,1],[30,1],[33,1],[36,1],[50,1],[59,1],[61,1],[66,1]],"memo":[[77,1],[78,1]],"messag":[[17,1],[44,1],[48,1],[56,1],[57,2],[58,1],[59,2]],"method":[[34,1]],"minut":[[45,3],[46,5],[47,1],[48,4]],"miss":[[27,1]],"moment":[[74,1]],"money":[[15,1],[23,2],[63,1]],"month":[[19,2],[23,2],[25,2],[26,1],[27,1],[31,1],[53,1],[54,2]],"monthly":[[25,1]],"more":[[8,1],[10,1],[14,1],[17,1],[42,1],[62,1]],"most":[[8,1]],"mov":[[7,1],[63,1]],"move":[[64,1]],"must":[[16,2],[50,1],[62,1]],"name":[[2,1],[5,1],[7,1],[13,1],[14,1],[16,2],[17,1],[24,1],[25,1],[51,1],[60,1],[61,1],[62,1],[75,1]],"narrow":[[17,1]],"need":[[4,1],[7,1],[13,1],[15,2],[16,1],[17,3],[24,1],[42,2],[61,2],[70,1],[71,1],[76,1]],"never":[[11,3],[48,1],[54,1],[59,1],[66,1]],"new":[[5,2],[8,1],[9,1],[14,1],[17,1],[40,1],[56,1],[62,1],[64,1],[77,1]],"next":[[3,2],[9,2],[15,2],[20,2],[26,2],[32,2],[38,2],[43,2],[47,2],[49,4],[50,1],[51,1],[52,2],[53,1],[57,2],[62,1],[63,2],[68,2],[73,2],[78,2]],"nobody":[[58,1]],"none":[[24,1],[54,1]],"note":[[17,2],[37,1],[44,2],[52,1]],"noth":[[6,1],[10,1],[18,1],[27,1],[33,1],[40,1],[52,1],[53,1],[60,1],[64,2],[66,2],[68,1],[69,1],[74,1]],"notic":[[14,1],[35,2],[37,1],[38,1],[40,3],[62,2],[63,1]],"notify":[[48,1]],"now":[[21,1],[53,1],[56,1],[58,1],[63,1],[73,1]],"nowher":[[53,1]],"number":[[7,1],[10,2],[11,1],[54,2],[67,1],[73,1]],"oak":[[11,2]],"oct":[[25,1]],"off":[[12,1],[20,1],[25,1]],"offer":[[44,1],[58,1]],"often":[[25,1]],"old":[[10,1]],"older":[[27,1]],"once":[[21,1],[25,1],[53,1],[61,1]],"one":[[4,1],[6,2],[7,1],[8,1],[9,1],[10,1],[14,1],[15,1],[16,1],[18,1],[22,2],[25,2],[27,1],[34,1],[37,1],[40,1],[50,1],[51,1],[53,1],[58,1],[61,1],[62,1],[67,1]],"onlin":[[34,2]],"only":[[1,2],[4,1],[5,1],[7,1],[11,1],[16,1],[21,1],[22,1],[30,1],[34,2],[36,1],[44,1],[48,1],[54,2],[56,1],[63,2]],"open":[[2,1],[8,2],[11,2],[14,2],[17,3],[19,1],[22,1],[25,1],[26,1],[27,2],[31,1],[33,2],[34,1],[37,1],[38,2],[40,1],[42,4],[46,2],[47,1],[48,2],[50,1],[51,1],[52,1],[53,3],[56,1],[57,1],[58,1],[61,1],[62,1],[67,1],[68,1],[72,2],[75,1],[77,2],[79,1]],"operat":[[50,1]],"operation":[[1,1]],"option":[[34,1]],"optional":[[2,1],[13,1],[51,1],[61,1]],"order":[[20,1]],"other":[[14,1],[29,1]],"out":[[40,1]],"outsid":[[29,1]],"over":[[45,1]],"overdu":[[15,1]],"overwritten":[[60,1]],"owe":[[23,1],[26,1]],"owed":[[23,1],[34,1],[65,1]],"own":[[0,1],[1,1],[19,2],[22,1],[48,1],[56,1],[57,1],[59,1],[66,1],[70,1],[71,1]],"owner":[[6,2],[7,1],[9,2],[10,1],[11,4],[12,1],[13,1],[14,2],[15,2],[16,1],[17,4],[19,1],[26,2],[29,1],[37,1],[38,1],[40,1],[56,1],[60,3],[62,2],[63,3],[64,2],[65,2]],"ownership":[[63,1],[65,1]],"packet":[[45,1],[46,2],[48,1],[51,1]],"page":[[1,1],[5,1],[7,1],[8,2],[14,2],[15,1],[17,2],[19,2],[21,1],[22,2],[24,1],[25,1],[26,1],[27,1],[34,2],[40,1],[44,1],[46,1],[47,1],[51,1],[52,1],[54,2],[57,2],[58,1],[59,1],[60,1],[61,1],[62,1],[75,1]],"paid":[[28,1],[29,1],[31,1],[32,1],[34,2],[68,1]],"paint":[[41,1]],"panel":[[26,1],[40,1]],"paragraph":[[51,1]],"pars":[[39,1]],"part":[[10,1],[21,1]],"partial":[[34,1]],"past":[[15,1],[46,1],[47,1],[48,1],[72,2],[74,1]],"pay":[[34,2],[68,1],[76,2],[77,2]],"payabl":[[68,1]],"payment":[[17,1],[29,2],[30,1],[31,1],[32,1],[33,3],[34,4],[63,1],[65,1],[78,1]],"pdf":[[46,1],[72,1],[74,2],[75,1]],"pend":[[5,1]],"peopl":[[14,2],[15,1],[17,1],[56,1],[57,1],[63,1],[65,1]],"per":[[7,1],[25,2]],"period":[[27,3],[33,1],[35,1],[38,1],[50,1],[53,2]],"person":[[14,1],[19,1],[57,1],[62,1]],"phon":[[7,1],[13,1],[14,1],[17,1],[34,1],[61,1],[62,1]],"photo":[[37,2],[77,1]],"pick":[[2,3],[5,2],[14,2],[16,1],[17,1],[19,1],[37,1],[40,1],[46,1],[56,3],[58,1],[67,1],[72,1],[77,1]],"plac":[[15,1],[18,1],[65,1]],"plan":[[77,1]],"plus":[[62,1]],"point":[[27,1],[33,1]],"portal":[[17,1],[29,1],[41,1],[43,1],[56,1],[59,1],[62,2],[63,3],[65,3],[76,2],[78,1]],"post":[[11,1],[18,1],[23,1],[27,1],[32,1],[33,1],[52,1],[53,1],[66,1],[67,1],[68,1]],"prepar":[[66,1]],"previous":[[60,1],[63,2]],"primary":[[14,1],[62,1],[63,1]],"print":[[46,2]],"probably":[[74,1]],"problem":[[38,1],[76,2],[77,1]],"promot":[[4,1]],"property":[[2,2],[7,1],[8,1],[9,1],[12,4],[13,1],[14,6],[15,1],[17,4],[19,2],[22,1],[24,2],[25,3],[27,4],[34,1],[37,1],[40,1],[62,1]],"propos":[[42,1],[66,1]],"pull":[[48,1]],"put":[[51,1]],"question":[[42,1],[71,2],[72,2],[75,1],[77,1],[79,1]],"queu":[[40,1],[66,2]],"rather":[[53,1],[75,1]],"re":[[62,1]],"reach":[[56,1],[62,1]],"read":[[8,1],[10,1],[11,1],[21,1],[37,2],[40,1],[42,1],[46,1],[51,1],[59,1],[62,1],[67,1],[69,1],[75,1]],"ready":[[9,1],[15,1]],"reason":[[8,1],[40,1],[42,1],[49,1],[51,1],[52,1],[54,1],[67,2]],"receiv":[[34,1]],"recipient":[[57,1],[58,1]],"recognis":[[10,1]],"recognition":[[75,1]],"record":[[9,1],[11,1],[15,2],[17,3],[29,2],[30,1],[31,1],[33,2],[34,2],[38,1],[40,1],[46,1],[48,2],[60,3],[61,3],[62,2],[63,2],[64,2]],"referenc":[[11,1]],"regular":[[25,1],[27,1]],"reject":[[40,1],[67,1]],"reload":[[21,1]],"remind":[[26,1]],"reminder":[[26,2],[63,1]],"remov":[[5,2]],"repair":[[77,1]],"repeat":[[11,1],[25,1]],"replac":[[11,1]],"reply":[[42,1],[59,2]],"report":[[17,1],[23,1],[35,3],[36,1],[37,1],[40,1],[76,2],[77,3]],"request":[[1,1],[15,1],[18,1],[44,1],[76,1],[77,5],[78,2]],"requir":[[7,1],[16,1]],"resend":[[58,1]],"resent":[[5,1]],"reserv":[[54,2]],"resident":[[1,2],[2,2],[4,1],[9,1],[12,3],[14,2],[16,2],[17,1],[18,1],[19,3],[24,1],[34,2],[41,1],[42,1],[43,1],[44,2],[55,2],[76,2]],"resolv":[[38,1]],"respons":[[42,1],[43,1]],"rest":[[0,2],[19,2],[59,1]],"revers":[[17,1]],"review":[[39,1],[41,3],[42,2],[44,1],[46,1],[50,1],[53,1],[70,1]],"right":[[19,2],[23,1],[27,1],[34,1],[58,1]],"role":[[1,1],[2,2],[5,2],[14,1]],"roof":[[41,1]],"round":[[54,1]],"row":[[5,2],[6,1],[7,2],[8,5],[10,5],[11,2],[31,1]],"rs":[[19,1],[36,1],[39,2],[72,1]],"rule":[[19,1],[40,1],[71,1],[75,1],[77,1],[79,1]],"run":[[1,1],[11,1]],"safe":[[64,1]],"sale":[[11,1],[17,1],[60,3],[61,2],[62,2],[63,2],[64,3],[65,1]],"same":[[9,1],[11,2],[22,1],[28,1],[53,1],[64,1]],"sav":[[6,1],[10,1],[11,1],[33,1],[48,1],[54,1],[64,1],[74,1]],"save":[[5,1],[10,1],[14,1],[46,2],[50,3],[51,2],[53,5],[61,1],[69,1]],"say":[[2,1],[8,3],[10,1],[14,1],[20,1],[27,1],[54,1],[61,1],[75,2]],"scal":[[54,1]],"scan":[[74,1]],"scann":[[67,1],[75,1]],"schedul":[[45,3],[46,3],[48,2],[56,1]],"screen":[[34,1],[76,1]],"search":[[17,1]],"second":[[11,1],[53,1]],"section":[[2,1],[26,1],[34,1],[36,1],[37,1],[39,1],[73,1],[75,1]],"see":[[1,1],[17,2],[19,4],[24,1],[36,1],[38,1],[43,1],[44,1],[58,1],[63,2],[67,1],[78,1],[79,1]],"select":[[2,1],[7,1],[8,4],[14,4],[17,5],[24,1],[25,4],[27,2],[31,2],[33,1],[34,1],[37,3],[38,1],[40,1],[42,2],[46,7],[47,1],[51,5],[53,1],[56,5],[62,5],[63,1],[64,1],[67,1],[69,2],[72,2]],"seller":[[17,1],[60,1],[61,1],[63,1],[65,2]],"send":[[2,1],[5,1],[26,1],[37,1],[40,1],[42,1],[48,1],[55,2],[56,2],[57,1],[59,1],[62,1],[63,1],[66,1],[77,3]],"sent":[[18,1],[37,1],[38,1],[40,1],[43,1],[48,1],[68,1]],"set":[[11,1],[19,2],[20,1],[24,1],[28,1],[34,1],[38,1],[51,1],[63,1]],"sett":[[18,2]],"settl":[[64,1]],"settlement":[[60,1],[61,2],[62,1],[63,3],[64,1]],"setup":[[18,1],[22,1]],"several":[[5,1],[10,2],[16,1],[27,1]],"shar":[[10,1],[62,2],[64,2]],"sheet":[[48,1],[49,1]],"short":[[22,1],[51,1]],"shorten":[[59,1]],"show":[[0,1],[15,1],[21,1],[24,1],[32,1],[34,1],[40,1],[47,2],[51,1],[56,1],[57,2],[59,1],[63,2],[65,1],[70,1],[72,1],[77,1]],"shown":[[11,1],[54,1],[77,2]],"sidebar":[[2,1],[5,1],[8,1],[14,1],[19,1],[25,1],[26,1],[31,1],[34,1],[37,1],[42,1],[46,1],[56,1],[67,1],[72,2]],"sign":[[3,1],[22,1]],"six":[[19,1],[21,1]],"skip":[[8,1]],"skipp":[[8,1],[11,1],[27,1]],"sms":[[56,1]],"sold":[[17,1],[60,1],[62,1]],"some":[[8,1],[40,1],[58,1]],"someon":[[4,1],[5,1],[18,1],[64,1]],"someth":[[4,2],[10,2],[15,1],[16,2],[17,1],[21,3],[27,2],[33,2],[39,2],[53,2],[58,2],[64,2],[69,2],[74,2]],"soon":[[5,1],[61,1]],"sort":[[17,1]],"special":[[25,1]],"spent":[[49,1]],"split":[[10,1]],"spreadsheet":[[6,3],[11,2],[13,1],[17,2],[22,1]],"st":[[11,1]],"start":[[1,2],[7,2],[13,2],[17,2],[18,3],[24,2],[30,2],[36,2],[38,1],[40,2],[44,1],[49,2],[50,3],[51,1],[53,2],[61,2],[65,1],[79,1]],"stat":[[7,1],[24,1],[40,2]],"statement":[[48,1],[79,1]],"status":[[26,1],[38,2],[57,1],[78,1]],"stay":[[17,1],[23,1],[57,1],[62,1],[63,1],[65,1]],"step":[[2,2],[8,2],[14,2],[19,5],[20,2],[21,4],[22,2],[25,2],[31,2],[37,2],[42,2],[46,2],[51,2],[56,2],[62,2],[67,2],[72,2],[77,2]],"still":[[34,1],[53,1],[63,1],[65,1]],"stop":[[22,1]],"straight":[[3,1],[9,1],[15,2],[19,1],[63,1]],"street":[[11,1]],"subject":[[56,1]],"submit":[[1,1],[77,1]],"such":[[17,1],[40,1],[56,1],[72,1]],"suggest":[[54,1]],"suggestion":[[51,3],[54,1]],"summary":[[51,1],[54,2]],"support":[[22,2],[27,1],[33,1],[77,1]],"switch":[[5,2],[17,1]],"system":[[7,1],[17,1]],"tab":[[9,1],[14,1],[40,1],[67,1],[72,1],[76,1],[79,1]],"take":[[19,1]],"tap":[[77,8],[79,1]],"task":[[19,1]],"tell":[[10,1],[43,1],[44,1],[77,1]],"templat":[[7,1],[56,1]],"tenant":[[14,1],[62,1],[63,1]],"tenur":[[7,1],[11,1],[17,1],[63,2]],"text":[[43,1],[59,2],[72,2],[74,2],[75,2]],"through":[[17,1]],"thrown":[[54,1]],"tick":[[14,1],[20,1],[44,1],[62,1],[64,1]],"time":[[6,1],[22,1],[50,1],[56,1],[59,1]],"titl":[[72,1]],"today":[[34,1]],"told":[[75,1]],"too":[[65,1]],"top":[[5,1],[15,1],[17,1],[18,1],[19,1],[25,1],[40,1],[62,1]],"topic":[[46,1],[56,1]],"total":[[51,1]],"track":[[47,1]],"trail":[[67,1]],"transcript":[[46,1]],"transferr":[[61,1]],"trash":[[5,1]],"treasurer":[[49,1]],"true":[[22,1]],"try":[[33,1],[39,1],[64,1],[69,1],[74,1]],"turn":[[34,1]],"twic":[[10,1]],"type":[[24,1],[37,1],[42,1],[46,2],[51,1],[72,2],[77,1]],"under":[[2,2],[5,1],[8,2],[14,1],[19,1],[25,2],[37,1],[42,1],[47,3],[51,2],[56,1],[63,3],[65,1],[73,1]],"unit":[[7,1],[10,2],[11,1],[14,1],[17,1],[37,1],[61,1]],"unknown":[[63,1]],"unless":[[51,1]],"unpaid":[[28,1]],"until":[[6,1],[8,1],[18,1],[21,1],[50,1],[64,1],[66,2]],"up":[[7,1],[18,2],[19,2],[20,1],[22,1],[24,1],[34,1],[54,1],[59,1],[62,1],[64,2]],"upcom":[[47,2]],"updat":[[8,2],[11,1],[38,1],[78,1]],"upload":[[7,1],[19,2],[36,2],[39,2],[71,2],[72,2],[74,1]],"ups":[[47,1]],"urgent":[[43,1]],"use":[[5,1],[17,1],[28,1],[29,1],[44,1],[48,1],[49,1],[51,1],[54,3],[55,1],[59,1],[65,1],[74,1],[75,1],[77,1],[79,1]],"used":[[7,1],[48,1],[51,1],[75,1]],"valid":[[10,1],[16,1]],"valu":[[11,1]],"vendor":[[67,2],[68,2],[69,1],[70,2]],"view":[[79,1]],"violation":[[12,1],[15,1],[17,4],[18,1],[35,3],[36,1],[37,2],[38,2],[40,2],[48,1],[67,2],[68,2],[73,1]],"vs":[[51,1]],"wait":[[15,1],[40,1],[64,1],[66,1],[67,1],[72,1],[79,1]],"want":[[51,1],[77,1]],"way":[[29,1],[37,1]],"went":[[10,1],[40,1]],"wherever":[[51,1]],"whether":[[62,1]],"whil":[[72,1]],"whol":[[19,1],[54,1],[55,1]],"whos":[[70,1]],"without":[[65,1],[75,1]],"word":[[35,1],[72,1]],"work":[[18,1],[42,1],[66,1],[79,1]],"writ":[[17,1],[39,1],[51,1],[56,1],[77,1]],"written":[[49,1],[79,1]],"wrong":[[4,2],[8,1],[10,2],[16,2],[21,3],[27,2],[33,2],[37,1],[39,2],[46,1],[53,2],[58,2],[64,2],[69,3],[74,2]],"xls":[[10,1]],"xlsx":[[7,1],[10,1]],"year":[[49,5],[50,1],[51,4],[53,4],[54,4]],"yet":[[7,1],[19,1],[27,4],[33,1],[39,1],[44,1],[53,2],[75,1]],"yourself":[[5,1],[37,1],[39,1],[43,1],[48,1],[53,1]],"zell":[[34,4],[77,2]],"zip":[[7,1]]}}}
+export const GUIDE_SEARCH_INDEX: GuideSearchIndex = {"articles":{"ids":["members-invite-board","setup-import-roster","setup-properties-residents","start-board-admin","dues-generate-monthly","dues-record-payment","violations-report-and-letter","arc-review-application","meetings-schedule-and-minutes","accounting-draft-budget","communications-send-announcement","properties-record-a-sale","approvals-queue","documents-governing-and-ask","resident-portal-basics"],"lengths":[46,57,51,36,47,46,52,64,48,74,43,72,63,55,72],"avgLength":55.067,"postings":{"12":[[9,1]],"access":[[0,3],[11,1]],"action":[[8,2]],"actual":[[9,3]],"add":[[0,2],[2,4],[4,1]],"address":[[2,3]],"admin":[[0,2]],"agenda":[[8,2]],"ai":[[7,3],[12,3],[13,2]],"amendment":[[13,2]],"announcement":[[10,5],[14,2]],"annual":[[8,2],[9,2]],"answer":[[13,1]],"application":[[7,5]],"approv":[[6,4],[7,3],[12,6],[14,1]],"approval":[[12,5],[14,5]],"arc":[[7,5],[12,3],[14,2]],"architectural":[[7,3],[12,2]],"archiv":[[2,2]],"ask":[[7,1],[13,6],[14,4]],"assessment":[[4,4]],"association":[[4,2]],"balanc":[[5,1],[14,2]],"becom":[[11,1]],"befor":[[6,1]],"begin":[[3,2]],"bill":[[2,1],[4,5],[12,3]],"board":[[0,6],[8,4],[9,2],[14,1]],"brain":[[6,1],[13,1]],"broadcast":[[10,2]],"budget":[[9,13]],"bulk":[[1,2]],"buyer":[[11,3]],"bylaw":[[13,3]],"calendar":[[8,1]],"cash":[[5,5]],"cc":[[6,1],[13,1]],"ccr":[[6,2],[13,4]],"chang":[[0,1],[11,5],[14,1]],"charg":[[4,4],[5,1]],"check":[[1,1],[3,1],[5,5],[14,2]],"checklist":[[3,3]],"chequ":[[5,2]],"choos":[[0,1]],"cinc":[[1,3]],"clos":[[6,2],[11,2]],"co":[[11,2]],"committe":[[7,2]],"complianc":[[6,2]],"concern":[[14,2]],"condition":[[7,2]],"contribution":[[9,2]],"couldn":[[3,1]],"covenant":[[6,3],[13,3]],"creat":[[4,1]],"csv":[[1,3],[2,2]],"cure":[[6,4]],"dashboard":[[3,1]],"decision":[[12,2]],"declaration":[[13,2]],"deed":[[11,2]],"delivery":[[10,2]],"deny":[[7,3]],"deposit":[[12,3]],"detail":[[7,2]],"doc":[[13,1]],"document":[[13,6],[14,2]],"draft":[[6,1],[9,6]],"due":[[4,6],[5,1],[14,6]],"duplicat":[[1,2]],"each":[[1,1],[2,1],[3,1],[12,1]],"email":[[10,3]],"end":[[11,1]],"every":[[1,1],[4,1],[9,1]],"excel":[[1,3]],"export":[[1,1]],"family":[[2,1]],"fee":[[4,2]],"fenc":[[7,2],[14,2]],"file":[[8,3]],"fine":[[6,2]],"first":[[3,2]],"former":[[11,2]],"generat":[[4,2]],"get":[[10,1]],"gett":[[3,2]],"goe":[[6,1]],"govern":[[13,5]],"guidelin":[[14,2]],"hand":[[11,3]],"happen":[[1,1],[12,3]],"history":[[11,1]],"hoa":[[0,2],[3,3]],"home":[[1,4],[2,3],[4,1],[11,3],[14,1]],"homeowner":[[1,2]],"hous":[[2,2]],"import":[[1,6],[2,2]],"inflation":[[9,2]],"info":[[7,2]],"information":[[7,3]],"invit":[[0,5],[11,2]],"invoic":[[4,2],[12,2]],"item":[[8,2]],"kept":[[11,1]],"last":[[9,7]],"ledger":[[5,2]],"let":[[6,1]],"letter":[[6,6],[12,3]],"line":[[9,1]],"list":[[1,2]],"live":[[2,1]],"load":[[13,1]],"login":[[0,3]],"lot":[[2,2]],"manager":[[0,2]],"mark":[[5,3]],"mean":[[3,1]],"meet":[[8,10]],"member":[[0,3],[2,1]],"messag":[[10,3]],"migrat":[[1,2]],"minut":[[8,6]],"miss":[[7,2]],"modification":[[7,2]],"month":[[4,4],[9,1]],"monthly":[[4,2]],"more":[[7,3]],"mov":[[11,2]],"new":[[3,2],[11,2]],"newsletter":[[10,2]],"next":[[9,6]],"note":[[2,2]],"noth":[[12,3]],"notic":[[6,2],[10,2]],"off":[[4,1]],"onboard":[[3,2]],"once":[[1,1]],"one":[[4,3],[10,1],[12,1]],"onlin":[[5,2]],"out":[[6,1]],"outsid":[[5,1]],"own":[[0,1],[13,1]],"owner":[[1,4],[2,3],[4,2],[5,1],[11,12]],"ownership":[[11,2]],"packet":[[8,3],[9,2]],"paid":[[5,6]],"paint":[[7,2],[14,2]],"pay":[[14,6]],"payment":[[5,7]],"pend":[[12,2]],"period":[[6,2]],"phon":[[14,1]],"photo":[[6,1]],"pick":[[10,1]],"policy":[[13,2]],"portal":[[5,1],[10,1],[11,1],[14,3]],"previous":[[11,2]],"print":[[8,3]],"prior":[[9,2]],"problem":[[14,6]],"property":[[2,5],[4,1]],"propos":[[9,2],[12,1]],"put":[[8,1]],"question":[[13,5]],"queu":[[12,5]],"read":[[7,1]],"reason":[[9,1]],"record":[[5,5],[11,4]],"reject":[[12,3]],"remov":[[0,3]],"repair":[[14,2]],"report":[[6,6],[14,6]],"request":[[7,5],[14,2]],"reserv":[[9,2]],"resident":[[0,1],[2,5],[7,1],[10,6],[14,3]],"resolv":[[6,2]],"rest":[[0,3]],"review":[[7,6],[12,2]],"right":[[5,1]],"role":[[0,3]],"roof":[[7,2]],"roster":[[1,3]],"row":[[1,1]],"rs":[[6,1],[13,1]],"rule":[[7,2],[13,3],[14,2]],"sale":[[11,6]],"save":[[9,1]],"scann":[[12,3]],"schedul":[[8,5],[10,2]],"search":[[2,2]],"sell":[[11,3]],"seller":[[11,3]],"send":[[0,1],[10,6]],"sett":[[3,3]],"settlement":[[11,2]],"setup":[[3,3]],"sms":[[10,2]],"sold":[[11,2]],"sort":[[2,2]],"special":[[4,2]],"spreadsheet":[[1,5],[2,2]],"start":[[3,5],[9,1]],"statement":[[14,2]],"step":[[3,1],[4,1]],"such":[[1,1]],"suggestion":[[7,2]],"switch":[[0,2]],"system":[[1,1]],"templat":[[1,2]],"tenant":[[2,3]],"text":[[10,3]],"transcript":[[8,3]],"transfer":[[11,2]],"treasurer":[[9,2]],"turn":[[8,1]],"unit":[[2,2]],"until":[[12,3]],"up":[[3,3]],"upload":[[1,3],[13,5]],"user":[[0,2]],"vendor":[[12,3]],"violation":[[6,6],[12,1]],"writ":[[10,1]],"xlsx":[[1,2]],"year":[[9,14]],"zell":[[5,2],[14,2]]}},"sections":{"ids":["members-invite-board#overview","members-invite-board#before-you-start","members-invite-board#steps","members-invite-board#what-happens-next","members-invite-board#if-something-goes-wrong","members-invite-board#good-to-know","setup-import-roster#overview","setup-import-roster#before-you-start","setup-import-roster#steps","setup-import-roster#what-happens-next","setup-import-roster#if-something-goes-wrong","setup-import-roster#good-to-know","setup-properties-residents#overview","setup-properties-residents#before-you-start","setup-properties-residents#steps","setup-properties-residents#what-happens-next","setup-properties-residents#if-something-goes-wrong","setup-properties-residents#good-to-know","start-board-admin#overview","start-board-admin#steps","start-board-admin#what-happens-next","start-board-admin#if-something-goes-wrong","start-board-admin#good-to-know","dues-generate-monthly#overview","dues-generate-monthly#before-you-start","dues-generate-monthly#steps","dues-generate-monthly#what-happens-next","dues-generate-monthly#if-something-goes-wrong","dues-generate-monthly#good-to-know","dues-record-payment#overview","dues-record-payment#before-you-start","dues-record-payment#steps","dues-record-payment#what-happens-next","dues-record-payment#if-something-goes-wrong","dues-record-payment#good-to-know","violations-report-and-letter#overview","violations-report-and-letter#before-you-start","violations-report-and-letter#steps","violations-report-and-letter#what-happens-next","violations-report-and-letter#if-something-goes-wrong","violations-report-and-letter#good-to-know","arc-review-application#overview","arc-review-application#steps","arc-review-application#what-happens-next","arc-review-application#good-to-know","meetings-schedule-and-minutes#overview","meetings-schedule-and-minutes#steps","meetings-schedule-and-minutes#what-happens-next","meetings-schedule-and-minutes#good-to-know","accounting-draft-budget#overview","accounting-draft-budget#before-you-start","accounting-draft-budget#steps","accounting-draft-budget#what-happens-next","accounting-draft-budget#if-something-goes-wrong","accounting-draft-budget#good-to-know","communications-send-announcement#overview","communications-send-announcement#steps","communications-send-announcement#what-happens-next","communications-send-announcement#if-something-goes-wrong","communications-send-announcement#good-to-know","properties-record-a-sale#overview","properties-record-a-sale#before-you-start","properties-record-a-sale#steps","properties-record-a-sale#what-happens-next","properties-record-a-sale#if-something-goes-wrong","properties-record-a-sale#good-to-know","approvals-queue#overview","approvals-queue#steps","approvals-queue#what-happens-next","approvals-queue#if-something-goes-wrong","approvals-queue#good-to-know","documents-governing-and-ask#overview","documents-governing-and-ask#steps","documents-governing-and-ask#what-happens-next","documents-governing-and-ask#if-something-goes-wrong","documents-governing-and-ask#good-to-know","resident-portal-basics#overview","resident-portal-basics#steps","resident-portal-basics#what-happens-next","resident-portal-basics#good-to-know"],"lengths":[17,33,34,20,29,54,28,59,81,28,72,65,21,23,66,51,38,131,39,103,23,38,46,22,37,66,30,94,33,18,11,19,14,40,67,23,23,54,29,27,69,21,64,37,67,16,65,28,66,31,31,84,22,79,75,14,49,28,30,34,30,54,79,88,69,48,27,57,43,28,22,21,47,23,23,42,26,101,19,39],"avgLength":43.775,"postings":{"12":[[11,2],[25,1],[53,1],[54,1]],"24":[[51,1]],"26":[[51,1]],"100":[[51,1],[62,1],[64,1]],"279":[[59,1]],"2026":[[25,1]],"000":[[7,1],[10,1],[51,1]],"accept":[[61,1]],"access":[[17,1],[61,1],[62,1],[63,1],[65,1]],"account":[[2,1],[11,1],[26,1],[27,1],[33,1],[34,2],[51,2],[65,1],[68,1],[76,1],[79,1]],"act":[[17,1]],"action":[[15,1],[17,2],[47,1],[48,2]],"activ":[[68,1]],"activity":[[15,1],[17,2],[53,1],[54,1],[63,1]],"actual":[[43,1],[48,1],[51,2],[54,2]],"actually":[[49,1]],"add":[[3,1],[6,1],[9,1],[10,3],[11,1],[12,3],[13,1],[14,6],[17,1],[19,4],[22,2],[24,2],[25,2],[27,4],[28,2],[37,1],[46,1],[47,1],[48,2],[54,1],[62,3],[64,3],[70,1],[77,1]],"additional":[[37,1]],"address":[[7,2],[10,2],[11,1],[13,1],[14,1],[16,2],[17,1],[19,1],[37,1],[61,1],[64,2],[77,1]],"adjustment":[[51,1],[54,1]],"admin":[[1,3],[2,1],[4,3],[5,2],[7,1],[13,1],[24,1],[27,2],[30,1],[33,2],[36,1],[50,1],[61,1]],"adopt":[[52,1]],"after":[[5,1],[61,1]],"afterward":[[77,1]],"again":[[10,3],[17,1],[27,1],[28,1],[33,2],[39,1],[53,1],[64,1],[69,1],[74,1]],"against":[[48,1],[77,1]],"agenda":[[46,1],[48,1]],"agre":[[43,1]],"ai":[[18,1],[40,2],[42,3],[43,1],[44,3],[46,1],[51,1],[54,1],[66,1],[69,1]],"all":[[12,1],[17,2],[21,1],[37,1],[70,1]],"allow":[[40,1]],"already":[[3,1],[6,1],[8,1],[11,1],[13,1],[27,3],[40,1],[53,2]],"also":[[2,1],[44,1]],"alway":[[28,1],[34,1]],"amount":[[25,2],[28,2],[31,1],[34,2],[51,1],[53,1],[69,1],[77,2]],"analysis":[[39,1]],"analyz":[[37,1]],"announcement":[[55,2],[79,1]],"annually":[[25,1]],"another":[[58,1]],"answer":[[18,1],[19,1],[73,1],[75,2],[78,1]],"any":[[8,1],[17,1],[19,1],[20,1],[29,1],[42,2],[54,1],[57,1]],"anyon":[[48,1]],"anyth":[[37,1],[46,1],[55,1],[66,1],[77,1]],"apart":[[10,1]],"app":[[48,1],[54,1],[77,1]],"appear":[[3,1],[9,2],[15,1],[20,1],[26,1],[73,1]],"application":[[41,3],[42,2],[43,1],[44,1],[48,1],[68,1],[77,2],[79,1]],"apply":[[41,1],[42,1],[44,1],[51,1],[77,1]],"approv":[[18,1],[35,3],[37,2],[40,3],[42,2],[46,1],[52,2],[66,2],[67,6],[68,4],[69,2],[70,2],[79,1]],"approval":[[0,1],[40,1],[44,1],[66,2],[67,1],[76,2],[79,1]],"arc":[[15,1],[41,3],[42,1],[44,1],[48,1],[67,2],[68,1],[77,2]],"architectural":[[18,1],[77,1]],"archiv":[[17,2]],"aren":[[27,1],[33,1],[54,1]],"arriv":[[78,1]],"ask":[[4,1],[27,1],[71,3],[72,3],[73,1],[75,2],[76,3],[77,2],[79,2]],"assessment":[[25,1],[27,1]],"association":[[23,1],[24,4],[27,1],[33,1],[34,1]],"attach":[[77,1]],"attende":[[46,1]],"attention":[[17,1]],"audienc":[[56,1],[58,2]],"audit":[[67,1]],"automatically":[[26,1]],"away":[[3,1],[9,1],[15,1],[19,1],[54,1],[63,1]],"back":[[19,1],[22,1],[51,1],[61,1],[63,1]],"badg":[[73,1]],"balanc":[[11,2],[15,1],[17,1],[19,1],[23,1],[26,1],[32,1],[48,1],[63,1],[78,1]],"bank":[[34,1],[77,1]],"becaus":[[61,1]],"becom":[[60,2],[63,1],[68,1]],"befor":[[1,2],[7,2],[13,2],[21,1],[24,2],[27,1],[30,2],[36,2],[42,1],[44,2],[48,1],[50,2],[61,2],[79,1]],"behind":[[48,1]],"being":[[22,1],[77,1]],"belong":[[14,1]],"below":[[3,1],[54,1]],"besid":[[67,1]],"between":[[5,1]],"bill":[[9,1],[15,1],[19,3],[23,2],[24,2],[25,1],[27,2],[28,1],[67,4],[68,1],[69,2],[70,1]],"billabl":[[27,1]],"blank":[[10,1],[16,1],[49,1],[56,1],[64,1]],"board":[[0,3],[1,3],[2,1],[4,2],[7,2],[11,1],[13,2],[18,2],[19,3],[27,1],[30,2],[33,1],[35,1],[36,2],[41,1],[42,1],[43,3],[44,1],[45,1],[46,2],[48,2],[49,1],[50,2],[51,2],[52,1],[59,1],[61,2],[63,1],[66,2],[77,2],[78,1],[79,2]],"body":[[56,1]],"book":[[27,2],[33,2],[50,1],[53,1],[54,1]],"bottom":[[37,1],[76,1]],"bought":[[62,1]],"box":[[15,1],[42,1]],"brain":[[36,1],[37,1],[71,1],[73,1]],"bring":[[17,1],[45,1]],"broken":[[77,1]],"browser":[[22,1]],"budget":[[48,1],[49,3],[50,1],[51,6],[52,2],[53,6],[54,2]],"build":[[10,1]],"but":[[18,1],[35,1],[50,1],[53,1],[66,1]],"button":[[5,1],[17,2],[25,1],[77,1]],"buyer":[[60,1],[61,1],[62,6],[63,3],[64,4]],"bylaw":[[19,1],[72,1]],"calculat":[[54,1]],"california":[[40,1]],"call":[[19,1]],"card":[[2,1],[19,1],[20,1],[21,1],[22,2],[42,2],[44,1],[63,1]],"carefully":[[39,1]],"cash":[[29,3]],"cc":[[19,1],[36,2],[37,1],[39,2],[72,1]],"cell":[[10,1]],"chang":[[5,1],[8,1],[11,1],[17,1],[41,1],[51,2],[54,1],[60,2],[64,2],[65,2],[69,2],[77,2]],"channel":[[56,1]],"character":[[59,1]],"charg":[[23,2],[25,4],[26,1],[27,1],[28,3],[31,1],[32,1],[34,2],[63,1],[65,1],[79,1]],"chart":[[27,1],[33,1]],"check":[[6,1],[8,2],[16,1],[21,2],[29,3],[31,1],[51,2],[77,2],[78,1],[79,1]],"checklist":[[18,1],[20,1],[21,1],[22,1]],"choic":[[56,1]],"choos":[[8,3],[16,1],[25,2],[53,1],[56,1],[62,1],[72,1]],"cinc":[[7,1],[17,1]],"cit":[[39,1]],"cite":[[19,1],[36,1],[42,1],[71,1],[73,1]],"city":[[7,1]],"clear":[[63,1]],"clock":[[40,1]],"clos":[[35,1]],"co":[[62,1]],"collect":[[49,1],[65,1]],"color":[[77,1]],"column":[[8,1],[17,1]],"com":[[22,1]],"come":[[19,2],[22,1],[61,1]],"communication":[[15,1],[48,1],[55,1],[56,1],[57,1]],"community":[[8,2],[12,1],[14,2],[16,2],[19,1],[27,3],[55,1],[71,1],[77,1]],"compar":[[67,1]],"complianc":[[15,1]],"computer":[[59,1]],"concern":[[77,1]],"condition":[[42,1]],"confirm":[[5,1],[42,1],[61,1],[62,1]],"confirmation":[[31,1]],"conflict":[[77,1]],"connect":[[19,1]],"contact":[[14,1],[22,1],[33,1],[58,1],[64,1]],"continu":[[56,2]],"contribution":[[54,1]],"conversation":[[43,1],[44,1]],"copy":[[77,2]],"correct":[[69,1]],"couldn":[[10,1],[21,2],[33,1],[64,1],[69,1]],"count":[[8,1],[21,1]],"covenant":[[36,1],[37,1],[71,1],[73,1]],"cover":[[40,1],[54,2],[75,1]],"creat":[[24,1],[25,1],[53,2]],"csv":[[7,2],[8,1],[10,1]],"cure":[[15,1],[35,1],[38,2],[40,1]],"current":[[9,1],[15,1],[64,2],[65,1]],"dashboard":[[18,1],[19,2]],"dat":[[17,1],[34,1]],"data":[[20,1],[21,1]],"date":[[15,1],[25,1],[28,3],[34,1],[38,1],[46,2],[51,1],[60,1],[61,3],[62,1],[63,4],[64,1],[65,1],[69,1]],"day":[[1,2],[40,1],[61,1]],"deal":[[17,1]],"decid":[[41,1],[42,1],[43,1],[44,1],[68,1]],"decision":[[0,1],[42,3],[43,2],[68,1],[70,1],[79,1]],"declaration":[[72,1]],"deed":[[61,1]],"delet":[[28,2],[75,1]],"delinquent":[[48,1]],"deliver":[[57,1]],"delivery":[[57,1]],"demot":[[4,1]],"deny":[[42,2],[67,1],[79,1]],"deposit":[[67,2],[68,1]],"describ":[[54,1]],"detail":[[8,1],[14,1],[17,1],[42,1],[58,1],[63,1],[64,1],[65,1],[69,1]],"didn":[[53,1]],"different":[[11,1],[28,1],[34,1],[51,1],[53,1]],"discuss":[[46,1]],"dismiss":[[20,1]],"doc":[[71,1],[72,1],[73,1],[75,2],[79,1]],"document":[[1,1],[19,2],[36,1],[42,2],[44,1],[46,1],[71,3],[72,4],[73,2],[75,3],[77,1],[79,1]],"doesn":[[11,1],[65,1]],"doing":[[15,1]],"dollar":[[54,1]],"don":[[65,1],[75,1]],"done":[[19,1],[20,1],[21,2],[62,1]],"down":[[32,1]],"download":[[7,1],[8,1],[10,1]],"draft":[[18,1],[35,1],[37,2],[40,1],[42,1],[46,2],[49,2],[50,3],[51,3],[52,1],[53,5]],"drop":[[8,1]],"dropdown":[[5,1]],"due":[[1,1],[12,1],[15,1],[17,2],[18,1],[19,4],[23,3],[24,2],[25,8],[26,2],[27,6],[28,3],[31,1],[34,2],[38,1],[48,1],[56,1],[62,1],[63,1],[68,1],[76,3],[77,2],[79,1]],"each":[[0,1],[8,3],[9,1],[10,1],[19,1],[23,1],[26,1],[40,1],[51,1],[52,1],[54,1],[56,1],[57,1],[61,1],[62,1],[70,1]],"earlier":[[48,1],[53,1]],"edit":[[17,1],[28,1],[42,1],[52,1],[60,1],[61,1],[64,1],[65,2],[69,1],[75,1]],"else":[[4,1]],"email":[[2,1],[3,1],[7,1],[10,3],[13,1],[15,1],[16,3],[17,1],[19,1],[34,1],[37,1],[43,1],[56,1],[58,1],[59,1],[61,1],[62,1],[63,1],[64,1]],"end":[[17,1],[59,1],[61,1],[63,2]],"enter":[[2,1],[11,1],[14,1],[15,1],[16,1],[25,2],[34,2],[46,1],[53,1],[62,1],[67,1],[68,1],[77,1]],"entry":[[64,1]],"error":[[8,3],[10,1]],"every":[[0,1],[4,1],[6,2],[12,1],[17,1],[19,2],[20,1],[21,1],[24,1],[25,2],[27,1],[28,1],[35,1],[49,1],[51,1],[53,1],[54,1],[57,1],[63,1],[79,1]],"everyon":[[17,1],[56,1]],"everyth":[[1,1],[15,1],[66,1],[76,1]],"exactly":[[64,1],[77,1]],"exampl":[[25,1],[51,1]],"excel":[[7,2]],"exist":[[53,1],[65,1]],"explain":[[1,1],[75,1]],"export":[[7,1],[17,1]],"exterior":[[41,1]],"extract":[[74,1]],"fail":[[33,1],[39,1],[44,1],[58,2],[74,1]],"failur":[[57,1]],"family":[[14,1]],"fenc":[[41,1]],"field":[[8,1],[16,1],[28,1]],"figur":[[54,1]],"fil":[[19,1],[47,1],[48,1],[68,1]],"file":[[7,3],[8,4],[10,5],[11,1],[17,1],[27,1],[40,1],[42,1],[45,3],[46,2],[58,1],[65,1],[70,1],[72,2]],"fill":[[7,1],[8,1],[14,1],[16,1],[24,1]],"filter":[[17,1]],"find":[[31,1]],"fine":[[40,2]],"finish":[[8,1],[19,1],[21,1],[53,1],[62,1]],"first":[[4,1],[8,1],[12,1],[14,1],[17,1],[27,3],[39,1],[62,1],[70,1],[71,1]],"fiscal":[[27,1],[33,1],[50,1],[53,1]],"fix":[[8,1],[10,1],[37,1],[46,1],[64,1]],"fixe":[[38,1]],"floor":[[54,1]],"florida":[[40,1]],"follow":[[47,1]],"form":[[3,1]],"formula":[[11,1]],"found":[[44,1],[73,1]],"full":[[14,1],[16,1],[34,1],[54,1],[62,1],[63,1]],"fund":[[50,2],[51,1],[53,3]],"futur":[[61,1],[64,1]],"generat":[[25,3],[27,4],[28,1],[46,1]],"get":[[15,1],[40,1],[63,1]],"give":[[19,1],[62,2],[67,1],[72,1]],"go":[[6,1],[14,1],[51,1],[59,1],[62,1],[63,1]],"goe":[[4,2],[9,1],[10,2],[16,2],[21,2],[27,2],[32,1],[33,2],[35,1],[39,2],[53,2],[58,2],[63,1],[64,2],[69,2],[74,2]],"good":[[5,2],[11,2],[17,2],[22,2],[28,2],[34,2],[40,2],[44,2],[48,2],[54,2],[59,2],[65,2],[70,2],[75,2],[79,2]],"govern":[[19,2],[36,1],[42,1],[71,2],[72,1]],"group":[[26,1],[55,1]],"guess":[[75,1]],"guid":[[75,1]],"hand":[[9,1],[60,2]],"hang":[[12,1]],"happen":[[3,2],[9,2],[15,2],[20,2],[26,2],[32,2],[38,2],[43,2],[47,2],[52,2],[57,2],[63,2],[66,2],[68,2],[73,2],[78,2]],"has":[[7,1],[8,1],[10,2],[14,1],[16,1],[19,1],[22,1],[24,1],[27,3],[33,1],[53,2],[58,1],[64,2]],"have":[[0,1],[3,1],[6,2],[8,1],[13,1],[14,1],[17,1],[22,1],[27,2],[48,1],[62,1],[79,1]],"head":[[17,1]],"hear":[[55,1]],"help":[[37,1],[75,1]],"hid":[[21,1],[22,1]],"hidden":[[21,1]],"hide":[[20,1],[22,1]],"history":[[17,1],[38,1],[63,1],[65,1]],"hoa":[[3,1],[4,1],[5,3],[8,1],[14,1],[16,1],[18,2],[19,2],[20,1],[24,1],[27,2]],"hold":[[48,1],[59,1]],"home":[[6,4],[7,1],[8,3],[9,2],[10,2],[11,5],[12,1],[14,1],[15,2],[17,10],[18,1],[19,3],[22,2],[23,1],[24,2],[25,1],[26,1],[27,6],[28,1],[31,1],[32,1],[34,1],[37,1],[40,1],[48,1],[55,1],[60,3],[61,1],[62,1],[63,3],[64,1],[65,1],[76,1],[77,2],[78,1],[79,1]],"homeowner":[[7,1],[68,1]],"homeownerhub":[[3,1],[18,1],[35,1],[40,1],[48,1],[75,1]],"homeownerledger":[[22,1]],"household":[[17,1],[62,1],[63,1],[64,2]],"hub":[[5,1]],"import":[[6,3],[7,2],[8,4],[9,1],[10,3],[11,1],[13,1],[17,2],[22,1]],"inbox":[[19,1],[59,1]],"includ":[[77,1]],"incom":[[48,1]],"index":[[72,2],[73,1]],"inflation":[[51,1],[54,1]],"info":[[42,1],[43,1],[67,1]],"instead":[[5,1],[6,1],[11,1],[13,1],[17,1],[24,1],[49,1],[53,1],[60,1],[64,1],[70,1],[74,1]],"internal":[[44,1]],"invit":[[0,2],[1,2],[2,1],[4,2],[19,2],[62,2],[63,1],[65,2]],"invitation":[[2,1],[5,3],[63,1]],"isn":[[10,1],[53,1],[54,1],[61,2],[63,1]],"item":[[47,2],[48,2],[67,2],[70,1]],"itself":[[20,1],[44,1],[67,1]],"keep":[[8,1],[18,1],[33,1],[52,2],[65,1]],"kept":[[17,1],[43,1],[64,1],[67,1]],"kind":[[25,1],[67,1]],"know":[[5,2],[11,2],[17,2],[22,2],[28,2],[34,2],[40,2],[44,2],[48,2],[54,2],[59,2],[65,2],[70,2],[75,2],[79,2]],"land":[[41,1],[57,1]],"largest":[[40,1]],"last":[[4,1],[5,1],[17,1],[48,1],[49,2],[51,2],[53,1],[54,3]],"late":[[56,1]],"later":[[22,1]],"law":[[40,1]],"leas":[[15,1],[63,2]],"least":[[4,1],[37,1]],"leav":[[8,1],[10,1],[16,1],[44,1],[56,1],[62,1],[64,1],[65,1]],"ledger":[[23,1],[32,1],[63,1],[65,1],[68,1]],"left":[[54,1],[63,1]],"less":[[54,1]],"let":[[26,1]],"letter":[[18,1],[35,2],[37,2],[39,2],[40,4],[67,3],[68,1],[73,1]],"like":[[41,1]],"likely":[[77,1]],"line":[[2,1],[49,1],[51,2],[52,1],[53,2],[54,2]],"link":[[2,1],[3,1],[15,1],[19,1],[27,1],[59,1],[61,1],[65,1]],"list":[[3,1],[5,2],[7,1],[8,1],[9,1],[13,1],[15,1],[16,1],[17,1],[26,1],[37,1],[42,1],[48,1],[54,1],[57,1],[62,1],[63,1],[64,1]],"liv":[[17,2]],"live":[[19,1],[62,1]],"ll":[[22,1]],"load":[[73,1]],"log":[[17,1]],"login":[[0,1],[3,1],[19,1]],"longer":[[17,1],[59,1]],"look":[[5,1],[17,1],[44,1]],"lot":[[7,1],[14,1]],"made":[[0,1]],"mail":[[7,1],[12,1],[18,1],[19,1],[37,1],[61,1],[64,2]],"mailbox":[[19,1]],"main":[[51,1]],"make":[[27,1],[44,1]],"manager":[[5,1]],"many":[[17,1],[40,1],[54,1],[56,1],[57,1],[67,1]],"mark":[[31,1],[34,2],[37,1],[38,1],[42,1],[43,1],[54,1],[68,1]],"markdown":[[72,1]],"match":[[8,2],[11,1],[19,1],[37,1],[58,1],[68,1],[78,1]],"material":[[77,1]],"may":[[77,1]],"mb":[[7,1]],"meet":[[18,1],[45,3],[46,8],[47,4],[48,4]],"member":[[0,1],[1,3],[2,2],[3,1],[4,2],[5,1],[7,1],[13,1],[14,1],[27,1],[30,1],[33,1],[36,1],[50,1],[59,1],[61,1],[66,1]],"memo":[[77,1],[78,1]],"messag":[[17,1],[43,1],[44,1],[48,1],[56,1],[57,2],[58,1],[59,2]],"method":[[34,1]],"minut":[[45,3],[46,5],[47,1],[48,4]],"miss":[[27,1],[42,1],[44,1]],"moment":[[74,1]],"money":[[15,1],[23,2],[63,1]],"month":[[19,2],[23,2],[25,2],[26,1],[27,1],[31,1],[53,1],[54,2]],"monthly":[[25,1]],"more":[[8,1],[10,1],[14,1],[17,1],[62,1]],"most":[[8,1]],"mov":[[7,1],[63,1]],"move":[[64,1]],"must":[[16,2],[50,1],[62,1]],"name":[[2,1],[5,1],[7,1],[13,1],[14,1],[16,2],[17,1],[24,1],[25,1],[51,1],[60,1],[61,1],[62,1],[75,1]],"narrow":[[17,1]],"need":[[4,1],[7,1],[13,1],[15,2],[16,1],[17,3],[24,1],[42,1],[61,2],[70,1],[71,1],[76,1]],"never":[[11,3],[43,1],[48,1],[54,1],[59,1],[66,1]],"new":[[5,2],[8,1],[9,1],[14,1],[17,1],[40,1],[44,1],[56,1],[62,1],[64,1],[77,1]],"next":[[3,2],[9,2],[15,2],[20,2],[26,2],[32,2],[38,2],[43,2],[47,2],[49,4],[50,1],[51,1],[52,2],[53,1],[57,2],[62,1],[63,2],[68,2],[73,2],[78,2]],"nobody":[[58,1]],"none":[[24,1],[54,1]],"note":[[17,2],[37,1],[44,2],[52,1]],"noth":[[6,1],[10,1],[18,1],[27,1],[33,1],[40,1],[52,1],[53,1],[60,1],[64,2],[66,2],[68,1],[69,1],[74,1]],"notic":[[14,1],[35,2],[37,1],[38,1],[40,3],[62,2],[63,1]],"notify":[[48,1]],"now":[[21,1],[53,1],[56,1],[58,1],[63,1],[73,1]],"nowher":[[53,1]],"number":[[7,1],[10,2],[11,1],[54,2],[67,1],[73,1]],"oak":[[11,2]],"oct":[[25,1]],"off":[[12,1],[20,1],[25,1]],"offer":[[44,1],[58,1]],"often":[[25,1],[43,1]],"old":[[10,1]],"older":[[27,1]],"once":[[21,1],[25,1],[53,1],[61,1]],"one":[[4,1],[6,2],[7,1],[8,1],[9,1],[10,1],[14,1],[15,1],[16,1],[18,1],[22,2],[25,2],[27,1],[34,1],[37,1],[40,1],[50,1],[51,1],[53,1],[58,1],[61,1],[62,1],[67,1]],"onlin":[[34,2]],"only":[[1,2],[4,1],[5,1],[7,1],[11,1],[16,1],[21,1],[22,1],[30,1],[34,2],[36,1],[44,1],[48,1],[54,2],[56,1],[63,2],[79,1]],"open":[[2,1],[8,2],[11,2],[14,2],[17,3],[19,1],[22,1],[25,1],[26,1],[27,2],[31,1],[33,2],[34,1],[37,1],[38,2],[40,1],[42,4],[44,1],[46,2],[47,1],[48,2],[50,1],[51,1],[52,1],[53,3],[56,1],[57,1],[58,1],[61,1],[62,1],[67,1],[68,1],[72,2],[75,1],[77,2],[79,1]],"operat":[[50,1]],"operation":[[1,1]],"option":[[34,1]],"optional":[[2,1],[13,1],[51,1],[61,1],[77,1]],"order":[[20,1]],"other":[[14,1],[29,1]],"out":[[40,1]],"outsid":[[29,1]],"over":[[45,1]],"overdu":[[15,1]],"overwritten":[[60,1]],"owe":[[23,1],[26,1]],"owed":[[23,1],[34,1],[65,1]],"own":[[0,1],[1,1],[19,2],[22,1],[44,1],[48,1],[56,1],[57,1],[59,1],[66,1],[68,1],[70,1],[71,1]],"owner":[[6,2],[7,1],[9,2],[10,1],[11,4],[12,1],[13,1],[14,2],[15,2],[16,1],[17,4],[19,1],[26,2],[29,1],[37,1],[38,1],[40,1],[56,1],[60,3],[62,2],[63,3],[64,2],[65,2]],"ownership":[[63,1],[65,1]],"packet":[[45,1],[46,2],[48,1],[51,1]],"page":[[1,1],[5,1],[7,1],[8,2],[14,2],[15,1],[17,2],[19,2],[21,1],[22,2],[24,1],[25,1],[26,1],[27,1],[34,2],[40,1],[44,1],[46,1],[47,1],[51,1],[52,1],[54,2],[57,2],[58,1],[59,1],[60,1],[61,1],[62,1],[68,1],[75,1]],"paid":[[28,1],[29,1],[31,1],[32,1],[34,2],[68,1]],"paint":[[41,1]],"panel":[[26,1],[40,1]],"paragraph":[[51,1]],"pars":[[39,1]],"part":[[10,1],[21,1]],"partial":[[34,1]],"past":[[15,1],[46,1],[47,1],[48,1],[72,2],[74,1]],"pay":[[34,2],[68,1],[76,2],[77,2]],"payabl":[[68,1]],"payment":[[17,1],[29,2],[30,1],[31,1],[32,1],[33,3],[34,4],[63,1],[65,1],[78,1]],"pdf":[[46,1],[72,1],[74,2],[75,1]],"pend":[[5,1]],"peopl":[[14,2],[15,1],[17,1],[56,1],[57,1],[63,1],[65,1]],"per":[[7,1],[25,2]],"period":[[27,3],[33,1],[35,1],[38,1],[50,1],[53,2]],"person":[[14,1],[19,1],[57,1],[62,1]],"phon":[[7,1],[13,1],[14,1],[17,1],[34,1],[61,1],[62,1]],"photo":[[37,2],[77,1]],"pick":[[2,3],[5,2],[14,2],[16,1],[17,1],[19,1],[37,1],[40,1],[46,1],[56,3],[58,1],[67,1],[72,1],[77,1]],"plac":[[15,1],[18,1],[65,1]],"plan":[[77,1]],"plus":[[62,1]],"point":[[27,1],[33,1]],"portal":[[17,1],[29,1],[41,1],[43,1],[56,1],[59,1],[62,2],[63,3],[65,3],[68,1],[76,2],[78,1]],"post":[[11,1],[18,1],[23,1],[27,1],[32,1],[33,1],[52,1],[53,1],[66,1],[67,1],[68,1]],"prepar":[[66,1]],"previous":[[60,1],[63,2]],"primary":[[14,1],[62,1],[63,1]],"print":[[46,2]],"probably":[[74,1],[77,1]],"problem":[[38,1],[76,2],[77,1]],"promot":[[4,1]],"property":[[2,2],[7,1],[8,1],[9,1],[12,4],[13,1],[14,6],[15,1],[17,4],[19,2],[22,1],[24,2],[25,3],[27,4],[34,1],[37,1],[40,1],[62,1]],"propos":[[42,1],[66,1]],"pull":[[48,1]],"put":[[51,1]],"question":[[71,2],[72,2],[75,1],[77,1],[79,1]],"queu":[[40,1],[66,2]],"rather":[[53,1],[75,1]],"re":[[62,1]],"reach":[[56,1],[62,1]],"read":[[8,1],[10,1],[11,1],[21,1],[37,2],[40,1],[42,2],[44,1],[46,1],[51,1],[59,1],[62,1],[67,1],[69,1],[75,1]],"ready":[[9,1],[15,1]],"reason":[[8,1],[40,1],[42,1],[49,1],[51,1],[52,1],[54,1],[67,2]],"receiv":[[34,1]],"recipient":[[57,1],[58,1]],"recognis":[[10,1]],"recognition":[[75,1]],"record":[[9,1],[11,1],[15,2],[17,3],[29,2],[30,1],[31,1],[33,2],[34,2],[38,1],[40,1],[46,1],[48,2],[60,3],[61,3],[62,2],[63,2],[64,2]],"referenc":[[11,1]],"regular":[[25,1],[27,1]],"reject":[[40,1],[67,1]],"reload":[[21,1]],"remind":[[26,1]],"reminder":[[26,2],[63,1]],"remov":[[5,2]],"repair":[[77,1]],"repeat":[[11,1],[25,1]],"replac":[[11,1]],"reply":[[59,2]],"report":[[17,1],[23,1],[35,3],[36,1],[37,1],[40,1],[76,2],[77,3]],"request":[[1,1],[15,1],[18,1],[42,1],[43,1],[67,1],[76,1],[77,6],[78,2]],"requir":[[7,1],[16,1]],"resend":[[58,1]],"resent":[[5,1]],"reserv":[[54,2]],"resident":[[1,2],[2,2],[4,1],[9,1],[12,3],[14,2],[16,2],[17,1],[18,1],[19,3],[24,1],[34,2],[41,1],[43,2],[44,5],[55,2],[68,1],[76,2]],"resolv":[[38,1]],"respons":[[42,1],[43,1],[68,1]],"rest":[[0,2],[19,2],[59,1]],"revers":[[17,1]],"review":[[39,1],[41,3],[42,4],[43,1],[44,4],[46,1],[50,1],[53,1],[67,2],[70,1]],"right":[[19,2],[23,1],[27,1],[34,1],[58,1]],"role":[[1,1],[2,2],[5,2],[14,1]],"roof":[[41,1]],"round":[[54,1]],"row":[[5,2],[6,1],[7,2],[8,5],[10,5],[11,2],[31,1]],"rs":[[19,1],[36,1],[39,2],[72,1]],"rule":[[19,1],[40,1],[42,1],[44,2],[71,1],[75,1],[77,3],[79,2]],"run":[[1,1],[11,1],[44,1]],"safe":[[64,1]],"sale":[[11,1],[17,1],[60,3],[61,2],[62,2],[63,2],[64,3],[65,1]],"same":[[9,1],[11,2],[22,1],[28,1],[53,1],[64,1],[68,1]],"sav":[[6,1],[10,1],[11,1],[33,1],[48,1],[54,1],[64,1],[74,1]],"save":[[5,1],[10,1],[14,1],[46,2],[50,3],[51,2],[53,5],[61,1],[69,1]],"saw":[[44,1]],"say":[[2,1],[8,3],[10,1],[14,1],[20,1],[27,1],[44,1],[54,1],[61,1],[75,2],[77,1]],"scal":[[54,1]],"scan":[[74,1]],"scann":[[67,1],[75,1]],"schedul":[[45,3],[46,3],[48,2],[56,1]],"screen":[[34,1],[76,1]],"search":[[17,1]],"second":[[11,1],[53,1]],"section":[[2,1],[26,1],[34,1],[36,1],[37,1],[39,1],[73,1],[75,1]],"see":[[1,1],[17,2],[19,4],[24,1],[36,1],[38,1],[43,2],[44,2],[58,1],[63,2],[67,1],[68,1],[77,1],[78,1],[79,1]],"select":[[2,1],[7,1],[8,4],[14,4],[17,5],[24,1],[25,4],[27,2],[31,2],[33,1],[34,1],[37,3],[38,1],[40,1],[42,2],[44,1],[46,7],[47,1],[51,5],[53,1],[56,5],[62,5],[63,1],[64,1],[67,2],[69,2],[72,2]],"seller":[[17,1],[60,1],[61,1],[63,1],[65,2]],"send":[[2,1],[5,1],[26,1],[37,1],[40,1],[43,1],[48,1],[55,2],[56,2],[57,1],[59,1],[62,1],[63,1],[66,1],[77,3]],"sent":[[18,1],[37,1],[38,1],[40,1],[43,1],[48,1],[68,1]],"set":[[11,1],[19,2],[20,1],[24,1],[28,1],[34,1],[38,1],[51,1],[63,1]],"sett":[[18,2]],"settl":[[64,1]],"settlement":[[60,1],[61,2],[62,1],[63,3],[64,1]],"setup":[[18,1],[22,1]],"several":[[5,1],[10,2],[16,1],[27,1]],"shar":[[10,1],[62,2],[64,2]],"sheet":[[48,1],[49,1]],"short":[[22,1],[51,1]],"shorten":[[59,1]],"show":[[0,1],[15,1],[21,1],[24,1],[32,1],[34,1],[40,1],[47,2],[51,1],[56,1],[57,2],[59,1],[63,2],[65,1],[70,1],[72,1],[77,1]],"shown":[[11,1],[44,1],[54,1],[77,2]],"sidebar":[[2,1],[5,1],[8,1],[14,1],[19,1],[25,1],[26,1],[31,1],[34,1],[37,1],[42,1],[46,1],[56,1],[67,1],[72,2]],"sign":[[3,1],[22,1]],"six":[[19,1],[21,1]],"size":[[77,1]],"skip":[[8,1]],"skipp":[[8,1],[11,1],[27,1]],"sms":[[56,1]],"sold":[[17,1],[60,1],[62,1]],"some":[[8,1],[40,1],[58,1]],"someon":[[4,1],[5,1],[18,1],[64,1]],"someth":[[4,2],[10,2],[15,1],[16,2],[17,1],[21,3],[27,2],[33,2],[39,2],[53,2],[58,2],[64,2],[69,2],[74,2]],"soon":[[5,1],[61,1]],"sort":[[17,1]],"special":[[25,1]],"spent":[[49,1]],"split":[[10,1]],"spreadsheet":[[6,3],[11,2],[13,1],[17,2],[22,1]],"st":[[11,1]],"start":[[1,2],[7,2],[13,2],[17,2],[18,3],[24,2],[30,2],[36,2],[38,1],[40,2],[42,1],[44,2],[49,2],[50,3],[51,1],[53,2],[61,2],[65,1],[79,1]],"stat":[[7,1],[24,1],[40,2]],"statement":[[48,1],[79,1]],"status":[[26,1],[38,2],[57,1],[78,1]],"stay":[[17,1],[23,1],[57,1],[62,1],[63,1],[65,1]],"step":[[2,2],[8,2],[14,2],[19,5],[20,2],[21,4],[22,2],[25,2],[31,2],[37,2],[42,2],[46,2],[51,2],[56,2],[62,2],[67,2],[72,2],[77,2]],"still":[[34,1],[53,1],[63,1],[65,1]],"stop":[[22,1]],"straight":[[3,1],[9,1],[15,2],[19,1],[63,1]],"street":[[11,1]],"subject":[[56,1]],"submit":[[1,1],[44,1],[77,2]],"submitt":[[44,2]],"such":[[17,1],[40,1],[56,1],[72,1]],"suggest":[[42,1],[54,1]],"suggestion":[[43,1],[44,1],[51,3],[54,1]],"summary":[[51,1],[54,2]],"support":[[22,2],[27,1],[33,1],[77,1]],"switch":[[5,2],[17,1]],"system":[[7,1],[17,1]],"tab":[[9,1],[14,1],[40,1],[67,1],[72,1],[76,1],[79,1]],"take":[[19,1]],"tap":[[77,9],[79,1]],"task":[[19,1]],"tell":[[10,1],[43,1],[44,1],[77,1]],"templat":[[7,1],[56,1]],"tenant":[[14,1],[62,1],[63,1]],"tenur":[[7,1],[11,1],[17,1],[63,2]],"text":[[42,1],[43,1],[59,2],[72,2],[74,2],[75,2]],"through":[[17,1]],"thrown":[[54,1]],"tick":[[14,1],[20,1],[44,1],[62,1],[64,1]],"time":[[6,1],[22,1],[50,1],[56,1],[59,1]],"titl":[[72,1]],"today":[[34,1]],"told":[[75,1]],"too":[[65,1]],"top":[[5,1],[15,1],[17,1],[18,1],[19,1],[25,1],[40,1],[62,1]],"topic":[[46,1],[56,1]],"total":[[51,1]],"track":[[47,1]],"trail":[[67,1]],"transcript":[[46,1]],"transferr":[[61,1]],"trash":[[5,1]],"treasurer":[[49,1]],"true":[[22,1]],"try":[[33,1],[39,1],[64,1],[69,1],[74,1]],"turn":[[34,1]],"twic":[[10,1]],"type":[[24,1],[37,1],[42,1],[46,2],[51,1],[72,2],[77,1]],"under":[[2,2],[5,1],[8,2],[14,1],[19,1],[25,2],[37,1],[42,1],[44,1],[47,3],[51,2],[56,1],[63,3],[65,1],[73,1]],"unit":[[7,1],[10,2],[11,1],[14,1],[17,1],[37,1],[61,1]],"unknown":[[63,1]],"unless":[[51,1]],"unpaid":[[28,1]],"until":[[6,1],[8,1],[18,1],[21,1],[50,1],[64,1],[66,2]],"up":[[7,1],[18,2],[19,2],[20,1],[22,1],[24,1],[34,1],[44,1],[54,1],[59,1],[62,1],[64,2]],"upcom":[[47,2]],"updat":[[8,2],[11,1],[38,1],[78,1]],"upload":[[7,1],[19,2],[36,2],[39,2],[71,2],[72,2],[74,1]],"ups":[[47,1]],"urgent":[[43,1]],"use":[[5,1],[17,1],[28,1],[29,1],[42,1],[48,1],[49,1],[51,1],[54,3],[55,1],[59,1],[65,1],[74,1],[75,1],[77,1],[79,1]],"used":[[7,1],[48,1],[51,1],[75,1]],"valid":[[10,1],[16,1]],"valu":[[11,1]],"vendor":[[67,2],[68,2],[69,1],[70,2]],"view":[[79,1]],"violation":[[12,1],[15,1],[17,4],[18,1],[35,3],[36,1],[37,2],[38,2],[40,2],[48,1],[67,2],[68,2],[73,1]],"vs":[[51,1]],"wait":[[15,1],[40,1],[44,1],[64,1],[66,1],[67,1],[72,1],[79,1]],"want":[[51,1],[77,1]],"way":[[29,1],[37,1]],"went":[[10,1],[40,1]],"whatever":[[77,1]],"wherever":[[51,1]],"whether":[[62,1]],"whil":[[72,1]],"whol":[[19,1],[54,1],[55,1]],"whos":[[70,1]],"without":[[65,1],[75,1]],"word":[[35,1],[72,1]],"work":[[18,1],[42,1],[66,1],[79,1]],"writ":[[17,1],[39,1],[51,1],[56,1],[77,1]],"written":[[49,1],[79,1]],"wrong":[[4,2],[8,1],[10,2],[16,2],[21,3],[27,2],[33,2],[37,1],[39,2],[46,1],[53,2],[58,2],[64,2],[69,3],[74,2]],"xls":[[10,1]],"xlsx":[[7,1],[10,1]],"year":[[49,5],[50,1],[51,4],[53,4],[54,4]],"yet":[[7,1],[19,1],[27,4],[33,1],[39,1],[44,1],[53,2],[75,1]],"yourself":[[5,1],[37,1],[39,1],[43,1],[48,1],[53,1]],"zell":[[34,4],[77,2]],"zip":[[7,1]]}}}
 
 /** What's new entries from docs/releases `whats_new:` blocks, newest first. */
 export const WHATS_NEW: readonly WhatsNewEntry[] = [

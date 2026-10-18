@@ -40,6 +40,8 @@ questions:
   - { id: h15, role: admin, expect: violations-report-and-letter, q: "What is the cure period and how do I close a violation?" }
   - { id: h16, role: board, expect: arc-review-application, q: "How do I approve or deny an ARC application?" }
   - { id: h17, role: board, expect: arc-review-application, q: "Where do architectural requests from residents show up?" }
+  - { id: h17a, role: board, expect: arc-review-application, q: "What does the AI review on an ARC application suggest?" }
+  - { id: h17b, role: board, expect: arc-review-application, q: "How do I ask the resident for more information on an architectural application?" }
   - { id: h18, role: board, expect: meetings-schedule-and-minutes, q: "How do I schedule a board meeting?" }
   - { id: h19, role: admin, expect: meetings-schedule-and-minutes, q: "Can AI write the minutes from a transcript?" }
   - { id: h20, role: board, expect: meetings-schedule-and-minutes, q: "How do I print the board packet?", route: /meetings/1f3a/packet }
@@ -53,6 +55,7 @@ questions:
   # ── How-to: resident ──────────────────────────────────────────────────
   - { id: r01, role: resident, expect: resident-portal-basics, q: "How do I pay my dues?" }
   - { id: r02, role: resident, expect: resident-portal-basics, q: "How do I ask permission to paint my house?" }
+  - { id: r02a, role: resident, expect: resident-portal-basics, q: "Can I check my ARC request against the guidelines before I submit it?" }
   - { id: r03, role: resident, expect: resident-portal-basics, q: "How do I report a problem in the community?" }
   - { id: r04, role: resident, expect: resident-portal-basics, q: "Where can I see my balance and statement?", route: /resident/dues }
 
