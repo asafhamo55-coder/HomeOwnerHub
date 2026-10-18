@@ -26,6 +26,22 @@ vi.mock('@homeowner-portal/ai', () => ({ runMain: (...args: unknown[]) => runMai
 
 vi.mock('@sentry/nextjs', () => ({ captureException: vi.fn() }))
 
+// BL-078: the limiter is mocked here (its own tests pin the math and the
+// ledger); the real rateLimitedError builds the 429 these tests assert.
+const quota = vi.hoisted(() => ({ requireAiQuota: vi.fn(), linkAiUsageToRun: vi.fn() }))
+vi.mock('@/lib/api/rate-limit', async (orig) => ({
+  ...(await orig<typeof import('@/lib/api/rate-limit')>()),
+  requireAiQuota: quota.requireAiQuota,
+  linkAiUsageToRun: quota.linkAiUsageToRun,
+}))
+const { rateLimitedError } = await import('@/lib/api/rate-limit')
+beforeEach(() => {
+  quota.requireAiQuota.mockReset()
+  quota.requireAiQuota.mockResolvedValue({ usageId: 'usage-1', userId: 'user-1' })
+  quota.linkAiUsageToRun.mockReset()
+  quota.linkAiUsageToRun.mockResolvedValue(undefined)
+})
+
 const { POST } = await import('./route')
 
 const GOOD_REPLY = JSON.stringify({
@@ -148,5 +164,30 @@ describe('POST /api/ai/rewrite — provider failures', () => {
     const res = await POST(req({ text: 'hello' }))
     expect(res.status).toBe(503)
     expect((await json(res)).error).toMatchObject({ code: 'upstream_unavailable' })
+  })
+})
+
+describe('POST /api/ai/rewrite — rate limit (BL-078)', () => {
+  it('draws on the rewrite bucket for the caller’s org after validation, before the model', async () => {
+    const res = await POST(req({ text: 'my fence request' }))
+    expect(res.status).toBe(200)
+    expect(quota.requireAiQuota).toHaveBeenCalledWith('rewrite', 'org-1')
+    expect(quota.requireAiQuota.mock.invocationCallOrder[0]!).toBeLessThan(runMain.mock.invocationCallOrder[0]!)
+  })
+
+  it('a body that fails validation never draws on the quota', async () => {
+    await POST(req('{nope'))
+    expect(quota.requireAiQuota).not.toHaveBeenCalled()
+  })
+
+  it('429 rate_limited with Retry-After when the limit is reached, and no model call', async () => {
+    quota.requireAiQuota.mockRejectedValue(rateLimitedError('rewrite', { ok: false, scope: 'user', retryAfterSeconds: 1200 }))
+    const res = await POST(req({ text: 'my fence request' }))
+    expect(res.status).toBe(429)
+    expect(res.headers.get('Retry-After')).toBe('1200')
+    const err = (await res.json()).error
+    expect(err).toMatchObject({ code: 'rate_limited', reason: 'user_limit', retryAfterSeconds: 1200 })
+    expect(err.message).toContain('about 20 minutes')
+    expect(runMain).not.toHaveBeenCalled()
   })
 })

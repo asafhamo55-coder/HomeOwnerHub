@@ -9,6 +9,8 @@ import { getResidentUnits } from '@/lib/resident'
 import { getResidentActor, IMPERSONATION_READONLY_MSG } from '@/lib/impersonation'
 import { loadOrFail, type LoadResult } from '@/lib/load-or-fail'
 import { closeArcReviewsOnWithdraw, startBoardArcReview } from '@/lib/arc-review/server'
+import { bindPrecheckRun } from '@/lib/arc-review/precheck-binding'
+import { createAdminClient } from '@homeowner-portal/db'
 
 // ─── shared ──────────────────────────────────────────────────────────
 
@@ -206,7 +208,13 @@ export async function createArcRequest(
 
   // BL-027: draft the board's AI review after the response is sent — the
   // resident never waits on (or sees) it. Service role, ids only in logs.
-  const precheckRunId = parsed.data.precheck_run_id ?? null
+  // BL-078: the run id comes from the browser — link it only if it is this
+  // resident's own W37 pre-check in this org; otherwise drop it silently.
+  const { runId: precheckRunId } = await bindPrecheckRun(createAdminClient(), {
+    runId: parsed.data.precheck_run_id,
+    orgId: org.id,
+    userId: user.id,
+  })
   after(() => startBoardArcReview({ orgId: org.id, arcId: row.id, precheckRunId }))
 
   revalidatePath('/')  // dashboard rollup

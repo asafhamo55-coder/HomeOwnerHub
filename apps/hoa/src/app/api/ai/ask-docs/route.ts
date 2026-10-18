@@ -10,6 +10,7 @@ import { requireOrgOwned, requireRouteMember } from '@/lib/api/auth'
 import { parseJson } from '@/lib/api/parse'
 import { zText, zUuid } from '@/lib/api/schemas'
 import { logRouteFailure } from '@/lib/api/log'
+import { requireAiQuota } from '@/lib/api/rate-limit'
 import { RESIDENT_VISIBLE_TYPES } from '@/lib/resident-documents/visibility'
 
 // W1 — Governing Docs Brain endpoint.
@@ -35,6 +36,8 @@ export const POST = withRoute('ai.ask-docs', async (request) => {
   const body = await parseJson(request, Body)
   const associationId = body.associationId ?? null
   if (associationId) await requireOrgOwned('associations', associationId, orgId)
+  // BL-078: per-user + per-org limit (lib/api/ai-limits.ts).
+  await requireAiQuota('ask_docs', orgId)
 
   // Default-deny: only admin/board see every governing document.
   const isBoard = role === 'admin' || role === 'board'

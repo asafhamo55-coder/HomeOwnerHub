@@ -8,6 +8,7 @@ import { parseJson } from '@/lib/api/parse'
 import { zText } from '@/lib/api/schemas'
 import { MAX_SHORT_TEXT } from '@/lib/api/limits'
 import { logRouteFailure } from '@/lib/api/log'
+import { requireAiQuota } from '@/lib/api/rate-limit'
 
 // POST /api/ai/rewrite
 // Takes a chunk of user-authored text (subject, body, notes, …) and
@@ -114,6 +115,8 @@ export const POST = withRoute('ai.rewrite', async (request) => {
   // Residents included on purpose — see the header comment (mixed surface).
   const { orgId } = await requireRouteMember()
   const body = await parseJson(request, Schema)
+  // BL-078: per-user + per-org limit (lib/api/ai-limits.ts).
+  await requireAiQuota('rewrite', orgId)
 
   let raw: string
   try {
