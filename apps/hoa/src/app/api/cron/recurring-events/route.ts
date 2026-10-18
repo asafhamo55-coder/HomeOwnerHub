@@ -6,6 +6,12 @@ import {
   sendEventAlertEmail,
 } from '@/lib/events-alerts'
 import { readAllResult } from '@/lib/supabase/read-all'
+import {
+  effectiveFailedAttempts,
+  failedAttemptPatch,
+  recurringEventCronColumns,
+  type AlertAttemptState,
+} from '@/lib/events-alert-attempts'
 import type { RecurringEvent } from '@/lib/events'
 import { withRoute } from '@/lib/api/handler'
 import { ApiRouteError } from '@/lib/api/errors'
@@ -95,8 +101,12 @@ import { scopeTimeZone } from '@/lib/association-zone-index'
 // occurrence). A passed annual occurrence then rolls forward so next year's
 // reminder still fires; it is never marked alerted. Attempts that never
 // reach the communications pipeline (no association in the org, no
-// recipient, a failed audit insert) write no row, are not counted, and keep
-// retrying daily as before.
+// recipient, a failed audit insert) write no row; before M1 they are not
+// counted and keep retrying daily. With M1_APPLIED (BL-063, migration 0064)
+// every claimed attempt that delivered nothing also bumps
+// hoa_recurring_events.alert_failed_attempts for that occurrence
+// (alert_failed_for = event_date), and the cap reads the larger of the two
+// counts (lib/events-alert-attempts.ts).
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // walking events + sending emails
@@ -107,7 +117,7 @@ const CLAIM_LEASE_MS = 15 * 60 * 1000
 /** Failed days after which an occurrence stops retrying (BL-056). */
 const ALERT_RETRY_CAP = 3
 
-type EventRow = RecurringEvent & { organization_id: string }
+type EventRow = RecurringEvent & { organization_id: string } & Partial<AlertAttemptState>
 
 interface SummaryError {
   eventId: string
@@ -137,9 +147,7 @@ export const GET = withRoute('cron.recurring-events', async (request) => {
   const { data: rows, error } = await readAllResult<unknown>((from, to) =>
     admin
       .from('hoa_recurring_events' as never)
-      .select(
-        'id, organization_id, association_id, title, description, event_date, recurrence, alert_days_before, notify_channels, notify_audience, last_alert_sent_at, last_alert_sent_for, is_active, created_at',
-      )
+      .select(recurringEventCronColumns())
       .eq('is_active', true)
       .lte('event_date', ninetyDaysFromNowIso)
       .order('id', { ascending: true })
@@ -232,14 +240,15 @@ export const GET = withRoute('cron.recurring-events', async (request) => {
         writeFailed(event.id, 'attempts', attempts.error)
         continue
       }
-      if (attempts.count >= ALERT_RETRY_CAP) {
+      const failedDays = effectiveFailedAttempts(event, attempts.count)
+      if (failedDays >= ALERT_RETRY_CAP) {
         // Given up on: no claim, no send, so no new failed row. Never marked
         // alerted. The board hears about it once per occurrence.
-        errors.push({ eventId: event.id, code: 'retry_cap_reached', count: attempts.count })
+        errors.push({ eventId: event.id, code: 'retry_cap_reached', count: failedDays })
         const notified = await notifyBoardAlertGaveUp(admin, {
           event,
           organizationId: event.organization_id,
-          attempts: attempts.count,
+          attempts: failedDays,
           sinceAt,
         })
         if (!notified.ok) writeFailed(event.id, 'notify', notified.error)
@@ -291,7 +300,8 @@ export const GET = withRoute('cron.recurring-events', async (request) => {
         if (stampErr) writeFailed(event.id, 'stamp', stampErr)
       } else {
         // Nothing went out: give the lease back so the next run retries.
-        const { error: releaseErr } = await update({ last_alert_sent_at: prevAt })
+        // With M1, this failed day is also counted on the row (BL-063).
+        const { error: releaseErr } = await update({ last_alert_sent_at: prevAt, ...failedAttemptPatch(event) })
           .eq('id', event.id)
           .eq('last_alert_sent_at', claimAt)
           .select('id')

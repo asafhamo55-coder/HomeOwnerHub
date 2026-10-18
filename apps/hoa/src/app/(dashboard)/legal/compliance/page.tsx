@@ -16,6 +16,7 @@ import {
   type StatusTone,
 } from '@homeowner-portal/ui'
 import { sectionUrl } from '@homeowner-portal/workflows/state-law-florida'
+import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getEffectiveRoleInOrg } from '@/lib/role-override'
 import { getAssociationState } from '@/lib/state-law'
@@ -74,6 +75,8 @@ const RECORD_LABEL: Record<RecordStatus, string> = {
 const NOTICE_TONE: Record<NoticeFinding, StatusTone> = {
   added_late: 'warning',
   maybe_late: 'info',
+  posted_on_time: 'success',
+  posted_late: 'danger',
   not_recorded: 'neutral',
   added_after: 'neutral',
   exempt: 'neutral',
@@ -81,6 +84,8 @@ const NOTICE_TONE: Record<NoticeFinding, StatusTone> = {
 const NOTICE_LABEL: Record<NoticeFinding, string> = {
   added_late: 'Added too late',
   maybe_late: 'Check the agenda',
+  posted_on_time: 'Posted on time',
+  posted_late: 'Posted late',
   not_recorded: 'Notice not recorded',
   added_after: 'Added after the meeting',
   exempt: 'Exempt',
@@ -265,11 +270,19 @@ export default async function CompliancePage() {
             </p>
           ) : null}
         </div>
-        <Alert variant="info" title="Notice posting isn’t recorded">
-          HomeownerHub doesn’t store when a meeting’s notice was posted. What it does know is when the meeting was
-          added here: a meeting added fewer than {NOTICE_DAYS} days ahead can’t have had a {NOTICE_DAYS}-day notice
-          sent through HomeownerHub. Whether a notice went up — here or anywhere else — you need to confirm.
-        </Alert>
+        {M1_APPLIED ? (
+          <Alert variant="info" title="Where a posting date is recorded, it decides">
+            A meeting with a recorded notice date is checked against that date. For the rest, HomeownerHub only knows
+            when the meeting was added here: one added fewer than {NOTICE_DAYS} days ahead can’t have had a{' '}
+            {NOTICE_DAYS}-day notice sent through HomeownerHub.
+          </Alert>
+        ) : (
+          <Alert variant="info" title="Notice posting isn’t recorded">
+            HomeownerHub doesn’t store when a meeting’s notice was posted. What it does know is when the meeting was
+            added here: a meeting added fewer than {NOTICE_DAYS} days ahead can’t have had a {NOTICE_DAYS}-day notice
+            sent through HomeownerHub. Whether a notice went up — here or anywhere else — you need to confirm.
+          </Alert>
+        )}
         {!meetings ? (
           <LoadFailed what="meetings" retryHref="/legal/compliance" />
         ) : meetings.length === 0 ? (
@@ -410,6 +423,11 @@ function PostingLine({ line }: { line: RecordLine }) {
 
 function noticeDetail(line: MeetingLine): string {
   const d = line.daysAhead
+  if (line.basis === 'posted') {
+    const posted = d == null ? 'Notice posted' : `Notice posted ${d} ${d === 1 ? 'day' : 'days'} ahead`
+    if (line.finding === 'posted_late') return `${posted} — fewer days than this meeting requires.`
+    return `${posted}.`
+  }
   const ahead = d == null ? 'Date added unknown' : `Added ${d} ${d === 1 ? 'day' : 'days'} ahead`
   switch (line.finding) {
     case 'added_late':

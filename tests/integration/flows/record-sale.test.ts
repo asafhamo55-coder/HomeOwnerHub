@@ -10,10 +10,10 @@
  *     residents not moved out);
  *   - "Invite to portal" links the buyer's sale ownership instead of
  *     opening a second one, so the settlement date stays its start;
- *   - the buyer's portal reads are narrowed to charges from the
- *     settlement date by the app (resident-sale-window.ts) — and, as of
- *     this change, RLS alone still returns the seller-era rows (the gap the
- *     P3 SQL closes; this test pins it so the fix updates it);
+ *   - the buyer's portal reads start at the settlement date — in the
+ *     database (0064's auth_resident_charges_from on assessments_select /
+ *     payments_select: RLS alone no longer returns seller-era rows) and
+ *     again in the app (resident-sale-window.ts, defence in depth);
  *   - a step Postgres rejects mid-way leaves the lot exactly as it was.
  *
  * Fixtures are synthetic; no real addresses or people.
@@ -162,11 +162,17 @@ describe('record a sale through a board user’s RLS client', () => {
     const raw = await loadLedgerRows(buyer.client, [unitId])
     expect(raw.ok).toBe(true)
     if (!raw.ok) return
-    // RLS alone still returns the seller-era charge (see the P3 SQL)…
-    expect(raw.assessments.map((a) => a.id)).toContain(preSale)
-    // …the app narrows it away.
+    // 0064: RLS alone no longer returns the seller-era charge…
+    expect(raw.assessments.map((a) => a.id)).toEqual([postSale])
+    // …and the app's narrowing agrees (it stays as defence in depth).
     const scoped = scopeLedgerRows(raw.assessments, raw.payments, window, ZONE)
     expect(scoped.assessments.map((a) => a.id)).toEqual([postSale])
+    // The buyer cannot reach it by id either.
+    const { data: direct } = await buyer.client.from('assessments').select('id').eq('id', preSale)
+    expect(direct ?? []).toEqual([])
+    // The board still sees the whole unit history.
+    const { data: boardRows } = await board.client.from('assessments').select('id').eq('unit_id', unitId)
+    expect((boardRows ?? []).map((a) => a.id).sort()).toEqual([preSale, postSale].sort())
   })
 
   it('a step Postgres rejects mid-way leaves the lot as it was', async () => {

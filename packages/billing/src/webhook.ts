@@ -1,5 +1,6 @@
 import type Stripe from 'stripe'
 import { createAdminClient } from '@homeowner-portal/db'
+import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { getStripe } from './client'
 
 export interface WebhookHandleResult {
@@ -11,9 +12,12 @@ export interface WebhookHandleResult {
     | 'case_payment_recorded'
     | 'subscription_deleted'
     | 'invoice_failed'
+    | 'duplicate'
     | 'ignored'
     | 'error'
   message?: string
+  /** Postgres / PostgREST code of a failed write — never its message. */
+  dbCode?: string
 }
 
 /**
@@ -46,41 +50,150 @@ export async function handleStripeWebhook(input: {
 
   let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(
-      input.rawBody,
-      input.signatureHeader,
-      input.webhookSecret,
-    )
-  } catch (err) {
-    return {
-      ok: false,
-      outcome: 'error',
-      message: err instanceof Error ? err.message : 'invalid_signature',
-    }
+    event = stripe.webhooks.constructEvent(input.rawBody, input.signatureHeader, input.webhookSecret)
+  } catch {
+    // Never surface the SDK's text: it is provider detail, not a code.
+    return { ok: false, outcome: 'error', message: 'invalid_signature' }
   }
 
-  const db = createAdminClient()
+  return applyStripeEvent(event, { db: createAdminClient() as unknown as WebhookDb })
+}
+
+// ─── Persistence ──────────────────────────────────────────────────────
+
+type DbError = { code?: string | number } | null
+
+interface WebhookRpcs {
+  stripe_webhook_checkout_subscription: {
+    p_event_id: string
+    p_event_created: string
+    p_org_id: string
+    p_customer_id: string | null
+    p_sub_id: string | null
+    p_plan: string | null
+  }
+  stripe_webhook_checkout_payment: {
+    p_event_id: string
+    p_event_created: string
+    p_org_id: string
+    p_customer_id: string | null
+    p_case_id: string | null
+    p_payment_intent_id: string | null
+  }
+  stripe_webhook_subscription_deleted: {
+    p_event_id: string
+    p_event_created: string
+    p_sub_id: string
+  }
+}
+
+interface Filterable extends PromiseLike<{ error: DbError }> {
+  eq(col: string, value: string): Filterable
+}
+
+/** The slice of the admin client this module uses (structural, so tests can fake it). */
+export interface WebhookDb {
+  from(table: 'orgs' | 'eviction_cases'): { update(patch: Record<string, unknown>): Filterable }
+  rpc<N extends keyof WebhookRpcs>(fn: N, args: WebhookRpcs[N]): PromiseLike<{ data: unknown; error: DbError }>
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const APPLIED = new Set<WebhookHandleResult['outcome']>([
+  'subscription_started',
+  'subscription_deleted',
+  'one_time_payment',
+  'case_payment_recorded',
+])
+
+function persistFailed(error: DbError): WebhookHandleResult {
+  return {
+    ok: false,
+    outcome: 'error',
+    message: 'persist_failed',
+    dbCode: error?.code != null ? String(error.code) : undefined,
+  }
+}
+
+async function callRpc<N extends keyof WebhookRpcs>(db: WebhookDb, fn: N, args: WebhookRpcs[N]): Promise<WebhookHandleResult> {
+  const { data, error } = await db.rpc(fn, args)
+  if (error) return persistFailed(error)
+  const code = typeof data === 'string' ? data : null
+  if (code === 'duplicate') return { ok: true, outcome: 'duplicate' }
+  if (code && code.startsWith('ignored_')) return { ok: true, outcome: 'ignored', message: code.slice('ignored_'.length) }
+  if (code && APPLIED.has(code as WebhookHandleResult['outcome'])) {
+    return { ok: true, outcome: code as WebhookHandleResult['outcome'] }
+  }
+  // A reply we do not understand: we cannot claim it persisted.
+  return { ok: false, outcome: 'error', message: 'unexpected_rpc_result' }
+}
+
+function idOf(value: string | { id: string } | null | undefined): string | null {
+  if (!value) return null
+  return typeof value === 'string' ? value : (value.id ?? null)
+}
+
+/**
+ * Apply one verified event.
+ *
+ * m1 = false (today): the pre-M1 direct writes, unchanged in effect.
+ *
+ * m1 = true (after migrations/0064_m1_batch.sql): every handled event goes
+ * through ONE SQL function that dedupes on Stripe's event id, records the
+ * event against its SUBSCRIPTION (stripe_subscriptions), and recomputes the
+ * org from the set of subscriptions it has seen — the latest-started live
+ * one, or free once its current one is recorded deleted. The result does
+ * not depend on delivery order, so a deletion of the old subscription
+ * processed before the replacement's checkout cannot leave a paying org on
+ * free (the refuted r2 0064 kept one per-org clock and could). A failed
+ * write is ok: false, so the route answers non-2xx and Stripe redelivers.
+ */
+export async function applyStripeEvent(
+  event: Stripe.Event,
+  deps: { db: WebhookDb; m1?: boolean },
+): Promise<WebhookHandleResult> {
+  const m1 = deps.m1 ?? M1_APPLIED
+  const db = deps.db
+  const eventCreated = new Date(event.created * 1000).toISOString()
 
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session
       const orgId = session.metadata?.org_id
-      const plan = session.metadata?.plan
+      const plan = session.metadata?.plan || null
       const caseId = session.metadata?.case_id
-      const customerId = (session.customer as string | null) ?? null
+      const customerId = idOf(session.customer as string | { id: string } | null)
+      const paymentIntentId = idOf(session.payment_intent as string | { id: string } | null)
 
-      if (!orgId) {
-        return { ok: true, outcome: 'ignored', message: 'session missing org_id' }
+      if (!orgId) return { ok: true, outcome: 'ignored', message: 'session_missing_org_id' }
+
+      if (m1) {
+        // Our checkout stamps a uuid; anything else would fail the uuid cast on every redelivery.
+        if (!UUID_RE.test(orgId)) return { ok: true, outcome: 'ignored', message: 'session_invalid_org_id' }
+        if (session.mode === 'subscription') {
+          return callRpc(db, 'stripe_webhook_checkout_subscription', {
+            p_event_id: event.id,
+            p_event_created: eventCreated,
+            p_org_id: orgId,
+            p_customer_id: customerId,
+            p_sub_id: idOf(session.subscription as string | { id: string } | null),
+            p_plan: plan,
+          })
+        }
+        return callRpc(db, 'stripe_webhook_checkout_payment', {
+          p_event_id: event.id,
+          p_event_created: eventCreated,
+          p_org_id: orgId,
+          p_customer_id: customerId,
+          p_case_id: caseId && UUID_RE.test(caseId) ? caseId : null,
+          p_payment_intent_id: paymentIntentId,
+        })
       }
 
       if (session.mode === 'subscription') {
-        const updates: {
-          plan?: string
-          stripe_customer_id: string | null
-          stripe_sub_id: string | null
-        } = {
+        const updates: Record<string, unknown> = {
           stripe_customer_id: customerId,
-          stripe_sub_id: (session.subscription as string | null) ?? null,
+          stripe_sub_id: idOf(session.subscription as string | { id: string } | null),
         }
         if (plan) updates.plan = plan
         await db.from('orgs').update(updates).eq('id', orgId)
@@ -90,29 +203,14 @@ export async function handleStripeWebhook(input: {
       // One-time payment (mode: 'payment'): never overwrite the running
       // plan. Only stamp the customer id so we keep the card on file.
       if (customerId) {
-        await db
-          .from('orgs')
-          .update({ stripe_customer_id: customerId })
-          .eq('id', orgId)
+        await db.from('orgs').update({ stripe_customer_id: customerId }).eq('id', orgId)
       }
 
-      // Per-case eviction billing: stamp the payment intent id onto the
-      // case so the case detail page can show "paid" without polling Stripe.
-      // Scope the update by org_id (from the verified session metadata) so
-      // a stray case_id from another org could never touch this org's row.
-      if (caseId) {
-        const paymentIntentId =
-          typeof session.payment_intent === 'string'
-            ? session.payment_intent
-            : session.payment_intent?.id ?? null
-        if (paymentIntentId) {
-          await db
-            .from('eviction_cases')
-            .update({ stripe_payment_id: paymentIntentId })
-            .eq('id', caseId)
-            .eq('org_id', orgId)
-          return { ok: true, outcome: 'case_payment_recorded' }
-        }
+      // Per-case eviction billing, scoped by org_id from the verified
+      // metadata so a stray case_id from another org never matches.
+      if (caseId && paymentIntentId) {
+        await db.from('eviction_cases').update({ stripe_payment_id: paymentIntentId }).eq('id', caseId).eq('org_id', orgId)
+        return { ok: true, outcome: 'case_payment_recorded' }
       }
 
       return { ok: true, outcome: 'one_time_payment' }
@@ -120,22 +218,25 @@ export async function handleStripeWebhook(input: {
 
     case 'customer.subscription.deleted': {
       const sub = event.data.object as Stripe.Subscription
-      const customerId =
-        typeof sub.customer === 'string' ? sub.customer : sub.customer?.id ?? null
+      if (m1) {
+        if (!sub.id) return { ok: true, outcome: 'ignored', message: 'subscription_missing_id' }
+        return callRpc(db, 'stripe_webhook_subscription_deleted', {
+          p_event_id: event.id,
+          p_event_created: eventCreated,
+          p_sub_id: sub.id,
+        })
+      }
+      const customerId = idOf(sub.customer as string | { id: string } | null)
       if (!customerId) {
         return { ok: true, outcome: 'ignored', message: 'no customer on subscription' }
       }
-      await db
-        .from('orgs')
-        .update({ plan: 'free', stripe_sub_id: null })
-        .eq('stripe_customer_id', customerId)
+      await db.from('orgs').update({ plan: 'free', stripe_sub_id: null }).eq('stripe_customer_id', customerId)
       return { ok: true, outcome: 'subscription_deleted' }
     }
 
-    case 'invoice.payment_failed': {
+    case 'invoice.payment_failed':
       // Stripe retries on its own. We just acknowledge.
       return { ok: true, outcome: 'invoice_failed' }
-    }
 
     default:
       return { ok: true, outcome: 'ignored', message: event.type }

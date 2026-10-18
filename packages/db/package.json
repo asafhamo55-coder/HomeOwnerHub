@@ -6,7 +6,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./types": "./src/database.types.ts"
+    "./types": "./src/database.types.ts",
+    "./m1": "./src/m1.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

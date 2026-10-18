@@ -206,7 +206,8 @@ describe('storage delete and update scope', () => {
     const orgA = await makeOrg()
     const board = await mintUser(orgA, 'board')
     const resident = await mintUser(orgA, 'resident')
-    const path = `${orgA.orgId}/resident-upload.txt`
+    // 0064 (M1): a resident may upload only under <org>/submissions/.
+    const path = `${orgA.orgId}/submissions/resident-upload.txt`
 
     const up = await resident.client.storage.from('hoa-documents').upload(path, new Blob(['x']))
     expect(up.error).toBeNull()

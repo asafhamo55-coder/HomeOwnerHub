@@ -75,6 +75,8 @@ export interface ComplianceDoc {
   hasFile?: boolean
   /** governing_documents.ai_generated. */
   aiGenerated?: boolean | null
+  /** visible_to_owners (BL-052, 0064); read only once M1_APPLIED. */
+  visibleToOwners?: boolean | null
 }
 
 export type MatchedBy = 'type' | 'title'
@@ -98,7 +100,10 @@ export type PostingStatus = 'posted' | 'older_posted' | 'not_visible'
 
 /** Owners can open this document from /resident/documents. */
 export function postedForOwners(doc: ComplianceDoc): boolean {
-  return doc.hasFile === true && isResidentVisible({ source: doc.source, type: doc.type, aiGenerated: doc.aiGenerated })
+  return (
+    doc.hasFile === true &&
+    isResidentVisible({ source: doc.source, type: doc.type, aiGenerated: doc.aiGenerated, visibleToOwners: doc.visibleToOwners })
+  )
 }
 
 export interface RecordLine {
@@ -180,11 +185,23 @@ export interface ComplianceMeeting {
   meetingType: string | null
   /** hoa_meeting_minutes.created_at — when it was added to HomeownerHub. */
   addedAt: string | null
+  /**
+   * hoa_meeting_minutes.notice_posted_at (BL-050, migration 0064) — when the
+   * board recorded posting the notice. Only read once M1_APPLIED; absent or
+   * null means "not recorded" and the added-date bounds below apply.
+   */
+  noticePostedAt?: string | null
 }
 
 /**
- * HomeownerHub stores no "notice posted" timestamp for a meeting. What it
- * does store is when the meeting was added, which bounds what can be said:
+ * When the board has recorded when the notice was posted (BL-050), that
+ * date decides:
+ *
+ *   posted_on_time   posted at least the rule's days ahead.
+ *   posted_late      posted fewer days ahead than the rule requires.
+ *
+ * Otherwise HomeownerHub knows only when the meeting was added, which
+ * bounds what can be said:
  *
  *   added_late       added fewer days ahead than the rule requires — a
  *                    notice cannot have gone out through HomeownerHub in
@@ -198,13 +215,22 @@ export interface ComplianceMeeting {
  *                    recorded later) — says nothing about notice.
  *   exempt           emergency meeting.
  */
-export type NoticeFinding = 'added_late' | 'maybe_late' | 'not_recorded' | 'added_after' | 'exempt'
+export type NoticeFinding =
+  | 'posted_on_time'
+  | 'posted_late'
+  | 'added_late'
+  | 'maybe_late'
+  | 'not_recorded'
+  | 'added_after'
+  | 'exempt'
 
 export interface MeetingLine {
   meeting: ComplianceMeeting
   rule: NoticeRule
-  /** Days from being added to the meeting date (UTC calendar days). */
+  /** Days from being added (or, with basis 'posted', from the notice) to the meeting date (UTC calendar days). */
   daysAhead: number | null
+  /** What daysAhead counts from: the recorded notice posting, or the day the meeting was added. */
+  basis: 'posted' | 'added'
   finding: NoticeFinding
   when: 'upcoming' | 'recent'
 }
@@ -221,13 +247,27 @@ function todayUtc(now: Date): number {
   return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
 }
 
+function daysBefore(meetingDate: string, at: string | null | undefined): number | null {
+  const meetingDay = utcDay(meetingDate)
+  if (meetingDay == null || !at) return null
+  const t = Date.parse(at)
+  if (Number.isNaN(t)) return null
+  return Math.round((meetingDay - todayUtc(new Date(t))) / DAY_MS)
+}
+
 export function daysAhead(meeting: ComplianceMeeting): number | null {
-  const meetingDay = utcDay(meeting.meetingDate)
-  if (meetingDay == null || !meeting.addedAt) return null
-  const added = Date.parse(meeting.addedAt)
-  if (Number.isNaN(added)) return null
-  const addedDay = todayUtc(new Date(added))
-  return Math.round((meetingDay - addedDay) / DAY_MS)
+  return daysBefore(meeting.meetingDate, meeting.addedAt)
+}
+
+/** Days from the recorded notice posting to the meeting, or null when none is recorded. */
+export function noticeDaysAhead(meeting: ComplianceMeeting): number | null {
+  return daysBefore(meeting.meetingDate, meeting.noticePostedAt)
+}
+
+/** The finding from a recorded posting (BL-050): on time or late for the rule. */
+export function postedNoticeFinding(rule: NoticeRule, postedAhead: number): NoticeFinding {
+  if (rule.minDays == null) return 'exempt'
+  return postedAhead < rule.minDays ? 'posted_late' : 'posted_on_time'
 }
 
 export function noticeFinding(rule: NoticeRule, ahead: number | null): NoticeFinding {
@@ -237,6 +277,11 @@ export function noticeFinding(rule: NoticeRule, ahead: number | null): NoticeFin
   if (ahead < rule.minDays) return 'added_late'
   if (rule.id === 'board_48h' && ahead < 14) return 'maybe_late'
   return 'not_recorded'
+}
+
+/** Columns the meetings read selects: notice_posted_at only once M1 is applied (BL-050). */
+export function complianceMeetingColumns(m1: boolean): string {
+  return m1 ? 'id, meeting_date, meeting_type, created_at, notice_posted_at' : 'id, meeting_date, meeting_type, created_at'
 }
 
 export interface MeetingWindow {
@@ -260,8 +305,14 @@ export function evaluateMeetings(
     const day = utcDay(meeting.meetingDate)
     if (day == null || day < from || day > to) continue
     const rule = noticeRuleFor(meeting.meetingType)
+    const when = day >= today ? 'upcoming' : 'recent'
+    const posted = noticeDaysAhead(meeting)
+    if (posted != null) {
+      lines.push({ meeting, rule, daysAhead: posted, basis: 'posted', finding: postedNoticeFinding(rule, posted), when })
+      continue
+    }
     const ahead = daysAhead(meeting)
-    lines.push({ meeting, rule, daysAhead: ahead, finding: noticeFinding(rule, ahead), when: day >= today ? 'upcoming' : 'recent' })
+    lines.push({ meeting, rule, daysAhead: ahead, basis: 'added', finding: noticeFinding(rule, ahead), when })
   }
   const upcoming = lines.filter((l) => l.when === 'upcoming').sort((a, b) => a.meeting.meetingDate.localeCompare(b.meeting.meetingDate))
   const recent = lines.filter((l) => l.when === 'recent').sort((a, b) => b.meeting.meetingDate.localeCompare(a.meeting.meetingDate))

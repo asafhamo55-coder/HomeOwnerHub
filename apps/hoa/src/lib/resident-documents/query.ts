@@ -2,13 +2,12 @@
  * Reads for the resident documents screen (BL-049).
  *
  * Always called with the signed-in user's OWN client (RLS-bound), never
- * service role: 0063 lets org members SELECT hoa_documents,
- * hoa_document_versions and governing_documents (pre-0063 the FOR ALL
- * org_access policies allow the same SELECT), and the storage SELECT
- * policies from 0055/0056 let them read their org's objects in
- * hoa-documents and governing-docs. RLS cannot tell a resident-facing
- * document from a board-only one, so the allowlist in visibility.ts is
- * applied twice — in the query (`.in('type', …)`) and again on the rows.
+ * service role. 0063 already limits a resident's SELECT to the allowlisted
+ * types; 0064 (M1) adds the board-set visible_to_owners flag to that rule
+ * and makes storage reads follow it. The app applies the same rule twice
+ * anyway — in the query and again on the rows — so it is right on a
+ * database without 0063/0064 too. With M1_APPLIED false the flag is never
+ * read (the query names no M1 column), which is correct on either schema.
  *
  * Every read throws on error (code only, never row values) so the page
  * shows "Couldn't load" rather than a falsely empty list.
@@ -17,6 +16,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
+import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import type { ResidentDocument } from './group'
 import {
   DOCUMENT_BUCKET,
@@ -38,25 +38,64 @@ export function isUuid(value: string): boolean {
   return UUID.test(value)
 }
 
+/** `m1`: read the board-set visible_to_owners flag (0064). Defaults to M1_APPLIED. */
+export interface VisibilityOptions {
+  m1?: boolean
+}
+
+/**
+ * PostgREST `or` filter: an allowlisted type, or posted by the board.
+ * Values are fixed identifiers from visibility.ts, never user input.
+ */
+export function residentVisibleOrFilter(source: DocSource): string {
+  return `type.in.(${RESIDENT_VISIBLE_TYPES[source].join(',')}),visible_to_owners.is.true`
+}
+
+type HoaRow = { id: string; name: string; type: string; storage_path: string | null; created_at: string | null; visible_to_owners?: boolean }
+type GovRow = {
+  id: string
+  title: string
+  type: string
+  effective_date: string | null
+  storage_path: string | null
+  ai_generated: boolean | null
+  created_at: string | null
+  updated_at: string | null
+  visible_to_owners?: boolean
+}
+
 /** Current, resident-visible documents of one org, both tables. */
-export async function fetchResidentDocuments(client: Client, orgId: string): Promise<ResidentDocument[]> {
-  const [hoa, gov] = await Promise.all([
-    client
-      .from('hoa_documents')
-      .select('id, name, type, storage_path, created_at')
-      .eq('org_id', orgId)
-      .in('type', [...RESIDENT_VISIBLE_TYPES.hoa]),
-    client
-      .from('governing_documents')
-      .select('id, title, type, effective_date, storage_path, ai_generated, created_at, updated_at')
-      .eq('organization_id', orgId)
-      .is('superseded_at', null)
-      .in('type', [...RESIDENT_VISIBLE_TYPES.governing]),
+export async function fetchResidentDocuments(
+  client: Client,
+  orgId: string,
+  opts: VisibilityOptions = {},
+): Promise<ResidentDocument[]> {
+  const m1 = opts.m1 ?? M1_APPLIED
+  const hoaQ = client
+    .from('hoa_documents')
+    .select(m1 ? 'id, name, type, storage_path, created_at, visible_to_owners' : 'id, name, type, storage_path, created_at')
+    .eq('org_id', orgId)
+  const govQ = client
+    .from('governing_documents')
+    .select(
+      m1
+        ? 'id, title, type, effective_date, storage_path, ai_generated, created_at, updated_at, visible_to_owners'
+        : 'id, title, type, effective_date, storage_path, ai_generated, created_at, updated_at',
+    )
+    .eq('organization_id', orgId)
+    .is('superseded_at', null)
+  const [hoaRes, govRes] = await Promise.all([
+    m1 ? hoaQ.or(residentVisibleOrFilter('hoa')) : hoaQ.in('type', [...RESIDENT_VISIBLE_TYPES.hoa]),
+    m1 ? govQ.or(residentVisibleOrFilter('governing')) : govQ.in('type', [...RESIDENT_VISIBLE_TYPES.governing]),
   ])
+  const hoa = { data: hoaRes.data as unknown as HoaRow[] | null, error: hoaRes.error }
+  const gov = { data: govRes.data as unknown as GovRow[] | null, error: govRes.error }
   if (hoa.error) throw new Error(`hoa_documents: ${hoa.error.code ?? 'error'}`)
   if (gov.error) throw new Error(`governing_documents: ${gov.error.code ?? 'error'}`)
 
-  const hoaRows = (hoa.data ?? []).filter((d) => isResidentVisible({ source: 'hoa', type: d.type }))
+  const hoaRows = (hoa.data ?? []).filter((d) =>
+    isResidentVisible({ source: 'hoa', type: d.type, visibleToOwners: m1 ? d.visible_to_owners : undefined }),
+  )
 
   // When each hoa document's file was last replaced: the newest version
   // row is the snapshot taken at that replacement.
@@ -87,7 +126,16 @@ export async function fetchResidentDocuments(client: Client, orgId: string): Pro
     hasFile: Boolean(d.storage_path?.trim()),
   }))
   for (const d of gov.data ?? []) {
-    if (!isResidentVisible({ source: 'governing', type: d.type, aiGenerated: d.ai_generated })) continue
+    if (
+      !isResidentVisible({
+        source: 'governing',
+        type: d.type,
+        aiGenerated: d.ai_generated,
+        visibleToOwners: m1 ? d.visible_to_owners : undefined,
+      })
+    ) {
+      continue
+    }
     out.push({
       source: 'governing',
       id: d.id,
@@ -118,26 +166,46 @@ export async function fetchResidentDocumentFile(
   orgId: string,
   source: DocSource,
   id: string,
+  opts: VisibilityOptions = {},
 ): Promise<OpenTarget | null> {
   if (!isUuid(id)) return null
+  const m1 = opts.m1 ?? M1_APPLIED
   if (source === 'hoa') {
-    const { data, error } = await client
+    const res = await client
       .from('hoa_documents')
-      .select('type, storage_path')
+      .select(m1 ? 'type, storage_path, visible_to_owners' : 'type, storage_path')
       .eq('id', id)
       .eq('org_id', orgId)
       .maybeSingle()
-    if (error) throw new Error(`hoa_documents: ${error.code ?? 'error'}`)
-    if (!data || !canResidentOpen({ source, type: data.type, storagePath: data.storage_path })) return null
+    if (res.error) throw new Error(`hoa_documents: ${res.error.code ?? 'error'}`)
+    const data = res.data as unknown as { type: string; storage_path: string; visible_to_owners?: boolean } | null
+    if (
+      !data ||
+      !canResidentOpen({
+        source,
+        type: data.type,
+        storagePath: data.storage_path,
+        visibleToOwners: m1 ? data.visible_to_owners : undefined,
+      })
+    ) {
+      return null
+    }
     return { bucket: DOCUMENT_BUCKET.hoa, path: data.storage_path }
   }
-  const { data, error } = await client
+  const res = await client
     .from('governing_documents')
-    .select('type, storage_path, ai_generated, superseded_at')
+    .select(m1 ? 'type, storage_path, ai_generated, superseded_at, visible_to_owners' : 'type, storage_path, ai_generated, superseded_at')
     .eq('id', id)
     .eq('organization_id', orgId)
     .maybeSingle()
-  if (error) throw new Error(`governing_documents: ${error.code ?? 'error'}`)
+  if (res.error) throw new Error(`governing_documents: ${res.error.code ?? 'error'}`)
+  const data = res.data as unknown as {
+    type: string
+    storage_path: string | null
+    ai_generated: boolean | null
+    superseded_at: string | null
+    visible_to_owners?: boolean
+  } | null
   if (
     !data ||
     !data.storage_path ||
@@ -147,6 +215,7 @@ export async function fetchResidentDocumentFile(
       aiGenerated: data.ai_generated,
       superseded: data.superseded_at != null,
       storagePath: data.storage_path,
+      visibleToOwners: m1 ? data.visible_to_owners : undefined,
     })
   ) {
     return null

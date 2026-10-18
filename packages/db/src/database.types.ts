@@ -2243,6 +2243,7 @@ export type Database = {
       }
       governing_documents: {
         Row: {
+          visible_to_owners: boolean
           ai_generated: boolean | null
           ai_workflow_id: string | null
           association_id: string | null
@@ -2262,6 +2263,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          visible_to_owners?: boolean
           ai_generated?: boolean | null
           ai_workflow_id?: string | null
           association_id?: string | null
@@ -2281,6 +2283,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          visible_to_owners?: boolean
           ai_generated?: boolean | null
           ai_workflow_id?: string | null
           association_id?: string | null
@@ -2418,6 +2421,7 @@ export type Database = {
       }
       hoa_documents: {
         Row: {
+          visible_to_owners: boolean
           created_at: string | null
           file_size: number | null
           id: string
@@ -2429,6 +2433,7 @@ export type Database = {
           type: string
         }
         Insert: {
+          visible_to_owners?: boolean
           created_at?: string | null
           file_size?: number | null
           id?: string
@@ -2440,6 +2445,7 @@ export type Database = {
           type: string
         }
         Update: {
+          visible_to_owners?: boolean
           created_at?: string | null
           file_size?: number | null
           id?: string
@@ -2532,6 +2538,7 @@ export type Database = {
       }
       hoa_meeting_minutes: {
         Row: {
+          notice_posted_at: string | null
           action_items: Json | null
           ai_summary: string | null
           approved_at: string | null
@@ -2550,6 +2557,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          notice_posted_at?: string | null
           action_items?: Json | null
           ai_summary?: string | null
           approved_at?: string | null
@@ -2568,6 +2576,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          notice_posted_at?: string | null
           action_items?: Json | null
           ai_summary?: string | null
           approved_at?: string | null
@@ -2670,6 +2679,8 @@ export type Database = {
       }
       hoa_recurring_events: {
         Row: {
+          alert_failed_attempts: number
+          alert_failed_for: string | null
           alert_days_before: number
           association_id: string | null
           created_at: string
@@ -2688,6 +2699,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alert_failed_attempts?: number
+          alert_failed_for?: string | null
           alert_days_before?: number
           association_id?: string | null
           created_at?: string
@@ -2706,6 +2719,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alert_failed_attempts?: number
+          alert_failed_for?: string | null
           alert_days_before?: number
           association_id?: string | null
           created_at?: string
@@ -4039,6 +4054,58 @@ export type Database = {
             columns: ["ticket_id"]
             isOneToOne: false
             referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      member_email_consent_events: {
+        Row: {
+          created_at: string
+          granted: boolean
+          id: string
+          method: string
+          organization_id: string
+          recorded_by: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted: boolean
+          id?: string
+          method: string
+          organization_id: string
+          recorded_by?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted?: boolean
+          id?: string
+          method?: string
+          organization_id?: string
+          recorded_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_email_consent_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_email_consent_events_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_email_consent_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -5419,6 +5486,82 @@ export type Database = {
           },
         ]
       }
+      stripe_subscriptions: {
+        Row: {
+          customer_id: string | null
+          deleted_at: string | null
+          org_id: string | null
+          plan: string | null
+          started_at: string | null
+          sub_id: string
+          updated_at: string
+        }
+        Insert: {
+          customer_id?: string | null
+          deleted_at?: string | null
+          org_id?: string | null
+          plan?: string | null
+          started_at?: string | null
+          sub_id: string
+          updated_at?: string
+        }
+        Update: {
+          customer_id?: string | null
+          deleted_at?: string | null
+          org_id?: string | null
+          plan?: string | null
+          started_at?: string | null
+          sub_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_subscriptions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stripe_webhook_events: {
+        Row: {
+          event_created: string
+          event_id: string
+          event_type: string
+          object_id: string | null
+          org_id: string | null
+          outcome: string
+          processed_at: string
+        }
+        Insert: {
+          event_created: string
+          event_id: string
+          event_type: string
+          object_id?: string | null
+          org_id?: string | null
+          outcome: string
+          processed_at?: string
+        }
+        Update: {
+          event_created?: string
+          event_id?: string
+          event_type?: string
+          object_id?: string | null
+          org_id?: string | null
+          outcome?: string
+          processed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_webhook_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       state_law_updates: {
         Row: {
           action_items: string[] | null
@@ -6621,6 +6764,7 @@ export type Database = {
       }
     }
     Functions: {
+      auth_resident_charges_from: { Args: { p_unit: string }; Returns: string }
       auth_is_admin: { Args: { p_org_id: string }; Returns: boolean }
       auth_is_board_or_admin: { Args: { p_org_id: string }; Returns: boolean }
       auth_is_platform_admin: { Args: never; Returns: boolean }
@@ -6690,6 +6834,33 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       storage_object_org_id: { Args: { object_name: string }; Returns: string }
+      stripe_billing_recompute: { Args: { p_org_id: string }; Returns: string }
+      stripe_webhook_checkout_payment: {
+        Args: {
+          p_case_id: string | null
+          p_customer_id: string | null
+          p_event_created: string
+          p_event_id: string
+          p_org_id: string
+          p_payment_intent_id: string | null
+        }
+        Returns: string
+      }
+      stripe_webhook_checkout_subscription: {
+        Args: {
+          p_customer_id: string | null
+          p_event_created: string
+          p_event_id: string
+          p_org_id: string
+          p_plan: string | null
+          p_sub_id: string | null
+        }
+        Returns: string
+      }
+      stripe_webhook_subscription_deleted: {
+        Args: { p_event_created: string; p_event_id: string; p_sub_id: string }
+        Returns: string
+      }
     }
     Enums: {
       action_item_priority: "low" | "normal" | "high"

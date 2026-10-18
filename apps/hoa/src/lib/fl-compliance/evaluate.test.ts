@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   checkQuote,
   complianceGate,
+  complianceMeetingColumns,
   daysAhead,
   evaluateMeetings,
   evaluateRecord,
@@ -9,6 +10,8 @@ import {
   matchCategory,
   monthsBetween,
   officialStatuteText,
+  postedForOwners,
+  postedNoticeFinding,
   summarizeRecords,
   type ComplianceDoc,
   type ComplianceMeeting,
@@ -312,5 +315,51 @@ describe('statute text not loaded', () => {
   it('official text containing the quote → validated (whitespace and case tolerant only)', () => {
     const text = officialStatuteText({ body: 'd.  THE CURRENT RULES\nof the association.', source_name: 'flsenate.gov' })
     expect(checkQuote(q, text)).toMatchObject({ kind: 'validated', quote: q.quote })
+  })
+})
+
+describe('M1 (BL-050): a recorded notice_posted_at decides the finding', () => {
+  const posted = (meetingDate: string, meetingType: string | null, addedAt: string, noticePostedAt: string | null) =>
+    ({ id: `p${++n}`, meetingDate, meetingType, addedAt, noticePostedAt }) satisfies ComplianceMeeting
+
+  it('selects notice_posted_at only with the flag on', () => {
+    expect(complianceMeetingColumns(false)).not.toContain('notice_posted_at')
+    expect(complianceMeetingColumns(true)).toContain('notice_posted_at')
+  })
+
+  it('posted 14 days before an annual meeting is on time, 13 is late — whatever the added date says', () => {
+    const [ok] = evaluateMeetings([posted('2026-10-30', 'annual', '2026-10-01T00:00:00Z', '2026-10-16T09:00:00Z')], NOW)
+    expect(ok).toMatchObject({ finding: 'posted_on_time', daysAhead: 14, basis: 'posted' })
+    const [late] = evaluateMeetings([posted('2026-10-29', 'annual', '2026-10-01T00:00:00Z', '2026-10-16T09:00:00Z')], NOW)
+    expect(late).toMatchObject({ finding: 'posted_late', daysAhead: 13, basis: 'posted' })
+  })
+
+  it('a regular board meeting posted 2 days ahead is on time (48-hour rule)', () => {
+    const [b] = evaluateMeetings([posted('2026-10-20', 'regular', '2026-10-01T00:00:00Z', '2026-10-18T00:00:00Z')], NOW)
+    expect(b).toMatchObject({ finding: 'posted_on_time', daysAhead: 2 })
+  })
+
+  it('emergency stays exempt; no posting date falls back to the added-date reading', () => {
+    expect(postedNoticeFinding({ id: 'emergency', minDays: null, summary: '', citations: [] } as never, 0)).toBe('exempt')
+    const [a] = evaluateMeetings([posted('2026-10-29', 'annual', '2026-10-16T09:00:00Z', null)], NOW)
+    expect(a).toMatchObject({ finding: 'added_late', basis: 'added' })
+  })
+})
+
+describe('M1 (BL-052): visible_to_owners counts as posted for owners', () => {
+  const doc = (over: Partial<ComplianceDoc>): ComplianceDoc => ({
+    source: 'hoa',
+    id: 'd',
+    title: 'Budget',
+    type: 'other',
+    date: null,
+    hasFile: true,
+    ...over,
+  })
+  it('an "other" document is posted only when flagged, and only with a file', () => {
+    expect(postedForOwners(doc({}))).toBe(false)
+    expect(postedForOwners(doc({ visibleToOwners: true }))).toBe(true)
+    expect(postedForOwners(doc({ visibleToOwners: true, hasFile: false }))).toBe(false)
+    expect(postedForOwners(doc({ source: 'governing', visibleToOwners: true, aiGenerated: true }))).toBe(false)
   })
 })

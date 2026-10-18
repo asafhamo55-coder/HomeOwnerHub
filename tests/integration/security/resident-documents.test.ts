@@ -2,12 +2,13 @@
  * BL-049: residents see the association's governing documents — and only
  * those.
  *
- * RLS (0063: members read hoa_documents / governing_documents; storage
- * 0055/0056: members read their org's objects) cannot tell a bylaws PDF
- * from a collection letter, so the allowlist is app-level
- * (apps/hoa/src/lib/resident-documents/visibility.ts). These tests run the
- * same reads the resident page and the open route run, as a real
- * signed-in resident, and prove:
+ * The allowlist lives in apps/hoa/src/lib/resident-documents/visibility.ts
+ * and, since 0063/0064, in the database too: 0063 limits a resident's row
+ * SELECT to the allowlisted types, and 0064 (M1, BL-052/BL-058) adds the
+ * board-set visible_to_owners flag and makes storage reads follow the
+ * rows (a resident signs only an object a row they can read points at).
+ * These tests run the same reads the resident page and the open route
+ * run, as a real signed-in resident, and prove:
  *   - allowlisted documents come back and their file can be signed;
  *   - internal types (hoa "other", minutes, AI-generated, superseded)
  *     never come back and never resolve to a file;
@@ -16,6 +17,7 @@
  * Fixture rule (fixtures/factory.ts): adminDb() seeds; every assertion
  * runs through a user's own client.
  */
+import { randomUUID } from 'node:crypto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   fetchResidentDocumentFile,
@@ -138,5 +140,112 @@ describe('resident documents', () => {
     await expect(fetchResidentDocumentFile(outsider.client, s.org.orgId, 'hoa', s.ids.bylaws)).resolves.toBeNull()
     const leak = await outsider.client.storage.from('hoa-documents').createSignedUrl(s.bylawsPath, 60)
     expect(leak.data?.signedUrl ?? null, 'cross-org resident signed a file').toBeNull()
+  })
+})
+
+/**
+ * M1 (0064) in the database, with the app flag still off: storage reads
+ * follow the rows, bills / vendor files / unposted letters are board-only,
+ * and a board-flagged document is readable by residents at the row and
+ * object level (the app starts listing it once M1_APPLIED flips).
+ */
+describe('M1: document visibility and storage enforced by the database', () => {
+  beforeEach(async () => {
+    await truncateAll()
+  })
+
+  async function world() {
+    const org = await makeOrg()
+    const board = await mintUser(org, 'board')
+    const resident = await mintUser(org, 'resident')
+    const db = adminDb()
+    const put = async (path: string) => {
+      const up = await board.client.storage.from('hoa-documents').upload(path, new Blob(['x']), { upsert: true })
+      expect(up.error, `board could not upload ${path} — fixture is broken`).toBeNull()
+      return path
+    }
+    const paths = {
+      budget: await put(`${org.orgId}/budget-${Date.now()}.txt`),
+      letter: await put(`${org.orgId}/letter-${Date.now()}.txt`),
+      bill: await put(`${org.orgId}/bills/${Date.now()}-bill.txt`),
+      vendor: await put(`${org.orgId}/vendors/v1/w9/${Date.now()}.txt`),
+      orphan: await put(`${org.orgId}/orphan-${Date.now()}.txt`),
+    }
+    const doc = async (name: string, type: string, storage_path: string, visible_to_owners: boolean) => {
+      const { data, error } = await db
+        .from('hoa_documents')
+        .insert({ org_id: org.orgId, name, type, storage_path, visible_to_owners })
+        .select('id')
+        .single()
+      if (error || !data) throw new Error(`seed hoa_documents: ${error?.code}`)
+      return data.id
+    }
+    const ids = {
+      budget: await doc('Budget', 'other', paths.budget, true),
+      letter: await doc('Collection letter', 'other', paths.letter, false),
+    }
+    return { org, board, resident, paths, ids }
+  }
+
+  const sign = async (client: TestUser['client'], path: string) =>
+    (await client.storage.from('hoa-documents').createSignedUrl(path, 60)).data?.signedUrl ?? null
+
+  it('a board-flagged "other" document is readable by a resident; an unflagged one is not', async () => {
+    const w = await world()
+    const { data } = await w.resident.client.from('hoa_documents').select('id').in('id', [w.ids.budget, w.ids.letter])
+    expect((data ?? []).map((d) => d.id)).toEqual([w.ids.budget])
+    expect(await sign(w.resident.client, w.paths.budget), 'resident could not sign a posted document').toBeTruthy()
+    expect(await sign(w.resident.client, w.paths.letter), 'resident signed an unposted letter').toBeNull()
+  })
+
+  it('bills, vendor files and objects no row points at are board-only (BL-058)', async () => {
+    const w = await world()
+    for (const p of [w.paths.bill, w.paths.vendor, w.paths.orphan]) {
+      expect(await sign(w.resident.client, p), `resident signed ${p.split('/')[1]}`).toBeNull()
+      expect(await sign(w.board.client, p), `board could not sign ${p.split('/')[1]}`).toBeTruthy()
+    }
+  })
+
+  it('the app, flag off, still lists only the allowlist (no M1 column named)', async () => {
+    const w = await world()
+    const docs = await fetchResidentDocuments(w.resident.client, w.org.orgId, { m1: false })
+    expect(docs.map((d) => d.id)).toEqual([])
+    const flagged = await fetchResidentDocuments(w.resident.client, w.org.orgId, { m1: true })
+    expect(flagged.map((d) => d.id)).toEqual([w.ids.budget])
+  })
+
+  it('a resident uploads only under submissions/, and reads back their own upload', async () => {
+    const w = await world()
+    const mine = `${w.org.orgId}/submissions/ticket/${randomUUID()}/photo.txt`
+    const up = await w.resident.client.storage.from('hoa-documents').upload(mine, new Blob(['x']))
+    expect(up.error, 'resident submission upload refused').toBeNull()
+    expect(await sign(w.resident.client, mine)).toBeTruthy()
+    const planted = await w.resident.client.storage.from('hoa-documents').upload(`${w.org.orgId}/bills/fake.txt`, new Blob(['x']))
+    expect(planted.error, 'resident planted a file outside submissions/').not.toBeNull()
+    const gov = await w.resident.client.storage.from('governing-docs').upload(`${w.org.orgId}/x/fake.txt`, new Blob(['x']))
+    expect(gov.error, 'resident uploaded to governing-docs').not.toBeNull()
+  })
+
+  it('a resident reads a governing-docs object only through a visible row', async () => {
+    const w = await world()
+    const db = adminDb()
+    const visible = `${w.org.orgId}/${w.org.associationId}/rules-${Date.now()}.txt`
+    const hidden = `${w.org.orgId}/${w.org.associationId}/minutes-${Date.now()}.txt`
+    for (const p of [visible, hidden]) {
+      const up = await w.board.client.storage.from('governing-docs').upload(p, new Blob(['x']), { upsert: true })
+      expect(up.error).toBeNull()
+    }
+    for (const [type, storage_path] of [
+      ['rules', visible],
+      ['minutes', hidden],
+    ]) {
+      const { error } = await db
+        .from('governing_documents')
+        .insert({ organization_id: w.org.orgId, association_id: w.org.associationId, title: type, type, storage_path })
+      expect(error).toBeNull()
+    }
+    const g = (p: string) => w.resident.client.storage.from('governing-docs').createSignedUrl(p, 60)
+    expect((await g(visible)).data?.signedUrl, 'resident could not sign current rules').toBeTruthy()
+    expect((await g(hidden)).data?.signedUrl ?? null, 'resident signed board minutes').toBeNull()
   })
 })

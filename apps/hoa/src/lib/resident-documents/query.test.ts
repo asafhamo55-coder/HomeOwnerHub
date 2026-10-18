@@ -15,7 +15,7 @@ function fakeClient(byTable: Record<string, Resp>) {
     from(table: string) {
       const resp = byTable[table] ?? { data: null, error: null }
       const b: Record<string, unknown> = {}
-      for (const op of ['select', 'eq', 'is', 'in']) {
+      for (const op of ['select', 'eq', 'is', 'in', 'or']) {
         b[op] = (...args: unknown[]) => {
           calls.push({ table, op, args })
           return b
@@ -137,5 +137,59 @@ describe('fetchResidentDocuments', () => {
       governing_documents: { data: null, error: { code: 'PGRST301' } },
     })
     await expect(fetchResidentDocuments(client, ORG)).rejects.toThrow('governing_documents: PGRST301')
+  })
+})
+
+describe('M1 (BL-052): the board-set visible_to_owners flag', () => {
+  const hoaRows = [
+    { id: 'h1', name: 'CC&Rs', type: 'ccr', storage_path: 'p', created_at: 'x', visible_to_owners: false },
+    { id: 'h2', name: 'Budget 2027', type: 'other', storage_path: 'p', created_at: 'x', visible_to_owners: true },
+    { id: 'h3', name: 'Demand letter', type: 'other', storage_path: 'p', created_at: 'x', visible_to_owners: false },
+  ]
+  const govRows = [
+    { id: 'g1', title: 'Insurance', type: 'other', effective_date: null, storage_path: 'p', ai_generated: false, created_at: 'x', updated_at: 'x', visible_to_owners: true },
+    { id: 'g2', title: 'AI draft', type: 'other', effective_date: null, storage_path: 'p', ai_generated: true, created_at: 'x', updated_at: 'x', visible_to_owners: true },
+  ]
+
+  it('flag off: names no M1 column, filters by type, ignores a stray flag on the row', async () => {
+    const { client, calls } = fakeClient({
+      hoa_documents: { data: hoaRows, error: null },
+      hoa_document_versions: { data: [], error: null },
+      governing_documents: { data: govRows, error: null },
+    })
+    const docs = await fetchResidentDocuments(client, ORG, { m1: false })
+    expect(docs.map((d) => d.id)).toEqual(['h1'])
+    for (const c of calls.filter((c) => c.op === 'select')) expect(String(c.args[0])).not.toContain('visible_to_owners')
+    expect(calls.some((c) => c.op === 'or')).toBe(false)
+  })
+
+  it('flag on: selects the flag, ORs it into the filter, and posts flagged documents', async () => {
+    const { client, calls } = fakeClient({
+      hoa_documents: { data: hoaRows, error: null },
+      hoa_document_versions: { data: [], error: null },
+      governing_documents: { data: govRows, error: null },
+    })
+    const docs = await fetchResidentDocuments(client, ORG, { m1: true })
+    // AI-generated stays hidden even when flagged.
+    expect(docs.map((d) => d.id)).toEqual(['h1', 'h2', 'g1'])
+    expect(calls).toContainEqual({ table: 'hoa_documents', op: 'or', args: ['type.in.(ccr,bylaws,rules),visible_to_owners.is.true'] })
+    expect(calls).toContainEqual({
+      table: 'governing_documents',
+      op: 'or',
+      args: ['type.in.(declaration,bylaws,rules,amendment,policy),visible_to_owners.is.true'],
+    })
+    expect(calls.some((c) => c.op === 'in' && c.table !== 'hoa_document_versions')).toBe(false)
+  })
+
+  it('opens a flagged "other" file only with the flag on', async () => {
+    const row = { data: { type: 'other', storage_path: `${ORG}/budget.pdf`, visible_to_owners: true }, error: null }
+    const off = fakeClient({ hoa_documents: row })
+    await expect(fetchResidentDocumentFile(off.client, ORG, 'hoa', ID, { m1: false })).resolves.toBeNull()
+    expect(String(off.calls.find((c) => c.op === 'select')?.args[0])).toBe('type, storage_path')
+    const on = fakeClient({ hoa_documents: row })
+    await expect(fetchResidentDocumentFile(on.client, ORG, 'hoa', ID, { m1: true })).resolves.toEqual({
+      bucket: 'hoa-documents',
+      path: `${ORG}/budget.pdf`,
+    })
   })
 })
