@@ -206,3 +206,20 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
   - properties P2: full-width table and the property 360 page;
   - properties P4: a roster import the board runs itself.
   - Local gates: unit 4506/4506, build 4/4, guide:check 0 errors, guide:eval pass.
+
+## 2026-10-18 (00:53) â€” deploy 68106bf: properties 360 and board roster import
+
+- **Live:**
+  - P2: a full-width sortable table, and the property 360 page (action bar, Needs action, People, Money, Compliance, Leases, Communications, Activity; Log note).
+  - P4: /properties/import (CSV and XLSX, CINC preset, dry run, Skip or Update, chunked writes, error CSV).
+- **Smoke:** /properties 307, /properties/import 307, /login 200.
+- **Release-note email:** sent.
+- **Merged and pushed for CI (969622e):**
+  - BL-075: the ui-shots CI workflow. Its first run is on this push.
+  - BL-042 round 2 marketing truth pass:
+    - one pricing source matching checkout ($4.99/door, 41-door minimum);
+    - false claims removed;
+    - composite testimonials removed by the coordinator.
+- **Open:**
+  - Billing rounding: the in-app annual figure is $9,700.56 but Stripe charges $9,698.40 at 180 doors.
+  - Unverified marketing numbers (Madison Park figures, conversion rates, uptime) are left for the owner.
