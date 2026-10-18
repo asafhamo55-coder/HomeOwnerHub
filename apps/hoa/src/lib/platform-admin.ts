@@ -14,6 +14,7 @@ import { z } from 'zod'
 import { createAdminClient } from '@homeowner-portal/db'
 import { reportError } from '@homeowner-portal/observability/report'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getSignedInUser } from '@/lib/orgs'
 import { sendEmail, appUrl } from '@/lib/email'
 import { isUsStateCode } from '@/lib/us-states'
 import { associationSlug } from '@/lib/association-setup'
@@ -145,9 +146,7 @@ export type ActionResult<T = void> = ActionOk<T> | ActionErr
 
 export async function isPlatformAdmin(): Promise<boolean> {
   const supabase = await getSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getSignedInUser()
   if (!user) return false
 
   // Use the SQL helper instead of querying the table directly. The

@@ -43,6 +43,7 @@
  */
 
 import { requireBoardOrAdmin } from '@/lib/auth'
+import { getSignedInUser } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export interface NotificationRow {
@@ -83,9 +84,7 @@ export async function getMyNotifications(limit: number = DEFAULT_LIMIT): Promise
 
   try {
     const supabase = await getSupabaseServerClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const user = await getSignedInUser()
     if (!user) return []
 
     // Migration 0053 is applied; `notifications` exists in production.
@@ -125,9 +124,7 @@ export async function getMyUnreadCount(): Promise<number> {
 
   try {
     const supabase = await getSupabaseServerClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const user = await getSignedInUser()
     if (!user) return 0
 
     const { count } = await supabase
