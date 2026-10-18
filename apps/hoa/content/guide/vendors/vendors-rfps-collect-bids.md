@@ -7,7 +7,7 @@ roles: [admin, board]
 routes: ["/rfps", "/rfps/new", "/rfps/[id]", "/rfps/[id]/bids", "/rfps/[id]/bids/[bidId]", "/rfps/[id]/comparison"]
 primary_route: /rfps
 keywords: [rfp, request for proposal, bid, bids, quote, quotes, estimate, proposal, get quotes, compare bids, bid comparison, compare quotes, award, award bid, choose vendor, pick contractor, hire contractor, tender, scope of work, line items, deadline, landscaping contract, roofing, paving, three quotes, ask vendors, ask for bids, repave, parking lot]
-related: [vendors-insurance-compliance, accounting-enter-pay-bills]
+related: [vendors-insurance-compliance, settings-vendors, accounting-enter-pay-bills]
 reviewed: 2026-10-18
 ---
 
@@ -37,7 +37,7 @@ The RFP shows **Awarded**. The winning bid is marked **Awarded** and every other
 - **Compare bids** doesn't appear: you need at least two submitted bids. The bids page says "comparison needs at least 2 submitted bids".
 
 ## Good to know
-- The insurance minimums in the RFP come from your association's settings. The composer doesn't make them up.
+- The insurance minimums in the RFP and in each invitation email come from **Settings → Vendors**. The composer doesn't make them up. If you haven't set any, the RFP lists none.
 - Line items come from the draft. You can edit the title, scope, budget and deadline, but not the line items.
 - Nothing goes to vendors until you publish. After publishing, the scope and line items shouldn't change.
 - The recommendation memo is an AI draft for discussion. The board makes the decision.

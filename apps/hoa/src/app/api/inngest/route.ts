@@ -4,6 +4,7 @@ import {
   createDailyDigestJob,
   createDuesRemindersJob,
   createMonthlyBoardReportJob,
+  createVendorCoiRemindersJob,
   hoaLateFeeJob,
   pmLateFeeJob,
   evictionReminderJob,
@@ -24,6 +25,7 @@ import {
 import { sendEmail, appUrl } from '@/lib/email'
 import { duesReminderDeps } from '@/lib/dues-reminders/auto-deps'
 import { monthlyReportDeps } from '@/lib/monthly-report/deps'
+import { vendorCoiReminderDeps } from '@/lib/vendor-coi-reminders/deps'
 
 // The morning mailbox check emails the board when sync is broken (BL-003).
 // It takes this app's sendEmail — guarded by BL-004 — because the email
@@ -39,7 +41,12 @@ const duesRemindersJob = createDuesRemindersJob(duesReminderDeps)
 // builder (the board packet's own loaders) are app-side.
 const monthlyBoardReportJob = createMonthlyBoardReportJob(monthlyReportDeps)
 
-// Nineteen functions (crons and event listeners) mount in the HOA app. Inngest is a single
+// Vendor COI expiry reminders (BL-083): the guarded sendEmail and the
+// settings secret are app-side. On unless the board opts out at
+// /settings/vendors; vendors only, never residents.
+const vendorCoiRemindersJob = createVendorCoiRemindersJob(vendorCoiReminderDeps)
+
+// Twenty functions (crons and event listeners) mount in the HOA app. Inngest is a single
 // app-id ("homeownerhub") so it doesn't matter where the handler lives —
 // scheduled invocations target the function id, not the host. Apps/eviction
 // and apps/pm could mount the same handler if they need their own
@@ -74,6 +81,7 @@ export const { GET, POST, PUT } = serve({
     dailyDigestJob,
     duesRemindersJob,
     monthlyBoardReportJob,
+    vendorCoiRemindersJob,
     hoaLateFeeJob,
     pmLateFeeJob,
     evictionReminderJob,

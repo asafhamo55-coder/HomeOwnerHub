@@ -573,6 +573,7 @@ const ASSOCIATION_NOT_SET_UP_PAGES = [
   '(dashboard)/leases/page.tsx',
   '(dashboard)/settings/payments/page.tsx',
   '(dashboard)/settings/reminders/page.tsx',
+  '(dashboard)/settings/vendors/page.tsx',
 ]
 
 describe('setup gaps offer the fix (BL-064)', () => {

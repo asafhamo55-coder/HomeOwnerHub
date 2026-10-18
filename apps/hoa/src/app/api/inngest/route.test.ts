@@ -66,15 +66,16 @@ describe('/api/inngest', () => {
       const ids = (opts.functions as Array<{ id: (prefix?: string) => string }>).map((f) => f.id())
       expect(new Set(ids).size).toBe(ids.length)
 
-      // Every directly exported job object is mounted (the three factory-built
-      // jobs — daily digest, dues reminders and the month-end board report —
-      // are built in the route).
+      // Every directly exported job object is mounted (the four factory-built
+      // jobs — daily digest, dues reminders, the month-end board report and
+      // vendor COI reminders — are built in the route).
       const exported = Object.entries(jobs)
         .filter(([name]) => name.endsWith('Job') && !name.startsWith('create'))
         .map(([, fn]) => fn)
       for (const fn of exported) expect(opts.functions).toContain(fn)
-      expect(opts.functions.length).toBe(exported.length + 3)
+      expect(opts.functions.length).toBe(exported.length + 4)
       expect(ids).toContain('monthly-board-report')
+      expect(ids).toContain('vendor-coi-reminders')
     } finally {
       vi.doUnmock('inngest/next')
     }

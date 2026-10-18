@@ -157,7 +157,7 @@ describe('inngest wiring contract', () => {
     // job sharing a multi-symbol `export { a, b } from '...'` line) cannot
     // silently regress. If a new job is added to packages/jobs, this
     // assertion fails loudly — the correct outcome for a contract test.
-    expect(exported).toHaveLength(19)
+    expect(exported).toHaveLength(20)
     expect(exported).toEqual(
       expect.arrayContaining(['mailboxSyncJob', 'mailboxWatchdogJob', 'mailboxReconcileJob']),
     )

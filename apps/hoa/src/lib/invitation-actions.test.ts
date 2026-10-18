@@ -87,6 +87,58 @@ describe('inviteVendorsToRfp', () => {
     expect(sendEmail).toHaveBeenCalledTimes(1)
   })
 
+  it('states the association’s insurance minimums in the invitation (BL-084)', async () => {
+    vi.stubEnv('PAY_SETTINGS_SECRET', 'test-secret')
+    const { signVendorInsuranceSettings, withVendorInsuranceSettings } = await import(
+      '@homeowner-portal/workflows/vendor-insurance'
+    )
+    const ASSOC = '33333333-3333-4333-8333-333333333333'
+    results['rfps.select'] = {
+      data: { id: RFP, title: 'Roof', rfp_number: 'R-1', status: 'open', submission_deadline: '2099-01-01', association_id: ASSOC },
+      error: null,
+    }
+    results['associations.select'] = {
+      data: {
+        id: ASSOC,
+        compliance_settings: withVendorInsuranceSettings(
+          {},
+          signVendorInsuranceSettings(
+            ASSOC,
+            {
+              coiRemindersEnabled: true,
+              minimums: { glPerOccurrenceMin: 1_000_000, glAggregateMin: null, workersCompRequired: true, autoLiabilityMin: null },
+            },
+            { updatedAt: '2026-10-18T00:00:00Z', updatedBy: null },
+            'test-secret',
+          ),
+        ),
+      },
+      error: null,
+    }
+    try {
+      await invite()
+      const email = sendEmail.mock.calls[0][0] as { html: string; text: string }
+      expect(email.html).toContain('General liability: $1,000,000 per occurrence')
+      expect(email.html).toContain('Workers’ compensation: required')
+      expect(email.text).toContain('- General liability: $1,000,000 per occurrence')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('a failed minimums read still sends the invitation, without the insurance block', async () => {
+    results['rfps.select'] = {
+      data: { id: RFP, title: 'Roof', rfp_number: 'R-1', status: 'open', submission_deadline: '2099-01-01', association_id: 'a' },
+      error: null,
+    }
+    results['associations.select'] = { data: null, error: { code: '57014', message: LEAK } }
+    const r = await invite()
+    expect(r).toEqual({ ok: true, data: { sent: 1, skipped: 0, failed: [] } })
+    expect((sendEmail.mock.calls[0][0] as { html: string }).html).not.toContain('Insurance required')
+    expect(logged()).toContain('57014')
+    expect(logged()).not.toContain('jane@example.com')
+  })
+
   it('an insert failure reports a stable code, not the Postgres message, and logs code + ids only', async () => {
     results['rfp_invitations.insert'] = { error: { code: '23505', message: LEAK } }
     const r = await invite()

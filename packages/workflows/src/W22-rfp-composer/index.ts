@@ -15,6 +15,7 @@ import { z } from 'zod'
 import OpenAI from 'openai'
 import { defineWorkflow, resolveModel, JSON_MODE_PARAMS } from '@homeowner-portal/ai'
 import { createAdminClient } from '@homeowner-portal/db'
+import { resolveVendorInsuranceSettings, rfpInsuranceRequirements } from '../vendor-insurance/settings'
 import {
   PROMPT_VERSION,
   SYSTEM_PROMPT,
@@ -134,7 +135,12 @@ export const rfpComposer = defineWorkflow({
       totalUnits: assoc.total_units,
       // common_area_acres isn't a column yet — placeholder for v1.5.
       commonAreaAcres: null,
-      insuranceRequirements: assoc.compliance_settings ?? null,
+      // Only the board's insurance minimums (Settings → Vendors, BL-084) —
+      // never the whole compliance_settings blob, which carries signed
+      // payment and reminder values the model has no business seeing.
+      insuranceRequirements: rfpInsuranceRequirements(
+        resolveVendorInsuranceSettings(input.associationId, assoc.compliance_settings),
+      ),
       priorVendorScope: null,
     }
 
@@ -184,7 +190,9 @@ export const rfpComposer = defineWorkflow({
       scope: parsed.scope,
       lineItems: parsed.line_items,
       evaluationCriteria: parsed.evaluation_criteria,
-      insuranceRequirements: parsed.insurance_requirements ?? null,
+      // The association's own minimums, not the model's copy of them: the
+      // prompt says "copy verbatim", this makes it true.
+      insuranceRequirements: associationContext.insuranceRequirements,
       qualifications: parsed.qualifications,
       submissionInstructions: parsed.submission_instructions,
       confidence: parsed.confidence,

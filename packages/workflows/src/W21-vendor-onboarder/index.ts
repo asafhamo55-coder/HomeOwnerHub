@@ -27,6 +27,7 @@ import {
   type ExtractedW9,
   type ExtractedLicense,
 } from './prompt'
+import { applyMinimums, requirementsFor } from './requirements'
 
 // ─── Public types ────────────────────────────────────────────────────
 
@@ -175,7 +176,7 @@ export const vendorOnboarder = defineWorkflow({
       )
     }
 
-    const requirements = parseRequirements(assoc.compliance_settings)
+    const requirements = requirementsFor(assoc.id, assoc.compliance_settings)
     const extracted = {
       coi: input.manualExtract?.coi ?? null,
       w9: input.manualExtract?.w9 ?? null,
@@ -240,9 +241,16 @@ export const vendorOnboarder = defineWorkflow({
 
     api.setConfidence(confidenceToNumber(parsed.confidence))
 
+    // The minimums are arithmetic, not judgement: a certificate under one
+    // is red whatever the model said (BL-084).
+    const graded = applyMinimums(
+      { complianceStatus: parsed.compliance_status, deficiencies: parsed.deficiencies },
+      requirements,
+      extracted.coi,
+    )
     const result: VendorOnboarderOutput = {
-      complianceStatus: parsed.compliance_status,
-      deficiencies: parsed.deficiencies,
+      complianceStatus: graded.complianceStatus,
+      deficiencies: graded.deficiencies,
       extracted,
       confidence: parsed.confidence,
       summary: parsed.summary,
@@ -256,27 +264,6 @@ export const vendorOnboarder = defineWorkflow({
 })
 
 // ─── helpers ─────────────────────────────────────────────────────────
-
-function parseRequirements(raw: unknown): AssociationRequirements {
-  const obj = (raw ?? {}) as Record<string, unknown>
-  return {
-    glPerOccurrenceMin:
-      typeof obj.gl_per_occurrence_min === 'number'
-        ? obj.gl_per_occurrence_min
-        : null,
-    glAggregateMin:
-      typeof obj.gl_aggregate_min === 'number' ? obj.gl_aggregate_min : null,
-    workersCompRequired: obj.workers_comp_required === true,
-    additionalInsuredRequired: obj.additional_insured_required === true,
-    umbrellaMin:
-      typeof obj.umbrella_min === 'number' ? obj.umbrella_min : null,
-    licenseRequiredFor: Array.isArray(obj.license_required_for)
-      ? (obj.license_required_for as unknown[]).filter(
-          (t): t is string => typeof t === 'string',
-        )
-      : [],
-  }
-}
 
 function requiredDocDeficiencies(
   requirements: AssociationRequirements,

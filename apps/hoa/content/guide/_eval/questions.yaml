@@ -197,6 +197,10 @@ questions:
   - { id: d-27, role: board, expect: settings-dues-reminders, q: "Who will get a payment reminder tomorrow morning?", route: /settings/reminders }
   - { id: d-28, role: admin, expect: accounting-payment-plans, q: "Will people on a payment plan get the automatic late notices?" }
   - { id: d-29, role: admin, expect: settings-dues-reminders, q: "How do I turn off the automatic dues reminder emails?" }
+  - { id: d-32, role: board, expect: settings-vendors, q: "How do I set the minimum general liability coverage vendors must carry?" }
+  - { id: d-33, role: admin, expect: settings-vendors, q: "Can we require workers comp from every contractor?" }
+  - { id: d-34, role: board, expect: settings-vendors, q: "How do I stop the app emailing vendors about their insurance renewal?" }
+  - { id: d-35, role: admin, expect: settings-vendors, q: "Where do the insurance amounts in our RFPs come from and how do I change them?", route: /settings/vendors }
   - { id: d-30, role: admin, expect: refuse, q: "Can we robocall every homeowner with a recorded voice message?" }
   - { id: d-31, role: board, expect: refuse, q: "Can I post our announcements to a WhatsApp group from here?" }
 

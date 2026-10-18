@@ -7,7 +7,7 @@ roles: [admin, board]
 routes: ["/vendors", "/vendors/new", "/vendors/[id]", "/vendors/[id]/edit", "/vendors/[id]/compliance", "/vendors/invitations", "/vendors/approval-queue"]
 primary_route: /vendors
 keywords: [vendor, contractor, add vendor, new vendor, invite vendor, onboarding, onboard, coi, certificate of insurance, insurance, expired insurance, insurance expiring, w-9, w9, ein, tax id, "1099", license, contractor license, compliance, compliant, non-compliant, general liability, workers comp, additional insured, approve vendor, approval queue, prospect, landscaper, plumber, send a link, own info, fill in their own details]
-related: [vendors-rfps-collect-bids, approvals-queue, accounting-enter-pay-bills]
+related: [vendors-rfps-collect-bids, settings-vendors, approvals-queue, accounting-enter-pay-bills]
 reviewed: 2026-10-18
 ---
 
@@ -22,7 +22,7 @@ Use this before you hire a new contractor. You set up the vendor, record their i
 2. If you're adding the vendor yourself, fill in **Legal name**, **EIN** and **Trades** (comma-separated), plus a **Primary email** or **Primary phone**. Then select [[Create and continue]].
 3. On the **Compliance check** page, under **Documents**, select [[Choose file]] for the COI, W-9 and license to keep a copy on file.
 4. Type what's on each document into the form: the COI carrier, policy number, dates and coverage amounts, the W-9 legal name, and the license number. Leave a section's first field blank to skip that document.
-5. Select [[Run compliance check]]. The result shows **Compliant**, **Action soon**, **Non-compliant** or **Docs missing**, with a list of any problems.
+5. Select [[Run compliance check]]. The result shows **Compliant**, **Action soon**, **Non-compliant** or **Docs missing**, with a list of any problems. Coverage below your association's insurance minimums (set in **Settings → Vendors**) is always **Non-compliant**.
 6. Open the vendor's page. If they're **Compliant** and still a **Prospect**, select [[Approve vendor]], then confirm.
 
 ## What happens next
@@ -43,6 +43,7 @@ The **Approval queue** tab lists every vendor that needs the board: compliant pr
 - When a vendor fills in the invitation form, their details and files arrive as a **Prospect**. The check doesn't run by itself. Enter the values and select [[Run compliance check]].
 - An invitation link works once and expires after 7 days. You can revoke one that hasn't been used from the **Invitations** tab.
 - A board admin or board member can set the grade by hand under **Manual override**, for example after confirming a policy by phone with the carrier. Add a reason so the board can see why.
-- The app doesn't email vendors when their COI is about to expire. Watch the **COI expires** column and the dashboard.
+- The app emails each active or prospect vendor 30 days and 7 days before their COI expires, and on the day it does, asking for a renewed certificate. The board gets a notification each time. You can turn the vendor emails off in **Settings → Vendors**.
+- When a vendor replies with a renewed certificate, upload it and enter the new dates and amounts, then select [[Run compliance check]]. Reminders start again for the new expiry date.
 - To remove a vendor, open the **More vendor actions** menu on their page and choose **Delete vendor**. Their past invoices and bids keep their history.
 - Vendor details and ratings are private to your association.
