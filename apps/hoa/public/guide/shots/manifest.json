@@ -205,9 +205,9 @@
       1440
     ],
     "route": "/violations/approval-queue",
-    "sha": "1d6afbd",
-    "sourceHash": "b04f7208aa74a5e2b9a1bce99a19adc1a58508aa",
-    "capturedAt": "2026-10-17"
+    "sha": "e8457d7",
+    "sourceHash": "dc9fb1dc03f35d15016ed6dc2549cf68326e5e8a",
+    "capturedAt": "2026-10-18"
   },
   "guide-violations-new": {
     "widths": [
