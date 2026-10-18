@@ -11,6 +11,7 @@ import type { Database } from '@homeowner-portal/db'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getResidentActor, type ResidentActor } from '@/lib/impersonation'
 import { exactIlike } from '@/lib/impersonation-target'
+import { chargesFromForOwnership } from '@/lib/resident-sale-window'
 import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone } from '@/lib/association-time'
 import {
   countNewAnnouncements,
@@ -28,6 +29,13 @@ export interface ResidentUnit {
   association_time_zone?: string | null
   ownership_pct: number | null
   valid_from: string
+  /**
+   * The first day of this unit's money the resident may see: their
+   * ownership's valid_from when it began with a recorded sale, so a buyer
+   * never sees the seller's charges (lib/resident-sale-window.ts). Null =
+   * the whole unit history (every other way an owner got here).
+   */
+  charges_from?: string | null
 }
 
 export interface ResidentSummary {
@@ -106,6 +114,7 @@ async function getOwnedUnits(actor: ResidentActor): Promise<ResidentUnit[]> {
     unit_id: string
     ownership_pct: number | null
     valid_from: string
+    source: string | null
     unit: {
       unit_number: string | null
       address_line1: string | null
@@ -117,7 +126,7 @@ async function getOwnedUnits(actor: ResidentActor): Promise<ResidentUnit[]> {
     let q = supabase
       .from('ownerships')
       .select(
-        'unit_id, ownership_pct, valid_from, unit:units(unit_number, address_line1, association_id)',
+        'unit_id, ownership_pct, valid_from, source, unit:units(unit_number, address_line1, association_id)',
       )
       .eq('owner_user_id', actor.id)
       .is('valid_to', null)
@@ -137,6 +146,7 @@ async function getOwnedUnits(actor: ResidentActor): Promise<ResidentUnit[]> {
       association_name: null,
       ownership_pct: r.ownership_pct,
       valid_from: r.valid_from,
+      charges_from: chargesFromForOwnership(r),
     }))
   }
 

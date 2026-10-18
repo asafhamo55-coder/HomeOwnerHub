@@ -27,6 +27,7 @@ import { loadMyArcRequests, type ArcRequestRow } from '@/lib/resident-submission
 import { loadOrFail } from '@/lib/load-or-fail'
 import { buildLedger, loadLedgerRows, type Ledger } from '@/lib/resident-ledger'
 import { todayIn } from '@/lib/association-time'
+import { chargeWindow, scopeAssessments, scopeLedgerRows, type ChargeWindow } from '@/lib/resident-sale-window'
 import {
   emptyResidentDues,
   residentTimeZone,
@@ -94,7 +95,7 @@ export async function getResidentDashboard(): Promise<ResidentDashboard> {
   const [firstName, openViolations, dues, tickets, arc, recentAnnouncements] = await Promise.all([
     resolveFirstName(supabase, actorUser),
     getOpenViolations(supabase, unitIds, actor.orgId),
-    getDues(supabase, unitIds, actor.orgId, today),
+    getDues(supabase, unitIds, actor.orgId, today, chargeWindow(units)),
     loadMyTickets(),
     loadMyArcRequests(),
     getRecentAnnouncements(supabase, org?.id ?? null, {
@@ -141,7 +142,7 @@ export async function getResidentDues(): Promise<{
   const actor = await getResidentActor()
   const units = await getResidentUnits()
   const today = todayIn(residentTimeZone(units))
-  const dues = await getDues(actor.client, units.map((u) => u.unit_id), actor.orgId, today)
+  const dues = await getDues(actor.client, units.map((u) => u.unit_id), actor.orgId, today, chargeWindow(units))
   return { units, dues: dues ?? emptyResidentDues(today), failed: dues === null }
 }
 
@@ -159,9 +160,12 @@ export async function getResidentLedger(): Promise<{
   const units = await getResidentUnits()
   const rows = await loadLedgerRows(actor.client, units.map((u) => u.unit_id), actor.orgId)
   if (!rows.ok) return { units, ledger: null, truncated: false }
+  // A buyer sees their ownership's history only (resident-sale-window.ts).
+  const zone = residentTimeZone(units)
+  const scoped = scopeLedgerRows(rows.assessments, rows.payments, chargeWindow(units), zone)
   return {
     units,
-    ledger: buildLedger(rows.assessments, rows.payments, residentTimeZone(units)),
+    ledger: buildLedger(scoped.assessments, scoped.payments, zone),
     truncated: rows.truncated,
   }
 }
@@ -249,6 +253,8 @@ async function getDues(
   orgId: string | null,
   /** The association's today (BL-043) — not the UTC day. */
   today: string,
+  /** Per-unit first visible day: a buyer never sees the seller's charges. */
+  window: ChargeWindow,
 ): Promise<ResidentDues | null> {
   if (unitIds.length === 0) return emptyResidentDues(today)
 
@@ -263,7 +269,7 @@ async function getDues(
   if (!assessmentResult.ok) return null
   const rows = assessmentResult.data
 
-  const assessments = (rows ?? []) as ResidentAssessmentRow[]
+  const assessments = scopeAssessments((rows ?? []) as ResidentAssessmentRow[], window)
   if (assessments.length === 0) return emptyResidentDues(today)
 
   // Without payments every partial charge would read as owed in full.

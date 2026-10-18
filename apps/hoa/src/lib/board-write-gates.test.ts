@@ -6,6 +6,7 @@ import * as meetings from './meetings'
 import * as documents from './documents'
 import * as properties from './properties'
 import * as propertyEvents from './property-events'
+import * as propertySale from './properties/sale-actions'
 import * as commActions from './communications/actions'
 import * as commSend from './communications/send'
 import * as parseDocument from '../app/api/ai/parse-document/route'
@@ -99,6 +100,7 @@ describe('board-only server actions refuse a resident before touching the databa
     ['createProperty', () => properties.createProperty({}, form({ address: '1 Main' })), { error: BOARD_ONLY_DENIED }],
     ['logPropertyEvent', () => propertyEvents.logPropertyEvent({ propertyId: ID, kind: 'note' }), DENIED],
     ['logPropertyNote (P2 "Log note")', () => propertyEvents.logPropertyNote(ID, 'Called about the gate'), DENIED],
+    ['recordPropertySale (P3 "Record a sale")', () => propertySale.recordPropertySale(ID, { settlementDate: '2026-01-01', buyers: [{ name: 'B' }] }), DENIED],
     ['deleteCommunication', () => commActions.deleteCommunication(ID), DENIED],
     ['sendCommunication', () => commSend.sendCommunication({} as never), DENIED],
     ['editBillProposal (BL-059: the only write path to a proposal payload)', () => billScanActions.editBillProposal({ approvalRequestId: ID }), DENIED],

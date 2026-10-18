@@ -752,3 +752,93 @@ export async function unitIdsOfDeletedProperties(db: Db, unitIds: readonly strin
   }
   return out
 }
+
+// ─── Link a portal account to its ownership (member invite) ─────────
+
+/**
+ * The invite flow (lib/members.ts) giving a portal account its ownership
+ * of a unit. A current ownership already on file for this email with no
+ * account yet — a recorded sale's buyer, an imported owner — IS this
+ * person's: link it (set owner_user_id) instead of opening a second row
+ * dated today. That keeps one ownership period per owner, and keeps the
+ * buyer's valid_from (the settlement date) as the start of what the
+ * portal shows them (lib/resident-sale-window.ts).
+ *
+ * Takes the service-role client the invite uses, so every read and write
+ * carries the org. `escapedEmail` is an exact ilike pattern
+ * (impersonation-target.ts exactIlike).
+ */
+export async function linkOwnershipForMember(
+  db: Db,
+  input: {
+    orgId: string
+    unitId: string
+    userId: string
+    email: string
+    escapedEmail: string
+    fullName: string | null
+    today: string
+  },
+): Promise<LotResult<{ outcome: 'existing' | 'linked' | 'opened' }>> {
+  const { orgId, unitId } = input
+  const generic = 'Couldn’t link the portal account to the home.'
+
+  const { data: mine, error: mineErr } = await db
+    .from('ownerships')
+    .select('id')
+    .eq('organization_id', orgId)
+    .eq('unit_id', unitId)
+    .eq('owner_user_id', input.userId)
+    .is('valid_to', null)
+    .limit(1)
+  if (mineErr) {
+    logFailure('member.ownership.read', mineErr, { orgId, unitId })
+    return { ok: false, error: generic }
+  }
+  if ((mine ?? []).length > 0) return { ok: true, data: { outcome: 'existing' } }
+
+  const { data: onFile, error: fileErr } = await db
+    .from('ownerships')
+    .select('id')
+    .eq('organization_id', orgId)
+    .eq('unit_id', unitId)
+    .is('owner_user_id', null)
+    .is('valid_to', null)
+    .ilike('owner_email', input.escapedEmail)
+    .order('valid_from', { ascending: false })
+    .limit(1)
+  if (fileErr) {
+    logFailure('member.ownership.match', fileErr, { orgId, unitId })
+    return { ok: false, error: generic }
+  }
+  const match = ((onFile ?? []) as Array<{ id: string }>)[0]
+  if (match) {
+    const { error } = await db
+      .from('ownerships')
+      .update({ owner_user_id: input.userId })
+      .eq('id', match.id)
+      .eq('organization_id', orgId)
+      .is('owner_user_id', null)
+    if (error) {
+      logFailure('member.ownership.link', error, { orgId, ownershipId: match.id })
+      return { ok: false, error: generic }
+    }
+    return { ok: true, data: { outcome: 'linked' } }
+  }
+
+  const { error } = await db.from('ownerships').insert({
+    organization_id: orgId,
+    unit_id: unitId,
+    owner_user_id: input.userId,
+    owner_name: input.fullName,
+    owner_email: input.email,
+    ownership_pct: 100,
+    valid_from: input.today,
+    source: 'member_invite',
+  })
+  if (error) {
+    logFailure('member.ownership.open', error, { orgId, unitId })
+    return { ok: false, error: generic }
+  }
+  return { ok: true, data: { outcome: 'opened' } }
+}

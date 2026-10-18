@@ -10,6 +10,8 @@ import { cureBy, cureState, isClosedViolation, type CureSource } from '@/lib/vio
 import { collectionStatusLabel, isTerminal, type CollectionStatus } from '@/lib/collections/statuses'
 import type { PropertyResidentRow } from '@/lib/property-residents'
 import type { PropertyEventRow } from '@/lib/property-events'
+import { formatDay } from '@/lib/money/format'
+import { ownershipStatus } from './sale-rules'
 
 // ─── Row shapes (as read) ────────────────────────────────────────────
 
@@ -234,9 +236,13 @@ export function buildPeople(input: {
     pct: o.ownership_pct,
     source: 'ownership',
   })
-  const current = input.ownerships.filter((o) => isCurrent(o.valid_from, o.valid_to, today)).map(toOwner)
+  // Ownership periods are [valid_from, valid_to): on a sale's settlement
+  // day the seller is a previous owner and the buyer the owner — not two
+  // co-owners (lib/properties/sale.ts ownershipStatus).
+  const current = input.ownerships.filter((o) => ownershipStatus(o, today) === 'current').map(toOwner)
   const previousOwners = input.ownerships
-    .filter((o) => o.valid_to !== null && o.valid_to.slice(0, 10) < today)
+    .filter((o) => ownershipStatus(o, today) === 'past')
+    .sort((a, b) => (b.valid_to ?? '').localeCompare(a.valid_to ?? '') || b.valid_from.localeCompare(a.valid_from))
     .map(toOwner)
 
   let owners = current
@@ -448,8 +454,12 @@ export function describeEvent(event: PropertyEventRow, tenureLabels: Record<stri
   switch (event.kind) {
     case 'tenure_changed':
       return `Tenure changed from ${tenureLabel(p.from)} to ${tenureLabel(p.to)}`
-    case 'ownership_changed':
-      return 'Ownership changed'
+    case 'ownership_changed': {
+      if (p.reason !== 'sale') return 'Ownership changed'
+      const n = typeof p.buyers === 'number' ? p.buyers : null
+      const day = typeof p.settlement_date === 'string' ? p.settlement_date : null
+      return `Sale recorded${day ? `, settled ${formatDay(day)}` : ''}${n && n > 1 ? ` · ${n} buyers` : ''}`
+    }
     case 'resident_added':
       return `${typeof p.fullName === 'string' ? p.fullName : 'A resident'} added${
         typeof p.role === 'string' ? ` as ${p.role.replace(/_/g, ' ')}` : ''

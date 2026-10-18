@@ -1,6 +1,8 @@
 'use server'
 import { propertyHref } from '@/lib/properties/href'
 import { asPropertyId, resolveUnitForProperty } from '@/lib/properties/resolve'
+import { linkOwnershipForMember } from '@/lib/properties/lot'
+import { exactIlike } from '@/lib/impersonation-target'
 
 // Member management. Lists, invites, role changes, removes.
 // All writes go through the user-bound RLS client. Per migration 0058,
@@ -388,27 +390,19 @@ async function attachToOrg(args: {
         `[members] no units row for hoa_property ${args.propertyId} — /resident link skipped`,
       )
     } else if (residencyRole === 'owner') {
-      // Skip if an active ownership already exists for this user + unit.
-      const { data: existingOwn } = await admin
-        .from('ownerships')
-        .select('id')
-        .eq('unit_id', unitRow.id)
-        .eq('owner_user_id', args.userId)
-        .is('valid_to', null)
-        .maybeSingle<{ id: string }>()
-      if (!existingOwn) {
-        const { error: ownErr } = await admin.from('ownerships').insert({
-          organization_id: args.orgId,
-          unit_id: unitRow.id,
-          owner_user_id: args.userId,
-          owner_name: args.fullName,
-          owner_email: args.email,
-          ownership_pct: 100,
-          valid_from: today,
-          source: 'member_invite',
-        } as never)
-        if (ownErr) console.warn('[members] ownership insert failed:', ownErr.message)
-      }
+      // Already linked → nothing; an ownership on file for this email (a
+      // recorded sale's buyer, an imported owner) → linked to the account;
+      // else a new one from today (lib/properties/lot.ts).
+      const linked = await linkOwnershipForMember(admin, {
+        orgId: args.orgId,
+        unitId: unitRow.id,
+        userId: args.userId,
+        email: args.email,
+        escapedEmail: exactIlike(args.email),
+        fullName: args.fullName,
+        today,
+      })
+      if (!linked.ok) console.warn('[members] ownership link failed', { propertyId: args.propertyId })
     } else if (residencyRole === 'tenant') {
       // Skip if an active tenancy already exists for this user + unit.
       const { data: existingTen } = await admin
