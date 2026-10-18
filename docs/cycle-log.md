@@ -167,3 +167,15 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **Release-note email:** sent (status `release-notes/email` success at 22:13Z). The 69361f7 and c56061f notes were also sent, by manual dispatch, after the GitHub secrets were set from Vercel.
 - **Push quirk:** the first one or two prod pushes fail and a retry works. Keep retrying up to 3 times.
 - **Next deploy allowed after 19:13.** Queued for it: BL-070 guide phase 1 (being rebased) and BL-071 version indicator.
+
+## 2026-10-17 (21:04) â€” deploy ac0e7c4: user guide phase 1 (BL-070) and version label (BL-071)
+
+- **Live:**
+  - /help and /resident/help: search, 12 articles and "Take me there".
+  - The "?" help drawer on every page (Shift+/).
+  - The guide:check CI gate.
+  - At 19:55 (2ed5d8b): the version label everywhere and the /whats-new page.
+- **Gates:** unit 4092/4092, build 4/4, guide:check 0 errors (2 stale-shot warnings), CI green, including integration on CI's throwaway Supabase.
+- **Owner rule:** no local DB from now on. Integration runs in CI only, and the local Supabase stack is stopped.
+- **Release-note email:** sent.
+- **In flight:** BL-074 performance, BL-073 month-end board report.
