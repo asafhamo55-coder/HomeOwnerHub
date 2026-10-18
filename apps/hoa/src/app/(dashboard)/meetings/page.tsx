@@ -19,6 +19,8 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { MEETING_STATUS, MEETING_TYPE } from '@/lib/status/community'
+import { HowThisWorks } from '@/components/guide/HowThisWorks'
+import { guideHref } from '@/lib/guide'
 
 export const metadata = { title: 'Meetings' }
 export const dynamic = 'force-dynamic'
@@ -174,9 +176,12 @@ export default async function MeetingsPage({
             </Button>
           }
           secondaryAction={
-            <Button asChild variant="ghost">
-              <Link href="/meetings/schedule">Schedule a meeting</Link>
-            </Button>
+            <>
+              <Button asChild variant="ghost">
+                <Link href="/meetings/schedule">Schedule a meeting</Link>
+              </Button>
+              <HowThisWorks href={guideHref('meetings-schedule-and-minutes')} />
+            </>
           }
         />
       ) : (

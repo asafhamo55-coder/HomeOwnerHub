@@ -12,6 +12,8 @@ import {
   severityTone,
   streetOf,
 } from '@/lib/properties/severity'
+import { HowThisWorks } from '@/components/guide/HowThisWorks'
+import { guideHref } from '@/lib/guide'
 
 function money(n: number): string {
   return n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -44,6 +46,7 @@ export function PropertyList({
         variant="compact"
         icon={<Building2 aria-hidden />}
         title="No properties yet"
+        secondaryAction={<HowThisWorks href={guideHref('setup-properties-residents')} />}
         description="Add each home in the association. Owners, residents, dues and violations all hang off a property."
         action={
           <Button asChild size="sm">

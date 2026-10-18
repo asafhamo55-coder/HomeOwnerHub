@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { ArrowRight, Check, HelpCircle } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, cn } from '@homeowner-portal/ui'
 import type { SetupChecklist, SetupChecklistStep } from '@/lib/dashboard/setup-checklist'
+import { guideHref } from '@/lib/guide'
+import { HowLink } from '@/components/guide/HowLink'
 import { DismissSetupButton } from './DismissSetupButton'
 
 /**
@@ -54,13 +56,28 @@ export function SetupChecklistCard({ checklist }: { checklist: SetupChecklist })
           <ol className="grid gap-2 cq-md:grid-cols-2 cq-lg:grid-cols-3">
             {steps.map((step, i) => (
               <li key={step.key} className="min-w-0">
-                <StepLink step={step} index={i} />
+                <StepItem step={step} index={i} />
               </li>
             ))}
           </ol>
         </CardContent>
       </Card>
     </section>
+  )
+}
+
+/**
+ * One step: the step itself is one link (to the page that does it), and a
+ * separate small "How?" link opens the guide article in the help drawer
+ * (BL-070). Two sibling links, never one nested in the other. Completion
+ * still comes from data only.
+ */
+function StepItem({ step, index }: { step: SetupChecklistStep; index: number }) {
+  return (
+    <div className="relative h-full">
+      <StepLink step={step} index={index} />
+      <HowLink articleId={step.guide} href={guideHref(step.guide)} label={step.title} className="absolute right-2 top-2" />
+    </div>
   )
 }
 
@@ -71,7 +88,7 @@ function StepLink({ step, index }: { step: SetupChecklistStep; index: number }) 
   return (
     <Link
       href={step.href}
-      className="group flex h-full items-start gap-3 rounded-lg border border-border p-3 transition-colors duration-fast hover:border-border-strong hover:bg-subtle"
+      className="group flex h-full items-start gap-3 rounded-lg border border-border p-3 pr-16 transition-colors duration-fast hover:border-border-strong hover:bg-subtle"
     >
       <span
         aria-hidden

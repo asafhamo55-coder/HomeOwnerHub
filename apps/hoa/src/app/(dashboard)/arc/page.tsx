@@ -23,6 +23,8 @@ import {
   type ArcStatus,
 } from '@/lib/board-review'
 import { ARC_CATEGORY, ARC_STATUS } from '@/lib/status/community'
+import { HowThisWorks } from '@/components/guide/HowThisWorks'
+import { guideHref } from '@/lib/guide'
 
 export const metadata = { title: 'ARC review' }
 export const dynamic = 'force-dynamic'
@@ -164,6 +166,7 @@ export default async function ArcReviewListPage({
                 variant="compact"
                 icon={<ClipboardList aria-hidden />}
                 title="No ARC applications yet"
+                secondaryAction={<HowThisWorks href={guideHref('arc-review-application')} />}
                 description="When a resident submits an architectural application from their portal, it lands here for board review."
                 action={
                   <Button asChild size="sm">

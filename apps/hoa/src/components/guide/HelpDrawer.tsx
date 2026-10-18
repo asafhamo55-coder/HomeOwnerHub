@@ -53,6 +53,9 @@ export function HelpDrawer({ data, variant = 'board' }: { data: DrawerData; vari
   useEffect(() => {
     const onOpenHelp = (e: Event) => {
       const detail = (e as CustomEvent<OpenHelpDetail>).detail ?? {}
+      // An article this viewer's drawer doesn't carry (an admin-only one for
+      // a board member): leave the event unclaimed, so the link navigates.
+      if (detail.articleId && !data.articles[detail.articleId] && !detail.question) return
       e.preventDefault()
       setFocus(detail)
       setAskKey((k) => k + 1)
@@ -60,7 +63,7 @@ export function HelpDrawer({ data, variant = 'board' }: { data: DrawerData; vari
     }
     window.addEventListener(OPEN_HELP_EVENT, onOpenHelp)
     return () => window.removeEventListener(OPEN_HELP_EVENT, onOpenHelp)
-  }, [])
+  }, [data])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -6,6 +6,7 @@
  * markdown), shots missing from GUIDE_SHOTS or missing a webp, routes /
  * primary routes / internal links with no page.tsx, `[[Label]]`s that no
  * longer appear in apps/hoa/src, a GUIDE_EXPECTED_ROUTES entry with no
+ * article, a `guideHref('id')` / `guide: 'id'` in app code naming no
  * article, and a stale generated module.
  * Warns (phase 1): a screenshot whose screen changed since capture, a
  * `reviewed` date older than 120 days, an unused GUIDE_SHOTS entry.
@@ -57,6 +58,17 @@ export function labelInSource(label: string, source: string): boolean {
   return [...spellings].some((s) => new RegExp(`(?<![A-Za-z0-9])${escapeRe(s)}(?![A-Za-z0-9])`).test(source))
 }
 
+/**
+ * Guide article ids referenced from app code: `guideHref('id')` (empty
+ * states) and `guide: 'id'` (setup checklist steps). Spec §6.4: a renamed
+ * or deleted article must fail CI, not 404 in the app.
+ */
+export function guideRefsInSource(source: string): string[] {
+  const out: string[] = []
+  for (const m of source.matchAll(/\bguideHref\(\s*['"`]([a-z0-9-]+)['"`]|\bguide:\s*['"`]([a-z0-9-]+)['"`]/g)) out.push((m[1] ?? m[2])!)
+  return [...new Set(out)]
+}
+
 function daysBetween(a: string, b: string): number {
   return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000)
 }
@@ -101,6 +113,11 @@ export function checkGuide(input: CheckInput): { errors: string[]; warnings: str
     if (daysBetween(a.reviewed, input.today) > REVIEW_MAX_AGE_DAYS) {
       warnings.push(`${where}: reviewed ${a.reviewed}, more than ${REVIEW_MAX_AGE_DAYS} days ago; re-verify against the UI`)
     }
+  }
+
+  const articleIds = new Set(input.compiled.articles.map((a) => a.id))
+  for (const id of guideRefsInSource(input.source)) {
+    if (!articleIds.has(id)) errors.push(`apps/hoa/src: guide article "${id}" is referenced in code (guideHref / guide:) but does not exist`)
   }
 
   for (const [label, where] of labels) {

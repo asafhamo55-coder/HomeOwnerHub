@@ -7,6 +7,8 @@ import type { ResidentUnit } from '@/lib/resident'
 import { formatDay } from '@/lib/money/format'
 import { DuesTabs } from '@/components/resident/DuesTabs'
 import { ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
+import { HowThisWorks } from '@/components/guide/HowThisWorks'
+import { guideHref } from '@/lib/guide'
 
 export const metadata = { title: 'Ledger' }
 export const dynamic = 'force-dynamic'
@@ -127,6 +129,7 @@ export default async function ResidentLedgerPage() {
             variant="compact"
             icon={<ReceiptText />}
             title="No charges yet"
+            secondaryAction={<HowThisWorks href={guideHref('resident-portal-basics', 'resident')} />}
             description="When your board bills dues, each charge and payment shows up here."
           />
         }

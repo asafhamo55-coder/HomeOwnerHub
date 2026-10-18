@@ -32,6 +32,7 @@ import { fetchRecordSearch } from '@/lib/search/client'
 import type { RecordType } from '@/lib/search/types'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { clearSessionCookiesOnSignOut } from '@/app/actions/sign-out'
+import { askGuideCommand, helpArticleCommands, type PaletteHelpArticle } from '@/components/guide/palette-help'
 import { ADMIN_ACCOUNT, BOARD_ACCOUNT, HOA_CREATE, HOA_NAV } from './nav'
 
 async function signOut() {
@@ -88,9 +89,10 @@ const RECORD_ICON: Record<RecordType, typeof User> = {
 /**
  * ⌘K palette: every sidebar destination, quick-create actions, theme, sign
  * out — and records in the current org (BL-022) via /api/search, which is
- * board/admin-only and RLS-scoped.
+ * board/admin-only and RLS-scoped. BL-070: a Help group of guide article
+ * titles (with their keywords), and "Ask the guide: …" when nothing matches.
  */
-export function HoaCommandPalette({ role }: { role: 'admin' | 'board' }) {
+export function HoaCommandPalette({ role, helpArticles = [] }: { role: 'admin' | 'board'; helpArticles?: PaletteHelpArticle[] }) {
   const router = useRouter()
   const { setTheme } = useTheme()
 
@@ -123,8 +125,9 @@ export function HoaCommandPalette({ role }: { role: 'admin' | 'board' }) {
       { id: 'theme:system', label: 'Match system theme', group: 'Preferences', icon: <Monitor aria-hidden />, onSelect: () => setTheme('system'), keywords: ['appearance', 'auto'] },
       { id: 'signout', label: 'Sign out', group: 'Preferences', icon: <LogOut aria-hidden />, onSelect: () => void signOut(), keywords: ['log out'] },
     ]
-    return [...go, ...account, ...create, ...prefs]
-  }, [role, setTheme])
+    const help = helpArticleCommands(helpArticles)
+    return [...go, ...account, ...create, ...help, ...prefs]
+  }, [role, setTheme, helpArticles])
 
   const search = useCallback(async (query: string, signal: AbortSignal): Promise<PaletteSearchResult> => {
     const { hits, notice } = await fetchRecordSearch(query, signal)
@@ -137,5 +140,7 @@ export function HoaCommandPalette({ role }: { role: 'admin' | 'board' }) {
     }
   }, [])
 
-  return <CommandPalette commands={commands} search={search} onNavigate={(href) => router.push(href)} />
+  const fallback = useCallback((query: string) => askGuideCommand(query, () => router.push('/help')), [router])
+
+  return <CommandPalette commands={commands} search={search} fallback={fallback} onNavigate={(href) => router.push(href)} />
 }
