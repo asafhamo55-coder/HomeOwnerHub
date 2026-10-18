@@ -113,6 +113,26 @@ describe('buildPeople', () => {
     expect(p.previousOwners.map((o) => o.key)).toEqual(['old'])
   })
 
+  it('a sale settled today: the seller is a previous owner today, the buyer the only owner (periods are [from, to))', () => {
+    const p = buildPeople({
+      property: { owner_name: 'Buyer One', owner_email: 'buyer@example.test', owner_phone: null },
+      ownerships: [
+        own({ id: 'buyer', owner_name: 'Buyer One', owner_email: 'buyer@example.test', valid_from: TODAY }),
+        own({ id: 'seller', valid_to: TODAY }),
+        own({ id: 'earliest', valid_from: '2010-01-01', valid_to: '2020-01-01' }),
+      ],
+      tenancies: [],
+      residents: [],
+      today: TODAY,
+    })
+    expect(p.owners.map((o) => [o.key, o.primary])).toEqual([['buyer', true]])
+    // Most recent first, with their dates.
+    expect(p.previousOwners.map((o) => [o.key, o.since, o.until])).toEqual([
+      ['seller', '2020-01-01', TODAY],
+      ['earliest', '2010-01-01', '2020-01-01'],
+    ])
+  })
+
   it('with no ownership rows the home’s owner fields stand in, portal unknown', () => {
     const p = buildPeople({ property, ownerships: [], tenancies: [], residents: [], today: TODAY })
     expect(p.owners).toEqual([expect.objectContaining({ source: 'property', primary: true, portal: null, name: 'Robin Co-Owner' })])
@@ -249,6 +269,18 @@ describe('buildTimeline', () => {
     notes: 'Called about the gate',
     created_by: null,
     ...over,
+  })
+
+  it('a recorded sale reads as a sale, from ids/counts/date only', () => {
+    const items = buildTimeline({
+      events: [
+        event({ id: 's1', kind: 'ownership_changed', notes: null, payload: { reason: 'sale', settlement_date: '2026-10-15', buyers: 2 } }),
+        event({ id: 's2', kind: 'ownership_changed', notes: null, payload: { reason: 'sale', settlement_date: '2026-10-15', buyers: 1 }, occurred_at: '2026-10-09T00:00:00Z' }),
+        event({ id: 's3', kind: 'ownership_changed', notes: null, payload: {}, occurred_at: '2026-10-08T00:00:00Z' }),
+      ],
+      tenureLabels: {},
+    })
+    expect(items.map((i) => i.title)).toEqual(['Sale recorded, settled Oct 15, 2026 · 2 buyers', 'Sale recorded, settled Oct 15, 2026', 'Ownership changed'])
   })
 
   it('merges every source newest first, each linking to its record', () => {
