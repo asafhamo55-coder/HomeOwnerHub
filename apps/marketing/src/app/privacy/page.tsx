@@ -26,7 +26,7 @@ export default function PrivacyPage() {
             <h2>The short version</h2>
             <ul>
               <li>We collect only what we need to run the product.</li>
-              <li>You own your documents. You can download properties, violations, leases and vendors as CSV files at any time; a full one-click export is on our roadmap.</li>
+              <li>You own your documents. Board members and admins can download all of your association&apos;s records at any time from Settings → Your data, as one zip of spreadsheets (CSV). Uploaded files themselves are listed in it rather than included.</li>
               <li>We never train models on your data.</li>
               <li>We never sell or share your data with third parties.</li>
               <li>We log every AI action for your audit trail.</li>
@@ -52,7 +52,11 @@ export default function PrivacyPage() {
             <p>
               We do not share your information with third parties except service
               providers we contract to run the product (e.g., infrastructure
-              hosting, transactional email). Each provider operates under a
+              hosting, transactional email, and the AI providers that generate
+              answers and index your documents). When the assistant looks up an
+              owner, the AI sees placeholders instead of their email and phone
+              number, and inbox reply drafts remove contact details from
+              resident messages before the AI reads them. Each provider operates under a
               data-processing agreement and processes only what's necessary.
             </p>
 
@@ -65,8 +69,9 @@ export default function PrivacyPage() {
 
             <h2>5. Your rights</h2>
             <p>
-              You can access, export, correct, or delete your data at any time
-              from your account settings, or by emailing privacy@ledger.ai.
+              You can access, correct and export your data at any time in the
+              app (export is under Settings → Your data). To delete it, or for
+              anything else, email privacy@ledger.ai.
               We respond within 30 days.
             </p>
 

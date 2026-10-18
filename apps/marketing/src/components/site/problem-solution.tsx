@@ -7,15 +7,15 @@ const problems = [
   'Volunteer board treasurers burning 10+ unpaid hours every week on paperwork',
   'Violation notices stalled because nobody wants to draft a legal letter',
   'Meeting minutes that take 3 hours to write, and still miss the decisions',
-  'Reserve studies that cost $5–8K and lag 8 weeks behind reality',
+  'Month-end board reports pieced together by hand from three spreadsheets',
   'Landlords on Venmo + spreadsheets, missing late rent until it\'s a month behind',
 ]
 
 const solutions = [
-  { line: 'Covenant Brain answers any rule question in 4 seconds — with the section cited.' },
-  { line: 'Violation Drafter writes the notice. Board approves in one tap. Sent in 2 minutes.' },
-  { line: 'Minutes Engine listens to the meeting and ships board-ready minutes that night.' },
-  { line: 'Reserve Live runs the projection in real time. Updates with every invoice.' },
+  { line: 'Covenant Brain answers any rule question in seconds — with the section cited.' },
+  { line: 'Violation Drafter writes the letter. The board approves it in one click from Approvals.' },
+  { line: 'Paste the meeting transcript and AI drafts board-ready minutes for the board to approve.' },
+  { line: 'On the 1st, the board gets a month-end report: cash, dues collected, overdue balances, budget and violations.' },
   { line: 'PM Hub tracks rent, sends reminders, and flags risk before it hurts.' },
 ]
 

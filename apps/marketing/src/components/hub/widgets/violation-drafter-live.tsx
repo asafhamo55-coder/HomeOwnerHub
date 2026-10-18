@@ -94,12 +94,12 @@ export function ViolationDrafterLive() {
               Live · Violation Drafter
             </p>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-              Photo in. Notice out. Board approves in a tap.
+              Photo in. Letter drafted. Board approves in one click.
             </h2>
           </div>
           <p className="mt-4 max-w-md text-base leading-relaxed text-muted md:mt-0">
             The Violation Drafter reads your CC&amp;R, matches the rule, and
-            renders a legally formatted notice. Bar B — board reviews before
+            drafts a letter that cites it. Bar B — board reviews before
             it goes out.
           </p>
         </header>
@@ -244,7 +244,7 @@ export function ViolationDrafterLive() {
           </span>
           <span className="inline-flex items-center gap-1.5">
             <FileText className="h-3.5 w-3.5 text-success" />
-            Notice persists to PDF · certified mail dispatch optional
+            Approving files the violation · sending to the homeowner is a separate step
           </span>
         </div>
       </div>

@@ -28,9 +28,9 @@ const beliefs = [
   },
   {
     Icon: Sparkles,
-    title: 'Self-hosted, by design.',
+    title: 'Open-weight models, by design.',
     body:
-      'We run our own open-source LLM stack. Marginal AI cost is roughly 10× lower than competitors paying frontier API rates. That margin goes to features and pricing — not to OpenAI\'s growth.',
+      'We run open-weight models (OpenAI gpt-oss) on Groq instead of paying frontier-model rates. AI cost per board stays small, and that margin goes to features and pricing.',
   },
   {
     Icon: MapPin,
@@ -112,7 +112,7 @@ export default function AboutPage() {
               </p>
               <p>
                 Ledger is the AI-native operating system that follows that
-                buyer through every stage — with 17 vertical AI workflows that
+                buyer through every stage — with vertical AI workflows that
                 automate the work today's incumbents leave to volunteers.
               </p>
             </div>

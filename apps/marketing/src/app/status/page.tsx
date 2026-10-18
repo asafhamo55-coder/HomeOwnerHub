@@ -14,7 +14,7 @@ const services = [
   { name: 'HOA Hub app', status: 'operational' },
   { name: 'PM Hub app', status: 'operational' },
   { name: 'Eviction Hub app', status: 'operational' },
-  { name: 'Inference (vLLM · Qwen 2.5 14B)', status: 'operational' },
+  { name: 'AI inference (Groq)', status: 'operational' },
   { name: 'Document ingestion (DIC)', status: 'operational' },
   { name: 'Communications (CE)', status: 'operational' },
   { name: 'Background jobs (Inngest)', status: 'operational' },

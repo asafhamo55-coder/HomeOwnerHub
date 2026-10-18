@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ArrowRight, FileText, ShieldCheck } from 'lucide-react'
 import { CovenantBrainDemo } from './covenant-brain-demo'
 import { PHOTOS } from '@/lib/photos'
+import { SHIPPED_HOA_WORKFLOWS } from '@/lib/workflows'
 
 const heroBgUrl = `${PHOTOS.suburbanAerial.src}?w=2400&q=80&auto=format&fit=crop`
 
@@ -40,9 +41,9 @@ export function Hero() {
             </h1>
 
             <p className="mt-6 max-w-lg text-lg leading-relaxed text-foreground-secondary">
-              Ask any rule question — get the answer in 4 seconds with the
-              CC&amp;R section cited. Approve notices, minutes, and reserve
-              updates in one tap.
+              Ask any rule question — get the answer in seconds with the
+              CC&amp;R section cited. Approve violation letters and scanned
+              bills in one click. Nothing is filed or entered until the board approves.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -63,13 +64,13 @@ export function Hero() {
             </div>
 
             <p className="mt-4 text-xs text-muted">
-              Six-month free pilot · No auto-conversion · No data migration · Cancel anytime
+              Six-month free pilot · No auto-conversion · No data migration
             </p>
 
             <dl className="mt-10 grid max-w-md grid-cols-3 divide-x divide-border border-t border-border/80 pt-6">
-              <Stat value="17" label="AI workflows" />
-              <Stat value="<1%" label="Hallucination" />
-              <Stat value="15 min" label="Onboarding" />
+              <Stat value={String(SHIPPED_HOA_WORKFLOWS.length)} label="AI workflows live" />
+              <Stat value="Cited" label="Every document answer" />
+              <Stat value="Self-serve" label="Setup + roster import" />
             </dl>
           </div>
 
@@ -99,7 +100,7 @@ export function Hero() {
             </div>
 
             <p className="mt-4 text-xs text-muted">
-              Every answer cited back to the document. Audit-logged. No hallucinations.
+              Every answer cited back to the document. Audit-logged. If your documents don&apos;t cover it, it says so.
             </p>
           </motion.div>
         </motion.div>

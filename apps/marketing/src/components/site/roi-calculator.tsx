@@ -4,18 +4,13 @@ import { useMemo, useState } from 'react'
 import { Calculator, ArrowRight, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/cn'
+import { MIN_BILLABLE_DOORS, annualBillUsd, monthlyBillUsd } from '@/lib/hoa-pricing'
 
-// Per-door pricing — $4.99/door/month with a $200/month minimum.
-// Keep this in sync with packages/billing/src/pricing.ts (kept literal
-// here because the marketing app doesn't depend on @homeowner-portal/billing).
-const PER_DOOR_USD = 4.99
-const MIN_MONTHLY_USD = 200
-
-function selectTier(doors: number): { name: string; monthly: number } {
-  const computed = doors * PER_DOOR_USD
-  const monthly = Math.max(computed, MIN_MONTHLY_USD)
-  const name = computed < MIN_MONTHLY_USD ? 'HOA Hub (minimum)' : 'HOA Hub'
-  return { name, monthly: Math.round(monthly) }
+// Prices come from lib/hoa-pricing.ts, which a unit test pins to what
+// Stripe checkout charges (BL-042). The "annual" figure is the annual plan.
+function selectTier(doors: number): { name: string; monthly: number; annual: number } {
+  const name = doors < MIN_BILLABLE_DOORS ? 'HOA Hub (minimum)' : 'HOA Hub'
+  return { name, monthly: monthlyBillUsd(doors), annual: annualBillUsd(doors) }
 }
 
 function fmtUsd(n: number): string {
@@ -29,7 +24,7 @@ export function RoiCalculator() {
 
   const { tier, hhAnnual, currentAnnualMgmt, volunteerHoursAnnualValue, totalSavings, paybackWeeks } = useMemo(() => {
     const tier = selectTier(doors)
-    const hhAnnual = tier.monthly * 12
+    const hhAnnual = tier.annual
     const currentAnnualMgmt = doors * feePerDoorPerMo * 12
     const volunteerHoursAnnualValue = hoursPerWeek * 52 * 50 // $50/hr — financial-analyst opportunity cost
     const totalSavings = currentAnnualMgmt + volunteerHoursAnnualValue - hhAnnual
@@ -107,7 +102,7 @@ export function RoiCalculator() {
             <dl className="grid gap-2 text-sm">
               <Line label="Management cost (annual)" value={fmtUsd(currentAnnualMgmt)} />
               <Line label="Volunteer hours (annual @ $50/hr)" value={fmtUsd(volunteerHoursAnnualValue)} />
-              <Line label="Ledger (annual)" value={`− ${fmtUsd(hhAnnual)}`} />
+              <Line label="Ledger (annual plan)" value={`− ${fmtUsd(hhAnnual)}`} />
               <div className="mt-1 flex items-baseline justify-between border-t border-border/70 pt-2">
                 <dt className="text-xs font-semibold uppercase tracking-wider text-foreground-secondary">
                   Net savings

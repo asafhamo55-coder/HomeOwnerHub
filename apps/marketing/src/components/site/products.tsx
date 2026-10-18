@@ -15,8 +15,8 @@ const products = [
     bullets: [
       'Covenant Brain answers any rule question with citations',
       'Violation Drafter writes notices the board approves in seconds',
-      'Reserve Live keeps your reserve fund honest in real time',
-      'Minutes Engine ships board minutes the night of the meeting',
+      'Bill scan reads vendor bills into the approvals queue',
+      'AI drafts board minutes from your meeting transcript',
     ],
     accent: 'from-success-subtle to-surface',
     iconBg: 'bg-success-subtle text-success',

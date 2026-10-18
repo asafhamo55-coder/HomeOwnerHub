@@ -5,31 +5,37 @@ import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { RoiCalculator } from '@/components/site/roi-calculator'
 import { cn } from '@/lib/cn'
+import { HOA_PLANS, HOA_PRICE_COPY, HOA_PRICING } from '@/lib/hoa-pricing'
 
 export const metadata: Metadata = {
-  title: 'Pricing — $4.99 per door, $200/mo minimum',
-  description:
-    'HOA Hub: $4.99 per door per month with a $200 minimum. Pay annually and save 10%. PM free tier or $19–$49/mo. Eviction $99–$199 per case.',
+  title: `Pricing — ${HOA_PRICE_COPY.title}`,
+  description: `HOA Hub: ${HOA_PRICE_COPY.summary} PM free tier or $19–$49/mo. Eviction $99–$199 per case.`,
 }
 
-// HOA per-door plan. One tier; cadence (monthly vs annual) drives the
-// price, with 10% off annual. Mirrors the in-app billing page and the
-// shared module at packages/billing/src/pricing.ts — keep these in sync.
+// HOA per-door plan. One product; cadence (monthly vs annual) drives the
+// price. Every number comes from lib/hoa-pricing.ts, which a unit test pins
+// to what Stripe checkout charges, and which the homepage teaser also
+// renders (BL-042).
 //
-// Truth rule (BL-002): every bullet below maps to a shipped route in
+// Truth rule (BL-002, BL-042): every bullet below maps to a shipped route in
 // apps/hoa. Anything not built yet goes in `roadmap`, which renders under a
 // "Roadmap" label — and only if it is on docs/backlog.md. Monthly and
 // annual are the SAME product; the annual card must not imply extra
 // features.
 const HOA_FEATURES = [
   'AI Daily Digest + Compliance Heat Map', // (dashboard)/page.tsx
-  'Violation letters drafted from photos, approved by the board', // /violations/new, W3
   'Ask your governing documents — cited answers', // /ai/ask, W1
-  'Meeting minutes wizard + AI summaries', // /meetings
+  'Violation letters drafted from photos — approve or reject in one click', // /violations/new, /approvals, W3
+  'Meeting minutes drafted from your transcript; board packet as of month end', // /meetings, /meetings/[id]/packet
+  'Month-end board report, emailed on the 1st', // BL-073, /accounting/reports/monthly-report
   'Shared Gmail inbox with AI reply drafts', // /inbox, W32
   'Accounting: general ledger, bank feeds, reconciliation', // /accounting
+  'AI bill scan into the approvals queue', // /accounting/invoices/new, W36
   'Vendor onboarding, RFPs and AI bid comparison', // /vendors, /rfps, W21–W23
   'Resident portal — dues balance, ARC, requests, documents', // /resident
+  'Roster import from CSV or Excel, CINC exports included', // /properties/import
+  '⌘K record search, built-in user guide and Ask the guide', // /api/search, /help, /api/help/ask
+  'Download all your data any time, as spreadsheets', // /settings/data, BL-011
 ]
 
 // Each item is a backlog entry (docs/backlog.md). Not available today.
@@ -37,33 +43,18 @@ const HOA_ROADMAP = [
   'Spanish-language resident communications', // BL-025
   'AI review of ARC requests against your guidelines', // BL-024, BL-027
   'Reserve fund tracking', // BL-037
-  'Full one-click data export', // BL-011
 ]
 
-const hoaTiers = [
-  {
-    name: 'HOA Monthly',
-    price: '$4.99',
-    period: '/door · mo',
-    sub: '$200/mo minimum · billed monthly',
-    bullets: HOA_FEATURES,
-    roadmap: HOA_ROADMAP,
-    cta: 'Start monthly',
-  },
-  {
-    name: 'HOA Annual',
-    price: '$4.49',
-    period: '/door · mo',
-    sub: '$200/mo minimum · save 10% paying yearly · 12-month commitment',
-    bullets: [
-      'Everything in HOA Monthly — same product',
-      '10% off for paying a year up front',
-      'Priority support',
-    ],
-    cta: 'Save 10% annually',
-    featured: true,
-  },
+const ANNUAL_BULLETS = [
+  'Everything in HOA Monthly — same product',
+  `${HOA_PRICING.ANNUAL_DISCOUNT_PCT}% off for paying a year up front`,
 ]
+
+const hoaTiers = HOA_PLANS.map((p) =>
+  p.cadence === 'monthly'
+    ? { ...p, bullets: HOA_FEATURES, roadmap: HOA_ROADMAP }
+    : { ...p, bullets: ANNUAL_BULLETS },
+)
 
 const pmTiers = [
   {
@@ -136,7 +127,15 @@ const evictionTiers = [
 const faqs = [
   {
     q: 'What\'s the six-month free pilot for HOAs?',
-    a: 'Every HOA gets six months free to actually use the product. No data migration, no auto-conversion. After six months, we walk through usage, share metrics, and let the board decide. Most pilots convert at the standard tier.',
+    a: 'Every HOA gets six months free to actually use the product. No data migration, no auto-conversion. After six months, we walk through usage, share metrics, and let the board decide. A board that continues moves to the per-door plan above.',
+  },
+  {
+    q: 'Is there a contract?',
+    a: `Both plans start with a ${HOA_PRICING.COMMIT_MONTHS}-month first year that can't be cancelled. From month ${HOA_PRICING.COMMIT_MONTHS + 1} you can cancel any time from Settings → Billing. The six-month pilot comes before that and never converts on its own.`,
+  },
+  {
+    q: 'Can we bring our homeowner roster?',
+    a: 'Yes, and the board does it itself. Properties → Import takes a CSV or Excel file (CINC exports are recognised), shows what will happen to every row before anything is saved, and lets you skip or update homes already on file. Balances in the file are shown for reference but never posted.',
   },
   {
     q: 'What does "Bar A / B / C" mean on the pricing list?',
@@ -144,7 +143,7 @@ const faqs = [
   },
   {
     q: 'Do we keep our data?',
-    a: 'Yes. You own everything you upload, and we never train on your documents. Today you can download properties, violations, leases and vendors as CSV files. A full one-click export of everything is on our roadmap.',
+    a: 'Yes. You own everything you upload, and we never train on your documents. Board members and admins can download everything at any time from Settings → Your data: one zip with a spreadsheet (CSV) per area. Uploaded files themselves aren\'t in the zip; the documents list names each one.',
   },
   {
     q: 'What if my HOA is in a state you don\'t support yet?',
@@ -168,10 +167,10 @@ export default function PricingPage() {
             Pricing
           </p>
           <h1 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold tracking-tight text-foreground md:text-[56px] md:leading-[1.05]">
-            One management company quote = 18 months of Ledger.
+            One price per door. No tiers, no add-ons.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-muted">
-            HOAs pay per month. Landlords start free. Evictions are per-case.
+            HOAs pay per door. Landlords start free. Evictions are per-case.
             Every workflow is labeled by its quality bar.
           </p>
         </div>

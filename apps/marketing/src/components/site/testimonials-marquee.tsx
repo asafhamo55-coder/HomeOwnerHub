@@ -39,42 +39,9 @@ const TESTIMONIALS: Testimonial[] = [
     quote:
       'The violation drafter alone saved us six board hours a month. Every notice has the bylaw section cited; my treasurer just taps approve.',
   },
-  {
-    name: 'Adam',
-    role: 'Secretary',
-    community: '90-door townhome HOA',
-    gradient: 'from-eviction to-primary',
-    portrait: 'adam',
-    quote:
-      'Minutes used to take me three hours on a Sunday. The Minutes Engine drafts them while we\'re still in the meeting. I edit for ten minutes and send.',
-  },
-  {
-    name: 'Maria',
-    role: 'Resident',
-    community: '180-door HOA',
-    gradient: 'from-accent to-danger-solid',
-    portrait: 'maria',
-    quote:
-      'I asked about pet rules in Spanish and got the answer back in Spanish, with the exact CC&R section. I didn\'t have to email the board.',
-  },
-  {
-    name: 'Marcus',
-    role: 'Resident',
-    community: '320-door planned community',
-    gradient: 'from-primary to-eviction',
-    portrait: 'marcus',
-    quote:
-      'The resident portal is the first thing my HOA has ever done that actually feels modern. I see what\'s on the next agenda before the meeting.',
-  },
-  {
-    name: 'Patricia',
-    role: 'Vice President',
-    community: '160-door HOA · Cobb County',
-    gradient: 'from-success-solid to-accent',
-    portrait: 'patricia',
-    quote:
-      'Architectural review used to be a fight. Now the ARC Recommender packets show comparable approvals with citations. Decisions take half the time.',
-  },
+  // BL-042 removed four cards that described features that don't exist
+  // (minutes drafted live in the meeting, Spanish answers, meeting agendas
+  // in the resident portal, the ARC Recommender).
   {
     name: 'James',
     role: 'Landlord',

@@ -4,34 +4,20 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowRight, Check } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { HOA_PLANS, HOA_PRICE_COPY, type HoaPlan } from '@/lib/hoa-pricing'
 
-const tiers = [
-  {
-    name: 'HOA Starter',
-    price: '$39',
-    period: '/mo',
-    sub: 'Up to 50 doors',
-    bullets: ['Ask your governing documents — cited answers', 'Governing-document upload + parsing', 'Resident portal'],
-    cta: 'Pilot for free',
-  },
-  {
-    name: 'HOA Standard',
-    price: '$79',
-    period: '/mo',
-    sub: '51–300 doors · Most boards',
-    bullets: ['Everything in Starter', 'Violation letters drafted from photos', 'Meeting minutes + AI summaries', 'Shared Gmail inbox with AI reply drafts', 'Vendor onboarding + AI bid comparison'],
-    cta: 'Book a demo',
-    featured: true,
-  },
-  {
-    name: 'HOA Plus',
-    price: '$149',
-    period: '/mo',
-    sub: '301–1,000 doors',
-    bullets: ['Everything in Standard', 'Board Copilot', 'Accounting + bank reconciliation', 'Priority support'],
-    cta: 'Talk to us',
-  },
-]
+// Homepage teaser. The plans and every price come from lib/hoa-pricing.ts,
+// the same source /pricing renders, so the two can't disagree (BL-042).
+// The bullets name shipped features only; /pricing has the full list.
+const TEASER_BULLETS: Record<HoaPlan['cadence'], string[]> = {
+  monthly: [
+    'Ask your governing documents — cited answers',
+    'Violation letters drafted from photos, approved in one click',
+    'Accounting, bank feeds and AI bill scan',
+    'Month-end board report and resident portal',
+  ],
+  annual: ['Everything in HOA Monthly — same product', 'Paid once a year'],
+}
 
 export function PricingTeaser() {
   return (
@@ -42,15 +28,15 @@ export function PricingTeaser() {
             Pricing built for volunteers
           </p>
           <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
-            Less than a management company. By a lot.
+            One price per door. Every feature included.
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-muted">
-            HOAs pay between $40 and $150 a month. Landlords start free. Eviction is per-case. Every pilot gets six months free.
+            HOAs pay {HOA_PRICE_COPY.summary} Every pilot gets six months free.
           </p>
         </div>
 
-        <div className="mt-16 grid gap-5 md:grid-cols-3">
-          {tiers.map((t, i) => (
+        <div className="mx-auto mt-16 grid max-w-3xl gap-5 md:grid-cols-2">
+          {HOA_PLANS.map((t, i) => (
             <motion.div
               key={t.name}
               initial={{ opacity: 0, y: 16 }}
@@ -66,7 +52,7 @@ export function PricingTeaser() {
             >
               {t.featured && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary-fg">
-                  Most boards
+                  Best value
                 </span>
               )}
               <p className="text-sm font-semibold text-foreground">{t.name}</p>
@@ -76,7 +62,7 @@ export function PricingTeaser() {
                 <span className="text-sm text-muted">{t.period}</span>
               </div>
               <ul className="mt-6 flex-1 space-y-2.5">
-                {t.bullets.map((b) => (
+                {TEASER_BULLETS[t.cadence].map((b) => (
                   <li key={b} className="flex gap-2 text-sm text-foreground-secondary">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                     {b}
@@ -100,7 +86,7 @@ export function PricingTeaser() {
         </div>
 
         <p className="mt-10 text-center text-xs text-muted">
-          PM Hub free tier (1 property). Eviction $99–199 per case. Full pricing →{' '}
+          PM Hub free tier (1 property). Eviction is priced per case. Full pricing →{' '}
           <Link href="/pricing" className="font-semibold text-foreground underline-offset-4 hover:underline">
             see all plans
           </Link>

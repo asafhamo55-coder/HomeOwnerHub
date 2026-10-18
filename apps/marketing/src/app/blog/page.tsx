@@ -29,8 +29,8 @@ const planned = [
   },
   {
     category: 'AI',
-    title: 'Why we self-host our LLM (and what it costs)',
-    note: 'Real TCO numbers from month 1 through month 12 on RunPod A10G + L4.',
+    title: 'Why we use open-weight models (and what they cost)',
+    note: 'What the AI actually costs per board, month by month.',
   },
   {
     category: 'Eviction',
