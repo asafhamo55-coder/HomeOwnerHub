@@ -48,6 +48,8 @@ export interface PaymentRow {
 
 export interface PaymentPlanRow {
   id: string
+  /** Optional so fixtures without it still render. */
+  unit_id?: string
   status: string
   installment_amount: number | string
   installment_count: number

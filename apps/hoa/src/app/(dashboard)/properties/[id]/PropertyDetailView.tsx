@@ -39,6 +39,7 @@ import {
   type TimelineItem,
 } from '@homeowner-portal/ui'
 import { formatDay, formatStamp, usd } from '@/lib/money/format'
+import { describePlanStanding } from '@/lib/money/plan-standing'
 import { ARC_CATEGORY, ARC_STATUS, INBOX_THREAD_STATUS, TENURE, VIOLATION_SEVERITY, VIOLATION_STATUS } from '@/lib/status/community'
 import { cureBy, cureState, sortByUrgency } from '@/lib/violation-cure'
 import { collectionStatusLabel } from '@/lib/collections/statuses'
@@ -653,6 +654,8 @@ function MoneySection({
   const stats = data.stats
   const lastPayment = data.payments?.ok ? (data.payments.data[0] ?? null) : null
   const plan = data.plans?.ok ? (data.plans.data.find((x) => x.status === 'active' || x.status === 'proposed') ?? data.plans.data[0] ?? null) : null
+  // BL-080: behind / on track / completed on a day — only when it was read.
+  const planStanding = plan && data.planStandings?.ok ? describePlanStanding(data.planStandings.data[plan.id], plan) : null
   const openCase = data.collections?.ok ? data.collections.data.openCase : null
   const unlinked = data.unit.ok && data.unit.data.unitId === null
 
@@ -685,8 +688,24 @@ function MoneySection({
         <Kpi
           label="Payment plan"
           state={data.plans === null || data.plans.ok ? 'ready' : 'failed'}
-          value={plan ? PLAN_STATUS.labels[plan.status as keyof typeof PLAN_STATUS.labels] ?? plan.status : 'None'}
-          hint={plan ? `${plan.installment_count} × ${usd(Number(plan.installment_amount))} from ${formatDay(plan.start_date)}` : 'No plan on file'}
+          value={
+            planStanding && plan?.status === 'active' ? (
+              <span className={planStanding.tone === 'danger' ? 'text-danger' : undefined}>{planStanding.label}</span>
+            ) : plan ? (
+              PLAN_STATUS.labels[plan.status as keyof typeof PLAN_STATUS.labels] ?? plan.status
+            ) : (
+              'None'
+            )
+          }
+          hint={
+            planStanding
+              ? planStanding.detail
+              : plan
+                ? `${plan.installment_count} × ${usd(Number(plan.installment_amount))} from ${formatDay(plan.start_date)}`
+                : 'No plan on file'
+          }
+          href={plan ? '/accounting/payment-plans' : undefined}
+          linkAs={plan ? Link : undefined}
         />
         <Kpi
           label="Collections"

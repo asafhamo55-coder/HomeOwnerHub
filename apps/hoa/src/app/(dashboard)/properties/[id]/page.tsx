@@ -9,6 +9,8 @@ import { DEFAULT_ASSOCIATION_TIME_ZONE, todayIn } from '@/lib/association-time'
 import { resolvePropertyUrl } from '@/lib/properties/canonical'
 import { asPropertyId } from '@/lib/properties/resolve'
 import { loadProperty360 } from '@/lib/properties/property-360'
+import { loadPlanStandings } from '@/lib/accounting/plan-standings'
+import { tryLoad } from '@/lib/load-or-fail'
 import { parsePropertyListParams, propertyListQuery } from '@/lib/properties/list-params'
 import { parseSection } from '@/lib/properties/sections'
 import { PropertyDetailView } from './PropertyDetailView'
@@ -65,9 +67,22 @@ export default async function PropertyDetailPage({
   }
 
   const today = todayIn(assocInfo.assoc?.timeZone ?? DEFAULT_ASSOCIATION_TIME_ZONE)
+
+  // BL-080: "Behind on plan" / "Completed <day>" for the listed plans.
+  const plans = loaded.data.plans?.ok ? loaded.data.plans.data : []
+  const assoc = assocInfo.assoc
+  const standingPlans = plans.filter((p): p is typeof p & { unit_id: string } => typeof p.unit_id === 'string')
+  const standings =
+    assoc && standingPlans.some((p) => p.status === 'active' || p.status === 'completed')
+      ? await tryLoad('payment plan progress', () =>
+          loadPlanStandings(supabase, { organizationId: ctx.org.id, associationId: assoc.id }, standingPlans, today),
+        )
+      : null
+  const data = standings ? { ...loaded.data, planStandings: standings.ok ? { ok: true as const, data: standings.data } : { ok: false as const } } : loaded.data
+
   return (
     <PropertyDetailView
-      data={loaded.data}
+      data={data}
       now={new Date()}
       today={today}
       isAdmin={ctx.role === 'admin'}

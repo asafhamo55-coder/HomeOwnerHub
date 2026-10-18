@@ -198,4 +198,70 @@ describe('recurring-jes', () => {
       .single()
     expect(rule?.next_run_date).toBe('2026-11-01')
   })
+
+  // BL-081: Pause and Stop both turn is_active off; the job must not post.
+  it('a paused or stopped rule posts nothing, even when due', async () => {
+    const org = await makeOrg()
+    const acct = await makeAccounting(org)
+    const templateId = await seedTemplateJe(org, acct, '2026-01-01')
+    const ruleId = await seedRule(org, templateId, 'monthly', TODAY)
+    await adminDb().from('recurring_journal_entries').update({ is_active: false }).eq('id', ruleId)
+
+    const result = await runRecurringJes(adminDb(), inlineStep(), collectingLogger(), NOW)
+
+    expect(result.rules).toBe(0)
+    expect(await countPostedJes(ruleId)).toBe(0)
+  })
+
+  // BL-081: an edit points the rule at a DRAFT template (new amounts);
+  // the job copies the draft's lines and posts them; the draft itself,
+  // and the original posted template, stay exactly as they were.
+  it('a rule whose template was edited posts the new lines and leaves both templates untouched', async () => {
+    const org = await makeOrg()
+    const acct = await makeAccounting(org)
+    const originalId = await seedTemplateJe(org, acct, '2026-01-01')
+    const ruleId = await seedRule(org, originalId, 'monthly', TODAY)
+
+    const { data: draft, error: draftErr } = await adminDb()
+      .from('journal_entries')
+      .insert({
+        organization_id: org.orgId,
+        association_id: org.associationId,
+        fiscal_period_id: acct.fiscalPeriodId,
+        entry_number: `TPL-${ruleId.slice(0, 8)}-test`,
+        entry_date: TODAY,
+        memo: 'Monthly dues template (new rate)',
+        source: 'manual',
+        status: 'draft',
+      })
+      .select('id')
+      .single()
+    if (draftErr || !draft) throw new Error(`draft template insert failed: ${draftErr?.message}`)
+    await adminDb().from('ledger_entries').insert([
+      { organization_id: org.orgId, journal_entry_id: draft.id, account_id: acct.accountIds['1010'], fund_id: acct.fundIds.OPERATING, debit_amount: 125, credit_amount: 0 },
+      { organization_id: org.orgId, journal_entry_id: draft.id, account_id: acct.accountIds['4000'], fund_id: acct.fundIds.OPERATING, debit_amount: 0, credit_amount: 125 },
+    ])
+    await adminDb().from('recurring_journal_entries').update({ template_je_id: draft.id }).eq('id', ruleId)
+
+    const result = await runRecurringJes(adminDb(), inlineStep(), collectingLogger(), NOW)
+    expect(result.posted).toBe(1)
+
+    const { data: posted } = await adminDb()
+      .from('journal_entries')
+      .select('memo, status, lines:ledger_entries(debit_amount)')
+      .eq('source', 'recurring')
+      .eq('source_id', ruleId)
+      .single()
+    expect(posted?.status).toBe('posted')
+    expect(posted?.memo).toBe('Monthly dues template (new rate)')
+    expect(((posted?.lines ?? []) as { debit_amount: number }[]).reduce((s, l) => s + Number(l.debit_amount), 0)).toBe(125)
+
+    const { data: templates } = await adminDb()
+      .from('journal_entries')
+      .select('id, status')
+      .in('id', [originalId, draft.id])
+    const statusOf = new Map((templates ?? []).map((t) => [t.id, t.status]))
+    expect(statusOf.get(originalId)).toBe('posted')
+    expect(statusOf.get(draft.id)).toBe('draft')
+  })
 })

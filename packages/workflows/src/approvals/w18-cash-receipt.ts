@@ -11,6 +11,7 @@
 import { z } from 'zod'
 import { loadAccountingRefs, postJournalEntry, type Json } from '@homeowner-portal/db'
 import type { ApprovalExecutor, ProposeApprovalInput } from './index'
+import { completePaidOffPlans } from '../payment-plans/settle'
 
 export const W18_CASH_RECEIPT = 'w18.cash_receipt'
 
@@ -195,6 +196,23 @@ export const executeW18CashReceipt: ApprovalExecutor = async (db, request) => {
   results.forEach((r, i) => {
     if (r.error) problems.push(`${labels[i]}: ${r.error.message}`)
   })
+
+  // BL-080: this payment may have paid off the unit's payment plan. The
+  // nightly run catches anything missed here, so a failure is a warning.
+  if (p.unitId && !results[0].error) {
+    try {
+      await completePaidOffPlans(db, {
+        organizationId: request.organization_id,
+        associationId: p.associationId,
+        unitIds: [p.unitId],
+        today: p.postedDate,
+        actorUserId: request.decided_by,
+        trigger: 'payment',
+      })
+    } catch (err) {
+      problems.push(`payment plan check: ${err instanceof Error ? err.message : 'failed'}`)
+    }
+  }
 
   return {
     ok: true,

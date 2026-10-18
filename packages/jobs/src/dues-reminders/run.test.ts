@@ -371,3 +371,69 @@ describe('runDuesReminders — each association runs on its own day (BL-043)', (
     expect(await runDuesReminders(store, deps(), now, logger())).toMatchObject({ planned: 0 })
   })
 })
+
+describe('runDuesReminders — payment plans complete before the plan (BL-080)', () => {
+  const approval = { approvedAt: '2026-10-01T00:00:00Z', approvedBy: 'u-board' }
+  const enabled = (id: string, on = true): StoredAssociation => ({
+    id,
+    name: `Assoc ${id}`,
+    organizationId: ORG,
+    complianceSettings: withDuesReminderSettings(
+      {},
+      signDuesReminderSettings(id, { enabled: on, offsets: [5], note: null }, approval, SECRET),
+    ),
+    timeZone: 'America/New_York',
+  })
+
+  it('a home whose plan was paid off is reminded normally the same morning', async () => {
+    const active = new Set(['u-1'])
+    const { store } = memoryStore({ associations: [enabled(ASSOC)], assessments: [assessment()], ownerships: [OWNER] })
+    store.loadActivePlanUnitIds = async () => new Set(active)
+    const swept: { id: string; today: string }[] = []
+    store.completePaidOffPlans = async (a, today) => {
+      swept.push({ id: a.id, today })
+      active.delete('u-1') // the plan is now completed
+      return { checked: 1, completed: 1 }
+    }
+    const summary = await runDuesReminders(store, deps(), NOW, logger())
+    // On the association's own day (NOW is Oct 6 in New York).
+    expect(swept).toEqual([{ id: ASSOC, today: '2026-10-06' }])
+    expect(summary).toMatchObject({ plansCompleted: 1, planned: 1, sent: 1 })
+  })
+
+  it('a home still on an active plan is skipped, as before', async () => {
+    const { store } = memoryStore({ associations: [enabled(ASSOC)], assessments: [assessment()], ownerships: [OWNER], activePlans: ['u-1'] })
+    store.completePaidOffPlans = async () => ({ checked: 1, completed: 0 })
+    expect(await runDuesReminders(store, deps(), NOW, logger())).toMatchObject({ plansCompleted: 0, planned: 0 })
+  })
+
+  it('sweeps associations with reminders off too, each in its own step', async () => {
+    const off = 'a0000000-0000-4000-8000-0000000000f2'
+    const { store } = memoryStore({ associations: [enabled(ASSOC), enabled(off, false)], assessments: [], ownerships: [] })
+    store.completePaidOffPlans = async () => ({ checked: 0, completed: 0 })
+    const steps: string[] = []
+    await runDuesReminders(
+      store,
+      deps(),
+      NOW,
+      logger(),
+      async (_id, fn) => fn(),
+      async (id, fn) => {
+        steps.push(id)
+        return fn()
+      },
+    )
+    expect(steps).toEqual([ASSOC, off])
+  })
+
+  it('a failed sweep is logged by error class and the reminders still go out', async () => {
+    const { store } = memoryStore({ associations: [enabled(ASSOC)], assessments: [assessment()], ownerships: [OWNER] })
+    store.completePaidOffPlans = async () => {
+      throw new TypeError('payment-plans: payment plans read failed (57014)')
+    }
+    const log = logger()
+    const summary = await runDuesReminders(store, deps(), NOW, log)
+    expect(summary).toMatchObject({ plansCompleted: 0, sent: 1 })
+    expect(log.error).toHaveBeenCalledWith(`[dues-reminders] ${ASSOC}: payment plan sweep failed`, { error: 'TypeError' })
+  })
+})

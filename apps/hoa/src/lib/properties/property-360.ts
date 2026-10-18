@@ -5,6 +5,7 @@ import { listThreadsForUnit } from '@/lib/inbox/queries'
 import { CASE_COLUMNS, EVENT_COLUMNS, sortEventsNewestFirst, toCase, toEvent, type CollectionCase, type CollectionEvent } from '@/lib/collections/queries'
 import type { PropertyResidentRow } from '@/lib/property-residents'
 import type { PropertyEventRow } from '@/lib/property-events'
+import type { PlanStandingView } from '@/lib/money/plan-standing'
 import type { PropertyTenure } from './index'
 import { AUDIT_APPLIED, selfUpdateDates } from '../contact-updates/model'
 import { resolveUnitForProperty, type PropertyId, type UnitId, type UnitResolution } from './resolve'
@@ -100,6 +101,12 @@ export interface Property360 {
    * so fixtures without it still render; absent or failed = say nothing.
    */
   selfUpdates?: Part<Record<string, string>>
+  /**
+   * BL-080: how each listed plan is going (behind, on track, completed on
+   * a day), by plan id. Read by the page after the 360 (it needs the
+   * association and its day); absent or failed = say nothing extra.
+   */
+  planStandings?: Part<Record<string, PlanStandingView>>
 }
 
 /** How many of each "latest" list the page shows (it says so and links on). */
@@ -263,7 +270,7 @@ export async function loadProperty360(
           'payment plans',
           db
             .from('payment_plans')
-            .select('id, status, installment_amount, installment_count, total_amount, start_date, created_at')
+            .select('id, unit_id, status, installment_amount, installment_count, total_amount, start_date, created_at')
             .in('unit_id', ids)
             .order('created_at', { ascending: false })
             .limit(LATEST.plans),

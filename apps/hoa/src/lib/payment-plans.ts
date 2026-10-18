@@ -5,6 +5,7 @@ import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
 import { loadAccountingRefs, postJournalEntry } from '@homeowner-portal/db'
 import { memoCodeFor } from '@homeowner-portal/workflows'
+import { installmentMemo } from '@homeowner-portal/workflows/payment-plans'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
@@ -161,7 +162,8 @@ export async function createPaymentPlan(input: {
       associationId: assoc.id,
       fiscalPeriodId: period.id,
       entryDate: todayIn(assoc.timeZone), // the association's day (BL-043)
-      memo: `Payment plan installment ${i + 1}/${value.installmentCount} (plan ${plan.id.slice(0, 8)})`,
+      // The plan → installment link BL-080's completion check reads back.
+      memo: installmentMemo(i + 1, value.installmentCount, plan.id),
       source: 'ar_payment',
       sourceId: assess.id,
       lines: [
