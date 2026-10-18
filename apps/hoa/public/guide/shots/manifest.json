@@ -5,8 +5,8 @@
       1440
     ],
     "route": "/approvals",
-    "sha": "063f97a",
-    "sourceHash": "dc8c10717ddc8edb71318fc9908db650ee506997",
+    "sha": "40c1716",
+    "sourceHash": "f7b0ed6963ff59e41fe88f517bc714c40c8ebc4b",
     "capturedAt": "2026-10-18"
   },
   "guide-approvals-bill-edit": {
@@ -15,8 +15,8 @@
       1440
     ],
     "route": "/approvals",
-    "sha": "063f97a",
-    "sourceHash": "dc8c10717ddc8edb71318fc9908db650ee506997",
+    "sha": "40c1716",
+    "sourceHash": "f7b0ed6963ff59e41fe88f517bc714c40c8ebc4b",
     "capturedAt": "2026-10-18"
   },
   "guide-arc-detail": {
@@ -25,8 +25,8 @@
       1440
     ],
     "route": "/arc/[id]",
-    "sha": "063f97a",
-    "sourceHash": "0a29f1b79a19eb75e20b7be578d52577833e913d",
+    "sha": "40c1716",
+    "sourceHash": "01bf5f62df1ade4ac9e1d2ac1fd430a73ddb117a",
     "capturedAt": "2026-10-18"
   },
   "guide-arc-list": {
@@ -75,8 +75,8 @@
       1440
     ],
     "route": "/",
-    "sha": "063f97a",
-    "sourceHash": "737e7e5e6a3f119d930e9f94d9586b9fc3e2caf8",
+    "sha": "40c1716",
+    "sourceHash": "56e98d2c342fb20bd83660f06f999bf44b130398",
     "capturedAt": "2026-10-18"
   },
   "guide-documents-governing": {
@@ -155,8 +155,8 @@
       1440
     ],
     "route": "/properties",
-    "sha": "063f97a",
-    "sourceHash": "377052818dacc16a1a99f54379dabbb53ce11411",
+    "sha": "40c1716",
+    "sourceHash": "716e54f348dadebf04ff3f5e99fadac181f3c989",
     "capturedAt": "2026-10-18"
   },
   "guide-properties-new": {
@@ -185,8 +185,8 @@
       1440
     ],
     "route": "/resident",
-    "sha": "063f97a",
-    "sourceHash": "14ce8c8bcaf81140fdde9f55500e3a31e01acc31",
+    "sha": "40c1716",
+    "sourceHash": "2f168c1b4958716d65ac16c347a3095152dde255",
     "capturedAt": "2026-10-18"
   },
   "guide-resident-pay": {
