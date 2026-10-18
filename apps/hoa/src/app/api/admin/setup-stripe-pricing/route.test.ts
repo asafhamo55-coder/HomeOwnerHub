@@ -55,6 +55,8 @@ function fakeStripe() {
 }
 
 vi.mock('@homeowner-portal/billing', () => ({
+  MONTHLY_UNIT_CENTS: 499,
+  ANNUAL_UNIT_CENTS: 5388,
   isStripeConfigured: () => h.configured,
   getStripe: () => (h.configured ? fakeStripe() : null),
 }))
