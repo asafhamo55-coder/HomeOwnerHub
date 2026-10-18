@@ -73,22 +73,37 @@ export function SetupChecklistCard({ checklist }: { checklist: SetupChecklist })
  * still comes from data only.
  */
 function StepItem({ step, index }: { step: SetupChecklistStep; index: number }) {
+  // A second way to do the step (the properties import) is a third sibling
+  // link, set in room the step leaves for it at the bottom.
+  const secondary = step.state === 'todo' ? step.secondary : undefined
   return (
     <div className="relative h-full">
-      <StepLink step={step} index={index} />
+      <StepLink step={step} index={index} roomBelow={Boolean(secondary)} />
       <HowLink articleId={step.guide} href={guideHref(step.guide)} label={step.title} className="absolute right-2 top-2" />
+      {secondary ? (
+        <Link
+          href={secondary.href}
+          className="absolute bottom-0.5 left-12 inline-flex min-h-10 items-center gap-1 rounded text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:bottom-2 sm:min-h-0"
+        >
+          {secondary.label}
+          <ArrowRight className="size-3" aria-hidden />
+        </Link>
+      ) : null}
     </div>
   )
 }
 
-function StepLink({ step, index }: { step: SetupChecklistStep; index: number }) {
+function StepLink({ step, index, roomBelow = false }: { step: SetupChecklistStep; index: number; roomBelow?: boolean }) {
   const done = step.state === 'done'
   const unknown = step.state === 'unknown'
 
   return (
     <Link
       href={step.href}
-      className="group flex h-full items-start gap-3 rounded-lg border border-border p-3 pr-16 transition-colors duration-fast hover:border-border-strong hover:bg-subtle"
+      className={cn(
+        'group flex h-full items-start gap-3 rounded-lg border border-border p-3 pr-16 transition-colors duration-fast hover:border-border-strong hover:bg-subtle',
+        roomBelow && 'pb-11 sm:pb-8',
+      )}
     >
       <span
         aria-hidden

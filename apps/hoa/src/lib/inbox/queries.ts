@@ -246,6 +246,8 @@ export interface SetupStep {
   done: boolean
   href: string
   cta: string
+  /** A second way to do the step, as its own link. */
+  secondary?: { href: string; label: string }
 }
 
 /**

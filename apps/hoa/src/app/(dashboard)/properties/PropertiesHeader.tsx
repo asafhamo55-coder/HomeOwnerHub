@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Download, Plus } from 'lucide-react'
+import { Download, Plus, Upload } from 'lucide-react'
 import { Button, PageHeader } from '@homeowner-portal/ui'
 import { propertyExportHref, type PropertyFilter } from '@/lib/properties/list-params'
 import { propertyCountLabel } from '@/lib/properties/count-label'
@@ -42,6 +42,12 @@ export function PropertiesHeader({
           <Download aria-hidden />
           Export
         </a>
+      </Button>
+      <Button asChild variant="secondary">
+        <Link href="/properties/import">
+          <Upload aria-hidden />
+          Import
+        </Link>
       </Button>
       <Button asChild>
         <Link href="/properties/new">

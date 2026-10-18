@@ -4,8 +4,9 @@ import { memorySupabase } from '@/lib/test-utils/memory-supabase'
 
 // BL-072: the sign-up setup page's properties step sent a normal admin to
 // the platform-admin-only CSV import (/admin/import-units), which redirected
-// them away. Both checklists now send them to /properties/new and offer
-// support's import for a spreadsheet, in the same words.
+// them away. Both checklists now send them to /properties/new and, for a
+// spreadsheet, to the board's own import at /properties/import (P4), in
+// the same words.
 
 vi.mock('@/lib/association-time-server', () => ({ orgTimeZone: async () => 'America/New_York' }))
 
@@ -22,8 +23,10 @@ describe('setup checklists: the properties step (BL-072)', () => {
     expect(step.href).not.toContain('/admin')
     expect(step.title).not.toMatch(/import/i)
     expect(step.cta).not.toMatch(/csv|upload/i)
-    expect(step.description).toContain('Have a spreadsheet?')
-    expect(step.description).toContain(SUPPORT_EMAIL)
+    // A spreadsheet goes to the board's own import, not to support (P4).
+    expect(step.secondary).toEqual({ href: '/properties/import', label: 'Import a spreadsheet' })
+    expect(step.description).not.toContain(SUPPORT_EMAIL)
+    expect(step.description).not.toMatch(/contact support/i)
   })
 
   it('the dashboard checklist says the same', async () => {
@@ -37,11 +40,18 @@ describe('setup checklists: the properties step (BL-072)', () => {
       dues: [0],
       board: [1],
     }).steps.find((s) => s.key === 'properties')!
-    expect({ title: dashboard.title, description: dashboard.description, href: dashboard.href, cta: dashboard.cta }).toEqual({
+    expect({
+      title: dashboard.title,
+      description: dashboard.description,
+      href: dashboard.href,
+      cta: dashboard.cta,
+      secondary: dashboard.secondary,
+    }).toEqual({
       title: setupPage.title,
       description: setupPage.description,
       href: setupPage.href,
       cta: setupPage.cta,
+      secondary: setupPage.secondary,
     })
   })
 
