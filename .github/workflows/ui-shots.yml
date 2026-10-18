@@ -1,0 +1,282 @@
+name: UI shots
+
+# BL-075. Screenshots, the overflow check and the user-guide screenshots,
+# run on a GitHub runner against a throwaway local Supabase with seed/demo
+# data only — never production, and never on anyone's Mac. Review the
+# output without running anything locally: scripts/ci/fetch-ui-shots.sh.
+#
+# Env contract (everything this workflow relies on, nothing else):
+#   - no repository secrets. The Supabase keys the apps get are the CLI's
+#     fixed demo keys (scripts/ui-shots.ts), and every script refuses a
+#     non-loopback Supabase host;
+#   - GITHUB_TOKEN, write-scoped only in the guide-pr job, which runs no app
+#     code. That job needs the repo setting "Allow GitHub Actions to create
+#     and approve pull requests" (Settings → Actions → General).
+
+on:
+  push:
+    branches:
+      - claude/quality-oracle
+    paths:
+      - 'apps/hoa/**'
+      - 'packages/ui/**'
+      - 'scripts/ui-shots*'
+      - 'scripts/ui-shots-seed/**'
+      - 'scripts/guide-shots.ts'
+      - 'apps/hoa/content/guide/**'
+      - '.github/workflows/ui-shots.yml'
+      - '.github/actions/**'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+# Explicit `shell: bash` makes every run step `bash -eo pipefail`, so
+# `pnpm … | tee log` fails when pnpm fails (the implicit default shell has
+# no pipefail and would report the tee's success).
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Vercel's production branch. The refresh PR never targets or pushes it.
+  PROD_BRANCH: claude/phase1-homeownerhub-setup-MILNu
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  shots:
+    name: Screenshots + overflow + guide shots
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      stale: ${{ steps.stale.outputs.names }}
+      guide: ${{ steps.guide.outcome }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      # Browsers live outside the pnpm store; key on the resolved version.
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      - name: Install Chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      # apt packages are not in the cache, only the browser binary.
+      - name: Chromium system deps
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+
+      - name: Local Supabase + schema replay
+        uses: ./.github/actions/local-supabase
+
+      - name: Cache Next build cache
+        uses: actions/cache@v4
+        with:
+          path: apps/*/.next/cache
+          key: next-ui-shots-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            next-ui-shots-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+
+      # Production builds with the same local-Supabase env the servers get
+      # (NEXT_PUBLIC_* are inlined at build time). pm/eviction/marketing are
+      # built because ui:shots covers them too. These builds carry
+      # DEV_AUTOLOGIN and are never deployed — Vercel builds its own.
+      - name: Build apps (production, local Supabase env)
+        run: pnpm exec tsx scripts/ui-shots.ts --build=hoa,pm,eviction,marketing
+
+      # Which guide screenshots are stale or missing BEFORE regenerating —
+      # that list, not a byte diff, decides what goes in the refresh PR.
+      - name: Stale guide shots
+        id: stale
+        run: |
+          set +e
+          pnpm guide:check > "$RUNNER_TEMP/guide-check.txt" 2>&1
+          set -e
+          names=$(sed -nE \
+            -e 's/^warning: (guide-[A-Za-z0-9-]+): (the .* screen changed since|not in manifest\.json).*/\1/p' \
+            -e 's|^error: .*missing apps/hoa/public/guide/shots/(guide-[A-Za-z0-9-]+)--[0-9]+\.webp.*|\1|p' \
+            "$RUNNER_TEMP/guide-check.txt" | sort -u | tr '\n' ' ' | sed 's/ *$//')
+          tail -n 1 "$RUNNER_TEMP/guide-check.txt"
+          echo "stale/missing guide shots: ${names:-none}"
+          echo "names=$names" >> "$GITHUB_OUTPUT"
+
+      - name: Seed + start production servers, pnpm ui:shots
+        id: uishots
+        continue-on-error: true
+        env:
+          UI_SHOTS_SERVER: start
+        run: |
+          mkdir -p .ui-shots/logs
+          pnpm ui:shots 2>&1 | tee .ui-shots/logs/ui-shots.log
+
+      - name: pnpm ui:overflow
+        id: overflow
+        continue-on-error: true
+        env:
+          UI_SHOTS_SERVER: start
+        run: pnpm ui:overflow 2>&1 | tee .ui-shots/logs/ui-overflow.log
+
+      - name: pnpm ui:shots --guide
+        id: guide
+        continue-on-error: true
+        env:
+          UI_SHOTS_SERVER: start
+        run: pnpm ui:shots --guide 2>&1 | tee .ui-shots/logs/ui-shots-guide.log
+
+      # /ui-gallery is dev-only (404 in a production build), so the gallery
+      # shots and their overflow check run last, against `next dev`.
+      - name: Gallery (next dev) — ui:shots + ui:overflow
+        id: gallery
+        continue-on-error: true
+        run: |
+          pnpm ui:shots --gallery-only 2>&1 | tee .ui-shots/logs/gallery-shots.log
+          pnpm ui:overflow --gallery-only 2>&1 | tee .ui-shots/logs/gallery-overflow.log
+
+      - name: Upload .ui-shots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-shots-${{ github.sha }}
+          path: .ui-shots/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload guide shots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guide-shots-${{ github.sha }}
+          path: apps/hoa/public/guide/shots/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### UI shots — ${GITHUB_SHA::12}"
+            echo "| step | outcome |"
+            echo "|---|---|"
+            echo "| ui:shots | ${{ steps.uishots.outcome }} |"
+            echo "| ui:overflow | ${{ steps.overflow.outcome }} |"
+            echo "| ui:shots --guide | ${{ steps.guide.outcome }} |"
+            echo "| gallery (dev) | ${{ steps.gallery.outcome }} |"
+            echo
+            grep -h '^ui:overflow —' .ui-shots/logs/*overflow.log 2>/dev/null | sed 's/^/    /' || true
+            echo
+            echo "stale guide shots: ${{ steps.stale.outputs.names || 'none' }}"
+            echo
+            echo "Fetch: \`scripts/ci/fetch-ui-shots.sh $GITHUB_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # With pipefail (see `defaults`), the tee pipelines above report the
+      # script's own exit status, so a step outcome of failure means the
+      # script exited nonzero. ui:overflow exits 1 on
+      # any overflowing page or a page that failed to load after its retry.
+      - name: Fail on overflow or broken pages
+        if: always()
+        run: |
+          fail=0
+          if [ "${{ steps.overflow.outcome }}" = failure ] || [ "${{ steps.gallery.outcome }}" = failure ]; then
+            echo "::error::ui:overflow reported overflowing pages or pages that failed to load (see the ui-overflow logs in the artifact)"; fail=1
+          fi
+          if [ "${{ steps.uishots.outcome }}" = failure ]; then echo "::error::ui:shots: some shots failed"; fail=1; fi
+          if [ "${{ steps.guide.outcome }}" = failure ]; then echo "::error::ui:shots --guide: some guide shots failed"; fail=1; fi
+          exit $fail
+
+  # Opens or updates "Refresh guide screenshots" when guide shots were stale
+  # or missing and were regenerated cleanly. The only job with a write
+  # token, and it runs no app code: checkout, copy files, git, gh.
+  guide-pr:
+    name: Refresh guide screenshots PR
+    needs: shots
+    # Still runs when `shots` failed on overflow alone — the guide capture
+    # is independent — but only if the guide step itself succeeded.
+    if: >-
+      always() &&
+      needs.shots.outputs.guide == 'success' &&
+      needs.shots.outputs.stale != '' &&
+      github.ref_name != 'claude/phase1-homeownerhub-setup-MILNu'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      BASE: ${{ github.ref_name }}
+      STALE: ${{ needs.shots.outputs.stale }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download regenerated guide shots
+        uses: actions/download-artifact@v4
+        with:
+          name: guide-shots-${{ github.sha }}
+          path: ${{ runner.temp }}/guide-shots
+
+      - name: Stage only the stale shots
+        # STALE is a list of guide-* names; word splitting is intended.
+        run: |
+          # shellcheck disable=SC2086
+          bash scripts/ci/stage-guide-shots.sh "$RUNNER_TEMP/guide-shots" $STALE
+
+      - name: Open or update the PR
+        run: |
+          set -euo pipefail
+          BRANCH="bot/guide-shots/$BASE"
+          # Belt and braces: never touch the production branch.
+          for b in "$BASE" "$BRANCH"; do
+            if [ "$b" = "$PROD_BRANCH" ]; then echo "::error::refusing to target $PROD_BRANCH"; exit 1; fi
+          done
+          # status, not diff: a newly listed shot is an untracked file.
+          if [ -z "$(git status --porcelain -- apps/hoa/public/guide/shots)" ]; then
+            echo "regenerated shots match the committed ones; no PR needed"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$BRANCH"
+          git add -- apps/hoa/public/guide/shots
+          git commit -q -m "docs(guide): refresh guide screenshots ($STALE)" \
+            -m "Regenerated by .github/workflows/ui-shots.yml at ${GITHUB_SHA::12} from seed data on a CI-local Supabase."
+          # The bot branch is rebuilt from the base on every run.
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+
+          body=$(cat <<EOF
+          Regenerated by the **UI shots** workflow ([run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)) at \`${GITHUB_SHA::12}\` — seed/demo data on a throwaway CI Supabase, never production.
+
+          \`pnpm guide:check\` reported these shots stale or missing: \`$STALE\`. Only those webps and their \`manifest.json\` entries are in this PR.
+
+          Review locally without running anything: \`scripts/ci/fetch-ui-shots.sh $GITHUB_SHA\`.
+
+          Note: PRs opened with GITHUB_TOKEN do not trigger other workflows, so CI does not run on this PR by itself (it only touches images and the manifest; \`guide:check\` re-runs on the next push to \`$BASE\`).
+          EOF
+          )
+          existing=$(gh pr list --head "$BRANCH" --base "$BASE" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --body "$body"
+            echo "updated PR #$existing"
+          else
+            gh pr create --base "$BASE" --head "$BRANCH" --title "Refresh guide screenshots" --body "$body"
+          fi

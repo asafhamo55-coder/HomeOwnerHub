@@ -1,0 +1,24 @@
+name: Local Supabase
+description: >
+  Boots a throwaway Supabase (Postgres 17 + GoTrue + PostgREST + Storage in
+  Docker) on the runner and replays the schema from the migration manifest
+  (pnpm db:local:reset). Loopback only: db:local:reset, the integration
+  suite and ui-shots all refuse any non-loopback host, so a misconfigured
+  runner fails loudly rather than writing to production. Never takes
+  secrets. Shared by ci.yml and ui-shots.yml; run setup-workspace first.
+
+runs:
+  using: composite
+  steps:
+    - name: Install Supabase CLI
+      uses: supabase/setup-cli@v1
+      with:
+        version: 2.95.4
+
+    - name: Start Supabase
+      shell: bash
+      run: supabase start
+
+    - name: Replay schema from the manifest
+      shell: bash
+      run: pnpm db:local:reset

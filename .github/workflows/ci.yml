@@ -26,19 +26,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.33.0
-
-      - name: Setup Node 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      # pnpm + Node 22 + frozen install (shared with ui-shots.yml).
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
 
       - name: Typecheck
         run: pnpm turbo run typecheck
@@ -97,37 +87,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.33.0
-
-      - name: Setup Node 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      # pnpm + Node 22 + frozen install (shared with ui-shots.yml).
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
 
       - name: Unit tests
         run: pnpm test:unit
 
-      - name: Install Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: 2.95.4
-
-      # Starts Postgres 17 + GoTrue + PostgREST + Storage in Docker.
-      # The integration suite refuses to run against anything but
-      # loopback, so a misconfigured runner fails loudly rather than
-      # writing to production.
-      - name: Start Supabase
-        run: supabase start
-
-      - name: Replay schema from the manifest
-        run: pnpm db:local:reset
+      # Supabase CLI, `supabase start` (Postgres 17 + GoTrue + PostgREST +
+      # Storage in Docker) and `pnpm db:local:reset` — shared with
+      # ui-shots.yml. The integration suite refuses to run against
+      # anything but loopback, so a misconfigured runner fails loudly
+      # rather than writing to production.
+      - name: Local Supabase + schema replay
+        uses: ./.github/actions/local-supabase
 
       - name: Integration tests
         run: pnpm test:integration

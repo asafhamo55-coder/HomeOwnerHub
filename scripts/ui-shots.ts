@@ -37,6 +37,12 @@
  *                          (document scrollWidth > clientWidth) or any box
  *                          visibly spills out of its card/tile. Prints the
  *                          offending elements (tag + class, never text).
+ *   --build=hoa,pm         `next build` those apps with the same local-Supabase
+ *                          env the servers get, then exit (no shots)
+ *   UI_SHOTS_SERVER=start  serve the production build (`next start`) instead
+ *                          of `next dev`; /ui-gallery shots are skipped (they
+ *                          404 in production). CI: .github/workflows/ui-shots.yml
+ *   Page loads that time out are retried once before a shot counts as failed.
  *   UI_SHOTS_PORT=3100     base port (pick another when several checkouts
  *                          run shots at once)
  *   UI_SHOTS_URL=http://localhost:3000   use an hoa server you already run
@@ -49,7 +55,7 @@ import { execSync, spawn, type ChildProcess } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { chromium, webkit, type Browser, type Page } from 'playwright'
+import { chromium, errors as playwrightErrors, webkit, type Browser, type Page } from 'playwright'
 import sharp from 'sharp'
 import { seedExtras } from './ui-shots-seed'
 import { GUIDE_SHOTS, guideShotWidths, type GuideShot } from './guide-shots'
@@ -421,10 +427,15 @@ async function waitFor(url: string, timeoutMs: number) {
   throw new Error(`server at ${url} did not come up`)
 }
 
-function startServer(app: App): ChildProcess {
+/** Environment every app server gets — and, under `--build`, the build too
+ *  (NEXT_PUBLIC_* are inlined at build time, so a production build must see
+ *  the same local values `next start` later serves with). Local Supabase
+ *  only: assertLoopback runs first. Nothing here is a secret — the keys are
+ *  the Supabase CLI's fixed demo keys. */
+function serverEnv(app: App): NodeJS.ProcessEnv {
   assertLoopback(LOCAL_SUPABASE_URL)
   const port = APP_PORT[app]
-  const env = {
+  return {
     ...process.env,
     PORT: String(port),
     NEXT_PUBLIC_SUPABASE_URL: LOCAL_SUPABASE_URL,
@@ -442,15 +453,51 @@ function startServer(app: App): ChildProcess {
     AI_API_KEY: 'local',
     NEXT_TELEMETRY_DISABLED: '1',
   }
-  const child = spawn('pnpm', ['exec', 'next', 'dev', '-p', String(port)], {
-    cwd: resolve(ROOT, 'apps', app),
-    env,
+}
+
+/** `UI_SHOTS_SERVER=start`: serve a production build (`next start`) instead
+ *  of `next dev`. Needs `--build=<apps>` first. Dev-only routes (/ui-gallery)
+ *  404 under a production build, so those shots are skipped in this mode —
+ *  run them in a dev pass (`--gallery-only` without UI_SHOTS_SERVER). */
+const PROD_SERVER = process.env.UI_SHOTS_SERVER === 'start'
+const isDevOnlyRoute = (s: Shot) => s.path.startsWith('/ui-gallery')
+
+function buildApps(apps: App[]): void {
+  for (const app of apps) {
+    if (!(app in APP_PORT)) throw new Error(`--build: unknown app ${JSON.stringify(app)}`)
+    console.log(`build: ${app} (next build, local Supabase env)`)
+    execSync('pnpm exec next build', { cwd: resolve(ROOT, 'apps', app), env: serverEnv(app), stdio: 'inherit' })
+  }
+}
+
+function startServer(app: App): ChildProcess {
+  const port = APP_PORT[app]
+  const dir = resolve(ROOT, 'apps', app)
+  if (PROD_SERVER && !existsSync(resolve(dir, '.next', 'BUILD_ID'))) {
+    throw new Error(`UI_SHOTS_SERVER=start but apps/${app} has no production build; run \`tsx scripts/ui-shots.ts --build=${app}\` first`)
+  }
+  const nextArgs = PROD_SERVER ? ['start', '-p', String(port)] : ['dev', '-p', String(port)]
+  const child = spawn('pnpm', ['exec', 'next', ...nextArgs], {
+    cwd: dir,
+    env: serverEnv(app),
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: true,
   })
   child.stdout?.on('data', () => {})
   child.stderr?.on('data', () => {})
   return child
+}
+
+/** page.goto, retried once on a page-load timeout (a cold route on a busy
+ *  CI runner can miss the first deadline). Other errors are not retried. */
+async function gotoRetry(page: Page, url: string, opts: Parameters<Page['goto']>[1]): Promise<void> {
+  try {
+    await page.goto(url, opts)
+  } catch (e) {
+    if (!(e instanceof playwrightErrors.TimeoutError)) throw e
+    console.log(`page-load timeout, retrying once: ${new URL(url).pathname.replace(/[0-9a-f-]{36}/g, ':id')}`)
+    await page.goto(url, opts)
+  }
 }
 
 interface OverflowReport {
@@ -676,6 +723,14 @@ async function main() {
   const guideMode = args.includes('--guide')
   mkdirSync(OUT, { recursive: true })
 
+  // `--build=hoa,pm` production-builds those apps with the same env the
+  // servers get, then exits (CI: before UI_SHOTS_SERVER=start runs).
+  const build = args.find((a) => a.startsWith('--build='))?.slice(8)
+  if (build) {
+    buildApps(build.split(',').filter(Boolean) as App[])
+    return
+  }
+
   // `--serve=hoa,pm` just runs those dev servers (seeded, same env) until
   // killed — so several shot runs can share one server via UI_SHOTS_URL
   // instead of fighting over the app's .next directory.
@@ -696,11 +751,17 @@ async function main() {
 
   const pool: Shot[] = guideMode ? GUIDE_SHOTS : SHOTS
   const selected = pool.filter(
-    (s) => (!only || only.some((o) => s.name.includes(o))) && (!galleryOnly || s.name.startsWith('gallery')),
+    (s) =>
+      (!only || only.some((o) => s.name.includes(o))) &&
+      (!galleryOnly || s.name.startsWith('gallery') || isDevOnlyRoute(s)),
   )
+  if (PROD_SERVER) {
+    const devOnly = selected.filter(isDevOnlyRoute).length
+    if (devOnly) console.log(`production server: ${devOnly} dev-only /ui-gallery shot(s) not run here (run them without UI_SHOTS_SERVER)`)
+  }
   const needsSeed = selected.some((s) => s.auth)
   const seeded = needsSeed ? await seed() : null
-  const shots = selected.filter((s) => !s.auth || seeded)
+  const shots = selected.filter((s) => (!s.auth || seeded) && !(PROD_SERVER && isDevOnlyRoute(s)))
 
   const external = process.env.UI_SHOTS_URL
   const bases: Record<App, string> = {
@@ -800,10 +861,10 @@ async function main() {
             if (shot.auth && app !== 'hoa') {
               // Mint a session through hoa's dev-only auto-login; the sb-*
               // cookies are host-scoped (localhost), so pm/eviction see them.
-              await page.goto(`${bases.hoa}/auth/dev-login?redirect=/api/health`, { waitUntil: 'load', timeout: 120_000 })
+              await gotoRetry(page, `${bases.hoa}/auth/dev-login?redirect=/api/health`, { waitUntil: 'load', timeout: 120_000 })
             }
             if (shot.print) await page.emulateMedia({ media: 'print' })
-            await page.goto(`${bases[app]}${path}`, { waitUntil: 'networkidle', timeout: 120_000 })
+            await gotoRetry(page, `${bases[app]}${path}`, { waitUntil: 'networkidle', timeout: 120_000 })
             // Hide Next's dev-mode indicator; it is not part of the product.
             await page.addStyleTag({ content: 'nextjs-portal{display:none!important}' })
             if (guideMode) {

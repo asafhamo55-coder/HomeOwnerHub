@@ -1,0 +1,22 @@
+name: Setup workspace
+description: >
+  pnpm 10.33.0 + Node 22 (pnpm store cached by setup-node) and a frozen
+  install. Shared by ci.yml and ui-shots.yml. Run actions/checkout first.
+
+runs:
+  using: composite
+  steps:
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10.33.0
+
+    - name: Setup Node 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: pnpm
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
