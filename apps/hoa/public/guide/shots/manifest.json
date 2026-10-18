@@ -175,8 +175,8 @@
       1440
     ],
     "route": "/resident/arc/new",
-    "sha": "063f97a",
-    "sourceHash": "357b2ac69840ab236ee300045951b0d4ecd73982",
+    "sha": "836f323",
+    "sourceHash": "f00efd37c02134fcff184a1e6174dc4203624e22",
     "capturedAt": "2026-10-18"
   },
   "guide-resident-home": {
