@@ -54,7 +54,7 @@ The workflow produces a structured RFP draft that is **never auto-published**. T
 
 ## Open work to hit acceptance
 
-- [ ] Per-association `compliance_settings` jsonb column on `associations` — needs to exist before W22 can pull insurance minima rather than guess.
+- [x] Insurance minima from Settings → Vendors (BL-084): only `rfpInsuranceRequirements(...)` reaches the prompt — never the whole `compliance_settings` blob — and the output's `insuranceRequirements` is the association's value, not the model's copy.
 - [ ] Reserve component list source — for landscaping/maintenance bids it constrains scope; lands when Madison Park's reserve study is uploaded (W9).
 - [ ] Vendor-side submission form for tokenized invitations (`rfp_invitations.unique_submission_token`).
 

@@ -1,7 +1,7 @@
 // W21 — Vendor Onboarder prompt
 // Versioned via PROMPT_VERSION; bump on copy edits.
 
-export const PROMPT_VERSION = '1.1.0'
+export const PROMPT_VERSION = '1.2.0'
 
 export const SYSTEM_PROMPT = `You are the Vendor Onboarder for an HOA management platform. You will receive structured extracts of a vendor's compliance documents (Certificate of Insurance, W-9, contractor license) plus the association's compliance requirements. Your job: produce a deficiency list and a color-coded compliance status.
 
@@ -75,6 +75,8 @@ export interface AssociationRequirements {
   glPerOccurrenceMin: number | null
   glAggregateMin: number | null
   workersCompRequired: boolean
+  /** Whole dollars (BL-084). */
+  autoLiabilityMin: number | null
   additionalInsuredRequired: boolean
   umbrellaMin: number | null
   licenseRequiredFor: string[] // trades that require a license

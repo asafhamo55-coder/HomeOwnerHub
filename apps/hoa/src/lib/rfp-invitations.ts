@@ -9,6 +9,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sendEmail, appUrl } from '@/lib/email'
 import { ApiRouteError } from '@/lib/api/errors'
 import { logRouteFailure } from '@/lib/api/log'
+import { insuranceRequirementLines, resolveVendorInsuranceSettings } from '@homeowner-portal/workflows/vendor-insurance'
 
 // rfp_invitations rows ship in migration 0007. One row per (rfp_id,
 // vendor_id) — unique constraint. Token format identical to
@@ -204,7 +205,7 @@ export async function inviteVendorsToRfp(
   // or cancelled RFP would let vendors see something they shouldn't.
   const { data: rfp, error: rfpErr } = await supabase
     .from('rfps' as never)
-    .select('id, title, rfp_number, status, submission_deadline')
+    .select('id, title, rfp_number, status, submission_deadline, association_id')
     .eq('id', parsed.data.rfp_id)
     .maybeSingle<{
       id: string
@@ -212,6 +213,7 @@ export async function inviteVendorsToRfp(
       rfp_number: string
       status: string
       submission_deadline: string
+      association_id: string | null
     }>()
   // A failed read is ours, not "RFP not found". Code and ids only (RC-2).
   if (rfpErr) {
@@ -262,6 +264,8 @@ export async function inviteVendorsToRfp(
     ),
   )
 
+  const insuranceLines = await loadInsuranceLines(supabase, rfp.association_id, { orgId: org.id, rfpId: rfp.id })
+
   let sent = 0
   let skipped = alreadyInvited.size
   const failed: Array<{ vendorId: string; reason: RfpInviteFailureReason }> = []
@@ -303,6 +307,7 @@ export async function inviteVendorsToRfp(
         rfpNumber: rfp.rfp_number,
         deadline: rfp.submission_deadline,
         link,
+        insuranceLines,
       }),
       text: renderInviteText({
         vendorName: vendor.legal_name,
@@ -310,6 +315,7 @@ export async function inviteVendorsToRfp(
         rfpNumber: rfp.rfp_number,
         deadline: rfp.submission_deadline,
         link,
+        insuranceLines,
       }),
     })
     if (!emailResult.ok) {
@@ -475,6 +481,32 @@ export async function validateRfpInvitationToken(
   }
 }
 
+/**
+ * The association's insurance minimums (Settings → Vendors, BL-084) as
+ * lines for the invitation, so a vendor knows before bidding what the
+ * compliance check will hold them to. Best-effort: a failed read sends
+ * the invitation without the block (the code is logged) rather than
+ * blocking every invitation on it.
+ */
+async function loadInsuranceLines(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  associationId: string | null,
+  ids: { orgId: string; rfpId: string },
+): Promise<string[]> {
+  if (!associationId) return []
+  const { data, error } = await supabase
+    .from('associations')
+    .select('id, compliance_settings')
+    .eq('id', associationId)
+    .maybeSingle<{ id: string; compliance_settings: unknown }>()
+  if (error) {
+    logRouteFailure('rfp-invitations.invite.insurance_lookup', error, ids)
+    return []
+  }
+  if (!data) return []
+  return insuranceRequirementLines(resolveVendorInsuranceSettings(data.id, data.compliance_settings).minimums)
+}
+
 // ─── Email templates ─────────────────────────────────────────────────
 
 interface InviteTemplateArgs {
@@ -483,6 +515,19 @@ interface InviteTemplateArgs {
   rfpNumber: string
   deadline: string
   link: string
+  /** Plain-text minimums; empty when the association set none. */
+  insuranceLines: string[]
+}
+
+function insuranceHtml(lines: string[]): string {
+  if (lines.length === 0) return ''
+  return `<p style="font-size: 14px; margin-bottom: 4px;"><strong>Insurance required</strong> — your certificate of insurance must show at least:</p>
+  <ul style="font-size: 14px; margin-top: 0;">${lines.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>`
+}
+
+function insuranceText(lines: string[]): string {
+  if (lines.length === 0) return ''
+  return `\n\nInsurance required — your certificate of insurance must show at least:\n${lines.map((l) => `- ${l}`).join('\n')}`
 }
 
 function renderInviteHtml(args: InviteTemplateArgs): string {
@@ -497,6 +542,7 @@ function renderInviteHtml(args: InviteTemplateArgs): string {
     <a href="${args.link}" style="display:inline-block; background:#2563eb; color:#fff; padding:10px 16px; border-radius:6px; text-decoration:none; font-weight:600;">View RFP & submit bid</a>
   </p>
   <p style="font-size: 14px;"><strong>Submission deadline:</strong> ${escapeHtml(deadlineFmt)}</p>
+  ${insuranceHtml(args.insuranceLines)}
   <p style="font-size: 12px; color: #666;">Or copy this link: <br><a href="${args.link}">${escapeHtml(args.link)}</a></p>
   <p style="font-size: 12px; color: #666;">This link is unique to you. Please don't forward it — anyone with the link can submit a bid in your name.</p>
 </body></html>`
@@ -511,7 +557,7 @@ You're invited to submit a bid on the RFP linked below. Please review the scope 
 
 View RFP & submit bid: ${args.link}
 
-Submission deadline: ${new Date(args.deadline).toLocaleString()}
+Submission deadline: ${new Date(args.deadline).toLocaleString()}${insuranceText(args.insuranceLines)}
 
 This link is unique to you. Please don't forward it.`
 }

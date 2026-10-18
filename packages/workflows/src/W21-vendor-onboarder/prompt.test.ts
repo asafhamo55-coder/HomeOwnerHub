@@ -10,6 +10,7 @@ const requirements = {
   glPerOccurrenceMin: 1_000_000,
   glAggregateMin: null,
   workersCompRequired: true,
+  autoLiabilityMin: null,
   additionalInsuredRequired: false,
   umbrellaMin: null,
   licenseRequiredFor: [],

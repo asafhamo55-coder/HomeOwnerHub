@@ -17,7 +17,8 @@
     "./state-law-ingest": "./src/W30-state-law-brain/ingest.ts",
     "./state-law-florida": "./src/W30-state-law-brain/sources/florida.ts",
     "./citations": "./src/W32-reply-drafter/tools.ts",
-    "./chunker": "./src/W1-governing-docs-brain/chunker.ts"
+    "./chunker": "./src/W1-governing-docs-brain/chunker.ts",
+    "./vendor-insurance": "./src/vendor-insurance/settings.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

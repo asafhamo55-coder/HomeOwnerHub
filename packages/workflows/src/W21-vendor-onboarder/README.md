@@ -55,7 +55,7 @@ Manager approves green → moves `vendors.status` to `active`. Yellow / red land
 
 - [ ] Migration 0007 applied; `vendor_compliance` table exists.
 - [ ] Vision model wiring — Qwen2-VL 7B via vLLM per ADR-002 Phase 2.1. Until cutover, text-only fallback: vendor types the COI fields into a form and W21 just validates (no OCR).
-- [ ] Per-association `compliance_settings` (insurance minima) — lives on `associations` as a `jsonb` column; add when the manager UI for it lands.
+- [x] Per-association insurance minima — Settings → Vendors (BL-084), signed into `associations.compliance_settings.vendor_insurance` (`../vendor-insurance/settings.ts`). Coverage below a minimum is red deterministically (`requirements.ts` `applyMinimums`), whatever the model returns.
 - [ ] Tokenized re-upload link flow — shares the `unique_submission_token` mechanism with `rfp_invitations`.
 
 ## Versions
@@ -64,3 +64,4 @@ Manager approves green → moves `vendors.status` to `active`. Yellow / red land
 |---|---|---|
 | 0.1.0 (prompt 1.0.0) | initial | Skeleton; vision step deferred to Phase 2.1 per ADR-002. |
 | 0.2.0 (prompt 1.0.0) | text-only path live | Validation half wired against `associations.compliance_settings` (migration 0008). Caller passes `manualExtract`; W21 grades + upserts `vendor_compliance`. Vision still deferred to Phase 2.1. |
+| 0.2.0 (prompt 1.2.0) | BL-084 minimums | Minimums read from the signed `vendor_insurance` setting (legacy top-level keys still honoured until a board save); `autoLiabilityMin` added to the requirements; deterministic floor on GL / aggregate / workers' comp / auto. |
