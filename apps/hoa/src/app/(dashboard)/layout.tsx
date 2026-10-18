@@ -26,7 +26,8 @@ import { countPendingApprovals } from '@/lib/approvals-inbox/load'
 import { approvalsBadge } from '@/lib/approvals-inbox/model'
 import { appVersion } from '@/lib/app-version'
 import { HelpDrawer } from '@/components/guide/HelpDrawer'
-import { drawerData } from '@/lib/guide'
+import { articlesFor, drawerData, articleHref } from '@/lib/guide'
+import { latestBoardWhatsNewId } from '@/lib/guide/whats-new'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [supabase, user] = await Promise.all([getSupabaseServerClient(), getSignedInUser()])
@@ -85,6 +86,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             role={role}
             badges={{ '/approvals': approvalsBadge(approvalCounts) }}
             version={appVersion()}
+            whatsNewLatestId={latestBoardWhatsNewId()}
           />
         </AppShellSidebar>
         <AppShellMain>
@@ -119,7 +121,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
             rather than being covered), an overlay below. Toggled from the
             top bar. */}
         <Copilot />
-        <HoaCommandPalette role={role} />
+        <HoaCommandPalette
+          role={role}
+          helpArticles={articlesFor(role).map((a) => ({ id: a.id, title: a.title, href: articleHref(a.id, 'board'), keywords: a.keywords }))}
+        />
       </AppShell>
     </DashboardProviders>
   )

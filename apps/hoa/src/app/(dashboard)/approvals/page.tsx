@@ -36,6 +36,8 @@ import { loadBillEditOptions } from '@/lib/bill-scan/load'
 import { vendorLabel } from '@/lib/bill-scan/proposal'
 import { ApprovalActions } from '@/components/approvals/ApprovalActions'
 import { BillDetails } from './BillDetails'
+import { HowThisWorks } from '@/components/guide/HowThisWorks'
+import { guideHref } from '@/lib/guide'
 
 export const metadata = { title: 'Approvals' }
 export const dynamic = 'force-dynamic'
@@ -85,6 +87,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
         <EmptyState
           icon={<CheckCircle2 aria-hidden />}
           title="Nothing waiting on the board"
+          secondaryAction={<HowThisWorks href={guideHref('approvals-queue')} />}
           description="New AI proposals — deposit matches, scanned bills, violation drafts, vendor results — land here for a decision."
           action={
             <Button asChild variant="secondary">

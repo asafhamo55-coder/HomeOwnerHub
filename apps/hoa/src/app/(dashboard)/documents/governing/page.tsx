@@ -20,6 +20,8 @@ import { loadOrFail } from '@/lib/load-or-fail'
 import { DocumentTabs } from '@/components/knowledge/DocumentTabs'
 import { GOVERNING_TYPE_LABELS, INDEX_LABELS, INDEX_TONES } from '@/lib/status/knowledge'
 import { GoverningDocsUploader } from './GoverningDocsUploader'
+import { HowThisWorks } from '@/components/guide/HowThisWorks'
+import { guideHref } from '@/lib/guide'
 
 export const metadata = { title: 'Governing documents' }
 export const dynamic = 'force-dynamic'
@@ -178,6 +180,7 @@ export default async function GoverningDocumentsPage({
                 variant="compact"
                 icon={<BookOpen aria-hidden />}
                 title="No governing documents yet"
+                secondaryAction={<HowThisWorks href={guideHref('documents-governing-and-ask')} />}
                 description="Upload your Declaration and Bylaws above to start answering questions from them."
               />
             }

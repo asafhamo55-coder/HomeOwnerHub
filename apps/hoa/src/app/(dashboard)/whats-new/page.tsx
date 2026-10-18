@@ -2,18 +2,25 @@ import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, EmptyState, LoadFailed, Page } from '@homeowner-portal/ui'
 import { AppVersion } from '@/components/layout/AppVersion'
+import { MarkWhatsNewSeen } from '@/components/layout/WhatsNewVersionLink'
 import { appVersion } from '@/lib/app-version'
 import { formatShortDate } from '@/lib/format-datetime'
 import { loadReleaseNotes } from '@/lib/release-notes-server'
+import { boardWhatsNewByNote, latestBoardWhatsNewId } from '@/lib/guide/whats-new'
+import { WhatsNewEntries } from '@/components/guide/WhatsNewEntries'
 
 // BL-071: "What's new", linked from the version line in the sidebar.
 // Lists docs/releases/*.md newest first, showing each note's Summary.
+// BL-070: a note's user-facing `whats_new:` entries (compiled into the
+// guide) show above its summary, each with a "Learn how" guide link.
+// Visiting the page marks the newest entry seen (the sidebar dot).
 
 export const metadata = { title: "What's new" }
 
 export default async function WhatsNewPage() {
   const result = await loadReleaseNotes()
   const version = appVersion()
+  const entriesByNote = boardWhatsNewByNote()
 
   return (
     <Page
@@ -23,6 +30,7 @@ export default async function WhatsNewPage() {
       meta={<AppVersion version={version} />}
       linkAs={Link}
     >
+      <MarkWhatsNewSeen latestId={latestBoardWhatsNewId()} />
       {!result.ok ? (
         <LoadFailed what="the release notes" />
       ) : result.notes.length === 0 ? (
@@ -44,6 +52,11 @@ export default async function WhatsNewPage() {
                   </p>
                 ) : null}
               </CardHeader>
+              {entriesByNote.get(note.slug)?.length ? (
+                <CardContent className="pb-4">
+                  <WhatsNewEntries entries={entriesByNote.get(note.slug)!} />
+                </CardContent>
+              ) : null}
               {note.summary.length > 0 ? (
                 <CardContent className="space-y-3 text-sm text-foreground-secondary">
                   {note.summary.map((block, i) =>

@@ -10,6 +10,8 @@ export const APP_DIR = resolve(HOA_DIR, 'src', 'app')
 export const SRC_DIR = resolve(HOA_DIR, 'src')
 export const SHOTS_DIR = resolve(HOA_DIR, 'public', 'guide', 'shots')
 export const MANIFEST_FILE = resolve(SHOTS_DIR, 'manifest.json')
+/** Release notes; their `whats_new:` blocks feed WHATS_NEW (spec §6.5). */
+export const RELEASES_DIR = resolve(REPO_ROOT, 'docs', 'releases')
 
 /**
  * Core routes that must have at least one article (spec §5.3). A ratchet:

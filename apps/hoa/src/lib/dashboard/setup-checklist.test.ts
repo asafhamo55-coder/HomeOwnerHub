@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { GUIDE_ARTICLES } from '@/generated/guide'
 import {
   SETUP_CHECKLIST_KEYS,
   buildSetupChecklist,
@@ -59,6 +60,13 @@ describe('buildSetupChecklist', () => {
       expect(step.href.startsWith('/')).toBe(true)
       expect(step.cta.length).toBeGreaterThan(0)
     }
+  })
+
+  it('every step names the guide article its "How?" link opens (BL-070), and completion stays derived', () => {
+    const ids = new Set(GUIDE_ARTICLES.map((a) => a.id))
+    for (const step of buildSetupChecklist(NOTHING).steps) expect(ids.has(step.guide), `${step.key}: ${step.guide}`).toBe(true)
+    expect(buildSetupChecklist(ALL_DONE).complete).toBe(true)
+    expect(buildSetupChecklist(NOTHING).doneCount).toBe(0)
   })
 
   it('counts progress from done steps only', () => {

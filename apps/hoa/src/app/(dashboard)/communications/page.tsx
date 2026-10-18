@@ -21,6 +21,8 @@ import { listCommunications, type CommunicationSummary } from '@/lib/communicati
 import { pickDisplaySubject } from '@/lib/communications/display'
 import { COMMUNICATION_CATEGORY, COMMUNICATION_STATUS } from '@/lib/status/community'
 import { CategoryFilter } from './CategoryFilter'
+import { HowThisWorks } from '@/components/guide/HowThisWorks'
+import { guideHref } from '@/lib/guide'
 
 export const metadata = { title: 'Communications' }
 export const dynamic = 'force-dynamic'
@@ -224,6 +226,7 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
         <EmptyState
           icon={<Mail aria-hidden />}
           title="No messages yet"
+          secondaryAction={<HowThisWorks href={guideHref('communications-send-announcement')} />}
           description="Choose a topic, pick the audience, and send. Every message and its delivery history will live here."
           action={
             <Button asChild>

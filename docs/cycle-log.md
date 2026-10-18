@@ -179,3 +179,17 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Owner rule:** no local DB from now on. Integration runs in CI only, and the local Supabase stack is stopped.
 - **Release-note email:** sent.
 - **In flight:** BL-074 performance, BL-073 month-end board report.
+
+## 2026-10-17 (22:33) — deploy 80ecc63: BL-074 speed and BL-073 month-end board report
+
+- **Region:** functions moved from iad1 to pdx1. `x-vercel-id` now reads `iad1::pdx1` (an East Coast edge, then an Oregon function next to the Supabase DB).
+- **/api/health TTFB from the owner's area, 5 runs:**
+  - before: 308–538 ms (warm);
+  - after: 279–372 ms.
+  - The page-level gain is bigger but can't be measured unauthenticated. The ~70 ms cross-country trip is gone from every DB call, and calls per navigation fell from 5–18 to 2–6.
+- **Smoke checks:** /login 200 (688 ms cold), /accounting/reports 307 (216 ms).
+- **Release-note email:** sent.
+- **Merged locally after the deploy:** BL-072 (guide-found bugs, incl. an SMS link that got cut off). Day 2 of the guide is ready to merge.
+- **Open:**
+  - Confirm that support@homeownerledger.com is a real inbox.
+  - `AI_MODEL_FAST` is unset in prod, so Ask the guide uses the team AI_MODEL (120b). It works, just slower. Leaving it as is.

@@ -2,6 +2,7 @@ import { BookOpen } from 'lucide-react'
 import { articleHref, articlesFor, instantSearchData, searchSections } from '@/lib/guide'
 import { GuideSearch } from '@/components/guide/GuideSearch'
 import { GuideSearchResults } from '@/components/guide/GuideArticleBody'
+import { AskGuide } from '@/components/guide/AskGuide'
 import { RowGroup, ScreenHeader, Section, TappableRow } from '@/components/resident/screen'
 
 export const metadata = { title: 'Help' }
@@ -18,6 +19,10 @@ export default async function ResidentHelpPage({ searchParams }: { searchParams:
       <GuideSearch data={instantSearchData('resident')} action="/resident/help" initialQuery={q} autoFocusDesktop={false} />
 
       {q ? <GuideSearchResults query={q} hits={searchSections(q, 'resident')} audience="resident" askDocsHref="/resident/ask" /> : null}
+
+      <div className="rounded-2xl border border-border bg-surface p-4">
+        <AskGuide />
+      </div>
 
       <Section label="Guides">
         <RowGroup>

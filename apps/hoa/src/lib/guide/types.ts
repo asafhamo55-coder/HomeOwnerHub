@@ -109,6 +109,25 @@ export interface Bm25Index {
   postings: Record<string, [number, number][]>
 }
 
+/**
+ * One "What's new" entry (spec §6.5), from a release note's `whats_new:`
+ * frontmatter block. `id` is `<note file stem>#<n>`, stable once published.
+ */
+export interface WhatsNewEntry {
+  id: string
+  /** The release note's file stem, e.g. `2026-10-17-2100-user-guide`. */
+  note: string
+  /** YYYY-MM-DD, from the note's file name. */
+  date: string
+  title: string
+  /** 1–3 plain sentences, ≤280 characters, no links. */
+  body: string
+  roles: GuideRole[]
+  /** Guide article for "Learn how", or null. */
+  article: string | null
+  label: 'new' | 'improvement' | 'fix'
+}
+
 export interface GuideSearchIndex {
   /** Titles, summaries and keywords: small enough for the client. */
   articles: Bm25Index

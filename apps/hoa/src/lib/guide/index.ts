@@ -59,6 +59,17 @@ export function articleHref(id: string, audience: GuideAudience): string {
   return audience === 'resident' ? `/resident/help/${id}` : `/help/${id}`
 }
 
+/**
+ * The help-page link for a guide article referenced from app code (empty
+ * states, the setup checklist). Throws on an unknown id, and guide:check
+ * fails CI on any `guideHref('…')` naming no article, so a renamed article
+ * can't silently become a 404.
+ */
+export function guideHref(id: string, audience: GuideAudience = 'board'): string {
+  if (!GUIDE_ARTICLES.some((a) => a.id === id)) throw new Error(`guideHref: unknown guide article "${id}"`)
+  return articleHref(id, audience)
+}
+
 export function helpHomeHref(audience: GuideAudience): string {
   return audience === 'resident' ? '/resident/help' : '/help'
 }

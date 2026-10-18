@@ -53,6 +53,7 @@
     "ui:overflow": "tsx scripts/ui-shots.ts --overflow",
     "guide:build": "tsx scripts/guide-build.ts",
     "guide:check": "tsx scripts/guide-check.ts",
+    "guide:eval": "tsx --tsconfig apps/hoa/tsconfig.json scripts/guide-eval.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {

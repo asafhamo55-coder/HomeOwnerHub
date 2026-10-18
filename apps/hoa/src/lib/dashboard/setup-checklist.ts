@@ -39,6 +39,8 @@ export interface SetupChecklistStep {
   description: string
   href: string
   cta: string
+  /** Guide article the step's "How?" link opens (BL-070). guide:check verifies the id. */
+  guide: string
   state: SetupStepState
 }
 
@@ -100,31 +102,36 @@ const STEP_COPY: Record<SetupChecklistKey, Omit<SetupChecklistStep, 'key' | 'sta
     // /settings/mailbox is admin-only and would bounce a board member.
     href: '/inbox',
     cta: 'Connect',
+    guide: 'start-board-admin',
   },
-  properties: PROPERTIES_STEP_COPY,
+  properties: { ...PROPERTIES_STEP_COPY, guide: 'setup-properties-residents' },
   residents: {
     title: 'Add owners and residents',
     description: 'Who lives where, so mail and dues match a person.',
     href: '/properties',
     cta: 'Add residents',
+    guide: 'setup-properties-residents',
   },
   governing_docs: {
     title: 'Upload governing documents',
     description: 'CC&Rs and bylaws, so answers cite your own rules.',
     href: '/documents/governing',
     cta: 'Upload',
+    guide: 'documents-governing-and-ask',
   },
   dues: {
     title: 'Set up dues',
     description: 'Generate this month’s dues so every home has a balance.',
     href: '/dues',
     cta: 'Set up dues',
+    guide: 'dues-generate-monthly',
   },
   board: {
     title: 'Invite the board',
     description: 'Give the rest of the board their own login.',
     href: '/settings/members',
     cta: 'Invite',
+    guide: 'members-invite-board',
   },
 }
 

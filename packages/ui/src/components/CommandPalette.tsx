@@ -71,6 +71,12 @@ export interface CommandPaletteProps {
   /** Shortest query that triggers `search`. */
   searchMinLength?: number
   searchDebounceMs?: number
+  /**
+   * A row offered when nothing else matches the query (e.g. "Ask the guide:
+   * …"). Not shown while record search is still loading, so it never jumps
+   * in above results that are about to arrive.
+   */
+  fallback?: (query: string) => PaletteCommand | null
 }
 
 function isTypingTarget(el: EventTarget | null): boolean {
@@ -99,6 +105,7 @@ export function CommandPalette({
   search,
   searchMinLength = 2,
   searchDebounceMs = 200,
+  fallback,
 }: CommandPaletteProps) {
   const shell = useAppShell()
   const [localOpen, setLocalOpen] = React.useState(false)
@@ -185,6 +192,10 @@ export function CommandPalette({
   // Below the record-search minimum nothing else will arrive, so an empty
   // command list is a plain "no matches".
   const noMatches = searchEnabled && trimmed.length > 0 && groups.length === 0 && searchState.status === 'idle'
+  const fallbackCommand =
+    fallback && trimmed.length > 0 && groups.length === 0 && recordGroups.length === 0 && searchState.status !== 'loading'
+      ? fallback(trimmed)
+      : null
 
   function run(cmd: PaletteCommand) {
     setOpen(false)
@@ -270,6 +281,7 @@ export function CommandPalette({
               )}
               {groups.map(([group, items]) => renderGroup(group, items, 'command'))}
               {recordGroups.map(([group, items]) => renderGroup(group, items, 'record'))}
+              {fallbackCommand ? renderGroup(fallbackCommand.group ?? 'Commands', [fallbackCommand], 'command') : null}
               {searchEnabled ? (
                 <RecordSearchStatus state={searchState} hasRecords={recordGroups.length > 0} />
               ) : null}

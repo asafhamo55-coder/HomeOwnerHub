@@ -29,6 +29,8 @@ import { VIOLATION_SEVERITY, VIOLATION_STATUS } from '@/lib/status/community'
 import { violationTabs } from './tabs'
 import { loadPropertyScope, withPropertyParam } from '@/lib/property-scope'
 import { PropertyScopeBanner } from '@/components/PropertyScopeBanner'
+import { HowThisWorks } from '@/components/guide/HowThisWorks'
+import { guideHref } from '@/lib/guide'
 
 export const metadata = { title: 'Violations' }
 export const dynamic = 'force-dynamic'
@@ -289,6 +291,7 @@ export default async function ViolationsListPage({
                 variant="compact"
                 icon={<AlertTriangle aria-hidden />}
                 title="No violations on file"
+                secondaryAction={<HowThisWorks href={guideHref('violations-report-and-letter')} />}
                 description="Report your first violation. Covenant Brain will match it to a CC&R section and draft the letter."
                 action={
                   <Button asChild size="sm">

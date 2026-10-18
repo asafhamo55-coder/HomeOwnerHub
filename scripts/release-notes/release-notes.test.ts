@@ -199,6 +199,15 @@ describe('note selection', () => {
     expect(combined.sha).toBe(DEPLOYED)
   })
 
+  it('a nested whats_new block (BL-070) never overrides the top-level title or sha', () => {
+    const n = parseNote(
+      '---\ntitle: Real headline\nwhats_new:\n  - body: Short body.\n    title: Entry title\n    sha: deadbeefdeadbeef\n    roles: [admin, board]\n    label: new\n---\n## Summary\n\nHi.\n',
+      '/x/2026-10-17-1555-a.md',
+    )
+    expect(n.title).toBe('Real headline')
+    expect(n.sha).toBeNull()
+  })
+
   it('combines several notes added in the range, in filename order, under the deployed sha', () => {
     const dir = tmp()
     writeNotes(dir, {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkGuide, labelInSource, type CheckInput } from './check'
+import { checkGuide, guideRefsInSource, labelInSource, type CheckInput } from './check'
 import { compileGuide, emitModule } from './compile'
 
 const META = { topics: [{ id: 'dues', label: 'Dues', description: 'Dues.' }], paths: [] }
@@ -42,6 +42,16 @@ function input(over: Partial<CheckInput> = {}, articleSrc = src()): CheckInput {
 }
 
 describe('checkGuide', () => {
+  it('fails a guideHref() or guide: article reference in app code that names no article', () => {
+    const ok = input({ source: `<Button>Record payment</Button> guideHref('dues-record-payment') guide: 'dues-record-payment'` })
+    expect(checkGuide(ok).errors).toEqual([])
+    const bad = input({ source: `<Button>Record payment</Button> guideHref("dues-gone") x = { guide: 'no-such-article' }` })
+    const errs = checkGuide(bad).errors.join('\n')
+    expect(errs).toMatch(/dues-gone/)
+    expect(errs).toMatch(/no-such-article/)
+    expect(guideRefsInSource(`guideHref('a-b', 'resident') guide: "c"`)).toEqual(['a-b', 'c'])
+  })
+
   it('passes a consistent guide', () => {
     expect(checkGuide(input())).toEqual({ errors: [], warnings: [] })
   })

@@ -75,6 +75,10 @@ export function parseFrontmatter(raw: string): { data: Record<string, string>; b
   if (!m) return { data: {}, body: text }
   const data: Record<string, string> = {}
   for (const line of m[1]!.split('\n')) {
+    // Top-level keys only. An indented line belongs to a nested block (the
+    // `whats_new:` entries read by the user guide, BL-070), and its `title:`
+    // or `sha:` must never stand in for the note's own.
+    if (/^\s/.test(line)) continue
     const kv = /^([A-Za-z_][\w-]*)\s*:\s*(.*)$/.exec(line.trim())
     if (!kv) continue
     let value = kv[2]!.trim()

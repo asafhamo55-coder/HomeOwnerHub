@@ -5,6 +5,9 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { articleHref, instantSearchData, pathsFor, searchSections, topicsFor } from '@/lib/guide'
 import { GuideSearch } from '@/components/guide/GuideSearch'
 import { GuideSearchResults } from '@/components/guide/GuideArticleBody'
+import { AskGuide } from '@/components/guide/AskGuide'
+import { WhatsNewEntries } from '@/components/guide/WhatsNewEntries'
+import { boardWhatsNew } from '@/lib/guide/whats-new'
 
 export const metadata = { title: 'Help' }
 
@@ -14,6 +17,7 @@ export default async function HelpPage({ searchParams }: { searchParams: Promise
   const q = ((await searchParams).q ?? '').trim().slice(0, 200)
   const paths = pathsFor(role)
   const topics = topicsFor(role)
+  const latest = boardWhatsNew().slice(0, 3)
 
   return (
     <Page
@@ -23,6 +27,12 @@ export default async function HelpPage({ searchParams }: { searchParams: Promise
       <GuideSearch data={instantSearchData(role)} action="/help" initialQuery={q} />
 
       {q ? <GuideSearchResults query={q} hits={searchSections(q, role)} audience="board" askDocsHref="/ai/ask" /> : null}
+
+      <Card>
+        <CardContent className="pt-5">
+          <AskGuide />
+        </CardContent>
+      </Card>
 
       {paths.length > 0 ? (
         <section aria-labelledby="start-here" className="space-y-3">
@@ -81,6 +91,24 @@ export default async function HelpPage({ searchParams }: { searchParams: Promise
           ))}
         </ul>
       </section>
+
+      {latest.length > 0 ? (
+        <section aria-labelledby="whats-new-h" className="space-y-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="whats-new-h" className="text-lg text-foreground">
+              What’s new
+            </h2>
+            <Link href="/whats-new" className="text-sm font-medium text-primary">
+              See all updates
+            </Link>
+          </div>
+          <Card>
+            <CardContent className="pt-5">
+              <WhatsNewEntries entries={latest} showDate />
+            </CardContent>
+          </Card>
+        </section>
+      ) : null}
     </Page>
   )
 }

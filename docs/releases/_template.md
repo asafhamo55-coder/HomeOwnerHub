@@ -4,6 +4,13 @@ title: Short, plain-language headline for this release
 # (the usual case): CI passes the real deploy time and SHA.
 # deployed_at: 2026-10-17T15:55:00-04:00
 # sha: c56061f
+# Optional: user-facing entries for the in-app What's new (see README.md).
+# whats_new:
+#   - title: Short headline for boards or residents
+#     body: One to three plain sentences, 280 characters at most, no links.
+#     roles: [admin, board]
+#     article: approvals-queue
+#     label: improvement
 ---
 
 ## Summary

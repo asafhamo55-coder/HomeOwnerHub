@@ -33,6 +33,8 @@ import { asPropertyId, asUnitId, resolveUnitForProperty } from '@/lib/properties
 import { propertyHref } from '@/lib/properties/href'
 import { loadPropertyScope } from '@/lib/property-scope'
 import { PropertyScopeBanner } from '@/components/PropertyScopeBanner'
+import { HowThisWorks } from '@/components/guide/HowThisWorks'
+import { guideHref } from '@/lib/guide'
 
 export const metadata = { title: 'Dues' }
 export const dynamic = 'force-dynamic'
@@ -247,9 +249,12 @@ export default async function DuesPage({
           description="Generate this month’s dues for every property, or add a one-off charge. Each charge posts to the ledger as money owed to the association."
           action={<MaterializeButton monthLabel={currentMonthLabel} variant="default" />}
           secondaryAction={
-            <Button asChild variant="ghost">
-              <Link href="/properties">Add properties first</Link>
-            </Button>
+            <>
+              <Button asChild variant="ghost">
+                <Link href="/properties">Add properties first</Link>
+              </Button>
+              <HowThisWorks href={guideHref('dues-generate-monthly')} />
+            </>
           }
         />
       ) : (
