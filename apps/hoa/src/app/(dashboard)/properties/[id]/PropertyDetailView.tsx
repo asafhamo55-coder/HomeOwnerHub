@@ -72,6 +72,8 @@ import { CollectionsSection } from './CollectionsSection'
 import { EnterPortalButton } from './EnterPortalButton'
 import { LogNoteDialog } from './LogNoteDialog'
 import { PropertyActions } from './PropertyActions'
+import { InviteToPortalButton } from './InviteToPortalButton'
+import { RecordSaleDialog } from './RecordSaleDialog'
 import { ResidentRow } from './ResidentRow'
 import { TenureSelector } from './TenureSelector'
 
@@ -96,6 +98,8 @@ export interface PropertyDetailViewProps {
   /** The association's today, 'YYYY-MM-DD'. */
   today: string
   isAdmin: boolean
+  /** Board or admin: may record a sale and invite owners (the actions gate again). */
+  canManage?: boolean
   /** A lease cap is set (drives "Add to waiting list"). */
   capInPlace: boolean
   /** The section a phone shows. */
@@ -107,7 +111,7 @@ export interface PropertyDetailViewProps {
 }
 
 export function PropertyDetailView(props: PropertyDetailViewProps) {
-  const { data, now, today, isAdmin, capInPlace, section, listHref, listQuery } = props
+  const { data, now, today, isAdmin, canManage = false, capInPlace, section, listHref, listQuery } = props
   const p = data.property
   const pid = asPropertyId(p.id)
   const scoped = (path: string) => `${path}?property=${p.id}`
@@ -178,7 +182,23 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
         </div>
       }
     >
-      <ActionBar propertyId={p.id} address={p.address} householdCount={householdCount} ownerEmail={primaryOwner?.email ?? p.owner_email} stats={data.stats} openViolations={openViolations} />
+      <ActionBar
+        propertyId={p.id}
+        address={p.address}
+        householdCount={householdCount}
+        ownerEmail={primaryOwner?.email ?? p.owner_email}
+        stats={data.stats}
+        openViolations={openViolations}
+        sale={
+          canManage && unitId
+            ? {
+                today,
+                sellers: people.owners.map((o) => o.name ?? o.email ?? 'Unnamed owner'),
+                tenantCount: people.residents.filter((r) => r.role === 'tenant').length + people.leaseTenants.length,
+              }
+            : null
+        }
+      />
 
       {unitCount > 1 ? (
         <Alert variant="warning" title={`${unitCount} unit records are linked to this property`}>
@@ -212,7 +232,7 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
           </div>
 
           <Section id="people" title="People" active={section === 'people'} action={data.residents.ok ? <AddResidentForm propertyId={p.id} /> : null}>
-            <PeopleSection people={people} residents={data.residents} ownerships={data.ownerships} isAdmin={isAdmin} propertyId={p.id} unitId={unitId} messageHref={householdCount > 0 ? scoped('/communications/new') : null} />
+            <PeopleSection people={people} residents={data.residents} ownerships={data.ownerships} isAdmin={isAdmin} canManage={canManage} propertyId={p.id} unitId={unitId} messageHref={householdCount > 0 ? scoped('/communications/new') : null} />
           </Section>
 
           <Section
@@ -276,6 +296,7 @@ function ActionBar({
   ownerEmail,
   stats,
   openViolations,
+  sale,
 }: {
   propertyId: string
   address: string
@@ -283,6 +304,8 @@ function ActionBar({
   ownerEmail: string | null
   stats: Property360['stats']
   openViolations: number | null
+  /** Set when the viewer may record a sale and the home has a unit to transfer. */
+  sale: { today: string; sellers: string[]; tenantCount: number } | null
 }) {
   const scoped = (path: string) => `${path}?property=${propertyId}`
   return (
@@ -318,6 +341,15 @@ function ActionBar({
         </Link>
       </Button>
       <LogNoteDialog propertyId={propertyId} />
+      {sale ? (
+        <RecordSaleDialog
+          propertyId={propertyId}
+          today={sale.today}
+          sellers={sale.sellers}
+          balance={stats.ok ? (stats.data?.balance ?? 0) : null}
+          tenantCount={sale.tenantCount}
+        />
+      ) : null}
       <PropertyActions
         propertyId={propertyId}
         address={address}
@@ -411,6 +443,7 @@ function PeopleSection({
   residents,
   ownerships,
   isAdmin,
+  canManage,
   propertyId,
   unitId,
   messageHref,
@@ -419,6 +452,7 @@ function PeopleSection({
   residents: Part<unknown>
   ownerships: UnitPart<unknown>
   isAdmin: boolean
+  canManage: boolean
   propertyId: string
   unitId: string | null
   messageHref: string | null
@@ -454,19 +488,22 @@ function PeopleSection({
           ) : (
             <ul className="divide-y divide-border">
               {people.owners.map((o) => (
-                <OwnerRow key={o.key} owner={o} isAdmin={isAdmin} propertyId={propertyId} unitId={unitId} />
+                <OwnerRow key={o.key} owner={o} isAdmin={isAdmin} canManage={canManage} propertyId={propertyId} unitId={unitId} />
               ))}
             </ul>
           )}
           {people.previousOwners.length > 0 ? (
             <details className="rounded-lg bg-subtle px-3.5 py-2 text-sm">
               <summary className="cursor-pointer text-muted">
-                {people.previousOwners.length} previous {people.previousOwners.length === 1 ? 'owner' : 'owners'}
+                Ownership history · {people.previousOwners.length} previous {people.previousOwners.length === 1 ? 'owner' : 'owners'}
               </summary>
-              <ul className="mt-2 space-y-1">
+              <ul className="mt-2 space-y-1.5" aria-label="Previous owners, most recent first">
                 {people.previousOwners.map((o) => (
-                  <li key={o.key} className="flex flex-wrap gap-x-2 text-foreground-secondary">
-                    <span>{o.name ?? o.email ?? 'Unnamed owner'}</span>
+                  <li key={o.key} className="flex flex-wrap items-baseline justify-between gap-x-3 text-foreground-secondary">
+                    <span className="min-w-0 truncate">
+                      {o.name ?? o.email ?? 'Unnamed owner'}
+                      {o.pct !== null && o.pct !== 100 ? <span className="num ml-1.5 text-xs text-muted">{o.pct}%</span> : null}
+                    </span>
                     <span className="num text-xs text-muted">
                       {formatDay(o.since)} – {formatDay(o.until)}
                     </span>
@@ -538,7 +575,19 @@ function PeopleSection({
   )
 }
 
-function OwnerRow({ owner, isAdmin, propertyId, unitId }: { owner: Owner; isAdmin: boolean; propertyId: string; unitId: string | null }) {
+function OwnerRow({
+  owner,
+  isAdmin,
+  canManage,
+  propertyId,
+  unitId,
+}: {
+  owner: Owner
+  isAdmin: boolean
+  canManage: boolean
+  propertyId: string
+  unitId: string | null
+}) {
   return (
     <li className="flex flex-col gap-2 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3">
       <div className="min-w-0">
@@ -559,6 +608,9 @@ function OwnerRow({ owner, isAdmin, propertyId, unitId }: { owner: Owner; isAdmi
       </div>
       <div className="-ml-2 flex shrink-0 flex-wrap items-center gap-1 sm:ml-0">
         <ContactIcons name={owner.name} phone={owner.phone} email={owner.email} />
+        {canManage && owner.source === 'ownership' && owner.portal === false && owner.email ? (
+          <InviteToPortalButton propertyId={propertyId} name={owner.name} email={owner.email} variant="ghost" />
+        ) : null}
         {isAdmin && owner.email ? (
           <EnterPortalButton email={owner.email} name={owner.name} propertyId={propertyId} unitId={unitId} variant="ghost" />
         ) : null}

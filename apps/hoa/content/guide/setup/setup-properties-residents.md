@@ -12,7 +12,7 @@ shots:
     alt: The Properties page with the Add property button highlighted
   - name: guide-properties-new
     alt: The Add a property form with the Add property button highlighted
-related: [setup-import-roster, start-board-admin, dues-generate-monthly, members-invite-board]
+related: [setup-import-roster, properties-record-a-sale, start-board-admin, dues-generate-monthly, members-invite-board]
 reviewed: 2026-10-17
 ---
 
@@ -47,6 +47,6 @@ The home is ready to bill straight away: it gets its dues record, and the owner 
 - The Properties list starts on **All** homes, with what needs action first. Select any column heading (Owner, Balance, Violations, Last activity and so on) to sort by it; select it again to reverse. Switch to **Needs attention** to see homes with something to deal with, and use [[Filters]] to narrow by records or tenure.
 - Search looks through every home: the address, unit, owner name, email and phone, and everyone living there.
 - The buttons at the top of a property's page act on that home: [[Message household]] writes to the people living there, [[Record payment]] opens Dues for that home, [[New violation]] starts a violation report with the home picked, and [[Log note]] adds a dated note to its **Activity**.
-- To change an owner's details, open the property and select [[Edit]].
+- To change an owner's details, open the property and select [[Edit]]. When a home is sold, [record the sale](guide:properties-record-a-sale) instead, so the history is kept and the seller's portal access ends.
 - A home you no longer need can be archived: open it, select the **More actions** button (⋯), then [[Archive]]. Its residents, violations and dues stay on file.
 - Have many homes? Select [[Import]] on the Properties page to bring them all in from a spreadsheet, such as a CINC Systems export. See [Import your homes and owners from a spreadsheet](guide:setup-import-roster).

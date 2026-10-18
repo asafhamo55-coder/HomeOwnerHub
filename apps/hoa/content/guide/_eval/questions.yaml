@@ -25,6 +25,9 @@ questions:
   - { id: h03, role: board, expect: setup-properties-residents, q: "How do I add a property?" }
   - { id: h04, role: admin, expect: setup-properties-residents, q: "How do I add an owner to a home?" }
   - { id: h05, role: admin, expect: setup-properties-residents, q: "Can I import all our homes from a spreadsheet?" }
+  - { id: h05s1, role: board, expect: properties-record-a-sale, q: "A home was sold. How do I change it to the new owner?" }
+  - { id: h05s2, role: admin, expect: properties-record-a-sale, q: "How do I record a sale and remove the seller's portal access?" }
+  - { id: h05s3, role: board, expect: properties-record-a-sale, q: "Where do I see previous owners of a house?" }
   - { id: h06, role: admin, expect: members-invite-board, q: "How do I invite another board member?" }
   - { id: h07, role: admin, expect: members-invite-board, q: "How do I change someone's role to admin?" }
   - { id: h08, role: board, expect: dues-generate-monthly, q: "How do I bill this month's dues?" }

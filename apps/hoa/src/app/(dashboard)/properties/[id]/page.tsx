@@ -71,6 +71,7 @@ export default async function PropertyDetailPage({
       now={new Date()}
       today={today}
       isAdmin={ctx.role === 'admin'}
+      canManage={ctx.role === 'admin' || ctx.role === 'board'}
       capInPlace={assocInfo.cap?.capPct !== null && assocInfo.cap?.capPct !== undefined}
       section={parseSection(one('tab'))}
       listHref={listHref}
