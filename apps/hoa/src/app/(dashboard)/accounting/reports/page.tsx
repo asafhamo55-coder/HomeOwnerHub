@@ -2,8 +2,17 @@ import Link from 'next/link'
 import { ArrowDownUp, ArrowRight, BarChart3, PieChart, TrendingUp } from 'lucide-react'
 import { Alert, Card, Page } from '@homeowner-portal/ui'
 import { AccountingTabs } from '../AccountingTabs'
+import { requireBoardOrAdmin } from '@/lib/auth'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { readPrimaryAssociation } from '@/lib/association-setup'
+import { tryLoad } from '@/lib/load-or-fail'
+import { dayOf } from '@/lib/association-time'
+import { formatDay } from '@/lib/money/format'
+import { loadMonthlyReportStatus } from '@/lib/monthly-report/status'
+import { MonthlyReportCard, type MonthlyReportCardProps } from './MonthlyReportCard'
 
 export const metadata = { title: 'Accounting Reports' }
+export const dynamic = 'force-dynamic'
 
 const REPORTS = [
   {
@@ -32,7 +41,28 @@ const REPORTS = [
   },
 ]
 
-export default function AccountingReportsPage() {
+/** The month-end board report card's data (BL-073); null = couldn't load. */
+async function monthlyReportStatus(orgId: string): Promise<MonthlyReportCardProps['status'] | 'no-association'> {
+  const supabase = await getSupabaseServerClient()
+  const assoc = await readPrimaryAssociation(supabase, orgId)
+  if (!assoc.ok) return null
+  // No association yet: nothing to report on, so no card (the page's own
+  // setup prompts cover it) rather than a misleading "couldn't load".
+  if (!assoc.data) return 'no-association'
+  const timeZone = assoc.data.timeZone
+  const res = await tryLoad('monthly board report status', () => loadMonthlyReportStatus(supabase, orgId, timeZone))
+  if (!res.ok) return null
+  const { last, pending, pendingDone } = res.data
+  return {
+    last: last ? { label: last.label, status: last.status, sentOn: last.sentAt ? formatDay(dayOf(last.sentAt, timeZone)) : null } : null,
+    pendingLabel: pending.label,
+    pendingDone,
+  }
+}
+
+export default async function AccountingReportsPage() {
+  const { role, org } = await requireBoardOrAdmin()
+  const status = await monthlyReportStatus(org.id)
   return (
     <Page title="Reports" description="Financial statements computed live from posted journal entries — always current, never cached." tabs={<AccountingTabs />}>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -57,6 +87,7 @@ export default function AccountingReportsPage() {
           </Link>
         ))}
       </div>
+      {status === 'no-association' ? null : <MonthlyReportCard status={status} canSend={role === 'admin'} />}
       <Alert variant="info" title="Need it for a board meeting?">
         A PDF board packet — balance sheet, income statement and cash flow — is on the{' '}
         <Link href="/accounting/periods" className="font-medium text-primary underline">

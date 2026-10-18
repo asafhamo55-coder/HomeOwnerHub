@@ -3,6 +3,7 @@ import {
   inngest,
   createDailyDigestJob,
   createDuesRemindersJob,
+  createMonthlyBoardReportJob,
   hoaLateFeeJob,
   pmLateFeeJob,
   evictionReminderJob,
@@ -22,6 +23,7 @@ import {
 } from '@homeowner-portal/jobs'
 import { sendEmail, appUrl } from '@/lib/email'
 import { duesReminderDeps } from '@/lib/dues-reminders/auto-deps'
+import { monthlyReportDeps } from '@/lib/monthly-report/deps'
 
 // The morning mailbox check emails the board when sync is broken (BL-003).
 // It takes this app's sendEmail — guarded by BL-004 — because the email
@@ -33,7 +35,11 @@ const dailyDigestJob = createDailyDigestJob({ sendEmail, appUrl })
 // Off per association until its board turns it on at /settings/reminders.
 const duesRemindersJob = createDuesRemindersJob(duesReminderDeps)
 
-// Eighteen functions (crons and event listeners) mount in the HOA app. Inngest is a single
+// Month-end board report (BL-073): the guarded sendEmail and the report
+// builder (the board packet's own loaders) are app-side.
+const monthlyBoardReportJob = createMonthlyBoardReportJob(monthlyReportDeps)
+
+// Nineteen functions (crons and event listeners) mount in the HOA app. Inngest is a single
 // app-id ("homeownerhub") so it doesn't matter where the handler lives —
 // scheduled invocations target the function id, not the host. Apps/eviction
 // and apps/pm could mount the same handler if they need their own
@@ -67,6 +73,7 @@ export const { GET, POST, PUT } = serve({
   functions: [
     dailyDigestJob,
     duesRemindersJob,
+    monthlyBoardReportJob,
     hoaLateFeeJob,
     pmLateFeeJob,
     evictionReminderJob,

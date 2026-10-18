@@ -22,6 +22,14 @@ export interface EmailDocumentOptions {
   band?: EmailBand
   /** Inbox preview line. Hidden in the body, shown in the list view. */
   previewText?: string
+  /**
+   * Shrink to the screen on phones instead of a fixed 600px card. Uses the
+   * "ghost table" hybrid: a 100%-wide card capped at 600px by max-width for
+   * every client that honours it, wrapped in an MSO-only fixed 600px table
+   * so Outlook's Word engine (which ignores max-width) still gets the
+   * attribute width described above.
+   */
+  fluid?: boolean
 }
 
 const PAGE_BG = '#F1F3F5'
@@ -65,7 +73,12 @@ export function renderEmailDocument(opts: EmailDocumentOptions): string {
 ${opts.previewText ? preheader(opts.previewText) : ''}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${PAGE_BG}" style="background-color:${PAGE_BG};color:${TEXT};">
 <tr><td align="center" bgcolor="${PAGE_BG}" style="padding:18px;background-color:${PAGE_BG};color:${TEXT};">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${CARD_BG}" style="width:600px;background-color:${CARD_BG};color:${TEXT};border:1px solid ${LINE};">
+${opts.fluid ? '<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->' : ''}
+${
+  opts.fluid
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${CARD_BG}" style="width:100%;max-width:600px;background-color:${CARD_BG};color:${TEXT};border:1px solid ${LINE};">`
+    : `<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${CARD_BG}" style="width:600px;background-color:${CARD_BG};color:${TEXT};border:1px solid ${LINE};">`
+}
 ${opts.band ? bandRow(opts.band) : ''}
 <tr><td bgcolor="${CARD_BG}" style="padding:22px;font-family:${FONT};color:${TEXT};background-color:${CARD_BG};">
 ${opts.bodyHtml}
@@ -74,6 +87,7 @@ ${opts.bodyHtml}
 ${opts.footerHtml}
 </td></tr>
 </table>
+${opts.fluid ? '<!--[if mso]></td></tr></table><![endif]-->' : ''}
 </td></tr></table>
 </body></html>`
 }

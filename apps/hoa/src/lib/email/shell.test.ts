@@ -15,6 +15,14 @@ describe('renderEmailDocument', () => {
     expect(html).not.toContain('margin:0 auto')
   })
 
+  it('fluid: shrinks on phones, still fixed at 600 for Outlook via an MSO-only ghost table', () => {
+    const html = renderEmailDocument({ ...BASE, fluid: true })
+    expect(html).toContain('width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width:100%;max-width:600px;')
+    expect(html).toContain('<!--[if mso]><table role="presentation" width="600"')
+    expect(html).toContain('<!--[if mso]></td></tr></table><![endif]-->')
+    expect(html).not.toContain('style="width:600px;')
+  })
+
   it('emits a full document with a doctype so Outlook does not quirks-mode it', () => {
     expect(renderEmailDocument(BASE)).toMatch(/^<!DOCTYPE html/i)
   })
