@@ -6,6 +6,7 @@ import { withRoute } from '@/lib/api/handler'
 import { errorCode, logRouteFailure } from '@/lib/api/log'
 import { completeConnect, DEFAULT_RETURN_TO, sanitizeReturnTo } from '@/lib/inbox/connect'
 import { ConnectError, type ConnectErrorCode } from '@/lib/inbox/connect-errors'
+import { type ConnectBackfillPlan, planConnectBackfill } from '@/lib/inbox/reconnect-backfill'
 
 const ROUTE = 'oauth.google.callback'
 
@@ -83,8 +84,22 @@ export const GET = withRoute(ROUTE, async (request: Request) => {
   // 'failed' instead, which is a state the UI already renders as "History
   // import stopped … reconnect now" — and reconnecting does re-emit this
   // event, so the advice is true.
+  //
+  // BL-018: a RECONNECT of a mailbox whose import already completed does
+  // not redo the 12-month walk — see lib/inbox/reconnect-backfill.ts. It is
+  // skipped (the 2-minute sync resumes from the history id) or narrowed to
+  // the gap since the last sync. Pending, failed and wedged imports still
+  // get the full backfill, so reconnecting remains their recovery path.
+  const plan = await planBackfillFor(accountId)
   try {
-    await inngest.send({ name: 'mailbox/backfill.requested', data: { accountId } })
+    if (plan.kind === 'full') {
+      await inngest.send({ name: 'mailbox/backfill.requested', data: { accountId } })
+    } else if (plan.kind === 'bounded') {
+      await inngest.send({
+        name: 'mailbox/backfill.requested',
+        data: { accountId, afterDate: plan.afterDate },
+      })
+    }
   } catch (sendError) {
     logRouteFailure(ROUTE, sendError, { stage: 'queue_backfill', accountId })
     await markBackfillFailed(accountId)
@@ -98,6 +113,29 @@ export const GET = withRoute(ROUTE, async (request: Request) => {
     new URL(`${sanitizeReturnTo(returnTo)}?connected=1&account=${encodeURIComponent(accountId)}`, request.url),
   )
 })
+
+/**
+ * Reads the account's backfill/sync state and plans the backfill. A failed
+ * read falls back to the full backfill — the pre-BL-018 behaviour, safe
+ * because ingest is idempotent — and logs the code only (RC-2).
+ */
+async function planBackfillFor(accountId: string): Promise<ConnectBackfillPlan> {
+  try {
+    const { data, error } = await createAdminClient()
+      .from('mailbox_accounts')
+      .select('backfill_status, backfill_progress, scope_mode, scope_value, last_synced_at, sync_cursor')
+      .eq('id', accountId)
+      .maybeSingle()
+    if (error || !data) {
+      if (error) logRouteFailure(ROUTE, error, { stage: 'read_backfill_state', accountId })
+      return { kind: 'full', reason: 'unknown' }
+    }
+    return planConnectBackfill(data, new Date())
+  } catch (error) {
+    logRouteFailure(ROUTE, error, { stage: 'read_backfill_state', accountId })
+    return { kind: 'full', reason: 'unknown' }
+  }
+}
 
 /**
  * RC-6: the write's result is checked and its failure logged by code. It

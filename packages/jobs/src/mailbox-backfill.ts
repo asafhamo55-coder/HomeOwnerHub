@@ -62,6 +62,7 @@ import {
 } from '@homeowner-portal/mailbox'
 import { ingestMessages } from '../../../apps/hoa/src/lib/inbox/ingest'
 import { applyMatch, applyVendorMatch, matchThread } from '../../../apps/hoa/src/lib/inbox/match'
+import { backfillScopeStamp } from '../../../apps/hoa/src/lib/inbox/reconnect-backfill'
 import { logDbError } from './db-error'
 import { inngest } from './client'
 import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
@@ -75,6 +76,27 @@ interface BackfillAccount {
   email_address: string
   scope_mode: string
   scope_value: string | null
+}
+
+/**
+ * The `backfill_progress` jsonb. BL-018 adds `scope`: the scope this import
+ * ran under, so a later reconnect can tell "complete for THIS scope" from
+ * "complete, but the board has since widened the scope" (see
+ * apps/hoa/src/lib/inbox/reconnect-backfill.ts). Existing readers only look
+ * at done / has_more / total_estimate, so the extra key is invisible to them.
+ */
+export function backfillProgress(
+  done: number,
+  hasMore: boolean,
+  totalEstimate: number | null,
+  account: Pick<BackfillAccount, 'scope_mode' | 'scope_value'>,
+) {
+  return {
+    done,
+    has_more: hasMore,
+    total_estimate: totalEstimate,
+    scope: backfillScopeStamp(account.scope_mode, account.scope_value),
+  }
 }
 
 export const mailboxBackfillJob = inngest.createFunction(
@@ -101,6 +123,11 @@ export const mailboxBackfillJob = inngest.createFunction(
     //   - totalEstimate: Gmail's resultSizeEstimate is only meaningful as
     //     a stable "of ~N" figure if it's read once, from the first page,
     //     not re-read (and possibly drifting) on every page.
+    //
+    // BL-018: the OAuth callback may ALSO set `afterDate` on the first
+    // event — a bounded window covering only the gap since the last sync,
+    // for a reconnect whose full import already completed. It is carried
+    // forward exactly like a computed one.
     const carriedAfterDate = event.data.afterDate as string | undefined
     const carriedTotalEstimate = (event.data.totalEstimate as number | null | undefined) ?? null
 
@@ -283,7 +310,7 @@ export const mailboxBackfillJob = inngest.createFunction(
           // greater than it (a false-positive estimate, or messages added
           // to the mailbox mid-backfill) — the UI contract must tolerate
           // `done > total_estimate` rather than treat it as a bug.
-          backfill_progress: { done, has_more: hasMore, total_estimate: totalEstimate },
+          backfill_progress: backfillProgress(done, hasMore, totalEstimate, account),
         })
         .eq('id', accountId)
 
