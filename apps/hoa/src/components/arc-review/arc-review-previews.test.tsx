@@ -5,8 +5,9 @@ import * as React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 // Component tests and static HTML previews for BL-024 (the resident's
-// "Check my request against the rules") and BL-027 (the board's AI review
-// card on /arc/[id] and its decision dialog). Rendered from fixtures — no
+// "Check my request against the rules"), BL-027 (the board's AI review
+// card on /arc/[id] and its decision dialog) and BL-079 (photo findings on
+// the card, and the full decision letter in each dialog). Rendered from fixtures — no
 // browser, no database, no model. Writes files only when
 // ARC_REVIEW_PREVIEW_DIR is set:
 //
@@ -40,15 +41,22 @@ vi.mock('@/components/ai/AiRewriteButton', () => ({ AiRewriteButton: () => null 
 
 const { ToastProvider, ConfirmProvider } = await import('@homeowner-portal/ui')
 const { ArcReviewPanel } = await import('./ArcReviewPanel')
-const { ArcReviewActions, ArcDecisionDraftField, suggestedButton } = await import('./ArcReviewActions')
+const { ArcReviewActions, ArcDecisionDraftField, suggestedButton, letterButtons, letterProblem, BLANKS_LEFT } = await import('./ArcReviewActions')
 const { ArcPrecheckStep, ArcRequestForm } = await import('@/app/resident/arc/new/ArcRequestForm')
-const { draftFor, readReviewRun } = await import('@/lib/arc-review/model')
+const { decisionLetter, decisionLetters, readReviewRun } = await import('@/lib/arc-review/model')
 type Output = import('@/lib/arc-review/model').ArcReviewOutput
 type Precheck = import('@/app/resident/arc/new/ArcPrecheckResult').ArcPrecheckResponse
 type Load = import('./ArcReviewPanel').ArcReviewPanelLoad
 
 const ARC = '44444444-4444-4444-8444-444444444444'
 const D = '33333333-3333-4333-8333-333333333333'
+const P1 = '66666666-6666-4666-8666-666666666661'
+const P2 = '66666666-6666-4666-8666-666666666662'
+const CTX = { associationName: 'Maple Ridge HOA', title: 'Front fence' }
+const PHOTO_LINKS = {
+  [P1]: { fileName: 'front-yard.jpg', url: 'https://example.test/signed/1' },
+  [P2]: { fileName: 'fence-sample.png', url: null },
+}
 
 const wrap = (el: React.ReactElement) => (
   <ToastProvider>
@@ -75,6 +83,11 @@ const REVIEW: Output = {
     conditions: ['Front-yard sections no taller than 4 feet.', 'No chain-link.'],
   },
   warnings: [],
+  photoFindings: [
+    { attachmentId: P1, photo: 'Photo 1', finding: 'The fence line runs along the front of the lot, near the sidewalk.', confidence: 'medium' },
+    { attachmentId: P1, photo: 'Photo 1', finding: 'Fence appears about 6 ft tall, wood, stained dark brown.', confidence: 'low' },
+    { attachmentId: P2, photo: 'Photo 2', finding: 'Sample board is dark brown stained wood.', confidence: 'medium' },
+  ],
   disclaimer: 'A suggestion only. The board decides: nothing is approved, denied or sent until a board member acts.',
 }
 
@@ -91,14 +104,16 @@ function view(state: 'pending' | 'completed' | 'failed', output: Output | null =
     id: 'run-1',
     status: state === 'pending' ? 'pending_human_approval' : state,
     created_at: '2026-10-18T10:00:00Z',
-    input: { mode: 'review', arcRequestId: ARC, precheckRunId: 'pre-1' },
+    input: { mode: 'review', arcRequestId: ARC, precheckRunId: 'pre-1', photos: [{ attachmentId: P1, label: 'Photo 1' }, { attachmentId: P2, label: 'Photo 2' }] },
     output: output ?? { _error: 'x' },
     human_approved: state === 'completed' ? false : null,
     human_feedback: feedback,
   })
 }
 
-const panel = (load: Load, status = 'submitted') => <ArcReviewPanel arcId={ARC} title="Front fence" arcStatus={status} load={load} />
+const panel = (load: Load, status = 'submitted', extra: { photosChanged?: boolean } = {}) => (
+  <ArcReviewPanel arcId={ARC} title="Front fence" arcStatus={status} load={load} associationName="Maple Ridge HOA" photos={PHOTO_LINKS} {...extra} />
+)
 
 const PRECHECK_ANSWERED: Precheck = {
   status: 'answered',
@@ -136,18 +151,62 @@ describe('board AI review card (rendered)', () => {
     expect(out).toContain('Colors — the exact color or stain')
     expect(out).toContain('What the resident saw before submitting')
     expect(out).toContain('nothing is approved, denied or sent until a board member acts')
-    for (const b of ['Approve', 'Deny', 'Request info']) expect(out).toContain(`>${b}<`)
+    for (const b of ['Approve', 'Approve with conditions', 'Deny', 'Request info']) expect(out).toContain(`>${b}<`)
     // The AI never decides on render.
     expect(respond).not.toHaveBeenCalled()
     expect(requestInfo).not.toHaveBeenCalled()
   })
 
   it('the suggested button is the primary one and says why to a screen reader', () => {
-    const out = html(<ArcReviewActions arcId={ARC} title="t" drafts={{ approved: '', denied: '', more_info: '' }} suggestion="deny" />)
+    const out = html(<ArcReviewActions arcId={ARC} title="t" drafts={decisionLetters(REVIEW, CTX)} suggestion="deny" />)
     expect(out).toContain('Matches the AI suggestion')
-    expect(suggestedButton('approve_with_conditions')).toBe('approved')
-    expect(suggestedButton('need_more_info')).toBe('more_info')
+    expect(suggestedButton('approve_with_conditions')).toBe('approve_with_conditions')
+    expect(suggestedButton('need_more_info')).toBe('need_more_info')
     expect(suggestedButton(null)).toBeNull()
+  })
+
+  it('BL-079: photo findings show under their photo, linked to it, with low/medium confidence', () => {
+    const out = html(panel({ ok: true, review: view('pending'), precheck: null }))
+    expect(out).toContain('What the photos suggest')
+    expect(out).toContain('These are estimates')
+    expect(out).toContain('Photo 1')
+    expect(out).toContain('href="https://example.test/signed/1"')
+    expect(out).toContain('front-yard.jpg')
+    expect(out).toContain('fence-sample.png')
+    expect(out).toContain('Fence appears about 6 ft tall, wood, stained dark brown.')
+    expect(out).toContain('Low confidence')
+    expect(out).toContain('Medium confidence')
+    expect(out).not.toContain('High confidence')
+    // Grouped: one card per photo, not per finding.
+    expect(out.match(/>Photo 1</g)).toHaveLength(1)
+  })
+
+  it('BL-079: no photo findings, no photo section', () => {
+    const out = html(panel({ ok: true, review: view('pending', { ...REVIEW, photoFindings: [] }), precheck: null }))
+    expect(out).not.toContain('What the photos suggest')
+  })
+
+  it('BL-079: when the photos changed since a waiting review ran, offers a re-run that replaces it', () => {
+    const out = html(panel({ ok: true, review: view('pending'), precheck: null }, 'submitted', { photosChanged: true }))
+    expect(out).toContain('The photos changed since this review ran')
+    expect(out).toContain('Run again with the current photos')
+    expect(html(panel({ ok: true, review: view('pending'), precheck: null }))).not.toContain('Run again with the current photos')
+  })
+
+  it('BL-079: the inbox (compact) shows three buttons; Approve becomes Approve with conditions when suggested', () => {
+    expect(letterButtons('approve_with_conditions', true)).toEqual(['approve_with_conditions', 'deny', 'need_more_info'])
+    expect(letterButtons('deny', true)).toEqual(['approve', 'deny', 'need_more_info'])
+    expect(letterButtons(null, false)).toEqual(['approve', 'approve_with_conditions', 'deny', 'need_more_info'])
+    const out = html(<ArcReviewActions arcId={ARC} title="t" drafts={decisionLetters(REVIEW, CTX)} suggestion="approve_with_conditions" compact />)
+    expect(out).toContain('>Approve with conditions<')
+    expect(out).not.toContain('>Approve<')
+  })
+
+  it('BL-079: a letter with a blank left in it cannot be sent', () => {
+    expect(letterProblem('approve_with_conditions', decisionLetter({ ...REVIEW, suggestion: null }, 'approve_with_conditions', CTX))).toBe(BLANKS_LEFT)
+    expect(letterProblem('approve', decisionLetter(REVIEW, 'approve', CTX))).toBeNull()
+    expect(letterProblem('need_more_info', '  ')).toBe('Write what the resident should send.')
+    expect(letterProblem('deny', '')).toBeNull()
   })
 
   it('decided: shows what the board did against the suggestion, no decision buttons', () => {
@@ -183,10 +242,21 @@ describe('board AI review card (rendered)', () => {
     expect(out).not.toContain('No AI review has run')
   })
 
-  it('the decision dialog body starts from the AI draft and says so', () => {
-    const out = html(<ArcDecisionDraftField label="Board response" hint="The resident sees this verbatim." value={draftFor(REVIEW, 'approved')} onChange={() => {}} drafted />)
-    expect(out).toContain('Approved with these conditions:')
-    expect(out).toContain('Started from the AI review — edit it before sending.')
+  it('the decision dialog body starts from the full letter and says so', () => {
+    const out = html(<ArcDecisionDraftField label="Decision letter" hint="The resident sees this letter verbatim in their portal." value={decisionLetter(REVIEW, 'approve_with_conditions', CTX)} onChange={() => {}} drafted />)
+    expect(out).toContain('Dear Homeowner,')
+    expect(out).toContain('1. Front-yard sections no taller than 4 feet.')
+    expect(out).toContain('Maple Ridge HOA')
+    expect(out).toContain('Drafted from the AI review’s cited rules — read and edit it before sending.')
+    expect(out).not.toContain('Fill in the blanks')
+    // Photo findings never reach the resident's letter.
+    expect(out).not.toContain('stained dark brown')
+  })
+
+  it('a letter with a blank warns in the dialog', () => {
+    const out = html(<ArcDecisionDraftField label="Decision letter" hint="h" value={decisionLetter({ ...REVIEW, rules: [] }, 'deny', CTX)} onChange={() => {}} drafted />)
+    expect(out).toContain('[[BLANK: reason]]')
+    expect(out).toContain('Fill in the blanks')
   })
 })
 
@@ -280,11 +350,39 @@ const PREVIEWS: Record<string, { title: string; body: () => React.ReactElement }
         </>,
       ),
   },
+  'board-review-photos-changed': {
+    title: 'ARC detail — photos added after the review ran (BL-079)',
+    body: () => col(panel({ ok: true, review: view('pending', { ...REVIEW, photoFindings: [] }), precheck: null }, 'submitted', { photosChanged: true })),
+  },
   'board-decision-dialog': {
-    title: 'Approve from the AI review — the editable draft',
+    title: 'Approve with conditions — the full decision letter (BL-079)',
     body: () => (
-      <DialogFrame title="Approve this application?" description="Front fence" footer={<>{btn('Cancel')}{btn('Approve application', true)}</>}>
-        <ArcDecisionDraftField label="Board response" hint="Optional. Conditions or notes. The resident sees this verbatim in their portal." value={draftFor(REVIEW, 'approved')} onChange={() => {}} drafted />
+      <DialogFrame title="Approve with conditions?" description="Front fence" footer={<>{btn('Cancel')}{btn('Approve with conditions', true)}</>}>
+        <ArcDecisionDraftField label="Decision letter" hint="List every condition. The resident sees this letter verbatim in their portal." value={decisionLetter(REVIEW, 'approve_with_conditions', CTX)} onChange={() => {}} drafted />
+      </DialogFrame>
+    ),
+  },
+  'board-decision-dialog-deny': {
+    title: 'Deny — the letter cites the conflicting rule (BL-079)',
+    body: () => (
+      <DialogFrame title="Deny this application?" description="Front fence" footer={<>{btn('Cancel')}{btn('Deny application', true)}</>}>
+        <ArcDecisionDraftField label="Decision letter" hint="Say why, citing the rule. The resident sees this letter verbatim in their portal." value={decisionLetter(REVIEW, 'deny', CTX)} onChange={() => {}} drafted />
+      </DialogFrame>
+    ),
+  },
+  'board-decision-dialog-blank': {
+    title: 'Deny with no cited conflict — a blank the board must fill (BL-079)',
+    body: () => (
+      <DialogFrame title="Deny this application?" description="Front fence" footer={<>{btn('Cancel')}{btn('Deny application', true)}</>}>
+        <ArcDecisionDraftField label="Decision letter" hint="Say why, citing the rule. The resident sees this letter verbatim in their portal." value={decisionLetter({ ...REVIEW, rules: [] }, 'deny', CTX)} onChange={() => {}} drafted />
+      </DialogFrame>
+    ),
+  },
+  'board-decision-dialog-request-info': {
+    title: 'Request info — the message to the resident (BL-079)',
+    body: () => (
+      <DialogFrame title="Ask the resident for more information?" description="Front fence" footer={<>{btn('Cancel')}{btn('Send request', true)}</>}>
+        <ArcDecisionDraftField label="Message to the resident" hint="Sent as a reply in the application’s conversation. The application moves to In review." value={decisionLetter(REVIEW, 'need_more_info', CTX)} onChange={() => {}} drafted />
       </DialogFrame>
     ),
   },

@@ -50,6 +50,8 @@ questions:
   - { id: h17, role: board, expect: arc-review-application, q: "Where do architectural requests from residents show up?" }
   - { id: h17a, role: board, expect: arc-review-application, q: "What does the AI review on an ARC application suggest?" }
   - { id: h17b, role: board, expect: arc-review-application, q: "How do I ask the resident for more information on an architectural application?" }
+  - { id: h17c, role: board, expect: arc-review-application, q: "Does the AI look at the photos attached to an ARC application?" }
+  - { id: h17d, role: board, expect: arc-review-application, q: "How do I edit the decision letter before approving an architectural application with conditions?" }
   - { id: h18, role: board, expect: meetings-schedule-and-minutes, q: "How do I schedule a board meeting?" }
   - { id: h19, role: admin, expect: meetings-schedule-and-minutes, q: "Can AI write the minutes from a transcript?" }
   - { id: h20, role: board, expect: meetings-schedule-and-minutes, q: "How do I print the board packet?", route: /meetings/1f3a/packet }

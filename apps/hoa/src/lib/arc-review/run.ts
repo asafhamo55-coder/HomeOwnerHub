@@ -7,7 +7,9 @@
 //
 // It reads the application, reduces it to buildArcFacts (no identity, no
 // contact details), and hands it to W37 in review mode. The run lands as
-// pending_human_approval; nothing is decided. Never throws, never logs
+// pending_human_approval; nothing is decided. BL-079: when a loadPhotos dep
+// is given, the attached photos go along (references in the input, images
+// out of band). Never throws, never logs
 // application text: failures are ids and stage names.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -18,8 +20,14 @@ type Db = SupabaseClient<Database>
 
 export type ReviewFn = (
   input: ArcReviewInput,
-  ctx: { organizationId: string },
+  ctx: { organizationId: string; images?: string[] },
 ) => Promise<ArcReviewOutput & { runId: string }>
+
+/** BL-079: the application's photos — references for the input, data URLs out of band. */
+export type LoadPhotos = (
+  db: Db,
+  args: { orgId: string; arcId: string },
+) => Promise<{ photos: Array<{ attachmentId: string; label: string }>; images: string[]; skipped: number }>
 
 export type BuildFacts = (r: {
   category: ArcReviewCategory
@@ -51,7 +59,7 @@ interface ArcRow {
 export async function runBoardArcReviewWith(
   db: Db,
   args: { orgId: string; arcId: string; precheckRunId?: string | null },
-  deps: { review: ReviewFn; buildFacts: BuildFacts },
+  deps: { review: ReviewFn; buildFacts: BuildFacts; loadPhotos?: LoadPhotos },
 ): Promise<RunReviewResult> {
   const { orgId, arcId } = args
   const { data, error } = await db
@@ -71,6 +79,16 @@ export async function runBoardArcReviewWith(
   if (!arc) return { ok: false, error: 'That application no longer exists.' }
   if (!OPEN.has(arc.status)) return { ok: false, error: 'This application is already decided or withdrawn.' }
 
+  // Photos are a bonus: a failure here reviews the written request alone.
+  let photos: Awaited<ReturnType<LoadPhotos>> = { photos: [], images: [], skipped: 0 }
+  if (deps.loadPhotos) {
+    try {
+      photos = await deps.loadPhotos(db, { orgId, arcId })
+    } catch (err) {
+      console.error('arc review run failed', { stage: 'photos', arcId, errorName: err instanceof Error ? err.name : 'UnknownError' })
+    }
+  }
+
   try {
     const result = await deps.review(
       {
@@ -87,8 +105,10 @@ export async function runBoardArcReviewWith(
         associationId: arc.association_id,
         arcRequestId: arc.id,
         precheckRunId: args.precheckRunId ?? null,
+        photos: photos.photos,
+        ...(photos.skipped > 0 ? { photosSkipped: photos.skipped } : {}),
       },
-      { organizationId: orgId },
+      { organizationId: orgId, images: photos.images },
     )
     return { ok: true, runId: result.runId }
   } catch (err) {

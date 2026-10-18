@@ -103,7 +103,7 @@ export async function loadW3Section(db: InboxDb, orgId: string): Promise<InboxSe
 }
 
 /** BL-027: pending W37 ARC review drafts, oldest first. Same read rule as W3. */
-export async function loadArcSection(db: InboxDb, orgId: string): Promise<InboxSection> {
+export async function loadArcSection(db: InboxDb, orgId: string, opts: { associationName?: string | null } = {}): Promise<InboxSection> {
   const res = await loadOrFail(
     'approvals: ARC reviews',
     db
@@ -117,7 +117,7 @@ export async function loadArcSection(db: InboxDb, orgId: string): Promise<InboxS
   )
   if (!res.ok) return { source: 'arc', ok: false }
   const runs = (res.data ?? []) as unknown as ArcRunRow[]
-  return { source: 'arc', ok: true, items: arcItems(runs), total: res.count ?? runs.length }
+  return { source: 'arc', ok: true, items: arcItems(runs, opts), total: res.count ?? runs.length }
 }
 
 /**

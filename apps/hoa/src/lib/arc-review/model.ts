@@ -9,13 +9,14 @@
 
 import type {
   ArcMissingInfo,
+  ArcPhotoFinding,
   ArcReviewOutput,
   ArcRule,
   ArcSuggestedDecision,
   ArcSuggestion,
 } from '@homeowner-portal/workflows/W37'
 
-export type { ArcMissingInfo, ArcReviewOutput, ArcRule, ArcSuggestedDecision, ArcSuggestion }
+export type { ArcMissingInfo, ArcPhotoFinding, ArcReviewOutput, ArcRule, ArcSuggestedDecision, ArcSuggestion }
 
 export const W37 = 'W37'
 
@@ -93,31 +94,141 @@ export function decisionFeedback(board: BoardArcDecision, ai: ArcSuggestedDecisi
   return `Board ${BOARD_LABEL[board]}. AI suggested: ${suggested}.`
 }
 
-// ─── Drafts the board can edit ───────────────────────────────────────
+// ─── Decision letters the board can edit (BL-079) ────────────────────
 
-function list(items: string[]): string {
-  return items.map((s) => `- ${s}`).join('\n')
+/**
+ * The four letters the board can start from. Approve and approve-with-
+ * conditions both decide 'approved' through respondToArcRequest; deny
+ * decides 'denied'; need_more_info goes through requestArcInfo.
+ */
+export type ArcLetterKind = ArcSuggestedDecision
+export const ARC_LETTER_KINDS: readonly ArcLetterKind[] = ['approve', 'approve_with_conditions', 'deny', 'need_more_info']
+
+/** The board response / message limit (lib/board-review: max 4000). */
+export const ARC_LETTER_MAX = 4000
+
+export interface ArcLetterContext {
+  associationName: string | null
+  /** The application's one-line summary, as the resident wrote it. */
+  title: string | null
 }
 
 /**
- * Text to start the board response (approve/deny) or the message to the
- * resident (more info) with. The board edits it before anything is sent;
- * the resident sees the final text verbatim.
+ * Same marker the inbox reply drafts use (lib/inbox/draft/blanks), so one
+ * predicate blocks sending while any is left: the letter never invents a
+ * reason or a condition the review did not give.
  */
-export function draftFor(out: ArcReviewOutput | null, decision: BoardArcDecision): string {
-  if (!out || out.status !== 'answered') return ''
-  if (decision === 'approved') {
-    const conditions = out.suggestion?.conditions ?? []
-    return conditions.length > 0 ? `Approved with these conditions:\n${list(conditions)}` : ''
+const BLANK = (what: 'condition' | 'reason' | 'details') => `[[BLANK: ${what}]]`
+
+const MAX_TITLE = 120
+
+function shorten(text: string, max: number): string {
+  const t = text.replace(/\s+/g, ' ').trim()
+  return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t
+}
+
+/** Up to `n` items of a list, with "and N more" when it was cut. */
+function bullets(items: string[], n: number, mark: (i: number) => string): string {
+  const shown = items.slice(0, n).map((s, i) => `${mark(i)} ${s}`)
+  const rest = items.length - shown.length
+  if (rest > 0) shown.push(`${mark(shown.length)} …and ${rest} more (see the governing documents).`)
+  return shown.join('\n')
+}
+
+const dash = () => '-'
+const numbered = (i: number) => `${i + 1}.`
+
+function cited(rules: ArcRule[]): string[] {
+  return rules.map((r) => `${citationLabel(r)}: ${r.point}`)
+}
+
+/**
+ * The letter, given how many list items fit. Plain text in the shape the
+ * violation letters use: greeting, a reference line, the decision in the
+ * first sentence, the reasons, what happens next, a fixed footer added by
+ * code (never the model), and a signature block. No date line — the portal
+ * stamps the decision.
+ */
+function compose(out: ArcReviewOutput, kind: ArcLetterKind, ctx: ArcLetterContext, n: number): string {
+  const answered = out.status === 'answered'
+  const rules = answered ? out.rules : []
+  const committee = 'The Architectural Review Committee'
+  const body: string[] = []
+  const checked = rules.length > 0 ? `We checked it against these parts of the governing documents:\n${bullets(cited(rules), n, dash)}` : null
+  const changes =
+    'Please build what you described in your application. If you want to change the design, size, materials, colors or location, send a new application before doing that work.'
+  const permit =
+    'Approval under the association’s governing documents is not a building permit. Please get any permits your city or county requires before work starts.'
+
+  if (kind === 'approve') {
+    body.push(`${committee} has reviewed your application and approves it as submitted.`)
+    if (checked) body.push(checked)
+    body.push(changes, permit)
+  } else if (kind === 'approve_with_conditions') {
+    const conditions = answered ? (out.suggestion?.conditions ?? []) : []
+    body.push(`${committee} has reviewed your application and approves it, subject to the conditions below.`)
+    body.push(`Conditions of approval:\n${conditions.length > 0 ? bullets(conditions, n, numbered) : `1. ${BLANK('condition')}`}`)
+    body.push('These conditions are part of the approval. Work that does not meet them is not approved.')
+    if (checked) body.push(checked)
+    body.push(
+      'Please build what you described in your application, as changed by the conditions above. If you want to change anything else, send a new application before doing that work.',
+      permit,
+    )
+  } else if (kind === 'deny') {
+    const conflicts = rules.filter((r) => r.status === 'possible_conflict')
+    body.push(`${committee} has reviewed your application and cannot approve it as submitted.`)
+    body.push(`The reasons are:\n${conflicts.length > 0 ? bullets(cited(conflicts), n, dash) : `- ${BLANK('reason')}`}`)
+    body.push(
+      'Please do not start this work. You are welcome to send a revised application that addresses the reasons above. If you think we have misread your application, reply in your portal and ask the board to reconsider.',
+    )
+    body.push('This decision is based only on the governing documents cited above.')
+  } else {
+    const asks = [...out.missingInfo.map((m) => MISSING_INFO_ASK[m]), ...(answered ? out.questions : [])]
+    body.push(`${committee} has started reviewing your application but needs more information before it can decide.`)
+    body.push(`Please send:\n${asks.length > 0 ? bullets(asks, n, dash) : `- ${BLANK('details')}`}`)
+    body.push('You can reply and attach drawings, photos or samples in your portal. We will continue the review as soon as we have them.')
+    body.push('No decision has been made on your application yet.')
   }
-  if (decision === 'denied') {
-    const conflicts = out.rules.filter((r) => r.status === 'possible_conflict')
-    if (conflicts.length === 0) return ''
-    return `The application conflicts with:\n${list(conflicts.map((r) => `${citationLabel(r)}: ${r.point}`))}`
+
+  const title = ctx.title?.trim() ? ` — ${shorten(ctx.title, MAX_TITLE)}` : ''
+  const association = ctx.associationName?.trim()
+  const signature = ['Sincerely,', '', 'Architectural Review Committee', 'On behalf of the Board of Directors', ...(association ? [association] : [])].join('\n')
+  return ['Dear Homeowner,', `Re: Your architectural review application${title}`, ...body, signature].join('\n\n')
+}
+
+/**
+ * A full, editable decision letter for one action, built from the review's
+ * cited rules, conditions and open questions. Deterministic — no model call,
+ * so nothing in it can cite a rule the review did not. Photo findings are
+ * never quoted: they are low-confidence notes for the board. The board edits
+ * the letter before anything is sent; the resident sees the final text
+ * verbatim. Empty when there is no review.
+ */
+export function decisionLetter(out: ArcReviewOutput | null, kind: ArcLetterKind, ctx: ArcLetterContext): string {
+  if (!out) return ''
+  // Shrink the lists until the letter fits the board response limit.
+  for (let n = 8; n >= 1; n--) {
+    const letter = compose(out, kind, ctx, n)
+    if (letter.length <= ARC_LETTER_MAX) return letter
   }
-  const asks = [...out.missingInfo.map((m) => MISSING_INFO_ASK[m]), ...out.questions]
-  if (asks.length === 0) return ''
-  return `Before the board can decide, please send:\n${list(asks)}`
+  // Pathological input (very long items): shorten each item instead.
+  const clipped: ArcReviewOutput = {
+    ...out,
+    rules: out.rules.map((r) => ({ ...r, point: shorten(r.point, 200) })),
+    questions: out.questions.map((q) => shorten(q, 200)),
+    suggestion: out.suggestion ? { ...out.suggestion, conditions: out.suggestion.conditions.map((c) => shorten(c, 200)) } : null,
+  }
+  return compose(clipped, kind, { ...ctx, title: ctx.title ? shorten(ctx.title, 60) : null }, 1)
+}
+
+/** All four letters, for the decision dialog. */
+export function decisionLetters(out: ArcReviewOutput | null, ctx: ArcLetterContext): Record<ArcLetterKind, string> {
+  return {
+    approve: decisionLetter(out, 'approve', ctx),
+    approve_with_conditions: decisionLetter(out, 'approve_with_conditions', ctx),
+    deny: decisionLetter(out, 'deny', ctx),
+    need_more_info: decisionLetter(out, 'need_more_info', ctx),
+  }
 }
 
 // ─── Reading runs ────────────────────────────────────────────────────
@@ -137,6 +248,19 @@ function strings(v: unknown): string[] {
 const DECISIONS = new Set<string>(['approve', 'approve_with_conditions', 'deny', 'need_more_info'])
 const STATUSES = new Set<string>(['fits', 'possible_conflict', 'unclear'])
 const MISSING = new Set<string>(['dimensions', 'materials', 'colors', 'contractor', 'dates'])
+
+function photoFindings(v: unknown): ArcPhotoFinding[] {
+  return (Array.isArray(v) ? v : []).flatMap((x) => {
+    const f = obj(x)
+    const attachmentId = str(f.attachmentId)
+    const photo = str(f.photo)
+    const finding = str(f.finding)
+    if (!attachmentId || !photo || !finding) return []
+    // Never shown as more than medium, whatever was stored.
+    const confidence: ArcPhotoFinding['confidence'] = f.confidence === 'medium' || f.confidence === 'high' ? 'medium' : 'low'
+    return [{ attachmentId, photo, finding, confidence }]
+  })
+}
 
 /**
  * A stored W37 output, or null when it isn't one (a failed run stores
@@ -178,6 +302,7 @@ export function readArcReviewOutput(v: unknown): ArcReviewOutput | null {
     missingInfo: strings(o.missingInfo).filter((m): m is ArcMissingInfo => MISSING.has(m)),
     suggestion,
     warnings: strings(o.warnings),
+    photoFindings: photoFindings(o.photoFindings),
     disclaimer: str(o.disclaimer) ?? '',
   }
 }
@@ -202,6 +327,8 @@ export interface ArcReviewView {
   humanFeedback: string | null
   arcRequestId: string | null
   precheckRunId: string | null
+  /** BL-079: the attachment ids this review read (input.photos). Empty for older runs. */
+  photoIds: string[]
 }
 
 export function readReviewRun(row: ArcReviewRunRow): ArcReviewView {
@@ -216,6 +343,10 @@ export function readReviewRun(row: ArcReviewRunRow): ArcReviewView {
     humanFeedback: row.human_feedback,
     arcRequestId: str(input.arcRequestId),
     precheckRunId: str(input.precheckRunId),
+    photoIds: (Array.isArray(input.photos) ? input.photos : []).flatMap((p) => {
+      const id = str(obj(p).attachmentId)
+      return id ? [id] : []
+    }),
   }
 }
 
@@ -224,8 +355,19 @@ export function runSummary(input: unknown): string | null {
   return str(obj(obj(input).facts).summary)
 }
 
-/** A board member may run a new review unless one is already waiting. */
-export function canRunReview(review: ArcReviewView | null, arcStatus: string): boolean {
+/**
+ * A board member may run a new review unless one is already waiting — or
+ * the waiting one is out of date because photos were added or removed
+ * since it ran (BL-079: residents attach photos after submitting).
+ */
+export function canRunReview(review: ArcReviewView | null, arcStatus: string, opts: { photosChanged?: boolean } = {}): boolean {
   if (arcStatus !== 'submitted' && arcStatus !== 'in_review') return false
-  return review?.state !== 'pending'
+  return review?.state !== 'pending' || opts.photosChanged === true
+}
+
+/** True when the photos a review read differ from the ones it would read now. */
+export function photosChanged(reviewed: string[], current: string[]): boolean {
+  if (reviewed.length !== current.length) return true
+  const set = new Set(reviewed)
+  return current.some((id) => !set.has(id))
 }

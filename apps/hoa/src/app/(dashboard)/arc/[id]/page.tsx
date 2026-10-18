@@ -18,6 +18,9 @@ import { getArcRequestForBoard, getArcMessagesForBoard } from '@/lib/board-revie
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadArcReview } from '@/lib/arc-review/load'
+import { photosChanged } from '@/lib/arc-review/model'
+import { selectArcPhotos } from '@/lib/arc-review/photos'
+import { resolveArcReviewMaxPhotos } from '@homeowner-portal/workflows/W37'
 import { ArcReviewPanel } from '@/components/arc-review/ArcReviewPanel'
 import { listSubmissionAttachments } from '@/lib/submission-attachments'
 import { SubmissionAttachments } from '@/components/attachments/SubmissionAttachments'
@@ -57,6 +60,11 @@ export default async function ArcReviewDetailPage({
   ])
 
   const decided = arc.status === 'approved' || arc.status === 'denied'
+  // BL-079: name and link each photo finding, and offer a re-run when the
+  // photos the review would read now differ from the ones it read.
+  const photoLinks = Object.fromEntries(attachments.map((a) => [a.id, { fileName: a.fileName, url: a.signedUrl }]))
+  const currentPhotoIds = selectArcPhotos(attachments, resolveArcReviewMaxPhotos()).selected.map((p) => p.id)
+  const reviewPhotosChanged = aiReview.ok && aiReview.review ? photosChanged(aiReview.review.photoIds, currentPhotoIds) : false
   const submitter = arc.submitter_name ?? arc.submitter_email ?? 'Unknown submitter'
 
   return (
@@ -98,7 +106,15 @@ export default async function ArcReviewDetailPage({
           </Card>
 
           {arc.status === 'withdrawn' && !(aiReview.ok && aiReview.review) ? null : (
-            <ArcReviewPanel arcId={arc.id} title={arc.summary} arcStatus={arc.status} load={aiReview} />
+            <ArcReviewPanel
+              arcId={arc.id}
+              title={arc.summary}
+              arcStatus={arc.status}
+              load={aiReview}
+              associationName={org.name}
+              photos={photoLinks}
+              photosChanged={reviewPhotosChanged}
+            />
           )}
 
           <Card>

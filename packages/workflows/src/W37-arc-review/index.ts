@@ -21,17 +21,42 @@
 // dates and the contractor. No name, address, unit, email or phone reaches
 // the model or ai_runs.input. Nothing here logs request text.
 //
-// The model id comes from packages/ai (resolveModel); tests inject a fake
-// ArcReviewModel and a fake retrieval.
+// Photos (BL-079, review mode only): the caller passes attachment ids and
+// "Photo N" labels in the input and the image bytes OUT OF BAND (ctx.images),
+// so ai_runs.input never holds an image or a file name. The vision model
+// reads them once, after retrieval, and the findings — each tied to its
+// photo, low or medium confidence — feed the text model's suggestion. A
+// vision failure degrades to no findings and a warning. See ./photos.
+//
+// The model ids come from packages/ai (resolveModel / resolveVisionModel via
+// analyzeImages); tests inject a fake ArcReviewModel and a fake retrieval.
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow, JSON_MODE_PARAMS, resolveModel, type WorkflowExecuteApi } from '@homeowner-portal/ai'
+import { analyzeImages, defineWorkflow, JSON_MODE_PARAMS, resolveModel, resolveVisionModel, type WorkflowExecuteApi } from '@homeowner-portal/ai'
 import { redactContactPII } from '@homeowner-portal/ai/pii'
 import { retrieveChunks, type RetrieveOptions, type RetrievedChunk } from '../W1-governing-docs-brain/tools'
 import { PRECHECK_SYSTEM_PROMPT, PROMPT_VERSION, REVIEW_SYSTEM_PROMPT, userPromptFor } from './prompt'
+import {
+  ArcPhotoFindingSchema,
+  ArcPhotoRefSchema,
+  arcPhotoMaxTokens,
+  arcPhotoQuestion,
+  processArcPhotoFindings,
+  type ArcPhotoFinding,
+} from './photos'
 
 export { GoverningDocsRetrievalError } from '../W1-governing-docs-brain/tools'
+export {
+  ARC_PHOTO_CONFIDENCE,
+  ARC_PHOTO_DEFAULT_MAX,
+  ArcPhotoFindingSchema,
+  ArcPhotoRefSchema,
+  resolveArcReviewMaxPhotos,
+  type ArcPhotoConfidence,
+  type ArcPhotoFinding,
+  type ArcPhotoRef,
+} from './photos'
 
 export const W37_WORKFLOW_ID = 'W37'
 
@@ -175,6 +200,8 @@ export const ArcReviewOutputSchema = z.object({
   suggestion: ArcSuggestionSchema.nullable(),
   /** Where code changed what the model said, in plain words for the board. */
   warnings: z.array(z.string()),
+  /** Review mode (BL-079): objective facts read from the attached photos, each tied to its photo. */
+  photoFindings: z.array(ArcPhotoFindingSchema),
   disclaimer: z.string(),
 })
 export type ArcReviewOutput = z.infer<typeof ArcReviewOutputSchema>
@@ -240,6 +267,7 @@ function refusal(mode: ProcessOptions['mode'], facts: ArcFacts): ArcReviewOutput
     missingInfo: detectMissingInfo(facts),
     suggestion: null,
     warnings: [],
+    photoFindings: [],
     disclaimer: mode === 'precheck' ? ARC_PRECHECK_DISCLAIMER : ARC_REVIEW_DISCLAIMER,
   }
 }
@@ -332,6 +360,7 @@ export function processArcReviewResponse(raw: string, opts: ProcessOptions): Arc
     missingInfo: detectMissingInfo(facts),
     suggestion,
     warnings,
+    photoFindings: [],
     disclaimer: resident ? ARC_PRECHECK_DISCLAIMER : ARC_REVIEW_DISCLAIMER,
   }
 }
@@ -351,6 +380,10 @@ export const ArcReviewInputSchema = z
     arcRequestId: z.string().uuid().optional(),
     /** Review mode: the resident's pre-check run, when they ran one. */
     precheckRunId: z.string().uuid().nullable().optional(),
+    /** Review mode (BL-079): the attached photos to read, by id and label. The bytes travel out of band. */
+    photos: z.array(ArcPhotoRefSchema).max(5).optional(),
+    /** Review mode: image attachments left unread (over the limit, too large, or a format the model can't open). */
+    photosSkipped: z.number().int().min(0).max(1000).optional(),
   })
   .refine((i) => i.mode !== 'review' || !!i.arcRequestId, { message: 'review needs arcRequestId' })
 export type ArcReviewInput = z.infer<typeof ArcReviewInputSchema>
@@ -364,6 +397,8 @@ export function retrievalQueryFor(f: ArcFacts): string {
 
 export interface ArcReviewModel {
   complete(system: string, user: string): Promise<{ content: string; model?: string; tokensIn?: number; tokensOut?: number }>
+  /** BL-079: read the attached photos (data URLs) in one call. Optional — a model without it reads no photos. */
+  vision?(question: string, imageDataUrls: string[]): Promise<{ content: string; model?: string }>
 }
 
 export type ArcRetrieve = (question: string, opts: RetrieveOptions) => Promise<RetrievedChunk[]>
@@ -396,6 +431,46 @@ export const liveArcReviewModel: ArcReviewModel = {
       tokensOut: completion.usage?.completion_tokens ?? 0,
     }
   },
+  async vision(question, imageDataUrls) {
+    const content = await analyzeImages({ imageUrls: imageDataUrls, question, max_tokens: arcPhotoMaxTokens(imageDataUrls.length) })
+    return { content, model: resolveVisionModel() }
+  },
+}
+
+export const ARC_PHOTOS_UNREAD_WARNING =
+  'The AI couldn’t read the photos this time, so the suggestion rests on the written description only. Open the photos under Documents.'
+
+function skippedWarning(n: number): string {
+  return n === 1
+    ? '1 more attachment wasn’t read by the AI (over the photo limit, too large, or not a photo). Open it under Documents.'
+    : `${n} more attachments weren’t read by the AI (over the photo limit, too large, or not photos). Open them under Documents.`
+}
+
+/**
+ * Read the photos once. Never throws and never logs the reply or the error
+ * message (either can describe the home): a failure is a warning.
+ */
+async function readPhotos(
+  input: ArcReviewInput,
+  retrieved: RetrievedChunk[],
+  model: ArcReviewModel,
+  images: string[],
+): Promise<{ findings: ArcPhotoFinding[]; warnings: string[] }> {
+  const photos = input.photos ?? []
+  const warnings: string[] = []
+  if (input.photosSkipped) warnings.push(skippedWarning(input.photosSkipped))
+  if (photos.length === 0 || !model.vision) return { findings: [], warnings }
+  if (images.length !== photos.length) {
+    console.error('[W37] photo references and images do not line up', { refs: photos.length, images: images.length })
+    return { findings: [], warnings: [ARC_PHOTOS_UNREAD_WARNING, ...warnings] }
+  }
+  try {
+    const r = await model.vision(arcPhotoQuestion(ARC_CATEGORY_LABEL[input.facts.category], retrieved), images)
+    return { findings: processArcPhotoFindings(r.content, photos), warnings }
+  } catch (err) {
+    console.error('[W37] photo reading failed', { errorName: err instanceof Error ? err.name : 'UnknownError', images: images.length })
+    return { findings: [], warnings: [ARC_PHOTOS_UNREAD_WARNING, ...warnings] }
+  }
 }
 
 // ─── Run body ────────────────────────────────────────────────────────
@@ -409,6 +484,8 @@ export async function runArcReview(
   api: WorkflowExecuteApi,
   ctx: { organizationId: string },
   deps: { model: ArcReviewModel; retrieve: ArcRetrieve },
+  /** Review mode: data URLs, in the same order as input.photos. Never part of the input. */
+  images: string[] = [],
 ): Promise<ArcReviewOutput> {
   // A board draft is a proposal: it waits for a board member's decision.
   if (input.mode === 'review') api.requireHumanApproval()
@@ -425,6 +502,10 @@ export async function runArcReview(
   }
   api.addCitations(retrieved.map((c) => c.id))
 
+  // Board review only: the resident's pre-check never reads photos.
+  const photos =
+    input.mode === 'review' ? await readPhotos(input, retrieved, deps.model, images) : { findings: [], warnings: [] }
+
   const system = input.mode === 'review' ? REVIEW_SYSTEM_PROMPT : PRECHECK_SYSTEM_PROMPT
   const r = await deps.model.complete(
     system,
@@ -439,18 +520,23 @@ export async function runArcReview(
         hasContractorLicense: input.facts.hasContractorLicense,
       },
       retrieved,
+      photos.findings,
     ),
   )
   if (r.model) api.setModel(r.model)
   api.setTokens(r.tokensIn ?? 0, r.tokensOut ?? 0)
 
-  const out = processArcReviewResponse(r.content, { mode: input.mode, retrieved, facts: input.facts })
+  const out = {
+    ...processArcReviewResponse(r.content, { mode: input.mode, retrieved, facts: input.facts }),
+    photoFindings: photos.findings,
+  }
+  out.warnings = [...out.warnings, ...photos.warnings]
   api.setConfidence(out.status === 'no_rules' ? 0 : CONFIDENCE_SCORE[out.confidence])
   if (out.suggestion) api.setReasoning(out.suggestion.reasoning)
   return out
 }
 
-function arcReviewWorkflow(deps: { model: ArcReviewModel; retrieve: ArcRetrieve }) {
+function arcReviewWorkflow(deps: { model: ArcReviewModel; retrieve: ArcRetrieve }, images: string[]) {
   return defineWorkflow({
     id: W37_WORKFLOW_ID,
     name: 'ARC Review',
@@ -461,7 +547,7 @@ function arcReviewWorkflow(deps: { model: ArcReviewModel; retrieve: ArcRetrieve 
     humanApprovalRequired: false,
     inputSchema: ArcReviewInputSchema,
     outputSchema: ArcReviewOutputSchema,
-    run: (input, api, ctx) => runArcReview(input, api, ctx, deps),
+    run: (input, api, ctx) => runArcReview(input, api, ctx, deps, images),
   })
 }
 
@@ -471,9 +557,9 @@ function arcReviewWorkflow(deps: { model: ArcReviewModel; retrieve: ArcRetrieve 
  */
 export async function reviewArcRequest(
   input: ArcReviewInput,
-  ctx: { organizationId: string; model?: ArcReviewModel; retrieve?: ArcRetrieve },
+  ctx: { organizationId: string; model?: ArcReviewModel; retrieve?: ArcRetrieve; images?: string[] },
 ): Promise<ArcReviewOutput & { runId: string }> {
-  const wf = arcReviewWorkflow({ model: ctx.model ?? liveArcReviewModel, retrieve: ctx.retrieve ?? retrieveChunks })
+  const wf = arcReviewWorkflow({ model: ctx.model ?? liveArcReviewModel, retrieve: ctx.retrieve ?? retrieveChunks }, ctx.images ?? [])
   const result = await wf.execute(input, { organizationId: ctx.organizationId })
   return { ...result.output, runId: result.runId }
 }

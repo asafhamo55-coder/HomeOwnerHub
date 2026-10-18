@@ -95,4 +95,13 @@ describe('closeReviewsWithoutDecision', () => {
     })
     expect(calls[0]!.filters).toEqual(expect.arrayContaining([['eq', 'input->>arcRequestId', ARC], ['eq', 'status', 'pending_human_approval']]))
   })
+
+  it('BL-079: a review replaced by a fresh one (the photos changed) closes with its own reason', async () => {
+    const { db, calls } = fakeDb({ update: [{ data: null, error: null }] })
+    expect(await closeReviewsWithoutDecision(db, { orgId: ORG, arcId: ARC, reason: 'superseded' })).toEqual({ ok: true })
+    expect(calls[0]!.payload).toEqual({
+      status: 'completed',
+      human_feedback: 'Closed without a board decision: replaced by a fresh review after the photos changed.',
+    })
+  })
 })

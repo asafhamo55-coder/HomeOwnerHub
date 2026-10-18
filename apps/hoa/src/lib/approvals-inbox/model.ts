@@ -26,11 +26,11 @@ import { billMissing, billNeedsCheck, readBillPayload, type BillProposalPayload 
 import {
   SUGGESTION_LABEL,
   citationLabel,
-  draftFor,
+  decisionLetters,
   readArcReviewOutput,
   runSummary,
+  type ArcLetterKind,
   type ArcSuggestedDecision,
-  type BoardArcDecision,
 } from '../arc-review/model'
 
 export const APPROVAL_SOURCES = ['w18', 'bill', 'w3', 'arc', 'vendor'] as const
@@ -145,8 +145,8 @@ export interface ArcCard {
   arcId: string
   runId: string
   suggestion: ArcSuggestedDecision | null
-  /** Editable starting text per decision; '' when the AI gave nothing to start from. */
-  drafts: Record<BoardArcDecision, string>
+  /** BL-079: the full decision letter per action, for the board to edit; '' when there is no review. */
+  drafts: Record<ArcLetterKind, string>
   conditions: string[]
   warnings: string[]
 }
@@ -390,7 +390,7 @@ export interface ArcRunRow {
  * the board's, through the ARC actions. A refusal ("no rules apply") still
  * lists, with no suggestion, so the application is not lost.
  */
-export function arcItems(runs: ArcRunRow[]): InboxItem[] {
+export function arcItems(runs: ArcRunRow[], ctx: { associationName?: string | null } = {}): InboxItem[] {
   return runs.flatMap((r) => {
     const arcId = str(obj(r.input).arcRequestId)
     if (!arcId) return []
@@ -414,7 +414,7 @@ export function arcItems(runs: ArcRunRow[]): InboxItem[] {
           arcId,
           runId: r.id,
           suggestion,
-          drafts: { approved: draftFor(out, 'approved'), denied: draftFor(out, 'denied'), more_info: draftFor(out, 'more_info') },
+          drafts: decisionLetters(out, { associationName: ctx.associationName ?? null, title: runSummary(r.input) }),
           conditions: out?.suggestion?.conditions ?? [],
           warnings: out?.warnings ?? [],
         },

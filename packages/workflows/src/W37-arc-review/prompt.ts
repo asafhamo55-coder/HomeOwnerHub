@@ -6,8 +6,9 @@
 // no name, address, unit, email or phone (see buildArcFacts).
 
 import type { PromptChunk } from '../W1-governing-docs-brain/prompt'
+import type { ArcPhotoFinding } from './photos'
 
-export const PROMPT_VERSION = '1.0.0'
+export const PROMPT_VERSION = '1.1.0'
 
 const SHARED_RULES = `Rules you MUST follow:
 
@@ -44,6 +45,7 @@ ${SHARED_RULES}
    - "deny" — the request as described conflicts with a cited rule; you MUST cite that rule as "possible_conflict"
    - "need_more_info" — the request leaves out details the rules depend on
    Prefer "need_more_info" over guessing. "reasoning" is 2-4 sentences that name the rules (by what they say) and the deciding facts.
+8. Photo findings, when given, are automated observations of the photos the resident attached, marked low or medium confidence. Treat them as hints for the board to check, not facts: say "the photos suggest", never "the photos show". You may use them to mark a rule "unclear" or "possible_conflict", or to add a condition or a question. Never deny on photo findings alone — when a photo is the only sign of a conflict, suggest "need_more_info" and ask the resident to confirm the detail.
 
 Return JSON only, no markdown fences:
 {
@@ -68,7 +70,7 @@ function yesNo(v: boolean): string {
   return v ? 'given' : 'not given'
 }
 
-export function userPromptFor(facts: PromptFacts, chunks: PromptChunk[]): string {
+export function userPromptFor(facts: PromptFacts, chunks: PromptChunk[], photoFindings: ArcPhotoFinding[] = []): string {
   const formatted = chunks
     .map(
       (c) =>
@@ -84,6 +86,13 @@ export function userPromptFor(facts: PromptFacts, chunks: PromptChunk[]): string
     `Description: ${facts.scopeDescription}`,
     `Proposed start date: ${yesNo(facts.hasStartDate)}. Proposed completion date: ${yesNo(facts.hasCompletionDate)}.`,
     `Contractor named: ${facts.hasContractor ? 'yes' : 'no'}. Contractor license number: ${yesNo(facts.hasContractorLicense)}.`,
+    ...(photoFindings.length > 0
+      ? [
+          '',
+          'Photo findings (automated, from the attached photos — hints to check, not facts):',
+          ...photoFindings.map((f) => `- ${f.photo} (${f.confidence} confidence): ${f.finding}`),
+        ]
+      : []),
     '',
     'Retrieved governing-document chunks:',
     '',

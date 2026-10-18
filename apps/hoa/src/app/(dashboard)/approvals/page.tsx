@@ -61,7 +61,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       .then((s) => withBillLinks(supabase, s))
       .then((s) => withBillEditOptions(supabase, org.id, s)),
     loadW3Section(supabase, org.id),
-    loadArcSection(supabase, org.id),
+    loadArcSection(supabase, org.id, { associationName: org.name }),
     listVendorsResult().then(vendorSection, () => ({ source: 'vendor', ok: false }) as const),
     loadVendorCountsByAssociation(supabase, org.id),
   ])
@@ -242,7 +242,7 @@ const COLUMNS: DataTableColumn<InboxItem>[] = [
       item.arc ? (
         // BL-027: decided by the existing ARC actions; the AI draft only pre-fills the text.
         <div className="flex flex-col items-end gap-2">
-          <ArcReviewActions arcId={item.arc.arcId} title={item.title} drafts={item.arc.drafts} suggestion={item.arc.suggestion} />
+          <ArcReviewActions arcId={item.arc.arcId} title={item.title} drafts={item.arc.drafts} suggestion={item.arc.suggestion} compact />
           <Link href={item.href} className="text-xs font-medium text-primary">
             Open application
           </Link>
