@@ -12,18 +12,9 @@ import {
 import { summarizePhotoUploads, type PhotoUploadOutcome } from '@/lib/attachment-rules'
 import { uploadAttachmentDirect } from '@/lib/upload-attachment'
 import { PhotoPicker } from './PhotoPicker'
+import { VIOLATION_CATEGORIES } from '@/lib/violation-categories'
 
-const CATEGORIES: Array<{ value: ViolationCategory; label: string }> = [
-  { value: 'parking', label: 'Parking / vehicles' },
-  { value: 'pet', label: 'Pet (off-leash, waste, etc.)' },
-  { value: 'noise', label: 'Noise / quiet hours' },
-  { value: 'lawn_landscape', label: 'Lawn / landscaping' },
-  { value: 'trash', label: 'Trash / debris' },
-  { value: 'architectural', label: 'Unapproved architectural change' },
-  { value: 'rental', label: 'Short-term rental / leasing' },
-  { value: 'nuisance', label: 'General nuisance' },
-  { value: 'other', label: 'Other' },
-]
+const CATEGORIES = VIOLATION_CATEGORIES
 
 export function ReportViolationForm({
   defaultDescription,

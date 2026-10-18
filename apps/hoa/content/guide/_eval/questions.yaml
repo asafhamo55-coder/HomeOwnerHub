@@ -38,6 +38,10 @@ questions:
   - { id: h13, role: board, expect: violations-report-and-letter, q: "How do I report a violation?" }
   - { id: h14, role: board, expect: violations-report-and-letter, q: "How do I approve a violation letter before it is sent?", route: /violations/approval-queue }
   - { id: h15, role: admin, expect: violations-report-and-letter, q: "What is the cure period and how do I close a violation?" }
+  - { id: h15i1, role: board, expect: violations-inspection-mode, q: "How do I log violations from my phone while walking the neighborhood?" }
+  - { id: h15i2, role: board, expect: violations-inspection-mode, q: "Can I do a drive-by inspection and take photos of several homes?" }
+  - { id: h15i3, role: admin, expect: violations-inspection-mode, q: "What happens to my inspection photos if I have no signal?", route: /inspect }
+  - { id: h15i4, role: board, expect: violations-inspection-mode, q: "What does 2 waiting to upload mean on the inspection page?" }
   - { id: h16, role: board, expect: arc-review-application, q: "How do I approve or deny an ARC application?" }
   - { id: h17, role: board, expect: arc-review-application, q: "Where do architectural requests from residents show up?" }
   - { id: h17a, role: board, expect: arc-review-application, q: "What does the AI review on an ARC application suggest?" }

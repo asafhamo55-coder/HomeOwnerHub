@@ -15,7 +15,8 @@
 // classify); ADR-002 defers that to Phase 2.1 alongside self-hosted
 // Qwen2-VL. Today the input is the reporter's text description; the
 // wizard's photo upload happens separately and lands on the violation
-// row, not on the workflow input.
+// row. Inspection mode (BL-028) passes its photo keys as `photoPaths`; they
+// are staged with the run for the approval to file, never read by the model.
 
 import { z } from 'zod'
 import OpenAI from 'openai'
@@ -51,6 +52,11 @@ export const ViolationInspectorInputSchema = z.object({
    *  A step the association's state rules forbid is refused before any
    *  model call (StatuteRuleRefusalError). */
   requestedAction: RequestedActionSchema.optional(),
+  /** BL-028: storage keys (hoa-photos) of the photos behind this draft.
+   *  Not sent to the model: they ride on the staged run so approving the
+   *  draft files them on the violation. The caller proves each key is the
+   *  org's own upload; W3 only bounds them. */
+  photoPaths: z.array(z.string().min(1).max(300)).max(10).optional(),
 })
 
 export type ViolationInspectorInput = z.infer<

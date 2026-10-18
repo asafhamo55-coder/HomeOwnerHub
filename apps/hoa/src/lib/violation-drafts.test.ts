@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { queuedSupabase as fakeSupabase, payloadOf } from './test-utils/fake-supabase-queue'
 import { approveViolationDraftWith, rejectViolationDraftWith, type DraftDb } from './violation-drafts'
 
@@ -162,6 +162,59 @@ describe('approveViolationDraftWith', () => {
     // Only the claim this user made is undone.
     expect(revert.ops).toContainEqual(['eq', ['human_approver', USER]])
     expect(revert.ops).toContainEqual(['eq', ['status', 'completed']])
+  })
+})
+
+describe('approveViolationDraftWith — inspection photos (BL-028)', () => {
+  const key = (org: string, n: number) => `${org}/1760000000000-1111111${n}-1111-4111-8111-111111111111.jpg`
+  const FOREIGN = '99999999-9999-4999-8999-999999999999'
+  const withPhotos = (paths: unknown) =>
+    run({ input: { unitId: UNIT, violationType: 'Lawn / landscaping', description: 'Grass over a foot tall.', photoPaths: paths } })
+  const responses = (r: ReturnType<typeof run>) => ({
+    ai_runs: [
+      { data: r, error: null },
+      { data: [{ id: RUN }], error: null },
+    ],
+    units: [{ data: { legacy_hoa_property_id: PROP }, error: null }],
+    hoa_violations: [{ data: { id: 'v9' }, error: null }],
+  })
+
+  it('signs only this org’s photo keys and files them on the violation', async () => {
+    const { db, calls } = fakeSupabase(responses(withPhotos([key(ORG, 1), key(FOREIGN, 2), key(ORG, 3)])))
+    const signed: string[][] = []
+    const signPhotos = async (paths: string[]) => {
+      signed.push(paths)
+      return paths.map((p) => `https://signed/${p}`)
+    }
+    const r = await approveViolationDraftWith(db as unknown as DraftDb, { orgId: ORG, runId: RUN, userId: USER, signPhotos })
+    expect(r).toEqual({ ok: true, violationId: 'v9' })
+    expect(signed).toEqual([[key(ORG, 1), key(ORG, 3)]])
+    expect(payloadOf(calls, 'hoa_violations', 'insert')).toMatchObject({
+      photo_urls: [`https://signed/${key(ORG, 1)}`, `https://signed/${key(ORG, 3)}`],
+    })
+  })
+
+  it('a signing failure still files the violation, without photos', async () => {
+    const { db, calls } = fakeSupabase(responses(withPhotos([key(ORG, 1)])))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const r = await approveViolationDraftWith(db as unknown as DraftDb, {
+      orgId: ORG,
+      runId: RUN,
+      userId: USER,
+      signPhotos: async () => {
+        throw new Error('storage down')
+      },
+    })
+    expect(r.ok).toBe(true)
+    expect(payloadOf(calls, 'hoa_violations', 'insert')).toMatchObject({ photo_urls: null })
+  })
+
+  it('a draft without photos never calls the signer', async () => {
+    const { db, calls } = fakeSupabase(responses(run()))
+    const signPhotos = vi.fn(async () => ['x'])
+    await approveViolationDraftWith(db as unknown as DraftDb, { orgId: ORG, runId: RUN, userId: USER, signPhotos })
+    expect(signPhotos).not.toHaveBeenCalled()
+    expect(payloadOf(calls, 'hoa_violations', 'insert')).toMatchObject({ photo_urls: null })
   })
 })
 

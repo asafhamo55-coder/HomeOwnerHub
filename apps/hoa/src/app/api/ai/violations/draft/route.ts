@@ -8,6 +8,7 @@ import { requireOrgOwned, requireRouteBoardOrAdmin } from '@/lib/api/auth'
 import { parseJson } from '@/lib/api/parse'
 import { zText, zUuid } from '@/lib/api/schemas'
 import { logRouteFailure } from '@/lib/api/log'
+import { MAX_DRAFT_PHOTOS, isOrgPhotoPath } from '@/lib/violation-photo-paths'
 
 // POST /api/ai/violations/draft
 //
@@ -29,6 +30,8 @@ const DraftSchema = z.object({
   reporterNotes: zText(2000).nullable().optional(),
   associationId: zUuid.nullable().optional(),
   requestedAction: RequestedActionSchema.optional(),
+  /** BL-028: keys from POST /api/violations/photo, filed on approval. */
+  photoPaths: z.array(z.string().max(300)).max(MAX_DRAFT_PHOTOS).optional(),
 })
 
 export const maxDuration = 60
@@ -36,6 +39,14 @@ export const maxDuration = 60
 export const POST = withRoute('ai.violations.draft', async (request) => {
   const { orgId } = await requireRouteBoardOrAdmin()
   const body = await parseJson(request, DraftSchema)
+  // A photo key is a storage path the client hands back; only this org's
+  // own uploads may ride on the draft (R-18), or approving would sign and
+  // file another org's photo.
+  if (body.photoPaths?.some((p) => !isOrgPhotoPath(orgId, p))) {
+    throw new ApiRouteError('validation_failed', 'One of the photos could not be found. Take it again.', {
+      issues: [{ path: 'photoPaths', message: 'Unknown photo.' }],
+    })
+  }
   await requireOrgOwned('units', body.unitId, orgId, { message: 'We could not find that unit.' })
   if (body.associationId) {
     await requireOrgOwned('associations', body.associationId, orgId, {

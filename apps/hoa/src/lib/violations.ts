@@ -141,7 +141,14 @@ export async function approveViolationDraft(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Not signed in.' }
 
-  const result = await approveViolationDraftWith(supabase, { orgId: gate.orgId, runId, userId: user.id })
+  // BL-028: inspection drafts carry photo keys; sign them the way
+  // createApprovedViolation does (1-year URLs on photo_urls).
+  const signPhotos = async (paths: string[]): Promise<string[]> => {
+    const { data, error } = await supabase.storage.from(STORAGE_BUCKET).createSignedUrls(paths, 60 * 60 * 24 * 365)
+    if (error) throw error
+    return (data ?? []).flatMap((s) => (s.signedUrl ? [s.signedUrl] : []))
+  }
+  const result = await approveViolationDraftWith(supabase, { orgId: gate.orgId, runId, userId: user.id, signPhotos })
   if (result.ok) {
     revalidatePath('/violations')
     revalidatePath('/violations/approval-queue')
