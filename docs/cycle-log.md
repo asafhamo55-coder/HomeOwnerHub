@@ -239,3 +239,21 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - BL-029: budget first draft from last year plus actuals, and billing displays equal Stripe's unit amount × quantity.
   - BL-024/027: ARC AI pre-check for residents and a cited board review in /approvals (W37).
 - **New items:** BL-076 to BL-079, including BL-077, a high-priority accounting bug: closing entries net closed-year actuals to about zero in reports.
+
+## 2026-10-18 (03:21) — deploy 4c88f89: ARC AI, budget draft, exact billing
+
+- **Live:**
+  - BL-024/027: W37 ARC pre-check for residents, and an AI review on the board side, also listed in /approvals.
+  - BL-029: budget first draft.
+  - Billing displays now equal unit_amount × quantity.
+  - The vendors @375 overflow is fixed.
+- **Smoke:** /arc 307, /accounting/budget/draft 307, /login 200, POST /api/ai/arc-precheck without a session gives 401 JSON.
+- **UI shots CI, second run:**
+  - artifacts uploaded: 449 shots, 108 MB;
+  - the guide refresh PR #6 opened automatically;
+  - one overflow on resident-arc-new @375: the long pre-check button spilled out of its card. Fixed.
+- **Merged and pushed for CI:**
+  - BL-077: closing entries no longer zero out closed-year P&L.
+  - BL-078: AI rate limits for member-reachable routes (counted in audit_log), and the pre-check run id is bound to the resident.
+  - BL-076: Open next fiscal year, and current-period pickers ignore periods that haven't started yet (fixes a latent jump to next year).
+  - Local gates: unit 4884/4884, build 4/4.
