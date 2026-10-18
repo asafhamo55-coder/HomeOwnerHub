@@ -1,6 +1,6 @@
 # Session handoff: HomeownerHub autonomous loop
 
-_Updated every cycle. Last update: 2026-10-18 02:20 ET._
+_Updated every cycle. Last update: 2026-10-18 04:45 ET._
 
 ## Start the next session with this prompt
 
@@ -41,7 +41,7 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 - **Integration branch:** `claude/quality-oracle`. All merges land here.
 - **Deploy:** run `/usr/bin/git merge-base --is-ancestor <prod> <tip>`, then `/usr/bin/git push origin <sha>:claude/phase1-homeownerhub-setup-MILNu`. Prod pushes FAIL when their output is redirected to /dev/null; always run them as `... 2>&1 | tail -3`, and retry up to 3 times.
 - **Verify:** poll `https://www.homeownerledger.com/api/health` until `version` equals the SHA. The public body is `{ok, app, version}`.
-- **Live in prod:** 5116b2d (record a sale, marketing truth, ui-shots CI), deployed 2026-10-18 02:03 ET. The next deploy is allowed after 03:03: BL-029 budget draft, billing displays, BL-024/027 ARC AI and the vendors overflow fix, once CI is green.
+- **Live in prod:** 5213c1a (closed-year reports, open next FY, AI limits), deployed 2026-10-18 04:31 ET. The next deploy is allowed after 05:31: BL-017/018 inbox and BL-028 /inspect, once CI is green.
 
 ## Gates (the trusted forms)
 
@@ -64,17 +64,17 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 ## In flight at this update
 
 - **No agents running.**
+- **UI shots CI** opens "Refresh guide screenshots" PRs automatically. Review two images, then squash-merge.
 - **Next, by priority:**
-  - BL-077: the closing-entries accounting bug (high).
-  - BL-076: open the next fiscal year.
-  - BL-078: ARC pre-check rate limit.
-  - BL-028: mobile inspection.
-  - BL-017 / BL-018: inbox follow-ups.
-- **Screenshots:** they come from the "UI shots" CI workflow now; fetch them with scripts/ci/fetch-ui-shots.sh <sha>.
+  - BL-079: ARC photos and letter draft.
+  - BL-025 (bilingual) and BL-068 (module switches) both need migrations, so they wait.
+  - Properties P5 parts with no migration: the statutory roster export.
+  - The guide's first-week cards.
+  - An idempotency key for /inspect drafts.
 - **Waiting on Asaf:**
-  - confirm that support@homeownerledger.com is a real inbox;
-  - the FL refresh, the S-01 audit query and the 0063 Part 1a SQL;
-  - unverified marketing numbers (Madison Park figures, conversion rates, uptime).
+  - Is support@homeownerledger.com a real inbox?
+  - The FL refresh, the S-01 audit query and the 0063 Part 1a SQL.
+  - Try /inspect on an iPhone.
 
 ## Decisions taken without the owner (reversible)
 

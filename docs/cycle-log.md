@@ -257,3 +257,18 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
   - BL-078: AI rate limits for member-reachable routes (counted in audit_log), and the pre-check run id is bound to the resident.
   - BL-076: Open next fiscal year, and current-period pickers ignore periods that haven't started yet (fixes a latent jump to next year).
   - Local gates: unit 4884/4884, build 4/4.
+
+## 2026-10-18 (04:31) â€” deploy 5213c1a: closed-year reports, open next FY, AI limits
+
+- **Live:**
+  - BL-077: closing entries are excluded from P&L-style reports.
+  - BL-076: Open next fiscal year, and the current period ignores periods that haven't started.
+  - BL-078: AI fair-use limits.
+  - The ARC button wrap fix, and 17 refreshed guide shots (PR #6).
+- **Smoke:** /accounting/periods 307, /login 200, POST /api/help/ask without a session gives 401 JSON. Release-note email sent.
+- **UI shots CI:** green on 836f323, with 0 overflow. PR #7 refreshed the guide-resident-arc-new shot, which shows the wrapped button. Reviewed and merged.
+- **Merged and pushed for CI:**
+  - BL-017/018: attachment retry and per-tenant fairness; mailbox reconnect skips a completed backfill.
+  - BL-028: /inspect mobile inspection mode with an offline queue; drafts land in Approvals.
+  - Local gates: unit 4990/4990, build 4/4, guide:check 0 errors.
+- **Open:** Asaf to try /inspect on an iPhone (camera, and Safari keeping queued photos after the tab closes).
