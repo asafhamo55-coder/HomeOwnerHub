@@ -31,6 +31,7 @@ The charge shows **Paid**, the home's balance goes down, and the payment posts t
 
 ## If something goes wrong
 - "Couldn’t record the payment": nothing was saved. Try again; if it keeps failing, contact support.
+- [[The books aren’t open yet]]: your association has no fiscal period or chart of accounts, so the payment can't be posted. An admin selects [[Open the books]], then records the payment again. A board member is pointed to the admins.
 
 ## Good to know
 - **Mark paid** always records the full amount still owed on that charge, dated today. You can't enter a partial amount, a different date or the payment method on this screen.

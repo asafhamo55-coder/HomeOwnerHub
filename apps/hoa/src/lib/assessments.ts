@@ -8,6 +8,7 @@ import { memoCodeFor } from '@homeowner-portal/workflows'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { booksNotOpen, type BooksNotOpenFailure } from '@/lib/accounting/books-not-open'
 import { todayIn } from '@/lib/association-time'
 import { fieldErrorsOf } from '@/lib/field-errors'
 import { ensureUnitsForProperties, listBillableUnits } from '@/lib/properties/lot'
@@ -17,7 +18,8 @@ type PaymentInsert = Database['public']['Tables']['payments']['Insert']
 
 export type AssessmentActionResult =
   | { ok: true; created?: number; assessmentId?: string }
-  | { ok: false; error: string; fieldErrors?: Record<string, string> }
+  | { ok: false; error: string; fieldErrors?: Record<string, string>; code?: undefined }
+  | BooksNotOpenFailure
 
 // ─── materialize ─────────────────────────────────────────────────────
 
@@ -72,18 +74,12 @@ export async function materializeCurrentPeriodAssessments(input: {
     .limit(1)
     .maybeSingle()
   if (!period) {
-    return {
-      ok: false,
-      error: 'No open fiscal period — run pnpm seed:accounting first.',
-    }
+    return booksNotOpen(gate.role)
   }
 
   const refs = await loadAccountingRefs(supabase, assoc.id)
   if (!refs) {
-    return {
-      ok: false,
-      error: 'Accounting not set up — run pnpm seed:accounting.',
-    }
+    return booksNotOpen(gate.role)
   }
 
   // Properties added before /properties/new wrote both sides of a lot have
@@ -282,12 +278,12 @@ export async function createDues(
     .limit(1)
     .maybeSingle()
   if (!period) {
-    return { ok: false, error: 'No open fiscal period — run pnpm seed:accounting first.' }
+    return booksNotOpen(gate.role)
   }
 
   const refs = await loadAccountingRefs(supabase, assoc.id)
   if (!refs) {
-    return { ok: false, error: 'Accounting not set up — run pnpm seed:accounting.' }
+    return booksNotOpen(gate.role)
   }
 
   // Resolve target units. For scope='all' pull every unit in the
@@ -535,7 +531,7 @@ export async function markAssessmentPaid(input: {
 
   const refs = await loadAccountingRefs(supabase, assoc.id)
   if (!refs) {
-    return { ok: false, error: 'Accounting not set up — run pnpm seed:accounting.' }
+    return booksNotOpen(gate.role)
   }
 
   const amountToPay = parsed.data.amountPaid ?? Number(assessment.amount)

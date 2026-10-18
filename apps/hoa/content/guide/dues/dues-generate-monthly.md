@@ -45,6 +45,7 @@ The charges appear on the Dues page, grouped by month, with each home's status. 
 - No charges yet: the page says **No dues billed yet**. If you have not added homes, select [[Add properties first]].
 - An older home is missing from the bill: if your HOA has one community, generating dues first makes every home in Properties billable. With several communities, ask support to link the home to its community.
 - "Add properties before generating dues.": your HOA has no homes yet. Add them in Properties first.
+- [[The books aren’t open yet]]: your association has no fiscal period or chart of accounts, so nothing can be posted. An admin selects [[Open the books]] right there and then generates the dues again. A board member is pointed to the admins.
 - "Assessments for this period are already on file.": this month's dues were already generated. Homes that already have regular dues this period are skipped.
 
 ![[guide-dues-no-association]]

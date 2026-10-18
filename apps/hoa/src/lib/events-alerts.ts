@@ -8,6 +8,7 @@ import type { OutboundSendOptions } from '@/lib/email'
 import { sendEmail, appUrl } from '@/lib/email'
 import { buildSenderName } from '@/lib/email/sender-name'
 import { sendSms, htmlToSmsBody } from '@/lib/sms'
+import { SMS_MAX_CHARS, composeSmsBody } from '@/lib/communications/sms-body'
 import {
   resolveAudience,
   fetchBoardMembers,
@@ -609,12 +610,10 @@ function buildSmsBody(
   portalLink: string | null,
 ): string {
   const raw = text || htmlToSmsBody(html, 200)
-  const truncated = raw.length >= 200
-  const combined = `${subject}: ${raw}`
-  if (truncated && portalLink) {
-    return `${combined.slice(0, 240)}… see ${portalLink}`.slice(0, 279)
-  }
-  return combined.slice(0, 279)
+  // The same one-message rule as announcements (BL-072): shortened with a
+  // whole portal link, never a link cut off at character 279.
+  if (portalLink) return composeSmsBody({ subject, body: raw, portalLink })
+  return `${subject}: ${raw}`.slice(0, SMS_MAX_CHARS)
 }
 
 function buildEventMessage(event: RecurringEvent, today: string): {

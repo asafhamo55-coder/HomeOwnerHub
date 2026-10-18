@@ -42,6 +42,7 @@ import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import type { GmailThreadState } from '@homeowner-portal/mailbox'
 import { resolveForDisplay } from '@/lib/communications/display'
+import { PROPERTIES_STEP_COPY } from '@/lib/dashboard/setup-checklist'
 import { todayIn } from '@/lib/association-time'
 import { orgTimeZone } from '@/lib/association-time-server'
 
@@ -305,11 +306,10 @@ export async function getSetupProgress(db: Db, orgId: string): Promise<SetupStep
     },
     {
       key: 'properties',
-      title: 'Import properties',
-      description: 'Addresses and owners, so email can be matched to a home.',
+      // Same words as the dashboard checklist (BL-072): was "Import
+      // properties → Upload CSV" to the platform-admin-only importer.
+      ...PROPERTIES_STEP_COPY,
       done: (propertiesCount ?? 0) > 0,
-      href: '/admin/import-units',
-      cta: 'Upload CSV',
     },
     {
       key: 'board_members',

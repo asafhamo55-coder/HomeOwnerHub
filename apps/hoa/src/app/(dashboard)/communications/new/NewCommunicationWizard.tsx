@@ -18,6 +18,7 @@ import {
 } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { sendCommunication } from '@/lib/communications/send'
+import { SMS_CHANNEL_HINT } from '@/lib/communications/sms-body'
 import {
   listPropertyResidents,
   listBoardMembers,
@@ -87,7 +88,7 @@ const CHANNELS = ['email', 'sms', 'portal'] as const
 
 const CHANNEL_COPY: Record<(typeof CHANNELS)[number], { label: string; hint: string }> = {
   email: { label: 'Email', hint: 'To every recipient with an email on file' },
-  sms: { label: 'SMS', hint: 'Texts are split at 279 characters' },
+  sms: { label: 'SMS', hint: SMS_CHANNEL_HINT },
   portal: { label: 'Portal', hint: "Shows in the resident's in-app inbox" },
 }
 

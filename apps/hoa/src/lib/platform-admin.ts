@@ -1134,7 +1134,7 @@ export async function archiveTenant(
 
   const columnExists = await ensureArchiveColumn(db)
   if (!columnExists) {
-    return { ok: false, error: 'Migration required: run migration 0025_archive_tenant.sql to enable archiving.' }
+    return { ok: false, error: 'Archiving isn’t available yet: the database update that adds it (0025, archive tenant) hasn’t been applied.' }
   }
 
   const { data: org } = await db
@@ -1164,7 +1164,7 @@ export async function restoreTenant(orgId: string): Promise<ActionResult> {
 
   const columnExists = await ensureArchiveColumn(db)
   if (!columnExists) {
-    return { ok: false, error: 'Migration required: run migration 0025_archive_tenant.sql to enable restoring.' }
+    return { ok: false, error: 'Restoring isn’t available yet: the database update that adds it (0025, archive tenant) hasn’t been applied.' }
   }
 
   const { data: org } = await db

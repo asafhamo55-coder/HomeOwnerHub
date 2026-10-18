@@ -48,4 +48,4 @@ The home is ready to bill straight away: it gets its dues record, and the owner 
 - From a property's **Violations** tab, [[New violation here]] starts a violation report for that home.
 - To change an owner's details, open the property and select [[Edit]].
 - A home you no longer need can be archived: open it, select the **More actions** button (⋯), then [[Archive]]. Its residents, violations and dues stay on file.
-- Have many homes? There is no spreadsheet upload for boards. Ask support to import your spreadsheet.
+- Have many homes? There is no spreadsheet upload for boards. Contact support at `support@homeownerledger.com` and we'll import your spreadsheet.

@@ -5,6 +5,8 @@ import { useState, useTransition } from 'react'
 import { CalendarPlus } from 'lucide-react'
 import { Button, Dialog, DialogContent, DialogTrigger, Field, Input, useToast } from '@homeowner-portal/ui'
 import { materializeCurrentPeriodAssessments } from '@/lib/assessments'
+import { isBooksNotOpen } from '@/lib/accounting/books-not-open'
+import { BooksNotOpenNotice } from '../_components/BooksNotOpenNotice'
 
 /** Generate this month's regular dues for every property, in a dialog. */
 export function MaterializeButton({ monthLabel, variant = 'secondary' }: { monthLabel: string; variant?: 'default' | 'secondary' }) {
@@ -13,6 +15,8 @@ export function MaterializeButton({ monthLabel, variant = 'secondary' }: { month
   const [open, setOpen] = useState(false)
   const [amount, setAmount] = useState('250')
   const [error, setError] = useState<string | undefined>()
+  // BL-072: no open books → say so in the dialog and offer to open them.
+  const [booksGap, setBooksGap] = useState<{ canOpenBooks: boolean } | null>(null)
   const [pending, startTransition] = useTransition()
 
   function submit(e: React.FormEvent) {
@@ -23,10 +27,12 @@ export function MaterializeButton({ monthLabel, variant = 'secondary' }: { month
       return
     }
     setError(undefined)
+    setBooksGap(null)
     startTransition(async () => {
       const result = await materializeCurrentPeriodAssessments({ amountPerUnit: n })
       if (!result.ok) {
-        if (result.fieldErrors?.amountPerUnit) setError(result.fieldErrors.amountPerUnit)
+        if (isBooksNotOpen(result)) setBooksGap({ canOpenBooks: result.canOpenBooks })
+        else if (result.fieldErrors?.amountPerUnit) setError(result.fieldErrors.amountPerUnit)
         else toast({ tone: 'error', title: 'Couldn’t generate dues', message: result.error })
         return
       }
@@ -62,6 +68,11 @@ export function MaterializeButton({ monthLabel, variant = 'secondary' }: { month
             <Input inputMode="decimal" prefix="$" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={pending} />
           </Field>
         </form>
+        {booksGap ? (
+          <div className="mt-4">
+            <BooksNotOpenNotice canOpenBooks={booksGap.canOpenBooks} returnTo="/dues" />
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   )

@@ -217,7 +217,7 @@ function GalleryBody({ overlay }: { overlay: string | null }) {
       width="wide"
       breadcrumbs={[{ label: 'Design system', href: '/ui-gallery' }, { label: 'Component gallery' }]}
       title="Component gallery"
-      description="Every @homeowner-portal/ui component in its states. Screenshotted by pnpm ui:shots."
+      description="Every @homeowner-portal/ui component in its states. Screenshotted by the ui:shots script."
       meta={<StatusPill tone="success" label="v2" />}
       actions={
         <>
@@ -405,7 +405,7 @@ function GalleryBody({ overlay }: { overlay: string | null }) {
               <Fieldset legend="Send late notices by" hint="Pick every channel you want used.">
                 <ChoiceGroup>
                   <Checkbox label="Email" description="Always on for owners with an address." defaultChecked />
-                  <Checkbox label="SMS" description="Split across messages over 279 characters." />
+                  <Checkbox label="SMS" description="Up to 279 characters. Longer texts are shortened and end with a portal link." />
                   <Checkbox label="Printed letter" disabled />
                 </ChoiceGroup>
               </Fieldset>

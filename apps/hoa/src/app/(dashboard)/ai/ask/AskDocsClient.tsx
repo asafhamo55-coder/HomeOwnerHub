@@ -2,44 +2,12 @@
 
 import { useState } from 'react'
 import { Database, FileText } from 'lucide-react'
-import { Badge, TabGroup, TabList, Tab } from '@homeowner-portal/ui'
-import {
-  AnswerCard,
-  AskComposer,
-  AskError,
-  SuggestedQuestions,
-  Thinking,
-} from '@/components/knowledge/AskUI'
+import { TabGroup, TabList, Tab } from '@homeowner-portal/ui'
+import { AskComposer, AskError, SuggestedQuestions, Thinking } from '@/components/knowledge/AskUI'
 import { apiErrorMessage } from '@/lib/api/client'
-import { GOVERNING_TYPE_LABELS, type AnswerConfidence } from '@/lib/status/knowledge'
+import { AskDocsAnswer, type AskCommunityResponse } from './AskDocsAnswer'
 
 type Mode = 'docs' | 'community'
-
-interface Citation {
-  chunkId: string
-  documentId: string
-  docType: string
-  section: string | null
-}
-
-interface AskResponse {
-  answer: string
-  confidence: AnswerConfidence
-  citations: Citation[]
-  runId: string
-}
-
-interface CommunityToolCall {
-  name: string
-  args: Record<string, unknown>
-  result: unknown
-}
-
-interface CommunityResponse {
-  answer: string
-  toolCalls: CommunityToolCall[]
-  steps: number
-}
 
 const COMMON_QUESTIONS_DOCS = [
   'Can I paint my front door red?',
@@ -55,22 +23,12 @@ const COMMON_QUESTIONS_COMMUNITY = [
   'When was our last board meeting?',
 ]
 
-function isCommunityResponse(r: AskResponse | CommunityResponse): r is CommunityResponse {
-  return (r as CommunityResponse).toolCalls !== undefined
-}
-
-/** Tool names are snake_case identifiers; show them as words. */
-function toolLabel(name: string): string {
-  const words = name.replace(/_/g, ' ')
-  return words.charAt(0).toUpperCase() + words.slice(1)
-}
-
 export function AskDocsClient() {
   const [mode, setMode] = useState<Mode>('docs')
   const [question, setQuestion] = useState('')
   const [asked, setAsked] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
-  const [response, setResponse] = useState<AskResponse | CommunityResponse | null>(null)
+  const [response, setResponse] = useState<AskCommunityResponse | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   function switchMode(next: Mode) {
@@ -114,7 +72,7 @@ export function AskDocsClient() {
         return
       }
 
-      setResponse(json as AskResponse | CommunityResponse)
+      setResponse(json as AskCommunityResponse)
       setStatus('done')
     } catch {
       setErrorMessage('Network error — check your connection and try again.')
@@ -164,55 +122,7 @@ export function AskDocsClient() {
 
       {status === 'error' && errorMessage ? <AskError message={errorMessage} onRetry={ask} /> : null}
 
-      {status === 'done' && response ? (
-        isCommunityResponse(response) ? (
-          <AnswerCard
-            question={asked}
-            answer={response.answer}
-            meta={
-              <Badge variant="neutral" className="num">
-                {response.toolCalls.length} data {response.toolCalls.length === 1 ? 'lookup' : 'lookups'}
-              </Badge>
-            }
-            footer={
-              <span>
-                Answered from your records. Verify figures on the source page before acting on them.
-              </span>
-            }
-          >
-            {response.toolCalls.length > 0 ? (
-              <details className="group rounded-lg border border-border">
-                <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-foreground-secondary hover:bg-subtle">
-                  Data sources ({response.toolCalls.length})
-                </summary>
-                <ul className="space-y-1.5 border-t border-border p-3 text-xs text-muted">
-                  {response.toolCalls.map((tc, i) => (
-                    <li key={i}>
-                      <span className="font-medium text-foreground">{toolLabel(tc.name)}</span>
-                      {Object.keys(tc.args).length > 0 ? (
-                        <span className="break-all"> · {JSON.stringify(tc.args)}</span>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            ) : null}
-          </AnswerCard>
-        ) : (
-          <AnswerCard
-            question={asked}
-            answer={response.answer}
-            confidence={response.confidence}
-            citationsLabel="Cited sections"
-            citations={response.citations.map((c) => ({
-              key: c.chunkId,
-              label: GOVERNING_TYPE_LABELS[c.docType] ?? c.docType,
-              title: c.section ?? 'Section not labelled',
-            }))}
-            footer={<span className="num">Reference {response.runId}</span>}
-          />
-        )
-      ) : null}
+      {status === 'done' && response ? <AskDocsAnswer question={asked} response={response} /> : null}
     </div>
   )
 }
