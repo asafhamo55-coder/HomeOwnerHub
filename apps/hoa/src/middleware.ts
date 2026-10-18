@@ -39,9 +39,13 @@ export async function middleware(request: NextRequest) {
     return new NextResponse(null, { status: 204 })
   }
 
-  const { user, response, sessionExpired } = await updateSession(request)
-
   const path = request.nextUrl.pathname
+  // The sign-in pages bounce a signed-in user into the app, so there the
+  // session is confirmed with the auth server; everywhere else it is
+  // verified locally (lib/supabase/middleware.ts, BL-074).
+  const isSignInPage = path === '/login' || path === '/signup'
+  const { user, response, sessionExpired } = await updateSession(request, { strict: isSignInPage })
+
   const isPublic = PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))
   // API callers are fetch(), not a browser tab: a 307 to /login is followed
   // to a 200 HTML page and the caller dies on `Unexpected token '<'`
@@ -76,7 +80,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Already signed in? Don't show the auth pages again.
-  if (user && (path === '/login' || path === '/signup')) {
+  if (user && isSignInPage) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
