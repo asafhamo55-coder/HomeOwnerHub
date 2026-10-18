@@ -32,6 +32,9 @@ const OTHER_HANDLERS = {
   // BL-021 scanned bills.
   approveBill: notUsed,
   rejectBill: notUsed,
+  // PR-10 contact updates.
+  approveContact: notUsed,
+  rejectContact: notUsed,
 }
 
 const AMOUNT = 180

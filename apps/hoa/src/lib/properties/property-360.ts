@@ -6,6 +6,7 @@ import { CASE_COLUMNS, EVENT_COLUMNS, sortEventsNewestFirst, toCase, toEvent, ty
 import type { PropertyResidentRow } from '@/lib/property-residents'
 import type { PropertyEventRow } from '@/lib/property-events'
 import type { PropertyTenure } from './index'
+import { AUDIT_APPLIED, selfUpdateDates } from '../contact-updates/model'
 import { resolveUnitForProperty, type PropertyId, type UnitId, type UnitResolution } from './resolve'
 import type {
   ArcRow,
@@ -93,6 +94,12 @@ export interface Property360 {
   notices: UnitPart<NoticeRow[]>
   tenancies: UnitPart<TenancyRow[]>
   ownerships: UnitPart<OwnershipRow[]>
+  /**
+   * PR-10: when each resident row / ownership was last updated by the
+   * person themselves (an approved portal contact update), by id. Optional
+   * so fixtures without it still render; absent or failed = say nothing.
+   */
+  selfUpdates?: Part<Record<string, string>>
 }
 
 /** How many of each "latest" list the page shows (it says so and links on). */
@@ -113,7 +120,7 @@ export async function loadProperty360(
   const { orgId, propertyId } = input
 
   // ── Wave 1: by property id ──────────────────────────────────────────
-  const [propertyRes, residentsRes, eventsRes, unitRes, statsRes, violationsRes, queueRes] = await Promise.all([
+  const [propertyRes, residentsRes, eventsRes, unitRes, statsRes, violationsRes, queueRes, selfRes] = await Promise.all([
     loadOrFail(
       'property',
       db.from('hoa_properties').select(PROPERTY_COLUMNS).eq('id', propertyId).eq('org_id', orgId).is('deleted_at', null).maybeSingle(),
@@ -173,6 +180,19 @@ export async function loadProperty360(
           .order('id' as never, { ascending: true })
           .range(from, to) as never,
       ),
+    ),
+    // PR-10 "Updated by owner on …": the applied self-updates for this
+    // home (audit rows carry ids only). Board-readable by RLS.
+    loadOrFail(
+      'contact self-updates',
+      db
+        .from('audit_log')
+        .select('created_at, metadata')
+        .eq('org_id', orgId)
+        .eq('action', AUDIT_APPLIED)
+        .eq('metadata->>propertyId', propertyId)
+        .order('created_at', { ascending: false })
+        .limit(50),
     ),
   ])
 
@@ -399,6 +419,7 @@ export async function loadProperty360(
       notices,
       tenancies,
       ownerships,
+      selfUpdates: mapPart(selfRes, (rows) => selfUpdateDates((rows ?? []) as Array<{ created_at: string | null; metadata: unknown }>)),
     },
   }
 }

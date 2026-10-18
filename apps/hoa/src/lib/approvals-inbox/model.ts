@@ -13,6 +13,9 @@
 //   arc    ai_runs rows (workflow_id 'W37', status 'pending_human_approval')
 //          — the AI's review draft for a submitted ARC application
 //          (BL-027). Decided by the existing ARC actions, never here.
+//   contact tickets a resident filed from /resident/account → My contact
+//          details (PR-10, subject CONTACT_SUBJECT, still open). Decided
+//          by lib/contact-updates/apply.ts with the board's own client.
 //   vendor the W21 vendor approval queue (/vendors/approval-queue):
 //          compliant prospects plus yellow/red/missing compliance.
 //
@@ -32,8 +35,10 @@ import {
   type ArcLetterKind,
   type ArcSuggestedDecision,
 } from '../arc-review/model'
+import { FIELD_LABEL, HELD_REASON, planContactApply } from '../contact-updates/model'
+import type { ContactEntry, ContactTicketRow } from '../contact-updates/apply'
 
-export const APPROVAL_SOURCES = ['w18', 'bill', 'w3', 'arc', 'vendor'] as const
+export const APPROVAL_SOURCES = ['w18', 'bill', 'w3', 'arc', 'contact', 'vendor'] as const
 export type ApprovalSource = (typeof APPROVAL_SOURCES)[number]
 export type ApprovalFilter = 'all' | ApprovalSource
 
@@ -87,6 +92,15 @@ export const SOURCE_META: Record<ApprovalSource, SourceMeta> = {
     queueLabel: 'Open ARC review',
     what: 'ARC reviews',
   },
+  contact: {
+    title: 'Contact updates',
+    tab: 'Contact updates',
+    description:
+      'Owners and residents asked to change their own phone, notice email or mailing address. Nothing on file changes until a board member approves; approving updates every record for that person on the home.',
+    queueHref: '/tickets',
+    queueLabel: 'Open requests',
+    what: 'contact updates',
+  },
   vendor: {
     title: 'Vendors',
     tab: 'Vendors',
@@ -108,11 +122,14 @@ export type InboxDecisionTarget =
   | { kind: 'vendor'; vendorId: string; canApprove: boolean }
   /** BL-027: decided by the ARC actions (respondToArcRequest / requestArcInfo), not decideApproval. */
   | { kind: 'arc'; runId: string; arcId: string }
+  /** PR-10: approve applies the resident's own contact change; withheld (canApprove false) when it can't be applied. */
+  | { kind: 'contact'; ticketId: string; canApprove: boolean }
 
 /** The id the decision endpoint takes for a target. */
 export function decisionId(d: InboxDecisionTarget): string {
   if (d.kind === 'w18' || d.kind === 'bill') return d.approvalRequestId
   if (d.kind === 'w3' || d.kind === 'arc') return d.runId
+  if (d.kind === 'contact') return d.ticketId
   return d.vendorId
 }
 
@@ -139,6 +156,21 @@ export interface InboxItem {
   bill?: BillCard
   /** BL-027: what the ARC decision buttons need. Absent for other sources. */
   arc?: ArcCard
+  /** PR-10: the requested change, field by field. Absent for other sources. */
+  contact?: ContactCard
+}
+
+export interface ContactCard {
+  ticketId: string
+  /** "12 Oak Street"; null when the home couldn't be found. */
+  home: string | null
+  changes: Array<{ label: string; from: string | null; to: string }>
+  /** Resident records this changes, by name. */
+  names: string[]
+  /** Why part of it won't be applied (e.g. the sign-in email hold). */
+  held: string[]
+  /** Why it can't be approved at all; null when it can. */
+  problem: string | null
 }
 
 export interface ArcCard {
@@ -420,6 +452,45 @@ export function arcItems(runs: ArcRunRow[], ctx: { associationName?: string | nu
         },
       },
     ]
+  })
+}
+
+/**
+ * PR-10: resident contact updates. `entries` are the readable requests
+ * with their home's records (lib/contact-updates/apply.ts
+ * loadContactEntries); a ticket with the subject but no readable request
+ * still lists — with no decision — so the count never exceeds the rows.
+ * Approve is offered exactly when planContactApply (the same plan the
+ * approval runs) says it can apply.
+ */
+export function contactItems(tickets: readonly ContactTicketRow[], entries: readonly ContactEntry[]): InboxItem[] {
+  const byId = new Map(entries.map((e) => [e.ticket.id, e]))
+  return tickets.map((t) => {
+    const href = `/tickets/${t.id}`
+    const e = byId.get(t.id)
+    const base = { source: 'contact' as const, id: t.id, amount: null, amountNote: null, createdAt: t.created_at, reasoning: null, citations: [], confidenceLabel: null, href }
+    if (!e) {
+      return { ...base, title: 'Contact details update', detail: 'This request couldn’t be read. Open it and reply to the resident.', decision: null }
+    }
+    const planned = e.context ? planContactApply(e.context) : null
+    const problem = !e.context ? 'The home this request is for couldn’t be found. Reply on the request instead.' : planned && !planned.ok ? planned.error : null
+    const held = planned?.ok ? planned.plan.held.map((f) => HELD_REASON[f]) : []
+    const names = planned?.ok ? planned.plan.names : []
+    const changes = (Object.keys(e.request.changes) as Array<keyof typeof e.request.changes>).map((f) => {
+      const to = e.request.changes[f]
+      return {
+        label: FIELD_LABEL[f],
+        from: e.current ? e.current[f] : null,
+        to: to ?? (f === 'mailing' ? 'Same as the home' : 'Remove'),
+      }
+    })
+    return {
+      ...base,
+      title: `Contact details — ${e.home ?? 'home not found'}`,
+      detail: names.length > 0 ? `From ${names.join(' and ')}` : null,
+      decision: { kind: 'contact' as const, ticketId: t.id, canApprove: problem === null },
+      contact: { ticketId: t.id, home: e.home, changes, names, held, problem },
+    }
   })
 }
 

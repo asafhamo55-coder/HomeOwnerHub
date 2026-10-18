@@ -40,12 +40,15 @@ const ROLE_LABEL: Record<PropertyResidentRole, string> = {
 
 export function ResidentRow({
   resident,
+  selfUpdatedAt = null,
   isAdmin = false,
   propertyId,
   unitId,
   messageHref = null,
 }: {
   resident: PropertyResidentRow
+  /** PR-10: when this person last updated their own contact details in the portal. */
+  selfUpdatedAt?: string | null
   isAdmin?: boolean
   propertyId?: string
   unitId?: string | null
@@ -82,6 +85,9 @@ export function ResidentRow({
               {resident.phone ? <ContactLink kind="phone" value={resident.phone} /> : null}
               {resident.moved_in_at ? (
                 <span>moved in {formatDay(resident.moved_in_at)}</span>
+              ) : null}
+              {selfUpdatedAt ? (
+                <span>Updated by {resident.role === 'owner' ? 'owner' : 'resident'} on {formatDay(selfUpdatedAt)}</span>
               ) : null}
               {resident.moved_out_at ? (
                 <span className="font-medium text-foreground-secondary">

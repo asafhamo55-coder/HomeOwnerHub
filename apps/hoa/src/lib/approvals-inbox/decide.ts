@@ -23,6 +23,12 @@
 //                        approve files the letter as an OPEN violation and
 //                        sends nothing; reject keeps the reason on the run
 //                        (BL-048).
+//   contact approve/   → approveContactUpdate / rejectContactUpdate
+//     reject             (lib/contact-updates/apply.ts, PR-10): approve
+//                        applies the resident's own contact change to their
+//                        rows on the home (lot.ts applySelfContact) with the
+//                        decider's RLS client; reject closes the request
+//                        with the reason. Nothing uses the service role.
 //
 // Pure (relative imports + workspace packages only) so tests/integration
 // can drive the exact composition the server action uses.
@@ -30,6 +36,7 @@
 import { z } from 'zod'
 import { approveRequest, rejectRequest, type ApprovalExecutor, type DecisionResult } from '@homeowner-portal/workflows'
 import { BILL_ACTION } from '../bill-scan/proposal'
+import { approveContactUpdate, rejectContactUpdate } from '../contact-updates/apply'
 import { canUseApprovals } from './model'
 import type { InboxDb } from './load'
 
@@ -44,12 +51,14 @@ export interface InboxDecisionHandlers {
   rejectViolationDraft(runId: string, reason: string): Promise<Simple>
   approveBill(approvalRequestId: string): Promise<DecisionResult>
   rejectBill(approvalRequestId: string, reason: string): Promise<DecisionResult>
+  approveContact(ticketId: string): Promise<Simple & { message?: string }>
+  rejectContact(ticketId: string, reason: string): Promise<Simple & { message?: string }>
 }
 
 export type InboxDecisionOutcome = { ok: true; message: string } | { ok: false; error: string }
 
 const DecisionSchema = z.object({
-  kind: z.enum(['w18', 'bill', 'w3', 'vendor']),
+  kind: z.enum(['w18', 'bill', 'w3', 'vendor', 'contact']),
   id: z.string().uuid(),
   decision: z.enum(['approve', 'reject']),
   reason: z.string().max(1000).optional(),
@@ -87,6 +96,23 @@ export function billHandlers(
   return {
     approveBill: async (id) => ((await isBill(id)) ? approveRequest(userDb, adminDb, id, { [BILL_ACTION]: executor }) : notBill),
     rejectBill: async (id, reason) => ((await isBill(id)) ? rejectRequest(userDb, id, reason) : notBill),
+  }
+}
+
+/** PR-10: contact updates, decided with the decider's own RLS client. */
+export function contactHandlers(
+  userDb: InboxDb,
+  ctx: { orgId: string; deciderId: string; deciderRole: 'board' | 'admin' },
+): Pick<InboxDecisionHandlers, 'approveContact' | 'rejectContact'> {
+  return {
+    approveContact: async (ticketId) => {
+      const r = await approveContactUpdate(userDb, { ...ctx, ticketId })
+      return r.ok ? { ok: true, message: r.message } : r
+    },
+    rejectContact: async (ticketId, reason) => {
+      const r = await rejectContactUpdate(userDb, { ...ctx, ticketId, reason })
+      return r.ok ? { ok: true, message: r.message } : r
+    },
   }
 }
 
@@ -128,6 +154,12 @@ export async function decideApprovalFor(
     return r.ok
       ? { ok: true, message: 'Letter approved and filed as an open violation. Nothing was sent to the homeowner.' }
       : { ok: false, error: r.error }
+  }
+
+  if (kind === 'contact') {
+    const r = decision === 'reject' ? await handlers.rejectContact(id, reason) : await handlers.approveContact(id)
+    if (!r.ok) return { ok: false, error: r.error }
+    return { ok: true, message: r.message ?? (decision === 'reject' ? 'Rejected.' : 'Contact details updated.') }
   }
 
   if (kind === 'bill') {

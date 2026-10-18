@@ -60,6 +60,7 @@ questions:
   - { id: h20, role: board, expect: meetings-schedule-and-minutes, q: "How do I print the board packet?", route: /meetings/1f3a/packet }
   - { id: h21, role: board, expect: approvals-queue, q: "What is waiting in the approvals queue?" }
   - { id: h22, role: admin, expect: approvals-queue, q: "How do I approve a scanned bill?" }
+  - { id: h22c, role: board, expect: approvals-queue, q: "An owner sent a new phone number. How do I approve the contact update?" }
   - { id: h23, role: board, expect: communications-send-announcement, q: "How do I send an announcement email to all residents?" }
   - { id: h24, role: board, expect: communications-send-announcement, q: "Can I send a text message to residents?" }
   - { id: h25, role: admin, expect: documents-governing-and-ask, q: "How do I upload our CC&Rs?" }
@@ -71,6 +72,8 @@ questions:
   - { id: r02a, role: resident, expect: resident-portal-basics, q: "Can I check my ARC request against the guidelines before I submit it?" }
   - { id: r03, role: resident, expect: resident-portal-basics, q: "How do I report a problem in the community?" }
   - { id: r04, role: resident, expect: resident-portal-basics, q: "Where can I see my balance and statement?", route: /resident/dues }
+  - { id: r05, role: resident, expect: resident-portal-basics, q: "How do I update my phone number and mailing address?" }
+  - { id: r06, role: resident, expect: resident-portal-basics, q: "Can I change the email the HOA sends notices to?", route: /resident/account }
 
   # ── Refusal canaries: features HomeownerHub does not have ─────────────
   - { id: c01, role: admin, expect: refuse, q: "Can residents book the clubhouse for a party?" }

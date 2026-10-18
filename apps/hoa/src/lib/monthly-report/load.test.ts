@@ -60,7 +60,7 @@ beforeEach(() => {
   m.loadBalanceSheet.mockResolvedValue({ assets: [{ accountNumber: '1010', balance: 500 }] })
   m.loadBudgetsVsActual.mockResolvedValue([])
   m.loadDelinquency.mockResolvedValue({ totalOverdue: 900, unitCount: 2, aging: { d90_plus: 300 } })
-  m.countPendingApprovals.mockResolvedValue({ w18: 1, bill: 0, w3: 0, arc: 0, vendor: 2 })
+  m.countPendingApprovals.mockResolvedValue({ w18: 1, bill: 0, w3: 0, arc: 0, contact: 0, vendor: 2 })
 })
 
 describe('loadMonthlyReportData', () => {
@@ -89,7 +89,7 @@ describe('loadMonthlyReportData', () => {
 
   it('a failed read costs only its own section', async () => {
     m.loadBalanceSheet.mockRejectedValue(new Error('accounting query failed (57014)'))
-    m.countPendingApprovals.mockResolvedValue({ w18: 1, bill: null, w3: 0, arc: 0, vendor: 0 })
+    m.countPendingApprovals.mockResolvedValue({ w18: 1, bill: null, w3: 0, arc: 0, contact: 0, vendor: 0 })
     const { db } = fakeDb({ hoa_violations: 'error' })
     const d = await loadMonthlyReportData(db, CTX)
     expect(d.cash).toEqual({ ok: false })

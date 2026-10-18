@@ -10,7 +10,7 @@ import { enterBill } from '@/lib/invoices'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { makeBillExecutor } from '@/lib/bill-scan/executor'
 import { billInvoiceExists } from '@/lib/bill-scan/load'
-import { billHandlers, decideApprovalFor, postingHandlers, type InboxDecisionInput, type InboxDecisionOutcome } from './decide'
+import { billHandlers, contactHandlers, decideApprovalFor, postingHandlers, type InboxDecisionInput, type InboxDecisionOutcome } from './decide'
 
 /**
  * The one decision endpoint behind /approvals (BL-014). It only routes:
@@ -29,6 +29,10 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
   if (!gate.ok) return { ok: false, error: gate.error }
   const supabase = await getSupabaseServerClient()
   const adminDb = createAdminClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'You are not signed in.' }
   // The bill executor enters the bill as the APPROVER, through the same
   // action as "Enter a bill" — invoice row + Dr expense / Cr AP JE.
   const billExecutor = makeBillExecutor({
@@ -43,6 +47,8 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
     rejectVendor,
     approveViolationDraft,
     rejectViolationDraft,
+    // PR-10: the board's own RLS client; adminDb is never passed here.
+    ...contactHandlers(supabase, { orgId: gate.orgId, deciderId: user.id, deciderRole: gate.role }),
   })
 
   revalidatePath('/approvals')
@@ -54,6 +60,10 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
     revalidatePath('/accounting')
     revalidatePath('/accounting/invoices')
     revalidatePath('/accounting/ledger')
+  } else if (input.kind === 'contact') {
+    revalidatePath('/properties', 'layout')
+    revalidatePath('/tickets', 'layout')
+    revalidatePath('/resident/account')
   } else if (input.kind === 'w3') {
     revalidatePath('/violations')
     revalidatePath('/violations/approval-queue')
