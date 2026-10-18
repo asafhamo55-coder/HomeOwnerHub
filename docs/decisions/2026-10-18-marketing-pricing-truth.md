@@ -42,3 +42,7 @@ These are the decided BL-068 module prices. They appear **only in this document*
 | Leases | $0.10 | $5 |
 
 Status: **coming soon**, gated on BL-068 (module switches) and the M2 migration batch.
+
+## Testimonials (coordinator decision, 2026-10-18)
+
+The composite "typical feedback" testimonials (Jon, James and Sarah) were removed from the homepage. They read as real customers, and they weren't. Only Linda's verbatim Madison Park reference quote remains. Add a quote back only when a named customer has agreed to it.

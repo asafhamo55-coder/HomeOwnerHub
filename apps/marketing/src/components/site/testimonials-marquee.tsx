@@ -16,10 +16,9 @@ interface Testimonial {
   portrait: keyof typeof PORTRAITS
 }
 
-// First-name attribution by design — these are early-pilot voices, not
-// named-reference customers yet. Linda is the real Madison Park reference
-// quote, kept verbatim; the rest reflect typical board/resident/landlord
-// feedback patterns from pilot conversations.
+// Only real, attributable quotes belong here. Linda is the Madison Park
+// reference quote, kept verbatim. Composite "typical feedback" quotes were
+// removed on 2026-10-18 (BL-042): they read as real customers.
 const TESTIMONIALS: Testimonial[] = [
   {
     name: 'Linda',
@@ -29,36 +28,6 @@ const TESTIMONIALS: Testimonial[] = [
     portrait: 'linda',
     quote:
       'I got my Tuesday nights back. Covenant Brain answers in seconds with the section cited. We caught a $4,200 reserve discrepancy in week three.',
-  },
-  {
-    name: 'Jon',
-    role: 'Board President',
-    community: '240-door HOA · North Atlanta',
-    gradient: 'from-success-solid to-primary',
-    portrait: 'jon',
-    quote:
-      'The violation drafter alone saved us six board hours a month. Every notice has the bylaw section cited; my treasurer just taps approve.',
-  },
-  // BL-042 removed four cards that described features that don't exist
-  // (minutes drafted live in the meeting, Spanish answers, meeting agendas
-  // in the resident portal, the ARC Recommender).
-  {
-    name: 'James',
-    role: 'Landlord',
-    community: '6 rental units · Marietta',
-    gradient: 'from-accent to-warning-solid',
-    portrait: 'james',
-    quote:
-      'Rent collects itself. The Delinquency Coach caught a tenant\'s first late payment, suggested a check-in instead of escalating. They paid the next morning.',
-  },
-  {
-    name: 'Sarah',
-    role: 'Resident',
-    community: '210-door HOA',
-    gradient: 'from-primary to-success-solid',
-    portrait: 'sarah',
-    quote:
-      'I got a violation notice and it explained exactly which rule, with the section number. I knew what to fix without having to call anyone.',
   },
 ]
 
