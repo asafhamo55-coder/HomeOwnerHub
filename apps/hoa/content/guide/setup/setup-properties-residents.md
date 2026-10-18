@@ -6,7 +6,7 @@ topic: setup
 roles: [admin, board]
 routes: ["/properties", "/properties/new", "/properties/[id]"]
 primary_route: /properties
-keywords: [property, home, house, address, unit, lot, owner, resident, tenant, import, spreadsheet, csv, archive]
+keywords: [property, home, house, address, unit, lot, owner, resident, tenant, import, spreadsheet, csv, archive, note, sort, search]
 shots:
   - name: guide-properties-list
     alt: The Properties page with the Add property button highlighted
@@ -27,7 +27,7 @@ Every home in the community is a property. Dues, owners, residents, violations a
 2. Fill in the **Address**. Add the **Unit / Lot #** and the owner's details if you have them.
 3. If your HOA has more than one community, pick the **Community** the home belongs to.
 4. Select [[Add property]] to save. The new property's page opens and says "Property added."
-5. Open the **Residents** tab and select [[Add resident]].
+5. On the property's page, under **People**, select [[Add resident]]. (On a phone, **People** is the first tab.)
 6. Enter the **Full name** and pick a **Role** (Owner, Tenant, Family member or Other). Tick [[Primary contact]] for the person notices go to, then select [[Add resident]].
 
 ![[guide-properties-list]]
@@ -35,7 +35,7 @@ Every home in the community is a property. Dues, owners, residents, violations a
 ![[guide-properties-new]]
 
 ## What happens next
-The home is ready to bill straight away: it gets its dues record, and the owner you entered is recorded as its current owner. It appears on the Properties list, and the property page shows its balance, residents, violations and mail in one place.
+The home is ready to bill straight away: it gets its dues record, and the owner you entered is recorded as its current owner. It appears on the Properties list. Its page shows everything about the home in one place: **People**, **Money**, **Compliance**, **Leases**, **Communications** and **Activity**. When something needs doing (a violation past its cure date, an overdue balance, an ARC request or an email waiting on you), a **Needs action** box at the top links straight to it.
 
 ## If something goes wrong
 - "Address is required.": the address is the only field you must fill in.
@@ -44,8 +44,9 @@ The home is ready to bill straight away: it gets its dues record, and the owner 
 - "Enter the resident’s name.": a resident needs a full name.
 
 ## Good to know
-- The Properties list starts on **All** homes. Switch to **Needs attention** to see homes with something to deal with, and use [[Filters]] to narrow by records or tenure. Search looks through every home.
-- From a property's **Violations** tab, [[New violation here]] starts a violation report for that home.
+- The Properties list starts on **All** homes, with what needs action first. Select any column heading (Owner, Balance, Violations, Last activity and so on) to sort by it; select it again to reverse. Switch to **Needs attention** to see homes with something to deal with, and use [[Filters]] to narrow by records or tenure.
+- Search looks through every home: the address, unit, owner name, email and phone, and everyone living there.
+- The buttons at the top of a property's page act on that home: [[Message household]] writes to the people living there, [[Record payment]] opens Dues for that home, [[New violation]] starts a violation report with the home picked, and [[Log note]] adds a dated note to its **Activity**.
 - To change an owner's details, open the property and select [[Edit]].
 - A home you no longer need can be archived: open it, select the **More actions** button (⋯), then [[Archive]]. Its residents, violations and dues stay on file.
 - Have many homes? There is no spreadsheet upload for boards. Contact support at `support@homeownerledger.com` and we'll import your spreadsheet.
