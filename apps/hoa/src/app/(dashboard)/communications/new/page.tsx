@@ -7,6 +7,7 @@ import { getPrimaryAssociation } from '@/lib/vendors'
 import { listTemplates } from '@/lib/communications/queries'
 import { countAudiences } from '@/lib/communications/audience'
 import { loadOrFail } from '@/lib/load-or-fail'
+import { parsePropertyParam } from '@/lib/property-scope'
 import type { TemplateQuestion } from '@/lib/community-templates/types'
 import { NewCommunicationWizard } from './NewCommunicationWizard'
 
@@ -25,7 +26,13 @@ function toTemplateQuestions(questions: unknown): readonly TemplateQuestion[] {
 
 const BREADCRUMBS = [{ label: 'Communications', href: '/communications' }, { label: 'New message' }]
 
-export default async function NewCommunicationPage() {
+export default async function NewCommunicationPage({
+  searchParams,
+}: {
+  /** `?property=<id>`: opened from a property page's "Message owner". */
+  searchParams: Promise<{ property?: string }>
+}) {
+  const initialPropertyId = parsePropertyParam((await searchParams).property)
   const assoc = await getPrimaryAssociation()
   if (!assoc) {
     return (
@@ -145,6 +152,7 @@ export default async function NewCommunicationPage() {
           }))}
           audienceCounts={counts}
           properties={properties}
+          initialPropertyId={initialPropertyId}
         />
       </Card>
     </Page>
