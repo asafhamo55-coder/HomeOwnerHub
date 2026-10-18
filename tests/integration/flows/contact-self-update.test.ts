@@ -75,7 +75,7 @@ beforeEach(async () => {
     .from('property_residents')
     .insert([
       { organization_id: org.orgId, property_id: propertyId, full_name: 'Fixture Owner', email: owner.email, phone: '(555) 010-0128', role: 'owner', is_primary: true },
-      { organization_id: org.orgId, property_id: propertyId, full_name: 'Fixture Neighbour', email: 'neighbour@example.test', phone: '(555) 010-0777', role: 'family_member' },
+      { organization_id: org.orgId, property_id: propertyId, full_name: 'Fixture Neighbour', email: 'neighbour@example.test', phone: '(555) 010-0777', role: 'family_member', is_primary: false },
     ])
     .select('id, full_name')
   if (error || !rows) throw new Error(`seed residents: ${error?.message}`)
