@@ -58,9 +58,16 @@ export function SetupChecklist({
                 {!step.done ? <p className="text-xs text-muted">{step.description}</p> : null}
               </div>
               {!step.done ? (
-                <Button asChild size="sm" variant={highlighted ? 'primary' : 'secondary'}>
-                  <Link href={step.href}>{step.cta}</Link>
-                </Button>
+                <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2">
+                  {step.secondary ? (
+                    <Button asChild size="sm" variant="ghost">
+                      <Link href={step.secondary.href}>{step.secondary.label}</Link>
+                    </Button>
+                  ) : null}
+                  <Button asChild size="sm" variant={highlighted ? 'primary' : 'secondary'}>
+                    <Link href={step.href}>{step.cta}</Link>
+                  </Button>
+                </div>
               ) : null}
             </li>
           )

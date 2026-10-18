@@ -16,7 +16,6 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
-import { SUPPORT_EMAIL } from '@/lib/support'
 
 type Db = SupabaseClient<Database>
 
@@ -33,12 +32,19 @@ export const SETUP_CHECKLIST_KEYS = [
 
 export type SetupChecklistKey = (typeof SETUP_CHECKLIST_KEYS)[number]
 
+export interface SetupStepLink {
+  href: string
+  label: string
+}
+
 export interface SetupChecklistStep {
   key: SetupChecklistKey
   title: string
   description: string
   href: string
   cta: string
+  /** A second way to do the step (its own link, beside the main one). */
+  secondary?: SetupStepLink
   /** Guide article the step's "How?" link opens (BL-070). guide:check verifies the id. */
   guide: string
   state: SetupStepState
@@ -83,14 +89,14 @@ export function stepStateFrom(counts: Array<number | null>, min = 1): SetupStepS
  * The properties step, shared word for word with the sign-up setup page
  * (lib/inbox/queries.ts getSetupProgress). Both used to differ, and that
  * one linked to the platform-admin CSV import, which a board admin cannot
- * open (BL-072). Until a board-run import exists, support imports a
- * spreadsheet on request.
+ * open (BL-072). A spreadsheet now goes to the board's own import (P4).
  */
 export const PROPERTIES_STEP_COPY = {
   title: 'Add your properties',
-  description: `Every address in the community. Have a spreadsheet? Contact support at ${SUPPORT_EMAIL} and we’ll import it.`,
+  description: 'Every address in the community. Type them in, or import a spreadsheet such as a CINC Systems export.',
   href: '/properties/new',
   cta: 'Add properties',
+  secondary: { href: '/properties/import', label: 'Import a spreadsheet' },
 } as const
 
 const STEP_COPY: Record<SetupChecklistKey, Omit<SetupChecklistStep, 'key' | 'state'>> = {

@@ -49,6 +49,7 @@ paths:
     articles:
       - start-board-admin
       - setup-properties-residents
+      - setup-import-roster
       - documents-governing-and-ask
       - dues-generate-monthly
       - members-invite-board

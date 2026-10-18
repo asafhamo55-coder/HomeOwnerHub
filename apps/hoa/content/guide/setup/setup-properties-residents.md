@@ -12,14 +12,14 @@ shots:
     alt: The Properties page with the Add property button highlighted
   - name: guide-properties-new
     alt: The Add a property form with the Add property button highlighted
-related: [start-board-admin, dues-generate-monthly, members-invite-board]
+related: [setup-import-roster, start-board-admin, dues-generate-monthly, members-invite-board]
 reviewed: 2026-10-17
 ---
 
 Every home in the community is a property. Dues, owners, residents, violations and mail all hang off a property, so add them first.
 
 ## Before you start
-- You need the list of addresses. The owner's name, email and phone are optional.
+- You need the list of addresses. The owner's name, email and phone are optional. Already have them in a spreadsheet? [Import them](guide:setup-import-roster) instead.
 - Board admins and board members can add properties.
 
 ## Steps
@@ -48,4 +48,4 @@ The home is ready to bill straight away: it gets its dues record, and the owner 
 - From a property's **Violations** tab, [[New violation here]] starts a violation report for that home.
 - To change an owner's details, open the property and select [[Edit]].
 - A home you no longer need can be archived: open it, select the **More actions** button (⋯), then [[Archive]]. Its residents, violations and dues stay on file.
-- Have many homes? There is no spreadsheet upload for boards. Contact support at `support@homeownerledger.com` and we'll import your spreadsheet.
+- Have many homes? Select [[Import]] on the Properties page to bring them all in from a spreadsheet, such as a CINC Systems export. See [Import your homes and owners from a spreadsheet](guide:setup-import-roster).

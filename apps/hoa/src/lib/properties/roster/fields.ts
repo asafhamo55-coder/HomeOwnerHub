@@ -11,7 +11,7 @@
  *   - 'template' — our own downloadable template (templateCsv).
  *   - 'generic'  — common spreadsheet headings.
  */
-import { csvDocument } from '@/lib/csv'
+import { csvDocument } from '../../csv'
 
 export const ROSTER_FIELDS = [
   { key: 'address', label: 'Property address', required: true },

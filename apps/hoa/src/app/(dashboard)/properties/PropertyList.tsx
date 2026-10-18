@@ -46,8 +46,15 @@ export function PropertyList({
         variant="compact"
         icon={<Building2 aria-hidden />}
         title="No properties yet"
-        secondaryAction={<HowThisWorks href={guideHref('setup-properties-residents')} />}
-        description="Add each home in the association. Owners, residents, dues and violations all hang off a property."
+        secondaryAction={
+          <>
+            <Button asChild size="sm" variant="ghost">
+              <Link href="/properties/import">Import a spreadsheet</Link>
+            </Button>
+            <HowThisWorks href={guideHref('setup-properties-residents')} />
+          </>
+        }
+        description="Add each home in the association, or import them all from a spreadsheet. Owners, residents, dues and violations all hang off a property."
         action={
           <Button asChild size="sm">
             <Link href="/properties/new">
