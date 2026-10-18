@@ -6,14 +6,24 @@
 // own insert or withdrawal has already passed its checks).
 
 import { createAdminClient } from '@homeowner-portal/db'
-import { buildArcFacts, reviewArcRequest } from '@homeowner-portal/workflows/W37'
+import { buildArcFacts, resolveArcReviewMaxPhotos, reviewArcRequest } from '@homeowner-portal/workflows/W37'
+import { loadArcPhotos } from './photos'
 import { runBoardArcReviewWith } from './run'
 import { closeReviewsWithoutDecision } from './record'
 
-/** Draft the board review for a just-submitted application. Never throws. */
+/**
+ * Draft the board review for a just-submitted application. Never throws.
+ * BL-079: reads any photos already attached (usually none yet — residents
+ * attach on the detail page after submitting; the board re-runs from there).
+ */
 export async function startBoardArcReview(args: { orgId: string; arcId: string; precheckRunId?: string | null }): Promise<void> {
   try {
-    await runBoardArcReviewWith(createAdminClient(), args, { review: reviewArcRequest, buildFacts: buildArcFacts })
+    const max = resolveArcReviewMaxPhotos()
+    await runBoardArcReviewWith(createAdminClient(), args, {
+      review: reviewArcRequest,
+      buildFacts: buildArcFacts,
+      loadPhotos: (db, a) => loadArcPhotos(db, { ...a, max }),
+    })
   } catch (err) {
     console.error('arc review start failed', { arcId: args.arcId, errorName: err instanceof Error ? err.name : 'UnknownError' })
   }

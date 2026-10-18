@@ -72,11 +72,12 @@ export async function recordBoardDecisionOnReview(
   return { ok: true, recorded }
 }
 
-export type ArcCloseReason = 'withdrawn' | 'deleted'
+export type ArcCloseReason = 'withdrawn' | 'deleted' | 'superseded'
 
 const CLOSE_FEEDBACK: Record<ArcCloseReason, string> = {
   withdrawn: 'Closed without a board decision: the resident withdrew the application.',
   deleted: 'Closed without a board decision: the application was deleted.',
+  superseded: 'Closed without a board decision: replaced by a fresh review after the photos changed.',
 }
 
 /** Take a pending draft out of the approvals inbox when there is nothing left to decide. */

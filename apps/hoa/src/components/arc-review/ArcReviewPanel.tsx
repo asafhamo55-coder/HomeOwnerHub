@@ -4,34 +4,40 @@ import {
   SUGGESTION_LABEL,
   SUGGESTION_TONE,
   canRunReview,
-  draftFor,
+  decisionLetters,
   type ArcReviewOutput,
   type ArcReviewView,
 } from '@/lib/arc-review/model'
 import { ArcOpenQuestions, ArcRuleList } from './ArcRuleList'
+import { ArcPhotoFindings, type ArcPhotoLink } from './ArcPhotoFindings'
 import { ArcReviewActions } from './ArcReviewActions'
 import { RunArcReviewButton } from './RunArcReviewButton'
 
 // BL-027 — the AI review card on /arc/[id]. Shows the W37 draft (cited
 // rules, suggested decision, reasoning, conditions) and, when the resident
-// ran one, what their pre-check showed them (BL-024). Decides nothing: the
-// buttons call the existing ARC actions.
+// ran one, what their pre-check showed them (BL-024). BL-079 adds what the
+// AI read from the attached photos, and the decision dialogs open on a full
+// letter. Decides nothing: the buttons call the existing ARC actions.
 
 export type ArcReviewPanelLoad =
   | { ok: true; review: ArcReviewView | null; precheck: ArcReviewOutput | null }
   | { ok: false }
 
-export function ArcReviewPanel({
-  arcId,
-  title,
-  arcStatus,
-  load,
-}: {
+export interface ArcReviewPanelProps {
   arcId: string
   title: string
   arcStatus: string
   load: ArcReviewPanelLoad
-}) {
+  /** Signs the decision letters. */
+  associationName?: string | null
+  /** The application's attachments by id, to name and link each photo finding. */
+  photos?: Record<string, ArcPhotoLink>
+  /** The photos the review would read now differ from the ones it read. */
+  photosChanged?: boolean
+}
+
+export function ArcReviewPanel(props: ArcReviewPanelProps) {
+  const { load } = props
   return (
     <Card>
       <CardHeader
@@ -51,18 +57,18 @@ export function ArcReviewPanel({
         <CardDescription>A cited suggestion from your governing documents. The board decides.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        <PanelBody arcId={arcId} title={title} arcStatus={arcStatus} load={load} />
+        <PanelBody {...props} />
       </CardContent>
     </Card>
   )
 }
 
-function PanelBody({ arcId, title, arcStatus, load }: { arcId: string; title: string; arcStatus: string; load: ArcReviewPanelLoad }) {
+function PanelBody({ arcId, title, arcStatus, load, associationName = null, photos, photosChanged = false }: ArcReviewPanelProps) {
   if (!load.ok) {
     return <Alert variant="warning" title="Couldn’t load the AI review">The application below loaded normally. Reload to try again.</Alert>
   }
   const { review, precheck } = load
-  const canRun = canRunReview(review, arcStatus)
+  const canRun = canRunReview(review, arcStatus, { photosChanged })
 
   if (!review) {
     return (
@@ -85,8 +91,18 @@ function PanelBody({ arcId, title, arcStatus, load }: { arcId: string; title: st
 
   const out = review.output
   const s = out.suggestion
+  const pending = review.state === 'pending'
   return (
     <div className="space-y-5">
+      {pending && photosChanged && canRun ? (
+        <Alert variant="info" title="The photos changed since this review ran">
+          <div className="space-y-3">
+            <p>Photos were added or removed after the AI looked. Run it again to include them — this replaces the waiting review.</p>
+            <RunArcReviewButton arcId={arcId} label="Run again with the current photos" />
+          </div>
+        </Alert>
+      ) : null}
+
       <p className="text-sm leading-relaxed text-foreground">{out.summary}</p>
 
       {s ? (
@@ -115,6 +131,7 @@ function PanelBody({ arcId, title, arcStatus, load }: { arcId: string; title: st
       ))}
 
       <ArcRuleList rules={out.rules} headingId={`arc-ai-rules-${arcId}`} heading="Rules that apply" />
+      <ArcPhotoFindings findings={out.photoFindings} photos={photos} headingId={`arc-ai-photos-${arcId}`} />
       <ArcOpenQuestions
         missingInfo={out.missingInfo}
         questions={out.questions}
@@ -125,13 +142,13 @@ function PanelBody({ arcId, title, arcStatus, load }: { arcId: string; title: st
 
       <p className="text-xs text-muted">{out.disclaimer}</p>
 
-      {review.state === 'pending' ? (
+      {pending ? (
         <div className="border-t border-border pt-4">
           <ArcReviewActions
             arcId={arcId}
             title={title}
             suggestion={s?.decision ?? null}
-            drafts={{ approved: draftFor(out, 'approved'), denied: draftFor(out, 'denied'), more_info: draftFor(out, 'more_info') }}
+            drafts={decisionLetters(out, { associationName, title })}
           />
         </div>
       ) : (

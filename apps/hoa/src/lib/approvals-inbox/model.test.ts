@@ -355,7 +355,9 @@ describe('arcItems (BL-027)', () => {
   }
 
   it('maps a pending W37 draft to an item decided by the ARC actions', () => {
-    const [item] = arcItems([{ id: 'r1', created_at: T1, input: { mode: 'review', arcRequestId: ARC, facts: { summary: 'Front fence' } }, output }])
+    const [item] = arcItems([{ id: 'r1', created_at: T1, input: { mode: 'review', arcRequestId: ARC, facts: { summary: 'Front fence' } }, output }], {
+      associationName: 'Maple Ridge HOA',
+    })
     expect(item).toMatchObject({
       source: 'arc',
       id: 'r1',
@@ -367,7 +369,11 @@ describe('arcItems (BL-027)', () => {
       href: `/arc/${ARC}`,
       decision: { kind: 'arc', runId: 'r1', arcId: ARC },
     })
-    expect(item!.arc?.drafts.denied).toBe('The application conflicts with:\n- Rules § 4.2: Front fences may not exceed 4 feet.')
+    // BL-079: a full decision letter per action, signed for the association.
+    expect(item!.arc?.drafts.deny).toContain('Re: Your architectural review application — Front fence')
+    expect(item!.arc?.drafts.deny).toContain('- Rules § 4.2: Front fences may not exceed 4 feet.')
+    expect(item!.arc?.drafts.deny).toMatch(/Maple Ridge HOA$/)
+    expect(Object.keys(item!.arc!.drafts).sort()).toEqual(['approve', 'approve_with_conditions', 'deny', 'need_more_info'])
     expect(decisionId(item!.decision!)).toBe('r1')
   })
 

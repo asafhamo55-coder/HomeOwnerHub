@@ -46,10 +46,41 @@ describe('runBoardArcReviewWith', () => {
     expect(r).toEqual({ ok: true, runId: 'run-1' })
     expect(filters).toEqual(expect.arrayContaining([['id', ARC], ['organization_id', ORG], ['deleted_at', null]]))
     const [input, ctx] = (review as ReturnType<typeof vi.fn>).mock.calls[0]!
-    expect(ctx).toEqual({ organizationId: ORG })
+    expect(ctx).toEqual({ organizationId: ORG, images: [] })
     expect(input).toMatchObject({ mode: 'review', arcRequestId: ARC, associationId: 'assoc-1', precheckRunId: PRE })
     expect(JSON.stringify(input)).not.toContain('305-555-0142')
     expect(JSON.stringify(input)).not.toContain('Sample Fence Co')
+  })
+
+  it('BL-079: passes photo references in the input and the images out of band', async () => {
+    const { db } = fakeDb({ data: ROW, error: null })
+    const review: ReviewFn = vi.fn(async () => ({ runId: 'run-2' }) as never)
+    const loadPhotos = vi.fn(async () => ({
+      photos: [{ attachmentId: '66666666-6666-4666-8666-666666666661', label: 'Photo 1' }],
+      images: ['data:image/jpeg;base64,AAAA'],
+      skipped: 2,
+    }))
+    const r = await runBoardArcReviewWith(db, { orgId: ORG, arcId: ARC }, { review, buildFacts, loadPhotos })
+    expect(r).toEqual({ ok: true, runId: 'run-2' })
+    expect(loadPhotos).toHaveBeenCalledWith(db, { orgId: ORG, arcId: ARC })
+    const [input, ctx] = (review as ReturnType<typeof vi.fn>).mock.calls[0]!
+    expect(input).toMatchObject({ photos: [{ attachmentId: '66666666-6666-4666-8666-666666666661', label: 'Photo 1' }], photosSkipped: 2 })
+    expect(JSON.stringify(input)).not.toContain('base64')
+    expect(ctx).toEqual({ organizationId: ORG, images: ['data:image/jpeg;base64,AAAA'] })
+  })
+
+  it('a photo loader that throws runs the review without photos', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const review: ReviewFn = vi.fn(async () => ({ runId: 'run-3' }) as never)
+    const loadPhotos = vi.fn(async () => {
+      throw new Error('storage down')
+    })
+    const r = await runBoardArcReviewWith(fakeDb({ data: ROW, error: null }).db, { orgId: ORG, arcId: ARC }, { review, buildFacts, loadPhotos })
+    expect(r.ok).toBe(true)
+    const [input, ctx] = (review as ReturnType<typeof vi.fn>).mock.calls[0]!
+    expect(input.photos).toEqual([])
+    expect(ctx).toEqual({ organizationId: ORG, images: [] })
+    spy.mockRestore()
   })
 
   it.each(['approved', 'denied', 'withdrawn'])('refuses a %s application', async (status) => {
