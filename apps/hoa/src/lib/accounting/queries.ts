@@ -3,6 +3,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { chunk, readAll } from '@/lib/supabase/read-all'
 import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone } from '@/lib/association-time'
+import { isClosingEntry, withoutClosingEntries } from './closing-entries'
 
 /**
  * Every read below throws on a query error instead of resolving to `[]` /
@@ -234,7 +235,9 @@ export interface BalanceSheet {
  * Position at end-of-business on `asOfDate`. Sums every posted ledger
  * line from inception through that date. Net income period-to-date is
  * included in the equity section as a memo — closing entries (Phase 6d)
- * move it out of income/expense into the named equity accounts.
+ * move it out of income/expense into the named equity accounts. A position
+ * report, so closing entries are deliberately KEPT here (BL-077: only
+ * period activity figures leave them out — see ./closing-entries.ts).
  */
 export async function computeBalanceSheet(
   associationId: string,
@@ -471,13 +474,16 @@ export async function computeIncomeStatementForRange(
 
 type IncomeStatementLines = Pick<IncomeStatement, 'income' | 'expenses' | 'totalIncome' | 'totalExpenses' | 'netIncome'>
 
-/** Aggregates the income/expense lines of a set of posted JEs under `basis`. */
+/** Aggregates the income/expense lines of a set of posted JEs under `basis`, closing entries left out. */
 async function incomeStatementLines(
   supabase: ServerClient,
   associationId: string,
   jeRows: { id: string; source: string }[],
   basis: AccountingBasis,
 ): Promise<IncomeStatementLines> {
+  // Year-end closing entries zero every income and expense account; they
+  // are not activity (BL-077, ./closing-entries.ts).
+  jeRows = withoutClosingEntries(jeRows)
   const jeIds = jeRows.map((r) => r.id)
   if (jeIds.length === 0) {
     return { income: [], expenses: [], totalIncome: 0, totalExpenses: 0, netIncome: 0 }
@@ -695,6 +701,9 @@ export async function computeCashFlow(
 
   const agg = new Map<string, CashFlowRow>()
   for (const je of periodJes) {
+    // A close moves income/expense into equity and never touches cash, so
+    // this is belt-and-braces: period movements are activity (BL-077).
+    if (isClosingEntry(je)) continue
     let cashDelta = 0
     for (const l of je.lines ?? []) {
       if (!cashIds.has(l.account_id)) continue
@@ -762,7 +771,8 @@ export interface BudgetVsActual {
 
 /**
  * Compares an approved (or draft) budget against actuals from
- * ledger_entries for the same period. Posted JEs only. Returns one
+ * ledger_entries for the same period. Posted JEs only, year-end closing
+ * entries left out (BL-077). Returns one
  * row per budget line item; accounts that have actuals but no budget
  * line are NOT shown (the manager budgets explicitly).
  *
@@ -817,11 +827,11 @@ export async function computeBudgetVsActual(
   const actualsByAccount = new Map<string, number>()
   if (accountIds.length > 0) {
     // Paged to the end: a year of entries passes the 1000-row cap.
-    const jes = await readAll<{ id: string }>(
+    const jes = await readAll<{ id: string; source: string }>(
       (from, to) => {
         let q = supabase
           .from('journal_entries')
-          .select('id')
+          .select('id, source')
           .eq('association_id', associationId)
           .eq('fiscal_period_id', b.fiscal_period_id)
           .eq('status', 'posted')
@@ -832,7 +842,9 @@ export async function computeBudgetVsActual(
       },
       queryFailed,
     )
-    const jeIds = jes.map((r) => r.id)
+    // Closing entries left out: a closed year's actuals are its activity,
+    // not the zero the close leaves behind (BL-077).
+    const jeIds = withoutClosingEntries(jes).map((r) => r.id)
     if (jeIds.length > 0) {
       const budgeted = new Set(accountIds)
       const lines = (
@@ -1495,7 +1507,9 @@ export interface TrialBalance {
 
 /** Compute a period-bounded trial balance from ledger_entries.
  *
- *  Posted entries only — drafts and reversed entries do not appear. We pull
+ *  Posted entries only — drafts and reversed entries do not appear. Closing
+ *  entries are KEPT (BL-077): a closed period's income and expense end at
+ *  zero and fund balance carries the result. We pull
  *  every line in the period in one query and aggregate in memory; for the
  *  data sizes a single HOA generates per period (low thousands of rows)
  *  this is cheaper than a per-account SQL aggregation.
