@@ -1,12 +1,14 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getResidentUnits } from '@/lib/resident'
 import { getResidentActor, IMPERSONATION_READONLY_MSG } from '@/lib/impersonation'
 import { loadOrFail, type LoadResult } from '@/lib/load-or-fail'
+import { closeArcReviewsOnWithdraw, startBoardArcReview } from '@/lib/arc-review/server'
 
 // ─── shared ──────────────────────────────────────────────────────────
 
@@ -95,6 +97,8 @@ const CreateArcSchema = z.object({
   proposed_completion: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a valid date.').nullable().optional(),
   contractor_name: z.string().trim().max(200).nullable().optional(),
   contractor_license: z.string().trim().max(100).nullable().optional(),
+  // BL-024: the resident's pre-check run, so the board can see what they were shown.
+  precheck_run_id: z.string().uuid().nullable().optional(),
 })
 
 export interface CreateArcInput {
@@ -106,6 +110,8 @@ export interface CreateArcInput {
   proposedCompletion?: string | null
   contractorName?: string | null
   contractorLicense?: string | null
+  /** BL-024: the W37 pre-check run id, when the resident ran "Check my request against the rules". */
+  precheckRunId?: string | null
 }
 
 /** The resident's ARC requests, or `{ ok: false }` when the read failed. */
@@ -146,6 +152,7 @@ export async function createArcRequest(
     proposed_completion: input.proposedCompletion ?? null,
     contractor_name: input.contractorName ?? null,
     contractor_license: input.contractorLicense ?? null,
+    precheck_run_id: input.precheckRunId ?? null,
   })
   if (!parsed.success) {
     return invalid(parsed.error)
@@ -196,6 +203,11 @@ export async function createArcRequest(
   if (error || !row) {
     return { ok: false, error: error?.message ?? 'Could not submit application.' }
   }
+
+  // BL-027: draft the board's AI review after the response is sent — the
+  // resident never waits on (or sees) it. Service role, ids only in logs.
+  const precheckRunId = parsed.data.precheck_run_id ?? null
+  after(() => startBoardArcReview({ orgId: org.id, arcId: row.id, precheckRunId }))
 
   revalidatePath('/')  // dashboard rollup
   revalidatePath('/resident')
@@ -295,13 +307,16 @@ export async function withdrawMyArcRequest(arcId: string): Promise<ActionResult>
     .eq('submitted_by', user.id)
     .in('status', ['submitted', 'in_review'])
     .is('deleted_at', null)
-    .select('id')
-    .maybeSingle<{ id: string }>()
+    .select('id, organization_id')
+    .maybeSingle<{ id: string; organization_id: string }>()
 
   if (error) return { ok: false, error: error.message }
   if (!row) {
     return { ok: false, error: 'This application can no longer be withdrawn.' }
   }
+
+  // BL-027: take the AI draft out of the board's approvals inbox.
+  after(() => closeArcReviewsOnWithdraw({ orgId: row.organization_id, arcId: row.id }))
 
   revalidatePath('/')
   revalidatePath('/resident/arc')

@@ -2,11 +2,13 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Send } from 'lucide-react'
+import { ListChecks, Send } from 'lucide-react'
 import { Alert, Button, Field, Input, Select, Textarea, useToast } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { createArcRequest, type ArcCategory } from '@/lib/resident-submissions'
 import type { ResidentUnit } from '@/lib/resident'
+import { responseErrorMessage } from '@/lib/api/client'
+import { ArcPrecheckResult, type ArcPrecheckResponse } from './ArcPrecheckResult'
 
 const CATEGORIES: Array<{ value: ArcCategory; label: string }> = [
   { value: 'paint', label: 'Exterior paint / stain' },
@@ -35,6 +37,50 @@ export function ArcRequestForm({
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const scopeRef = useRef<HTMLTextAreaElement>(null)
+  const formRef = useRef<HTMLFormElement>(null)
+  // BL-024: the optional rules check. Advisory; submitting never depends on it.
+  const [checking, setChecking] = useState(false)
+  const [precheck, setPrecheck] = useState<ArcPrecheckResponse | null>(null)
+  const [precheckError, setPrecheckError] = useState<string | null>(null)
+
+  async function checkRules() {
+    const form = formRef.current
+    if (!form) return
+    const fd = new FormData(form)
+    const text = (k: string) => String(fd.get(k) ?? '').trim()
+    const body = {
+      unitId: text('unit_id') || null,
+      category: text('category'),
+      summary: text('summary'),
+      scopeDescription: text('scope_description'),
+      proposedStart: text('proposed_start') || null,
+      proposedCompletion: text('proposed_completion') || null,
+      contractorName: text('contractor_name') || null,
+      contractorLicense: text('contractor_license') || null,
+    }
+    setPrecheckError(null)
+    if (!body.category || body.summary.length < 3 || body.scopeDescription.length < 10) {
+      setPrecheckError('Pick the type of change and describe it first, then check it against the rules.')
+      return
+    }
+    setChecking(true)
+    try {
+      const res = await fetch('/api/ai/arc-precheck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        setPrecheckError(await responseErrorMessage(res, 'The rules check isn’t available right now. You can still submit your application.'))
+        return
+      }
+      setPrecheck((await res.json()) as ArcPrecheckResponse)
+    } catch {
+      setPrecheckError('We couldn’t reach the server. You can still submit your application.')
+    } finally {
+      setChecking(false)
+    }
+  }
 
   function handleSubmit(formData: FormData) {
     setError(null)
@@ -51,6 +97,7 @@ export function ArcRequestForm({
         proposedCompletion: text('proposed_completion') || null,
         contractorName: text('contractor_name') || null,
         contractorLicense: text('contractor_license') || null,
+        precheckRunId: precheck?.runId ?? null,
       })
       if (!result.ok) {
         if (result.fieldErrors && Object.keys(result.fieldErrors).length > 0) setFieldErrors(result.fieldErrors)
@@ -65,7 +112,7 @@ export function ArcRequestForm({
   const singleUnit = units.length === 1 ? units[0] : null
 
   return (
-    <form action={handleSubmit} className="space-y-5" noValidate>
+    <form ref={formRef} action={handleSubmit} className="space-y-5" noValidate>
       {error ? <Alert variant="error" title="Couldn’t submit your application">{error}</Alert> : null}
 
       {singleUnit ? (
@@ -132,6 +179,8 @@ export function ArcRequestForm({
         </Field>
       </div>
 
+      <ArcPrecheckStep checking={checking} disabled={isPending} onCheck={checkRules} result={precheck} error={precheckError} />
+
       <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">
         <Button type="button" variant="ghost" onClick={() => router.back()} disabled={isPending}>
           Cancel
@@ -141,5 +190,46 @@ export function ArcRequestForm({
         </Button>
       </div>
     </form>
+  )
+}
+
+/**
+ * BL-024: the optional "Check my request against the rules" step. Exported
+ * for the rendered-HTML tests and previews.
+ */
+export function ArcPrecheckStep({
+  checking,
+  disabled,
+  onCheck,
+  result,
+  error,
+}: {
+  checking: boolean
+  disabled?: boolean
+  onCheck: () => void
+  result: ArcPrecheckResponse | null
+  error: string | null
+}) {
+  return (
+    <div className="space-y-3 rounded-xl border border-border bg-subtle p-4">
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-foreground">Optional: check before you submit</p>
+        <p className="text-xs text-foreground-secondary">
+          See which of your community’s rules likely apply and what the board will probably ask. Only the board decides.
+        </p>
+      </div>
+      <Button
+        type="button"
+        variant="secondary"
+        icon={<ListChecks aria-hidden />}
+        loading={checking}
+        disabled={disabled}
+        onClick={onCheck}
+      >
+        {result ? 'Check again' : 'Check my request against the rules'}
+      </Button>
+      {error ? <Alert variant="warning">{error}</Alert> : null}
+      {result ? <ArcPrecheckResult result={result} /> : null}
+    </div>
   )
 }

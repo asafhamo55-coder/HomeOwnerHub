@@ -19,7 +19,7 @@ import {
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { listVendorsResult } from '@/lib/vendors'
-import { loadBillSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
+import { loadArcSection, loadBillSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
 import {
   APPROVAL_SOURCES,
   SOURCE_META,
@@ -35,6 +35,7 @@ import { formatStamp, usd } from '@/lib/money/format'
 import { loadBillEditOptions } from '@/lib/bill-scan/load'
 import { vendorLabel } from '@/lib/bill-scan/proposal'
 import { ApprovalActions } from '@/components/approvals/ApprovalActions'
+import { ArcReviewActions } from '@/components/arc-review/ArcReviewActions'
 import { BillDetails } from './BillDetails'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
 import { guideHref } from '@/lib/guide'
@@ -54,16 +55,17 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const filter = parseApprovalFilter((await searchParams).type)
   const supabase = await getSupabaseServerClient()
 
-  const [w18, bills, w3, vendors, byAssociation] = await Promise.all([
+  const [w18, bills, w3, arc, vendors, byAssociation] = await Promise.all([
     loadW18Section(supabase, org.id),
     loadBillSection(supabase, org.id)
       .then((s) => withBillLinks(supabase, s))
       .then((s) => withBillEditOptions(supabase, org.id, s)),
     loadW3Section(supabase, org.id),
+    loadArcSection(supabase, org.id),
     listVendorsResult().then(vendorSection, () => ({ source: 'vendor', ok: false }) as const),
     loadVendorCountsByAssociation(supabase, org.id),
   ])
-  const inbox = buildInbox([w18, bills, w3, vendors], filter)
+  const inbox = buildInbox([w18, bills, w3, arc, vendors], filter)
 
   const tabs = [
     { label: 'All', href: '/approvals', active: filter === 'all', badge: inbox.total || null },
@@ -78,7 +80,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   return (
     <Page
       title="Approvals"
-      description="Everything the AI has proposed that needs a board decision — deposits to post, bills to enter, violation letters, vendors. Nothing here happens until someone approves it."
+      description="Everything the AI has proposed that needs a board decision — deposits to post, bills to enter, violation letters, ARC reviews, vendors. Nothing here happens until someone approves it."
       linkAs={Link}
       meta={inbox.total ? <StatusPill tone="ai" label={`${inbox.total} waiting`} /> : undefined}
       tabs={<Tabs items={tabs} aria-label="Approval types" linkAs={Link} />}
@@ -88,7 +90,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           icon={<CheckCircle2 aria-hidden />}
           title="Nothing waiting on the board"
           secondaryAction={<HowThisWorks href={guideHref('approvals-queue')} />}
-          description="New AI proposals — deposit matches, scanned bills, violation drafts, vendor results — land here for a decision."
+          description="New AI proposals — deposit matches, scanned bills, violation drafts, ARC reviews, vendor results — land here for a decision."
           action={
             <Button asChild variant="secondary">
               <Link href="/">Back to the dashboard</Link>
@@ -186,6 +188,18 @@ const COLUMNS: DataTableColumn<InboxItem>[] = [
         <p className="font-medium text-foreground">{item.title}</p>
         {item.detail ? <p className="line-clamp-2 text-xs text-foreground-secondary">{item.detail}</p> : null}
         {item.bill ? <BillDetails bill={item.bill} approvalRequestId={item.id} /> : null}
+        {item.arc && item.arc.conditions.length > 0 ? (
+          <ul className="list-disc space-y-0.5 pl-5 text-xs text-foreground-secondary" aria-label="Suggested conditions">
+            {item.arc.conditions.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+        ) : null}
+        {item.arc?.warnings.map((w) => (
+          <p key={w} className="text-xs text-warning">
+            {w}
+          </p>
+        ))}
         {item.reasoning ? (
           <p className="flex items-start gap-1.5 text-xs text-foreground-secondary">
             <Sparkles className="mt-0.5 size-3.5 shrink-0 text-accent-fg" aria-hidden />
@@ -224,9 +238,23 @@ const COLUMNS: DataTableColumn<InboxItem>[] = [
     key: 'actions',
     header: <span className="sr-only">Decision</span>,
     className: 'md:w-px md:whitespace-nowrap',
-    cell: (item) => (
-      <ApprovalActions decision={item.decision} title={item.title} amountLabel={amountLabel(item)} href={item.href} />
-    ),
+    cell: (item) =>
+      item.arc ? (
+        // BL-027: decided by the existing ARC actions; the AI draft only pre-fills the text.
+        <div className="flex flex-col items-end gap-2">
+          <ArcReviewActions arcId={item.arc.arcId} title={item.title} drafts={item.arc.drafts} suggestion={item.arc.suggestion} />
+          <Link href={item.href} className="text-xs font-medium text-primary">
+            Open application
+          </Link>
+        </div>
+      ) : (
+        <ApprovalActions
+          decision={item.decision?.kind === 'arc' ? null : item.decision}
+          title={item.title}
+          amountLabel={amountLabel(item)}
+          href={item.href}
+        />
+      ),
   },
 ]
 

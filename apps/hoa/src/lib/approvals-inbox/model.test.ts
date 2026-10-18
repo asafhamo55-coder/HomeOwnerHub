@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   approvalsBadge,
+  arcItems,
   billItems,
+  decisionId,
   buildInbox,
   canUseApprovals,
   parseApprovalFilter,
@@ -166,7 +168,7 @@ describe('vendor queue predicate and items', () => {
 })
 
 describe('buildInbox (aggregation)', () => {
-  const ok = (source: 'w18' | 'bill' | 'w3' | 'vendor', n: number, total = n): InboxSection => ({
+  const ok = (source: 'w18' | 'bill' | 'w3' | 'arc' | 'vendor', n: number, total = n): InboxSection => ({
     source,
     ok: true,
     total,
@@ -187,16 +189,16 @@ describe('buildInbox (aggregation)', () => {
   })
 
   it('counts each source and the total from the totals, not just the rows shown', () => {
-    const inbox = buildInbox([ok('w18', 2, 120), ok('bill', 2), ok('w3', 1), ok('vendor', 0)], 'all')
-    expect(inbox.counts).toEqual({ w18: 120, bill: 2, w3: 1, vendor: 0 })
-    expect(inbox.total).toBe(123)
+    const inbox = buildInbox([ok('w18', 2, 120), ok('bill', 2), ok('w3', 1), ok('arc', 3), ok('vendor', 0)], 'all')
+    expect(inbox.counts).toEqual({ w18: 120, bill: 2, w3: 1, arc: 3, vendor: 0 })
+    expect(inbox.total).toBe(126)
     expect(inbox.anyFailed).toBe(false)
     expect(inbox.allClear).toBe(false)
-    expect(inbox.sections.map((s) => s.source)).toEqual(['w18', 'bill', 'w3', 'vendor'])
+    expect(inbox.sections.map((s) => s.source)).toEqual(['w18', 'bill', 'w3', 'arc', 'vendor'])
   })
 
   it('a failed source has an unknown count and the total is unknown — never 0', () => {
-    const inbox = buildInbox([ok('w18', 0), ok('bill', 0), { source: 'w3', ok: false }, ok('vendor', 0)], 'all')
+    const inbox = buildInbox([ok('w18', 0), ok('bill', 0), { source: 'w3', ok: false }, ok('arc', 0), ok('vendor', 0)], 'all')
     expect(inbox.counts.w3).toBeNull()
     expect(inbox.total).toBeNull()
     expect(inbox.anyFailed).toBe(true)
@@ -205,39 +207,41 @@ describe('buildInbox (aggregation)', () => {
   })
 
   it('is all clear only when every source loaded and is empty', () => {
-    expect(buildInbox([ok('w18', 0), ok('bill', 0), ok('w3', 0), ok('vendor', 0)], 'all').allClear).toBe(true)
+    expect(buildInbox([ok('w18', 0), ok('bill', 0), ok('w3', 0), ok('arc', 0), ok('vendor', 0)], 'all').allClear).toBe(true)
+    // BL-027: an ARC source that never loaded is unknown, not empty.
+    expect(buildInbox([ok('w18', 0), ok('bill', 0), ok('w3', 0), ok('vendor', 0)], 'all').allClear).toBe(false)
     // BL-021: a bill source that never loaded is unknown, not empty.
     expect(buildInbox([ok('w18', 0), ok('w3', 0), ok('vendor', 0)], 'all').allClear).toBe(false)
   })
 
   it('a type filter shows only that section but keeps every count for the tabs', () => {
-    const inbox = buildInbox([ok('w18', 2), ok('bill', 4), ok('w3', 1), { source: 'vendor', ok: false }], 'w3')
+    const inbox = buildInbox([ok('w18', 2), ok('bill', 4), ok('w3', 1), ok('arc', 2), { source: 'vendor', ok: false }], 'w3')
     expect(inbox.sections.map((s) => s.source)).toEqual(['w3'])
-    expect(inbox.counts).toEqual({ w18: 2, bill: 4, w3: 1, vendor: null })
+    expect(inbox.counts).toEqual({ w18: 2, bill: 4, w3: 1, arc: 2, vendor: null })
   })
 
   it('orders sections by source regardless of input order', () => {
-    const inbox = buildInbox([ok('vendor', 1), ok('w3', 1), ok('bill', 1), ok('w18', 1)], 'all')
-    expect(inbox.sections.map((s) => s.source)).toEqual(['w18', 'bill', 'w3', 'vendor'])
+    const inbox = buildInbox([ok('vendor', 1), ok('arc', 1), ok('w3', 1), ok('bill', 1), ok('w18', 1)], 'all')
+    expect(inbox.sections.map((s) => s.source)).toEqual(['w18', 'bill', 'w3', 'arc', 'vendor'])
   })
 })
 
 describe('approvalsBadge (sidebar)', () => {
   it('shows the total when every count loaded', () => {
-    expect(approvalsBadge({ w18: 2, bill: 1, w3: 1, vendor: 0 })).toBe('4')
+    expect(approvalsBadge({ w18: 2, bill: 1, w3: 1, arc: 0, vendor: 0 })).toBe('4')
   })
   it('shows no badge for zero', () => {
-    expect(approvalsBadge({ w18: 0, bill: 0, w3: 0, vendor: 0 })).toBeNull()
+    expect(approvalsBadge({ w18: 0, bill: 0, w3: 0, arc: 0, vendor: 0 })).toBeNull()
   })
   it('shows no badge — not 0 — when a count failed and nothing else is known', () => {
-    expect(approvalsBadge({ w18: null, bill: 0, w3: 0, vendor: 0 })).toBeNull()
-    expect(approvalsBadge({ w18: null, bill: null, w3: null, vendor: null })).toBeNull()
+    expect(approvalsBadge({ w18: null, bill: 0, w3: 0, arc: 0, vendor: 0 })).toBeNull()
+    expect(approvalsBadge({ w18: null, bill: null, w3: null, arc: 0, vendor: null })).toBeNull()
   })
   it('marks a partial count as a lower bound', () => {
-    expect(approvalsBadge({ w18: 2, bill: null, w3: null, vendor: 1 })).toBe('3+')
+    expect(approvalsBadge({ w18: 2, bill: null, w3: null, arc: 0, vendor: 1 })).toBe('3+')
   })
   it('caps at 99+', () => {
-    expect(approvalsBadge({ w18: 150, bill: 0, w3: 0, vendor: 0 })).toBe('99+')
+    expect(approvalsBadge({ w18: 150, bill: 0, w3: 0, arc: 0, vendor: 0 })).toBe('99+')
   })
 })
 
@@ -329,5 +333,53 @@ describe('billItems (BL-021)', () => {
 
   it('the bill source has its own tab', () => {
     expect(parseApprovalFilter('bill')).toBe('bill')
+  })
+})
+
+describe('arcItems (BL-027)', () => {
+  const ARC = '44444444-4444-4444-8444-444444444444'
+  const output = {
+    mode: 'review',
+    status: 'answered',
+    summary: 'Front fences are limited to 4 feet.',
+    confidence: 'HIGH',
+    rules: [
+      { chunkId: 'c1', documentId: 'd1', docType: 'rules', section: '4.2', point: 'Front fences may not exceed 4 feet.', status: 'possible_conflict' },
+      { chunkId: 'c2', documentId: 'd1', docType: 'rules', section: '4.2', point: 'No chain-link.', status: 'fits' },
+    ],
+    questions: [],
+    missingInfo: [],
+    suggestion: { decision: 'deny', reasoning: 'The fence is 6 feet in the front yard.', conditions: [] },
+    warnings: [],
+    disclaimer: 'A suggestion only.',
+  }
+
+  it('maps a pending W37 draft to an item decided by the ARC actions', () => {
+    const [item] = arcItems([{ id: 'r1', created_at: T1, input: { mode: 'review', arcRequestId: ARC, facts: { summary: 'Front fence' } }, output }])
+    expect(item).toMatchObject({
+      source: 'arc',
+      id: 'r1',
+      title: 'Front fence',
+      detail: 'Front fences are limited to 4 feet.',
+      reasoning: 'The fence is 6 feet in the front yard.',
+      citations: ['Rules § 4.2'],
+      confidenceLabel: 'Suggests: Deny',
+      href: `/arc/${ARC}`,
+      decision: { kind: 'arc', runId: 'r1', arcId: ARC },
+    })
+    expect(item!.arc?.drafts.denied).toBe('The application conflicts with:\n- Rules § 4.2: Front fences may not exceed 4 feet.')
+    expect(decisionId(item!.decision!)).toBe('r1')
+  })
+
+  it('a refusal still lists, with no suggestion', () => {
+    const [item] = arcItems([
+      { id: 'r2', created_at: T2, input: { arcRequestId: ARC, facts: { summary: 'Lawn' } }, output: { ...output, status: 'no_rules', rules: [], suggestion: null } },
+    ])
+    expect(item).toMatchObject({ confidenceLabel: 'No suggestion', reasoning: null, citations: [] })
+    expect(item!.arc?.suggestion).toBeNull()
+  })
+
+  it('skips a run that names no application', () => {
+    expect(arcItems([{ id: 'r3', created_at: T3, input: {}, output }])).toEqual([])
   })
 })

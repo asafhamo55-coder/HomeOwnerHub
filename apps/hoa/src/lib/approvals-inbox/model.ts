@@ -10,6 +10,9 @@
 //          — the AI-drafted violation letters.
 //   bill   approval_requests rows (action_type 'w36.ap_bill', status
 //          'proposed') — vendor bills W36 read from an upload (BL-021).
+//   arc    ai_runs rows (workflow_id 'W37', status 'pending_human_approval')
+//          — the AI's review draft for a submitted ARC application
+//          (BL-027). Decided by the existing ARC actions, never here.
 //   vendor the W21 vendor approval queue (/vendors/approval-queue):
 //          compliant prospects plus yellow/red/missing compliance.
 //
@@ -20,8 +23,17 @@
 // module's own page instead.
 
 import { billMissing, billNeedsCheck, readBillPayload, type BillProposalPayload } from '../bill-scan/proposal'
+import {
+  SUGGESTION_LABEL,
+  citationLabel,
+  draftFor,
+  readArcReviewOutput,
+  runSummary,
+  type ArcSuggestedDecision,
+  type BoardArcDecision,
+} from '../arc-review/model'
 
-export const APPROVAL_SOURCES = ['w18', 'bill', 'w3', 'vendor'] as const
+export const APPROVAL_SOURCES = ['w18', 'bill', 'w3', 'arc', 'vendor'] as const
 export type ApprovalSource = (typeof APPROVAL_SOURCES)[number]
 export type ApprovalFilter = 'all' | ApprovalSource
 
@@ -66,6 +78,15 @@ export const SOURCE_META: Record<ApprovalSource, SourceMeta> = {
     queueLabel: 'Open the violation drafts',
     what: 'violation drafts',
   },
+  arc: {
+    title: 'ARC reviews',
+    tab: 'ARC reviews',
+    description:
+      'The AI’s cited review of each new architectural application, with a suggested decision. It decides nothing: the board approves, denies or asks for more, and the resident sees only what the board sends.',
+    queueHref: '/arc',
+    queueLabel: 'Open ARC review',
+    what: 'ARC reviews',
+  },
   vendor: {
     title: 'Vendors',
     tab: 'Vendors',
@@ -85,10 +106,14 @@ export type InboxDecisionTarget =
   | { kind: 'w3'; runId: string }
   /** A prospect: rejectable always; approvable only when compliance is green (approveVendor's gate). */
   | { kind: 'vendor'; vendorId: string; canApprove: boolean }
+  /** BL-027: decided by the ARC actions (respondToArcRequest / requestArcInfo), not decideApproval. */
+  | { kind: 'arc'; runId: string; arcId: string }
 
 /** The id the decision endpoint takes for a target. */
 export function decisionId(d: InboxDecisionTarget): string {
-  return d.kind === 'w18' || d.kind === 'bill' ? d.approvalRequestId : d.kind === 'w3' ? d.runId : d.vendorId
+  if (d.kind === 'w18' || d.kind === 'bill') return d.approvalRequestId
+  if (d.kind === 'w3' || d.kind === 'arc') return d.runId
+  return d.vendorId
 }
 
 export interface InboxItem {
@@ -112,6 +137,18 @@ export interface InboxItem {
   decision: InboxDecisionTarget | null
   /** BL-021: the extracted bill, for the card's field list. Absent for other sources and for an unreadable payload. */
   bill?: BillCard
+  /** BL-027: what the ARC decision buttons need. Absent for other sources. */
+  arc?: ArcCard
+}
+
+export interface ArcCard {
+  arcId: string
+  runId: string
+  suggestion: ArcSuggestedDecision | null
+  /** Editable starting text per decision; '' when the AI gave nothing to start from. */
+  drafts: Record<BoardArcDecision, string>
+  conditions: string[]
+  warnings: string[]
 }
 
 export interface BillCard {
@@ -338,6 +375,51 @@ export function w3Items(runs: W3RunRow[]): InboxItem[] {
       href: '/violations/approval-queue',
       decision: str(output.notice) ? { kind: 'w3', runId: r.id } : null,
     }
+  })
+}
+
+export interface ArcRunRow {
+  id: string
+  created_at: string | null
+  input: unknown
+  output: unknown
+}
+
+/**
+ * BL-027: W37 review drafts. Each links to its application; the decision is
+ * the board's, through the ARC actions. A refusal ("no rules apply") still
+ * lists, with no suggestion, so the application is not lost.
+ */
+export function arcItems(runs: ArcRunRow[]): InboxItem[] {
+  return runs.flatMap((r) => {
+    const arcId = str(obj(r.input).arcRequestId)
+    if (!arcId) return []
+    const out = readArcReviewOutput(r.output)
+    const suggestion = out?.suggestion?.decision ?? null
+    return [
+      {
+        source: 'arc' as const,
+        id: r.id,
+        title: runSummary(r.input) ?? 'ARC application',
+        detail: excerpt(out?.summary ?? null),
+        amount: null,
+        amountNote: null,
+        createdAt: r.created_at,
+        reasoning: out?.suggestion?.reasoning || null,
+        citations: [...new Set((out?.rules ?? []).map(citationLabel))],
+        confidenceLabel: suggestion ? `Suggests: ${SUGGESTION_LABEL[suggestion]}` : 'No suggestion',
+        href: `/arc/${arcId}`,
+        decision: { kind: 'arc' as const, runId: r.id, arcId },
+        arc: {
+          arcId,
+          runId: r.id,
+          suggestion,
+          drafts: { approved: draftFor(out, 'approved'), denied: draftFor(out, 'denied'), more_info: draftFor(out, 'more_info') },
+          conditions: out?.suggestion?.conditions ?? [],
+          warnings: out?.warnings ?? [],
+        },
+      },
+    ]
   })
 }
 
