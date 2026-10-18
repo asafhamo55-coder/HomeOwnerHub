@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { X } from 'lucide-react'
 import { FilterChips, SearchForm, cn } from '@homeowner-portal/ui'
 import {
+  DEFAULT_SORT_DIR,
   MENU_FILTER_LABELS,
   isMenuFilter,
   propertyListHref,
@@ -13,16 +14,18 @@ import {
 import type { PropertyFilterCounts } from '@/lib/properties/list-view'
 import { PropertyFilterMenu } from './PropertyFilterMenu'
 
+// Phones only: from `md` the table's column headers are the sort.
 const SORTS: Array<{ key: PropertySort; label: string }> = [
   { key: 'severity', label: 'Severity' },
   { key: 'address', label: 'Address' },
   { key: 'balance', label: 'Balance' },
+  { key: 'activity', label: 'Recent' },
 ]
 
 /**
  * Search, the two views boards actually switch between ("All" and "Needs
- * attention"), and everything else behind one "Filters" menu. Was seven
- * chips in a wrapping row, which at 375 took three lines above the list.
+ * attention"), and everything else behind one "Filters" menu, on one
+ * toolbar row above the full-width table (it wraps on phones).
  *
  * Every count comes from the same read as the list, so with a search
  * active they count the homes that search found — "Needs attention 1" means
@@ -41,19 +44,23 @@ export function PropertyListFilters({
   const menuFilter = isMenuFilter(params.filter) ? params.filter : null
 
   return (
-    <div className="space-y-3 border-b border-border p-3">
+    <div className="space-y-3">
+      <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
       <SearchForm
         action="/properties"
         label="Search properties"
-        placeholder="Search address, unit, owner, email"
+        placeholder="Search address, name, email or phone"
         defaultValue={params.search}
         // A new search covers every home: the filter is deliberately NOT
         // kept. Searching inside "Needs attention" is how a board member
         // typed a real address and was told no such home exists.
-        keep={{ sort: params.sort !== 'severity' ? params.sort : null }}
+        keep={{
+          sort: params.sort !== 'severity' ? params.sort : null,
+          dir: params.dir !== DEFAULT_SORT_DIR[params.sort] ? params.dir : null,
+        }}
         clearHref={propertyListHref(params, { search: '', page: 1 })}
         linkAs={Link}
-        className="sm:w-full"
+        className="md:w-80"
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -86,8 +93,9 @@ export function PropertyListFilters({
           </Link>
         ) : null}
       </div>
+      </div>
 
-      <div className="flex items-center gap-1 text-xs text-muted">
+      <div className="flex items-center gap-1 text-xs text-muted md:hidden">
         <span className="mr-1 font-medium">Sort by</span>
         {SORTS.map((s) => {
           const active = params.sort === s.key
@@ -97,7 +105,7 @@ export function PropertyListFilters({
               href={propertyListHref(params, { sort: s.key, page: 1 })}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'rounded-md px-2 py-1 no-underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'inline-flex h-10 items-center rounded-md px-2.5 no-underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 active ? 'bg-subtle font-semibold text-foreground' : 'hover:bg-subtle hover:text-foreground',
               )}
             >
@@ -106,6 +114,17 @@ export function PropertyListFilters({
           )
         })}
       </div>
+      {params.sort === 'severity' ? (
+        <p className="hidden text-xs text-muted md:block">
+          What needs action comes first. Select a column heading to sort by it; ↑ and ↓ move between homes.
+        </p>
+      ) : (
+        <p className="hidden text-xs text-muted md:block">
+          <Link href={propertyListHref(params, { sort: 'severity', page: 1 })} className="text-primary">
+            Sort by what needs action
+          </Link>
+        </p>
+      )}
     </div>
   )
 }

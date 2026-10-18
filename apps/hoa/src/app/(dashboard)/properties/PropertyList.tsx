@@ -1,33 +1,60 @@
 import Link from 'next/link'
-import { Building2, Plus, Search } from 'lucide-react'
-import { Badge, Button, EmptyState, cn } from '@homeowner-portal/ui'
+import { Building2, Clock, Plus, Search } from 'lucide-react'
+import { Badge, Button, DataTable, EmptyState, StatusBadge, cn, type DataTableColumn } from '@homeowner-portal/ui'
 import { TENURE } from '@/lib/status/community'
 import type { PropertyListRow } from '@/lib/properties/list'
-import { propertyListHref, propertyListQuery, type PropertyListParams } from '@/lib/properties/list-params'
+import type { ActivityKind } from '@/lib/properties/list-signals'
+import {
+  DEFAULT_SORT_DIR,
+  propertyListHref,
+  propertyListQuery,
+  type PropertyListParams,
+  type PropertySort,
+} from '@/lib/properties/list-params'
+import { propertyHref } from '@/lib/properties/href'
+import { asPropertyId } from '@/lib/properties/resolve'
 import {
   emptyListMessage,
-  reasonPills,
   severityDotClass,
   severityLabel,
   severityTone,
+  statusLine,
   streetOf,
 } from '@/lib/properties/severity'
+import { formatShortDate } from '@/lib/format-datetime'
+import { ContactIcons } from '@/components/contact/ContactIcons'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
 import { guideHref } from '@/lib/guide'
+import { RowKeyNav } from './RowKeyNav'
 
 function money(n: number): string {
-  return n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 }
 
+const ACTIVITY_LABEL: Record<ActivityKind, string> = {
+  history: 'Record change',
+  violation: 'Violation',
+  arc: 'ARC',
+  mail: 'Email',
+  payment: 'Payment',
+}
+
+/**
+ * The properties list: a dense, sortable table from `md` up (every
+ * header sorts — the sort is a URL, list-params.ts), and cards on phones
+ * (street, owner, balance, one status line, tap-to-call). The whole row
+ * opens the home: the address link is stretched over its row, with the
+ * contact icons raised above it. ↑/↓ (or j/k) move between rows.
+ */
 export function PropertyList({
   rows,
-  selectedId,
   params,
   noPropertiesYet = false,
   allMatches = null,
+  signalsOk = true,
+  footer,
 }: {
   rows: PropertyListRow[]
-  selectedId?: string
   params: PropertyListParams
   /**
    * True only when the org-wide count loaded AND is zero. Then every
@@ -39,11 +66,14 @@ export function PropertyList({
   /** How many homes the search matches across ALL filters (null = unknown).
    *  Lets an empty filtered search point at matches the filter hid. */
   allMatches?: number | null
+  /** False when open ARC / last activity couldn't be read. */
+  signalsOk?: boolean
+  /** The Pager, inside the frame. */
+  footer?: React.ReactNode
 }) {
   if (rows.length === 0 && noPropertiesYet && !params.search) {
     return (
       <EmptyState
-        variant="compact"
         icon={<Building2 aria-hidden />}
         title="No properties yet"
         secondaryAction={<HowThisWorks href={guideHref('setup-properties-residents')} />}
@@ -64,7 +94,6 @@ export function PropertyList({
     const elsewhere = params.filter !== 'all' && allMatches !== null && allMatches > 0
     return (
       <EmptyState
-        variant="compact"
         icon={<Search aria-hidden />}
         title={`No ${params.filter === 'attention' ? 'homes needing attention' : 'homes'}${
           params.filter !== 'all' && params.filter !== 'attention' ? ' in this view' : ''
@@ -72,7 +101,7 @@ export function PropertyList({
         description={
           elsewhere
             ? `${allMatches} ${allMatches === 1 ? 'home matches' : 'homes match'} in All.`
-            : 'Search looks at the address, unit, owner name and email. Try part of the street name or the house number.'
+            : 'Search looks at the address, unit, owner name, email and phone, and at everyone living there. Try part of the street name or the house number.'
         }
         action={
           elsewhere ? (
@@ -92,7 +121,6 @@ export function PropertyList({
   if (rows.length === 0) {
     return (
       <EmptyState
-        variant="compact"
         icon={<Building2 aria-hidden />}
         title="Nothing in this view"
         description={emptyListMessage(params.filter)}
@@ -111,91 +139,231 @@ export function PropertyList({
     )
   }
 
+  // The list state rides along to the property page, so its back link
+  // returns to this exact view.
   const query = propertyListQuery(params)
-  const qs = query ? `?${query}` : ''
+  const open = (row: PropertyListRow) => propertyHref(asPropertyId(row.id), { query })
+
+  // An inactive column's header starts in that column's natural direction
+  // (balance biggest first); the active one toggles.
+  const sortHref = (key: string, direction: 'asc' | 'desc') => {
+    const sort = key as PropertySort
+    const dir = sort === params.sort ? direction : DEFAULT_SORT_DIR[sort]
+    return propertyListHref(params, { sort, dir, page: 1 })
+  }
+
+  const unknown = (
+    <span className="text-muted" title="Couldn’t load">
+      —<span className="sr-only"> (couldn’t load)</span>
+    </span>
+  )
+
+  const columns: DataTableColumn<PropertyListRow>[] = [
+    {
+      key: 'address',
+      header: 'Address · Unit',
+      sortable: true,
+      className: 'w-[26%] min-w-[13rem]',
+      cell: (row) => {
+        const tone = severityTone(row.severityRank)
+        return (
+          <span className="flex min-w-0 items-center gap-2">
+            <span className={cn('size-2 shrink-0 rounded-full', severityDotClass(tone))} title={severityLabel(row.severityRank)} aria-hidden />
+            <Link
+              href={open(row)}
+              data-row-link
+              title={row.address}
+              className="min-w-0 truncate font-medium text-foreground no-underline after:absolute after:inset-0 hover:text-primary focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
+            >
+              {streetOf(row.address)}
+              {row.unitNumber ? <span className="font-normal text-muted"> · {row.unitNumber}</span> : null}
+              <span className="sr-only">, {severityLabel(row.severityRank)}</span>
+            </Link>
+          </span>
+        )
+      },
+    },
+    {
+      key: 'owner',
+      header: 'Owner',
+      sortable: true,
+      className: 'max-w-[14rem]',
+      cell: (row) =>
+        row.ownerName ? (
+          <span className="block truncate" title={row.ownerName}>
+            {row.ownerName}
+          </span>
+        ) : (
+          <span className="text-muted">No owner on file</span>
+        ),
+    },
+    {
+      key: 'contact',
+      header: 'Contact',
+      sortable: true,
+      className: 'py-0',
+      cell: (row) =>
+        row.ownerPhone || row.ownerEmail ? (
+          <ContactIcons name={row.ownerName} phone={row.ownerPhone} email={row.ownerEmail} raised className="-my-1" />
+        ) : (
+          <span className="text-muted">—</span>
+        ),
+    },
+    {
+      key: 'tenure',
+      header: 'Tenure',
+      sortable: true,
+      hideBelowLg: true,
+      cell: (row) => (
+        <span className="inline-flex flex-wrap items-center gap-1">
+          {row.tenure && row.tenure !== 'unknown' ? (
+            <StatusBadge status={row.tenure} tones={TENURE.tones} labels={TENURE.labels} size="sm" />
+          ) : (
+            <span className="text-muted">Not recorded</span>
+          )}
+          {row.onWaitingList ? (
+            <Badge variant="default" size="sm">
+              Waiting list
+            </Badge>
+          ) : null}
+        </span>
+      ),
+    },
+    {
+      key: 'balance',
+      header: 'Balance',
+      sortable: true,
+      numeric: true,
+      cell: (row) =>
+        row.balance > 0 ? (
+          <span className="inline-flex items-baseline justify-end gap-1.5 whitespace-nowrap">
+            <span className={cn('font-medium', row.daysOverdue > 0 && 'text-danger')}>{money(row.balance)}</span>
+            <span className={cn('text-xs', row.daysOverdue > 0 ? 'text-danger' : 'text-muted')}>
+              {row.daysOverdue > 0 ? `${row.daysOverdue}d overdue` : 'not due'}
+            </span>
+          </span>
+        ) : (
+          <span className="text-muted">$0</span>
+        ),
+    },
+    {
+      key: 'violations',
+      header: 'Violations',
+      sortable: true,
+      numeric: true,
+      cell: (row) =>
+        row.openViolations > 0 ? (
+          <span className="inline-flex items-center justify-end gap-1.5 whitespace-nowrap">
+            {row.violationsPastCure > 0 ? (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-danger">
+                <Clock className="size-3.5" aria-hidden />
+                {row.violationsPastCure} past cure
+              </span>
+            ) : null}
+            <span className={cn('font-medium', row.violationsPastCure > 0 ? 'text-danger' : 'text-foreground')}>
+              {row.openViolations}
+              <span className="sr-only"> open</span>
+            </span>
+          </span>
+        ) : (
+          <span className="text-muted">0</span>
+        ),
+    },
+    {
+      key: 'arc',
+      header: 'Open ARC',
+      sortable: true,
+      numeric: true,
+      hideBelowLg: true,
+      cell: (row) =>
+        row.openArc === null ? (
+          unknown
+        ) : row.openArc > 0 ? (
+          <span className="font-medium text-warning">{row.openArc}</span>
+        ) : (
+          <span className="text-muted">0</span>
+        ),
+    },
+    {
+      key: 'activity',
+      header: 'Last activity',
+      sortable: true,
+      hideBelowLg: true,
+      cell: (row) =>
+        !signalsOk ? (
+          unknown
+        ) : row.lastActivityAt ? (
+          <span className="whitespace-nowrap">
+            <time dateTime={row.lastActivityAt} className="num text-foreground-secondary">
+              {formatShortDate(row.lastActivityAt)}
+            </time>
+            {row.lastActivityKind ? <span className="ml-1.5 text-xs text-muted">{ACTIVITY_LABEL[row.lastActivityKind]}</span> : null}
+          </span>
+        ) : (
+          <span className="text-muted" title="Nothing recorded in the last 12 months">
+            None this year
+          </span>
+        ),
+    },
+  ]
 
   return (
-    <ul className="divide-y divide-border">
-      {rows.map((row) => {
-        const tone = severityTone(row.severityRank)
-        const pills = reasonPills(row)
-        const selected = row.id === selectedId
-        // Straight off the view (0051) rather than a side lookup, so the
-        // pill and the "Waiting list" filter chip can never disagree about
-        // which rows are queued.
-        const onWaitingList = row.onWaitingList
-        return (
-          <li key={row.id}>
-            <Link
-              href={`/properties/${row.id}${qs}`}
-              aria-current={selected ? 'page' : undefined}
-              className={cn(
-                'relative block px-4 py-3 no-underline transition-colors duration-fast hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
-                selected && 'bg-primary-subtle/60 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary hover:bg-primary-subtle/80',
-              )}
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="flex min-w-0 items-center gap-2">
-                  <span
-                    className={`h-2 w-2 shrink-0 rounded-full ${severityDotClass(tone)}`}
-                    title={severityLabel(row.severityRank)}
-                    aria-hidden
-                  />
-                  <span className="sr-only">{severityLabel(row.severityRank)}</span>
-                  <span
-                    className="truncate text-sm font-semibold text-foreground"
+    <RowKeyNav className="overflow-hidden rounded-xl border border-border bg-surface">
+      <div className="hidden md:block">
+        <DataTable
+          caption="Properties"
+          framed={false}
+          density="compact"
+          columns={columns}
+          rows={rows}
+          rowKey={(r) => r.id}
+          rowClassName={() => 'relative'}
+          sort={params.sort === 'severity' ? undefined : { key: params.sort, direction: params.dir }}
+          sortHref={sortHref}
+          linkAs={Link}
+        />
+      </div>
+
+      <ul className="divide-y divide-border md:hidden" aria-label="Properties">
+        {rows.map((row) => {
+          const status = statusLine(row)
+          return (
+            <li key={row.id} data-row className="relative flex items-center gap-2 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <Link
+                    href={open(row)}
+                    data-row-link
                     title={row.address}
+                    className="min-w-0 truncate text-sm font-semibold text-foreground no-underline after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
                   >
                     {streetOf(row.address)}
-                    {row.unitNumber ? (
-                      <span className="font-normal text-muted"> · {row.unitNumber}</span>
-                    ) : null}
-                  </span>
-                </span>
-                {row.balance > 0 ? (
-                  <span className="num shrink-0 text-xs font-semibold text-danger">
-                    {money(row.balance)}
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-0.5 truncate pl-4 text-xs text-muted">
-                {/* `tenure` is an enum whose values include the literal
-                    'unknown'. Rendering it printed the word "unknown"
-                    beside every owner name on every row, which reads as
-                    broken software rather than as absent data. An unknown
-                    tenure now simply shows nothing. */}
-                {[
-                  row.ownerName ?? 'No owner on file',
-                  row.tenure && row.tenure !== 'unknown'
-                    ? (TENURE.labels[row.tenure] ?? row.tenure)
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </p>
-              {pills.length > 0 || onWaitingList ? (
-                <div className="flex flex-wrap gap-1 pl-4 pt-1.5">
-                  {pills.map((p) => (
-                    <Badge
-                      key={p.text}
-                      variant={p.tone === 'red' ? 'danger' : p.tone === 'amber' ? 'warning' : 'neutral'}
-                    >
-                      {p.text}
-                    </Badge>
-                  ))}
-                  {/* Deliberately not a reasonPill: the severity pills all
-                      mean "someone must act on this property", and sitting
-                      in a queue is a state, not a problem. Primary tint
-                      keeps it visually separate from red/amber work. */}
-                  {onWaitingList ? (
-                    <Badge variant="default">Waiting list</Badge>
+                    {row.unitNumber ? <span className="font-normal text-muted"> · {row.unitNumber}</span> : null}
+                  </Link>
+                  {row.balance > 0 ? (
+                    <span className={cn('num shrink-0 text-sm font-semibold', row.daysOverdue > 0 ? 'text-danger' : 'text-foreground')}>
+                      {money(row.balance)}
+                    </span>
                   ) : null}
                 </div>
-              ) : null}
-            </Link>
-          </li>
-        )
-      })}
-    </ul>
+                <p className="truncate text-xs text-muted">{row.ownerName ?? 'No owner on file'}</p>
+                <p
+                  className={cn(
+                    'mt-0.5 truncate text-xs font-medium',
+                    status.tone === 'danger' ? 'text-danger' : status.tone === 'warning' ? 'text-warning' : 'text-muted',
+                  )}
+                >
+                  {status.text}
+                </p>
+              </div>
+              {/* Tap-to-call is the phone card's one action; email stays on the property page. */}
+              <ContactIcons name={row.ownerName} phone={row.ownerPhone} email={null} raised />
+            </li>
+          )
+        })}
+      </ul>
+
+      {footer ? <div className="border-t border-border">{footer}</div> : null}
+    </RowKeyNav>
   )
 }
