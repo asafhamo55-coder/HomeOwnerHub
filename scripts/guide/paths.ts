@@ -15,8 +15,9 @@ export const RELEASES_DIR = resolve(REPO_ROOT, 'docs', 'releases')
 
 /**
  * Core routes that must have at least one article (spec §5.3). A ratchet:
- * entries are only ever added. /accounting joins when its article lands
- * (phase 2), so CI stays green on what day 1 actually covers.
+ * entries are only ever added. Phase 2 added every core board route
+ * (accounting, vendors, leases, events, inbox, settings, state law, tickets)
+ * and the deeper resident pages.
  */
 export const GUIDE_EXPECTED_ROUTES = [
   '/',
@@ -34,4 +35,35 @@ export const GUIDE_EXPECTED_ROUTES = [
   '/resident',
   '/resident/dues',
   '/resident/arc',
+  // Phase 2
+  '/accounting',
+  '/accounting/reports',
+  '/accounting/reports/income-statement',
+  '/accounting/reports/budget-vs-actual',
+  '/accounting/reports/balance-sheet',
+  '/accounting/reports/monthly-report',
+  '/accounting/bank',
+  '/accounting/invoices',
+  '/accounting/payment-plans',
+  '/accounting/recurring',
+  '/accounting/budget',
+  '/vendors',
+  '/rfps',
+  '/leases',
+  '/events',
+  '/inbox',
+  '/communications/new',
+  '/tickets',
+  '/legal',
+  '/legal/compliance',
+  '/settings/mailbox',
+  '/settings/notifications',
+  '/settings/reminders',
+  '/settings/payments',
+  '/settings/data',
+  '/settings/billing',
+  '/resident/dues/statement',
+  '/resident/arc/new',
+  '/resident/requests',
+  '/resident/tickets',
 ]

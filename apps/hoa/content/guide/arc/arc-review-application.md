@@ -16,7 +16,7 @@ related: [approvals-queue, communications-send-announcement]
 reviewed: 2026-10-18
 ---
 
-Residents apply for exterior changes, like paint, a fence or a roof, from their portal. Applications land in ARC review for the board to decide.
+Residents send architectural requests for exterior changes, like paint, a fence or a roof, from their portal. They show up in ARC review for the board to decide.
 
 ## Steps
 1. Open [[ARC review]] from the sidebar. It opens on applications that need a decision.

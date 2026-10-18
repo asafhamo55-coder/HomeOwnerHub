@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { GUIDE_ARTICLES } from '../../generated/guide'
 import {
   MIN_SCORE,
   articleLabels,
@@ -46,8 +47,11 @@ describe('retrieve', () => {
   })
 
   it('never hands a resident a board section, or a board member a resident one', () => {
-    expect(retrieve('How do I pay dues?', 'resident').every((x) => x.articleId === 'resident-portal-basics')).toBe(true)
-    expect(retrieve('How do I pay dues?', 'board').some((x) => x.articleId === 'resident-portal-basics')).toBe(false)
+    const residentIds = new Set(GUIDE_ARTICLES.filter((a) => a.roles.includes('resident')).map((a) => a.id))
+    const forResident = retrieve('How do I pay dues?', 'resident')
+    expect(forResident.length).toBeGreaterThan(0)
+    expect(forResident.every((x) => residentIds.has(x.articleId))).toBe(true)
+    expect(retrieve('How do I pay dues?', 'board').some((x) => residentIds.has(x.articleId))).toBe(false)
   })
 
   it('board members do not get admin-only articles', () => {
