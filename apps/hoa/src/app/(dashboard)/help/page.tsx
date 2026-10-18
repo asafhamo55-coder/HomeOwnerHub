@@ -5,6 +5,7 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { articleHref, instantSearchData, pathsFor, searchSections, topicsFor } from '@/lib/guide'
 import { GuideSearch } from '@/components/guide/GuideSearch'
 import { GuideSearchResults } from '@/components/guide/GuideArticleBody'
+import { AskGuide } from '@/components/guide/AskGuide'
 
 export const metadata = { title: 'Help' }
 
@@ -23,6 +24,12 @@ export default async function HelpPage({ searchParams }: { searchParams: Promise
       <GuideSearch data={instantSearchData(role)} action="/help" initialQuery={q} />
 
       {q ? <GuideSearchResults query={q} hits={searchSections(q, role)} audience="board" askDocsHref="/ai/ask" /> : null}
+
+      <Card>
+        <CardContent className="pt-5">
+          <AskGuide />
+        </CardContent>
+      </Card>
 
       {paths.length > 0 ? (
         <section aria-labelledby="start-here" className="space-y-3">
