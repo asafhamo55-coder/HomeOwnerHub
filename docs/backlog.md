@@ -845,3 +845,10 @@ These go beyond the design-system v2 pass:
 
 - **BL-074 Page navigation performance** (owner request, 2026-10-17; Now): measure, find root causes, then fix. Candidates: loading.tsx skeletons, `cache()` for per-request lookups, parallel loaders, middleware auth cost, router cache and prefetch, function region vs DB region. In progress.
 - **BL-075 Screenshots and integration only in CI** (owner rule, 2026-10-17: no local DB): a GitHub Actions job that boots the throwaway Supabase, seeds, runs `ui:shots` and `ui:overflow`, and uploads the shots as artifacts for review and release notes. Integration is already CI-only from now on.
+
+## Added 2026-10-18 (cycle findings)
+
+- **BL-076 Open next fiscal year** (from BL-029): there is no action to open the next fiscal period, so a drafted budget usually can't be saved. Add an admin-only "Open next fiscal year" that creates the period without changing the current period until the year starts. No migration.
+- **BL-077 Closing entries distort reports (accounting bug, high)** (from BL-029): computeBudgetVsActual and the income statement include year-end closing entries, so a closed year's actuals net to about zero. Exclude closing entries the way budget-draft-data.ts does, and add a regression test.
+- **BL-078 ARC pre-check rate limit** (from BL-024): POST /api/ai/arc-precheck makes one model call per click with no limit. Add a per-user and per-org rate limit; the board-side review is unaffected. Also bind the pre-check run id to the submitting resident.
+- **BL-079 ARC review photos and letter draft** (from BL-027): vision findings from the application photos, and a full decision-letter draft.
