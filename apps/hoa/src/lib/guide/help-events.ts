@@ -14,6 +14,9 @@
  */
 import { z } from 'zod'
 import { GUIDE_ARTICLES, GUIDE_ROUTE_INDEX } from '@/generated/guide'
+import { LATENCY_BUCKETS, LENGTH_BUCKETS, SCORE_BUCKETS } from './help-buckets'
+
+export { latencyBucket, lengthBucket, scoreBucket } from './help-buckets'
 
 const ARTICLE_IDS = new Set(GUIDE_ARTICLES.map((a) => a.id))
 const ROUTE_TEMPLATES = new Set(Object.keys(GUIDE_ROUTE_INDEX))
@@ -30,9 +33,9 @@ const zCount = z.number().int().min(0).max(50)
 export const ASK_KINDS = ['answer', 'not_covered', 'rules_question', 'unavailable', 'error'] as const
 const zAskKind = z.enum(ASK_KINDS)
 const zSource = z.enum(['center', 'drawer', 'ask', 'checklist', 'empty_state', 'palette', 'whats_new'])
-const zLengthBucket = z.enum(['1-10', '11-30', '31-80', '81+'])
-const zScoreBucket = z.enum(['0', '0-0.25', '0.25-0.5', '0.5-0.75', '0.75-1'])
-const zLatencyBucket = z.enum(['<1s', '1-3s', '3-8s', '8s+'])
+const zLengthBucket = z.enum(LENGTH_BUCKETS)
+const zScoreBucket = z.enum(SCORE_BUCKETS)
+const zLatencyBucket = z.enum(LATENCY_BUCKETS)
 
 /** Client-sendable events and their fields. `help.ask` is server-only (the ask route logs it). */
 export const HelpClientEvent = z.discriminatedUnion('event', [
@@ -55,18 +58,6 @@ export interface HelpAskEvent {
 }
 
 export type HelpRole = 'admin' | 'board' | 'resident'
-
-export function lengthBucket(n: number): z.infer<typeof zLengthBucket> {
-  return n <= 10 ? '1-10' : n <= 30 ? '11-30' : n <= 80 ? '31-80' : '81+'
-}
-
-export function scoreBucket(score: number): z.infer<typeof zScoreBucket> {
-  return score <= 0 ? '0' : score < 0.25 ? '0-0.25' : score < 0.5 ? '0.25-0.5' : score < 0.75 ? '0.5-0.75' : '0.75-1'
-}
-
-export function latencyBucket(ms: number): z.infer<typeof zLatencyBucket> {
-  return ms < 1000 ? '<1s' : ms < 3000 ? '1-3s' : ms < 8000 ? '3-8s' : '8s+'
-}
 
 /** A known route template, else null. Safe to log: templates hold no ids. */
 export function safeRouteTemplate(template: string | null | undefined): string | null {

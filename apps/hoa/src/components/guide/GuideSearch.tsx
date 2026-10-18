@@ -6,6 +6,8 @@ import { Search } from 'lucide-react'
 import { Button, Input } from '@homeowner-portal/ui'
 import { searchBm25 } from '@/lib/guide/bm25'
 import type { InstantSearchData } from '@/lib/guide'
+import { lengthBucket } from '@/lib/guide/help-buckets'
+import { trackHelp } from '@/lib/guide/track'
 
 /**
  * Help-centre search (spec §6.1): instant results over titles, summaries
@@ -48,7 +50,14 @@ export function GuideSearch({
 
   return (
     <div className="space-y-2">
-      <form action={action} method="get" role="search" className="flex gap-2">
+      <form
+        action={action}
+        method="get"
+        role="search"
+        className="flex gap-2"
+        // Counts and a length bucket only: never the query itself.
+        onSubmit={() => trackHelp({ event: 'help.search', resultCount: Math.min(hits.length, 50), queryLengthBucket: lengthBucket(query.trim().length) })}
+      >
         <label htmlFor="guide-search" className="sr-only">
           Search the help guide
         </label>
