@@ -2,6 +2,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { readAll } from '@/lib/supabase/read-all'
 import { queryFailed, readLedgerLines, type AccountingDb } from './queries'
 import { isReserveContribution, type DraftSource, type DraftSourceAccount } from './budget-draft'
+import { withoutClosingEntries } from './closing-entries'
 
 /**
  * BL-029 — everything the budget draft is computed from, read for one
@@ -183,7 +184,7 @@ export async function loadBudgetDraftInputs(opts: {
           .range(f, t),
       queryFailed,
     )
-    const jeIds = jes.filter((j) => j.source !== 'closing').map((j) => j.id)
+    const jeIds = withoutClosingEntries(jes).map((j) => j.id)
     if (jeIds.length > 0) {
       const lines = await readLedgerLines<{ account_id: string; fund_id: string; debit_amount: number; credit_amount: number }>(
         supabase,
