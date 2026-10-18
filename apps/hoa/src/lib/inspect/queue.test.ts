@@ -3,6 +3,7 @@ import {
   classifyStatus,
   draftRequestFor,
   drainQueue,
+  idempotencyKeyFor,
   isDue,
   newQueueItem,
   processItem,
@@ -116,7 +117,7 @@ describe('processItem', () => {
     const r = await processItem(item({ photos: [item().photos[0]!, { ...item().photos[0]!, id: 'p2' }] }), d)
     expect(r).toEqual({ outcome: 'done', runId: 'run-1' })
     expect(d.uploadPhoto).toHaveBeenCalledTimes(2)
-    expect(d.createDraft).toHaveBeenCalledWith(expect.objectContaining({ photoPaths: ['org/key-1.jpg', 'org/key-2.jpg'] }))
+    expect(d.createDraft).toHaveBeenCalledWith(expect.objectContaining({ photoPaths: ['org/key-1.jpg', 'org/key-2.jpg'] }), 'inspect-q1')
     expect(d.removed).toEqual(['q1'])
   })
 
@@ -146,7 +147,7 @@ describe('processItem', () => {
     const r2 = await processItem(r.item, d2)
     expect(r2.outcome).toBe('done')
     expect(d2.uploadPhoto).toHaveBeenCalledTimes(1)
-    expect(d2.createDraft).toHaveBeenCalledWith(expect.objectContaining({ photoPaths: ['k1', 'k2'] }))
+    expect(d2.createDraft).toHaveBeenCalledWith(expect.objectContaining({ photoPaths: ['k1', 'k2'] }), 'inspect-q1')
   })
 
   it('a draft that fails to save keeps the item (with its keys) waiting', async () => {
@@ -234,5 +235,35 @@ describe('queueSummary', () => {
       label: '1 waiting to upload · 1 needs attention',
     })
     expect(queueSummary([item({ status: 'needs_attention' })]).label).toBe('1 needs attention')
+  })
+})
+
+describe('idempotency key (a lost response must not make a second draft)', () => {
+  it('is stable for an item and differs between items', () => {
+    expect(idempotencyKeyFor(item())).toBe(idempotencyKeyFor(item({ attempts: 3, status: 'needs_attention' })))
+    expect(idempotencyKeyFor(item())).not.toBe(idempotencyKeyFor(item({ id: 'q2' })))
+    expect(idempotencyKeyFor(item())).toMatch(/^[A-Za-z0-9._:-]{8,128}$/)
+  })
+
+  it('a retry after a lost draft response sends the same key again', async () => {
+    const keys: string[] = []
+    let calls = 0
+    const d = deps({
+      createDraft: vi.fn(async (_body, key: string) => {
+        keys.push(key)
+        // The first request reached the server, but the answer never came back.
+        return ++calls === 1
+          ? { ok: false as const, kind: 'offline' as const, message: 'No connection.' }
+          : { ok: true as const, value: 'run-1' }
+      }),
+    })
+    const first = await processItem(item(), d)
+    expect(first.outcome).toBe('waiting')
+    if (first.outcome !== 'waiting') throw new Error('unreachable')
+    const second = await processItem(first.item, d)
+    expect(second).toEqual({ outcome: 'done', runId: 'run-1' })
+    expect(keys).toHaveLength(2)
+    expect(keys[0]).toBe(keys[1])
+    expect(keys[0]).toBe(idempotencyKeyFor(item()))
   })
 })

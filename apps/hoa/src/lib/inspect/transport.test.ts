@@ -4,6 +4,8 @@ import { createInspectionDraft, uploadInspectionPhoto } from './transport'
 const PHOTO = { id: 'p1', blob: new Blob([new Uint8Array(4)], { type: 'image/jpeg' }), name: 'a.jpg', type: 'image/jpeg', size: 4, storagePath: null }
 const DRAFT = { unitId: 'u', violationType: 'Trash / debris', description: 'Trash / debris, seen.', reporterNotes: 'x', photoPaths: ['k'] }
 
+const KEY = 'inspect-q1-abcdef'
+
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 
 describe('uploadInspectionPhoto → POST /api/violations/photo (the existing route)', () => {
@@ -41,19 +43,27 @@ describe('uploadInspectionPhoto → POST /api/violations/photo (the existing rou
 describe('createInspectionDraft → POST /api/ai/violations/draft (the existing W3 path)', () => {
   it('posts JSON and returns the run id', async () => {
     const f = vi.fn(async () => json(200, { runId: 'run-9', notice: 'Dear owner' }))
-    expect(await createInspectionDraft(f)(DRAFT)).toEqual({ ok: true, value: 'run-9' })
+    expect(await createInspectionDraft(f)(DRAFT, KEY)).toEqual({ ok: true, value: 'run-9' })
     const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('/api/ai/violations/draft')
     expect(JSON.parse(init.body as string)).toEqual(DRAFT)
   })
 
+  it('sends the item’s idempotency key as the Idempotency-Key header, not in the body', async () => {
+    const f = vi.fn(async () => json(200, { runId: 'run-9' }))
+    await createInspectionDraft(f)(DRAFT, KEY)
+    const [, init] = f.mock.calls[0] as unknown as [string, RequestInit]
+    expect(new Headers(init.headers).get('idempotency-key')).toBe(KEY)
+    expect(JSON.parse(init.body as string)).not.toHaveProperty('idempotencyKey')
+  })
+
   it('AI outage (503) waits; a gone unit (404) needs a person', async () => {
-    expect(await createInspectionDraft(vi.fn(async () => json(503, { error: { message: 'AI down' } })))(DRAFT)).toEqual({
+    expect(await createInspectionDraft(vi.fn(async () => json(503, { error: { message: 'AI down' } })))(DRAFT, KEY)).toEqual({
       ok: false,
       kind: 'retry',
       message: 'AI down',
     })
-    expect(await createInspectionDraft(vi.fn(async () => json(404, { error: { message: 'We could not find that unit.' } })))(DRAFT)).toMatchObject({
+    expect(await createInspectionDraft(vi.fn(async () => json(404, { error: { message: 'We could not find that unit.' } })))(DRAFT, KEY)).toMatchObject({
       ok: false,
       kind: 'rejected',
     })

@@ -57,6 +57,10 @@ export const ViolationInspectorInputSchema = z.object({
    *  draft files them on the violation. The caller proves each key is the
    *  org's own upload; W3 only bounds them. */
   photoPaths: z.array(z.string().min(1).max(300)).max(10).optional(),
+  /** The caller's Idempotency-Key. Never sent to the model: it is kept so
+   *  it lands in ai_runs.input, where POST /api/ai/violations/draft looks
+   *  for it to answer a retried request with the draft it already made. */
+  idempotencyKey: z.string().min(8).max(128).optional(),
 })
 
 export type ViolationInspectorInput = z.infer<

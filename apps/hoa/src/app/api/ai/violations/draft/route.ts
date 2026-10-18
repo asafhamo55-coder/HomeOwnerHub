@@ -5,10 +5,11 @@ import { RequestedActionSchema, StatuteRuleRefusalError } from '@homeowner-porta
 import { withRoute } from '@/lib/api/handler'
 import { ApiRouteError } from '@/lib/api/errors'
 import { requireOrgOwned, requireRouteBoardOrAdmin } from '@/lib/api/auth'
-import { parseJson } from '@/lib/api/parse'
+import { parseJson, parseValue } from '@/lib/api/parse'
 import { zText, zUuid } from '@/lib/api/schemas'
 import { logRouteFailure } from '@/lib/api/log'
 import { MAX_DRAFT_PHOTOS, isOrgPhotoPath } from '@/lib/violation-photo-paths'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 // POST /api/ai/violations/draft
 //
@@ -34,6 +35,16 @@ const DraftSchema = z.object({
   photoPaths: z.array(z.string().max(300)).max(MAX_DRAFT_PHOTOS).optional(),
 })
 
+// Idempotency-Key (optional). Inspection mode's offline queue sends one per
+// queued item, so a retry after a lost response is answered with the draft
+// that already exists, not a second draft and a second model call. No
+// migration: W3 keeps the key in ai_runs.input, and the lookup below finds
+// a non-failed W3 run in the caller's org carrying it from the last 7 days.
+// Not a lock: two requests with one key racing in parallel can both draft.
+// The queue sends one item at a time, so that is not a path it takes.
+const IdempotencyKey = z.string().min(8).max(128).regex(/^[A-Za-z0-9._:-]+$/)
+const IDEMPOTENCY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
+
 export const maxDuration = 60
 
 export const POST = withRoute('ai.violations.draft', async (request) => {
@@ -54,8 +65,26 @@ export const POST = withRoute('ai.violations.draft', async (request) => {
     })
   }
 
+  const idempotencyKey = idempotencyKeyOf(request)
+  if (idempotencyKey) {
+    const existing = await findRunByKey(orgId, idempotencyKey)
+    if (existing) {
+      // A key is one draft for one home. The same key with another home is a
+      // client bug; refusing beats silently answering with the wrong draft.
+      if (existing.unitId !== body.unitId) {
+        throw new ApiRouteError('conflict', 'This request was already used for a different home.', {
+          reason: 'idempotency_key_reused',
+        })
+      }
+      return NextResponse.json({ runId: existing.runId, ...existing.output })
+    }
+  }
+
   try {
-    const result = await violationInspector.execute(body, { organizationId: orgId })
+    const result = await violationInspector.execute(
+      idempotencyKey ? { ...body, idempotencyKey } : body,
+      { organizationId: orgId },
+    )
     return NextResponse.json({ runId: result.runId, ...result.output })
   } catch (err) {
     // BL-019: a step the association's state law forbids (e.g. a Florida
@@ -78,6 +107,48 @@ export const POST = withRoute('ai.violations.draft', async (request) => {
     throw err
   }
 })
+
+function idempotencyKeyOf(request: Request): string | null {
+  const raw = request.headers.get('idempotency-key')
+  if (raw === null) return null
+  return parseValue(z.object({ 'Idempotency-Key': IdempotencyKey }), { 'Idempotency-Key': raw })['Idempotency-Key']
+}
+
+/**
+ * The newest non-failed W3 run in this org that carried `key`, within the
+ * window. A failed run made no draft, so a retry after one drafts again.
+ * The read is the board member's own (RLS) and still filters by org.
+ */
+async function findRunByKey(
+  orgId: string,
+  key: string,
+): Promise<{ runId: string; unitId: unknown; output: Record<string, unknown> } | null> {
+  const supabase = await getSupabaseServerClient()
+  const since = new Date(Date.now() - IDEMPOTENCY_WINDOW_MS).toISOString()
+  const { data, error } = await supabase
+    .from('ai_runs' as never)
+    .select('id, input, output')
+    .eq('organization_id' as never, orgId)
+    .eq('workflow_id' as never, 'W3')
+    .eq('input->>idempotencyKey' as never, key)
+    .neq('status' as never, 'failed')
+    .gte('created_at' as never, since)
+    .order('created_at' as never, { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string; input: unknown; output: unknown }>()
+  if (error) {
+    logRouteFailure('ai.violations.draft.idempotency', error, { orgId })
+    throw new ApiRouteError('internal')
+  }
+  if (!data) return null
+  const input = isRecord(data.input) ? data.input : {}
+  const output = isRecord(data.output) ? data.output : {}
+  return { runId: data.id, unitId: input.unitId, output }
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
 
 /** defineWorkflow wraps run() errors; the original is kept as `cause`. */
 function causeOf(err: unknown): unknown {

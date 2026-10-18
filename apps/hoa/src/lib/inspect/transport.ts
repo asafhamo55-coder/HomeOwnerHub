@@ -53,11 +53,16 @@ export function uploadInspectionPhoto(fetchImpl: Fetch = fetch) {
 }
 
 export function createInspectionDraft(fetchImpl: Fetch = fetch) {
-  return (body: DraftRequest): Promise<SendResult<string>> =>
+  return (body: DraftRequest, idempotencyKey: string): Promise<SendResult<string>> =>
     send(
       fetchImpl,
       '/api/ai/violations/draft',
-      { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
+      {
+        method: 'POST',
+        // The route answers a repeated key with the draft it already made.
+        headers: { 'content-type': 'application/json', 'idempotency-key': idempotencyKey },
+        body: JSON.stringify(body),
+      },
       (b) => {
         const id = (b as { runId?: unknown } | null)?.runId
         return typeof id === 'string' && id ? id : null

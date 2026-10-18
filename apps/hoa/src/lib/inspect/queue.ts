@@ -10,6 +10,9 @@
 //      uploads a photo twice;
 //   2. then POST /api/ai/violations/draft, the existing W3 draft path, with
 //      the keys. The draft lands in /approvals and /violations/approval-queue.
+//      Every attempt carries the item's stable Idempotency-Key, so a retry
+//      after a lost response gets the draft that already exists back instead
+//      of a second one (and a second model call).
 // The item is removed only after the draft exists. A failure never drops
 // it: no signal or a server error → 'waiting' (retried with backoff); a
 // request the server refuses → 'needs_attention' (shown with the reason
@@ -68,7 +71,7 @@ export interface DraftRequest {
 
 export interface QueueDeps {
   uploadPhoto(photo: QueuePhoto & { blob: Blob }): Promise<SendResult<string>>
-  createDraft(body: DraftRequest): Promise<SendResult<string>>
+  createDraft(body: DraftRequest, idempotencyKey: string): Promise<SendResult<string>>
   save(item: QueueItem): Promise<void>
   remove(id: string): Promise<void>
   now(): number
@@ -124,6 +127,16 @@ export function draftRequestFor(item: QueueItem): DraftRequest {
     reporterNotes: `Logged in inspection mode with ${count} photo${count === 1 ? '' : 's'}.`,
     photoPaths,
   }
+}
+
+/**
+ * The Idempotency-Key for an item's draft request. Derived from the item id
+ * alone, so it is the same on every attempt (and after a reload, since the
+ * id is stored with the item) and different for every item.
+ */
+export function idempotencyKeyFor(item: Pick<QueueItem, 'id'>): string {
+  const safe = item.id.replace(/[^A-Za-z0-9._:-]/g, '').slice(0, 100)
+  return `inspect-${safe || 'item'}`
 }
 
 /** HTTP status → failure kind. 0 = the request never got an answer. */
@@ -196,7 +209,7 @@ export async function processItem(start: QueueItem, deps: QueueDeps): Promise<Pr
     await deps.save(item).catch(() => {})
   }
 
-  const draft = await attempt(() => deps.createDraft(draftRequestFor(item)))
+  const draft = await attempt(() => deps.createDraft(draftRequestFor(item), idempotencyKeyFor(item)))
   if (!draft.ok) return failed(item, deps, draft)
   await deps.remove(item.id).catch(() => {})
   return { outcome: 'done', runId: draft.value }
