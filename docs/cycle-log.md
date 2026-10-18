@@ -193,3 +193,16 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Open:**
   - Confirm that support@homeownerledger.com is a real inbox.
   - `AI_MODEL_FAST` is unset in prod, so Ask the guide uses the team AI_MODEL (120b). It works, just slower. Leaving it as is.
+
+## 2026-10-17 (23:41) — deploy b31729f: Ask the guide (BL-070 day 2) and BL-072 fixes
+
+- **Live:**
+  - /api/help/ask, grounded in the guide: it refuses below the score gate, routes rules questions to Ask the Docs, and never logs the question.
+  - Ask UI in /help and the drawer.
+  - "How?" links on the checklist and empty states, ⌘K help, and the What's new dot.
+  - BL-072: the SMS portal link stays intact, an "Open the books" notice replaces developer text, Ask the Docs citations show again, the SMS hint is accurate, the invite hint follows the role, and the setup import link is fixed.
+- **Smoke:** /help 307, /login 200, POST /api/help/ask without a session gives a 401 JSON envelope.
+- **Merged and pushed for CI (next deploy after 00:41):**
+  - properties P2: full-width table and the property 360 page;
+  - properties P4: a roster import the board runs itself.
+  - Local gates: unit 4506/4506, build 4/4, guide:check 0 errors, guide:eval pass.

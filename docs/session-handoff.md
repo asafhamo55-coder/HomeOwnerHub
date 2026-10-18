@@ -1,6 +1,6 @@
 # Session handoff: HomeownerHub autonomous loop
 
-_Updated every cycle. Last update: 2026-10-17 21:05 ET._
+_Updated every cycle. Last update: 2026-10-17 23:45 ET._
 
 ## Start the next session with this prompt
 
@@ -41,7 +41,7 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 - **Integration branch:** `claude/quality-oracle`. All merges land here.
 - **Deploy:** run `/usr/bin/git merge-base --is-ancestor <prod> <tip>`, then `/usr/bin/git push origin <sha>:claude/phase1-homeownerhub-setup-MILNu`. Prod pushes FAIL when their output is redirected to /dev/null; always run them as `... 2>&1 | tail -3`, and retry up to 3 times.
 - **Verify:** poll `https://www.homeownerledger.com/api/health` until `version` equals the SHA. The public body is `{ok, app, version}`.
-- **Live in prod:** ac0e7c4 (user guide phase 1 and version label), deployed 2026-10-17 21:04 ET. The next deploy is allowed after 22:04.
+- **Live in prod:** b31729f (Ask the guide, BL-072), deployed 2026-10-17 23:41 ET. The next deploy is allowed after 00:41: properties P2 and P4, once CI is green.
 
 ## Gates (the trusted forms)
 
@@ -63,8 +63,14 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 
 ## In flight at this update
 
-- **Agents:** BL-074 page-navigation performance; BL-073 month-end board report email.
-- **Next:** guide day 2 (Ask the guide, checklist "How?" links), BL-072 guide-found bugs, BL-075 CI screenshot job, properties P2, P4 and P3.
+- **On quality-oracle, CI pending:** properties P2 (table and 360 page) and P4 (roster import).
+- **No agents running.**
+- **Next:**
+  - properties P3: record a sale;
+  - BL-042 marketing truth pass: the import now exists, so "roster can come over" can be true;
+  - BL-075 CI screenshot job: 15 stale guide shots;
+  - BL-024 / BL-027 ARC AI.
+- **Waiting on Asaf:** confirm that support@homeownerledger.com is a real inbox.
 
 ## Decisions taken without the owner (reversible)
 
