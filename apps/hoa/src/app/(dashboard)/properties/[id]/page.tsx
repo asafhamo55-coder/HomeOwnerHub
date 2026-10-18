@@ -170,30 +170,41 @@ export default async function PropertyDetailPage({
   if (target.kind === 'not_found') notFound()
   const id = target.propertyId
 
-  const detail = await getPropertyDetail(id)
+  // Everything below needs only the property id and the org, so it is read
+  // together (BL-074). These used to run one after another — six round
+  // trips in series, plus the list pane at the very end — before the page
+  // could render.
+  const [detail, { assoc, cap }, openWaitingEntries, unitRes, pane] = await Promise.all([
+    getPropertyDetail(id),
+    // Lease cap drives whether the "Add to waiting list" button shows up
+    // on owner-occupied properties. No cap → no need to queue anything.
+    getPrimaryAssociation().then(async (assoc) => ({ assoc, cap: assoc ? await getLeaseCap(assoc.id) : null })),
+    // Whether this property is already queued to lease. Drives the Tenure
+    // card's badge and suppresses a second "Add to waiting list" button
+    // that the action would only reject as a duplicate.
+    getOpenWaitingListEntries([id]),
+    // The unit this property means (lib/properties/resolve.ts: one rule,
+    // shared with the list view). Assessments, mail and collections are
+    // keyed on units. A failed read is NOT "no unit": the unit-keyed
+    // sections say they could not load instead of "not linked". Several
+    // linked units are not a failure either: the canonical one is used and
+    // the page says so.
+    tryLoad('property unit', () => resolveUnitForProperty(supabase, ctx.org.id, id)),
+    // The list beside the panel, read the same way /properties reads it: a
+    // failure narrows the page to the panel, and a failed count shows no
+    // number rather than a 0.
+    loadPropertyListPane(supabase, ctx.org.id, listParams),
+  ])
   if (!detail) notFound()
   const p = detail.property as unknown as PropertyDetailRow
   const tenure: PropertyTenure = detail.property.tenure
   const residents = detail.residents
   const events = detail.events
 
-  // Lease cap drives whether the "Add to waiting list" button shows up
-  // on owner-occupied properties. No cap → no need to queue anything.
-  const assoc = await getPrimaryAssociation()
-  const cap = assoc ? await getLeaseCap(assoc.id) : null
   const capInPlace = cap?.capPct !== null && cap?.capPct !== undefined
 
-  // Whether this property is already queued to lease. Drives the Tenure
-  // card's badge and suppresses a second "Add to waiting list" button
-  // that the action would only reject as a duplicate.
-  const openWaitingEntry = (await getOpenWaitingListEntries([id])).get(id) ?? null
+  const openWaitingEntry = openWaitingEntries.get(id) ?? null
 
-  // The unit this property means (lib/properties/resolve.ts: one rule,
-  // shared with the list view). Assessments, mail and collections are keyed
-  // on units. A failed read is NOT "no unit": the unit-keyed sections say
-  // they could not load instead of "not linked". Several linked units are
-  // not a failure either: the canonical one is used and the page says so.
-  const unitRes = await tryLoad('property unit', () => resolveUnitForProperty(supabase, ctx.org.id, id))
   const unitFailed = !unitRes.ok
   const unitId: UnitId | null = unitRes.ok ? unitRes.data.unitId : null
   const linkedUnitCount = unitRes.ok ? unitRes.data.unitCount : 0
@@ -317,12 +328,8 @@ export default async function PropertyDetailPage({
       }
     : null
 
-  // The list beside the panel, read the same way /properties reads it: a
-  // failure narrows the page to the panel, and a failed count shows no
-  // number rather than a 0.
-  const pane = ctx ? await loadPropertyListPane(supabase, ctx.org.id, listParams) : null
-  const list = pane?.list ?? null
-  const counts = pane?.counts ?? null
+  const list = pane.list
+  const counts = pane.counts
 
   // The list state this property was opened from, carried on every tab link
   // and on the phone breadcrumb so filter/sort/search/page survive.
