@@ -43,6 +43,22 @@ const w1 = vi.hoisted(() => {
 })
 vi.mock('@homeowner-portal/workflows/W1', () => w1)
 
+// BL-078: the limiter is mocked here (its own tests pin the math and the
+// ledger); the real rateLimitedError builds the 429 these tests assert.
+const quota = vi.hoisted(() => ({ requireAiQuota: vi.fn(), linkAiUsageToRun: vi.fn() }))
+vi.mock('@/lib/api/rate-limit', async (orig) => ({
+  ...(await orig<typeof import('@/lib/api/rate-limit')>()),
+  requireAiQuota: quota.requireAiQuota,
+  linkAiUsageToRun: quota.linkAiUsageToRun,
+}))
+const { rateLimitedError } = await import('@/lib/api/rate-limit')
+beforeEach(() => {
+  quota.requireAiQuota.mockReset()
+  quota.requireAiQuota.mockResolvedValue({ usageId: 'usage-1', userId: 'user-1' })
+  quota.linkAiUsageToRun.mockReset()
+  quota.linkAiUsageToRun.mockResolvedValue(undefined)
+})
+
 const { POST } = await import('./route')
 
 function req(body: unknown, raw = false): Request {
@@ -190,5 +206,30 @@ describe('POST /api/ai/ask-docs', () => {
     expect(JSON.parse(text).error.code).toBe('internal')
     expect(text).not.toContain('jane@')
     spy.mockRestore()
+  })
+})
+
+describe('POST /api/ai/ask-docs — rate limit (BL-078)', () => {
+  it('draws on the ask_docs bucket for the caller’s org after validation, before the model', async () => {
+    const res = await POST(req({ question: 'Are pets allowed?' }))
+    expect(res.status).toBe(200)
+    expect(quota.requireAiQuota).toHaveBeenCalledWith('ask_docs', 'org-1')
+    expect(quota.requireAiQuota.mock.invocationCallOrder[0]!).toBeLessThan(w1.queryGoverningDocs.mock.invocationCallOrder[0]!)
+  })
+
+  it('a body that fails validation never draws on the quota', async () => {
+    await POST(req('{nope', true))
+    expect(quota.requireAiQuota).not.toHaveBeenCalled()
+  })
+
+  it('429 rate_limited with Retry-After when the limit is reached, and no model call', async () => {
+    quota.requireAiQuota.mockRejectedValue(rateLimitedError('ask_docs', { ok: false, scope: 'user', retryAfterSeconds: 1200 }))
+    const res = await POST(req({ question: 'Are pets allowed?' }))
+    expect(res.status).toBe(429)
+    expect(res.headers.get('Retry-After')).toBe('1200')
+    const err = (await res.json()).error
+    expect(err).toMatchObject({ code: 'rate_limited', reason: 'user_limit', retryAfterSeconds: 1200 })
+    expect(err.message).toContain('about 20 minutes')
+    expect(w1.queryGoverningDocs).not.toHaveBeenCalled()
   })
 })

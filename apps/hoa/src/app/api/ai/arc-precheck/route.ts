@@ -7,6 +7,7 @@ import { requireOrgOwned, requireRouteMember } from '@/lib/api/auth'
 import { parseJson } from '@/lib/api/parse'
 import { zDateOnly, zText, zUuid } from '@/lib/api/schemas'
 import { logRouteFailure } from '@/lib/api/log'
+import { linkAiUsageToRun, requireAiQuota } from '@/lib/api/rate-limit'
 import { RESIDENT_VISIBLE_TYPES } from '@/lib/resident-documents/visibility'
 import { getResidentUnits } from '@/lib/resident'
 
@@ -54,6 +55,10 @@ export const POST = withRoute('ai.arc-precheck', async (request) => {
   }
   const allowedDocTypes = isBoard ? undefined : [...RESIDENT_VISIBLE_TYPES.governing]
 
+  // BL-078: per-user + per-org limit (lib/api/ai-limits.ts); 429 rate_limited
+  // with Retry-After when full. Recorded before the model call.
+  const quota = await requireAiQuota('arc_precheck', orgId)
+
   let result: Awaited<ReturnType<typeof reviewArcRequest>>
   try {
     result = await reviewArcRequest(
@@ -72,6 +77,9 @@ export const POST = withRoute('ai.arc-precheck', async (request) => {
     logRouteFailure('ai.arc-precheck.visibility', new Error('hidden_citation'), { orgId })
     throw new ApiRouteError('internal')
   }
+
+  // Ties this run to this user so createArcRequest can verify the run id.
+  await linkAiUsageToRun(quota.usageId, result.runId)
 
   return NextResponse.json({
     status: result.status,

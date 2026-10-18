@@ -224,6 +224,21 @@ describe('resident pre-check (rendered)', () => {
     const out = html(<ArcPrecheckStep checking={false} onCheck={() => {}} result={null} error="The rules check isn’t available right now. You can still submit your application." />)
     expect(out).toContain('You can still submit your application.')
   })
+
+  it('rate limited (BL-078): the 429 envelope’s friendly message shows as a warning, the button stays usable', async () => {
+    const { rateLimitedError } = await import('@/lib/api/rate-limit')
+    const { responseErrorMessage } = await import('@/lib/api/client')
+    const res = rateLimitedError('arc_precheck', { ok: false, scope: 'user', retryAfterSeconds: 1500 }).toResponse()
+    expect(res.status).toBe(429)
+    const message = await responseErrorMessage(res, 'FALLBACK')
+    const out = html(<ArcPrecheckStep checking={false} onCheck={() => {}} result={null} error={message} />)
+    expect(out).toContain('You’ve reached the limit of 10 rules checks an hour. Try again in about 25 minutes.')
+    expect(out).toContain('You can still submit your application.')
+    expect(out).not.toContain('FALLBACK')
+    expect(out).not.toContain('rate_limited')
+    expect(out).toContain('role="alert"')
+    expect(out).not.toMatch(/<button[^>]*\sdisabled=""/)
+  })
 })
 
 // ─── Previews ────────────────────────────────────────────────────────

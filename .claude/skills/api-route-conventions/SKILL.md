@@ -20,6 +20,7 @@ helpers implement them, so following a rule usually means calling the helper, no
 | `requireBearerSecret(req, 'ENV_NAME')`, `secretMatches` | `lib/api/secrets.ts` | Bearer-only, timing-safe secrets that fail closed. |
 | `checkWrite(result, where, ctx, {conflict})` | `lib/api/db.ts` | Checks a Supabase write's error and maps 23505 to 409. |
 | `logRouteFailure(where, err, ctx)`, `errorCode(err)` | `lib/api/log.ts` | Logs ids and codes, never messages. |
+| `requireAiQuota(bucket, orgId)`, `linkAiUsageToRun`, `AI_RATE_LIMITS` | `lib/api/rate-limit.ts`, `lib/api/ai-limits.ts` | Per-user + per-org limits on member-callable AI routes (audit_log ledger); 429 `rate_limited` + `Retry-After`. |
 | `apiErrorMessage(body, fallback)`, `responseErrorMessage(res, fallback)` | `lib/api/client.ts` | Client side: the message to show a person. |
 | `readAll`, `readAllResult` | `lib/supabase/read-all.ts` | Full reads past the 1000-row cap. |
 
@@ -287,8 +288,8 @@ When you bring a route into line:
 
 - No in-memory rate limiters, caches or `globalThis` stashes in a route. Serverless instances do
   not share memory, so they give a false sense of protection.
-- Rate limiting, when it lands, is shared (DB or KV) and answers 429 `rate_limited` with
-  `Retry-After`.
+- Rate limiting is shared (DB or KV) and answers 429 `rate_limited` with `Retry-After`. AI routes
+  a resident or member can call use `requireAiQuota` (BL-078) after validation, before the model.
 - Supabase clients are created per request.
 
 ---
