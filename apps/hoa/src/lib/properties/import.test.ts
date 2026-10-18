@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { memorySupabase, type MemCall } from '@/lib/test-utils/memory-supabase'
-import { runUnitsImport } from './import'
+import { importLots, runUnitsImport, type LotPropertyRow, type LotResidentRow } from './import'
 
 vi.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -97,6 +97,110 @@ describe('import writes both sides of every lot', () => {
     const m = memorySupabase({ associations: [{ id: ASSOC, organization_id: 'org-2', name: 'X' }] })
     const r = await run(m)
     expect(r.ok).toBe(false)
+    expect(m.calls.filter((c) => c.op !== 'select')).toEqual([])
+  })
+})
+
+// ─── importLots: the modes the board import uses (P4) ───────────────
+
+describe('importLots: existing homes, by mode', () => {
+  const existing = (tenure = 'unknown') =>
+    memorySupabase({
+      ...seed(),
+      hoa_properties: [
+        { id: 'p1', org_id: ORG, address: '1 Test Way', unit_number: null, deleted_at: null, tenure, owner_name: 'Owner One', owner_email: 'one@example.test', owner_phone: null },
+      ],
+      units: [{ id: 'u1', organization_id: ORG, address_line1: '1 Test Way', legacy_hoa_property_id: 'p1', unit_number: null, city: null, created_at: '2024-01-01' }],
+      ownerships: [{ id: 'o1', organization_id: ORG, unit_id: 'u1', owner_name: 'Owner One', owner_email: 'one@example.test', owner_phone: null }],
+      property_residents: [
+        { id: 'r1', organization_id: ORG, property_id: 'p1', full_name: 'Owner One', email: 'one@example.test', phone: null, role: 'owner', is_primary: true, moved_out_at: null, deleted_at: null },
+      ],
+    })
+  const props: LotPropertyRow[] = [
+    { id: 'row-2', address_line1: '1 TEST WAY', city: 'Testville', zip: '30000', unit: 'Lot 7', tenure: 'leased' },
+    { id: 'row-3', address_line1: '2 Test Way' },
+  ]
+  const owners: LotResidentRow[] = [
+    { id: 'own-2', property_id: 'row-2', full_name: 'Owner One', email: 'ONE@example.test', phone: '555-0100', type: 'owner', is_current: 'true' },
+    { id: 'own-3', property_id: 'row-3', full_name: 'Owner Three', email: 'three@example.test', type: 'owner', is_current: 'true' },
+  ]
+  const go = (m: ReturnType<typeof memorySupabase>, onExisting: 'skip' | 'update', apply = true) =>
+    importLots(db(m), { orgId: ORG, associationId: ASSOC, properties: props, residents: owners, apply, onExisting, onAmbiguous: 'error' })
+
+  it("'skip' leaves an existing home and its owner untouched, and creates the new one", async () => {
+    const m = existing()
+    const r = await go(m, 'skip')
+    expect(r.outcomes.properties['row-2']).toMatchObject({ status: 'skipped', propertyId: 'p1' })
+    expect(r.outcomes.properties['row-3']).toMatchObject({ status: 'created' })
+    expect(r.outcomes.residents['own-2']).toMatchObject({ status: 'skipped' })
+    expect(r.skippedHomes).toBe(1)
+    expect(m.rows('units').find((u) => u.id === 'u1')).toMatchObject({ city: null, unit_number: null })
+    expect(m.rows('ownerships').find((o) => o.id === 'o1')).toMatchObject({ owner_phone: null })
+    expect(m.calls.filter((c) => c.op !== 'select' && c.filters.some(([, , v]) => v === 'u1' || v === 'p1'))).toEqual([])
+  })
+
+  it("'update' corrects the address details, fills unknown tenure and refreshes the same owner", async () => {
+    const m = existing()
+    const r = await go(m, 'update')
+    expect(r.outcomes.properties['row-2']).toMatchObject({ status: 'updated', propertyId: 'p1' })
+    expect(r.outcomes.residents['own-2']).toMatchObject({ status: 'updated' })
+    expect(m.rows('units').find((u) => u.id === 'u1')).toMatchObject({ city: 'Testville', postal_code: '30000', unit_number: 'Lot 7' })
+    expect(m.rows('hoa_properties').find((p) => p.id === 'p1')).toMatchObject({ tenure: 'leased', unit_number: 'Lot 7', owner_phone: '555-0100' })
+    expect(m.rows('ownerships').filter((o) => o.unit_id === 'u1')).toHaveLength(1)
+    expect(m.rows('ownerships').find((o) => o.id === 'o1')).toMatchObject({ owner_phone: '555-0100' })
+    expect(m.rows('property_residents').find((x) => x.id === 'r1')).toMatchObject({ phone: '555-0100' })
+    expect(m.rows('units')).toHaveLength(2)
+  })
+
+  it("'update' never overwrites a tenure the board set", async () => {
+    const m = existing('owner_occupied')
+    await go(m, 'update')
+    expect(m.rows('hoa_properties').find((p) => p.id === 'p1')).toMatchObject({ tenure: 'owner_occupied' })
+  })
+
+  it('a dry run in update mode classifies without writing', async () => {
+    const m = existing()
+    const r = await go(m, 'update', false)
+    expect(r.outcomes.properties).toMatchObject({ 'row-2': { status: 'updated' }, 'row-3': { status: 'created' } })
+    expect(m.calls.filter((c) => c.op !== 'select')).toEqual([])
+  })
+
+  it('condo units at one address stay separate homes', async () => {
+    const m = memorySupabase(seed())
+    const r = await importLots(db(m), {
+      orgId: ORG,
+      associationId: ASSOC,
+      properties: [
+        { id: 'a', address_line1: '10 Condo St', unit: '1' },
+        { id: 'b', address_line1: '10 Condo St', unit: '2' },
+      ],
+      residents: [],
+      apply: true,
+      onExisting: 'skip',
+    })
+    expect(r.outcomes.properties).toMatchObject({ a: { status: 'created' }, b: { status: 'created' } })
+    expect(m.rows('hoa_properties')).toHaveLength(2)
+    expect(m.rows('units').map((u) => u.unit_number)).toEqual(['1', '2'])
+  })
+
+  it("onAmbiguous 'error' refuses a row that could be either of two homes", async () => {
+    const m = memorySupabase({
+      ...seed(),
+      hoa_properties: [
+        { id: 'p1', org_id: ORG, address: '10 Condo St', unit_number: '1', deleted_at: null },
+        { id: 'p2', org_id: ORG, address: '10 Condo St', unit_number: '2', deleted_at: null },
+      ],
+    })
+    const r = await importLots(db(m), {
+      orgId: ORG,
+      associationId: ASSOC,
+      properties: [{ id: 'a', address_line1: '10 Condo Street' }],
+      residents: [],
+      apply: true,
+      onExisting: 'update',
+      onAmbiguous: 'error',
+    })
+    expect(r.outcomes.properties.a).toEqual({ status: 'error', reason: expect.stringMatching(/unit number/) })
     expect(m.calls.filter((c) => c.op !== 'select')).toEqual([])
   })
 })
