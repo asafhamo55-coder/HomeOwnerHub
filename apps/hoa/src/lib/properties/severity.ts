@@ -169,3 +169,26 @@ export function streetOf(address: string): string {
   return (comma === -1 ? address : address.slice(0, comma)).trim()
 }
 
+
+export interface StatusLine {
+  text: string
+  tone: 'danger' | 'warning' | 'neutral'
+}
+
+/**
+ * The single most urgent fact about a home, for the phone card's one
+ * status line. Same order as the severity rank (past cure, overdue, open
+ * violations, mail), then ARC and missing data.
+ */
+export function statusLine(row: SeveritySource & { openArc?: number | null }): StatusLine {
+  const n = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`
+  if (row.violationsPastCure > 0) return { text: n(row.violationsPastCure, 'violation past cure', 'violations past cure'), tone: 'danger' }
+  if (row.balance > 0 && row.daysOverdue > 0) return { text: n(row.daysOverdue, 'day overdue', 'days overdue'), tone: 'danger' }
+  if (row.openViolations > 0) return { text: n(row.openViolations, 'open violation', 'open violations'), tone: 'warning' }
+  if (row.threadsNeedingReply > 0) return { text: n(row.threadsNeedingReply, 'email awaiting reply', 'emails awaiting reply'), tone: 'warning' }
+  if (row.openArc && row.openArc > 0) return { text: n(row.openArc, 'ARC request to decide', 'ARC requests to decide'), tone: 'warning' }
+  if (!row.hasOwner) return { text: 'Owner details missing', tone: 'neutral' }
+  if (!row.hasTenure) return { text: 'Tenure not recorded', tone: 'neutral' }
+  if (row.balance > 0) return { text: 'Balance not yet due', tone: 'neutral' }
+  return { text: 'Nothing outstanding', tone: 'neutral' }
+}

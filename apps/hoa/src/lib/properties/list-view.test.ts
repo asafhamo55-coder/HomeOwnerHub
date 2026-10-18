@@ -5,6 +5,7 @@ import {
   filterCounts,
   isIncompleteRecord,
   matchesFilter,
+  matchesSearch,
   missingFields,
   selectPropertyView,
   sortPropertyRows,
@@ -144,5 +145,117 @@ describe('selectPropertyView', () => {
     const v = selectPropertyView(rows, parsePropertyListParams({ filter: 'attention' }))
     expect(v.counts.all).toBe(120)
     expect(v.counts.attention).toBe(12)
+  })
+
+  it('honours the direction', () => {
+    const v = selectPropertyView(rows, parsePropertyListParams({ sort: 'address', dir: 'desc' }))
+    expect(v.rows[0].address).toBe('120 Elm St')
+  })
+})
+
+describe('sortPropertyRows: every column', () => {
+  const rows = [
+    row({
+      id: 'a',
+      address: '2 Oak St',
+      ownerName: 'Zed Owner',
+      ownerEmail: 'b@example.test',
+      tenure: 'leased',
+      balance: 300,
+      daysOverdue: 10,
+      openViolations: 1,
+      violationsPastCure: 0,
+      openArc: 0,
+      lastActivityAt: '2026-10-01T00:00:00Z',
+    }),
+    row({
+      id: 'b',
+      address: '10 Oak St',
+      ownerName: 'Amy Owner',
+      ownerEmail: null,
+      tenure: 'owner_occupied',
+      balance: 300,
+      daysOverdue: 90,
+      openViolations: 1,
+      violationsPastCure: 1,
+      openArc: 2,
+      lastActivityAt: '2026-10-15T00:00:00Z',
+    }),
+    row({
+      id: 'c',
+      address: '1 Oak St',
+      ownerName: null,
+      ownerEmail: 'a@example.test',
+      tenure: null,
+      balance: 0,
+      daysOverdue: 0,
+      openViolations: 3,
+      violationsPastCure: 0,
+      openArc: null,
+      lastActivityAt: null,
+    }),
+  ]
+  const ids = (sort: Parameters<typeof sortPropertyRows>[1], dir?: 'asc' | 'desc') =>
+    sortPropertyRows(rows, sort, dir).map((r) => r.id)
+
+  it('owner: A→Z, no owner last in both directions', () => {
+    expect(ids('owner')).toEqual(['b', 'a', 'c'])
+    expect(ids('owner', 'desc')).toEqual(['a', 'b', 'c'])
+  })
+  it('contact: by email, no contact last', () => {
+    expect(ids('contact')).toEqual(['c', 'a', 'b'])
+    expect(ids('contact', 'desc')).toEqual(['a', 'c', 'b'])
+  })
+  it('tenure: owner-occupied, leased, then unknown', () => {
+    expect(ids('tenure')).toEqual(['b', 'a', 'c'])
+    expect(ids('tenure', 'desc')).toEqual(['a', 'b', 'c'])
+  })
+  it('balance: biggest first by default, older debt breaks a tie', () => {
+    expect(ids('balance')).toEqual(['b', 'a', 'c'])
+    expect(ids('balance', 'asc')).toEqual(['c', 'a', 'b'])
+  })
+  it('violations: past cure outranks a larger open count', () => {
+    expect(ids('violations')).toEqual(['b', 'c', 'a'])
+  })
+  it('arc: most open first; unknown (failed read) last both ways', () => {
+    expect(ids('arc')).toEqual(['b', 'a', 'c'])
+    expect(ids('arc', 'asc')).toEqual(['a', 'b', 'c'])
+  })
+  it('activity: newest first; never-active last both ways', () => {
+    expect(ids('activity')).toEqual(['b', 'a', 'c'])
+    expect(ids('activity', 'asc')).toEqual(['a', 'b', 'c'])
+  })
+  it('address desc reverses the natural order', () => {
+    expect(ids('address', 'desc')).toEqual(['b', 'a', 'c'])
+  })
+})
+
+describe('matchesSearch', () => {
+  const r = row({
+    id: 'p1',
+    address: '14 Alder Way',
+    unitNumber: 'B',
+    ownerName: 'Pat Example',
+    ownerEmail: 'pat@example.test',
+    ownerPhone: '(555) 010-1234',
+  })
+  it('matches address, unit, owner name and email, case-insensitively', () => {
+    for (const q of ['alder', '14 Al', 'pat ex', 'PAT@EXAMPLE', 'b']) expect(matchesSearch(r, q, new Set())).toBe(true)
+    expect(matchesSearch(r, 'maple', new Set())).toBe(false)
+  })
+  it('matches a phone number whatever the punctuation', () => {
+    expect(matchesSearch(r, '5550101234', new Set())).toBe(true)
+    expect(matchesSearch(r, '555-010', new Set())).toBe(true)
+    expect(matchesSearch(r, '010 1234', new Set())).toBe(true)
+  })
+  it('fewer than four digits never matches on the phone alone', () => {
+    expect(matchesSearch(r, '12', new Set())).toBe(false)
+  })
+  it('matches a home whose resident matched', () => {
+    expect(matchesSearch(r, 'jordan', new Set(['p1']))).toBe(true)
+    expect(matchesSearch(r, 'jordan', new Set(['p2']))).toBe(false)
+  })
+  it('an empty search matches everything', () => {
+    expect(matchesSearch(r, '', new Set())).toBe(true)
   })
 })
