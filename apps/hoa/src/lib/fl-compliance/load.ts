@@ -3,8 +3,9 @@
  * read so the page's tryLoad shows "Couldn't load" rather than an empty —
  * and therefore falsely alarming — checklist. Logs nothing about rows.
  */
+import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { DEFAULT_MEETING_WINDOW, type ComplianceDoc, type ComplianceMeeting, type StoredStatute } from './evaluate'
+import { DEFAULT_MEETING_WINDOW, complianceMeetingColumns, type ComplianceDoc, type ComplianceMeeting, type StoredStatute } from './evaluate'
 import { FL_RECORDS_CODE_CITATION } from './rules'
 
 /** Stored § 720.303 row (current, not superseded), or null. */
@@ -34,18 +35,32 @@ export async function loadFlRecordsStatute(): Promise<StoredRecordsStatute | nul
  * view: nothing is filtered by resident visibility here. hasFile and
  * aiGenerated feed only the "posted for owners" line (BL-049).
  */
-export async function loadComplianceDocs(orgId: string): Promise<ComplianceDoc[]> {
+export async function loadComplianceDocs(orgId: string, m1: boolean = M1_APPLIED): Promise<ComplianceDoc[]> {
   const supabase = await getSupabaseServerClient()
-  const [hoa, gov] = await Promise.all([
-    supabase.from('hoa_documents').select('id, name, type, storage_path, created_at').eq('org_id', orgId),
+  const flag = m1 ? ', visible_to_owners' : ''
+  const [hoaRes, govRes] = await Promise.all([
+    supabase.from('hoa_documents').select(`id, name, type, storage_path, created_at${flag}`).eq('org_id', orgId),
     supabase
       .from('governing_documents')
-      .select('id, title, type, effective_date, storage_path, ai_generated, created_at')
+      .select(`id, title, type, effective_date, storage_path, ai_generated, created_at${flag}`)
       .eq('organization_id', orgId)
       .is('superseded_at', null),
   ])
-  if (hoa.error) throw new Error(`hoa_documents: ${hoa.error.code ?? 'error'}`)
-  if (gov.error) throw new Error(`governing_documents: ${gov.error.code ?? 'error'}`)
+  if (hoaRes.error) throw new Error(`hoa_documents: ${hoaRes.error.code ?? 'error'}`)
+  if (govRes.error) throw new Error(`governing_documents: ${govRes.error.code ?? 'error'}`)
+  type Hoa = { id: string; name: string; type: string; storage_path: string | null; created_at: string | null; visible_to_owners?: boolean }
+  type Gov = {
+    id: string
+    title: string
+    type: string
+    effective_date: string | null
+    storage_path: string | null
+    ai_generated: boolean | null
+    created_at: string | null
+    visible_to_owners?: boolean
+  }
+  const hoa = { data: hoaRes.data as unknown as Hoa[] | null }
+  const gov = { data: govRes.data as unknown as Gov[] | null }
   return [
     ...(hoa.data ?? []).map(
       (d): ComplianceDoc => ({
@@ -55,6 +70,7 @@ export async function loadComplianceDocs(orgId: string): Promise<ComplianceDoc[]
         type: d.type,
         date: d.created_at,
         hasFile: Boolean(d.storage_path?.trim()),
+        ...(m1 ? { visibleToOwners: d.visible_to_owners === true } : {}),
       }),
     ),
     ...(gov.data ?? []).map(
@@ -66,6 +82,7 @@ export async function loadComplianceDocs(orgId: string): Promise<ComplianceDoc[]
         date: d.effective_date ?? d.created_at,
         hasFile: Boolean(d.storage_path?.trim()),
         aiGenerated: d.ai_generated,
+        ...(m1 ? { visibleToOwners: d.visible_to_owners === true } : {}),
       }),
     ),
   ]
@@ -76,25 +93,33 @@ function isoDay(d: Date): string {
 }
 
 /** Meetings in the default window (the evaluator re-applies it). */
-export async function loadComplianceMeetings(orgId: string, now: Date): Promise<ComplianceMeeting[]> {
+export async function loadComplianceMeetings(orgId: string, now: Date, m1: boolean = M1_APPLIED): Promise<ComplianceMeeting[]> {
   const supabase = await getSupabaseServerClient()
   const day = 24 * 60 * 60 * 1000
   const from = isoDay(new Date(now.getTime() - (DEFAULT_MEETING_WINDOW.pastDays + 1) * day))
   const to = isoDay(new Date(now.getTime() + (DEFAULT_MEETING_WINDOW.futureDays + 1) * day))
-  const { data, error } = await supabase
+  const { data: rows, error } = await supabase
     .from('hoa_meeting_minutes')
-    .select('id, meeting_date, meeting_type, created_at')
+    .select(complianceMeetingColumns(m1))
     .eq('org_id', orgId)
     .is('deleted_at', null)
     .gte('meeting_date', from)
     .lte('meeting_date', to)
     .order('meeting_date', { ascending: true })
   if (error) throw new Error(`hoa_meeting_minutes: ${error.code ?? 'error'}`)
+  const data = rows as unknown as Array<{
+    id: string
+    meeting_date: string
+    meeting_type: string | null
+    created_at: string | null
+    notice_posted_at?: string | null
+  }> | null
   return (data ?? []).map((m) => ({
     id: m.id,
     meetingDate: m.meeting_date,
     meetingType: m.meeting_type,
     addedAt: m.created_at,
+    ...(m1 ? { noticePostedAt: m.notice_posted_at ?? null } : {}),
   }))
 }
 

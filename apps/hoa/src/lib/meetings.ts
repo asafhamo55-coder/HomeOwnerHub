@@ -8,6 +8,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { M1_APPLIED } from '@homeowner-portal/db/m1'
 
 // Schema-aligned slugs (hoa_meeting_minutes_meeting_type_check).
 export type MeetingType = 'regular' | 'special' | 'annual' | 'emergency'
@@ -243,5 +244,52 @@ export async function deleteMeeting(
   if (error) return { ok: false, error: error.message }
 
   revalidatePath('/meetings')
+  return { ok: true }
+}
+
+// ─── Notice posted (BL-050, migration 0064) ─────────────────────────
+
+const NoticePostedSchema = z.object({
+  meetingId: z.string().uuid(),
+  // An instant (ISO with offset) or null to clear it.
+  postedAt: z.string().datetime({ offset: true }).nullable(),
+})
+
+/**
+ * Record (or clear) when the meeting's notice was posted, so
+ * /legal/compliance checks the 14-day / 48-hour rule against the real
+ * date. Inert until M1_APPLIED: the column does not exist before 0064.
+ */
+export async function recordMeetingNoticePosted(
+  meetingId: string,
+  postedAt: string | null,
+): Promise<MeetingActionResult> {
+  if (!M1_APPLIED) return { ok: false, error: 'Recording notice dates isn’t available yet.' }
+  const parsed = NoticePostedSchema.safeParse({ meetingId, postedAt })
+  if (!parsed.success) return { ok: false, error: 'Enter a valid date and time.' }
+  if (parsed.data.postedAt && Date.parse(parsed.data.postedAt) > Date.now() + 5 * 60 * 1000) {
+    return { ok: false, error: 'A notice can’t be posted in the future.' }
+  }
+
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, error: 'No HOA selected.' }
+  const role = await getCurrentUserRoleInOrg(org.id)
+  if (role !== 'admin' && role !== 'board') {
+    return { ok: false, error: "You don't have permission to perform this action." }
+  }
+
+  const supabase = await getSupabaseServerClient()
+  const { data, error } = await supabase
+    .from('hoa_meeting_minutes')
+    .update({ notice_posted_at: parsed.data.postedAt })
+    .eq('id', parsed.data.meetingId)
+    .eq('org_id', org.id)
+    .is('deleted_at', null)
+    .select('id')
+  if (error) return { ok: false, error: 'Couldn’t save the notice date. Try again.' }
+  if (!data || data.length === 0) return { ok: false, error: 'Meeting not found.' }
+
+  revalidatePath(`/meetings/${parsed.data.meetingId}`)
+  revalidatePath('/legal/compliance')
   return { ok: true }
 }
