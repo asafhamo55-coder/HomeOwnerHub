@@ -852,3 +852,12 @@ These go beyond the design-system v2 pass:
 - **BL-077 Closing entries distort reports (accounting bug, high)** (from BL-029): computeBudgetVsActual and the income statement include year-end closing entries, so a closed year's actuals net to about zero. Exclude closing entries the way budget-draft-data.ts does, and add a regression test.
 - **BL-078 ARC pre-check rate limit** (from BL-024): POST /api/ai/arc-precheck makes one model call per click with no limit. Add a per-user and per-org rate limit; the board-side review is unaffected. Also bind the pre-check run id to the submitting resident.
 - **BL-079 ARC review photos and letter draft** (from BL-027): vision findings from the application photos, and a full decision-letter draft. Built on `claude/bl-079` (2026-10-18): W37 reads up to `ARC_REVIEW_MAX_PHOTOS` (default 3) image attachments out of band, findings tied to their photo at low/medium confidence feed the suggestion; four editable letters (approve / with conditions / deny / request info) built in code from the cited rules, blocked from sending while a BLANK is left. No migration.
+
+## Added 2026-10-18 (found while writing guide phase 2)
+
+- **BL-080 Payment plans never complete:** a plan never moves to Completed on its own, and a home on an active plan skips automatic dues reminders for good. Close a plan when it is paid off, and resume reminders.
+- **BL-081 Stop or edit a recurring journal entry:** there is no UI for it, and the guide currently tells boards to contact support.
+- **BL-082 Notify residents of decisions:** no email or text goes out when the board replies to a ticket or decides an ARC application. Add an opt-in notification through the outbound guard, using the residents' preferences.
+- **BL-083 Vendor insurance expiry reminders:** vendors get no automatic email before a certificate expires. Add a reminder job, sent to vendors only and never to residents.
+- **BL-084 RFP insurance minimums settings:** add a settings screen for the minimum coverage per RFP.
+- **Eval note:** the Ask-the-guide rules classifier sends some how-to questions to Ask the Docs ("how long can", "allowed", "declaration"). Tune it next time.
