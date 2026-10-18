@@ -1,6 +1,7 @@
 import { createAdminClient, postJournalEntry } from '@homeowner-portal/db'
 import { inngest } from './client'
 import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone, todayIn, type AssociationZoneSource } from './association-time'
+import { readCurrentOpenPeriod } from './fiscal-periods'
 
 /**
  * Daily at 1am ET: scan recurring_journal_entries where next_run_date
@@ -200,15 +201,9 @@ export async function runRecurringJes(
 
       // The fiscal period at run time may not be the template's
       // original period. Find the current open period for this
-      // association; if none, skip.
-      const { data: period } = await db
-        .from('fiscal_periods')
-        .select('id')
-        .eq('association_id', rule.association_id)
-        .eq('status', 'open')
-        .order('start_date', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      // association on ITS day — one that has started (BL-076: next
+      // year can be opened early); if none, skip.
+      const { data: period } = await readCurrentOpenPeriod(db, rule.association_id, today)
       if (!period) {
         logger.warn(`[recurring-jes] rule ${rule.id}: no open period`)
         return { posted: 0, skipped: 1, failed: 0 } satisfies RuleStepResult

@@ -1,7 +1,9 @@
 import Link from 'next/link'
 import { LoadFailed, Page } from '@homeowner-portal/ui'
-import { getAccountingContext } from '@/lib/accounting/queries'
+import { getAccountingContext, listFiscalPeriods } from '@/lib/accounting/queries'
 import { loadBudgetDraftInputs } from '@/lib/accounting/budget-draft-data'
+import { nextFiscalYearOffer } from '@/lib/accounting/open-next-fiscal-year'
+import { getCurrentUserRole } from '@/lib/auth'
 import { tryLoad } from '@/lib/load-or-fail'
 import { formatDayRange, periodLabel, todayIso } from '@/lib/money/format'
 import { statusOf, BUDGET_STATUS } from '@/lib/money/status'
@@ -47,6 +49,12 @@ export default async function BudgetDraftPage({ searchParams }: PageProps) {
     )
   }
 
+  // BL-076: an admin can open next year from here; a board member is told to ask one.
+  const openNextYear =
+    d.nextYearMissing && (await getCurrentUserRole())?.role === 'admin'
+      ? await tryLoad('fiscal periods', () => listFiscalPeriods(ctx.associationId)).then((r) => (r.ok ? nextFiscalYearOffer(r.data, today) : null))
+      : null
+
   const toLabel = (p: { startDate: string; endDate: string }) => periodLabel({ start_date: p.startDate, end_date: p.endDate })
   const yearLabel = d.target ? toLabel(d.target) : d.nextYearMissing ? toLabel(d.nextYearMissing) : 'next year'
   const sourceLabel = d.source ? `${toLabel(d.source)} budget (${statusOf(BUDGET_STATUS, d.source.status).label.toLowerCase()})` : null
@@ -54,8 +62,10 @@ export default async function BudgetDraftPage({ searchParams }: PageProps) {
   return (
     <Page linkAs={Link} breadcrumbs={crumbs} title={TITLE} description={DESCRIPTION}>
       <BudgetDraftEditor
-        // A new fund or year is a new draft: reset the editor's state.
-        key={`${d.fund.id}:${d.target?.id ?? 'none'}`}
+        // A new fund or a picked year is a new draft: reset the editor's
+        // state. Opening next year (BL-076) keeps it — the default year
+        // changes from "not open" to the new period, same draft.
+        key={`${d.fund.id}:${sp.period ?? 'default'}`}
         funds={d.funds.map((f) => ({ id: f.id, name: f.name }))}
         fundId={d.fund.id}
         fundName={d.fund.name}
@@ -63,6 +73,7 @@ export default async function BudgetDraftPage({ searchParams }: PageProps) {
         targetId={d.target?.id ?? null}
         yearLabel={yearLabel}
         nextYearMissingLabel={d.nextYearMissing ? toLabel(d.nextYearMissing) : null}
+        openNextYear={openNextYear}
         sourceLabel={sourceLabel}
         windowLabel={formatDayRange(d.window.from, d.window.through)}
         source={d.draftSource}

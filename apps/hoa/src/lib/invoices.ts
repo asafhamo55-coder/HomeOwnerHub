@@ -9,6 +9,7 @@ import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { booksNotOpen, type BooksNotOpenFailure } from '@/lib/accounting/books-not-open'
 import { todayIn } from '@/lib/association-time'
+import { readCurrentOpenPeriod } from '@homeowner-portal/jobs/fiscal-periods'
 import { fieldErrorsOf } from '@/lib/field-errors'
 
 type InvoiceInsert = Database['public']['Tables']['invoices']['Insert']
@@ -83,14 +84,9 @@ export async function enterBill(input: {
 
   // Open fiscal period — vendor bills always land in the currently-open
   // period regardless of invoice_date, by convention.
-  const { data: period } = await supabase
-    .from('fiscal_periods')
-    .select('id')
-    .eq('association_id', assoc.id)
-    .eq('status', 'open')
-    .order('start_date', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  // The open period that has STARTED, on the association's day (BL-076):
+  // next year, opened early, waits for its first day.
+  const { data: period } = await readCurrentOpenPeriod(supabase, assoc.id, todayIn(assoc.timeZone))
   if (!period) {
     return booksNotOpen(gate.role)
   }
@@ -287,14 +283,9 @@ export async function markInvoicePaid(input: {
   const refs = await loadAccountingRefs(supabase, assoc.id)
   if (!refs) return booksNotOpen(gate.role)
 
-  const { data: period } = await supabase
-    .from('fiscal_periods')
-    .select('id')
-    .eq('association_id', assoc.id)
-    .eq('status', 'open')
-    .order('start_date', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  // The open period that has STARTED, on the association's day (BL-076):
+  // next year, opened early, waits for its first day.
+  const { data: period } = await readCurrentOpenPeriod(supabase, assoc.id, todayIn(assoc.timeZone))
   if (!period) return booksNotOpen(gate.role)
 
   // Noon UTC: the same calendar day in every US zone; default is the
