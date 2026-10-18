@@ -25,7 +25,7 @@ export function HowLink({ articleId, href, label, className }: { articleId: stri
       }}
       aria-label={`How to: ${label}`}
       className={cn(
-        'inline-flex min-h-6 items-center gap-1 rounded-md px-1 text-xs font-medium text-muted transition-colors duration-fast hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'inline-flex min-h-10 items-center gap-1 rounded-md px-2 text-xs sm:min-h-7 font-medium text-muted transition-colors duration-fast hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         className,
       )}
     >

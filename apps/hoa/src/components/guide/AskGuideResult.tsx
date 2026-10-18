@@ -96,7 +96,7 @@ export function AskGuideResult({ result, onNavigate, onTakeMeThere, compact = fa
                 <Link
                   href={c.href}
                   onClick={onNavigate}
-                  className="inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-medium text-foreground no-underline transition-colors duration-fast hover:border-border-strong hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex min-h-10 max-w-full items-center sm:min-h-8 gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-medium text-foreground no-underline transition-colors duration-fast hover:border-border-strong hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <span className="num shrink-0 text-primary">{i + 1}</span>
                   <BookOpen className="size-3.5 shrink-0 text-muted" aria-hidden />

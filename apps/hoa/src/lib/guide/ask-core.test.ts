@@ -146,6 +146,13 @@ describe('validateModelReply — what can reach the client', () => {
     expect(v.answer).not.toContain('[S1]')
   })
 
+  it('an intro citation is labelled Overview, not the article title twice', () => {
+    const overview = sources.find((x) => x.sectionId === 'overview')
+    if (!overview) return
+    const v = validateModelReply(reply({ answer: `Use it for checks. [${overview.id}]`, citations: [overview.id] }), sources, 'admin')!
+    expect(v.citations[0]!.sectionHeading).toBe('Overview')
+  })
+
   it('drops invented citation ids; with none left there is no answer', () => {
     expect(validateModelReply(reply({ answer: 'Do it. [S9]', citations: ['S9'] }), sources, 'admin')).toBeNull()
     expect(validateModelReply(reply({ answer: 'Do it.', citations: ['https://x', 'S77'] }), sources, 'admin')).toBeNull()

@@ -366,7 +366,8 @@ export function validateModelReply(
   const citations: AskCitation[] = chips.map(({ source: s }) => ({
     articleId: s.articleId,
     title: s.title,
-    sectionHeading: s.heading,
+    // The intro's "heading" is the article title; say "Overview" on the chip.
+    sectionHeading: s.sectionId === 'overview' ? 'Overview' : s.heading,
     href: articleHelpHref(s.articleId, audience, s.sectionId),
   }))
 

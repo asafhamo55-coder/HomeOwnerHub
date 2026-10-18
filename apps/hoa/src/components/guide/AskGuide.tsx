@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { Loader2, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import { Alert, Button, Textarea, cn } from '@homeowner-portal/ui'
 import { responseErrorMessage } from '@/lib/api/client'
 import type { AskResult } from '@/lib/guide/ask'
@@ -117,8 +117,7 @@ export function AskGuide({
         />
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-muted">Answers come from the guide, with links to the articles.</p>
-          <Button type="submit" size={compact ? 'sm' : 'md'} disabled={loading || question.trim().length < 3}>
-            {loading ? <Loader2 className="animate-spin" aria-hidden /> : null}
+          <Button type="submit" loading={loading} disabled={question.trim().length < 3}>
             {loading ? 'Asking…' : 'Ask'}
           </Button>
         </div>
