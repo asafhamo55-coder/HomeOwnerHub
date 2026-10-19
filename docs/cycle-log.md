@@ -312,3 +312,12 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **Weekly usage limit reached:** three agents stopped mid-work (BL-082, M1 UI, guide classifier tuning) and their partial work is left in their worktrees.
   - At the owner's request the loop is paused until the limit resets on Oct 19 at 11:00 ET.
   - A one-shot cron at Oct 19 11:12 resumes the hourly loop and re-dispatches the three items.
+
+## 2026-10-19 (11:15) â€” loop resumed after the weekly limit
+
+- **Cron:** hourly cycle cron recreated (`23 * * * *`). The Oct 23 renewal one-shot is still scheduled.
+- **Re-dispatched:** three worktree agents, each starting fresh from 1bd3f55 and reading the old partial diffs:
+  - BL-082 resident decision notifications, off by default;
+  - M1 UI behind `M1_APPLIED`;
+  - Ask-the-guide classifier tuning.
+- **Health:** prod is on 3fc343e; CI is green on 1bd3f55.
