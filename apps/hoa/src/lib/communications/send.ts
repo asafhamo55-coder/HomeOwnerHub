@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
+import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { sendEmailBatch, type BatchSendResult } from '@/lib/email'
 import { buildSenderName } from '@/lib/email/sender-name'
 import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
@@ -12,9 +13,11 @@ import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accountin
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getLeaseStats } from '@/lib/leases'
+import { loadEmailConsent } from '@/lib/email-consent'
 import { buildLeaseCapFields, buildLeaseCapMeterHtml } from '@/lib/community-templates/lease-cap'
 import { getTemplate } from '@/lib/community-templates/registry'
-import { resolveAudience, stripAudienceForPersist, type AudienceDefinition } from './audience'
+import { resolveAudience, stripAudienceForPersist, type AudienceDefinition, type ResolvedRecipient } from './audience'
+import { deliverableChannels, planOfficialNotice, type PaperNoticeSummary } from './official-notice'
 import { buildEmailPayloads } from './email-payloads'
 import { buildRecipientBag } from './merge-bag'
 import { recoverFromRenderedSubject, unresolvedFields } from './merge-recovery'
@@ -34,6 +37,10 @@ export type SendCommunicationResult =
       sentCount: number
       failedCount: number
       skippedCount: number
+      /** BL-020: present only for an official notice to a CA association
+       *  with M1 applied — who this send did not email and so needs a
+       *  paper notice. Absent on every other send. */
+      paperNotice?: PaperNoticeSummary
     }
   | { ok: false; error: string }
 
@@ -132,6 +139,10 @@ const SendSchema = z.object({
       reviewed: z.boolean(),
     })
     .optional(),
+  /** BL-020: the board marked this an official notice (CA Civ. Code
+   *  §4040). Only consenting members get it by email; see
+   *  ./official-notice.ts. Ignored until M1_APPLIED, and outside CA. */
+  officialNotice: z.boolean().optional(),
 })
 
 export type SendCommunicationInput = z.infer<typeof SendSchema>
@@ -204,6 +215,42 @@ export async function sendCommunication(
   )
   if (audience.recipients.length === 0) {
     return { ok: false, error: `Audience resolved to zero recipients (${audience.summary}).` }
+  }
+
+  // 1.25. BL-020 official notice. Only when the board marked it one AND M1
+  //       is applied — with the flag off this block never runs, so the
+  //       send is exactly what it was. For a CA association, email rows go
+  //       only to members whose latest consent event is a grant; everyone
+  //       else is reported back as needing a paper notice. Consent that
+  //       can't be read refuses the send before anything is written.
+  let emailKeep: ReadonlySet<ResolvedRecipient> | null = null
+  let paperNotice: PaperNoticeSummary | undefined
+  if (value.officialNotice && M1_APPLIED) {
+    const { data: stateRow, error: stateErr } = await supabase
+      .from('associations')
+      .select('state')
+      .eq('id', assoc.id)
+      .single()
+    if (stateErr || !stateRow) {
+      return { ok: false, error: 'Couldn’t check e-consent for this official notice. Nothing was sent.' }
+    }
+    const consent = (stateRow.state ?? '').trim().toUpperCase() === 'CA'
+      ? await loadEmailConsent(supabase, assocRow.organization_id, { m1: true })
+      : null
+    const plan = planOfficialNotice(audience.recipients, {
+      channels: value.channels,
+      state: stateRow.state,
+      officialNotice: true,
+      m1: true,
+      consent,
+    })
+    if (plan.applies && !plan.ok) {
+      return { ok: false, error: 'Couldn’t check e-consent for this official notice. Nothing was sent.' }
+    }
+    if (plan.applies && plan.ok) {
+      emailKeep = plan.emailKeep
+      paperNotice = plan.paper
+    }
   }
 
   // 1.5. Lease-cap-status special case. This template's occupancy meter and
@@ -293,11 +340,9 @@ export async function sendCommunication(
   //    Each row tracks delivery for its channel independently.
   const recipientInserts: RecipientInsert[] = []
   for (const r of audience.recipients) {
-    for (const channel of value.channels) {
-      // Skip channels the recipient can't receive on.
-      if (channel === 'email' && !r.email) continue
-      if (channel === 'sms' && !r.phone) continue
-      if (channel === 'portal' && !r.userId) continue
+    // Only channels the recipient can receive on — and, for an official
+    // notice, email only with consent (emailKeep is null otherwise).
+    for (const channel of deliverableChannels(r, value.channels, emailKeep)) {
       recipientInserts.push({
         organization_id: assocRow.organization_id,
         communication_id: comm.id,
@@ -326,7 +371,9 @@ export async function sendCommunication(
       .eq('id', comm.id)
     return {
       ok: false,
-      error: 'No recipients had a deliverable contact for the selected channels.',
+      error: paperNotice
+        ? `No one in this audience can receive this official notice on the selected channels. All ${paperNotice.count} need a paper notice.`
+        : 'No recipients had a deliverable contact for the selected channels.',
     }
   }
 
@@ -353,6 +400,7 @@ export async function sendCommunication(
       sentCount: 0,
       failedCount: 0,
       skippedCount: 0,
+      ...(paperNotice ? { paperNotice } : {}),
     }
   }
 
@@ -571,6 +619,7 @@ export async function sendCommunication(
     sentCount,
     failedCount,
     skippedCount,
+    ...(paperNotice ? { paperNotice } : {}),
   }
 }
 

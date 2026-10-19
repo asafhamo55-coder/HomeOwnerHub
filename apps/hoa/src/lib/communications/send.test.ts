@@ -188,3 +188,91 @@ describe('sendCommunication, M1_APPLIED false (today)', () => {
     expect(tablesTouched(official.trace)).not.toContain('member_email_consent_events')
   })
 })
+
+describe('sendCommunication, M1_APPLIED true', () => {
+  beforeEach(() => {
+    h.m1 = true
+  })
+
+  it('an ordinary announcement is untouched: same trace as with the flag off', async () => {
+    const on = await run({ ...INPUT, category: 'announcement' })
+    h.m1 = false
+    const off = await run({ ...INPUT, category: 'announcement' })
+    expect(on.trace).toEqual(off.trace)
+    expect(on.result).toEqual(off.result)
+    expect(on.result).not.toHaveProperty('paperNotice')
+  })
+
+  it('CA official notice: email only to members whose latest consent is on; the rest need paper', async () => {
+    const { result, trace } = await run({ ...INPUT, officialNotice: true })
+    expect(emailedTo(trace)).toEqual(['ana@example.test'])
+    const rows = recipientInsert(trace).map((r) => `${r.channel}:${r.user_id ?? r.recipient_name}`)
+    // Ben (revoked) and Cy (no account) lose only the email row; SMS and portal stay.
+    expect(rows).toEqual(['email:user-a', 'sms:user-a', 'portal:user-a', 'portal:user-b', 'sms:Cy', 'portal:user-d'])
+    expect(result).toEqual({
+      ok: true,
+      communicationId: 'comm-1',
+      recipientCount: 6,
+      sentCount: 6,
+      failedCount: 0,
+      skippedCount: 0,
+      paperNotice: {
+        count: 3,
+        recipients: [
+          { name: 'Ben', home: '2 Elm St #2B' },
+          { name: 'Cy', home: '3 Elm St' },
+          { name: 'Di', home: '4 Elm St' },
+        ],
+      },
+    })
+    // Still through the outbound guard's entry point, with the send's ref.
+    const batch = trace.find((t) => (t as [string])[0] === 'sendEmailBatch') as [string, unknown, unknown]
+    expect(batch[2]).toEqual({ orgSandbox: false, ref: 'comm-1' })
+    expect(tablesTouched(trace)).toContain('member_email_consent_events')
+  })
+
+  it('a scheduled official notice queues no email rows for non-consenting members', async () => {
+    const { result, trace } = await run({ ...INPUT, officialNotice: true, scheduledFor: '2026-12-01T09:00' })
+    expect(recipientInsert(trace).filter((r) => r.channel === 'email').map((r) => r.user_id)).toEqual(['user-a'])
+    expect(result).toMatchObject({ ok: true, sentCount: 0, paperNotice: { count: 3 } })
+    expect(emailedTo(trace)).toEqual([])
+  })
+
+  it('email not among the channels: every recipient needs paper', async () => {
+    const { result } = await run({ ...INPUT, officialNotice: true, channels: ['portal'] })
+    expect(result).toMatchObject({ ok: true, paperNotice: { count: 4 } })
+  })
+
+  it('nobody deliverable: refuses and says how many need paper', async () => {
+    h.consentRows = []
+    const { result, trace } = await run({ ...INPUT, officialNotice: true, channels: ['email'] })
+    expect(result).toEqual({
+      ok: false,
+      error: 'No one in this audience can receive this official notice on the selected channels. All 4 need a paper notice.',
+    })
+    expect(emailedTo(trace)).toEqual([])
+  })
+
+  it('consent that fails to load refuses before anything is written or sent', async () => {
+    h.consentError = { code: '500' }
+    const { result, trace } = await run({ ...INPUT, officialNotice: true })
+    expect(result).toEqual({ ok: false, error: 'Couldn’t check e-consent for this official notice. Nothing was sent.' })
+    expect(tablesTouched(trace)).not.toContain('communications')
+    expect(trace.some((t) => ['sendEmailBatch', 'sendSms'].includes((t as [string])[0]))).toBe(false)
+  })
+
+  it('outside California an official notice emails everyone, as today', async () => {
+    h.state = 'FL'
+    const { result, trace } = await run({ ...INPUT, officialNotice: true })
+    expect(emailedTo(trace)).toEqual(['ana@example.test', 'ben@example.test', 'cy@example.test'])
+    expect(result).not.toHaveProperty('paperNotice')
+    expect(tablesTouched(trace)).not.toContain('member_email_consent_events')
+  })
+
+  it('logs nothing about recipients', async () => {
+    const spies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((k) => vi.spyOn(console, k))
+    await run({ ...INPUT, officialNotice: true })
+    for (const s of spies) expect(s).not.toHaveBeenCalled()
+    for (const s of spies) s.mockRestore()
+  })
+})

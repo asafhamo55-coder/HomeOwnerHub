@@ -18,6 +18,8 @@ import {
 } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { sendCommunication } from '@/lib/communications/send'
+import { previewOfficialNotice, type OfficialNoticePreview } from '@/lib/communications/official-notice-actions'
+import { paperNoticeLabel } from '@/lib/communications/official-notice'
 import { SMS_CHANNEL_HINT } from '@/lib/communications/sms-body'
 import { SMS_ENGLISH_ONLY_NOTE, composeBilingualSms, htmlToPlainText } from '@/lib/communications/bilingual'
 import {
@@ -108,6 +110,7 @@ export function NewCommunicationWizard({
   audienceCounts,
   properties,
   initialPropertyId = null,
+  officialNoticeOffered = false,
 }: {
   templates: TemplateOption[]
   audienceCounts: AudienceCounts
@@ -118,6 +121,12 @@ export function NewCommunicationWizard({
    * load already checked. Ignored unless it is one of `properties`.
    */
   initialPropertyId?: string | null
+  /**
+   * BL-020: offer "This is an official notice" on the Review step. True
+   * only for a California association once M1 is applied (page.tsx);
+   * false renders and sends exactly what the composer always did.
+   */
+  officialNoticeOffered?: boolean
 }) {
   const preselect = initialPropertyId && properties.some((p) => p.id === initialPropertyId) ? initialPropertyId : null
   const router = useRouter()
@@ -136,6 +145,9 @@ export function NewCommunicationWizard({
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   // BL-025: the optional, board-reviewed Spanish version.
   const [spanish, setSpanish] = useState<SpanishDraft | null>(null)
+  // BL-020: official notice (CA Civ. Code §4040) and its Review-step preview.
+  const [officialNotice, setOfficialNotice] = useState(false)
+  const [officialPreview, setOfficialPreview] = useState<OfficialNoticePreview | null>(null)
 
   // Specific-property audience state.
   // selectedPropertyId — single property at a time keeps the UI simple.
@@ -393,6 +405,101 @@ export function NewCommunicationWizard({
 
   const lastStep = STEPS.length - 1
 
+  type AudienceDef = Parameters<typeof sendCommunication>[0]['audience']
+
+  /** The resolver's audience for the current picks — shared by the send and the official-notice preview. */
+  function buildAudienceDef(): { ok: true; def: AudienceDef } | { ok: false; error: string } {
+    // Translate the wizard-local 'specific_property' kind into the
+    // resolver's 'specific_residents' shape with the checked ids.
+    let audienceDef: AudienceDef
+    if (audience === 'specific_property') {
+      if (!selectedPropertyId) {
+        return { ok: false, error: 'Pick a property first.' }
+      }
+      if (checkedResidentIds.size === 0) {
+        return { ok: false, error: 'Pick at least one resident at that property.' }
+      }
+      audienceDef = {
+        kind: 'specific_residents',
+        residentIds: Array.from(checkedResidentIds),
+      }
+    } else if (audience === 'board') {
+      if (checkedBoardIds.size === 0) {
+        return { ok: false, error: 'Pick at least one board member.' }
+      }
+      // Omit the id list (⇒ "the whole board") only when exactly every
+      // board-role member is checked and no admins — so it stays correct
+      // if the roster changes before sending. Any admin pick or board
+      // deselect sends explicit ids.
+      const boardRoleIds = boardMembers
+        .filter((m) => m.role === 'board')
+        .map((m) => m.userId)
+      const isWholeBoard =
+        boardRoleIds.length > 0 &&
+        checkedBoardIds.size === boardRoleIds.length &&
+        boardRoleIds.every((id) => checkedBoardIds.has(id))
+      audienceDef = isWholeBoard
+        ? { kind: 'board' }
+        : { kind: 'board', boardUserIds: Array.from(checkedBoardIds) }
+    } else if (audience === 'manual_emails') {
+      // Fold any in-flight draft into the committed list before sending.
+      let contacts = [...manualContacts]
+      const dEmail = draftEmail.trim().toLowerCase()
+      const dPhone = draftPhone.trim()
+      if (dEmail || dPhone) {
+        if (dEmail && !EMAIL_RE.test(dEmail)) {
+          return { ok: false, error: `"${dEmail}" doesn't look like an email.` }
+        }
+        if (dPhone && !US_PHONE_RE.test(dPhone)) {
+          return { ok: false, error: `"${dPhone}" doesn't look like a US phone number.` }
+        }
+        contacts.push({ email: dEmail, phone: dPhone, name: draftName.trim() })
+      }
+      if (contacts.length === 0) {
+        return { ok: false, error: 'Add at least one contact.' }
+      }
+      audienceDef = {
+        kind: 'manual_emails',
+        emails: contacts.map((c) => c.email),
+        emailNames: contacts.map((c) => c.name),
+        phones: contacts.map((c) => c.phone),
+      }
+    } else {
+      audienceDef = { kind: audience }
+    }
+    return { ok: true, def: audienceDef }
+  }
+
+  // BL-020: on the Review step, list who this official notice won't reach
+  // by email. Re-run whenever the audience or channels change; the send
+  // recomputes the same plan server-side, so this is a preview, not a promise.
+  const officialActive = officialNoticeOffered && officialNotice && step === lastStep
+  useEffect(() => {
+    if (!officialActive) {
+      setOfficialPreview(null)
+      return
+    }
+    const built = buildAudienceDef()
+    if (!built.ok) {
+      setOfficialPreview({ ok: false, error: built.error })
+      return
+    }
+    let cancelled = false
+    setOfficialPreview(null)
+    previewOfficialNotice(built.def, channels)
+      .then((r) => {
+        if (!cancelled) setOfficialPreview(r)
+      })
+      .catch(() => {
+        if (!cancelled) setOfficialPreview({ ok: false, error: 'Couldn’t check e-consent. Try again before sending.' })
+      })
+    return () => {
+      cancelled = true
+    }
+    // buildAudienceDef reads exactly these picks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [officialActive, audience, selectedPropertyId, checkedResidentIds, checkedBoardIds, boardMembers, manualContacts, channels])
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     // Enter inside an earlier step means "continue", never "send".
@@ -445,70 +552,12 @@ export function NewCommunicationWizard({
       }
     }
 
-    // Translate the wizard-local 'specific_property' kind into the
-    // resolver's 'specific_residents' shape with the checked ids.
-    let audienceDef: Parameters<typeof sendCommunication>[0]['audience']
-    if (audience === 'specific_property') {
-      if (!selectedPropertyId) {
-        setError('Pick a property first.')
-        return
-      }
-      if (checkedResidentIds.size === 0) {
-        setError('Pick at least one resident at that property.')
-        return
-      }
-      audienceDef = {
-        kind: 'specific_residents',
-        residentIds: Array.from(checkedResidentIds),
-      }
-    } else if (audience === 'board') {
-      if (checkedBoardIds.size === 0) {
-        setError('Pick at least one board member.')
-        return
-      }
-      // Omit the id list (⇒ "the whole board") only when exactly every
-      // board-role member is checked and no admins — so it stays correct
-      // if the roster changes before sending. Any admin pick or board
-      // deselect sends explicit ids.
-      const boardRoleIds = boardMembers
-        .filter((m) => m.role === 'board')
-        .map((m) => m.userId)
-      const isWholeBoard =
-        boardRoleIds.length > 0 &&
-        checkedBoardIds.size === boardRoleIds.length &&
-        boardRoleIds.every((id) => checkedBoardIds.has(id))
-      audienceDef = isWholeBoard
-        ? { kind: 'board' }
-        : { kind: 'board', boardUserIds: Array.from(checkedBoardIds) }
-    } else if (audience === 'manual_emails') {
-      // Fold any in-flight draft into the committed list before sending.
-      let contacts = [...manualContacts]
-      const dEmail = draftEmail.trim().toLowerCase()
-      const dPhone = draftPhone.trim()
-      if (dEmail || dPhone) {
-        if (dEmail && !EMAIL_RE.test(dEmail)) {
-          setError(`"${dEmail}" doesn't look like an email.`)
-          return
-        }
-        if (dPhone && !US_PHONE_RE.test(dPhone)) {
-          setError(`"${dPhone}" doesn't look like a US phone number.`)
-          return
-        }
-        contacts.push({ email: dEmail, phone: dPhone, name: draftName.trim() })
-      }
-      if (contacts.length === 0) {
-        setError('Add at least one contact.')
-        return
-      }
-      audienceDef = {
-        kind: 'manual_emails',
-        emails: contacts.map((c) => c.email),
-        emailNames: contacts.map((c) => c.name),
-        phones: contacts.map((c) => c.phone),
-      }
-    } else {
-      audienceDef = { kind: audience }
+    const built = buildAudienceDef()
+    if (!built.ok) {
+      setError(built.error)
+      return
     }
+    const audienceDef = built.def
 
     startTransition(async () => {
       const result = await sendCommunication({
@@ -524,6 +573,8 @@ export function NewCommunicationWizard({
         spanish: spanish
           ? { subject: spanish.subject.trim(), bodyHtml: spanish.bodyHtml, reviewed: spanish.viewed }
           : undefined,
+        // Spread, not `officialNotice: false`: an unmarked send's payload stays exactly as before.
+        ...(officialNotice ? { officialNotice: true } : {}),
       })
       if (!result.ok) {
         setError(result.error)
@@ -533,7 +584,8 @@ export function NewCommunicationWizard({
         ? `Scheduled for ${new Date(scheduledFor).toLocaleString()}. ${result.recipientCount} recipient(s).`
         : `Sent. ${result.sentCount}/${result.recipientCount} delivered` +
           (result.failedCount > 0 ? `, ${result.failedCount} failed` : '') +
-          '.'
+          '.' +
+          (result.paperNotice ? ` ${paperNoticeLabel(result.paperNotice.count)}.` : '')
       setSuccess(msg)
       // Redirect immediately — the detail page shows the same success
       // info plus per-recipient delivery status. No artificial wait.
@@ -762,6 +814,16 @@ export function NewCommunicationWizard({
             </div>
           </Fieldset>
 
+          {officialNoticeOffered ? (
+            <Checkbox
+              checked={officialNotice}
+              onChange={() => setOfficialNotice((v) => !v)}
+              disabled={pending}
+              label="This is an official notice"
+              description="Civ. Code §4040: emailed only to members who agreed to electronic notices. Everyone else needs a paper notice by mail."
+            />
+          ) : null}
+
           <Field label="Send at" optional hint="Leave blank to send now. Uses your local time.">
             <Input
               type="datetime-local"
@@ -798,6 +860,8 @@ export function NewCommunicationWizard({
             </KeyValueList>
           </section>
 
+          {officialActive ? <PaperNoticeList preview={officialPreview} /> : null}
+
           {smsEnglishOnly ? <Alert variant="info">{SMS_ENGLISH_ONLY_NOTE}</Alert> : null}
         </div>
 
@@ -828,6 +892,36 @@ export function NewCommunicationWizard({
         )}
       </div>
     </form>
+  )
+}
+
+/** BL-020 Review step: who needs a paper copy of this official notice. */
+function PaperNoticeList({ preview }: { preview: OfficialNoticePreview | null }) {
+  if (!preview) return <p className="text-sm text-muted">Checking e-consent…</p>
+  if (!preview.ok) return <Alert variant="error">{preview.error}</Alert>
+  if (!preview.applies) return null
+  const { paper } = preview
+  if (paper.count === 0) {
+    return (
+      <Alert variant="success">
+        All {preview.recipients} recipients agreed to electronic notices. No paper notices needed.
+      </Alert>
+    )
+  }
+  return (
+    <Alert variant="warning" title={paperNoticeLabel(paper.count)}>
+      <p>
+        They haven’t agreed to electronic notices, or have no email on file, so they won’t get this by email.
+        Mail each of them a paper copy.
+      </p>
+      <ul className="mt-2 max-h-60 list-disc space-y-0.5 overflow-y-auto pl-5">
+        {paper.recipients.map((r, i) => (
+          <li key={i}>
+            {r.name} <span className="text-muted">· {r.home}</span>
+          </li>
+        ))}
+      </ul>
+    </Alert>
   )
 }
 
