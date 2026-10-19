@@ -10,6 +10,10 @@
 //          — the AI-drafted violation letters.
 //   bill   approval_requests rows (action_type 'w36.ap_bill', status
 //          'proposed') — vendor bills W36 read from an upload (BL-021).
+//   collections approval_requests rows (action_type 'collections.letter',
+//          status 'proposed') — collections letters built in code from
+//          the ledger and the state rule (BL-089). Approving sends nothing;
+//          the board prints the approved letter from the property page.
 //   arc    ai_runs rows (workflow_id 'W37', status 'pending_human_approval')
 //          — the AI's review draft for a submitted ARC application
 //          (BL-027). Decided by the existing ARC actions, never here.
@@ -27,6 +31,7 @@
 
 import { billMissing, billNeedsCheck, readBillPayload, type BillProposalPayload } from '../bill-scan/proposal'
 import { followUpLabel, followUpOfRunInput } from '../violation-follow-up'
+import { LETTER_KIND_CITATIONS, letterHref, readLetterPayload } from '../collections/letters/proposal'
 import {
   SUGGESTION_LABEL,
   citationLabel,
@@ -39,7 +44,7 @@ import {
 import { FIELD_LABEL, HELD_REASON, planContactApply } from '../contact-updates/model'
 import type { ContactEntry, ContactTicketRow } from '../contact-updates/apply'
 
-export const APPROVAL_SOURCES = ['w18', 'bill', 'w3', 'arc', 'contact', 'vendor'] as const
+export const APPROVAL_SOURCES = ['w18', 'bill', 'w3', 'collections', 'arc', 'contact', 'vendor'] as const
 export type ApprovalSource = (typeof APPROVAL_SOURCES)[number]
 export type ApprovalFilter = 'all' | ApprovalSource
 
@@ -84,6 +89,15 @@ export const SOURCE_META: Record<ApprovalSource, SourceMeta> = {
     queueLabel: 'Open the violation drafts',
     what: 'violation drafts',
   },
+  collections: {
+    title: 'Collections letters',
+    tab: 'Collections letters',
+    description:
+      'Past-due and lien notices drafted from the ledger and the state’s rules — no AI writes them. Approving sends nothing: the board prints the approved letter from the property page and mails it.',
+    queueHref: '/dues',
+    queueLabel: 'Open dues',
+    what: 'collections letters',
+  },
   arc: {
     title: 'ARC reviews',
     tab: 'ARC reviews',
@@ -119,6 +133,8 @@ export type InboxDecisionTarget =
   | { kind: 'bill'; approvalRequestId: string; canApprove: boolean }
   /** BL-048: approve files the letter (lib/violations approveViolationDraft); reject records why. */
   | { kind: 'w3'; runId: string }
+  /** BL-089: approve marks the letter approved for printing (lib/collections/letters/executor.ts); reject records why. */
+  | { kind: 'collections'; approvalRequestId: string }
   /** A prospect: rejectable always; approvable only when compliance is green (approveVendor's gate). */
   | { kind: 'vendor'; vendorId: string; canApprove: boolean }
   /** BL-027: decided by the ARC actions (respondToArcRequest / requestArcInfo), not decideApproval. */
@@ -128,7 +144,7 @@ export type InboxDecisionTarget =
 
 /** The id the decision endpoint takes for a target. */
 export function decisionId(d: InboxDecisionTarget): string {
-  if (d.kind === 'w18' || d.kind === 'bill') return d.approvalRequestId
+  if (d.kind === 'w18' || d.kind === 'bill' || d.kind === 'collections') return d.approvalRequestId
   if (d.kind === 'w3' || d.kind === 'arc') return d.runId
   if (d.kind === 'contact') return d.ticketId
   return d.vendorId
@@ -364,6 +380,45 @@ export function billItems(rows: BillProposalRow[]): InboxItem[] {
             : 'High confidence',
       decision: { kind: 'bill', approvalRequestId: r.id, canApprove: missing.length === 0 },
       bill: { payload, missing, needsCheck, documentUrl: null, editOptions: null },
+    }
+  })
+}
+
+export interface LetterProposalRow {
+  id: string
+  summary: string
+  amount: number | string | null
+  proposed_at: string
+  payload: unknown
+}
+
+const usdFromCents = (c: number) =>
+  `${c < 0 ? '−' : ''}$${(Math.abs(c) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+/**
+ * BL-089 collections letters. The figures are the code's, from the
+ * ledger; the board's own entries (interest, costs) are named so the
+ * approver checks them. An unreadable payload gets no one-click decision.
+ */
+export function letterItems(rows: LetterProposalRow[]): InboxItem[] {
+  return rows.map((r) => {
+    const payload = readLetterPayload(r.payload)
+    const citation = payload ? LETTER_KIND_CITATIONS[payload.kind] : null
+    return {
+      source: 'collections' as const,
+      id: r.id,
+      title: r.summary,
+      detail: payload
+        ? `From the ledger ${usdFromCents(payload.ledgerCents)}${payload.enteredCents > 0 ? `, plus ${usdFromCents(payload.enteredCents)} entered by the board (interest and costs)` : ''}. Drafted ${payload.draftedOn}. Open the letter to read it in full before approving.`
+        : 'This letter can’t be read. Open the property to draft it again.',
+      amount: num(r.amount),
+      amountNote: null,
+      createdAt: r.proposed_at,
+      reasoning: null,
+      citations: citation ? [citation] : [],
+      confidenceLabel: null,
+      href: payload ? letterHref(payload.propertyId) : '/properties',
+      decision: payload ? { kind: 'collections', approvalRequestId: r.id } : null,
     }
   })
 }

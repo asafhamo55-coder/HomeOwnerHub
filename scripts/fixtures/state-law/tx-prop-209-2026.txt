@@ -1,0 +1,20 @@
+# Texas Property Code chapter 209 (Texas Residential Property Owners Protection Act) — selected sections.
+# Source: the Texas Legislative Council's official statutes text, chapter file
+#   https://tcss.legis.texas.gov/resources/PR/htm/PR.209.htm  (the document statutes.capitol.texas.gov displays for Property Code ch. 209)
+# Retrieved 2026-10-19. HTML reduced to text: one paragraph per line, entities decoded. The trailing lines are the official history.
+# Public domain (state statute). Used by apps/hoa/src/lib/collections/letters/law.test.ts (BL-089).
+
+=== Sec. 209.0064. THIRD PARTY COLLECTIONS. (a) In this section, "collection agent" means a debt collector, as defined by Section 803 of the federal Fair Debt Collection Practices Act (15 U.S.C. Section 1692a).
+(b) A property owners' association may not hold an owner liable for fees of a collection agent retained by the association unless the association first provides written notice to the owner by certified mail that:
+(1) specifies each delinquent amount and the total amount of the payment required to make the account current;
+(2) if the association is subject to Section 209.0062 or the association's dedicatory instruments contain a requirement to offer a payment plan, describes the options the owner has to avoid having the account turned over to a collection agent, including information regarding availability of a payment plan through the association; and
+(3) provides a period of at least 45 days for the owner to cure the delinquency before further collection action is taken.
+(c) An owner is not liable for fees of a collection agent retained by the property owners' association if:
+(1) the obligation for payment by the association to the association's collection agent for fees or costs associated with a collection action is in any way dependent or contingent on amounts recovered; or
+(2) the payment agreement between the association and the association's collection agent does not require payment by the association of all fees to a collection agent for the action undertaken by the collection agent.
+(d) The agreement between the property owners' association and the association's collection agent may not prohibit the owner from contacting the association board or the association's managing agent regarding the owner's delinquency.
+(e) A property owners' association may not sell or otherwise transfer any interest in the association's accounts receivables for a purpose other than as collateral for a loan.
+Added by Acts 2011, 82nd Leg., R.S., Ch. 1282 (H.B. 1228), Sec. 2, eff. January 1, 2012.
+Amended by:
+Acts 2015, 84th Leg., R.S., Ch. 1183 (S.B. 1168), Sec. 19, eff. September 1, 2015.
+Acts 2021, 87th Leg., R.S., Ch. 951 (S.B. 1588), Sec. 16, eff. September 1, 2021.

@@ -36,6 +36,9 @@ const OTHER_HANDLERS = {
   // PR-10 contact updates.
   approveContact: notUsed,
   rejectContact: notUsed,
+  // BL-089 collections letters.
+  approveLetter: notUsed,
+  rejectLetter: notUsed,
 }
 
 const AMOUNT = 180

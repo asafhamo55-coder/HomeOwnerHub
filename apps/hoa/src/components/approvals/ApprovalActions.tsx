@@ -52,6 +52,16 @@ const COPY: Record<ApprovalTarget['kind'], Copy> = {
     rejectConfirm: 'Reject draft',
     rejectPlaceholder: 'The photo shows the neighbor’s lot, not this one.',
   },
+  collections: {
+    approveButton: 'Approve letter',
+    approveTitle: 'Approve this collections letter?',
+    approveDescription: (title, amount) =>
+      `${title}${amount ? ` (${amount})` : ''}. The letter becomes ready to print on the property page. Nothing is emailed, texted or mailed from HomeownerHub — the board prints it and sends it.`,
+    approveConfirm: 'Approve letter',
+    rejectTitle: 'Reject this letter?',
+    rejectConfirm: 'Reject letter',
+    rejectPlaceholder: 'The owner paid on Friday; the check hasn’t posted yet.',
+  },
   contact: {
     approveButton: 'Approve & update',
     approveTitle: 'Update these contact details?',

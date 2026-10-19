@@ -1,0 +1,128 @@
+/**
+ * What the collections letters say about the law, per state (BL-089).
+ * Citations and the statutory form wording as text, never legal advice.
+ * Pure and client-safe.
+ *
+ * FLORIDA — checked against the official 2026 chapter 720 text
+ * (scripts/fixtures/state-law/flsenate-ch720-2026.html, the Florida
+ * Senate's "2026 Florida Statutes"; § 720.3085 history ends "s. 10,
+ * ch. 2024-221", which is 2024's HB 1203):
+ *   - § 720.3085(3)(d) — the NOTICE OF LATE ASSESSMENT. The BL-089 brief
+ *     called this (3)(a); in the current text (3)(a) is the late-fee cap
+ *     and the notice is (3)(d), the paragraph HB 1203 added together with
+ *     the (3)(c) invoice-delivery rules. No attorney fees on a past-due
+ *     assessment until this notice is delivered. First-class mail to the
+ *     owner's last address and, if different, to the parcel address. The
+ *     owner gets 30 days "after the date of this letter".
+ *   - § 720.3085(4) — the NOTICE OF INTENT TO RECORD A CLAIM OF LIEN: 45
+ *     days "following the date the notice is deposited in the mail" (the
+ *     form says "after your receipt of this letter"), by registered or
+ *     certified mail, return receipt requested, AND first-class mail.
+ *   - § 720.3085(3) — interest at the declaration's rate, or 18% a year
+ *     simple if it sets none; (3)(a) late fee up to the greater of $25 or
+ *     5% of the installment.
+ *   - The statute does not itself order the two notices. The waiting rule
+ *     here (no intent-to-lien letter until 30 days after the late notice)
+ *     comes from the late notice's own words: it is notice "to proceed
+ *     with further collection action against your property no sooner than
+ *     30 days after the date of this letter".
+ *
+ * CALIFORNIA — the official Civil Code text from the Legislative
+ * Counsel's bulk data (pubinfo_2025.zip, LAW_SECTION_TBL rows dated
+ * 2026-10-02), added to scripts/fixtures/state-law/ca-civ-davis-stirling-2026.txt:
+ *   - § 5660 — at least 30 days before recording a lien, notice by
+ *     certified mail with the contents (a)–(f).
+ *   - § 5650(b) — assessments are delinquent 15 days after they are due;
+ *     late charge up to the greater of 10% or $10; interest up to 12% a
+ *     year, starting 30 days after the due date.
+ *   - § 5665 — the owner may ask in writing to meet the board about a
+ *     payment plan; if mailed within 15 days of the notice's postmark the
+ *     board meets within 45 days of the request's postmark.
+ *
+ * TEXAS — Property Code § 209.0064 from the Texas Legislative Council's
+ * official text (scripts/fixtures/state-law/tx-prop-209-2026.txt): before
+ * an owner can be held liable for a collection agent's fees, written
+ * notice by certified mail that (1) itemizes each delinquent amount and
+ * the total, (2) describes payment-plan options where § 209.0062 or the
+ * dedicatory instruments require one, and (3) gives at least 45 days to
+ * cure.
+ *
+ * Every other state gets a plain past-due letter with no statutory claims.
+ */
+
+export const LETTER_DISCLAIMER =
+  'This is general information, not legal advice. Check every figure against your books and the current statute, and ask your association’s attorney before sending a notice that leads to a lien.'
+
+// ─── Florida § 720.3085 ──────────────────────────────────────────────
+
+export const FL_LATE_NOTICE_CITATION = 'Fla. Stat. § 720.3085(3)(d)'
+export const FL_INTENT_CITATION = 'Fla. Stat. § 720.3085(4)'
+export const FL_STATUTE_URL = 'https://www.flsenate.gov/Laws/Statutes/2026/720.3085'
+
+/** § 720.3085(3)(d): "must be paid within 30 days after the date of this letter". */
+export const FL_LATE_NOTICE_DAYS = 30
+/** § 720.3085(4)(a): "45 days following the date the notice is deposited in the mail". */
+export const FL_INTENT_DAYS = 45
+/** § 720.3085(3): 18% a year simple when the declaration and bylaws set no rate. */
+export const FL_DEFAULT_INTEREST_PERCENT = 18
+
+export const FL_LATE_NOTICE_BODY = (association: string) =>
+  `The following amounts are currently due on your account to ${association}, and must be paid within 30 days after the date of this letter. This letter shall serve as the association’s notice to proceed with further collection action against your property no sooner than 30 days after the date of this letter, unless you pay in full the amounts set forth below:`
+
+export const FL_INTENT_BODY = (association: string) =>
+  `The following amounts are currently due on your account to ${association}, and must be paid within 45 days after your receipt of this letter. This letter shall serve as the association’s notice of intent to record a Claim of Lien against your property no sooner than 45 days after your receipt of this letter, unless you pay in full the amounts set forth below:`
+
+export const FL_LATE_NOTICE_MAILING =
+  'Send by first-class United States mail to the owner’s last address in the association’s records and, if that is not the parcel address, also to the parcel address (§ 720.3085(3)(d)). A sworn affidavit of mailing by a board member, officer, agent or licensed manager creates a presumption that it was mailed.'
+
+export const FL_INTENT_MAILING =
+  'Send by registered or certified mail, return receipt requested, and by first-class United States mail, to the owner’s last address in the association’s records and, if that is not the parcel address, also to the parcel address (§ 720.3085(4)(b)). A claim of lien may not be recorded until 45 days after the notice is deposited in the mail.'
+
+export const FL_FINE_NOTE =
+  'Fines are not listed. These notices are for assessments, and under § 720.305 a fine of less than $1,000 may not become a lien.'
+
+// ─── California § 5660 ───────────────────────────────────────────────
+
+export const CA_CITATION = 'Cal. Civ. Code § 5660'
+/** § 5660: "At least 30 days prior to recording a lien". */
+export const CA_PRE_LIEN_DAYS = 30
+/** § 5650(b): "delinquent 15 days after they become due". */
+export const CA_DELINQUENT_AFTER_DAYS = 15
+/** § 5650(b)(3): interest may not exceed 12 percent a year. */
+export const CA_MAX_INTEREST_PERCENT = 12
+
+export const CA_IMPORTANT_NOTICE =
+  'IMPORTANT NOTICE: IF YOUR SEPARATE INTEREST IS PLACED IN FORECLOSURE BECAUSE YOU ARE BEHIND IN YOUR ASSESSMENTS, IT MAY BE SOLD WITHOUT COURT ACTION.'
+
+/** § 5660(a) inspection, (c)–(f): the statements the notice must carry, in plain words. */
+export const CA_RIGHTS: { cite: string; text: string }[] = [
+  { cite: '§ 5660(a)', text: 'You have the right to inspect the association’s records under Civil Code § 5205.' },
+  { cite: '§ 5660(c)', text: 'You are not liable to pay the charges, interest and costs of collection if it is determined that the assessment was paid on time to the association.' },
+  {
+    cite: '§ 5660(d)',
+    text: 'You have the right to request a meeting with the board under Civil Code § 5665 to discuss a payment plan. If your written request is mailed within 15 days of the postmark of this notice, the board will meet with you in executive session within 45 days of the postmark of your request.',
+  },
+  { cite: '§ 5660(e)', text: 'You have the right to dispute the assessment debt by submitting a written request for dispute resolution under the association’s “meet and confer” program (Civil Code § 5900 and following).' },
+  {
+    cite: '§ 5660(f)',
+    text: 'You have the right to request alternative dispute resolution with a neutral third party (Civil Code § 5925 and following) before the association may initiate foreclosure against your separate interest, except that binding arbitration is not available if the association intends to initiate a judicial foreclosure.',
+  },
+]
+
+export const CA_MAILING =
+  'Send by certified mail to the owner of record (§ 5660). A lien may not be recorded until at least 30 days after this notice.'
+
+export const CA_FINE_NOTE = 'Fines are not listed. This notice is for the assessment debt described in § 5650.'
+
+// ─── Texas § 209.0064 ────────────────────────────────────────────────
+
+export const TX_CITATION = 'Tex. Prop. Code § 209.0064'
+/** § 209.0064(b)(3): "a period of at least 45 days for the owner to cure". */
+export const TX_CURE_DAYS = 45
+
+export const TX_MAILING =
+  'Send by certified mail (§ 209.0064(b)). Without this notice the owner cannot be held liable for a collection agent’s fees.'
+
+// ─── generic ─────────────────────────────────────────────────────────
+
+export const GENERIC_NOTE = 'A plain past-due letter. It makes no claim about any state statute; check your governing documents and state law before any lien or collection step.'

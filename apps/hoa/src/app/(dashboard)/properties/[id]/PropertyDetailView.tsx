@@ -256,7 +256,7 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
               </Button>
             }
           >
-            <MoneySection data={data} aging={aging} today={today} unitId={unitId} duesHref={scoped('/dues')} />
+            <MoneySection data={data} aging={aging} today={today} unitId={unitId} duesHref={scoped('/dues')} letterHref={canManage ? propertyHref(pid, { collectionsLetter: true }) : null} />
           </Section>
 
           <Section
@@ -675,12 +675,15 @@ function MoneySection({
   today,
   unitId,
   duesHref,
+  letterHref,
 }: {
   data: Property360
   aging: ReturnType<typeof agingBuckets> | null
   today: string
   unitId: string | null
   duesHref: string
+  /** BL-089: the collections letter page; null when the viewer isn't board/admin. */
+  letterHref: string | null
 }) {
   const stats = data.stats
   const lastPayment = data.payments?.ok ? (data.payments.data[0] ?? null) : null
@@ -847,6 +850,7 @@ function MoneySection({
             events={data.collections?.ok ? data.collections.data.events : []}
             closedCases={data.collections?.ok ? data.collections.data.closed : []}
             today={today}
+            letterHref={letterHref}
           />
         )}
       </div>
