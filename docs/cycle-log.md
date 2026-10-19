@@ -376,3 +376,12 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Asaf to confirm:** is "Linda, Madison Park" a real quote? If not, remove it everywhere.
 - **Not yet checked in a browser:** the estoppel print layout.
 - **Running:** BL-089 collections letters and BL-091 budget notice.
+
+## 2026-10-19 (17:05) — deploy b4fce6c: owner budget notice; collections letters merged
+
+- **Live:** BL-091 owner budget notice. Smoke: /accounting/budget and /properties 307, /login 200. Release-note email sent.
+- **Merged and pushed for CI (ea9421b):** BL-089 statute collections letters (FL §720.3085(3)(d)/(4), CA §5660, TX §209.0064). They go through Approvals and are printed; nothing is emailed. Unit 5754/5754, build 4/4.
+  - The first local build collided with a second concurrent build (an ENOENT on the .next manifest). The re-run was clean.
+- **Owner requests added (BL-092..095):** product/architecture deck, investor deck, logo, blue recolour. Agents are dispatched.
+  - Decks are saved to ~/HomeownerHub-decks/, outside the public repo.
+- **Missed one-shot:** the 16:55 one-shot did not fire while the session was busy; the deploy was done by hand at 17:03.
