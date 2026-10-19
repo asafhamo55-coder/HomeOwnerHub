@@ -10,6 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import { loadOrFail } from '../load-or-fail'
 import { BILL_ACTION } from '../bill-scan/proposal'
+import { LETTER_ACTION } from '../collections/letters/proposal'
 import { FOLLOW_UP_AWAITING_SAVE_PATH } from '../violation-follow-up'
 import { contactTicketsQuery, loadContactEntries, type ContactTicketRow } from '../contact-updates/apply'
 import {
@@ -17,6 +18,8 @@ import {
   arcItems,
   billItems,
   contactItems,
+  letterItems,
+  type LetterProposalRow,
   type ArcRunRow,
   type BillProposalRow,
   type AssociationVendorCount,
@@ -86,6 +89,24 @@ export async function loadBillSection(db: InboxDb, orgId: string): Promise<Inbox
   if (!res.ok) return { source: 'bill', ok: false }
   const rows = (res.data ?? []) as unknown as BillProposalRow[]
   return { source: 'bill', ok: true, items: billItems(rows), total: res.count ?? rows.length }
+}
+
+/** BL-089: collections letters waiting on the board, oldest first. Same read rule as W18. */
+export async function loadLetterSection(db: InboxDb, orgId: string): Promise<InboxSection> {
+  const res = await loadOrFail(
+    'approvals: collections letters',
+    db
+      .from('approval_requests')
+      .select('id, summary, amount, proposed_at, payload', { count: 'exact' })
+      .eq('organization_id', orgId)
+      .eq('action_type', LETTER_ACTION)
+      .eq('status', 'proposed')
+      .order('proposed_at', { ascending: true })
+      .range(0, SECTION_LIMIT - 1),
+  )
+  if (!res.ok) return { source: 'collections', ok: false }
+  const rows = (res.data ?? []) as unknown as LetterProposalRow[]
+  return { source: 'collections', ok: true, items: letterItems(rows), total: res.count ?? rows.length }
 }
 
 export async function loadW3Section(db: InboxDb, orgId: string): Promise<InboxSection> {
@@ -204,7 +225,7 @@ export async function countPendingApprovals(db: InboxDb, orgId: string): Promise
     const primary = (assocs.data ?? [])[0]
     return primary ? countVendorsNeedingBoard(db, orgId, primary.id) : 0
   }
-  const [w18, bill, w3, arc, contact, vendor] = await Promise.all([
+  const [w18, bill, w3, collections, arc, contact, vendor] = await Promise.all([
     loadOrFail(
       'approvals badge: postings',
       db
@@ -234,6 +255,15 @@ export async function countPendingApprovals(db: InboxDb, orgId: string): Promise
         .is(FOLLOW_UP_AWAITING_SAVE_PATH as never, null),
     ),
     loadOrFail(
+      'approvals badge: collections letters',
+      db
+        .from('approval_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .eq('action_type', LETTER_ACTION)
+        .eq('status', 'proposed'),
+    ),
+    loadOrFail(
       'approvals badge: ARC reviews',
       db
         .from('ai_runs')
@@ -246,7 +276,7 @@ export async function countPendingApprovals(db: InboxDb, orgId: string): Promise
     vendorCount(),
   ])
   const count = (r: { ok: true; count: number | null } | { ok: false }) => (r.ok ? (r.count ?? 0) : null)
-  return { w18: count(w18), bill: count(bill), w3: count(w3), arc: count(arc), contact: count(contact), vendor }
+  return { w18: count(w18), bill: count(bill), w3: count(w3), collections: count(collections), arc: count(arc), contact: count(contact), vendor }
 }
 
 /**

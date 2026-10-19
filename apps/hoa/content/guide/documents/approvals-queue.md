@@ -6,7 +6,7 @@ topic: documents
 roles: [admin, board]
 routes: ["/approvals"]
 primary_route: /approvals
-keywords: [approve, approval, queue, pending, deposit, bill, invoice, scanned, vendor, letter, reject, ai, decision, arc, architectural, contact, phone, email, mailing, address, owner, resident]
+keywords: [approve, approval, queue, pending, deposit, bill, invoice, scanned, vendor, letter, collections letter, reject, ai, decision, arc, architectural, contact, phone, email, mailing, address, owner, resident]
 shots:
   - name: guide-approvals
     alt: The Approvals page with a deposit and the Approve & post button highlighted
@@ -20,9 +20,9 @@ The AI prepares work for the board, but it never posts or sends anything on its 
 
 ## Steps
 1. Open **Approvals** from the sidebar. The number beside it is how many items are waiting.
-2. Pick a tab to see one kind: Deposits, Bills, Violation letters, ARC reviews, Contact updates or Vendors.
+2. Pick a tab to see one kind: Deposits, Bills, Violation letters, Collections letters, ARC reviews, Contact updates or Vendors.
 3. Read the item. For a scanned bill, compare it with the bill itself.
-4. Approve it: [[Approve & post]] for a deposit, [[Approve & enter]] for a bill, [[Approve letter]] for a violation letter, [[Approve & update]] for a contact update, or [[Approve]] for a vendor.
+4. Approve it: [[Approve & post]] for a deposit, [[Approve & enter]] for a bill, [[Approve letter]] for a violation or collections letter, [[Approve & update]] for a contact update, or [[Approve]] for a vendor.
 5. Or select [[Reject]] and give a **Reason**. The reason is kept in the audit trail.
 6. For an ARC review, select [[Approve]], [[Deny]] or [[Request info]].
 
@@ -32,6 +32,7 @@ The AI prepares work for the board, but it never posts or sends anything on its 
 - An approved deposit posts to the ledger and marks the matching dues paid.
 - An approved bill is entered in accounts payable. It does not pay the vendor.
 - An approved violation letter is filed as an open violation. Nothing is sent to the homeowner.
+- An approved collections letter becomes ready to print on the home's page. Nothing is sent: you print it and mail it. See [draft a collections letter](guide:dues-collections-letter).
 - An approved vendor becomes active.
 - An approved contact update changes that person's records on the home: their resident record, their ownership or lease, and the home's owner contact when it is theirs. The property page then shows **Updated by owner on** the date. A rejected one tells the resident your reason.
 - An ARC decision is the same as deciding on the application's own page. The resident sees your response in their portal.

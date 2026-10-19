@@ -180,6 +180,9 @@ questions:
   - { id: b-13, role: admin, expect: dues-collections-case, route: /properties/abc123, q: "How do I open a collections case for a house that hasn't paid in a year?" }
   - { id: b-15, role: admin, expect: dues-collections-case, q: "I logged the wrong date on a collection letter. Can I delete that entry?" }
   - { id: b-16, role: board, expect: dues-collections-case, q: "The owner finally paid everything. How do I close out their collections file?" }
+  - { id: n-cl1, role: board, expect: dues-collections-letter, q: "How do I send a Florida 45-day notice of intent to lien to an owner who is behind?" }
+  - { id: n-cl2, role: admin, expect: dues-collections-letter, route: /properties/abc123, q: "Can the app draft a past due letter for this house that I can print?" }
+  - { id: n-cl3, role: board, expect: dues-collections-letter, q: "Why does it say the intent to lien letter can't be drafted yet?" }
   - { id: b-17, role: admin, expect: accounting-recurring-entries, q: "Every month we post the same management company fee. Can it post itself automatically?" }
   - { id: b-18, role: board, expect: accounting-recurring-entries, route: /accounting/recurring, q: "How do I set up a quarterly transfer to the reserve fund that repeats?" }
   - { id: b-19, role: admin, expect: accounting-recurring-entries, q: "How do I stop a repeating journal entry?" }

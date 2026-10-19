@@ -1,5 +1,6 @@
-import { Badge, Card, CardContent, CardHeader, CardTitle, EmptyState, KeyValue, KeyValueList } from '@homeowner-portal/ui'
-import { Scale } from 'lucide-react'
+import Link from 'next/link'
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, EmptyState, KeyValue, KeyValueList } from '@homeowner-portal/ui'
+import { FileText, Scale } from 'lucide-react'
 import type { CollectionCase, CollectionEvent } from '@/lib/collections/queries'
 import {
   collectionEventLabel,
@@ -23,7 +24,9 @@ function toneVariant(tone: ReturnType<typeof collectionStatusTone>) {
  *
  * Read-mostly by design: this records what the manager and attorney did
  * elsewhere. Nothing here sends a letter — see the "Deliberately not built"
- * block in migrations/0047_collections.sql.
+ * block in migrations/0047_collections.sql. "Draft collections letter"
+ * (BL-089, board only) opens a page that builds a printable letter from
+ * the ledger; it goes through Approvals and is never emailed.
  */
 export function CollectionsSection({
   unitId,
@@ -31,6 +34,7 @@ export function CollectionsSection({
   events,
   closedCases,
   today,
+  letterHref = null,
 }: {
   unitId: string | null
   openCase: CollectionCase | null
@@ -38,6 +42,8 @@ export function CollectionsSection({
   closedCases: CollectionCase[]
   /** The association's today, 'YYYY-MM-DD', from the server (BL-065). */
   today: string
+  /** BL-089: the collections letter page; null hides the button (not board/admin). */
+  letterHref?: string | null
 }) {
   // No bridged unit means no case can exist: collection_cases.unit_id is
   // NOT NULL and references units(id). Say so plainly rather than showing
@@ -86,6 +92,15 @@ export function CollectionsSection({
         </CardContent>
       </Card>
 
+      {letterHref ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="secondary" size="sm" icon={<FileText aria-hidden />}>
+            <Link href={letterHref}>Draft collections letter</Link>
+          </Button>
+          <span className="text-xs text-muted">Built from the ledger and your state’s rules. Goes to Approvals; printed, never emailed.</span>
+        </div>
+      ) : null}
+
       <RecordCollectionEvent caseId={openCase.id} currentStatus={openCase.status} today={today} />
 
       <Card>
@@ -130,8 +145,9 @@ export function CollectionsSection({
       </Card>
 
       <p className="px-1 text-xs text-muted">
-        This is a record of actions taken elsewhere. HomeownerHub does not send collection notices,
-        and entries cannot be edited or deleted — correct a mistake by adding a note.
+        This is a record of actions taken elsewhere. HomeownerHub does not send collection notices —
+        a printed letter is recorded here on the day it prints — and entries cannot be edited or
+        deleted. Correct a mistake by adding a note.
       </p>
 
       {closedCases.length > 0 ? <ClosedCases cases={closedCases} /> : null}

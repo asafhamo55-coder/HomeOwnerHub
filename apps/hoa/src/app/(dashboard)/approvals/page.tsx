@@ -19,7 +19,7 @@ import {
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { listVendorsResult } from '@/lib/vendors'
-import { loadArcSection, loadBillSection, loadContactSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
+import { loadArcSection, loadBillSection, loadContactSection, loadLetterSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
 import {
   APPROVAL_SOURCES,
   SOURCE_META,
@@ -56,18 +56,19 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const filter = parseApprovalFilter((await searchParams).type)
   const supabase = await getSupabaseServerClient()
 
-  const [w18, bills, w3, arc, contact, vendors, byAssociation] = await Promise.all([
+  const [w18, bills, w3, letters, arc, contact, vendors, byAssociation] = await Promise.all([
     loadW18Section(supabase, org.id),
     loadBillSection(supabase, org.id)
       .then((s) => withBillLinks(supabase, s))
       .then((s) => withBillEditOptions(supabase, org.id, s)),
     loadW3Section(supabase, org.id),
+    loadLetterSection(supabase, org.id),
     loadArcSection(supabase, org.id, { associationName: org.name }),
     loadContactSection(supabase, org.id),
     listVendorsResult().then(vendorSection, () => ({ source: 'vendor', ok: false }) as const),
     loadVendorCountsByAssociation(supabase, org.id),
   ])
-  const inbox = buildInbox([w18, bills, w3, arc, contact, vendors], filter)
+  const inbox = buildInbox([w18, bills, w3, letters, arc, contact, vendors], filter)
 
   const tabs = [
     { label: 'All', href: '/approvals', active: filter === 'all', badge: inbox.total || null },
@@ -82,7 +83,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   return (
     <Page
       title="Approvals"
-      description="Everything waiting on a board decision — deposits to post, bills to enter, violation letters, ARC reviews, residents’ contact updates, vendors. Nothing here happens until someone approves it."
+      description="Everything waiting on a board decision — deposits to post, bills to enter, violation and collections letters, ARC reviews, residents’ contact updates, vendors. Nothing here happens until someone approves it."
       linkAs={Link}
       meta={inbox.total ? <StatusPill tone="ai" label={`${inbox.total} waiting`} /> : undefined}
       tabs={<Tabs items={tabs} aria-label="Approval types" linkAs={Link} />}

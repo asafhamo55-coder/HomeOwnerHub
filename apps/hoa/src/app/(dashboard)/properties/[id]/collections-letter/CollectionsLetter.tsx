@@ -1,0 +1,542 @@
+'use client'
+
+import { useMemo, useState, useTransition } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { Printer, Send } from 'lucide-react'
+import {
+  Alert,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Checkbox,
+  ChoiceGroup,
+  Fieldset,
+  Radio,
+  useToast,
+} from '@homeowner-portal/ui'
+import { formatDay } from '@/lib/money/format'
+import { valueOf, type CertificateField, type FieldValues } from '@/lib/properties/estoppel/model'
+import { recordLetterPrinted, saveLetterToApprovals } from '@/lib/collections/letters/actions'
+import {
+  CA_IMPORTANT_NOTICE,
+  CA_RIGHTS,
+  FL_INTENT_BODY,
+  FL_LATE_NOTICE_BODY,
+  TX_CURE_DAYS,
+} from '@/lib/collections/letters/law'
+import {
+  LETTER_META,
+  buildLetter,
+  dueDatesLabel,
+  kindsFor,
+  letterBlanks,
+  letterBlocked,
+  letterJurisdiction,
+  letterProblems,
+  letterTotals,
+  usdCents,
+  type Letter,
+  type LetterEvent,
+  type LetterInput,
+  type LetterKind,
+} from '@/lib/collections/letters/model'
+import type { LetterPayload } from '@/lib/collections/letters/proposal'
+import { Blank, BlankInput } from '../estoppel/EstoppelCertificate'
+
+export interface LetterRequestView {
+  id: string
+  proposedAt: string
+  payload: LetterPayload
+}
+
+/**
+ * The collections letter (BL-089). Three states:
+ *   draft    — pick the letter, fill each BLANK, tick "I've verified these
+ *              figures", Save to approvals. A waiting-period refusal is
+ *              shown instead of the letter's save button.
+ *   pending  — the saved letter, read-only, until a board member decides
+ *              it in Approvals.
+ *   approved — the approved letter with Print / Save as PDF. The print
+ *              records the collections event and an audit row first
+ *              (server action, figures re-checked), then opens the
+ *              browser's print dialog. Only the letter prints.
+ * Nothing is emailed or texted at any point.
+ */
+export function CollectionsLetter({
+  input,
+  today,
+  events,
+  pending,
+  approved,
+}: {
+  input: LetterInput
+  today: string
+  events: LetterEvent[]
+  pending: LetterRequestView | null
+  approved: LetterRequestView | null
+}) {
+  const [drafting, setDrafting] = useState(false)
+  if (pending) return <Pending input={input} today={today} events={events} request={pending} />
+  if (approved && !drafting) return <Approved input={input} today={today} events={events} request={approved} onDraftNew={() => setDrafting(true)} />
+  return <Draft input={input} today={today} events={events} />
+}
+
+// ─── draft ───────────────────────────────────────────────────────────
+
+function Draft({ input, today, events }: { input: LetterInput; today: string; events: LetterEvent[] }) {
+  const router = useRouter()
+  const toast = useToast()
+  const kinds = kindsFor(letterJurisdiction(input.state))
+  const [kind, setKind] = useState<LetterKind>(kinds[0]!)
+  const [values, setValues] = useState<FieldValues>({})
+  const [verified, setVerified] = useState(false)
+  const [isPending, startTransition] = useTransition()
+
+  const letter = useMemo(() => buildLetter(input, kind, today, events), [input, kind, today, events])
+  const blanks = letterBlanks(letter, values)
+  const problems = letterProblems(kind, values)
+  const blocked = letterBlocked(letter, values, verified)
+  const set = (key: string, v: string) => setValues((prev) => ({ ...prev, [key]: v }))
+  const blankFields = letter.fields.filter((f) => f.value === null)
+
+  function save() {
+    if (blocked) return
+    startTransition(async () => {
+      const res = await saveLetterToApprovals({ propertyId: input.propertyId, kind, values, verified })
+      if (!res.ok) {
+        toast({ tone: 'error', title: 'Couldn’t save the letter', message: res.error })
+        return
+      }
+      toast({ tone: 'success', message: res.message })
+      router.refresh()
+    })
+  }
+
+  return (
+    <div className="space-y-5">
+      <Card className="print:hidden">
+        <CardHeader>
+          <CardTitle as="h2">Which letter</CardTitle>
+          <CardDescription>
+            {letter.jurisdiction === 'generic'
+              ? 'This association isn’t in a state with a statutory notice here, so the letter is a plain past-due letter.'
+              : `The ${letter.jurisdiction} notices follow the statute’s required wording. Each one also offers a plain past-due letter.`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Fieldset legend="Letter">
+            <ChoiceGroup>
+              {kinds.map((k) => (
+                <Radio
+                  key={k}
+                  name="letter-kind"
+                  value={k}
+                  checked={kind === k}
+                  onChange={() => {
+                    setKind(k)
+                    setVerified(false)
+                  }}
+                  label={LETTER_META[k].label}
+                  description={`${LETTER_META[k].description}${LETTER_META[k].citation ? ` (${LETTER_META[k].citation})` : ''}`}
+                />
+              ))}
+            </ChoiceGroup>
+          </Fieldset>
+        </CardContent>
+      </Card>
+
+      {!letter.waiting.ok ? (
+        <Alert variant="error" title="This letter can’t be drafted yet" className="print:hidden">
+          {letter.waiting.reason}
+        </Alert>
+      ) : (
+        <>
+          <Facts letter={letter} />
+          {blankFields.length > 0 ? (
+            <Card className="print:hidden">
+              <CardHeader>
+                <CardTitle as="h2">Fill in the blanks</CardTitle>
+                <CardDescription>The app doesn’t hold these facts. Each shows as a BLANK on the letter, and it can’t be saved or printed until all are filled in.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {blankFields.map((f) => (
+                  <BlankInput key={f.key} field={f} value={values[f.key] ?? ''} onChange={(v) => set(f.key, v)} />
+                ))}
+                {problems.map((p) => (
+                  <Alert key={p} variant="error" title="Check this entry">
+                    {p}
+                  </Alert>
+                ))}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          <LetterDocument letter={letter} input={input} values={values} />
+
+          <div className="space-y-3 print:hidden">
+            {blanks.length > 0 ? (
+              <Alert variant="warning" title={`${blanks.length} BLANK${blanks.length === 1 ? '' : 's'} left`}>
+                {blanks.join('; ')}.
+              </Alert>
+            ) : null}
+            <Checkbox
+              checked={verified}
+              onChange={(e) => setVerified(e.target.checked)}
+              label="I’ve verified these figures"
+              description="The amounts, dates and entries match the association’s books."
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" icon={<Send aria-hidden />} onClick={save} disabled={blocked !== null || isPending} loading={isPending}>
+                Save to approvals
+              </Button>
+              <p className="text-sm text-muted">
+                {blocked ?? 'A board member approves it in Approvals; then print it here. Nothing is emailed.'}
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/** What the letter is built from, and the dates it implies. On screen only. */
+function Facts({ letter }: { letter: Letter }) {
+  return (
+    <Card className="print:hidden">
+      <CardHeader>
+        <CardTitle as="h2">How this letter is built</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 text-sm text-foreground-secondary">
+        <p>
+          The amounts come from this home’s ledger as of {formatDay(letter.letterDate)}: charges due before today that are not fully paid
+          {letter.figures.creditCents !== 0 ? ', less payments not applied to a charge' : ''}.
+        </p>
+        {letter.waiting.ok && letter.waiting.note ? <p>{letter.waiting.note}</p> : null}
+        {letter.deadline ? (
+          <p className="num">
+            {letter.deadline.label}: <span className="font-medium text-foreground">{formatDay(letter.deadline.day)}</span>.
+          </p>
+        ) : null}
+        {letter.meta.mailing ? <p>{letter.meta.mailing}</p> : null}
+        {letter.notes.map((n) => (
+          <p key={n}>{n}</p>
+        ))}
+        <p>Printing records “{LETTER_META[letter.kind].label}” on the collections case, dated the day it prints. If you mail it on a later day, add a note with the mailing date.</p>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── pending / approved ──────────────────────────────────────────────
+
+function Pending({ input, today, events, request }: { input: LetterInput; today: string; events: LetterEvent[]; request: LetterRequestView }) {
+  const letter = useMemo(() => buildLetter(input, request.payload.kind, today, events), [input, request.payload.kind, today, events])
+  return (
+    <div className="space-y-5">
+      <Alert variant="info" title="Waiting for board approval" className="print:hidden">
+        This {LETTER_META[request.payload.kind].label.toLowerCase()} was saved to Approvals. Once a board member approves it, come back here to print it.{' '}
+        <Link href="/approvals?type=collections" className="font-medium text-primary">
+          Open Approvals
+        </Link>
+      </Alert>
+      <LetterDocument letter={letter} input={input} values={request.payload.values} />
+    </div>
+  )
+}
+
+function Approved({
+  input,
+  today,
+  events,
+  request,
+  onDraftNew,
+}: {
+  input: LetterInput
+  today: string
+  events: LetterEvent[]
+  request: LetterRequestView
+  onDraftNew: () => void
+}) {
+  const router = useRouter()
+  const toast = useToast()
+  const [verified, setVerified] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  const letter = useMemo(() => buildLetter(input, request.payload.kind, today, events), [input, request.payload.kind, today, events])
+  const values = request.payload.values
+  const totals = letterTotals(letter, values)
+  const stale = totals.totalCents !== request.payload.totalCents
+  const blocked = stale
+    ? 'The account has changed since this letter was approved. Draft a new letter so the figures are current.'
+    : letterBlocked(letter, values, verified)
+
+  function print() {
+    if (blocked) return
+    startTransition(async () => {
+      const res = await recordLetterPrinted({ propertyId: input.propertyId, approvalRequestId: request.id, verified })
+      if (!res.ok) {
+        toast({ tone: 'error', title: 'Not printed', message: res.error })
+        return
+      }
+      toast({ tone: 'success', message: res.message })
+      window.print()
+      router.refresh()
+    })
+  }
+
+  return (
+    <div className="space-y-5">
+      <Alert variant={stale ? 'warning' : 'success'} title={stale ? 'The account changed after approval' : 'Approved — ready to print'} className="print:hidden">
+        {stale
+          ? `Approved for ${usdCents(request.payload.totalCents)}; the ledger now gives ${totals.totalCents === null ? 'a different amount' : usdCents(totals.totalCents)}. This letter can’t be printed.`
+          : 'The board approved this letter. Print it or save it as a PDF, then send it as the statute requires. Nothing is emailed.'}
+      </Alert>
+      {!stale ? <Facts letter={letter} /> : null}
+      <LetterDocument letter={letter} input={input} values={values} />
+      <div className="space-y-3 print:hidden">
+        {!stale ? (
+          <Checkbox
+            checked={verified}
+            onChange={(e) => setVerified(e.target.checked)}
+            label="I’ve verified these figures"
+            description="The amounts, dates and entries match the association’s books today."
+          />
+        ) : null}
+        <div className="flex flex-wrap items-center gap-3">
+          {!stale ? (
+            <Button type="button" icon={<Printer aria-hidden />} onClick={print} disabled={blocked !== null || isPending} loading={isPending}>
+              Print / Save as PDF
+            </Button>
+          ) : null}
+          <Button type="button" variant="secondary" onClick={onDraftNew} disabled={isPending}>
+            Draft a new letter instead
+          </Button>
+          {blocked && !stale ? <p className="text-sm text-muted">{blocked}</p> : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── the printed letter ──────────────────────────────────────────────
+
+function Value({ field, values, fallback }: { field: CertificateField | undefined; values: FieldValues; fallback?: string }) {
+  if (!field) return fallback ? <>{fallback}</> : null
+  const v = valueOf(field, values)
+  return v ? <span className="whitespace-pre-wrap">{v}</span> : <Blank label={field.label} />
+}
+
+function MoneyCell({ cents }: { cents: number | null }) {
+  return <td className="num py-1 text-right">{cents === null ? '—' : usdCents(cents)}</td>
+}
+
+function AmountRow({ label, cents, children }: { label: React.ReactNode; cents?: number | null; children?: React.ReactNode }) {
+  return (
+    <tr className="border-b border-border/60">
+      <td className="py-1 pr-3">{label}</td>
+      {children ?? <MoneyCell cents={cents ?? null} />}
+    </tr>
+  )
+}
+
+function EnteredCell({ field, values }: { field: CertificateField | undefined; values: FieldValues }) {
+  if (!field) return <td />
+  const v = valueOf(field, values)
+  return <td className="num py-1 text-right">{v ?? <Blank label={field.label} />}</td>
+}
+
+function LetterDocument({ letter, input, values }: { letter: Letter; input: LetterInput; values: FieldValues }) {
+  const f = letter.figures
+  const k = letter.kind
+  const field = (key: string) => letter.fields.find((x) => x.key === key)
+  const totals = letterTotals(letter, values)
+  const association = valueOf(field('associationName')!, values) ?? '[[BLANK: Association name]]'
+  const home = [input.address, input.unitNumber ? `Unit ${input.unitNumber}` : null].filter(Boolean).join(', ')
+  const isFl = k === 'fl_late_notice' || k === 'fl_intent_to_lien'
+  const rate = field('interestRate')
+
+  const lines = [...f.assessmentLines, ...f.lateFeeLines, ...f.otherLines].sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.id.localeCompare(b.id))
+  const total = (
+    <tr className="border-t-2 border-foreground font-semibold">
+      <td className="py-1 pr-3">{isFl ? 'TOTAL OUTSTANDING' : k === 'tx_delinquency' ? 'Total amount required to make the account current' : 'Total owed'}</td>
+      <td className="num py-1 text-right">{totals.totalCents === null ? <Blank label="Total (fill in the amounts above)" /> : usdCents(totals.totalCents)}</td>
+    </tr>
+  )
+  const credit = f.creditCents !== 0 ? <AmountRow label="Less payments and credits not applied to a charge" cents={f.creditCents} /> : null
+
+  return (
+    <article aria-labelledby="letter-title" className="space-y-4 rounded-lg border border-border bg-surface p-5 text-sm print:border-0 print:p-0">
+      <header className="space-y-3">
+        <p className="font-medium text-foreground">{association}</p>
+        <p className="num text-foreground-secondary">{formatDay(letter.letterDate)}</p>
+        <div className="text-foreground">
+          <p>
+            <Value field={field('owners')} values={values} />
+          </p>
+          <p>
+            <Value field={field('mailingAddress')} values={values} />
+          </p>
+        </div>
+        <h2 id="letter-title" className="pt-2 text-lg font-semibold text-foreground">
+          {letter.meta.title}
+        </h2>
+        {isFl ? (
+          <p className="text-foreground">
+            RE: {k === 'fl_intent_to_lien' ? 'Parcel or (lot/block) ' : 'Parcel '}
+            <Value field={field('parcel')} values={values} /> of {association}
+            {home ? <span className="text-foreground-secondary"> ({home})</span> : null}
+          </p>
+        ) : (
+          <p className="text-foreground">RE: {home || 'Your home'}</p>
+        )}
+      </header>
+
+      {k === 'fl_late_notice' ? <p className="text-foreground">{FL_LATE_NOTICE_BODY(association)}</p> : null}
+      {k === 'fl_intent_to_lien' ? <p className="text-foreground">{FL_INTENT_BODY(association)}</p> : null}
+      {k === 'ca_pre_lien' ? (
+        <div className="space-y-2 text-foreground">
+          <p>
+            Before the association records a lien on your separate interest to collect a debt that is past due under Civil Code § 5650, Civil Code § 5660 requires this notice. The
+            association’s collection and lien enforcement procedures, and how the amount below is calculated:
+          </p>
+          <p className="pl-3">
+            <Value field={field('procedures')} values={values} />
+          </p>
+          <p className="text-[14pt] font-bold uppercase leading-snug">{CA_IMPORTANT_NOTICE}</p>
+        </div>
+      ) : null}
+      {k === 'tx_delinquency' ? (
+        <p className="text-foreground">
+          The association’s records show the following delinquent amounts on your account. This notice is given under Texas Property Code § 209.0064.
+        </p>
+      ) : null}
+      {k === 'past_due' ? <p className="text-foreground">Our records show the following amounts past due on your account.</p> : null}
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <tbody>
+            {isFl ? (
+              <>
+                <AmountRow label={`Maintenance due (${dueDatesLabel(f.assessmentLines)})`} cents={f.assessmentsCents} />
+                <AmountRow label="Late fee, if applicable" cents={f.lateFeesCents} />
+                {credit}
+                <AmountRow
+                  label={
+                    <>
+                      Interest through (<Value field={field('interestThrough')} values={values} />) *
+                    </>
+                  }
+                >
+                  <EnteredCell field={field('interest')} values={values} />
+                </AmountRow>
+                {k === 'fl_intent_to_lien' ? (
+                  <>
+                    <AmountRow label="Certified mail charges">
+                      <EnteredCell field={field('certifiedMail')} values={values} />
+                    </AmountRow>
+                    <AmountRow label="Other costs">
+                      <EnteredCell field={field('otherCosts')} values={values} />
+                    </AmountRow>
+                  </>
+                ) : null}
+                {total}
+              </>
+            ) : k === 'ca_pre_lien' ? (
+              <>
+                <AmountRow label={`Delinquent assessments (${dueDatesLabel(f.assessmentLines)})`} cents={f.assessmentsCents} />
+                <AmountRow label="Late charges" cents={f.lateFeesCents} />
+                <AmountRow label="Fees and reasonable costs of collection">
+                  <EnteredCell field={field('collectionCosts')} values={values} />
+                </AmountRow>
+                <AmountRow label="Reasonable attorney’s fees">
+                  <EnteredCell field={field('attorneyFees')} values={values} />
+                </AmountRow>
+                <AmountRow label="Interest">
+                  <EnteredCell field={field('interest')} values={values} />
+                </AmountRow>
+                {credit}
+                {total}
+              </>
+            ) : (
+              <>
+                {lines.map((l) => (
+                  <AmountRow key={l.id} label={`${l.label}, due ${formatDay(l.dueDate)}`} cents={l.remainingCents} />
+                ))}
+                {credit}
+                {total}
+              </>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {isFl || k === 'ca_pre_lien' ? (
+        <>
+          {isFl ? (
+            <p className="text-foreground">
+              *Interest accrues at the rate of <Value field={rate} values={values} /> percent per annum.
+            </p>
+          ) : (
+            <p className="text-foreground">
+              Interest rate: <Value field={rate} values={values} /> percent per year.
+            </p>
+          )}
+          <section className="space-y-1">
+            <h3 className="font-medium text-foreground">Itemized charges</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <tbody>
+                  {[...f.assessmentLines, ...f.lateFeeLines]
+                    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.id.localeCompare(b.id))
+                    .map((l) => (
+                      <AmountRow key={l.id} label={`${l.label}, due ${formatDay(l.dueDate)}`} cents={l.remainingCents} />
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      ) : null}
+
+      {k === 'ca_pre_lien' ? (
+        <ul className="list-disc space-y-1 pl-5 text-foreground">
+          {CA_RIGHTS.map((r) => (
+            <li key={r.cite}>{r.text}</li>
+          ))}
+        </ul>
+      ) : null}
+
+      {k === 'tx_delinquency' ? (
+        <div className="space-y-2 text-foreground">
+          <p className="font-medium">Options to avoid having your account turned over to a collection agent</p>
+          <p>
+            <Value field={field('paymentPlan')} values={values} />
+          </p>
+          <p className="num">
+            You have {TX_CURE_DAYS} days to cure the delinquency before further collection action is taken: until {letter.deadline ? formatDay(letter.deadline.day) : '—'}.
+          </p>
+        </div>
+      ) : null}
+
+      {k === 'past_due' ? (
+        <p className="text-foreground">
+          Please pay the total by <Value field={field('payBy')} values={values} />. If you have already paid, thank you, and please disregard this letter. If you would like to discuss a
+          payment plan, contact the association.
+        </p>
+      ) : null}
+
+      <section className="space-y-1 pt-4">
+        <p className="text-foreground-secondary">Sincerely,</p>
+        <p className="pt-6 text-foreground-secondary">______________________________</p>
+        <p className="text-foreground">
+          <Value field={field('signer')} values={values} />
+        </p>
+        <p className="text-foreground-secondary">{association}</p>
+      </section>
+    </article>
+  )
+}

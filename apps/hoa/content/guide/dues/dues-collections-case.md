@@ -7,7 +7,7 @@ roles: [admin, board]
 routes: ["/properties/[id]"]
 primary_route: /properties/[id]
 keywords: [collections, collection, collections case, delinquent, delinquency, past due, behind on dues, lien, lien letter, lien warning, 30-day lien warning, attorney, lawyer, demand letter, suit, lawsuit, foreclosure, write off, collection letter, bad debt, owner won't pay, arrears, app, logged, delete entry, paid in full, paid everything, close out, close file]
-related: [accounting-payment-plans, dues-record-payment]
+related: [dues-collections-letter, accounting-payment-plans, dues-record-payment]
 reviewed: 2026-10-18
 ---
 
@@ -37,7 +37,7 @@ Use this when an owner's account is seriously past due and the board starts send
 - "No unit record": this home isn't linked to a unit yet, so it can't have a case. Link it first.
 
 ## Good to know
-- HomeownerHub doesn't send collection notices or lien letters. You send them yourself or through your attorney, then record them here.
+- HomeownerHub doesn't send collection notices or lien letters. You send them yourself or through your attorney, then record them here. To build a letter from the ledger, see [draft a collections letter](guide:dues-collections-letter); printing it records it here for you.
 - Actions can't be edited or deleted once saved. To fix a mistake, add a note.
 - You can't mark a case "Written off" or pick a stage by hand after the case is open. The stage moves only when you record an action that matches it.
 - "Payment received" and "Payment plan agreed" are notes on the file only. They don't record money. Record the payment on the **Dues** page, and set up the plan in [payment plans](guide:accounting-payment-plans).

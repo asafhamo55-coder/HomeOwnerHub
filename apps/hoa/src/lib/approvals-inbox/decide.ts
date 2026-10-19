@@ -23,6 +23,12 @@
 //                        approve files the letter as an OPEN violation and
 //                        sends nothing; reject keeps the reason on the run
 //                        (BL-048).
+//   collections        → approveRequest / rejectRequest with ONLY the
+//     approve/reject     collections.letter executor
+//                        (lib/collections/letters/executor.ts): approving
+//                        re-checks the case is open and marks the letter
+//                        approved for printing. Nothing is sent. The kind
+//                        is checked first, as for bills (BL-089).
 //   contact approve/   → approveContactUpdate / rejectContactUpdate
 //     reject             (lib/contact-updates/apply.ts, PR-10): approve
 //                        applies the resident's own contact change to their
@@ -36,6 +42,8 @@
 import { z } from 'zod'
 import { approveRequest, rejectRequest, type ApprovalExecutor, type DecisionResult } from '@homeowner-portal/workflows'
 import { BILL_ACTION } from '../bill-scan/proposal'
+import { LETTER_ACTION } from '../collections/letters/proposal'
+import { letterExecutor } from '../collections/letters/executor'
 import { approveContactUpdate, rejectContactUpdate } from '../contact-updates/apply'
 import { canUseApprovals } from './model'
 import type { InboxDb } from './load'
@@ -53,6 +61,8 @@ export interface InboxDecisionHandlers {
   rejectViolationDraft(runId: string, reason: string): Promise<Simple>
   approveBill(approvalRequestId: string): Promise<DecisionResult>
   rejectBill(approvalRequestId: string, reason: string): Promise<DecisionResult>
+  approveLetter(approvalRequestId: string): Promise<DecisionResult>
+  rejectLetter(approvalRequestId: string, reason: string): Promise<DecisionResult>
   approveContact(ticketId: string): Promise<Simple & { message?: string }>
   rejectContact(ticketId: string, reason: string): Promise<Simple & { message?: string }>
 }
@@ -60,7 +70,7 @@ export interface InboxDecisionHandlers {
 export type InboxDecisionOutcome = { ok: true; message: string } | { ok: false; error: string }
 
 const DecisionSchema = z.object({
-  kind: z.enum(['w18', 'bill', 'w3', 'vendor', 'contact']),
+  kind: z.enum(['w18', 'bill', 'w3', 'collections', 'vendor', 'contact']),
   id: z.string().uuid(),
   decision: z.enum(['approve', 'reject']),
   reason: z.string().max(1000).optional(),
@@ -98,6 +108,24 @@ export function billHandlers(
   return {
     approveBill: async (id) => ((await isBill(id)) ? approveRequest(userDb, adminDb, id, { [BILL_ACTION]: executor }) : notBill),
     rejectBill: async (id, reason) => ((await isBill(id)) ? rejectRequest(userDb, id, reason) : notBill),
+  }
+}
+
+/**
+ * BL-089: collections letters. Same shape as billHandlers: the kind check
+ * runs on the decider's RLS client before the claim, and the executor map
+ * holds only the letter executor, so no other proposal can be claimed as
+ * a letter.
+ */
+export function letterHandlers(userDb: InboxDb, adminDb: InboxDb): Pick<InboxDecisionHandlers, 'approveLetter' | 'rejectLetter'> {
+  const isLetter = async (id: string): Promise<boolean> => {
+    const { data, error } = await userDb.from('approval_requests').select('action_type').eq('id', id).maybeSingle()
+    return !error && data?.action_type === LETTER_ACTION
+  }
+  const notLetter = { ok: false as const, error: 'That approval item isn’t a collections letter.' }
+  return {
+    approveLetter: async (id) => ((await isLetter(id)) ? approveRequest(userDb, adminDb, id, { [LETTER_ACTION]: letterExecutor }) : notLetter),
+    rejectLetter: async (id, reason) => ((await isLetter(id)) ? rejectRequest(userDb, id, reason) : notLetter),
   }
 }
 
@@ -163,6 +191,21 @@ export async function decideApprovalFor(
     const r = decision === 'reject' ? await handlers.rejectContact(id, reason) : await handlers.approveContact(id)
     if (!r.ok) return { ok: false, error: r.error }
     return { ok: true, message: r.message ?? (decision === 'reject' ? 'Rejected.' : 'Contact details updated.') }
+  }
+
+  if (kind === 'collections') {
+    if (decision === 'reject') {
+      const r = await handlers.rejectLetter(id, reason)
+      return r.ok ? { ok: true, message: 'Letter rejected. Nothing was sent.' } : { ok: false, error: r.error }
+    }
+    const r = await handlers.approveLetter(id)
+    if (!r.ok) return { ok: false, error: r.error }
+    return {
+      ok: true,
+      message: r.alreadyDecided
+        ? 'Already approved.'
+        : 'Letter approved. Print it from the property’s collections letter page and mail it yourself. Nothing was sent.',
+    }
   }
 
   if (kind === 'bill') {

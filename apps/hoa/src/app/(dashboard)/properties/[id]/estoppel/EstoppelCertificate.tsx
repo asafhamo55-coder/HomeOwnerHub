@@ -224,7 +224,8 @@ function DeadlineSummary({ cert }: { cert: Certificate }) {
   )
 }
 
-function BlankInput({ field, value, onChange }: { field: CertificateField; value: string; onChange: (v: string) => void }) {
+/** One BLANK's input. Shared with the collections letter (BL-089). */
+export function BlankInput({ field, value, onChange }: { field: CertificateField; value: string; onChange: (v: string) => void }) {
   if (field.kind === 'yesno' || field.kind === 'yesno_detail') {
     const choice = value === 'No' ? 'No' : value.startsWith('Yes') ? 'Yes' : ''
     const detail = value.startsWith('Yes:') ? value.slice(4).replace(/^ /, '') : ''
@@ -275,7 +276,7 @@ function BlankInput({ field, value, onChange }: { field: CertificateField; value
 
 // ─── the printed document ───────────────────────────────────────────
 
-function Blank({ label }: { label: string }) {
+export function Blank({ label }: { label: string }) {
   return <span className="rounded bg-warning-subtle px-1 font-mono text-warning">[[BLANK: {label}]]</span>
 }
 

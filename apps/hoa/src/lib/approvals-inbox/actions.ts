@@ -10,7 +10,7 @@ import { enterBill } from '@/lib/invoices'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { makeBillExecutor } from '@/lib/bill-scan/executor'
 import { billInvoiceExists } from '@/lib/bill-scan/load'
-import { billHandlers, contactHandlers, decideApprovalFor, postingHandlers, type InboxDecisionInput, type InboxDecisionOutcome } from './decide'
+import { billHandlers, contactHandlers, decideApprovalFor, letterHandlers, postingHandlers, type InboxDecisionInput, type InboxDecisionOutcome } from './decide'
 
 /**
  * The one decision endpoint behind /approvals (BL-014). It only routes:
@@ -43,6 +43,7 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
   const result = await decideApprovalFor(gate.role, input, {
     ...postingHandlers(supabase, adminDb),
     ...billHandlers(supabase, adminDb, billExecutor),
+    ...letterHandlers(supabase, adminDb),
     approveVendor,
     rejectVendor,
     approveViolationDraft,
@@ -64,6 +65,8 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
     revalidatePath('/properties', 'layout')
     revalidatePath('/tickets', 'layout')
     revalidatePath('/resident/account')
+  } else if (input.kind === 'collections') {
+    revalidatePath('/properties', 'layout')
   } else if (input.kind === 'w3') {
     revalidatePath('/violations')
     revalidatePath('/violations/approval-queue')
