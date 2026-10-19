@@ -39,14 +39,14 @@ const result = await violationInspector.execute(
 
 `state-rules.ts` encodes each state's enforcement rules in code (no migration). W3 reads `associations.state` (the named association, else the org's first by name) and:
 
-1. **Refuses** a requested step the rules forbid, before retrieval or any model call — `StatuteRuleRefusalError` (kept as `cause` by `defineWorkflow`; `/api/ai/violations/draft` returns `422 { error: 'statute_refusal', reasons }`). Input: `requestedAction { step, fineAmountCents, hearingNoticeDays, hearingHeld, violationCured, healthSafetyFinding, lateFeeOrInterestOnFine }`; absent = first notice.
+1. **Refuses** a requested step the rules forbid, before retrieval or any model call — `StatuteRuleRefusalError` (kept as `cause` by `defineWorkflow`; `/api/ai/violations/draft` returns `422 { error: 'statute_refusal', reasons }`). Input: `requestedAction { step, fineAmountCents, hearingNoticeDays, hearingHeld, violationCured, healthSafetyFinding, lateFeeOrInterestOnFine, financialCommitmentToCure }`; absent = first notice.
 2. **Appends** a deterministic statutory-notice paragraph to the model's draft, plus verbatim quotes that pass the W32 `validateCitations` check against the ingested `state_statutes` body. A quote the stored text no longer contains is dropped with a warning, never reworded.
 3. Returns `output.stateRules` (rule summary, citation, validated quotes, warnings) for the approval queue.
 
 | State | Source | Verified | Refuses |
 |---|---|---|---|
 | FL | Fla. Stat. § 720.305 (2026), official flsenate.gov text (`scripts/fixtures/state-law/flsenate-ch720-2026.html`) | yes — quotes tested against the fixture | fine/suspension without a committee hearing; fine/suspension on a cured violation; hearing notice < 14 days or > 90 days. Fine > $100 is a warning (governing documents may allow more). |
-| CA | Civ. Code §§ 5850, 5855 as amended by AB 130 (2025) | **no** — leginfo.legislature.ca.gov returned 403; secondary summaries only, so "verify against the statute" wording and no quote | fine above $100 without a health/safety finding; late fees/interest on a fine; fine without notice + hearing; fine on a violation cured before the hearing; hearing notice < 10 days |
+| CA | Civ. Code §§ 5850, 5855 as amended by AB 130 (Stats. 2025, ch. 22) | yes (BL-054) — every rule's basis (`CA_RULE_BASIS`) tested verbatim against the official Legislative Counsel text (`scripts/fixtures/state-law/ca-civ-davis-stirling-2026.txt`; see `docs/research/2026-10-ca-rules-verification.md`). Letters still quote nothing: no CA text is ingested yet (BL-069) | fine above $100 without a health/safety finding; late fees/interest on a fine; fine/suspension without notice + meeting; fine/suspension on a violation cured before the meeting, or with a financial commitment to cure; hearing notice < 10 days. Warns: fine must be on the published schedule; written decision within 14 days. |
 | other | — | — | nothing; generic "verify against your state's statute" wording |
 
 The statute eval set (`STATUTE_EVAL_CASES` in `eval.ts`) runs offline in `pnpm test:unit` (`eval.test.ts`): stubbed model prose, official FL fixture text.

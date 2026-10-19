@@ -164,7 +164,7 @@ export const STATUTE_EVAL_CASES: StatuteEvalCase[] = [
     modelRecommendedFineCents: 25_000,
     expect: {
       refused: false,
-      noticeContains: ['Civil Code §§ 5850 and 5855', 'at least 10 days', '$100', 'late fees or interest', 'verify against the statute'],
+      noticeContains: ['Civil Code §§ 5850 and 5855', 'at least 10 days', '$100', 'late fees or interest', 'financial commitment to cure', 'within 14 days'],
       quotedPinpoints: [],
       noQuote: true,
       maxRecommendedFineCents: 10_000,
@@ -183,7 +183,7 @@ export const STATUTE_EVAL_CASES: StatuteEvalCase[] = [
     violationType: 'blocked fire lane',
     requestedAction: { step: 'impose_fine', hearingHeld: true, fineAmountCents: 25_000, healthSafetyFinding: true },
     modelRecommendedFineCents: 25_000,
-    expect: { refused: false, noticeContains: ['verify against the statute'], quotedPinpoints: [], noQuote: true },
+    expect: { refused: false, noticeContains: ['14 days', 'internal dispute resolution'], quotedPinpoints: [], noQuote: true },
   },
   {
     id: 'ca-late-fee-on-fine-refused',

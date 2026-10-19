@@ -1,0 +1,368 @@
+# California Civil Code (Davis-Stirling Common Interest Development Act) — selected sections.
+# Source: official California Legislative Information bulk data, published by the Legislative Counsel:
+#   https://downloads.leginfo.legislature.ca.gov/pubinfo_2025.zip  (Last-Modified 2026-10-18; LAW_SECTION_TBL rows dated 2026-09-26)
+#   LAW_SECTION_TBL.dat (law_code CIV) + the per-section LAW_SECTION_TBL_*.lob HTML bodies.
+# Retrieved 2026-10-19 by HTTP range requests (the leginfo.legislature.ca.gov web pages return a Cloudflare 403 to scripts).
+# Each section's HTML body is reduced to text: one subdivision per line, wrap-newlines folded to spaces,
+# entities decoded (curly apostrophes and quotes kept). The bracketed note is the official history line.
+# Each section is the same text served at
+#   https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&sectionNum=<n>.
+# Public domain (state statute). Used by packages/workflows/src/W3-violation-inspector/state-rules.test.ts.
+
+=== Civ. Code § 4000.  [Added by Stats. 2012, Ch. 180, Sec. 2.   (AB 805)   Effective January 1, 2013.   Operative January 1, 2014, by Sec. 3 of Ch. 180.]
+This part shall be known and may be cited as the Davis-Stirling Common Interest Development Act. In a provision of this part, the part may be referred to as the act.
+
+=== Civ. Code § 4040.  [Repealed (in Sec. 1) and added by Stats. 2021, Ch. 640, Sec. 2.   (SB 392)   Effective January 1, 2022.   Operative January 1, 2023, by its own provisions.]
+(a)(1)If a provision of this act requires an association to deliver a document by “individual delivery” or “individual notice,” the association shall deliver that document in accordance with the preferred delivery method specified by the member pursuant to Section 4041.
+(2)If the member has not provided a valid delivery method pursuant to Section 4041, the association shall deliver the document by first-class mail, registered or certified mail, express mail, or overnight delivery by an express service carrier addressed to the recipient at the address last shown on the books of the association.
+(b)Upon receipt of a request by a member identifying a secondary email or mailing address for delivery of notices, pursuant to Section 5260, the association shall deliver an additional copy of both of the following to the secondary address identified in that request:
+(1)The documents to be delivered to the member pursuant to Article 7 (commencing with Section 5300) of Chapter 6.
+(2)The documents to be delivered to the member pursuant to Article 2 (commencing with Section 5650) of Chapter 8 and Section 5710.
+(c)For the purposes of this section, an unrecorded provision of the governing documents providing for a particular method of delivery does not constitute agreement by a member to that method of delivery.
+(d)This section shall become operative on January 1, 2023.
+
+=== Civ. Code § 4041.  [Amended by Stats. 2022, Ch. 632, Sec. 1.   (SB 1252)   Effective January 1, 2023.]
+(a)A member shall, on an annual basis, provide written notice to the association of all of the following:
+(1)The member’s preferred delivery method for receiving notices from the association, which shall include the option of receiving notices at one or both of the following:
+(A)A mailing address.
+(B)A valid email address.
+(2)An alternate or secondary delivery method for receiving notices from the association, which shall include the option to receive notices at one or both of the following:
+(A)A mailing address.
+(B)A valid email address.
+(3)The name, mailing address, and, if available, valid email address of the owner’s legal representative, if any, including any person with power of attorney or other person who can be contacted in the event of the member’s extended absence from the separate interest.
+(4) Whether the separate interest is owner-occupied, is rented out, if the parcel is developed but vacant, or if the parcel is undeveloped land.
+(b)(1)The association shall solicit the annual notices described in subdivision (a) of each owner and, at least 30 days before making its own required disclosure under Sections 5300 and 5310, shall enter the data into its books and records.
+(2)The association shall include in the solicitation required by paragraph (1) both of the following:
+(A)Notification that the member does not have to provide an email address to the association.
+(B)A simple method for the member to inform the association in writing that the member wishes to change their preferred delivery method for receiving notices from the association.
+(c)If a member fails to provide the notices set forth in subdivision (a), the last mailing address provided in writing by the member or, if none, the property address shall be deemed to be the address to which notices are to be delivered.
+(d)(1)To the extent that interests regulated in Chapter 2 (commencing with Section 11210) of Part 2 of Division 4 of the Business and Professions Code are part of a mixed-use project where those interests comprise a portion of a common interest development, the association, as defined in Section 4080, shall be deemed compliant with this section if, at least once annually, it obtains from the time-share plan association a copy of the list described in subdivision (e) of Section 11273 of the Business and Professions Code, and enters the data into its books and records.
+(2)Notwithstanding subdivision (e) of Section 11273 of the Business and Professions Code, the time-share plan association shall provide the list required by paragraph (1) to the association at least annually for this purpose.
+(e)For the purposes of this section, a valid email address is one that, after a notice is sent, does not result in a bounce or other error notification indicating failure of the message. If the association delivers a notice to a member’s email address and finds that the email address provided is no longer valid, the association shall resend the notice to a mailing or email address identified by the member pursuant to Section 4040.
+
+=== Civ. Code § 4045.  [Amended by Stats. 2021, Ch. 640, Sec. 4.   (SB 392)   Effective January 1, 2022.]
+(a)If a provision of this act requires “general delivery” or “general notice,” the document shall be provided by one or more of the following methods:
+(1)Any method provided for delivery of an individual notice pursuant to Section 4040.
+(2)Inclusion in a billing statement, newsletter, or other document that is delivered by one of the methods provided in this section.
+(3)Posting the printed document in a prominent location that is accessible to all members, if the location has been designated for the posting of general notices by the association in the annual policy statement prepared pursuant to Section 5310.
+(4)If the association broadcasts television programming for the purpose of distributing information on association business to its members, by inclusion in the programming.
+(5)If the association maintains an internet website for the purpose of distributing information on association business to its members, by posting the notice on the association’s internet website in a prominent location that is accessible to all members if designated as a location for posting general notices in the annual policy statement prepared pursuant to Section 5310.
+(b)Notwithstanding subdivision (a), if a member requests to receive general notices by individual delivery, all general notices to that member, given under this section, shall be delivered pursuant to Section 4040. The option provided in this subdivision shall be described in the annual policy statement prepared pursuant to Section 5310.
+
+=== Civ. Code § 4050.  [Added by Stats. 2012, Ch. 180, Sec. 2.   (AB 805)   Effective January 1, 2013.   Operative January 1, 2014, by Sec. 3 of Ch. 180.]
+(a)This section governs the delivery of a document pursuant to this act.
+(b)If a document is delivered by mail, delivery is deemed to be complete on deposit into the United States mail.
+(c)If a document is delivered by electronic means, delivery is complete at the time of transmission.
+
+=== Civ. Code § 5100.  [Amended by Stats. 2021, Ch. 517, Sec. 1.   (AB 502)   Effective January 1, 2022.]
+(a)(1)Notwithstanding any other law or provision of the governing documents, elections regarding assessments legally requiring a vote, election and removal of directors, amendments to the governing documents, or the grant of exclusive use of common area pursuant to Section 4600 shall be held by secret ballot in accordance with the procedures set forth in this article.
+(2)An association shall hold an election for a seat on the board of directors in accordance with the procedures set forth in this article at the expiration of the corresponding director’s term and at least once every four years.
+(b)This article also governs an election on any topic that is expressly identified in the operating rules as being governed by this article.
+(c)The provisions of this article apply to both incorporated and unincorporated associations, notwithstanding any contrary provision of the governing documents.
+(d)The procedures set forth in this article shall apply to votes cast directly by the membership, but do not apply to votes cast by delegates or other elected representatives.
+(e)In the event of a conflict between this article and the provisions of the Nonprofit Mutual Benefit Corporation Law (Part 3 (commencing with Section 7110) of Division 2 of Title 1 of the Corporations Code) relating to elections, the provisions of this article shall prevail.
+(f)Directors shall not be required to be elected pursuant to this article if the governing documents provide that one member from each separate interest is a director.
+
+=== Civ. Code § 5103.  [Amended by Stats. 2023, Ch. 770, Sec. 3.   (AB 1764)   Effective January 1, 2024.]
+Notwithstanding the secret balloting requirement in Section 5100, or any contrary provision in the governing documents, when, as of the deadline for submitting nominations provided for in subdivision (a) of Section 5115, the number of qualified candidates is not more than the number of vacancies to be elected, as determined by the inspector or inspectors of the elections, the association may, but is not required to, consider the qualified candidates elected by acclamation if all of the following conditions have been met:
+(a)The association has held a regular election for the directors in the last three years. The three-year time period shall be calculated from the date ballots were due in the last full election to the start of voting for the proposed election.
+(b)The association provided individual notice of the election and the procedure for nominating candidates as follows:
+(1)Initial notice at least 90 days before the deadline for submitting nominations provided for in subdivision (a) of Section 5115. The initial notice shall include all of the following:
+(A)The number of board positions that will be filled at the election.
+(B)The deadline for submitting nominations.
+(C)The manner in which nominations can be submitted.
+(D)A statement informing members that if, at the close of the time period for making nominations, there are the same number or fewer qualified candidates as there are board positions to be filled, then the board of directors may, after voting to do so, seat the qualified candidates by acclamation without balloting.
+(2)A reminder notice between 7 and 30 days before the deadline for submitting nominations provided for in subdivision (a) of Section 5115. The reminder notice shall include all of the following:
+(A)The number of board positions that will be filled at the election.
+(B)The deadline for submitting nominations.
+(C)The manner in which nominations can be submitted.
+(D)A list of the names of all of the qualified candidates to fill the board positions as of the date of the reminder notice.
+(E)A statement reminding members that if, at the close of the time period for making nominations, there are the same number or fewer qualified candidates as there are board positions to be filled, then the board of directors may, after voting to do so, seat the qualified candidates by acclamation without balloting. This statement is not required if, at the time the reminder notice will be delivered, the number of qualified candidates already exceeds the number of board positions to be filled.
+(c)(1)The association provides, within seven business days of receiving a nomination, a written or electronic communication acknowledging the nomination to the member who submitted the nomination.
+(2)The association provides, within seven business days of receiving a nomination, a written or electronic communication to the nominee, indicating either of the following:
+(A)The nominee is a qualified candidate for the board of directors.
+(B)The nominee is not a qualified candidate for the board of directors, the basis for the disqualification, and the procedure, which shall comply with Article 2 (commencing with Section 5900) of Chapter 10, by which the nominee may appeal the disqualification.
+(3)The association may combine the written or electronic communication described in paragraphs (1) and (2) into a single written or electronic communication if the nominee and the nominator are the same person.
+(d)(1)The association permits all candidates to run if nominated, except for nominees disqualified for running as allowed or required pursuant to subdivisions (b) to (e), inclusive, of Section 5105.
+(2)If an association disqualifies a nominee pursuant to this subdivision, an association in its election rules shall also require a director to comply with the same requirements.
+(e)The association board votes to consider the qualified candidates elected by acclamation at a meeting pursuant to Article 2 (commencing with Section 4900) for which the agenda item reflects the name of each qualified candidate that will be seated by acclamation if the item is approved.
+
+=== Civ. Code § 5105.  [Amended by Stats. 2024, Ch. 383, Sec. 1.   (AB 2159)   Effective January 1, 2025.]
+(a)An association shall adopt operating rules in accordance with the procedures prescribed by Article 5 (commencing with Section 4340) of Chapter 3, that do all of the following:
+(1)Ensure that if any candidate or member advocating a point of view is provided access to association media, newsletters, or internet websites during a campaign, for purposes that are reasonably related to that election, equal access shall be provided to all candidates and members advocating a point of view, including those not endorsed by the board, for purposes that are reasonably related to the election. The association shall not edit or redact any content from these communications, but may include a statement specifying that the candidate or member, and not the association, is responsible for that content.
+(2)Ensure access to the common area meeting space, if any exists, during a campaign, at no cost, to all candidates, including those who are not incumbents, and to all members advocating a point of view, including those not endorsed by the board, for purposes reasonably related to the election.
+(3)Specify the qualifications for candidates for the board and any other elected position, subject to subdivision (b), and procedures for the nomination of candidates, consistent with the governing documents. A nomination or election procedure shall not be deemed reasonable if it disallows any member from nominating themself for election to the board.
+(4)Specify the voting power of each membership, the authenticity, validity, and effect of proxies, and the voting period for elections, including the times at which polls will open and close, consistent with the governing documents.
+(5)Specify a method of selecting one or three independent third parties as inspector or inspectors of elections utilizing one of the following methods:
+(A)Appointment of the inspector or inspectors by the board.
+(B)Election of the inspector or inspectors by the members of the association.
+(C)Any other method for selecting the inspector or inspectors.
+(6)Allow the inspector or inspectors to appoint and oversee additional persons to verify signatures and to count and tabulate votes as the inspector or inspectors deem appropriate, provided that the persons are independent third parties who meet the requirements in subdivision (b) of Section 5110.
+(7)Require retention of, as association election materials, both a candidate registration list and a voter list. The candidate list shall include names and addresses of individuals nominated as a candidate for election to the board of directors. The voter list shall include the name, voting power, and either the physical address of the voter’s separate interest, the parcel number, or both. The mailing address for the ballot shall be listed on the voter list if it differs from the physical address of the voter’s separate interest or if only the parcel number is used. The association shall permit members to verify the accuracy of their individual information on both lists at least 30 days before the ballots are distributed. The association or member shall report any errors or omissions to either list to the inspector or inspectors who shall make the corrections within two business days.
+(b)An association shall disqualify a person from a nomination as a candidate for not being a member of the association at the time of the nomination. An association shall disqualify a nominee if that person has served the maximum number of terms or sequential terms allowed by the association. A director who ceases to be a member shall be disqualified from continuing to serve as a director.
+(1)This subdivision does not restrict a developer from making a nomination of a nonmember candidate consistent with the voting power of the developer as set forth in the regulations of the Department of Real Estate and the association’s governing documents.
+(2)If title to a separate interest parcel is held by a legal entity that is not a natural person, the governing authority of that legal entity shall have the power to appoint a natural person to be a member for purposes of this article.
+(c)Through its bylaws or election operating rules adopted pursuant to subdivision (a) only, an association may disqualify a person from nomination as a candidate pursuant to any of the following:
+(1)Subject to paragraph (2) of subdivision (d), an association may require a nominee for a board seat, and a director during their board tenure, to be current in the payment of regular and special assessments, which are consumer debts subject to validation. If an association requires a nominee to be current in the payment of regular and special assessments, it shall also require a director to be current in the payment of regular and special assessments.
+(2)An association may disqualify a person from nomination as a candidate if the person, if elected, would be serving on the board at the same time as another person who holds a joint ownership interest in the same separate interest parcel as the person and the other person is either properly nominated for the current election or an incumbent director.
+(3)An association may disqualify a nominee if that person has been a member of the association for less than one year.
+(4)An association may disqualify a nominee if that person discloses, or if the association is aware or becomes aware of, a past criminal conviction that would, if the person was elected, either prevent the association from purchasing the insurance required by Section 5806 or terminate the association’s existing insurance coverage required by Section 5806 as to that person should the person be elected.
+(d)An association may disqualify a person from nomination for nonpayment of regular and special assessments, but may not disqualify a nominee for nonpayment of fines, fines renamed as assessments, collection charges, late charges, or costs levied by a third party. The person shall not be disqualified for failure to be current in payment of regular and special assessments if either of the following circumstances is true:
+(1)The person has paid the regular or special assessment under protest pursuant to Section 5658.
+(2)The person has entered into and is in compliance with a payment plan pursuant to Section 5665.
+(e)An association shall not disqualify a person from nomination if the person has not been provided the opportunity to engage in internal dispute resolution pursuant to Article 2 (commencing with Section 5900) of Chapter 10.
+(f)If an association disqualifies a nominee pursuant to this section, an association in its election rules shall also require a director to comply with the same requirements.
+(g)Except as provided in subdivision (i), notwithstanding any other law, the rules adopted pursuant to this section may provide for the nomination of candidates from the floor of membership meetings or nomination by any other manner. Those rules may permit write-in candidates for ballots.
+(h)Notwithstanding any other law, the rules adopted pursuant to this section shall do all of the following:
+(1)Prohibit the denial of a ballot to a member for any reason other than not being a member at the time when ballots are distributed.
+(2)Prohibit the denial of a ballot to a person with general power of attorney for a member.
+(3)Require the ballot of a person with general power of attorney for a member to be counted if returned in a timely manner.
+(4)Require the inspector or inspectors of elections to deliver, or cause to be delivered, at least 30 days before an election, to each member both of the following documents:
+(A)The ballot or ballots.
+(B)A copy of the election operating rules. Delivery of the election operating rules may be accomplished by any of the following methods:
+(i)Posting the election operating rules to an internet website and including the corresponding internet website address on the ballot together with the phrase, in at least 12-point type: “The rules governing this election may be found here:”
+(ii)Individual delivery.
+(iii)Election operating rules adopted pursuant to this section shall not be amended less than 90 days prior to an election.
+(i)Notwithstanding an association’s governing documents, the association may adopt an election operating rule that allows an association to utilize an inspector or inspectors of elections, as specified in Section 5110, to conduct an election by electronic secret ballot, except for an election regarding regular or special assessments, as provided for in Chapter 8 (commencing with Section 5600).
+(1)An election operating rule adopted pursuant to this subdivision shall include, but not be limited to, all of the following purposes:
+(A)Permitting a member to change their preferred method of voting from electronic secret ballot to written ballot or written ballot to electronic secret ballot no later than 90 days before an election.
+(B)Requiring an electronic secret ballot and a written ballot to contain the same list of items being voted on.
+(C)(i)For an election operating rule where a member is permitted to opt out of voting by electronic secret ballot to vote by written ballot, requiring the association to mail a written ballot only to a member who has opted out of voting by electronic secret ballot or for whom the association does not have an email address required to vote by electronic secret ballot.
+(ii)For an election operating rule where a member who is permitted to opt into voting by electronic secret ballot, requiring the association to send an electronic secret ballot only to a member who has opted into voting by electronic secret ballot.
+(D)Requiring the association to maintain a voting list identifying which members will vote by electronic secret ballot and which members will vote by written ballot, and include information on the procedures to either opt out of or opt into voting by electronic secret ballot, as applicable, in the annual statement prepared pursuant to Section 5310.
+(E)Requiring a member who votes by electronic secret ballot to provide a valid email address to the association.
+(F)Prohibiting nomination of candidates from the floor of membership meetings, notwithstanding subdivision (g).
+(2)An electronic secret ballot may be accompanied by or contained in an electronic individual notice in accordance with paragraph (2) of subdivision (a) of Section 4040.
+(3)(A)The association shall deliver individual notice of the electronic secret ballot to each member 30 days before the election and shall contain instructions on both of the following:
+(i)How to obtain access to that internet-based voting system.
+(ii)How to vote by electronic secret ballot.
+(B)Delivery of the individual notice described in subparagraph (A) may be accomplished by electronic submission to an address, location, or system designated by the member.
+(4)For an election operating rule where members are permitted to opt out of voting by electronic secret ballot to vote by written ballot, the association shall provide individual notice, delivered pursuant to Section 4040, at least 30 days before the deadline to opt out of voting by electronic secret ballot, of all of the following:
+(A)The member’s current voting method.
+(B)If the member’s voting method is by electronic secret ballot and the association has an email address for the member, the email address of the member that will be used for voting by electronic secret ballot.
+(C)An explanation that the member is required to opt out of voting by electronic secret ballot if the member elects to vote by written secret ballot.
+(D)An explanation of how a member may opt out of voting by electronic secret ballot.
+(E)The deadline by which the member is required to opt out of voting by electronic secret ballot if the member elects to exercise that right.
+(5)A vote made by electronic secret ballot is effective when it is electronically transmitted to an address, location, or system designated by an inspector or inspectors of elections.
+(6)A vote made by electronic secret ballot shall not be revoked.
+(7)If the association does not have a member’s email address required to vote by electronic secret ballot by the time at which ballots are to be distributed, the association shall send the member a written secret ballot.
+(8)For purposes of determining a quorum, a member voting electronically pursuant to this subdivision shall be counted as a member in attendance at the meeting. Once the quorum is established, a substantive vote of the members shall not be taken on any issue other than the issues specifically identified in the electronic vote.
+(9)As used in this subdivision, “electronic secret ballot” means a ballot conducted by an electronic voting system that ensures the secrecy and integrity of a ballot pursuant to the requirements of this article.
+
+=== Civ. Code § 5110.  [Amended by Stats. 2024, Ch. 383, Sec. 2.   (AB 2159)   Effective January 1, 2025.]
+(a)The association shall select an independent third party or parties as an inspector of elections. The number of inspectors of elections shall be one or three.
+(b)For the purposes of this section, an independent third party includes, but is not limited to, a volunteer poll worker with the county registrar of voters, a licensee of the California Board of Accountancy, or a notary public. An independent third party may be a member, but may not be a director or a candidate for director or be related to a director or to a candidate for director. An independent third party may not be a person, business entity, or subdivision of a business entity who is currently employed or under contract to the association for any compensable services other than serving as an inspector of elections.
+(c)The inspector or inspectors of elections shall do all of the following:
+(1)Determine the number of memberships entitled to vote and the voting power of each.
+(2)Determine the authenticity, validity, and effect of proxies, if any.
+(3)Receive ballots.
+(4)Ensure compliance with all of the following, if the inspector or inspectors of elections conducts an election by electronic secret ballot pursuant to Section 5105:
+(A)Each member voting by electronic secret ballot shall be provided with all of the following:
+(i)A method to authenticate the member’s identity to the internet-based voting system.
+(ii)A method to transmit an electronic secret ballot to the internet-based voting system that ensures the secrecy and integrity of each ballot.
+(iii)A method to confirm, at least 30 days before the voting deadline, that the member’s electronic device can successfully communicate with the internet-based voting system.
+(B)Any internet-based voting system that is utilized shall have the ability to accomplish all of the following:
+(i)Authenticate the member’s identity.
+(ii)Authenticate the validity of each electronic secret ballot to ensure that the electronic secret ballot is not altered in transit.
+(iii)Transmit a receipt from the internet-based voting system to each member who casts an electronic secret ballot.
+(iv)Permanently separate any authenticating or identifying information from the electronic secret ballot, rendering it impossible to connect an election ballot to a specific member.
+(v)Store and keep electronic secret ballots accessible to elections officials or their authorized representatives for recount, inspection, and review purposes.
+(5)Hear and determine all challenges and questions in any way arising out of or in connection with the right to vote.
+(6)Count and tabulate all votes.
+(7)Determine when the polls shall close, consistent with the governing documents.
+(8)Determine the tabulated results of the election.
+(9)Perform any acts as may be proper to conduct the election with fairness to all members in accordance with this article, the Corporations Code, and all applicable rules of the association regarding the conduct of the election that are not in conflict with this article.
+(d)An inspector or inspectors of elections shall perform all duties impartially, in good faith, to the best of the inspector or inspectors of elections’ ability, as expeditiously as is practical, and in a manner that protects the interest of all members of the association. If there are three inspectors of elections, the decision or act of a majority shall be effective in all respects as the decision or act of all. Any report made by the inspector or inspectors of elections is prima facie evidence of the facts stated in the report.
+
+=== Civ. Code § 5115.  [Amended by Stats. 2025, Ch. 67, Sec. 37.   (AB 1170)   Effective January 1, 2026.]
+(a)An association shall provide general notice of the procedure and deadline for submitting a nomination at least 30 days before any deadline for submitting a nomination. Individual notice shall be delivered pursuant to Section 4040 if individual notice is requested by a member. This subdivision shall only apply to elections of directors and to recall elections.
+(b)For elections of directors and for recall elections, an association shall provide general notice of all of the following at least 30 days before the ballots are distributed:
+(1)The date and time by which, and the physical address where, ballots are to be returned by mail or handed to the inspector or inspectors of elections.
+(2)If the association allows for voting in an election by electronic secret ballot as provided for in Section 5105, the date and time by which electronic secret ballots are to be transmitted to the internet-based voting system and preliminary instructions on how to vote by electronic secret ballot upon commencement of the voting period.
+(3)The date, time, and location of the meeting at which a quorum will be determined, if the association’s governing documents require a quorum, and at which ballots will be counted.
+(4)The list of all candidates’ names that will appear on the ballot.
+(5)Individual notice of the above paragraphs shall be delivered pursuant to Section 4040 if individual notice is requested by a member.
+(6)(A)If the association’s governing documents require a quorum for an election of directors, a statement that the association may call a reconvened meeting to be held at least 20 days after a scheduled election if the required quorum is not reached, at which time the quorum of the membership to elect directors will be 20 percent of the association’s members, voting in person, by proxy, or by secret ballot.
+(B)This paragraph shall not apply if the governing documents of the association provide for a quorum lower than 20 percent.
+(c)Ballots and two preaddressed envelopes with instructions on how to return ballots shall be mailed by first-class mail or delivered by the association to every member not less than 30 days prior to the deadline for voting, unless an association conducts an election by electronic secret ballot as provided for in Section 5105, in which case only members who will vote by written secret ballot pursuant to Section 5105 shall be mailed or delivered the ballots and envelopes. In order to preserve confidentiality, a voter may not be identified by name, address, or lot, parcel, or unit number on the ballot. The association shall use as a model those procedures used by California counties for ensuring confidentiality of vote by mail ballots, including both of the following:
+(1)The ballot itself is not signed by the voter, but is inserted into an envelope that is sealed. This envelope is inserted into a second envelope that is sealed. In the upper left-hand corner of the second envelope, the voter shall sign the voter’s name, indicate the voter’s name, and indicate the address or separate interest identifier that entitles the voter to vote.
+(2)The second envelope is addressed to the inspector or inspectors of elections, who will be tallying the votes. The envelope may be mailed or delivered by hand to a location specified by the inspector or inspectors of elections. The member may request a receipt for delivery.
+(d)(1)A quorum shall be required only if so stated in the governing documents or other provisions of law. If a quorum is required by the governing documents, each ballot received by the inspector or inspectors of elections shall be treated as a member present at a meeting for purposes of establishing a quorum.
+(2)For an election of directors of an association, and in the absence of meeting a quorum as required by the association’s governing documents or Section 7512 of the Corporations Code, unless a lower quorum for a reconvened meeting is authorized by the association’s governing documents, the association may adjourn the meeting to a date at least 20 days after the adjourned meeting, at which time the quorum required for purposes of a reconvened meeting to elect directors shall be 20 percent of the association’s members, voting in person, by proxy, or by secret ballot.
+(3)No less than 15 days prior to the date of the reconvened meeting described in paragraph (2), the association shall provide general notice of the reconvened meeting, which shall include:
+(A)The date, time, and location of the meeting.
+(B)The list of all candidates.
+(C)Unless the association’s governing documents provide for a lower quorum, a statement that 20 percent of the association’s members, voting in person, by proxy, or secret ballot will satisfy the quorum requirements for the election of directors at that reconvened meeting and that the ballots will be counted if a quorum is reached, if the association’s governing documents require a quorum.
+(e)An association shall allow for cumulative voting using the secret ballot procedures provided in this section, if cumulative voting is provided for in the governing documents.
+(f)Notwithstanding any contrary provision in the governing documents, except for the meeting to count the votes required in subdivision (a) of Section 5120, an election may be conducted entirely by mail, electronic secret ballot, or a combination of mail and electronic secret ballot, pursuant to Section 5105.
+(g)(1)Except as provided in paragraph (2), in an election to approve an amendment of the governing documents, the text of the proposed amendment shall be delivered to the members with the ballot.
+(2)Notwithstanding paragraph (1), if an association conducts an election to approve an amendment of governing documents by electronic secret ballot, the association may deliver, by electronic means, the text of the proposed amendment to those members who vote by electronic secret ballot, pursuant to Section 5105. The association shall also deliver a written copy of the text of the proposed amendment to those members upon request and without charge. If a member votes by written secret ballot, pursuant to Section 5105, the association shall deliver a written copy of the text of the proposed amendment to the member with the ballot.
+
+=== Civ. Code § 5120.  [Amended by Stats. 2024, Ch. 383, Sec. 4.   (AB 2159)   Effective January 1, 2025.]
+(a)All votes shall be counted and tabulated by the inspector or inspectors of elections, or the designee of the inspector or inspectors of elections, in public at a properly noticed open meeting of the board or members. Any candidate or other member of the association may witness the counting and tabulation of the votes. A person, including a member of the association or an employee of the management company, shall not open or otherwise review any ballot before the time and place at which the ballots are counted and tabulated. The inspector or inspectors of elections, or the designee of the inspector or inspectors of elections, may verify the member’s information and signature on the outer envelope prior to the meeting at which ballots are tabulated. Once a secret ballot is received by the inspector or inspectors of elections, it shall be irrevocable.
+(b)The tabulated results of the election shall be promptly reported to the board and shall be recorded in the minutes of the next meeting of the board and shall be available for review by members of the association. Within 15 days of the election, the board shall give general notice pursuant to Section 4045 of the tabulated results of the election.
+(c)A person, including a member of the association or an employee of the management company, shall not open or otherwise review any tally sheet of votes cast by electronic secret ballots before the time and place at which the ballots are counted and tabulated.
+
+=== Civ. Code § 5125.  [Amended by Stats. 2024, Ch. 383, Sec. 5.   (AB 2159)   Effective January 1, 2025.]
+The sealed ballots, signed voter envelopes, voter list, proxies, candidate registration list, and tally sheet of votes cast by electronic secret ballot shall at all times be in the custody of the inspector or inspectors of elections or at a location designated by the inspector or inspectors until after the tabulation of the vote, and until the time allowed by Section 5145 for challenging the election has expired, at which time custody shall be transferred to the association. If there is a recount or other challenge to the election process, the inspector or inspectors of elections shall, upon written request, make the ballots and the tally sheet of votes cast by electronic secret ballot available for inspection and review by an association member or the member’s authorized representative. Any recount shall be conducted in a manner that preserves the confidentiality of the vote.
+
+=== Civ. Code § 5130.  [Added by Stats. 2012, Ch. 180, Sec. 2.   (AB 805)   Effective January 1, 2013.   Operative January 1, 2014, by Sec. 3 of Ch. 180.]
+(a)For purposes of this article, the following definitions shall apply:
+(1)“Proxy” means a written authorization signed by a member or the authorized representative of the member that gives another member or members the power to vote on behalf of that member.
+(2)“Signed” means the placing of the member’s name on the proxy (whether by manual signature, typewriting, telegraphic transmission, or otherwise) by the member or authorized representative of the member.
+(b)Proxies shall not be construed or used in lieu of a ballot. An association may use proxies if permitted or required by the bylaws of the association and if those proxies meet the requirements of this article, other laws, and the governing documents, but the association shall not be required to prepare or distribute proxies pursuant to this article.
+(c)Any instruction given in a proxy issued for an election that directs the manner in which the proxyholder is to cast the vote shall be set forth on a separate page of the proxy that can be detached and given to the proxyholder to retain. The proxyholder shall cast the member’s vote by secret ballot. The proxy may be revoked by the member prior to the receipt of the ballot by the inspector of elections as described in Section 7613 of the Corporations Code.
+
+=== Civ. Code § 5135.  [Added by Stats. 2012, Ch. 180, Sec. 2.   (AB 805)   Effective January 1, 2013.   Operative January 1, 2014, by Sec. 3 of Ch. 180.]
+(a)Association funds shall not be used for campaign purposes in connection with any association board election. Funds of the association shall not be used for campaign purposes in connection with any other association election except to the extent necessary to comply with duties of the association imposed by law.
+(b)For the purposes of this section, “campaign purposes” includes, but is not limited to, the following:
+(1)Expressly advocating the election or defeat of any candidate that is on the association election ballot.
+(2)Including the photograph or prominently featuring the name of any candidate on a communication from the association or its board, excepting the ballot, ballot materials, or a communication that is legally required, within 30 days of an election. This is not a campaign purpose if the communication is one for which subdivision (a) of Section 5105 requires that equal access be provided to another candidate or advocate.
+
+=== Civ. Code § 5145.  [Amended by Stats. 2019, Ch. 848, Sec. 6.   (SB 323)   Effective January 1, 2020.]
+(a)A member of an association may bring a civil action for declaratory or equitable relief for a violation of this article by the association, including, but not limited to, injunctive relief, restitution, or a combination thereof, within one year of the date that the inspector or inspectors of elections notifies the board and membership of the election results or the cause of action accrues, whichever is later. If a member establishes, by a preponderance of the evidence, that the election procedures of this article, or the adoption of and adherence to rules provided by Article 5 (commencing with Section 4340) of Chapter 3, were not followed, a court shall void any results of the election unless the association establishes, by a preponderance of the evidence, that the association’s noncompliance with this article or the election operating rules did not affect the results of the election. The findings of the court shall be stated in writing as part of the record.
+(b)A member who prevails in a civil action to enforce the member’s rights pursuant to this article shall be entitled to reasonable attorney’s fees and court costs, and the court may impose a civil penalty of up to five hundred dollars ($500) for each violation, except that each identical violation shall be subject to only one penalty if the violation affects each member of the association equally. A prevailing association shall not recover any costs, unless the court finds the action to be frivolous, unreasonable, or without foundation. If a member prevails in a civil action brought in small claims court, the member shall be awarded court costs and reasonable attorney’s fees incurred for consulting an attorney in connection with this civil action.
+(c)A cause of action under subdivision (a) may be brought in either the superior court or, if the amount of the demand does not exceed the jurisdictional amount of the small claims court, in small claims court.
+
+=== Civ. Code § 5200.  [Amended by Stats. 2025, Ch. 516, Sec. 3.   (SB 410)   Effective January 1, 2026.]
+For the purposes of this article, the following definitions shall apply:
+(a)“Association records” means all of the following:
+(1)Any financial document required to be provided to a member in Article 7 (commencing with Section 5300) or in Sections 5565 and 5810.
+(2)Any financial document or statement required to be provided in Article 2 (commencing with Section 4525) of Chapter 4.
+(3)Interim financial statements, periodic or as compiled, containing any of the following:
+(A)Balance sheet.
+(B)Income and expense statement.
+(C)Budget comparison.
+(D)General ledger. A “general ledger” is a report that shows all transactions that occurred in an association account over a specified period of time.
+The records described in this paragraph shall be prepared in accordance with an accrual or modified accrual basis of accounting.
+(4)Executed contracts not otherwise privileged under law.
+(5)Written board approval of vendor or contractor proposals or invoices.
+(6)State and federal tax returns.
+(7)Reserve account balances and records of payments made from reserve accounts.
+(8)Agendas and minutes of meetings of the members, the board, and any committees appointed by the board pursuant to Section 7212 of the Corporations Code; excluding, however, minutes and other information from executive sessions of the board as described in Article 2 (commencing with Section 4900).
+(9)Membership lists, including name, property address, mailing address, email address, as collected by the association in accordance with Section 4041 where applicable, but not including information for members who have opted out pursuant to Section 5220.
+(10)Check registers.
+(11)The governing documents.
+(12)An accounting prepared pursuant to subdivision (b) of Section 5520.
+(13)An “enhanced association record” as defined in subdivision (b).
+(14)“Association election materials” as defined in subdivision (c).
+(15)All inspector’s reports compiled pursuant to Section 5551.
+(b)“Enhanced association records” means invoices, receipts, and canceled checks for payments made by the association, purchase orders approved by the association, bank account statements for bank accounts in which assessments are deposited or withdrawn, credit card statements for credit cards issued in the name of the association, statements for services rendered, and reimbursement requests submitted to the association.
+(c)“Association election materials” means returned ballots, signed voter envelopes, the voter list of names, parcel numbers, and voters to whom ballots were to be sent, proxies, the candidate registration list, and the tally sheet of votes cast by electronic secret ballot. Signed voter envelopes may be inspected but may not be copied. An association shall maintain association election materials for one year after the date of the election.
+
+=== Civ. Code § 5210.  [Amended by Stats. 2025, Ch. 516, Sec. 4.   (SB 410)   Effective January 1, 2026.]
+(a)Association records are subject to member inspection for the following time periods:
+(1)For the current fiscal year and for each of the previous two fiscal years.
+(2)Notwithstanding paragraph (1), minutes of member and board meetings are subject to inspection permanently. If a committee has decisionmaking authority, minutes of the meetings of that committee shall be made available commencing January 1, 2007, and shall thereafter be permanently subject to inspection.
+(3)Notwithstanding paragraph (1), all inspector’s reports compiled pursuant to Section 5551 shall be subject to inspection for the time period required by subdivision (i) of Section 5551.
+(b)When a member properly requests access to association records, access to the requested records shall be granted within the following time periods:
+(1)Association records prepared during the current fiscal year, within 10 business days following the association’s receipt of the request.
+(2)Association records prepared during the previous two fiscal years, within 30 calendar days following the association’s receipt of the request.
+(3)Any record or statement available pursuant to Article 2 (commencing with Section 4525) of Chapter 4, Article 7 (commencing with Section 5300), Section 5565, or Section 5810, within the timeframe specified therein.
+(4)Minutes of member and board meetings, within the timeframe specified in subdivision (a) of Section 4950.
+(5)Minutes of meetings of committees with decisionmaking authority for meetings commencing on or after January 1, 2007, within 15 calendar days following approval.
+(6)Membership list, within the timeframe specified in Section 8330 of the Corporations Code.
+(c)There shall be no liability pursuant to this article for an association that fails to retain records for the periods specified in subdivision (a) that were created prior to January 1, 2006.
+
+=== Civ. Code § 5220.  [Amended by Stats. 2021, Ch. 640, Sec. 7.   (SB 392)   Effective January 1, 2022.]
+A member of the association may opt out of the sharing of that member’s name, property address, email address, and mailing address by notifying the association in writing that the member prefers to be contacted via the alternative process described in subdivision (c) of Section 8330 of the Corporations Code. This opt-out shall remain in effect until changed by the member.
+
+=== Civ. Code § 5850.  [Amended by Stats. 2025, Ch. 22, Sec. 3.   (AB 130)   Effective June 30, 2025.]
+(a)If an association adopts or has adopted a policy imposing any monetary penalty, including any fee, on any association member for a violation of the governing documents, including any monetary penalty relating to the activities of a guest or tenant of the member, the board shall adopt and distribute to each member, in the annual policy statement prepared pursuant to Section 5310, a schedule of the monetary penalties that may be assessed for those violations, which shall be in accordance with authorization for member discipline contained in the governing documents. Monetary penalties shall be reasonable.
+(b)Any new or revised monetary penalty that is adopted after complying with subdivision (a) may be included in a supplement that is delivered to the members individually, pursuant to Section 4040.
+(c)A monetary penalty for a violation of the governing documents shall not exceed the lesser of the following:
+(1)The monetary penalty stated in the schedule of monetary penalties or supplement that is in effect at the time of the violation.
+(2)One hundred dollars ($100) per violation.
+(d)(1)Notwithstanding subdivision (c), the board may impose a penalty stated in the schedule of monetary penalties or supplement that is in effect at the time of the violation that is greater than one hundred dollars ($100) per violation, if the violation may result in an adverse health or safety impact on the common area or another association member’s property.
+(2)Before imposing a penalty on a violation pursuant to this subdivision, the board shall make a written finding specifying the adverse health or safety impact in a board meeting open to the members.
+(e)A late charge or interest shall not be charged to a member for a monetary penalty.
+(f)An association shall provide a copy of the most recently distributed schedule of monetary penalties, along with any applicable supplements to that schedule, to any member upon request.
+
+=== Civ. Code § 5855.  [Amended by Stats. 2025, Ch. 22, Sec. 4.   (AB 130)   Effective June 30, 2025.]
+(a)When the board is to meet to consider or impose discipline upon a member, or to impose a monetary charge as a means of reimbursing the association for costs incurred by the association in the repair of damage to the common area and facilities caused by a member or the member’s guest or tenant, the board shall notify the member in writing, by either personal delivery or individual delivery pursuant to Section 4040, at least 10 days prior to the meeting.
+(b)The notification shall contain, at a minimum, the date, time, and place of the meeting, the nature of the alleged violation for which a member may be disciplined or the nature of the damage to the common area and facilities for which a monetary charge may be imposed, and a statement that the member has a right to attend and may address the board at the meeting. The board shall meet in executive session if requested by the member.
+(c)A member shall have the opportunity to cure the violation prior to the meeting. The board shall not impose discipline in either of the following circumstances:
+(1)The member cures the violation prior to the meeting.
+(2)If curing the violation would take longer than the time between the notice provided pursuant to subdivision (a) and the meeting, the member provides financial commitment to cure the violation.
+(d)If the board and the member are not in agreement after the meeting, a member shall have the opportunity to request internal dispute resolution pursuant to Section 5910.
+(e)If the board and the member are in agreement after the meeting, the board shall draft a written resolution. The written resolution, signed by the board and the member of the dispute pursuant to procedures not in conflict with the law or governing documents, binds the association and is judicially enforceable.
+(f)If the board imposes discipline on a member or imposes a monetary charge on the member for damage to the common area and facilities, the board shall provide the member with a written notification of the decision, by either personal delivery or individual delivery pursuant to Section 4040, within 14 days following the action.
+(g)A disciplinary action or the imposition of a monetary charge for damage to the common area shall not be effective against a member unless the board fulfills the requirements of this section.
+
+=== Civ. Code § 5865.  [Added by Stats. 2012, Ch. 180, Sec. 2.   (AB 805)   Effective January 1, 2013.   Operative January 1, 2014, by Sec. 3 of Ch. 180.]
+Nothing in Section 5850 or 5855 shall be construed to create, expand, or reduce the authority of the board to impose monetary penalties on a member for a violation of the governing documents.
+
+=== Civ. Code § 5900.  [Added by Stats. 2012, Ch. 180, Sec. 2.   (AB 805)   Effective January 1, 2013.   Operative January 1, 2014, by Sec. 3 of Ch. 180.]
+(a)This article applies to a dispute between an association and a member involving their rights, duties, or liabilities under this act, under the Nonprofit Mutual Benefit Corporation Law (Part 3 (commencing with Section 7110) of Division 2 of Title 1 of the Corporations Code), or under the governing documents of the common interest development or association.
+(b)This article supplements, and does not replace, Article 3 (commencing with Section 5925), relating to alternative dispute resolution as a prerequisite to an enforcement action.
+
+=== Civ. Code § 5905.  [Added by Stats. 2012, Ch. 180, Sec. 2.   (AB 805)   Effective January 1, 2013.   Operative January 1, 2014, by Sec. 3 of Ch. 180.]
+(a)An association shall provide a fair, reasonable, and expeditious procedure for resolving a dispute within the scope of this article.
+(b)In developing a procedure pursuant to this article, an association shall make maximum, reasonable use of available local dispute resolution programs involving a neutral third party, including low-cost mediation programs such as those listed on the Internet Web sites of the Department of Consumer Affairs and the United States Department of Housing and Urban Development.
+(c)If an association does not provide a fair, reasonable, and expeditious procedure for resolving a dispute within the scope of this article, the procedure provided in Section 5915 applies and satisfies the requirement of subdivision (a).
+
+=== Civ. Code § 5910.  [Amended by Stats. 2015, Ch. 303, Sec. 34.   (AB 731)   Effective January 1, 2016.]
+A fair, reasonable, and expeditious dispute resolution procedure shall, at a minimum, satisfy all of the following requirements:
+(a)The procedure may be invoked by either party to the dispute. A request invoking the procedure shall be in writing.
+(b)The procedure shall provide for prompt deadlines. The procedure shall state the maximum time for the association to act on a request invoking the procedure.
+(c)If the procedure is invoked by a member, the association shall participate in the procedure.
+(d)If the procedure is invoked by the association, the member may elect not to participate in the procedure. If the member participates but the dispute is resolved other than by agreement of the member, the member shall have a right of appeal to the board.
+(e)A written resolution, signed by both parties, of a dispute pursuant to the procedure that is not in conflict with the law or the governing documents binds the association and is judicially enforceable. A written agreement, signed by both parties, reached pursuant to the procedure that is not in conflict with the law or the governing documents binds the parties and is judicially enforceable.
+(f)The procedure shall provide a means by which the member and the association may explain their positions. The member and association may be assisted by an attorney or another person in explaining their positions at their own cost.
+(g)A member of the association shall not be charged a fee to participate in the process.
+
+=== Civ. Code § 5915.  [Amended by Stats. 2015, Ch. 303, Sec. 35.   (AB 731)   Effective January 1, 2016.]
+(a)This section applies to an association that does not otherwise provide a fair, reasonable, and expeditious dispute resolution procedure. The procedure provided in this section is fair, reasonable, and expeditious within the meaning of this article.
+(b)Either party to a dispute within the scope of this article may invoke the following procedure:
+(1)The party may request the other party to meet and confer in an effort to resolve the dispute. The request shall be in writing.
+(2)A member of an association may refuse a request to meet and confer. The association shall not refuse a request to meet and confer.
+(3)The board shall designate a director to meet and confer.
+(4)The parties shall meet promptly at a mutually convenient time and place, explain their positions to each other, and confer in good faith in an effort to resolve the dispute. The parties may be assisted by an attorney or another person at their own cost when conferring.
+(5)A resolution of the dispute agreed to by the parties shall be memorialized in writing and signed by the parties, including the board designee on behalf of the association.
+(c)A written agreement reached under this section binds the parties and is judicially enforceable if it is signed by both parties and both of the following conditions are satisfied:
+(1)The agreement is not in conflict with law or the governing documents of the common interest development or association.
+(2)The agreement is either consistent with the authority granted by the board to its designee or the agreement is ratified by the board.
+(d)A member shall not be charged a fee to participate in the process.
+
+=== Civ. Code § 5920.  [Added by Stats. 2012, Ch. 180, Sec. 2.   (AB 805)   Effective January 1, 2013.   Operative January 1, 2014, by Sec. 3 of Ch. 180.]
+The annual policy statement prepared pursuant to Section 5310 shall include a description of the internal dispute resolution process provided pursuant to this article.
+
+=== Civ. Code § 5925.  [Added by Stats. 2012, Ch. 180, Sec. 2.   (AB 805)   Effective January 1, 2013.   Operative January 1, 2014, by Sec. 3 of Ch. 180.]
+As used in this article:
+(a)“Alternative dispute resolution” means mediation, arbitration, conciliation, or other nonjudicial procedure that involves a neutral party in the decisionmaking process. The form of alternative dispute resolution chosen pursuant to this article may be binding or nonbinding, with the voluntary consent of the parties.
+(b)“Enforcement action” means a civil action or proceeding, other than a cross-complaint, for any of the following purposes:
+(1)Enforcement of this act.
+(2)Enforcement of the Nonprofit Mutual Benefit Corporation Law (Part 3 (commencing with Section 7110) of Division 2 of Title 1 of the Corporations Code).
+(3)Enforcement of the governing documents.
+
+=== Civ. Code § 5930.  [Added by Stats. 2012, Ch. 180, Sec. 2.   (AB 805)   Effective January 1, 2013.   Operative January 1, 2014, by Sec. 3 of Ch. 180.]
+(a)An association or a member may not file an enforcement action in the superior court unless the parties have endeavored to submit their dispute to alternative dispute resolution pursuant to this article.
+(b)This section applies only to an enforcement action that is solely for declaratory, injunctive, or writ relief, or for that relief in conjunction with a claim for monetary damages not in excess of the jurisdictional limits stated in Sections 116.220 and 116.221 of the Code of Civil Procedure.
+(c)This section does not apply to a small claims action.
+(d)Except as otherwise provided by law, this section does not apply to an assessment dispute.
+
+=== Civ. Code § 5935.  [Added by Stats. 2012, Ch. 180, Sec. 2.   (AB 805)   Effective January 1, 2013.   Operative January 1, 2014, by Sec. 3 of Ch. 180.]
+(a)Any party to a dispute may initiate the process required by Section 5930 by serving on all other parties to the dispute a Request for Resolution. The Request for Resolution shall include all of the following:
+(1)A brief description of the dispute between the parties.
+(2)A request for alternative dispute resolution.
+(3)A notice that the party receiving the Request for Resolution is required to respond within 30 days of receipt or the request will be deemed rejected.
+(4)If the party on whom the request is served is the member, a copy of this article.
+(b)Service of the Request for Resolution shall be by personal delivery, first-class mail, express mail, facsimile transmission, or other means reasonably calculated to provide the party on whom the request is served actual notice of the request.
+(c)A party on whom a Request for Resolution is served has 30 days following service to accept or reject the request. If a party does not accept the request within that period, the request is deemed rejected by the party.
+
+=== Civ. Code § 5940.  [Added by Stats. 2012, Ch. 180, Sec. 2.   (AB 805)   Effective January 1, 2013.   Operative January 1, 2014, by Sec. 3 of Ch. 180.]
+(a)If the party on whom a Request for Resolution is served accepts the request, the parties shall complete the alternative dispute resolution within 90 days after the party initiating the request receives the acceptance, unless this period is extended by written stipulation signed by both parties.
+(b)Chapter 2 (commencing with Section 1115) of Division 9 of the Evidence Code applies to any form of alternative dispute resolution initiated by a Request for Resolution under this article, other than arbitration.
+(c)The costs of the alternative dispute resolution shall be borne by the parties.
+
+=== Civ. Code § 5965.  [Added by Stats. 2012, Ch. 180, Sec. 2.   (AB 805)   Effective January 1, 2013.   Operative January 1, 2014, by Sec. 3 of Ch. 180.]
+(a)An association shall annually provide its members a summary of the provisions of this article that specifically references this article. The summary shall include the following language:
+“Failure of a member of the association to comply with the alternative dispute resolution requirements of Section 5930 of the Civil Code may result in the loss of the member’s right to sue the association or another member of the association regarding enforcement of the governing documents or the applicable law.”
+(b)The summary shall be included in the annual policy statement prepared pursuant to Section 5310.
+
+=== Civ. Code § 6150.  [Amended by Stats. 2019, Ch. 207, Sec. 3.   (SB 326)   Effective January 1, 2020.]
+(a)Not later than 30 days before filing of any civil action by the association against the declarant or other developer of a common interest development for alleged damage to the common areas, alleged damage to the separate interests that the association is obligated to maintain or repair, or alleged damage to the separate interests that arises out of, or is integrally related to, damage to the common areas or separate interests that the association is obligated to maintain or repair, the board shall provide a written notice to each member of the association who appears on the records of the association when the notice is provided. This notice shall specify all of the following:
+(1)That a meeting will take place to discuss problems that may lead to the filing of a civil action, in addition to the potential impacts thereof to the association and its members, including any financial impacts.
+(2)The options, including civil actions, that are available to address the problems.
+(3)The time and place of the meeting.
+(b)Notwithstanding subdivision (a), if the association has reason to believe that the applicable statute of limitations will expire before the association files the civil action, the association may give the notice, as described above, within 30 days after the filing of the action.
