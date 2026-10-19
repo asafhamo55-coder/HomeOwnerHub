@@ -2,10 +2,12 @@ import Link from 'next/link'
 import { MessageSquare } from 'lucide-react'
 import { Alert, Button, Card, EmptyState, LoadFailed, Page } from '@homeowner-portal/ui'
 import { createAdminClient } from '@homeowner-portal/db'
+import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { listTemplates } from '@/lib/communications/queries'
 import { countAudiences } from '@/lib/communications/audience'
+import { officialNoticeApplies } from '@/lib/communications/official-notice'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { parsePropertyParam } from '@/lib/property-scope'
 import type { TemplateQuestion } from '@/lib/community-templates/types'
@@ -115,6 +117,26 @@ export default async function NewCommunicationPage({
   }))
   const propertyTotal = propertyRes.count ?? properties.length
 
+  // BL-020: the official-notice box only where it changes the send (a CA
+  // association, M1 applied). With the flag off there is no extra query.
+  let officialNoticeOffered = false
+  if (M1_APPLIED) {
+    const stateRes = await loadOrFail(
+      'association state',
+      supabase.from('associations').select('state').eq('id', assoc.id).single(),
+    )
+    if (!stateRes.ok || !stateRes.data) {
+      // Hiding the box on a failed read would let a CA official notice go
+      // out unfiltered — refuse to show the composer instead.
+      return (
+        <Page width="narrow" title="New message" breadcrumbs={BREADCRUMBS} linkAs={Link}>
+          <LoadFailed what="your association record" />
+        </Page>
+      )
+    }
+    officialNoticeOffered = officialNoticeApplies((stateRes.data as { state: string | null }).state, true)
+  }
+
   const counts = {
     ...audienceCounts,
     board: boardRes.count ?? 0,
@@ -153,6 +175,7 @@ export default async function NewCommunicationPage({
           audienceCounts={counts}
           properties={properties}
           initialPropertyId={initialPropertyId}
+          officialNoticeOffered={officialNoticeOffered}
         />
       </Card>
     </Page>

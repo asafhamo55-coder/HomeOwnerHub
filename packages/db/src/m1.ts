@@ -9,6 +9,8 @@
  *
  * Flipping it to true is the one-line follow-up after the apply. Covers:
  *   BL-020 member_email_consent_events        (apps/hoa/src/lib/email-consent.ts)
+ *          + CA official notices email only consenting members
+ *            (apps/hoa/src/lib/communications/official-notice.ts, send.ts)
  *   BL-050 hoa_meeting_minutes.notice_posted_at (apps/hoa/src/lib/fl-compliance)
  *   BL-052 *.visible_to_owners                 (apps/hoa/src/lib/resident-documents)
  *   BL-063 hoa_recurring_events.alert_failed_* (api/cron/recurring-events)
