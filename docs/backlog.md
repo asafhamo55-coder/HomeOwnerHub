@@ -870,3 +870,13 @@ These go beyond the design-system v2 pass:
   - `recurring_journal_entries.status` (active / paused / stopped) and `end_date`.
   - Once these exist, replace the memo and audit-row stand-ins.
 - **BL-086 Check vendor COI reply routing in prod:** vendor reminder emails ask vendors to reply. Confirm one real reply reaches the board's inbox.
+
+## Research pass 2026-10-19: next no-migration wins (ranked)
+
+- **BL-087 Estoppel / resale certificate** (FL §720.30851, CA §4525/§4530):
+  - "Prepare estoppel" on the property page, filled from the ledger, collections, plans and open violations.
+  - Business-day due date and fee cap; BLANKs block printing; a board-verify step; audit row.
+- **BL-088 Resident "Meetings and notices" page:** upcoming meetings and approved minutes only (FL 100+ parcels owners-only posting); a card on the resident home page.
+- **BL-089 Statute-aware collections letters:** draft and print only, through Approvals (FL §720.3085(4) 45-day intent to lien, TX §209.0064, CA §5660).
+- **BL-090 Marketing truth round 3:** Spanish and AI ARC review are now shipped; the HOA hero persona quotes unsupported numbers.
+- **BL-091 Annual budget notice to owners** (FL §720.303(6), CA §5300 partial): built from the adopted budget; reserve fields are BLANKs.
