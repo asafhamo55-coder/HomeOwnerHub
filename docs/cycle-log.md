@@ -364,3 +364,15 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - the "hearing held" tick is trusted;
   - a drafted letter lands in Approvals before the board saves it.
 - **Stale shot:** guide-violations-approval-queue. The CI UI-shots run will open a refresh PR.
+
+## 2026-10-19 (15:56) — deploy cb010a7: estoppel, follow-up drafts on save, resident meetings (off), marketing truth round 3
+
+- **Live:**
+  - BL-087: estoppel certificate (FL §720.30851 checked against the statute; the delinquent add-on is $150; CA is labelled Partial).
+  - Follow-up drafts go to Approvals only after Save, with a `follow_up_letter` AI limit (30/h per user, 300/day per org).
+  - BL-088: the resident meetings page. It stays off until `docs/specs/2026-10-19-resident-meeting-notices.sql` is applied.
+  - BL-090: marketing truth round 3.
+- **Smoke:** /violations, /properties and /resident/meetings 307; /login 200. The release-note email was sent.
+- **Asaf to confirm:** is "Linda, Madison Park" a real quote? If not, remove it everywhere.
+- **Not yet checked in a browser:** the estoppel print layout.
+- **Running:** BL-089 collections letters and BL-091 budget notice.

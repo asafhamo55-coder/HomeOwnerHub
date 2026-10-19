@@ -41,8 +41,8 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 - **Integration branch:** `claude/quality-oracle`. All merges land here.
 - **Deploy:** run `/usr/bin/git merge-base --is-ancestor <prod> <tip>`, then `/usr/bin/git push origin <sha>:claude/phase1-homeownerhub-setup-MILNu`. Prod pushes FAIL when their output is redirected to /dev/null; always run them as `... 2>&1 | tail -3`, and retry up to 3 times.
 - **Verify:** poll `https://www.homeownerledger.com/api/health` until `version` equals the SHA. The public body is `{ok, app, version}`.
-- **Live in prod:** 65fcd69 (follow-up letters, guide coverage), deployed 2026-10-19 14:50 ET.
-- **2026-10-19 14:50:** everything merged is live; no agents running. Next deploy no earlier than 15:50.
+- **Live in prod:** cb010a7 (estoppel, follow-up drafts on save, resident meetings off, marketing round 3), deployed 2026-10-19 15:56 ET.
+- **2026-10-19 15:56:** BL-089 and BL-091 agents running; one-shot deploy at 16:55. Pending owner SQL: docs/specs/2026-10-19-resident-meeting-notices.sql (after 0063 + M1). Owner question: is the Linda quote real?
 
 ## Gates (the trusted forms)
 
