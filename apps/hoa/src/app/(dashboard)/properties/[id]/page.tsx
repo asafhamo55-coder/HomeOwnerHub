@@ -14,6 +14,8 @@ import { tryLoad } from '@/lib/load-or-fail'
 import { parsePropertyListParams, propertyListQuery } from '@/lib/properties/list-params'
 import { parseSection } from '@/lib/properties/sections'
 import { PropertyDetailView } from './PropertyDetailView'
+import { M1_APPLIED } from '@homeowner-portal/db/m1'
+import { loadEmailConsent } from '@/lib/email-consent'
 
 export const metadata = { title: 'Property' }
 export const dynamic = 'force-dynamic'
@@ -78,6 +80,11 @@ export default async function PropertyDetailPage({
           loadPlanStandings(supabase, { organizationId: ctx.org.id, associationId: assoc.id }, standingPlans, today),
         )
       : null
+  // BL-020 (M1): owners' consent to official notices by email — board only,
+  // and not read at all until M1_APPLIED.
+  const canManage = ctx.role === 'admin' || ctx.role === 'board'
+  const consentRes = M1_APPLIED && canManage ? await loadEmailConsent(supabase, ctx.org.id) : null
+  const consent = !consentRes ? undefined : !consentRes.ok ? ('failed' as const) : consentRes.available ? consentRes.consent : undefined
   const data = standings ? { ...loaded.data, planStandings: standings.ok ? { ok: true as const, data: standings.data } : { ok: false as const } } : loaded.data
 
   return (
@@ -86,7 +93,8 @@ export default async function PropertyDetailPage({
       now={new Date()}
       today={today}
       isAdmin={ctx.role === 'admin'}
-      canManage={ctx.role === 'admin' || ctx.role === 'board'}
+      canManage={canManage}
+      {...(consent !== undefined ? { consent } : {})}
       capInPlace={assocInfo.cap?.capPct !== null && assocInfo.cap?.capPct !== undefined}
       section={parseSection(one('tab'))}
       listHref={listHref}

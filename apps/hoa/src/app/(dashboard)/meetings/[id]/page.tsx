@@ -26,6 +26,9 @@ import { loadActionItems } from '@/lib/meeting-action-items'
 import { MEETING_STATUS, MEETING_TYPE } from '@/lib/status/community'
 import { ActionItemsSection } from './ActionItemsSection'
 import { MeetingActions } from './MeetingActions'
+import { M1_APPLIED } from '@homeowner-portal/db/m1'
+import { meetingDetailColumns } from './columns'
+import { NoticePostedControl } from './NoticePostedControl'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,6 +54,8 @@ interface MeetingRow {
   approved_at: string | null
   approved_by: string | null
   created_at: string | null
+  /** BL-050 (0064): selected only once M1_APPLIED. */
+  notice_posted_at?: string | null
 }
 
 function motionTone(result: string | undefined): 'success' | 'danger' | 'neutral' {
@@ -67,9 +72,7 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
     'meeting',
     supabase
       .from('hoa_meeting_minutes')
-      .select(
-        'id, meeting_date, meeting_type, attendees, ai_summary, raw_transcript, motions, status, approved_at, approved_by, created_at',
-      )
+      .select(meetingDetailColumns(M1_APPLIED))
       .eq('id', id)
       .is('deleted_at', null)
       .maybeSingle(),
@@ -254,6 +257,13 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
                     )
                   }
                 />
+                {/* BL-050 (M1): when the notice was posted (FL §720.303(2)). */}
+                {M1_APPLIED ? (
+                  <KeyValue
+                    label="Notice posted"
+                    value={<NoticePostedControl meetingId={meeting.id} postedAt={meeting.notice_posted_at ?? null} />}
+                  />
+                ) : null}
                 {meeting.created_at ? (
                   <KeyValue label="Created" value={format(new Date(meeting.created_at), 'MMM d, yyyy')} />
                 ) : null}

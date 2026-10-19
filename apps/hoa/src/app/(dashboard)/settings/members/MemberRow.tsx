@@ -8,6 +8,9 @@ import Link from 'next/link'
 import { Home, Trash2 } from 'lucide-react'
 import { Avatar, Button, Select, StatusPill, useConfirm, type StatusTone } from '@homeowner-portal/ui'
 import { changeMemberRole, removeMember, type MemberRole, type MemberRow as MemberRowType } from '@/lib/members'
+import type { ConsentState } from '@/lib/email-consent'
+import { ConsentStatus } from '@/components/consent/ConsentStatus'
+import { RecordConsentDialog } from '@/components/consent/RecordConsentDialog'
 
 const ROLE_TONE: Record<MemberRole, StatusTone> = {
   admin: 'brand',
@@ -25,10 +28,16 @@ export function MemberRow({
   member,
   isSelf,
   viewerRole,
+  consent,
 }: {
   member: MemberRowType
   isSelf: boolean
   viewerRole: 'admin' | 'board'
+  /**
+   * BL-020 (M1): the member's newest consent event, null = none on record.
+   * Omitted (undefined) until M1_APPLIED — the row is then exactly as before.
+   */
+  consent?: ConsentState | null
 }) {
   // Mirrors 0058: only admins change roles; board can remove residents only.
   const canChangeRole = viewerRole === 'admin'
@@ -94,6 +103,17 @@ export function MemberRow({
             </Link>
             <span>({member.linkedProperty.residencyRole.replace('_', ' ')})</span>
           </p>
+        ) : null}
+        {consent !== undefined ? (
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <ConsentStatus state={consent} />
+            <RecordConsentDialog
+              userId={member.user_id}
+              memberName={displayName}
+              currentlyGranted={consent?.granted === true}
+              size="xs"
+            />
+          </div>
         ) : null}
         {error ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
       </div>

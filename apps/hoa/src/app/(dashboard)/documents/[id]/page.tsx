@@ -24,6 +24,9 @@ import {
 } from '@/lib/status/knowledge'
 import { ParsedTextEditor } from './ParsedTextEditor'
 import { DocumentActions } from './DocumentActions'
+import { M1_APPLIED } from '@homeowner-portal/db/m1'
+import { docDetailColumns, ownerVisibilityControl } from '@/lib/resident-documents/owner-control'
+import { OwnerVisibilitySwitch } from '@/components/documents/OwnerVisibilitySwitch'
 
 interface DocDetailRow {
   id: string
@@ -34,6 +37,8 @@ interface DocDetailRow {
   parsed_text: string | null
   parsed_at: string | null
   created_at: string | null
+  /** BL-052 (0064): selected only once M1_APPLIED. */
+  visible_to_owners?: boolean
 }
 
 interface ParsedSection {
@@ -56,7 +61,7 @@ export default async function DocumentDetailPage({
     'document',
     supabase
       .from('hoa_documents')
-      .select('id, name, type, storage_path, file_size, parsed_text, parsed_at, created_at')
+      .select(docDetailColumns(M1_APPLIED))
       .eq('id', id)
       .maybeSingle(),
   )
@@ -71,7 +76,8 @@ export default async function DocumentDetailPage({
     )
   }
   if (!docResult.data) notFound()
-  const doc = docResult.data as DocDetailRow
+  const doc = docResult.data as unknown as DocDetailRow
+  const ownerControl = ownerVisibilityControl('hoa', doc.type, M1_APPLIED)
 
   // 60-minute signed URL so the user can preview/download. A failure here
   // only hides the "Open file" button; the text below still works.
@@ -133,6 +139,30 @@ export default async function DocumentDetailPage({
           />
         </CardContent>
       </Card>
+
+      {/* BL-052 (M1): post this document to owners. Nothing renders until M1_APPLIED. */}
+      {ownerControl !== 'none' ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle as="h2">Owners</CardTitle>
+            <CardDescription>What owners see on the Documents page of their portal.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {ownerControl === 'always' ? (
+              <p className="text-sm text-foreground-secondary">
+                Always visible to owners — governing documents and rules are posted to everyone.
+              </p>
+            ) : (
+              <OwnerVisibilitySwitch
+                documentId={doc.id}
+                source="hoa"
+                initial={doc.visible_to_owners === true}
+                description="Owners can open and download this file in the portal. Turn off to take it down."
+              />
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {versionsResult.ok ? (
         <DocumentActions documentId={doc.id} versions={versionItems} />

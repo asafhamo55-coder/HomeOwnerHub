@@ -76,6 +76,9 @@ import { PropertyActions } from './PropertyActions'
 import { InviteToPortalButton } from './InviteToPortalButton'
 import { RecordSaleDialog } from './RecordSaleDialog'
 import { ResidentRow } from './ResidentRow'
+import type { ConsentState } from '@/lib/email-consent'
+import { ConsentStatus } from '@/components/consent/ConsentStatus'
+import { RecordConsentDialog } from '@/components/consent/RecordConsentDialog'
 import { TenureSelector } from './TenureSelector'
 
 /**
@@ -109,10 +112,16 @@ export interface PropertyDetailViewProps {
   listHref: string
   /** The list's query, carried on the phone tabs. */
   listQuery: string
+  /**
+   * BL-020 (M1): owners' consent to official notices by email, by user id;
+   * 'failed' = couldn't be read. Omitted until M1_APPLIED — the People
+   * section is then exactly as before.
+   */
+  consent?: ReadonlyMap<string, ConsentState> | 'failed'
 }
 
 export function PropertyDetailView(props: PropertyDetailViewProps) {
-  const { data, now, today, isAdmin, canManage = false, capInPlace, section, listHref, listQuery } = props
+  const { data, now, today, isAdmin, canManage = false, capInPlace, section, listHref, listQuery, consent } = props
   const p = data.property
   const pid = asPropertyId(p.id)
   const scoped = (path: string) => `${path}?property=${p.id}`
@@ -233,7 +242,7 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
           </div>
 
           <Section id="people" title="People" active={section === 'people'} action={data.residents.ok ? <AddResidentForm propertyId={p.id} /> : null}>
-            <PeopleSection people={people} residents={data.residents} ownerships={data.ownerships} selfUpdates={data.selfUpdates?.ok ? data.selfUpdates.data : {}} isAdmin={isAdmin} canManage={canManage} propertyId={p.id} unitId={unitId} messageHref={householdCount > 0 ? scoped('/communications/new') : null} />
+            <PeopleSection consent={consent} people={people} residents={data.residents} ownerships={data.ownerships} selfUpdates={data.selfUpdates?.ok ? data.selfUpdates.data : {}} isAdmin={isAdmin} canManage={canManage} propertyId={p.id} unitId={unitId} messageHref={householdCount > 0 ? scoped('/communications/new') : null} />
           </Section>
 
           <Section
@@ -440,6 +449,7 @@ function UnitGate<T>({
 // ─── People ──────────────────────────────────────────────────────────
 
 function PeopleSection({
+  consent,
   people,
   residents,
   ownerships,
@@ -450,6 +460,7 @@ function PeopleSection({
   unitId,
   messageHref,
 }: {
+  consent?: ReadonlyMap<string, ConsentState> | 'failed'
   people: ReturnType<typeof buildPeople>
   residents: Part<unknown>
   ownerships: UnitPart<unknown>
@@ -492,10 +503,11 @@ function PeopleSection({
           ) : (
             <ul className="divide-y divide-border">
               {people.owners.map((o) => (
-                <OwnerRow key={o.key} owner={o} selfUpdatedAt={selfUpdates[o.key] ?? null} isAdmin={isAdmin} canManage={canManage} propertyId={propertyId} unitId={unitId} />
+                <OwnerRow key={o.key} consent={consent} owner={o} selfUpdatedAt={selfUpdates[o.key] ?? null} isAdmin={isAdmin} canManage={canManage} propertyId={propertyId} unitId={unitId} />
               ))}
             </ul>
           )}
+          {consent === 'failed' ? <LoadFailed what="owners’ e-consent" hint="The owners are listed; whether they agreed to email notices couldn’t be read." /> : null}
           {people.previousOwners.length > 0 ? (
             <details className="rounded-lg bg-subtle px-3.5 py-2 text-sm">
               <summary className="cursor-pointer text-muted">
@@ -580,6 +592,7 @@ function PeopleSection({
 }
 
 function OwnerRow({
+  consent,
   owner,
   selfUpdatedAt = null,
   isAdmin,
@@ -587,6 +600,7 @@ function OwnerRow({
   propertyId,
   unitId,
 }: {
+  consent?: ReadonlyMap<string, ConsentState> | 'failed'
   owner: Owner
   selfUpdatedAt?: string | null
   isAdmin: boolean
@@ -612,6 +626,19 @@ function OwnerRow({
           {owner.email ? <span className="hidden truncate sm:inline">{owner.email}</span> : null}
           {selfUpdatedAt ? <span>Updated by owner on {formatDay(selfUpdatedAt)}</span> : null}
         </p>
+        {/* BL-020 (M1): only an owner with a portal account can hold consent. */}
+        {consent instanceof Map && canManage && owner.userId ? (
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <ConsentStatus state={consent.get(owner.userId) ?? null} />
+            <RecordConsentDialog
+              userId={owner.userId}
+              memberName={owner.name ?? owner.email ?? 'this owner'}
+              currentlyGranted={consent.get(owner.userId)?.granted === true}
+              revalidate={propertyHref(asPropertyId(propertyId))}
+              size="xs"
+            />
+          </div>
+        ) : null}
       </div>
       <div className="-ml-2 flex shrink-0 flex-wrap items-center gap-1 sm:ml-0">
         <ContactIcons name={owner.name} phone={owner.phone} email={owner.email} />

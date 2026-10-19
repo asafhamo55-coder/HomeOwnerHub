@@ -8,6 +8,10 @@ import { getResidentActor } from '@/lib/impersonation'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { SignOutButton } from '@/components/resident/SignOutButton'
 import { Panel, RowGroup, ScreenHeader, SectionLabel, TappableRow } from '@/components/resident/screen'
+import { M1_APPLIED } from '@homeowner-portal/db/m1'
+import { getCurrentOrg } from '@/lib/orgs'
+import { loadEmailConsent, type ConsentState } from '@/lib/email-consent'
+import { ElectronicNotices } from './ElectronicNotices'
 
 export const metadata = { title: 'Account' }
 export const dynamic = 'force-dynamic'
@@ -46,6 +50,20 @@ export default async function ResidentAccountPage() {
     fullName = error ? null : data?.full_name?.trim() || null
   }
   const displayName = fullName || email.split('@')[0] || 'Resident'
+
+  // BL-020 (M1): this member's consent to official notices by email.
+  // Nothing is read — and nothing rendered — until M1_APPLIED. Viewing as a
+  // resident reads their state through the confined admin client.
+  let consent: ConsentState | null | 'failed' | undefined
+  if (M1_APPLIED) {
+    const org = actor.impersonating ? null : await getCurrentOrg()
+    const orgId = actor.impersonating ? actor.orgId : (org?.id ?? null)
+    const memberId = actor.impersonating ? actor.id : (user?.id ?? null)
+    if (orgId && memberId) {
+      const res = await loadEmailConsent(actor.client, orgId)
+      consent = !res.ok ? 'failed' : res.available ? (res.consent.get(memberId) ?? null) : undefined
+    }
+  }
 
   const communities = [
     ...new Set(units.map((u) => u.association_name).filter((n): n is string => n != null && n !== '')),
@@ -98,6 +116,8 @@ export default async function ResidentAccountPage() {
         signInEmail={contacts.ok ? contacts.data.signInEmail : null}
         readOnly={actor.impersonating}
       />
+
+      {consent !== undefined ? <ElectronicNotices consent={consent} readOnly={actor.impersonating} /> : null}
 
       {/* Community */}
       <section className="space-y-2.5">

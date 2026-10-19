@@ -22,6 +22,9 @@ import { GOVERNING_TYPE_LABELS, INDEX_LABELS, INDEX_TONES } from '@/lib/status/k
 import { GoverningDocsUploader } from './GoverningDocsUploader'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
 import { guideHref } from '@/lib/guide'
+import { M1_APPLIED } from '@homeowner-portal/db/m1'
+import { governingListColumns, ownerVisibilityControl } from '@/lib/resident-documents/owner-control'
+import { OwnerVisibilitySwitch } from '@/components/documents/OwnerVisibilitySwitch'
 
 export const metadata = { title: 'Governing documents' }
 export const dynamic = 'force-dynamic'
@@ -39,13 +42,16 @@ interface GoverningDocRow {
   type: string
   effective_date: string | null
   parsed_at: string | null
+  /** BL-052 (0064): selected only once M1_APPLIED. */
+  ai_generated?: boolean | null
+  visible_to_owners?: boolean
   /** null when the section count couldn't be read. */
   chunk_count: number | null
 }
 
 const DAY_UTC = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 
-const columns: DataTableColumn<GoverningDocRow>[] = [
+const baseColumns: DataTableColumn<GoverningDocRow>[] = [
   {
     key: 'title',
     header: 'Document',
@@ -82,6 +88,28 @@ const columns: DataTableColumn<GoverningDocRow>[] = [
   },
 ]
 
+/** BL-052 (M1): the board posts a document to owners. Not a column until M1_APPLIED. */
+const ownersColumn: DataTableColumn<GoverningDocRow> = {
+  key: 'owners',
+  header: 'Owners',
+  cell: (d) => {
+    const c = ownerVisibilityControl('governing', d.type, true, { aiGenerated: d.ai_generated })
+    if (c === 'always') return <span className="text-sm text-foreground-secondary">Always visible</span>
+    if (c === 'ai') return <span className="text-sm text-muted">Hidden (AI draft)</span>
+    return (
+      <OwnerVisibilitySwitch
+        documentId={d.id}
+        source="governing"
+        initial={d.visible_to_owners === true}
+        label="Visible to owners"
+        size="sm"
+      />
+    )
+  },
+}
+
+const columns: DataTableColumn<GoverningDocRow>[] = M1_APPLIED ? [...baseColumns, ownersColumn] : baseColumns
+
 export default async function GoverningDocumentsPage({
   searchParams,
 }: {
@@ -109,7 +137,7 @@ export default async function GoverningDocumentsPage({
       'governing documents',
       supabase
         .from('governing_documents' as never)
-        .select('id, title, type, effective_date, parsed_at', { count: 'exact' })
+        .select(governingListColumns(M1_APPLIED), { count: 'exact' })
         .eq('organization_id' as never, org.id)
         .is('superseded_at' as never, null)
         .order('created_at' as never, { ascending: false })
