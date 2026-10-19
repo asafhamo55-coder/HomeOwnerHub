@@ -76,6 +76,21 @@ export type {
   CommComposerInput,
   CommComposerOutput,
 } from './W31-comm-composer'
+// BL-025 — W31's translation step (English → Spanish draft for review).
+export {
+  translateCommunication,
+  parseTranslationReply,
+  mergeFieldNames,
+  CommTranslateInputSchema,
+  TRANSLATE_PROMPT_VERSION,
+} from './W31-comm-composer/translate'
+export type {
+  CommTranslateInput,
+  CommTranslateOutput,
+  TranslateComplete,
+  TranslateMessage,
+  TranslateResult,
+} from './W31-comm-composer/translate'
 
 // Phase B — Module 9 continued: shared-inbox reply drafting
 // Both citation failures are exported: a consumer needs to tell "cited a source

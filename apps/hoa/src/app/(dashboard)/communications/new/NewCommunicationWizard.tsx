@@ -19,6 +19,7 @@ import {
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { sendCommunication } from '@/lib/communications/send'
 import { SMS_CHANNEL_HINT } from '@/lib/communications/sms-body'
+import { SMS_ENGLISH_ONLY_NOTE, composeBilingualSms, htmlToPlainText } from '@/lib/communications/bilingual'
 import {
   listPropertyResidents,
   listBoardMembers,
@@ -37,6 +38,7 @@ import {
 } from './AudienceStep'
 import { QuestionStep } from './QuestionStep'
 import { SectionToggles } from './SectionToggles'
+import { SpanishVersion, type SpanishDraft } from './SpanishVersion'
 
 interface TemplateOption {
   id: string
@@ -132,6 +134,8 @@ export function NewCommunicationWizard({
   const [pending, startTransition] = useTransition()
   const [step, setStep] = useState(0)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
+  // BL-025: the optional, board-reviewed Spanish version.
+  const [spanish, setSpanish] = useState<SpanishDraft | null>(null)
 
   // Specific-property audience state.
   // selectedPropertyId — single property at a time keeps the UI simple.
@@ -359,6 +363,13 @@ export function NewCommunicationWizard({
         const blank = Array.isArray(v) ? v.length === 0 : String(v ?? '').trim() === ''
         if (blank) errs[`q:${q.id}`] = 'Required — this answer fills a merge field in the message.'
       }
+      if (spanish) {
+        if (!spanish.subject.trim() || !spanish.bodyHtml.trim()) {
+          errs.spanish = 'The Spanish subject and body can’t be empty — fill them in or remove the Spanish version.'
+        } else if (!spanish.viewed) {
+          errs.spanish = 'Read the Spanish version and tick the box before sending.'
+        }
+      }
     }
     if (i === 2 && channels.length === 0) errs.channels = 'Pick at least one channel.'
     return errs
@@ -510,6 +521,9 @@ export function NewCommunicationWizard({
         templateId: templateId || undefined,
         scheduledFor: scheduledFor || undefined,
         extraFields,
+        spanish: spanish
+          ? { subject: spanish.subject.trim(), bodyHtml: spanish.bodyHtml, reviewed: spanish.viewed }
+          : undefined,
       })
       if (!result.ok) {
         setError(result.error)
@@ -533,6 +547,18 @@ export function NewCommunicationWizard({
       .filter(([k]) => k.startsWith('q:'))
       .map(([k, v]) => [k.slice(2), v]),
   )
+  // SMS estimate on the unrendered text: merge fields change the length per
+  // recipient, and the server decides for real at send time.
+  const smsEnglishOnly =
+    spanish !== null &&
+    channels.includes('sms') &&
+    !composeBilingualSms({
+      subject: subject.trim(),
+      englishText: htmlToPlainText(bodyHtml),
+      spanish: { subject: spanish.subject, text: htmlToPlainText(spanish.bodyHtml) },
+      portalLink: 'https://www.homeownerledger.com/communications/00000000-0000-0000-0000-000000000000',
+    }).spanishIncluded
+
   const audienceCount =
     audience === 'specific_property'
       ? checkedResidentIds.size
@@ -702,6 +728,18 @@ export function NewCommunicationWizard({
               className="font-mono text-xs sm:text-xs"
             />
           </Field>
+
+          <SpanishVersion
+            subject={subject}
+            bodyHtml={bodyHtml}
+            value={spanish}
+            onChange={(next) => {
+              setSpanish(next)
+              setFieldErrors((e) => ({ ...e, spanish: '' }))
+            }}
+            disabled={pending}
+            error={fieldErrors.spanish || undefined}
+          />
         </div>
 
         {/* Step 3 — channels, schedule, review */}
@@ -748,6 +786,7 @@ export function NewCommunicationWizard({
               />
               <KeyValue label="Subject" value={subject.trim() || null} />
               <KeyValue label="Template" value={selectedTemplate?.name ?? 'Custom message'} />
+              <KeyValue label="Languages" value={spanish ? 'English, then Español' : 'English'} />
               <KeyValue
                 label="Channels"
                 value={channels.map((c) => CHANNEL_COPY[c as (typeof CHANNELS)[number]]?.label ?? c).join(', ') || null}
@@ -758,6 +797,8 @@ export function NewCommunicationWizard({
               />
             </KeyValueList>
           </section>
+
+          {smsEnglishOnly ? <Alert variant="info">{SMS_ENGLISH_ONLY_NOTE}</Alert> : null}
         </div>
 
         {error ? <Alert variant="error">{error}</Alert> : null}

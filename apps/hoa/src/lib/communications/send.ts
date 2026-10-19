@@ -20,7 +20,8 @@ import { buildRecipientBag } from './merge-bag'
 import { recoverFromRenderedSubject, unresolvedFields } from './merge-recovery'
 import { normalizeSuppliedFields } from './supplied-fields'
 import { composeSmsBody } from './sms-body'
-import { renderTemplateStrict, type MergeBag } from './templates'
+import { composeBilingualHtml, composeBilingualSms, htmlToPlainText, splitBilingualHtml } from './bilingual'
+import { extractMergeFields, renderTemplateStrict, type MergeBag } from './templates'
 
 type CommInsert = Database['public']['Tables']['communications']['Insert']
 type RecipientInsert = Database['public']['Tables']['communication_recipients']['Insert']
@@ -119,6 +120,18 @@ const SendSchema = z.object({
   extraMergeFields: z
     .record(z.string(), z.record(z.string(), z.union([z.string(), z.number()])))
     .optional(),
+  /** BL-025: the board-reviewed Spanish version (W31 translation, edited
+   *  in the wizard). Stored inside body_html after the English — see
+   *  ./bilingual.ts. `reviewed` must be true: the wizard only sets it once
+   *  the board has viewed the Spanish text, and the server refuses
+   *  otherwise rather than trusting the button state alone. */
+  spanish: z
+    .object({
+      subject: z.string().trim().min(1).max(255),
+      bodyHtml: z.string().trim().min(1).max(40_000),
+      reviewed: z.boolean(),
+    })
+    .optional(),
 })
 
 export type SendCommunicationInput = z.infer<typeof SendSchema>
@@ -143,6 +156,33 @@ export async function sendCommunication(
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
   }
   const value = parsed.data
+
+  // BL-025: fold the reviewed Spanish version into the stored body.
+  let bodyHtml = value.bodyHtml
+  let bodyText = value.bodyText
+  if (value.spanish) {
+    if (!value.spanish.reviewed) {
+      return { ok: false, error: 'Review the Spanish version before sending.' }
+    }
+    // A merge field only the Spanish uses would fail the strict render for
+    // every recipient — refuse up front and name it instead.
+    const englishFields = new Set(extractMergeFields(`${value.subject}\n${value.bodyHtml}`))
+    const extra = extractMergeFields(`${value.spanish.subject}\n${value.spanish.bodyHtml}`).filter(
+      (f) => !englishFields.has(f),
+    )
+    if (extra.length > 0) {
+      return {
+        ok: false,
+        error: `The Spanish version uses merge fields the English one doesn't: ${extra.join(', ')}.`,
+      }
+    }
+    bodyHtml = composeBilingualHtml({
+      englishHtml: value.bodyHtml,
+      spanishSubject: value.spanish.subject,
+      spanishHtml: value.spanish.bodyHtml,
+    })
+    bodyText = htmlToPlainText(bodyHtml)
+  }
 
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
@@ -223,8 +263,8 @@ export async function sendCommunication(
     template_id: value.templateId ?? null,
     category: value.category,
     subject: value.subject,
-    body_html: value.bodyHtml,
-    body_text: value.bodyText ?? null,
+    body_html: bodyHtml,
+    body_text: bodyText ?? null,
     channels: value.channels,
     // Cast to satisfy Supabase's strict `Json` type — `audience.extra` is
     // typed `Record<string, unknown>` which TS doesn't narrow to Json
@@ -370,8 +410,8 @@ export async function sendCommunication(
     let text: string | undefined
     try {
       subject = renderTemplateStrict(value.subject, bag)
-      html = renderTemplateStrict(value.bodyHtml, bag)
-      text = value.bodyText ? renderTemplateStrict(value.bodyText, bag) : undefined
+      html = renderTemplateStrict(bodyHtml, bag)
+      text = bodyText ? renderTemplateStrict(bodyText, bag) : undefined
     } catch (err) {
       await markFailed(supabase, recipient.id, (err as Error).message)
       return 'failed'
@@ -417,7 +457,18 @@ export async function sendCommunication(
       // describes).
       const PORTAL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.homeownerledger.com'
       const portalLink = `${PORTAL.replace(/\/$/, '')}/communications/${commId}`
-      const smsBody = composeSmsBody({ subject, body: text ?? htmlToSmsBody(html, 200), portalLink })
+      // BL-025: a bilingual body sends both languages only when both fit
+      // whole in one text; otherwise English only (the portal link carries
+      // the Spanish). The wizard warns the board when that will happen.
+      const parts = splitBilingualHtml(html)
+      const smsBody = parts.spanish
+        ? composeBilingualSms({
+            subject,
+            englishText: htmlToPlainText(parts.englishHtml),
+            spanish: { subject: parts.spanish.subject, text: htmlToPlainText(parts.spanish.html) },
+            portalLink,
+          }).body
+        : composeSmsBody({ subject, body: text ?? htmlToSmsBody(html, 200), portalLink })
       const result = await sendSms({ to: phone, body: smsBody }, outbound)
       if (result.ok) {
         await supabase
@@ -475,8 +526,8 @@ export async function sendCommunication(
     const { payloads, owners } = buildEmailPayloads({
       recipients: emailTargets,
       subject: value.subject,
-      bodyHtml: value.bodyHtml,
-      bodyText: value.bodyText,
+      bodyHtml,
+      bodyText,
       associationName,
       senderName,
       extraFields: mergedExtraFields,

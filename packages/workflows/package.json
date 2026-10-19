@@ -13,6 +13,7 @@
     "./W21": "./src/W21-vendor-onboarder/index.ts",
     "./W22": "./src/W22-rfp-composer/index.ts",
     "./W23": "./src/W23-bid-comparator/index.ts",
+    "./W31-translate": "./src/W31-comm-composer/translate.ts",
     "./W37": "./src/W37-arc-review/index.ts",
     "./payment-plans": "./src/payment-plans/index.ts",
     "./state-law-ingest": "./src/W30-state-law-brain/ingest.ts",

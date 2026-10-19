@@ -7,14 +7,14 @@
 //              person with several logins) cannot run the bill up.
 //
 // Board-only AI routes (the W37 board review, violation drafting, digests,
-// parse/suggest) are not listed: they sit behind requireRouteBoardOrAdmin and
+// parse/suggest) are not listed, except the BL-025 translation below: they sit behind requireRouteBoardOrAdmin and
 // are not limited here.
 //
 // The mechanism (lib/api/rate-limit.ts) counts rows in audit_log with
 // action `ai.usage.<bucket>`. Changing a number here takes effect on the next
 // request; no migration, no cache.
 
-export type AiUsageBucket = 'arc_precheck' | 'ask_docs' | 'help_ask' | 'rewrite'
+export type AiUsageBucket = 'arc_precheck' | 'ask_docs' | 'help_ask' | 'rewrite' | 'translate'
 
 export interface RateWindow {
   /** Max calls inside the window. */
@@ -61,6 +61,14 @@ export const AI_RATE_LIMITS: Record<AiUsageBucket, AiRateLimit> = {
     perUser: { limit: 30, windowMs: HOUR_MS },
     perOrg: { limit: 500, windowMs: DAY_MS },
     noun: 'rewrites',
+  },
+  // POST /api/ai/translate-communication — "Add Spanish version" in the
+  // communications wizard (BL-025). Board-only, but each click is a long
+  // model call, so it draws on the shared ledger like the routes above.
+  translate: {
+    perUser: { limit: 20, windowMs: HOUR_MS },
+    perOrg: { limit: 200, windowMs: DAY_MS },
+    noun: 'translations',
   },
 }
 

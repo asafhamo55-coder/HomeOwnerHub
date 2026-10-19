@@ -66,6 +66,7 @@ questions:
   - { id: h22c, role: board, expect: approvals-queue, q: "An owner sent a new phone number. How do I approve the contact update?" }
   - { id: h23, role: board, expect: communications-send-announcement, q: "How do I send an announcement email to all residents?" }
   - { id: h24, role: board, expect: communications-send-announcement, q: "Can I send a text message to residents?" }
+  - { id: h24es, role: board, expect: communications-send-announcement, q: "How do I send an announcement in Spanish too?" }
   - { id: h25, role: admin, expect: documents-governing-and-ask, q: "How do I upload our CC&Rs?" }
   - { id: h26, role: board, expect: documents-governing-and-ask, q: "What is the difference between Ask the Docs and Ask the guide?" }
 
