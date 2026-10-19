@@ -385,3 +385,13 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **Owner requests added (BL-092..095):** product/architecture deck, investor deck, logo, blue recolour. Agents are dispatched.
   - Decks are saved to ~/HomeownerHub-decks/, outside the public repo.
 - **Missed one-shot:** the 16:55 one-shot did not fire while the session was busy; the deploy was done by hand at 17:03.
+
+## 2026-10-19 (18:39) â€” deploy 3e54537: collections letters
+
+- **Live:** BL-089 statute collections letters. Prod SHA 3e54537 is 0e6121b plus one backlog docs commit.
+- **Vercel was slow, not stuck:** the 0e6121b push sat queued about 10 minutes. The re-push of 3e54537 cancelled that build and deployed in 7 minutes.
+  - Lesson: wait about 20 minutes before treating a deploy as missed.
+- **Smoke:** /properties and /approvals return 307, /login returns 200. The release-note email went out.
+- **Merged and pushed for CI (81c1137):** BL-094 Ledger logo and BL-095 blue palette (#2563EB primary, AA-checked).
+- **Agents running:** BL-096 resident assistant, BL-097 hide PM/Eviction hubs, BL-098 HomeownerHub logo options.
+- **Delivered locally:** the product deck and investor deck in ~/HomeownerHub-decks/.
