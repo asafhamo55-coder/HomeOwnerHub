@@ -18,8 +18,9 @@ Reference bar: Linear, Stripe Dashboard, Vercel, Notion — calm, dense-but-read
 
 ## 2. Brand decision
 
-- **Indigo is the brand.** HOA Hub, marketing and the product family use indigo-600 `#4F46E5` (light) / `#8F95FA` (dark). `packages/ui/src/tokens.ts` used to document teal `#00C9A7` while the app shipped indigo; tokens.ts is now the single source the CSS is generated from, so code and docs cannot disagree again (a test pins `#4F46E5`).
-- **Hub tints.** PM Hub keeps blue (`#1F5FD6`), Eviction Hub keeps violet (`#6D3FE0`) — *only* `primary*` + `ring` change per hub, so a user working in two hubs can tell them apart. Neutrals, status colours, type, spacing, components are identical. The old pm blue `#3B82F6` and eviction violet `#8B5CF6` failed white-text contrast and were darkened.
+- **Blue is the brand** (since 2026-10-19, BL-095; see `docs/decisions/2026-10-19-brand-logo-palette.md`). HOA Hub, marketing and the Ledger logo use blue-600 `#2563EB` (light) / blue-400 `#60A5FA` (dark), light-blue tints (`primary-subtle` `#EBF3FF`) and cool slate neutrals. It replaced indigo-600 `#4F46E5`. `packages/ui/src/tokens.ts` is the single source the CSS is generated from, so code and docs cannot disagree (a test pins `#2563EB`, and pins the logo tile to it).
+- **Logo.** The Ledger mark (a roof with a chimney over two ledger lines on a blue tile) plus a monoline "Ledger" wordmark: `LedgerMark` / `LedgerWordmark` / `LedgerLogo` in `packages/ui`, with static files in `apps/{hoa,marketing}/public/brand/`.
+- **Hub tints.** PM Hub keeps its deeper blue (`#1F5FD6`), Eviction Hub keeps violet (`#6D3FE0`) — *only* `primary*` + `ring` change per hub, so a user working in two hubs can tell them apart. Neutrals, status colours, type, spacing, components are identical. The old pm blue `#3B82F6` and eviction violet `#8B5CF6` failed white-text contrast and were darkened.
 - **Amber is the AI accent** (`accent`, `Badge variant="ai"`, `StatusPill tone="ai"`), not a status.
 
 ## 3. Tokens
@@ -169,7 +170,7 @@ Flags: `--only=<substr>`, `--gallery-only`, `--overflow`; `UI_SHOTS_BROWSER=webk
 
 1. **Tokens generated from TS, not hand-written CSS.** One file feeds the CSS, the Tailwind names and the contrast test, so they cannot drift (the teal/indigo bug was exactly that drift).
 2. **HSL channels kept** (`--primary: 243 75% 59%`) so existing `hsl(var(--primary) / x)` CSS and Tailwind opacity modifiers keep working.
-3. **Dark primary is light with dark text** (`#8F95FA` + near-black), so `text-primary` links stay AA on dark surfaces and the same token serves fills and links.
+3. **Dark primary is light with dark text** (`#60A5FA` + near-black; was `#8F95FA` under indigo), so `text-primary` links stay AA on dark surfaces and the same token serves fills and links.
 4. **Status `tone` vs `tone-solid`:** text-safe tone colours are lighter in dark mode; solid fills keep white text in both modes. `bg-destructive` (legacy) now means the text-safe tone — the two `bg-destructive text-white` sites were moved to `bg-danger-solid text-on-solid`.
 5. **Input borders are 3:1** (`border-input`, WCAG 1.4.11) — heavier than Stripe's, chosen for this audience; decorative borders stay light.
 6. **Root 16px everywhere, `text-sm` = 15px.** Normalises spacing (HOA's 18px root made every padding 12.5% larger than designed) while keeping UI text near the old effective 15.75px.

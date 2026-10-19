@@ -34,12 +34,7 @@ export function Footer() {
       <div className="container-page py-20">
         <div className="grid gap-12 md:grid-cols-[1.4fr_1fr_1fr]">
           <div>
-            <div className="flex items-center gap-2.5">
-              <Logo />
-              <span className="text-[14px] font-semibold tracking-[-0.01em] text-foreground">
-                Ledger
-              </span>
-            </div>
+            <Logo />
             <p className="mt-7 max-w-md text-balance text-[28px] font-medium leading-[1.1] tracking-[-0.02em] text-foreground md:text-[36px]">
               AI runs the paperwork. The board runs the HOA.
             </p>

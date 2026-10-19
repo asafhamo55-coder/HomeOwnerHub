@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { palette } from '@homeowner-portal/ui/tokens'
 
 /**
  * Web app manifest. Powers "Add to Home Screen" on iOS Safari + Chrome
@@ -8,10 +9,11 @@ import type { MetadataRoute } from 'next'
  * Next.js automatically wires <link rel="manifest" href="/manifest.webmanifest">
  * into every page in this app's <head> when this file exports a default.
  *
- * Colors match the indigo brand in globals.css:
- *   --primary 244 76% 59%  → #4F46E5 (indigo-600)
- *   --background 220 33% 99% → #FAFBFD (cool off-white)
+ * Colours come from the HOA light palette in packages/ui/src/tokens.ts
+ * (BL-095 blue); icons are the Ledger mark (BL-094) in public/brand/.
  */
+const light = palette('hoa', 'light')
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'HOA Hub',
@@ -19,28 +21,16 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Run your HOA without the paperwork.',
     start_url: '/',
     display: 'standalone',
-    background_color: '#FAFBFD',
-    theme_color: '#4F46E5',
+    background_color: light.background,
+    theme_color: light.primary,
     orientation: 'portrait',
     categories: ['business', 'productivity', 'utilities'],
     icons: [
-      {
-        src: '/icon',
-        sizes: '32x32',
-        type: 'image/png',
-      },
-      {
-        src: '/apple-icon',
-        sizes: '180x180',
-        type: 'image/png',
-        purpose: 'any',
-      },
-      {
-        src: '/apple-icon',
-        sizes: '180x180',
-        type: 'image/png',
-        purpose: 'maskable',
-      },
+      { src: '/icon', sizes: '32x32', type: 'image/png' },
+      { src: '/brand/logo-mark-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/brand/logo-mark-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/brand/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      { src: '/apple-icon', sizes: '180x180', type: 'image/png', purpose: 'any' },
     ],
   }
 }

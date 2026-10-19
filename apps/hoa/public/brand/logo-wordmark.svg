@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 92 34" width="92" height="34" role="img" aria-label="Ledger">
+  <!-- Ledger wordmark (BL-094): monoline geometric letterforms drawn as strokes, so it renders identically without any font. -->
+  <g fill="none" stroke="#0F172A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 4.5v20h8.5"/>
+    <path d="M17 19h11a5.5 5.5 0 1 0-1.3 3.55"/>
+    <circle cx="38.5" cy="19" r="5.5"/>
+    <path d="M44 4.5v20"/>
+    <circle cx="55" cy="19" r="5.5"/>
+    <path d="M60.5 13.5v14a4.75 4.75 0 0 1-9 2.1"/>
+    <path d="M65.5 19h11a5.5 5.5 0 1 0-1.3 3.55"/>
+    <path d="M81 24.5V19a5.5 5.5 0 0 1 6.5-5.4"/>
+  </g>
+</svg>

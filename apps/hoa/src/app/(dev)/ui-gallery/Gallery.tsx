@@ -17,7 +17,6 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
-  ScrollText,
   Search,
   Settings,
   Trash2,
@@ -44,6 +43,7 @@ import {
   Checkbox,
   ChoiceGroup,
   CommandPalette,
+  LedgerMark,
   ConfirmDialog,
   ConfirmProvider,
   DataTable,
@@ -659,11 +659,7 @@ export function Gallery({ overlay, section }: { overlay: string | null; section:
         <AppShell linkAs={Link}>
           <AppShellSidebar collapsible>
             <SidebarBrand
-              logo={
-                <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-fg shadow-xs">
-                  <ScrollText className="size-4" aria-hidden />
-                </div>
-              }
+              logo={<LedgerMark className="size-8 rounded-lg shadow-xs" />}
             >
               <div className="min-w-0 leading-tight">
                 <p className="truncate text-sm font-semibold">HOA Hub</p>

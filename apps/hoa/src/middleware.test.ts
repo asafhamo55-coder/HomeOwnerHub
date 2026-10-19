@@ -139,6 +139,8 @@ describe('middleware matcher exclusions are anchored (C-16)', () => {
       '/api/oauth/google/start',
       '/api/admin/setup-stripe-pricing',
       '/favicon.ico',
+      '/brand/icon.svg',
+      '/brand/logo-mark-512.png',
       '/_next/static/chunk.js',
       '/sw.js',
     ]) {
@@ -156,6 +158,8 @@ describe('middleware matcher exclusions are anchored (C-16)', () => {
       '/api/webhooks-config',
       '/api/admin/setup-stripe-pricing-v2',
       '/favicon.icon-admin',
+      '/brand',
+      '/branding-settings',
       '/api/ai/rewrite',
       '/violations',
     ]) {

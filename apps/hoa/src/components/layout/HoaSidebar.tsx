@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ScrollText } from 'lucide-react'
 import {
+  LedgerMark,
   NavItem,
   SidebarBrand,
   SidebarCollapseToggle,
@@ -66,11 +66,7 @@ export function HoaSidebar({ currentOrgId, currentOrgName, hoaOrgs, role, badges
   return (
     <>
       <SidebarBrand
-        logo={
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-fg shadow-xs">
-            <ScrollText className="size-4" aria-hidden />
-          </div>
-        }
+        logo={<LedgerMark className="size-8 rounded-lg shadow-xs" />}
       >
         <div className="min-w-0 flex-1 leading-tight">
           <p className="truncate text-sm font-semibold text-foreground">HOA Hub</p>

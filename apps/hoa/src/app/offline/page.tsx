@@ -4,6 +4,7 @@
 // that need the network — so it always renders correctly offline.
 
 import Link from 'next/link'
+import { LedgerMark } from '@homeowner-portal/ui'
 
 export const metadata = { title: 'Offline' }
 
@@ -20,33 +21,14 @@ export default function OfflinePage() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: 24,
-        background: '#FAFBFD',
-        color: '#111827',
+        background: 'hsl(var(--background))',
+        color: 'hsl(var(--foreground))',
         fontFamily: 'var(--font-sans), system-ui, sans-serif',
       }}
     >
       <div style={{ maxWidth: 420, textAlign: 'center' }}>
-        <div
-          style={{
-            width: 64,
-            height: 64,
-            margin: '0 auto 24px',
-            background: '#4F46E5',
-            borderRadius: 12,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-            <path
-              d="M11 7.5v17M11 24.5h12"
-              stroke="#FFFFFF"
-              strokeWidth="3"
-              strokeLinecap="square"
-              fill="none"
-            />
-          </svg>
+        <div style={{ width: 64, height: 64, margin: '0 auto 24px', display: 'flex' }}>
+          <LedgerMark className="size-16" />
         </div>
         <h1
           style={{
@@ -61,7 +43,7 @@ export default function OfflinePage() {
         <p
           style={{
             fontSize: 15,
-            color: '#6B7280',
+            color: 'hsl(var(--muted))',
             margin: '0 0 24px',
             lineHeight: 1.5,
           }}
@@ -85,8 +67,8 @@ export default function OfflinePage() {
           <a
             href="/"
             style={{
-              background: '#4F46E5',
-              color: 'white',
+              background: 'hsl(var(--primary))',
+              color: 'hsl(var(--primary-fg))',
               padding: '10px 18px',
               borderRadius: 8,
               fontWeight: 600,
@@ -99,7 +81,7 @@ export default function OfflinePage() {
           <Link
             href="/"
             style={{
-              color: '#6B7280',
+              color: 'hsl(var(--muted))',
               padding: '10px 18px',
               borderRadius: 8,
               fontSize: 14,

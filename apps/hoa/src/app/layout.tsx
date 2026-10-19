@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { THEME_INIT_SCRIPT } from '@homeowner-portal/ui'
+import { palette } from '@homeowner-portal/ui/tokens'
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister'
 
 const inter = Inter({
@@ -34,12 +35,19 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
+  // Ledger mark (BL-094). app/favicon.ico, app/icon.tsx and
+  // app/apple-icon.tsx are picked up by file convention; the scalable SVG
+  // favicon for modern browsers is added here (`other`, so the file-based
+  // icons are not overridden).
+  icons: {
+    other: [{ rel: 'icon', type: 'image/svg+xml', url: '/brand/icon.svg' }],
+  },
 }
 
 export const viewport: import('next').Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#F7F8FA' },
-    { media: '(prefers-color-scheme: dark)', color: '#0B0D11' },
+    { media: '(prefers-color-scheme: light)', color: palette('hoa', 'light').background },
+    { media: '(prefers-color-scheme: dark)', color: palette('hoa', 'dark').background },
   ],
   width: 'device-width',
   initialScale: 1,

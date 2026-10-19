@@ -8,7 +8,9 @@ import {
   hexToHslChannels,
   hexToRgb,
   hslChannelsToRgb,
+  LOGO,
   palette,
+  type ColorRole,
   type HubKey,
   type ThemeMode,
 } from './tokens'
@@ -55,6 +57,48 @@ describe.each(HUBS)('%s hub', (hub) => {
   })
 })
 
-it('HOA brand is indigo-600 — code and docs agree', () => {
-  expect(palette('hoa', 'light').primary).toBe('#4F46E5')
+it('HOA brand is blue-600 — code, logo and docs agree (BL-095)', () => {
+  expect(palette('hoa', 'light').primary).toBe('#2563EB')
+  expect(palette('hoa', 'dark').primary).toBe('#60A5FA')
+  expect(LOGO.light.tile).toBe(palette('hoa', 'light').primary)
+})
+
+// BL-095 key pairs, stated as explicit ratios so a palette change that
+// only just squeaks past AA is visible in review, not just "green".
+describe('HOA blue palette — key pairs', () => {
+  const hex = (mode: ThemeMode, role: ColorRole) => hexToRgb(palette('hoa', mode)[role])
+  it.each([
+    ['light', 'primary-fg', 'primary', 5.1],
+    ['light', 'primary-fg', 'primary-hover', 6.6],
+    ['light', 'primary', 'surface', 5.1],
+    ['light', 'primary', 'background', 4.8],
+    ['light', 'primary', 'primary-subtle', 4.5],
+    ['light', 'foreground', 'background', 16],
+    ['light', 'muted', 'subtle', 5.5],
+    ['light', 'ring', 'background', 3.4],
+    ['dark', 'primary-fg', 'primary', 7.5],
+    ['dark', 'primary-fg', 'primary-hover', 10.5],
+    ['dark', 'primary', 'surface', 6.9],
+    ['dark', 'primary', 'primary-subtle', 5.5],
+    ['dark', 'foreground', 'background', 17],
+    ['dark', 'muted', 'subtle', 5.5],
+  ] as const)('%s: %s on %s ≥ %s:1', (mode, fg, bg, min) => {
+    expect(contrastRatio(hex(mode, fg), hex(mode, bg))).toBeGreaterThanOrEqual(min)
+  })
+})
+
+describe('Ledger logo colours (BL-094)', () => {
+  const MODES_LOGO = ['light', 'dark'] as const
+  it.each(MODES_LOGO)('%s: roof and ledger lines read on the tile (≥3:1, WCAG 1.4.11)', (mode) => {
+    const l = LOGO[mode]
+    expect(contrastRatio(hexToRgb(l.glyph), hexToRgb(l.tile))).toBeGreaterThanOrEqual(4.5)
+    expect(contrastRatio(hexToRgb(l.line), hexToRgb(l.tile))).toBeGreaterThanOrEqual(3)
+  })
+  it.each(MODES_LOGO)('%s: tile stands off the canvas and wordmark text is AA', (mode) => {
+    const l = LOGO[mode]
+    const p = palette('hoa', mode)
+    expect(contrastRatio(hexToRgb(l.tile), hexToRgb(p.background))).toBeGreaterThanOrEqual(3)
+    expect(contrastRatio(hexToRgb(l.text), hexToRgb(p.background))).toBeGreaterThanOrEqual(4.5)
+    expect(contrastRatio(hexToRgb(l.text), hexToRgb(p.surface))).toBeGreaterThanOrEqual(4.5)
+  })
 })
