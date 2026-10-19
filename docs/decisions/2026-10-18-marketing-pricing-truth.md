@@ -46,3 +46,16 @@ Status: **coming soon**, gated on BL-068 (module switches) and the M2 migration 
 ## Testimonials (coordinator decision, 2026-10-18)
 
 The composite "typical feedback" testimonials (Jon, James and Sarah) were removed from the homepage. They read as real customers, and they weren't. Only Linda's verbatim Madison Park reference quote remains. Add a quote back only when a named customer has agreed to it.
+
+## 2026-10-19 round 3 (BL-090)
+
+- **Shipped features now listed as available:** Spanish announcements, AI ARC review, inspection mode, follow-up letters, payment plans and recurring entries.
+- **Removed or reworded every unsupported metric:**
+  - 32+ hours, 247 questions and $4,200;
+  - demo conversion rates;
+  - competitor prices and setup times;
+  - uptime and backup claims;
+  - "Georgia counsel reviewed".
+- **Open, waiting on Asaf:**
+  - Is "Linda, Madison Park" a real person who gave the marquee quote? The repo's design docs use Linda as a buyer persona. If she isn't real, remove the quote everywhere.
+  - Eviction/PM pages still claim "attorney-reviewed". That's out of HOA scope; it was left as is.
