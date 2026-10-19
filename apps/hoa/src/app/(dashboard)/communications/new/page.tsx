@@ -11,6 +11,7 @@ import { officialNoticeApplies } from '@/lib/communications/official-notice'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { parsePropertyParam } from '@/lib/property-scope'
 import type { TemplateQuestion } from '@/lib/community-templates/types'
+import { BUDGET_NOTICE_FROM } from '@/lib/budget-notice/draft-handoff'
 import { NewCommunicationWizard } from './NewCommunicationWizard'
 
 export const metadata = { title: 'New message' }
@@ -31,10 +32,15 @@ const BREADCRUMBS = [{ label: 'Communications', href: '/communications' }, { lab
 export default async function NewCommunicationPage({
   searchParams,
 }: {
-  /** `?property=<id>`: opened from a property page's "Message owner". */
-  searchParams: Promise<{ property?: string }>
+  /**
+   * `?property=<id>`: opened from a property page's "Message owner".
+   * `?from=budget-notice`: opened from the owner budget notice (BL-091).
+   */
+  searchParams: Promise<{ property?: string; from?: string }>
 }) {
-  const initialPropertyId = parsePropertyParam((await searchParams).property)
+  const sp = await searchParams
+  const initialPropertyId = parsePropertyParam(sp.property)
+  const prefillFrom = sp.from === BUDGET_NOTICE_FROM ? BUDGET_NOTICE_FROM : null
   const assoc = await getPrimaryAssociation()
   if (!assoc) {
     return (
@@ -176,6 +182,7 @@ export default async function NewCommunicationPage({
           properties={properties}
           initialPropertyId={initialPropertyId}
           officialNoticeOffered={officialNoticeOffered}
+          prefillFrom={prefillFrom}
         />
       </Card>
     </Page>
