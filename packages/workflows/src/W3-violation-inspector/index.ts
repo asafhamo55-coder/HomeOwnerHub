@@ -66,7 +66,13 @@ export const ViolationInspectorInputSchema = z.object({
    *  staged run so approving the draft files the letter on that violation
    *  instead of opening a new one. The caller proves the id is the org's. */
   followUp: z
-    .object({ violationId: z.string().uuid(), letterKind: z.string().min(1).max(40).optional() })
+    .object({
+      violationId: z.string().uuid(),
+      letterKind: z.string().min(1).max(40).optional(),
+      /** The board has not selected "Save to approvals" yet; Approvals
+       *  hides the draft until it does (apps/hoa lib/violation-follow-up). */
+      awaitingSave: z.literal(true).optional(),
+    })
     .optional(),
 })
 

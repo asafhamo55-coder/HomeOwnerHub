@@ -52,6 +52,20 @@ vi.mock('@/lib/violation-cure-commitment', async (orig) => {
   }
 })
 
+// The BL-078 ledger: follow-up letters (letterKind) draw on it, nothing else.
+const quota = vi.hoisted(() => ({ fn: vi.fn(), limited: false }))
+vi.mock('@/lib/api/rate-limit', async () => {
+  const { ApiRouteError } = await import('@/lib/api/errors')
+  return {
+    requireAiQuota: quota.fn.mockImplementation(async () => {
+      if (quota.limited) {
+        throw new ApiRouteError('rate_limited', 'You’ve reached the limit.', { reason: 'user_limit', retryAfterSeconds: 60 }, { 'Retry-After': '60' })
+      }
+      return { usageId: null, userId: 'u-1' }
+    }),
+  }
+})
+
 const execute = vi.hoisted(() => vi.fn())
 vi.mock('@homeowner-portal/workflows/W3', () => ({ violationInspector: { execute } }))
 
@@ -129,7 +143,8 @@ describe('POST /api/ai/violations/draft — follow-up letters (violation page)',
     const res = await POST(req({ ...GOOD, violationId: VIOLATION, letterKind: 'fine_notice' }))
     expect(res.status).toBe(200)
     const input = execute.mock.calls[0][0]
-    expect(input.followUp).toEqual({ violationId: VIOLATION, letterKind: 'fine_notice' })
+    // A dialog draft stays out of Approvals until the board saves it.
+    expect(input.followUp).toEqual({ violationId: VIOLATION, letterKind: 'fine_notice', awaitingSave: true })
     expect(input).not.toHaveProperty('letterKind')
   })
 
@@ -166,5 +181,40 @@ describe('POST /api/ai/violations/draft — follow-up letters (violation page)',
     expect(body.error).toMatchObject({ reason: 'statute_refusal', jurisdiction: 'CA' })
     expect(body.error.reasons[0]).toContain('5855(c)(2)')
     expect(body).not.toHaveProperty('notice')
+  })
+})
+
+describe('POST /api/ai/violations/draft — follow-up letter rate limit', () => {
+  beforeEach(() => {
+    quota.fn.mockClear()
+    quota.limited = false
+  })
+
+  it('a follow-up letter draws on the follow_up_letter bucket for this org', async () => {
+    const res = await POST(req({ ...GOOD, violationId: VIOLATION, letterKind: 'second_notice' }))
+    expect(res.status).toBe(200)
+    expect(quota.fn).toHaveBeenCalledWith('follow_up_letter', 'org-1')
+  })
+
+  it('a full window is a 429 with Retry-After, and the model is not called', async () => {
+    quota.limited = true
+    const res = await POST(req({ ...GOOD, violationId: VIOLATION, letterKind: 'second_notice' }))
+    expect(res.status).toBe(429)
+    expect(res.headers.get('Retry-After')).toBe('60')
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('new-violation drafts (wizard, /inspect) and a bare violationId are not limited', async () => {
+    quota.limited = true
+    expect((await POST(req(GOOD))).status).toBe(200)
+    expect((await POST(req({ ...GOOD, violationId: VIOLATION }))).status).toBe(200)
+    expect(quota.fn).not.toHaveBeenCalled()
+  })
+
+  it('a request refused before the model (unknown violation) uses no quota', async () => {
+    h.owned = { units: true, hoa_violations: false }
+    const res = await POST(req({ ...GOOD, violationId: VIOLATION, letterKind: 'second_notice' }))
+    expect(res.status).toBe(404)
+    expect(quota.fn).not.toHaveBeenCalled()
   })
 })

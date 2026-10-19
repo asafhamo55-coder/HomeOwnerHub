@@ -33,7 +33,7 @@ import { StateRulesOutputSchema } from '@homeowner-portal/workflows/W3-state-rul
 import { StateRulesPanel } from '@/components/violations/StateRulesPanel'
 import { ApprovalActions } from '@/components/approvals/ApprovalActions'
 import { orgPhotoPaths } from '@/lib/violation-photo-paths'
-import { followUpLabel, followUpOfRunInput } from '@/lib/violation-follow-up'
+import { FOLLOW_UP_AWAITING_SAVE_PATH, followUpLabel, followUpOfRunInput } from '@/lib/violation-follow-up'
 
 export const metadata = { title: 'Violation Approval Queue' }
 export const dynamic = 'force-dynamic'
@@ -77,6 +77,8 @@ export default async function ApprovalQueuePage({
       .eq('organization_id' as never, org.id)
       .eq('workflow_id' as never, 'W3')
       .eq('status' as never, 'pending_human_approval')
+      // A follow-up letter the board has not saved yet is not in the queue.
+      .is(FOLLOW_UP_AWAITING_SAVE_PATH as never, null)
       .order('created_at' as never, { ascending: false })
       .range(from, to),
   )
