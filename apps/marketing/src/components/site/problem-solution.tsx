@@ -4,9 +4,9 @@ import { motion } from 'framer-motion'
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 
 const problems = [
-  'Volunteer board treasurers burning 10+ unpaid hours every week on paperwork',
+  'Volunteer board treasurers spending unpaid evenings on paperwork',
   'Violation notices stalled because nobody wants to draft a legal letter',
-  'Meeting minutes that take 3 hours to write, and still miss the decisions',
+  'Meeting minutes that take an evening to write, and still miss the decisions',
   'Month-end board reports pieced together by hand from three spreadsheets',
   'Landlords on Venmo + spreadsheets, missing late rent until it\'s a month behind',
 ]
@@ -28,7 +28,7 @@ export function ProblemSolution() {
             The work that nobody volunteered for
           </p>
           <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
-            Volunteer boards burn 10 hours a week on paperwork. That paperwork is what AI is for.
+            Volunteer boards spend their evenings on paperwork. That paperwork is what AI is for.
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-muted">
             HOA boards, landlords, and operators all do the same paperwork — at

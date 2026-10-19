@@ -12,26 +12,31 @@ export const metadata: Metadata = {
     'Every Ledger workflow ships with a quality bar label. Here\'s what each bar means, what it requires, and how workflows move between them.',
 }
 
+// Truth rule (BL-090): the old criteria named eval-set sizes and accuracy
+// thresholds, written attorney sign-off and an "AIEventLog" that records
+// each move. None of that exists as described (no attorney review is on
+// record, and the run log is ai_runs, which doesn't record bar moves). What
+// follows is what actually happens.
 const movement = [
   {
     arrow: 'A → B',
     title: 'Demo to Beta',
     body:
-      'Requires 50+ eval cases on blind test set with >90% accuracy, complete citation/audit trail, human review gate deployed, and (if legal-adjacent) written attorney sign-off. Founder approves; AIEventLog records the move.',
-    duration: '3–4 weeks typical',
+      'The workflow runs on real data behind a human review gate: every output is a draft the board approves or rejects, and its sources are cited. Its tests pass in CI. The move is published on the roadmap.',
+    duration: 'When it is ready',
   },
   {
     arrow: 'B → C',
     title: 'Beta to Production',
     body:
-      'Requires 100+ eval cases with >95% accuracy, human review gate tested in production with feedback loop closed, zero critical safety issues in 30 days, and (if legal-adjacent) legal clearance with revert clause.',
-    duration: '4–8 weeks typical',
+      'Bar C is for answers drawn from your documents, your records or the statute, cited, that say so when they don’t know. Anything that drafts a letter, a bill or a message stays at Bar B, with the board approving it.',
+    duration: 'When it is ready',
   },
   {
     arrow: 'C → B (rollback)',
     title: 'Emergency rollback',
     body:
-      'If a Bar C workflow shows >2% hallucination rate or any production incident, we instantly flag it back to Bar B (human gate re-enabled). Incident logged in AIEventLog with postmortem.',
+      'If a Bar C workflow gives a wrong answer in production, we move it back to Bar B, put the human gate back, and say so on the roadmap.',
     duration: 'Hours',
   },
 ]
@@ -48,7 +53,7 @@ export default function HonestyBarsPage() {
             Tell people what's production and what's demo.
           </>
         }
-        subtitle="Every workflow ships with a labeled quality bar — Bar A, B, or C — visible in the product, in marketing, and on the public roadmap. No hidden hallucination risk."
+        subtitle="Every workflow ships with a labeled quality bar — Bar A, B, or C — published on this site and on the public roadmap. No hidden hallucination risk."
       />
 
       <BarExplorer />
@@ -60,7 +65,7 @@ export default function HonestyBarsPage() {
               Movement between bars
             </p>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-              Every promotion (and rollback) is recorded.
+              Every promotion (and rollback) is published.
             </h2>
 
             <div className="mt-10 space-y-5">

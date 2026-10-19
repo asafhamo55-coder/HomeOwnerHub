@@ -1,13 +1,17 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { BookOpen, FileText, Calendar, Receipt, MessageSquare, Wallet, Mail, Scale } from 'lucide-react'
+import { BookOpen, FileText, Calendar, Receipt, MessageSquare, ClipboardCheck, Mail, Languages } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 // Personified AI agents — each workflow rendered as a "team member" the
-// volunteer board (or landlord) gets to delegate to. The pattern is closer
-// to Haven AI's "Maintenance Agent" than to a generic feature grid.
+// volunteer board gets to delegate to. The pattern is closer to Haven AI's
+// "Maintenance Agent" than to a generic feature grid.
+//
+// Truth rule (BL-090): every agent here is a shipped HOA workflow in
+// lib/workflows.ts. The unbuilt Delinquency Coach (PM) and Court Filing
+// (Eviction) cards were replaced by AI ARC review and Spanish announcements.
 
 interface Agent {
   name: string
@@ -65,14 +69,14 @@ const AGENTS: Agent[] = [
     blurb: 'Reads a vendor bill into Approvals. Nothing is entered until the board approves.',
   },
   {
-    name: 'Delinquency Coach',
-    role: 'Late-rent diplomat',
-    Icon: Wallet,
+    name: 'ARC Reviewer',
+    role: 'Committee aide',
+    Icon: ClipboardCheck,
     ring: 'from-warning-solid to-warning-solid',
     fill: 'bg-warning-subtle',
     pulse: 'bg-warning-solid',
     bar: 'B',
-    blurb: 'Reads tenant history. Suggests check-in, not escalation, first.',
+    blurb: 'Checks an ARC request and its photos against your guidelines and drafts the letter. The board decides.',
   },
   {
     name: 'Inbox Drafter',
@@ -95,14 +99,14 @@ const AGENTS: Agent[] = [
     blurb: 'Residents ask the AI before they email the board.',
   },
   {
-    name: 'Court Filing',
-    role: 'Eviction template',
-    Icon: Scale,
+    name: 'Translator',
+    role: 'Spanish version',
+    Icon: Languages,
     ring: 'from-muted to-foreground/90',
     fill: 'bg-subtle',
-    pulse: 'bg-muted',
-    bar: 'A',
-    blurb: 'County-correct templates. Demo only — your attorney files.',
+    pulse: 'bg-warning-solid',
+    bar: 'B',
+    blurb: 'Drafts a Spanish version of an announcement. The board reads and confirms it before sending.',
   },
 ]
 

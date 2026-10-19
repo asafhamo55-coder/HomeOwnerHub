@@ -8,7 +8,7 @@ import { AuditLogLive } from '@/components/site/audit-log-live'
 export const metadata: Metadata = {
   title: 'Security — How we protect your data',
   description:
-    'Encryption at rest and in transit. Postgres row-level security by tenant. Named AI providers, with owner contact details kept out of prompts. Full audit log on every AI action.',
+    'Encryption at rest and in transit. Postgres row-level security by tenant. Named AI providers, with owner contact details kept out of prompts. AI workflow runs logged with model and citations.',
 }
 
 const pillars = [
@@ -22,7 +22,7 @@ const pillars = [
     Icon: Database,
     title: 'Tenant isolation at the DB layer',
     body:
-      'Postgres Row-Level Security enforces tenant_id on every read and write. We run an eval suite against RLS policies on the same CI gate as our AI workflows. A bug here is treated as severity-1.',
+      'Postgres Row-Level Security scopes every read and write to your association. Integration tests check the RLS policies on every CI run, and a failure blocks the merge. A bug here is treated as severity-1.',
   },
   {
     Icon: Server,
@@ -32,9 +32,9 @@ const pillars = [
   },
   {
     Icon: FileSearch,
-    title: 'Audit log on every AI action',
+    title: 'AI runs are logged',
     body:
-      'Every AI output is appended to an immutable AIEventLog: prompt hash, model version, output, citations, human action taken. Searchable by tenant. Exportable on request.',
+      'AI workflow runs are recorded in a run log: workflow and prompt version, model, input hash, output, citations and status. Only your own board and admins can read your association’s runs.',
   },
   {
     Icon: Eye,
@@ -46,19 +46,18 @@ const pillars = [
     Icon: ShieldCheck,
     title: 'Operating + reserve fund separation',
     body:
-      'For HOA Hub: operating, reserve, and trust account separation is enforced at the database layer, not the application layer. Required by GA OCGA Title 44; we built it that way on day one.',
+      'For HOA Hub: operating and reserve are separate funds in the general ledger, and a database trigger rejects any journal entry that doesn’t balance within each fund. Moving money between funds has to be an explicit transfer.',
   },
 ]
 
 const policies = [
   { label: 'Encryption at rest', value: 'AES-256' },
   { label: 'Encryption in transit', value: 'TLS 1.3' },
-  { label: 'Backups', value: 'Daily · 30-day retention' },
+  { label: 'Backups', value: 'Managed by Supabase' },
   { label: 'Tenant isolation', value: 'Postgres RLS' },
   { label: 'Auth', value: 'Supabase · email magic link or password' },
   { label: 'Inference', value: 'Groq API · open-weight models' },
-  { label: 'Data residency', value: 'US · Pacific Northwest' },
-  { label: 'Audit log', value: 'Append-only AIEventLog' },
+  { label: 'AI run log', value: 'Per association, board-visible' },
 ]
 
 export default function SecurityPage() {

@@ -24,7 +24,7 @@ const beliefs = [
     Icon: Shield,
     title: 'AI honesty over AI hype.',
     body:
-      'Every workflow ships with a Bar A / B / C label that says exactly what it can and can\'t do. Citations on every legal-adjacent answer. Audit log on every AI action. We tell you what\'s production and what\'s demo.',
+      'Every workflow ships with a Bar A / B / C label that says exactly what it can and can\'t do. Citations on every document and state-law answer. AI workflow runs are logged. We tell you what\'s production and what\'s demo.',
   },
   {
     Icon: Sparkles,

@@ -1,24 +1,31 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowRight, ArrowLeft, Quote, MapPin, Users, Clock } from 'lucide-react'
+import { ArrowRight, ArrowLeft, Check, Quote, MapPin, Users, Handshake } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { HomeImage } from '@/components/site/home-image'
 import { PHOTOS } from '@/lib/photos'
 
 export const metadata: Metadata = {
-  title: 'Madison Park HOA — Case study',
+  title: 'Madison Park HOA — Design partner',
   description:
-    'How a 180-home self-managed HOA in Johns Creek reclaimed 32 hours a month and caught a $4,200 reserve discrepancy in week three.',
+    'Ledger is built with Madison Park HOA, a 180-home self-managed association in Johns Creek, GA. What the board gets, and why we don’t publish numbers yet.',
 }
 
-const timeline = [
-  { day: 'Day 1', title: 'Documents uploaded', body: 'CC&R (1996, restated 2024), Bylaws, 2025 budget, last 12 months of minutes. 47 PDFs total.' },
-  { day: 'Day 1 · 15 min', title: 'First Aha', body: 'Linda asks Covenant Brain: "Can residents paint their fence?" Answer cited Section 3.4. Sent to the board over text.' },
-  { day: 'Week 1', title: 'Board onboarded', body: 'Three remaining board members invited. Zero support tickets.' },
-  { day: 'Week 2', title: 'First violation notice', body: 'The Violation Drafter drafted a fence-color letter. Linda approved it in 90 seconds. Resident replied within 48 hours.' },
-  { day: 'Week 3', title: 'Reserve discrepancy caught', body: 'A $4,200 gap turned up between the reserve spreadsheet and the bank. A three-year-old error.' },
-  { day: 'Month 1', title: 'Meeting minutes the same night', body: 'Minutes for the March board meeting were drafted from its transcript that night, ready for the board to approve.' },
+// Truth rule (BL-042, BL-090): this page used to be a "case study" with
+// numbers nothing in the repo backs ("32+ hours", "247 questions", a "$4,200
+// reserve discrepancy", "15 min", "90 seconds", "zero support tickets"), a
+// week-by-week story and a longer Linda quote, plus competitor prices. All of
+// it is gone. What's left: who Madison Park is (PROJECT_FOUNDATION.md), the
+// opening of Linda's reference quote (as in the testimonials marquee), and
+// product facts a board can check in apps/hoa today.
+const WHAT_THE_BOARD_GETS = [
+  'Covenant Brain: rule questions answered with the CC&R section cited', // /ai/ask
+  'Violation letters drafted from a photo, approved or rejected in Approvals', // /violations/new, /approvals
+  'Meeting minutes drafted from the transcript, for the board to approve', // /meetings/new
+  'AI ARC review with cited guidelines and editable decision letters', // /arc
+  'Accounting with bank feeds, bill scan and a month-end board report', // /accounting
+  'Roster import from CSV or Excel, CINC exports included', // /properties/import
 ]
 
 export default function MadisonParkCase() {
@@ -39,30 +46,22 @@ export default function MadisonParkCase() {
           <div className="mt-10 grid gap-12 md:grid-cols-[2fr,1fr] md:items-start">
             <div>
               <p className="text-sm font-semibold uppercase tracking-wider text-primary">
-                Case study · Madison Park HOA
+                Design partner · Madison Park HOA
               </p>
               <h1 className="mt-4 text-balance text-5xl font-semibold tracking-tight text-foreground md:text-6xl">
                 "I got my Tuesday nights back."
               </h1>
               <p className="mt-6 max-w-2xl text-xl leading-relaxed text-foreground-secondary">
-                How a 180-home self-managed HOA in Johns Creek reclaimed 32+
-                hours a month and caught a $4,200 reserve discrepancy in week
-                three.
+                Ledger is built with Madison Park, a 180-home self-managed HOA
+                in Johns Creek, north of Atlanta. Their board helps shape what we
+                build.
               </p>
             </div>
 
             <aside className="space-y-3 rounded-2xl border border-border/70 bg-surface p-6 ring-card">
               <FactRow Icon={MapPin} label="Location" value="Johns Creek, GA" />
-              <FactRow Icon={Users} label="Size" value="180 homes · all volunteer" />
-              <FactRow Icon={Clock} label="Onboarded" value="January 2026" />
-              <div className="border-t border-border/70 pt-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                  Workflows live
-                </p>
-                <p className="mt-1 text-sm text-foreground">
-                  Covenant Brain · Violation Drafter · AI meeting minutes · Document onboarding
-                </p>
-              </div>
+              <FactRow Icon={Users} label="Size" value="180 homes · self-managed" />
+              <FactRow Icon={Handshake} label="Role" value="Lead design partner" />
             </aside>
           </div>
         </div>
@@ -81,11 +80,6 @@ export default function MadisonParkCase() {
           <p className="mt-3 text-xs text-muted">
             Photo · {PHOTOS.brickHomeManicured.credit}. Representative of the Madison Park community; not the property itself.
           </p>
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
-            <BigStat value="32+" label="Hours saved / month" sub="Treasurer + secretary combined" />
-            <BigStat value="$4,200" label="Discrepancy caught" sub="Week 3 reserve audit" />
-            <BigStat value="247" label="Covenant questions" sub="First 30 days" />
-          </div>
         </div>
       </section>
 
@@ -93,68 +87,27 @@ export default function MadisonParkCase() {
         <div className="container-page">
           <div className="mx-auto max-w-3xl">
             <p className="text-sm font-semibold uppercase tracking-wider text-primary">
-              The situation
+              What the board gets
             </p>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-              Three volunteers, 180 homes, no management company.
+              The AI drafts. The board decides.
             </h2>
-            <div className="prose prose-ink mt-6 max-w-none text-base leading-relaxed text-foreground-secondary">
-              <p>
-                Madison Park is a 180-home self-managed HOA in Johns Creek, north
-                of Atlanta. The board has three members and no paid staff. Linda
-                Jackson, the treasurer, was carrying eight to twelve unpaid hours
-                a week — running covenant lookups by hand, drafting violation
-                notices in Google Docs, and writing meeting minutes from memory
-                the weekend after each board meeting.
-              </p>
-              <p>
-                The breaking point was a reserve fund question that took her six
-                hours to answer because the most recent CC&R restatement
-                contradicted a 2018 amendment, and nobody had reconciled them.
-                She started looking for software the next morning.
-              </p>
-              <p>
-                Everything she found was either built for management companies
-                (BoardStack, FrontSteps — $1,800/month, four-week onboarding) or
-                built for HOAs that had no AI worth speaking of (TownSq, HOA
-                Express — cheap and dumb). Ledger was the only product
-                where the AI did the actual work she needed.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-24">
-        <div className="container-page">
-          <div className="mx-auto max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-wider text-accent-fg">
-              The first month, week by week
-            </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-              From PDF pile to working AI in 15 minutes.
-            </h2>
-
-            <ol className="mt-12 space-y-6 border-l border-border pl-8">
-              {timeline.map((t, i) => (
-                <li key={t.day} className="relative">
-                  <span className="absolute -left-[37px] top-1 flex h-3 w-3 items-center justify-center rounded-full bg-primary ring-4 ring-surface" />
-                  <p className="font-mono text-xs font-semibold text-primary">{t.day}</p>
-                  <h3 className="mt-1 text-base font-semibold text-foreground">{t.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-foreground-secondary">{t.body}</p>
-                  {i === 4 && (
-                    <div className="mt-3 rounded-xl border border-success/25 bg-success-subtle/40 p-3">
-                      <p className="text-xs font-semibold text-success">
-                        Pay-for-itself moment
-                      </p>
-                      <p className="mt-1 text-xs text-foreground-secondary">
-                        Linda's words: "Ledger paid for itself in week three."
-                      </p>
-                    </div>
-                  )}
+            <ul className="mt-8 grid gap-3 sm:grid-cols-2">
+              {WHAT_THE_BOARD_GETS.map((item) => (
+                <li key={item} className="flex gap-2 text-sm leading-relaxed text-foreground-secondary">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />
+                  {item}
                 </li>
               ))}
-            </ol>
+            </ul>
+            <div className="mt-10 rounded-2xl border border-border/70 bg-surface p-6 ring-card">
+              <p className="text-sm font-semibold text-foreground">Why there are no numbers here yet</p>
+              <p className="mt-2 text-sm leading-relaxed text-foreground-secondary">
+                A case study should report what a board measured, not what we
+                estimate. We’ll publish Madison Park’s results once the board
+                has measured them and signed off on every figure.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -164,19 +117,15 @@ export default function MadisonParkCase() {
           <div className="mx-auto max-w-3xl">
             <Quote className="h-9 w-9 text-accent" />
             <p className="mt-5 text-2xl leading-relaxed md:text-3xl">
-              "We're 180 homes, all volunteer. I was the treasurer carrying eight
-              to twelve unpaid hours a week. Ledger answers covenant
-              questions in seconds with the exact section cited, drafts violation
-              notices for the board to approve, and writes our meeting minutes
-              the night of. The first month, we caught a reserve fund discrepancy
-              nobody had noticed in three years."
+              "I got my Tuesday nights back. Covenant Brain answers in seconds
+              with the section cited."
             </p>
             <div className="mt-8 flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-base font-semibold text-primary-fg">
-                LJ
+                L
               </div>
               <div>
-                <p className="text-sm font-semibold">Linda Jackson</p>
+                <p className="text-sm font-semibold">Linda</p>
                 <p className="text-xs text-muted">Treasurer · Madison Park HOA</p>
               </div>
             </div>
@@ -191,8 +140,8 @@ export default function MadisonParkCase() {
             Want your board to be next?
           </h2>
           <p className="mx-auto mt-5 max-w-xl text-lg text-foreground-secondary">
-            We pre-load your CC&R before the call. By minute four, the board is
-            asking their own rules and watching the AI cite the answer.
+            We pre-load your CC&R before the call, so the board can ask its own
+            rules and watch the AI cite the answer.
           </p>
           <Link
             href="/demo"
@@ -229,16 +178,6 @@ function FactRow({
         </p>
         <p className="mt-0.5 text-sm font-medium text-foreground">{value}</p>
       </div>
-    </div>
-  )
-}
-
-function BigStat({ value, label, sub }: { value: string; label: string; sub: string }) {
-  return (
-    <div className="rounded-2xl border border-border/70 bg-surface p-7 ring-card">
-      <p className="text-4xl font-semibold tracking-tight text-foreground">{value}</p>
-      <p className="mt-2 text-sm font-semibold text-foreground-secondary">{label}</p>
-      <p className="mt-1 text-xs text-muted">{sub}</p>
     </div>
   )
 }

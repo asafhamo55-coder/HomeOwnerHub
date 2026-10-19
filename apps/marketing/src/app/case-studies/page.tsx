@@ -6,22 +6,25 @@ import { Footer } from '@/components/site/footer'
 
 export const metadata: Metadata = {
   title: 'Case studies',
-  description: 'Real HOA boards using Ledger. Quotes, metrics, and where the time went.',
+  description: 'The HOA boards Ledger is built with. Real quotes; numbers only once a board has measured and signed off on them.',
 }
 
+// Truth rule (BL-042, BL-090): no metric appears here until the board it
+// belongs to has measured it and signed off. The old "32+ hours", "247
+// questions", "15 min" and "$4,200" figures had nothing behind them, and the
+// quote was a longer, embellished version of Linda's reference quote.
 const studies = [
   {
     slug: 'madison-park',
     name: 'Madison Park HOA',
     location: 'Johns Creek, GA · 180 homes',
     headline: '"I got my Tuesday nights back."',
-    quote:
-      "Covenant Brain answers in seconds with the exact section cited. Minutes are written the night of the meeting. We caught a $4,200 reserve discrepancy in week three.",
-    persona: 'Linda Jackson, Treasurer',
+    quote: 'Covenant Brain answers in seconds with the section cited.',
+    persona: 'Linda, Treasurer',
     stats: [
-      { label: 'Hours saved / mo', value: '32+' },
-      { label: 'Questions answered', value: '247' },
-      { label: 'First Aha', value: '15 min' },
+      { label: 'Self-managed', value: '180 homes' },
+      { label: 'Design partner', value: 'Lead' },
+      { label: 'Location', value: 'GA' },
     ],
   },
 ]
@@ -38,11 +41,11 @@ export default function CaseStudiesPage() {
             Case studies
           </p>
           <h1 className="mx-auto mt-3 max-w-3xl text-balance text-5xl font-semibold tracking-tight text-foreground md:text-6xl">
-            Real boards. Real metrics. In their words.
+            Real boards. In their words.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-muted">
-            We publish the numbers alongside the quotes. Hours saved, questions
-            answered, what worked, what didn't.
+            We publish a board’s numbers only once it has measured them and
+            signed off. Until then: who they are, and what they said.
           </p>
         </div>
       </section>
@@ -81,7 +84,7 @@ export default function CaseStudiesPage() {
                   ))}
                 </div>
                 <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
-                  Read the full study
+                  Read more
                   <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                 </span>
               </Link>
@@ -89,14 +92,14 @@ export default function CaseStudiesPage() {
 
             <div className="flex flex-col items-start justify-center rounded-2xl border border-dashed border-border-strong bg-subtle/30 p-8">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-                More coming
+                Your board
               </p>
               <h3 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
-                Two more case studies land this quarter.
+                Want to be next?
               </h3>
               <p className="mt-3 text-sm text-foreground-secondary">
-                A 92-home Cumming HOA and a 4-unit Marietta landlord. Want to be
-                next?
+                We’re looking for self-managed boards to build with. Ten-minute
+                demo first.
               </p>
               <Link
                 href="/demo"

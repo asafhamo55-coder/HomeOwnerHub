@@ -14,8 +14,8 @@ export const metadata: Metadata = {
 const planned = [
   {
     category: 'HOA',
-    title: 'Reserve fund math: how to find the $4,000 most boards miss',
-    note: 'How Madison Park HOA caught a three-year-old discrepancy in week three.',
+    title: 'Reserve fund math for volunteer treasurers',
+    note: 'Reconciling the reserve spreadsheet to the bank, and what to do when they disagree.',
   },
   {
     category: 'HOA',
@@ -88,7 +88,7 @@ export default function BlogPage() {
               On the editorial roadmap
             </p>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-              Five posts already drafted.
+              Posts we plan to write.
             </h2>
 
             <div className="mt-10 space-y-3">

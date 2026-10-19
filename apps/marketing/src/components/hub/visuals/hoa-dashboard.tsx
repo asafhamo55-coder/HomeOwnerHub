@@ -57,7 +57,7 @@ export function HoaDashboardVisual() {
           <div className="mt-2 grid grid-cols-3 gap-2">
             <Stat label="Questions answered" value="38" />
             <Stat label="Notices sent" value="4" />
-            <Stat label="Hours saved" value="9.5" />
+            <Stat label="Bills scanned" value="3" />
           </div>
         </div>
       </div>

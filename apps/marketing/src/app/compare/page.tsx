@@ -10,7 +10,7 @@ import { HOA_PRICING, annualBillUsd, formatUsd, monthlyBillUsd } from '@/lib/hoa
 export const metadata: Metadata = {
   title: 'Ledger vs management companies, Vantaca, and DIY',
   description:
-    'The honest comparison your board can send around. AI workflows, real pricing, what Ledger does that nobody else does.',
+    'The comparison your board can send around: AI workflows, Ledger’s checkout price, and what the alternatives publish.',
 }
 
 type Cell = boolean | 'partial' | string
@@ -25,13 +25,20 @@ interface Row {
 
 const columns = [
   { key: 'hh', name: 'Ledger', sub: 'AI-native, self-managed' },
-  { key: 'mgmt', name: 'Management company', sub: 'CCM, Heritage, FirstService' },
-  { key: 'vantaca', name: 'Vantaca / AppFolio', sub: 'Enterprise PMS' },
+  { key: 'mgmt', name: 'Management company', sub: 'A firm runs it for you' },
+  { key: 'vantaca', name: 'Vantaca', sub: 'Software for management firms' },
   { key: 'diy', name: 'DIY spreadsheet', sub: 'Google Sheets + email' },
 ] as const
 
 // Ledger's price at 180 doors comes from lib/hoa-pricing.ts (what checkout
-// charges). Competitor figures are the ranges this page has always shown.
+// charges).
+//
+// Truth rule (BL-002, BL-042, BL-090): a Ledger cell claims only what
+// apps/hoa does today. A competitor cell says only what
+// docs/research/2026-10-competitors.md sources; anything it doesn't is
+// 'Not public' or 'Varies', never an invented number or a guessed X.
+// Vantaca's AI (document Q&A, ARC review, meeting summaries, inspections)
+// is sourced there, so it gets the check it has earned.
 const DOORS = 180
 const hhMonthly = monthlyBillUsd(DOORS)
 const hhAnnual = annualBillUsd(DOORS)
@@ -39,8 +46,8 @@ const hhAnnual = annualBillUsd(DOORS)
 const cost: Row = {
   label: `Monthly cost (${DOORS} doors)`,
   hh: formatUsd(hhMonthly, { withCents: true }),
-  mgmt: '$1,800–$3,500',
-  vantaca: '$450–$900',
+  mgmt: 'Quoted per firm',
+  vantaca: 'Custom quote',
   diy: '$0',
 }
 
@@ -49,41 +56,41 @@ const sections: { title: string; rows: Row[] }[] = [
     title: 'Cost & onboarding',
     rows: [
       cost,
-      { label: 'Setup', hh: 'Self-serve: create the HOA, import the roster, open the books', mgmt: '4–6 weeks', vantaca: '2–4 weeks', diy: 'Always ongoing' },
-      { label: 'Implementation fee', hh: '$0', mgmt: '$2,500–$10,000', vantaca: '$1,500–$5,000', diy: '$0' },
-      { label: 'Free pilot', hh: '6 months', mgmt: false, vantaca: false, diy: 'n/a' },
-      { label: 'Annual contract required', hh: `First ${HOA_PRICING.COMMIT_MONTHS} months, after the pilot`, mgmt: true, vantaca: true, diy: false },
+      { label: 'Setup', hh: 'Self-serve: create the HOA, import the roster, open the books', mgmt: 'Onboarded by the firm', vantaca: 'Implementation project', diy: 'Always ongoing' },
+      { label: 'Setup fee', hh: '$0', mgmt: 'Varies', vantaca: 'Not public', diy: '$0' },
+      { label: 'Free pilot or trial', hh: '6 months', mgmt: 'Varies', vantaca: false, diy: 'n/a' },
+      { label: 'Contract term', hh: `First ${HOA_PRICING.COMMIT_MONTHS} months, after the pilot`, mgmt: 'Varies', vantaca: 'Not public', diy: 'None' },
     ],
   },
   {
     title: 'AI workflows',
     rows: [
-      { label: 'Covenant Brain (cited answers)', hh: true, mgmt: false, vantaca: false, diy: false },
-      { label: 'Violation Drafter (AI-drafted notices)', hh: true, mgmt: 'partial', vantaca: false, diy: false },
-      { label: 'AI meeting minutes (drafted from your transcript)', hh: true, mgmt: 'partial', vantaca: false, diy: false },
-      { label: 'Reserve fund projections', hh: 'Roadmap', mgmt: false, vantaca: 'partial', diy: false },
-      { label: 'Multilingual resident comms', hh: 'Roadmap', mgmt: false, vantaca: false, diy: false },
-      { label: 'Bar A/B/C quality labels on every workflow', hh: true, mgmt: false, vantaca: false, diy: false },
+      { label: 'Cited answers from your governing documents', hh: true, mgmt: false, vantaca: true, diy: false },
+      { label: 'AI-drafted violation letters, approved by the board', hh: true, mgmt: false, vantaca: 'Not public', diy: false },
+      { label: 'AI meeting minutes', hh: 'From your transcript', mgmt: false, vantaca: true, diy: false },
+      { label: 'AI ARC review against your guidelines', hh: true, mgmt: false, vantaca: true, diy: false },
+      { label: 'Spanish version of announcements', hh: 'Board-reviewed AI draft', mgmt: false, vantaca: 'Not public', diy: false },
+      { label: 'Reserve fund projections', hh: 'Roadmap', mgmt: 'Varies', vantaca: 'Not public', diy: false },
+      { label: 'Published A/B/C quality bar for every AI workflow', hh: true, mgmt: 'n/a', vantaca: 'Not public', diy: 'n/a' },
     ],
   },
   {
     title: 'Trust & governance',
     rows: [
-      { label: 'Citations on every legal-adjacent answer', hh: true, mgmt: false, vantaca: false, diy: false },
-      { label: 'Audit log on every AI action', hh: true, mgmt: false, vantaca: 'partial', diy: false },
-      { label: 'Operating + reserve fund DB-level separation', hh: true, mgmt: 'partial', vantaca: true, diy: false },
-      { label: 'GA attorney-reviewed templates (where applicable)', hh: true, mgmt: 'partial', vantaca: false, diy: false },
-      { label: 'You own your data — one-click export of every record', hh: true, mgmt: false, vantaca: 'partial', diy: true },
-      { label: 'Public roadmap', hh: true, mgmt: false, vantaca: false, diy: 'n/a' },
+      { label: 'Document and state-law answers cite their source', hh: true, mgmt: 'n/a', vantaca: 'Not public', diy: false },
+      { label: 'AI drafts wait for board approval', hh: true, mgmt: 'n/a', vantaca: true, diy: 'n/a' },
+      { label: 'Every journal entry balances per fund (operating, reserve)', hh: true, mgmt: 'Varies', vantaca: 'Not public', diy: false },
+      { label: 'Download every record yourself, any time', hh: 'One zip of spreadsheets', mgmt: 'Varies', vantaca: 'Not public', diy: true },
+      { label: 'Public roadmap', hh: true, mgmt: 'n/a', vantaca: 'Not public', diy: 'n/a' },
     ],
   },
   {
     title: 'For volunteer boards',
     rows: [
-      { label: 'Mobile-first UX', hh: true, mgmt: 'partial', vantaca: false, diy: 'partial' },
-      { label: 'No "implementation team" required', hh: true, mgmt: false, vantaca: false, diy: true },
-      { label: 'Built for self-managed (not for management firms)', hh: true, mgmt: false, vantaca: false, diy: true },
-      { label: 'Built in Atlanta · supports GA jurisdictions deeply', hh: true, mgmt: 'partial', vantaca: false, diy: false },
+      { label: 'Mobile inspection mode', hh: true, mgmt: 'n/a', vantaca: true, diy: false },
+      { label: 'No "implementation team" required', hh: true, mgmt: 'n/a', vantaca: false, diy: true },
+      { label: 'Built for self-managed boards (not for management firms)', hh: true, mgmt: false, vantaca: false, diy: true },
+      { label: 'State-law answers with statute citations', hh: 'Georgia', mgmt: 'n/a', vantaca: false, diy: false },
     ],
   },
 ]
@@ -125,7 +132,7 @@ export default function ComparePage() {
             The comparison your board can send around.
           </>
         }
-        subtitle="Self-managed HOA boards have three real options: hire a management company, buy enterprise PMS software, or fight a spreadsheet. Here's how Ledger stacks up on each."
+        subtitle="Self-managed HOA boards have three real options: hire a management company, buy software built for management firms, or fight a spreadsheet. Here's how Ledger stacks up on each. Where a competitor doesn't publish something, we say so."
       />
 
       <section className="py-8">
@@ -189,17 +196,17 @@ export default function ComparePage() {
           <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-3">
             <SummaryCard
               title="vs Management company"
-              body={`A ${DOORS}-door HOA spends $21,600 to $42,000 a year on a management firm. Ledger is ${formatUsd(hhAnnual)} a year on the annual plan. The board still does the governing; the AI does the paperwork.`}
-              note={`${formatUsd(hhMonthly)} a month on the monthly plan, against $1,800–$3,500 for a firm.`}
+              body={`A management firm does the paperwork for a fee it quotes you. Ledger is ${formatUsd(hhAnnual)} a year for a ${DOORS}-door HOA on the annual plan. The board still does the governing; the AI drafts the paperwork.`}
+              note={`${formatUsd(hhMonthly)} a month on the monthly plan. Put your firm's quote next to it.`}
             />
             <SummaryCard
-              title="vs Vantaca / AppFolio"
-              body="Enterprise PMS is built for management companies, not boards. You'll spend $5,400–$10,800/year on software your volunteers can't operate, plus the management fee on top."
-              note="Vantaca is great if you have an ops team. You don't."
+              title="vs Vantaca"
+              body="Vantaca is built for management companies, sold by custom quote with no trial. Its AI is real, but it is sold to firms with an operations team, not to volunteer boards."
+              note="Great if you have an ops team. Most self-managed boards don't."
             />
             <SummaryCard
               title="vs the spreadsheet"
-              body="Free, but expensive. The reserve fund discrepancy nobody caught for three years, the violation notice that didn't go out, the resident question that took six hours to answer."
+              body="Free, but expensive in volunteer hours: the reconciliation nobody had time for, the violation notice that didn't go out, the resident question that sat in someone's inbox."
               note="The status quo is the most expensive option."
             />
           </div>

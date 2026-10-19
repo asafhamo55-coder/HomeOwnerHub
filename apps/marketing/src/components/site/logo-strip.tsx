@@ -1,11 +1,12 @@
 // Confident single-line credibility band — replaces the icon-cluttered
 // TrustStrip. No icons, no cards, no shadows. Just three facts in a row.
+// BL-090: "Reviewed by Georgia counsel" removed; nothing in the repo shows a
+// counsel review of the HOA product.
 
 export function LogoStrip() {
   const items = [
     'Built for self-managed HOAs',
     'Your data, never sold',
-    'Reviewed by Georgia counsel',
     'Citations on every legal answer',
   ]
 

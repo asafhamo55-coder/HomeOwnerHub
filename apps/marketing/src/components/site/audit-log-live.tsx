@@ -155,16 +155,16 @@ export function AuditLogLive() {
         <header className="mb-12 md:flex md:items-end md:justify-between md:gap-12">
           <div className="max-w-xl">
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              Live · AIEventLog
+              Illustration · AI run log
             </p>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-              Every AI action. Logged. Cited. Defensible.
+              AI runs. Logged. Cited.
             </h2>
           </div>
           <p className="mt-4 max-w-md text-base leading-relaxed text-muted md:mt-0">
-            The AIEventLog is append-only. Every output records the model, the
-            prompt hash, the tenant, the citation, and the human action taken.
-            This is the legal-defense story.
+            Each AI workflow run is recorded with its workflow and prompt
+            version, the model, an input hash, the output and its citations.
+            Drafts still wait for the board.
           </p>
         </header>
 
@@ -243,10 +243,10 @@ export function AuditLogLive() {
           </ul>
 
           <div className="flex items-center justify-between border-t border-background/10 bg-surface/[0.03] px-5 py-3 font-mono text-[10px] text-background/40">
-            <span>append-only · immutable · queryable by tenant_id, workflow, model</span>
+            <span>per association · readable by its board and admins</span>
             <span className="inline-flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
-              demo stream — production logs include user_id, ip, latency
+              sample entries, not real activity
             </span>
           </div>
         </div>

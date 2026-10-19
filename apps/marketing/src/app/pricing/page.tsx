@@ -32,6 +32,8 @@ const HOA_FEATURES = [
   'Accounting: general ledger, bank feeds, reconciliation', // /accounting
   'AI bill scan into the approvals queue', // /accounting/invoices/new, W36
   'Vendor onboarding, RFPs and AI bid comparison', // /vendors, /rfps, W21–W23
+  'AI ARC review: resident pre-check, cited board review, decision letters', // /arc, /resident/arc/new, BL-024/027/079
+  'Spanish version of announcements, reviewed by the board before sending', // /communications/new, BL-025
   'Resident portal — dues balance, ARC, requests, documents', // /resident
   'Roster import from CSV or Excel, CINC exports included', // /properties/import
   '⌘K record search, built-in user guide and Ask the guide', // /api/search, /help, /api/help/ask
@@ -39,9 +41,9 @@ const HOA_FEATURES = [
 ]
 
 // Each item is a backlog entry (docs/backlog.md). Not available today.
+// Spanish (BL-025) and AI ARC review (BL-024/027/079) shipped: they are in
+// HOA_FEATURES above (BL-090).
 const HOA_ROADMAP = [
-  'Spanish-language resident communications', // BL-025
-  'AI review of ARC requests against your guidelines', // BL-024, BL-027
   'Reserve fund tracking', // BL-037
 ]
 
