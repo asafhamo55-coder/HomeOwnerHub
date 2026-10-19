@@ -914,3 +914,7 @@ These go beyond the design-system v2 pass:
     - The board also gets a weekly "top questions residents asked" digest card, with counts and topics only, to show where the documents are unclear.
   - **No migration.** The setting is HMAC-signed in compliance_settings, like the other settings switches.
   - **Effort:** about 2 agent-days.
+- **BL-097 Hide the PM and Eviction hubs (owner, 2026-10-19):** remove every in-app and marketing path that switches to, or advertises, the Property Management or Eviction hubs (the hub switcher, nav, cross-links, marketing product pages and CTAs). Those products are not available. Keep apps/pm and apps/eviction compiling; don't delete them.
+- **BL-098 HomeownerHub logo options (owner, 2026-10-19):** the owner refers to the product as HomeownerHub. The BL-094 mark (blue tile, roof, ledger lines) ships with a "Ledger" wordmark, while the app says "HOA Hub" and the domain is homeownerledger.com.
+  - Prepare logo options for "HomeownerHub" (2–3 concepts, wordmark plus mark) and present them for the owner to pick.
+  - Then apply one brand name everywhere.
