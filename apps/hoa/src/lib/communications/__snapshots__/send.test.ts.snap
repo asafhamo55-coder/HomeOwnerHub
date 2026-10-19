@@ -1,0 +1,663 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`sendCommunication, M1_APPLIED false (today) > scheduled: the full trace is unchanged from before the consent wiring > scheduled result 1`] = `
+{
+  "communicationId": "comm-1",
+  "failedCount": 0,
+  "ok": true,
+  "recipientCount": 8,
+  "sentCount": 0,
+  "skippedCount": 0,
+}
+`;
+
+exports[`sendCommunication, M1_APPLIED false (today) > scheduled: the full trace is unchanged from before the consent wiring > scheduled trace 1`] = `
+[
+  [
+    "db",
+    "associations",
+    [
+      [
+        "select",
+        [
+          "organization_id, name, type",
+        ],
+      ],
+      [
+        "eq",
+        [
+          "id",
+          "assoc-1",
+        ],
+      ],
+      [
+        "single",
+        [],
+      ],
+    ],
+  ],
+  [
+    "db",
+    "communications",
+    [
+      [
+        "insert",
+        [
+          {
+            "association_id": "assoc-1",
+            "audience_definition": {
+              "kind": "everyone",
+            },
+            "audience_summary": "All residents (4)",
+            "body_html": "<p>Hi {{recipient_name}}, the annual meeting is on the 30th.</p>",
+            "body_text": "Hi {{recipient_name}}, the annual meeting is on the 30th.",
+            "category": "meeting",
+            "channels": [
+              "email",
+              "sms",
+              "portal",
+            ],
+            "organization_id": "org-1",
+            "related_resource": null,
+            "scheduled_for": "2026-12-01T09:00",
+            "source": "manual",
+            "status": "scheduled",
+            "subject": "Annual meeting, {{association_name}}",
+            "template_id": null,
+            "thread_id": null,
+          },
+        ],
+      ],
+      [
+        "select",
+        [
+          "id",
+        ],
+      ],
+      [
+        "single",
+        [],
+      ],
+    ],
+  ],
+  [
+    "db",
+    "communication_recipients",
+    [
+      [
+        "insert",
+        [
+          [
+            {
+              "channel": "email",
+              "communication_id": "comm-1",
+              "delivery_status": "queued",
+              "email": "ana@example.test",
+              "organization_id": "org-1",
+              "phone": "+15550100001",
+              "recipient_name": "Ana",
+              "unit_id": "u1",
+              "user_id": "user-a",
+            },
+            {
+              "channel": "sms",
+              "communication_id": "comm-1",
+              "delivery_status": "queued",
+              "email": "ana@example.test",
+              "organization_id": "org-1",
+              "phone": "+15550100001",
+              "recipient_name": "Ana",
+              "unit_id": "u1",
+              "user_id": "user-a",
+            },
+            {
+              "channel": "portal",
+              "communication_id": "comm-1",
+              "delivery_status": "queued",
+              "email": "ana@example.test",
+              "organization_id": "org-1",
+              "phone": "+15550100001",
+              "recipient_name": "Ana",
+              "unit_id": "u1",
+              "user_id": "user-a",
+            },
+            {
+              "channel": "email",
+              "communication_id": "comm-1",
+              "delivery_status": "queued",
+              "email": "ben@example.test",
+              "organization_id": "org-1",
+              "phone": null,
+              "recipient_name": "Ben",
+              "unit_id": "u2",
+              "user_id": "user-b",
+            },
+            {
+              "channel": "portal",
+              "communication_id": "comm-1",
+              "delivery_status": "queued",
+              "email": "ben@example.test",
+              "organization_id": "org-1",
+              "phone": null,
+              "recipient_name": "Ben",
+              "unit_id": "u2",
+              "user_id": "user-b",
+            },
+            {
+              "channel": "email",
+              "communication_id": "comm-1",
+              "delivery_status": "queued",
+              "email": "cy@example.test",
+              "organization_id": "org-1",
+              "phone": "+15550100003",
+              "recipient_name": "Cy",
+              "unit_id": "u3",
+              "user_id": null,
+            },
+            {
+              "channel": "sms",
+              "communication_id": "comm-1",
+              "delivery_status": "queued",
+              "email": "cy@example.test",
+              "organization_id": "org-1",
+              "phone": "+15550100003",
+              "recipient_name": "Cy",
+              "unit_id": "u3",
+              "user_id": null,
+            },
+            {
+              "channel": "portal",
+              "communication_id": "comm-1",
+              "delivery_status": "queued",
+              "email": null,
+              "organization_id": "org-1",
+              "phone": null,
+              "recipient_name": "Di",
+              "unit_id": "u4",
+              "user_id": "user-d",
+            },
+          ],
+        ],
+      ],
+      [
+        "select",
+        [
+          "id, channel, email, phone, recipient_name, unit_id",
+        ],
+      ],
+    ],
+  ],
+  [
+    "revalidatePath",
+    "/communications",
+  ],
+]
+`;
+
+exports[`sendCommunication, M1_APPLIED false (today) > send now: the full trace is unchanged from before the consent wiring > send-now result 1`] = `
+{
+  "communicationId": "comm-1",
+  "failedCount": 0,
+  "ok": true,
+  "recipientCount": 8,
+  "sentCount": 8,
+  "skippedCount": 0,
+}
+`;
+
+exports[`sendCommunication, M1_APPLIED false (today) > send now: the full trace is unchanged from before the consent wiring > send-now trace 1`] = `
+[
+  [
+    "db",
+    "associations",
+    [
+      [
+        "select",
+        [
+          "organization_id, name, type",
+        ],
+      ],
+      [
+        "eq",
+        [
+          "id",
+          "assoc-1",
+        ],
+      ],
+      [
+        "single",
+        [],
+      ],
+    ],
+  ],
+  [
+    "db",
+    "communications",
+    [
+      [
+        "insert",
+        [
+          {
+            "association_id": "assoc-1",
+            "audience_definition": {
+              "kind": "everyone",
+            },
+            "audience_summary": "All residents (4)",
+            "body_html": "<p>Hi {{recipient_name}}, the annual meeting is on the 30th.</p>",
+            "body_text": "Hi {{recipient_name}}, the annual meeting is on the 30th.",
+            "category": "meeting",
+            "channels": [
+              "email",
+              "sms",
+              "portal",
+            ],
+            "organization_id": "org-1",
+            "related_resource": null,
+            "scheduled_for": null,
+            "source": "manual",
+            "status": "sending",
+            "subject": "Annual meeting, {{association_name}}",
+            "template_id": null,
+            "thread_id": null,
+          },
+        ],
+      ],
+      [
+        "select",
+        [
+          "id",
+        ],
+      ],
+      [
+        "single",
+        [],
+      ],
+    ],
+  ],
+  [
+    "db",
+    "communication_recipients",
+    [
+      [
+        "insert",
+        [
+          [
+            {
+              "channel": "email",
+              "communication_id": "comm-1",
+              "delivery_status": "queued",
+              "email": "ana@example.test",
+              "organization_id": "org-1",
+              "phone": "+15550100001",
+              "recipient_name": "Ana",
+              "unit_id": "u1",
+              "user_id": "user-a",
+            },
+            {
+              "channel": "sms",
+              "communication_id": "comm-1",
+              "delivery_status": "queued",
+              "email": "ana@example.test",
+              "organization_id": "org-1",
+              "phone": "+15550100001",
+              "recipient_name": "Ana",
+              "unit_id": "u1",
+              "user_id": "user-a",
+            },
+            {
+              "channel": "portal",
+              "communication_id": "comm-1",
+              "delivery_status": "queued",
+              "email": "ana@example.test",
+              "organization_id": "org-1",
+              "phone": "+15550100001",
+              "recipient_name": "Ana",
+              "unit_id": "u1",
+              "user_id": "user-a",
+            },
+            {
+              "channel": "email",
+              "communication_id": "comm-1",
+              "delivery_status": "queued",
+              "email": "ben@example.test",
+              "organization_id": "org-1",
+              "phone": null,
+              "recipient_name": "Ben",
+              "unit_id": "u2",
+              "user_id": "user-b",
+            },
+            {
+              "channel": "portal",
+              "communication_id": "comm-1",
+              "delivery_status": "queued",
+              "email": "ben@example.test",
+              "organization_id": "org-1",
+              "phone": null,
+              "recipient_name": "Ben",
+              "unit_id": "u2",
+              "user_id": "user-b",
+            },
+            {
+              "channel": "email",
+              "communication_id": "comm-1",
+              "delivery_status": "queued",
+              "email": "cy@example.test",
+              "organization_id": "org-1",
+              "phone": "+15550100003",
+              "recipient_name": "Cy",
+              "unit_id": "u3",
+              "user_id": null,
+            },
+            {
+              "channel": "sms",
+              "communication_id": "comm-1",
+              "delivery_status": "queued",
+              "email": "cy@example.test",
+              "organization_id": "org-1",
+              "phone": "+15550100003",
+              "recipient_name": "Cy",
+              "unit_id": "u3",
+              "user_id": null,
+            },
+            {
+              "channel": "portal",
+              "communication_id": "comm-1",
+              "delivery_status": "queued",
+              "email": null,
+              "organization_id": "org-1",
+              "phone": null,
+              "recipient_name": "Di",
+              "unit_id": "u4",
+              "user_id": "user-d",
+            },
+          ],
+        ],
+      ],
+      [
+        "select",
+        [
+          "id, channel, email, phone, recipient_name, unit_id",
+        ],
+      ],
+    ],
+  ],
+  [
+    "fetchOrgSandbox",
+    "org-1",
+  ],
+  [
+    "sendEmailBatch",
+    [
+      {
+        "html": "<p>Hi Ana, the annual meeting is on the 30th.</p>",
+        "recipientRef": "rec-0",
+        "senderName": "Madison Park HOA",
+        "subject": "Annual meeting, Madison Park",
+        "text": "Hi Ana, the annual meeting is on the 30th.",
+        "to": "ana@example.test",
+      },
+      {
+        "html": "<p>Hi Ben, the annual meeting is on the 30th.</p>",
+        "recipientRef": "rec-3",
+        "senderName": "Madison Park HOA",
+        "subject": "Annual meeting, Madison Park",
+        "text": "Hi Ben, the annual meeting is on the 30th.",
+        "to": "ben@example.test",
+      },
+      {
+        "html": "<p>Hi Cy, the annual meeting is on the 30th.</p>",
+        "recipientRef": "rec-5",
+        "senderName": "Madison Park HOA",
+        "subject": "Annual meeting, Madison Park",
+        "text": "Hi Cy, the annual meeting is on the 30th.",
+        "to": "cy@example.test",
+      },
+    ],
+    {
+      "orgSandbox": false,
+      "ref": "comm-1",
+    },
+  ],
+  [
+    "db",
+    "communication_recipients",
+    [
+      [
+        "update",
+        [
+          {
+            "delivery_status": "sent",
+            "external_id": "msg-0",
+            "rendered_subject": "Annual meeting, Madison Park",
+            "sent_at": "2026-10-19T12:00:00.000Z",
+          },
+        ],
+      ],
+      [
+        "eq",
+        [
+          "id",
+          "rec-0",
+        ],
+      ],
+    ],
+  ],
+  [
+    "sendSms",
+    {
+      "body": "Annual meeting, Madison Park: Hi Ana, the annual meeting is on the 30th.",
+      "to": "+15550100001",
+    },
+    {
+      "orgSandbox": false,
+      "ref": "comm-1",
+    },
+  ],
+  [
+    "db",
+    "communication_recipients",
+    [
+      [
+        "update",
+        [
+          {
+            "delivery_status": "sent",
+            "rendered_subject": "Annual meeting, Madison Park",
+            "sent_at": "2026-10-19T12:00:00.000Z",
+          },
+        ],
+      ],
+      [
+        "eq",
+        [
+          "id",
+          "rec-2",
+        ],
+      ],
+    ],
+  ],
+  [
+    "db",
+    "communication_recipients",
+    [
+      [
+        "update",
+        [
+          {
+            "delivery_status": "sent",
+            "external_id": "msg-1",
+            "rendered_subject": "Annual meeting, Madison Park",
+            "sent_at": "2026-10-19T12:00:00.000Z",
+          },
+        ],
+      ],
+      [
+        "eq",
+        [
+          "id",
+          "rec-3",
+        ],
+      ],
+    ],
+  ],
+  [
+    "db",
+    "communication_recipients",
+    [
+      [
+        "update",
+        [
+          {
+            "delivery_status": "sent",
+            "rendered_subject": "Annual meeting, Madison Park",
+            "sent_at": "2026-10-19T12:00:00.000Z",
+          },
+        ],
+      ],
+      [
+        "eq",
+        [
+          "id",
+          "rec-4",
+        ],
+      ],
+    ],
+  ],
+  [
+    "db",
+    "communication_recipients",
+    [
+      [
+        "update",
+        [
+          {
+            "delivery_status": "sent",
+            "external_id": "msg-2",
+            "rendered_subject": "Annual meeting, Madison Park",
+            "sent_at": "2026-10-19T12:00:00.000Z",
+          },
+        ],
+      ],
+      [
+        "eq",
+        [
+          "id",
+          "rec-5",
+        ],
+      ],
+    ],
+  ],
+  [
+    "sendSms",
+    {
+      "body": "Annual meeting, Madison Park: Hi Cy, the annual meeting is on the 30th.",
+      "to": "+15550100003",
+    },
+    {
+      "orgSandbox": false,
+      "ref": "comm-1",
+    },
+  ],
+  [
+    "db",
+    "communication_recipients",
+    [
+      [
+        "update",
+        [
+          {
+            "delivery_status": "sent",
+            "rendered_subject": "Annual meeting, Madison Park",
+            "sent_at": "2026-10-19T12:00:00.000Z",
+          },
+        ],
+      ],
+      [
+        "eq",
+        [
+          "id",
+          "rec-7",
+        ],
+      ],
+    ],
+  ],
+  [
+    "db",
+    "communication_recipients",
+    [
+      [
+        "update",
+        [
+          {
+            "delivery_status": "sent",
+            "external_id": "sid-1",
+            "rendered_subject": "Annual meeting, Madison Park",
+            "sent_at": "2026-10-19T12:00:00.000Z",
+          },
+        ],
+      ],
+      [
+        "eq",
+        [
+          "id",
+          "rec-1",
+        ],
+      ],
+    ],
+  ],
+  [
+    "db",
+    "communication_recipients",
+    [
+      [
+        "update",
+        [
+          {
+            "delivery_status": "sent",
+            "external_id": "sid-1",
+            "rendered_subject": "Annual meeting, Madison Park",
+            "sent_at": "2026-10-19T12:00:00.000Z",
+          },
+        ],
+      ],
+      [
+        "eq",
+        [
+          "id",
+          "rec-6",
+        ],
+      ],
+    ],
+  ],
+  [
+    "db",
+    "communications",
+    [
+      [
+        "update",
+        [
+          {
+            "sent_at": "2026-10-19T12:00:00.000Z",
+            "status": "sent",
+          },
+        ],
+      ],
+      [
+        "eq",
+        [
+          "id",
+          "comm-1",
+        ],
+      ],
+    ],
+  ],
+  [
+    "revalidatePath",
+    "/communications",
+  ],
+  [
+    "revalidatePath",
+    "/communications/comm-1",
+  ],
+]
+`;
