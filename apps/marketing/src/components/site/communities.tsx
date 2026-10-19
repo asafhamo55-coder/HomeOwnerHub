@@ -23,7 +23,7 @@ export function Communities() {
             Suburban Atlanta, not a SaaS demo deck.
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-muted">
-            Ledger is built for the communities you can drive through on
+            HomeownerHub is built for the communities you can drive through on
             a Saturday morning. Volunteer boards. Brick-and-Hardie homes.
             Mature trees. Real residents.
           </p>

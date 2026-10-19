@@ -18,7 +18,7 @@ export function PullQuote() {
           <figcaption className="mt-8 flex items-center gap-3 border-t border-border/70 pt-5 text-sm text-foreground-secondary">
             <span className="font-semibold text-foreground">Asaf Hamo</span>
             <span aria-hidden>·</span>
-            <span>Founder, Ledger</span>
+            <span>Founder, HomeownerHub</span>
           </figcaption>
         </figure>
       </div>

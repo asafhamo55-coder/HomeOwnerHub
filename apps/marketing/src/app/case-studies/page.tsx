@@ -6,7 +6,7 @@ import { Footer } from '@/components/site/footer'
 
 export const metadata: Metadata = {
   title: 'Case studies',
-  description: 'The HOA boards Ledger is built with. Real quotes; numbers only once a board has measured and signed off on them.',
+  description: 'The HOA boards HomeownerHub is built with. Real quotes; numbers only once a board has measured and signed off on them.',
 }
 
 // Truth rule (BL-042, BL-090): no metric appears here until the board it

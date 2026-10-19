@@ -10,7 +10,7 @@ import { cn } from '@/lib/cn'
 export const metadata: Metadata = {
   title: 'Roadmap — Every workflow, every bar, in public',
   description:
-    'The public Ledger roadmap. Every workflow with its current quality bar, shipped/building/planned status, and target month.',
+    'The public HomeownerHub roadmap. Every workflow with its current quality bar, shipped/building/planned status, and target month.',
 }
 
 const barIcon: Record<Bar, typeof ShieldCheck> = {

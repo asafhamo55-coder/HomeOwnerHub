@@ -42,7 +42,7 @@ export type RosterPreset = 'cinc' | 'template' | 'generic'
 export const PRESET_LABELS: Record<RosterPreset, string> = {
   generic: 'Auto-detect',
   cinc: 'CINC Systems export',
-  template: 'HOA Hub template',
+  template: 'HomeownerHub template',
 }
 
 /** "Property Address #1" → "propertyaddress1". */

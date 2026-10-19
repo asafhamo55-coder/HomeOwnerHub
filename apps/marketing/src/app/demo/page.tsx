@@ -139,7 +139,7 @@ export default function DemoPage() {
             <Stat label="Setup + roster import" value="Self-serve" sub="CSV or Excel, CINC exports included" />
           </div>
           <p className="mt-10 text-center text-xs text-muted">
-            Ledger serves Atlanta-metro HOAs in v1. Charlotte / Raleigh /
+            HomeownerHub serves Atlanta-metro HOAs in v1. Charlotte / Raleigh /
             Nashville / Tampa / Orlando are coming. Tell us where you are.
           </p>
         </div>
@@ -260,8 +260,8 @@ export default function DemoPage() {
 
 const FAQS: { q: string; a: string }[] = [
   {
-    q: 'Will Ledger replace our community manager?',
-    a: 'No. Ledger replaces the slow paperwork — covenant lookups, notice drafts, minutes, AR reminders — so your manager (or your treasurer) has time for the human work. A board with a manager can keep them and use Ledger alongside.',
+    q: 'Will HomeownerHub replace our community manager?',
+    a: 'No. HomeownerHub replaces the slow paperwork — covenant lookups, notice drafts, minutes, AR reminders — so your manager (or your treasurer) has time for the human work. A board with a manager can keep them and use HomeownerHub alongside.',
   },
   {
     q: 'What happens to data we already have?',

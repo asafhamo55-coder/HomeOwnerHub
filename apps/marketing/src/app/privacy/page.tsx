@@ -5,7 +5,7 @@ import { PageHero } from '@/components/site/page-hero'
 
 export const metadata: Metadata = {
   title: 'Privacy policy',
-  description: 'How Ledger collects, uses, and protects your information.',
+  description: 'How HomeownerHub collects, uses, and protects your information.',
 }
 
 export default function PrivacyPage() {

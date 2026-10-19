@@ -1,4 +1,4 @@
-# `apps/hoa` — HOA Hub
+# `apps/hoa` — HomeownerHub (the HOA app)
 
 The HOA-facing Next.js app of HomeownerHub. Serves three user roles
 (admin, board, resident) from one codebase via RBAC, with separate UI

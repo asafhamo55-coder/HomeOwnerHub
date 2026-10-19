@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LedgerMark,
+  BrandMark,
   NavItem,
   SidebarBrand,
   SidebarCollapseToggle,
@@ -66,10 +66,10 @@ export function HoaSidebar({ currentOrgId, currentOrgName, hoaOrgs, role, badges
   return (
     <>
       <SidebarBrand
-        logo={<LedgerMark className="size-8 rounded-lg shadow-xs" />}
+        logo={<BrandMark className="size-8 rounded-lg shadow-xs" />}
       >
         <div className="min-w-0 flex-1 leading-tight">
-          <p className="truncate text-sm font-semibold text-foreground">HOA Hub</p>
+          <p className="truncate text-sm font-semibold text-foreground">HomeownerHub</p>
           <OrgSwitcher currentOrgId={currentOrgId} currentOrgName={currentOrgName} orgs={hoaOrgs} />
         </div>
       </SidebarBrand>

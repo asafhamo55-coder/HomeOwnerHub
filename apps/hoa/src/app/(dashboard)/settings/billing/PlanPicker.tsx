@@ -82,7 +82,7 @@ export function PlanPicker({
             <div className="space-y-1">
               <p className="flex items-center gap-2 text-base font-semibold text-foreground">
                 <Sparkles className="size-4 text-primary" aria-hidden />
-                HOA Hub
+                HomeownerHub
               </p>
               <p className="num text-3xl font-semibold tracking-tight text-foreground">
                 {formatUsd(activePrice, { withCents: true })}

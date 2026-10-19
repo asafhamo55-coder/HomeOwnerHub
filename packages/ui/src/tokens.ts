@@ -13,8 +13,8 @@
  * contrast without a red test.
  *
  * Brand direction: blue (BL-095, docs/decisions/2026-10-19-brand-logo-
- * palette.md). HOA Hub, the marketing site and the Ledger logo share
- * blue-600 (#2563EB) with light-blue tints and cool slate neutrals.
+ * palette.md). The HOA app, the marketing site and the HomeownerHub logo
+ * share blue-600 (#2563EB) with light-blue tints and cool slate neutrals.
  * PM Hub (deeper blue) and Eviction Hub (violet) keep a hub tint — only
  * `primary*` changes per hub; neutrals, status colours, type and spacing
  * are identical everywhere. (Until 2026-10-19 the brand was indigo-600
@@ -144,7 +144,7 @@ const neutral: Record<ThemeMode, NeutralPalette> = {
 export const BRANDS: Record<HubKey, Record<ThemeMode, BrandPalette>> = {
   hoa: {
     light: {
-      primary: '#2563EB', // blue-600 — the Ledger logo tile
+      primary: '#2563EB', // blue-600 — the HomeownerHub logo tile
       'primary-hover': '#1D4ED8',
       'primary-fg': '#FFFFFF',
       'primary-subtle': '#EBF3FF', // light-blue tint
@@ -193,17 +193,20 @@ export const BRANDS: Record<HubKey, Record<ThemeMode, BrandPalette>> = {
 }
 
 /**
- * Ledger logo colours (BL-094). The mark is a blue tile carrying a white
- * roof over two ledger lines; the lower line is light blue. The static
- * SVG/PNG files in apps/{hoa,marketing}/public/brand/ and the generated
- * favicons use exactly these values; `tokens.test.ts` checks the mark's
- * graphic contrast (WCAG 1.4.11, ≥3:1) and the wordmark text (≥4.5:1).
+ * HomeownerHub logo colours (BL-098, concept C; tile and line from BL-094).
+ * The mark is a blue tile carrying a white H whose crossbar is a roof, with
+ * a light-blue door (`line`). In the wordmark, "Homeowner" is `text` and
+ * "Hub" is `accent`. The static SVG/PNG files in
+ * apps/{hoa,marketing}/public/brand/ and the generated favicons use exactly
+ * these values; `tokens.test.ts` checks the mark's graphic contrast
+ * (WCAG 1.4.11, ≥3:1) and the wordmark text (≥4.5:1).
  */
 export const LOGO = {
-  light: { tile: '#2563EB', glyph: '#FFFFFF', line: '#BFDBFE', text: '#0F172A' },
-  // Same tile on dark (it still clears 3:1 against the dark canvas); only
-  // the wordmark text flips.
-  dark: { tile: '#2563EB', glyph: '#FFFFFF', line: '#BFDBFE', text: '#F1F5F9' },
+  light: { tile: '#2563EB', glyph: '#FFFFFF', line: '#BFDBFE', text: '#0F172A', accent: '#2563EB' },
+  // Same tile on dark (it still clears 3:1 against the dark canvas). The
+  // wordmark text flips, and "Hub" lifts to the dark primary: #2563EB text
+  // on the dark canvas is only ~3.7:1.
+  dark: { tile: '#2563EB', glyph: '#FFFFFF', line: '#BFDBFE', text: '#F1F5F9', accent: '#60A5FA' },
 } as const
 
 export function palette(hub: HubKey, mode: ThemeMode): Palette {

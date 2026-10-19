@@ -40,4 +40,4 @@ They get an email with a sign-in link. If they already have a HomeownerHub login
 - **Change a role:** in the Members list, pick a new role from the dropdown on their row. It saves as soon as you pick. Only admins can do this.
 - **Remove someone:** use the trash button on their row and confirm. You can't remove yourself or the last admin.
 - There is no list of pending invitations, and invitations can't be resent from this page. Send a new invitation instead.
-- Managers who look after several HOAs switch between them with [[Switch HOA]] at the top of the sidebar, under the HOA Hub name.
+- Managers who look after several HOAs switch between them with [[Switch HOA]] at the top of the sidebar, under the HomeownerHub name.

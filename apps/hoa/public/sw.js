@@ -1,4 +1,4 @@
-/* HOA Hub service worker — minimal, defensive.
+/* HomeownerHub service worker — minimal, defensive.
  *
  * Design goals:
  *   1. Never break the live app if the SW misbehaves. If anything in the
@@ -75,7 +75,7 @@ self.addEventListener('message', (event) => {
 const NOTIFICATION_ICON = '/apple-icon'
 const NOTIFICATION_BADGE = '/icon'
 const DEFAULT_NOTIFICATION = {
-  title: 'HOA Hub',
+  title: 'HomeownerHub',
   body: 'You have a new notification.',
   link: '/',
   tag: 'hoa-generic',

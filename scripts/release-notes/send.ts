@@ -7,7 +7,7 @@
 // Env (all required unless --dry-run):
 //   RESEND_API_KEY      Resend API key
 //   RELEASE_NOTES_TO    comma-separated recipient addresses
-//   RELEASE_NOTES_FROM  verified sender, e.g. "Ledger releases <noreply@homeownerledger.com>";
+//   RELEASE_NOTES_FROM  verified sender, e.g. "HomeownerHub releases <noreply@homeownerledger.com>";
 //                       falls back to EMAIL_FROM when that is set
 //
 // Recipients come from RELEASE_NOTES_TO only — never from a note, a payload

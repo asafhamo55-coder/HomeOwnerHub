@@ -9,7 +9,7 @@ import { BarExplorer } from './bar-explorer'
 export const metadata: Metadata = {
   title: 'AI honesty bars — What Bar A, B, and C mean',
   description:
-    'Every Ledger workflow ships with a quality bar label. Here\'s what each bar means, what it requires, and how workflows move between them.',
+    'Every HomeownerHub workflow ships with a quality bar label. Here\'s what each bar means, what it requires, and how workflows move between them.',
 }
 
 // Truth rule (BL-090): the old criteria named eval-set sizes and accuracy

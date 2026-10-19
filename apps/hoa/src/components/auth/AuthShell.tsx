@@ -1,5 +1,5 @@
 import { Lock } from 'lucide-react'
-import { cn, LedgerLogo } from '@homeowner-portal/ui'
+import { cn, BrandLogo } from '@homeowner-portal/ui'
 import { AppVersion } from '@/components/layout/AppVersion'
 import { appVersion } from '@/lib/app-version'
 
@@ -27,11 +27,9 @@ export function AuthShell({
     <div className="flex min-h-dvh flex-col bg-background">
       <main className="flex flex-1 flex-col items-center px-4 pb-10 pt-12 sm:justify-center sm:pt-10">
         <div className={cn('w-full space-y-6', width === 'sm' ? 'max-w-md' : 'max-w-xl')}>
-          {/* Ledger logo (BL-094) + the product name. */}
-          <div className="flex items-center justify-center gap-3">
-            <LedgerLogo size="lg" />
-            <span className="h-5 w-px bg-border-strong" aria-hidden />
-            <span className="text-lg font-semibold tracking-[-0.01em] text-foreground-secondary">HOA Hub</span>
+          {/* HomeownerHub logo (BL-098): the wordmark is the product name. */}
+          <div className="flex items-center justify-center">
+            <BrandLogo size="lg" />
           </div>
           {children}
           <div className="text-center text-xs text-muted">

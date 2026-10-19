@@ -68,7 +68,7 @@ export default function SecurityPage() {
       <PageHero
         eyebrow="Security · Privacy · Audit"
         title="Built like the legal record it has to be."
-        subtitle="HOAs and landlords hold sensitive data on hundreds of households. We built Ledger so the security posture is the product, not a checkbox."
+        subtitle="HOAs and landlords hold sensitive data on hundreds of households. We built HomeownerHub so the security posture is the product, not a checkbox."
       />
 
       <AuditLogLive />

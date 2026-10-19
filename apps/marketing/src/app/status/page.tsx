@@ -6,7 +6,7 @@ import { PageHero } from '@/components/site/page-hero'
 
 export const metadata: Metadata = {
   title: 'Status',
-  description: 'How to check on Ledger services, and how to report an incident.',
+  description: 'How to check on HomeownerHub services, and how to report an incident.',
 }
 
 // Truth rule (BL-090): this page used to show every service as

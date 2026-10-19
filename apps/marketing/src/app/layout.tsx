@@ -17,13 +17,13 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL('https://ledger.ai'),
   title: {
-    default: 'Ledger — AI for the people who run residential property',
-    template: '%s · Ledger',
+    default: 'HomeownerHub — AI for the people who run residential property',
+    template: '%s · HomeownerHub',
   },
   description:
     'The AI-native operating system for HOA boards, small landlords, and the legal work when tenancies break down. Less paperwork. More peace of mind.',
   openGraph: {
-    title: 'Ledger',
+    title: 'HomeownerHub',
     description:
       'AI for HOA boards, landlords, and eviction support. Less paperwork.',
     type: 'website',

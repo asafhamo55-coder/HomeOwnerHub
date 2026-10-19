@@ -7,7 +7,7 @@ import { PageHero } from '@/components/site/page-hero'
 export const metadata: Metadata = {
   title: 'Data Processing Agreement',
   description:
-    'Ledger\'s DPA for customers needing a formal data-processing addendum.',
+    'HomeownerHub\'s DPA for customers needing a formal data-processing addendum.',
 }
 
 export default function DpaPage() {

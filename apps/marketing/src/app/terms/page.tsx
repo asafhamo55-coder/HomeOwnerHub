@@ -5,7 +5,7 @@ import { PageHero } from '@/components/site/page-hero'
 
 export const metadata: Metadata = {
   title: 'Terms of service',
-  description: 'The terms under which you use Ledger.',
+  description: 'The terms under which you use HomeownerHub.',
 }
 
 export default function TermsPage() {
@@ -21,14 +21,14 @@ export default function TermsPage() {
 
             <h2>1. Service description</h2>
             <p>
-              Ledger provides AI-assisted workflows for HOA boards, small
+              HomeownerHub provides AI-assisted workflows for HOA boards, small
               landlords, and eviction-adjacent tasks. The service is provided as
               described on this site and in the product.
             </p>
 
             <h2>2. Acceptable use</h2>
             <p>
-              You agree to use Ledger only for lawful purposes and in
+              You agree to use HomeownerHub only for lawful purposes and in
               accordance with applicable HOA, landlord-tenant, and consumer
               protection laws.
             </p>
@@ -63,7 +63,7 @@ export default function TermsPage() {
 
             <h2>7. Liability</h2>
             <p>
-              To the extent permitted by law, Ledger's aggregate liability
+              To the extent permitted by law, HomeownerHub's aggregate liability
               is limited to the amounts paid by you to us in the prior twelve
               months.
             </p>

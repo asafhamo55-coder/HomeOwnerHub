@@ -8,9 +8,9 @@ import { cn } from '@/lib/cn'
 import { HOA_PRICING, annualBillUsd, formatUsd, monthlyBillUsd } from '@/lib/hoa-pricing'
 
 export const metadata: Metadata = {
-  title: 'Ledger vs management companies, Vantaca, and DIY',
+  title: 'HomeownerHub vs management companies, Vantaca, and DIY',
   description:
-    'The comparison your board can send around: AI workflows, Ledger’s checkout price, and what the alternatives publish.',
+    'The comparison your board can send around: AI workflows, HomeownerHub’s checkout price, and what the alternatives publish.',
 }
 
 type Cell = boolean | 'partial' | string
@@ -24,16 +24,16 @@ interface Row {
 }
 
 const columns = [
-  { key: 'hh', name: 'Ledger', sub: 'AI-native, self-managed' },
+  { key: 'hh', name: 'HomeownerHub', sub: 'AI-native, self-managed' },
   { key: 'mgmt', name: 'Management company', sub: 'A firm runs it for you' },
   { key: 'vantaca', name: 'Vantaca', sub: 'Software for management firms' },
   { key: 'diy', name: 'DIY spreadsheet', sub: 'Google Sheets + email' },
 ] as const
 
-// Ledger's price at 180 doors comes from lib/hoa-pricing.ts (what checkout
+// HomeownerHub's price at 180 doors comes from lib/hoa-pricing.ts (what checkout
 // charges).
 //
-// Truth rule (BL-002, BL-042, BL-090): a Ledger cell claims only what
+// Truth rule (BL-002, BL-042, BL-090): a HomeownerHub cell claims only what
 // apps/hoa does today. A competitor cell says only what
 // docs/research/2026-10-competitors.md sources; anything it doesn't is
 // 'Not public' or 'Varies', never an invented number or a guessed X.
@@ -126,13 +126,13 @@ export default function ComparePage() {
       <Nav />
 
       <PageHero
-        eyebrow="Ledger vs the alternatives"
+        eyebrow="HomeownerHub vs the alternatives"
         title={
           <>
             The comparison your board can send around.
           </>
         }
-        subtitle="Self-managed HOA boards have three real options: hire a management company, buy software built for management firms, or fight a spreadsheet. Here's how Ledger stacks up on each. Where a competitor doesn't publish something, we say so."
+        subtitle="Self-managed HOA boards have three real options: hire a management company, buy software built for management firms, or fight a spreadsheet. Here's how HomeownerHub stacks up on each. Where a competitor doesn't publish something, we say so."
       />
 
       <section className="py-8">
@@ -196,7 +196,7 @@ export default function ComparePage() {
           <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-3">
             <SummaryCard
               title="vs Management company"
-              body={`A management firm does the paperwork for a fee it quotes you. Ledger is ${formatUsd(hhAnnual)} a year for a ${DOORS}-door HOA on the annual plan. The board still does the governing; the AI drafts the paperwork.`}
+              body={`A management firm does the paperwork for a fee it quotes you. HomeownerHub is ${formatUsd(hhAnnual)} a year for a ${DOORS}-door HOA on the annual plan. The board still does the governing; the AI drafts the paperwork.`}
               note={`${formatUsd(hhMonthly)} a month on the monthly plan. Put your firm's quote next to it.`}
             />
             <SummaryCard

@@ -43,7 +43,7 @@ export function TestimonialsMarquee() {
             Voices from the community
           </p>
           <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
-            Boards, residents, and landlords using Ledger.
+            Boards, residents, and landlords using HomeownerHub.
           </h2>
           <p className="mt-5 text-base leading-relaxed text-muted md:text-lg">
             Early pilots and reference customers. First-name attribution while

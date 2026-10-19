@@ -51,7 +51,7 @@ export function Footer() {
 
         <div className="mt-16 flex flex-col items-start justify-between gap-4 border-t border-border/70 pt-6 md:flex-row md:items-center">
           <p className="text-xs text-muted">
-            © {new Date().getFullYear()} Ledger, Inc.
+            © {new Date().getFullYear()} HomeownerHub, Inc.
           </p>
           <ul className="flex flex-wrap gap-x-5 gap-y-2">
             {tail.map((l) => (

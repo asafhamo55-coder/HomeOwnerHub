@@ -10,7 +10,7 @@ import { PHOTOS } from '@/lib/photos'
 export const metadata: Metadata = {
   title: 'About — AI for the people who run residential property',
   description:
-    'Why Ledger exists, what we believe, and how we work. Built in Atlanta for the people doing the unpaid hours.',
+    'Why HomeownerHub exists, what we believe, and how we work. Built in Atlanta for the people doing the unpaid hours.',
 }
 
 const beliefs = [
@@ -68,7 +68,7 @@ export default function AboutPage() {
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-foreground-secondary">
               Volunteer board members. Side-hustle landlords. First-time
               evictors. The people running residential property in America don't
-              have an IT department. We built Ledger for them.
+              have an IT department. We built HomeownerHub for them.
             </p>
           </div>
 
@@ -111,7 +111,7 @@ export default function AboutPage() {
                 One identity.
               </p>
               <p>
-                Ledger is the AI-native operating system that follows that
+                HomeownerHub is the AI-native operating system that follows that
                 buyer through every stage — with vertical AI workflows that
                 automate the work today's incumbents leave to volunteers.
               </p>
@@ -160,7 +160,7 @@ export default function AboutPage() {
               Atlanta first. Southeast next. National after that.
             </h2>
             <p className="mt-5 text-lg leading-relaxed text-background/70">
-              Ledger is built and run from Atlanta, GA. Our v1 customer
+              HomeownerHub is built and run from Atlanta, GA. Our v1 customer
               base is Atlanta-metro HOAs. We add geographies as we onboard
               customers there — not before.
             </p>

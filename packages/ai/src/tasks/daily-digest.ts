@@ -37,7 +37,7 @@ export async function generateDigestSuggestion(params: {
   threadSubjects: string[]
 }): Promise<string> {
   return runCloud(
-    'You are the HOA Hub assistant. You help a board member decide what to do first.',
+    'You are the HomeownerHub assistant. You help a board member decide what to do first.',
     `HOA: ${params.hoaName}
 Resident emails awaiting a reply: ${params.needsReply}
 Longest wait: ${params.oldestWaitingDays ?? 0} days
@@ -152,7 +152,7 @@ export async function generateBoardInsights(params: {
   const catalogue = params.signals.map((s) => `- ${s.kind}: ${s.headline}`).join('\n')
 
   return runCloud(
-    'You are the HOA Hub assistant. You help a board of directors decide ' +
+    'You are the HomeownerHub assistant. You help a board of directors decide ' +
       'which community issues need a board decision this week.',
     `HOA: ${params.hoaName}
 

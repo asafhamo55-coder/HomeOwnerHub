@@ -1,7 +1,7 @@
 // Sub-brand colour dialects — the same tints the products ship
 // (packages/ui/src/tokens.ts BRANDS), so a visitor who clicks through
 // lands in an app that looks like the page they left:
-//   HOA: indigo (`primary`, the Ledger brand)
+//   HOA: blue (`primary`, the HomeownerHub brand)
 //   PM: blue (`pm`)
 //   Eviction: violet (`eviction`)
 // Status colours (success/warning/danger) stay reserved for status.

@@ -72,7 +72,7 @@ export function ProblemSolution() {
               <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-success-subtle text-success">
                 <CheckCircle2 className="h-4 w-4" />
               </span>
-              With Ledger
+              With HomeownerHub
             </div>
             <ul className="space-y-4">
               {solutions.map((s, i) => (

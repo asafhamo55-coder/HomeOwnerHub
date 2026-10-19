@@ -45,7 +45,7 @@ const PLATFORM: NavLink[] = [
 const RETURN: NavLink = {
   href: '/',
   icon: <ArrowLeft className="h-4 w-4" />,
-  label: 'Back to HOA Hub',
+  label: 'Back to HomeownerHub',
 }
 
 function isActive(pathname: string, href: string) {
