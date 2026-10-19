@@ -40,6 +40,15 @@ export const MAX_SOURCES = 6
 export const MIN_SCORE = 0.55
 /** Sections of an article the asker is on get this multiplier. */
 const ROUTE_BOOST = 1.25
+/**
+ * Share of the article-level BM25 (title, keywords, summary) added to each
+ * section's own score. Sections are indexed on heading and text only, so
+ * without this an article's keywords could pass the gate (coverage reads
+ * them) but never lift its sections into the top six. 0.3 was the best
+ * hit@3 in `pnpm guide:eval --verbose` with no refusal canary closer to
+ * MIN_SCORE; 0.4+ starts pulling in sections of a merely related article.
+ */
+const ARTICLE_WEIGHT = 0.3
 
 const audienceOf = (role: AskViewerRole): Audience => (role === 'resident' ? 'resident' : 'board')
 const canSee = (role: AskViewerRole, roles: readonly GuideRole[]) => roles.some((r) => VISIBLE[role].includes(r))
@@ -56,20 +65,51 @@ export function askDocsHref(role: AskViewerRole): string {
 
 // ─── 1. Classify ────────────────────────────────────────────────────────
 
-/** Words that say "what do our rules say", not "how do I use the app". */
-const RULES_SIGNAL =
-  /\b(cc&?rs?|covenants?|bylaws?|by-laws?|declaration|deed restrictions?|governing documents? say|(our|the) rules?|allowed|permitted|prohibited|banned|restrictions?|am i able to|is it ok to|can i (paint|build|install|put|park|keep|have|rent|plant|paint|add|raise|run|hang|store|fly)|how (tall|high|many|long|late|loud) can)\b/i
-/** Words that make it a question about the app itself, even with a rules word in it. */
-const APP_SIGNAL =
-  /\b(upload|ask the docs|ask the guide|homeownerhub|portal|app|dashboard|sidebar|button|page|screen|guide|log ?in|sign ?in|invite|record|generate|approval queue|approvals queue|arc application|submit an? (arc|application|request))\b/i
+/**
+ * Rules intent, part 1: the question names the community's own documents
+ * ("what does our declaration say", "under our bylaws").
+ */
+const RULES_DOCUMENT =
+  /\b(cc&?rs?|covenants?|bylaws?|by-laws?|declaration|deed restrictions?|governing documents?|(our|the) rules?)\b/i
+/**
+ * Rules intent, part 2: the question asks permission for something done to a
+ * home or in the community ("can I paint", "am I allowed", "how tall can").
+ */
+const RULES_PERMISSION =
+  /\b(allow(s|ed)?|permitted|prohibited|banned|forbidden|restrictions?|am i able to|is it (ok|okay|fine) to|can (i|we) (paint|build|install|put|park|keep|have|rent|lease|plant|add|raise|run|hang|store|fly|replace|remove|cut|use)|how (tall|high|many|much|long|late|loud|big|large|early|often|far)\b(\s+[\w'-]+){0,3}\s+can)\b/i
+/**
+ * App intent: the question is about something the app holds or does. Any of
+ * these wins over rules intent, because "how long can a text message be" or
+ * "can I add a photo to my request" is a how-to that merely sounds like a
+ * permission question. Three kinds of evidence:
+ *  - the app itself and its screens;
+ *  - a feature noun the guide documents (a text message, the rules check, a
+ *    request or application, a bill, a ticket, the rental cap…);
+ *  - an app action ("where do I set", "submit", "attach") or a question
+ *    about the live state of the data ("right now", "currently").
+ * Feature nouns stay app-specific on purpose: "fence", "dog", "rental" or
+ * "parking" are what rules questions are about, so they are not here.
+ */
+const APP_SIGNAL_GROUPS = [
+  // the app and its screens
+  String.raw`upload|ask the docs|ask the guide|homeownerhub|portal|app|dashboard|sidebar|button|page|screen|guide|log ?in|sign ?in|invite|record|generate|approvals? queue`,
+  // feature nouns
+  String.raw`arc application|rules check|the check|text messages?|sms|emails?|reminders?|notifications?|statements?|tickets?|(my|the|this|that|an?) ([\w-]+ )?(request|application)s?|photos?|attachments?|drawings?|pdfs?|line items?|bills?|invoices?|journal|ledger|recurring entry|entries|accounts?|admins?|roles?|notes?|documents the ai|the ai|waiting list|(rental|leasing|lease) cap|segments?|announcements?|reports?|csv|spreadsheet|vendors?|rfps?|bids?`,
+  // app actions and live state
+  String.raw`submit\w*|attach\w*|download\w*|export\w*|edit\w*|turn (on|off)|set ?up|where (do|can) i (set|find|see|enter|change|turn on|turn off)|how do i (set|turn|change|edit|ask)|right now|currently|so far`,
+]
+const APP_SIGNAL = new RegExp(String.raw`\b(${APP_SIGNAL_GROUPS.join('|')})\b`, 'i')
 
 /**
- * A cheap keyword heuristic: a pure rules question ("can I paint my door
- * red", "what does the CC&R say") goes to Ask the Docs, which answers from
- * the community's own documents. Questions about using the app stay here.
+ * A cheap keyword heuristic: a rules question ("can I paint my door red",
+ * "what does the CC&R say") goes to Ask the Docs, which answers from the
+ * community's own documents. It needs rules intent AND no app intent, so a
+ * how-to that happens to say "allowed", "can I add" or "declaration" stays
+ * with the guide.
  */
 export function isRulesQuestion(question: string): boolean {
-  return RULES_SIGNAL.test(question) && !APP_SIGNAL.test(question)
+  const rulesIntent = RULES_DOCUMENT.test(question) || RULES_PERMISSION.test(question)
+  return rulesIntent && !APP_SIGNAL.test(question)
 }
 
 // ─── 2. Retrieve ────────────────────────────────────────────────────────
@@ -107,9 +147,13 @@ for (const s of GUIDE_SECTIONS) {
 
 /**
  * Words that carry no topic, so a section cannot "miss" them. Kept short on
- * purpose: every word here makes the gate easier to pass.
+ * purpose: every word here makes the gate easier to pass. Pronouns and
+ * "have"/"say" are here because guide prose is written to "you", so "can
+ * he fill in his own W-9" or "how much do we have" missed on them alone.
  */
-const FILLER = new Set(tokenize('another other difference between way want need please also all any some'))
+const FILLER = new Set(
+  tokenize('another other difference between way want need please also all any some he she his her him have has had say says said'),
+)
 
 /**
  * How much of the question one section (with its article's title and
@@ -134,8 +178,9 @@ export function coverageScore(question: string, sectionKey: string): number {
 }
 
 /**
- * BM25 over GUIDE_SECTIONS, filtered to what `role` may see, boosted for the
- * articles of the page the question came from. Top MAX_SOURCES, numbered.
+ * BM25 over GUIDE_SECTIONS plus ARTICLE_WEIGHT of the article-level BM25,
+ * filtered to what `role` may see, boosted for the articles of the page the
+ * question came from. Top MAX_SOURCES, numbered.
  * `score` on each source is its coverage (0–1), the number the gate reads.
  */
 export function retrieve(question: string, role: AskViewerRole, route?: string | null): RetrievedSource[] {
@@ -147,10 +192,14 @@ export function retrieve(question: string, role: AskViewerRole, route?: string |
     const t = matchRouteTemplate(route, templates)
     if (t) onRoute = new Set(visible.filter((s) => s.routes.includes(t)).map((s) => s.articleId))
   }
-  const hits = searchBm25(GUIDE_SEARCH_INDEX.sections, question, { allow, limit: 40 })
+  const articleScore = new Map(
+    searchBm25(GUIDE_SEARCH_INDEX.articles, question, { limit: GUIDE_ARTICLES.length }).map((h) => [h.id, h.score]),
+  )
+  const hits = searchBm25(GUIDE_SEARCH_INDEX.sections, question, { allow, limit: GUIDE_SECTIONS.length })
     .map((h) => {
       const articleId = h.id.split('#')[0]!
-      return { ...h, articleId, bm25: h.score * (onRoute.has(articleId) ? ROUTE_BOOST : 1) }
+      const blended = h.score + ARTICLE_WEIGHT * (articleScore.get(articleId) ?? 0)
+      return { ...h, articleId, bm25: blended * (onRoute.has(articleId) ? ROUTE_BOOST : 1) }
     })
     .sort((a, b) => b.bm25 - a.bm25 || a.id.localeCompare(b.id))
     .slice(0, MAX_SOURCES)

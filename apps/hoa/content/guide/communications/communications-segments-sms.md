@@ -16,14 +16,14 @@ Use this when a message is only for some people, or should also go out as a text
 ## Steps
 1. Open **Communications** and select [[New message]].
 2. Under **Audience**, pick who gets it: **Everyone**, **Owners only**, **Tenants only**, **Late on dues**, **Units with open violations**, **Specific property**, **Board** or **Custom contacts** (people who aren't residents, like a vendor or your attorney). Each one shows how many people it reaches right now.
-3. For **Specific property**, choose the home, then tick the people. [[Owners]], [[Tenants]], [[All]] and [[None]] tick them for you.
+3. For **Specific property** (one address), choose the home, then tick the people living there. [[Owners]], [[Tenants]], [[All]] and [[None]] tick them for you.
 4. For **Board**, tick the board members. For **Custom contacts**, type a name, email or US phone and select [[Add]].
 5. Select [[Continue]], write the message, then select [[Continue]] again.
 6. Under **Channels**, tick **SMS** to also send a text.
 7. Check the **Review** box, then select [[Send now]] or [[Schedule]].
 
 ## What happens next
-The message's own page shows **Delivered**, **Opened**, **Replied** and **Failed**. Filter the recipient list by [[Failed]], [[Opened]] or [[Not opened]] to see each person's status. If some emails failed, select **Resend to … failed** to try those people again.
+The message's own page shows **Delivered**, **Opened**, **Replied** and **Failed**. Filter the recipient list by [[Failed]], [[Opened]] or [[Not opened]] to see each person's status, like who never opened a notice. If some emails failed, select **Resend to … failed** to try those people again.
 
 ## If something goes wrong
 - "Nobody matches right now": that group has nobody with contact details on file, so you can't pick it.

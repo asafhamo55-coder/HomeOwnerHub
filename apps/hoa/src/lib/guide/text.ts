@@ -75,6 +75,10 @@ const SYNONYMS: Record<string, string[]> = {
   pay: ['payment'],
   paid: ['payment'],
   bill: ['invoice', 'charge'],
+  company: ['vendor'],
+  contractor: ['vendor'],
+  plumber: ['vendor'],
+  landscaper: ['vendor'],
 }
 
 const STEMMED_SYNONYMS: Map<string, string[]> = new Map()

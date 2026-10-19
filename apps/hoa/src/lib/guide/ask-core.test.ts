@@ -35,6 +35,53 @@ describe('isRulesQuestion', () => {
     for (const q of ['How do I upload our CC&Rs?', 'How do I record a payment?', 'Where do I see the Ask the Docs page?', 'How do I invite the board?'])
       expect(isRulesQuestion(q), q).toBe(false)
   })
+
+  // What does OUR governing document say / am I allowed to X: Ask the Docs.
+  const RULES = [
+    'Does our declaration allow solar panels on the roof?',
+    'How long can guests park in the driveway?',
+    'Can I add a second story to my house?',
+    'Are basketball hoops allowed in the driveway?',
+    'What do the rules say about trash cans being visible from the street?',
+    'How late can I play music on a Saturday night?',
+    'Can I rent my home on Airbnb?',
+    'Is it ok to put a shed in my backyard?',
+    'What does the declaration say about leasing?',
+    'Are pickup trucks permitted to park overnight on the street?',
+    'Can I install a satellite dish on my roof?',
+    'Under our bylaws, how many directors do we need for a quorum?',
+    'How many pets can I have?',
+    'Can I keep a boat on a trailer in my driveway?',
+    'Can I add a screened porch to the back of my house?',
+    'Are owners allowed to lease their home for less than a year?',
+    'Am I allowed to keep two dogs?',
+    'Are short-term rentals allowed in our community?',
+  ]
+  it.each(RULES)('rules: %s', (q) => expect(isRulesQuestion(q)).toBe(true))
+
+  // How do I use the app to do X, even worded with "allowed", "can I add",
+  // "how long can", "declaration" or "rules": the guide.
+  const APP = [
+    // The six phase-2 questions, in the wording people first wrote them.
+    'Our declaration says only 20% of homes can be rented. Where do I set that?',
+    'How many more units are allowed to be leased right now?',
+    'How long can a text message to residents be?',
+    'The rules check said possible conflict on my fence request. What should I do?',
+    'The rules check says no clear rules found. Can I still submit?',
+    'Can I add a photo to my maintenance request?',
+    'How do I set how many homes are allowed to be rented?',
+    'What does the rules check on my ARC request look at?',
+    'Can I add a line item to a vendor bill?',
+    'Can I add another admin to our account?',
+    'Am I allowed to edit my ARC application after I submit it?',
+    'How do I ask a question about what our CC&Rs say?',
+    'How long can a reminder be scheduled before the event?',
+    "Can I add a note to a ticket that the resident won't see?",
+    'How do I add our declaration to the documents the AI reads?',
+    'Can I add a recurring entry for the management fee?',
+    'Can I add drawings to my architectural request?',
+  ]
+  it.each(APP)('app: %s', (q) => expect(isRulesQuestion(q)).toBe(false))
 })
 
 describe('retrieve', () => {
