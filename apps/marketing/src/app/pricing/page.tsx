@@ -5,11 +5,15 @@ import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { RoiCalculator } from '@/components/site/roi-calculator'
 import { cn } from '@/lib/cn'
+import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
 import { HOA_PLANS, HOA_PRICE_COPY, HOA_PRICING } from '@/lib/hoa-pricing'
 
 export const metadata: Metadata = {
   title: `Pricing — ${HOA_PRICE_COPY.title}`,
-  description: `HOA Hub: ${HOA_PRICE_COPY.summary} PM free tier or $19–$49/mo. Eviction $99–$199 per case.`,
+  // BL-097: PM and Eviction are not offered right now.
+  description: OTHER_HUBS_ENABLED
+    ? `HOA Hub: ${HOA_PRICE_COPY.summary} PM free tier or $19–$49/mo. Eviction $99–$199 per case.`
+    : `HOA Hub: ${HOA_PRICE_COPY.summary}`,
 }
 
 // HOA per-door plan. One product; cadence (monthly vs annual) drives the
@@ -126,7 +130,7 @@ const evictionTiers = [
   },
 ]
 
-const faqs = [
+const allFaqs = [
   {
     q: 'What\'s the six-month free pilot for HOAs?',
     a: 'Every HOA gets six months free to actually use the product. No data migration, no auto-conversion. After six months, we walk through usage, share metrics, and let the board decide. A board that continues moves to the per-door plan above.',
@@ -152,10 +156,13 @@ const faqs = [
     a: 'Dues, violations, documents, accounting and the inbox work for an HOA in any state. The state-law assistant is the state-specific part: it covers Georgia today, and Florida (Chapter 720) is being added now. If you want yours next, get on a demo and tell us.',
   },
   {
+    // Eviction Hub only — dropped below while it is not offered (BL-097).
     q: 'Is eviction legal in v1?',
     a: 'Court-filing templates are Bar A — demo only, watermarked, and not for filing. A Georgia attorney reviews every output and files the real thing. We open Bar B per county only after attorney sign-off.',
   },
 ]
+
+const faqs = OTHER_HUBS_ENABLED ? allFaqs : allFaqs.filter((f) => !/eviction/i.test(f.q))
 
 export default function PricingPage() {
   return (
@@ -172,7 +179,9 @@ export default function PricingPage() {
             One price per door. No tiers, no add-ons.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-muted">
-            HOAs pay per door. Landlords start free. Evictions are per-case.
+            {OTHER_HUBS_ENABLED
+              ? 'HOAs pay per door. Landlords start free. Evictions are per-case.'
+              : 'HOAs pay per door.'}{' '}
             Every workflow is labeled by its quality bar.
           </p>
         </div>
@@ -188,6 +197,9 @@ export default function PricingPage() {
       <RoiCalculator />
 
 
+      {/* BL-097: PM and Eviction pricing hidden while those hubs are not offered. */}
+      {OTHER_HUBS_ENABLED && (
+      <>
       <PricingBlock
         eyebrow="PM Hub"
         title="Free for one. Cheap for a few. Honest for many."
@@ -201,6 +213,8 @@ export default function PricingPage() {
         accent="violet"
         tiers={evictionTiers}
       />
+      </>
+      )}
 
       <section className="py-24 md:py-32" id="faq">
         <div className="container-page">

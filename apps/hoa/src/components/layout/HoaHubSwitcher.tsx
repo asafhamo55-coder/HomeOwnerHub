@@ -1,4 +1,4 @@
-import { HubSwitcher, type Hub } from '@homeowner-portal/ui'
+import { HubSwitcher, OTHER_HUBS_ENABLED, type Hub } from '@homeowner-portal/ui'
 import type { UserHub } from '@/lib/orgs'
 
 interface Props {
@@ -9,6 +9,10 @@ interface Props {
 // without code changes. Each app imports this component and only it knows
 // which hub is "current" — that's set per-app, not per-user.
 export function HoaHubSwitcher({ userHubs }: Props) {
+  // BL-097: PM and Eviction are not offered, so HOA is the only hub and
+  // there is nothing to switch to.
+  if (!OTHER_HUBS_ENABLED) return null
+
   const hubs: Hub[] = [
     {
       type: 'hoa',

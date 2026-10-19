@@ -10,6 +10,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from './DropdownMenu'
+import { OTHER_HUBS_ENABLED } from '../hubs'
 
 export type HubType = 'hoa' | 'eviction' | 'pm'
 
@@ -39,9 +40,14 @@ const ICONS: Record<HubType, React.ComponentType<{ className?: string }>> = {
   pm: Building2,
 }
 
-export function HubSwitcher({ current, hubs }: HubSwitcherProps) {
+export function HubSwitcher({ current, hubs: allHubs }: HubSwitcherProps) {
+  // BL-097: while the other hubs are unavailable, only the current hub is
+  // offered — and a switcher with nothing to switch to is not rendered.
+  const hubs = OTHER_HUBS_ENABLED ? allHubs : allHubs.filter((h) => h.type === current)
   const currentHub = hubs.find((h) => h.type === current)
   const CurrentIcon = ICONS[current]
+
+  if (hubs.length < 2) return null
 
   return (
     <DropdownMenu>

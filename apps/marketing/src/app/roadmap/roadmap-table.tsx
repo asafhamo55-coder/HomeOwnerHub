@@ -5,14 +5,15 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ShieldCheck, AlertCircle, BookOpen } from 'lucide-react'
 import { WORKFLOWS, type Bar, type Hub, type Status } from '@/lib/workflows'
 import { cn } from '@/lib/cn'
+import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
 
 const months = ['M1', 'M2', 'M3', 'M4', 'M5-6', 'M7+'] as const
 
 const monthLabel: Record<(typeof months)[number], string> = {
   M1: 'Month 1 — Pillars',
   M2: 'Month 2 — HOA core',
-  M3: 'Month 3 — PM + financial',
-  M4: 'Month 4 — Eviction + launch',
+  M3: OTHER_HUBS_ENABLED ? 'Month 3 — PM + financial' : 'Month 3 — Financial',
+  M4: OTHER_HUBS_ENABLED ? 'Month 4 — Eviction + launch' : 'Month 4 — Launch',
   'M5-6': 'Months 5–6 — Stabilize',
   'M7+': 'Months 7+ — Scale',
 }
@@ -48,8 +49,13 @@ const hubColor: Record<Hub, string> = {
 const HUB_FILTERS: { value: Hub | 'all'; label: string }[] = [
   { value: 'all', label: 'All hubs' },
   { value: 'HOA', label: 'HOA' },
-  { value: 'PM', label: 'PM' },
-  { value: 'Eviction', label: 'Eviction' },
+  // BL-097: PM and Eviction are not offered right now.
+  ...(OTHER_HUBS_ENABLED
+    ? ([
+        { value: 'PM', label: 'PM' },
+        { value: 'Eviction', label: 'Eviction' },
+      ] as const)
+    : []),
 ]
 
 const BAR_FILTERS: { value: Bar | 'all'; label: string }[] = [

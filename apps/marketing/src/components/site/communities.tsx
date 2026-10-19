@@ -3,11 +3,15 @@
 import { motion } from 'framer-motion'
 import { PHOTOS } from '@/lib/photos'
 import { HomeImage } from './home-image'
+import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
 
 const items = [
   { photo: PHOTOS.suburbanAerial, label: 'Planned communities', sub: '50–800 doors' },
   { photo: PHOTOS.brickHomeManicured, label: 'Self-managed HOAs', sub: 'All-volunteer boards' },
-  { photo: PHOTOS.grayWoodenHouse, label: 'Single-family rentals', sub: 'For 2–50 unit landlords' },
+  // BL-097: the rentals tile sells PM Hub, which is not offered right now.
+  OTHER_HUBS_ENABLED
+    ? { photo: PHOTOS.grayWoodenHouse, label: 'Single-family rentals', sub: 'For 2–50 unit landlords' }
+    : { photo: PHOTOS.grayWoodenHouse, label: 'Single-family neighborhoods', sub: 'Dues, ARC requests, covenants' },
   { photo: PHOTOS.rockingChairsPorch, label: 'The residents you serve', sub: 'Resident portal · Ask the Docs' },
 ]
 

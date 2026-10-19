@@ -2,7 +2,8 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { SHIPPED_HOA_WORKFLOWS, WORKFLOWS } from './workflows'
+import { OTHER_HUBS_ENABLED } from '@homeowner-portal/ui/hubs'
+import { ALL_WORKFLOWS, SHIPPED_HOA_WORKFLOWS, WORKFLOWS } from './workflows'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const hoaApp = path.resolve(here, '../../../hoa/src/app')
@@ -54,6 +55,12 @@ describe('marketing workflow list (BL-042 truth rule)', () => {
   })
 
   it('ids are unique', () => {
-    expect(new Set(WORKFLOWS.map((w) => w.id)).size).toBe(WORKFLOWS.length)
+    expect(new Set(ALL_WORKFLOWS.map((w) => w.id)).size).toBe(ALL_WORKFLOWS.length)
+  })
+
+  it('BL-097: PM and Eviction rows are listed only when those hubs are offered', () => {
+    const other = WORKFLOWS.filter((w) => w.hub === 'PM' || w.hub === 'Eviction')
+    if (OTHER_HUBS_ENABLED) expect(other.length).toBeGreaterThan(0)
+    else expect(other).toEqual([])
   })
 })

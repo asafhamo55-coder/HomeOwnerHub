@@ -2,13 +2,15 @@
 
 import { motion } from 'framer-motion'
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
 
 const problems = [
   'Volunteer board treasurers spending unpaid evenings on paperwork',
   'Violation notices stalled because nobody wants to draft a legal letter',
   'Meeting minutes that take an evening to write, and still miss the decisions',
   'Month-end board reports pieced together by hand from three spreadsheets',
-  'Landlords on Venmo + spreadsheets, missing late rent until it\'s a month behind',
+  // BL-097: the landlord row belongs to PM Hub, which is not offered right now.
+  ...(OTHER_HUBS_ENABLED ? ['Landlords on Venmo + spreadsheets, missing late rent until it\'s a month behind'] : []),
 ]
 
 const solutions = [
@@ -16,7 +18,7 @@ const solutions = [
   { line: 'Violation Drafter writes the letter. The board approves it in one click from Approvals.' },
   { line: 'Paste the meeting transcript and AI drafts board-ready minutes for the board to approve.' },
   { line: 'On the 1st, the board gets a month-end report: cash, dues collected, overdue balances, budget and violations.' },
-  { line: 'PM Hub tracks rent, sends reminders, and flags risk before it hurts.' },
+  ...(OTHER_HUBS_ENABLED ? [{ line: 'PM Hub tracks rent, sends reminders, and flags risk before it hurts.' }] : []),
 ]
 
 export function ProblemSolution() {
@@ -31,9 +33,9 @@ export function ProblemSolution() {
             Volunteer boards spend their evenings on paperwork. That paperwork is what AI is for.
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-muted">
-            HOA boards, landlords, and operators all do the same paperwork — at
-            different stages of the same life cycle. We built one system that
-            handles all of it.
+            {OTHER_HUBS_ENABLED
+              ? 'HOA boards, landlords, and operators all do the same paperwork — at different stages of the same life cycle. We built one system that handles all of it.'
+              : 'Rules, notices, minutes and money — the same paperwork every self-managed board does. We built one system that handles all of it.'}
           </p>
         </div>
 

@@ -1,10 +1,11 @@
 import Link from 'next/link'
 import { Logo, SIGN_IN_URL } from './brand'
+import { isOfferedHref } from '@/lib/hubs'
 
 // Three-column editorial footer. Confidence over density: no padding
 // columns, the manifesto line carries the weight.
 
-const product = [
+const allProduct = [
   { label: 'HOA Hub', href: '/hoa' },
   { label: 'PM Hub', href: '/landlords' },
   { label: 'Eviction Hub', href: '/eviction' },
@@ -12,6 +13,9 @@ const product = [
   { label: 'Compare', href: '/compare' },
   { label: 'Sign in', href: SIGN_IN_URL },
 ]
+
+// BL-097: PM and Eviction are not offered right now.
+const product = allProduct.filter((l) => isOfferedHref(l.href))
 
 const company = [
   { label: 'About', href: '/about' },

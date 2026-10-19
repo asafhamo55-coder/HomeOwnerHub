@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
+import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
 import { Lock } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
@@ -19,6 +21,10 @@ export const metadata: Metadata = {
 const theme = HUBS.eviction
 
 export default function EvictionPage() {
+  // BL-097: this hub is not offered right now. Old links land on the HOA
+  // page instead of a 404; redirect() is temporary (307), not permanent.
+  if (!OTHER_HUBS_ENABLED) redirect('/hoa')
+
   return (
     <main>
       <Nav />

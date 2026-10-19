@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./tokens": "./src/tokens.ts",
+    "./hubs": "./src/hubs.ts",
     "./tailwind.config": "./tailwind.config.ts",
     "./globals.css": "./src/globals.css"
   },
