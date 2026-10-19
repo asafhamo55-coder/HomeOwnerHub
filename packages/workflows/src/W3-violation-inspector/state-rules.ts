@@ -19,11 +19,17 @@
 //        stored text no longer contains (the section was amended) is
 //        dropped, never paraphrased.
 //
-//   CA — Civil Code §§ 5850 / 5855 as amended by AB 130 (2025). The
-//        official site (leginfo.legislature.ca.gov) refused our fetch
-//        (HTTP 403) when this was written, so the rules are encoded from
-//        secondary summaries, carry "verify against the statute" wording,
-//        and quote NOTHING. `textVerified: false` says so to the UI.
+//   CA — Civil Code §§ 5850 / 5855 as amended by AB 130 (Stats. 2025,
+//        ch. 22, effective June 30, 2025). Checked line by line (BL-054)
+//        against the official Legislative Counsel text, recorded in
+//        scripts/fixtures/state-law/ca-civ-davis-stirling-2026.txt (the
+//        leginfo web pages sit behind a bot wall, so the text came from
+//        the same publisher's bulk download; see
+//        docs/research/2026-10-ca-rules-verification.md). Every fragment in
+//        CA_RULE_BASIS is a verbatim substring of that text, enforced by
+//        state-rules.test.ts. Letters still quote NOTHING for CA: no CA
+//        ingestion adapter exists yet (BL-069), so there is no stored
+//        statute body to re-validate a quote against at draft time.
 //
 //   Everything else — generic "verify against your state's statute"
 //        wording, no refusals: we do not pretend to know a law we have not
@@ -57,6 +63,9 @@ export const RequestedActionSchema = z.object({
   hearingHeld: z.boolean().optional(),
   /** The violation has been cured. */
   violationCured: z.boolean().optional(),
+  /** CA § 5855(c)(2): the cure takes longer than the notice period and the
+   *  owner has given a financial commitment to cure it. */
+  financialCommitmentToCure: z.boolean().optional(),
   /** CA: the board made a written health/safety finding at an open meeting. */
   healthSafetyFinding: z.boolean().optional(),
   /** The board wants a late fee or interest charged on the fine. */
@@ -145,8 +154,103 @@ export const FL_720_305_QUOTES: readonly StatuteQuoteSpec[] = [
   },
 ]
 
-const CA_VERIFY =
-  'California rules are summarised from Civil Code §§ 5850 and 5855 as amended by AB 130 (2025). The official text could not be retrieved, so verify against the statute before sending.'
+const CA_CITATION = 'Cal. Civ. Code §§ 5850, 5855'
+const CA_SOURCE_URL = 'https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&sectionNum=5855.'
+
+/**
+ * BL-054: the verbatim official text each California rule below rests on
+ * (Civ. Code as of Stats. 2025, ch. 22 / AB 130). Not quoted in letters —
+ * see the header — but state-rules.test.ts checks every fragment against
+ * the recorded official text, so a rule cannot drift from the statute
+ * without a failing test.
+ */
+export const CA_RULE_BASIS: readonly { rule: string; section: string; pinpoint: string; fragment: string }[] = [
+  {
+    rule: 'hearing notice at least 10 days before the meeting, by personal or individual delivery',
+    section: '5855',
+    pinpoint: '(a)',
+    fragment:
+      'the board shall notify the member in writing, by either personal delivery or individual delivery pursuant to Section 4040, at least 10 days prior to the meeting.',
+  },
+  {
+    rule: 'hearing notice contents; executive session on request',
+    section: '5855',
+    pinpoint: '(b)',
+    fragment:
+      'The notification shall contain, at a minimum, the date, time, and place of the meeting, the nature of the alleged violation for which a member may be disciplined',
+  },
+  {
+    rule: 'hearing notice contents; executive session on request',
+    section: '5855',
+    pinpoint: '(b)',
+    fragment:
+      'a statement that the member has a right to attend and may address the board at the meeting. The board shall meet in executive session if requested by the member.',
+  },
+  {
+    rule: 'cure before the meeting bars discipline',
+    section: '5855',
+    pinpoint: '(c)(1)',
+    fragment: 'The board shall not impose discipline in either of the following circumstances: (1)The member cures the violation prior to the meeting.',
+  },
+  {
+    rule: 'a financial commitment to cure bars discipline when the cure takes longer than the notice period',
+    section: '5855',
+    pinpoint: '(c)(2)',
+    fragment:
+      'If curing the violation would take longer than the time between the notice provided pursuant to subdivision (a) and the meeting, the member provides financial commitment to cure the violation.',
+  },
+  {
+    rule: 'internal dispute resolution after the meeting',
+    section: '5855',
+    pinpoint: '(d)',
+    fragment:
+      'If the board and the member are not in agreement after the meeting, a member shall have the opportunity to request internal dispute resolution pursuant to Section 5910.',
+  },
+  {
+    rule: 'written decision notice within 14 days',
+    section: '5855',
+    pinpoint: '(f)',
+    fragment:
+      'the board shall provide the member with a written notification of the decision, by either personal delivery or individual delivery pursuant to Section 4040, within 14 days following the action.',
+  },
+  {
+    rule: 'discipline is not effective unless § 5855 is followed',
+    section: '5855',
+    pinpoint: '(g)',
+    fragment:
+      'A disciplinary action or the imposition of a monetary charge for damage to the common area shall not be effective against a member unless the board fulfills the requirements of this section.',
+  },
+  {
+    rule: 'penalty schedule in the annual policy statement',
+    section: '5850',
+    pinpoint: '(a)',
+    fragment:
+      'the board shall adopt and distribute to each member, in the annual policy statement prepared pursuant to Section 5310, a schedule of the monetary penalties that may be assessed for those violations',
+  },
+  {
+    rule: 'fine capped at the lesser of the schedule and $100',
+    section: '5850',
+    pinpoint: '(c)',
+    fragment:
+      'A monetary penalty for a violation of the governing documents shall not exceed the lesser of the following: (1)The monetary penalty stated in the schedule of monetary penalties or supplement that is in effect at the time of the violation. (2)One hundred dollars ($100) per violation.',
+  },
+  {
+    rule: 'health or safety exception to the $100 cap',
+    section: '5850',
+    pinpoint: '(d)',
+    fragment:
+      'if the violation may result in an adverse health or safety impact on the common area or another association member’s property. (2)Before imposing a penalty on a violation pursuant to this subdivision, the board shall make a written finding specifying the adverse health or safety impact in a board meeting open to the members.',
+  },
+  {
+    rule: 'no late charge or interest on a fine',
+    section: '5850',
+    pinpoint: '(e)',
+    fragment: 'A late charge or interest shall not be charged to a member for a monetary penalty.',
+  },
+]
+
+const CA_NO_QUOTE_NOTE =
+  'California rules were checked against the official text of Civil Code §§ 5850 and 5855 (as amended by AB 130, 2025). Letters do not quote the statute yet: HomeownerHub does not store the California text.'
 
 const FLORIDA: Omit<StateRuleSet, 'state'> = {
   jurisdiction: 'FL',
@@ -177,9 +281,9 @@ const FLORIDA: Omit<StateRuleSet, 'state'> = {
 const CALIFORNIA: Omit<StateRuleSet, 'state'> = {
   jurisdiction: 'CA',
   title: 'California — Civ. Code §§ 5850, 5855 (AB 130)',
-  citation: 'Cal. Civ. Code §§ 5850, 5855',
-  sourceUrl: 'https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&sectionNum=5850.',
-  textVerified: false,
+  citation: CA_CITATION,
+  sourceUrl: CA_SOURCE_URL,
+  textVerified: true,
   hearingNoticeDays: 10,
   hearingRequiredBeforeFine: true,
   cureBarsFine: true,
@@ -187,15 +291,17 @@ const CALIFORNIA: Omit<StateRuleSet, 'state'> = {
   fineCapOverride: 'health_safety_finding',
   lateFeesOnFinesForbidden: true,
   summary: [
-    'Before imposing discipline, the board gives written notice at least 10 days before the meeting where it will be considered, with a chance to be heard (§ 5855).',
-    'A fine may not exceed $100 per violation, unless the board makes a written finding at an open meeting that the violation may adversely affect health or safety (§ 5850, AB 130).',
-    'No late fees or interest may be charged on a fine (AB 130).',
-    'If the owner cures the violation before the hearing, no fine may be imposed (AB 130).',
+    'Before imposing discipline, the board notifies the owner in writing, by personal delivery or individual delivery (§ 4040), at least 10 days before the meeting (§ 5855(a)).',
+    'The notice gives the date, time and place of the meeting, the nature of the alleged violation, and says the owner may attend and address the board. The board meets in executive session if the owner asks (§ 5855(b)).',
+    'No discipline if the owner cures the violation before the meeting, or, when the cure takes longer than the notice period, gives a financial commitment to cure it (§ 5855(c)).',
+    'A fine may not exceed the lesser of the penalty schedule in effect at the time of the violation and $100 per violation. Above $100 is allowed only if the violation may have an adverse health or safety impact on the common area or another member’s property, and the board first makes a written finding saying so at a board meeting open to members (§ 5850(c)–(d)).',
+    'No late charge or interest may be charged on a fine (§ 5850(e)).',
+    'After the meeting, the board sends its written decision by personal or individual delivery within 14 days. If the owner and board disagree, the owner may request internal dispute resolution (§§ 5855(d), (f), 5910). Discipline is not effective unless § 5855 is followed (§ 5855(g)).',
   ],
   noticeLanguage:
-    'California law (Civil Code §§ 5850 and 5855, as amended by AB 130) applies to this notice. Before the board imposes a fine or other discipline, you will receive written notice at least 10 days before the board meeting at which it will be considered, and you may be heard. If you cure the violation before that hearing, no fine may be imposed. A fine may not exceed $100 per violation unless the board makes a written finding that the violation may adversely affect health or safety. The association may not charge late fees or interest on a fine. Board: verify against the statute before sending.',
+    'California law (Civil Code §§ 5850 and 5855, as amended by AB 130) applies to this notice. Before the board imposes a fine or other discipline, you will receive written notice, by personal delivery or individual delivery, at least 10 days before the board meeting at which it will be considered. You may attend and address the board, and the board will meet in executive session if you ask. No discipline may be imposed if you cure the violation before that meeting or, if the cure will take longer, you provide a financial commitment to cure it. A fine may not exceed the association’s published penalty schedule or $100 per violation, whichever is less, unless the board makes a written finding at an open board meeting that the violation may have an adverse health or safety impact on the common area or another member’s property. The association may not charge late fees or interest on a fine. If the board imposes discipline, it will send you its written decision within 14 days, and you may request internal dispute resolution if you disagree.',
   quotes: [],
-  verifyNote: CA_VERIFY,
+  verifyNote: null,
 }
 
 function genericRules(state: string | null): StateRuleSet {
@@ -308,31 +414,45 @@ export function evaluateRequestedAction(
       )
     }
   } else if (rules.jurisdiction === 'CA') {
-    const verify = ' Verify against the statute.'
     if (isPenalty(action.step) && action.hearingHeld !== true) {
       refusals.push(
-        `California law (Civ. Code § 5855) requires written notice at least 10 days before the board meeting and a chance to be heard before a ${penalty} is imposed. Draft a hearing notice instead.${verify}`,
+        `California law (Civ. Code § 5855(a), (g)) requires written notice, by personal or individual delivery, at least 10 days before the board meeting where the owner may address the board, before a ${penalty} is imposed. Draft a hearing notice instead.`,
       )
     }
     if (isPenalty(action.step) && action.violationCured === true) {
       refusals.push(
-        `California law (AB 130) forbids a ${penalty} when the violation was cured before the hearing.${verify}`,
+        `California law (Civ. Code § 5855(c)(1)) forbids a ${penalty} when the violation was cured before the meeting.`,
+      )
+    }
+    if (isPenalty(action.step) && action.violationCured !== true && action.financialCommitmentToCure === true) {
+      refusals.push(
+        `California law (Civ. Code § 5855(c)(2)) forbids a ${penalty} when the cure takes longer than the notice period and the owner has given a financial commitment to cure.`,
       )
     }
     if (action.step === 'hearing_notice' && action.hearingNoticeDays !== undefined && action.hearingNoticeDays < 10) {
       refusals.push(
-        `California law (Civ. Code § 5855) requires the hearing notice at least 10 days before the meeting; ${action.hearingNoticeDays} days was requested.${verify}`,
+        `California law (Civ. Code § 5855(a)) requires the hearing notice at least 10 days before the meeting; ${action.hearingNoticeDays} days was requested.`,
       )
     }
     if (fine !== undefined && fine > 10_000 && action.healthSafetyFinding !== true) {
       refusals.push(
-        `California law (Civ. Code § 5850, AB 130) caps a fine at $100 per violation; ${dollars(fine)} was requested and the board has not made a written health or safety finding at an open meeting.${verify}`,
+        `California law (Civ. Code § 5850(c)–(d)) caps a fine at $100 per violation; ${dollars(fine)} was requested and the board has not made a written finding, at a board meeting open to members, of an adverse health or safety impact on the common area or another member’s property.`,
+      )
+    }
+    if (fine !== undefined && fine > 0) {
+      warnings.push(
+        `A California fine may not exceed the penalty stated in the schedule (or supplement) in effect at the time of the violation (Civ. Code § 5850(c)(1), (d)(1)). Confirm ${dollars(fine)} is on your published schedule.`,
       )
     }
     if (action.lateFeeOrInterestOnFine === true) {
-      refusals.push(`California law (AB 130) forbids late fees or interest on a fine.${verify}`)
+      refusals.push('California law (Civ. Code § 5850(e)) forbids late fees or interest on a fine.')
     }
-    warnings.push(CA_VERIFY)
+    if (isPenalty(action.step)) {
+      warnings.push(
+        'California law (Civ. Code § 5855(f)) requires the written decision to reach the owner by personal or individual delivery within 14 days after the board acts.',
+      )
+    }
+    warnings.push(CA_NO_QUOTE_NOTE)
   } else {
     warnings.push(rules.verifyNote ?? "Verify against your state's statute.")
   }
@@ -424,7 +544,10 @@ function stepLanguage(rules: StateRuleSet, step: RequestedStep): string | null {
     return 'The committee approved this fine at the hearing. Payment is due on [DATE — at least 30 days after delivery of this notice].'
   }
   if (rules.jurisdiction === 'CA' && step === 'hearing_notice') {
-    return 'Hearing: [BOARD MEETING DATE — at least 10 days after this notice], [LOCATION]. You may attend and be heard.'
+    return 'Hearing: [BOARD MEETING DATE — at least 10 days after this notice is delivered], [TIME], [PLACE]. Alleged violation: [NATURE OF THE VIOLATION]. You have the right to attend and may address the board at the meeting, and the board will meet in executive session if you ask. [BOARD: deliver this notice by personal delivery or individual delivery — Civ. Code §§ 4040, 5855(a).]'
+  }
+  if (rules.jurisdiction === 'CA' && (step === 'impose_fine' || step === 'impose_suspension')) {
+    return 'The board decided this at its meeting on [MEETING DATE]. [BOARD: deliver this decision by personal delivery or individual delivery within 14 days after that meeting — Civ. Code § 5855(f).] If you disagree with the decision, you may request internal dispute resolution (Civ. Code § 5910).'
   }
   return null
 }

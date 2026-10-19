@@ -670,9 +670,11 @@ These go beyond the design-system v2 pass:
   1000 rows; invoice detail can miss its payment entry (`accounting/queries.ts:1044`); payment-plans
   list filtered by a capped unit list; platform-admin metrics; recurring-events cron worklist
   `.limit(1000)`; delete the unused `getDashboardStats`.
-- **BL-054 Verify CA violation rules against official text** (from BL-019): leginfo blocked fetches;
-  §5850/§5855/AB 130 rules come from secondary sources. CA letters say "verify" and quote nothing
-  until this is done (needs a CA ingestion adapter).
+- **BL-054 Verify CA violation rules against official text — Done (2026-10-19)** (from BL-019): checked against
+  the official Legislative Counsel text from the leginfo bulk download (the web pages are still
+  Cloudflare-blocked). Corrections: § 5855(c)(2) financial commitment to cure, the § 5855(b) notice
+  contents, the § 5855(f) 14-day decision notice, the § 5850(c) schedule cap, and citations. See
+  docs/research/2026-10-ca-rules-verification.md. CA letters still quote nothing until BL-069 ingests the CA text.
 
 ## Added 2026-10-16 (cycle 5)
 
@@ -776,11 +778,11 @@ These go beyond the design-system v2 pass:
     - The refresh job runs weekly (Mondays 03:00 ET) and also on `law/refresh.requested`.
     - Only FL has an official-source adapter.
     - Changes are diffed by `content_hash`, then `law/statute.changed` is emitted, with an outbox for retries.
-    - CA rules come from secondary sources (BL-054). GA and TX have no adapter.
+    - CA rules are checked against official text (BL-054), but no CA text is ingested yet. GA and TX have no adapter.
     - In prod, FL has 0 rows because the first refresh has never been triggered.
   - **What:**
     - **Monthly full sync:** once a month (1st, 04:00 ET) the system checks every supported state.
-      - **Statute text** comes from official sources: FL Legislature (ch. 720/718), CA leginfo (Civ. Code §4000–6150; needs a fetch path that isn't blocked, per BL-054), GA Title 44 ch. 3, TX Prop. Code ch. 202/209.
+      - **Statute text** comes from official sources: FL Legislature (ch. 720/718), CA leginfo (Civ. Code §4000–6150; the web pages are blocked, so use the `downloads.leginfo.legislature.ca.gov/pubinfo_<year>.zip` bulk data with range reads, per BL-054), GA Title 44 ch. 3, TX Prop. Code ch. 202/209.
       - **Bills** come from legislative APIs:
         - **Open States / Plural** (free API key) and/or **LegiScan** (free tier, about 30k queries a month).
         - It watches HOA and condo bills (keywords plus the chapters above) through every status: introduced, passed, signed, effective date.

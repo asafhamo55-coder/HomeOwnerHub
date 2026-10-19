@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parseFloridaChapter } from '../W30-state-law-brain/sources/florida'
 import {
+  CA_RULE_BASIS,
   FL_720_305_QUOTES,
   StatuteRuleRefusalError,
   applyStateRulesToDraft,
@@ -26,6 +27,56 @@ const FL_720_305 = parseFloridaChapter(FIXTURE, 2026).find(
   (r) => r.code_citation === 'Fla. Stat. § 720.305',
 )!.body
 
+/**
+ * BL-054: the official California Civil Code text (Legislative Counsel bulk
+ * data, recorded 2026-10-19). Whitespace is folded so a fragment may span
+ * a subdivision break.
+ */
+const CA_FIXTURE = readFileSync(
+  resolve(__dirname, '../../../../scripts/fixtures/state-law/ca-civ-davis-stirling-2026.txt'),
+  'utf8',
+)
+function caSection(section: string): string {
+  const start = CA_FIXTURE.indexOf(`=== Civ. Code § ${section}.  [`)
+  if (start < 0) throw new Error(`fixture lacks § ${section}`)
+  const next = CA_FIXTURE.indexOf('\n=== ', start + 1)
+  return CA_FIXTURE.slice(start, next < 0 ? undefined : next).replace(/\s+/g, ' ')
+}
+
+describe('California rules — checked against the official Civil Code text (BL-054)', () => {
+  it('the fixture is the AB 130 version of §§ 5850 and 5855', () => {
+    expect(caSection('5850')).toContain('Amended by Stats. 2025, Ch. 22, Sec. 3. (AB 130) Effective June 30, 2025.')
+    expect(caSection('5855')).toContain('Amended by Stats. 2025, Ch. 22, Sec. 4. (AB 130) Effective June 30, 2025.')
+  })
+
+  it('every CA rule basis fragment is verbatim in its official section', () => {
+    expect(CA_RULE_BASIS.length).toBeGreaterThanOrEqual(10)
+    for (const b of CA_RULE_BASIS) {
+      expect(caSection(b.section), `${b.section}${b.pinpoint}: ${b.rule}`).toContain(b.fragment)
+    }
+  })
+
+  it('the encoded numbers match the official text', () => {
+    const ca = selectStateRules('CA')
+    expect(ca.hearingNoticeDays).toBe(10)
+    expect(caSection('5855')).toContain('at least 10 days prior to the meeting')
+    expect(ca.fineCapCents).toBe(10_000)
+    expect(caSection('5850')).toContain('One hundred dollars ($100) per violation.')
+    expect(caSection('5855')).toContain('within 14 days following the action')
+    expect(ca.summary.join(' ')).toMatch(/within 14 days/)
+  })
+
+  it('the delivery rules the CA notices lean on are the operative §§ 4040/4041 text', () => {
+    // § 4040 as operative 1 Jan 2023: individual delivery follows the
+    // member's preferred method under § 4041, else first-class mail etc.
+    expect(caSection('4040')).toContain(
+      'the association shall deliver that document in accordance with the preferred delivery method specified by the member pursuant to Section 4041.',
+    )
+    expect(caSection('4040')).toContain('the association shall deliver the document by first-class mail')
+    expect(caSection('4041')).toContain('Notification that the member does not have to provide an email address to the association.')
+  })
+})
+
 describe('selectStateRules — rule selection by state', () => {
   it('picks the Florida rule set for FL in any common spelling', () => {
     for (const s of ['FL', 'fl', ' Fl ', 'Florida', 'FLORIDA']) {
@@ -39,7 +90,7 @@ describe('selectStateRules — rule selection by state', () => {
     }
   })
 
-  it('picks the California rule set for CA, marked as not verified against official text', () => {
+  it('picks the California rule set for CA, verified against official text but quoting nothing', () => {
     for (const s of ['CA', 'ca', 'California']) {
       const r = selectStateRules(s)
       expect(r.jurisdiction).toBe('CA')
@@ -47,11 +98,12 @@ describe('selectStateRules — rule selection by state', () => {
       expect(r.fineCapCents).toBe(10_000)
       expect(r.fineCapOverride).toBe('health_safety_finding')
       expect(r.lateFeesOnFinesForbidden).toBe(true)
-      expect(r.textVerified).toBe(false)
-      // No verbatim quote is ever offered for CA: the official text could
-      // not be fetched, so there is nothing to validate a quote against.
+      expect(r.textVerified).toBe(true)
+      // No CA statute text is ingested yet (BL-069), so there is nothing to
+      // re-validate a quote against at draft time: no quote is offered.
       expect(r.quotes).toEqual([])
-      expect(r.verifyNote).toMatch(/verify against the statute/i)
+      expect(r.verifyNote).toBeNull()
+      expect(r.noticeLanguage).not.toMatch(/verify against the statute/i)
     }
   })
 
@@ -133,7 +185,28 @@ describe('evaluateRequestedAction — refusal cases', () => {
     expect(refusals).toHaveLength(1)
     expect(refusals[0]).toMatch(/\$100/)
     expect(refusals[0]).toMatch(/health or safety/i)
-    expect(refusals[0]).toMatch(/verify against the statute/i)
+    expect(refusals[0]).toMatch(/5850\(c\)/)
+  })
+
+  it('CA: refuses discipline when the owner gave a financial commitment to cure (§ 5855(c)(2))', () => {
+    const { refusals } = evaluateRequestedAction(ca, {
+      step: 'impose_suspension',
+      hearingHeld: true,
+      financialCommitmentToCure: true,
+    })
+    expect(refusals).toHaveLength(1)
+    expect(refusals[0]).toMatch(/5855\(c\)\(2\)/)
+    expect(refusals[0]).toMatch(/financial commitment/)
+  })
+
+  it('CA: a lawful fine still warns about the penalty schedule and the 14-day decision notice', () => {
+    const res = evaluateRequestedAction(ca, { step: 'impose_fine', hearingHeld: true, fineAmountCents: 5000 })
+    expect(res.refusals).toEqual([])
+    const w = res.warnings.join(' ')
+    expect(w).toMatch(/schedule/)
+    expect(w).toMatch(/5855\(f\)/)
+    expect(w).toMatch(/14 days/)
+    expect(w).not.toMatch(/could not be retrieved/)
   })
 
   it('CA: allows a fine above $100 when the board made a health/safety finding', () => {
@@ -268,7 +341,7 @@ describe('applyStateRulesToDraft — notice language present', () => {
     expect(out.stateRules.warnings.join(' ')).toMatch(/verify against the statute/i)
   })
 
-  it('CA: appends 10-day notice, $100 cap and no-late-fee language, with verify wording and no quote', () => {
+  it('CA: appends 10-day notice, $100 cap, cure and no-late-fee language, with no quote', () => {
     const out = applyStateRulesToDraft({
       rules: selectStateRules('CA'),
       requestedAction: undefined,
@@ -279,8 +352,11 @@ describe('applyStateRulesToDraft — notice language present', () => {
     expect(out.notice).toMatch(/at least 10 days/)
     expect(out.notice).toMatch(/\$100/)
     expect(out.notice).toMatch(/late fees or interest/i)
-    expect(out.notice).toMatch(/verify against the statute/i)
+    expect(out.notice).toMatch(/financial commitment to cure/)
+    expect(out.notice).toMatch(/executive session/)
+    expect(out.notice).not.toMatch(/verify against the statute/i)
     expect(out.notice).not.toContain('“')
+    expect(out.stateRules.textVerified).toBe(true)
     // Recommended fine clamped to the cap: there is no health/safety finding.
     expect(out.recommendedFineAmountCents).toBe(10_000)
   })
@@ -294,6 +370,22 @@ describe('applyStateRulesToDraft — notice language present', () => {
       recommendedFineAmountCents: 25_000,
     })
     expect(out.recommendedFineAmountCents).toBe(25_000)
+    expect(out.notice).toMatch(/within 14 days/)
+    expect(out.notice).toMatch(/internal dispute resolution/)
+  })
+
+  it('CA: a hearing notice carries the § 5855(b) contents and the delivery reminder', () => {
+    const out = applyStateRulesToDraft({
+      rules: selectStateRules('CA'),
+      requestedAction: { step: 'hearing_notice', hearingNoticeDays: 10 },
+      modelNotice,
+      statuteText: null,
+      recommendedFineAmountCents: 0,
+    })
+    expect(out.notice).toMatch(/\[TIME\], \[PLACE\]/)
+    expect(out.notice).toMatch(/NATURE OF THE VIOLATION/)
+    expect(out.notice).toMatch(/may address the board/)
+    expect(out.notice).toMatch(/personal delivery or individual delivery/)
   })
 
   it('other states: appends generic verify-against-your-statute wording', () => {

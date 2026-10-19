@@ -13,8 +13,16 @@
  *     approved at a properly noticed board meeting.
  *   - § 720.306(1)(a): quorum is 30% of the voting interests unless the
  *     bylaws set a lower number.
- * California could not be checked against the official text (leginfo
- * refused our fetch, as for W3), so it carries "verify" wording.
+ * California wording was checked (BL-054) against the official Civil Code
+ * text recorded in scripts/fixtures/state-law/ca-civ-davis-stirling-2026.txt
+ * (see docs/research/2026-10-ca-rules-verification.md):
+ *   - § 5200(a)(9): membership lists are association records, "not
+ *     including information for members who have opted out pursuant to
+ *     Section 5220"; § 5220: a member may opt out of sharing their name,
+ *     property address, email address and mailing address.
+ *   - § 5105(h)(1): election rules must prohibit denying a ballot to a
+ *     member for any reason other than not being a member when ballots are
+ *     distributed — so there is no vote suspension for unpaid assessments.
  */
 
 export interface LawNote {
@@ -46,10 +54,10 @@ export function ownerRosterLaw(state: string | null): LawNote | null {
       return {
         state: 'CA',
         title: 'California — Civ. Code § 5200 et seq.',
-        verified: false,
+        verified: true,
         lines: [
-          'The Davis-Stirling records rules (Civ. Code § 5200 et seq.) treat the membership list as an association record a member may request, and § 5220 lets a member opt out of having their information shared.',
-          'We could not check these sections against the official text, so confirm them before you release a list.',
+          'The Davis-Stirling records rules (Civ. Code § 5200 et seq.) treat the membership list — name, property address, mailing address and email address — as an association record a member may request (§ 5200(a)(9)).',
+          '§ 5220 lets a member opt out of having their name, property address, email address and mailing address shared. Leave opted-out members off a copy you release to a member.',
         ],
       }
     default:
@@ -74,10 +82,10 @@ export function voterListLaw(state: string | null): LawNote | null {
       return {
         state: 'CA',
         title: 'California — Civ. Code § 5100 et seq.',
-        verified: false,
+        verified: true,
         lines: [
           'No homes are flagged for late dues. California’s election rules (Civ. Code § 5100 et seq.) do not provide for suspending a member’s vote over unpaid assessments the way Florida’s § 720.305(4) does, so a past-due balance is shown for information only.',
-          'We could not check these sections against the official text, so confirm them before the meeting.',
+          '§ 5105(h)(1) requires the election rules to prohibit denying a ballot to a member for any reason other than not being a member when ballots are distributed.',
         ],
       }
     default:

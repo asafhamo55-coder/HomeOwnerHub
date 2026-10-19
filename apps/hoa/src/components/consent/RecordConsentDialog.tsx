@@ -9,7 +9,7 @@ import { recordMemberEmailConsent, type BoardConsentMethod } from '@/lib/email-c
 /**
  * BL-020: the board records consent to official notices by email that a
  * member gave outside the portal — a signed form or an email from them
- * (CA Civ. Code §4040(b)) — or their withdrawal of it. Appends one
+ * (CA Civ. Code §§4040(a), 4041) — or their withdrawal of it. Appends one
  * evidence row; nothing is ever edited. Board/admin only: the action
  * gates, and callers render this only for the board.
  */

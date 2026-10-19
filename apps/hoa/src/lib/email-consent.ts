@@ -1,7 +1,11 @@
 /**
  * BL-020: per-member consent to receive official association notices by
- * email (California Civ. Code §4040(b): delivery by email needs the
- * member's consent, which they can revoke).
+ * email. California Civ. Code §4040(a) (operative 2023) sends individual
+ * notices by the member's preferred delivery method under §4041 — email
+ * only if the member chose it — and otherwise by first-class mail; §4041(b)
+ * lets the member change that choice at any time. (Checked against the
+ * official text in BL-054; §4040(b) is about secondary addresses, not
+ * consent.)
  *
  * Evidence lives in member_email_consent_events (migration 0064): one
  * append-only row per grant or revoke; the newest row per member is their
