@@ -296,6 +296,56 @@ describe('approveViolationDraftWith — follow-up letter for an existing violati
   })
 })
 
+function unsavedFollowUpRun() {
+  return run({
+    input: { ...followUpRun().input, followUp: { violationId: VIOLATION, letterKind: 'hearing_notice', awaitingSave: true } },
+  })
+}
+
+describe('a follow-up letter the board has not saved yet', () => {
+  it('cannot be approved: nothing is claimed or filed', async () => {
+    const { db, calls } = fakeSupabase({ ai_runs: [{ data: unsavedFollowUpRun(), error: null }] })
+    const r = await approveViolationDraftWith(db as unknown as DraftDb, { orgId: ORG, runId: RUN, userId: USER })
+    expect(r).toEqual({ ok: false, error: 'Save this letter to Approvals before approving it.' })
+    expect(payloadOf(calls, 'ai_runs', 'update')).toBeUndefined()
+    expect(calls.some((c) => c.table === 'hoa_violations')).toBe(false)
+  })
+
+  it('"Save to approvals" with the letter unchanged still writes: it drops the flag, keeps the rest', async () => {
+    const { db, calls } = fakeSupabase({
+      ai_runs: [
+        { data: unsavedFollowUpRun(), error: null },
+        { data: [{ id: RUN }], error: null },
+      ],
+    })
+    const r = await saveViolationDraftEditsWith(db as unknown as DraftDb, { orgId: ORG, runId: RUN, notice: NOTICE })
+    expect(r).toEqual({ ok: true })
+    const update = payloadOf(calls, 'ai_runs', 'update')!
+    expect(update.input).toEqual(followUpRun().input)
+    expect(update.output).toEqual(followUpRun().output)
+    expect(calls[1].ops).toContainEqual(['eq', ['status', 'pending_human_approval']])
+  })
+
+  it('"Save to approvals" with an edited letter saves the edit and drops the flag in one write', async () => {
+    const EDITED = 'Dear homeowner, the board will hear this violation on [DATE].'
+    const { db, calls } = fakeSupabase({
+      ai_runs: [
+        { data: unsavedFollowUpRun(), error: null },
+        { data: [{ id: RUN }], error: null },
+      ],
+    })
+    expect(await saveViolationDraftEditsWith(db as unknown as DraftDb, { orgId: ORG, runId: RUN, notice: EDITED })).toEqual({ ok: true })
+    const update = payloadOf(calls, 'ai_runs', 'update')!
+    expect(update.output).toMatchObject({ notice: EDITED, draftNotice: NOTICE })
+    expect((update.input as { followUp: Record<string, unknown> }).followUp).toEqual({ violationId: VIOLATION, letterKind: 'hearing_notice' })
+  })
+
+  it('can still be discarded (rejected) from the dialog', async () => {
+    const { db } = fakeSupabase({ ai_runs: [{ data: [{ id: RUN }], error: null }] })
+    expect(await rejectViolationDraftWith(db as unknown as DraftDb, { orgId: ORG, runId: RUN, userId: USER, reason: 'Discarded' })).toEqual({ ok: true })
+  })
+})
+
 describe('saveViolationDraftEditsWith', () => {
   const EDITED = 'Dear homeowner, the board will hear this violation on [DATE].'
 

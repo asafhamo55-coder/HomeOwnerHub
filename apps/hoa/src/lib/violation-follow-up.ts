@@ -190,8 +190,36 @@ export function readStatuteRefusal(body: unknown): StatuteRefusal | null {
 export const FollowUpRunSchema = z.object({
   violationId: z.string().uuid(),
   letterKind: FollowUpLetterKindSchema.optional(),
+  /** Set by the draft route on a dialog draft (one with `letterKind`) and
+   *  removed when the board selects "Save to approvals". Until then the
+   *  draft is the board's private working copy: every Approvals read and
+   *  the violation page's letter list skip it, and it cannot be approved.
+   *  A draft the board closes without saving stays hidden for good. No
+   *  migration: the flag lives in ai_runs.input, a JSON column. */
+  awaitingSave: z.literal(true).optional(),
 })
 export type FollowUpRun = z.infer<typeof FollowUpRunSchema>
+
+/**
+ * The PostgREST path of the flag above. Reads that list drafts for the
+ * board filter `.is(FOLLOW_UP_AWAITING_SAVE_PATH, null)`: new-violation
+ * drafts (no followUp), saved follow-ups and follow-ups drafted before the
+ * flag existed all read null, so only unsaved dialog drafts drop out.
+ */
+export const FOLLOW_UP_AWAITING_SAVE_PATH = 'input->followUp->>awaitingSave'
+
+/** True when a W3 run's input is a follow-up draft the board has not saved yet. */
+export function isFollowUpAwaitingSave(input: unknown): boolean {
+  return obj(obj(input).followUp).awaitingSave === true
+}
+
+/** The run input with the awaiting-save flag removed (what "Save to approvals" writes). */
+export function withFollowUpSaved(input: unknown): Record<string, unknown> {
+  const i = obj(input)
+  const { awaitingSave: _drop, ...followUp } = obj(i.followUp)
+  void _drop
+  return { ...i, followUp }
+}
 
 /** The follow-up a W3 run's input carries, or null for a new-violation draft. */
 export function followUpOfRunInput(input: unknown): FollowUpRun | null {

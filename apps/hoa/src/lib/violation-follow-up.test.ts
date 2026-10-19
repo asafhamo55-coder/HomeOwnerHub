@@ -3,7 +3,9 @@ import {
   buildFollowUpDraftRequest,
   followUpLabel,
   followUpOfRunInput,
+  isFollowUpAwaitingSave,
   readFollowUpDraft,
+  withFollowUpSaved,
   readStatuteRefusal,
   stepForLetter,
   type FollowUpViolation,
@@ -111,5 +113,23 @@ describe('followUpOfRunInput', () => {
     expect(followUpOfRunInput({ followUp: { violationId: 'not-a-uuid' } })).toBeNull()
     expect(followUpLabel({ violationId: V.id })).toBe('Follow-up letter')
     expect(followUpLabel({ violationId: V.id, letterKind: 'decision_letter' })).toBe('Decision letter')
+  })
+})
+
+describe('awaiting save (dialog drafts kept out of Approvals until saved)', () => {
+  const input = { unitId: V.unitId, followUp: { violationId: V.id, letterKind: 'second_notice', awaitingSave: true } }
+
+  it('reads the flag, and only a literal true counts', () => {
+    expect(isFollowUpAwaitingSave(input)).toBe(true)
+    expect(followUpOfRunInput(input)).toEqual({ violationId: V.id, letterKind: 'second_notice', awaitingSave: true })
+    expect(isFollowUpAwaitingSave({ followUp: { violationId: V.id } })).toBe(false)
+    expect(isFollowUpAwaitingSave({ followUp: { violationId: V.id, awaitingSave: 'true' } })).toBe(false)
+    expect(isFollowUpAwaitingSave({ unitId: V.unitId })).toBe(false)
+    expect(isFollowUpAwaitingSave(null)).toBe(false)
+  })
+
+  it('saving drops only the flag', () => {
+    expect(withFollowUpSaved(input)).toEqual({ unitId: V.unitId, followUp: { violationId: V.id, letterKind: 'second_notice' } })
+    expect(isFollowUpAwaitingSave(withFollowUpSaved(input))).toBe(false)
   })
 })

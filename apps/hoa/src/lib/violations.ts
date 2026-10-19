@@ -209,8 +209,11 @@ export async function saveViolationDraftEdits(
   const supabase = await getSupabaseServerClient()
   const result = await saveViolationDraftEditsWith(supabase, { orgId: gate.orgId, runId, notice })
   if (result.ok) {
+    // A saved follow-up letter now shows in Approvals (and its badge).
+    revalidatePath('/approvals')
     revalidatePath('/violations/approval-queue')
     revalidatePath('/violations/[id]', 'page')
+    revalidatePath('/')
   }
   return result
 }

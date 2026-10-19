@@ -7,14 +7,16 @@
 //              person with several logins) cannot run the bill up.
 //
 // Board-only AI routes (the W37 board review, violation drafting, digests,
-// parse/suggest) are not listed, except the BL-025 translation below: they sit behind requireRouteBoardOrAdmin and
-// are not limited here.
+// parse/suggest) are not listed, except the BL-025 translation and the
+// follow-up letters below: they sit behind requireRouteBoardOrAdmin and
+// are not limited here. Violation drafting from the wizard and the /inspect
+// offline queue stays unlimited; only follow-up letters draw on a bucket.
 //
 // The mechanism (lib/api/rate-limit.ts) counts rows in audit_log with
 // action `ai.usage.<bucket>`. Changing a number here takes effect on the next
 // request; no migration, no cache.
 
-export type AiUsageBucket = 'arc_precheck' | 'ask_docs' | 'help_ask' | 'rewrite' | 'translate'
+export type AiUsageBucket = 'arc_precheck' | 'ask_docs' | 'help_ask' | 'rewrite' | 'translate' | 'follow_up_letter'
 
 export interface RateWindow {
   /** Max calls inside the window. */
@@ -69,6 +71,15 @@ export const AI_RATE_LIMITS: Record<AiUsageBucket, AiRateLimit> = {
     perUser: { limit: 20, windowMs: HOUR_MS },
     perOrg: { limit: 200, windowMs: DAY_MS },
     noun: 'translations',
+  },
+  // POST /api/ai/violations/draft with `letterKind` — the violation page's
+  // "Draft follow-up letter". Board-only; a board drafts a handful of letters
+  // per violation, so these are generous ceilings against a runaway loop.
+  // New-violation drafts (wizard, /inspect queue) are not limited.
+  follow_up_letter: {
+    perUser: { limit: 30, windowMs: HOUR_MS },
+    perOrg: { limit: 300, windowMs: DAY_MS },
+    noun: 'follow-up letter drafts',
   },
 }
 

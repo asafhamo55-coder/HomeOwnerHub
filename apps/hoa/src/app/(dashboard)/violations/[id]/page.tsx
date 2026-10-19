@@ -27,7 +27,7 @@ import { ViolationStatusEditor } from './ViolationStatusEditor'
 import { ViolationActions } from './ViolationActions'
 import { CureCommitmentCard } from './CureCommitmentCard'
 import { FollowUpLetterDialog } from './FollowUpLetterDialog'
-import { followUpLabel, followUpOfRunInput } from '@/lib/violation-follow-up'
+import { FOLLOW_UP_AWAITING_SAVE_PATH, followUpLabel, followUpOfRunInput } from '@/lib/violation-follow-up'
 import { getCurrentOrg } from '@/lib/orgs'
 import {
   cureCommitmentApplies,
@@ -170,6 +170,8 @@ export default async function ViolationDetailPage({
           .eq('organization_id' as never, org.id)
           .eq('workflow_id' as never, 'W3')
           .eq('input->followUp->>violationId' as never, v.id)
+          // Unsaved dialog drafts are the board's working copy, not letters.
+          .is(FOLLOW_UP_AWAITING_SAVE_PATH as never, null)
           .order('created_at' as never, { ascending: false })
           .range(0, 49),
       )
@@ -326,8 +328,8 @@ export default async function ViolationDetailPage({
             >
               <CardTitle as="h2">Follow-up letters</CardTitle>
               <CardDescription>
-                Second notices, hearing notices, fine notices and decision letters. Each waits in Approvals until the
-                board approves it. Nothing is sent to the homeowner.
+                Second notices, hearing notices, fine notices and decision letters. A letter you save waits in Approvals
+                until the board approves it. Nothing is sent to the homeowner.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">

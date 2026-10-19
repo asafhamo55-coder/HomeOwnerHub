@@ -17,7 +17,10 @@
 //            `followUp`, from the violation page) is approved on the run
 //            only: no new violation, the existing one untouched.
 // Edit     → saveViolationDraftEditsWith rewrites a still-pending draft's
-//            letter (the violation page's review step).
+//            letter (the violation page's review step). It is also "Save
+//            to approvals": a follow-up drafted in the dialog carries
+//            followUp.awaitingSave and is hidden from Approvals (and
+//            cannot be approved) until this save removes the flag.
 // Reject   → claim the run as not approved, keeping the board's reason in
 //            ai_runs.human_feedback (the W3 acceptance metrics read
 //            human_approved / human_feedback).
@@ -32,7 +35,13 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import { asUnitId, resolvePropertyForUnit } from '@/lib/properties/resolve'
 import { orgPhotoPaths } from '@/lib/violation-photo-paths'
-import { FOLLOW_UP_NOTICE_MAX, FOLLOW_UP_NOTICE_MIN, followUpOfRunInput } from '@/lib/violation-follow-up'
+import {
+  FOLLOW_UP_NOTICE_MAX,
+  FOLLOW_UP_NOTICE_MIN,
+  followUpOfRunInput,
+  isFollowUpAwaitingSave,
+  withFollowUpSaved,
+} from '@/lib/violation-follow-up'
 
 export type DraftDb = SupabaseClient<Database>
 
@@ -99,6 +108,7 @@ export async function approveViolationDraftWith(
   // the letter of record for that step — and opens no new violation. The
   // violation must still exist, or the letter would be filed on nothing.
   const followUp = followUpOfRunInput(input)
+  if (followUp?.awaitingSave) return { ok: false, error: 'Save this letter to Approvals before approving it.' }
   if (followUp) {
     const { data: target, error: targetError } = await db
       .from('hoa_violations')
@@ -237,7 +247,7 @@ export async function saveViolationDraftEditsWith(
 
   const { data: run, error: readError } = await db
     .from('ai_runs')
-    .select('id, status, output')
+    .select('id, status, input, output')
     .eq('id', runId)
     .eq('organization_id', orgId)
     .eq('workflow_id', 'W3')
@@ -250,13 +260,17 @@ export async function saveViolationDraftEditsWith(
   if (run.status !== PENDING) return { ok: false, error: ALREADY_DECIDED }
 
   const output = obj(run.output)
+  const awaitingSave = isFollowUpAwaitingSave(run.input)
   const original = text(output.draftNotice) ?? text(output.notice)
-  if (original === notice && !text(output.draftNotice)) return { ok: true }
-  const next = { ...output, notice, draftNotice: original ?? notice }
+  const unchanged = original === notice && !text(output.draftNotice)
+  if (unchanged && !awaitingSave) return { ok: true }
+  const next = unchanged ? output : { ...output, notice, draftNotice: original ?? notice }
+  // Saving a dialog draft is what puts it in Approvals: drop the flag.
+  const patch = awaitingSave ? { output: next as never, input: withFollowUpSaved(run.input) as never } : { output: next as never }
 
   const { data, error } = await db
     .from('ai_runs')
-    .update({ output: next as never })
+    .update(patch)
     .eq('id', runId)
     .eq('organization_id', orgId)
     .eq('workflow_id', 'W3')

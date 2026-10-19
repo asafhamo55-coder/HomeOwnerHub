@@ -17,7 +17,8 @@
 import { randomUUID } from 'node:crypto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { bankReconciliationAgent } from '../../../packages/workflows/src/W18-bank-reconciliation'
-import { countPendingApprovals, loadW18Section } from '../../../apps/hoa/src/lib/approvals-inbox/load'
+import { countPendingApprovals, loadW18Section, loadW3Section } from '../../../apps/hoa/src/lib/approvals-inbox/load'
+import { withFollowUpSaved } from '../../../apps/hoa/src/lib/violation-follow-up'
 import { decideApprovalFor, postingHandlers } from '../../../apps/hoa/src/lib/approvals-inbox/decide'
 import { adminDb, makeAccounting, makeOrg, makeUnit, mintUser, type OrgFixture } from '../fixtures/factory'
 import { truncateAll } from '../fixtures/truncate'
@@ -193,5 +194,63 @@ describe('approvals inbox: W18 via /approvals', () => {
     )
     expect(forged.ok).toBe(false)
     expect(await ledgerState(s)).toMatchObject({ journalEntries: 0, payments: 0, assessmentStatus: 'open' })
+  })
+})
+
+// A follow-up letter drafted in the violation page's dialog carries
+// input.followUp.awaitingSave until the board selects "Save to approvals".
+// The filter is a JSON-path `.is(..., null)` that unit fakes do not
+// evaluate, so it is proven here against real PostgREST.
+describe('approvals inbox: unsaved follow-up letters stay out', () => {
+  beforeEach(async () => {
+    await truncateAll()
+  })
+
+  async function seedW3Run(orgId: string, input: Record<string, unknown>): Promise<string> {
+    const { data, error } = await adminDb()
+      .from('ai_runs')
+      .insert({
+        organization_id: orgId,
+        workflow_id: 'W3',
+        workflow_version: 'test',
+        prompt_version: 'test',
+        model: 'test',
+        input_hash: randomUUID(),
+        status: 'pending_human_approval',
+        input: input as never,
+        output: { notice: 'Dear homeowner, please trim the hedge within 14 days.' } as never,
+      })
+      .select('id')
+      .single()
+    if (error || !data) throw new Error(`seed ai_run: ${error?.message}`)
+    return data.id
+  }
+
+  it('lists new-violation drafts and saved follow-ups, hides an unsaved one until it is saved', async () => {
+    const org = await makeOrg()
+    const unitId = await makeUnit(org)
+    const board = await mintUser(org, 'board')
+    const base = { unitId, violationType: 'landscaping', description: 'Hedge exceeds the height limit.' }
+
+    const fresh = await seedW3Run(org.orgId, base)
+    const saved = await seedW3Run(org.orgId, { ...base, followUp: { violationId: randomUUID(), letterKind: 'second_notice' } })
+    const unsavedInput = { ...base, followUp: { violationId: randomUUID(), letterKind: 'hearing_notice', awaitingSave: true } }
+    const unsaved = await seedW3Run(org.orgId, unsavedInput)
+
+    const before = await loadW3Section(board.client, org.orgId)
+    expect(before).toMatchObject({ ok: true, total: 2 })
+    const ids = before.ok ? before.items.map((i) => i.id) : []
+    expect(ids).toEqual(expect.arrayContaining([fresh, saved]))
+    expect(ids).not.toContain(unsaved)
+    expect((await countPendingApprovals(board.client, org.orgId)).w3).toBe(2)
+
+    // "Save to approvals" drops the flag; the letter then joins the queue.
+    const { error } = await adminDb()
+      .from('ai_runs')
+      .update({ input: withFollowUpSaved(unsavedInput) as never })
+      .eq('id', unsaved)
+    if (error) throw new Error(`save: ${error.message}`)
+    expect(await loadW3Section(board.client, org.orgId)).toMatchObject({ ok: true, total: 3 })
+    expect((await countPendingApprovals(board.client, org.orgId)).w3).toBe(3)
   })
 })

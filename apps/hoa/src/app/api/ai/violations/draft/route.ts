@@ -8,6 +8,7 @@ import { requireOrgOwned, requireRouteBoardOrAdmin } from '@/lib/api/auth'
 import { parseJson, parseValue } from '@/lib/api/parse'
 import { zText, zUuid } from '@/lib/api/schemas'
 import { logRouteFailure } from '@/lib/api/log'
+import { requireAiQuota } from '@/lib/api/rate-limit'
 import { MAX_DRAFT_PHOTOS, isOrgPhotoPath } from '@/lib/violation-photo-paths'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadCureCommitment, withCureCommitment } from '@/lib/violation-cure-commitment'
@@ -41,7 +42,11 @@ const DraftSchema = z.object({
    *  the letter on this violation instead of opening a new one. */
   violationId: zUuid.optional(),
   /** Which follow-up letter the board asked for (violation page). Only
-   *  meaningful with `violationId`; labels the draft in Approvals. */
+   *  meaningful with `violationId`; labels the draft in Approvals. A request
+   *  with it is the violation page's dialog: the draft stays out of
+   *  Approvals until the board saves it (`followUp.awaitingSave`), and it
+   *  draws on the `follow_up_letter` AI rate limit. The wizard and the
+   *  /inspect offline queue never send it, so they stay unlimited. */
   letterKind: FollowUpLetterKindSchema.optional(),
   /** BL-028: keys from POST /api/violations/photo, filed on approval. */
   photoPaths: z.array(z.string().max(300)).max(MAX_DRAFT_PHOTOS).optional(),
@@ -79,7 +84,7 @@ export const POST = withRoute('ai.violations.draft', async (request) => {
 
   // Recorded facts on the violation win over the request body.
   const { violationId, letterKind, ...rest } = body
-  const draft: typeof rest & { followUp?: { violationId: string; letterKind?: string } } = rest
+  const draft: typeof rest & { followUp?: { violationId: string; letterKind?: string; awaitingSave?: true } } = rest
   if (letterKind && !violationId) {
     throw new ApiRouteError('validation_failed', 'Pick the violation this letter is for.', {
       issues: [{ path: 'letterKind', message: 'A follow-up letter needs a violation.' }],
@@ -97,7 +102,8 @@ export const POST = withRoute('ai.violations.draft', async (request) => {
       throw new ApiRouteError('internal')
     }
     draft.requestedAction = withCureCommitment(draft.requestedAction, commitment)
-    draft.followUp = letterKind ? { violationId, letterKind } : { violationId }
+    // A dialog draft waits for "Save to approvals" before Approvals shows it.
+    draft.followUp = letterKind ? { violationId, letterKind, awaitingSave: true } : { violationId }
   }
 
   const idempotencyKey = idempotencyKeyOf(request)
@@ -114,6 +120,10 @@ export const POST = withRoute('ai.violations.draft', async (request) => {
       return NextResponse.json({ runId: existing.runId, ...existing.output })
     }
   }
+
+  // Follow-up letters only (BL-078 ledger, lib/api/ai-limits.ts): after
+  // auth, validation and ownership, before the model call.
+  if (letterKind) await requireAiQuota('follow_up_letter', orgId)
 
   try {
     const result = await violationInspector.execute(

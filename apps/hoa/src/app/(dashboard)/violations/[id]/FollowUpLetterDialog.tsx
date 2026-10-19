@@ -38,10 +38,14 @@ import {
 
 /**
  * "Draft follow-up letter" on the violation page. The board picks the
- * letter; POST /api/ai/violations/draft (with `violationId`) checks it
- * against the state rules and stages the draft in Approvals. A refusal is
- * shown instead of a draft. Nothing reaches the owner until the board
- * approves the letter in Approvals, and even then HomeownerHub sends nothing.
+ * letter; POST /api/ai/violations/draft (with `violationId` and
+ * `letterKind`) checks it against the state rules and drafts it. A refusal
+ * is shown instead of a draft. The draft is the board's working copy until
+ * "Save to approvals": only then does it join Approvals (the route marks it
+ * followUp.awaitingSave; saving removes the mark). Closing the dialog
+ * without saving leaves it out of Approvals for good. Nothing reaches the
+ * owner until the board approves the letter, and even then HomeownerHub
+ * sends nothing.
  */
 export interface FollowUpLetterDialogProps {
   violation: FollowUpViolation
@@ -76,8 +80,7 @@ export function FollowUpLetterDialog({ violation }: FollowUpLetterDialogProps) {
   }
 
   function onOpenChange(next: boolean) {
-    // A drafted letter is already waiting in Approvals; closing keeps it.
-    if (!next && phase.kind === 'review') router.refresh()
+    // An unsaved draft never reaches Approvals, so closing needs no refresh.
     setOpen(next)
     if (!next) reset()
   }
@@ -175,7 +178,7 @@ export function FollowUpLetterDialog({ violation }: FollowUpLetterDialogProps) {
       <DialogContent
         size="lg"
         title="Draft follow-up letter"
-        description="Covenant Brain drafts the letter under your state’s rules. It waits in Approvals until the board approves it. Nothing is sent to the homeowner."
+        description="Covenant Brain drafts the letter under your state’s rules. Save it to Approvals to keep it; the board approves it there. Nothing is sent to the homeowner."
       >
         {phase.kind === 'choose' ? (
           <form onSubmit={draft} className="space-y-5">
@@ -311,6 +314,7 @@ export function FollowUpLetterDialog({ violation }: FollowUpLetterDialogProps) {
               />
             </Field>
             {error ? <Alert variant="error">{error}</Alert> : null}
+            <p className="text-sm text-muted">The letter goes to Approvals only when you save it. If you close without saving, it is not kept.</p>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button variant="destructive-ghost" onClick={discard} disabled={isPending} icon={<Trash2 aria-hidden />}>
                 Discard draft

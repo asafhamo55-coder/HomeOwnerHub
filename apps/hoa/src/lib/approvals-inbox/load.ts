@@ -10,6 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import { loadOrFail } from '../load-or-fail'
 import { BILL_ACTION } from '../bill-scan/proposal'
+import { FOLLOW_UP_AWAITING_SAVE_PATH } from '../violation-follow-up'
 import { contactTicketsQuery, loadContactEntries, type ContactTicketRow } from '../contact-updates/apply'
 import {
   SECTION_LIMIT,
@@ -96,6 +97,8 @@ export async function loadW3Section(db: InboxDb, orgId: string): Promise<InboxSe
       .eq('organization_id', orgId)
       .eq('workflow_id', 'W3')
       .eq('status', 'pending_human_approval')
+      // A follow-up letter the board has not saved yet is not in Approvals.
+      .is(FOLLOW_UP_AWAITING_SAVE_PATH as never, null)
       .order('created_at', { ascending: true })
       .range(0, SECTION_LIMIT - 1),
   )
@@ -227,7 +230,8 @@ export async function countPendingApprovals(db: InboxDb, orgId: string): Promise
         .select('id', { count: 'exact', head: true })
         .eq('organization_id', orgId)
         .eq('workflow_id', 'W3')
-        .eq('status', 'pending_human_approval'),
+        .eq('status', 'pending_human_approval')
+        .is(FOLLOW_UP_AWAITING_SAVE_PATH as never, null),
     ),
     loadOrFail(
       'approvals badge: ARC reviews',
