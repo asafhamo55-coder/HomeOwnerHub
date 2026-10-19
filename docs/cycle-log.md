@@ -321,3 +321,15 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - M1 UI behind `M1_APPLIED`;
   - Ask-the-guide classifier tuning.
 - **Health:** prod is on 3fc343e; CI is green on 1bd3f55.
+
+## 2026-10-19 (12:31) — deploy 084692b: resident decision notices, Ask-the-guide routing, M1 UI (hidden)
+
+- **Live:**
+  - BL-082 resident notices for ARC decisions, Request info and ticket replies. Off by default, with a per-association switch in Settings → Notifications, HMAC-signed in compliance_settings.
+  - Ask-the-guide classifier tuning: hit@3 went from 93.8% to 99.5% over 252 questions.
+  - M1 UI (BL-020 consent, BL-050 notice posted, BL-052 visible to owners), all behind `M1_APPLIED = false`.
+- **Gates:** CI green; unit 5479/5479; build 4/4.
+- **Smoke:** /communications/new and /settings/notifications return 307; /login returns 200. The release-note email was sent.
+- **Merged and pushed for CI:** BL-025 Spanish version of announcements (board-reviewed AI translation, both languages in email, SMS bilingual only if it fits in 279 chars). Unit 5512/5512.
+- **Still running:** BL-054, CA rules checked against official text.
+- **Follow-up noted (M1):** sends don't filter on e-consent yet. `filterEmailRecipientsByConsent` is unused; wire it in when M1 is applied.

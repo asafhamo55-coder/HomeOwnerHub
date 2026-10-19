@@ -86,7 +86,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 | 22 | BL-022 | ⌘K searches records, not just pages | 3 | 0.8 | 2 | **1.20** | no | no | **Done (c6)** |
 | 23 | BL-023 | Polls and surveys (non-binding) | 4 | 0.8 | 3 | **1.07** | **yes (M2)** | no | Next |
 | 24 | BL-024 | Resident ARC pre-check against guidelines (W1) | 3 | 0.7 | 2 | **1.05** | no | no | Next |
-| 25 | BL-025 | Bilingual (EN/ES) communications | 3 | 0.7 | 2 | **1.05** | no | no | Next |
+| 25 | BL-025 | Bilingual (EN/ES) communications | 3 | 0.7 | 2 | **1.05** | no | no | **Done (2026-10-19)** |
 | 26 | BL-026 | SMS to residents in production, with consent | 3 | 0.7 | 2 | **1.05** | **yes (M2)** | **yes** | Next |
 | 27 | BL-027 | Board-side AI ARC review → approval layer | 4 | 0.7 | 3 | **0.93** | no | no | Next |
 | 28 | BL-028 | Mobile inspection mode (drive-by capture) | 4 | 0.7 | 3 | **0.93** | no | no | Next |
@@ -857,7 +857,7 @@ These go beyond the design-system v2 pass:
 
 - **BL-080 Payment plans never complete:** a plan never moves to Completed on its own, and a home on an active plan skips automatic dues reminders for good. Close a plan when it is paid off, and resume reminders.
 - **BL-081 Stop or edit a recurring journal entry:** there is no UI for it, and the guide currently tells boards to contact support.
-- **BL-082 Notify residents of decisions:** no email or text goes out when the board replies to a ticket or decides an ARC application. Add an opt-in notification through the outbound guard, using the residents' preferences.
+- **BL-082 Notify residents of decisions (Done 2026-10-19, 084692b):** no email or text goes out when the board replies to a ticket or decides an ARC application. Add an opt-in notification through the outbound guard, using the residents' preferences.
 - **BL-083 Vendor insurance expiry reminders:** vendors get no automatic email before a certificate expires. Add a reminder job, sent to vendors only and never to residents.
 - **BL-084 RFP insurance minimums settings:** add a settings screen for the minimum coverage per RFP.
 - **Eval note:** the Ask-the-guide rules classifier sends some how-to questions to Ask the Docs ("how long can", "allowed", "declaration"). Tune it next time.
