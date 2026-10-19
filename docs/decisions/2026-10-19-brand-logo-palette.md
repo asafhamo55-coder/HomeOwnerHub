@@ -129,3 +129,10 @@ if the release-note email's copied `BRAND` colours drift from the tokens.
   (redrawn), the SVG icon in `layout.tsx` metadata, the manifest's 192/512
   and maskable icons, and `brand/` excluded from the auth middleware.
 - Wiring, marketing: `app/favicon.ico`, `app/icon.svg`, `app/apple-icon.png`.
+
+## 2026-10-19 (owner): brand is HomeownerHub, logo concept C
+
+- **Decision:** Asaf picked concept C (an H monogram whose crossbar is a roof) with the plain wordmark "HomeownerHub", where "Hub" is blue. The source files are in ~/HomeownerHub-decks/logo-options/.
+- **What changes:** the "Ledger" wordmark from BL-094 is replaced. The product name becomes HomeownerHub everywhere a user sees a brand name: in-app "HOA Hub", marketing "Ledger", and the release-note email.
+- **What doesn't change:** the domain stays homeownerledger.com.
+- **Palette:** unchanged (BL-095). The dark-mode "Hub" accent is #60A5FA.
