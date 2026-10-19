@@ -41,6 +41,9 @@ questions:
   - { id: h05e1, role: board, expect: properties-estoppel-certificate, q: "A title company asked for an estoppel certificate for a closing next week. How do I make one?" }
   - { id: h05e2, role: admin, expect: properties-estoppel-certificate, q: "Why is the Print button greyed out on the estoppel letter?" }
   - { id: h05e3, role: board, expect: properties-estoppel-certificate, q: "A buyer needs the resale disclosure with the balance and violations. Where do I print it?", route: /properties }
+  - { id: h05b1, role: board, expect: accounting-budget-notice, q: "The board adopted next year's budget. How do I send a copy to every owner?" }
+  - { id: h05b2, role: admin, expect: accounting-budget-notice, q: "How do I make the annual budget report for California owners?", route: /accounting/budget }
+  - { id: h05b3, role: board, expect: accounting-budget-notice, q: "Why can't I print the owner budget notice?" }
   - { id: h06, role: admin, expect: members-invite-board, q: "How do I invite another board member?" }
   - { id: h07, role: admin, expect: members-invite-board, q: "How do I change someone's role to admin?" }
   - { id: h08, role: board, expect: dues-generate-monthly, q: "How do I bill this month's dues?" }

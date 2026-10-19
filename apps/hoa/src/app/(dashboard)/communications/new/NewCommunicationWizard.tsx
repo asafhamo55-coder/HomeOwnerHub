@@ -38,6 +38,7 @@ import {
   type ManualContact,
   type PropertyOption,
 } from './AudienceStep'
+import { BUDGET_NOTICE_FROM, readBudgetNoticeDraft, sessionStore } from '@/lib/budget-notice/draft-handoff'
 import { QuestionStep } from './QuestionStep'
 import { SectionToggles } from './SectionToggles'
 import { SpanishVersion, type SpanishDraft } from './SpanishVersion'
@@ -111,6 +112,7 @@ export function NewCommunicationWizard({
   properties,
   initialPropertyId = null,
   officialNoticeOffered = false,
+  prefillFrom = null,
 }: {
   templates: TemplateOption[]
   audienceCounts: AudienceCounts
@@ -127,6 +129,13 @@ export function NewCommunicationWizard({
    * false renders and sends exactly what the composer always did.
    */
   officialNoticeOffered?: boolean
+  /**
+   * BL-091: `?from=budget-notice` — pre-fill the subject and body from the
+   * owner budget notice the board just prepared (handed over in this tab's
+   * sessionStorage). Only pre-fills: the board still picks the audience,
+   * reviews and sends as usual.
+   */
+  prefillFrom?: typeof BUDGET_NOTICE_FROM | null
 }) {
   const preselect = initialPropertyId && properties.some((p) => p.id === initialPropertyId) ? initialPropertyId : null
   const router = useRouter()
@@ -148,6 +157,22 @@ export function NewCommunicationWizard({
   // BL-020: official notice (CA Civ. Code §4040) and its Review-step preview.
   const [officialNotice, setOfficialNotice] = useState(false)
   const [officialPreview, setOfficialPreview] = useState<OfficialNoticePreview | null>(null)
+  // BL-091: 'loaded' once the budget notice is in the composer, 'missing'
+  // when the hand-off didn't arrive (storage blocked, or a new tab).
+  const [prefill, setPrefill] = useState<'loaded' | 'missing' | null>(null)
+  useEffect(() => {
+    if (prefillFrom !== BUDGET_NOTICE_FROM) return
+    const draft = readBudgetNoticeDraft(sessionStore())
+    if (!draft) {
+      setPrefill('missing')
+      return
+    }
+    setCategory('financial')
+    setAudience('owners_only')
+    setSubject(draft.subject)
+    setBodyHtml(draft.bodyHtml)
+    setPrefill('loaded')
+  }, [prefillFrom])
 
   // Specific-property audience state.
   // selectedPropertyId — single property at a time keeps the UI simple.
@@ -627,6 +652,15 @@ export function NewCommunicationWizard({
       </div>
 
       <div className="space-y-6 p-5 sm:p-6">
+        {prefill === 'loaded' ? (
+          <Alert variant="info" title="Pre-filled from the owner budget notice">
+            The subject and message are the notice you prepared, addressed to owners. Check the audience, read the message, then send it as usual. Nothing has been sent.
+          </Alert>
+        ) : prefill === 'missing' ? (
+          <Alert variant="warning" title="The budget notice didn’t come through">
+            Go back to the budget, open Prepare owner budget notice and choose Create announcement draft again in this tab.
+          </Alert>
+        ) : null}
         {/* Step 1 — topic + audience */}
         <div hidden={step !== 0} className="space-y-6">
           <Field label="Topic" hint="Filters the templates on the next step and files the message.">

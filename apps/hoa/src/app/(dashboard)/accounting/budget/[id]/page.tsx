@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { BarChart3 } from 'lucide-react'
+import { BarChart3, Megaphone } from 'lucide-react'
 import { Button, Page, StatusPill } from '@homeowner-portal/ui'
 import { getAccountingContext, getBudget, listAccounts } from '@/lib/accounting/queries'
 import { tryLoad } from '@/lib/load-or-fail'
@@ -52,6 +52,14 @@ export default async function BudgetDetailPage({ params }: PageProps) {
       actions={
         <>
           {isEditable ? <BudgetActions budgetId={budget.id} name={name} /> : null}
+          {budget.status === 'approved' ? (
+            <Button asChild variant="secondary">
+              <Link href={`/accounting/budget/${budget.id}/notice`}>
+                <Megaphone aria-hidden />
+                Prepare owner budget notice
+              </Link>
+            </Button>
+          ) : null}
           <Button asChild variant="secondary">
             <Link href={`/accounting/reports/budget-vs-actual?budget=${budget.id}`}>
               <BarChart3 aria-hidden />
