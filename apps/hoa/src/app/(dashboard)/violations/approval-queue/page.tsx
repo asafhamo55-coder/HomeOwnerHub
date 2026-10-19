@@ -33,6 +33,7 @@ import { StateRulesOutputSchema } from '@homeowner-portal/workflows/W3-state-rul
 import { StateRulesPanel } from '@/components/violations/StateRulesPanel'
 import { ApprovalActions } from '@/components/approvals/ApprovalActions'
 import { orgPhotoPaths } from '@/lib/violation-photo-paths'
+import { followUpLabel, followUpOfRunInput } from '@/lib/violation-follow-up'
 
 export const metadata = { title: 'Violation Approval Queue' }
 export const dynamic = 'force-dynamic'
@@ -88,7 +89,7 @@ export default async function ApprovalQueuePage({
     <Page
       title="Violations"
       width="wide"
-      description="AI-drafted violation notices awaiting board review. Approving files the letter as an open violation; nothing is sent to the homeowner from here."
+      description="AI-drafted violation notices awaiting board review. Approving a new notice files it as an open violation; approving a follow-up letter files it on its violation. Nothing is sent to the homeowner from here."
       linkAs={Link}
       actions={
         <Button asChild variant="secondary" icon={<ListChecks aria-hidden />}>
@@ -182,6 +183,7 @@ function PendingRunCard({ run, photos }: { run: PendingRun; photos: string[] }) 
   // written under, with only the statute quotes that passed validation.
   const stateRules = StateRulesOutputSchema.safeParse((run.output as { stateRules?: unknown }).stateRules)
 
+  const followUp = followUpOfRunInput(run.input)
   const violationLabel = input.violationType ?? 'Untyped violation'
   const confidenceLabel = typeof output.confidence === 'string' ? output.confidence.toUpperCase() : 'LOW'
   const severity = output.recommendedSeverity ?? 'low'
@@ -216,6 +218,14 @@ function PendingRunCard({ run, photos }: { run: PendingRun; photos: string[] }) 
             Drafted <time dateTime={run.created_at}>{format(new Date(run.created_at), 'PPp')}</time> · Draft{' '}
             {run.id.slice(0, 8)} · v{run.workflow_version}
           </p>
+          {followUp ? (
+            <p className="text-sm">
+              <Badge variant="neutral">{followUpLabel(followUp)}</Badge>{' '}
+              <Link href={`/violations/${followUp.violationId}`} className="text-primary hover:underline">
+                For an existing violation
+              </Link>
+            </p>
+          ) : null}
         </CardHeader>
         <CardContent className="space-y-4">
           <KeyValueList className="sm:grid-cols-4">
@@ -279,7 +289,7 @@ function PendingRunCard({ run, photos }: { run: PendingRun; photos: string[] }) 
         <CardFooter className="justify-end">
           <ApprovalActions
             decision={{ kind: 'w3', runId: run.id }}
-            title={`${violationLabel} · Draft ${run.id.slice(0, 8)}`}
+            title={`${followUp ? `${followUpLabel(followUp)} · ` : ''}${violationLabel} · Draft ${run.id.slice(0, 8)}`}
             amountLabel={null}
             href="/violations/approval-queue"
           />

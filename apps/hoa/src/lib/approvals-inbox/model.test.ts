@@ -448,3 +448,22 @@ describe('contactItems (PR-10)', () => {
     expect(item).toMatchObject({ id: 'tk2', decision: null, href: '/tickets/tk2' })
   })
 })
+
+describe('w3Items — follow-up letters', () => {
+  it('labels the letter and links to its violation', () => {
+    const vid = '55555555-5555-4555-8555-555555555555'
+    const [item] = w3Items([
+      {
+        id: 'r9',
+        created_at: T1,
+        input: { violationType: 'parking', followUp: { violationId: vid, letterKind: 'hearing_notice' } },
+        output: { notice: 'Hearing on [DATE].' },
+        citations: null,
+        reasoning_trace: null,
+      },
+    ])
+    expect(item.title).toBe('Hearing notice · Parking')
+    expect(item.href).toBe(`/violations/${vid}`)
+    expect(item.decision).toEqual({ kind: 'w3', runId: 'r9' })
+  })
+})

@@ -26,6 +26,7 @@
 // module's own page instead.
 
 import { billMissing, billNeedsCheck, readBillPayload, type BillProposalPayload } from '../bill-scan/proposal'
+import { followUpLabel, followUpOfRunInput } from '../violation-follow-up'
 import {
   SUGGESTION_LABEL,
   citationLabel,
@@ -393,10 +394,14 @@ export function w3Items(runs: W3RunRow[]): InboxItem[] {
     const cents = num(output.recommendedFineAmountCents)
     const cited = str(output.citedSection)
     const conf = str(output.confidence)?.toUpperCase() ?? null
+    // A follow-up letter for an existing violation (violation page) says
+    // which letter it is and links to that violation, not the new-draft queue.
+    const followUp = followUpOfRunInput(input)
+    const type = titleCase(str(input.violationType) ?? 'Violation notice')
     return {
       source: 'w3',
       id: r.id,
-      title: titleCase(str(input.violationType) ?? 'Violation notice'),
+      title: followUp ? `${followUpLabel(followUp)} · ${type}` : type,
       detail: excerpt(str(output.notice)),
       amount: cents === null ? null : cents / 100,
       amountNote: cents === null ? null : 'per day',
@@ -404,7 +409,7 @@ export function w3Items(runs: W3RunRow[]): InboxItem[] {
       reasoning: str(r.reasoning_trace),
       citations: cited ? [cited] : [],
       confidenceLabel: conf ? (W3_CONFIDENCE[conf] ?? null) : null,
-      href: '/violations/approval-queue',
+      href: followUp ? `/violations/${followUp.violationId}` : '/violations/approval-queue',
       decision: str(output.notice) ? { kind: 'w3', runId: r.id } : null,
     }
   })

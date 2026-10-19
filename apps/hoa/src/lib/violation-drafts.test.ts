@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { queuedSupabase as fakeSupabase, payloadOf } from './test-utils/fake-supabase-queue'
-import { approveViolationDraftWith, rejectViolationDraftWith, type DraftDb } from './violation-drafts'
+import { approveViolationDraftWith, rejectViolationDraftWith, saveViolationDraftEditsWith, type DraftDb } from './violation-drafts'
 
 const ORG = '00000000-0000-0000-0000-000000000001'
 const RUN = '11111111-1111-4111-8111-111111111111'
@@ -248,5 +248,91 @@ describe('rejectViolationDraftWith', () => {
     expect((await rejectViolationDraftWith(db as unknown as DraftDb, { orgId: ORG, runId: RUN, userId: USER, reason: 'x' })).ok).toBe(
       false,
     )
+  })
+})
+
+const VIOLATION = '55555555-5555-4555-8555-555555555555'
+
+function followUpRun() {
+  return run({
+    input: {
+      unitId: UNIT,
+      violationType: 'landscaping',
+      description: 'Hedge exceeds the height limit.',
+      followUp: { violationId: VIOLATION, letterKind: 'hearing_notice' },
+    },
+  })
+}
+
+describe('approveViolationDraftWith — follow-up letter for an existing violation', () => {
+  it('approves the run and opens NO new violation', async () => {
+    const { db, calls } = fakeSupabase({
+      ai_runs: [
+        { data: followUpRun(), error: null },
+        { data: [{ id: RUN }], error: null },
+      ],
+      hoa_violations: [{ data: { id: VIOLATION }, error: null }],
+    })
+    const r = await approveViolationDraftWith(db as unknown as DraftDb, { orgId: ORG, runId: RUN, userId: USER })
+    expect(r).toEqual({ ok: true, violationId: VIOLATION, followUp: true })
+    expect(payloadOf(calls, 'hoa_violations', 'insert')).toBeUndefined()
+    expect(payloadOf(calls, 'hoa_violations', 'update')).toBeUndefined()
+    const check = calls.find((c) => c.table === 'hoa_violations')!.ops
+    expect(check).toContainEqual(['eq', ['id', VIOLATION]])
+    expect(check).toContainEqual(['eq', ['org_id', ORG]])
+    expect(check).toContainEqual(['is', ['deleted_at', null]])
+    expect(payloadOf(calls, 'ai_runs', 'update')).toMatchObject({ status: 'completed', human_approved: true })
+    for (const t of OUTBOUND_TABLES) expect(calls.some((c) => c.table === t)).toBe(false)
+  })
+
+  it('a deleted or foreign violation → error, the run is not claimed', async () => {
+    const { db, calls } = fakeSupabase({
+      ai_runs: [{ data: followUpRun(), error: null }],
+      hoa_violations: [{ data: null, error: null }],
+    })
+    const r = await approveViolationDraftWith(db as unknown as DraftDb, { orgId: ORG, runId: RUN, userId: USER })
+    expect(r.ok).toBe(false)
+    expect(payloadOf(calls, 'ai_runs', 'update')).toBeUndefined()
+  })
+})
+
+describe('saveViolationDraftEditsWith', () => {
+  const EDITED = 'Dear homeowner, the board will hear this violation on [DATE].'
+
+  it('saves the edited letter on the pending run and keeps the model original once', async () => {
+    const { db, calls } = fakeSupabase({
+      ai_runs: [
+        { data: followUpRun(), error: null },
+        { data: [{ id: RUN }], error: null },
+      ],
+    })
+    const r = await saveViolationDraftEditsWith(db as unknown as DraftDb, { orgId: ORG, runId: RUN, notice: EDITED })
+    expect(r).toEqual({ ok: true })
+    const update = payloadOf(calls, 'ai_runs', 'update')!
+    expect(update.output).toMatchObject({ notice: EDITED, draftNotice: NOTICE, citedSection: 'CC&R §7.3(b)' })
+    expect(calls[1].ops).toContainEqual(['eq', ['status', 'pending_human_approval']])
+    expect(calls[1].ops).toContainEqual(['eq', ['organization_id', ORG]])
+  })
+
+  it('an unchanged letter writes nothing', async () => {
+    const { db, calls } = fakeSupabase({ ai_runs: [{ data: followUpRun(), error: null }] })
+    expect(await saveViolationDraftEditsWith(db as unknown as DraftDb, { orgId: ORG, runId: RUN, notice: NOTICE })).toEqual({ ok: true })
+    expect(payloadOf(calls, 'ai_runs', 'update')).toBeUndefined()
+  })
+
+  it('refuses an empty letter and a decided draft', async () => {
+    const { db } = fakeSupabase({ ai_runs: [{ data: run({ status: 'completed' }), error: null }] })
+    expect((await saveViolationDraftEditsWith(db as unknown as DraftDb, { orgId: ORG, runId: RUN, notice: ' ' })).ok).toBe(false)
+    expect((await saveViolationDraftEditsWith(db as unknown as DraftDb, { orgId: ORG, runId: RUN, notice: EDITED })).ok).toBe(false)
+  })
+
+  it('a draft decided between read and write → error', async () => {
+    const { db } = fakeSupabase({
+      ai_runs: [
+        { data: followUpRun(), error: null },
+        { data: [], error: null },
+      ],
+    })
+    expect((await saveViolationDraftEditsWith(db as unknown as DraftDb, { orgId: ORG, runId: RUN, notice: EDITED })).ok).toBe(false)
   })
 })

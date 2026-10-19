@@ -123,3 +123,48 @@ describe('POST /api/ai/violations/draft — financial commitment to cure', () =>
     expect(execute).not.toHaveBeenCalled()
   })
 })
+
+describe('POST /api/ai/violations/draft — follow-up letters (violation page)', () => {
+  it('keeps the violation and letter kind on the run as followUp', async () => {
+    const res = await POST(req({ ...GOOD, violationId: VIOLATION, letterKind: 'fine_notice' }))
+    expect(res.status).toBe(200)
+    const input = execute.mock.calls[0][0]
+    expect(input.followUp).toEqual({ violationId: VIOLATION, letterKind: 'fine_notice' })
+    expect(input).not.toHaveProperty('letterKind')
+  })
+
+  it('a violationId without a kind is still a follow-up', async () => {
+    await POST(req({ ...GOOD, violationId: VIOLATION }))
+    expect(execute.mock.calls[0][0].followUp).toEqual({ violationId: VIOLATION })
+  })
+
+  it('a new-violation draft carries no followUp', async () => {
+    await POST(req(GOOD))
+    expect(execute.mock.calls[0][0]).not.toHaveProperty('followUp')
+  })
+
+  it('a letter kind without a violation → 400, no draft', async () => {
+    const res = await POST(req({ ...GOOD, letterKind: 'hearing_notice' }))
+    expect(res.status).toBe(400)
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('an unknown letter kind → 400, no draft', async () => {
+    const res = await POST(req({ ...GOOD, violationId: VIOLATION, letterKind: 'eviction' }))
+    expect(res.status).toBe(400)
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('a state-law refusal answers with the rule text, never a draft', async () => {
+    const { StatuteRuleRefusalError } = await import('@homeowner-portal/workflows/W3-state-rules')
+    execute.mockRejectedValueOnce(
+      new StatuteRuleRefusalError('CA', ['California law (Civ. Code § 5855(c)(2)) forbids a fine.']),
+    )
+    const res = await POST(req({ ...GOOD, violationId: VIOLATION, letterKind: 'fine_notice' }))
+    expect(res.ok).toBe(false)
+    const body = await res.json()
+    expect(body.error).toMatchObject({ reason: 'statute_refusal', jurisdiction: 'CA' })
+    expect(body.error.reasons[0]).toContain('5855(c)(2)')
+    expect(body).not.toHaveProperty('notice')
+  })
+})

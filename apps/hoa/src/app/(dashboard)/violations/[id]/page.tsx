@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { propertyHref } from '@/lib/properties/href'
-import { asPropertyId } from '@/lib/properties/resolve'
+import { asPropertyId, resolveUnitForProperty } from '@/lib/properties/resolve'
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
 import { CalendarClock, CheckCircle2, Clock, FileCheck2, Flag, Gavel, Mail, XCircle } from 'lucide-react'
@@ -26,6 +26,8 @@ import { VIOLATION_SEVERITY, VIOLATION_STATUS } from '@/lib/status/community'
 import { ViolationStatusEditor } from './ViolationStatusEditor'
 import { ViolationActions } from './ViolationActions'
 import { CureCommitmentCard } from './CureCommitmentCard'
+import { FollowUpLetterDialog } from './FollowUpLetterDialog'
+import { followUpLabel, followUpOfRunInput } from '@/lib/violation-follow-up'
 import { getCurrentOrg } from '@/lib/orgs'
 import {
   cureCommitmentApplies,
@@ -60,6 +62,23 @@ interface ViolationDetail {
 }
 
 const CLOSED = new Set(['resolved', 'dismissed', 'waived', 'cured'])
+// No follow-up letters once the board has dropped the case.
+const NO_FOLLOW_UP = new Set(['resolved', 'dismissed', 'waived'])
+
+interface FollowUpRunRow {
+  id: string
+  status: string
+  human_approved: boolean | null
+  approved_at: string | null
+  created_at: string
+  input: unknown
+  output: unknown
+}
+
+function letterOf(output: unknown): string | null {
+  const n = output && typeof output === 'object' ? (output as { notice?: unknown }).notice : null
+  return typeof n === 'string' && n.trim() ? n : null
+}
 
 function crumbLabel(text: string): string {
   return text.length > 40 ? `${text.slice(0, 40).trimEnd()}…` : text
@@ -130,6 +149,34 @@ export default async function ViolationDetailPage({
     }
   }
 
+  // Follow-up letters (second notice, hearing, fine, decision) drafted from
+  // this page: W3 runs carrying this violation as `followUp`. Pending ones
+  // wait in Approvals; approved ones are the letter of record for that step.
+  let unitId: string | null = null
+  let unitLoadFailed = false
+  if (org && v.property_id) {
+    try {
+      unitId = (await resolveUnitForProperty(supabase, org.id, asPropertyId(v.property_id))).unitId
+    } catch {
+      unitLoadFailed = true
+    }
+  }
+  const followUpResult = org
+    ? await loadOrFail(
+        'follow-up letters',
+        supabase
+          .from('ai_runs' as never)
+          .select('id, status, human_approved, approved_at, created_at, input, output')
+          .eq('organization_id' as never, org.id)
+          .eq('workflow_id' as never, 'W3')
+          .eq('input->followUp->>violationId' as never, v.id)
+          .order('created_at' as never, { ascending: false })
+          .range(0, 49),
+      )
+    : null
+  const followUps = followUpResult?.ok ? ((followUpResult.data ?? []) as unknown as FollowUpRunRow[]) : []
+  const canDraftFollowUp = Boolean(org) && !NO_FOLLOW_UP.has(v.status)
+
   const fmt = (iso: string, pattern = 'PP') => format(new Date(iso), pattern)
   const timeEl = (iso: string, pattern = 'PP') => <time dateTime={iso}>{fmt(iso, pattern)}</time>
 
@@ -158,6 +205,12 @@ export default async function ViolationDetailPage({
       icon: overdue ? <Clock /> : <CalendarClock />,
       tone: overdue ? 'danger' : 'warning',
     })
+  for (const r of [...followUps].reverse()) {
+    if (r.human_approved !== true || !r.approved_at) continue
+    const fu = followUpOfRunInput(r.input)
+    if (!fu) continue
+    history.push({ id: `fu-${r.id}`, title: `${followUpLabel(fu)} approved by the board`, time: timeEl(r.approved_at), icon: <FileCheck2 />, tone: 'brand' })
+  }
   if (v.fine_start_date)
     history.push({ id: 'fines', title: 'Fines started', meta: v.fine_amount != null ? `$${v.fine_amount}/day` : undefined, time: timeEl(v.fine_start_date), icon: <Gavel />, tone: 'danger' })
   if (v.resolved_at)
@@ -250,6 +303,82 @@ export default async function ViolationDetailPage({
                   No approved letter on file. Violations reported before the notice wizard, or still awaiting
                   approval, have no letter yet.
                 </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader
+              actions={
+                canDraftFollowUp && unitId ? (
+                  <FollowUpLetterDialog
+                    violation={{
+                      id: v.id,
+                      unitId,
+                      violationType: v.violation_type,
+                      description: v.description,
+                      status: v.status,
+                      noticeSentAt: v.notice_sent_at,
+                    }}
+                  />
+                ) : null
+              }
+            >
+              <CardTitle as="h2">Follow-up letters</CardTitle>
+              <CardDescription>
+                Second notices, hearing notices, fine notices and decision letters. Each waits in Approvals until the
+                board approves it. Nothing is sent to the homeowner.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {canDraftFollowUp && !unitId ? (
+                <p className="text-sm text-muted">
+                  {unitLoadFailed
+                    ? 'We could not load this home’s unit record. Reload the page to draft a letter.'
+                    : 'This violation has no home with a unit record, so a letter can’t be drafted. Ask an admin to check it under Properties.'}
+                </p>
+              ) : null}
+              {followUpResult && !followUpResult.ok ? (
+                <LoadFailed what="follow-up letters" retryHref={`/violations/${v.id}`} />
+              ) : followUps.length === 0 ? (
+                <p className="text-sm text-muted">No follow-up letters yet.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {followUps.map((r) => {
+                    const fu = followUpOfRunInput(r.input)
+                    const letter = letterOf(r.output)
+                    const pending = r.status === 'pending_human_approval'
+                    return (
+                      <li key={r.id} className="rounded-lg border border-border p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-medium text-foreground">
+                            {fu ? followUpLabel(fu) : 'Follow-up letter'}{' '}
+                            <span className="font-normal text-muted">
+                              · drafted <time dateTime={r.created_at}>{fmt(r.created_at)}</time>
+                            </span>
+                          </p>
+                          {pending ? (
+                            <Link href="/approvals?type=w3" className="text-sm text-primary hover:underline">
+                              Awaiting approval
+                            </Link>
+                          ) : r.human_approved ? (
+                            <StatusPill tone="success" label="Approved" />
+                          ) : (
+                            <StatusPill tone="neutral" label="Rejected" />
+                          )}
+                        </div>
+                        {letter && r.human_approved ? (
+                          <details className="mt-2">
+                            <summary className="cursor-pointer text-sm text-primary">Show letter</summary>
+                            <div className="mt-2 max-h-[24rem] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-subtle p-3 text-sm leading-relaxed text-foreground">
+                              {letter}
+                            </div>
+                          </details>
+                        ) : null}
+                      </li>
+                    )
+                  })}
+                </ul>
               )}
             </CardContent>
           </Card>

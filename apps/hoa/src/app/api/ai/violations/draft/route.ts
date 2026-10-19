@@ -11,6 +11,7 @@ import { logRouteFailure } from '@/lib/api/log'
 import { MAX_DRAFT_PHOTOS, isOrgPhotoPath } from '@/lib/violation-photo-paths'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadCureCommitment, withCureCommitment } from '@/lib/violation-cure-commitment'
+import { FollowUpLetterKindSchema } from '@/lib/violation-follow-up'
 
 // POST /api/ai/violations/draft
 //
@@ -35,8 +36,13 @@ const DraftSchema = z.object({
   /** The existing violation this letter is for (a hearing notice, a fine).
    *  When given, what the board recorded on it — the owner's financial
    *  commitment to cure (CA § 5855(c)(2)) — is folded into requestedAction
-   *  here, so the client cannot leave it out. Not sent to W3. */
+   *  here, so the client cannot leave it out. Kept on the run as
+   *  `followUp` (never shown to the model), so approving the draft files
+   *  the letter on this violation instead of opening a new one. */
   violationId: zUuid.optional(),
+  /** Which follow-up letter the board asked for (violation page). Only
+   *  meaningful with `violationId`; labels the draft in Approvals. */
+  letterKind: FollowUpLetterKindSchema.optional(),
   /** BL-028: keys from POST /api/violations/photo, filed on approval. */
   photoPaths: z.array(z.string().max(300)).max(MAX_DRAFT_PHOTOS).optional(),
 })
@@ -72,7 +78,13 @@ export const POST = withRoute('ai.violations.draft', async (request) => {
   }
 
   // Recorded facts on the violation win over the request body.
-  const { violationId, ...draft } = body
+  const { violationId, letterKind, ...rest } = body
+  const draft: typeof rest & { followUp?: { violationId: string; letterKind?: string } } = rest
+  if (letterKind && !violationId) {
+    throw new ApiRouteError('validation_failed', 'Pick the violation this letter is for.', {
+      issues: [{ path: 'letterKind', message: 'A follow-up letter needs a violation.' }],
+    })
+  }
   if (violationId) {
     await requireOrgOwned('hoa_violations', violationId, orgId, {
       orgColumn: 'org_id',
@@ -85,6 +97,7 @@ export const POST = withRoute('ai.violations.draft', async (request) => {
       throw new ApiRouteError('internal')
     }
     draft.requestedAction = withCureCommitment(draft.requestedAction, commitment)
+    draft.followUp = letterKind ? { violationId, letterKind } : { violationId }
   }
 
   const idempotencyKey = idempotencyKeyOf(request)

@@ -61,6 +61,13 @@ export const ViolationInspectorInputSchema = z.object({
    *  it lands in ai_runs.input, where POST /api/ai/violations/draft looks
    *  for it to answer a retried request with the draft it already made. */
   idempotencyKey: z.string().min(8).max(128).optional(),
+  /** A follow-up letter (second notice, hearing notice, fine, decision)
+   *  for an EXISTING violation. Never sent to the model: it rides on the
+   *  staged run so approving the draft files the letter on that violation
+   *  instead of opening a new one. The caller proves the id is the org's. */
+  followUp: z
+    .object({ violationId: z.string().uuid(), letterKind: z.string().min(1).max(40).optional() })
+    .optional(),
 })
 
 export type ViolationInspectorInput = z.infer<

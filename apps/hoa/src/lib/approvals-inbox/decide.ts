@@ -47,7 +47,9 @@ export interface InboxDecisionHandlers {
   rejectPosting(approvalRequestId: string, reason: string): Promise<DecisionResult>
   approveVendor(vendorId: string): Promise<Simple>
   rejectVendor(vendorId: string, reason: string): Promise<Simple>
-  approveViolationDraft(runId: string): Promise<{ ok: true; violationId: string } | { ok: false; error: string }>
+  approveViolationDraft(
+    runId: string,
+  ): Promise<{ ok: true; violationId: string; followUp?: boolean } | { ok: false; error: string }>
   rejectViolationDraft(runId: string, reason: string): Promise<Simple>
   approveBill(approvalRequestId: string): Promise<DecisionResult>
   rejectBill(approvalRequestId: string, reason: string): Promise<DecisionResult>
@@ -151,9 +153,10 @@ export async function decideApprovalFor(
       return r.ok ? { ok: true, message: 'Draft rejected. Nothing was sent.' } : { ok: false, error: r.error }
     }
     const r = await handlers.approveViolationDraft(id)
-    return r.ok
-      ? { ok: true, message: 'Letter approved and filed as an open violation. Nothing was sent to the homeowner.' }
-      : { ok: false, error: r.error }
+    if (!r.ok) return { ok: false, error: r.error }
+    return r.followUp
+      ? { ok: true, message: 'Follow-up letter approved and filed on its violation. Nothing was sent to the homeowner.' }
+      : { ok: true, message: 'Letter approved and filed as an open violation. Nothing was sent to the homeowner.' }
   }
 
   if (kind === 'contact') {
