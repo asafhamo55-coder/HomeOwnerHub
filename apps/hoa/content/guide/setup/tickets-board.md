@@ -36,7 +36,7 @@ Residents send support requests from the portal, like a broken gate or a dues qu
 - A status or priority change shows an error under the field: nothing changed. Try again.
 
 ## Good to know
-- The resident gets no email or text when you reply. They see it the next time they open their request in the portal.
+- The resident sees your reply in the portal. They get an email with it only if your association turned on **Tell residents about decisions and replies** in [[Settings]] → [[Notifications]]. It is off until a board turns it on. Internal notes are never sent.
 - You can't create a ticket for a resident here. Residents open them from the portal.
 - To reopen a closed ticket, set **Status** back to **Open** or **In progress**.
 - [[Delete]] removes the ticket and its conversation from the board's list and the resident's portal. To finish a request without removing it, close it instead.

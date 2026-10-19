@@ -31,8 +31,8 @@ Residents send architectural requests for exterior changes, like paint, a fence 
 ![[guide-arc-detail]]
 
 ## What happens next
-- The resident sees the decision and your letter in their portal, word for word. No email or text is sent, so tell them yourself if it is urgent.
-- [[Request info]] sends your message to the resident in **Conversation** and marks the application in review.
+- The resident sees the decision and your letter in their portal, word for word. They also get an email with the letter if your association turned on **Tell residents about decisions and replies** in [[Settings]] → [[Notifications]]. It is off until a board turns it on, so until then tell them yourself if it is urgent.
+- [[Request info]] sends your message to the resident in **Conversation** and marks the application in review. With the same setting on, the resident is emailed your message too.
 - The AI never decides. Its suggestion is kept with the board's actual decision, so you can see how often the board agreed.
 
 ## Good to know
