@@ -90,7 +90,7 @@ export function Nav() {
       )}
     >
       <div className="container-page flex h-16 items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-2.5 rounded-lg" aria-label="Ledger home">
+        <Link href="/" className="flex items-center gap-2.5 rounded-lg" aria-label="HomeownerHub home">
           <Logo />
         </Link>
 

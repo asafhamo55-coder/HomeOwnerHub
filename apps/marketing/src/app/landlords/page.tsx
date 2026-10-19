@@ -32,7 +32,7 @@ export default function LandlordsPage() {
         theme={theme}
         eyebrow="PM Hub · for 2–50 unit landlords"
         title="Rent that collects itself."
-        subtitle="Ledger PM is the operating system for landlords with one to fifty units. Zero-touch rent, AI-drafted lease answers, late-rent coaching that doesn't go straight to threats."
+        subtitle="PM Hub is the operating system for landlords with one to fifty units. Zero-touch rent, AI-drafted lease answers, late-rent coaching that doesn't go straight to threats."
         primaryCta={{ label: 'Start free', href: '/demo' }}
         secondaryCta={{ label: 'See features', href: '#features' }}
         visual={<PmRentVisual />}

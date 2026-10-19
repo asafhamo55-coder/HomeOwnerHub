@@ -7,6 +7,7 @@
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "build:email-assets": "tsx scripts/build-email-assets.ts",
+    "brand:assets": "tsx scripts/build-brand-assets.ts",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",

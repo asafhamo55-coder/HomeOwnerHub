@@ -43,7 +43,7 @@ import {
   Checkbox,
   ChoiceGroup,
   CommandPalette,
-  LedgerMark,
+  BrandMark,
   ConfirmDialog,
   ConfirmProvider,
   DataTable,
@@ -659,10 +659,10 @@ export function Gallery({ overlay, section }: { overlay: string | null; section:
         <AppShell linkAs={Link}>
           <AppShellSidebar collapsible>
             <SidebarBrand
-              logo={<LedgerMark className="size-8 rounded-lg shadow-xs" />}
+              logo={<BrandMark className="size-8 rounded-lg shadow-xs" />}
             >
               <div className="min-w-0 leading-tight">
-                <p className="truncate text-sm font-semibold">HOA Hub</p>
+                <p className="truncate text-sm font-semibold">HomeownerHub</p>
                 <p className="truncate text-xs font-normal text-muted">Demo Court HOA</p>
               </div>
             </SidebarBrand>

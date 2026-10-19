@@ -10,14 +10,14 @@ import { palette } from '@homeowner-portal/ui/tokens'
  * into every page in this app's <head> when this file exports a default.
  *
  * Colours come from the HOA light palette in packages/ui/src/tokens.ts
- * (BL-095 blue); icons are the Ledger mark (BL-094) in public/brand/.
+ * (BL-095 blue); icons are the HomeownerHub mark (BL-098) in public/brand/.
  */
 const light = palette('hoa', 'light')
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'HOA Hub',
-    short_name: 'HOA Hub',
+    name: 'HomeownerHub',
+    short_name: 'HomeownerHub',
     description: 'Run your HOA without the paperwork.',
     start_url: '/',
     display: 'standalone',

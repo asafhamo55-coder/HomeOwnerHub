@@ -9,7 +9,7 @@ import { PHOTOS } from '@/lib/photos'
 export const metadata: Metadata = {
   title: 'Madison Park HOA — Design partner',
   description:
-    'Ledger is built with Madison Park HOA, a 180-home self-managed association in Johns Creek, GA. What the board gets, and why we don’t publish numbers yet.',
+    'HomeownerHub is built with Madison Park HOA, a 180-home self-managed association in Johns Creek, GA. What the board gets, and why we don’t publish numbers yet.',
 }
 
 // Truth rule (BL-042, BL-090): this page used to be a "case study" with
@@ -52,7 +52,7 @@ export default function MadisonParkCase() {
                 "I got my Tuesday nights back."
               </h1>
               <p className="mt-6 max-w-2xl text-xl leading-relaxed text-foreground-secondary">
-                Ledger is built with Madison Park, a 180-home self-managed HOA
+                HomeownerHub is built with Madison Park, a 180-home self-managed HOA
                 in Johns Creek, north of Atlanta. Their board helps shape what we
                 build.
               </p>

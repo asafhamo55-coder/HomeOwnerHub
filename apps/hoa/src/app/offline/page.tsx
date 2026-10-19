@@ -4,7 +4,7 @@
 // that need the network — so it always renders correctly offline.
 
 import Link from 'next/link'
-import { LedgerMark } from '@homeowner-portal/ui'
+import { BrandMark } from '@homeowner-portal/ui'
 
 export const metadata = { title: 'Offline' }
 
@@ -28,7 +28,7 @@ export default function OfflinePage() {
     >
       <div style={{ maxWidth: 420, textAlign: 'center' }}>
         <div style={{ width: 64, height: 64, margin: '0 auto 24px', display: 'flex' }}>
-          <LedgerMark className="size-16" />
+          <BrandMark className="size-16" />
         </div>
         <h1
           style={{
@@ -48,7 +48,7 @@ export default function OfflinePage() {
             lineHeight: 1.5,
           }}
         >
-          HOA Hub needs an internet connection to load this page. Check
+          HomeownerHub needs an internet connection to load this page. Check
           your Wi-Fi or cellular, then try again.
         </p>
         <div

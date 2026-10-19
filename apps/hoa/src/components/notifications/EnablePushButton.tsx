@@ -275,7 +275,7 @@ export function EnablePushButton({ storedDeviceCount }: Props) {
             </li>
             <li>Choose "Add to Home Screen", then "Add".</li>
             <li>
-              Open HOA Hub from the new Home Screen icon and come back to this
+              Open HomeownerHub from the new Home Screen icon and come back to this
               page — the button to turn notifications on will be here.
             </li>
           </ol>
@@ -311,7 +311,7 @@ export function EnablePushButton({ storedDeviceCount }: Props) {
   if (state === 'blocked') {
     return (
       <Alert variant="warning" title="Notifications are blocked">
-        This browser is set to block notifications from HOA Hub. Allow them in
+        This browser is set to block notifications from HomeownerHub. Allow them in
         the browser's site settings for this page, then reload — we cannot ask
         again from here once you have said no.
       </Alert>

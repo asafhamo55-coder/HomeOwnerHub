@@ -128,7 +128,7 @@ function UpdatePrompt({
         maxWidth: 'calc(100vw - 32px)',
       }}
     >
-      <span>A new version of HOA Hub is ready.</span>
+      <span>A new version of HomeownerHub is ready.</span>
       <button
         type="button"
         onClick={onUpdate}

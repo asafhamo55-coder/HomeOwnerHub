@@ -8,7 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./tokens": "./src/tokens.ts",
-    "./brand": "./src/components/LedgerLogo.tsx",
+    "./brand": "./src/components/BrandLogo.tsx",
     "./hubs": "./src/hubs.ts",
     "./tailwind.config": "./tailwind.config.ts",
     "./globals.css": "./src/globals.css"

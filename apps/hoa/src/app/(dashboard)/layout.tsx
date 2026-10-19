@@ -40,7 +40,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   ])
 
   // No HOA membership at all. Two cases:
-  //   1) Platform admins (no HOA org_members rows) clicking "Back to HOA Hub"
+  //   1) Platform admins (no HOA org_members rows) clicking "Back to HomeownerHub"
   //      from the platform tree. Send them somewhere useful — either the
   //      tenant they most recently previewed, or the tenants list — instead
   //      of /onboarding which prompts them to create a NEW HOA they don't
@@ -133,7 +133,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 /**
  * Finds the most recently previewed tenant org_id for a given platform
  * admin from platform_admin_audit. Used when a platform admin with no
- * HOA membership clicks "Back to HOA Hub" — we route them to the last
+ * HOA membership clicks "Back to HomeownerHub" — we route them to the last
  * tenant they actually looked at rather than the tenant list. Returns
  * null when there's no preview history yet (then we fall back to the
  * list).

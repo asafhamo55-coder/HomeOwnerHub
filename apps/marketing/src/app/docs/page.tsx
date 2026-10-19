@@ -8,7 +8,7 @@ import { PageHero } from '@/components/site/page-hero'
 export const metadata: Metadata = {
   title: 'Docs',
   description:
-    'Product documentation for Ledger. The step-by-step user guide lives inside the app; API reference and runbooks come later.',
+    'Product documentation for HomeownerHub. The step-by-step user guide lives inside the app; API reference and runbooks come later.',
 }
 
 const sections = [

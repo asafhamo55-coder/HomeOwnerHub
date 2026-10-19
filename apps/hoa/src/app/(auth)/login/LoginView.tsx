@@ -8,10 +8,10 @@ export function LoginView({ redirect, reason }: { redirect?: string; reason?: st
   return (
     <>
       <AuthHeader
-        title="Sign in to HOA Hub"
+        title="Sign in to HomeownerHub"
         description={
           <>
-            New to HOA Hub?{' '}
+            New to HomeownerHub?{' '}
             <Link href="/signup" className="font-medium text-primary hover:underline">
               Create an account
             </Link>

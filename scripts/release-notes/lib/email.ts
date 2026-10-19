@@ -120,10 +120,10 @@ export function renderHtml(note: ReleaseNote, images: readonly InlineImage[]): s
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
     <td valign="middle" style="width:36px;">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-        <td width="32" height="32" align="center" valign="middle" bgcolor="${BRAND.primary}" style="width:32px;height:32px;background-color:${BRAND.primary};border-radius:8px;color:${BRAND.primaryFg};font-size:19px;line-height:32px;font-weight:700;font-family:${BRAND.font};">L</td>
+        <td width="32" height="32" align="center" valign="middle" bgcolor="${BRAND.primary}" style="width:32px;height:32px;background-color:${BRAND.primary};border-radius:8px;color:${BRAND.primaryFg};font-size:19px;line-height:32px;font-weight:700;font-family:${BRAND.font};">H</td>
       </tr></table>
     </td>
-    <td valign="middle" class="rn-fg" style="padding-left:10px;font-size:17px;line-height:24px;font-weight:600;letter-spacing:-0.01em;color:${BRAND.foreground};">${BRAND.productName}</td>
+    <td valign="middle" class="rn-fg" style="padding-left:10px;font-size:17px;line-height:24px;font-weight:600;letter-spacing:-0.01em;color:${BRAND.foreground};">${BRAND.wordmark.lead}<span class="rn-link" style="color:${BRAND.primary};">${BRAND.wordmark.accent}</span></td>
     <td valign="middle" align="right" class="rn-muted" style="font-size:12px;line-height:16px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:${BRAND.muted};">Release notes</td>
   </tr></table>
 </td></tr>

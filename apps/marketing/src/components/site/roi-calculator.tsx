@@ -88,7 +88,7 @@ export function RoiCalculator() {
           <div className="flex flex-col justify-between gap-6 rounded-2xl bg-gradient-to-br from-primary-subtle via-surface to-accent-subtle/40 p-6 ring-1 ring-primary/15">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-                Annual savings with Ledger
+                Annual savings with HomeownerHub
               </p>
               <p className="mt-2 text-5xl font-semibold tracking-tight text-foreground md:text-6xl">
                 {fmtUsd(Math.max(0, totalSavings))}
@@ -102,7 +102,7 @@ export function RoiCalculator() {
             <dl className="grid gap-2 text-sm">
               <Line label="Management cost (annual)" value={fmtUsd(currentAnnualMgmt)} />
               <Line label="Volunteer hours (annual @ $50/hr)" value={fmtUsd(volunteerHoursAnnualValue)} />
-              <Line label="Ledger (annual plan)" value={`− ${fmtUsd(hhAnnual)}`} />
+              <Line label="HomeownerHub (annual plan)" value={`− ${fmtUsd(hhAnnual)}`} />
               <div className="mt-1 flex items-baseline justify-between border-t border-border/70 pt-2">
                 <dt className="text-xs font-semibold uppercase tracking-wider text-foreground-secondary">
                   Net savings
@@ -125,7 +125,7 @@ export function RoiCalculator() {
 
         <p className="mx-auto mt-8 max-w-2xl text-center text-xs text-muted">
           Estimates only. Management-company fees vary by region and scope.
-          Ledger pricing is fixed and published on this page.
+          HomeownerHub pricing is fixed and published on this page.
         </p>
       </div>
     </section>

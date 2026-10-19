@@ -109,7 +109,7 @@ export const config = {
     //                 no resident data. Trailing slash so a future /email page
     //                 is not accidentally un-gated, and unversioned so email/v2
     //                 keeps working.
-    //       brand/  — the Ledger logo files (BL-094): the SVG favicon, the
+    //       brand/  — the HomeownerHub logo files (BL-098): the SVG favicon, the
     //                 manifest's 192/512 icons, logo PNGs. Public brand art,
     //                 loaded before sign-in. Trailing slash, same reason.
     //       sw.js, manifest.webmanifest, icon, apple-icon — the PWA. The service

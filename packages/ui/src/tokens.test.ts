@@ -14,6 +14,7 @@ import {
   type HubKey,
   type ThemeMode,
 } from './tokens'
+import { HUB_ACCENT_CLASS } from './components/BrandLogo'
 
 // WCAG 2.2 AA for every text/background pair the design system promises
 // (docs/specs/2026-10-15-design-system-v2.md). Measured on the HSL
@@ -87,9 +88,21 @@ describe('HOA blue palette — key pairs', () => {
   })
 })
 
-describe('Ledger logo colours (BL-094)', () => {
+describe('HomeownerHub logo colours (BL-098)', () => {
   const MODES_LOGO = ['light', 'dark'] as const
-  it.each(MODES_LOGO)('%s: roof and ledger lines read on the tile (≥3:1, WCAG 1.4.11)', (mode) => {
+  it('"Hub" is the HOA primary in each mode', () => {
+    expect(LOGO.light.accent).toBe(palette('hoa', 'light').primary)
+    expect(LOGO.dark.accent).toBe(palette('hoa', 'dark').primary)
+    expect(LOGO.dark.accent).toBe('#60A5FA')
+  })
+  it('the wordmark\'s literal "Hub" classes match LOGO.accent', () => {
+    expect(HUB_ACCENT_CLASS).toBe(`text-[${LOGO.light.accent}] dark:text-[${LOGO.dark.accent}]`)
+  })
+  it.each(MODES_LOGO)('%s: "Hub" text is AA on the canvas', (mode) => {
+    const p = palette('hoa', mode)
+    expect(contrastRatio(hexToRgb(LOGO[mode].accent), hexToRgb(p.background))).toBeGreaterThanOrEqual(4.5)
+  })
+  it.each(MODES_LOGO)('%s: H, roof and door read on the tile (≥3:1, WCAG 1.4.11)', (mode) => {
     const l = LOGO[mode]
     expect(contrastRatio(hexToRgb(l.glyph), hexToRgb(l.tile))).toBeGreaterThanOrEqual(4.5)
     expect(contrastRatio(hexToRgb(l.line), hexToRgb(l.tile))).toBeGreaterThanOrEqual(3)

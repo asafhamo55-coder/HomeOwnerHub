@@ -125,7 +125,12 @@ describe('render', () => {
     expect(html).toContain('</html>')
     expect(html).toContain('role="presentation"')
     expect(html).toContain('One-click approvals &amp; search')
-    expect(subject).toBe('Ledger release: One-click approvals & search (c56061f)')
+    expect(subject).toBe('HomeownerHub release: One-click approvals & search (c56061f)')
+    // BL-098 header: "H" tile, then "Homeowner" + blue "Hub".
+    expect(html).toMatch(/font-weight:700;[^"]*">H<\/td>/)
+    expect(html).toContain('>Homeowner<span class="rn-link" style="color:#2563EB;">Hub</span></td>')
+    expect(html).not.toContain('Ledger')
+    expect(html).not.toContain('HOA Hub')
     expect(html).toContain('Saturday, October 17, 2026 at 3:55 PM EDT')
     for (const h of ['Summary', "What&#39;s new", 'Fixes', 'Under the hood', 'Needs your action', 'Screenshots']) {
       expect(html).toContain(`>${h}<`)
@@ -294,7 +299,7 @@ describe('send', () => {
   const FULL_ENV = {
     RESEND_API_KEY: 're_test_key',
     RELEASE_NOTES_TO: 'owner@example.com, second@example.com',
-    RELEASE_NOTES_FROM: 'Ledger releases <noreply@example.com>',
+    RELEASE_NOTES_FROM: 'HomeownerHub releases <noreply@example.com>',
   }
 
   function okFetch() {
@@ -344,7 +349,7 @@ describe('send', () => {
     expect(url).toBe('https://api.resend.com/emails')
     const body = JSON.parse(String(init.body)) as Record<string, unknown>
     expect(body.to).toEqual(['owner@example.com', 'second@example.com'])
-    expect(body.from).toBe('Ledger releases <noreply@example.com>')
+    expect(body.from).toBe('HomeownerHub releases <noreply@example.com>')
     expect(JSON.stringify(body)).not.toContain('attacker@evil.example')
     expect((init.headers as Record<string, string>)['Idempotency-Key']).toBe(`release-notes-${shas[1]}`)
 

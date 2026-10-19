@@ -19,23 +19,23 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'HOA Hub',
-    template: '%s · HOA Hub',
+    default: 'HomeownerHub',
+    template: '%s · HomeownerHub',
   },
   description: 'Run your HOA without the paperwork.',
   // PWA / "Add to Home Screen" on iOS. The manifest at app/manifest.ts
   // gives Android Chrome the same treatment. Apple-specific bits live
   // under appleWebApp because iOS Safari ignores some manifest fields.
-  applicationName: 'HOA Hub',
+  applicationName: 'HomeownerHub',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'HOA Hub',
+    title: 'HomeownerHub',
   },
   formatDetection: {
     telephone: false,
   },
-  // Ledger mark (BL-094). app/favicon.ico, app/icon.tsx and
+  // HomeownerHub mark (BL-098). app/favicon.ico, app/icon.tsx and
   // app/apple-icon.tsx are picked up by file convention; the scalable SVG
   // favicon for modern browsers is added here (`other`, so the file-based
   // icons are not overridden).

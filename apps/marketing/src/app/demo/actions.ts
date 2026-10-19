@@ -46,10 +46,10 @@ export async function submitDemoRequest(
 
   const apiKey = process.env.RESEND_API_KEY
   const to = process.env.DEMO_INBOX_EMAIL || 'asafhamo55@gmail.com'
-  const from = process.env.DEMO_FROM_EMAIL || 'Ledger <demo@ledger.ai>'
+  const from = process.env.DEMO_FROM_EMAIL || 'HomeownerHub <demo@ledger.ai>'
 
   const summary = `
-New demo request — Ledger
+New demo request — HomeownerHub
 ================================
 
 Name:    ${data.name}

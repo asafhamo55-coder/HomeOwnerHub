@@ -26,7 +26,7 @@ export default async function WhatsNewPage() {
     <Page
       width="narrow"
       title="What's new"
-      description="Recent changes to HOA Hub."
+      description="Recent changes to HomeownerHub."
       meta={<AppVersion version={version} />}
       linkAs={Link}
     >
