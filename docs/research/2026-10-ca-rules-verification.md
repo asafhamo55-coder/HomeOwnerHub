@@ -11,7 +11,7 @@ Date: 2026-10-19. Scope: every California rule the app encodes, with its citatio
   - The rows were dated 2026-09-26. They include 2026 statutes, for example Civ. Code § 4276 (Stats. 2026, ch. 124).
   - The server supports HTTP range requests, so only the zip's central directory, `LAW_SECTION_TBL.dat` and the needed `.lob` bodies were downloaded, not the whole 1.2 GB.
 - **The text is in the repo.** It is recorded in `scripts/fixtures/state-law/ca-civ-davis-stirling-2026.txt`, one subdivision per line, with the official history line for each section.
-  - Sections included: §§ 4000, 4040, 4041, 4045, 4050, 5100–5145, 5200, 5210, 5220, 5850, 5855, 5865, 5900–5940, 5965 and 6150.
+  - Sections included: §§ 4000, 4040, 4041, 4045, 4050, 4525, 4530 (added for BL-087), 5100–5145, 5200, 5210, 5220, 5850, 5855, 5865, 5900–5940, 5965 and 6150.
   - `state-rules.test.ts` checks the encoded rules against this file.
 - **Fetch path for BL-069:** a CA ingestion adapter can use the same bulk zip with range reads. Download `LAW_SECTION_TBL.dat`, filter `law_code = CIV` and sections 4000–6150, then read each row's `.lob`. The daily `pubinfo_daily_*.zip` files carry only bill tables, not the law tables.
 

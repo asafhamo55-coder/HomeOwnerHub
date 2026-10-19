@@ -194,6 +194,7 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
     >
       <ActionBar
         propertyId={p.id}
+        canManage={canManage}
         address={p.address}
         householdCount={householdCount}
         ownerEmail={primaryOwner?.email ?? p.owner_email}
@@ -307,9 +308,11 @@ function ActionBar({
   stats,
   openViolations,
   sale,
+  canManage,
 }: {
   propertyId: string
   address: string
+  canManage: boolean
   householdCount: number
   ownerEmail: string | null
   stats: Property360['stats']
@@ -365,6 +368,7 @@ function ActionBar({
         address={address}
         balance={stats.ok ? (stats.data?.balance ?? 0) : null}
         openViolations={openViolations}
+        canManage={canManage}
       />
     </div>
   )

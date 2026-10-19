@@ -12,9 +12,9 @@ import type { PropertyId, UnitId } from './resolve'
  */
 export function propertyHref(
   id: PropertyId | UnitId,
-  opts: { edit?: boolean; query?: URLSearchParams | Record<string, string> | string } = {},
+  opts: { edit?: boolean; estoppel?: boolean; query?: URLSearchParams | Record<string, string> | string } = {},
 ): string {
-  const base = `/properties/${encodeURIComponent(id)}${opts.edit ? '/edit' : ''}`
+  const base = `/properties/${encodeURIComponent(id)}${opts.edit ? '/edit' : opts.estoppel ? '/estoppel' : ''}`
   const raw =
     opts.query === undefined
       ? ''

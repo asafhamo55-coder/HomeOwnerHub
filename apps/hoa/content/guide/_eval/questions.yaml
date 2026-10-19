@@ -38,6 +38,9 @@ questions:
   - { id: h05r2, role: admin, expect: properties-statutory-roster, q: "How do I get a voter list for the annual meeting?" }
   - { id: h05r3, role: board, expect: properties-statutory-roster, q: "Which homes are delinquent enough that their voting rights could be suspended?" }
   - { id: h05r4, role: admin, expect: properties-statutory-roster, q: "Can I download a CSV of who owned each home on a past date?", route: /properties }
+  - { id: h05e1, role: board, expect: properties-estoppel-certificate, q: "A title company asked for an estoppel certificate for a closing next week. How do I make one?" }
+  - { id: h05e2, role: admin, expect: properties-estoppel-certificate, q: "Why is the Print button greyed out on the estoppel letter?" }
+  - { id: h05e3, role: board, expect: properties-estoppel-certificate, q: "A buyer needs the resale disclosure with the balance and violations. Where do I print it?", route: /properties }
   - { id: h06, role: admin, expect: members-invite-board, q: "How do I invite another board member?" }
   - { id: h07, role: admin, expect: members-invite-board, q: "How do I change someone's role to admin?" }
   - { id: h08, role: board, expect: dues-generate-monthly, q: "How do I bill this month's dues?" }
@@ -88,7 +91,8 @@ questions:
   - { id: c04, role: admin, expect: refuse, q: "How do I sync our books with QuickBooks?" }
   - { id: c05, role: board, expect: refuse, q: "How do I give visitors a guest pass for the gate?" }
   - { id: c06, role: resident, expect: refuse, q: "Can I sell my old bike in a community marketplace?" }
-  - { id: c07, role: admin, expect: refuse, q: "How do I order an estoppel certificate for a home sale?" }
+  # c07 was a refusal canary until BL-087 shipped the estoppel certificate.
+  - { id: c07, role: admin, expect: properties-estoppel-certificate, q: "How do I order an estoppel certificate for a home sale?" }
   - { id: c08, role: resident, expect: refuse, q: "Can I switch the portal to Spanish?" }
   - { id: c09, role: resident, expect: refuse, q: "Is there a forum where neighbors can chat?" }
   - { id: c10, role: admin, expect: refuse, q: "How do I run a background check on a new tenant?" }

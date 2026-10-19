@@ -4,7 +4,7 @@ import { asPropertyId } from '@/lib/properties/resolve'
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Archive, MoreHorizontal, Pencil } from 'lucide-react'
+import { Archive, FileText, MoreHorizontal, Pencil } from 'lucide-react'
 import {
   Button,
   DropdownMenu,
@@ -28,12 +28,15 @@ export function PropertyActions({
   address,
   balance,
   openViolations,
+  canManage = false,
 }: {
   propertyId: string
   address: string
   /** Null when the stats failed to load. */
   balance: number | null
   openViolations: number | null
+  /** Board or admin: shows "Prepare estoppel certificate" (BL-087). */
+  canManage?: boolean
 }) {
   const router = useRouter()
   const confirm = useConfirm()
@@ -77,6 +80,11 @@ export function PropertyActions({
           <Button variant="ghost" size="icon-sm" aria-label="More actions" icon={<MoreHorizontal aria-hidden />} />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
+          {canManage ? (
+            <DropdownMenuItem icon={<FileText aria-hidden />} onSelect={() => router.push(propertyHref(asPropertyId(propertyId), { estoppel: true }))}>
+              Prepare estoppel certificate
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem destructive icon={<Archive aria-hidden />} onSelect={() => void archive()}>
             Archive
           </DropdownMenuItem>
