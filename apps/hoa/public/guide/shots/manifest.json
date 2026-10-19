@@ -5,9 +5,9 @@
       1440
     ],
     "route": "/approvals",
-    "sha": "40c1716",
-    "sourceHash": "f7b0ed6963ff59e41fe88f517bc714c40c8ebc4b",
-    "capturedAt": "2026-10-18"
+    "sha": "a815e50",
+    "sourceHash": "66f73564a85b44a08fa2740ce2424bfdf85b5742",
+    "capturedAt": "2026-10-19"
   },
   "guide-approvals-bill-edit": {
     "widths": [
@@ -15,9 +15,9 @@
       1440
     ],
     "route": "/approvals",
-    "sha": "40c1716",
-    "sourceHash": "f7b0ed6963ff59e41fe88f517bc714c40c8ebc4b",
-    "capturedAt": "2026-10-18"
+    "sha": "a815e50",
+    "sourceHash": "66f73564a85b44a08fa2740ce2424bfdf85b5742",
+    "capturedAt": "2026-10-19"
   },
   "guide-arc-detail": {
     "widths": [
@@ -65,9 +65,9 @@
       1440
     ],
     "route": "/communications/new",
-    "sha": "063f97a",
-    "sourceHash": "fcc624d4b207129d297891ba97434aba7e463971",
-    "capturedAt": "2026-10-18"
+    "sha": "a815e50",
+    "sourceHash": "5640a4808bda0a794590df5f0abc02666a0a50ab",
+    "capturedAt": "2026-10-19"
   },
   "guide-dashboard-setup": {
     "widths": [
@@ -85,9 +85,9 @@
       1440
     ],
     "route": "/documents/governing",
-    "sha": "063f97a",
-    "sourceHash": "eabe5a7713e61e4f888ae3b691390fc6ec41948a",
-    "capturedAt": "2026-10-18"
+    "sha": "a815e50",
+    "sourceHash": "6ef64346def0d12720f41be5225e909ee40dd93b",
+    "capturedAt": "2026-10-19"
   },
   "guide-dues-charges": {
     "widths": [
@@ -145,9 +145,9 @@
       1440
     ],
     "route": "/settings/members",
-    "sha": "063f97a",
-    "sourceHash": "aad28b29079c2ce2a89dfac0daabf8283d7de083",
-    "capturedAt": "2026-10-18"
+    "sha": "a815e50",
+    "sourceHash": "041db1dbf9b00fefd837e50f6cc7f677e04bf62b",
+    "capturedAt": "2026-10-19"
   },
   "guide-properties-list": {
     "widths": [
@@ -155,9 +155,9 @@
       1440
     ],
     "route": "/properties",
-    "sha": "40c1716",
-    "sourceHash": "716e54f348dadebf04ff3f5e99fadac181f3c989",
-    "capturedAt": "2026-10-18"
+    "sha": "a815e50",
+    "sourceHash": "0b4169e18418f187f2c041826f747dd92b051ee2",
+    "capturedAt": "2026-10-19"
   },
   "guide-properties-new": {
     "widths": [
