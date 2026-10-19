@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import {
   AlertTriangle,
+  CalendarDays,
   CheckCircle2,
   ClipboardList,
   CreditCard,
@@ -32,6 +33,11 @@ import {
   type Tone,
 } from '@/components/resident/screen'
 import { ResidentStatus } from '@/components/resident/status'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { todayIn } from '@/lib/association-time'
+import { residentTimeZone } from '@/lib/resident-dues'
+import { fetchResidentMeetings, type MeetingsClient } from '@/lib/resident-meetings/query'
+import { formatMeetingDate, type UpcomingMeeting } from '@/lib/resident-meetings/select'
 
 export const metadata = { title: 'My Home' }
 
@@ -60,6 +66,7 @@ export default async function ResidentDashboard() {
   // A failed dues or violations read leaves those empty, which would render
   // as "You're all caught up" — a wrong answer about someone's account.
   const standingUnknown = data.failed.dues || data.failed.violations
+  const nextMeeting = data.orgId ? await loadNextMeeting(data.orgId, residentTimeZone(data.units)) : null
 
   return (
     <div className="space-y-8">
@@ -147,6 +154,12 @@ export default async function ResidentDashboard() {
         </>
       )}
 
+      {nextMeeting ? (
+        <Section label="Next meeting">
+          <NextMeetingCard next={nextMeeting} />
+        </Section>
+      ) : null}
+
       {/* First visits only, until dismissed; after the account's standing, never above it. */}
       {data.orgId ? <ResidentFirstWeek scope={data.orgId} /> : null}
 
@@ -193,6 +206,54 @@ export default async function ResidentDashboard() {
         </Section>
       ) : null}
     </div>
+  )
+}
+
+// ── Next meeting (BL-088) ───────────────────────────────────────────────
+// The soonest scheduled meeting, from the same resident read as
+// /resident/meetings. Hidden when the read failed or the feature isn't
+// available yet: it is a pointer, and the meetings page says why.
+
+type NextMeeting = { meeting: UpcomingMeeting } | { meeting: null }
+
+async function loadNextMeeting(orgId: string, timeZone: string): Promise<NextMeeting | null> {
+  try {
+    const supabase = await getSupabaseServerClient()
+    const res = await fetchResidentMeetings(supabase as unknown as MeetingsClient, {
+      orgId,
+      today: todayIn(timeZone),
+      timeZone,
+    })
+    if (!res.available) return null
+    return { meeting: res.upcoming[0] ?? null }
+  } catch (e) {
+    console.error('[resident-home] next meeting read failed', {
+      code: e instanceof Error && 'code' in e ? (e as { code?: string }).code ?? null : null,
+    })
+    return null
+  }
+}
+
+function NextMeetingCard({ next }: { next: NextMeeting }) {
+  if (!next.meeting) {
+    return (
+      <TappableRow
+        href="/resident/meetings"
+        icon={<CalendarDays />}
+        tone="slate"
+        title="No upcoming meeting posted"
+        subtitle="See approved minutes from past meetings"
+      />
+    )
+  }
+  return (
+    <TappableRow
+      href="/resident/meetings"
+      icon={<CalendarDays />}
+      tone="info"
+      title={next.meeting.typeLabel}
+      subtitle={`${formatMeetingDate(next.meeting.date)} · ${next.meeting.agenda ? 'Agenda posted' : 'No agenda yet'}`}
+    />
   )
 }
 

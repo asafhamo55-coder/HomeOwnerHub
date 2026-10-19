@@ -57,7 +57,7 @@ Everything you need is in the tabs at the bottom of the screen: Home, Dues, Requ
 
 ## Good to know
 - To see every charge, open **Dues**, then [[View statement]].
-- **Announcements** and **Documents** are in the **Account** tab.
+- **Announcements**, **Documents** and **Meetings and notices** are in the **Account** tab.
 - Have a question about the rules? Tap **Ask** to use Ask the Docs.
 - The rules check is not a decision. Only the board approves or denies an application.
 - Wait for the board's written approval before you start work on your home.
