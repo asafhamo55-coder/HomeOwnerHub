@@ -880,3 +880,13 @@ These go beyond the design-system v2 pass:
 - **BL-089 Statute-aware collections letters:** draft and print only, through Approvals (FL §720.3085(4) 45-day intent to lien, TX §209.0064, CA §5660).
 - **BL-090 Marketing truth round 3 (Done 2026-10-19):** Spanish and AI ARC review are now shipped; the HOA hero persona quotes unsupported numbers.
 - **BL-091 Annual budget notice to owners (Done 2026-10-19)** (FL §720.303(6), CA §5300 partial): built from the adopted budget; reserve fields are BLANKs. "Prepare owner budget notice" on an approved budget; print, or an announcement draft through New message. CA fixture gains §§ 5300 and 5320.
+
+## Owner requests 2026-10-18 (received 2026-10-19)
+
+- **BL-092 Product and architecture deck (PowerPoint):** a full product and architecture overview for team members and potential buyers, with sketch-style diagrams and screenshots.
+  - Saved locally outside the public repo, in `~/HomeownerHub-decks/`.
+  - Refresh it whenever a deploy changes something the deck shows. Each loop cycle checks whether it is stale.
+- **BL-093 Investor deck (PowerPoint):** researched fundraising deck: problem, solution, product, market size, business model and pricing, go-to-market, traction, competition, roadmap, team, financials and the ask.
+  - Kept current over time. Saved locally outside the repo, because it holds strategy.
+- **BL-094 Company logo:** a mark plus a wordmark for HomeownerHub / Ledger, delivered as SVG and PNG in light and dark versions, with a favicon.
+- **BL-095 Platform recolour:** move the whole platform to a blue / light-blue palette in line with current SaaS design trends, through design tokens. It must keep AA contrast, dark mode and the guide screenshots working. It follows BL-094 so the palette matches the logo.
