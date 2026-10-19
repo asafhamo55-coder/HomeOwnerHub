@@ -890,3 +890,27 @@ These go beyond the design-system v2 pass:
   - Kept current over time. Saved locally outside the repo, because it holds strategy.
 - **BL-094 Company logo:** a mark plus a wordmark for HomeownerHub / Ledger, delivered as SVG and PNG in light and dark versions, with a favicon.
 - **BL-095 Platform recolour:** move the whole platform to a blue / light-blue palette in line with current SaaS design trends, through design tokens. It must keep AA contrast, dark mode and the guide screenshots working. It follows BL-094 so the palette matches the logo.
+
+## Owner request 2026-10-19
+
+- **BL-096 Resident assistant (chat with AI in the portal).** Reposition the existing board Copilot loop (`lib/community-qa/agent.ts`, tool-using) as a resident-facing assistant. It replaces today's single-shot "Ask the Docs" tab at `/resident/ask`.
+  - **Tools:** a resident-scoped toolset only. Each tool runs on the resident's own RLS client. None of the board's DB tools (overdue lists, owner lookups, counts) is ever registered.
+    - `search_governing_docs`: cited answers. The existing W1, reused.
+    - `my_account`: the resident's own balance, next due date, payment plan, and how to pay (Zelle memo).
+    - `my_requests`: the status of the resident's own tickets, ARC applications and violations.
+    - `community_calendar`: upcoming meetings, once BL-088 is on, plus recent announcements.
+    - `portal_how_to`: user-guide articles, scoped to the resident audience.
+  - **Hand-offs, never actions:**
+    - The assistant suggests "Open a request to the board", with the ticket pre-filled from the chat, or "Start an ARC application", with the ARC pre-check pre-filled.
+    - The resident confirms each hand-off.
+    - The assistant never changes data and never speaks for the board. A rules question it can't answer from the documents becomes "ask the board" with a prefilled ticket.
+  - **Guardrails:**
+    - No PII about other owners.
+    - Citations are required for any rules answer.
+    - "Not legal advice" footer.
+    - A per-resident AI rate limit (e.g. 20 per hour, 100 per day) and a per-org daily cap.
+    - Conversation kept in the browser session only; the ai_runs log holds ids only.
+  - **Board control:** Settings → Resident portal → "Resident assistant", ON by default, with a per-association switch. It is pull-only, so nothing is sent to residents.
+    - The board also gets a weekly "top questions residents asked" digest card, with counts and topics only, to show where the documents are unclear.
+  - **No migration.** The setting is HMAC-signed in compliance_settings, like the other settings switches.
+  - **Effort:** about 2 agent-days.
