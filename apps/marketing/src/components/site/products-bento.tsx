@@ -50,7 +50,7 @@ export function ProductsBento() {
             </p>
 
             <ul className="mt-8 grid gap-3 sm:grid-cols-2">
-              <Feature Icon={FileText} label="Covenant Brain · 4-second cited answers" />
+              <Feature Icon={FileText} label="Covenant Brain · cited answers in seconds" />
               <Feature Icon={Calendar} label="AI minutes · drafted from your transcript" />
               <Feature Icon={ShieldCheck} label="Citations on every legal answer" />
               <Feature Icon={AlertCircle} label="Violation drafter · tap to approve" />
@@ -114,7 +114,7 @@ export function ProductsBento() {
             </p>
             <div className="mt-6 flex items-center gap-2 text-xs text-muted">
               <ShieldCheck className="h-3.5 w-3.5" />
-              <span><strong className="font-mono font-semibold text-foreground">98%</strong> compliance rate</span>
+              <span>Demo-only filings</span>
             </div>
             <span className="mt-auto inline-flex items-center gap-1.5 pt-6 text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
               Tour Eviction Hub

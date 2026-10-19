@@ -3,10 +3,15 @@
 import { motion } from 'framer-motion'
 import { Quote } from 'lucide-react'
 
-const stats = [
-  { label: 'Hours saved per month', value: '32+', sub: 'Treasurer + secretary combined' },
-  { label: 'Covenant questions answered', value: '247', sub: 'In the first 30 days' },
-  { label: 'First cited answer', value: '17 min', sub: 'From document upload' },
+// Truth rule (BL-042, BL-090): the earlier version showed "32+ hours saved",
+// "247 questions", "17 min" and a "$4,200 reserve error" with nothing in the
+// repo behind them, and the app has no reserve module. What's left: the
+// opening of Linda's reference quote (as in the testimonials marquee) and
+// facts about the product, not customer results.
+const facts = [
+  { label: 'Every document answer', value: 'Cited', sub: 'Covenant Brain names the section, or says your documents don’t cover it' },
+  { label: 'Every AI draft', value: 'Approvals', sub: 'Letters, bills and minutes wait for the board' },
+  { label: 'Roster import', value: 'Self-serve', sub: 'CSV or Excel, CINC exports included' },
 ]
 
 export function CaseStudy() {
@@ -21,29 +26,25 @@ export function CaseStudy() {
             transition={{ duration: 0.5 }}
           >
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              Case study · Madison Park HOA · 180 doors
+              Built with Madison Park HOA · 180 doors
             </p>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.02em] text-foreground md:text-[44px] md:leading-[1.05]">
-              Madison Park found a <span className="text-success">$4,200 reserve error</span> in week three. The platform paid for itself.
+              Built with a real volunteer board, <span className="text-success">not a demo deck.</span>
             </h2>
 
             <div className="mt-7 rounded-2xl border border-border/70 bg-surface p-7 ring-card">
               <Quote className="h-6 w-6 text-accent-fg" />
               <p className="mt-3 text-base leading-relaxed text-foreground-secondary">
-                We're 180 homes, all volunteer. I was the treasurer carrying
-                eight to twelve unpaid hours a week. Ledger answers
-                covenant questions in seconds with the exact section cited,
-                drafts violation notices for the board to approve, and writes
-                our meeting minutes the night of. The first month, we caught a
-                reserve fund discrepancy nobody had noticed in three years.
+                I got my Tuesday nights back. Covenant Brain answers in seconds
+                with the section cited.
               </p>
               <div className="mt-6 flex items-center gap-3 border-t border-border/70 pt-5">
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-fg">
-                  LJ
+                  L
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Linda Jackson</p>
-                  <p className="text-xs text-muted">Treasurer, Madison Park HOA · Johns Creek, GA</p>
+                  <p className="text-sm font-semibold text-foreground">Linda</p>
+                  <p className="text-xs text-muted">Treasurer, Madison Park HOA</p>
                 </div>
               </div>
             </div>
@@ -56,28 +57,27 @@ export function CaseStudy() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="grid gap-3"
           >
-            {stats.map((s) => (
+            {facts.map((s) => (
               <div
                 key={s.label}
-                className="flex items-baseline justify-between rounded-2xl border border-border/70 bg-gradient-to-br from-surface to-subtle/50 p-6 ring-card"
+                className="flex items-baseline justify-between gap-4 rounded-2xl border border-border/70 bg-gradient-to-br from-surface to-subtle/50 p-6 ring-card"
               >
                 <div>
                   <p className="text-sm font-medium text-foreground-secondary">{s.label}</p>
                   <p className="mt-1 text-xs text-muted">{s.sub}</p>
                 </div>
-                <p className="text-4xl font-semibold tracking-tight text-foreground">
+                <p className="shrink-0 text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
                   {s.value}
                 </p>
               </div>
             ))}
             <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-primary-subtle via-surface to-accent-subtle/40 p-6 ring-card">
               <p className="text-sm font-semibold text-foreground">
-                Madison Park, in their words
+                Measured results, when they’re measured
               </p>
               <p className="mt-2 text-xs text-foreground-secondary">
-                "We caught a $4,200 reserve discrepancy our spreadsheet had been
-                wrong about since 2023. Ledger paid for itself in week
-                three."
+                We’ll publish Madison Park’s numbers once the board has measured
+                them and signed off. Until then we don’t print any.
               </p>
             </div>
           </motion.div>

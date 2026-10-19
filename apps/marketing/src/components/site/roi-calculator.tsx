@@ -47,7 +47,7 @@ export function RoiCalculator() {
           </h2>
           <p className="mt-4 text-base text-muted">
             Three sliders. Your annual savings, the right plan, and payback in
-            weeks. Linda was a financial analyst — she'll appreciate this.
+            weeks.
           </p>
         </div>
 

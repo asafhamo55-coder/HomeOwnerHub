@@ -91,17 +91,20 @@ export default function DemoPage() {
 
               <DemoForm />
 
+              {/* BL-090: the "Ten minutes is all it took. The board voted yes
+                  that night." quote was not Linda's reference quote and is
+                  gone. Only that quote may be attributed to her. */}
               <div className="mt-8 rounded-xl border border-border/70 bg-subtle/40 p-4">
                 <div className="flex gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-fg">
-                    LJ
+                    L
                   </div>
                   <div>
                     <p className="text-xs leading-relaxed text-foreground-secondary">
-                      "Ten minutes is all it took. The board voted yes that night."
+                      "I got my Tuesday nights back. Covenant Brain answers in seconds with the section cited."
                     </p>
                     <p className="mt-1 text-[11px] text-muted">
-                      Linda Jackson · Madison Park HOA · 180 doors
+                      Linda · Treasurer, Madison Park HOA · 180 doors
                     </p>
                   </div>
                 </div>
@@ -114,7 +117,7 @@ export default function DemoPage() {
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <span className="h-1 w-1 rounded-full bg-success-solid" />
-                  GA attorney-reviewed
+                  Board approves every AI draft
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <span className="h-1 w-1 rounded-full bg-success-solid" />
@@ -129,9 +132,11 @@ export default function DemoPage() {
       <section className="border-t border-border/60 bg-subtle/40 py-16">
         <div className="container-page">
           <div className="grid gap-6 md:grid-cols-3">
-            <Stat label="Demo → pilot conversion" value="40%" sub="Across Atlanta-metro HOAs" />
-            <Stat label="Pilot → paid conversion" value="50%+" sub="At six-month review" />
-            <Stat label="From upload to first cited answer" value="15 min" sub="Madison Park onboarding" />
+            {/* BL-090: the 40% / 50%+ conversion and "15 min" figures had
+                nothing behind them. These are product facts. */}
+            <Stat label="Every document answer" value="Cited" sub="Or it says your documents don’t cover it" />
+            <Stat label="Every AI draft" value="Approvals" sub="Letters, bills and minutes wait for the board" />
+            <Stat label="Setup + roster import" value="Self-serve" sub="CSV or Excel, CINC exports included" />
           </div>
           <p className="mt-10 text-center text-xs text-muted">
             Ledger serves Atlanta-metro HOAs in v1. Charlotte / Raleigh /
@@ -256,7 +261,7 @@ export default function DemoPage() {
 const FAQS: { q: string; a: string }[] = [
   {
     q: 'Will Ledger replace our community manager?',
-    a: 'No. Ledger replaces the slow paperwork — covenant lookups, notice drafts, minutes, AR reminders — so your manager (or your treasurer) has time for the human work. Most boards keep their manager and use Ledger to give them leverage.',
+    a: 'No. Ledger replaces the slow paperwork — covenant lookups, notice drafts, minutes, AR reminders — so your manager (or your treasurer) has time for the human work. A board with a manager can keep them and use Ledger alongside.',
   },
   {
     q: 'What happens to data we already have?',

@@ -44,8 +44,8 @@ export function Footer() {
               AI runs the paperwork. The board runs the HOA.
             </p>
             <p className="mt-6 max-w-sm text-sm leading-relaxed text-muted">
-              Every AI output is labeled by quality bar, cited to the source
-              document, and audit-logged. We tell you what's production, what's
+              Every AI workflow is labeled by quality bar, and its answers cite
+              the source. We tell you what's production, what's
               beta, and what's demo.
             </p>
           </div>

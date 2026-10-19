@@ -33,13 +33,16 @@ const ALSO_INCLUDED = [
   'A built-in user guide with step-by-step articles, and Ask the guide', // /help, /api/help/ask
   'Dues, reminders and a resident ledger in your association’s own time zone', // /dues, BL-043
   'Download all your data any time, as one zip of spreadsheets', // /settings/data
+  'Mobile inspection mode: walk the community, photograph issues, drafts land in Approvals', // /inspect, BL-028
+  'Follow-up violation letters (second notice, hearing, fine, decision), through Approvals', // /violations/[id] FollowUpLetterDialog
+  'Payment plans and recurring journal entries in Accounting', // /accounting/payment-plans, /accounting/recurring, BL-080/081
 ]
 
-// Backlog items (docs/backlog.md). Not available today.
+// Backlog items (docs/backlog.md). Not available today. Spanish
+// announcements (BL-025) and AI ARC review (BL-024/027/079) shipped and moved
+// to the workflow cards above (BL-090).
 const NOT_YET = [
-  'Spanish-language resident communications',
-  'AI review of ARC requests against your guidelines',
-  'Reserve fund tracking and projections',
+  'Reserve fund tracking and projections', // BL-037
 ]
 
 export default function HoaPage() {
@@ -57,29 +60,31 @@ export default function HoaPage() {
         visual={<HoaDashboardVisual />}
         stats={[
           { value: String(SHIPPED_HOA_WORKFLOWS.length), label: 'AI workflows live' },
-          { value: '32+', label: 'Hours saved / mo at Madison Park' },
+          { value: 'Cited', label: 'Every document answer' },
           { value: 'Self-serve', label: 'Setup + roster import' },
         ]}
       />
 
       <ViolationDrafterLive />
 
+      {/* BL-090: only the opening of Linda's reference quote (as on the
+          homepage), with no metrics. The bullets are product facts, not
+          customer results. */}
       <HubPersona
         theme={theme}
         eyebrow="The volunteer treasurer"
-        title="Linda, 58, runs a 180-home HOA on Tuesday nights."
-        description="She has a real job. Eight to twelve unpaid hours a week on HOA paperwork was unsustainable. HOA Hub does the paperwork; Linda governs."
+        title="Built for the treasurer who runs the HOA after work."
+        description="Volunteer board members have day jobs. HOA Hub drafts the paperwork; the board reviews, approves and governs."
         persona={{
-          name: 'Linda Jackson',
-          role: 'Treasurer, Madison Park HOA · Johns Creek, GA',
-          quote:
-            "I got my Tuesday nights back. Covenant Brain answers in seconds with the section cited. Minutes are written the night of the meeting. We caught a $4,200 reserve discrepancy in week three.",
-          initials: 'LJ',
+          name: 'Linda',
+          role: 'Treasurer, Madison Park HOA',
+          quote: 'I got my Tuesday nights back. Covenant Brain answers in seconds with the section cited.',
+          initials: 'L',
         }}
         bullets={[
-          { label: 'Hours saved / mo', value: '32+' },
-          { label: 'Questions answered', value: '247' },
-          { label: 'First Aha', value: '15 min' },
+          { label: 'Every document answer', value: 'Cited' },
+          { label: 'Approve or reject a draft', value: '1 click' },
+          { label: 'Announcements', value: 'EN + ES' },
         ]}
       />
 
@@ -137,6 +142,18 @@ export default function HoaPage() {
             bar: 'C',
             title: 'State-law answers',
             body: 'HOA-law questions answered with citations to the statute. Georgia today; Florida is being added.',
+          },
+          {
+            icon: 'ClipboardCheck',
+            bar: 'B',
+            title: 'AI ARC review',
+            body: 'Residents can check a request against your guidelines before submitting. The board gets a cited review, findings from the photos and editable decision letters. The board decides.',
+          },
+          {
+            icon: 'Globe',
+            bar: 'B',
+            title: 'Spanish announcements',
+            body: 'Add an AI-drafted Spanish version to an announcement. The board reads it, can edit it, and confirms it before anything is sent.',
           },
           {
             icon: 'MessageSquare',

@@ -43,8 +43,8 @@ export function WorkflowsGrid() {
             We tell you what's production, what's beta, what's demo, and what isn't built yet.
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-muted">
-            Every workflow ships with a quality bar visible in product and in
-            marketing. No hidden hallucination risk. No "AI did it" deflection.
+            Every workflow ships with a quality bar, published here and on the
+            public roadmap. No hidden hallucination risk. No "AI did it" deflection.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-2">
             <Legend bar="C" />

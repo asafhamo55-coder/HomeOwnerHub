@@ -44,7 +44,7 @@ export function MidCta() {
                 Read the public roadmap
               </Link>
               <p className="mt-1 text-center text-[11px] text-muted">
-                Atlanta-metro pilot · 40% demo-to-pilot
+                Built in Atlanta · Ten-minute demo
               </p>
             </div>
           </div>

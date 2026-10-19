@@ -31,9 +31,19 @@ describe('marketing workflow list (BL-042 truth rule)', () => {
   })
 
   it('names that BL-042 found unbuilt are never marked shipped', () => {
+    // 'Multilingual Comms' and 'ARC Recommender' shipped narrower than those
+    // names promised, as 'Spanish announcements' (BL-025) and 'AI ARC review'
+    // (BL-024/027/079). The old names stay banned (BL-090).
     for (const name of ['Reserve Live', 'Multilingual Comms', 'ARC Recommender', 'Vendor Oracle', 'Minutes Engine', 'Onboarding Agent']) {
       const w = WORKFLOWS.find((x) => x.name === name)
       if (w) expect(w.status, name).not.toBe('shipped')
+    }
+  })
+
+  it('BL-090: Spanish announcements and AI ARC review are listed as shipped', () => {
+    for (const name of ['Spanish announcements', 'AI ARC review']) {
+      const w = SHIPPED_HOA_WORKFLOWS.find((x) => x.name === name)
+      expect(w, name).toBeTruthy()
     }
   })
 

@@ -40,14 +40,14 @@ export default function RoadmapPage() {
         <div className="absolute inset-0 -z-10 bg-radial-spot" />
         <div className="container-page text-center">
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-            Public roadmap · updated weekly
+            Public roadmap
           </p>
           <h1 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold tracking-tight text-foreground md:text-[56px] md:leading-[1.05]">
             Every workflow. Every bar. In public.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-muted">
             We publish what each workflow can and can't do today. Quality bar
-            labels are visible in the product, in pricing, and here.
+            labels are published here and across this site.
           </p>
 
           <div className="mt-10 grid gap-4 sm:grid-cols-3">
@@ -63,8 +63,8 @@ export default function RoadmapPage() {
           <div className="rounded-2xl border border-border/70 bg-surface p-6 ring-card md:p-8">
             <h2 className="text-base font-semibold text-foreground">What the bars mean</h2>
             <p className="mt-2 text-sm text-foreground-secondary">
-              Every workflow ships at a labeled quality bar. The label is
-              visible everywhere — in the UI, in marketing, in pricing.
+              Every workflow ships at a labeled quality bar, published on this
+              site.
             </p>
             <div className="mt-6 grid gap-4 md:grid-cols-3">
               {(['C', 'B', 'A'] as const).map((b) => {
@@ -96,9 +96,8 @@ export default function RoadmapPage() {
               })}
             </div>
             <p className="mt-6 text-xs text-muted">
-              Movement between bars (A → B → C) requires an internal eval pass
-              and, for legal-adjacent workflows, written attorney sign-off. The
-              audit log records every move with approver and date.{' '}
+              Movement between bars (A → B → C) needs a human review gate and
+              passing tests, and every move is published here.{' '}
               <Link href="/honesty-bars" className="font-semibold text-foreground underline-offset-4 hover:underline">
                 Read the full bar policy →
               </Link>
@@ -115,8 +114,8 @@ export default function RoadmapPage() {
                 All {WORKFLOWS.length} workflows
               </h2>
               <p className="mt-3 text-base leading-relaxed text-muted">
-                Filter by hub, bar, or status. Updates land here within 24 hours
-                of a bar move in production.
+                Filter by hub, bar, or status. This list changes in the same
+                release as the workflow it describes.
               </p>
             </div>
           </div>
@@ -128,8 +127,7 @@ export default function RoadmapPage() {
               Want input on what we build next?
             </h3>
             <p className="mx-auto mt-2 max-w-lg text-sm text-foreground-secondary">
-              Customer advisory board meets monthly. Three to four customers help
-              us prioritize. Spots are open.
+              Tell us what your board needs next. We read every request.
             </p>
             <Link
               href="/demo"
