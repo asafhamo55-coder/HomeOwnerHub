@@ -39,7 +39,10 @@ export type RateScope = 'user' | 'org'
 
 export type WindowDecision = { ok: true } | { ok: false; retryAfterSeconds: number }
 
-export type RateDecision = { ok: true } | { ok: false; scope: RateScope; retryAfterSeconds: number }
+export type RateDecision =
+  | { ok: true }
+  /** `window: 'daily'` when the binding user window is the bucket's perUserDaily. */
+  | { ok: false; scope: RateScope; retryAfterSeconds: number; window?: 'daily' }
 
 /**
  * One window. `limitThNewestAt` is the created_at (ms) of the limit-th newest
@@ -66,6 +69,19 @@ export function combineDecisions(user: WindowDecision, org: WindowDecision): Rat
   return o > u ? { ok: false, scope: 'org', retryAfterSeconds: o } : { ok: false, scope: 'user', retryAfterSeconds: u }
 }
 
+/**
+ * A person's two windows (hourly, and the optional daily one): the one that
+ * frees up later decides, and says whether it was the daily one.
+ */
+export function combineUserWindows(
+  hourly: WindowDecision,
+  daily: WindowDecision,
+): WindowDecision & { daily?: true } {
+  if (daily.ok) return hourly
+  if (hourly.ok || daily.retryAfterSeconds > hourly.retryAfterSeconds) return { ...daily, daily: true }
+  return hourly
+}
+
 /** "a minute" / "about 12 minutes" / "about 5 hours". */
 export function describeWait(seconds: number): string {
   if (seconds <= 90) return 'a minute'
@@ -81,11 +97,17 @@ function windowPhrase(windowMs: number): string {
 }
 
 /** The message a person sees on a 429. */
-export function rateLimitMessage(cfg: AiRateLimit, scope: RateScope, retryAfterSeconds: number): string {
+export function rateLimitMessage(
+  cfg: AiRateLimit,
+  scope: RateScope,
+  retryAfterSeconds: number,
+  window?: 'daily',
+): string {
   const wait = describeWait(retryAfterSeconds)
+  const userWindow = window === 'daily' && cfg.perUserDaily ? cfg.perUserDaily : cfg.perUser
   const head =
     scope === 'user'
-      ? `You’ve reached the limit of ${cfg.perUser.limit} ${cfg.noun} ${windowPhrase(cfg.perUser.windowMs)}. Try again in ${wait}.`
+      ? `You’ve reached the limit of ${userWindow.limit} ${cfg.noun} ${windowPhrase(userWindow.windowMs)}. Try again in ${wait}.`
       : `Your community has reached its limit of ${cfg.perOrg.limit} ${cfg.noun} ${windowPhrase(cfg.perOrg.windowMs)}. Try again in ${wait}.`
   return cfg.suffix ? `${head} ${cfg.suffix}` : head
 }
@@ -95,7 +117,7 @@ export function rateLimitedError(bucket: AiUsageBucket, decision: Extract<RateDe
   const cfg = AI_RATE_LIMITS[bucket]
   return new ApiRouteError(
     'rate_limited',
-    rateLimitMessage(cfg, decision.scope, decision.retryAfterSeconds),
+    rateLimitMessage(cfg, decision.scope, decision.retryAfterSeconds, decision.window),
     { reason: decision.scope === 'user' ? 'user_limit' : 'org_limit', retryAfterSeconds: decision.retryAfterSeconds },
     { 'Retry-After': String(decision.retryAfterSeconds) },
   )
@@ -143,11 +165,19 @@ export async function checkAndRecordAiUsage(
   const action = aiUsageAction(bucket)
 
   try {
-    const [userAt, orgAt] = await Promise.all([
+    const daily = cfg.perUserDaily
+    const [userAt, orgAt, userDayAt] = await Promise.all([
       limitThNewest(db, action, cfg.perUser, who, now),
       limitThNewest(db, action, cfg.perOrg, { orgId: who.orgId }, now),
+      daily ? limitThNewest(db, action, daily, who, now) : Promise.resolve(null),
     ])
-    const decision = combineDecisions(decideWindow(cfg.perUser, userAt, now), decideWindow(cfg.perOrg, orgAt, now))
+    const user = combineUserWindows(
+      decideWindow(cfg.perUser, userAt, now),
+      daily ? decideWindow(daily, userDayAt, now) : { ok: true },
+    )
+    const combined = combineDecisions(user, decideWindow(cfg.perOrg, orgAt, now))
+    const decision: RateDecision =
+      !combined.ok && combined.scope === 'user' && !user.ok && user.daily ? { ...combined, window: 'daily' } : combined
     if (!decision.ok) throw rateLimitedError(bucket, decision)
   } catch (err) {
     if (err instanceof ApiRouteError) throw err

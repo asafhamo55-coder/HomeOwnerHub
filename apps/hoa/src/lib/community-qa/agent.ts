@@ -1,37 +1,27 @@
-// Community Q&A agent — tool-using LLM loop.
+// Community Q&A agent — the board Copilot's tool-using LLM loop.
 //
-// Talks to the Groq OpenAI-compatible /chat/completions endpoint via
-// plain fetch (no SDK dep). The LLM is given the tool definitions from
-// tools.ts and decides which to call. Each tool result is fed back as
-// a `tool` role message until the LLM returns a final assistant
-// message with no further tool_calls.
+// The loop itself (plain fetch to the OpenAI-compatible /chat/completions,
+// tool results fed back until a final answer, MAX_STEPS bound) lives in
+// loop.ts and is shared with the resident assistant. This file supplies
+// the board's prompt and toolset (tools.ts) and shapes the result.
 //
 // Why no openai SDK: it lives in packages/workflows but not apps/hoa.
 // Adding it would be one more dep on an already-large package. The
 // REST surface we use is ~50 lines of straightforward JSON.
-//
-// Loop bound: MAX_STEPS prevents an infinite tool-call cycle when the
-// model gets stuck. 8 is plenty for the realistic question depth.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
-import { resolveModel } from '@homeowner-portal/ai'
-import { logRouteFailure } from '@/lib/api/log'
 import { ContactVault } from './contact-placeholders'
+import { publicArgs, runToolLoop, type RawToolCall as LoopRawToolCall } from './loop'
 import {
   TOOLS,
-  TOOL_BY_NAME,
-  ToolFailure,
   isToolFailed,
-  toolFailed,
   type DocsCitation,
   type DocsToolResult,
-  type Tool,
+  type ToolContext,
 } from './tools'
 
 type Db = SupabaseClient<Database>
-
-const MAX_STEPS = 8
 
 const SYSTEM_PROMPT = `You are a community-data assistant for an HOA management platform.
 
@@ -64,20 +54,6 @@ Never:
 - Reference data from other organizations or communities.
 - Speculate about reasons for trends — stick to the facts.
 - Pretend a rule exists when search_governing_docs returns LOW confidence with no relevant citations; say "I don't see that in your governing docs" instead.`
-
-interface ChatMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool'
-  content?: string | null
-  tool_call_id?: string
-  tool_calls?: ToolCall[]
-  name?: string
-}
-
-interface ToolCall {
-  id: string
-  type: 'function'
-  function: { name: string; arguments: string }
-}
 
 /** One entry of the response's data-sources log: a public, camelCase view. */
 export interface PublicToolCall {
@@ -112,164 +88,37 @@ export async function askCommunity(
   question: string,
   ctx: { db: Db; orgId: string; associationId?: string | null; canSeeOwnerContact: boolean },
 ): Promise<AgentResult> {
-  const apiKey = process.env.AI_API_KEY
-  const baseUrl = process.env.AI_BASE_URL ?? 'https://api.groq.com/openai/v1'
-  const model = resolveModel()
-  if (!apiKey) {
-    throw new Error('AI_API_KEY not set on the server.')
-  }
-
-  const tools = TOOLS.map((t) => ({
-    type: 'function' as const,
-    function: {
-      name: t.def.name,
-      description: t.def.description,
-      parameters: t.def.parameters,
-    },
-  }))
-
-  const messages: ChatMessage[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'user', content: question },
-  ]
-
   // One vault per question: tokens are numbered within this answer only.
   const contactVault = new ContactVault()
   const toolCtx = { ...ctx, contactVault }
 
-  const toolCallLog: RawToolCall[] = []
-  const finish = (answer: string, steps: number): AgentResult => ({
-    answer,
-    toolCalls: toolCallLog.map(toPublicCall),
-    steps,
-    ...extractDocsArtifacts(toolCallLog),
-    contactVault,
+  const { answer, steps, log } = await runToolLoop<ToolContext>({
+    systemPrompt: SYSTEM_PROMPT,
+    turns: [{ role: 'user', content: question }],
+    tools: TOOLS,
+    ctx: toolCtx,
+    logTag: 'ai.ask-community.tool',
+    logIds: { orgId: ctx.orgId },
   })
 
-  for (let step = 1; step <= MAX_STEPS; step++) {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        tools,
-        tool_choice: 'auto',
-        temperature: 0.1,
-      }),
-    })
-
-    if (!res.ok) {
-      // Status only: the provider body can echo the key or the prompt.
-      throw new Error(`LLM call failed: HTTP ${res.status}`)
-    }
-
-    const body = (await res.json()) as {
-      choices: Array<{
-        message: {
-          role: 'assistant'
-          content: string | null
-          tool_calls?: ToolCall[]
-        }
-        finish_reason: string
-      }>
-    }
-
-    const choice = body.choices?.[0]
-    if (!choice) {
-      throw new Error('LLM returned no choices.')
-    }
-
-    const msg = choice.message
-    messages.push({
-      role: 'assistant',
-      content: msg.content,
-      tool_calls: msg.tool_calls,
-    })
-
-    // No tool calls → final answer.
-    if (!msg.tool_calls || msg.tool_calls.length === 0) {
-      return finish(msg.content?.trim() || '(no answer)', step)
-    }
-
-    // Execute each requested tool, append a `tool` message per call.
-    for (const tc of msg.tool_calls) {
-      const tool = TOOL_BY_NAME[tc.function.name]
-      let parsedArgs: Record<string, unknown> = {}
-      try {
-        parsedArgs = tc.function.arguments
-          ? (JSON.parse(tc.function.arguments) as Record<string, unknown>)
-          : {}
-      } catch {
-        /* fall through with empty args; tool will surface the issue */
-      }
-
-      let result: unknown
-      if (!tool) {
-        result = toolFailed('unknown_tool')
-      } else {
-        try {
-          result = await tool.execute(parsedArgs, toolCtx)
-        } catch (err) {
-          // Only the fixed code goes back to the model (and so into its
-          // answer) and to the response. The log keeps ids and codes.
-          const code = err instanceof ToolFailure ? err.code : 'lookup_failed'
-          logRouteFailure('ai.ask-community.tool', err, {
-            orgId: ctx.orgId,
-            tool: tool.def.name,
-            toolCode: code,
-            dbCode: err instanceof ToolFailure ? (err.dbCode ?? null) : null,
-          })
-          result = toolFailed(code)
-        }
-      }
-
-      toolCallLog.push({ tool, args: parsedArgs, result })
-
-      messages.push({
-        role: 'tool',
-        tool_call_id: tc.id,
-        name: tc.function.name,
-        content: JSON.stringify(result),
-      })
-    }
+  return {
+    // Loop bound exhausted: the model couldn't resolve. Return what we have.
+    answer:
+      answer ??
+      "I couldn't finish answering that within the step budget. Try a more specific question, or break it into smaller pieces.",
+    toolCalls: log.map(toPublicCall),
+    steps,
+    ...extractDocsArtifacts(log),
+    contactVault,
   }
-
-  // Loop bound exhausted — model couldn't resolve. Return what we have.
-  return finish(
-    "I couldn't finish answering that within the step budget. Try a more specific question, or break it into smaller pieces.",
-    MAX_STEPS,
-  )
 }
 
-interface RawToolCall {
-  /** Undefined when the model named a tool that does not exist. */
-  tool: Tool | undefined
-  args: Record<string, unknown>
-  result: unknown
-}
-
-const MAX_ARG_TEXT = 200
-
-/** Declared args only, primitives only, strings bounded: the model writes these. */
-function publicArgs(tool: Tool, args: Record<string, unknown>): PublicToolCall['args'] {
-  const out: PublicToolCall['args'] = {}
-  for (const key of Object.keys(tool.def.parameters.properties)) {
-    const v = args[key]
-    if (typeof v === 'string') out[key] = v.slice(0, MAX_ARG_TEXT)
-    else if (typeof v === 'number' && Number.isFinite(v)) out[key] = v
-    else if (typeof v === 'boolean') out[key] = v
-  }
-  return out
-}
+type RawToolCall = LoopRawToolCall<ToolContext>
 
 function toPublicCall(c: RawToolCall): PublicToolCall {
   if (!c.tool) return { name: 'unknown', args: {}, result: c.result }
   const result = isToolFailed(c.result) || !c.tool.toPublic ? c.result : c.tool.toPublic(c.result)
-  return { name: c.tool.def.name, args: publicArgs(c.tool, c.args), result }
+  return { name: c.tool.def.name, args: publicArgs(c.tool.def, c.args), result }
 }
 
 /**
@@ -281,8 +130,8 @@ function toPublicCall(c: RawToolCall): PublicToolCall {
  * takes the highest level seen, runId comes from the latest call (UI
  * "view audit trail" link).
  */
-function extractDocsArtifacts(
-  log: RawToolCall[],
+export function extractDocsArtifacts<C>(
+  log: LoopRawToolCall<C>[],
 ): Pick<AgentResult, 'citations' | 'confidence' | 'runId'> {
   const docsCalls = log.filter((c) => c.tool?.def.name === 'search_governing_docs')
   if (docsCalls.length === 0) return {}

@@ -51,11 +51,11 @@ export interface ToolContext {
   associationId?: string | null
 }
 
-export interface Tool {
+export interface Tool<C = ToolContext> {
   def: ToolDefinition
   /** Returns a camelCase result (money in *Cents) that is fed to the model.
    *  Throws ToolFailure — never free text — when it cannot answer. */
-  execute: (args: Record<string, unknown>, ctx: ToolContext) => Promise<unknown>
+  execute: (args: Record<string, unknown>, ctx: C) => Promise<unknown>
   /** The part of the result the HTTP response may carry. Default: all of it. */
   toPublic?: (result: unknown) => unknown
 }
@@ -384,7 +384,7 @@ interface DocsToolResult {
   runId: string
 }
 
-const searchGoverningDocs: Tool = {
+export const searchGoverningDocs: Tool = {
   def: {
     name: 'search_governing_docs',
     description:
@@ -402,32 +402,44 @@ const searchGoverningDocs: Tool = {
     },
   },
   async execute(args, { orgId, associationId }) {
-    const question = String(args.question ?? '').trim().slice(0, 1000)
-    if (!question) throw new ToolFailure('invalid_args')
-    let result: DocsToolResult
-    try {
-      result = (await queryGoverningDocs(question, {
-        organizationId: orgId,
-        associationId: associationId ?? null,
-      })) as DocsToolResult
-    } catch (err) {
-      // W1's message can name the vector table or carry the provider body.
-      throw new ToolFailure('docs_unavailable', err)
-    }
-    // Name every field: whatever else W1 grows must not ride along.
-    const out: DocsToolResult = {
-      answer: result.answer,
-      confidence: result.confidence,
-      citations: (result.citations ?? []).map((c) => ({
-        chunkId: c.chunkId,
-        documentId: c.documentId,
-        docType: c.docType,
-        section: c.section,
-      })),
-      runId: result.runId,
-    }
-    return out
+    return runDocsSearch(args, { orgId, associationId: associationId ?? null })
   },
+}
+
+/**
+ * The body of search_governing_docs, shared with the resident assistant
+ * (which passes the resident-visible doc-type allowlist). Throws
+ * ToolFailure; returns only the named fields.
+ */
+export async function runDocsSearch(
+  args: Record<string, unknown>,
+  ctx: { orgId: string; associationId: string | null; allowedDocTypes?: readonly string[] },
+): Promise<DocsToolResult> {
+  const question = String(args.question ?? '').trim().slice(0, 1000)
+  if (!question) throw new ToolFailure('invalid_args')
+  let result: DocsToolResult
+  try {
+    result = (await queryGoverningDocs(question, {
+      organizationId: ctx.orgId,
+      associationId: ctx.associationId,
+      ...(ctx.allowedDocTypes ? { allowedDocTypes: ctx.allowedDocTypes } : {}),
+    })) as DocsToolResult
+  } catch (err) {
+    // W1's message can name the vector table or carry the provider body.
+    throw new ToolFailure('docs_unavailable', err)
+  }
+  // Name every field: whatever else W1 grows must not ride along.
+  return {
+    answer: result.answer,
+    confidence: result.confidence,
+    citations: (result.citations ?? []).map((c) => ({
+      chunkId: c.chunkId,
+      documentId: c.documentId,
+      docType: c.docType,
+      section: c.section,
+    })),
+    runId: result.runId,
+  }
 }
 
 // ─── registry ────────────────────────────────────────────────────────

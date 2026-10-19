@@ -16,7 +16,14 @@
 // action `ai.usage.<bucket>`. Changing a number here takes effect on the next
 // request; no migration, no cache.
 
-export type AiUsageBucket = 'arc_precheck' | 'ask_docs' | 'help_ask' | 'rewrite' | 'translate' | 'follow_up_letter'
+export type AiUsageBucket =
+  | 'arc_precheck'
+  | 'ask_docs'
+  | 'help_ask'
+  | 'rewrite'
+  | 'translate'
+  | 'follow_up_letter'
+  | 'resident_assistant'
 
 export interface RateWindow {
   /** Max calls inside the window. */
@@ -27,6 +34,8 @@ export interface RateWindow {
 
 export interface AiRateLimit {
   perUser: RateWindow
+  /** Optional second per-person window (daily), checked alongside perUser. */
+  perUserDaily?: RateWindow
   perOrg: RateWindow
   /** Plural noun for the 429 message: "10 rules checks an hour". */
   noun: string
@@ -80,6 +89,16 @@ export const AI_RATE_LIMITS: Record<AiUsageBucket, AiRateLimit> = {
     perUser: { limit: 30, windowMs: HOUR_MS },
     perOrg: { limit: 300, windowMs: DAY_MS },
     noun: 'follow-up letter drafts',
+  },
+  // POST /api/ai/resident-assistant — the resident Ask tab's chat (BL-096).
+  // Each message is a multi-step tool loop, so a person gets 20 an hour and
+  // 100 a day, and a community 600 a day between all its residents.
+  resident_assistant: {
+    perUser: { limit: 20, windowMs: HOUR_MS },
+    perUserDaily: { limit: 100, windowMs: DAY_MS },
+    perOrg: { limit: 600, windowMs: DAY_MS },
+    noun: 'assistant messages',
+    suffix: 'You can still use Requests to ask the board.',
   },
 }
 

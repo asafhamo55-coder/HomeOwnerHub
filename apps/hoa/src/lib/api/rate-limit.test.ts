@@ -252,3 +252,36 @@ describe('linkAiUsageToRun', () => {
     expect(f.updates).toEqual([])
   })
 })
+
+describe('resident_assistant bucket (BL-096): hourly + daily per person, daily per org', () => {
+  it('limits are 20/hour and 100/day per user with a per-org daily cap', () => {
+    const cfg = AI_RATE_LIMITS.resident_assistant
+    expect(cfg.perUser).toEqual({ limit: 20, windowMs: HOUR_MS })
+    expect(cfg.perUserDaily).toEqual({ limit: 100, windowMs: DAY_MS })
+    expect(cfg.perOrg.windowMs).toBe(DAY_MS)
+    expect(cfg.perOrg.limit).toBeGreaterThan(cfg.perUserDaily!.limit)
+  })
+
+  const action = 'ai.usage.resident_assistant'
+
+  it('the 21st message in an hour is refused on the hourly window', async () => {
+    const f = fakeDb(usage(20, { org: 'org-1', user: 'user-1' }, (i) => i * 2, action))
+    const err = await checkAndRecordAiUsage('resident_assistant', WHO, { db: f.db, now: clock }).catch((e) => e)
+    expect(err).toMatchObject({ code: 'rate_limited', extra: { reason: 'user_limit' } })
+    expect(err.publicMessage).toContain('20 assistant messages an hour')
+    expect(f.reads).toHaveLength(3)
+  })
+
+  it('100 messages spread over the day are refused on the daily window, with the daily wording', async () => {
+    // One every 12 minutes: never 20 in an hour, but 100 in 20 hours.
+    const f = fakeDb(usage(100, { org: 'org-1', user: 'user-1' }, (i) => 61 + i * 12, action))
+    const err = await checkAndRecordAiUsage('resident_assistant', WHO, { db: f.db, now: clock }).catch((e) => e)
+    expect(err).toMatchObject({ code: 'rate_limited', extra: { reason: 'user_limit' } })
+    expect(err.publicMessage).toContain('100 assistant messages a day')
+  })
+
+  it('under every window: allowed and recorded', async () => {
+    const f = fakeDb(usage(50, { org: 'org-1', user: 'user-1' }, (i) => 61 + i * 12, action))
+    await expect(checkAndRecordAiUsage('resident_assistant', WHO, { db: f.db, now: clock })).resolves.toEqual({ usageId: 'usage-1' })
+  })
+})

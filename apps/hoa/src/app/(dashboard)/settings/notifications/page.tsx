@@ -3,9 +3,11 @@ import { Alert, Card, CardContent, CardDescription, CardHeader, CardTitle, LoadF
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getMonthlyReportPreference } from '@/lib/monthly-report/actions'
 import { getBoardResidentNotifySettings } from '@/lib/resident-notify/actions'
+import { getBoardResidentAssistantSettings } from '@/lib/resident-assistant/actions'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
 import { MonthlyReportToggle } from './MonthlyReportToggle'
 import { ResidentNotifyToggle } from './ResidentNotifyToggle'
+import { ResidentAssistantToggle } from './ResidentAssistantToggle'
 
 export const metadata = { title: 'Email notifications' }
 export const dynamic = 'force-dynamic'
@@ -18,10 +20,17 @@ export const dynamic = 'force-dynamic'
  *
  * "Resident emails" (BL-082) is different: one switch for the whole
  * association, stored on the association, off until a board turns it on.
+ *
+ * "Resident portal" → "Resident assistant" (BL-096): one switch per
+ * association, ON until a board turns it off.
  */
 export default async function NotificationSettingsPage() {
   const { role } = await requireBoardOrAdmin()
-  const [monthly, residents] = await Promise.all([getMonthlyReportPreference(), getBoardResidentNotifySettings()])
+  const [monthly, residents, assistant] = await Promise.all([
+    getMonthlyReportPreference(),
+    getBoardResidentNotifySettings(),
+    getBoardResidentAssistantSettings(),
+  ])
 
   return (
     <Page
@@ -75,6 +84,38 @@ export default async function NotificationSettingsPage() {
                 </Alert>
               ) : null}
               <ResidentNotifyToggle initial={residents.data.on} />
+            </>
+          )}
+        </CardContent>
+      </Card>
+      <Card className="mt-6">
+        <CardHeader className="pb-4">
+          <CardTitle as="h2">Resident portal</CardTitle>
+          <CardDescription>
+            One setting for the whole association, shared by every board member. On until you turn it off.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!assistant.ok ? (
+            assistant.reason === 'no_association' ? (
+              <p className="text-sm text-muted">Set up your association first.</p>
+            ) : (
+              <LoadFailed what="your resident portal settings" />
+            )
+          ) : (
+            <>
+              {assistant.data.state === 'unverified' ? (
+                <Alert variant="warning" title="Resident assistant is off">
+                  The saved setting was changed outside this screen, so residents see Ask the Docs. Turn it on again
+                  to restore the assistant.
+                </Alert>
+              ) : null}
+              {!assistant.data.aiConfigured ? (
+                <Alert variant="warning" title="AI isn’t set up on this server">
+                  Residents see Ask the Docs until the AI service is configured.
+                </Alert>
+              ) : null}
+              <ResidentAssistantToggle initial={assistant.data.on} />
             </>
           )}
         </CardContent>
