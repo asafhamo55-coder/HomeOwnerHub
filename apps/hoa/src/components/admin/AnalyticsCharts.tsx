@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, EmptyState, useTheme } from '@homeowner-portal/ui'
+import { palette } from '@homeowner-portal/ui/tokens'
 
 // Platform-analytics charts (ECharts, SVG renderer). Colours come from the
 // design tokens at runtime — the CSS variables the preset emits — so the
@@ -39,21 +40,11 @@ const TOKEN_NAMES: TokenName[] = [
 
 type Tokens = Record<TokenName, string>
 
-// Neutral fallbacks for the server render / first paint only.
-const FALLBACK: Tokens = {
-  foreground: '#111827',
-  'foreground-secondary': '#374151',
-  muted: '#6b7280',
-  border: '#e5e7eb',
-  surface: '#ffffff',
-  elevated: '#ffffff',
-  primary: '#4f46e5',
-  success: '#15803d',
-  warning: '#b45309',
-  danger: '#b91c1c',
-  info: '#1d4ed8',
-  accent: '#f59e0b',
-}
+// Fallbacks for the server render / first paint only: the light HOA
+// palette, straight from the token source.
+const FALLBACK: Tokens = Object.fromEntries(
+  TOKEN_NAMES.map((name) => [name, palette('hoa', 'light')[name]]),
+) as Tokens
 
 /** "243 75% 59%" → "hsl(243, 75%, 59%)" (ECharts wants the comma form). */
 function toHsl(channels: string): string | null {

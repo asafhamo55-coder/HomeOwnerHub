@@ -93,15 +93,15 @@ export function renderHtml(note: ReleaseNote, images: readonly InlineImage[]): s
 <style>
   :root { color-scheme: light dark; supported-color-schemes: light dark; }
   @media (prefers-color-scheme: dark) {
-    .rn-bg { background-color:#0B0D11 !important; }
-    .rn-card { background-color:#13161C !important; }
-    .rn-fg, .rn-card h2, .rn-card h3 { color:#F2F4F7 !important; }
-    .rn-card p, .rn-card li { color:#CDD3DC !important; }
-    .rn-muted { color:#9BA3B1 !important; }
+    .rn-bg { background-color:#0A0F1A !important; }
+    .rn-card { background-color:#111827 !important; }
+    .rn-fg, .rn-card h2, .rn-card h3 { color:#F1F5F9 !important; }
+    .rn-card p, .rn-card li { color:#CBD5E1 !important; }
+    .rn-muted { color:#94A3B8 !important; }
     .rn-action { background-color:#2B2110 !important; }
     .rn-action p, .rn-action li { color:#FEC84B !important; }
-    .rn-card a, .rn-link { color:#8F95FA !important; }
-    .rn-card code { background-color:#1F242D !important; color:#F2F4F7 !important; }
+    .rn-card a, .rn-link { color:#60A5FA !important; }
+    .rn-card code { background-color:#1E293B !important; color:#F1F5F9 !important; }
   }
   @media screen and (max-width: 620px) {
     .rn-container { width:100% !important; }

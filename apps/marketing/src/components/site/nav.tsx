@@ -88,7 +88,6 @@ export function Nav() {
       <div className="container-page flex h-16 items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2.5 rounded-lg" aria-label="Ledger home">
           <Logo />
-          <span className="text-[15px] font-semibold tracking-[-0.01em] text-foreground">Ledger</span>
         </Link>
 
         <nav aria-label="Main" className="hidden items-center gap-0.5 md:flex">

@@ -23,6 +23,9 @@ export type { ThemePreference } from './lib/theme'
 // Utilities
 export { cn } from './lib/cn'
 
+// Brand
+export { LedgerLogo, LedgerMark, LedgerWordmark } from './components/LedgerLogo'
+
 // Primitives
 export { Button, buttonVariants } from './components/Button'
 export type { ButtonProps } from './components/Button'

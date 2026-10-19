@@ -11,6 +11,8 @@ import { inline } from './lib/markdown'
 import { combineNotes, parseNote, selectNotes } from './lib/note'
 import { runSend } from './lib/run'
 import { readSendEnv } from './lib/send'
+import { BRAND } from './lib/brand'
+import { palette } from '../../packages/ui/src/tokens'
 
 const DEPLOYED = 'c56061f8aa88192a885522f4af1eda89c020932a'
 
@@ -399,5 +401,46 @@ describe('send', () => {
     expect(code).toBe(1)
     expect(lines.join('\n')).toContain('HTTP 422 (validation_error)')
     expect(lines.join('\n')).not.toContain('owner@example.com')
+  })
+})
+
+describe('brand colours stay in sync with the design tokens (BL-095)', () => {
+  it('BRAND matches the HOA light palette', () => {
+    const p = palette('hoa', 'light')
+    expect({
+      primary: BRAND.primary,
+      primaryFg: BRAND.primaryFg,
+      primarySubtle: BRAND.primarySubtle,
+      background: BRAND.background,
+      surface: BRAND.surface,
+      subtle: BRAND.subtle,
+      border: BRAND.border,
+      foreground: BRAND.foreground,
+      foregroundSecondary: BRAND.foregroundSecondary,
+      muted: BRAND.muted,
+      accentSubtle: BRAND.accentSubtle,
+      accentFg: BRAND.accentFg,
+    }).toEqual({
+      primary: p.primary,
+      primaryFg: p['primary-fg'],
+      primarySubtle: p['primary-subtle'],
+      background: p.background,
+      surface: p.surface,
+      subtle: p.subtle,
+      border: p.border,
+      foreground: p.foreground,
+      foregroundSecondary: p['foreground-secondary'],
+      muted: p.muted,
+      accentSubtle: p['accent-subtle'],
+      accentFg: p['accent-fg'],
+    })
+  })
+
+  it('the dark-mode email overrides use the HOA dark palette', () => {
+    const d = palette('hoa', 'dark')
+    const src = readFileSync(path.join(__dirname, 'lib/email.ts'), 'utf8')
+    for (const hex of [d.background, d.surface, d.foreground, d['foreground-secondary'], d.muted, d.primary, d.subtle]) {
+      expect(src, hex).toContain(`${hex} !important`)
+    }
   })
 })

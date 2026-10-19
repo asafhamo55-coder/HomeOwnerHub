@@ -114,8 +114,8 @@ function UpdatePrompt({
         left: '50%',
         bottom: 16,
         transform: 'translateX(-50%)',
-        background: '#4F46E5',
-        color: 'white',
+        background: 'hsl(var(--primary))',
+        color: 'hsl(var(--primary-fg))',
         padding: '10px 14px',
         borderRadius: 10,
         boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
@@ -133,8 +133,8 @@ function UpdatePrompt({
         type="button"
         onClick={onUpdate}
         style={{
-          background: 'white',
-          color: '#4F46E5',
+          background: 'hsl(var(--primary-fg))',
+          color: 'hsl(var(--primary))',
           border: 'none',
           padding: '6px 12px',
           borderRadius: 6,
@@ -151,7 +151,7 @@ function UpdatePrompt({
         aria-label="Dismiss"
         style={{
           background: 'transparent',
-          color: 'white',
+          color: 'hsl(var(--primary-fg))',
           border: 'none',
           padding: '4px 6px',
           cursor: 'pointer',

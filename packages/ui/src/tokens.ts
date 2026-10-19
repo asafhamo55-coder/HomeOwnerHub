@@ -12,11 +12,13 @@
  * pair below against WCAG 2.2 AA, so a value here cannot drift below
  * contrast without a red test.
  *
- * Brand direction: indigo. HOA Hub, the marketing site and the product
- * family share indigo-600 (#4F46E5). PM Hub (blue) and Eviction Hub
- * (violet) keep a hub tint so a user who works in two hubs can tell them
- * apart at a glance — but only `primary*` changes per hub; neutrals,
- * status colours, type and spacing are identical everywhere.
+ * Brand direction: blue (BL-095, docs/decisions/2026-10-19-brand-logo-
+ * palette.md). HOA Hub, the marketing site and the Ledger logo share
+ * blue-600 (#2563EB) with light-blue tints and cool slate neutrals.
+ * PM Hub (deeper blue) and Eviction Hub (violet) keep a hub tint — only
+ * `primary*` changes per hub; neutrals, status colours, type and spacing
+ * are identical everywhere. (Until 2026-10-19 the brand was indigo-600
+ * #4F46E5.)
  *
  * (This file used to document HOA as teal #00C9A7 while the app shipped
  * indigo; nothing imported it. It is now what the CSS is generated from.)
@@ -77,16 +79,16 @@ type BrandPalette = Pick<Palette, BrandRole>
 
 const neutral: Record<ThemeMode, NeutralPalette> = {
   light: {
-    background: '#F7F8FA',
+    background: '#F5F8FC', // cool, faintly blue canvas
     surface: '#FFFFFF',
     elevated: '#FFFFFF',
-    subtle: '#F2F4F7',
-    border: '#E4E7EC',
-    'border-strong': '#D0D5DD',
-    input: '#858E9E',
-    foreground: '#101828',
-    'foreground-secondary': '#344054',
-    muted: '#5B6476',
+    subtle: '#EEF3F9',
+    border: '#E2E8F0',
+    'border-strong': '#CBD5E1',
+    input: '#7A879C',
+    foreground: '#0F172A',
+    'foreground-secondary': '#334155',
+    muted: '#526077',
     accent: '#F79009',
     'accent-subtle': '#FFF6E5',
     'accent-fg': '#93370D',
@@ -105,16 +107,16 @@ const neutral: Record<ThemeMode, NeutralPalette> = {
     'on-solid': '#FFFFFF',
   },
   dark: {
-    background: '#0B0D11',
-    surface: '#13161C',
-    elevated: '#1A1E26',
-    subtle: '#1F242D',
-    border: '#272C36',
-    'border-strong': '#363C48',
-    input: '#6E7686',
-    foreground: '#F2F4F7',
-    'foreground-secondary': '#CDD3DC',
-    muted: '#9BA3B1',
+    background: '#0A0F1A', // blue-black, not neutral grey
+    surface: '#111827',
+    elevated: '#182235',
+    subtle: '#1E293B',
+    border: '#243045',
+    'border-strong': '#334155',
+    input: '#6B7A90',
+    foreground: '#F1F5F9',
+    'foreground-secondary': '#CBD5E1',
+    muted: '#94A3B8',
     accent: '#FDB022',
     'accent-subtle': '#2B2110',
     'accent-fg': '#FEC84B',
@@ -142,18 +144,18 @@ const neutral: Record<ThemeMode, NeutralPalette> = {
 export const BRANDS: Record<HubKey, Record<ThemeMode, BrandPalette>> = {
   hoa: {
     light: {
-      primary: '#4F46E5',
-      'primary-hover': '#4338CA',
+      primary: '#2563EB', // blue-600 — the Ledger logo tile
+      'primary-hover': '#1D4ED8',
       'primary-fg': '#FFFFFF',
-      'primary-subtle': '#EEF0FF',
-      ring: '#6366F1',
+      'primary-subtle': '#EBF3FF', // light-blue tint
+      ring: '#3B82F6',
     },
     dark: {
-      primary: '#8F95FA',
-      'primary-hover': '#A9AEFC',
-      'primary-fg': '#0B0D11',
-      'primary-subtle': '#1F2147',
-      ring: '#8F95FA',
+      primary: '#60A5FA',
+      'primary-hover': '#93C5FD',
+      'primary-fg': '#0A0F1A',
+      'primary-subtle': '#132A4F',
+      ring: '#60A5FA',
     },
   },
   pm: {
@@ -189,6 +191,20 @@ export const BRANDS: Record<HubKey, Record<ThemeMode, BrandPalette>> = {
     },
   },
 }
+
+/**
+ * Ledger logo colours (BL-094). The mark is a blue tile carrying a white
+ * roof over two ledger lines; the lower line is light blue. The static
+ * SVG/PNG files in apps/{hoa,marketing}/public/brand/ and the generated
+ * favicons use exactly these values; `tokens.test.ts` checks the mark's
+ * graphic contrast (WCAG 1.4.11, ≥3:1) and the wordmark text (≥4.5:1).
+ */
+export const LOGO = {
+  light: { tile: '#2563EB', glyph: '#FFFFFF', line: '#BFDBFE', text: '#0F172A' },
+  // Same tile on dark (it still clears 3:1 against the dark canvas); only
+  // the wordmark text flips.
+  dark: { tile: '#2563EB', glyph: '#FFFFFF', line: '#BFDBFE', text: '#F1F5F9' },
+} as const
 
 export function palette(hub: HubKey, mode: ThemeMode): Palette {
   return { ...neutral[mode], ...BRANDS[hub][mode] }
