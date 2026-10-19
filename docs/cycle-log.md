@@ -340,3 +340,14 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **E-consent on official notices:** a new `officialNotice` box (CA only), behind `M1_APPLIED`. A snapshot test proves the flag-off trace hasn't changed. The paper-notice list isn't stored after the send (that needs a migration).
 - **Gates:** unit 5564/5564, build 4/4. Tip a815e50 pushed for CI.
 - **Deploy plan:** 98d3eef (CI green) at 13:36 via a one-shot; a815e50 at the next hourly slot.
+
+## 2026-10-19 (13:42) â€” deploy 92b6a50: Spanish announcements, CA rules verified, CA commitment to cure
+
+- **Live:**
+  - BL-025 Spanish version of announcements;
+  - BL-054 CA rules checked against the official Civil Code text;
+  - CA commitment to cure;
+  - the e-consent filter on official notices, behind `M1_APPLIED`.
+- **CI:** green on 92b6a50.
+- **Smoke:** /communications/new and /violations return 307; /login returns 200.
+- **Release notes:** one email sent, covering two notes.
