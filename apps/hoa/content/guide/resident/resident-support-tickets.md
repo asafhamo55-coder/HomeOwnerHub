@@ -38,7 +38,7 @@ Use a support request when you need the board's help: a repair, a noise or parki
 - "Couldn’t send your request": nothing was sent. Try again.
 
 ## Good to know
-- You get no email or text when the board replies. Check **Support requests** for new replies.
+- Your association can choose to email you when the board replies. If it hasn't, check **Support requests** for new replies.
 - Once the board closes a request, you can't reply to it. Open a new request if you need more help.
 - You can't edit, close or delete a request after you send it.
 - Files can be a PDF, an image, or a Word or Excel file, up to 10 MB.

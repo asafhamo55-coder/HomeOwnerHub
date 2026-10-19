@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./mailbox-tokens": "./src/mailbox-tokens.ts",
     "./db-error": "./src/db-error.ts",
+    "./deterministic-id": "./src/deterministic-id.ts",
     "./dues-reminders": "./src/dues-reminders/index.ts",
     "./association-time": "./src/association-time.ts",
     "./fiscal-periods": "./src/fiscal-periods.ts",

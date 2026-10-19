@@ -6,6 +6,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { loadOrFail } from '@/lib/load-or-fail'
+import { notifyResidentAfterResponse } from '@/lib/resident-notify/notify'
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
 type ActionErr = { ok: false; error: string; fieldErrors?: Record<string, string> }
@@ -259,7 +260,7 @@ export async function respondToTicket(input: {
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Not signed in.' }
 
-  const { error } = await supabase
+  const { data: message, error } = await supabase
     .from('ticket_messages' as never)
     .insert({
       ticket_id: parsed.data.ticketId,
@@ -268,8 +269,22 @@ export async function respondToTicket(input: {
       body: parsed.data.body,
       internal: parsed.data.internal,
     } as never)
+    .select('id')
+    .single<{ id: string }>()
 
-  if (error) return { ok: false, error: error.message }
+  if (error || !message) return { ok: false, error: error?.message ?? 'Could not post the response.' }
+
+  // BL-082: a reply the resident can see is emailed to them, after the
+  // response, if the association turned resident notices on (off by
+  // default). Internal notes never are.
+  if (!parsed.data.internal) {
+    notifyResidentAfterResponse(supabase, {
+      kind: 'ticket_reply',
+      ticketId: parsed.data.ticketId,
+      messageId: message.id,
+      reply: parsed.data.body,
+    })
+  }
 
   revalidatePath(`/tickets/${parsed.data.ticketId}`)
   revalidatePath(`/resident/tickets/${parsed.data.ticketId}`)

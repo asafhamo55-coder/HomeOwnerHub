@@ -15,6 +15,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { closeReviewsWithoutDecision, recordBoardDecisionOnReview } from '@/lib/arc-review/record'
+import { notifyResidentAfterResponse } from '@/lib/resident-notify/notify'
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
 type ActionErr = { ok: false; error: string }
@@ -268,6 +269,16 @@ export async function respondToArcRequest(
     })
     revalidatePath('/approvals')
     revalidatePath('/', 'layout')
+
+    // BL-082: tell the resident, after the response, if the association
+    // turned resident notices on (off by default). Never blocks or undoes
+    // the decision above.
+    notifyResidentAfterResponse(supabase, {
+      kind: 'arc_decision',
+      arcId: parsed.data.arc_id,
+      decision: parsed.data.decision,
+      letter: parsed.data.board_response ?? null,
+    })
   }
 
   revalidatePath('/')  // dashboard rollup
@@ -301,8 +312,9 @@ export async function requestArcInfo(input: { arcId: string; message: string }):
     return { ok: false, error: 'This application is already decided or withdrawn.' }
   }
 
-  const posted = await postArcMessage({ arcId: arc.id, body: parsed.data.message, internal: false })
+  const posted = await insertBoardArcMessage({ arcId: arc.id, body: parsed.data.message, internal: false })
   if (!posted.ok) return posted
+  revalidatePath(`/resident/arc/${arc.id}`)
   if (arc.status === 'submitted') {
     const moved = await respondToArcRequest({ arcId: arc.id, decision: 'in_review', boardResponse: arc.board_response })
     if (!moved.ok) return moved
@@ -315,6 +327,13 @@ export async function requestArcInfo(input: { arcId: string; message: string }):
   if (user) {
     await recordBoardDecisionOnReview(supabase, { orgId: org.id, arcId: arc.id, userId: user.id, decision: 'more_info' })
   }
+  // BL-082: the resident hears the board needs more (off by default).
+  notifyResidentAfterResponse(supabase, {
+    kind: 'arc_info_request',
+    arcId: arc.id,
+    messageId: posted.id,
+    message: parsed.data.message,
+  })
   revalidatePath('/approvals')
   revalidatePath('/', 'layout')
   revalidatePath('/arc')
@@ -363,6 +382,18 @@ export async function postArcMessage(input: {
   body: string
   internal: boolean
 }): Promise<ActionResult> {
+  const posted = await insertBoardArcMessage(input)
+  if (!posted.ok) return posted
+  revalidatePath(`/resident/arc/${input.arcId}`)
+  return { ok: true }
+}
+
+/** The board's message insert, returning the new row's id. Not exported. */
+async function insertBoardArcMessage(input: {
+  arcId: string
+  body: string
+  internal: boolean
+}): Promise<{ ok: true; id: string } | ActionErr> {
   const parsed = BoardReplySchema.safeParse({
     id: input.arcId,
     body: input.body,
@@ -379,7 +410,7 @@ export async function postArcMessage(input: {
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Not signed in.' }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('arc_request_messages' as never)
     .insert({
       arc_request_id: parsed.data.id,
@@ -388,12 +419,13 @@ export async function postArcMessage(input: {
       body: parsed.data.body,
       internal: parsed.data.internal,
     } as never)
+    .select('id')
+    .single<{ id: string }>()
 
-  if (error) return { ok: false, error: error.message }
+  if (error || !data) return { ok: false, error: error?.message ?? 'Could not post the message.' }
 
   revalidatePath(`/arc/${parsed.data.id}`)
-  revalidatePath(`/resident/arc/${parsed.data.id}`)
-  return { ok: true }
+  return { ok: true, id: data.id }
 }
 
 // ─── Resident violation reports ─────────────────────────────────────
