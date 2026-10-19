@@ -7,6 +7,15 @@ import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accountin
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violation-statuses'
 import { approveViolationDraftWith, rejectViolationDraftWith } from '@/lib/violation-drafts'
+import {
+  CURE_COMMITMENT_AUDIT,
+  CURE_COMMITMENT_ENTITY,
+  cureCommitmentApplies,
+  cureCommitmentInputSchema,
+  cureCommitmentPenaltyBlock,
+  loadCureCommitment,
+  loadOrgStateRules,
+} from '@/lib/violation-cure-commitment'
 
 const STORAGE_BUCKET = 'hoa-photos'
 
@@ -339,6 +348,39 @@ export async function updateViolationStatus(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Not signed in.' }
 
+  // CA § 5855(c)(2): a recorded financial commitment to cure blocks a fine.
+  // Only checked on the move into Fined, so a board can still correct a row
+  // that was already fined before the commitment was recorded.
+  if (parsed.data.status === 'fined') {
+    let block: string | null
+    try {
+      const { data: current, error: curErr } = await supabase
+        .from('hoa_violations')
+        .select('status')
+        .eq('id', parsed.data.violationId)
+        .eq('org_id', gate.orgId)
+        .maybeSingle()
+      if (curErr) throw curErr
+      if (!current) return { ok: false, error: 'We could not find that violation.' }
+      block =
+        current.status === 'fined'
+          ? null
+          : cureCommitmentPenaltyBlock(
+              await loadOrgStateRules(supabase, gate.orgId),
+              await loadCureCommitment(supabase, gate.orgId, parsed.data.violationId),
+            )
+    } catch {
+      return { ok: false, error: 'We could not check state law for this violation. Try again.' }
+    }
+    if (block) {
+      return {
+        ok: false,
+        error: block,
+        fieldErrors: { status: `${block} Withdraw the recorded commitment first if the owner did not keep it.` },
+      }
+    }
+  }
+
   const now = new Date().toISOString()
   const isClosing =
     parsed.data.status === 'resolved' || parsed.data.status === 'dismissed'
@@ -368,5 +410,98 @@ export async function updateViolationStatus(
   revalidatePath(`/violations/${parsed.data.violationId}`)
   revalidatePath('/violations')
   revalidatePath('/')
+  return { ok: true }
+}
+
+// ─── Financial commitment to cure (CA Civ. Code § 5855(c)(2)) ───────
+// The board records that the owner gave a financial commitment to cure.
+// Stored as an audit_log row on the violation (no migration; see
+// lib/violation-cure-commitment.ts). California associations only: the
+// rule does not exist in the other rule sets, so it is refused for them.
+
+export type CureCommitmentResult =
+  | { ok: true }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> }
+
+async function cureCommitmentContext(violationId: string) {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false as const, error: gate.error }
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Not signed in.' }
+  const { data: row, error } = await supabase
+    .from('hoa_violations')
+    .select('id')
+    .eq('id', violationId)
+    .eq('org_id', gate.orgId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (error) return { ok: false as const, error: 'We could not load this violation. Try again.' }
+  if (!row) return { ok: false as const, error: 'We could not find that violation.' }
+  try {
+    const rules = await loadOrgStateRules(supabase, gate.orgId)
+    if (!cureCommitmentApplies(rules)) {
+      return {
+        ok: false as const,
+        error: 'A financial commitment to cure is a California rule (Civ. Code § 5855(c)(2)). It does not apply to your association’s state.',
+      }
+    }
+  } catch {
+    return { ok: false as const, error: 'We could not check state law for this violation. Try again.' }
+  }
+  return { ok: true as const, supabase, orgId: gate.orgId, userId: user.id }
+}
+
+export async function recordCureCommitment(input: {
+  violationId: string
+  committedOn: string
+  note?: string | null
+}): Promise<CureCommitmentResult> {
+  const parsed = cureCommitmentInputSchema().safeParse(input)
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'Some fields need attention.',
+      fieldErrors: fieldErrorsOf(parsed.error.issues, { committedOn: 'committedOn', note: 'note' }),
+    }
+  }
+  const ctx = await cureCommitmentContext(parsed.data.violationId)
+  if (!ctx.ok) return ctx
+  const { error } = await ctx.supabase.from('audit_log').insert({
+    org_id: ctx.orgId,
+    user_id: ctx.userId,
+    action: CURE_COMMITMENT_AUDIT.recorded,
+    entity_type: CURE_COMMITMENT_ENTITY,
+    entity_id: parsed.data.violationId,
+    metadata: { committedOn: parsed.data.committedOn, note: parsed.data.note } as never,
+  })
+  if (error) {
+    // Ids and codes only — never the note.
+    console.error('[violations] cure commitment insert failed', { violationId: parsed.data.violationId, code: error.code ?? null })
+    return { ok: false, error: 'We could not save the commitment. Try again.' }
+  }
+  revalidatePath(`/violations/${parsed.data.violationId}`)
+  return { ok: true }
+}
+
+export async function withdrawCureCommitment(violationId: string): Promise<CureCommitmentResult> {
+  if (!z.string().uuid().safeParse(violationId).success) return { ok: false, error: 'That violation isn’t valid.' }
+  const ctx = await cureCommitmentContext(violationId)
+  if (!ctx.ok) return ctx
+  const { error } = await ctx.supabase.from('audit_log').insert({
+    org_id: ctx.orgId,
+    user_id: ctx.userId,
+    action: CURE_COMMITMENT_AUDIT.withdrawn,
+    entity_type: CURE_COMMITMENT_ENTITY,
+    entity_id: violationId,
+    metadata: {} as never,
+  })
+  if (error) {
+    console.error('[violations] cure commitment withdraw failed', { violationId, code: error.code ?? null })
+    return { ok: false, error: 'We could not withdraw the commitment. Try again.' }
+  }
+  revalidatePath(`/violations/${violationId}`)
   return { ok: true }
 }

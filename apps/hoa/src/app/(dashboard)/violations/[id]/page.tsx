@@ -25,6 +25,15 @@ import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violation-status
 import { VIOLATION_SEVERITY, VIOLATION_STATUS } from '@/lib/status/community'
 import { ViolationStatusEditor } from './ViolationStatusEditor'
 import { ViolationActions } from './ViolationActions'
+import { CureCommitmentCard } from './CureCommitmentCard'
+import { getCurrentOrg } from '@/lib/orgs'
+import {
+  cureCommitmentApplies,
+  cureCommitmentPenaltyBlock,
+  loadCureCommitment,
+  loadOrgStateRules,
+  type CureCommitment,
+} from '@/lib/violation-cure-commitment'
 
 export const dynamic = 'force-dynamic'
 
@@ -102,6 +111,24 @@ export default async function ViolationDetailPage({
   const currentStatus: ViolationStatus = (VIOLATION_STATUSES as readonly string[]).includes(v.status)
     ? (v.status as ViolationStatus)
     : 'open'
+
+  // CA § 5855(c)(2): the owner's financial commitment to cure. Other
+  // states never see the control. A failed state read hides it (the server
+  // actions re-check the state); a failed commitment read says so, because
+  // "none recorded" would wrongly unblock a fine.
+  let commitmentCard: { commitment: CureCommitment | null; blockReason: string | null; loadFailed: boolean } | null = null
+  const org = await getCurrentOrg()
+  if (org) {
+    const rules = await loadOrgStateRules(supabase, org.id).catch(() => null)
+    if (rules && cureCommitmentApplies(rules)) {
+      try {
+        const commitment = await loadCureCommitment(supabase, org.id, v.id)
+        commitmentCard = { commitment, blockReason: cureCommitmentPenaltyBlock(rules, commitment), loadFailed: false }
+      } catch {
+        commitmentCard = { commitment: null, blockReason: null, loadFailed: true }
+      }
+    }
+  }
 
   const fmt = (iso: string, pattern = 'PP') => format(new Date(iso), pattern)
   const timeEl = (iso: string, pattern = 'PP') => <time dateTime={iso}>{fmt(iso, pattern)}</time>
@@ -264,9 +291,23 @@ export default async function ViolationDetailPage({
                 violationId={v.id}
                 currentStatus={currentStatus}
                 currentResolutionNote={v.resolution_note}
+                fineBlockedReason={commitmentCard?.blockReason ?? null}
               />
             </CardContent>
           </Card>
+
+          {commitmentCard ? (
+            <CureCommitmentCard
+              violationId={v.id}
+              commitment={
+                commitmentCard.commitment
+                  ? { committedOn: commitmentCard.commitment.committedOn, note: commitmentCard.commitment.note }
+                  : null
+              }
+              blockReason={commitmentCard.blockReason}
+              loadFailed={commitmentCard.loadFailed}
+            />
+          ) : null}
 
           <Card>
             <CardHeader>

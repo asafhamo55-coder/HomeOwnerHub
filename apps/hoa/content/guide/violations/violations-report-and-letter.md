@@ -6,14 +6,14 @@ topic: violations
 roles: [admin, board]
 routes: ["/violations", "/violations/new", "/violations/[id]", "/violations/approval-queue"]
 primary_route: /violations
-keywords: [violation, notice, letter, covenant, ccr, fine, cure, cure period, compliance, report, close, resolve]
+keywords: [violation, notice, letter, covenant, ccr, fine, cure, cure period, compliance, report, close, resolve, financial commitment, commitment to cure, california, suspension]
 shots:
   - name: guide-violations-new
     alt: The Report a violation form with the state law panel and the Analyze with Covenant Brain button highlighted
   - name: guide-violations-approval-queue
     alt: The AI approval queue with a drafted letter and the Approve letter button highlighted
 related: [approvals-queue, documents-governing-and-ask]
-reviewed: 2026-10-17
+reviewed: 2026-10-19
 ---
 
 A violation goes from report, to notice, to cure period, to closed. HomeownerHub drafts the notice for you, but the board approves every word.
@@ -38,11 +38,13 @@ The violation is recorded with the notice marked as sent, and the cure period st
 ## If something goes wrong
 - "No parsed CC&Rs": your CC&Rs are not uploaded yet, so no section can be cited. Upload them first, or review the letter carefully.
 - "Analysis failed": try again, or write the letter yourself.
+- "California law (Civ. Code § 5855(c)(2)) forbids a fine…": a financial commitment to cure is recorded on this violation. Withdraw it first only if the owner did not keep it.
 
 ## Good to know
 - Already on the property's page? [[New violation]] at the top starts the report with that home picked.
 - **Nothing is sent from HomeownerHub.** Approving records that the notice went out and starts the cure clock. You send the letter.
 - The **State law for this letter** panel shows your state's rules for notices and fines, such as how many days' notice an owner gets and the largest fine allowed. Florida and California are covered.
+- **California: the owner commits to paying for the fix.** If the fix takes longer than the notice period and the owner gives a financial commitment to cure it, the board may not fine or suspend them (Civ. Code § 5855(c)(2)). Before the hearing or any fine, open the violation, enter the date under **Financial commitment to cure**, add a **Note** if it helps, and select [[Record commitment]]. HomeownerHub then will not let you set **Status** to Fined, and says why. Letters drafted for that violation carry the commitment into the state-law check, so a fine or suspension letter is refused. If the owner does not keep the commitment, or it was recorded by mistake, select [[Withdraw commitment]]. Associations in other states do not see this section.
 - Some letters are drafted for you by the AI and wait in the [[AI approval queue]] tab. Read each one and select [[Approve letter]], or [[Reject]] with a reason. Approving files it as an open violation.
 
 ![[guide-violations-approval-queue]]

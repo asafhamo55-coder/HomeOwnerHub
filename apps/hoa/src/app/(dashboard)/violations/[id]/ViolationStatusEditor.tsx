@@ -20,9 +20,12 @@ interface Props {
   violationId: string
   currentStatus: ViolationStatus
   currentResolutionNote: string | null
+  /** CA § 5855(c)(2): why moving to Fined is blocked, or null. The server
+   *  action refuses it either way; this only says so up front. */
+  fineBlockedReason?: string | null
 }
 
-export function ViolationStatusEditor({ violationId, currentStatus, currentResolutionNote }: Props) {
+export function ViolationStatusEditor({ violationId, currentStatus, currentResolutionNote, fineBlockedReason = null }: Props) {
   const router = useRouter()
   const toast = useToast()
   const [isPending, startTransition] = useTransition()
@@ -32,6 +35,7 @@ export function ViolationStatusEditor({ violationId, currentStatus, currentResol
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const closingState = status === 'resolved' || status === 'dismissed'
+  const fineBlocked = status === 'fined' && currentStatus !== 'fined' && fineBlockedReason !== null
   const dirty =
     status !== currentStatus ||
     (closingState && resolutionNote.trim() !== (currentResolutionNote ?? '').trim())
@@ -91,9 +95,11 @@ export function ViolationStatusEditor({ violationId, currentStatus, currentResol
         </Field>
       ) : null}
 
+      {fineBlocked ? <Alert variant="warning">{fineBlockedReason}</Alert> : null}
+
       {error ? <Alert variant="error">{error}</Alert> : null}
 
-      <Button type="submit" className="w-full" loading={isPending} disabled={!dirty} icon={<Check aria-hidden />}>
+      <Button type="submit" className="w-full" loading={isPending} disabled={!dirty || fineBlocked} icon={<Check aria-hidden />}>
         {isPending ? 'Saving…' : 'Update status'}
       </Button>
     </form>

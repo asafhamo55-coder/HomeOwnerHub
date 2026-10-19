@@ -10,6 +10,7 @@ import { zText, zUuid } from '@/lib/api/schemas'
 import { logRouteFailure } from '@/lib/api/log'
 import { MAX_DRAFT_PHOTOS, isOrgPhotoPath } from '@/lib/violation-photo-paths'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadCureCommitment, withCureCommitment } from '@/lib/violation-cure-commitment'
 
 // POST /api/ai/violations/draft
 //
@@ -31,6 +32,11 @@ const DraftSchema = z.object({
   reporterNotes: zText(2000).nullable().optional(),
   associationId: zUuid.nullable().optional(),
   requestedAction: RequestedActionSchema.optional(),
+  /** The existing violation this letter is for (a hearing notice, a fine).
+   *  When given, what the board recorded on it — the owner's financial
+   *  commitment to cure (CA § 5855(c)(2)) — is folded into requestedAction
+   *  here, so the client cannot leave it out. Not sent to W3. */
+  violationId: zUuid.optional(),
   /** BL-028: keys from POST /api/violations/photo, filed on approval. */
   photoPaths: z.array(z.string().max(300)).max(MAX_DRAFT_PHOTOS).optional(),
 })
@@ -65,6 +71,22 @@ export const POST = withRoute('ai.violations.draft', async (request) => {
     })
   }
 
+  // Recorded facts on the violation win over the request body.
+  const { violationId, ...draft } = body
+  if (violationId) {
+    await requireOrgOwned('hoa_violations', violationId, orgId, {
+      orgColumn: 'org_id',
+      message: 'We could not find that violation.',
+    })
+    let commitment
+    try {
+      commitment = await loadCureCommitment(await getSupabaseServerClient(), orgId, violationId)
+    } catch {
+      throw new ApiRouteError('internal')
+    }
+    draft.requestedAction = withCureCommitment(draft.requestedAction, commitment)
+  }
+
   const idempotencyKey = idempotencyKeyOf(request)
   if (idempotencyKey) {
     const existing = await findRunByKey(orgId, idempotencyKey)
@@ -82,7 +104,7 @@ export const POST = withRoute('ai.violations.draft', async (request) => {
 
   try {
     const result = await violationInspector.execute(
-      idempotencyKey ? { ...body, idempotencyKey } : body,
+      idempotencyKey ? { ...draft, idempotencyKey } : draft,
       { organizationId: orgId },
     )
     return NextResponse.json({ runId: result.runId, ...result.output })
