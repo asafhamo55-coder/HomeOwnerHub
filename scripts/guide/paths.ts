@@ -35,6 +35,7 @@ export const GUIDE_EXPECTED_ROUTES = [
   '/resident',
   '/resident/dues',
   '/resident/arc',
+  '/resident/meetings',
   // Phase 2
   '/accounting',
   '/accounting/reports',

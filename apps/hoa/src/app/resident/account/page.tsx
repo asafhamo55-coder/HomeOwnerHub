@@ -1,4 +1,4 @@
-import { CircleHelp, FileText, Home, Megaphone, Sparkles } from 'lucide-react'
+import { CalendarDays, CircleHelp, FileText, Home, Megaphone, Sparkles } from 'lucide-react'
 import { Badge } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getResidentUnits } from '@/lib/resident'
@@ -128,6 +128,13 @@ export default async function ResidentAccountPage() {
           icon={<Megaphone />}
           title="Announcements"
           subtitle="Updates from your board"
+        />
+        <TappableRow
+          href="/resident/meetings"
+          icon={<CalendarDays />}
+          title="Meetings and notices"
+          subtitle="Upcoming meetings, agendas and approved minutes"
+          tone="info"
         />
         <TappableRow
           href="/resident/documents"

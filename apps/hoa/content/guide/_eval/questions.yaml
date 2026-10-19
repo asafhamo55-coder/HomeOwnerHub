@@ -78,6 +78,9 @@ questions:
   - { id: r04, role: resident, expect: resident-portal-basics, q: "Where can I see my balance and statement?", route: /resident/dues }
   - { id: r05, role: resident, expect: resident-portal-basics, q: "How do I update my phone number and mailing address?" }
   - { id: r06, role: resident, expect: resident-portal-basics, q: "Can I change the email the HOA sends notices to?", route: /resident/account }
+  - { id: r07, role: resident, expect: resident-meetings-notices, q: "When is the next board meeting?" }
+  - { id: r08, role: resident, expect: resident-meetings-notices, q: "Where can I see the agenda for the annual meeting?" }
+  - { id: r09, role: resident, expect: resident-meetings-notices, q: "Can I read the minutes from last month's meeting?", route: /resident/meetings }
 
   # ── Refusal canaries: features HomeownerHub does not have ─────────────
   - { id: c01, role: admin, expect: refuse, q: "Can residents book the clubhouse for a party?" }
