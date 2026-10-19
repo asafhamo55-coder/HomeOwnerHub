@@ -1,12 +1,12 @@
 ---
 id: violations-report-and-letter
 title: Report a violation and approve the letter
-summary: Report a violation with photos, let Covenant Brain draft the letter from your CC&Rs, and approve it before it goes out.
+summary: Report a violation with photos, let Covenant Brain draft the letter from your CC&Rs, approve it before it goes out, and draft follow-up letters.
 topic: violations
 roles: [admin, board]
 routes: ["/violations", "/violations/new", "/violations/[id]", "/violations/approval-queue"]
 primary_route: /violations
-keywords: [violation, notice, letter, covenant, ccr, fine, cure, cure period, compliance, report, close, resolve, financial commitment, commitment to cure, california, suspension]
+keywords: [violation, notice, letter, follow-up, follow up, second notice, hearing notice, fine notice, decision letter, hearing, covenant, ccr, fine, cure, cure period, compliance, report, close, resolve, financial commitment, commitment to cure, california, suspension]
 shots:
   - name: guide-violations-new
     alt: The Report a violation form with the state law panel and the Analyze with Covenant Brain button highlighted
@@ -39,12 +39,14 @@ The violation is recorded with the notice marked as sent, and the cure period st
 - "No parsed CC&Rs": your CC&Rs are not uploaded yet, so no section can be cited. Upload them first, or review the letter carefully.
 - "Analysis failed": try again, or write the letter yourself.
 - "California law (Civ. Code § 5855(c)(2)) forbids a fine…": a financial commitment to cure is recorded on this violation. Withdraw it first only if the owner did not keep it.
+- "State law does not allow this letter yet": your state's rules refuse the follow-up letter you picked, and no letter was drafted. Read the reason. For example, a fine needs a hearing first. Select [[Choose another letter]], such as a hearing notice.
 
 ## Good to know
 - Already on the property's page? [[New violation]] at the top starts the report with that home picked.
 - **Nothing is sent from HomeownerHub.** Approving records that the notice went out and starts the cure clock. You send the letter.
 - The **State law for this letter** panel shows your state's rules for notices and fines, such as how many days' notice an owner gets and the largest fine allowed. Florida and California are covered.
 - **California: the owner commits to paying for the fix.** If the fix takes longer than the notice period and the owner gives a financial commitment to cure it, the board may not fine or suspend them (Civ. Code § 5855(c)(2)). Before the hearing or any fine, open the violation, enter the date under **Financial commitment to cure**, add a **Note** if it helps, and select [[Record commitment]]. HomeownerHub then will not let you set **Status** to Fined, and says why. Letters drafted for that violation carry the commitment into the state-law check, so a fine or suspension letter is refused. If the owner does not keep the commitment, or it was recorded by mistake, select [[Withdraw commitment]]. Associations in other states do not see this section.
+- **Follow-up letters.** If the owner hasn't fixed the problem, open the violation and select [[Draft follow-up letter]] under **Follow-up letters**. Pick **Second notice**, **Hearing notice**, **Fine notice** or **Decision letter** (a **Fine** or a **Suspension of common-area use**). For a fine or decision, tick **The hearing was held and the board approved the penalty** only if it really happened. Select [[Draft letter]]. A California hearing notice includes the meeting date, time and place, and the owner's right to attend and to ask for executive session (Civ. Code § 5855(b)). Fill in every bracketed blank, then select [[Save to approvals]], or [[Discard draft]]. Approve it in **Approvals** under **Violation letters**. It's filed on the same violation and shows in its history. No new violation is opened, and nothing is sent.
 - Some letters are drafted for you by the AI and wait in the [[AI approval queue]] tab. Read each one and select [[Approve letter]], or [[Reject]] with a reason. Approving files it as an open violation.
 
 ![[guide-violations-approval-queue]]

@@ -6,7 +6,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violation-statuses'
-import { approveViolationDraftWith, rejectViolationDraftWith } from '@/lib/violation-drafts'
+import { approveViolationDraftWith, rejectViolationDraftWith, saveViolationDraftEditsWith } from '@/lib/violation-drafts'
 import {
   CURE_COMMITMENT_AUDIT,
   CURE_COMMITMENT_ENTITY,
@@ -139,7 +139,7 @@ const DraftIdSchema = z.string().uuid()
 
 export async function approveViolationDraft(
   runId: string,
-): Promise<{ ok: true; violationId: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; violationId: string; followUp?: boolean } | { ok: false; error: string }> {
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
   if (!gate.ok) return { ok: false, error: gate.error }
   if (!DraftIdSchema.safeParse(runId).success) return { ok: false, error: 'That draft isn’t valid.' }
@@ -161,6 +161,7 @@ export async function approveViolationDraft(
   if (result.ok) {
     revalidatePath('/violations')
     revalidatePath('/violations/approval-queue')
+    revalidatePath(`/violations/${result.violationId}`)
     revalidatePath('/')
   }
   return result
@@ -183,7 +184,34 @@ export async function rejectViolationDraft(
   if (!user) return { ok: false, error: 'Not signed in.' }
 
   const result = await rejectViolationDraftWith(supabase, { orgId: gate.orgId, runId, userId: user.id, reason: why })
-  if (result.ok) revalidatePath('/violations/approval-queue')
+  if (result.ok) {
+    revalidatePath('/violations/approval-queue')
+    // A follow-up letter is listed on its violation's page.
+    revalidatePath('/violations/[id]', 'page')
+  }
+  return result
+}
+
+/**
+ * The board's edits to a pending violation-letter draft (the violation
+ * page's "Draft follow-up letter" review step). Approval still happens in
+ * Approvals; nothing is sent from here.
+ */
+export async function saveViolationDraftEdits(
+  runId: string,
+  notice: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  if (!DraftIdSchema.safeParse(runId).success) return { ok: false, error: 'That draft isn’t valid.' }
+  if (typeof notice !== 'string') return { ok: false, error: 'The letter is empty.' }
+
+  const supabase = await getSupabaseServerClient()
+  const result = await saveViolationDraftEditsWith(supabase, { orgId: gate.orgId, runId, notice })
+  if (result.ok) {
+    revalidatePath('/violations/approval-queue')
+    revalidatePath('/violations/[id]', 'page')
+  }
   return result
 }
 

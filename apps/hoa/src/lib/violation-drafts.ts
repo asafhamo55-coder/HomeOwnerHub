@@ -13,6 +13,11 @@
 //            not marked notice_sent — the board records the notice on the
 //            violation once it actually goes out. If filing fails, the
 //            claim is undone so the draft returns to the queue.
+//            A follow-up letter for an existing violation (run input
+//            `followUp`, from the violation page) is approved on the run
+//            only: no new violation, the existing one untouched.
+// Edit     → saveViolationDraftEditsWith rewrites a still-pending draft's
+//            letter (the violation page's review step).
 // Reject   → claim the run as not approved, keeping the board's reason in
 //            ai_runs.human_feedback (the W3 acceptance metrics read
 //            human_approved / human_feedback).
@@ -27,11 +32,14 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import { asUnitId, resolvePropertyForUnit } from '@/lib/properties/resolve'
 import { orgPhotoPaths } from '@/lib/violation-photo-paths'
+import { FOLLOW_UP_NOTICE_MAX, FOLLOW_UP_NOTICE_MIN, followUpOfRunInput } from '@/lib/violation-follow-up'
 
 export type DraftDb = SupabaseClient<Database>
 
 export type DraftDecisionResult = { ok: true } | { ok: false; error: string }
-export type DraftApprovalResult = { ok: true; violationId: string } | { ok: false; error: string }
+export type DraftApprovalResult =
+  | { ok: true; violationId: string; followUp?: boolean }
+  | { ok: false; error: string }
 
 const PENDING = 'pending_human_approval'
 const ALREADY_DECIDED = 'Someone already decided this draft.'
@@ -86,6 +94,26 @@ export async function approveViolationDraftWith(
   const letter = text(output.notice)
   if (!letter) return { ok: false, error: 'This draft has no letter text. Open it in the violation queue instead.' }
 
+  // A follow-up letter (second notice, hearing, fine, decision) belongs to
+  // an existing violation: approving it records the decision on the run —
+  // the letter of record for that step — and opens no new violation. The
+  // violation must still exist, or the letter would be filed on nothing.
+  const followUp = followUpOfRunInput(input)
+  if (followUp) {
+    const { data: target, error: targetError } = await db
+      .from('hoa_violations')
+      .select('id')
+      .eq('id', followUp.violationId)
+      .eq('org_id', orgId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (targetError) {
+      logFailure('follow_up_read', runId, targetError.code)
+      return { ok: false, error: 'Couldn’t load the violation for this letter. Try again.' }
+    }
+    if (!target) return { ok: false, error: 'The violation for this letter no longer exists. Reject the draft instead.' }
+  }
+
   const now = new Date().toISOString()
   const { data: claimed, error: claimError } = await db
     .from('ai_runs')
@@ -100,6 +128,7 @@ export async function approveViolationDraftWith(
     return { ok: false, error: 'Couldn’t approve the draft. Try again.' }
   }
   if (!claimed || claimed.length === 0) return { ok: false, error: ALREADY_DECIDED }
+  if (followUp) return { ok: true, violationId: followUp.violationId, followUp: true }
 
   // hoa_violations.property_id points at legacy hoa_properties; W3 takes a
   // unit. A unit with no legacy link (or a draft with no unit) files with
@@ -183,6 +212,59 @@ export async function rejectViolationDraftWith(
   if (error) {
     logFailure('reject', runId, error.code)
     return { ok: false, error: 'Couldn’t reject the draft. Try again.' }
+  }
+  if (!data || data.length === 0) return { ok: false, error: ALREADY_DECIDED }
+  return { ok: true }
+}
+
+/**
+ * The board's edits to a pending W3 draft, before anyone approves it. The
+ * letter the board approves is the edited one (approval reads
+ * output.notice); the model's original is kept once as `draftNotice` so the
+ * W3 acceptance metric (approved without edits) can still be measured.
+ * Conditional on the run still pending: a decided draft is not rewritten.
+ */
+export async function saveViolationDraftEditsWith(
+  db: DraftDb,
+  args: { orgId: string; runId: string; notice: string },
+): Promise<DraftDecisionResult> {
+  const { orgId, runId } = args
+  const notice = args.notice.trim()
+  if (notice.length < FOLLOW_UP_NOTICE_MIN) return { ok: false, error: 'The letter is empty.' }
+  if (notice.length > FOLLOW_UP_NOTICE_MAX) {
+    return { ok: false, error: `Keep the letter under ${FOLLOW_UP_NOTICE_MAX.toLocaleString('en-US')} characters.` }
+  }
+
+  const { data: run, error: readError } = await db
+    .from('ai_runs')
+    .select('id, status, output')
+    .eq('id', runId)
+    .eq('organization_id', orgId)
+    .eq('workflow_id', 'W3')
+    .maybeSingle()
+  if (readError) {
+    logFailure('edit_read', runId, readError.code)
+    return { ok: false, error: 'Couldn’t load that draft. Try again.' }
+  }
+  if (!run) return { ok: false, error: 'That draft no longer exists.' }
+  if (run.status !== PENDING) return { ok: false, error: ALREADY_DECIDED }
+
+  const output = obj(run.output)
+  const original = text(output.draftNotice) ?? text(output.notice)
+  if (original === notice && !text(output.draftNotice)) return { ok: true }
+  const next = { ...output, notice, draftNotice: original ?? notice }
+
+  const { data, error } = await db
+    .from('ai_runs')
+    .update({ output: next as never })
+    .eq('id', runId)
+    .eq('organization_id', orgId)
+    .eq('workflow_id', 'W3')
+    .eq('status', PENDING)
+    .select('id')
+  if (error) {
+    logFailure('edit', runId, error.code)
+    return { ok: false, error: 'Couldn’t save your changes. Try again.' }
   }
   if (!data || data.length === 0) return { ok: false, error: ALREADY_DECIDED }
   return { ok: true }
