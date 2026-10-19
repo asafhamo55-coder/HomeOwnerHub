@@ -335,3 +335,9 @@ questions:
   - { id: n-10, role: admin, expect: accounting-recurring-entries, q: "Our management fee went up. How do I change the amount on the entry that posts every month?" }
   - { id: n-11, role: board, expect: settings-vendors, q: "Our insurance agent says contractors need at least $1 million in liability coverage. Where do I put that in?" }
   - { id: n-12, role: admin, expect: settings-vendors, q: "Do the bid invitations tell contractors how much insurance we require?" }
+  # ── BL-096 resident assistant (2026-10-19) ───────────────────────────
+  - { id: n-ra1, role: resident, expect: resident-assistant, q: "Can I chat with the assistant about what I owe?" }
+  - { id: n-ra2, role: resident, expect: resident-assistant, q: "How do I use the Ask tab assistant?", route: /resident/ask }
+  - { id: n-ra3, role: resident, expect: resident-assistant, q: "Does the assistant send my request to the board for me?" }
+  - { id: n-ra4, role: board, expect: settings-notifications, q: "How do I turn off the resident assistant for our homeowners?" }
+  - { id: n-ra5, role: admin, expect: settings-notifications, q: "Where is the setting for the resident chat assistant?" }

@@ -14,8 +14,8 @@ shots:
     alt: The Pay dues screen with the Zelle steps
   - name: guide-resident-arc-new
     alt: The New ARC application form with the Submit application button highlighted
-related: []
-reviewed: 2026-10-18
+related: [resident-assistant]
+reviewed: 2026-10-19
 ---
 
 Everything you need is in the tabs at the bottom of the screen: Home, Dues, Requests, Ask and Account.
@@ -58,7 +58,7 @@ Everything you need is in the tabs at the bottom of the screen: Home, Dues, Requ
 ## Good to know
 - To see every charge, open **Dues**, then [[View statement]].
 - **Announcements**, **Documents** and **Meetings and notices** are in the **Account** tab.
-- Have a question about the rules? Tap **Ask** to use Ask the Docs.
+- Have a question about your balance, your requests or the rules? Tap **Ask** to chat with the resident assistant. Rules answers cite your community's documents.
 - The rules check is not a decision. Only the board approves or denies an application.
 - Wait for the board's written approval before you start work on your home.
 - The email you sign in with doesn't change here. Only the email for notices does.

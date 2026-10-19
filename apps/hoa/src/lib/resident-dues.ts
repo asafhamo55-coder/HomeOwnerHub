@@ -6,7 +6,7 @@
 // be `new Date().toISOString().slice(0, 10)` — the UTC day — so from ~8pm
 // Eastern every charge due tomorrow already read "due today".
 
-import { DEFAULT_ASSOCIATION_TIME_ZONE } from '@/lib/association-time'
+import { DEFAULT_ASSOCIATION_TIME_ZONE } from './association-time'
 
 /** One outstanding charge on a resident's account, net of partial payments. */
 export interface ResidentCharge {
