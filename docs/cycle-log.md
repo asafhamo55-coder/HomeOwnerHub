@@ -351,3 +351,16 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **CI:** green on 92b6a50.
 - **Smoke:** /communications/new and /violations return 307; /login returns 200.
 - **Release notes:** one email sent, covering two notes.
+
+## 2026-10-19 (14:50) â€” deploy 65fcd69: follow-up letters, guide coverage
+
+- **Live:**
+  - "Draft follow-up letter" on violation pages (second notice, hearing, fine, decision), going through Approvals. The CA cure commitment and missing hearings are refused, and the reason is shown.
+  - Guide coverage for today's features: hit@3 100% over 226 how-to questions.
+  - Guide screenshot refresh (PR #10).
+- **Smoke:** /violations 307, /login 200. The release-note email was sent.
+- **Open decisions (agent defaults kept):**
+  - the violation draft route has no AI rate limit (matches the wizard and /inspect);
+  - the "hearing held" tick is trusted;
+  - a drafted letter lands in Approvals before the board saves it.
+- **Stale shot:** guide-violations-approval-queue. The CI UI-shots run will open a refresh PR.
