@@ -42,7 +42,7 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 - **Deploy:** run `/usr/bin/git merge-base --is-ancestor <prod> <tip>`, then `/usr/bin/git push origin <sha>:claude/phase1-homeownerhub-setup-MILNu`. Prod pushes FAIL when their output is redirected to /dev/null; always run them as `... 2>&1 | tail -3`, and retry up to 3 times.
 - **Verify:** poll `https://www.homeownerledger.com/api/health` until `version` equals the SHA. The public body is `{ok, app, version}`.
 - **Live in prod:** 3e54537 (collections letters), deployed 2026-10-19 18:39 ET.
-- **2026-10-19 18:40:** 81c1137 (logo + blue palette) awaiting CI; deploy no earlier than 19:39. Agents running: BL-096 resident assistant, BL-097 hide PM/Eviction, BL-098 HomeownerHub logo options (to ~/HomeownerHub-decks/logo-options/). Decks are in ~/HomeownerHub-decks/ (rebuild via README). Owner decisions open: brand name (HomeownerHub vs Ledger vs HOA Hub), pricing vs PayHOA, the Linda quote, key rotation before diligence. Pending owner SQL: docs/specs/2026-10-19-resident-meeting-notices.sql.
+- **2026-10-19 18:45:** HOLD deploying 81c1137 (Ledger logo + palette) until the HomeownerHub logo-C rebrand agent merges (owner picked concept C). Agents running: rebrand, BL-096 resident assistant, BL-097 hide PM/Eviction. Guide-shots PR #12 left open until the rebrand lands. Decks are in ~/HomeownerHub-decks/. Owner decisions open: pricing vs PayHOA, the Linda quote, key rotation before diligence. Pending owner SQL: docs/specs/2026-10-19-resident-meeting-notices.sql.
 
 ## Gates (the trusted forms)
 
