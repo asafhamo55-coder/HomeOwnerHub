@@ -36,7 +36,7 @@ function main() {
   for (const w of warnings) console.log(`warning: ${w}`)
   for (const e of errors) console.error(`error: ${e}`)
   console.log(
-    `guide:check — ${compiled.articles.length} articles, ${GUIDE_SHOTS.length} shots: ${errors.length} error(s), ${warnings.length} warning(s)`,
+    `guide:check — ${compiled.articles.length} articles${compiled.drafts.length ? ` (+${compiled.drafts.length} draft${compiled.drafts.length === 1 ? '' : 's'}, not compiled)` : ''}, ${GUIDE_SHOTS.length} shots: ${errors.length} error(s), ${warnings.length} warning(s)`,
   )
   if (errors.length) process.exit(1)
 }

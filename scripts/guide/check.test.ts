@@ -102,6 +102,35 @@ describe('checkGuide', () => {
   })
 })
 
+describe('checkGuide — draft articles', () => {
+  const draftSrc = (body = '', over: Record<string, string> = {}) =>
+    src(body, { id: 'dues-draft', draft: 'true', reviewed: '2020-01-01', ...over })
+  const withDraft = (over: Partial<CheckInput> = {}, d = draftSrc()) => {
+    const compiled = compileGuide([{ path: 'a.md', src: src() }, { path: 'd.md', src: d }], META)
+    const fresh = emitModule(compiled)
+    return input({ compiled, generatedOnDisk: fresh, generatedFresh: fresh, ...over })
+  }
+
+  it('passes a consistent draft and skips its reviewed-age warning', () => {
+    expect(checkGuide(withDraft())).toEqual({ errors: [], warnings: [] })
+  })
+
+  it('checks a draft’s labels, routes, links and shots', () => {
+    expect(checkGuide(withDraft({}, draftSrc('', { routes: '["/dues", "/gone"]' }))).errors.join()).toMatch(/d\.md: route \/gone/)
+    expect(checkGuide(withDraft({}, draftSrc('\nSee [x](/nowhere).\n'))).errors.join()).toMatch(/d\.md: link to \/nowhere/)
+    expect(checkGuide(withDraft({}, draftSrc('\nThen [[Only in draft]].\n'))).errors.join()).toMatch(/d\.md: \[\[Only in draft\]\]/)
+    const shot = draftSrc('', { shots: '\n  - name: guide-unknown\n    alt: x' })
+    // The body embeds guide-dues, so declare both; guide-unknown is not in GUIDE_SHOTS.
+    const both = shot.replace('    alt: x', '    alt: x\n  - name: guide-dues\n    alt: The Dues page')
+    expect(checkGuide(withDraft({}, both)).errors.join()).toMatch(/d\.md: screenshot guide-unknown/)
+  })
+
+  it('fails a guideHref() in app code that names a draft', () => {
+    const r = checkGuide(withDraft({ source: `<Button>Record payment</Button> guideHref('dues-draft')` }))
+    expect(r.errors.join()).toMatch(/dues-draft.*draft/)
+  })
+})
+
 describe('labelInSource', () => {
   it('needs the exact label with no letters glued on either side', () => {
     expect(labelInSource('Record payment', `label="Record payment"`)).toBe(true)

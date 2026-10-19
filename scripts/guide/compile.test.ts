@@ -151,3 +151,64 @@ describe('compileGuide', () => {
     expect(a).toContain('export const GUIDE_SEARCH_INDEX')
   })
 })
+
+describe('draft articles', () => {
+  const draft = (over: Record<string, string> = {}, body?: string) =>
+    article({ id: 'dues-draft', draft: 'true', shots: '[]', ...over }, body ?? 'Draft intro.\n\n## Steps\n1. Select [[Record payment]].\n')
+
+  it('compileArticle reports draft (default false)', () => {
+    expect(compileArticle(article(), 'x.md').draft).toBe(false)
+    expect(compileArticle(draft(), 'x.md').draft).toBe(true)
+    expect(compileArticle(article({ draft: 'maybe' }), 'x.md').errors.join()).toMatch(/draft/)
+  })
+
+  it('validates a draft but keeps it out of articles, sections, routes and search', () => {
+    const out = compileGuide([{ path: 'a.md', src: article() }, { path: 'd.md', src: draft() }], META)
+    expect(out.errors).toEqual([])
+    expect(out.articles.map((a) => a.id)).toEqual(['dues-record-payment'])
+    expect(out.drafts.map((a) => a.id)).toEqual(['dues-draft'])
+    expect(out.sections.some((s) => s.articleId === 'dues-draft')).toBe(false)
+    expect(Object.values(out.routeIndex).flat()).not.toContain('dues-draft')
+    expect(out.searchIndex.articles.ids).not.toContain('dues-draft')
+    expect(emitModule(out)).not.toContain('dues-draft')
+  })
+
+  it('still reports a draft’s body, topic and link errors', () => {
+    expect(compileGuide([{ path: 'd.md', src: draft({}, 'Intro.\n\n## Tips\nx\n') }], META).errors.join()).toMatch(/d\.md/)
+    expect(compileGuide([{ path: 'd.md', src: draft({ topic: 'nope' }) }], META).errors.join()).toMatch(/topic/)
+    expect(compileGuide([{ path: 'd.md', src: draft({ related: '[ghost]' }) }], META).errors.join()).toMatch(/ghost/)
+  })
+
+  it('a draft may link to live articles and other drafts', () => {
+    const out = compileGuide(
+      [
+        { path: 'a.md', src: article() },
+        { path: 'd.md', src: draft({ related: '[dues-record-payment, dues-draft-two]' }) },
+        { path: 'e.md', src: draft({ id: 'dues-draft-two' }) },
+      ],
+      META,
+    )
+    expect(out.errors).toEqual([])
+  })
+
+  it('fails duplicate ids across live and draft', () => {
+    const out = compileGuide([{ path: 'a.md', src: article() }, { path: 'd.md', src: draft({ id: 'dues-record-payment' }) }], META)
+    expect(out.errors.join()).toMatch(/duplicate/i)
+  })
+
+  it('fails a live article, guide link or _meta path pointing at a draft', () => {
+    const rel = compileGuide([{ path: 'a.md', src: article({ related: '[dues-draft]' }) }, { path: 'd.md', src: draft() }], META)
+    expect(rel.errors.join()).toMatch(/dues-draft.*is a draft and not in the compiled guide/)
+    const link = compileGuide([{ path: 'a.md', src: article({}, 'See [x](guide:dues-draft).\n') }, { path: 'd.md', src: draft() }], META)
+    expect(link.errors.join()).toMatch(/dues-draft.*is a draft/)
+    const meta = { ...META, paths: [{ ...META.paths[0]!, articles: ['dues-record-payment', 'dues-draft'] }] }
+    const path = compileGuide([{ path: 'a.md', src: article() }, { path: 'd.md', src: draft() }], meta)
+    expect(path.errors.join()).toMatch(/_meta\.yaml.*dues-draft.*draft/)
+  })
+
+  it('emits the same module whether or not drafts exist', () => {
+    const live = emitModule(compileGuide([{ path: 'a.md', src: article() }], META))
+    const withDraft = emitModule(compileGuide([{ path: 'a.md', src: article() }, { path: 'd.md', src: draft() }], META))
+    expect(withDraft).toBe(live)
+  })
+})

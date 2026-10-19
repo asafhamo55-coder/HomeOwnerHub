@@ -7,7 +7,8 @@
  * primary routes / internal links with no page.tsx, `[[Label]]`s that no
  * longer appear in apps/hoa/src, a GUIDE_EXPECTED_ROUTES entry with no
  * article, a `guideHref('id')` / `guide: 'id'` in app code naming no
- * article, and a stale generated module.
+ * article (or names a `draft: true` one), and a stale generated module.
+ * Drafts get the same per-article checks as live articles.
  * Warns (phase 1): a screenshot whose screen changed since capture, a
  * `reviewed` date older than 120 days, an unused GUIDE_SHOTS entry.
  */
@@ -81,7 +82,10 @@ export function checkGuide(input: CheckInput): { errors: string[]; warnings: str
   const usedShots = new Set<string>()
   const labels = new Map<string, string>() // label -> first article source
 
-  for (const a of input.compiled.articles) {
+  // Drafts (`draft: true`) get every per-article check so they are ready to
+  // publish; only the review-age warning is for live articles.
+  const draftIds = new Set(input.compiled.drafts.map((a) => a.id))
+  for (const a of [...input.compiled.articles, ...input.compiled.drafts]) {
     const where = a.source
     for (const r of a.routes) if (!templates.has(r)) errors.push(`${where}: route ${r} has no page.tsx under apps/hoa/src/app`)
     if (!templates.has(a.primaryRoute)) errors.push(`${where}: primary_route ${a.primaryRoute} has no page.tsx under apps/hoa/src/app`)
@@ -110,14 +114,15 @@ export function checkGuide(input: CheckInput): { errors: string[]; warnings: str
       }
     })
 
-    if (daysBetween(a.reviewed, input.today) > REVIEW_MAX_AGE_DAYS) {
+    if (!draftIds.has(a.id) && daysBetween(a.reviewed, input.today) > REVIEW_MAX_AGE_DAYS) {
       warnings.push(`${where}: reviewed ${a.reviewed}, more than ${REVIEW_MAX_AGE_DAYS} days ago; re-verify against the UI`)
     }
   }
 
   const articleIds = new Set(input.compiled.articles.map((a) => a.id))
   for (const id of guideRefsInSource(input.source)) {
-    if (!articleIds.has(id)) errors.push(`apps/hoa/src: guide article "${id}" is referenced in code (guideHref / guide:) but does not exist`)
+    if (draftIds.has(id)) errors.push(`apps/hoa/src: guide article "${id}" is referenced in code (guideHref / guide:) but is a draft and not in the compiled guide`)
+    else if (!articleIds.has(id)) errors.push(`apps/hoa/src: guide article "${id}" is referenced in code (guideHref / guide:) but does not exist`)
   }
 
   for (const [label, where] of labels) {

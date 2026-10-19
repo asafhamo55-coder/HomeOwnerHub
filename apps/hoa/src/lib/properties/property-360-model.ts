@@ -179,6 +179,8 @@ export interface Owner {
   primary: boolean
   /** True = has a portal login; false = none; null = not knowable here. */
   portal: boolean | null
+  /** The owner's portal account (unit_ownerships.owner_user_id), when they have one. */
+  userId: string | null
   since: string | null
   until: string | null
   pct: number | null
@@ -233,6 +235,7 @@ export function buildPeople(input: {
     phone: o.owner_phone,
     primary: false,
     portal: o.owner_user_id !== null,
+    userId: o.owner_user_id,
     since: o.valid_from,
     until: o.valid_to,
     pct: o.ownership_pct,
@@ -257,6 +260,7 @@ export function buildPeople(input: {
         phone: property.owner_phone,
         primary: true,
         portal: null,
+        userId: null,
         since: null,
         until: null,
         pct: null,

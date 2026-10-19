@@ -44,6 +44,8 @@ export const FrontmatterSchema = z
     keywords: z.array(z.string().min(1)).default([]),
     shots: z.array(z.object({ name: ID, alt: z.string().min(1) }).strict()).default([]),
     related: z.array(ID).default([]),
+    /** Written but not shipped: validated and checked, kept out of the compiled guide. */
+    draft: z.boolean().default(false),
     reviewed: z.preprocess(
       (v) => (v instanceof Date ? v.toISOString().slice(0, 10) : v),
       z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'reviewed must be a YYYY-MM-DD date'),
@@ -169,6 +171,8 @@ function listItems(list: Tokens.List, errors: string[]): GuideInline[][] {
 
 export interface CompiledArticle {
   article?: GuideArticle
+  /** frontmatter `draft: true` (false when the frontmatter failed to parse). */
+  draft: boolean
   errors: string[]
 }
 
@@ -178,11 +182,12 @@ export function compileArticle(src: string, source: string): CompiledArticle {
   try {
     parsed = parseFrontmatter(src)
   } catch (e) {
-    return { errors: [(e as Error).message] }
+    return { draft: false, errors: [(e as Error).message] }
   }
   const fm = FrontmatterSchema.safeParse(parsed.data)
   if (!fm.success) {
     return {
+      draft: false,
       errors: fm.error.issues.map((i) =>
         i.code === 'unrecognized_keys' ? `unknown frontmatter key(s): ${i.keys.join(', ')}` : `frontmatter ${i.path.join('.') || '(root)'}: ${i.message}`,
       ),
@@ -266,7 +271,7 @@ export function compileArticle(src: string, source: string): CompiledArticle {
     sections: sections.filter((s) => s.heading !== null || s.blocks.length > 0),
     source,
   }
-  return { article, errors }
+  return { article, draft: f.draft, errors }
 }
 
 export function inlineText(nodes: GuideInline[]): string {
@@ -326,6 +331,8 @@ export function walkInlines(article: GuideArticle, visit: (n: GuideInline) => vo
 
 export interface CompiledGuide {
   articles: GuideArticle[]
+  /** `draft: true` articles: validated and checked, never emitted. */
+  drafts: GuideArticle[]
   sections: GuideSection[]
   routeIndex: Record<string, string[]>
   searchIndex: GuideSearchIndex
@@ -348,9 +355,12 @@ export function compileGuide(
   if (!metaParse.success) for (const i of metaParse.error.issues) errors.push(`_meta.yaml: ${i.path.join('.')}: ${i.message}`)
 
   const articles: GuideArticle[] = []
+  // `draft: true` articles are validated like any other but kept out of
+  // the compiled guide (and so out of the app) until they are published.
+  const drafts: GuideArticle[] = []
   const seen = new Map<string, string>()
   for (const file of [...files].sort((a, b) => a.path.localeCompare(b.path))) {
-    const { article, errors: errs } = compileArticle(file.src, file.path)
+    const { article, draft, errors: errs } = compileArticle(file.src, file.path)
     for (const e of errs) errors.push(`${file.path}: ${e}`)
     if (!article) continue
     const dup = seen.get(article.id)
@@ -359,19 +369,37 @@ export function compileGuide(
       continue
     }
     seen.set(article.id, file.path)
-    articles.push(article)
+    ;(draft ? drafts : articles).push(article)
   }
 
   const topicOrder = new Map(meta.topics.map((t, i) => [t.id, i]))
   const ids = new Set(articles.map((a) => a.id))
-  for (const a of articles) {
+  const draftIds = new Set(drafts.map((a) => a.id))
+  // A draft may point at live articles and other drafts; a live article
+  // only at live ones (a draft is not in the app to link to).
+  const resolve = (id: string, fromDraft: boolean): 'ok' | 'draft' | 'missing' =>
+    ids.has(id) || (fromDraft && draftIds.has(id)) ? 'ok' : draftIds.has(id) ? 'draft' : 'missing'
+  for (const a of [...articles, ...drafts]) {
+    const fromDraft = draftIds.has(a.id)
     if (!topicOrder.has(a.topic)) errors.push(`${a.source}: unknown topic "${a.topic}" (add it to _meta.yaml)`)
-    for (const r of a.related) if (!ids.has(r)) errors.push(`${a.source}: related article "${r}" does not exist`)
+    for (const r of a.related) {
+      const s = resolve(r, fromDraft)
+      if (s === 'draft') errors.push(`${a.source}: related article "${r}" is a draft and not in the compiled guide`)
+      else if (s === 'missing') errors.push(`${a.source}: related article "${r}" does not exist`)
+    }
     walkInlines(a, (n) => {
-      if (n.t === 'link' && n.kind === 'guide' && !ids.has(n.href)) errors.push(`${a.source}: guide link to unknown article "${n.href}"`)
+      if (n.t !== 'link' || n.kind !== 'guide') return
+      const s = resolve(n.href, fromDraft)
+      if (s === 'draft') errors.push(`${a.source}: guide link to "${n.href}" is a draft and not in the compiled guide`)
+      else if (s === 'missing') errors.push(`${a.source}: guide link to unknown article "${n.href}"`)
     })
   }
-  for (const p of meta.paths) for (const id of p.articles) if (!ids.has(id)) errors.push(`_meta.yaml: path "${p.id}" lists unknown article "${id}"`)
+  for (const p of meta.paths) {
+    for (const id of p.articles) {
+      if (draftIds.has(id)) errors.push(`_meta.yaml: path "${p.id}" lists "${id}", which is a draft and not in the compiled guide`)
+      else if (!ids.has(id)) errors.push(`_meta.yaml: path "${p.id}" lists unknown article "${id}"`)
+    }
+  }
 
   articles.sort((a, b) => (topicOrder.get(a.topic) ?? 99) - (topicOrder.get(b.topic) ?? 99) || a.id.localeCompare(b.id))
 
@@ -416,7 +444,7 @@ export function compileGuide(
   const whatsNew = compileWhatsNew(releaseNotes, ids)
   errors.push(...whatsNew.errors)
 
-  return { articles, sections, routeIndex, searchIndex, topics: meta.topics, paths: meta.paths, whatsNew: whatsNew.entries, errors }
+  return { articles, drafts, sections, routeIndex, searchIndex, topics: meta.topics, paths: meta.paths, whatsNew: whatsNew.entries, errors }
 }
 
 export function emitModule(g: CompiledGuide): string {
