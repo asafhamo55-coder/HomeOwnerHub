@@ -9,8 +9,11 @@
 # expect:
 #   <article-id>  a how-to: that article must be in the top 3 retrieved and
 #                 the gate must let the question through to the model.
-#                 Phase 2 (ids a-.. to f-..) keeps a few questions that still
-#                 miss: they are known retrieval gaps, not mistakes in the set.
+#                 Phase 2 (ids a-.. to f-..) keeps questions that still miss:
+#                 they are known retrieval gaps, not mistakes in the set.
+#                 As of 2026-10-19 one is left: d-18 ("water shutoff" is a
+#                 topic the guide has no reason to name). An id ending in
+#                 `w` is a reworded variant of the id before it.
 #                 Phase 2 refusal canaries sit with their topic group.
 #   refuse        a refusal canary: a feature HomeownerHub does not have.
 #                 The gate must refuse before the model is called. Each one
@@ -95,6 +98,39 @@ questions:
   - { id: d03, role: resident, expect: rules, q: "Am I allowed to keep two dogs?" }
   - { id: d04, role: admin, expect: rules, q: "How tall can a fence be under our bylaws?" }
   - { id: d05, role: resident, expect: rules, q: "Are short-term rentals allowed in our community?" }
+  - { id: d06, role: resident, expect: rules, q: "Does our declaration allow solar panels on the roof?" }
+  - { id: d07, role: resident, expect: rules, q: "How long can guests park in the driveway?" }
+  - { id: d08, role: resident, expect: rules, q: "Can I add a second story to my house?" }
+  - { id: d09, role: resident, expect: rules, q: "Are basketball hoops allowed in the driveway?" }
+  - { id: d10, role: board, expect: rules, q: "What do the rules say about trash cans being visible from the street?" }
+  - { id: d11, role: resident, expect: rules, q: "How late can I play music on a Saturday night?" }
+  - { id: d12, role: resident, expect: rules, q: "Can I rent my home on Airbnb?" }
+  - { id: d13, role: resident, expect: rules, q: "Is it ok to put a shed in my backyard?" }
+  - { id: d14, role: board, expect: rules, q: "What does the declaration say about leasing?" }
+  - { id: d15, role: resident, expect: rules, q: "Are pickup trucks permitted to park overnight on the street?" }
+  - { id: d16, role: resident, expect: rules, q: "Can I install a satellite dish on my roof?" }
+  - { id: d17, role: board, expect: rules, q: "Under our bylaws, how many directors do we need for a quorum?" }
+  - { id: d18, role: resident, expect: rules, q: "How many pets can I have?" }
+  - { id: d19, role: resident, expect: rules, q: "Can I keep a boat on a trailer in my driveway?" }
+  - { id: d20, role: board, expect: rules, q: "Are owners allowed to lease their home for less than a year?" }
+
+  # ── How-to worded like a rules question: the guide, not Ask the Docs ──
+  # "allowed", "can I add", "how long can", "declaration", "rules" alone do
+  # not make a rules question when the question is about the app (see
+  # isRulesQuestion). c-13, c-15, d-16, e-18, e-23 and f-21 above are the
+  # same kind, in the wording they were first written in.
+  - { id: g01, role: board, expect: documents-governing-and-ask, q: "Where do I upload our declaration and bylaws?" }
+  - { id: g02, role: board, expect: leases-waiting-list, q: "How do I set how many homes are allowed to be rented?" }
+  - { id: g03, role: resident, expect: resident-arc-rules-check, q: "What does the rules check on my ARC request look at?" }
+  - { id: g04, role: admin, expect: accounting-enter-pay-bills, q: "Can I add a line item to a vendor bill?" }
+  - { id: g05, role: admin, expect: members-invite-board, q: "Can I add another admin to our account?" }
+  - { id: g06, role: resident, expect: resident-arc-rules-check, q: "Am I allowed to edit my ARC application after I submit it?" }
+  - { id: g07, role: board, expect: documents-governing-and-ask, q: "How do I ask a question about what our CC&Rs say?" }
+  - { id: g08, role: admin, expect: events-recurring-reminders, q: "How long can a reminder be scheduled before the event?" }
+  - { id: g09, role: board, expect: tickets-board, q: "Can I add a note to a ticket that the resident won't see?" }
+  - { id: g10, role: admin, expect: documents-governing-and-ask, q: "How do I add our declaration to the documents the AI reads?" }
+  - { id: g11, role: admin, expect: accounting-recurring-entries, q: "Can I add a recurring entry for the management fee?" }
+  - { id: g12, role: resident, expect: resident-arc-rules-check, q: "Can I add drawings to my architectural request?" }
 
   # ── Phase 2 how-to: accounting reports, bank, monthly board report ──────
   - { id: a-01, role: board, expect: accounting-reports-overview, q: "Where can I see a profit and loss for this year?", route: /accounting }
@@ -154,9 +190,11 @@ questions:
   - { id: c-10, role: board, expect: vendors-rfps-collect-bids, q: "I made a request for proposal but no vendor got an email. What did I miss?" }
   - { id: c-11, role: admin, expect: vendors-rfps-collect-bids, q: "Can I change the line items on an RFP draft?" }
   - { id: c-12, role: admin, expect: vendors-rfps-collect-bids, q: "Why is the Compare bids button missing?", route: /rfps/abc123/bids }
-  - { id: c-13, role: board, expect: leases-waiting-list, q: "Only 20% of our homes can be rented. Where do I set that cap?" }
+  - { id: c-13, role: board, expect: leases-waiting-list, q: "Our declaration says only 20% of homes can be rented. Where do I set that?" }
+  - { id: c-13w, role: board, expect: leases-waiting-list, q: "Only 20% of our homes can be rented. Where do I set that cap?" }
   - { id: c-14, role: admin, expect: leases-waiting-list, q: "An owner wants to rent out their house but we're full. How do I put them in line?" }
-  - { id: c-15, role: board, expect: leases-waiting-list, q: "How many more units can be leased right now under our cap?", route: /leases }
+  - { id: c-15, role: board, expect: leases-waiting-list, q: "How many more units are allowed to be leased right now?", route: /leases }
+  - { id: c-15w, role: board, expect: leases-waiting-list, q: "How many more units can be leased right now under our cap?", route: /leases }
   - { id: c-16, role: admin, expect: leases-waiting-list, q: "How do I approve the next person on the rental waiting list?" }
   - { id: c-17, role: board, expect: leases-waiting-list, q: "Can the app figure out our rental cap from the CC&Rs?" }
   - { id: c-18, role: admin, expect: leases-waiting-list, q: "How do I mark a house as owner-occupied again after the tenant moves out?" }
@@ -183,7 +221,8 @@ questions:
   - { id: d-13, role: admin, expect: inbox-reply-to-resident, q: "How do I start a brand new email to someone from the inbox?" }
   - { id: d-14, role: admin, expect: communications-segments-sms, q: "How do I email only the people who are behind on their dues?" }
   - { id: d-15, role: board, expect: communications-segments-sms, q: "Can I send a notice just to the tenants and not the owners?" }
-  - { id: d-16, role: admin, expect: communications-segments-sms, q: "What is the character limit for a text message to residents?" }
+  - { id: d-16, role: admin, expect: communications-segments-sms, q: "How long can a text message to residents be?" }
+  - { id: d-16w, role: admin, expect: communications-segments-sms, q: "What is the character limit for a text message to residents?" }
   - { id: d-17, role: admin, expect: communications-segments-sms, q: "How do I send a message to just the two people living at one address?", route: /communications/new }
   - { id: d-18, role: board, expect: communications-segments-sms, q: "How can I see which residents never opened the water shutoff notice?", route: /communications/abc123 }
   - { id: d-19, role: admin, expect: communications-segments-sms, q: "I want to include our landscaper and the attorney on an announcement, they aren't residents" }
@@ -222,12 +261,14 @@ questions:
   - { id: e-15, role: resident, expect: resident-dues-statement, q: "I sent my payment last week, why isn't it showing in my history?" }
   - { id: e-16, role: resident, expect: resident-dues-statement, q: "What does balance forward mean on my statement?" }
   - { id: e-17, role: resident, expect: resident-dues-statement, q: "How do I get a statement for the whole time I've owned my home?" }
-  - { id: e-18, role: resident, expect: resident-arc-rules-check, q: "The check said possible conflict on my fence request. What should I do?" }
+  - { id: e-18, role: resident, expect: resident-arc-rules-check, q: "The rules check said possible conflict on my fence request. What should I do?" }
+  - { id: e-18w, role: resident, expect: resident-arc-rules-check, q: "The check said possible conflict on my fence request. What should I do?" }
   - { id: e-19, role: resident, expect: resident-arc-rules-check, q: "How do I know if the board approved my architectural application?" }
   - { id: e-20, role: resident, expect: resident-arc-rules-check, q: "Can I cancel an ARC application I already submitted?" }
   - { id: e-21, role: resident, expect: resident-arc-rules-check, q: "What does In review mean on my ARC request?", route: /resident/arc }
   - { id: e-22, role: resident, expect: resident-arc-rules-check, q: "How do I add drawings to my application after I sent it?" }
-  - { id: e-23, role: resident, expect: resident-arc-rules-check, q: "Can I still submit my ARC application if the check found no clear guidelines?" }
+  - { id: e-23, role: resident, expect: resident-arc-rules-check, q: "The rules check says no clear rules found. Can I still submit?" }
+  - { id: e-23w, role: resident, expect: resident-arc-rules-check, q: "Can I still submit my ARC application if the check found no clear guidelines?" }
   - { id: e-c1, role: resident, expect: refuse, q: "How do I request a new gate remote or key fob?" }
   - { id: e-c2, role: resident, expect: refuse, q: "How do I register my dog with the association?" }
 
@@ -252,7 +293,8 @@ questions:
   - { id: f-18, role: resident, expect: resident-support-tickets, q: "The pool gate is broken, how do I tell the board?" }
   - { id: f-19, role: resident, expect: resident-support-tickets, q: "How do I ask the board a question about my dues bill?" }
   - { id: f-20, role: resident, expect: resident-support-tickets, q: "Where do I see the board's answer to my request?", route: /resident/tickets }
-  - { id: f-21, role: resident, expect: resident-support-tickets, q: "How do I attach a photo to my maintenance request?" }
+  - { id: f-21, role: resident, expect: resident-support-tickets, q: "Can I add a photo to my maintenance request?" }
+  - { id: f-21w, role: resident, expect: resident-support-tickets, q: "How do I attach a photo to my maintenance request?" }
   - { id: f-22, role: resident, expect: resident-support-tickets, q: "My request says closed but I still need help. What do I do?" }
   - { id: f-23, role: resident, expect: resident-support-tickets, q: "How do I report a noisy neighbor or a parking problem to management?" }
   - { id: f-24, role: board, expect: tickets-board, q: "Where do resident requests show up for the board?" }

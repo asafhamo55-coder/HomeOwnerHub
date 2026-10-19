@@ -6,7 +6,7 @@ topic: resident
 roles: [resident]
 routes: ["/resident/requests", "/resident/tickets", "/resident/tickets/new", "/resident/tickets/[id]"]
 primary_route: /resident/tickets/new
-keywords: [support request, request, ticket, help, question, repair, maintenance, broken, fix, noise, parking, common area, pool, gate, key, access, billing question, dues question, safety, contact board, message board, reply, status, follow up, attach photo]
+keywords: [support request, request, ticket, help, question, repair, maintenance, broken, fix, noise, noisy neighbor, parking, parking problem, report a problem, management, common area, pool, gate, key, access, billing question, dues question, safety, contact board, message board, reply, status, follow up, attach photo]
 related: [resident-portal-basics]
 reviewed: 2026-10-18
 ---

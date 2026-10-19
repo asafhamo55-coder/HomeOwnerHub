@@ -25,7 +25,7 @@ The rules check shows you, before you submit, which of your community's rules li
 3. Tap [[Check my request against the rules]]. Read **Rules that likely apply**: each rule is marked **Looks consistent**, **Possible conflict** or **Needs detail**. Read **The board will probably ask about** too.
 4. If a rule may conflict, change your request or explain in the description why it fits. Tap [[Check again]] to re-run it.
 5. Tap [[Submit application]]. Your application page opens.
-6. Add plans or photos under **Documents** with [[Attach document]]. Ask the board a question under **Conversation**, then tap [[Send]].
+6. Add plans, drawings or photos under **Documents** with [[Attach document]], now or after you submit. Ask the board a question under **Conversation**, then tap [[Send]].
 7. To follow up later, tap **Requests**, then **ARC applications** under **Track**. Each application shows its status.
 
 ![[guide-resident-arc-new]]

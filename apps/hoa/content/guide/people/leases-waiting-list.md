@@ -6,7 +6,7 @@ topic: people
 roles: [admin, board]
 routes: ["/leases", "/properties/[id]"]
 primary_route: /leases
-keywords: [lease, leases, leasing, rental, rentals, rent out, renting, tenant, tenants, landlord, rental cap, lease cap, rental restriction, rental limit, percent leased, headroom, waiting list, wait list, queue, approve lease, deny lease, tenure, owner-occupied, owner occupied, leased, declaration, ccr]
+keywords: [lease, leases, leasing, rental, rentals, rent out, renting, tenant, tenants, landlord, rental cap, lease cap, allowed to lease, allowed to rent, rental restriction, rental limit, percent leased, headroom, waiting list, wait list, queue, approve lease, deny lease, tenure, owner-occupied, owner occupied, leased, declaration, ccr]
 related: [setup-properties-residents, documents-governing-and-ask, properties-record-a-sale]
 reviewed: 2026-10-18
 ---
