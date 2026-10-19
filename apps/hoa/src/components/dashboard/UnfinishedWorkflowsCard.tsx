@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ArrowRight, FileEdit } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
+import { OTHER_HUBS_ENABLED } from '@homeowner-portal/ui/hubs'
 import type { WizardDraft } from '@/lib/drafts'
 
 const KIND_LABEL: Record<string, string> = {
@@ -22,7 +23,12 @@ interface Props {
   drafts: WizardDraft[]
 }
 
-export function UnfinishedWorkflowsCard({ drafts }: Props) {
+export function UnfinishedWorkflowsCard({ drafts: allDrafts }: Props) {
+  // BL-097: eviction_case drafts resume in the Eviction Hub, which is not
+  // offered right now — don't link into it.
+  const drafts = OTHER_HUBS_ENABLED
+    ? allDrafts
+    : allDrafts.filter((d) => d.kind !== 'eviction_case')
   if (drafts.length === 0) return null
 
   return (

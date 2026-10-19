@@ -4,6 +4,7 @@ import { Mail, ArrowRight } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { PageHero } from '@/components/site/page-hero'
+import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
 
 export const metadata: Metadata = {
   title: 'Blog',
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
     'Jurisdiction-specific writing on HOA governance, landlord operations, and the AI work that\'s replacing them.',
 }
 
-const planned = [
+const allPlanned = [
   {
     category: 'HOA',
     title: 'Reserve fund math for volunteer treasurers',
@@ -38,6 +39,11 @@ const planned = [
     note: 'Fulton vs. Cobb vs. Gwinnett — formatting differences that reset the clock.',
   },
 ]
+
+// BL-097: PM and Eviction topics are dropped while those hubs are not offered.
+const planned = OTHER_HUBS_ENABLED
+  ? allPlanned
+  : allPlanned.filter((p) => p.category !== 'PM' && p.category !== 'Eviction')
 
 export default function BlogPage() {
   return (

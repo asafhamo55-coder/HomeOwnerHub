@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Search, ArrowRight, FileText, Building2, Home, Scale, BookOpen, ShieldCheck, AlertCircle, Sparkles } from 'lucide-react'
 import { WORKFLOWS } from '@/lib/workflows'
 import { cn } from '@/lib/cn'
+import { isOfferedHref } from '@/lib/hubs'
 
 interface PaletteItem {
   label: string
@@ -14,7 +15,7 @@ interface PaletteItem {
   Icon: typeof Search
 }
 
-const PAGES: PaletteItem[] = [
+const ALL_PAGES: PaletteItem[] = [
   { label: 'HOA Hub', href: '/hoa', category: 'Product', Icon: Building2, hint: 'For volunteer boards' },
   { label: 'PM Hub', href: '/landlords', category: 'Product', Icon: Home, hint: 'For small landlords' },
   { label: 'Eviction Hub', href: '/eviction', category: 'Product', Icon: Scale, hint: 'Attorney-reviewed' },
@@ -30,6 +31,9 @@ const PAGES: PaletteItem[] = [
   { label: 'Blog', href: '/blog', category: 'Resource', Icon: BookOpen },
   { label: 'Status', href: '/status', category: 'Resource', Icon: ShieldCheck },
 ]
+
+// BL-097: PM and Eviction are not offered right now.
+const PAGES = ALL_PAGES.filter((p) => isOfferedHref(p.href))
 
 const WORKFLOW_ITEMS: PaletteItem[] = WORKFLOWS.map((w) => ({
   label: w.name,

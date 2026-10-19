@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { ArrowUpRight, Building2, Home, Scale, ShieldCheck, FileText, Calendar, Wallet, AlertCircle } from 'lucide-react'
+import { OTHER_HUBS_ENABLED } from '@homeowner-portal/ui/hubs'
 import { cn } from '@/lib/cn'
 
 // Asymmetric bento: HOA gets a wide hero card spanning both rows on the left,
@@ -12,24 +13,29 @@ export function ProductsBento() {
         <header className="mb-12 md:mb-16 md:flex md:items-end md:justify-between md:gap-12">
           <div className="max-w-2xl">
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              Three products · one platform
+              {OTHER_HUBS_ENABLED ? 'Three products · one platform' : 'HOA Hub'}
             </p>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.02em] text-foreground md:text-4xl">
-              One operator. Three life stages. One platform.
+              {OTHER_HUBS_ENABLED
+                ? 'One operator. Three life stages. One platform.'
+                : 'Everything a volunteer board does, in one place.'}
             </h2>
           </div>
           <p className="mt-4 max-w-md text-base leading-relaxed text-muted md:mt-0">
-            Most people who serve on an HOA board also rent out a property — and
-            when a tenancy breaks down, they need the legal piece too. We
-            follow them through every stage.
+            {OTHER_HUBS_ENABLED
+              ? 'Most people who serve on an HOA board also rent out a property — and when a tenancy breaks down, they need the legal piece too. We follow them through every stage.'
+              : 'Covenants, violations, meetings, money and residents — with AI drafting the paperwork and a board member approving every word.'}
           </p>
         </header>
 
-        <div className="grid gap-4 md:grid-cols-3 md:grid-rows-2">
+        <div className={cn('grid gap-4', OTHER_HUBS_ENABLED && 'md:grid-cols-3 md:grid-rows-2')}>
           {/* HOA — wide hero card */}
           <Link
             href="/hoa"
-            className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-surface p-7 ring-card md:col-span-2 md:row-span-2 md:p-10"
+            className={cn(
+              'group relative flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-surface p-7 ring-card md:p-10',
+              OTHER_HUBS_ENABLED && 'md:col-span-2 md:row-span-2',
+            )}
           >
             <div className="flex items-start justify-between gap-4">
               <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-success-subtle text-success">
@@ -62,6 +68,9 @@ export function ProductsBento() {
             </span>
           </Link>
 
+          {/* PM + Eviction — hidden while those hubs are unavailable (BL-097). */}
+          {OTHER_HUBS_ENABLED && (
+          <>
           {/* PM */}
           <Link
             href="/landlords"
@@ -121,6 +130,8 @@ export function ProductsBento() {
               <ArrowUpRight className="h-4 w-4" />
             </span>
           </Link>
+          </>
+          )}
         </div>
       </div>
     </section>

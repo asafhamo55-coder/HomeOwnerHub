@@ -93,6 +93,7 @@ export type { NavItemProps } from './components/Sidebar'
 
 // Hub switcher (cross-hub nav in AppShellHeader)
 export { HubSwitcher } from './components/HubSwitcher'
+export { OTHER_HUBS_ENABLED } from './hubs'
 export type { Hub, HubType } from './components/HubSwitcher'
 
 // Wizard progress indicator (used by every multi-step flow)

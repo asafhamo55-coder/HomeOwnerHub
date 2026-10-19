@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowRight, Check } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
 import { HOA_PLANS, HOA_PRICE_COPY, type HoaPlan } from '@/lib/hoa-pricing'
 
 // Homepage teaser. The plans and every price come from lib/hoa-pricing.ts,
@@ -86,7 +87,9 @@ export function PricingTeaser() {
         </div>
 
         <p className="mt-10 text-center text-xs text-muted">
-          PM Hub free tier (1 property). Eviction is priced per case. Full pricing →{' '}
+          {OTHER_HUBS_ENABLED
+            ? 'PM Hub free tier (1 property). Eviction is priced per case. Full pricing → '
+            : 'Full pricing → '}
           <Link href="/pricing" className="font-semibold text-foreground underline-offset-4 hover:underline">
             see all plans
           </Link>

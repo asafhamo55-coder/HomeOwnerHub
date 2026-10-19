@@ -5,10 +5,11 @@ import { useEffect, useRef, useState } from 'react'
 import { Menu, X, ChevronDown, Search, ArrowRight } from 'lucide-react'
 import { CommandPalette } from './command-palette'
 import { cn } from '@/lib/cn'
+import { isOfferedHref } from '@/lib/hubs'
 import { Logo, SIGN_IN_URL } from './brand'
 
 
-const products = [
+const allProducts = [
   {
     href: '/hoa',
     name: 'HOA Hub',
@@ -28,6 +29,9 @@ const products = [
     dot: 'bg-eviction',
   },
 ]
+
+// BL-097: PM and Eviction are not offered right now.
+const products = allProducts.filter((p) => isOfferedHref(p.href))
 
 const links = [
   { href: '/#workflows', label: 'Workflows' },

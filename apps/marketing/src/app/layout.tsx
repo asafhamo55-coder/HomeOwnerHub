@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
+import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -20,12 +21,15 @@ export const metadata: Metadata = {
     default: 'Ledger — AI for the people who run residential property',
     template: '%s · Ledger',
   },
-  description:
-    'The AI-native operating system for HOA boards, small landlords, and the legal work when tenancies break down. Less paperwork. More peace of mind.',
+  // BL-097: PM and Eviction are not offered right now.
+  description: OTHER_HUBS_ENABLED
+    ? 'The AI-native operating system for HOA boards, small landlords, and the legal work when tenancies break down. Less paperwork. More peace of mind.'
+    : 'The AI-native operating system for self-managed HOA boards. Less paperwork. More peace of mind.',
   openGraph: {
     title: 'Ledger',
-    description:
-      'AI for HOA boards, landlords, and eviction support. Less paperwork.',
+    description: OTHER_HUBS_ENABLED
+      ? 'AI for HOA boards, landlords, and eviction support. Less paperwork.'
+      : 'AI for self-managed HOA boards. Less paperwork.',
     type: 'website',
   },
 }

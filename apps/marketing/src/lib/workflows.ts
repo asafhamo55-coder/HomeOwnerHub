@@ -8,6 +8,8 @@
 // update this file in the same change. PM and Eviction rows are outside the
 // HOA truth pass and unchanged.
 
+import { OTHER_HUBS_ENABLED } from '@homeowner-portal/ui/hubs'
+
 export type Bar = 'C' | 'B' | 'A' | '—'
 export type Status = 'shipped' | 'building' | 'planned'
 export type Hub = 'HOA' | 'PM' | 'Eviction' | 'All' | 'Build'
@@ -28,7 +30,7 @@ export interface Workflow {
   route?: string
 }
 
-export const WORKFLOWS: Workflow[] = [
+export const ALL_WORKFLOWS: Workflow[] = [
   { id: 1, name: 'Document onboarding', hub: 'HOA', bar: 'C', status: 'shipped', month: 'M1', route: '/documents/upload',
     description: 'Upload your CC&R, bylaws and rules. Each document is read and indexed section by section, so answers can cite it.' },
   { id: 2, name: 'Covenant Brain', hub: 'HOA', bar: 'C', status: 'shipped', month: 'M1', route: '/ai/ask',
@@ -74,6 +76,14 @@ export const WORKFLOWS: Workflow[] = [
   { id: 9, name: 'Vendor Oracle', hub: 'HOA', bar: '—', status: 'planned', month: 'M7+',
     description: 'Past spend, ratings and a recommended vendor for the next job. Not built yet.' },
 ]
+
+/**
+ * The workflows the site lists. BL-097: PM and Eviction rows are left out
+ * while those hubs are not offered (OTHER_HUBS_ENABLED).
+ */
+export const WORKFLOWS: Workflow[] = OTHER_HUBS_ENABLED
+  ? ALL_WORKFLOWS
+  : ALL_WORKFLOWS.filter((w) => w.hub !== 'PM' && w.hub !== 'Eviction')
 
 /** HOA workflows a board can use today. Counts on the site derive from this. */
 export const SHIPPED_HOA_WORKFLOWS = WORKFLOWS.filter((w) => w.hub === 'HOA' && w.status === 'shipped')

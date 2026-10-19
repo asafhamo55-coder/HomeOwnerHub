@@ -9,6 +9,7 @@
     ".": "./src/index.ts",
     "./tokens": "./src/tokens.ts",
     "./brand": "./src/components/LedgerLogo.tsx",
+    "./hubs": "./src/hubs.ts",
     "./tailwind.config": "./tailwind.config.ts",
     "./globals.css": "./src/globals.css"
   },
