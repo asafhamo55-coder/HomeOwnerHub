@@ -9,11 +9,11 @@
 # expect:
 #   <article-id>  a how-to: that article must be in the top 3 retrieved and
 #                 the gate must let the question through to the model.
-#                 Phase 2 (ids a-.. to f-..) keeps questions that still miss:
-#                 they are known retrieval gaps, not mistakes in the set.
-#                 As of 2026-10-19 one is left: d-18 ("water shutoff" is a
-#                 topic the guide has no reason to name). An id ending in
-#                 `w` is a reworded variant of the id before it.
+#                 Phase 2 (ids a-.. to f-.., and n-.. for features shipped
+#                 2026-10-18/19) keeps any question that misses: a miss is a
+#                 retrieval gap to fix in the guide, not a mistake in the set.
+#                 As of 2026-10-19 none is left. An id ending in `w` is a
+#                 reworded variant of the id before it.
 #                 Phase 2 refusal canaries sit with their topic group.
 #   refuse        a refusal canary: a feature HomeownerHub does not have.
 #                 The gate must refuse before the model is called. Each one
@@ -305,3 +305,20 @@ questions:
   - { id: f-28, role: admin, expect: tickets-board, q: "How do I mark a resident request as urgent?" }
   - { id: f-29, role: board, expect: tickets-board, q: "Can I assign a ticket's work to someone with a due date?" }
   - { id: f-30, role: resident, expect: refuse, q: "Can I set up autopay so my monthly fee is pulled from my account automatically?" }
+
+  # ── Phase 2 how-to: features shipped 2026-10-18 and 2026-10-19 ──────────
+  # Spanish announcements, resident decision emails, CA commitment to cure,
+  # payment plans that complete themselves, recurring pause/stop, and
+  # Settings → Vendors insurance minimums.
+  - { id: n-01, role: board, expect: communications-send-announcement, q: "Half our owners speak Spanish. Can the app translate the pool closing notice for them?" }
+  - { id: n-02, role: admin, expect: communications-send-announcement, q: "I added the Spanish translation by mistake, how do I take it off before I send?", route: /communications/new }
+  - { id: n-03, role: board, expect: settings-notifications, q: "Does the homeowner get an email automatically when we deny their architectural request?" }
+  - { id: n-04, role: admin, expect: settings-notifications, q: "Residents keep asking if we answered their ticket. Can they be emailed when we reply?" }
+  - { id: n-05, role: board, expect: violations-report-and-letter, q: "We're in California and the owner promised in writing to pay a contractor to fix it. Can we still fine him?" }
+  - { id: n-06, role: board, expect: violations-report-and-letter, q: "Why won't it let me change the violation status to Fined?", route: /violations/abc123 }
+  - { id: n-07, role: board, expect: accounting-payment-plans, q: "The owner paid the last installment. Do I have to close the payment plan myself?" }
+  - { id: n-08, role: admin, expect: accounting-payment-plans, q: "Which owners have fallen behind on their payment plans?", route: /accounting/payment-plans }
+  - { id: n-09, role: board, expect: accounting-recurring-entries, q: "The management company is waiving its fee for two months. Can I put the recurring entry on hold?" }
+  - { id: n-10, role: admin, expect: accounting-recurring-entries, q: "Our management fee went up. How do I change the amount on the entry that posts every month?" }
+  - { id: n-11, role: board, expect: settings-vendors, q: "Our insurance agent says contractors need at least $1 million in liability coverage. Where do I put that in?" }
+  - { id: n-12, role: admin, expect: settings-vendors, q: "Do the bid invitations tell contractors how much insurance we require?" }

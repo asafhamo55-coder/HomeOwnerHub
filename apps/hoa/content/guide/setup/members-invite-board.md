@@ -6,7 +6,7 @@ topic: setup
 roles: [admin]
 routes: ["/settings/members"]
 primary_route: /settings/members
-keywords: [invite, member, board, login, access, role, admin, add user, remove, switch hoa, manager]
+keywords: [invite, member, board, login, access, role, admin, add user, add admin, add board member, remove, switch hoa, manager]
 shots:
   - name: guide-members-invite
     alt: The Invite a member form with the Send invitation button highlighted

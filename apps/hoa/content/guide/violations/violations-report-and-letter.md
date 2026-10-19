@@ -23,6 +23,7 @@ A violation goes from report, to notice, to cure period, to closed. HomeownerHub
 - Covenant Brain can only cite a CC&R section if your CC&Rs are uploaded. See [Upload your governing documents](guide:documents-governing-and-ask).
 
 ## Steps
+### Report a violation
 1. Open **Violations** from the sidebar and select [[Report violation]].
 2. Under **Property**, type an address or unit and pick the home from the list. Add at least one photo, and **Additional notes** if they help.
 3. Select [[Analyze with Covenant Brain]]. It reads the photo, matches the CC&R section and drafts the letter.
@@ -32,19 +33,28 @@ A violation goes from report, to notice, to cure period, to closed. HomeownerHub
 
 ![[guide-violations-new]]
 
+### California: record a commitment to cure
+Use this when the fix takes longer than the notice period and the owner commits to paying for it, for example by promising in writing to pay a contractor to do the work. California law then says the board may not fine or suspend them (Civ. Code § 5855(c)(2)). Do it before the hearing or any fine.
+1. Open the violation and find the **Financial commitment to cure** card.
+2. Enter the **Date the owner committed**, and a **Note** if it helps, like the contractor and the date the work is booked.
+3. Select [[Record commitment]]. The card shows **Fines blocked**.
+
+While the commitment is on file, HomeownerHub won't let you set **Status** to Fined, and says why. Letters drafted for that violation carry the commitment into the state-law check, so a fine or suspension letter is refused. If the owner doesn't keep the commitment, or it was recorded by mistake, select [[Withdraw commitment]] and confirm. Associations in other states don't see this card.
+
 ## What happens next
 The violation is recorded with the notice marked as sent, and the cure period starts. Open the violation to see its history and the cure due date. When the owner fixes the problem, open it, set **Status** to Resolved and select [[Update status]].
 
 ## If something goes wrong
 - "No parsed CC&Rs": your CC&Rs are not uploaded yet, so no section can be cited. Upload them first, or review the letter carefully.
 - "Analysis failed": try again, or write the letter yourself.
-- "California law (Civ. Code § 5855(c)(2)) forbids a fine…": a financial commitment to cure is recorded on this violation. Withdraw it first only if the owner did not keep it.
+- "California law (Civ. Code § 5855(c)(2)) forbids a fine…", or you can't set **Status** to Fined: a financial commitment to cure is recorded on this violation. Withdraw it first only if the owner did not keep it.
+- "The date can’t be in the future.": enter the day the owner actually gave the commitment.
+- "We could not load whether a commitment is recorded. Reload the page before fining.": reload the page, and don't fine until the card loads.
 
 ## Good to know
 - Already on the property's page? [[New violation]] at the top starts the report with that home picked.
 - **Nothing is sent from HomeownerHub.** Approving records that the notice went out and starts the cure clock. You send the letter.
 - The **State law for this letter** panel shows your state's rules for notices and fines, such as how many days' notice an owner gets and the largest fine allowed. Florida and California are covered.
-- **California: the owner commits to paying for the fix.** If the fix takes longer than the notice period and the owner gives a financial commitment to cure it, the board may not fine or suspend them (Civ. Code § 5855(c)(2)). Before the hearing or any fine, open the violation, enter the date under **Financial commitment to cure**, add a **Note** if it helps, and select [[Record commitment]]. HomeownerHub then will not let you set **Status** to Fined, and says why. Letters drafted for that violation carry the commitment into the state-law check, so a fine or suspension letter is refused. If the owner does not keep the commitment, or it was recorded by mistake, select [[Withdraw commitment]]. Associations in other states do not see this section.
 - Some letters are drafted for you by the AI and wait in the [[AI approval queue]] tab. Read each one and select [[Approve letter]], or [[Reject]] with a reason. Approving files it as an open violation.
 
 ![[guide-violations-approval-queue]]

@@ -8,7 +8,7 @@ routes: ["/settings/vendors"]
 primary_route: /settings/vendors
 keywords: [insurance minimums, minimum coverage, required coverage, coverage requirements, general liability minimum, occurrence, aggregate, workers comp required, auto liability, vendor requirements, rfp insurance, insurance reminders, coi reminders, renewal reminder, renewed certificate, stop vendor emails, turn off insurance reminders, vendor settings]
 related: [vendors-insurance-compliance, vendors-rfps-collect-bids, settings-notifications]
-reviewed: 2026-10-18
+reviewed: 2026-10-19
 ---
 
 Use this to set the insurance coverage your association requires from vendors, and whether vendors are reminded to send a renewed certificate before theirs runs out.
@@ -19,7 +19,7 @@ Use this to set the insurance coverage your association requires from vendors, a
 
 ## Steps
 1. Open **Vendor settings** in the Account section of the sidebar, or the **Vendors** tab in Settings.
-2. Under **Insurance minimums**, enter the least coverage you accept for **Per occurrence** and **Aggregate** general liability and for **Auto liability**, in dollars, without cents. Leave an amount blank for no minimum.
+2. Under **Insurance minimums**, enter the least coverage you accept for **Per occurrence** and **Aggregate** general liability and for **Auto liability**, in dollars, without cents. For a $1 million minimum, type 1,000,000. Leave an amount blank for no minimum.
 3. Tick **Require workers’ compensation** if every vendor must carry it.
 4. Under **Insurance expiry reminders**, leave **Email vendors before their insurance expires** ticked, or untick it if your manager collects renewals another way.
 5. Select [[Save vendor settings]].
