@@ -333,3 +333,10 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **Merged and pushed for CI:** BL-025 Spanish version of announcements (board-reviewed AI translation, both languages in email, SMS bilingual only if it fits in 279 chars). Unit 5512/5512.
 - **Still running:** BL-054, CA rules checked against official text.
 - **Follow-up noted (M1):** sends don't filter on e-consent yet. `filterEmailRecipientsByConsent` is unused; wire it in when M1 is applied.
+
+## 2026-10-19 (13:05) â€” merged: CA commitment to cure, e-consent filter on official notices (flagged)
+
+- **CA cure commitment:** recorded in `audit_log` (`violation.cure_commitment.recorded`/`.withdrawn`; no migration). It blocks a move to Fined, and the draft route forces `financialCommitmentToCure`. Gap: no UI drafts a letter for an existing violation yet, so `violationId` isn't sent to the draft route.
+- **E-consent on official notices:** a new `officialNotice` box (CA only), behind `M1_APPLIED`. A snapshot test proves the flag-off trace hasn't changed. The paper-notice list isn't stored after the send (that needs a migration).
+- **Gates:** unit 5564/5564, build 4/4. Tip a815e50 pushed for CI.
+- **Deploy plan:** 98d3eef (CI green) at 13:36 via a one-shot; a815e50 at the next hourly slot.
