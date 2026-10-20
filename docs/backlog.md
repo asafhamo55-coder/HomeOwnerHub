@@ -1309,3 +1309,4 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
 - Outlook mailbox (Azure keys).
 - A second approver when a vendor's remit-to details change (with BL-039).
 - FL condo 30-day website posting (with BL-038).
+- **BL-135 Single-member invite through the outbound guard:** `inviteMember` (one at a time) still sends the Supabase invite without the outbound guard. The bulk path (BL-128) uses the guard. Route the single path through it too.
