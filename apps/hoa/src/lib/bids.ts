@@ -8,6 +8,7 @@ import {
 } from '@homeowner-portal/workflows'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { chargeAiActionQuota } from '@/lib/api/ai-action-quota'
 
 export type BidStatus =
   | 'draft'
@@ -185,6 +186,10 @@ export async function runBidComparison(
 ): Promise<ActionResult<{ runId: string; output: BidComparatorOutput }>> {
   const org = await getCurrentOrg()
   if (!org) return { ok: false, error: 'No HOA selected.' }
+
+  // BL-112: board-initiated AI comparison (W23) → `board_ai`.
+  const quota = await chargeAiActionQuota('board_ai', org.id)
+  if (!quota.ok) return { ok: false, error: quota.error }
 
   try {
     const { output, runId } = await bidComparator.execute(

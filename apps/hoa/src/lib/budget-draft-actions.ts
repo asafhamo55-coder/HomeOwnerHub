@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import { generateBudgetNarrative } from '@homeowner-portal/ai'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
+import { chargeAiActionQuota } from '@/lib/api/ai-action-quota'
 import { createBudget, saveBudgetLineItems } from '@/lib/budgets'
 import { mainChanges, totalsOf, wholeUsd, MAX_INFLATION_PCT, type DraftChange } from '@/lib/accounting/budget-draft'
 import { fieldErrorsOf } from '@/lib/field-errors'
@@ -108,6 +109,10 @@ export async function summarizeDraftBudget(input: z.input<typeof SummarizeSchema
 
   const totals = totalsOf(lines.map((l) => ({ type: l.accountType, amount: l.amount, prior: l.priorBudget ?? 0 })))
   const changes = mainChanges(lines.map((l) => ({ ...l, suggested: l.amount })))
+
+  // BL-112: the board's AI budget summary → `board_ai`.
+  const quota = await chargeAiActionQuota('board_ai', gate.orgId)
+  if (!quota.ok) return { ok: false, error: quota.error }
 
   try {
     const narrative = await generateBudgetNarrative({

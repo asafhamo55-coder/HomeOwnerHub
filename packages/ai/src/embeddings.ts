@@ -37,6 +37,8 @@
 // The URL is overridable so any OpenAI-compatible embeddings endpoint
 // (Azure OpenAI, a proxy, a self-hosted server) can be swapped in without
 // touching this file.
+import { beforeAiCall, recordPlatformAiUsage } from './guard'
+
 const DEFAULT_EMBEDDING_URL = 'https://api.openai.com/v1/embeddings'
 const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small'
 
@@ -132,6 +134,12 @@ export async function embedTexts(
 ): Promise<number[][]> {
   if (texts.length === 0) return []
 
+  // BL-112: the platform kill switch stops embeddings too, before any
+  // request (throws AiPausedError). Not an EmbeddingError on purpose:
+  // callers that retry or fall back on provider failures must be able to
+  // tell "paused by us" from "the provider failed".
+  beforeAiCall('embed')
+
   // `||`, not `??`. An env var that exists but is EMPTY is the common case
   // here — a dashboard row someone created and never filled, or a value
   // cleared during a rotation — and `??` only falls back on null/undefined,
@@ -159,23 +167,32 @@ export async function embedTexts(
   const batchSize = opts.batchSize ?? DEFAULT_BATCH_SIZE
   const out: number[][] = []
 
-  for (let i = 0; i < texts.length; i += batchSize) {
-    const batch = texts.slice(i, i + batchSize)
-    const embeddings = await embedBatchWithRetry(batch, {
-      baseUrl,
-      apiToken,
-      model,
-      // Default FALSE, deliberately. `wait_for_model: true` asks the
-      // provider to hold the connection open until a cold model finishes
-      // loading, which is the right trade for an interactive request a
-      // human is waiting on, and the wrong one for a background job with a
-      // hard platform ceiling: the whole batch dies instead of the caller
-      // learning anything. With it off, a cold model answers 503
-      // immediately — a legible status the job logs and the next run
-      // retries against a warmed model.
-      waitForModel: opts.waitForModel ?? false,
-    })
-    out.push(...embeddings)
+  // BL-112: one platform usage row (`ai.usage.embed`) per batch request
+  // sent, written once at the end — success or failure, since a failed
+  // request may still have been billed.
+  let requests = 0
+  try {
+    for (let i = 0; i < texts.length; i += batchSize) {
+      const batch = texts.slice(i, i + batchSize)
+      requests += 1
+      const embeddings = await embedBatchWithRetry(batch, {
+        baseUrl,
+        apiToken,
+        model,
+        // Default FALSE, deliberately. `wait_for_model: true` asks the
+        // provider to hold the connection open until a cold model finishes
+        // loading, which is the right trade for an interactive request a
+        // human is waiting on, and the wrong one for a background job with a
+        // hard platform ceiling: the whole batch dies instead of the caller
+        // learning anything. With it off, a cold model answers 503
+        // immediately — a legible status the job logs and the next run
+        // retries against a warmed model.
+        waitForModel: opts.waitForModel ?? false,
+      })
+      out.push(...embeddings)
+    }
+  } finally {
+    await recordPlatformAiUsage({ label: 'embed', calls: requests })
   }
 
   return out

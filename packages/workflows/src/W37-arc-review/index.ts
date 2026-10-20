@@ -33,6 +33,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
+import { guardAiClient } from '@homeowner-portal/ai/guard'
 import { analyzeImages, defineWorkflow, JSON_MODE_PARAMS, resolveModel, resolveVisionModel, type WorkflowExecuteApi } from '@homeowner-portal/ai'
 import { redactContactPII } from '@homeowner-portal/ai/pii'
 import { retrieveChunks, type RetrieveOptions, type RetrievedChunk } from '../W1-governing-docs-brain/tools'
@@ -406,7 +407,7 @@ export type ArcRetrieve = (question: string, opts: RetrieveOptions) => Promise<R
 let _client: OpenAI | null = null
 function getClient(): OpenAI {
   if (_client) return _client
-  _client = new OpenAI({ baseURL: process.env.AI_BASE_URL, apiKey: process.env.AI_API_KEY ?? 'local' })
+  _client = guardAiClient(new OpenAI({ baseURL: process.env.AI_BASE_URL, apiKey: process.env.AI_API_KEY ?? 'local' }))
   return _client
 }
 

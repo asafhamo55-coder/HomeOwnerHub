@@ -21,6 +21,7 @@
 // model is asked for its answer with tool_choice 'none'.
 
 import { resolveModel } from '@homeowner-portal/ai'
+import { beforeAiCall } from '@homeowner-portal/ai/guard'
 import { logRouteFailure } from '@/lib/api/log'
 import { ToolFailure, toolFailed, type ToolDefinition } from './tools'
 
@@ -134,6 +135,9 @@ export async function runToolLoop<C>(opts: {
   const log: RawToolCall<C>[] = []
 
   for (let step = 1; step <= maxSteps; step++) {
+    // BL-112: raw fetch, not a guarded client — every step passes the
+    // kill-switch gate itself (a pause mid-loop stops the next step).
+    beforeAiCall('chat')
     const res = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {

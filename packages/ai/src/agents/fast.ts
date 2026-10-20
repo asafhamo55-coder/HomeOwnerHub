@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { guardAiClient } from '../guard'
 import { resolveFastModel } from '../model'
 
 // Lazy init: never construct the OpenAI client at module-load. Apps may
@@ -7,10 +8,10 @@ import { resolveFastModel } from '../model'
 let _client: OpenAI | null = null
 function getClient(): OpenAI {
   if (_client) return _client
-  _client = new OpenAI({
+  _client = guardAiClient(new OpenAI({
     baseURL: process.env.AI_BASE_URL_FAST,
     apiKey: process.env.AI_API_KEY || 'local',
-  })
+  }))
   return _client
 }
 

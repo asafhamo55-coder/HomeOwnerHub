@@ -8,7 +8,9 @@ import { inngest } from './client'
  *
  * Spend = count of audit_log `ai.usage.<bucket>` rows in the day, per
  * bucket (one count-only query each, so no 1000-row cap), × the worst-case
- * per-call estimate. The estimates and the threshold live in apps/hoa
+ * per-call estimate. BL-112: the keys include the platform labels too —
+ * `embed` and `job.<name>` (rows written by the shared AI client layer for
+ * calls no org bucket pays for). The estimates and the threshold live in apps/hoa
  * (lib/api/ai-limits.ts) and are injected, like the sender: this package
  * cannot import the app.
  *

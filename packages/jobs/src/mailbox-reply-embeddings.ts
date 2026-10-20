@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { createAdminClient } from '@homeowner-portal/db'
-import { EmbeddingError, embedTexts, toPgVector } from '@homeowner-portal/ai'
+import { EmbeddingError, aiKillSwitchOn, embedTexts, isAiPausedError, toPgVector } from '@homeowner-portal/ai'
 import { inngest } from './client'
 import { logDbError } from './db-error'
 
@@ -16,7 +16,8 @@ export interface MailboxReplyEmbeddingsLogger {
   error(message: string): void
 }
 
-export type MailboxReplyEmbeddingsResult = { embedded: number; skipped: number }
+/** `paused`: BL-112, AI_PLATFORM_KILL_SWITCH was on; the rest waits for the next run. */
+export type MailboxReplyEmbeddingsResult = { embedded: number; skipped: number; paused?: true }
 
 /**
  * Embed the HOA's own past replies so W32 can ground a draft in how this
@@ -141,6 +142,15 @@ export async function runMailboxReplyEmbeddings(
 
   if (usable.length === 0) return { embedded: 0, skipped }
 
+  // BL-112: AI_PLATFORM_KILL_SWITCH stops every embedding call. Return,
+  // don't throw: a throw makes Inngest retry a run that cannot succeed
+  // until the switch is off. The candidates stay unembedded and the next
+  // 10-minute run picks them up. Counts only in the log.
+  if (aiKillSwitchOn()) {
+    logger.info(`[mailbox-reply-embeddings] AI paused; deferred ${usable.length}`)
+    return { embedded: 0, skipped, paused: true }
+  }
+
   let embedded = 0
   for (const batch of chunk(usable, EMBED_CHUNK_SIZE)) {
     const texts = batch.map(bodyFor)
@@ -152,6 +162,12 @@ export async function runMailboxReplyEmbeddings(
       // call for this chunk. See the EMBED_CHUNK_SIZE comment above.
       vectors = await embedTexts(texts, { batchSize: EMBED_CHUNK_SIZE })
     } catch (error) {
+      // BL-112: the switch flipped mid-run. Earlier chunks are already
+      // persisted; stop here without failing the run (see above).
+      if (isAiPausedError(error)) {
+        logger.info(`[mailbox-reply-embeddings] AI paused; embedded ${embedded}/${usable.length}`)
+        return { embedded, skipped, paused: true }
+      }
       // Embedding is an external paid API. Let the error fail the run
       // so Inngest retries — silently returning 0 would leave the
       // corpus empty and every draft generically voiced, with nothing

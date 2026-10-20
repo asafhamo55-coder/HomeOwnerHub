@@ -73,8 +73,40 @@ vi.mock('@homeowner-portal/workflows', async () => {
   }
 })
 
+// BL-112: the manual "Draft a reply" draws on `board_ai` first.
+const quota = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/api/ai-action-quota', () => ({ chargeAiActionQuota: quota }))
+
 import { createDraft } from './actions'
 import { draftReply, UnsupportedQuoteError, InvalidCitationError } from '@homeowner-portal/workflows'
+
+import { beforeEach } from 'vitest'
+beforeEach(() => {
+  quota.mockReset().mockResolvedValue({ ok: true, userId: 'user-1', usageId: 'usage-1' })
+})
+
+describe('createDraft — BL-112 manual draft now counts', () => {
+  it('charges the board_ai bucket for the org before generating', async () => {
+    vi.mocked(draftReply).mockRejectedValueOnce(new Error('workflow_W32_failed: Error: boom'))
+    await createDraft('thread-1')
+    expect(quota).toHaveBeenCalledWith('board_ai', 'org-1')
+    expect(draftReply).toHaveBeenCalled()
+  })
+
+  it('over the limit (or with AI paused) returns the limiter message and makes no model call', async () => {
+    quota.mockResolvedValueOnce({
+      ok: false,
+      error: 'Your community has reached its limit of 200 board AI drafts a day. Try again in about 5 hours.',
+      rateLimited: true,
+    })
+    const result = await createDraft('thread-1')
+    expect(result).toEqual({
+      error: 'Your community has reached its limit of 200 board AI drafts a day. Try again in about 5 hours.',
+      rateLimited: true,
+    })
+    expect(draftReply).not.toHaveBeenCalled()
+  })
+})
 
 describe('createDraft — citation-failure branch survives defineWorkflow\'s error wrapping', () => {
   it('recognises an UnsupportedQuoteError wrapped as `.cause` and returns the specific message', async () => {

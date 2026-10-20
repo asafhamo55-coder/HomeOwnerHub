@@ -1,7 +1,9 @@
 import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid'
 import { createAdminClient } from '@homeowner-portal/db'
 import { bankReconciliationAgent } from '@homeowner-portal/workflows'
+import { isAiPausedError } from '@homeowner-portal/ai'
 import { inngest } from './client'
+import { meterJobAi } from './ai-usage'
 
 /**
  * Every 4 hours: for each active plaid_items row, call
@@ -178,6 +180,8 @@ export interface PlaidSyncResult {
   removed: number
   reconciled: number
   reconcileFailed: number
+  /** BL-112: W18 runs skipped because AI is paused (retried next tick). */
+  reconcileDeferred?: number
 }
 
 type ItemRow = {
@@ -233,6 +237,7 @@ export async function runPlaidSync(
   let totalRemoved = 0
   let totalReconciled = 0
   let totalReconcileFailed = 0
+  let totalReconcileDeferred = 0
 
   for (const item of rows) {
     const page = (await step.run(`sync-page-${item.plaid_item_id}`, () =>
@@ -253,11 +258,27 @@ export async function runPlaidSync(
     // found again (and retried) on the next tick by the query above.
     for (const txnId of unreconciledIds) {
       try {
-        await step.run(`w18-${txnId}`, async () => {
-          await w18.execute(
-            { bankTransactionId: txnId },
-            { organizationId: item.organization_id },
-          )
+        const outcome = await step.run(`w18-${txnId}`, async () => {
+          // BL-112: W18's Step D model call is metered at platform level
+          // (`ai.usage.job.plaid_sync`); Steps A–C make no model call and
+          // count nothing. With AI_PLATFORM_KILL_SWITCH on, Step D throws
+          // AiPausedError: the step returns 'ai_paused' instead of failing
+          // (no Inngest retry loop) and leaves the row UNSTAMPED, so the
+          // next tick picks it up again. Exact matches still reconcile.
+          try {
+            await meterJobAi(
+              'job.plaid_sync',
+              () =>
+                w18.execute(
+                  { bankTransactionId: txnId },
+                  { organizationId: item.organization_id },
+                ),
+              { orgId: item.organization_id },
+            )
+          } catch (err) {
+            if (isAiPausedError(err)) return 'ai_paused' as const
+            throw err
+          }
           // Stamp AFTER execute() returns, whether or not it matched — see
           // the header comment above for why ordering here is the whole
           // point. A throw here (execute() itself, or this write) fails the
@@ -272,7 +293,13 @@ export async function runPlaidSync(
               `[plaid-sync] attempt stamp failed for ${txnId}: ${stampErr.message}`,
             )
           }
+          return 'done' as const
         })
+        if (outcome === 'ai_paused') {
+          totalReconcileDeferred += 1
+          logger.info?.(`[plaid-sync] AI paused; W18 deferred for ${txnId}`)
+          continue
+        }
         totalReconciled += 1
       } catch (err) {
         totalReconcileFailed += 1
@@ -290,6 +317,7 @@ export async function runPlaidSync(
     removed: totalRemoved,
     reconciled: totalReconciled,
     reconcileFailed: totalReconcileFailed,
+    reconcileDeferred: totalReconcileDeferred,
   }
 }
 

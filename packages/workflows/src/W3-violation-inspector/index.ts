@@ -20,6 +20,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
+import { guardAiClient } from '@homeowner-portal/ai/guard'
 import { defineWorkflow, resolveModel, JSON_MODE_PARAMS } from '@homeowner-portal/ai'
 import { createAdminClient } from '@homeowner-portal/db'
 import { retrieveChunks } from '../W1-governing-docs-brain/tools'
@@ -109,10 +110,10 @@ export type ViolationInspectorOutput = z.infer<
 let _client: OpenAI | null = null
 function getClient(): OpenAI {
   if (_client) return _client
-  _client = new OpenAI({
+  _client = guardAiClient(new OpenAI({
     baseURL: process.env.AI_BASE_URL,
     apiKey: process.env.AI_API_KEY ?? 'local',
-  })
+  }))
   return _client
 }
 

@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@homeowner-portal/db'
 import { bankReconciliationAgent } from '@homeowner-portal/workflows'
+import { meterJobAi } from '@homeowner-portal/jobs/ai-usage'
+import { isAiPausedError } from '@homeowner-portal/ai/guard'
+import { aiPausedError } from '@/lib/api/ai-spend'
 import { withRoute } from '@/lib/api/handler'
 import { ApiRouteError } from '@/lib/api/errors'
 import { requireBearerSecret } from '@/lib/api/secrets'
@@ -94,8 +97,17 @@ export const POST = withRoute('webhooks.plaid_ingest', async (request: Request) 
   // Fire W18. The workflow handles its own audit logging via ai_runs.
   let result: Awaited<ReturnType<typeof bankReconciliationAgent.execute>>
   try {
-    result = await bankReconciliationAgent.execute({ bankTransactionId }, { organizationId })
+    // BL-112: a machine call no user's bucket pays for — W18's Step D model
+    // call is metered at platform level (`ai.usage.job.plaid_webhook`).
+    result = await meterJobAi(
+      'job.plaid_webhook',
+      () => bankReconciliationAgent.execute({ bankTransactionId }, { organizationId }),
+      { orgId: organizationId },
+    )
   } catch (err) {
+    // AI_PLATFORM_KILL_SWITCH: the transaction is stored; answer the
+    // friendly 503 so the sender retries later instead of logging a 500.
+    if (isAiPausedError(err)) throw aiPausedError()
     // The transaction is stored; a retry reuses it and re-runs W18.
     logRouteFailure('webhooks.plaid_ingest.w18', err, { organizationId, bankTransactionId })
     throw new ApiRouteError('internal', undefined, { reason: 'reconciliation_failed', bankTransactionId })

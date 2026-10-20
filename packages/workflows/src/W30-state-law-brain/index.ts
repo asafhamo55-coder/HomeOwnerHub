@@ -15,6 +15,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
+import { guardAiClient } from '@homeowner-portal/ai/guard'
 import { defineWorkflow, resolveModel, JSON_MODE_PARAMS, type WorkflowExecuteApi } from '@homeowner-portal/ai'
 import { isStateLoaded, stateNotLoadedMessage, type CountLiveStatutes } from './coverage'
 import { PROMPT_VERSION, SYSTEM_PROMPT, userPromptFor } from './prompt'
@@ -63,10 +64,10 @@ const DISCLAIMER =
 let _client: OpenAI | null = null
 function getClient(): OpenAI {
   if (_client) return _client
-  _client = new OpenAI({
+  _client = guardAiClient(new OpenAI({
     baseURL: process.env.AI_BASE_URL,
     apiKey: process.env.AI_API_KEY ?? 'local',
-  })
+  }))
   return _client
 }
 

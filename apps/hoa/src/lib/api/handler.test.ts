@@ -80,3 +80,18 @@ describe('withRoute', () => {
     expect(res.status).toBe(500)
   })
 })
+
+describe('withRoute — BL-112 kill switch at the client layer', () => {
+  it('turns an AiPausedError (even wrapped as .cause) into the friendly 503 ai_paused, not a 500', async () => {
+    const { AiPausedError } = await import('@homeowner-portal/ai/guard')
+    const route = withRoute('ai.thing', async () => {
+      throw new Error('workflow_W1_failed', { cause: new AiPausedError() })
+    })
+    const res = await route(req())
+    expect(res.status).toBe(503)
+    const body = (await res.json()) as { error: { code: string; reason?: string } }
+    expect(body.error.code).toBe('upstream_unavailable')
+    expect(body.error.reason).toBe('ai_paused')
+    expect(Sentry.captureException).not.toHaveBeenCalled()
+  })
+})

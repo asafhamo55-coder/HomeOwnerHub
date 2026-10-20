@@ -11,6 +11,7 @@
  * degrades to the matching articles.
  */
 import { JSON_MODE_PARAMS, resolveFastModel } from '@homeowner-portal/ai'
+import { beforeAiCall } from '@homeowner-portal/ai/guard'
 import type { ChatMessage } from './ask-core'
 
 export const ASK_TIMEOUT_MS = 8_000
@@ -20,6 +21,8 @@ export async function completeAskWithModel(messages: ChatMessage[]): Promise<str
   const apiKey = process.env.AI_API_KEY?.trim()
   if (!apiKey) throw new Error('ai_not_configured')
   const baseUrl = process.env.AI_BASE_URL?.trim() || GROQ_BASE_URL
+  // BL-112: raw fetch, not a guarded client, so it passes the gate itself.
+  beforeAiCall('chat')
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },

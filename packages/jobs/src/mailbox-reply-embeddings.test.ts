@@ -150,3 +150,30 @@ describe('runMailboxReplyEmbeddings — status propagation on embed failure', ()
     expect(loggedMessage).not.toContain(leakySubstring)
   })
 })
+
+describe('runMailboxReplyEmbeddings — BL-112 kill switch', () => {
+  it('with AI paused: no embedding call, no throw (no Inngest retry loop), counts-only log', async () => {
+    vi.stubEnv('AI_PLATFORM_KILL_SWITCH', '1')
+    try {
+      const { db, upsertCalls } = buildDb({ candidates: { data: [candidateRow('msg-1')], error: null } })
+      const logger = fakeLogger()
+      const r = await runMailboxReplyEmbeddings(db, logger)
+      expect(r).toEqual({ embedded: 0, skipped: 0, paused: true })
+      expect(embedTexts).not.toHaveBeenCalled()
+      expect(upsertCalls).toHaveLength(0)
+      expect(vi.mocked(logger.info).mock.calls[0]![0]).toBe('[mailbox-reply-embeddings] AI paused; deferred 1')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('a pause mid-run (AiPausedError from embedTexts) also returns instead of throwing', async () => {
+    const { AiPausedError } = await import('@homeowner-portal/ai')
+    const { db } = buildDb({ candidates: { data: [candidateRow('msg-1')], error: null } })
+    const logger = fakeLogger()
+    vi.mocked(embedTexts).mockRejectedValueOnce(new AiPausedError())
+    const r = await runMailboxReplyEmbeddings(db, logger)
+    expect(r).toEqual({ embedded: 0, skipped: 0, paused: true })
+    expect(logger.error).not.toHaveBeenCalled()
+  })
+})

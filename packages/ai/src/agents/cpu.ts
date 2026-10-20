@@ -1,12 +1,13 @@
 import OpenAI from 'openai'
+import { guardAiClient } from '../guard'
 
 let _client: OpenAI | null = null
 function getClient(): OpenAI {
   if (_client) return _client
-  _client = new OpenAI({
+  _client = guardAiClient(new OpenAI({
     baseURL: process.env.AI_FALLBACK_URL,
     apiKey: 'local',
-  })
+  }))
   return _client
 }
 

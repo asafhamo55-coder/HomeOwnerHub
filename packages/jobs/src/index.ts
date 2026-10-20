@@ -8,6 +8,7 @@ export type { DuesRemindersDeps, ReminderRenderInput } from './dues-reminders/ru
 export { createVendorCoiRemindersJob } from './vendor-coi-reminders/job'
 export { createScheduledCommunicationsJob } from './communications-scheduled'
 export { createAiSpendAlertJob } from './ai-spend-alert'
+export { meterJobAi } from './ai-usage'
 export type { AiSpendAlertDeps } from './ai-spend-alert'
 export { createBillingBandSyncJob } from './billing-band-sync'
 export type { BandSyncDeps } from './billing-band-sync'

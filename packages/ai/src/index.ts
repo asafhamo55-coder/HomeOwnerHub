@@ -73,6 +73,21 @@ export type { FieldSuggestion, SuggestFieldsInput } from './tasks/suggest-fields
 // Resilience wrapper
 export { withFallback } from './resilience'
 
+// BL-112: the platform AI gate (kill switch, typed pause error, platform usage rows)
+export {
+  AI_KILL_SWITCH_ENV,
+  aiKillSwitchOn,
+  AiPausedError,
+  isAiPausedError,
+  beforeAiCall,
+  guardAiClient,
+  addAiCallObserver,
+  recordPlatformAiUsage,
+  setAiUsageRecorder,
+  PLATFORM_AI_USAGE_LABELS,
+} from './guard'
+export type { AiCallKind, AiUsageRecorder, PlatformAiUsage, PlatformAiUsageLabel } from './guard'
+
 // Embeddings (BGE-M3 via HuggingFace bridge per ADR-003)
 export { embedTexts, toPgVector, EmbeddingError } from './embeddings'
 export type { EmbedOptions } from './embeddings'
