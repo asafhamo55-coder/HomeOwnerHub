@@ -1,5 +1,5 @@
 ---
-title: Board tasks, handover kit, reserve snapshot, year-end package and annual meeting kit
+title: Board tasks, meeting notices, handover kit, reserve snapshot, year-end package and annual meeting kit
 shots:
   - route: /tasks
     caption: Board tasks, grouped by when they're due
@@ -18,6 +18,11 @@ Five tools for running the board well: one list of every task from your meetings
 ### Board tasks
 - **Tasks** (under Community) gathers every action item from your meetings and tickets: Overdue, This week, Later and Done. Assign each to a board member, set a due date and mark it done.
 - **"My tasks"** on the dashboard, and each board member's morning email lists their own overdue and upcoming tasks.
+
+### Meeting notices
+- **Send meeting notice** on a scheduled meeting opens New message already filled in for all owners: the meeting type, date and agenda. You add the time and place, then press Send. Nothing goes out until you do.
+- **Add to calendar:** the email includes a link that owners of your association can use to add the meeting to their calendar.
+- **Notice-period check:** the meeting page warns if the meeting is too soon for Florida's notice rules. Other states show "check your bylaws".
 
 ### Board handover
 - **Settings → Board handover** is a checklist for when board members change: who has access, connections set up by one person (the HOA mailbox, bank connections, Zelle, billing) with links to move them, each person's open work, and a printable summary with no passwords or secrets.
