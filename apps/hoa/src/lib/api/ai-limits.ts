@@ -8,7 +8,7 @@
 //
 // Board-only AI routes (the W37 board review, violation drafting, digests,
 // parse/suggest) are not listed, except the BL-025 translation and the
-// follow-up letters below: they sit behind requireRouteBoardOrAdmin and
+// follow-up letters below and the BL-102 compose box: they sit behind requireRouteBoardOrAdmin and
 // are not limited here. Violation drafting from the wizard and the /inspect
 // offline queue stays unlimited; only follow-up letters draw on a bucket.
 //
@@ -22,6 +22,7 @@ export type AiUsageBucket =
   | 'help_ask'
   | 'rewrite'
   | 'translate'
+  | 'compose'
   | 'follow_up_letter'
   | 'resident_assistant'
   | 'inbox_autodraft'
@@ -81,6 +82,16 @@ export const AI_RATE_LIMITS: Record<AiUsageBucket, AiRateLimit> = {
     perUser: { limit: 20, windowMs: HOUR_MS },
     perOrg: { limit: 200, windowMs: DAY_MS },
     noun: 'translations',
+  },
+  // POST /api/ai/compose-communication — the "What do you want to tell
+  // residents?" box (BL-102 A2). Board-only; one model call per Draft click.
+  // A board drafts a few messages a week, so these are ceilings against a
+  // runaway loop, not a working limit.
+  compose: {
+    perUser: { limit: 20, windowMs: HOUR_MS },
+    perOrg: { limit: 200, windowMs: DAY_MS },
+    noun: 'message drafts',
+    suffix: 'You can still write the message yourself.',
   },
   // POST /api/ai/violations/draft with `letterKind` — the violation page's
   // "Draft follow-up letter". Board-only; a board drafts a handful of letters
