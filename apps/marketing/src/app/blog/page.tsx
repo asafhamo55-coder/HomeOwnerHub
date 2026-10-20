@@ -5,12 +5,16 @@ import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { PageHero } from '@/components/site/page-hero'
 import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
+import { pageMetadata } from '@/lib/site'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Blog',
-  description:
-    'Jurisdiction-specific writing on HOA governance, landlord operations, and the AI work that\'s replacing them.',
-}
+  // BL-097: no landlord or eviction topics while those hubs are not offered.
+  description: OTHER_HUBS_ENABLED
+    ? 'Jurisdiction-specific writing on HOA governance, landlord operations, and the AI work that\'s replacing them.'
+    : 'Jurisdiction-specific writing on HOA governance for volunteer boards, and the AI work that helps with it.',
+  path: '/blog',
+})
 
 const allPlanned = [
   {
@@ -51,10 +55,10 @@ export default function BlogPage() {
       <Nav />
 
       <PageHero
-        eyebrow="Blog · Coming in late 2026"
+        eyebrow="Blog · No posts yet"
         title={
           <>
-            One post a week. No fluff.
+            Practical writing for volunteer boards.
           </>
         }
         subtitle="When we publish, every post will be jurisdiction-specific and tied to a real workflow we ship. We're starting in Atlanta-metro and writing as we go."

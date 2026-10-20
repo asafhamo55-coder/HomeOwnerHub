@@ -1,4 +1,4 @@
-// HOA Hub pricing as the marketing site shows it. ONE source for /pricing,
+// HomeownerHub HOA pricing as the marketing site shows it. ONE source for /pricing,
 // the homepage pricing teaser, /compare, the ROI calculator and the demo FAQ.
 //
 // It mirrors what Stripe checkout charges TODAY:

@@ -43,7 +43,7 @@ export function HowItWorks() {
             How it works
           </p>
           <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight md:text-5xl">
-            From PDF pile to working AI in an afternoon.
+            From PDF pile to cited answers, without an implementation team.
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-background/70">
             No migration, no implementation team. The four steps are designed

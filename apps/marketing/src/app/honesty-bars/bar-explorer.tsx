@@ -23,12 +23,15 @@ const BARS: BarDef[] = [
     name: 'Production',
     Icon: ShieldCheck,
     summary: 'Works on real customer data. No human gate required.',
+    // Round 4: the accuracy thresholds, eval-set sizes, safety-day counts
+    // and legal clearances listed here had nothing measured behind them
+    // (see page.tsx's BL-090 note). These are the rules actually applied.
     requires: [
-      '100+ evaluation cases · >95% accuracy',
-      'Human review gate tested in production with feedback loop closed',
-      'Zero critical safety issues in 30 days of real use',
-      'Legal clearance with revert clause (if legal-adjacent)',
-      'Model weights pinned · no retraining in last 14 days',
+      'Answers only, drawn from your documents, your records or the statute',
+      'Every answer cites its source',
+      'Says so when the source doesn’t cover the question',
+      'Tests pass in CI; every run is recorded in the AI run log',
+      'A wrong answer in production moves it back to Bar B',
     ],
     chipCls: 'bg-success-subtle text-success ring-success/15',
     cardCls: 'border-success/60',
@@ -40,10 +43,10 @@ const BARS: BarDef[] = [
     Icon: AlertCircle,
     summary: 'Works on real customer data. Mandatory human review before send.',
     requires: [
-      '50+ evaluation cases · >90% accuracy on blind test set',
-      'Citation / audit trail complete — every output traceable',
-      'Human review gate implemented and tested (~5 min review)',
-      'Legal review (if legal-adjacent) green-lit in writing',
+      'Every output is a draft the board approves or rejects',
+      'Nothing is sent, filed or entered until the board does',
+      'Sources cited wherever the output relies on one',
+      'Tests pass in CI; every run is recorded in the AI run log',
     ],
     chipCls: 'bg-warning-subtle text-warning ring-warning/15',
     cardCls: 'border-warning/60',
@@ -56,9 +59,8 @@ const BARS: BarDef[] = [
     summary: 'Sandbox or watermarked. Not safe for production. Useful for evaluation.',
     requires: [
       'Curated test data only',
-      '<80% accuracy acceptable for educational purposes',
       'Watermarked "DEMO ONLY" on every output',
-      'Founder + lawyer sign-off (for legal-adjacent demos)',
+      'Never used on live data',
     ],
     chipCls: 'bg-subtle text-foreground-secondary ring-border',
     cardCls: 'border-border/60',

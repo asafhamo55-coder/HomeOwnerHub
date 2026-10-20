@@ -3,12 +3,14 @@ import Link from 'next/link'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { PageHero } from '@/components/site/page-hero'
+import { pageMetadata } from '@/lib/site'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Data Processing Agreement',
   description:
     'HomeownerHub\'s DPA for customers needing a formal data-processing addendum.',
-}
+  path: '/dpa',
+})
 
 export default function DpaPage() {
   return (
@@ -17,7 +19,7 @@ export default function DpaPage() {
       <PageHero
         eyebrow="Data Processing Agreement"
         title="Available on request."
-        subtitle="For customers (typically HOA management firms or multi-property landlords) who need a formal DPA, our standard agreement is available on request."
+        subtitle="For associations that need a formal DPA, our standard agreement is available on request."
       />
 
       <section className="pb-24">

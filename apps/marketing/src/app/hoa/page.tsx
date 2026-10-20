@@ -10,15 +10,18 @@ import { HUBS } from '@/components/hub/hub-theme'
 import { HoaDashboardVisual } from '@/components/hub/visuals/hoa-dashboard'
 import { ViolationDrafterLive } from '@/components/hub/widgets/violation-drafter-live'
 import { SHIPPED_HOA_WORKFLOWS } from '@/lib/workflows'
+import { SHIPPED_FEATURES } from '@/lib/features'
 import { HOA_PRODUCT_NAME, OTHER_HUBS_ENABLED } from '@/lib/hubs'
+import { pageMetadata } from '@/lib/site'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   // The root layout's template appends " · HomeownerHub", so with the other
   // hubs hidden the product name would just repeat.
   title: OTHER_HUBS_ENABLED ? `${HOA_PRODUCT_NAME} — AI for volunteer boards` : 'AI for volunteer boards',
   description:
-    'Run a self-managed HOA without a management company. Covenant Brain, violation letters, AI minutes, bill scan, accounting and a month-end board report — all in one place.',
-}
+    'Run a self-managed HOA without a management company. Covenant Brain, violation and collections letters, AI-drafted announcements, a shared inbox, a resident assistant, accounting and a month-end board report — all in one place.',
+  path: '/hoa',
+})
 
 const theme = HUBS.hoa
 
@@ -26,20 +29,9 @@ const theme = HUBS.hoa
 // something a board can use in apps/hoa today. Unbuilt work goes in
 // NOT_YET only, labelled as such.
 
-// Shipped capabilities that aren't AI workflows, each mapped to its route.
-const ALSO_INCLUDED = [
-  'Import your roster from CSV or Excel, CINC exports included, with a row-by-row preview', // /properties/import
-  'Set up the association and open the books yourself, from Accounting', // association-setup
-  'Monthly board packet, reported as of month end', // /meetings/[id]/packet
-  'Month-end board report emailed to the board on the 1st', // BL-073
-  '⌘K search across owners, units, violations, ARC, tickets, documents and meetings', // /api/search
-  'A built-in user guide with step-by-step articles, and Ask the guide', // /help, /api/help/ask
-  'Dues, reminders and a resident ledger in your association’s own time zone', // /dues, BL-043
-  'Download all your data any time, as one zip of spreadsheets', // /settings/data
-  'Mobile inspection mode: walk the community, photograph issues, drafts land in Approvals', // /inspect, BL-028
-  'Follow-up violation letters (second notice, hearing, fine, decision), through Approvals', // /violations/[id] FollowUpLetterDialog
-  'Payment plans and recurring journal entries in Accounting', // /accounting/payment-plans, /accounting/recurring, BL-080/081
-]
+// Shipped capabilities that aren't AI workflows. lib/features.ts maps each
+// to its apps/hoa route, and marketing-truth.test.ts checks them.
+const ALSO_INCLUDED = SHIPPED_FEATURES.map((f) => f.text)
 
 // Backlog items (docs/backlog.md). Not available today. Spanish
 // announcements (BL-025) and AI ARC review (BL-024/027/079) shipped and moved
@@ -57,7 +49,7 @@ export default function HoaPage() {
         theme={theme}
         eyebrow={`${HOA_PRODUCT_NAME} · for volunteer boards`}
         title="Run your HOA without a management company."
-        subtitle="Covenant questions, violation letters, minutes, bills and the month-end report — drafted by AI, approved by the board, cited to the document. Built with Madison Park HOA."
+        subtitle="Covenant questions, violation letters, announcements, inbox replies, minutes, bills and the month-end report — drafted by AI, approved by the board, cited to the document. Built with Madison Park HOA."
         primaryCta={{ label: 'Book a 10-min board demo', href: '/demo' }}
         secondaryCta={{ label: 'See the workflows', href: '#features' }}
         visual={<HoaDashboardVisual />}
@@ -84,6 +76,7 @@ export default function HoaPage() {
             'Rule questions answered with the CC&R section cited',
             'Violation letters drafted for the board to approve or reject',
             'Meeting minutes drafted from the transcript',
+            'Announcements drafted from a sentence, with a phone preview',
             'A month-end report from the books',
           ],
         }}
@@ -135,7 +128,13 @@ export default function HoaPage() {
             icon: 'Mail',
             bar: 'B',
             title: 'Shared inbox',
-            body: 'Your HOA’s Gmail as one shared inbox, with AI reply drafts. Contact details are removed before the AI reads a message.',
+            body: 'Your HOA’s Gmail as one shared inbox. A reply starts drafting when you open an email, next to the home’s balance and open items. Saved replies, and Create from email turns a message into a ticket, violation report or ARC link. Contact details are removed before the AI reads a message.',
+          },
+          {
+            icon: 'Sparkles',
+            bar: 'B',
+            title: 'Message drafter',
+            body: 'Type what you want to tell residents in plain words. The AI fills in the audience, subject, message and timing, and flags missing facts. Preview it on a phone, send it, then see who opened it. Nothing is sent until you press Send.',
           },
           {
             icon: 'Hammer',
@@ -166,6 +165,12 @@ export default function HoaPage() {
             bar: 'C',
             title: 'Resident Portal',
             body: 'Residents see their balance and statement, file ARC and maintenance requests, and ask the governing documents before they email the board.',
+          },
+          {
+            icon: 'Bot',
+            bar: 'C',
+            title: 'Resident assistant',
+            body: 'Residents chat on the portal’s Ask tab about their balance, their requests, announcements and the rules, with the document section cited. It never acts for the board, and the board turns it on.',
           },
         ]}
       />

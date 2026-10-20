@@ -9,15 +9,17 @@ const problems = [
   'Violation notices stalled because nobody wants to draft a legal letter',
   'Meeting minutes that take an evening to write, and still miss the decisions',
   'Month-end board reports pieced together by hand from three spreadsheets',
+  'The same resident questions answered by email, one at a time',
   // BL-097: the landlord row belongs to PM Hub, which is not offered right now.
   ...(OTHER_HUBS_ENABLED ? ['Landlords on Venmo + spreadsheets, missing late rent until it\'s a month behind'] : []),
 ]
 
 const solutions = [
-  { line: 'Covenant Brain answers any rule question in seconds — with the section cited.' },
+  { line: 'Covenant Brain answers any rule question — with the section cited.' },
   { line: 'Violation Drafter writes the letter. The board approves it in one click from Approvals.' },
   { line: 'Paste the meeting transcript and AI drafts board-ready minutes for the board to approve.' },
   { line: 'On the 1st, the board gets a month-end report: cash, dues collected, overdue balances, budget and violations.' },
+  { line: 'The inbox drafts each reply with the home’s details alongside, and residents can ask the portal assistant first.' },
   ...(OTHER_HUBS_ENABLED ? [{ line: 'PM Hub tracks rent, sends reminders, and flags risk before it hurts.' }] : []),
 ]
 

@@ -4,12 +4,14 @@ import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { PageHero } from '@/components/site/page-hero'
 import { AuditLogLive } from '@/components/site/audit-log-live'
+import { pageMetadata } from '@/lib/site'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Security — How we protect your data',
   description:
     'Encryption at rest and in transit. Postgres row-level security by tenant. Named AI providers, with owner contact details kept out of prompts. AI workflow runs logged with model and citations.',
-}
+  path: '/security',
+})
 
 const pillars = [
   {
@@ -68,7 +70,7 @@ export default function SecurityPage() {
       <PageHero
         eyebrow="Security · Privacy · Audit"
         title="Built like the legal record it has to be."
-        subtitle="HOAs and landlords hold sensitive data on hundreds of households. We built HomeownerHub so the security posture is the product, not a checkbox."
+        subtitle="An HOA board holds sensitive data on every household in the community. We built HomeownerHub so the security posture is the product, not a checkbox."
       />
 
       <AuditLogLive />

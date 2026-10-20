@@ -6,12 +6,14 @@ import { Footer } from '@/components/site/footer'
 import { WORKFLOWS, BAR_TARGETS, type Bar } from '@/lib/workflows'
 import { RoadmapTable } from './roadmap-table'
 import { cn } from '@/lib/cn'
+import { pageMetadata } from '@/lib/site'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Roadmap — Every workflow, every bar, in public',
   description:
     'The public HomeownerHub roadmap. Every workflow with its current quality bar, shipped/building/planned status, and target month.',
-}
+  path: '/roadmap',
+})
 
 const barIcon: Record<Bar, typeof ShieldCheck> = {
   C: ShieldCheck,

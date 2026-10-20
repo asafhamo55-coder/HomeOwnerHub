@@ -33,7 +33,7 @@ export function Hero() {
         >
           <div>
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              Built with Madison Park HOA · 180 doors
+              Built with Madison Park HOA
             </p>
 
             <h1 className="mt-5 text-balance text-[44px] font-semibold leading-[1.02] tracking-[-0.02em] text-foreground md:text-[52px] lg:text-[60px]">
@@ -41,9 +41,10 @@ export function Hero() {
             </h1>
 
             <p className="mt-6 max-w-lg text-lg leading-relaxed text-foreground-secondary">
-              Ask any rule question — get the answer in seconds with the
-              CC&amp;R section cited. Approve violation letters and scanned
-              bills in one click. Nothing is filed or entered until the board approves.
+              Ask any rule question and get the answer with the CC&amp;R
+              section cited. Approve violation letters and scanned bills in
+              one click, and draft announcements from a sentence. Nothing is
+              sent, filed or entered until the board approves.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -88,7 +89,7 @@ export function Hero() {
                 <span className="h-2.5 w-2.5 rounded-full bg-border" />
                 <div className="ml-3 flex items-center gap-2 rounded-md bg-surface px-2.5 py-1 text-xs text-muted ring-1 ring-border/70">
                   <FileText className="h-3 w-3" />
-                  <span className="font-mono">app.homeownerledger.com/covenant-brain</span>
+                  <span className="font-mono">app.homeownerledger.com/ai/ask</span>
                 </div>
                 <span className="ml-auto hidden items-center gap-1 rounded-md bg-success-subtle px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-success ring-1 ring-success/15 sm:inline-flex">
                   <ShieldCheck className="h-3 w-3" />

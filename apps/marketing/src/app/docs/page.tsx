@@ -4,12 +4,14 @@ import { Book, ArrowRight, FileText, Wrench, Shield, Compass } from 'lucide-reac
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { PageHero } from '@/components/site/page-hero'
+import { pageMetadata } from '@/lib/site'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Docs',
   description:
     'Product documentation for HomeownerHub. The step-by-step user guide lives inside the app; API reference and runbooks come later.',
-}
+  path: '/docs',
+})
 
 const sections = [
   {
@@ -28,7 +30,7 @@ const sections = [
     Icon: Wrench,
     title: 'API reference',
     body: 'REST endpoints for events, action items, and the AI event log. Tokens, rate limits, webhooks.',
-    when: 'Month 6 — first integration partner',
+    when: 'Planned · no date yet',
   },
   {
     Icon: Shield,

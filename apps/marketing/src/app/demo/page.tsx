@@ -11,24 +11,27 @@ import {
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { HOA_PRICE_COPY } from '@/lib/hoa-pricing'
+import { pageMetadata } from '@/lib/site'
 import { DemoForm } from './demo-form'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Book a demo — 10 minutes for your board',
   description:
     'Send us your CC&R. We pre-load it. We show Covenant Brain answering your actual rules. Your board decides.',
-}
+  path: '/demo',
+})
 
 const agenda = [
   {
     Icon: FileText,
     title: 'You send us your CC&R',
-    body: 'Drop a PDF in the form. We ingest it before the call so the demo runs on your data, not ours.',
+    // The form has three text fields and no upload: the PDF comes by email.
+    body: 'Fill in the form and reply to our email with the PDF. We load it before the call so the demo runs on your data, not ours.',
   },
   {
     Icon: Users,
     title: 'We show up at your next board meeting',
-    body: 'In person with printed one-pagers for each member. Atlanta-metro only in v1; video for everyone else.',
+    body: 'In person in metro Atlanta; by video everywhere else.',
   },
   {
     Icon: Calendar,
@@ -61,9 +64,8 @@ export default function DemoPage() {
                 Demo the board on Tuesday.
               </h1>
               <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted">
-                We pre-load your CC&R and bylaws before the call. By minute 4,
-                the board is asking their own rules and watching the AI cite the
-                answer.
+                We pre-load your CC&R and bylaws before the call, so the board
+                asks about its own rules and watches the AI cite the answer.
               </p>
 
               <div className="mt-10 space-y-5">
@@ -122,8 +124,10 @@ export default function DemoPage() {
             <Stat label="Setup + roster import" value="Self-serve" sub="CSV or Excel, CINC exports included" />
           </div>
           <p className="mt-10 text-center text-xs text-muted">
-            HomeownerHub serves Atlanta-metro HOAs in v1. Charlotte / Raleigh /
-            Nashville / Tampa / Orlando are coming. Tell us where you are.
+            HomeownerHub works for an HOA in any state. Estoppel certificates,
+            collections letters and the owner budget notice follow Florida and
+            California law, and collections letters Texas law too. Tell us
+            where you are.
           </p>
         </div>
       </section>
@@ -152,7 +156,10 @@ export default function DemoPage() {
                   'Bring in bank feeds and reconcile them to the general ledger',
                   'Read vendor bills into an approvals queue',
                   'Email the board a month-end report on the 1st',
-                  'Show resident-facing rule lookups in plain English',
+                  'Draft announcements from a sentence, preview them on a phone, and show who opened them',
+                  'Turn a resident’s email into a ticket, violation report or ARC link',
+                  'Answer residents’ questions in the portal, citing your documents',
+                  'Prepare estoppel certificates, collections letters and the owner budget notice',
                 ].map((b) => (
                   <li key={b} className="flex gap-2.5 text-sm leading-relaxed text-foreground">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
@@ -248,7 +255,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: 'What happens to data we already have?',
-    a: 'You upload your CC&R and bylaws as PDFs. We do not need a migration, a service-rep handoff, or integrations to start. Your roster comes over when you are ready: the board uploads a CSV or Excel file (CINC exports are recognised), checks what will happen to every row, then imports. Balances in the file are shown for reference, not posted, and past accounting history is not imported — most boards run in parallel for the first month.',
+    a: 'You upload your CC&R and bylaws as PDFs. We do not need a migration, a service-rep handoff, or integrations to start. Your roster comes over when you are ready: the board uploads a CSV or Excel file (CINC exports are recognised), checks what will happen to every row, then imports. Balances in the file are shown for reference, not posted, and past accounting history is not imported, so you can run both side by side for a month.',
   },
   {
     q: 'How is the AI prevented from making things up?',

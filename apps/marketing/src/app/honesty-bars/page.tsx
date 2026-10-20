@@ -5,12 +5,14 @@ import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { PageHero } from '@/components/site/page-hero'
 import { BarExplorer } from './bar-explorer'
+import { pageMetadata } from '@/lib/site'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'AI honesty bars — What Bar A, B, and C mean',
   description:
     'Every HomeownerHub workflow ships with a quality bar label. Here\'s what each bar means, what it requires, and how workflows move between them.',
-}
+  path: '/honesty-bars',
+})
 
 // Truth rule (BL-090): the old criteria named eval-set sizes and accuracy
 // thresholds, written attorney sign-off and an "AIEventLog" that records
