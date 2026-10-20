@@ -3,7 +3,7 @@
 -- Apply: docs/specs/2026-10-20-sql-runbook.md, Section I. Needs 0024
 -- (tickets). Independent of 0063–0065.
 --
--- Three parts, each idempotent (safe to run any number of times):
+-- Four parts, each idempotent (safe to run any number of times):
 --
 --   1. tickets.category CHECK also allows 'records_request'. Every value
 --      0024 allowed is kept. Before this, inserting a records request
@@ -21,6 +21,20 @@
 --      resident's client and then writes the due day with the service
 --      role (apps/hoa/src/lib/records-requests/actions.ts). Service role
 --      and direct SQL (no JWT) are unaffected.
+--   4. orgs_billing_columns_guard trigger (security finding, orgs_update):
+--      0063's orgs_update policy lets an org admin UPDATE any column of
+--      their own org, so an admin posting to PostgREST directly could set
+--      plan = 'enterprise', clear stripe_customer_id / stripe_sub_id (a
+--      fresh Stripe customer at checkout, i.e. a second trial), change
+--      doors_count (the checkout quantity, apps/hoa/src/lib/billing.ts),
+--      or lift a platform suspension / archive. The trigger refuses any
+--      change to the billing, entitlement and lifecycle columns from an
+--      authenticated or anon caller (42501); name and updated_at stay
+--      editable. Every app writer of those columns already uses the
+--      service role (packages/billing/src/webhook.ts and the 0064 Stripe
+--      functions, apps/hoa/src/lib/platform-admin.ts); no user-client
+--      code updates orgs at all. Service role and direct SQL (no JWT)
+--      are unaffected. Touches only orgs; needs no helper function.
 --
 -- Nothing reads or writes either until RECORDS_REQUESTS_LIVE
 -- (packages/db/src/records-requests.ts) is flipped; that is a separate
@@ -106,5 +120,54 @@ DROP TRIGGER IF EXISTS tickets_records_due_at_guard ON public.tickets;
 CREATE TRIGGER tickets_records_due_at_guard
   BEFORE INSERT OR UPDATE OF records_due_at ON public.tickets
   FOR EACH ROW EXECUTE FUNCTION public.tickets_records_due_at_guard();
+
+-- ── 4. orgs billing / entitlement / lifecycle columns guard ───────────
+-- Same role test as part 3 and 0065's resident_sms_opt_in_self_only:
+-- the role claim of the request's JWT. 'service_role' (webhook, platform
+-- admin, jobs) and no JWT at all (SQL editor, migrations, the 0064
+-- Stripe functions run by the service role) pass. An org admin's own
+-- client ('authenticated') cannot change any listed column, admin or not:
+-- there is no legitimate user-client path to them.
+--
+-- Columns are compared through to_jsonb, so the function also works on a
+-- database where a listed column does not exist (it reads as NULL on both
+-- sides and never differs). A plain BEFORE UPDATE (not UPDATE OF ...) for
+-- the same reason. Writing a column to the value it already has is not a
+-- change and is allowed.
+CREATE OR REPLACE FUNCTION public.orgs_billing_columns_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_role text := coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '');
+  v_new  jsonb;
+  v_old  jsonb;
+  v_col  text;
+BEGIN
+  IF v_role NOT IN ('authenticated', 'anon') THEN
+    RETURN new;
+  END IF;
+  v_new := to_jsonb(new);
+  v_old := to_jsonb(old);
+  FOREACH v_col IN ARRAY ARRAY[
+    'id', 'hub_type', 'organization_type', 'created_at',
+    'plan', 'stripe_customer_id', 'stripe_sub_id', 'doors_count',
+    'suspended_at', 'archived_at'
+  ] LOOP
+    IF (v_new -> v_col) IS DISTINCT FROM (v_old -> v_col) THEN
+      RAISE EXCEPTION 'orgs.% can only be changed by the server', v_col
+        USING errcode = '42501';
+    END IF;
+  END LOOP;
+  RETURN new;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS orgs_billing_columns_guard ON public.orgs;
+CREATE TRIGGER orgs_billing_columns_guard
+  BEFORE UPDATE ON public.orgs
+  FOR EACH ROW EXECUTE FUNCTION public.orgs_billing_columns_guard();
 
 COMMIT;

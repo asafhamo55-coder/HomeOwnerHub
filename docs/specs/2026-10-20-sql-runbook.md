@@ -51,7 +51,7 @@ database.
 | F | Speed-up indexes (also covers the BL-108 AI-spend index) | OA-4 | F1–F14 | Yes (adds indexes) | none |
 | G | Payment-plan double count correction | OA-3 | G1–G5 | Yes (G4, money records) | none; do last |
 | H | Migration 0065: new plan names, plus anything from C, D, E not yet done | BL-123 | H1–H3 | Yes (H2) | A, B; ideally C, D, E |
-| I | Migration 0066: owner records requests | BL-123 (3) | I1–I3 | Yes (I2, widens a check and adds a column) | none |
+| I | Migration 0066: owner records requests, plus the billing-columns guard on orgs | BL-123 (3), security finding (orgs_update) | I1–I3 | Yes (I2, widens a check, adds a column and two guards) | none |
 
 43 steps in total. Sections A and B are **Urgent**. If you only have ten
 minutes today, do A and B.
@@ -388,10 +388,10 @@ file is always safe, and running it twice changes nothing.
 ## Section I · Migration 0066, owner records requests
 
 File: `migrations/0066_records_requests.sql`. *Needs:* nothing else in this
-runbook. It only touches the `tickets` table, which has existed since 0024.
-Order against A to H does not matter.
+runbook. It only touches the `tickets` table, which has existed since 0024,
+and adds a guard to the `orgs` table. Order against A to H does not matter.
 
-What it does, in three parts:
+What it does, in four parts:
 
 1. **New ticket category.** Lets a ticket be saved with the category
    `records_request`. An owner's "Request association records" form files
@@ -401,8 +401,14 @@ What it does, in three parts:
 3. **Deadline guard.** Only the board, or the app's server, can set or
    change that deadline. An owner filing a request cannot choose their own
    (the app files the request, then sets the deadline itself).
+4. **Billing guard on the HOA's account row (security fix).** Today an HOA
+   admin could, by calling the database directly instead of using the app,
+   change their own plan, billing ids, number of homes billed, or lift a
+   suspension. After this, only the app's server (Stripe updates, platform
+   admin) can change those. The admin can still rename the HOA. Nothing in
+   the app changes, because the app never let admins edit those anyway.
 
-Nothing in the app uses either one until Claude turns on
+Nothing in the app uses parts 1 to 3 until Claude turns on
 `RECORDS_REQUESTS_LIVE` after I3. Until then owners and the board see no
 change.
 
@@ -420,21 +426,25 @@ change.
          EXISTS (SELECT 1 FROM pg_trigger
                   WHERE tgrelid = 'public.tickets'::regclass
                     AND tgname = 'tickets_records_due_at_guard')            AS guard_done,
+         EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgrelid = 'public.orgs'::regclass
+                    AND tgname = 'orgs_billing_columns_guard'
+                    AND tgenabled = 'O')                                    AS orgs_guard_done,
          (SELECT count(*) FROM pg_constraint
            WHERE conrelid = 'public.tickets'::regclass AND contype = 'c'
              AND pg_get_constraintdef(oid) ILIKE '%category%')              AS category_checks;
   ```
 
-- **Does:** shows whether the three parts are already there, and how many category checks exist.
+- **Does:** shows whether the four parts are already there, and how many category checks exist.
 - **Read-only:** yes. **Time:** ~1 s.
-- **Expect:** one row: `category_done` = false, `column_done` = false, `guard_done` = false, `category_checks` = 1.
+- **Expect:** one row: `category_done` = false, `column_done` = false, `guard_done` = false, `orgs_guard_done` = false, `category_checks` = 1.
 - **Send:** the row.
-- **If all three `_done` columns are already true:** stop, I is done; tell Claude.
+- **If all four `_done` columns are already true:** stop, I is done; tell Claude. If only some are, run I2 anyway: every part is safe to re-run.
 
 ### I2 · Apply 0066 (changes the database)
 
 - **Paste:** the **whole file** `migrations/0066_records_requests.sql`. Ask Claude to copy it ("copy step I2").
-- **Does:** replaces the category check with one that also allows `records_request`. It also adds the empty `records_due_at` column, a small index, and the deadline guard.
+- **Does:** replaces the category check with one that also allows `records_request`. It also adds the empty `records_due_at` column, a small index, the deadline guard, and the billing guard on `orgs`.
 - **Read-only:** no. All-or-nothing (one transaction): if anything fails, nothing changes. Safe to re-run.
 - **Time:** ~1 s. No existing row is rewritten.
 - **Expect:** "Success. No rows returned".
@@ -444,8 +454,9 @@ change.
 ### I3 · Verify (read-only)
 
 - **Paste:** the I1 query again.
-- **Expect:** one row: `category_done` = true, `column_done` = true, `guard_done` = true, `category_checks` = 1.
+- **Expect:** one row: `category_done` = true, `column_done` = true, `guard_done` = true, `orgs_guard_done` = true, `category_checks` = 1.
 - **Send:** the row, and the words **"0066 is applied"**.
+- **Nothing to flip for part 4:** the billing guard works as soon as it exists. `tests/integration/security/orgs-billing-guard.test.ts` covers it in CI.
 - **Flags Claude flips after I3:** `RECORDS_REQUESTS_LIVE` → `true` (`packages/db/src/records-requests.ts`), then deploys hoa + jobs. Claude also removes `draft: true` from the two records-request guide articles and runs `pnpm guide:build`.
 
 ---
@@ -481,6 +492,7 @@ Dependencies verified by reading each file and the schema:
 - **E (inbound auth)** adds `inbox_messages.sender_auth`, matching `apps/hoa/src/lib/inbox/ingest.ts` and `account-context.ts`. The file calls itself "candidate 0065"; `docs/research/2026-10-inbox-plan.md` Phase B is also "0065" (inbox_threads, inbox_thread_links, tickets, arc_requests, hoa_documents). No overlapping table or column, so no conflict: when 0065 is written it must include `sender_auth` idempotently (the apply file already uses `ADD COLUMN IF NOT EXISTS` and a guarded constraint).
 - **F** every indexed column exists (checked against `packages/db/src/database.types.ts`); no index name or column set in F collides with anything in `migrations/` (M1 only adds `storage_path` indexes).
 - **G** memo formats match `packages/workflows/src/payment-plans/progress.ts` (`INSTALLMENT_MEMO_PREFIX`, `REPLACED_MEMO_PREFIX`).
+- **I part 4 (orgs billing guard)** is compatible with every app writer of `orgs`: the guarded columns (`plan`, `stripe_customer_id`, `stripe_sub_id`, `doors_count`, `suspended_at`, `archived_at`, `hub_type`, `organization_type`, `id`, `created_at`) are written only by the service role (`packages/billing/src/webhook.ts`, the 0064 `stripe_webhook_*` functions which only `service_role` may execute, `apps/hoa/src/lib/platform-admin.ts`). No user-client code updates `orgs` at all (checked 2026-10-20); onboarding INSERTs, which the trigger does not cover. The trigger uses no helper function, so it does not depend on A.
 
 Conflicts found:
 
