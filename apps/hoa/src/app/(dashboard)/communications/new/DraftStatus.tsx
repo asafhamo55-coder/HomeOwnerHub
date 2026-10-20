@@ -35,13 +35,20 @@ export function DraftStatus({ state }: { state: DraftSaveState }) {
   else if (state.kind === 'saving')
     content = (
       <>
-        <Loader2 className="size-3 animate-spin" aria-hidden /> Saving draft…
+        {/* Visual only: a "Saving…" on every autosave would interrupt the
+            board mid-sentence; "Draft saved" (or the error) follows. */}
+        <span aria-hidden className="inline-flex items-center gap-1">
+          <Loader2 className="size-3 animate-spin" aria-hidden /> Saving draft…
+        </span>
       </>
     )
   else if (state.kind === 'saved')
     content = (
       <>
-        <Check className="size-3" aria-hidden /> Draft saved {ago(state.at, Math.max(now, state.at))}
+        {/* The "N seconds ago" refresh every 15s is visual only: inside the
+            live region it would be re-announced while the board types. */}
+        <Check className="size-3" aria-hidden /> Draft saved{' '}
+        <span aria-hidden>{ago(state.at, Math.max(now, state.at))}</span>
       </>
     )
   else if (state.kind === 'error')

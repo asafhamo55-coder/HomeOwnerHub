@@ -35,7 +35,9 @@ export function SaveToDocumentsButton({
           variant="ghost"
           size="sm"
           icon={<FolderInput aria-hidden />}
-          aria-label={`Save ${fileName} to documents`}
+          // Starts with the visible text so voice control ("click Save to
+          // documents") still matches (WCAG 2.5.3 Label in Name).
+          aria-label={`Save to documents: ${fileName}`}
         >
           Save to documents
         </Button>

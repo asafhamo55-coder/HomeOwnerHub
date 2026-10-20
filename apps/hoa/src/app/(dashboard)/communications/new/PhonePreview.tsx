@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useId, useState, useTransition } from 'react'
 import { Loader2, Send } from 'lucide-react'
 import { Alert, Button, cn } from '@homeowner-portal/ui'
 import {
@@ -55,6 +55,9 @@ export function PhonePreview({
   const [tab, setTab] = useState<Tab>('email')
   const [testPending, startTest] = useTransition()
   const [testMessage, setTestMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const uid = useId()
+  const panelId = `${uid}-panel`
+  const tabId = (t: Tab) => `${uid}-tab-${t}`
 
   // One key for everything the preview depends on, so a new object with
   // the same content doesn't refetch.
@@ -143,17 +146,39 @@ export function PhonePreview({
         </Alert>
       ) : null}
 
-      <div role="tablist" aria-label="Preview channel" className="flex flex-wrap gap-1">
+      <div
+        role="tablist"
+        aria-label="Preview channel"
+        className="flex flex-wrap gap-1"
+        onKeyDown={(e) => {
+          // WAI-ARIA tabs: arrows move between tabs (and select, as each
+          // panel is already rendered), Home/End jump to the ends.
+          const i = tabs.indexOf(active)
+          const next =
+            e.key === 'ArrowRight' ? tabs[(i + 1) % tabs.length]
+            : e.key === 'ArrowLeft' ? tabs[(i - 1 + tabs.length) % tabs.length]
+            : e.key === 'Home' ? tabs[0]
+            : e.key === 'End' ? tabs[tabs.length - 1]
+            : null
+          if (!next) return
+          e.preventDefault()
+          setTab(next)
+          document.getElementById(tabId(next))?.focus()
+        }}
+      >
         {tabs.map((t) => (
           <button
             key={t}
+            id={tabId(t)}
             type="button"
             role="tab"
             aria-selected={active === t}
+            aria-controls={panelId}
+            tabIndex={active === t ? 0 : -1}
             onClick={() => setTab(t)}
             className={cn(
-              'rounded-md px-3 py-1 text-sm font-medium transition-colors duration-fast',
-              active === t ? 'bg-primary text-primary-foreground' : 'text-foreground-secondary hover:bg-subtle',
+              'rounded-md px-3 py-1 text-sm font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              active === t ? 'bg-primary text-primary-fg' : 'text-foreground-secondary hover:bg-subtle',
             )}
           >
             {TAB_LABEL[t]}
@@ -161,7 +186,12 @@ export function PhonePreview({
         ))}
       </div>
 
-      <div className="mx-auto w-full max-w-[22rem] rounded-[2rem] border-[6px] border-foreground/80 bg-background p-2 shadow-sm">
+      <div
+        id={panelId}
+        role="tabpanel"
+        aria-labelledby={tabId(active)}
+        className="mx-auto w-full max-w-[22rem] rounded-[2rem] border-[6px] border-foreground/80 bg-background p-2 shadow-sm"
+      >
         <div className="min-h-[20rem] overflow-hidden rounded-[1.4rem] border border-border bg-surface">
           {!audience ? (
             <p className="p-4 text-sm text-muted">Pick an audience to see the preview.</p>

@@ -252,7 +252,7 @@ export function AskDocsClient() {
                           response.recommendation.action,
                           response.recommendation.prefill,
                         )}
-                        className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                        className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg hover:bg-primary/90"
                       >
                         Yes — {ACTION_LABEL[response.recommendation.action]}
                         <ArrowRight className="h-3.5 w-3.5" />

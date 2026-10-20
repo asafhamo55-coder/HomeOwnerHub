@@ -80,6 +80,10 @@ export function PlanPickerV2({
               if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                 e.preventDefault()
                 setCadence(cadence === 'monthly' ? 'annual' : 'monthly')
+                // Roving tabindex: focus follows the checked radio, or it
+                // is stranded on the one that just became tabIndex -1.
+                const sibling = (e.currentTarget.nextElementSibling ?? e.currentTarget.previousElementSibling) as HTMLElement | null
+                sibling?.focus()
               }
             }}
             tabIndex={cadence === c ? 0 : -1}
@@ -108,7 +112,7 @@ export function PlanPickerV2({
               <CardContent className="space-y-4 p-6">
                 <header className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
-                    <p className="text-base font-semibold text-foreground">{PLAN_LABEL[plan]}</p>
+                    <h3 className="text-base font-semibold text-foreground">{PLAN_LABEL[plan]}</h3>
                     <p className="num text-3xl font-semibold tracking-tight text-foreground">
                       {cents(price)}
                       <span className="ml-1 text-sm font-normal text-muted">{cadence === 'annual' ? '/ year' : '/ month'}</span>

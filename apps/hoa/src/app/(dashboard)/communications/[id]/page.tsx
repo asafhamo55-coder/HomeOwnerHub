@@ -184,6 +184,8 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
           <details className="mt-1 text-xs">
             <summary className="cursor-pointer text-primary">
               {h.rows.length === 1 ? 'Delivery details' : `Delivery details (${h.rows.length})`}
+              {/* Every row has this summary; say whose it is. */}
+              <span className="sr-only">{` for ${h.label ?? h.names[0] ?? 'this recipient'}`}</span>
             </summary>
             <ul className="mt-2 space-y-2 border-l border-border pl-3">
               {h.rows.map((r) => (
@@ -317,7 +319,10 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
                 </Button>
                 {textingReady ? (
                   <Button asChild variant="secondary">
-                    <Link href={`/communications/new?followUp=${comm.id}&via=text`}>
+                    <Link
+                      href={`/communications/new?followUp=${comm.id}&via=text`}
+                      aria-label={`Text them: the ${followUp.unitIds.length} who haven’t opened`}
+                    >
                       <MessageSquareText aria-hidden />
                       Text them
                     </Link>
