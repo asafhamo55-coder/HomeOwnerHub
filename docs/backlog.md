@@ -1004,3 +1004,4 @@ These go beyond the design-system v2 pass:
 
 
 - **BL-105 Inbound sender authentication:** `checkSenderForUnit` trusts the From header, which can be forged. Read the inbound provider's SPF/DKIM/DMARC result and treat a failed check as "unverified sender" (no contact-update prefill, a warning in the context panel). No migration if the verdict is available on the stored message; otherwise it waits for migration 0065.
+- **BL-106 AI caps for meeting-summary and ask-community:** these two board-only AI routes are still uncapped (BL-104 left them out because the decision's cost math doesn't cover them). Measure per-call cost from ai_runs, then amend docs/decisions/2026-10-20-pricing.md with a cap that keeps worst-case AI cost at or below 30% of the band price.

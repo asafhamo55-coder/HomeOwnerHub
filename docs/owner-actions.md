@@ -263,6 +263,21 @@ prices; review it before pitching.
 1. Open `~/HomeownerHub-decks/HomeownerHub-Investor-Deck.pptx` on your Mac (it is not in the repo).
 2. Send Claude the real traction numbers, or tell Claude to remove the traction slide. Claude rebuilds the deck.
 
+### OA-16 · Prepare Stripe for the new Essentials / Complete pricing
+
+**Urgency:** Whenever
+
+**Why it matters:** the new pricing (decision `docs/decisions/2026-10-20-pricing.md`) is built but switched off. Checkout still charges $4.99 per door. Before Claude can switch it on, Stripe needs the new prices, and we need to know who is on the old ones so they keep their price until renewal.
+
+**Steps:**
+
+1. In the Stripe dashboard (live mode), open **Billing → Subscriptions** and filter by the prices with lookup keys `hoa_per_door_monthly` and `hoa_per_door_annual`. Tell Claude how many there are and, for each, the HOA name, monthly or annual, and when its current term ends. Send no card or bank details.
+2. Switch to **Test mode**. Create the four tiered prices exactly as listed in `docs/specs/2026-10-20-pricing-v2-rollout.md` (lookup keys `hoa_essentials_monthly`, `hoa_essentials_annual`, `hoa_complete_monthly`, `hoa_complete_annual`). Keep the old per-door prices active.
+3. In test mode, open **Settings → Billing → Customer portal**: turn quantity editing off, then tell Claude whether the portal lets a customer switch between two tiered prices.
+4. Tell Claude when these are done. Claude tests checkout in test mode, then tells you when to create the same prices in live mode.
+
+**Files:** `docs/specs/2026-10-20-pricing-v2-rollout.md`
+
 ## Done
 
 _Nothing yet. Finished items move here with the date they were done._
