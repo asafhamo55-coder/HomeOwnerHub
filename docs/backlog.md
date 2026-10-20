@@ -1001,3 +1001,6 @@ These go beyond the design-system v2 pass:
   - **Revisit:** after 10 paying orgs or 90 days, with measured `ai_runs`, SMS segments and onboarding hours.
   - **Scores:** impact 5, confidence 0.7, effort 4 agent-days, score 0.88. Needs BL-068 (M2), Stripe test keys (BL-103) and Asaf's portal settings.
 
+
+- **BL-104 Pricing v2 (in progress 2026-10-20):** see docs/decisions/2026-10-20-pricing.md.
+- **BL-105 Inbound sender authentication:** `checkSenderForUnit` trusts the From header, which can be forged. Read the inbound provider's SPF/DKIM/DMARC result and treat a failed check as "unverified sender" (no contact-update prefill, a warning in the context panel). No migration if the verdict is available on the stored message; otherwise it waits for migration 0065.
