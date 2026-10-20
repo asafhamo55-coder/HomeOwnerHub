@@ -132,7 +132,7 @@ describe('Copilot state_law tool', () => {
     ])
   })
 
-  for (const state of ['FL', 'CA', 'TX'] as const) {
+  for (const state of ['GA', 'FL', 'CA', 'TX'] as const) {
     it(`${state} with no statutes on file: "not loaded", with no model call`, async () => {
       const db = fakeDb({ associations: [{ id: 'assoc-1', state, governing_law_state: null }], statutes: 0 })
       const r = await stateLaw.execute({ question: 'How much notice before a fine hearing?' }, ctx(db))

@@ -19,10 +19,12 @@ import { logRouteFailure } from '@/lib/api/log'
  * POST sends `law/refresh.requested`, which triggers the same Inngest job
  * as the weekly cron (packages/jobs/src/state-law-refresh.ts): fetch the
  * official source, diff by content_hash, write changes, emit
- * law/statute.changed. Only states with an official-source adapter are
- * refreshable: FL (flsenate.gov ch. 720), CA (leginfo bulk data, Civ. Code
- * §§ 4000–6150) and TX (Tex. Prop. Code ch. 202 and 209). GA has no
- * fetchable official text. Staleness keys off last_checked_at ("when we
+ * law/statute.changed. Only states with a source adapter are refreshable:
+ * FL (flsenate.gov ch. 720), CA (leginfo bulk data, Civ. Code
+ * §§ 4000–6150), TX (Tex. Prop. Code ch. 202 and 209) and GA (a vetted
+ * snapshot of O.C.G.A. §§ 44-3-220 to 44-3-235 — Georgia has no fetchable
+ * official text). The 422 below stays for any state added to SUPPORTED
+ * before it has an adapter. Staleness keys off last_checked_at ("when we
  * last looked"), not fetched_at ("when the text last changed").
  *
  * GET paginates explicitly (RC-9): `limit` defaults to and is capped at
@@ -31,7 +33,7 @@ import { logRouteFailure } from '@/lib/api/log'
  */
 
 const SUPPORTED = ['GA', 'FL', 'CA', 'TX'] as const
-/** States with an official-source adapter (SOURCE_STATES in
+/** States with a source adapter (SOURCE_STATES in
  *  packages/workflows/src/W30-state-law-brain/sources/index.ts). */
 const REFRESHABLE = new Set<string>(SOURCE_STATES)
 

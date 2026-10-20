@@ -16,7 +16,7 @@ function api() {
 }
 
 describe('W30 when a state has no statute text yet', () => {
-  for (const state of ['FL', 'CA', 'TX'] as const) {
+  for (const state of ['GA', 'FL', 'CA', 'TX'] as const) {
     it(`${state}: says plainly that the state isn't loaded, and never calls the model`, async () => {
       const countLive = vi.fn(async () => 0)
       const out = await runStateLawBrain(
