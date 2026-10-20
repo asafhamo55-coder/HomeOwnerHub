@@ -930,3 +930,11 @@ These go beyond the design-system v2 pass:
     - connect the marketing project to the prod branch;
     - give it a domain (e.g. homeownerledger.com root for marketing and app.homeownerledger.com for the app, or keep the current split);
     - `metadataBase` in apps/marketing points at https://ledger.ai, which isn't ours; it must change to the real domain.
+- **BL-101 Inbox revisit (owner, 2026-10-19):** replying to residents' emails and requests still takes the board a lot of effort. Rework `/inbox` so that it:
+  - connects each message to everything relevant: the sender's home and account, their open tickets, ARC applications and violations, the governing documents, and past threads;
+  - drafts a cited reply for the board to approve;
+  - turns an email into a ticket, ARC application or violation report in one click;
+  - batches similar questions together;
+  - cuts the number of clicks per reply.
+
+  Phase 1 is research and a plan (docs/research/2026-10-inbox-plan.md). Phase 2 builds the top items that need no migration.
