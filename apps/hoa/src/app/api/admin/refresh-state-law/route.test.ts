@@ -296,7 +296,7 @@ describe('POST /api/admin/refresh-state-law', () => {
     const res = await post(JSON.stringify({ state: 'GA' }))
     expect(res.status).toBe(422)
     const b = await json(res)
-    expect(b.error).toMatchObject({ code: 'unprocessable', reason: 'no_official_source', refreshable: ['FL'] })
+    expect(b.error).toMatchObject({ code: 'unprocessable', reason: 'no_official_source', refreshable: ['FL', 'CA', 'TX'] })
     expect(send).not.toHaveBeenCalled()
   })
 
@@ -305,6 +305,14 @@ describe('POST /api/admin/refresh-state-law', () => {
     expect(res.status).toBe(202)
     expect(await json(res)).toEqual({ state: 'FL', queued: 'law/refresh.requested' })
     expect(send).toHaveBeenCalledWith({ name: 'law/refresh.requested', data: { state: 'FL' } })
+  })
+
+  it('CA and TX are refreshable too (official-source adapters)', async () => {
+    for (const state of ['CA', 'TX']) {
+      const res = await post(JSON.stringify({ state }))
+      expect(res.status).toBe(202)
+      expect(send).toHaveBeenCalledWith({ name: 'law/refresh.requested', data: { state } })
+    }
   })
 
   it('an Inngest failure is 503 upstream_unavailable with no raw provider text', async () => {

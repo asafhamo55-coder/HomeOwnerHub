@@ -27,6 +27,7 @@ import {
   type ResidentScope,
 } from './reads'
 import { handoffTopic, type HandoffAction } from './handoff'
+import { stateLawTool } from './state-law-tool'
 
 export interface ResidentToolContext {
   scope: ResidentScope
@@ -229,19 +230,22 @@ const suggestArcApplication = handoffTool(
 
 /**
  * SEC-001: the resident loop's tool budget. One rate-limited message runs
- * at most 4 tools per step and 6 in all, and at most 2 docs searches (each
- * is a W1 model call, an embedding and an ai_runs row).
+ * at most 4 tools per step and 6 in all, at most 2 docs searches (each
+ * is a W1 model call, an embedding and an ai_runs row) and 1 state-law
+ * question (W30, the same cost).
  */
 export const RESIDENT_TOOL_BUDGET: ToolBudget = {
   perStep: 4,
   perRun: 6,
-  perTool: { search_governing_docs: 2 },
+  // state_law is a W30 model call and an ai_runs row, like a docs search.
+  perTool: { search_governing_docs: 2, state_law: 1 },
 }
 
 // ─── registry ────────────────────────────────────────────────────────
 
 export const RESIDENT_TOOLS: readonly ResidentTool[] = [
   searchGoverningDocs,
+  stateLawTool,
   myAccount,
   myRequests,
   communityUpdates,

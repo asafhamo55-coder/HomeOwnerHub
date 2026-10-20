@@ -12,11 +12,13 @@ import { isToolFailed, type DocsCitation } from '@/lib/community-qa/tools'
 import { runToolLoop, type LoopTurn, type RawToolCall } from '@/lib/community-qa/loop'
 import { RESIDENT_TOOLS, RESIDENT_TOOL_BUDGET, HANDOFF_TOOL_NAMES, type ResidentToolContext } from './tools'
 import { buildHandoff, dedupeHandoffs, type Handoff, type HandoffAction } from './handoff'
+import { STATE_LAW_TOOL_NAME, isStateNotLoaded } from './state-law-tool'
 
 export const RESIDENT_SYSTEM_PROMPT = `You are the resident assistant in an HOA's resident portal. You help ONE signed-in homeowner or resident with their own home, account and requests, and with their community's rules.
 
 Tools:
 - Rules ("Can I…?", "Is X allowed?", "What approval do I need?", pets, parking, rentals, paint, fences, fines) → search_governing_docs. Answer rules ONLY from its result. Never answer a rule from general knowledge.
+- State law ("What does Florida law say…?", "Is that legal?", notice or fine limits under state law, records rights, foreclosure, flags, solar) → state_law. Answer state law ONLY from its result. Never answer state law from general knowledge.
 - Their money ("What do I owe?", next due date, last payment, payment plan, how to pay) → my_account.
 - Their requests (tickets, ARC applications, violations on their home, concerns they reported) → my_requests.
 - News and meetings ("When is the next meeting?", announcements) → community_updates.
@@ -28,6 +30,10 @@ Rules answers:
 - If search_governing_docs has LOW confidence or no relevant citation, say plainly: "I don't see that in your community's documents." Then call suggest_ask_board so they can ask the board.
 - If the resident wants to change the outside of their home (paint, fence, deck, roof, landscaping, solar, addition), call suggest_arc_application — even when the rules allow it, most changes need prior approval.
 - Only the board decides. Don't promise approval, waivers or outcomes. This is not legal advice.
+
+State law answers:
+- Name the statute sections it cites; the result is informational, not legal advice.
+- If state_law returns available:false with reason "state_not_loaded", say plainly that the state's law isn't loaded in the portal yet and that you can't answer it; do not answer from memory. Offer suggest_ask_board.
 
 Money and requests:
 - Money fields end in "Cents" and are integer cents: divide by 100. Show "$1,234.50". Show dates as "Jan 15, 2026".
@@ -84,8 +90,20 @@ export async function askResident(turns: LoopTurn[], ctx: ResidentToolContext): 
     handoffs.push(buildHandoff('ask_board', '', question))
   }
 
+  // The state's law isn't loaded: nothing the model wrote about the law can
+  // be grounded, so the answer is the fixed message — never model memory —
+  // and the resident can still ask the board.
+  const notLoaded = log
+    .filter((c) => c.tool?.def.name === STATE_LAW_TOOL_NAME)
+    .map((c) => c.result)
+    .find(isStateNotLoaded)
+  if (notLoaded && !handoffs.some((h) => h.action === 'ask_board')) {
+    handoffs.push(buildHandoff('ask_board', '', question))
+  }
+
   return {
     answer:
+      notLoaded?.message ??
       answer ??
       "I couldn't finish answering that. Try asking one thing at a time, or use Ask the board below.",
     citations,

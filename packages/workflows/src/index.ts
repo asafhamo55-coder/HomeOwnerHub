@@ -63,7 +63,13 @@ export type {
 } from './W23-bid-comparator'
 
 // v1.2 — Module 8 State Law & Compliance
-export { stateLawBrain, askStateLaw } from './W30-state-law-brain'
+export {
+  stateLawBrain,
+  askStateLaw,
+  STATE_LAW_NAMES,
+  stateNotLoadedMessage,
+  isStateLoaded,
+} from './W30-state-law-brain'
 export type {
   StateLawBrainInput,
   StateLawBrainOutput,
