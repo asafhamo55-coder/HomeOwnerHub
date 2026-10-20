@@ -18,6 +18,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { todayIn } from '@/lib/association-time'
 import { orgTimeZone } from '@/lib/association-time-server'
 import { requireBoardOrAdmin, type Role } from '@/lib/auth'
+import { checkOrgOwned } from '@/lib/org-owned'
 import { appUrl } from '@/lib/app-origin'
 
 export type MemberRole = Role
@@ -212,6 +213,14 @@ export async function inviteMember(
 
   if (callerRole === 'board' && parsed.data.role !== 'resident') {
     return { ok: false, error: 'Board members can only invite residents.' }
+  }
+
+  // The client-supplied propertyId must be this org's before the service
+  // role writes a property_residents row naming it (cross-org sweep).
+  if (parsed.data.propertyId) {
+    const owned = await checkOrgOwned('hoa_properties', parsed.data.propertyId, org.id, { orgColumn: 'org_id' })
+    if (owned === 'error') return { ok: false, error: "We couldn't check that home. Try again." }
+    if (owned !== 'owned') return { ok: false, error: 'We could not find that home.' }
   }
 
   // We need the admin (service-role) client to create a Supabase Auth

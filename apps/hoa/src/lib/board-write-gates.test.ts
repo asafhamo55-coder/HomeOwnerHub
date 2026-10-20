@@ -31,7 +31,23 @@ import YearEndPage from '../app/(dashboard)/accounting/reports/year-end/page'
 import ActivityLogPage from '../app/(dashboard)/settings/activity/page'
 import MotionLogPage from '../app/(dashboard)/meetings/motions/page'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { approveVendor, getPrimaryAssociation } from '@/lib/vendors'
+import {
+  approveVendor,
+  createVendor,
+  deleteVendor,
+  deleteVendorDocument,
+  getPrimaryAssociation,
+  getVendorDocumentSignedUrl,
+  recordVendorDocument,
+  runComplianceCheck,
+  updateVendor,
+} from '@/lib/vendors'
+import * as bids from './bids'
+import * as rfps from './rfps'
+import * as stateLaw from './state-law'
+import * as approvals from './approvals'
+import * as events from './events'
+import { listBoardMembers } from './communications/actions'
 
 // Server actions are public POST endpoints: the (dashboard) layout
 // redirecting residents does not stop one calling an action id directly.
@@ -120,6 +136,27 @@ describe('board-only server actions refuse a resident before touching the databa
     ['sendCoiRequest (BL-083: emails a vendor)', () => coiRequest.sendCoiRequest({ vendorId: ID, subject: 's', body: 'b' }), DENIED],
     ['loadCoiRequestDraft (BL-083)', () => coiRequest.loadCoiRequestDraft(ID), { ok: false, reason: 'not_found' }],
     ['markRecordsRequestFulfilled (BL-123: closes an owner records request)', () => recordsRequests.markRecordsRequestFulfilled({ ticketId: ID }), DENIED],
+    // Security sweep 2026-10-20 (H-1, H-2, M-1): these reach W21/W22/W23/W30
+    // or the service role, and charge the board AI quota.
+    ['runBidComparison (H-1: W23 reads rfps/bids with the service role)', () => bids.runBidComparison(ID), DENIED],
+    ['awardBid', () => bids.awardBid(ID, ID), DENIED],
+    ['runComplianceCheck (H-2: W21 reads vendors with the service role)', () => runComplianceCheck({ vendorId: ID, manualExtract: { coi: null, w9: null, license: null } }), DENIED],
+    ['createVendor', () => createVendor({ legalName: 'Acme', ein: '12-3456789', trades: ['x'] } as never), DENIED],
+    ['updateVendor', () => updateVendor(ID, { legalName: 'Acme' }), DENIED],
+    ['deleteVendor', () => deleteVendor(ID), DENIED],
+    ['recordVendorDocument', () => recordVendorDocument({ vendorId: ID, docType: 'w9', storagePath: 'org-1/vendors/x' }), DENIED],
+    ['deleteVendorDocument', () => deleteVendorDocument(ID), DENIED],
+    ['createRfpDraft (M-1: W22 + board_ai quota)', () => rfps.createRfpDraft({ freeTextNeed: 'Repave the lot please.', submissionDeadline: '2027-01-01T00:00:00.000Z' }), DENIED],
+    ['updateRfp', () => rfps.updateRfp({ rfpId: ID, title: 'x' }), DENIED],
+    ['publishRfp', () => rfps.publishRfp(ID), DENIED],
+    ['cancelRfp', () => rfps.cancelRfp(ID), DENIED],
+    ['askStateLawAction (M-1: W30 + board_ai quota)', () => stateLaw.askStateLawAction('Can we fine for parking?'), DENIED],
+    ['approvePosting (service-role executor)', () => approvals.approvePosting({ approvalRequestId: ID }), DENIED],
+    ['rejectPosting', () => approvals.rejectPosting({ approvalRequestId: ID, reason: 'no' }), DENIED],
+    ['getBidDocumentSignedUrl (bid PDFs)', () => bids.getBidDocumentSignedUrl('org-1/rfps/x/bids/y/a.pdf'), null],
+    ['getVendorDocumentSignedUrl (COI / W-9)', () => getVendorDocumentSignedUrl('org-1/vendors/x/w9/a.pdf'), null],
+    ['listBoardMembers (board contact details via the service role)', () => listBoardMembers(), []],
+    ['sendTestAlert (service-role audience send)', () => events.sendTestAlert(ID), { ok: false, error: "You don't have permission to perform this action." }],
   ]
 
   for (const [name, call, expected] of returning) {

@@ -140,20 +140,23 @@ export const bidComparator = defineWorkflow({
   async run(input, api, ctx) {
     const db = createAdminClient()
 
-    // 1. Load the RFP.
+    // 1. Load the RFP — scoped to the caller's org. The service role
+    // bypasses RLS, so this filter is the boundary: an rfpId from another
+    // org must read as "not found", never be compared or returned.
     const { data: rfp, error: rfpErr } = await db
       .from('rfps' as never)
       .select('id, association_id, title, scope, organization_id')
       .eq('id', input.rfpId)
-      .single<{
+      .eq('organization_id', ctx.organizationId)
+      .maybeSingle<{
         id: string
         association_id: string
         title: string
         scope: string
         organization_id: string
       }>()
-    if (rfpErr || !rfp) {
-      throw new Error(`rfp_not_found: ${rfpErr?.message ?? input.rfpId}`)
+    if (rfpErr || !rfp || rfp.organization_id !== ctx.organizationId) {
+      throw new Error('rfp_not_found')
     }
 
     // 2. Load RFP line items.
@@ -182,6 +185,7 @@ export const bidComparator = defineWorkflow({
         'id, vendor_id, total_amount, payment_terms, warranty, start_date, completion_date, vendor:vendors(legal_name)',
       )
       .eq('rfp_id', input.rfpId)
+      .eq('organization_id', ctx.organizationId)
       .eq('status', 'submitted')
 
     type BidRow = {
@@ -360,7 +364,7 @@ export const bidComparator = defineWorkflow({
       } as never)
 
     if (insertErr) {
-      throw new Error(`Could not save comparison: ${insertErr.message}`)
+      throw new Error(`w23_save_failed: ${insertErr.code ?? 'unknown'}`)
     }
 
     return result

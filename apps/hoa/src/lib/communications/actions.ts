@@ -96,9 +96,10 @@ export interface BoardMemberOption {
  * seeing other members' emails).
  */
 export async function listBoardMembers(): Promise<BoardMemberOption[]> {
-  const org = await getCurrentOrg()
-  if (!org) return []
-  const members = await fetchBoardMembers(org.id, ['board', 'admin'])
+  // Board contact details, read with the service role: board surfaces only.
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return []
+  const members = await fetchBoardMembers(gate.orgId, ['board', 'admin'])
   return members.map((m) => ({
     userId: m.userId,
     fullName: m.fullName,

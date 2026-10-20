@@ -3,10 +3,10 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { askStateLaw, type StateLawBrainOutput } from '@homeowner-portal/workflows'
-import { getCurrentOrg } from '@/lib/orgs'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { chargeAiActionQuota } from '@/lib/api/ai-action-quota'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 
 export type SupportedState = 'GA' | 'FL' | 'CA' | 'TX'
 
@@ -395,6 +395,11 @@ export async function unarchiveLawUpdate(id: string): Promise<ActionResult> {
 export async function askStateLawAction(
   question: string,
 ): Promise<ActionResult<StateLawBrainOutput & { runId: string }>> {
+  // M-1: board/admin before any read or the `board_ai` quota charge.
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+
+  if (typeof question !== 'string') return { ok: false, error: 'Question is too short.' }
   const trimmed = question.trim()
   if (trimmed.length < 3) {
     return { ok: false, error: 'Question is too short.' }
@@ -416,20 +421,17 @@ export async function askStateLawAction(
     }
   }
 
-  const org = await getCurrentOrg()
-  if (!org) return { ok: false, error: 'No HOA selected.' }
-
   // BL-112: the board's State Law Q&A (W30) → `board_ai`.
-  const quota = await chargeAiActionQuota('board_ai', org.id)
+  const quota = await chargeAiActionQuota('board_ai', gate.orgId)
   if (!quota.ok) return { ok: false, error: quota.error }
 
   try {
-    const result = await askStateLaw(trimmed, state, { organizationId: org.id })
+    const result = await askStateLaw(trimmed, state, { organizationId: gate.orgId })
     return { ok: true, data: result }
   } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : 'Q&A failed.',
-    }
+    // Fixed string only: workflow messages can carry ids and DB text.
+    const code = err instanceof Error ? (err.message.split(':')[0] ?? 'error') : 'error'
+    console.error('[state-law] askStateLawAction failed', { code })
+    return { ok: false, error: 'The question could not be answered. Try again.' }
   }
 }

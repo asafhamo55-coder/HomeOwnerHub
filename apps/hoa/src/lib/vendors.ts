@@ -10,6 +10,12 @@ import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { removeStorageObjects } from '@/lib/storage-remove'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { rejectProspectVendor } from '@/lib/vendor-decisions'
+import { checkOrgOwned } from '@/lib/org-owned'
+
+const VENDOR_NOT_FOUND = 'We could not find that vendor.'
+const DOCUMENT_NOT_FOUND = 'Document not found.'
+const CHECK_FAILED = "We couldn't check that vendor. Try again."
+const COMPLIANCE_FAILED = 'The compliance check failed. Try again.'
 
 // Vendor tables ship in migration 0007 but aren't yet in database.types.ts
 // (regen happens post-migration). Cast through `never` like ai_runs does
@@ -321,6 +327,9 @@ function fieldErrorsOf(error: z.ZodError): Record<string, string> {
 export async function createVendor(
   input: CreateVendorInput,
 ): Promise<ActionResult<{ vendorId: string }>> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+
   const parsed = CreateVendorSchema.safeParse({
     legal_name: input.legalName,
     dba: input.dba ?? null,
@@ -346,9 +355,6 @@ export async function createVendor(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Not signed in.' }
 
-  const org = await getCurrentOrg()
-  if (!org) return { ok: false, error: 'No HOA selected.' }
-
   const address = parsed.data.address
   const addressJson =
     address && Object.values(address).some((v) => v != null && v !== '')
@@ -364,7 +370,7 @@ export async function createVendor(
   const { data: row, error } = await supabase
     .from('vendors' as never)
     .insert({
-      organization_id: org.id,
+      organization_id: gate.orgId,
       legal_name: parsed.data.legal_name,
       dba: parsed.data.dba || null,
       ein: parsed.data.ein,
@@ -443,19 +449,25 @@ export async function runComplianceCheck(
     runId: string
   }>
 > {
-  const parsed = ManualExtractSchema.safeParse(input.manualExtract)
+  // H-2: role gate first, then the client-supplied vendorId must be this
+  // org's — both before the quota charge and W21's service-role reads.
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+
+  const parsed = ManualExtractSchema.safeParse(input?.manualExtract)
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid extract.' }
   }
 
-  const org = await getCurrentOrg()
-  if (!org) return { ok: false, error: 'No HOA selected.' }
+  const owned = await checkOrgOwned('vendors', input.vendorId, gate.orgId)
+  if (owned === 'error') return { ok: false, error: CHECK_FAILED }
+  if (owned !== 'owned') return { ok: false, error: VENDOR_NOT_FOUND }
 
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No association configured for this HOA.' }
 
   // BL-112: board-initiated AI compliance check (W21) → `board_ai`.
-  const quota = await chargeAiActionQuota('board_ai', org.id)
+  const quota = await chargeAiActionQuota('board_ai', gate.orgId)
   if (!quota.ok) return { ok: false, error: quota.error }
 
   try {
@@ -466,7 +478,7 @@ export async function runComplianceCheck(
         documents: [],
         manualExtract: parsed.data,
       },
-      { organizationId: org.id },
+      { organizationId: gate.orgId },
     )
 
     revalidatePath(`/vendors/${input.vendorId}`)
@@ -481,10 +493,11 @@ export async function runComplianceCheck(
       },
     }
   } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : 'Compliance check failed.',
-    }
+    // Fixed strings only: workflow messages can carry ids and DB text.
+    const code = err instanceof Error ? (err.message.split(':')[0] ?? 'error') : 'error'
+    console.error('[vendors] runComplianceCheck failed', { vendorId: input.vendorId, code })
+    if (code === 'vendor_not_found') return { ok: false, error: VENDOR_NOT_FOUND }
+    return { ok: false, error: COMPLIANCE_FAILED }
   }
 }
 
@@ -505,6 +518,9 @@ export interface RecordVendorDocInput {
 export async function recordVendorDocument(
   input: RecordVendorDocInput,
 ): Promise<ActionResult<{ documentId: string }>> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+
   const parsed = RecordDocSchema.safeParse({
     vendor_id: input.vendorId,
     doc_type: input.docType,
@@ -514,6 +530,12 @@ export async function recordVendorDocument(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid document.' }
   }
+  if (!parsed.data.storage_path.startsWith(`${gate.orgId}/vendors/${parsed.data.vendor_id}/`)) {
+    return { ok: false, error: 'Invalid document.' }
+  }
+  const owned = await checkOrgOwned('vendors', parsed.data.vendor_id, gate.orgId)
+  if (owned === 'error') return { ok: false, error: CHECK_FAILED }
+  if (owned !== 'owned') return { ok: false, error: VENDOR_NOT_FOUND }
 
   const supabase = await getSupabaseServerClient()
   const {
@@ -521,13 +543,10 @@ export async function recordVendorDocument(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Not signed in.' }
 
-  const org = await getCurrentOrg()
-  if (!org) return { ok: false, error: 'No HOA selected.' }
-
   const { data: row, error } = await supabase
     .from('vendor_documents' as never)
     .insert({
-      organization_id: org.id,
+      organization_id: gate.orgId,
       vendor_id: parsed.data.vendor_id,
       doc_type: parsed.data.doc_type,
       storage_path: parsed.data.storage_path,
@@ -538,7 +557,8 @@ export async function recordVendorDocument(
     .single<{ id: string }>()
 
   if (error || !row) {
-    return { ok: false, error: error?.message ?? 'Could not save document.' }
+    if (error) console.error('[vendors] recordVendorDocument failed', { code: error.code })
+    return { ok: false, error: 'Could not save document.' }
   }
 
   revalidatePath(`/vendors/${parsed.data.vendor_id}`)
@@ -549,16 +569,22 @@ export async function recordVendorDocument(
 export async function deleteVendorDocument(
   documentId: string,
 ): Promise<ActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  if (!z.string().uuid().safeParse(documentId).success) return { ok: false, error: DOCUMENT_NOT_FOUND }
+
   const supabase = await getSupabaseServerClient()
 
-  // Look up to find the storage_path + vendor_id before deleting.
+  // Look up to find the storage_path + vendor_id before deleting —
+  // only a row in the caller's current org.
   const { data: doc } = await supabase
     .from('vendor_documents' as never)
     .select('vendor_id, storage_path')
     .eq('id', documentId)
+    .eq('organization_id', gate.orgId)
     .maybeSingle<{ vendor_id: string; storage_path: string }>()
 
-  if (!doc) return { ok: false, error: 'Document not found.' }
+  if (!doc) return { ok: false, error: DOCUMENT_NOT_FOUND }
 
   // Storage delete must succeed BEFORE the DB row is removed. If the
   // file remove fails and we'd already nuked the row, the PDF (which
@@ -583,7 +609,11 @@ export async function deleteVendorDocument(
     .from('vendor_documents' as never)
     .delete()
     .eq('id', documentId)
-  if (error) return { ok: false, error: error.message }
+    .eq('organization_id', gate.orgId)
+  if (error) {
+    console.error('[vendors] deleteVendorDocument row delete failed', { documentId, code: error.code })
+    return { ok: false, error: 'Could not delete the document. Try again.' }
+  }
 
   revalidatePath(`/vendors/${doc.vendor_id}`)
   revalidatePath(`/vendors/${doc.vendor_id}/compliance`)
@@ -593,6 +623,14 @@ export async function deleteVendorDocument(
 export async function getVendorDocumentSignedUrl(
   storagePath: string,
 ): Promise<string | null> {
+  // COIs, W-9s and licenses: the bucket's read policy is org-wide, so the
+  // board gate plus a vendor_documents row in this org naming the path
+  // are the boundary — not the caller-supplied path.
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return null
+  if (typeof storagePath !== 'string' || !storagePath.startsWith(`${gate.orgId}/`)) return null
+  const owned = await checkOrgOwned('vendor_documents', storagePath, gate.orgId, { column: 'storage_path' })
+  if (owned !== 'owned') return null
   const supabase = await getSupabaseServerClient()
   const { data } = await supabase.storage
     .from('hoa-documents')
@@ -624,6 +662,9 @@ export async function updateVendor(
   vendorId: string,
   input: UpdateVendorInput,
 ): Promise<ActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+
   const parsed = UpdateVendorSchema.safeParse({
     legal_name: input.legalName,
     dba: input.dba,
@@ -639,9 +680,7 @@ export async function updateVendor(
       fieldErrors: fieldErrorsOf(parsed.error),
     }
   }
-
-  const org = await getCurrentOrg()
-  if (!org) return { ok: false, error: 'No HOA selected.' }
+  if (!z.string().uuid().safeParse(vendorId).success) return { ok: false, error: VENDOR_NOT_FOUND }
 
   const supabase = await getSupabaseServerClient()
   const patch: Record<string, unknown> = {}
@@ -658,7 +697,11 @@ export async function updateVendor(
     .from('vendors' as never)
     .update(patch as never)
     .eq('id', vendorId)
-  if (error) return { ok: false, error: error.message }
+    .eq('organization_id', gate.orgId)
+  if (error) {
+    console.error('[vendors] updateVendor failed', { vendorId, code: error.code })
+    return { ok: false, error: 'Could not save the vendor. Try again.' }
+  }
 
   revalidatePath(`/vendors/${vendorId}`)
   revalidatePath('/vendors')
@@ -668,16 +711,21 @@ export async function updateVendor(
 // ─── Delete vendor ──────────────────────────────────────────────────
 
 export async function deleteVendor(vendorId: string): Promise<ActionResult> {
-  const org = await getCurrentOrg()
-  if (!org) return { ok: false, error: 'No HOA selected.' }
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  if (!z.string().uuid().safeParse(vendorId).success) return { ok: false, error: VENDOR_NOT_FOUND }
 
   const supabase = await getSupabaseServerClient()
   const { error } = await supabase
     .from('vendors' as never)
     .update({ deleted_at: new Date().toISOString() } as never)
     .eq('id', vendorId)
+    .eq('organization_id', gate.orgId)
     .is('deleted_at', null)
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[vendors] deleteVendor failed', { vendorId, code: error.code })
+    return { ok: false, error: 'Could not delete the vendor. Try again.' }
+  }
 
   revalidatePath('/vendors')
   return { ok: true }
