@@ -289,7 +289,7 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
           icon={<Mail aria-hidden />}
           title="No messages yet"
           secondaryAction={<HowThisWorks href={guideHref('communications-send-announcement')} />}
-          description="Choose a topic, pick the audience, and send. Every message and its delivery history will live here."
+          description="Pick a template and who it goes to, write the message, then review and send. Every message and its delivery history will live here."
           action={
             <Button asChild>
               <Link href="/communications/new">

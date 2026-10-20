@@ -41,6 +41,9 @@ import { todayIn } from '@/lib/association-time'
 import { residentTimeZone } from '@/lib/resident-dues'
 import { fetchResidentMeetings, type MeetingsClient } from '@/lib/resident-meetings/query'
 import { formatMeetingDate, type UpcomingMeeting } from '@/lib/resident-meetings/select'
+import { getResidentActor } from '@/lib/impersonation'
+import { loadMySmsPreference, loadMyTextPhones } from '@/lib/sms-consent'
+import { TextsPromptCard } from '@/components/resident/TextsPromptCard'
 
 export const metadata = { title: 'My Home' }
 
@@ -64,12 +67,13 @@ export default async function ResidentDashboard() {
   // The next meeting needs only the org and the units' zone — both
   // memoized reads the dashboard makes too — so it runs alongside the
   // dashboard instead of after it (BL-099).
-  const [data, nextMeeting] = await Promise.all([
+  const [data, nextMeeting, offerTexts] = await Promise.all([
     timed('/resident', 'resident.dashboard', () => getResidentDashboard()),
     timed('/resident', 'resident.nextMeeting', async () => {
       const [org, units] = await Promise.all([getCurrentOrg(), getResidentUnits()])
       return org ? loadNextMeeting(org.id, residentTimeZone(units)) : null
     }),
+    timed('/resident', 'resident.textsPrompt', () => shouldOfferTexts()),
   ])
 
   const hasUnit = data.units.length > 0
@@ -165,6 +169,8 @@ export default async function ResidentDashboard() {
         </>
       )}
 
+      {hasUnit && offerTexts ? <TextsPromptCard /> : null}
+
       {nextMeeting ? (
         <Section label="Next meeting">
           <NextMeetingCard next={nextMeeting} />
@@ -218,6 +224,28 @@ export default async function ResidentDashboard() {
       ) : null}
     </div>
   )
+}
+
+// ── Texts prompt (BL-110) ───────────────────────────────────────────────
+// True only for a signed-in resident (not an admin viewing as them) who
+// has a textable number on file and hasn't agreed to texts. Any failed
+// read hides the card — it is a nudge, never a status.
+
+async function shouldOfferTexts(): Promise<boolean> {
+  try {
+    const actor = await getResidentActor()
+    if (actor.impersonating || !actor.id) return false
+    const org = await getCurrentOrg()
+    if (!org) return false
+    const [pref, phones] = await Promise.all([
+      loadMySmsPreference(actor.client, org.id, actor.id),
+      loadMyTextPhones(actor.client, org.id, actor.id),
+    ])
+    if (!pref.ok || !phones.ok) return false
+    return !pref.pref.optIn && !pref.pref.otherOrg && phones.phones.length > 0
+  } catch {
+    return false
+  }
 }
 
 // ── Next meeting (BL-088) ───────────────────────────────────────────────

@@ -62,6 +62,20 @@ export default function PrivacyPage() {
               data-processing agreement and processes only what's necessary.
             </p>
 
+            <h2 id="text-messages">Text messages</h2>
+            <p>
+              Residents get text messages from their association only after
+              agreeing to them in the resident portal (Account → Text
+              messages). We record when you agreed and the exact terms you
+              saw. Message frequency varies, and message and data rates may
+              apply. Reply STOP to stop texts, or HELP for help; you can also
+              turn them off in the portal at any time. We never sell or share
+              your mobile number or your agreement to receive texts with third
+              parties or affiliates for their marketing. The text-messaging
+              provider that delivers the messages receives your number only to
+              deliver them.
+            </p>
+
             <h2>4. Data retention</h2>
             <p>
               We retain your data for as long as your account is active and for
