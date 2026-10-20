@@ -99,7 +99,7 @@ function page(body: React.ReactNode) {
   )
 }
 
-function view(kind: 'owners' | 'voters', state: 'FL' | 'CA') {
+function view(kind: 'owners' | 'voters' | 'records', state: 'FL' | 'CA') {
   const report = buildReport(kind, fixture(state), TODAY)
   return page(
     <>
@@ -124,6 +124,8 @@ const PREVIEWS: Record<string, { title: string; body: () => React.ReactElement }
   'owners-fl': { title: 'Owner roster — Florida', body: () => view('owners', 'FL') },
   'voters-fl': { title: 'Voter list — Florida (flagged homes, quorum)', body: () => view('voters', 'FL') },
   'voters-ca': { title: 'Voter list — California (no suspension flag)', body: () => view('voters', 'CA') },
+  'records-fl': { title: 'Records-request copy — Florida (no email, no phone)', body: () => view('records', 'FL') },
+  'records-ca': { title: 'Records-request copy — California (opt-out check)', body: () => view('records', 'CA') },
   header: { title: 'Properties header with the ⋯ menu', body: () => <PropertiesHeader orgName="Example Grove HOA" filter="all" total={5} allCount={5} search="" /> },
 }
 
@@ -189,6 +191,33 @@ describe('statutory roster — components', () => {
     expect(out).toContain('No homes are flagged for late dues.')
     expect(out).toContain('Civ. Code § 5100 et seq.')
     expect(out).not.toContain('Quorum (Florida default')
+  })
+
+  it('records copy FL: names and addresses only — no phone, email, share or balance', () => {
+    const out = html(view('records', 'FL'))
+    expect(out).toContain('Copy for an owner’s records request')
+    expect(out).toContain('Jordan Coowner')
+    expect(out).toContain('PO Box 412, Ocala FL 34470')
+    expect(out).not.toMatch(/\(555\)|@example\.test|\(60%\)|\$325|Past due/)
+    expect(out).toContain('Not shared')
+    expect(out).toContain('href="/properties/roster/export?kind=records&amp;asOf=2026-10-18"')
+    expect(out).toContain('§ 720.303(4)(a)7')
+    // No § 5220 check outside California.
+    expect(out).not.toContain('Check California opt-outs')
+  })
+
+  it('records copy CA: the opt-out check is shown (never printed) and no email goes out', () => {
+    const out = html(view('records', 'CA'))
+    expect(out).toContain('Check California opt-outs before you release this')
+    expect(out).toContain('§ 5200(a)(9)')
+    expect(out).toContain('§ 5220')
+    expect(out).not.toMatch(/@example\.test|\(555\)/)
+  })
+
+  it('the chooser offers the records-request copy', () => {
+    const out = html(<RosterChooser kind="records" asOf={TODAY} today={TODAY} dateError={null} />)
+    expect(out).toMatch(/value="records"[^>]*checked|checked[^>]*value="records"/)
+    expect(out).toContain('Copy for an owner’s records request')
   })
 
   it('the Properties header has a ⋯ menu trigger', () => {

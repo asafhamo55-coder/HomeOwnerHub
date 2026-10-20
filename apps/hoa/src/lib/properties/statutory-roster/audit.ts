@@ -1,4 +1,4 @@
-import type { RosterKind } from './model'
+import type { ReportCounts, RosterKind } from './model'
 
 /**
  * One audit_log row per roster export (CSV download or the printable
@@ -9,12 +9,7 @@ import type { RosterKind } from './model'
 
 export type RosterFormat = 'csv' | 'print'
 
-export interface RosterAuditCounts {
-  homes: number
-  owners?: number
-  noOwner: number
-  mayBeSuspended?: number
-}
+export type RosterAuditCounts = ReportCounts
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Insertable = { from: (t: string) => any }

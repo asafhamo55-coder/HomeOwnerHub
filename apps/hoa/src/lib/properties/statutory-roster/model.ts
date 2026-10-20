@@ -26,9 +26,18 @@ import { calendarDaysBetween, dayOf } from '@/lib/association-time'
  *     § 720.305(4) lets the association suspend, and § 720.305(5) needs a
  *     board vote at a properly noticed meeting, so nothing is suspended
  *     here. California homes are never flagged.
+ *   - Records-request copy (kind 'records'): the roster a member may be
+ *     given on request. Names, property address, parcel (lot) and mailing
+ *     address only — never a phone number, a share or a balance. Email is
+ *     included only where the state's verified text puts it in the member
+ *     list (California, § 5200(a)(9)) AND the owner is recorded as NOT
+ *     having opted out under § 5220. No opt-out is stored yet, so today no
+ *     email goes out (the conservative default). A California owner
+ *     recorded as opted out is left off entirely (§ 5220 covers name,
+ *     property address, email and mailing address).
  */
 
-export type RosterKind = 'owners' | 'voters'
+export type RosterKind = 'owners' | 'voters' | 'records'
 
 export interface RosterHome {
   propertyId: string
@@ -43,7 +52,7 @@ export interface RosterHome {
   /** Two-letter state of the home's association (governing law). */
   state: string | null
   /** The owner fields on the home's own record (hoa_properties). */
-  recordOwner: { name: string | null; email: string | null; phone: string | null } | null
+  recordOwner: { name: string | null; email: string | null; phone: string | null; sharingOptOut?: boolean | null } | null
 }
 
 export interface RosterOwnership {
@@ -54,6 +63,12 @@ export interface RosterOwnership {
   ownershipPct: number | null
   validFrom: string
   validTo: string | null
+  /**
+   * CA Civ. Code § 5220 sharing opt-out: true opted out, false recorded as
+   * not opted out, null/absent unknown. Nothing stores it yet (see
+   * SHARING_OPT_OUT_STORED), so the loader leaves it unknown.
+   */
+  sharingOptOut?: boolean | null
 }
 
 export interface RosterResident {
@@ -95,6 +110,8 @@ export interface RosterOwner {
   share: string
   /** YYYY-MM-DD, or null when the owner comes from the home record. */
   since: string | null
+  /** § 5220 opt-out as recorded; null when unknown (always, today). */
+  sharingOptOut: boolean | null
 }
 
 export type OwnerSource = 'ownership_history' | 'home_record' | 'none'
@@ -193,7 +210,16 @@ function ownersFor(home: RosterHome, history: RosterOwnership[], asOf: string): 
     const name = home.recordOwner?.name?.trim()
     if (!name) return { owners: [], source: 'none', sharesWarning: null }
     return {
-      owners: [{ name, email: home.recordOwner?.email ?? null, phone: home.recordOwner?.phone ?? null, share: '100%', since: null }],
+      owners: [
+        {
+          name,
+          email: home.recordOwner?.email ?? null,
+          phone: home.recordOwner?.phone ?? null,
+          share: '100%',
+          since: null,
+          sharingOptOut: home.recordOwner?.sharingOptOut ?? null,
+        },
+      ],
       source: 'home_record',
       sharesWarning: null,
     }
@@ -213,6 +239,7 @@ function ownersFor(home: RosterHome, history: RosterOwnership[], asOf: string): 
     phone: o.ownerPhone?.trim() || null,
     share: shareLabel(o.ownershipPct, current.length),
     since: day(o.validFrom),
+    sharingOptOut: o.sharingOptOut ?? null,
   }))
   const recorded = current.map((o) => o.ownershipPct).filter((p): p is number => p != null)
   const total = Number(recorded.reduce((s, p) => s + p, 0).toFixed(2))
@@ -352,6 +379,118 @@ export function buildVoterList(input: RosterInput, asOf: string): VoterList {
   }
 }
 
+// ─── Records-request copy ──────────────────────────────────────────────
+
+/**
+ * Whether a § 5220 opt-out is stored anywhere. False until a migration
+ * adds one (e.g. ownerships.records_sharing_opt_out); while false every
+ * California owner's opt-out is unknown, so no email is released and the
+ * page tells the board to check its written opt-outs before releasing.
+ */
+export const SHARING_OPT_OUT_STORED = false
+
+/**
+ * Which states' verified text puts email in the list a member may get.
+ *   - FL: § 720.303(5) keeps e-mail addresses out of member access → omit.
+ *   - CA: § 5200(a)(9) lists email, except for members who opted out
+ *     under § 5220 → include only for an owner recorded as not opted out.
+ *   - Anywhere else (TX, GA, …): no verified records text in the app →
+ *     omit (the conservative default).
+ */
+export type RecordsEmailRule = 'omit' | 'unless_opted_out'
+
+export function recordsEmailRule(state: string | null): RecordsEmailRule {
+  return state?.toUpperCase() === 'CA' ? 'unless_opted_out' : 'omit'
+}
+
+/** Why a row's email on file is left out, for the page. */
+export type RecordsEmailNote = 'state_excludes' | 'opt_out_unknown' | null
+
+export interface RecordsRow {
+  propertyId: string
+  address: string
+  unitNumber: string | null
+  lotNumber: string | null
+  state: string | null
+  ownerNames: string[]
+  mailing: OwnerRosterRow['mailing']
+  emails: string[]
+  /** Set when an email is on file but left out of this copy. */
+  emailNote: RecordsEmailNote
+}
+
+export interface RecordsCopy {
+  asOf: string
+  rows: RecordsRow[]
+  counts: {
+    homes: number
+    owners: number
+    noOwner: number
+    emailsIncluded: number
+    /** Owners with an email on file that this copy leaves out. */
+    emailsLeftOut: number
+    /** California owners left off because they opted out (§ 5220). */
+    ownersWithheld: number
+    /** Homes left off because every owner opted out. */
+    homesWithheld: number
+    /** California homes on the copy (the § 5220 check applies to them). */
+    caHomes: number
+  }
+}
+
+export function buildRecordsCopy(input: RosterInput, asOf: string): RecordsCopy {
+  const roster = buildOwnerRoster(input, asOf)
+  const rows: RecordsRow[] = []
+  let ownersWithheld = 0
+  let homesWithheld = 0
+  let emailsLeftOut = 0
+  for (const r of roster.rows) {
+    const rule = recordsEmailRule(r.state)
+    // § 5220 is California's: an opted-out owner is left off there. In
+    // Florida the roster is an official record (§ 720.303(4)(a)7) with no
+    // name or address opt-out, so a flag would not apply.
+    const owners = rule === 'unless_opted_out' ? r.owners.filter((o) => o.sharingOptOut !== true) : r.owners
+    ownersWithheld += r.owners.length - owners.length
+    if (r.owners.length > 0 && owners.length === 0) {
+      homesWithheld += 1
+      continue
+    }
+    const emails: string[] = []
+    let leftOut = 0
+    for (const o of owners) {
+      if (!o.email) continue
+      if (rule === 'unless_opted_out' && o.sharingOptOut === false) emails.push(o.email)
+      else leftOut += 1
+    }
+    emailsLeftOut += leftOut
+    rows.push({
+      propertyId: r.propertyId,
+      address: r.address,
+      unitNumber: r.unitNumber,
+      lotNumber: r.lotNumber,
+      state: r.state,
+      ownerNames: owners.map((o) => o.name),
+      mailing: r.mailing,
+      emails,
+      emailNote: leftOut === 0 ? null : rule === 'omit' ? 'state_excludes' : 'opt_out_unknown',
+    })
+  }
+  return {
+    asOf,
+    rows,
+    counts: {
+      homes: rows.length,
+      owners: rows.reduce((n, r) => n + r.ownerNames.length, 0),
+      noOwner: rows.filter((r) => r.ownerNames.length === 0).length,
+      emailsIncluded: rows.reduce((n, r) => n + r.emails.length, 0),
+      emailsLeftOut,
+      ownersWithheld,
+      homesWithheld,
+      caHomes: rows.filter((r) => r.state?.toUpperCase() === 'CA').length,
+    },
+  }
+}
+
 // ─── CSV ───────────────────────────────────────────────────────────────
 
 const OWNER_SOURCE_LABEL: Record<OwnerSource, string> = {
@@ -422,6 +561,22 @@ export function voterListCsv(list: VoterList): { header: string[]; rows: unknown
   }
 }
 
+/** No phone, share or balance column, ever: this copy may leave the board. */
+export function recordsCopyCsv(copy: RecordsCopy): { header: string[]; rows: unknown[][] } {
+  return {
+    header: ['Owner names', 'Property address', 'Unit', 'Lot / parcel', 'Mailing address', 'Mailing address source', 'Email'],
+    rows: copy.rows.map((r) => [
+      r.ownerNames.length > 0 ? r.ownerNames.join('; ') : OWNER_SOURCE_LABEL.none,
+      r.address,
+      r.unitNumber ?? '',
+      r.lotNumber ?? '',
+      r.mailing.text,
+      MAILING_SOURCE_LABEL[r.mailing.source],
+      r.emails.join('; '),
+    ]),
+  }
+}
+
 // ─── URL params ────────────────────────────────────────────────────────
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
@@ -440,7 +595,7 @@ export function parseRosterParams(
   today: string,
 ): { kind: RosterKind | null; asOf: string; dateError: string | null } {
   const k = first(raw.kind)
-  const kind: RosterKind | null = k === 'owners' || k === 'voters' ? k : null
+  const kind: RosterKind | null = k === 'owners' || k === 'voters' || k === 'records' ? k : null
   const a = first(raw.asOf)?.trim()
   if (!a) return { kind, asOf: today, dateError: null }
   if (!isCalendarDate(a)) return { kind, asOf: today, dateError: 'That date does not exist. Showing today instead.' }
@@ -448,7 +603,8 @@ export function parseRosterParams(
 }
 
 export function rosterFilename(kind: RosterKind, asOf: string): string {
-  return `${kind === 'owners' ? 'owner-roster' : 'voter-list'}-as-of-${asOf}.csv`
+  const base = kind === 'owners' ? 'owner-roster' : kind === 'voters' ? 'voter-list' : 'owner-roster-records-copy'
+  return `${base}-as-of-${asOf}.csv`
 }
 
 /** The page's URL for a choice (the form submits the same params). */
@@ -466,20 +622,60 @@ export function rosterCsvHref(kind: RosterKind, asOf: string): string {
 
 // ─── One report, either kind ───────────────────────────────────────────
 
-export type RosterReport = { kind: 'owners'; roster: OwnerRoster } | { kind: 'voters'; list: VoterList }
+export type RosterReport =
+  | { kind: 'owners'; roster: OwnerRoster }
+  | { kind: 'voters'; list: VoterList }
+  | { kind: 'records'; copy: RecordsCopy }
 
 export function buildReport(kind: RosterKind, input: RosterInput, asOf: string): RosterReport {
-  return kind === 'owners' ? { kind, roster: buildOwnerRoster(input, asOf) } : { kind, list: buildVoterList(input, asOf) }
+  switch (kind) {
+    case 'owners':
+      return { kind, roster: buildOwnerRoster(input, asOf) }
+    case 'voters':
+      return { kind, list: buildVoterList(input, asOf) }
+    case 'records':
+      return { kind, copy: buildRecordsCopy(input, asOf) }
+  }
+}
+
+export function reportAsOf(r: RosterReport): string {
+  return r.kind === 'owners' ? r.roster.asOf : r.kind === 'voters' ? r.list.asOf : r.copy.asOf
+}
+
+export interface ReportCounts {
+  homes: number
+  owners?: number
+  noOwner: number
+  mayBeSuspended?: number
+  emailsIncluded?: number
+  ownersWithheld?: number
+  homesWithheld?: number
 }
 
 /** Counts for the audit row: numbers only. */
-export function reportCounts(r: RosterReport): { homes: number; owners?: number; noOwner: number; mayBeSuspended?: number } {
-  return r.kind === 'owners'
-    ? { homes: r.roster.counts.homes, owners: r.roster.counts.owners, noOwner: r.roster.counts.noOwner }
-    : { homes: r.list.counts.homes, noOwner: r.list.counts.noOwner, mayBeSuspended: r.list.counts.mayBeSuspended }
+export function reportCounts(r: RosterReport): ReportCounts {
+  switch (r.kind) {
+    case 'owners':
+      return { homes: r.roster.counts.homes, owners: r.roster.counts.owners, noOwner: r.roster.counts.noOwner }
+    case 'voters':
+      return { homes: r.list.counts.homes, noOwner: r.list.counts.noOwner, mayBeSuspended: r.list.counts.mayBeSuspended }
+    case 'records': {
+      const c = r.copy.counts
+      return {
+        homes: c.homes,
+        owners: c.owners,
+        noOwner: c.noOwner,
+        emailsIncluded: c.emailsIncluded,
+        ownersWithheld: c.ownersWithheld,
+        homesWithheld: c.homesWithheld,
+      }
+    }
+  }
 }
 
 /** The CSV's header and cells; the route writes them with lib/csv.ts. */
 export function reportTable(r: RosterReport): { header: string[]; rows: unknown[][] } {
-  return r.kind === 'owners' ? ownerRosterCsv(r.roster) : voterListCsv(r.list)
+  if (r.kind === 'owners') return ownerRosterCsv(r.roster)
+  if (r.kind === 'voters') return voterListCsv(r.list)
+  return recordsCopyCsv(r.copy)
 }

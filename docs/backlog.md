@@ -29,6 +29,7 @@ The owner delegated all prioritisation. This order overrides the score-based buc
   - BL-069 state-law run log. Also needs Open States/LegiScan keys.
   - BL-023 polls.
   - BL-030 FL violation procedure engine.
+  - P5 records-request roster copy (shipped 2026-10-20, no migration): /properties/roster `kind=records`. **Migration needed** for CA Civ. Code § 5220 opt-outs (e.g. `ownerships.records_sharing_opt_out boolean null`, plus the same on `hoa_properties` for record-owner homes). Until then `SHARING_OPT_OUT_STORED = false`: no email is released in any state and CA boards are told to check written opt-outs by hand. TX § 209.005 and GA records-access text still need fixtures before email can be considered there.
 
 **Next, after the above:** BL-035 Stripe ACH/card resident payments (needs Stripe keys and M3); BL-025 bilingual (needs the M-P1 language field); BL-026 SMS with consent; properties P5 (statutory roster and voter list, owner self-service contact details, estoppel); BL-036 autopay; BL-037 reserves; BL-038 public site; BL-034 amenities; BL-032 mailed letters; BL-039 vendor payments; BL-040 native app.
 
