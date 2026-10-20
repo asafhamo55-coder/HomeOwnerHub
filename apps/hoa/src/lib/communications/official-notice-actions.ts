@@ -19,6 +19,7 @@ const KINDS = new Set<AudienceDefinition['kind']>([
   'tenants_only',
   'late_on_dues',
   'open_violations',
+  'specific_units',
   'specific_residents',
   'board',
   'manual_emails',

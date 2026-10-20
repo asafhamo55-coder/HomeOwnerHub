@@ -9,7 +9,17 @@ import { deliverableChannels, officialNoticeApplies } from './official-notice'
 import { applyPreferences, loadPreferenceMap, preferencesApply } from './preferences'
 
 export type PreferencePreview =
-  | { ok: true; email: number; sms: number }
+  | {
+      ok: true
+      /** Recipients who lose email / text to their own preferences. */
+      email: number
+      sms: number
+      /** BL-102 A6: recipients who will actually get a text, after phone
+       *  numbers on file and text opt-in. */
+      smsReach: number
+      /** Recipients the audience resolves to. */
+      recipients: number
+    }
   | { ok: false; error: string }
 
 const KINDS = new Set<AudienceDefinition['kind']>([
@@ -18,6 +28,7 @@ const KINDS = new Set<AudienceDefinition['kind']>([
   'tenants_only',
   'late_on_dues',
   'open_violations',
+  'specific_units',
   'specific_residents',
   'board',
   'manual_emails',
@@ -39,7 +50,7 @@ export async function previewPreferenceSkips(
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
   if (!gate.ok) return { ok: false, error: gate.error }
   if (!audience || !KINDS.has(audience.kind)) return { ok: false, error: 'Pick an audience first.' }
-  if (!preferencesApply(audience.kind, channels)) return { ok: true, email: 0, sms: 0 }
+  const applies = preferencesApply(audience.kind, channels)
 
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
@@ -51,20 +62,25 @@ export async function previewPreferenceSkips(
     .single()
   if (assocErr || !assocRow) return { ok: false, error: READ_FAILED }
 
-  const prefs = await loadPreferenceMap(supabase, assocRow.organization_id)
-  if (!prefs.ok) return { ok: false, error: READ_FAILED }
+  let map: Awaited<ReturnType<typeof loadPreferenceMap>> | null = null
+  if (applies) {
+    map = await loadPreferenceMap(supabase, assocRow.organization_id)
+    if (!map.ok) return { ok: false, error: READ_FAILED }
+  }
   const resolved = await resolveAudience(supabase, assoc.id, audience)
   const policy = {
-    map: prefs.map,
+    map: map && map.ok ? map.map : null,
     officialNoticeEmail: officialNotice && M1_APPLIED && officialNoticeApplies(assocRow.state, true),
   }
 
   let email = 0
   let sms = 0
+  let smsReach = 0
   for (const r of resolved.recipients) {
-    const { optedOut } = applyPreferences(r.userId, deliverableChannels(r, channels, null), policy)
+    const { keep, optedOut } = applyPreferences(r.userId, deliverableChannels(r, channels, null), policy)
     if (optedOut.includes('email')) email += 1
     if (optedOut.includes('sms')) sms += 1
+    if (keep.includes('sms')) smsReach += 1
   }
-  return { ok: true, email, sms }
+  return { ok: true, email, sms, smsReach, recipients: resolved.recipients.length }
 }

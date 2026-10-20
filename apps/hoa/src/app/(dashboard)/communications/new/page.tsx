@@ -5,8 +5,10 @@ import { createAdminClient } from '@homeowner-portal/db'
 import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
-import { listTemplates } from '@/lib/communications/queries'
+import { getCommunication, listTemplates } from '@/lib/communications/queries'
+import { buildFollowUpDraft, parseFollowUpVia, type FollowUpDraft } from '@/lib/communications/follow-up'
 import { countAudiences } from '@/lib/communications/audience'
+import { loadStreetOptions } from '@/lib/communications/streets'
 import { officialNoticeApplies } from '@/lib/communications/official-notice'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { parsePropertyParam } from '@/lib/property-scope'
@@ -36,8 +38,9 @@ export default async function NewCommunicationPage({
   /**
    * `?property=<id>`: opened from a property page's "Message owner".
    * `?from=budget-notice`: opened from the owner budget notice (BL-091).
+   * `?followUp=<id>&via=email|text`: from a results page (BL-102 A8).
    */
-  searchParams: Promise<{ property?: string; from?: string }>
+  searchParams: Promise<{ property?: string; from?: string; followUp?: string; via?: string }>
 }) {
   const sp = await searchParams
   const initialPropertyId = parsePropertyParam(sp.property)
@@ -79,7 +82,7 @@ export default async function NewCommunicationPage({
   // listPropertyResidents server action. No hard cap: a silent cap hid the
   // 501st property from the picker. The count makes any server-side row
   // limit visible instead.
-  const [templates, propertyRes, audienceCounts, boardRes] = await Promise.all([
+  const [templates, propertyRes, audienceCounts, boardRes, streets] = await Promise.all([
     listTemplates(orgId, assoc.id),
     loadOrFail(
       'properties',
@@ -104,6 +107,8 @@ export default async function NewCommunicationPage({
         .eq('org_id', orgId)
         .eq('role', 'board'),
     ),
+    // BL-102 A5: "A street" audience, parsed from the homes' addresses.
+    loadStreetOptions(supabase, assoc.id),
   ])
 
   if (!propertyRes.ok || !boardRes.ok) {
@@ -144,6 +149,21 @@ export default async function NewCommunicationPage({
     officialNoticeOffered = officialNoticeApplies((stateRes.data as { state: string | null }).state, true)
   }
 
+  // BL-102 A8: a follow-up to the homes that haven't opened. Only fills
+  // the composer; the board reviews and sends.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  const via = parseFollowUpVia(sp.via)
+  let followUp: FollowUpDraft | null = null
+  let followUpUnavailable = false
+  if (sp.followUp && UUID_RE.test(sp.followUp) && via) {
+    const original = await getCommunication(assoc.id, sp.followUp)
+    followUp =
+      original && (via === 'email' || smsConfigured())
+        ? buildFollowUpDraft(original, { associationName: assoc.name, via })
+        : null
+    followUpUnavailable = followUp === null
+  }
+
   const counts = {
     ...audienceCounts,
     board: boardRes.count ?? 0,
@@ -157,9 +177,15 @@ export default async function NewCommunicationPage({
       title="New message"
       description="Pick a template or write your own, choose who gets it, review, send. Every message and its delivery history are kept under Communications."
     >
+      {followUpUnavailable ? (
+        <Alert variant="warning" title="No follow-up to send">
+          That message has no homes left to follow up, or its audience can’t be followed up this way. You can
+          still write a new message below.
+        </Alert>
+      ) : null}
       {propertyTotal > properties.length ? (
         <Alert variant="warning" title="Not every property is in the picker">
-          The “Specific property” list shows {properties.length} of {propertyTotal} properties. Other
+          The “One home” list shows {properties.length} of {propertyTotal} properties. Other
           audiences are unaffected.
         </Alert>
       ) : null}
@@ -186,6 +212,8 @@ export default async function NewCommunicationPage({
           prefillFrom={prefillFrom}
           // Env names only; never sent to the browser as values.
           smsConfigured={smsConfigured()}
+          streets={streets}
+          followUp={followUp}
         />
       </Card>
     </Page>
