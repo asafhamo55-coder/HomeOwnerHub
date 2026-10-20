@@ -5,6 +5,10 @@
 // before any query runs (RC-4). The search itself uses the caller's
 // RLS-bound server client — never the service role — pinned to the gate's
 // org id (see lib/search/records.ts).
+//
+// Timing (BL-060 latency): each phase runs through perfTimer, so a success
+// carries a Server-Timing header and slow phases log one [perf] line
+// (route, phase, ms — no ids, never the query text).
 
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -14,6 +18,7 @@ import { requireRouteBoardOrAdmin } from '@/lib/api/auth'
 import { parseQuery } from '@/lib/api/parse'
 import { zText } from '@/lib/api/schemas'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { perfTimer } from '@/lib/perf/timing'
 import { orgTimeZone } from '@/lib/association-time-server'
 import { RECORD_GROUP_LABEL, SEARCH_MAX_LENGTH, searchRecords, type SearchClient } from '@/lib/search/records'
 
@@ -22,21 +27,27 @@ const Query = z.object({ q: zText(SEARCH_MAX_LENGTH, 1) })
 const ALL_TYPES = Object.keys(RECORD_GROUP_LABEL).length
 
 export const GET = withRoute('search.records', async (request) => {
-  const { orgId } = await requireRouteBoardOrAdmin()
+  const perf = perfTimer('/api/search')
+  const { orgId } = await perf.time('search.auth', () => requireRouteBoardOrAdmin())
   const { q } = parseQuery(new URL(request.url), Query)
 
   const supabase = await getSupabaseServerClient()
   // Rows are dated in the association's day (BL-043/BL-060); the zone is
   // read with the same RLS-bound client, alongside the search.
-  const result = await searchRecords(supabase as unknown as SearchClient, orgId, q, {
-    timeZone: orgTimeZone(supabase, orgId),
-  })
+  const result = await perf.time('search.query', () =>
+    searchRecords(supabase as unknown as SearchClient, orgId, q, {
+      timeZone: orgTimeZone(supabase, orgId),
+      time: perf.time,
+    }),
+  )
 
   // Every type failed: that is an outage, not "no matches".
   if (result.failed.length === ALL_TYPES) throw new ApiRouteError('internal')
 
-  return NextResponse.json(
-    { query: q, groups: result.groups, failed: result.failed },
-    { headers: { 'cache-control': 'private, no-store' } },
+  return perf.apply(
+    NextResponse.json(
+      { query: q, groups: result.groups, failed: result.failed },
+      { headers: { 'cache-control': 'private, no-store' } },
+    ),
   )
 })

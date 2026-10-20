@@ -7,7 +7,7 @@ const h = vi.hoisted(() => ({
   supabaseCalls: 0,
   result: { groups: [], failed: [] } as unknown,
   throws: null as Error | null,
-  searchCalls: [] as Array<{ client: unknown; orgId: string; q: string; timeZone: unknown }>,
+  searchCalls: [] as Array<{ client: unknown; orgId: string; q: string; timeZone: unknown; time: unknown }>,
   zoneCalls: [] as Array<{ client: unknown; orgId: string }>,
   userClient: { tag: 'user-client' },
 }))
@@ -46,12 +46,19 @@ vi.mock('@/lib/association-time-server', () => ({
   }),
 }))
 
+type SearchOpts = {
+  timeZone?: unknown
+  time?: <T>(phase: string, fn: () => PromiseLike<T>) => PromiseLike<T>
+}
+
 vi.mock('@/lib/search/records', async (orig) => {
   const real = await orig<typeof import('@/lib/search/records')>()
   return {
     ...real,
-    searchRecords: vi.fn(async (client: unknown, orgId: string, q: string, opts?: { timeZone?: unknown }) => {
-      h.searchCalls.push({ client, orgId, q, timeZone: await opts?.timeZone })
+    searchRecords: vi.fn(async (client: unknown, orgId: string, q: string, opts?: SearchOpts) => {
+      h.searchCalls.push({ client, orgId, q, timeZone: await opts?.timeZone, time: opts?.time })
+      // Exercise the phase timer the way records.ts does.
+      if (opts?.time) await opts.time('search.properties', async () => null)
       if (h.throws) throw h.throws
       return h.result
     }),
@@ -150,5 +157,39 @@ describe('GET /api/search', () => {
     const res = await GET(get('kaur'))
     expect(res.status).toBe(500)
     expect(await res.text()).not.toMatch(/Kaur|hoa_violations/)
+  })
+
+  it('sends Server-Timing for the auth, query and per-phase timings', async () => {
+    const res = await GET(get('kaur'))
+    expect(res.status).toBe(200)
+    expect(typeof h.searchCalls[0].time).toBe('function')
+    const timing = res.headers.get('server-timing') ?? ''
+    expect(timing).toMatch(/search\.auth;dur=\d+/)
+    expect(timing).toMatch(/search\.properties;dur=\d+/)
+    expect(timing).toMatch(/search\.query;dur=\d+/)
+    expect(timing).not.toMatch(/kaur/i)
+  })
+
+  it('logs [perf] lines with route, phase and ms only — never the query or ids', async () => {
+    const prev = process.env.PERF_LOG
+    process.env.PERF_LOG = '1'
+    const lines: string[] = []
+    const grab = (...args: unknown[]) => void lines.push(args.map(String).join(' '))
+    const debug = vi.spyOn(console, 'debug').mockImplementation(grab)
+    const info = vi.spyOn(console, 'info').mockImplementation(grab)
+    try {
+      await GET(get('Kaur Lane 12'))
+    } finally {
+      debug.mockRestore()
+      info.mockRestore()
+      if (prev === undefined) delete process.env.PERF_LOG
+      else process.env.PERF_LOG = prev
+    }
+    const perf = lines.filter((l) => l.startsWith('[perf] '))
+    expect(perf.length).toBeGreaterThanOrEqual(3)
+    for (const line of perf) {
+      expect(line).not.toMatch(/kaur|lane|org-1|user-1/i)
+      expect(Object.keys(JSON.parse(line.slice(7))).sort()).toEqual(['loader', 'ms', 'ok', 'route', 'slow'])
+    }
   })
 })
