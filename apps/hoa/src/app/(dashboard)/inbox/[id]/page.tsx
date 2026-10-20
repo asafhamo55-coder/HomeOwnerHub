@@ -46,6 +46,7 @@ import { InboxKeyboard } from '../InboxKeyboard'
 import { ThreadTriageControls } from './ThreadTriageControls'
 import { UndoSendBanner } from './UndoSendBanner'
 import { ConvertMenu } from './ConvertMenu'
+import { SENDER_AUTH_COLUMN_LIVE } from '@homeowner-portal/mailbox'
 import {
   arcPrefillFromEmail,
   boardArcHref,
@@ -328,7 +329,12 @@ export default async function ThreadPage({
     ticket: ticketPrefillFromEmail(thread.subject, inboundText),
     contact: senderUnauthenticated
       ? { phone: '', email: '', mailing: '' }
-      : contactPrefillFromEmail(inboundText, lastInbound?.fromEmail ?? null),
+      : (() => {
+          const c = contactPrefillFromEmail(inboundText, lastInbound?.fromEmail ?? null)
+          // M-2: the server refuses an email change from a thread until
+          // BL-105 is live, so don't prefill one.
+          return SENDER_AUTH_COLUMN_LIVE ? c : { ...c, email: '' }
+        })(),
     arcAck: arcAck(appUrl(boardArcHref(arcPrefillFromEmail(thread.subject, inboundText)))),
     violationHref: `/violations/new?from_thread=${thread.id}`,
   }
@@ -476,6 +482,7 @@ export default async function ThreadPage({
                     filed={Boolean(thread.unitId)}
                     senderVerified={railContext?.sender.check.verified === true}
                     senderUnauthenticated={senderUnauthenticated}
+                    emailChangeBlocked={!SENDER_AUTH_COLUMN_LIVE}
                     ticket={convert.ticket}
                     contact={convert.contact}
                     arcAck={convert.arcAck}

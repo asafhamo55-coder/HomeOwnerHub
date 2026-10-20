@@ -67,10 +67,39 @@ interface OutgoingEvent {
   url: string
 }
 
+const ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:\/\//i
+
+/**
+ * L-6: scrub one extra field of an outgoing event. `referrer` (either
+ * spelling) is always treated as a URL; any other string that looks like
+ * an absolute URL or a root-relative path is scrubbed the same way as
+ * `url`. Returns undefined to drop the field (an unparsable referrer, a
+ * protocol-relative URL).
+ */
+function scrubExtraField(key: string, value: unknown): unknown {
+  if (/^referr?er$/i.test(key)) {
+    if (typeof value !== 'string' || value === '') return undefined
+    return scrubUrl(value) ?? undefined
+  }
+  if (typeof value !== 'string') return value
+  if (ABSOLUTE_URL.test(value)) return scrubUrl(value) ?? undefined
+  if (value.startsWith('//')) return undefined
+  if (value.startsWith('/')) return scrubPath(value)
+  return value
+}
+
 /**
  * The `beforeSend` for <Analytics />: drop everything under Do Not Track,
  * otherwise send the event with its URL scrubbed. Applies to page views and
  * custom events alike (both carry the page URL).
+ *
+ * L-6: @vercel/analytics (1.x, dist/index.d.ts) types the event as
+ * `{ type, url }` only, so `url` is the one URL-bearing field it exposes.
+ * Anything else the runtime script hands us is scrubbed too: `referrer`
+ * goes to origin + route shape (or is dropped if unparsable), and any
+ * other URL- or path-looking string is scrubbed like `url`. The browser's
+ * own document.referrer is already origin-only (layout.tsx and
+ * next.config.ts set Referrer-Policy: strict-origin).
  */
 export function scrubBeforeSend<E extends OutgoingEvent>(
   event: E,
@@ -79,7 +108,13 @@ export function scrubBeforeSend<E extends OutgoingEvent>(
   if (doNotTrack(env.nav, env.win)) return null
   const url = scrubUrl(event.url)
   if (url === null) return null
-  return { ...event, url }
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(event)) {
+    if (key === 'type' || key === 'url') continue
+    const scrubbed = scrubExtraField(key, value)
+    if (scrubbed !== undefined) out[key] = scrubbed
+  }
+  return { ...out, type: event.type, url } as E
 }
 
 function browserSignals(): { nav?: PrivacySignals; win?: { doNotTrack?: string | null } } {

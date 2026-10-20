@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  AI_ELIGIBLE_DOCUMENT_FILTER,
   DOCUMENT_ACCEPT,
+  isAiEligibleDocumentPath,
+  isGoverningUploadType,
   RESIDENT_VISIBLE_UPLOAD_TYPES,
   documentFileProblem,
   isDocumentUploadType,
@@ -37,5 +40,30 @@ describe('documents-rules (shared by Upload and inbox Save to documents)', () =>
 
   it('sanitizes storage names, keeping the extension', () => {
     expect(sanitizeStorageName('Gate Quote (v2).pdf', 1700000000000)).toBe('1700000000000-gate-quote-v2-.pdf')
+  })
+})
+
+describe('M-3: AI eligibility of documents filed from the inbox', () => {
+  const ORG = '00000000-0000-4000-8000-000000000001'
+  it.each([
+    [`${ORG}/1700000000-ccr.pdf`, true],
+    [null, true],
+    [`${ORG}/from-inbox/a-1/ccr.pdf`, false],
+    [`${ORG}/from-inbox/a-1/governing/ccr.pdf`, true],
+    // Not the exact confirmed shape: refused.
+    [`${ORG}/from-inbox/a-1/x/governing/ccr.pdf`, false],
+    [`${ORG}/from-inbox/governing/ccr.pdf`, false],
+  ])('%s → %s', (path, eligible) => {
+    expect(isAiEligibleDocumentPath(path)).toBe(eligible)
+  })
+
+  it('the PostgREST filter names both halves of the rule', () => {
+    expect(AI_ELIGIBLE_DOCUMENT_FILTER).toBe(
+      'storage_path.not.like.*/from-inbox/*,storage_path.like.*/from-inbox/*/governing/*',
+    )
+  })
+
+  it('governing types are CC&R, bylaws and rules only', () => {
+    expect(['ccr', 'bylaws', 'rules', 'other'].filter(isGoverningUploadType)).toEqual(['ccr', 'bylaws', 'rules'])
   })
 })

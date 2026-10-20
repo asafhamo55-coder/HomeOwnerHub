@@ -38,7 +38,9 @@ import { CONTACT_CATEGORY, CONTACT_SUBJECT, checkContactForm, formatInboxContact
 import { OPEN_STATUSES, trustContactTickets } from '@/lib/contact-updates/apply'
 import { authSubmitterEmails } from '@/lib/contact-updates/submitter-email'
 import { verifyLinkTarget, writeThreadLink } from '@/lib/inbox/links'
+import { SENDER_AUTH_COLUMN_LIVE } from '@homeowner-portal/mailbox'
 import {
+  INBOX_EMAIL_CHANGE_REFUSED,
   TICKET_DESCRIPTION_MAX,
   TICKET_DESCRIPTION_MIN,
   TICKET_SUBJECT_MAX,
@@ -285,6 +287,14 @@ export async function fileContactUpdateFromThread(input: ContactFromThreadInput)
       ok: false,
       error: 'The sender’s address isn’t on file for a resident of this home, so a contact update can’t be filed for them. Update the People section on the property page instead.',
     }
+  }
+
+  // M-2: until BL-105's sender-auth column is live, a forged From that
+  // names a resident's address passes the check above. Phone and mailing
+  // changes still wait for board approval; the sign-in email (the account
+  // key) is never changed on an email's say-so until From is authenticated.
+  if (!SENDER_AUTH_COLUMN_LIVE && input.email.trim() !== '') {
+    return { ok: false, error: INBOX_EMAIL_CHANGE_REFUSED, fieldErrors: { email: INBOX_EMAIL_CHANGE_REFUSED } }
   }
 
   const checked = checkContactForm({ phone: input.phone, email: input.email, mailing: input.mailing }, { requireEmail: false })

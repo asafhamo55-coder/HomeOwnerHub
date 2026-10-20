@@ -181,6 +181,46 @@ async function auditExists(
 }
 
 /**
+ * L-2: the resident's newest consent event in this org (grant or revoke),
+ * or null. Ties on created_at break by id, like the ledger fold.
+ */
+async function latestConsentEvent(
+  db: Db,
+  orgId: string,
+  userId: string,
+  ctx: Record<string, string>,
+): Promise<{ action: string; metadata: unknown; created_at: string | null } | null> {
+  const { data, error } = await db
+    .from('audit_log')
+    .select('id, action, metadata, created_at')
+    .eq('org_id', orgId)
+    .eq('user_id', userId)
+    .eq('entity_type', SMS_CONSENT_ENTITY)
+    .in('action', [SMS_CONSENT_GRANTED, SMS_CONSENT_REVOKED])
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(1)
+  checkWrite({ error }, 'webhooks.vonage_inbound.start_latest', ctx)
+  return ((data ?? []) as Array<{ action: string; metadata: unknown; created_at: string | null }>)[0] ?? null
+}
+
+/**
+ * L-2: a revoke the resident made themselves in the portal, after the
+ * grant START would restore, is their latest word: a text from the number
+ * can't override it (a START from a phone they no longer control, or one
+ * they later turned off on purpose). Only a fresh portal opt-in re-enables.
+ */
+export function isNewerPortalRevoke(
+  latest: { action: string; metadata: unknown; created_at: string | null } | null,
+  grantCreatedAt: string | null,
+): boolean {
+  if (!latest || latest.action !== SMS_CONSENT_REVOKED) return false
+  if ((latest.metadata as { method?: unknown } | null)?.method !== 'portal') return false
+  if (!latest.created_at || !grantCreatedAt) return true // can't order them: keep texts off
+  return Date.parse(latest.created_at) > Date.parse(grantCreatedAt)
+}
+
+/**
  * STOP: texts off for every resident whose consent names this number.
  * The opt-out is written first — stopping must never wait on evidence —
  * then a `sms_consent_revoked` row (which also empties the ledger, so the
@@ -232,7 +272,8 @@ export async function applyStop(
  * `sms_consent_granted` carrying the prior grant's disclosure, the
  * resident's currently covered numbers plus this one, and a pointer to the
  * grant it restores. Then sms_opt_in is set. A resident with no preference
- * row in that org is left alone.
+ * row in that org is left alone, and so is one whose latest consent event
+ * is a portal revoke newer than that grant (L-2).
  */
 export async function applyStart(
   db: Db,
@@ -258,6 +299,9 @@ export async function applyStart(
     checkWrite({ error: prefError }, 'webhooks.vonage_inbound.start_read', ctx)
     const pref = prefRow as { id: string; sms_opt_in: boolean } | null
     if (!pref) continue
+
+    // L-2: a later portal revoke wins over an inbound START.
+    if (isNewerPortalRevoke(await latestConsentEvent(db, orgId, userId, ctx), g.created_at)) continue
 
     if (!(await auditExists(db, orgId, userId, SMS_CONSENT_GRANTED, args.messageId, ctx))) {
       const current = await loadUserSmsConsent(db, orgId, userId)

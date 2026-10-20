@@ -10,8 +10,10 @@
  *     the same attachment twice collides in storage and is refused, rather
  *     than quietly making a second copy.
  *
- * Pure: no imports, unit-tested.
+ * Pure, unit-tested.
  */
+
+import { INBOX_CONFIRMED_GOVERNING_SEGMENT, INBOX_FILED_SEGMENT } from '@/lib/documents-rules'
 
 const SEGMENT = /^[A-Za-z0-9._-]+$/
 
@@ -40,11 +42,31 @@ export function inboxAttachmentPathOk(
   )
 }
 
-/** Where the library copy goes. One attachment, one possible copy. */
-export function filedStoragePath(orgId: string, attachmentId: string, sourcePath: string): string {
+/**
+ * Where the library copy goes. One attachment, one possible copy of each
+ * kind: a board-confirmed governing document is stored one level deeper
+ * (`…/governing/<name>`), which is what lets AI retrieval tell it apart
+ * from any other file a sender emailed in (M-3, isAiEligibleDocumentPath).
+ */
+export function filedStoragePath(
+  orgId: string,
+  attachmentId: string,
+  sourcePath: string,
+  options: { confirmedGoverning?: boolean } = {},
+): string {
   const name = sourcePath.split('/').pop() || attachmentId
-  return `${orgId}/from-inbox/${attachmentId}/${name}`
+  const base = `${orgId}/${INBOX_FILED_SEGMENT}/${attachmentId}`
+  return options.confirmedGoverning ? `${base}/${INBOX_CONFIRMED_GOVERNING_SEGMENT}/${name}` : `${base}/${name}`
 }
+
+/**
+ * M-3: filing from the inbox defaults to "Other". A governing type (CC&R,
+ * bylaws, rules) is published to every resident and cited by the AI, so it
+ * needs the board's explicit confirmation that this is the association's
+ * official governing document.
+ */
+export const GOVERNING_CONFIRM_LABEL = 'I confirm this is our official governing document'
+export const GOVERNING_CONFIRM_REQUIRED = 'Confirm this is your official governing document, or file it as Other.'
 
 export const MAX_DOCUMENT_NAME = 200
 

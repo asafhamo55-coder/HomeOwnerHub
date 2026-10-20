@@ -48,6 +48,13 @@ vi.mock('@/lib/accounting/guard', () => ({
 }))
 vi.mock('@/lib/supabase/server', () => ({ getSupabaseServerClient: vi.fn(async () => fakeDb()) }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+// M-2: the BL-105 flag, flipped per test.
+let authColumnLive = false
+vi.mock('@homeowner-portal/mailbox', () => ({
+  get SENDER_AUTH_COLUMN_LIVE() {
+    return authColumnLive
+  },
+}))
 
 let senderVerified = true
 vi.mock('@/lib/inbox/account-context', () => ({
@@ -91,6 +98,7 @@ beforeEach(() => {
   upserts.length = 0
   gate = { ok: true, role: 'board', orgId: 'org-1' }
   senderVerified = true
+  authColumnLive = false
   boardIds = new Set(['board-user', 'board-2'])
   authEmails = new Map([['resident-9', 'kim@example.com']])
   errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -329,7 +337,48 @@ describe('fileContactUpdateFromThread', () => {
     expect(inserts).toEqual([])
   })
 
+  it('M-2: refuses any email change while BL-105 is off, pointing the resident to the portal', async () => {
+    tables.tickets = {
+      list: { data: [], error: null },
+      insert: { data: { id: TICKET }, error: null },
+      one: { data: { id: TICKET, organization_id: 'org-1', unit_id: 'unit-1' }, error: null },
+    }
+    const r = await fileContactUpdateFromThread({ threadId: THREAD, phone: '555-201-3344', email: 'attacker@evil.example', mailing: '' })
+    expect(r).toMatchObject({ ok: false, error: 'Ask the resident to change their email in the portal.' })
+    expect(!r.ok && r.fieldErrors?.email).toBeTruthy()
+    expect(inserts).toEqual([])
+  })
+
+  it('M-2: phone and mailing changes still go through board approval while BL-105 is off', async () => {
+    tables.tickets = {
+      list: { data: [], error: null },
+      insert: { data: { id: TICKET }, error: null },
+      one: { data: { id: TICKET, organization_id: 'org-1', unit_id: 'unit-1' }, error: null },
+    }
+    const r = await fileContactUpdateFromThread({ threadId: THREAD, phone: '555-201-3344', email: '  ', mailing: '12 Oak Lane, Springfield, IL 62701' })
+    expect(r).toMatchObject({ ok: true })
+    const row = inserts[0]!.row as { subject: string; description: string }
+    const parsed = parseContactRequest(row.subject, row.description)
+    expect(parsed!.changes.phone).toBeTruthy()
+    expect(parsed!.changes.mailing).toBeTruthy()
+    expect(parsed!.changes.email).toBeFalsy()
+  })
+
+  it('M-2: once BL-105 is live, an email change from a verified sender is filed for approval', async () => {
+    authColumnLive = true
+    tables.tickets = {
+      list: { data: [], error: null },
+      insert: { data: { id: TICKET }, error: null },
+      one: { data: { id: TICKET, organization_id: 'org-1', unit_id: 'unit-1' }, error: null },
+    }
+    const r = await fileContactUpdateFromThread({ threadId: THREAD, phone: '', email: 'pat.new@example.com', mailing: '' })
+    expect(r).toMatchObject({ ok: true })
+    const row = inserts[0]!.row as { subject: string; description: string }
+    expect(parseContactRequest(row.subject, row.description)!.changes.email).toBeTruthy()
+  })
+
   it('needs at least one field, and not the address they wrote from', async () => {
+    authColumnLive = true
     tables.tickets = { list: { data: [], error: null } }
     expect((await fileContactUpdateFromThread({ threadId: THREAD, phone: '', email: '', mailing: '' })).ok).toBe(false)
     expect((await fileContactUpdateFromThread({ threadId: THREAD, phone: '', email: 'pat@example.com', mailing: '' })).ok).toBe(false)

@@ -68,7 +68,7 @@ import { PhonePreview } from './PhonePreview'
 import { NoticeLawAlert } from '@/components/meetings/NoticeLawAlert'
 import type { NoticeCheck } from '@/lib/meetings/notice-law'
 import { calendarParagraphHtml, type MeetingNoticePrefill } from '@/lib/meetings/notice-prefill'
-import { recordMeetingNoticeSent } from '@/lib/meetings/notice-actions'
+import { meetingCalendarParagraph, recordMeetingNoticeSent } from '@/lib/meetings/notice-actions'
 import { appOrigin } from '@/lib/app-origin'
 
 interface TemplateOption {
@@ -940,11 +940,6 @@ export function NewCommunicationWizard({
     // {{association_name}} and {{recipient_name}} before send.ts ever
     // sees them.
     const finalSubject = subject.trim()
-    // BL-118: a meeting notice gets the calendar invite and agenda links
-    // under the board's message — plain links, built from the answers.
-    const finalBodyHtml = meetingNoticeId
-      ? `${bodyHtml}\n${calendarParagraphHtml(appOrigin(), meetingNoticeId, { time: answers.meeting_time, where: answers.meeting_location })}`
-      : bodyHtml
     let extraFields: ReturnType<typeof buildMergeBag> | undefined
     if (effectiveQuestions.length) {
       try {
@@ -976,6 +971,18 @@ export function NewCommunicationWizard({
     // No autosave from here on: a save racing the send could revive the draft.
     sendingRef.current = true
     startTransition(async () => {
+      // BL-118: a meeting notice gets the calendar invite and agenda links
+      // under the board's message. L-3: the server builds the paragraph so
+      // the link's time and place are signed; if that fails, the link
+      // carries the date only.
+      let finalBodyHtml = bodyHtml
+      if (meetingNoticeId) {
+        const cal = await meetingCalendarParagraph(meetingNoticeId, {
+          time: answers.meeting_time,
+          where: answers.meeting_location,
+        }).catch(() => null)
+        finalBodyHtml = `${bodyHtml}\n${cal?.ok ? cal.html : calendarParagraphHtml(appOrigin(), meetingNoticeId, {})}`
+      }
       const sent = sendCommunication({
         category: sendCategory,
         subject: finalSubject,

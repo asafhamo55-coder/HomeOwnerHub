@@ -39,6 +39,8 @@ export interface ConvertMenuProps {
   senderVerified: boolean
   /** BL-105: the email failed SPF/DKIM/DMARC, so its From can't be trusted. */
   senderUnauthenticated?: boolean
+  /** M-2: an email change can't be filed from a thread until BL-105 is live. */
+  emailChangeBlocked?: boolean
   ticket: TicketPrefill
   contact: ContactPrefill
   /** The reply line carrying the absolute link to the resident's prefilled ARC form. */
@@ -171,6 +173,7 @@ function MenuView({
   filed,
   senderVerified,
   senderUnauthenticated,
+  emailChangeBlocked,
   violationHref,
   onPick,
 }: ConvertMenuProps & { onPick: (v: View) => void }) {
@@ -199,7 +202,11 @@ function MenuView({
       <Option
         icon={<UserCog aria-hidden />}
         title="Update contact details"
-        hint="Files the change for approval in Approvals → Contact updates."
+        hint={
+          emailChangeBlocked
+            ? 'Phone or mailing address, filed for approval in Approvals → Contact updates. Email changes are made by the resident in the portal.'
+            : 'Files the change for approval in Approvals → Contact updates.'
+        }
         blocked={
           needsHome ??
           (senderVerified
@@ -295,6 +302,7 @@ function TicketView({
 function ContactView({
   threadId,
   contact,
+  emailChangeBlocked,
   pending,
   startTransition,
   onBack,
@@ -309,7 +317,7 @@ function ContactView({
     setError(null)
     setFieldErrors({})
     startTransition(async () => {
-      const r = await fileContactUpdateFromThread({ threadId, ...values })
+      const r = await fileContactUpdateFromThread({ threadId, ...values, email: emailChangeBlocked ? '' : values.email })
       if (!r.ok) {
         setError(r.error)
         setFieldErrors(r.fieldErrors ?? {})
@@ -327,9 +335,16 @@ function ContactView({
       <Field label="Phone" optional error={fieldErrors.phone}>
         <Input type="tel" value={values.phone} onChange={set('phone')} />
       </Field>
-      <Field label="New email" optional error={fieldErrors.email}>
-        <Input type="email" value={values.email} onChange={set('email')} />
-      </Field>
+      {emailChangeBlocked ? (
+        <Alert variant="info">
+          Email changes can&apos;t be filed from an email yet: the sender&apos;s address can&apos;t be fully
+          verified. Ask the resident to change their email in the portal.
+        </Alert>
+      ) : (
+        <Field label="New email" optional error={fieldErrors.email}>
+          <Input type="email" value={values.email} onChange={set('email')} />
+        </Field>
+      )}
       <Field label="Mailing address" optional error={fieldErrors.mailing}>
         <Input value={values.mailing} onChange={set('mailing')} />
       </Field>

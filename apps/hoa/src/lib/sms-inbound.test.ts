@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
 import { sha256Hex } from './sms-consent'
-import { applyStart, applyStop, classifyKeyword, verifyVonageSignedWebhook } from './sms-inbound'
+import { applyStart, applyStop, classifyKeyword, isNewerPortalRevoke, verifyVonageSignedWebhook } from './sms-inbound'
 import { fakeSupabase, hasEq, type Recorded } from '@/lib/test-utils/fake-supabase'
 
 vi.mock('@sentry/nextjs', () => ({ captureException: vi.fn() }))
@@ -67,6 +67,8 @@ function harness(opts: {
   prefRow?: { id: string; sms_opt_in: boolean } | null
   updatedRows?: Array<{ id: string }>
   existingAudit?: boolean
+  /** L-2: the resident's newest consent event (the `limit(1)` read). */
+  latest?: Array<{ id: string; action: string; metadata: unknown; created_at: string }>
   failOn?: string
 }) {
   return fakeSupabase((q) => {
@@ -80,6 +82,7 @@ function harness(opts: {
         return { data: opts.grants.map((g) => ({ created_at: '2026-10-01', metadata: { phone_sha256: [HASH] }, ...g })), error: null }
       }
       if (contains && 'message_id' in contains) return { data: opts.existingAudit ? [{ id: 'dup' }] : [], error: null }
+      if (!contains && isOp(q, 'limit')) return { data: opts.latest ?? [], error: null }
       return { data: opts.ledger ?? [], error: null } // the user's ledger
     }
     if (q.table === 'resident_communication_preferences' && isOp(q, 'update')) {
@@ -210,5 +213,56 @@ describe('applyStart', () => {
     const out = await applyStart(client as never, { fromRaw: FROM, messageId: 'm', keyword: 'START', now: NOW })
     expect(out.changed).toBe(1)
     expect(queries.some((q) => q.table === 'audit_log' && isOp(q, 'insert'))).toBe(false)
+  })
+
+  it('L-2: skips a resident whose latest event is a portal revoke newer than the grant', async () => {
+    const { client, queries } = harness({
+      grants: [{ id: 'g1', org_id: 'org-1', user_id: 'u-1', metadata: prior, created_at: '2026-10-01T00:00:00Z' }],
+      prefRow: { id: 'pref-1', sms_opt_in: false },
+      latest: [{ id: 'r1', action: 'sms_consent_revoked', metadata: { method: 'portal', revoked_at: '2026-10-10T00:00:00Z' }, created_at: '2026-10-10T00:00:00Z' }],
+    })
+    const out = await applyStart(client as never, { fromRaw: FROM, messageId: 'm-4', keyword: 'START', now: NOW })
+    expect(out).toEqual({ matched: 1, changed: 0 })
+    expect(queries.some((q) => isOp(q, 'update') || isOp(q, 'insert'))).toBe(false)
+  })
+
+  it('L-2: a STOP-keyword revoke (not portal) is still undone by START', async () => {
+    const { client } = harness({
+      grants: [{ id: 'g1', org_id: 'org-1', user_id: 'u-1', metadata: prior, created_at: '2026-10-01T00:00:00Z' }],
+      prefRow: { id: 'pref-1', sms_opt_in: false },
+      latest: [{ id: 'r1', action: 'sms_consent_revoked', metadata: { method: 'sms_keyword' }, created_at: '2026-10-10T00:00:00Z' }],
+    })
+    expect(await applyStart(client as never, { fromRaw: FROM, messageId: 'm-5', keyword: 'START', now: NOW })).toEqual({ matched: 1, changed: 1 })
+  })
+
+  it('L-2: per resident — another org without a portal revoke is still re-enabled', async () => {
+    const { client, queries } = fakeSupabase((q) => {
+      const contains = q.ops.find(([op]) => op === 'contains')?.[2] as Record<string, unknown> | undefined
+      if (q.table === 'audit_log' && isOp(q, 'insert')) return { data: null, error: null }
+      if (q.table === 'audit_log' && contains && 'phone_sha256' in contains) {
+        return {
+          data: ['org-1', 'org-2'].map((org, i) => ({ id: `g${i}`, org_id: org, user_id: 'u-1', metadata: prior, created_at: '2026-10-01T00:00:00Z' })),
+          error: null,
+        }
+      }
+      if (q.table === 'audit_log' && !contains && isOp(q, 'limit')) {
+        return hasEq(q, 'org_id', 'org-1')
+          ? { data: [{ id: 'r1', action: 'sms_consent_revoked', metadata: { method: 'portal' }, created_at: '2026-10-10T00:00:00Z' }], error: null }
+          : { data: [], error: null }
+      }
+      if (q.table === 'audit_log') return { data: [], error: null }
+      if (q.table === 'resident_communication_preferences' && isOp(q, 'update')) return { data: [], error: null }
+      if (q.table === 'resident_communication_preferences') return { data: { id: 'pref-x', sms_opt_in: false }, error: null }
+      return undefined
+    })
+    expect(await applyStart(client as never, { fromRaw: FROM, messageId: 'm-6', keyword: 'START', now: NOW })).toEqual({ matched: 2, changed: 1 })
+    const updates = queries.filter((q) => q.table === 'resident_communication_preferences' && isOp(q, 'update'))
+    expect(updates).toHaveLength(1)
+  })
+
+  it('L-2: a portal revoke older than the grant does not block START', () => {
+    expect(isNewerPortalRevoke({ action: 'sms_consent_revoked', metadata: { method: 'portal' }, created_at: '2026-09-01T00:00:00Z' }, '2026-10-01T00:00:00Z')).toBe(false)
+    expect(isNewerPortalRevoke({ action: 'sms_consent_granted', metadata: {}, created_at: '2026-11-01T00:00:00Z' }, '2026-10-01T00:00:00Z')).toBe(false)
+    expect(isNewerPortalRevoke(null, '2026-10-01T00:00:00Z')).toBe(false)
   })
 })

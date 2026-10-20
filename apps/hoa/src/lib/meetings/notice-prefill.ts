@@ -15,7 +15,8 @@
  * /resident/meetings/<id>/calendar — a route that needs a signed-in member
  * of the meeting's own HOA (see that route for why that beats an
  * unguessable public token). The link carries only the start time and the
- * place the board typed, both bounded; the date comes from the meeting row.
+ * place the board typed, both bounded and HMAC-signed by the server (L-3,
+ * meetingCalendarParagraph); the date comes from the meeting row.
  */
 
 export const MEETING_NOTICE_TEMPLATE_ID = 'builtin:meeting-notice'
@@ -76,13 +77,31 @@ export function buildMeetingNoticePrefill(m: MeetingNoticeSource): MeetingNotice
   }
 }
 
-/** The calendar route's path and query for this meeting, from the board's answers. */
-export function calendarLinkPath(meetingId: string, answers: { time?: unknown; where?: unknown }): string {
+/**
+ * The time and place the calendar link may carry, normalised exactly as
+ * they are signed (L-3): HH:MM only, the place's whitespace collapsed and
+ * capped. Null when absent or unusable.
+ */
+export function calendarLinkParams(answers: { time?: unknown; where?: unknown }): { start: string | null; where: string | null } {
+  const start = typeof answers.time === 'string' && CALENDAR_TIME_RE.test(answers.time) ? answers.time : null
+  const where =
+    typeof answers.where === 'string' ? answers.where.replace(/\s+/g, ' ').trim().slice(0, MAX_CALENDAR_WHERE).trim() || null : null
+  return { start, where }
+}
+
+/**
+ * The calendar route's path and query for this meeting. `sig` is the
+ * server's HMAC over the time and place (lib/meetings/calendar-link-sign.ts);
+ * without it the time and place are left off, since the route ignores
+ * unsigned ones anyway.
+ */
+export function calendarLinkPath(meetingId: string, answers: { time?: unknown; where?: unknown }, sig?: string | null): string {
   const q = new URLSearchParams()
-  if (typeof answers.time === 'string' && CALENDAR_TIME_RE.test(answers.time)) q.set('start', answers.time)
-  if (typeof answers.where === 'string') {
-    const where = answers.where.replace(/\s+/g, ' ').trim().slice(0, MAX_CALENDAR_WHERE)
+  const { start, where } = calendarLinkParams(answers)
+  if (sig && (start || where)) {
+    if (start) q.set('start', start)
     if (where) q.set('where', where)
+    q.set('sig', sig)
   }
   const qs = q.toString()
   return `/resident/meetings/${meetingId}/calendar${qs ? `?${qs}` : ''}`
@@ -97,8 +116,13 @@ function escapeHtml(s: string): string {
  * calendar invite and where owners find the agenda. Plain links, no merge
  * fields, so a resumed draft or an edited body can't break the send.
  */
-export function calendarParagraphHtml(origin: string, meetingId: string, answers: { time?: unknown; where?: unknown }): string {
-  const ics = `${origin}${calendarLinkPath(meetingId, answers)}`
+export function calendarParagraphHtml(
+  origin: string,
+  meetingId: string,
+  answers: { time?: unknown; where?: unknown },
+  sig?: string | null,
+): string {
+  const ics = `${origin}${calendarLinkPath(meetingId, answers, sig)}`
   const portal = `${origin}/resident/meetings`
   return (
     `<p><strong>Add it to your calendar:</strong> <a href="${escapeHtml(ics)}">download the calendar invite</a> ` +

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Alert, Card, CardContent, LoadFailed, NoOrgSelected, Page } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { AI_ELIGIBLE_DOCUMENT_FILTER } from '@/lib/documents-rules'
 import { loadDraft } from '@/lib/drafts'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { selectStateRules } from '@homeowner-portal/workflows/W3-state-rules'
@@ -49,7 +50,9 @@ export default async function NewViolationPage({
       .select('id', { count: 'exact', head: true })
       .eq('org_id', org.id)
       .eq('type', 'ccr')
-      .not('parsed_text', 'is', null),
+      .not('parsed_text', 'is', null)
+      // M-3: the same documents W3 may cite (analyze-violation).
+      .or(AI_ELIGIBLE_DOCUMENT_FILTER),
     draftId ? loadDraft(draftId) : Promise.resolve(null),
     // BL-019: the association's state picks the enforcement rules the
     // letter must follow. Primary association = first by name, the same

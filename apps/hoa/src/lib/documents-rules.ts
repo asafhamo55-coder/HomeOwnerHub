@@ -33,6 +33,44 @@ export function isResidentVisibleType(type: string): boolean {
   return (RESIDENT_VISIBLE_UPLOAD_TYPES as readonly string[]).includes(type)
 }
 
+/**
+ * M-3: documents filed from an inbox attachment land under
+ * `<org>/from-inbox/<attachmentId>/…` (lib/inbox/attachment-file-rules.ts).
+ * A stranger can email the board any PDF, so such a document reaches AI
+ * retrieval (W3's CC&R lookup, the C&R count on New violation) only when a
+ * board member CONFIRMED it as the association's governing document while
+ * filing — that filing is stored one level deeper, under `…/governing/…`.
+ * Everything else filed from the inbox is never cited by the AI.
+ */
+export const INBOX_FILED_SEGMENT = 'from-inbox'
+export const INBOX_CONFIRMED_GOVERNING_SEGMENT = 'governing'
+
+/** True when AI features may read this document's text. */
+export function isAiEligibleDocumentPath(storagePath: string | null | undefined): boolean {
+  if (!storagePath) return true
+  const segments = storagePath.split('/')
+  const at = segments.indexOf(INBOX_FILED_SEGMENT)
+  if (at === -1) return true
+  // <org>/from-inbox/<attachmentId>/governing/<name>
+  return segments.length === at + 4 && segments[at + 2] === INBOX_CONFIRMED_GOVERNING_SEGMENT
+}
+
+/**
+ * The PostgREST `.or(...)` filter for isAiEligibleDocumentPath on
+ * hoa_documents.storage_path: not filed from the inbox, or filed as a
+ * confirmed governing document. LIKE can't count segments, so this is the
+ * coarser twin; inbox paths are only ever minted by filedStoragePath.
+ */
+export const AI_ELIGIBLE_DOCUMENT_FILTER =
+  `storage_path.not.like.*/${INBOX_FILED_SEGMENT}/*,storage_path.like.*/${INBOX_FILED_SEGMENT}/*/${INBOX_CONFIRMED_GOVERNING_SEGMENT}/*`
+
+/** The governing-document types (CC&R, bylaws, rules) the AI cites. */
+export const GOVERNING_UPLOAD_TYPES: readonly DocumentUploadType[] = ['ccr', 'bylaws', 'rules']
+
+export function isGoverningUploadType(type: string): boolean {
+  return (GOVERNING_UPLOAD_TYPES as readonly string[]).includes(type)
+}
+
 export const MAX_DOCUMENT_BYTES = 50 * 1024 * 1024 // 50 MB
 
 /** The Upload form's `accept` list. */

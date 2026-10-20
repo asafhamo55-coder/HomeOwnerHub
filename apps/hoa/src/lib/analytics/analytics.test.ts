@@ -57,6 +57,41 @@ describe('scrubUrl / scrubBeforeSend', () => {
     })
   })
 
+  it('L-6: scrubs a referrer to origin + route shape, and drops an unparsable one', () => {
+    const env = { nav: {}, win: {} }
+    const ev = { type: 'pageview' as const, url: `${ORIGIN}/inbox`, referrer: `${ORIGIN}/inbox/${UUID}?q=smith#x` }
+    expect(scrubBeforeSend(ev, env)).toEqual({ type: 'pageview', url: `${ORIGIN}/inbox`, referrer: `${ORIGIN}/inbox/[id]` })
+    expect(scrubBeforeSend({ ...ev, referrer: 'garbage' }, env)).toEqual({ type: 'pageview', url: `${ORIGIN}/inbox` })
+    expect(scrubBeforeSend({ ...ev, referrer: '' }, env)).toEqual({ type: 'pageview', url: `${ORIGIN}/inbox` })
+    // The other spelling too.
+    expect(scrubBeforeSend({ type: 'event' as const, url: `${ORIGIN}/x`, referer: `https://mail.example.com/u/0/${UUID}` }, env)).toEqual({
+      type: 'event',
+      url: `${ORIGIN}/x`,
+      referer: 'https://mail.example.com/u/[id]/[id]',
+    })
+  })
+
+  it('L-6: scrubs any other URL- or path-looking field; leaves plain values alone', () => {
+    const env = { nav: {}, win: {} }
+    const ev = {
+      type: 'event' as const,
+      url: `${ORIGIN}/a`,
+      href: `${ORIGIN}/properties/${UUID}?tab=owners`,
+      path: `/violations/${UUID}/edit?x=1`,
+      cdn: `//evil.example/${UUID}`,
+      name: 'communication.sent',
+      count: 3,
+    }
+    expect(scrubBeforeSend(ev, env)).toEqual({
+      type: 'event',
+      url: `${ORIGIN}/a`,
+      href: `${ORIGIN}/properties/[id]`,
+      path: '/violations/[id]/edit',
+      name: 'communication.sent',
+      count: 3,
+    })
+  })
+
   it('drops every event under Do Not Track or Global Privacy Control', () => {
     const ev = { type: 'pageview' as const, url: `${ORIGIN}/inbox` }
     expect(scrubBeforeSend(ev, { nav: { doNotTrack: '1' } })).toBeNull()
