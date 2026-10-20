@@ -6,6 +6,8 @@
 
 The owner delegated all prioritisation. This order overrides the score-based buckets below wherever they disagree. The reason is in each bracket.
 
+> **Groomed 2026-10-20:** all 12 "Now" items below have shipped: P0 653df38e, P1 d1e21437, BL-070 6336b902/cccba425, P2 dc2360f8/ab74dd85, P4 e1014c46, P3 bdfbb47d/f9c78ace, BL-042 b045755c, BL-024/027 be36dbfd, BL-029 83dd219d, BL-028 4b878315, BL-017 ee42b75b / BL-018 dc5e9fec, BL-054 (2026-10-19). Of "Next, after the above": BL-025 and properties P5 (statutory roster 72f0b92d, records copy 173f4727, owner contact self-service 08def940, estoppel 2841858d) are done too. **Pick work from "Ranked open work (groomed 2026-10-20)" at the bottom of this file**, not from this list.
+
 **Now (no migration; ship one per cycle, deploying hourly at most)**
 1. **Properties P0:** one record. The create, edit, delete and import paths write both sides. [Biggest correctness bug: homes added in-app can't be billed.]
 2. **Properties P1:** quick wins: search covers every home, links, contact actions, export, mobile. [The owner's top complaint.]
@@ -63,46 +65,46 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 
 | Rank | ID | Title | Imp | Conf | Eff | **Score** | Mig | Keys | Bucket |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | BL-001 | Pricing scenarios for the self-managed segment (owner decision) | 5 | 0.6 | 0.5 | **6.00** | no | no | Now |
-| 2 | BL-002 | Marketing truth pass: claims match shipped features | 3 | 1.0 | 0.5 | **6.00** | no | no | Now |
-| 3 | BL-003 | Daily digest tells the board when the mailbox is broken | 3 | 0.9 | 0.5 | **5.40** | no | no | Now |
-| 4 | BL-004 | Outbound safety guard (recipient allowlist / sink outside prod) | 4 | 0.9 | 1 | **3.60** | no | no | Now |
-| 5 | BL-005 | Inbox shows backfill progress / failure | 2 | 0.9 | 0.5 | **3.60** | no | no | Now |
-| 6 | BL-006 | Resident "Pay" screen with Pay-by-Zelle memo code | 5 | 0.9 | 1.5 | **3.00** | no | no | Now |
-| 7 | BL-007 | Close `ownerships`/`units` RLS hole | 4 | 0.9 | 1.5 | **2.40** | **yes (M1)** | no | Now |
-| 8 | BL-008 | First-run setup checklist on the board dashboard | 3 | 0.8 | 1 | **2.40** | no | no | Now |
-| 9 | BL-009 | Privacy-safe product analytics | 3 | 0.8 | 1 | **2.40** | no | **yes** | Now |
-| 10 | BL-010 | Resident ledger and printable statement | 3 | 0.9 | 1.5 | **1.80** | no | no | Now |
+| 1 | BL-001 | Pricing scenarios for the self-managed segment (owner decision) | 5 | 0.6 | 0.5 | **6.00** | no | no | **Done (337456a3)** |
+| 2 | BL-002 | Marketing truth pass: claims match shipped features | 3 | 1.0 | 0.5 | **6.00** | no | no | **Done (f8287179)** |
+| 3 | BL-003 | Daily digest tells the board when the mailbox is broken | 3 | 0.9 | 0.5 | **5.40** | no | no | **Done (470cd652)** |
+| 4 | BL-004 | Outbound safety guard (recipient allowlist / sink outside prod) | 4 | 0.9 | 1 | **3.60** | no | no | **Done (e288f35b)** |
+| 5 | BL-005 | Inbox shows backfill progress / failure | 2 | 0.9 | 0.5 | **3.60** | no | no | **Done (efa55e20)** |
+| 6 | BL-006 | Resident "Pay" screen with Pay-by-Zelle memo code | 5 | 0.9 | 1.5 | **3.00** | no | no | **Done (f9ecf40f)** |
+| 7 | BL-007 | Close `ownerships`/`units` RLS hole | 4 | 0.9 | 1.5 | **2.40** | **yes (M1)** | no | Open (0063) |
+| 8 | BL-008 | First-run setup checklist on the board dashboard | 3 | 0.8 | 1 | **2.40** | no | no | **Done (817cbc68)** |
+| 9 | BL-009 | Privacy-safe product analytics | 3 | 0.8 | 1 | **2.40** | no | **yes** | **Partly (bdfa759f)** |
+| 10 | BL-010 | Resident ledger and printable statement | 3 | 0.9 | 1.5 | **1.80** | no | no | **Done (f9ecf40f)** |
 | 11 | BL-011 | Full data export (zip of CSVs) | 3 | 0.9 | 1.5 | **1.80** | no | no | **Done (c2)** |
 | 12 | BL-012 | Empty states carry the next action | 2 | 0.9 | 1 | **1.80** | no | no | **Done (c2)** |
 | 13 | BL-013 | Automated dues reminders (behind BL-004) | 4 | 0.8 | 2 | **1.60** | no | no | **Done (c2)** |
 | 14 | BL-014 | One approvals inbox across AI workflows | 4 | 0.8 | 2 | **1.60** | no | no | **Done (c3)** |
 | 15 | BL-015 | FL §720.303 records and notices compliance check | 4 | 0.8 | 2 | **1.60** | no | no | **Done (c3)** |
 | 16 | BL-016 | Monthly board packet | 4 | 0.8 | 2 | **1.60** | no | no | **Done (c3)** |
-| 17 | BL-017 | Inbox attachment retry controls + per-tenant fairness | 2 | 0.8 | 1 | **1.60** | no | no | Next |
-| 18 | BL-018 | Mailbox reconnect skips a completed backfill | 1 | 0.8 | 0.5 | **1.60** | no | no | Next |
+| 17 | BL-017 | Inbox attachment retry controls + per-tenant fairness | 2 | 0.8 | 1 | **1.60** | no | no | **Done (ee42b75b)** |
+| 18 | BL-018 | Mailbox reconnect skips a completed backfill | 1 | 0.8 | 0.5 | **1.60** | no | no | **Done (dc5e9fec)** |
 | 19 | BL-019 | Statute-aware violation letters (W3 + W30) | 4 | 0.7 | 2 | **1.40** | no | no | **Done (c4)** |
-| 20 | BL-020 | Per-member email consent (CA §4040) | 3 | 0.7 | 1.5 | **1.40** | **yes (M1)** | no | Now |
+| 20 | BL-020 | Per-member email consent (CA §4040) | 3 | 0.7 | 1.5 | **1.40** | **yes (M1)** | no | Open (M1) |
 | 21 | BL-021 | AI bill scan → AP bill proposal | 4 | 0.8 | 2.5 | **1.28** | no | no | **Done (c6)** |
 | 22 | BL-022 | ⌘K searches records, not just pages | 3 | 0.8 | 2 | **1.20** | no | no | **Done (c6)** |
-| 23 | BL-023 | Polls and surveys (non-binding) | 4 | 0.8 | 3 | **1.07** | **yes (M2)** | no | Next |
-| 24 | BL-024 | Resident ARC pre-check against guidelines (W1) | 3 | 0.7 | 2 | **1.05** | no | no | Next |
+| 23 | BL-023 | Polls and surveys (non-binding) | 4 | 0.8 | 3 | **1.07** | **yes (M2)** | no | Open (M2) |
+| 24 | BL-024 | Resident ARC pre-check against guidelines (W1) | 3 | 0.7 | 2 | **1.05** | no | no | **Done (be36dbfd)** |
 | 25 | BL-025 | Bilingual (EN/ES) communications | 3 | 0.7 | 2 | **1.05** | no | no | **Done (2026-10-19)** |
-| 26 | BL-026 | SMS to residents in production, with consent | 3 | 0.7 | 2 | **1.05** | **yes (M2)** | **yes** | Next |
-| 27 | BL-027 | Board-side AI ARC review → approval layer | 4 | 0.7 | 3 | **0.93** | no | no | Next |
-| 28 | BL-028 | Mobile inspection mode (drive-by capture) | 4 | 0.7 | 3 | **0.93** | no | no | Next |
-| 29 | BL-029 | Budget first draft from prior year + actuals | 3 | 0.6 | 2 | **0.90** | no | no | Next |
-| 30 | BL-030 | Per-state violation procedure engine (FL first) | 5 | 0.7 | 4 | **0.88** | **yes (M2)** | no | Next |
-| 31 | BL-031 | CINC import (homeowner list + aging report) | 4 | 0.6 | 3 | **0.80** | no | no | Next |
-| 32 | BL-032 | Mailed letters from the app (violation/collections) | 3 | 0.7 | 3 | **0.70** | yes (M3) | **yes** | Later |
-| 33 | BL-033 | Law-to-bylaw *findings* report (F phase 1, FL) | 4 | 0.6 | 4 | **0.60** | yes (M3) | no | Later |
-| 34 | BL-034 | Amenity booking | 3 | 0.8 | 4 | **0.60** | yes (M3) | no | Later |
-| 35 | BL-035 | Stripe ACH/card resident payments | 5 | 0.7 | 6 | **0.58** | yes (M3) | **yes** | **Next (override)** |
-| 36 | BL-036 | Autopay | 3 | 0.6 | 3 | **0.60** | yes (M3) | **yes** | Later (after BL-035) |
-| 37 | BL-037 | Reserve fund tracking | 3 | 0.6 | 4 | **0.45** | yes (M3) | no | Later |
-| 38 | BL-038 | Public HOA website + Notices page | 3 | 0.6 | 4 | **0.45** | yes (M3) | no | Later |
-| 39 | BL-039 | Electronic vendor payments | 3 | 0.5 | 6 | **0.25** | yes | **yes** | Later |
-| 40 | BL-040 | Native app shell (store listing) | 2 | 0.5 | 5 | **0.20** | no | **yes** | Later |
+| 26 | BL-026 | SMS to residents in production, with consent | 3 | 0.7 | 2 | **1.05** | **yes (M2)** | **yes** | Open (M2) |
+| 27 | BL-027 | Board-side AI ARC review → approval layer | 4 | 0.7 | 3 | **0.93** | no | no | **Done (be36dbfd)** |
+| 28 | BL-028 | Mobile inspection mode (drive-by capture) | 4 | 0.7 | 3 | **0.93** | no | no | **Done (4b878315)** |
+| 29 | BL-029 | Budget first draft from prior year + actuals | 3 | 0.6 | 2 | **0.90** | no | no | **Done (83dd219d)** |
+| 30 | BL-030 | Per-state violation procedure engine (FL first) | 5 | 0.7 | 4 | **0.88** | **yes (M2)** | no | Open (M2) |
+| 31 | BL-031 | CINC import (homeowner list + aging report) | 4 | 0.6 | 3 | **0.80** | no | no | **Partly (e1014c46)** |
+| 32 | BL-032 | Mailed letters from the app (violation/collections) | 3 | 0.7 | 3 | **0.70** | yes (M3) | **yes** | Later (M3) |
+| 33 | BL-033 | Law-to-bylaw *findings* report (F phase 1, FL) | 4 | 0.6 | 4 | **0.60** | yes (M3) | no | Later (M3) |
+| 34 | BL-034 | Amenity booking | 3 | 0.8 | 4 | **0.60** | yes (M3) | no | Later (M3) |
+| 35 | BL-035 | Stripe ACH/card resident payments | 5 | 0.7 | 6 | **0.58** | yes (M3) | **yes** | Next (override; M3 + keys) |
+| 36 | BL-036 | Autopay | 3 | 0.6 | 3 | **0.60** | yes (M3) | **yes** | Later (M3) |
+| 37 | BL-037 | Reserve fund tracking | 3 | 0.6 | 4 | **0.45** | yes (M3) | no | Later (M3) |
+| 38 | BL-038 | Public HOA website + Notices page | 3 | 0.6 | 4 | **0.45** | yes (M3) | no | Later (M3) |
+| 39 | BL-039 | Electronic vendor payments | 3 | 0.5 | 6 | **0.25** | yes | **yes** | Later (unbatched migration + keys) |
+| 40 | BL-040 | Native app shell (store listing) | 2 | 0.5 | 5 | **0.20** | no | **yes** | Later (keys) |
 
 **Now:** about 24 agent-days.
 
@@ -115,6 +117,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 ## Now (next 2 cycles)
 
 ### BL-001 — Pricing scenarios for the self-managed segment
+- **Groomed 2026-10-20:** Done: scenarios 337456a3, superseded by the 2026-10-20 decision c8490abf; implementation is BL-104.
 - **Status (2026-10-20):** refreshed and decided: `docs/research/2026-10-pricing-analysis.md` → `docs/decisions/2026-10-20-pricing.md`. Implementation is BL-104.
 - **User value:** a 50-unit volunteer board can afford us next to PayHOA without giving up our accounting and AI.
 - **Evidence:**
@@ -129,6 +132,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - a recommendation, left for the owner to decide
 
 ### BL-002 — Marketing truth pass
+- **Groomed 2026-10-20:** Done (f8287179); later rounds b045755c, fefdad6b.
 - **User value:** a board never buys a feature that doesn't exist.
 - **Evidence:**
   - `apps/marketing/src/app/pricing/page.tsx` lists "Multilingual comms", "Reserve Live", "ARC Recommender", "multi-board access controls" and "Export is one-click", none of which is built (research §1.4.2).
@@ -141,6 +145,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - `rtk pnpm build` passes for marketing.
 
 ### BL-003 — Daily digest tells the board when the mailbox is broken
+- **Groomed 2026-10-20:** Done (470cd652).
 - **User value:** a board that hasn't logged in for a week learns that its mail stopped syncing.
 - **Evidence:** in the parking lot, "broken mailbox never reaches a board that isn't logged in". `dailyDigestJob` computes the condition and only logs it.
 - **Effort:** 0.5 · **Migration:** no · **Keys:** no
@@ -151,6 +156,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - No resident is ever a recipient (asserted in a test).
 
 ### BL-004 — Outbound safety guard
+- **Groomed 2026-10-20:** Done (e288f35b).
 - **User value:** we can test every sending feature without ever emailing or texting a real resident.
 - **Evidence:**
   - `apps/hoa/src/lib/email.ts` sends to any address once `RESEND_API_KEY` is set. `lib/sms.ts` is the same.
@@ -165,6 +171,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - A ratchet test fails if any module imports the Resend or Vonage SDK outside the choke point.
 
 ### BL-005 — Inbox shows backfill progress / failure
+- **Groomed 2026-10-20:** Done (efa55e20).
 - **User value:** during a 12-month import the board knows that history is still arriving.
 - **Evidence:** parking lot, "backfill progress is invisible on `/inbox`". The state is already stored (`backfill_status`, `backfill_progress`).
 - **Effort:** 0.5 · **Migration:** no · **Keys:** no
@@ -175,6 +182,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - It follows the design-system v2 `Alert` and is truthful when the status read itself fails.
 
 ### BL-006 — Resident "Pay" screen with Pay-by-Zelle memo code
+- **Groomed 2026-10-20:** Done (f9ecf40f).
 - **User value:** a resident can pay dues from their phone in two taps. The board gets automatic matching instead of reconciling by hand.
 - **Evidence:**
   - `/resident/dues/page.tsx:110` says "contact your community manager".
@@ -199,6 +207,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - The ux-ratchet stays green.
 
 ### BL-007 — Close the `ownerships`/`units` RLS hole (migration batch M1)
+- **Groomed 2026-10-20:** Open, needs migration 0063: the policy split is written (c7fa7e23, RLS sweep) and waits for Asaf to apply 0063.
 - **User value:** a resident can't make themselves the owner of a neighbour's unit to read their dues. That matters more once BL-006 and BL-010 show richer per-unit data.
 - **Evidence:** parking lot 2026-10-15, "`ownerships` and `units` are still FOR ALL, org-only". Revisit trigger: "before any resident self-service flow".
 - **Effort:** 1.5 · **Migration:** **yes** · **Keys:** no
@@ -210,6 +219,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - An apply script with a STEP 3 policy listing is included, and its output is recorded in `docs/NEXT.md` after the owner applies it.
 
 ### BL-008 — First-run setup checklist
+- **Groomed 2026-10-20:** Done (817cbc68).
 - **User value:** a new board reaches a useful state (bank connected, owners imported, documents uploaded, board invited, first announcement sent) without a founder on the call.
 - **Evidence:**
   - Competitors' "hard implementation" complaints (Enumerate, Vantaca; research §2.1).
@@ -224,6 +234,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - When a source read fails it shows "Couldn't check", never "done".
 
 ### BL-009 — Privacy-safe product analytics
+- **Groomed 2026-10-20:** Partly done: only the help-centre event beacon exists (bdfa759f, `/api/help/event` with an allowlist). No page-view or product events, no analytics library. Remaining: wire Vercel Web Analytics (owner enables it on the project) and the 8 named events through the same allowlist pattern. No migration.
 - **User value:** we learn which features boards actually use, so the backlog stops being guesswork.
 - **Evidence:** the UX plan found no analytics library in any app, so "highest-traffic" is a judgement call.
 - **Effort:** 1 · **Migration:** no
@@ -236,6 +247,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - The privacy page is updated.
 
 ### BL-010 — Resident ledger and printable statement
+- **Groomed 2026-10-20:** Done (f9ecf40f).
 - **User value:** a resident sees every charge and payment, not just a balance, and can print a statement for a refinance or a dispute.
 - **Evidence:** the CINC and Vantaca resident apps show the ledger (research §2.1). Ours shows only the balance.
 - **Effort:** 1.5 · **Migration:** no. 0061 already scopes resident reads to their own units.
@@ -352,6 +364,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - The eval set (`W3-violation-inspector/eval.ts`) gains FL and CA cases.
 
 ### BL-020 — Per-member email consent (CA §4040) (migration batch M1)
+- **Groomed 2026-10-20:** Open, needs migration M1: code is built behind `M1_APPLIED` (431ac157 UI, 65a47f5d send path).
 - **User value:** California boards can lawfully send notices by email, and every board knows who has opted out.
 - **Evidence:** Civ. Code §4040 requires written or email consent that the member can revoke (research §2.4).
 - **Effort:** 1.5 · **Migration:** **yes**. Consent columns, or a consent table, on members/residents.
@@ -368,6 +381,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 ## Next
 
 ### BL-017 — Inbox attachment retry controls + per-tenant fairness
+- **Groomed 2026-10-20:** Done (ee42b75b).
 - **User value:** a failed attachment can be retried from the UI, and one tenant's backfill can't starve the others.
 - **Evidence:** parking lot, "attachment retry has no operator controls". `MAX_ATTEMPTS = 2` counts transient failures, and `BATCH_SIZE = 20` is a global limit.
 - **Effort:** 1 · **Migration:** no · **Keys:** no
@@ -375,6 +389,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 - **Acceptance:** the board can retry from the thread view; attempts reset; batches are picked round-robin per org; covered by unit tests.
 
 ### BL-018 — Mailbox reconnect skips a completed backfill
+- **Groomed 2026-10-20:** Done (dc5e9fec).
 - **User value:** reconnecting Gmail doesn't reset the counter and re-import 12 months.
 - **Evidence:** parking lot, "reconnect re-runs the full historical backfill".
 - **Effort:** 0.5 · **Migration:** no · **Keys:** no
@@ -408,6 +423,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - Grouped results, keyboard navigable, under 500ms p50 on the seeded org.
 
 ### BL-023 — Polls and surveys, non-binding (migration batch M2)
+- **Groomed 2026-10-20:** Open, needs migration M2. The owner still has to lift polls out of the parking-lot exclusion.
 - **User value:** the board can ask residents a question and get a tally without Google Forms.
 - **Evidence:** PayHOA, HOA Start, Buildium, CINC, Vantaca and Condo Control all have voting or surveys (research §3).
 - **Override:** the parking lot excludes "resident social features (forums, polls)" from v1. **The owner has to lift polls out of that item.**
@@ -423,6 +439,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - An integration test enforces one vote per unit.
 
 ### BL-024 — Resident ARC pre-check against guidelines
+- **Groomed 2026-10-20:** Done (133eec80 W37, be36dbfd UI).
 - **User value:** a resident learns before submitting that the fence height or paint colour conflicts with the guidelines, so applications arrive complete.
 - **Evidence:** Vantaca's "AI-guided submission" (research §2.1, §4c.4). W1 already answers with citations.
 - **Effort:** 2 · **Migration:** no · **Keys:** no
@@ -449,6 +466,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - The board must view the translation before sending.
 
 ### BL-026 — SMS to residents in production, with consent (migration batch M2)
+- **Groomed 2026-10-20:** Open, needs migration M2 (SMS consent, same columns as communications plan B3) and Vonage/10DLC keys.
 - **User value:** urgent notices (water shutoff, gate broken) reach residents who don't read email.
 - **Evidence:**
   - PayHOA, HOA Start and HOA Express all send texts (research §3).
@@ -466,6 +484,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - Unit tests cover the split and STOP.
 
 ### BL-027 — Board-side AI ARC review → approval layer
+- **Groomed 2026-10-20:** Done (133eec80 W37, be36dbfd UI; photos and letters in BL-079).
 - **User value:** the ARC committee gets a cited recommendation with a draft approval or denial letter, ready to approve.
 - **Evidence:** Vantaca's AI ARC review, which writes letters with reasons (research §2.3). No self-managed competitor has it.
 - **Effort:** 3
@@ -480,6 +499,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - The eval set has 8 fixtures.
 
 ### BL-028 — Mobile inspection mode
+- **Groomed 2026-10-20:** Done (4b878315); /inspect Idempotency-Key 9830f49d; shared-cap test c577ada9.
 - **User value:** a board member walking the neighbourhood logs violations from the phone camera in seconds, even with a weak signal.
 - **Evidence:** Enumerate FieldOps, the AppFolio mobile violations app, and Smartwebs (research §2). HomeHerald drafts violations from photos.
 - **Effort:** 3 · **Migration:** no · **Keys:** no
@@ -491,6 +511,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - Layout checked with `pnpm ui:shots` at 375px.
 
 ### BL-029 — Budget first draft from prior year + actuals
+- **Groomed 2026-10-20:** Done (83dd219d).
 - **User value:** the treasurer starts next year's budget from a draft with reasons for each line, not a blank sheet.
 - **Evidence:** Enumerate SmartBudget and CINC Cephai budgets (research §2.1).
 - **Effort:** 2 · **Migration:** no · **Keys:** no
@@ -501,6 +522,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - Nothing saves until the board confirms.
 
 ### BL-030 — Per-state violation procedure engine, FL first (migration batch M2)
+- **Groomed 2026-10-20:** Open, needs migration M2.
 - **User value:** the full enforcement lifecycle — notice, hearing scheduled, committee decision, fine, cure — is tracked and enforced by state law.
 - **Evidence:** research §4b.1 and §5.3. This is the main differentiator. It builds on BL-019.
 - **Effort:** 4
@@ -513,6 +535,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - Shipped for FL; CA follows.
 
 ### BL-031 — CINC import (homeowner list + aging report)
+- **Groomed 2026-10-20:** Partly done: the homeowner list import with a CINC column preset shipped as properties P4 (e1014c46). Remaining: aging report / opening balances (JE via approvals), still blocked on a real CINC export file. No migration.
 - **User value:** a community leaving a CINC-run management company moves its owners and balances over in minutes, not through hand-written SQL.
 - **Evidence:**
   - Madison Park's data came from CINC aging PDFs through hand-written seeds.
@@ -529,6 +552,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - Re-importing the same file is a no-op.
 
 ### BL-035 — Stripe ACH/card resident payments (override: Next)
+- **Groomed 2026-10-20:** Open, needs migration M3 and Stripe Connect keys.
 - **User value:** residents pay by bank or card, with automatic posting through the approval or confirmation path.
 - **Evidence:** table stakes (research §4a.1); ADR-005 rails.
 - **Effort:** 6
@@ -549,6 +573,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 ## Later
 
 ### BL-032 — Mailed letters from the app
+- **Groomed 2026-10-20:** Open, needs migration M3 and Lob/PostGrid keys.
 - **User value:** violation and collection letters reach owners who ignore email, with proof of mailing.
 - **Evidence:** PayHOA ($1.05–1.25 a letter), HOA Express and HomeHerald (research §2.2).
 - **Effort:** 3 · **Migration:** yes (send log) · **Keys:** **yes** (Lob/PostGrid)
@@ -556,6 +581,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 - **Acceptance:** an approved letter from the W3 or collections flow is sent through the provider; tracking is stored; the cost is shown before sending.
 
 ### BL-033 — Law-to-bylaw *findings* report (F phase 1, FL)
+- **Groomed 2026-10-20:** Open, needs migration M3.
 - **User value:** when Florida law changes, the board learns which of its bylaws are affected.
 - **Evidence:** F spec §2.3; HeyNeighbor's "document audit" (research §2.3).
 - **Effort:** 4 · **Migration:** yes · **Keys:** no
@@ -563,6 +589,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 - **Acceptance:** a `law/statute.changed` event produces per-association findings, which show on `/legal` with verbatim quotes from both sources.
 
 ### BL-034 — Amenity booking
+- **Groomed 2026-10-20:** Open, needs migration M3.
 - **User value:** residents reserve the clubhouse or pool pavilion without emailing the board.
 - **Evidence:** HOA Start, Buildium, Vantaca, Enumerate, Condo Control and HomeHerald (research §3).
 - **Effort:** 4 · **Migration:** yes · **Keys:** no
@@ -570,6 +597,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 - **Acceptance:** the board defines amenities, rules and approval mode; residents book through a calendar; there's a conflict check; the board approves.
 
 ### BL-036 — Autopay
+- **Groomed 2026-10-20:** Open, needs migration M3; after BL-035.
 - **User value:** residents set it and forget it, and delinquency drops.
 - **Evidence:** PayHOA, Buildium, Vantaca, GnomeOwner (research §3).
 - **Effort:** 3 · **Migration:** yes · **Keys:** yes (after BL-035)
@@ -577,6 +605,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 - **Acceptance:** the resident enrolls with a mandate; charges run on the due date; failures notify both resident and board; covered by integration tests in Stripe test mode.
 
 ### BL-037 — Reserve fund tracking
+- **Groomed 2026-10-20:** Open, needs migration M3.
 - **User value:** the board sees percent funded and planned contributions per component.
 - **Evidence:** PayHOA lacks reserve accounting (research §2.2); Condo Control summarizes reserve studies with AI. W9 is parked.
 - **Effort:** 4 · **Migration:** yes · **Keys:** no
@@ -584,6 +613,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 - **Acceptance:** the board enters components (life, cost, remaining life); the product computes percent funded and a 30-year schedule; the reserve GL accounts are linked.
 
 ### BL-038 — Public HOA website + Notices page
+- **Groomed 2026-10-20:** Open, needs migration M3.
 - **User value:** prospective buyers and owners find the HOA online. FL associations get the conspicuous Notices page the statute names.
 - **Evidence:** PayHOA and HOA Express include a website; FL §720.303(4) (research §2.4).
 - **Effort:** 4 · **Migration:** yes · **Keys:** no (subdomain); a custom domain needs DNS
@@ -591,6 +621,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 - **Acceptance:** a public page per org with about, contacts, public documents, and notices; meeting notices are posted automatically from `/meetings` at least 14 days ahead.
 
 ### BL-039 — Electronic vendor payments
+- **Groomed 2026-10-20:** Open, needs a migration (not yet batched; M3 at the earliest) and keys.
 - **User value:** the board pays vendors by ACH from an approved bill.
 - **Evidence:** PayHOA's "can't pay vendors by ACH" complaint; CINC/AvidXchange (research §2).
 - **Effort:** 6 · **Migration:** yes · **Keys:** yes
@@ -598,6 +629,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 - **Acceptance:** an approved bill is paid through the provider after two board approvals; it is reconciled by W18.
 
 ### BL-040 — Native app shell (store listing)
+- **Groomed 2026-10-20:** Open, no migration, but needs Apple/Google developer accounts; deferred until residents complain about the PWA.
 - **User value:** residents find "the HOA app" in the App Store.
 - **Evidence:** every mid-market competitor has a native app (research §3). The parking lot keeps the PWA until residents complain about installing it.
 - **Effort:** 5 · **Migration:** no · **Keys:** yes (Apple/Google developer accounts)
@@ -621,6 +653,7 @@ These go beyond the design-system v2 pass:
 ## Added 2026-10-15 (cycle 1)
 
 - **BL-041 Implement the recommended pricing** — **superseded 2026-10-20 by BL-104 / `docs/decisions/2026-10-20-pricing.md`** (docs/decisions/2026-10-pricing.md):
+  - **Groomed 2026-10-20:** Obsolete: superseded by BL-104 and `docs/decisions/2026-10-20-pricing.md`.
   $1.00/door, $59/mo floor, optional AI add-on $0.50/door ($25 min), 10% off
   annual; grandfather Madison Park. Owner pre-approved recommendations
   2026-10-15. **Sequencing:** ship only after BL-006 (Pay-by-Zelle) is live, per
@@ -629,6 +662,7 @@ These go beyond the design-system v2 pass:
   teaser still shows flat $39/$79/$149 tiers contradicting /pricing; the
   "$200 minimum" is actually $204.59 (41-door rounding).
 - **BL-042 Marketing truth pass, round 2** (low priority, HOA-relevant pages
+  - **Groomed 2026-10-20:** Done (b045755c round 2, 969622e9 testimonials; round 4 fefdad6b).
   only): /hoa, /compare, Madison Park case study, workflows grid still name
   Reserve Live / Minutes Engine. Out of HOA-app scope except where they sell the
   HOA product.
@@ -640,6 +674,7 @@ These go beyond the design-system v2 pass:
   `bank-rec.ts:164` stores `paid_at` from a date-only value — needs a decision.
   Fix: one association timezone (default America/New_York) and date-only helpers.
 - **BL-044 Dues-reminder follow-ups** (from c2): a per-association timezone (with BL-043);
+  - **Groomed 2026-10-20:** Partly done: the per-association reminder day shipped (713fa17f). Still open, no migration: a reminder whose every recipient the outbound guard held back is still finished as `failed` (`packages/jobs/src/dues-reminders/run.ts`, `sent > 0 ? 'sent' : 'failed'`); the 600px email preview still scrolls sideways at 375px; the populated dry-run table has not been seen with real data.
   the populated dry-run table has never been seen with real data; a message where every
   recipient was blocked by the guard is marked `failed`; the 600px email preview scrolls
   sideways at 375px (as on /dues).
@@ -657,13 +692,16 @@ These go beyond the design-system v2 pass:
 - **BL-049 Residents see association documents — Done (c4)** (from BL-015): FL §720.303(4) requires
   posting records in an owners-only area; the resident portal lists none today. No migration.
 - **BL-050 `notice_posted_at` on meetings (migration, batch M1)** (from BL-015): record when a
+  - **Groomed 2026-10-20:** Open, needs migration M1: UI built behind `M1_APPLIED` (431ac157).
   meeting notice was posted so the 14-day/48-hour check can confirm compliance, not just
   flag late additions.
 - **BL-051 Board packet follow-ups — Done except the Safari check** (from BL-016): budget vs actual cut off at the end of
+  - **Groomed 2026-10-20:** Partly done (cf72c358). Remaining: the Safari print check needs a human; waived/written-off charges in month-end delinquency need a `waived_at`-style column (add it to the BL-085 batch).
   the packet month; delinquency as of the end of the month; a real Safari PDF check.
   - Still open: the Safari print/PDF check needs a human. Waived and written-off charges are
     still left out of month-end delinquency, because nothing records when they were waived.
 - **BL-052 Document visibility enforced by the database (migration, batch M1, security)** (from BL-049):
+  - **Groomed 2026-10-20:** Open, needs migration M1: UI built behind `M1_APPLIED` (431ac157).
   residents can still read every `hoa_documents`/`governing_documents` row of their org and sign any
   object under their org's `hoa-documents` prefix (including `<org>/vendors/…`), because 0063 kept
   member reads. Add a board-set `visible_to_owners` column, gate resident SELECT and storage reads on
@@ -681,6 +719,7 @@ These go beyond the design-system v2 pass:
 ## Added 2026-10-16 (cycle 5)
 
 - **BL-055 Route-conventions round 4 — Done (c6) except webhooks/stripe (M1).** Four rejected route fixes are still open: ai/ask-community (raw tool errors reach the model, and raw rows are returned), plaid/exchange (the write order can't be undone if a write fails), webhooks/resend (reply linking relies on Resend's API id, not the SMTP Message-ID), and webhooks/stripe (its 0064 can drop a paying org to the free plan when it switches subscriptions; this one needs a migration, so it joins batch M1). The routes-fix/*-r2 branches hold the earlier attempts.
+  - **Groomed 2026-10-20:** Partly done: ask-community, plaid/exchange and webhooks/resend fixed in c2873fc1. Only webhooks/stripe remains, needs migration M1 (Stripe 0064).
 - **BL-056 Invitation pages and server actions follow-ups (from round 3): — Done (c7)**
   - The rfp-bid and vendor-onboard pages now show Next's error page when the database fails. They should show a branded "try again".
   - `inviteVendorsToRfp`, `revokeRfpInvitation` and `listInvitations` still return or log raw `.message`.
@@ -694,24 +733,29 @@ These go beyond the design-system v2 pass:
 ## Added 2026-10-16 (cycle 6)
 
 - **BL-058 Stored bills readable by residents (security, M1 with F-02):** uploaded bills sit in `hoa-documents` under `${orgId}/bills/`, which any org member can read by path. Vendor documents have the same problem. Move them to a board-only bucket or path policy as part of the M1 storage policies.
+  - **Groomed 2026-10-20:** Open, needs migration M1 (storage policies).
 - **BL-059 Bill scan follow-ups:**
+  - **Groomed 2026-10-20:** Partly done: edit-before-approve shipped (082e6a34), and the /approvals filter redirect fix. Still open, no migration: inbox attachments as a second way into bill scan; one real bill through the text and vision paths; `read-only:bg-subtle` in `packages/ui/src/lib/control.ts` still greys every Select trigger.
   - ~~Let the board edit extracted fields before approving.~~ Done (claude/bl-059): "Edit details" on each /approvals bill card (vendor, invoice #, dates, total, expense account, line items). `editBillProposal` (board gate before any client) re-validates in code (`lib/bill-scan/edit.ts`): real dates, invoice not after the association's today, due ≥ invoice, total in (0, $1M] cents, priced line items sum to an edited total, vendor/account from the association's lists, duplicate vendor + invoice # refused. Edited fields are marked in `payload.humanEdits` and mirrored to `ai_runs.human_edited_output`. Reject-only cards are fixable by editing.
   - Left: accept inbox attachments as a second way in.
   - Left: run one real bill through the text and vision paths (only a fake model has been tested).
   - ~~Find out why `/approvals?type=bill` showed the All view in the screenshot.~~ Done: not the tab filter. Middleware's sign-in redirect kept only the pathname, so every fresh ui:shots context (and any signed-out user following a filtered link) came back to `/approvals`. The redirect now keeps the query string.
   - Left: `read-only:bg-subtle` in `controlBase` matches non-input elements, so every Select trigger and prefixed Input renders grey (design-system wide, not bill-specific).
 - **BL-060 ⌘K follow-ups:**
+  - **Groomed 2026-10-20:** Partly done (07160ecd). Open: inbox-participant matching needs a migration or RPC (not yet batched; candidate 0065); p50 latency measurement needs no migration.
   - ~~Violations on the same lot look identical, so add the date and status to each row.~~ Done: every violation, ARC, ticket and inbox row carries a right-aligned status · day (association day, BL-043) that stays visible when the label truncates; ARC/tickets/threads also show the lot's address.
   - ~~Add documents and meetings.~~ Done: uploaded + current governing documents (one "Documents" group) and meetings (type/summary), board-only through `/api/search`, RLS client, 5 per type.
   - ~~Fix inbox links that use `/properties/${unitId}`.~~ Confirmed bug (404): PropertyRail now links `PropertyContext.propertyId` (`units.legacy_hoa_property_id`), and shows the address unlinked when a unit has no property record. Search already used the hoa_properties id.
   - Left: match on inbox participants (needs a migration or RPC over message addresses).
   - Left: measure p50 latency.
 - **BL-061 Confirm Resend keeps our Message-ID:** send one real communication and check that the reply's In-Reply-To carries `<hoh-cr.…>`. If Resend overwrites it, add `smtp_message_id` (migration). Inbound replies also need Resend receiving and an `email.received` webhook set up for the EMAIL_FROM domain (dashboard/DNS, owner).
+  - **Groomed 2026-10-20:** Open, no migration: a manual check with one real send (owner or a prod smoke). Resend receiving / `email.received` is dashboard and DNS work for Asaf.
 - **BL-062 Owner contact sent to the AI provider — Done (claude/bl-062):** ask-community sends owner email and phone to Groq on a board lookup. Consider redacting them, or sending them only when the question asks for contact details.
 
 ## Added 2026-10-17 (cycles 7–8)
 
 - **BL-063 Retry cap gaps (needs a column, M1):** event alerts that never write a communications row (no association, no recipients, a failed insert) still retry daily. Add `hoa_recurring_events.alert_failed_attempts`.
+  - **Groomed 2026-10-20:** Open, needs migration M1 (`alert_failed_attempts`).
 - **BL-064 "Open the books" for partial setups — Done (c9):** trial-balance, periods, coa, invoices/new, cash-flow, income-statement and the Plaid "no funds" alert still say "Contact support" when an association exists but its books are incomplete. Reuse `setUpAssociationCore`. The leases, settings/payments and reminders pages should use `AssociationNotSetUp`.
 - **BL-065 Time zone leftovers (from BL-043): — Done (claude/bl-065)**
   - The events pages and the recurring-events cron still use the UTC day. Change them together.
@@ -720,12 +764,14 @@ These go beyond the design-system v2 pass:
   - The heat-map grid is built in server-local time.
 - **BL-066 admin-analytics overflows at 1440 — Done (c9):** a `sm:grid-cols-[9rem_1fr]` grid spills out of its card (345px in 326px).
 - **BL-067 Grouped analytics counts:** getAnalyticsData now makes about 2 × tenants + 14 count queries. An RPC or view would make it one query (migration).
+  - **Groomed 2026-10-20:** Open, needs a migration (RPC or view); not yet in a batch, candidate M2.
 - **T-07 Unit test with a slow import — Done (c9):** bill-scan `proposal.test.ts` imports the workflows package and timed out once under machine load. Give it a mock or a longer timeout.
 
 
 ## Added 2026-10-17 (owner request)
 
 - **BL-068 Per-tenant module switches, with license pricing per module** (owner request; Next; migration batch M2; prices are an owner decision on top of BL-001)
+  - **Groomed 2026-10-20:** Open, needs migration M2. Prices superseded by BL-104; the module switches themselves are still wanted (BL-104 item 7 entitlements is built as a pure function behind PRICING_V2).
   - **What:**
     - In platform admin → tenant, switch each module on or off for that tenant.
     - The license price recalculates live as modules change, showing a "this tenant pays $X/mo, $Y less without Accounting" preview.
@@ -776,6 +822,7 @@ These go beyond the design-system v2 pass:
   - **Scores:** impact 4, confidence 0.7, effort 3 agent-days, score 0.93 → Next. It needs a migration (M2) and the owner's sign-off on the module prices.
 
 - **BL-069 Monthly state-law sync from official sources and legislative APIs, with an email report to the owner** (owner request; Next; builds on W30 and `packages/jobs/src/state-law-refresh.ts`)
+  - **Groomed 2026-10-20:** Open, needs migration M2 for `state_law_runs`, plus Open States/LegiScan keys. The CA/GA/TX statute-text adapters behind `StateLawAdapter` need no migration and are ranked below.
   - **Today:**
     - The refresh job runs weekly (Mondays 03:00 ET) and also on `law/refresh.requested`.
     - Only FL has an official-source adapter.
@@ -814,6 +861,7 @@ These go beyond the design-system v2 pass:
   - **Scores:** impact 4, confidence 0.7, effort 3 → 0.93, Next. Needs a migration (M2) and API keys from the owner.
 
 - **BL-070 User guide for new users** (owner request, 2026-10-17; Now; approach delegated)
+  - **Groomed 2026-10-20:** Done, phase 1 (1d6afbd2 compiler, 6336b902 /help and drawer, cccba425 Ask the guide, 4597db4d What's new); phase 2 articles 418cae4f.
   - **Scope:** research the best AI-era method, then build. The spec is docs/specs/2026-10-17-user-guide.md, from the research agent.
   - **Planned phase 1:**
     - articles in the repo as markdown, with screenshots generated by ui:shots;
@@ -825,12 +873,14 @@ These go beyond the design-system v2 pass:
 
 
 - **BL-071 Version indicator in the app** (owner request, 2026-10-17; Now; small; no migration)
+  - **Groomed 2026-10-20:** Done (08d01fd7).
   - Shows the running version as "v2026.10.17 · c56061f": the build date in ET plus the short SHA, the same source as /api/health.
   - Where: the sidebar and mobile nav footer (linking to a "What's new" page built from docs/releases), the login page, the resident portal footer, and the platform-admin header.
 
 ## Added 2026-10-17 (found while writing the user guide)
 
 - **BL-072 Guide-found UX bugs** (Now, small, no migration):
+  - **Groomed 2026-10-20:** Done (75c6986a).
   - /onboarding/setup "Upload CSV" links to the platform-admin-only /admin/import-units, so a normal admin is just redirected away. This goes away with properties P4; until then, hide or relabel the link.
   - The Generate dues and Record payment flows can show developer text ("run pnpm seed:accounting"). Replace it with user-facing messages and the "Open the books" action.
   - Ask the Docs (board): `/api/ai/ask-community` always returns `toolCalls`, so the "Cited sections" view never renders.
@@ -838,6 +888,7 @@ These go beyond the design-system v2 pass:
   - The invite form's role hint always shows the Resident text, whatever role is picked.
 
 - **BL-073 Month-end board report email** (owner question, 2026-10-17; Now; no migration if possible)
+  - **Groomed 2026-10-20:** Done (0fbec9ad).
   - **When:** sent automatically on the 1st at 08:00 ET to every association's board and admin members, covering the previous month in the association's own time zone. Admins can also preview it and choose "Send now".
   - **What it contains:** it reuses the board-packet numbers:
     - financials;
@@ -848,31 +899,42 @@ These go beyond the design-system v2 pass:
   - **Rules:** each member can opt out. Each org gets at most one report per month. It is sent through the outbound guard. A section whose data failed says "couldn't load".
 
 - **BL-074 Page navigation performance** (owner request, 2026-10-17; Now): measure, find root causes, then fix. Candidates: loading.tsx skeletons, `cache()` for per-request lookups, parallel loaders, middleware auth cost, router cache and prefetch, function region vs DB region. In progress.
+  - **Groomed 2026-10-20:** Done (85303021 pdx1, 94883b81, 451e64e0, 0e43d219, d4909aa1); continued as BL-099.
 - **BL-075 Screenshots and integration only in CI** (owner rule, 2026-10-17: no local DB): a GitHub Actions job that boots the throwaway Supabase, seeds, runs `ui:shots` and `ui:overflow`, and uploads the shots as artifacts for review and release notes. Integration is already CI-only from now on.
+  - **Groomed 2026-10-20:** Done (f3164425).
 
 ## Added 2026-10-18 (cycle findings)
 
 - **BL-076 Open next fiscal year** (from BL-029): there is no action to open the next fiscal period, so a drafted budget usually can't be saved. Add an admin-only "Open next fiscal year" that creates the period without changing the current period until the year starts. No migration.
+  - **Groomed 2026-10-20:** Done (db799503).
 - **BL-077 Closing entries distort reports (accounting bug, high)** (from BL-029): computeBudgetVsActual and the income statement include year-end closing entries, so a closed year's actuals net to about zero. Exclude closing entries the way budget-draft-data.ts does, and add a regression test.
+  - **Groomed 2026-10-20:** Done (42d31966).
 - **BL-078 ARC pre-check rate limit** (from BL-024): POST /api/ai/arc-precheck makes one model call per click with no limit. Add a per-user and per-org rate limit; the board-side review is unaffected. Also bind the pre-check run id to the submitting resident.
+  - **Groomed 2026-10-20:** Done (2dccfdeb).
 - **BL-079 ARC review photos and letter draft** (from BL-027): vision findings from the application photos, and a full decision-letter draft. Built on `claude/bl-079` (2026-10-18): W37 reads up to `ARC_REVIEW_MAX_PHOTOS` (default 3) image attachments out of band, findings tied to their photo at low/medium confidence feed the suggestion; four editable letters (approve / with conditions / deny / request info) built in code from the cited rules, blocked from sending while a BLANK is left. No migration.
+  - **Groomed 2026-10-20:** Done (fe712f36, 12a3d395).
 
 ## Added 2026-10-18 (found while writing guide phase 2)
 
 - **BL-080 Payment plans never complete:** a plan never moves to Completed on its own, and a home on an active plan skips automatic dues reminders for good. Close a plan when it is paid off, and resume reminders.
+  - **Groomed 2026-10-20:** Done (2211010e). Memo stand-ins remain until the BL-085 columns land.
 - **BL-081 Stop or edit a recurring journal entry:** there is no UI for it, and the guide currently tells boards to contact support.
+  - **Groomed 2026-10-20:** Done (2211010e).
 - **BL-082 Notify residents of decisions (Done 2026-10-19, 084692b):** no email or text goes out when the board replies to a ticket or decides an ARC application. Add an opt-in notification through the outbound guard, using the residents' preferences.
 - **BL-083 Vendor insurance expiry reminders (Done 2026-10-20, board-facing per the owner safety rule):** no automatic email to anyone outside the board. The daily `vendor-coi-reminders` job now writes only in-app board notices (30 / 7 / 0 days; same function id, no sender). Expiring and expired COIs show in the dashboard Daily Digest and At risk list and as a badge on the vendor page. "Request updated certificate" on the vendor page drafts the vendor email; the board reviews and sends it through the guarded sendEmail, to the vendor's address on file only.
 - **BL-084 RFP insurance minimums settings (Done 2026-10-20):** Settings → Vendors holds general liability, workers' comp, auto and umbrella minimums (signed compliance_settings.vendor_insurance, no migration). Umbrella replaced W21's unsigned `umbrella_min` read; RFP drafts, invitations and the compliance check all use the signed values. Per-RFP overrides were not built: minimums are per association.
 - **Eval note:** the Ask-the-guide rules classifier sends some how-to questions to Ask the Docs ("how long can", "allowed", "declaration"). Tune it next time.
+  - **Groomed 2026-10-20:** Done (7c71b204): app how-tos worded like rules questions now stay with the guide (`isRulesQuestion` in `apps/hoa/src/lib/guide/ask-core.ts`).
 
 - **BL-085 Columns wanted for M2** (from BL-080/081/083):
+  - **Groomed 2026-10-20:** Open, needs migration (its own BL-085 batch, after M2). Also take BL-051's waived-at column.
   - `assessments.payment_plan_id`: the plan is linked today by parsing a memo. Since the 2026-10-19 double-count fix there are two links: installments (memo `Payment plan installment i/n (plan xxxxxxxx)`) and the charges a plan replaced (memo `Payment plan replaces charge (plan xxxxxxxx)`, source_id = the replaced charge, which is set to `waived`). Both want this column (or `replaced_by_plan_id`), plus a real `replaced` status so a replaced charge stops reading "Waived" on the resident ledger.
   - Plans made before 2026-10-19 count the balance twice. Diagnostic and a reviewed correction (not applied): `docs/specs/2026-10-19-payment-plan-double-count.sql`.
   - `payment_plans.completed_at`.
   - `recurring_journal_entries.status` (active / paused / stopped) and `end_date`.
   - Once these exist, replace the memo and audit-row stand-ins.
 - **BL-086 Check vendor COI reply routing in prod:** the board-sent "Request updated certificate" email asks the vendor to reply. Confirm one real reply reaches the board's inbox.
+  - **Groomed 2026-10-20:** Open, no migration: a manual prod check with one real vendor reply.
 
 ## Research pass 2026-10-19: next no-migration wins (ranked)
 
@@ -880,16 +942,20 @@ These go beyond the design-system v2 pass:
   - "Prepare estoppel" on the property page, filled from the ledger, collections, plans and open violations.
   - Business-day due date and fee cap; BLANKs block printing; a board-verify step; audit row.
 - **BL-088 Resident "Meetings and notices" page (built 2026-10-19; off until Asaf applies docs/specs/2026-10-19-resident-meeting-notices.sql, after 0063 and M1; time/place columns need a later migration):** upcoming meetings and approved minutes only (FL 100+ parcels owners-only posting); a card on the resident home page.
+  - **Groomed 2026-10-20:** Open, needs migration: built (2c8e1c29), off until Asaf applies `docs/specs/2026-10-19-resident-meeting-notices.sql` after 0063 and M1.
 - **BL-089 Statute-aware collections letters:** draft and print only, through Approvals (FL §720.3085(4) 45-day intent to lien, TX §209.0064, CA §5660).
+  - **Groomed 2026-10-20:** Done (f054b020; correctness fixes 59f45aba).
 - **BL-090 Marketing truth round 3 (Done 2026-10-19):** Spanish and AI ARC review are now shipped; the HOA hero persona quotes unsupported numbers.
 - **BL-091 Annual budget notice to owners (Done 2026-10-19)** (FL §720.303(6), CA §5300 partial): built from the adopted budget; reserve fields are BLANKs. "Prepare owner budget notice" on an approved budget; print, or an announcement draft through New message. CA fixture gains §§ 5300 and 5320.
 
 ## Owner requests 2026-10-18 (received 2026-10-19)
 
 - **BL-092 Product and architecture deck (PowerPoint):** a full product and architecture overview for team members and potential buyers, with sketch-style diagrams and screenshots.
+  - **Groomed 2026-10-20:** Done: `~/HomeownerHub-decks/HomeownerHub-Product-Architecture.pptx` (outside the repo, so no commit). Keeping it current is ongoing.
   - Saved locally outside the public repo, in `~/HomeownerHub-decks/`.
   - Refresh it whenever a deploy changes something the deck shows. Each loop cycle checks whether it is stale.
 - **BL-093 Investor deck (PowerPoint):** researched fundraising deck: problem, solution, product, market size, business model and pricing, go-to-market, traction, competition, roadmap, team, financials and the ask.
+  - **Groomed 2026-10-20:** Done: `~/HomeownerHub-decks/HomeownerHub-Investor-Deck.pptx` (outside the repo). Keeping it current is ongoing (OA-15 traction numbers, 6dbb1c8d).
   - Kept current over time. Saved locally outside the repo, because it holds strategy.
 - **BL-094 Company logo (Done 2026-10-19, superseded by BL-098 concept C):** a mark plus a wordmark for HomeownerHub / Ledger, delivered as SVG and PNG in light and dark versions, with a favicon.
 - **BL-095 Platform recolour (Done 2026-10-19):** move the whole platform to a blue / light-blue palette in line with current SaaS design trends, through design tokens. It must keep AA contrast, dark mode and the guide screenshots working. It follows BL-094 so the palette matches the logo.
@@ -922,6 +988,7 @@ These go beyond the design-system v2 pass:
   - Prepare logo options for "HomeownerHub" (2–3 concepts, wordmark plus mark) and present them for the owner to pick.
   - Then apply one brand name everywhere.
 - **BL-099 Data shows too slowly (owner, 2026-10-19):** BL-074 already fixed the region (pdx1), request-level caching and parallel loaders, yet screens still wait for data. Only 5 of about 150 pages have a `loading.tsx`, and most pages await every query before rendering anything.
+  - **Groomed 2026-10-20:** Done (f56494df): timing, streaming, 123 loading.tsx, waterfall fixes. `docs/specs/2026-10-19-perf-indexes.sql` (12 indexes) waits for Asaf. Follow-up: read the `[perf]` logs and fix the slowest pages (ranked below).
   - **Plan:**
     1. Add per-loader timing in production (Server-Timing header plus ids-only duration logs), so the slowest pages and queries show up with real numbers.
     2. Stream: render each page's shell at once, put data sections in `<Suspense>` with skeletons, and add `loading.tsx` to every dashboard and resident route group.
@@ -929,11 +996,13 @@ These go beyond the design-system v2 pass:
     4. Propose missing indexes as SQL for Asaf to apply.
     5. Tune router prefetch on the sidebar links.
 - **BL-100 The marketing site isn't being deployed (found 2026-10-19):** the Vercel project `homeownerhub-marketing` (https://homeownerhub.vercel.app) last deployed 148 days ago. It still serves the old "Ledger" site, so none of the marketing truth passes (BL-042/090), the hub hiding (BL-097) or the HomeownerHub rename is live there. www.homeownerledger.com serves the app and opens on /login.
+  - **Groomed 2026-10-20:** Partly done: marketing metadataBase/canonical fixed (fefdad6b); domain split step 1 (ab3f69ef). Remaining is owner work: the CNAME and the step 2 dashboard changes, then connect the marketing project.
   - **Owner decisions:**
     - connect the marketing project to the prod branch;
     - give it a domain (e.g. homeownerledger.com root for marketing and app.homeownerledger.com for the app, or keep the current split);
     - `metadataBase` in apps/marketing points at https://ledger.ai, which isn't ours; it must change to the real domain.
 - **BL-101 Inbox revisit (owner, 2026-10-19):** replying to residents' emails and requests still takes the board a lot of effort. Rework `/inbox` so that it:
+  - **Groomed 2026-10-20:** Partly done: Phase A A1–A9 shipped (c85a6e5b A1/A2, b9863141 A3/A6, 1859ee84 A4, ec84ebba A5/A7, f369f911 A8/A9, b5c280a2 A8 drafts). Open: A10 measurement (no migration); Phase B B1–B5 needs migration 0065.
   - connects each message to everything relevant: the sender's home and account, their open tickets, ARC applications and violations, the governing documents, and past threads;
   - drafts a cited reply for the board to approve;
   - turns an email into a ticket, ARC application or violation report in one click;
@@ -942,6 +1011,7 @@ These go beyond the design-system v2 pass:
 
   Phase 1 is research and a plan (docs/research/2026-10-inbox-plan.md). Phase 2 builds the top items that need no migration.
 - **BL-102 Communications: simple and self-service (owner, 2026-10-19):** review the whole outbound communications module so a volunteer can send the right message without help. It covers:
+  - **Groomed 2026-10-20:** Partly done: Phase A A1–A9 and A11 shipped (dcf3c57b A1/A4/A6, dd411f5f A2/A3, 7d0f363d A5–A9, d6339540, 973f5408 and 279e076e A11). Open: A10 guide rewrite is partial (no `communications-urgent-notice.md` or `communications-follow-up.md`; the announcement guide still mentions Topic/HTML). Phase B B1–B4 need migrations not yet in a batch (B3 overlaps BL-026 in M2).
   - the announcement wizard;
   - audiences and segments;
   - SMS;
@@ -952,6 +1022,7 @@ These go beyond the design-system v2 pass:
   - delivery status.
   Design it alongside BL-101 (inbox), so both sides of resident communication feel like one place. Phase 1 is a research plan, docs/research/2026-10-communications-plan.md. Phase 2 builds the pieces that need no migration.
 - **BL-103 Stripe sandbox test suite (owner, 2026-10-19):** an automated suite that runs every payment path against Stripe test mode, as a GitHub workflow.
+  - **Groomed 2026-10-20:** Done (87c8d213): the suite skips cleanly until Asaf adds the Stripe test keys as GitHub secrets.
   - **Card:** success, decline and 3-D Secure.
   - **ACH:** us_bank_account, including micro-deposit and instant verification.
   - **Link:** if enabled.
@@ -965,6 +1036,7 @@ These go beyond the design-system v2 pass:
 ## Added 2026-10-20 (pricing decision)
 
 - **BL-104 Implement the 2026-10-20 pricing: Essentials / Complete in flat size bands** (decision `docs/decisions/2026-10-20-pricing.md`; evidence `docs/research/2026-10-pricing-analysis.md`; supersedes BL-041 and BL-068's price table; needs BL-068's module switches, migration batch M2)
+  - **Groomed 2026-10-20:** Partly done (a51de69d, 6c96734f). Open, no migration: item 5 band-sync job, item 6 renewal-notice job, item 9 SMS allowance (count existing send rows). Needs M2: module-off pages. Needs owner: Stripe objects, portal settings, the flip.
   - **Status (2026-10-20):** AI safety live: the `board_ai` cap on previously unlimited board routes, 200/day for every current org. Existing and grandfathered orgs keep today's per-feature limits. Per-band ceilings (item 8) apply only to new-plan orgs after the flip. Items 1, 3, 4 (lookup-key mapping), 7 (pure), 10 (billing page), 11 (marketing) and the grandfathering rule built behind `PRICING_V2` (off). Flip steps and Stripe objects: `docs/specs/2026-10-20-pricing-v2-rollout.md`. Open: 5, 6 (jobs), 9 (SMS), module-off pages (needs M2), caps for meeting-summary / ask-community (decision amendment).
   - **Rule:** nothing below goes live piecemeal. Code, Stripe Prices and marketing ship in **one PR**; until then checkout and the site keep charging and showing $4.99/door. Existing paying subscriptions keep their price until renewal (decision §5).
   - **0. Before starting (ids only, no PII):** list live Stripe subscriptions on `hoa_per_door_monthly` / `hoa_per_door_annual`, with org id, cadence and term end. Record them here. Confirm whether any exist beyond the Madison Park pilot.
@@ -1005,6 +1077,42 @@ These go beyond the design-system v2 pass:
 
 
 - **BL-105 Inbound sender authentication:** `checkSenderForUnit` trusts the From header, which can be forged. Read the inbound provider's SPF/DKIM/DMARC result and treat a failed check as "unverified sender" (no contact-update prefill, a warning in the context panel). No migration if the verdict is available on the stored message; otherwise it waits for migration 0065.
+  - **Groomed 2026-10-20:** Partly done (cd3c6144), behind `SENDER_AUTH_COLUMN_LIVE = false`. Needs migration 0065 (`docs/specs/2026-10-20-inbound-auth.sql`).
   - **Status (2026-10-20):** the verdict is NOT stored today (Inbox mail is Gmail sync; `inbox_messages` keeps no headers), so it needs a column. Built: the pure parser (`packages/mailbox/src/auth-results.ts`, topmost `Authentication-Results` from `mx.google.com` only → pass / fail / none), ingest writing `sender_auth`, `checkSenderForUnit(…, { threadId })` turning `fail` into `sender_unauthenticated` (no contact-update prefill or filing, balance withheld from drafts and saved replies, red chip in the rail; `none` adds a soft note). All behind `SENDER_AUTH_COLUMN_LIVE = false`. Waits for the owner to apply `docs/specs/2026-10-20-inbound-auth.sql`, then flip the flag and deploy.
 - **BL-106 AI caps for meeting-summary and ask-community:** these two board-only AI routes are still uncapped (BL-104 left them out because the decision's cost math doesn't cover them). Measure per-call cost from ai_runs, then amend docs/decisions/2026-10-20-pricing.md with a cap that keeps worst-case AI cost at or below 30% of the band price.
+  - **Groomed 2026-10-20:** Open, no migration (ranked below). Note: the `board_ai` comment in `apps/hoa/src/lib/api/ai-limits.ts` lists meeting-summary and ask-community, but neither route calls `requireAiQuota` today.
 - **BL-107 Terms of Service revision (HOA only) (Done 2026-10-20, scope-only; see docs/decisions/2026-10-20-terms-scope-correction.md; goes live with BL-100):** the marketing Terms page still describes "small landlords and eviction-adjacent tasks" (from before BL-097). Draft an HOA-only revision with a new "Last updated" date and a change summary. Ship it together with the marketing deploy (BL-100). Changing legal text needs care: keep it to a scope correction, with no new obligations.
+
+## Ranked open work (groomed 2026-10-20)
+
+**How this was groomed:** every item not already marked Done was checked against `git log --grep=BL-NNN` and the code, and now carries a "Groomed 2026-10-20" line with the commit. 72 items were classified:
+
+| Class | Count | Items |
+|---|---|---|
+| Done (was listed as open) | 33 | BL-001, 002, 003, 004, 005, 006, 008, 010, 017, 018, 024, 027, 028, 029, 042, 070, 071, 072, 073, 074, 075, 076, 077, 078, 079, 080, 081, 089, 092, 093, 099, 103, the guide classifier eval note. The properties P0–P4 and P5 parts in "Priorities" are done too. |
+| Partly done | 12 | BL-009, 031, 044, 051, 055, 059, 060, 100, 101, 102, 104, 105 |
+| Open, no migration | 4 | BL-040 (keys, deferred), 061 and 086 (manual prod checks), 106 |
+| Open, needs migration | 22 | **0063:** BL-007 · **M1:** BL-020, 050, 052, 058, 063 (+ BL-055's webhooks/stripe 0064) · **after 0063 + M1:** BL-088 · **M2:** BL-023, 026, 030, 068, 069 (+ BL-067 candidate) · **BL-085 batch:** BL-085 (+ BL-051 waived-at) · **0065:** BL-105, BL-101 Phase B · **M3:** BL-032–038, BL-039 (unbatched) |
+| Obsolete | 1 | BL-041 (superseded by BL-104) |
+
+Not counted above: BL-104's module-off pages (M2) and BL-102 Phase B (migrations not yet batched). Items waiting only on Asaf (SQL, keys, DNS, the Safari check) are in `docs/owner-actions.md`.
+
+**The list:** the top 15 open items that need **no migration**, highest value first for a self-managed volunteer board. Each one is sized for one worktree agent.
+
+1. **Invoices emailed to the HOA become bill proposals** (BL-059 leftover). Add "Scan as a bill" on an inbox PDF/image attachment, feeding the existing bill-scan proposal into /approvals. Files: `apps/hoa/src/lib/inbox/convert/actions.ts`, `apps/hoa/src/app/(dashboard)/inbox/[id]/ConvertMenu.tsx`, `apps/hoa/src/lib/bill-scan/proposal.ts`, `apps/hoa/src/lib/inbox/attachment-file.ts`.
+2. **California statute text ingestion** (BL-069, adapter part only). A CA adapter behind `StateLawAdapter` reading the leginfo `pubinfo_<year>.zip` bulk data (Civ. Code §§ 4000–6150), so CA violation and collections letters quote verbatim text instead of nothing. Recorded fixtures only, no live calls in CI. First check the statutes tables accept `CA` without a migration. Files: `packages/workflows/src/W30-state-law-brain/sources/` (new `california.ts`, `index.ts`), `packages/jobs/src/state-law-refresh.ts`, `tests/integration/flows/state-law-refresh.test.ts`.
+3. **Dues reminders tell the truth** (BL-044 leftovers). A reminder the outbound guard held back for every recipient should read "held by the safety guard", not `failed`; the email preview must not scroll sideways at 375px. Files: `packages/jobs/src/dues-reminders/run.ts`, `apps/hoa/src/lib/dues-reminders/render.ts`, `apps/hoa/src/app/(dashboard)/dues/SendRemindersDialog.tsx`.
+4. **Fix the slowest pages from real numbers** (BL-099 follow-up). Read a week of `[perf]` log lines in Vercel production, then fix the top 3 slow loaders (waterfalls, `select *`, missing streaming). Index ideas go into `docs/specs/2026-10-19-perf-indexes.sql`, never applied by an agent. Files: `apps/hoa/src/lib/perf/timing.ts` and whichever loaders the logs name (likely `apps/hoa/src/lib/dashboard/queries.ts`, `apps/hoa/src/lib/properties/property-360.ts`).
+5. **Cap meeting-summary and ask-community** (BL-106). Measure per-call cost from `ai_runs`, add both routes to `board_ai` (or their own bucket), amend the pricing decision, and fix the `ai-limits.ts` comment that already claims they are capped. Files: `apps/hoa/src/app/api/ai/meeting-summary/route.ts`, `apps/hoa/src/app/api/ai/ask-community/route.ts`, `apps/hoa/src/lib/api/ai-limits.ts`, `docs/decisions/2026-10-20-pricing.md`.
+6. **Communications guides match the new composer** (BL-102 A10). Rewrite the announcement and SMS articles for the one-box composer (drop Topic/HTML), add `communications-urgent-notice.md` and `communications-follow-up.md`, regenerate the guide. Files: `apps/hoa/content/guide/communications/*.md`, `apps/hoa/src/generated/guide.ts`.
+7. **Inbox draft measurement** (BL-101 A10). Record edit distance, blank count and open-to-approve time per approved draft (ids and numbers only), plus a weekly figure for the board digest. Files: `apps/hoa/src/lib/inbox/draft/actions.ts`, `packages/workflows/src/W32-reply-drafter/`, `packages/jobs/src/daily-digest.ts`.
+8. **Product analytics, privacy-safe** (BL-009 remainder). Add Vercel Web Analytics page views on board and resident routes and the 8 named events through an allowlist like `help-events.ts`; update the privacy page. Asaf enables Web Analytics on the project. Files: `apps/hoa/src/app/layout.tsx`, `apps/hoa/src/lib/guide/help-events.ts` (pattern), new `apps/hoa/src/lib/analytics/`, `apps/marketing/src/app/privacy/page.tsx`.
+9. **Grey Select triggers** (BL-059 leftover, design system). `read-only:bg-subtle` in `controlBase` matches non-input elements, so every Select trigger and prefixed Input renders grey. Scope it to real inputs and add a preview test. Files: `packages/ui/src/lib/control.ts`, `packages/ui` Select/Input components.
+10. **Texas and Georgia statute text** (BL-069, adapters). Same pattern as item 2 for TX Prop. Code ch. 202/209 and GA Title 44 ch. 3, which also unblocks the records-roster email rule for TX § 209.005 and GA. Files: `packages/workflows/src/W30-state-law-brain/sources/`, `apps/hoa/src/lib/properties/statutory-roster/law.ts`.
+11. **SMS allowance per plan** (BL-104 item 9). Count this month's SMS segments from existing send rows; over the allowance, skip SMS, still send email, and tell the board why. Behind `PRICING_V2`. Files: `apps/hoa/src/lib/communications/send.ts`, `packages/billing/src/entitlements.ts`.
+12. **Nightly band-sync job** (BL-104 item 5). Recount units; when the band changes, update the subscription quantity with `proration_behavior: 'none'`. Behind `PRICING_V2`; tests only against mocks or the BL-103 sandbox. Files: new `packages/jobs/src/billing-band-sync.ts`, `packages/billing/src/pricing-v2.ts`, `apps/hoa/src/app/api/inngest/route.ts`.
+13. **Renewal notice for grandfathered subscriptions** (BL-104 item 6). Email the board 30 days before term end (new plan and price) and swap the price at term end; board recipients only, through the guard. Files: new `packages/jobs/src/billing-renewal-notice.ts`, `packages/billing/src/grandfathering.ts`.
+14. **⌘K latency measured** (BL-060 leftover). Add timing to `/api/search` through `perfTimer`, and record p50 on the seeded org in CI. Files: `apps/hoa/src/app/api/search/route.ts`, `apps/hoa/src/lib/perf/timing.ts`.
+15. **CINC aging report → opening balances** (BL-031 remainder). Map a CINC aging export to per-unit opening balances, with the JE proposed through approvals and a dry run of counts and ids. **Blocked until Asaf supplies a real CINC export**; skip it until then. Files: `apps/hoa/src/lib/properties/import.ts`, `apps/hoa/src/app/(dashboard)/properties/import/`, `packages/workflows/src/approvals/`.
+
+Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a vendor COI reply reaches the inbox), the BL-051 Safari print check, and a browser pass on the new convert menu, composer and billing banner.
