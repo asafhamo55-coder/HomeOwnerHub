@@ -3,10 +3,13 @@
  *
  *   - the minimum coverage a vendor's certificate of insurance must show
  *     (general liability per occurrence and aggregate, workers' comp,
- *     auto liability) — read by the W21 compliance check and copied into
- *     every W22 RFP draft and RFP invitation
- *   - whether the daily job emails vendors before their COI expires
- *     (on by default; this is the board's opt-out)
+ *     auto liability, umbrella) — read by the W21 compliance check and
+ *     copied into every W22 RFP draft and RFP invitation
+ *   - whether the daily job reminds the BOARD (in-app notice) before a
+ *     vendor's COI expires (on by default; this is the board's opt-out).
+ *     Owner rule 2026-10-20: nothing emails a vendor automatically; the
+ *     board sends "Request updated certificate" by hand from the vendor
+ *     page. The stored key keeps its old name (coi_reminders_enabled).
  *
  * STORAGE. No migration: the value lives in
  * associations.compliance_settings[VENDOR_INSURANCE_KEY], next to
@@ -40,7 +43,7 @@ const SIGNATURE_DOMAIN = 'vendor-insurance:v1'
 export const COVERAGE_MAX = 100_000_000
 
 /** The unsigned top-level keys W21 used to read (see DEFAULTS above). */
-const LEGACY_KEYS = ['gl_per_occurrence_min', 'gl_aggregate_min', 'workers_comp_required'] as const
+const LEGACY_KEYS = ['gl_per_occurrence_min', 'gl_aggregate_min', 'workers_comp_required', 'umbrella_min'] as const
 
 export interface InsuranceMinimums {
   /** Whole dollars, or null for "no minimum". */
@@ -48,6 +51,8 @@ export interface InsuranceMinimums {
   glAggregateMin: number | null
   workersCompRequired: boolean
   autoLiabilityMin: number | null
+  /** Umbrella / excess liability. */
+  umbrellaMin: number | null
 }
 
 export interface VendorInsuranceSettings {
@@ -67,6 +72,8 @@ export interface StoredVendorInsuranceSettings {
   gl_aggregate_min: number | null
   workers_comp_required: boolean
   auto_liability_min: number | null
+  /** Absent on rows signed before umbrella existed; those still verify. */
+  umbrella_min?: number | null
   updated_at: string
   updated_by: string | null
   sig: string
@@ -83,6 +90,7 @@ export const NO_MINIMUMS: InsuranceMinimums = {
   glAggregateMin: null,
   workersCompRequired: false,
   autoLiabilityMin: null,
+  umbrellaMin: null,
 }
 
 export const DEFAULT_VENDOR_INSURANCE_SETTINGS: VendorInsuranceSettings = {
@@ -110,6 +118,7 @@ const LABELS = {
   glPerOccurrenceMin: 'General liability per occurrence',
   glAggregateMin: 'General liability aggregate',
   autoLiabilityMin: 'Auto liability',
+  umbrellaMin: 'Umbrella',
 } as const
 
 /** '' / null → null; '1,000,000' / '$1000000' / 1000000 → 1000000; else an error. */
@@ -130,6 +139,7 @@ export function validateVendorInsuranceInput(input: {
   glAggregateMin?: unknown
   workersCompRequired: unknown
   autoLiabilityMin?: unknown
+  umbrellaMin?: unknown
 }): VendorInsuranceValidateResult {
   const fieldErrors: Record<string, string> = {}
   const amounts: Partial<Record<keyof typeof LABELS, number | null>> = {}
@@ -153,6 +163,7 @@ export function validateVendorInsuranceInput(input: {
         glAggregateMin: agg,
         workersCompRequired: input.workersCompRequired === true,
         autoLiabilityMin: amounts.autoLiabilityMin ?? null,
+        umbrellaMin: amounts.umbrellaMin ?? null,
       },
     },
   }
@@ -163,7 +174,7 @@ export function validateVendorInsuranceInput(input: {
 type Unsigned = Omit<StoredVendorInsuranceSettings, 'sig'>
 
 function payload(associationId: string, s: Unsigned): string {
-  return JSON.stringify([
+  const fields: unknown[] = [
     SIGNATURE_DOMAIN,
     associationId,
     s.coi_reminders_enabled,
@@ -173,7 +184,12 @@ function payload(associationId: string, s: Unsigned): string {
     s.auto_liability_min,
     s.updated_at,
     s.updated_by,
-  ])
+  ]
+  // Umbrella joined the payload later. A row signed before it existed has
+  // no key and verifies against the original payload; every new save
+  // writes the key, so stripping or adding it breaks the signature.
+  if (s.umbrella_min !== undefined) fields.push(['umbrella', s.umbrella_min])
+  return JSON.stringify(fields)
 }
 
 function hmac(secret: string, data: string): string {
@@ -192,6 +208,7 @@ export function signVendorInsuranceSettings(
     gl_aggregate_min: value.minimums.glAggregateMin,
     workers_comp_required: value.minimums.workersCompRequired,
     auto_liability_min: value.minimums.autoLiabilityMin,
+    umbrella_min: value.minimums.umbrellaMin,
     updated_at: stamp.updatedAt,
     updated_by: stamp.updatedBy,
   }
@@ -211,6 +228,7 @@ function isStored(v: Record<string, unknown>): v is Record<string, unknown> & St
     amountOrNull(v.gl_aggregate_min) &&
     typeof v.workers_comp_required === 'boolean' &&
     amountOrNull(v.auto_liability_min) &&
+    (v.umbrella_min === undefined || amountOrNull(v.umbrella_min)) &&
     typeof v.updated_at === 'string' &&
     (v.updated_by === null || typeof v.updated_by === 'string') &&
     typeof v.sig === 'string'
@@ -238,6 +256,7 @@ export function readVendorInsuranceSettings(
     glAggregateMin: obj.gl_aggregate_min,
     workersCompRequired: obj.workers_comp_required,
     autoLiabilityMin: obj.auto_liability_min,
+    umbrellaMin: obj.umbrella_min ?? null,
   })
   if (!checked.ok) return { state: 'unverified' }
   return { state: 'configured', settings: checked.value, updatedAt: obj.updated_at, updatedBy: obj.updated_by }
@@ -252,6 +271,8 @@ function legacyMinimums(complianceSettings: unknown): InsuranceMinimums {
     glAggregateMin: amount(cs.gl_aggregate_min),
     workersCompRequired: cs.workers_comp_required === true,
     autoLiabilityMin: null,
+    // W21 read this unsigned key before umbrella had a screen.
+    umbrellaMin: amount(cs.umbrella_min),
   }
 }
 
@@ -305,6 +326,7 @@ export function rfpInsuranceRequirements(settings: VendorInsuranceSettings): Rec
   if (m.glAggregateMin !== null) out.gl_aggregate_min = m.glAggregateMin
   if (m.workersCompRequired) out.workers_comp_required = true
   if (m.autoLiabilityMin !== null) out.auto_liability_min = m.autoLiabilityMin
+  if (m.umbrellaMin !== null) out.umbrella_min = m.umbrellaMin
   return Object.keys(out).length > 0 ? out : null
 }
 
@@ -321,11 +343,12 @@ export function insuranceRequirementLines(m: InsuranceMinimums): string[] {
   }
   if (m.workersCompRequired) lines.push('Workers’ compensation: required')
   if (m.autoLiabilityMin !== null) lines.push(`Auto liability: ${usd(m.autoLiabilityMin)}`)
+  if (m.umbrellaMin !== null) lines.push(`Umbrella / excess liability: ${usd(m.umbrellaMin)}`)
   return lines
 }
 
 export interface MinimumsDeficiency {
-  code: 'gl_below_minimum' | 'gl_aggregate_below_minimum' | 'wc_missing' | 'auto_below_minimum'
+  code: 'gl_below_minimum' | 'gl_aggregate_below_minimum' | 'wc_missing' | 'auto_below_minimum' | 'umbrella_below_minimum'
   severity: 'red'
   detail: string
 }
@@ -342,6 +365,8 @@ export function minimumsDeficiencies(
     generalLiabilityAggregate: number | null
     workersComp: boolean | null
     autoLiability: number | null
+    /** Optional so callers that never extracted umbrella still compile. */
+    umbrella?: number | null
   } | null,
 ): MinimumsDeficiency[] {
   if (!coi) return []
@@ -374,6 +399,13 @@ export function minimumsDeficiencies(
       code: 'auto_below_minimum',
       severity: 'red',
       detail: `Auto liability is ${usd(coi.autoLiability!)} but the association requires ${usd(m.autoLiabilityMin!)}.`,
+    })
+  }
+  if (below(coi.umbrella ?? null, m.umbrellaMin)) {
+    out.push({
+      code: 'umbrella_below_minimum',
+      severity: 'red',
+      detail: `Umbrella coverage is ${usd(coi.umbrella!)} but the association requires ${usd(m.umbrellaMin!)}.`,
     })
   }
   return out

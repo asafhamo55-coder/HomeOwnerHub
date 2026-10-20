@@ -8,16 +8,20 @@ import {
 } from './run'
 
 /**
- * Vendor COI expiry reminders (BL-083), 10am Eastern daily — an hour after
- * dues reminders, so the two never contend for the email rate limit.
+ * Vendor COI expiry reminders (BL-083), 10am Eastern daily — BOARD ONLY.
  *
- * A factory, like createDuesRemindersJob: the guarded `sendEmail` (BL-004)
- * and the settings secret live in apps/hoa and are injected. On for every
- * association unless its board turns vendor reminders off at
- * /settings/vendors; the board's in-app notices go out either way.
+ * Owner rule 2026-10-20: no automatic email to anyone outside the board.
+ * This job writes in-app notices to board members / admins and nothing
+ * else; it has no sender injected and no way to email a vendor. The board
+ * sends "Request updated certificate" from the vendor page by hand.
  *
- * The deterministic communications id (milestones.ts) is what makes a
- * duplicate email impossible; `concurrency: 1` is belt and braces.
+ * The function id is unchanged ('vendor-coi-reminders'): renaming it would
+ * register a new function and leave the old, vendor-emailing one scheduled
+ * until a coordinated deploy unregistered it.
+ *
+ * The deterministic notice entity id (milestones.ts) plus the notifications
+ * dedupe read make a duplicate notice impossible; `concurrency: 1` is belt
+ * and braces.
  */
 export function createVendorCoiRemindersJob(deps: VendorCoiRemindersDeps) {
   return inngest.createFunction(

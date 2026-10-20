@@ -92,7 +92,15 @@ describe('getAtRiskThisWeek', () => {
       associations: FL,
       assessments: [],
       hoa_violations: [],
-      vendor_compliance: [{ vendor_id: 'v1', organization_id: ORG, coi_expiration_date: '2026-10-01', vendor: null }],
+      vendor_compliance: [
+        {
+          id: 'c1',
+          vendor_id: 'v1',
+          organization_id: ORG,
+          coi_expiration_date: '2026-10-01',
+          vendor: { legal_name: 'Acme', status: 'active', deleted_at: null },
+        },
+      ],
     })
     const r = await getAtRiskThisWeek(ORG, db)
     expect(r.items.map((i) => [i.kind, i.daysOffset, i.severity])).toEqual([['coi_expiring', 0, 'amber']])

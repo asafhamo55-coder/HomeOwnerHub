@@ -43,9 +43,9 @@ const duesRemindersJob = createDuesRemindersJob(duesReminderDeps)
 // builder (the board packet's own loaders) are app-side.
 const monthlyBoardReportJob = createMonthlyBoardReportJob(monthlyReportDeps)
 
-// Vendor COI expiry reminders (BL-083): the guarded sendEmail and the
-// settings secret are app-side. On unless the board opts out at
-// /settings/vendors; vendors only, never residents.
+// Vendor COI expiry reminders (BL-083): in-app notices to the BOARD only;
+// no sender is injected, so it cannot email a vendor (owner rule
+// 2026-10-20). The settings secret is app-side; off at /settings/vendors.
 const vendorCoiRemindersJob = createVendorCoiRemindersJob(vendorCoiReminderDeps)
 
 // Scheduled messages (BL-102 A1): every five minutes, claim due

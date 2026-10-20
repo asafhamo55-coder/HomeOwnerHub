@@ -1,7 +1,8 @@
 'use server'
 
-// Settings → Vendors (BL-083 / BL-084): the board's insurance minimums and
-// the COI-expiry reminder opt-out. Storage, signing and why it is signed:
+// Settings → Vendors (BL-083 / BL-084): the board's insurance minimums
+// (general liability, workers' comp, auto, umbrella) and the opt-out for the
+// board's COI-expiry notices. Storage, signing and why it is signed:
 // packages/workflows/src/vendor-insurance/settings.ts.
 //
 // Board/admin only: every action re-checks the role
@@ -86,6 +87,7 @@ export async function saveVendorInsuranceSettings(input: {
   glAggregateMin: string
   workersCompRequired: boolean
   autoLiabilityMin: string
+  umbrellaMin: string
 }): Promise<SaveVendorInsuranceResult> {
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
   if (!gate.ok) return { ok: false, error: gate.error }

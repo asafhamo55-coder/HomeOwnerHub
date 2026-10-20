@@ -46,6 +46,7 @@ vi.mock('@/lib/dashboard/queries', () => ({
       cureDeadlinesElapsed: 4,
       cureDeadlinesUpcoming: 0,
       coiExpiring: 2,
+      coiExpired: 0,
     },
     failed: false,
   })),
@@ -337,6 +338,7 @@ describe('POST /api/ai/daily-digest board insights', () => {
         cureDeadlinesElapsed: 0,
         cureDeadlinesUpcoming: 0,
         coiExpiring: 0,
+        coiExpired: 0,
       },
       failed: false,
     })

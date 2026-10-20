@@ -120,6 +120,32 @@ describe('getAtRiskThisWeek', () => {
     expect(r.totalCount).toBe(2700)
   })
 
+  it('counts expired and expiring vendor certificates separately, active/prospect vendors only (BL-083)', async () => {
+    const coi = (i: number, day: string, status = 'active', deleted_at: string | null = null) => ({
+      id: id('c', i),
+      vendor_id: id('vd', i),
+      organization_id: ORG,
+      coi_expiration_date: day,
+      vendor: { legal_name: `Vendor ${i}`, status, deleted_at },
+    })
+    const rows = [
+      coi(1, dayIso(10)), // expired 10 days ago
+      coi(2, dayIso(-5)), // expires in 5 days
+      coi(3, dayIso(400)), // long expired, still active: still listed
+      coi(4, dayIso(3), 'inactive'), // inactive: skipped
+      coi(5, dayIso(3), 'active', daysAgo(1)), // deleted: skipped
+      coi(6, dayIso(-90)), // 90 days out: not yet
+    ]
+    const { db } = cappedFakeDb({ associations: assoc, assessments: [], hoa_violations: [], vendor_compliance: as(rows) })
+    const r = await getAtRiskThisWeek(ORG, db)
+    expect(r.failed).toBe(false)
+    expect(r.counts.coiExpired).toBe(2)
+    expect(r.counts.coiExpiring).toBe(1)
+    const titles = r.items.filter((i) => i.kind === 'coi_expiring').map((i) => [i.title, i.severity])
+    expect(titles).toContainEqual(['COI expired · Vendor 1', 'red'])
+    expect(titles).toContainEqual(['COI expiring · Vendor 2', 'amber'])
+  })
+
   it('a failed later page is failed', async () => {
     const { db } = cappedFakeDb(
       { associations: assoc, assessments: overdue, hoa_violations: violations, vendor_compliance: [] },

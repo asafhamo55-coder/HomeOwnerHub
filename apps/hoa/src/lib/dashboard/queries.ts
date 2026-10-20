@@ -75,6 +75,9 @@ export interface NextMeetingResult {
   failed: boolean
 }
 
+/** Vendors whose certificates the board still tracks; inactive and blacklisted ones are not. */
+const COI_TRACKED_VENDOR_STATUSES: readonly string[] = ['active', 'prospect']
+
 export type AtRiskKind = 'cure_deadline' | 'dues_overdue' | 'coi_expiring'
 
 export interface AtRiskItem {
@@ -104,7 +107,10 @@ export interface AtRiskCounts {
   duesOverdueUnits: number
   cureDeadlinesElapsed: number
   cureDeadlinesUpcoming: number
+  /** Active / prospect vendors whose certificate expires within 30 days (today included). */
   coiExpiring: number
+  /** Active / prospect vendors whose certificate has already expired (BL-083). */
+  coiExpired: number
 }
 
 export interface AtRiskResult {
@@ -821,7 +827,8 @@ export async function getComplianceHeatMap(
  * Union of "things that will hurt you this week if you don't act":
  *   1. Violation cure deadlines elapsing in the next 7 days (or past).
  *   2. Assessments overdue more than 30 days.
- *   3. Vendor COIs expiring within 30 days.
+ *   3. Vendor COIs expiring within 30 days, or already expired (BL-083),
+ *      for active and prospect vendors only.
  *
  * Sorted by urgency (most-overdue first), capped at 6 visible items.
  * `totalCount` reflects the full at-risk set so the UI can show overflow.
@@ -898,14 +905,18 @@ export async function getAtRiskThisWeek(
 
     assessmentsPromise,
 
-    supabase
-      .from('vendor_compliance' as never)
-      .select(
-        'vendor_id, coi_expiration_date, vendor:vendors(legal_name)',
-      )
-      .eq('organization_id', orgId)
-      .gte('coi_expiration_date', todayISO)
-      .lte('coi_expiration_date', in30ISO),
+    // No lower bound: an expired certificate stays on the list until it is
+    // renewed or the vendor is made inactive (BL-083). Paged (BL-047).
+    readAllResult((from, to) =>
+      supabase
+        .from('vendor_compliance' as never)
+        .select('id, vendor_id, coi_expiration_date, vendor:vendors(legal_name, status, deleted_at)')
+        .eq('organization_id', orgId)
+        .not('coi_expiration_date', 'is', null)
+        .lte('coi_expiration_date', in30ISO)
+        .order('id', { ascending: true })
+        .range(from, to) as never,
+    ),
   ])
 
   const items: AtRiskItem[] = []
@@ -974,23 +985,32 @@ export async function getAtRiskThisWeek(
     })
   }
 
-  // 3) Vendor COIs expiring within 30 days.
+  // 3) Vendor COIs expiring within 30 days or already expired. One row
+  // per vendor (the most urgent certificate if it serves several
+  // associations); inactive, blacklisted and deleted vendors are skipped.
   type CRow = {
     vendor_id: string
     coi_expiration_date: string | null
-    vendor: { legal_name: string } | null
+    vendor: { legal_name: string; status: string; deleted_at: string | null } | null
   }
+  const coiByVendor = new Map<string, { day: string; name: string }>()
   for (const c of (cois.data ?? []) as unknown as CRow[]) {
-    if (!c.coi_expiration_date) continue
-    const daysOffset = calendarDaysBetween(todayISO, c.coi_expiration_date)
-    const vendor = c.vendor?.legal_name ?? 'Vendor'
+    if (!c.coi_expiration_date || !c.vendor) continue
+    if (c.vendor.deleted_at !== null || !COI_TRACKED_VENDOR_STATUSES.includes(c.vendor.status)) continue
+    const day = c.coi_expiration_date.slice(0, 10)
+    const prev = coiByVendor.get(c.vendor_id)
+    if (!prev || day < prev.day) coiByVendor.set(c.vendor_id, { day, name: c.vendor.legal_name })
+  }
+  for (const [vendorId, { day, name }] of coiByVendor) {
+    const daysOffset = calendarDaysBetween(todayISO, day)
+    if (!Number.isFinite(daysOffset) || daysOffset > 30) continue
     items.push({
       kind: 'coi_expiring',
-      id: c.vendor_id,
-      title: `COI expiring · ${vendor}`,
+      id: vendorId,
+      title: `${daysOffset < 0 ? 'COI expired' : 'COI expiring'} · ${name}`,
       severity: daysOffset < 0 ? 'red' : 'amber',
       daysOffset,
-      href: `/vendors/${c.vendor_id}`,
+      href: `/vendors/${vendorId}`,
     })
   }
 
@@ -1008,7 +1028,8 @@ export async function getAtRiskThisWeek(
     duesOverdueUnits: overdueUnitIds.size,
     cureDeadlinesElapsed: cureRows.filter((i) => i.daysOffset < 0).length,
     cureDeadlinesUpcoming: cureRows.filter((i) => i.daysOffset >= 0).length,
-    coiExpiring: items.filter((i) => i.kind === 'coi_expiring').length,
+    coiExpiring: items.filter((i) => i.kind === 'coi_expiring' && i.daysOffset >= 0).length,
+    coiExpired: items.filter((i) => i.kind === 'coi_expiring' && i.daysOffset < 0).length,
   }
 
   const failed = Boolean(assocError) || [violations, assessments, cois].some((r) => {

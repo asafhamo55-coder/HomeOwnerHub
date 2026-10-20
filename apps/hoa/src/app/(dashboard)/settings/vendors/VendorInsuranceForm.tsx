@@ -28,6 +28,7 @@ interface Values {
   glAggregateMin: string
   workersCompRequired: boolean
   autoLiabilityMin: string
+  umbrellaMin: string
 }
 
 const dollars = (n: number | null) => (n === null ? '' : n.toLocaleString('en-US'))
@@ -39,6 +40,7 @@ export function toValues(s: VendorInsuranceSettings): Values {
     glAggregateMin: dollars(s.minimums.glAggregateMin),
     workersCompRequired: s.minimums.workersCompRequired,
     autoLiabilityMin: dollars(s.minimums.autoLiabilityMin),
+    umbrellaMin: dollars(s.minimums.umbrellaMin),
   }
 }
 
@@ -60,7 +62,7 @@ export function VendorInsuranceForm({
   const [values, setValues] = useState<Values>(() => toValues(initial))
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>(initialFieldErrors)
 
-  const setText = (key: 'glPerOccurrenceMin' | 'glAggregateMin' | 'autoLiabilityMin') => (e: React.ChangeEvent<HTMLInputElement>) => {
+  const setText = (key: 'glPerOccurrenceMin' | 'glAggregateMin' | 'autoLiabilityMin' | 'umbrellaMin') => (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.currentTarget.value
     setValues((prev) => ({ ...prev, [key]: v }))
     if (fieldErrors[key]) setFieldErrors(({ [key]: _gone, ...rest }) => rest)
@@ -76,7 +78,7 @@ export function VendorInsuranceForm({
         return
       }
       setFieldErrors({})
-      toast({ tone: 'success', message: 'Saved. Compliance checks and new RFP invitations use these now.' })
+      toast({ tone: 'success', message: 'Saved. Compliance checks, new RFP drafts and RFP invitations use these now.' })
       router.refresh()
     })
   }
@@ -88,7 +90,8 @@ export function VendorInsuranceForm({
           <CardTitle as="h2">Insurance minimums</CardTitle>
           <CardDescription>
             The least coverage a vendor’s certificate of insurance must show. The compliance check marks a vendor
-            Non-compliant below any of these, and every RFP invitation lists them. Leave an amount blank for no minimum.
+            Non-compliant below any of these, and every new RFP and RFP invitation lists them. Leave an amount blank for
+            no minimum.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -117,17 +120,28 @@ export function VendorInsuranceForm({
               </Field>
             </div>
           </Fieldset>
-          <Field label="Auto liability" optional error={fieldErrors.autoLiabilityMin} hint="Combined single limit.">
-            <Input
-              value={values.autoLiabilityMin}
-              onChange={setText('autoLiabilityMin')}
-              inputMode="numeric"
-              prefix="$"
-              placeholder="1,000,000"
-              autoComplete="off"
-              className="sm:max-w-[16rem]"
-            />
-          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Auto liability" optional error={fieldErrors.autoLiabilityMin} hint="Combined single limit.">
+              <Input
+                value={values.autoLiabilityMin}
+                onChange={setText('autoLiabilityMin')}
+                inputMode="numeric"
+                prefix="$"
+                placeholder="1,000,000"
+                autoComplete="off"
+              />
+            </Field>
+            <Field label="Umbrella" optional error={fieldErrors.umbrellaMin} hint="Umbrella or excess liability.">
+              <Input
+                value={values.umbrellaMin}
+                onChange={setText('umbrellaMin')}
+                inputMode="numeric"
+                prefix="$"
+                placeholder="2,000,000"
+                autoComplete="off"
+              />
+            </Field>
+          </div>
           <Checkbox
             label="Require workers’ compensation"
             description="A certificate that shows no workers’ comp coverage is Non-compliant."
@@ -144,22 +158,23 @@ export function VendorInsuranceForm({
         <CardHeader className="pb-4">
           <CardTitle as="h2">Insurance expiry reminders</CardTitle>
           <CardDescription>
-            Vendors get an email 30 days and 7 days before their certificate of insurance expires, and on the day it
-            does, asking them to send a renewed certificate. The board gets a notification each time. Residents never
-            receive these.
+            The board gets a notification 30 days and 7 days before a vendor’s certificate of insurance expires, and on
+            the day it does. Nothing is emailed to the vendor automatically: open the vendor and choose Request updated
+            certificate to review and send that email yourself. Expiring and expired certificates also show on the
+            dashboard either way.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
             {values.coiRemindersEnabled ? (
-              <StatusPill tone="success" label="On — vendors are reminded" />
+              <StatusPill tone="success" label="On — the board is notified" />
             ) : (
-              <StatusPill tone="neutral" label="Off — only the board is notified" />
+              <StatusPill tone="neutral" label="Off — no notifications" />
             )}
           </div>
           <Checkbox
-            label="Email vendors before their insurance expires"
-            description="Turn off if your manager collects renewals another way. Board notifications continue either way."
+            label="Notify the board before vendor insurance expires"
+            description="Turn off if your manager tracks renewals another way. The dashboard and vendor pages still show expiring certificates."
             checked={values.coiRemindersEnabled}
             onChange={(e) => {
               const checked = e.currentTarget.checked
