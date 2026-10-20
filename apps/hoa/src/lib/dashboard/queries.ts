@@ -408,6 +408,20 @@ export async function getLeaseSummary(
   // Paged to the end (BL-047): PostgREST caps every response at 1000
   // rows whatever range is asked for, so the old `.range(0, 49_999)` made
   // the denominator in "N of M units leased" a paging artefact.
+  // 3 (started early). Waiting-list count (status='waiting' across all
+  // associations). It needs only assocIds, so it runs while the units are
+  // paged instead of after the leased counts (BL-099 static pass).
+  const waitingPromise = supabase
+    .from('lease_waiting_list' as never)
+    .select('id', { count: 'exact', head: true })
+    .in('association_id', assocIds)
+    .eq('status', 'waiting')
+  // Promise.resolve() calls the builder's then() now, which sends it.
+  const waitingResult = Promise.resolve(waitingPromise) as Promise<{
+    count: number | null
+    error: { code?: string; message?: string } | null
+  }>
+
   const { data: unitsRows, error: unitsError } = await readAllResult<{ legacy_hoa_property_id: string | null }>(
     (from, to) =>
       supabase
@@ -426,26 +440,30 @@ export async function getLeaseSummary(
     .filter((id): id is string => !!id)
 
   // Count-only, chunked: a single `.in()` over thousands of ids overflows
-  // the request URL. A failed chunk marks the summary failed.
+  // the request URL. A failed chunk marks the summary failed. The chunks
+  // are independent, so they are sent together, not one after another.
   let leasedCount = 0
-  for (const ids of chunk(propertyIds)) {
-    const { count, error: leasedError } = await supabase
-      .from('hoa_properties')
-      .select('id', { count: 'exact', head: true })
-      .in('id', ids)
-      .is('deleted_at', null)
-      .eq('tenure' as never, 'leased')
+  const leasedChunks = await Promise.all(
+    chunk(propertyIds).map(
+      (ids) =>
+        supabase
+          .from('hoa_properties')
+          .select('id', { count: 'exact', head: true })
+          .in('id', ids)
+          .is('deleted_at', null)
+          .eq('tenure' as never, 'leased') as PromiseLike<{
+          count: number | null
+          error: { code?: string; message?: string } | null
+        }>,
+    ),
+  )
+  for (const { count, error: leasedError } of leasedChunks) {
     note(leasedError)
     leasedCount += count ?? 0
   }
   const totalUnits = propertyIds.length
 
-  // 3. Waiting-list count (status='waiting' across all associations).
-  const { count: waitingListCount, error: waitingError } = await supabase
-    .from('lease_waiting_list' as never)
-    .select('id', { count: 'exact', head: true })
-    .in('association_id', assocIds)
-    .eq('status', 'waiting')
+  const { count: waitingListCount, error: waitingError } = await waitingResult
   note(waitingError)
 
   const leasedPct = totalUnits === 0 ? 0 : (leasedCount / totalUnits) * 100

@@ -1,3 +1,4 @@
+import { timed } from '@/lib/perf/timing'
 import Link from 'next/link'
 import { ScrollText, Sparkles } from 'lucide-react'
 import {
@@ -38,14 +39,37 @@ interface PageProps {
   searchParams: Promise<{ period?: string; source?: string; status?: string; page?: string }>
 }
 
+const R = '/accounting/ledger'
+
 export default async function GeneralLedgerPage({ searchParams }: PageProps) {
-  const ctxRes = await tryLoad('accounting context', getAccountingContext)
+  const [ctxRes, sp] = await Promise.all([
+    timed(R, 'ledger.context', () => tryLoad('accounting context', getAccountingContext)),
+    searchParams,
+  ])
   if (!ctxRes.ok) return <AccountingLoadFailed title="General ledger" what="the ledger" width="wide" />
   const ctx = ctxRes.data
   if (!ctx) return <AccountingNotSetUp title="General ledger" returnTo="/accounting/ledger" />
 
-  const sp = await searchParams
-  const periodsRes = await tryLoad('fiscal periods', () => listFiscalPeriods(ctx.associationId))
+  const source = sp.source && JOURNAL_SOURCES.includes(sp.source) ? sp.source : undefined
+  const status = sp.status && sp.status in JOURNAL_STATUS ? sp.status : undefined
+  const page = parsePageParam(sp.page)
+  const loadEntries = (periodId: string | undefined) =>
+    timed(R, 'ledger.entries', () =>
+      tryLoad('journal entries', () =>
+        pageJournalEntries(ctx.associationId, { periodId, source, status }, pageRange(page, PAGE_SIZE)),
+      ),
+    )
+
+  // The period list is needed to check an explicit `?period=<id>`. With no
+  // such param (the default view, or `period=all`) the entries' period is
+  // already known, so both reads go out together (BL-099 static pass).
+  const explicitPeriod = Boolean(sp.period) && sp.period !== 'all'
+  const earlyEntries = explicitPeriod
+    ? null
+    : loadEntries(sp.period === 'all' ? undefined : ctx.currentPeriod?.id)
+  const periodsRes = await timed(R, 'ledger.periods', () =>
+    tryLoad('fiscal periods', () => listFiscalPeriods(ctx.associationId)),
+  )
   if (!periodsRes.ok) return <AccountingLoadFailed title="General ledger" what="the ledger" width="wide" />
   const periods = periodsRes.data
 
@@ -56,13 +80,7 @@ export default async function GeneralLedgerPage({ searchParams }: PageProps) {
       : sp.period && periods.some((p) => p.id === sp.period)
         ? sp.period
         : ctx.currentPeriod?.id
-  const source = sp.source && JOURNAL_SOURCES.includes(sp.source) ? sp.source : undefined
-  const status = sp.status && sp.status in JOURNAL_STATUS ? sp.status : undefined
-
-  const page = parsePageParam(sp.page)
-  const res = await tryLoad('journal entries', () =>
-    pageJournalEntries(ctx.associationId, { periodId, source, status }, pageRange(page, PAGE_SIZE)),
-  )
+  const res = await (earlyEntries ?? loadEntries(periodId))
 
   const params = new URLSearchParams()
   if (sp.period) params.set('period', sp.period)

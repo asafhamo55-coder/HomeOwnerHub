@@ -79,7 +79,12 @@ export async function getThreadRailContext(
   db: Db,
   orgId: string,
   thread: Pick<ThreadDetail, 'id' | 'unitId' | 'messages'>,
-  residents: PropertyContext['residents'] | null,
+  /**
+   * Used only to name a verified sender, after every read below is in, so
+   * a caller may pass it as a promise and start the rail before the
+   * property context has loaded (BL-099 static pass).
+   */
+  residentsIn: PropertyContext['residents'] | null | PromiseLike<PropertyContext['residents'] | null>,
 ): Promise<ThreadRailContext> {
   const senderEmail = latestInboundSender(thread.messages)
   const [check, home, linked, pastThreads, docs, threadResidentId] = await Promise.all([
@@ -91,6 +96,7 @@ export async function getThreadRailContext(
     readThreadResidentId(db, orgId, thread.id),
   ])
 
+  const residents = await residentsIn
   let resident: RailSender['resident'] = null
   if (check.verified) {
     const id = check.residentId ?? threadResidentId

@@ -18,6 +18,8 @@ vi.mock('@/lib/auth', () => ({
 }))
 vi.mock('@/lib/supabase/server', () => ({ getSupabaseServerClient: vi.fn(async () => h.client) }))
 vi.mock('@/lib/vendors', () => ({ getPrimaryAssociation: async () => h.assoc }))
+// getAccountingContext takes the org id from the (memoized) current org.
+vi.mock('@/lib/orgs', () => ({ getCurrentOrg: async () => ({ id: 'org-1', name: 'Willow Creek HOA' }) }))
 vi.mock('@/lib/primary-association', () => ({ getPrimaryAssociationResult: async () => ({ ok: true, data: h.assoc, count: null }) }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@homeowner-portal/db', () => ({

@@ -275,9 +275,10 @@ export async function getDashboardKpis(
   const today = new Date()
   const thirtyDaysAgo = new Date(today)
   thirtyDaysAgo.setUTCDate(today.getUTCDate() - 30)
-  // due_date is a calendar date: compare it with the association's
-  // calendar day 30 days ago, not a UTC-midnight parse (BL-043).
-  const thirtyDaysAgoDay = addCalendarDays(todayIn(await orgTimeZone(supabase, orgId), today), -30)
+  // The association's zone. Started now, awaited only where the dues split needs it: the zone read
+  // and the five KPI reads below are independent, so they run together
+  // (BL-099 static pass). Before, each waited for the one above it.
+  const timeZonePromise = orgTimeZone(supabase, orgId)
 
   // Outstanding dues — sum of remaining unpaid balance across all
   // assessments rows. Replaces the legacy hoa_dues path which is no
@@ -299,7 +300,7 @@ export async function getDashboardKpis(
 
   let duesNow = 0
   let duesPrev = 0
-  const { data: assessmentRows, error: assessmentsError } = await readAllResult<{
+  const assessmentsPromise = readAllResult<{
     amount: number | string | null
     status: string | null
     due_date: string | null
@@ -316,6 +317,52 @@ export async function getDashboardKpis(
       .order('id', { ascending: true })
       .range(from, to) as never,
   )
+
+  // Open violations (current count, and the count open 30+ days ago).
+  const violationsNowPromise = supabase
+    .from('hoa_violations')
+    .select('id', { count: 'exact', head: true })
+    .eq('org_id', orgId)
+    .is('deleted_at', null)
+    .in('status', ['open', 'notice_sent'])
+  const violationsPrevPromise = supabase
+    .from('hoa_violations')
+    .select('id', { count: 'exact', head: true })
+    .eq('org_id', orgId)
+    .is('deleted_at', null)
+    .in('status', ['open', 'notice_sent'])
+    .lt('created_at', thirtyDaysAgo.toISOString())
+  const vendorsPromise = supabase
+    .from('vendors' as never)
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+    .eq('status', 'active')
+  const ticketsPromise = supabase
+    .from('tickets' as never)
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+    .in('status', ['open', 'in_progress'])
+    .is('deleted_at', null)
+
+  const [
+    timeZone,
+    { data: assessmentRows, error: assessmentsError },
+    { count: violationsNow, error: violationsNowError },
+    { count: violationsPrev, error: violationsPrevError },
+    { count: activeVendors, error: vendorsError },
+    { count: openTickets, error: ticketsError },
+  ] = await Promise.all([
+    timeZonePromise,
+    assessmentsPromise,
+    violationsNowPromise,
+    violationsPrevPromise,
+    vendorsPromise,
+    ticketsPromise,
+  ])
+  // due_date is a calendar date: compare it with the association's
+  // calendar day 30 days ago, not a UTC-midnight parse (BL-043).
+  const thirtyDaysAgoDay = addCalendarDays(todayIn(timeZone, today), -30)
+
   note(assessmentsError)
   if (assessmentRows) {
     for (const r of assessmentRows as Array<{
@@ -334,36 +381,9 @@ export async function getDashboardKpis(
     }
   }
 
-  // Open violations (current count).
-  const { count: violationsNow, error: violationsNowError } = await supabase
-    .from('hoa_violations')
-    .select('id', { count: 'exact', head: true })
-    .eq('org_id', orgId)
-    .is('deleted_at', null)
-    .in('status', ['open', 'notice_sent'])
   note(violationsNowError)
-  const { count: violationsPrev, error: violationsPrevError } = await supabase
-    .from('hoa_violations')
-    .select('id', { count: 'exact', head: true })
-    .eq('org_id', orgId)
-    .is('deleted_at', null)
-    .in('status', ['open', 'notice_sent'])
-    .lt('created_at', thirtyDaysAgo.toISOString())
   note(violationsPrevError)
-
-  const { count: activeVendors, error: vendorsError } = await supabase
-    .from('vendors' as never)
-    .select('id', { count: 'exact', head: true })
-    .eq('organization_id', orgId)
-    .eq('status', 'active')
   note(vendorsError)
-
-  const { count: openTickets, error: ticketsError } = await supabase
-    .from('tickets' as never)
-    .select('id', { count: 'exact', head: true })
-    .eq('organization_id', orgId)
-    .in('status', ['open', 'in_progress'])
-    .is('deleted_at', null)
   note(ticketsError)
 
   return {

@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { Inbox, MailPlus, Plug } from 'lucide-react'
 import { Button, EmptyState, Page, PageHeader, Pager } from '@homeowner-portal/ui'
 import { requireBoardOrAdmin } from '@/lib/auth'
+import { getSignedInUser } from '@/lib/orgs'
+import { timed } from '@/lib/perf/timing'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
   countThreadsByStatus,
@@ -81,11 +83,38 @@ export default async function InboxPage({
     'needs_review') as InboxFilter
 
   const supabase = await getSupabaseServerClient()
-  // Mine / Unassigned / All (BL-101 A6). The user id comes from a separate
-  // getUser() because requireBoardOrAdmin returns only { role, org }.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Reads that need neither the counts nor the page offset start now, so
+  // they run alongside the status and count reads instead of after them
+  // (BL-099 static pass). Each keeps its own failure handling.
+  const slaP = loadInboxSlaHours(supabase, org.id)
+  slaP.catch(() => {}) // awaited below; marked handled until then
+  // Enrichment only: a failed read shows "Assigned" instead of a name.
+  const assigneeNamesP = listAssignees(org.id).then(
+    (rows) => Object.fromEntries(rows.map((row) => [row.userId, row.name])),
+    () => ({}) as Record<string, string>,
+  )
+  // BL-101 A10. Enrichment only: a failed read hides the card.
+  const draftQualityP = timed('/inbox', 'inbox.draftQuality', () => loadDraftQuality(supabase, { orgId: org.id })).then(
+    (q): DraftQualitySummary | null => q.summary,
+    (err: unknown) => {
+      console.error('InboxPage: draft quality read failed', {
+        orgId: org.id,
+        message: err instanceof Error ? err.message : String(err),
+      })
+      return null
+    },
+  )
+  // "Approve and send" on the last thread in the queue lands here; the
+  // reply's 30-second Undo comes along (see UndoSendBanner).
+  const isId = (value: string | undefined): value is string => Boolean(value && /^[0-9a-f-]{36}$/i.test(value))
+  const undoDraftP = isId(params.undo)
+    ? getDraftById(supabase, org.id, params.undo).catch(() => null)
+    : Promise.resolve(null)
+
+  // Mine / Unassigned / All (BL-101 A6). requireBoardOrAdmin returns only
+  // { role, org }; getSignedInUser is the request-memoized getUser the
+  // layout already made, so this costs no extra auth round trip.
+  const user = await getSignedInUser()
   const ownerScope = { owner, userId: user?.id ?? null }
 
   // Counts must land before the page/offset math below — `counts[filter]`
@@ -108,7 +137,7 @@ export default async function InboxPage({
         return { kind: 'failed' }
       },
     ),
-    countThreadsByStatus(supabase, org.id, ownerScope),
+    timed('/inbox', 'inbox.counts', () => countThreadsByStatus(supabase, org.id, ownerScope)),
   ])
   const status = statusRead?.kind === 'loaded' ? statusRead.status : null
 
@@ -122,24 +151,10 @@ export default async function InboxPage({
   const offset = (page - 1) * INBOX_PAGE_SIZE
 
   const [threads, sla, assigneeNames, draftQuality] = await Promise.all([
-    listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset, ownerScope),
-    loadInboxSlaHours(supabase, org.id),
-    // Enrichment only: a failed read shows "Assigned" instead of a name.
-    listAssignees(org.id).then(
-      (rows) => Object.fromEntries(rows.map((row) => [row.userId, row.name])),
-      () => ({}) as Record<string, string>,
-    ),
-    // BL-101 A10. Enrichment only: a failed read hides the card.
-    loadDraftQuality(supabase, { orgId: org.id }).then(
-      (q): DraftQualitySummary | null => q.summary,
-      (err: unknown) => {
-        console.error('InboxPage: draft quality read failed', {
-          orgId: org.id,
-          message: err instanceof Error ? err.message : String(err),
-        })
-        return null
-      },
-    ),
+    timed('/inbox', 'inbox.list', () => listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset, ownerScope)),
+    slaP,
+    assigneeNamesP,
+    draftQualityP,
   ])
   const now = Date.now()
 
@@ -160,12 +175,7 @@ export default async function InboxPage({
         }))
       : []
 
-  // "Approve and send" on the last thread in the queue lands here; the
-  // reply's 30-second Undo comes along (see UndoSendBanner).
-  const isId = (value: string | undefined): value is string => Boolean(value && /^[0-9a-f-]{36}$/i.test(value))
-  const undoDraft = isId(params.undo)
-    ? await getDraftById(supabase, org.id, params.undo).catch(() => null)
-    : null
+  const undoDraft = await undoDraftP
 
   if (statusRead === null) {
     return (

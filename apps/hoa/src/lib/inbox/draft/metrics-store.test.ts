@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { loadDraftQuality, recordDraftMetrics } from './metrics-store'
 import type { DraftMetrics } from './metrics'
+import { cappedFakeDb } from '@/lib/supabase/capped-fake-db'
+import { heldDb, settle } from '@/lib/supabase/held-fake-db'
 
 const D1 = '11111111-1111-4111-8111-111111111111'
 const D2 = '22222222-2222-4222-8222-222222222222'
@@ -117,5 +119,27 @@ describe('recordDraftMetrics', () => {
     expect(await recordDraftMetrics(db, { orgId: 'org-1', userId: 'user-1', metrics: metrics(D1) })).toBe(false)
     expect(spy.mock.calls[0][0]).toContain('42501')
     spy.mockRestore()
+  })
+})
+
+describe('loadDraftQuality — cancelled-draft chunks (BL-099)', () => {
+  it('checks every id chunk at once, not one after another', async () => {
+    const ids = Array.from({ length: 400 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`)
+    const audit_log = ids.map((id, i) => ({
+      id: `a${String(i).padStart(4, '0')}`,
+      org_id: 'org-1',
+      action: 'inbox_draft_metrics',
+      created_at: '2026-10-19T00:00:00Z',
+      metadata: metrics(id),
+    }))
+    const inbox_drafts = [{ id: ids[0], organization_id: 'org-1', status: 'cancelled' }]
+    const fake = cappedFakeDb({ audit_log, inbox_drafts })
+    const h = heldDb(fake.db, ['inbox_drafts'])
+    const result = loadDraftQuality(h.db as never, { orgId: 'org-1', now: new Date('2026-10-20T00:00:00Z') })
+    await settle()
+    // 400 draft ids in chunks of 150: three reads in flight together.
+    expect(h.started.filter((t) => t === 'inbox_drafts')).toHaveLength(3)
+    h.release()
+    await expect(result).resolves.toBeTruthy()
   })
 })

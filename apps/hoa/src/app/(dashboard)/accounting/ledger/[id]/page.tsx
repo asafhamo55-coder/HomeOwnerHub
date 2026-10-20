@@ -1,3 +1,4 @@
+import { timed } from '@/lib/perf/timing'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
@@ -27,15 +28,17 @@ interface PageProps {
   params: Promise<{ id: string }>
 }
 
+const R = '/accounting/ledger/[id]'
+
 export default async function JournalEntryDetailPage({ params }: PageProps) {
   const { id } = await params
   const crumbs = accountingCrumbs(['Ledger', '/accounting/ledger'], ['Journal entry'])
-  const ctxRes = await tryLoad('accounting context', getAccountingContext)
+  const ctxRes = await timed(R, 'journalEntry.context', () => tryLoad('accounting context', getAccountingContext))
   if (!ctxRes.ok) return <AccountingLoadFailed title="Journal entry" what="this journal entry" breadcrumbs={crumbs} />
   const ctx = ctxRes.data
   if (!ctx) notFound()
 
-  const res = await tryLoad('journal entry', () => getJournalEntry(ctx.associationId, id))
+  const res = await timed(R, 'journalEntry.load', () => tryLoad('journal entry', () => getJournalEntry(ctx.associationId, id)))
   if (!res.ok) return <AccountingLoadFailed title="Journal entry" what="this journal entry" breadcrumbs={crumbs} />
   const je = res.data
   if (!je) notFound()

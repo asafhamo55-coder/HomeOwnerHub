@@ -8,6 +8,7 @@ vi.mock('@/lib/supabase/server', () => ({
 
 import { buildReminderPackets, daysBetween, unitLabel } from './packets'
 import { cappedFakeDb } from '@/lib/supabase/capped-fake-db'
+import { heldDb, settle } from '@/lib/supabase/held-fake-db'
 
 // The real client returns a thenable builder; every filter method returns
 // `this` and awaiting it yields { data, error }. This fake does the same so
@@ -323,6 +324,24 @@ describe('buildReminderPackets — past the 1000-row cap (BL-047)', () => {
     const { packets } = await buildReminderPackets('assoc-1')
     expect(packets).toHaveLength(1100)
     expect(packets.reduce((s, p) => s + p.totalDue, 0)).toBe(n * 100)
+  })
+
+  it('reads every ownerships chunk at once, not one after another (BL-099)', async () => {
+    const { db } = cappedFakeDb({ assessments, ownerships })
+    const h = heldDb(db, ['ownerships'])
+    mockFrom.mockImplementation((t: string) => h.db.from(t))
+    const result = buildReminderPackets('assoc-1')
+    await settle()
+    // 1100 owing units in chunks of 150: all eight chunk reads in flight.
+    expect(h.started.filter((t) => t === 'ownerships')).toHaveLength(8)
+    h.release()
+    expect((await result).packets).toHaveLength(1100)
+  })
+
+  it('a failed ownerships chunk still throws', async () => {
+    const { db } = cappedFakeDb({ assessments, ownerships }, { failAt: { table: 'ownerships', from: 0 } })
+    mockFrom.mockImplementation((t: string) => db.from(t))
+    await expect(buildReminderPackets('assoc-1')).rejects.toThrow(/ownerships/)
   })
 
   it('a failed later page throws — the panel shows its error, not a shorter list', async () => {

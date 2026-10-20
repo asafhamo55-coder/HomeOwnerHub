@@ -40,6 +40,8 @@ vi.mock('next/navigation', () => ({
 vi.mock('@homeowner-portal/jobs', () => ({ inngest: { send: vi.fn() } }))
 vi.mock('@/lib/orgs', () => ({
   getCurrentOrg: vi.fn(async () => (h.orgId ? { id: h.orgId, name: 'HOA', hub_type: 'hoa' } : null)),
+  // getResidentActor reads the user through this memoized getUser (BL-099).
+  getSignedInUser: vi.fn(async () => (h.userId ? { id: h.userId, email: 'me@x.test' } : null)),
 }))
 vi.mock('@/lib/auth', () => ({
   getCurrentUserRoleInOrg: vi.fn(async () => h.role),
@@ -79,6 +81,7 @@ import { getImpersonationTarget, getResidentActor, IMPERSONATION_COOKIE } from '
 import { signImpersonationToken, verifyImpersonationToken } from './impersonation-token'
 import { enterResidentPortal, exitResidentPortal } from './impersonation-actions'
 import { getResidentUnits } from './resident'
+import { getSignedInUser } from '@/lib/orgs'
 import { loadMyTickets, getMyTicket } from './resident-tickets'
 import {
   getMyArcRequest,
@@ -132,6 +135,15 @@ describe('the impersonation cookie is never trusted on its own', () => {
     expect(actor.impersonating).toBe(false)
     expect(actor.id).toBe(ADMIN_X)
     expect(await getImpersonationTarget()).toBeNull()
+  })
+
+  it('reads the user through the shared, request-memoized getSignedInUser (BL-099)', async () => {
+    vi.mocked(getSignedInUser).mockClear()
+    const actor = await getResidentActor()
+    expect(actor.id).toBe(ADMIN_X)
+    // One memo for the layouts, the role checks and this resolver: no
+    // second auth round trip of its own.
+    expect(getSignedInUser).toHaveBeenCalled()
   })
 
   it('rejects a cookie issued in org A while the current org is B', async () => {

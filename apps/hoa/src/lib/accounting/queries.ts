@@ -1,8 +1,9 @@
 import type { Database } from '@homeowner-portal/db/types'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
+import { getCurrentOrg } from '@/lib/orgs'
 import { chunk, readAll } from '@/lib/supabase/read-all'
-import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone, todayIn } from '@/lib/association-time'
+import { todayIn } from '@/lib/association-time'
 import { isClosingEntry, withoutClosingEntries } from './closing-entries'
 import { TEMPLATE_ENTRY_PREFIX } from './recurring-edit'
 
@@ -35,21 +36,24 @@ export type AccountingDb = ServerClient
  * capped read is silently wrong (UX decision 11).
  */
 export async function readLedgerLines<T>(supabase: ServerClient, columns: string, jeIds: string[]): Promise<T[]> {
-  const out: T[] = []
-  for (const ids of chunk(jeIds)) {
-    const rows = await readAll<T>(
-      (from, to) =>
-        supabase
-          .from('ledger_entries')
-          .select(columns)
-          .in('journal_entry_id', ids)
-          .order('id', { ascending: true })
-          .range(from, to) as unknown as PromiseLike<{ data: T[] | null; error: { code?: string; message?: string } | null }>,
-      queryFailed,
-    )
-    out.push(...rows)
-  }
-  return out
+  // The chunks are independent: page them all at once instead of one
+  // after another (BL-099 static pass). Results keep chunk order, and any
+  // failed page still rejects the whole read.
+  const perChunk = await Promise.all(
+    chunk(jeIds).map((ids) =>
+      readAll<T>(
+        (from, to) =>
+          supabase
+            .from('ledger_entries')
+            .select(columns)
+            .in('journal_entry_id', ids)
+            .order('id', { ascending: true })
+            .range(from, to) as unknown as PromiseLike<{ data: T[] | null; error: { code?: string; message?: string } | null }>,
+        queryFailed,
+      ),
+    ),
+  )
+  return perChunk.flat()
 }
 
 type Row<T extends keyof Database['public']['Tables']> =
@@ -1288,20 +1292,17 @@ export async function getAccountingContext(): Promise<AccountingContext | null> 
   const assoc = assocRes.data
   if (!assoc) return null
 
-  const supabase = await getSupabaseServerClient()
-
-  const { data: assocRow, error: assocRowErr } = await supabase
-    .from('associations')
-    .select(`organization_id, ${ASSOCIATION_ZONE_COLUMNS}`)
-    .eq('id', assoc.id)
-    .maybeSingle()
-  if (assocRowErr) throw queryFailed(assocRowErr)
-
-  if (!assocRow) return null
+  // The primary-association read above already carries the zone, and it
+  // was scoped to the current org (memoized per request), so re-reading
+  // the same associations row for organization_id and the zone columns
+  // only added a round trip in front of every accounting page (BL-099
+  // static pass).
+  const [supabase, org] = await Promise.all([getSupabaseServerClient(), getCurrentOrg()])
+  if (!org) return null
 
   // The latest period that has STARTED on the association's day (BL-076):
   // next year, opened early, is not current until its first day.
-  const timeZone = associationTimeZone(assocRow)
+  const timeZone = assoc.timeZone
   const { data: period, error: periodErr } = await supabase
     .from('fiscal_periods')
     .select('*')
@@ -1313,7 +1314,7 @@ export async function getAccountingContext(): Promise<AccountingContext | null> 
   if (periodErr) throw queryFailed(periodErr)
 
   return {
-    organizationId: assocRow.organization_id,
+    organizationId: org.id,
     associationId: assoc.id,
     associationName: assoc.name,
     currentPeriod: period,
@@ -1453,22 +1454,22 @@ export async function getJournalEntry(
 ): Promise<JournalEntryDetail | null> {
   const supabase = await getSupabaseServerClient()
 
-  const { data: header, error: headerErr } = await supabase
-    .from('journal_entries')
-    .select('*')
-    .eq('association_id', associationId)
-    .eq('id', id)
-    .maybeSingle()
+  // The lines read needs only the id, so it runs alongside the header
+  // read (BL-099 static pass). The header still decides: no header in
+  // this association, no entry, and its lines are dropped unread.
+  const [{ data: header, error: headerErr }, { data: lines, error: linesErr }] = await Promise.all([
+    supabase.from('journal_entries').select('*').eq('association_id', associationId).eq('id', id).maybeSingle(),
+    supabase
+      .from('ledger_entries')
+      .select(
+        'id, debit_amount, credit_amount, memo, account:account_id(id, account_number, account_name, account_type), fund:fund_id(id, code, name)',
+      )
+      .eq('journal_entry_id', id),
+  ])
   if (headerErr) throw queryFailed(headerErr)
 
   if (!header) return null
 
-  const { data: lines, error: linesErr } = await supabase
-    .from('ledger_entries')
-    .select(
-      'id, debit_amount, credit_amount, memo, account:account_id(id, account_number, account_name, account_type), fund:fund_id(id, code, name)',
-    )
-    .eq('journal_entry_id', id)
   if (linesErr) throw queryFailed(linesErr)
 
   type LineShape = {

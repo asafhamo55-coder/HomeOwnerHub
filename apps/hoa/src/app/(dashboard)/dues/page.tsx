@@ -1,4 +1,5 @@
 import { timed } from '@/lib/perf/timing'
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { Plus, Wallet } from 'lucide-react'
 import {
@@ -16,6 +17,7 @@ import {
   StatusPill,
   pageRange,
   parsePageParam,
+  Skeleton,
   type DataTableColumn,
 } from '@homeowner-portal/ui'
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
@@ -219,7 +221,12 @@ export default async function DuesPage({
         />
       </section>
 
-      <WhoOwesPanel associationId={assoc.id} timeZone={assoc.timeZone} />
+      {/* Streams in (BL-099 static pass): the panel reads every open
+          charge plus its owners, and the charges table below needs none
+          of it, so it no longer holds the whole page. */}
+      <Suspense fallback={<WhoOwesSkeleton />}>
+        <WhoOwesPanel associationId={assoc.id} timeZone={assoc.timeZone} />
+      </Suspense>
 
       {scope ? (
         <PropertyScopeBanner
@@ -383,4 +390,17 @@ function DuesStatus({ row, today }: { row: AssessmentRow; today: string }) {
   }
   if (row.status === 'partial') return <StatusPill tone="warning" label="Partly paid" size="sm" />
   return <StatusPill tone="neutral" label="Due" size="sm" />
+}
+
+/** Placeholder while the who-owes panel streams in. */
+function WhoOwesSkeleton() {
+  return (
+    <Card aria-busy="true">
+      <span className="sr-only">Loading who owes</span>
+      <div className="space-y-3 p-5">
+        <Skeleton className="h-5 w-32" />
+        <Skeleton className="h-16 w-full" />
+      </div>
+    </Card>
+  )
 }

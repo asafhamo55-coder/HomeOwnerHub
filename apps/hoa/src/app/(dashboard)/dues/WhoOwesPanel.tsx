@@ -2,6 +2,7 @@ import { Alert, Button, Card, CardDescription, CardHeader, CardTitle, DataTable,
 import { buildReminderPackets } from '@/lib/dues-reminders/packets'
 import { getLastRemindedByEmail, RECENT_REMINDER_DAYS } from '@/lib/dues-reminders/queries'
 import { SendRemindersDialog } from './SendRemindersDialog'
+import { timed } from '@/lib/perf/timing'
 
 import { usd } from '@/lib/money/format'
 
@@ -28,8 +29,8 @@ export async function WhoOwesPanel({ associationId, timeZone }: { associationId:
   // so an unhandled rejection here would bubble to the dashboard layout's
   // and replace the period tables below too, not just this panel.
   const [packetsResult, lastRemindedResult] = await Promise.allSettled([
-    buildReminderPackets(associationId, timeZone),
-    getLastRemindedByEmail(associationId),
+    timed('/dues', 'dues.whoOwes', () => buildReminderPackets(associationId, timeZone)),
+    timed('/dues', 'dues.lastReminded', () => getLastRemindedByEmail(associationId)),
   ])
 
   if (packetsResult.status === 'rejected') {
