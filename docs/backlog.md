@@ -938,3 +938,13 @@ These go beyond the design-system v2 pass:
   - cuts the number of clicks per reply.
 
   Phase 1 is research and a plan (docs/research/2026-10-inbox-plan.md). Phase 2 builds the top items that need no migration.
+- **BL-102 Communications: simple and self-service (owner, 2026-10-19):** review the whole outbound communications module so a volunteer can send the right message without help. It covers:
+  - the announcement wizard;
+  - audiences and segments;
+  - SMS;
+  - the Spanish version;
+  - scheduling;
+  - templates;
+  - official notices;
+  - delivery status.
+  Design it alongside BL-101 (inbox), so both sides of resident communication feel like one place. Phase 1 is a research plan, docs/research/2026-10-communications-plan.md. Phase 2 builds the pieces that need no migration.
