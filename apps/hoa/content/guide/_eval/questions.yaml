@@ -161,7 +161,7 @@ questions:
   - { id: a-15, role: admin, expect: accounting-monthly-board-report, q: "Can I send last month's board report out early instead of waiting for the 1st?", route: /accounting/reports }
   - { id: a-16, role: board, expect: accounting-monthly-board-report, q: "Can I see what the board's month-end email will look like before it goes out?" }
   - { id: a-17, role: admin, expect: accounting-monthly-board-report, q: "Why is the Send now button greyed out on the board report card?" }
-  - { id: a-r1, role: admin, expect: refuse, q: "Can the app prepare and e-file our association's 1120-H tax return?" }
+  - { id: a-r1, role: admin, expect: accounting-year-end-cpa, q: "Can the app prepare and e-file our association's 1120-H tax return?" }
   - { id: a-r2, role: admin, expect: refuse, q: "How do I run payroll for our part-time pool attendant?" }
 
   # ── Phase 2 how-to: bills, payment plans, collections, recurring ────────

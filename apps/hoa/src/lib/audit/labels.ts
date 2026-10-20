@@ -62,6 +62,9 @@ interface ActionDef {
 /** The action this page's own CSV export writes (BL-115: the export is itself audited). */
 export const ACTIVITY_EXPORT_ACTION = 'activity_log_export'
 
+/** BL-121: the year-end CPA package download. */
+export const YEAR_END_EXPORT_ACTION = 'year_end_package_export'
+
 export const ACTION_LABELS: Record<string, ActionDef> = {
   // Violations
   'violation.cure_commitment.recorded': { label: 'Recorded an owner’s cure commitment', area: 'violations' },
@@ -92,6 +95,7 @@ export const ACTION_LABELS: Record<string, ActionDef> = {
   data_export: { label: 'Downloaded all association data', area: 'records' },
   statutory_roster_export: { label: 'Exported the owner roster', area: 'records' },
   [ACTIVITY_EXPORT_ACTION]: { label: 'Exported the activity log', area: 'records' },
+  [YEAR_END_EXPORT_ACTION]: { label: 'Downloaded the year-end package for the CPA', area: 'accounting' },
   // Access
   'resident_portal.enter': { label: 'Viewed the portal as a resident', area: 'access' },
   'resident_portal.exit': { label: 'Left the resident view', area: 'access' },
@@ -246,6 +250,10 @@ export const ACTION_DETAIL: Record<string, (m: Record<string, unknown>) => strin
     const rows = num(m.rows)
     return rows != null ? `${rows} ${rows === 1 ? 'row' : 'rows'}` : null
   },
+  [YEAR_END_EXPORT_ACTION]: (m) =>
+    typeof m.fiscal_start === 'string' && typeof m.fiscal_end === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(m.fiscal_start) && /^\d{4}-\d{2}-\d{2}$/.test(m.fiscal_end)
+      ? `Fiscal year ${m.fiscal_start} to ${m.fiscal_end}`
+      : null,
 }
 
 export function actionDetail(action: string, metadata: Meta): string | null {

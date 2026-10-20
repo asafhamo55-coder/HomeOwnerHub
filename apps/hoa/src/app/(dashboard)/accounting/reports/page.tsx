@@ -1,6 +1,6 @@
 import { timed } from '@/lib/perf/timing'
 import Link from 'next/link'
-import { ArrowDownUp, ArrowRight, BarChart3, PieChart, TrendingUp } from 'lucide-react'
+import { ArrowDownUp, ArrowRight, BarChart3, FileArchive, PieChart, TrendingUp } from 'lucide-react'
 import { Alert, Card, Page } from '@homeowner-portal/ui'
 import { AccountingTabs } from '../AccountingTabs'
 import { requireBoardOrAdmin } from '@/lib/auth'
@@ -39,6 +39,12 @@ const REPORTS = [
     icon: BarChart3,
     title: 'Budget vs. actual',
     description: 'Each budget line next to what was really collected or spent.',
+  },
+  {
+    href: '/accounting/reports/year-end',
+    icon: FileArchive,
+    title: 'Year-end package',
+    description: 'One zip for your CPA: statements, ledger, aging, bank recs, a 1120-H worksheet and 1099 candidates.',
   },
 ]
 

@@ -25,6 +25,8 @@ import * as attachmentBill from './inbox/attachment-bill'
 import * as rosterExport from '../app/(dashboard)/properties/roster/export/route'
 import * as activityExport from '../app/api/settings/activity/export/route'
 import * as motionsExport from '../app/api/meetings/motions/export/route'
+import * as yearEndExport from '../app/api/accounting/year-end/[periodId]/route'
+import YearEndPage from '../app/(dashboard)/accounting/reports/year-end/page'
 import ActivityLogPage from '../app/(dashboard)/settings/activity/page'
 import MotionLogPage from '../app/(dashboard)/meetings/motions/page'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -310,6 +312,23 @@ describe('board-only activity and motion logs refuse a resident', () => {
     const res = await motionsExport.GET(new Request('http://x/api/meetings/motions/export'))
     expect(res.status).toBe(403)
     expect((await res.json()).error.code).toBe('forbidden')
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+  })
+
+  it('GET /api/accounting/year-end/[periodId] (BL-121: the CPA package is the whole ledger)', async () => {
+    vi.mocked(getSupabaseServerClient).mockClear()
+    const periodId = '11111111-1111-4111-8111-111111111111'
+    const res = await yearEndExport.GET(new Request(`http://x/api/accounting/year-end/${periodId}`), {
+      params: Promise.resolve({ periodId }),
+    })
+    expect(res.status).toBe(403)
+    expect((await res.json()).error.code).toBe('forbidden')
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+  })
+
+  it('/accounting/reports/year-end gates on requireBoardOrAdmin before any read', async () => {
+    vi.mocked(getSupabaseServerClient).mockClear()
+    await expect(YearEndPage({ searchParams: Promise.resolve({}) })).rejects.toThrow('requireBoardOrAdmin redirect')
     expect(getSupabaseServerClient).not.toHaveBeenCalled()
   })
 
