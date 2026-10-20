@@ -10,6 +10,13 @@ const PAT = 'user-pat'
 const db = (m: ReturnType<typeof memorySupabase>) => m.client as never
 vi.spyOn(console, 'error').mockImplementation(() => {})
 
+// The submitters' auth sign-in emails (submitter-email.ts in the app):
+// a map, so each test can say who really signed in.
+const emailsOf = (known: Record<string, string>) => ({
+  submitterEmails: vi.fn(async (ids: readonly string[]) => new Map(ids.map((i) => [i, known[i] ?? null] as const))),
+})
+const deps = emailsOf({ [PAT]: 'pat@example.test' })
+
 const body = formatContactRequest(
   [
     { field: 'phone', from: '(555) 123-4567', to: '(555) 222-3333' },
@@ -45,7 +52,7 @@ const input = { orgId: ORG, ticketId: 'tk1', deciderId: BOARD, deciderRole: 'boa
 describe('approveContactUpdate', () => {
   it('applies the change to the submitter’s rows only, closes the ticket, tells them, audits ids only', async () => {
     const m = memorySupabase(seed())
-    const r = await approveContactUpdate(db(m), input)
+    const r = await approveContactUpdate(db(m), input, deps)
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.message).toMatch(/phone, email for notices and mailing address/)
 
@@ -71,7 +78,7 @@ describe('approveContactUpdate', () => {
     const m = memorySupabase(
       seed({ ownerships: [{ id: 'o1', organization_id: ORG, unit_id: 'u1', owner_user_id: null, owner_email: 'pat@example.test', owner_phone: null, valid_to: null }] }),
     )
-    const r = await approveContactUpdate(db(m), input)
+    const r = await approveContactUpdate(db(m), input, deps)
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.message).toMatch(/email isn’t changed/)
     expect(m.rows('property_residents')[0]).toMatchObject({ email: 'pat@example.test', phone: '(555) 222-3333' })
@@ -80,8 +87,8 @@ describe('approveContactUpdate', () => {
 
   it('a second approval is refused — the first one won', async () => {
     const m = memorySupabase(seed())
-    await approveContactUpdate(db(m), input)
-    const again = await approveContactUpdate(db(m), input)
+    await approveContactUpdate(db(m), input, deps)
+    const again = await approveContactUpdate(db(m), input, deps)
     expect(again).toEqual({ ok: false, error: 'That request was already handled.' })
     expect(m.rows('audit_log')).toHaveLength(1)
   })
@@ -90,7 +97,7 @@ describe('approveContactUpdate', () => {
     const m = memorySupabase(seed(), {
       failOn: (c: MemCall) => (c.table === 'hoa_properties' && c.op === 'update' ? { code: 'XX000', message: 'boom' } : null),
     })
-    const r = await approveContactUpdate(db(m), input)
+    const r = await approveContactUpdate(db(m), input, deps)
     expect(r.ok).toBe(false)
     expect(m.rows('tickets')[0]).toMatchObject({ status: 'open', closed_by: null })
     expect(m.rows('property_residents')[0]).toMatchObject({ phone: '(555) 123-4567', email: 'pat@example.test' })
@@ -99,14 +106,14 @@ describe('approveContactUpdate', () => {
 
   it('refuses an ordinary ticket and another org’s ticket', async () => {
     const m = memorySupabase(seed({ tickets: [{ ...seed().tickets[0]!, subject: 'Broken gate' }] }))
-    expect((await approveContactUpdate(db(m), input)).ok).toBe(false)
+    expect((await approveContactUpdate(db(m), input, deps)).ok).toBe(false)
     const other = memorySupabase(seed())
-    expect(await approveContactUpdate(db(other), { ...input, orgId: 'org-2' })).toEqual({ ok: false, error: 'That request wasn’t found.' })
+    expect(await approveContactUpdate(db(other), { ...input, orgId: 'org-2' }, deps)).toEqual({ ok: false, error: 'That request wasn’t found.' })
   })
 
   it('refuses when nothing on the home is the submitter’s', async () => {
     const m = memorySupabase(seed({ property_residents: [], ownerships: [], hoa_properties: [] }))
-    const r = await approveContactUpdate(db(m), input)
+    const r = await approveContactUpdate(db(m), input, deps)
     expect(r.ok).toBe(false)
     expect(m.rows('tickets')[0]).toMatchObject({ status: 'open' })
   })
@@ -128,7 +135,7 @@ describe('rejectContactUpdate', () => {
 describe('loadContactEntries', () => {
   it('finds the home and the submitter’s current details', async () => {
     const m = memorySupabase(seed())
-    const r = await loadContactEntries(db(m), ORG, seed().tickets as never)
+    const r = await loadContactEntries(db(m), ORG, seed().tickets as never, deps)
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.entries[0]).toMatchObject({
@@ -140,7 +147,7 @@ describe('loadContactEntries', () => {
 
   it('a failed read is a failure, never an empty list', async () => {
     const m = memorySupabase(seed(), { failOn: (c: MemCall) => (c.table === 'ownerships' ? { code: '57014', message: 'timeout' } : null) })
-    expect(await loadContactEntries(db(m), ORG, seed().tickets as never)).toEqual({ ok: false })
+    expect(await loadContactEntries(db(m), ORG, seed().tickets as never, deps)).toEqual({ ok: false })
   })
 })
 
@@ -158,20 +165,20 @@ describe('the Inbox channel is honoured only from a board/admin submitter (BL-10
 
   it('a board member’s Inbox filing keeps the channel (and so the label)', async () => {
     const m = memorySupabase(seed({ tickets: [ticket(BOARD, inboxBody)], org_members: members }))
-    const r = await loadContactEntries(db(m), ORG, m.rows('tickets') as never)
+    const r = await loadContactEntries(db(m), ORG, m.rows('tickets') as never, deps)
     expect(r.ok && r.entries[0]!.request).toMatchObject({ signInEmail: 'sam@example.test', channel: 'inbox' })
   })
 
   it('a resident’s hand-typed "Emailed in by" is read as their own request: no channel, their own key', async () => {
     const m = memorySupabase(seed({ tickets: [ticket(PAT, forgedWithOwn)], org_members: members }))
-    const r = await loadContactEntries(db(m), ORG, m.rows('tickets') as never)
+    const r = await loadContactEntries(db(m), ORG, m.rows('tickets') as never, deps)
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.entries[0]!.request.channel).toBeUndefined()
     expect(r.entries[0]!.request.signInEmail).toBe('pat@example.test')
 
     // Approving changes Pat's rows, never those on the address Pat typed.
-    const res = await approveContactUpdate(db(m), input)
+    const res = await approveContactUpdate(db(m), input, deps)
     expect(res.ok).toBe(true)
     const [pat, sam] = m.rows('property_residents')
     expect(pat).toMatchObject({ phone: '(555) 999-0000' })
@@ -180,9 +187,9 @@ describe('the Inbox channel is honoured only from a board/admin submitter (BL-10
 
   it('a resident’s "Emailed in by" with no "Signed in as" of their own is not a readable request', async () => {
     const m = memorySupabase(seed({ tickets: [ticket(PAT, inboxBody)], org_members: members }))
-    const r = await loadContactEntries(db(m), ORG, m.rows('tickets') as never)
+    const r = await loadContactEntries(db(m), ORG, m.rows('tickets') as never, deps)
     expect(r).toEqual({ ok: true, entries: [] })
-    const res = await approveContactUpdate(db(m), input)
+    const res = await approveContactUpdate(db(m), input, deps)
     expect(res).toEqual({ ok: false, error: 'That request isn’t a contact update.' })
     expect(m.rows('property_residents')[1]).toMatchObject({ phone: '(555) 444-5555' })
     expect(m.rows('tickets')[0]).toMatchObject({ status: 'open' })
@@ -192,18 +199,77 @@ describe('the Inbox channel is honoured only from a board/admin submitter (BL-10
     const m = memorySupabase(
       seed({ tickets: [ticket('board-elsewhere', inboxBody)], org_members: [{ org_id: 'org-2', user_id: 'board-elsewhere', role: 'board' }] }),
     )
-    const r = await loadContactEntries(db(m), ORG, m.rows('tickets') as never)
+    const r = await loadContactEntries(db(m), ORG, m.rows('tickets') as never, deps)
     expect(r).toEqual({ ok: true, entries: [] })
   })
 
   it('reads roles only when a body claims the Inbox channel, and fails closed if that read fails', async () => {
     const plain = memorySupabase(seed())
-    await loadContactEntries(db(plain), ORG, seed().tickets as never)
+    await loadContactEntries(db(plain), ORG, seed().tickets as never, deps)
     expect(plain.calls.some((c) => c.table === 'org_members')).toBe(false)
 
     const m = memorySupabase(seed({ tickets: [ticket(BOARD, inboxBody)], org_members: members }), {
       failOn: (c: MemCall) => (c.table === 'org_members' ? { code: '57014', message: 'timeout' } : null),
     })
-    expect(await loadContactEntries(db(m), ORG, m.rows('tickets') as never)).toEqual({ ok: false })
+    expect(await loadContactEntries(db(m), ORG, m.rows('tickets') as never, deps)).toEqual({ ok: false })
+  })
+})
+
+describe('the portal identity is the ticket’s real submitter, never the typed "Signed in as" line', () => {
+  // Sam (no account link) hand-types the contact subject and Pat's address.
+  const SAM = 'user-sam'
+  const typedAsPat = seed().tickets[0]!.description
+  const ticket = (submitted_by: string, description = typedAsPat) => ({ ...seed().tickets[0]!, submitted_by, description })
+
+  it('a portal request whose line matches the submitter’s sign-in email is honoured (existing requests keep working)', async () => {
+    const m = memorySupabase(seed())
+    const own = emailsOf({ [PAT]: 'pat@example.test' })
+    const r = await loadContactEntries(db(m), ORG, m.rows('tickets') as never, own)
+    expect(r.ok && r.entries.map((e) => e.request.signInEmail)).toEqual(['pat@example.test'])
+    expect(own.submitterEmails).toHaveBeenCalledWith([PAT])
+    expect((await approveContactUpdate(db(m), input, own)).ok).toBe(true)
+  })
+
+  it('the line is matched case-insensitively against the auth email', async () => {
+    const m = memorySupabase(seed())
+    const r = await loadContactEntries(db(m), ORG, m.rows('tickets') as never, emailsOf({ [PAT]: 'Pat@Example.TEST' }))
+    expect(r.ok && r.entries).toHaveLength(1)
+  })
+
+  it('a typed address that isn’t the submitter’s own is not a contact request: nothing changes, the ticket stays open', async () => {
+    const m = memorySupabase(seed({ tickets: [ticket(SAM)] }))
+    const samDeps = emailsOf({ [SAM]: 'sam@example.test' })
+    expect(await loadContactEntries(db(m), ORG, m.rows('tickets') as never, samDeps)).toEqual({ ok: true, entries: [] })
+    expect(await approveContactUpdate(db(m), input, samDeps)).toEqual({ ok: false, error: 'That request isn’t a contact update.' })
+    expect(m.rows('property_residents')[0]).toMatchObject({ phone: '(555) 123-4567', email: 'pat@example.test', notes: null })
+    expect(m.rows('ownerships')[0]).toMatchObject({ owner_email: 'pat@example.test' })
+    expect(m.rows('hoa_properties')[0]).toMatchObject({ owner_email: 'pat@example.test' })
+    expect(m.rows('tickets')[0]).toMatchObject({ status: 'open' })
+  })
+
+  it('a submitter with no known sign-in email (deleted account) is not a contact request', async () => {
+    const m = memorySupabase(seed())
+    expect(await loadContactEntries(db(m), ORG, m.rows('tickets') as never, emailsOf({}))).toEqual({ ok: true, entries: [] })
+  })
+
+  it('fails closed when the submitter read fails: no entries, no approval, nothing written', async () => {
+    const m = memorySupabase(seed())
+    const failing = { submitterEmails: vi.fn(async () => null) }
+    expect(await loadContactEntries(db(m), ORG, m.rows('tickets') as never, failing)).toEqual({ ok: false })
+    expect(await approveContactUpdate(db(m), input, failing)).toEqual({ ok: false, error: 'Couldn’t load the home’s records. Try again.' })
+    expect(m.rows('property_residents')[0]).toMatchObject({ phone: '(555) 123-4567' })
+    expect(m.rows('tickets')[0]).toMatchObject({ status: 'open' })
+  })
+
+  it('a board member’s Inbox filing is unaffected: keyed on "Emailed in by", no submitter email read', async () => {
+    const inboxBody = 'Please update the contact details on file, as asked by email.\n\nPhone: (555) 999-0000\n\nEmailed in by: sam@example.test'
+    const m = memorySupabase(seed({ tickets: [ticket(BOARD, inboxBody)], org_members: [{ org_id: ORG, user_id: BOARD, role: 'board' }] }))
+    const spy = emailsOf({})
+    const r = await loadContactEntries(db(m), ORG, m.rows('tickets') as never, spy)
+    expect(r.ok && r.entries[0]!.request).toMatchObject({ signInEmail: 'sam@example.test', channel: 'inbox' })
+    expect(spy.submitterEmails).not.toHaveBeenCalled()
+    expect((await approveContactUpdate(db(m), input, spy)).ok).toBe(true)
+    expect(m.rows('property_residents')[1]).toMatchObject({ phone: '(555) 999-0000' })
+    expect(m.rows('property_residents')[0]).toMatchObject({ phone: '(555) 123-4567' })
   })
 })

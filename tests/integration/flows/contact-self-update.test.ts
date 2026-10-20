@@ -18,7 +18,7 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createLot } from '../../../apps/hoa/src/lib/properties/lot'
-import { approveContactUpdate } from '../../../apps/hoa/src/lib/contact-updates/apply'
+import { approveContactUpdate, type ContactDeps } from '../../../apps/hoa/src/lib/contact-updates/apply'
 import { AUDIT_APPLIED, CONTACT_CATEGORY, CONTACT_SUBJECT, formatContactRequest } from '../../../apps/hoa/src/lib/contact-updates/model'
 import { adminDb, makeOrg, mintUser, type OrgFixture, type TestUser } from '../fixtures/factory'
 import { truncateAll } from '../fixtures/truncate'
@@ -32,7 +32,21 @@ let ownershipId: string
 let ownRowId: string
 let neighbourRowId: string
 
-async function fileRequest(changes: Parameters<typeof formatContactRequest>[0]): Promise<string> {
+// The submitter's auth sign-in email, read the way the app's
+// submitter-email.ts does (auth.admin, by user id).
+const deps: ContactDeps = {
+  submitterEmails: async (ids) => {
+    const out = new Map<string, string | null>()
+    for (const id of ids) {
+      const { data, error } = await adminDb().auth.admin.getUserById(id)
+      if (error) return null
+      out.set(id, data.user?.email?.toLowerCase() ?? null)
+    }
+    return out
+  },
+}
+
+async function fileRequest(changes: Parameters<typeof formatContactRequest>[0], signedInAs?: string): Promise<string> {
   const { data, error } = await owner.client
     .from('tickets')
     .insert({
@@ -42,7 +56,7 @@ async function fileRequest(changes: Parameters<typeof formatContactRequest>[0]):
       submitted_by: owner.id,
       category: CONTACT_CATEGORY,
       subject: CONTACT_SUBJECT,
-      description: formatContactRequest(changes, owner.email),
+      description: formatContactRequest(changes, signedInAs ?? owner.email),
       status: 'open',
     })
     .select('id')
@@ -109,7 +123,7 @@ describe('PR-10 contact self-update', () => {
     const db = adminDb()
     expect((await db.from('property_residents').select('phone').eq('id', ownRowId).single()).data?.phone).toBe('(555) 010-0128')
 
-    const r = await approveContactUpdate(board.client as never, { orgId: org.orgId, ticketId, deciderId: board.id, deciderRole: 'board' })
+    const r = await approveContactUpdate(board.client as never, { orgId: org.orgId, ticketId, deciderId: board.id, deciderRole: 'board' }, deps)
     expect(r).toMatchObject({ ok: true })
 
     const mine = (await db.from('property_residents').select('phone, email, notes').eq('id', ownRowId).single()).data
@@ -137,16 +151,27 @@ describe('PR-10 contact self-update', () => {
       { field: 'phone', from: '(555) 010-0128', to: '(555) 010-0199' },
       { field: 'email', from: owner.email, to: 'notices@example.test' },
     ])
-    const r = await approveContactUpdate(board.client as never, { orgId: org.orgId, ticketId, deciderId: board.id, deciderRole: 'board' })
+    const r = await approveContactUpdate(board.client as never, { orgId: org.orgId, ticketId, deciderId: board.id, deciderRole: 'board' }, deps)
     expect(r).toMatchObject({ ok: true })
     const mine = (await adminDb().from('property_residents').select('phone, email').eq('id', ownRowId).single()).data
     expect(mine).toMatchObject({ phone: '(555) 010-0199', email: owner.email })
   })
 
+  it('a typed "Signed in as" naming a neighbour is not a request: the neighbour’s row is untouched', async () => {
+    await linkPortal()
+    const ticketId = await fileRequest([{ field: 'phone', from: '(555) 010-0777', to: '(555) 010-0199' }], 'neighbour@example.test')
+    const r = await approveContactUpdate(board.client as never, { orgId: org.orgId, ticketId, deciderId: board.id, deciderRole: 'board' }, deps)
+    expect(r.ok).toBe(false)
+    const db = adminDb()
+    expect((await db.from('property_residents').select('phone').eq('id', neighbourRowId).single()).data?.phone).toBe('(555) 010-0777')
+    expect((await db.from('property_residents').select('phone').eq('id', ownRowId).single()).data?.phone).toBe('(555) 010-0128')
+    expect((await db.from('tickets').select('status').eq('id', ticketId).single()).data?.status).toBe('open')
+  })
+
   it('a resident cannot approve their own request', async () => {
     await linkPortal()
     const ticketId = await fileRequest([{ field: 'phone', from: '(555) 010-0128', to: '(555) 010-0199' }])
-    const r = await approveContactUpdate(owner.client as never, { orgId: org.orgId, ticketId, deciderId: owner.id, deciderRole: 'board' })
+    const r = await approveContactUpdate(owner.client as never, { orgId: org.orgId, ticketId, deciderId: owner.id, deciderRole: 'board' }, deps)
     expect(r.ok).toBe(false)
     const mine = (await adminDb().from('property_residents').select('phone').eq('id', ownRowId).single()).data
     expect(mine?.phone).toBe('(555) 010-0128')

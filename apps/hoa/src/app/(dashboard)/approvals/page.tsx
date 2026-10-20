@@ -21,6 +21,7 @@ import {
 import { timed } from '@/lib/perf/timing'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { authSubmitterEmails } from '@/lib/contact-updates/submitter-email'
 import { listVendorsResult } from '@/lib/vendors'
 import { loadArcSection, loadBillSection, loadContactSection, loadLetterSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
 import {
@@ -78,7 +79,7 @@ const SOURCE_LOADERS: Record<ApprovalSource, (orgId: string, orgName: string) =>
   arc: cache((orgId: string, orgName: string) =>
     timed(R, 'approvals.arc', async () => loadArcSection(await db(), orgId, { associationName: orgName })),
   ),
-  contact: cache((orgId: string) => timed(R, 'approvals.contact', async () => loadContactSection(await db(), orgId))),
+  contact: cache((orgId: string) => timed(R, 'approvals.contact', async () => loadContactSection(await db(), orgId, { submitterEmails: authSubmitterEmails }))),
   vendor: cache(() =>
     timed(R, 'approvals.vendor', () =>
       listVendorsResult().then(vendorSection, () => ({ source: 'vendor', ok: false }) as const),
