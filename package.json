@@ -12,7 +12,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "typecheck:integration": "tsc --noEmit -p tsconfig.integration.json",
-    "typecheck:scripts": "tsc --noEmit -p scripts/release-notes/tsconfig.json && tsc --noEmit -p scripts/guide/tsconfig.json",
+    "typecheck:scripts": "tsc --noEmit -p scripts/release-notes/tsconfig.json && tsc --noEmit -p scripts/owner-actions/tsconfig.json && tsc --noEmit -p scripts/guide/tsconfig.json",
     "release-notes:preview": "tsx scripts/release-notes/send.ts --dry-run",
     "dev:hoa": "turbo run dev --filter=hoa",
     "dev:eviction": "turbo run dev --filter=eviction",

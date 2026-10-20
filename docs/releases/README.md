@@ -195,3 +195,18 @@ script refuses and exits with code 2. **Recipients come only from
 `RELEASE_NOTES_TO`.** A note, a payload or a command-line flag cannot add or
 change one. This is an internal owner notification, so it does not go
 through the resident outbound guard.
+
+## Owner action items (a sibling email)
+
+Manual steps only the owner can do (prod SQL, dashboards, DNS, keys) live in
+`docs/owner-actions.md`, not in release notes. `.github/workflows/owner-actions.yml`
+emails the open ones, with the same branding and Resend helpers as this
+pipeline, whenever their open items change and every Monday while any are
+open. Recipient: the `OWNER_ACTIONS_TO` secret, else the owner's own address.
+
+To add one: whenever a new manual step appears, Claude appends an item to
+**Open** with the next free id (`### OA-<n> · <title>`, then
+`**Urgency:** Urgent|Soon|Whenever`, why it matters, exact steps, repo
+paths; never a secret). When the owner says it's done, Claude moves it to
+**Done** with a `**Done:** YYYY-MM-DD` line. Preview:
+`pnpm exec tsx scripts/owner-actions/send.ts --dry-run --out /tmp/oa.html`.

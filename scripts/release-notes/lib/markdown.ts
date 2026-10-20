@@ -1,6 +1,6 @@
 // A deliberately small Markdown subset for release notes, rendered to
 // email-safe HTML with inline styles: `### sub-heading`, `-`/`*` bullets,
-// paragraphs, **bold**, *italic*, `code` and [links](https://...).
+// `1.` numbered steps, paragraphs, **bold**, *italic*, `code` and [links](https://...).
 //
 // Everything is escaped first, so a note cannot inject markup into the
 // email. Links are limited to http(s) and mailto.
@@ -43,17 +43,19 @@ type Block =
   | { kind: 'h3'; text: string }
   | { kind: 'p'; text: string }
   | { kind: 'ul'; items: string[] }
+  | { kind: 'ol'; items: string[] }
 
 export function parseBlocks(md: string): Block[] {
   const blocks: Block[] = []
   let para: string[] = []
   let list: string[] | null = null
+  let listKind: 'ul' | 'ol' = 'ul'
   const flushPara = () => {
     if (para.length) blocks.push({ kind: 'p', text: para.join(' ') })
     para = []
   }
   const flushList = () => {
-    if (list?.length) blocks.push({ kind: 'ul', items: list })
+    if (list?.length) blocks.push({ kind: listKind, items: list })
     list = null
   }
   for (const raw of md.split('\n')) {
@@ -71,10 +73,14 @@ export function parseBlocks(md: string): Block[] {
       continue
     }
     const li = /^\s*[-*]\s+(.+)$/.exec(line)
-    if (li) {
+    const oli = li ? null : /^\s*\d+[.)]\s+(.+)$/.exec(line)
+    if (li || oli) {
       flushPara()
+      const kind = li ? 'ul' : 'ol'
+      if (list && listKind !== kind) flushList()
+      listKind = kind
       list ??= []
-      list.push(li[1]!.trim())
+      list.push((li ?? oli)![1]!.trim())
       continue
     }
     if (list && /^\s{2,}\S/.test(raw)) {
@@ -105,7 +111,7 @@ export function blocksToHtml(md: string): string {
             `<li style="margin:0 0 6px 0;font-size:15px;line-height:23px;color:${BRAND.foregroundSecondary};">${inline(i)}</li>`,
         )
         .join('')
-      return `<ul style="margin:0 0 12px 0;padding:0 0 0 20px;">${items}</ul>`
+      return `<${b.kind} style="margin:0 0 12px 0;padding:0 0 0 ${b.kind === 'ol' ? 24 : 20}px;">${items}</${b.kind}>`
     })
     .join('\n')
 }
@@ -115,7 +121,7 @@ export function blocksToText(md: string): string {
     .map((b) => {
       if (b.kind === 'h3') return `${inlineText(b.text)}:`
       if (b.kind === 'p') return inlineText(b.text)
-      return b.items.map((i) => `  - ${inlineText(i)}`).join('\n')
+      return b.items.map((i, n) => `  ${b.kind === 'ol' ? `${n + 1}.` : '-'} ${inlineText(i)}`).join('\n')
     })
     .join('\n\n')
 }
