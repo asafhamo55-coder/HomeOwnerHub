@@ -1,4 +1,5 @@
-import { AlertTriangle, ExternalLink } from 'lucide-react'
+import Link from 'next/link'
+import { AlertTriangle, ExternalLink, Mail } from 'lucide-react'
 import { Badge } from '@homeowner-portal/ui'
 import type { BillCard } from '@/lib/approvals-inbox/model'
 import type { BillEditableField } from '@/lib/bill-scan/proposal'
@@ -120,6 +121,12 @@ export function BillDetails({ bill, approvalRequestId }: { bill: BillCard; appro
         ) : (
           <p className="text-muted">The uploaded bill isn’t available to view.</p>
         )}
+        {p.origin?.kind === 'inbox_attachment' ? (
+          // BL-059: scanned from an inbox attachment — back to the email it came in on.
+          <Link href={`/inbox/${p.origin.threadId}`} className="inline-flex items-center gap-1 font-medium text-primary">
+            <Mail className="size-3.5" aria-hidden /> Open the email it came from
+          </Link>
+        ) : null}
       </div>
       {bill.editOptions ? null : (
         <p className="text-muted">Couldn’t load the vendor and account lists, so these details can’t be edited right now.</p>
