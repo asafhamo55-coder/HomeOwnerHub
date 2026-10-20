@@ -30,6 +30,14 @@ import { getCurrentUserRole } from '@/lib/auth'
 import { activeMessagesTab, canSeeInboxTab } from '@/lib/messages/tabs'
 import { MessagesTabs } from '@/components/messages/MessagesTabs'
 import { NewMessageMenu } from '@/components/messages/NewMessageMenu'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import {
+  BROADCAST_DRAFT_LABEL,
+  combinedDraftCount,
+  listWaitingReplyDrafts,
+  type ReplyDraftItem,
+  type ReplyDraftsResult,
+} from '@/lib/messages/drafts'
 
 export const metadata = { title: 'Messages' }
 export const dynamic = 'force-dynamic'
@@ -96,7 +104,14 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
   const status = sp.status && sp.status in COMMUNICATION_STATUS.labels ? sp.status : undefined
   const page = parsePageParam(sp.page)
   const showingDrafts = status === 'draft'
-  const [result, draftCount] = await Promise.all([
+  // Inbox reply drafts waiting for the board (BL-102 A11 step 4). Read only
+  // for roles that can read the inbox, with the inbox's org scope; they feed
+  // the Drafts tab and its badge on every Messages tab of this page.
+  const replyDraftsRead: Promise<ReplyDraftsResult | null> =
+    showInboxTab && roleCtx
+      ? getSupabaseServerClient().then((db) => listWaitingReplyDrafts(db, roleCtx.org.id))
+      : Promise.resolve(null)
+  const [result, draftCount, replyDrafts] = await Promise.all([
     timed('/communications', 'communications.list', () =>
       listCommunications(assoc.id, {
         category,
@@ -108,7 +123,10 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
       }),
     ),
     countDrafts(assoc.id),
+    replyDraftsRead,
   ])
+  const replyDraftRows: ReplyDraftItem[] = replyDrafts?.ok ? replyDrafts.rows : []
+  const allDraftsCount = combinedDraftCount(draftCount, replyDrafts?.ok ? replyDrafts.rows.length : null)
   const comms = result.ok ? result.rows : []
   const total = result.ok ? result.total : 0
   const filtered = Boolean(category || status)
@@ -189,6 +207,7 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
                 ) : null}
               </div>
               <p className="mt-0.5 text-xs text-muted">
+                {c.status === 'draft' ? `${BROADCAST_DRAFT_LABEL} · ` : null}
                 {COMMUNICATION_CATEGORY[c.category] ?? c.category}
                 {' · '}
                 {c.channels.map((ch) => CHANNEL_LABEL[ch] ?? ch).join(' + ')}
@@ -259,7 +278,7 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
         <MessagesTabs
           active={activeMessagesTab('/communications', status)}
           showInbox={showInboxTab}
-          draftCount={draftCount}
+          draftCount={allDraftsCount}
         />
       }
     >
@@ -283,10 +302,18 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
       ) : (
         <>
           {showingDrafts ? (
-            <p className="text-sm text-foreground-secondary">
-              Messages you started and haven’t sent. They save as you type, nobody receives them, and they aren’t
-              counted in delivery results. Open one to finish it, or delete it.
-            </p>
+            <>
+              <p className="text-sm text-foreground-secondary">
+                Messages you started and haven’t sent. They save as you type, nobody receives them, and they aren’t
+                counted in delivery results. Open one to finish it, or delete it.
+                {replyDraftRows.length > 0
+                  ? ' Email replies waiting for you are listed first; each opens its conversation in the Inbox.'
+                  : null}
+              </p>
+              {replyDrafts && page === 1 ? (
+                <ReplyDraftsSection result={replyDrafts} rows={replyDraftRows} />
+              ) : null}
+            </>
           ) : (
           <section aria-label="Delivery summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Kpi
@@ -339,7 +366,8 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
           </ListToolbar>
 
           <DataTable
-            caption={showingDrafts ? 'Drafts' : 'Sent to residents'}
+            caption={showingDrafts ? 'Messages to many homes' : 'Sent to residents'}
+            showCaption={showingDrafts && replyDraftRows.length > 0}
             columns={columns}
             rows={rows}
             rowKey={(c) => c.id}
@@ -348,10 +376,16 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
               <EmptyState
                 variant="compact"
                 icon={<SearchX aria-hidden />}
-                title={showingDrafts ? 'No drafts' : 'No messages match these filters'}
+                title={
+                  showingDrafts
+                    ? replyDraftRows.length > 0
+                      ? 'No messages to many homes in progress'
+                      : 'No drafts'
+                    : 'No messages match these filters'
+                }
                 description={
                   showingDrafts
-                    ? 'A message you start saves here as a draft until you send it.'
+                    ? 'A message to many homes saves here as a draft until you send it.'
                     : 'Try another status or category.'
                 }
                 action={
@@ -446,5 +480,60 @@ function DeliveryBar({
         ) : null}
       </p>
     </div>
+  )
+}
+
+/**
+ * Inbox reply drafts on the Drafts tab (BL-102 A11 step 4): one row per
+ * open conversation whose newest draft is still waiting for the board.
+ * Each opens the conversation, where the draft is reviewed and sent.
+ */
+function ReplyDraftsSection({ result, rows }: { result: ReplyDraftsResult; rows: ReplyDraftItem[] }) {
+  if (!result.ok) return <LoadFailed what="reply drafts" hint="Messages to many homes are listed below." />
+  if (rows.length === 0) return null
+  const columns: DataTableColumn<ReplyDraftItem>[] = [
+    {
+      key: 'message',
+      header: 'Message',
+      mobilePrimary: true,
+      cell: (d) => (
+        <div className="min-w-0">
+          <Link
+            href={d.href}
+            className="font-medium text-foreground no-underline hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {d.title}
+          </Link>
+          <p className="mt-0.5 text-xs text-muted">
+            Email reply to one resident{d.subject ? ` · ${d.subject}` : ''}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: 'action',
+      header: 'Action',
+      cell: (d) => (
+        <Button asChild variant="secondary" size="xs">
+          <Link href={d.href}>Review reply</Link>
+        </Button>
+      ),
+    },
+    {
+      key: 'date',
+      header: 'Date',
+      className: 'whitespace-nowrap text-foreground-secondary',
+      cell: (d) => <LocalDateTime iso={d.createdAt} variant="short" prefix="Drafted" />,
+    },
+  ]
+  return (
+    <DataTable
+      caption="Replies waiting for you"
+      showCaption
+      columns={columns}
+      rows={rows}
+      rowKey={(d) => d.draftId}
+      mobile="cards"
+    />
   )
 }
