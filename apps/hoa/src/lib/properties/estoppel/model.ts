@@ -20,17 +20,21 @@ import {
   FL_RESPONSE_BUSINESS_DAYS,
   flEffectiveDays,
   flFeeCap,
+  GA_RESPONSE_BUSINESS_DAYS,
+  gaFeeCap,
+  TX_RESPONSE_BUSINESS_DAYS,
+  txFeeCap,
   type FeeCap,
   type FlDelivery,
 } from './law'
 
 // ─── input ───────────────────────────────────────────────────────────
 
-export type Jurisdiction = 'FL' | 'CA' | 'generic'
+export type Jurisdiction = 'FL' | 'CA' | 'TX' | 'GA' | 'generic'
 
 export function jurisdictionOf(state: string | null | undefined): Jurisdiction {
   const s = (state ?? '').trim().toUpperCase()
-  return s === 'FL' ? 'FL' : s === 'CA' ? 'CA' : 'generic'
+  return s === 'FL' || s === 'CA' || s === 'TX' || s === 'GA' ? s : 'generic'
 }
 
 export interface EstoppelViolation {
@@ -189,17 +193,17 @@ export function paidThrough(regular: ChargeLine[], frequency: Frequency | null):
 export interface Deadlines {
   requestDate: string
   issueDate: string
-  /** FL: 10 business days after the request. CA: 10 days. Generic: null. */
+  /** FL, TX: 10 business days after the request. CA: 10 days. GA: 5 business days. Generic: null. */
   responseDue: string | null
   responseRule: string | null
-  /** Federal holidays skipped in counting the FL response deadline. */
+  /** Federal holidays skipped in counting a business-day deadline (FL, TX, GA). */
   holidaysSkipped: Holiday[]
   /** FL: the day an expedited certificate must be delivered by. */
   expeditedDue: string | null
   /** FL § 720.30851(2): 30 or 35 days. */
   effectiveDays: number | null
   effectiveThrough: string | null
-  /** Issued after the response deadline (FL: no fee may be charged). */
+  /** Issued after the response deadline (FL, TX: no fee may be charged; GA: the lien is extinguished as to the buyer or lender). */
   late: boolean
   /** Asked for expedited but issued after 3 business days: no expedited fee. */
   expeditedMissed: boolean
@@ -222,6 +226,25 @@ export function deadlines(j: Jurisdiction, req: EstoppelRequest): Deadlines {
       effectiveThrough: addCalendarDays(issueDate, effectiveDays),
       late: issueDate > responseDue,
       expeditedMissed: req.expedited && issueDate > expeditedDue,
+    }
+  }
+  if (j === 'TX' || j === 'GA') {
+    const days = j === 'TX' ? TX_RESPONSE_BUSINESS_DAYS : GA_RESPONSE_BUSINESS_DAYS
+    const responseDue = addBusinessDays(requestDate, days)
+    return {
+      requestDate,
+      issueDate,
+      responseDue,
+      responseRule:
+        j === 'TX'
+          ? `${days} business days after the written request is received and verified (§ 207.003(a))`
+          : `${days} business days from the receipt of the written request (§ 44-3-232(d))`,
+      holidaysSkipped: holidaysBetween(requestDate, responseDue),
+      expeditedDue: null,
+      effectiveDays: null,
+      effectiveThrough: null,
+      late: issueDate > responseDue,
+      expeditedMissed: false,
     }
   }
   if (j === 'CA') {
@@ -422,6 +445,82 @@ export function fieldsFor(j: Jurisdiction, input: EstoppelInput, f: Figures): Ce
       })
     }
   }
+  if (j === 'TX') {
+    // § 207.003(b)(13) and (16) ask for every transfer fee in detail;
+    // the generic yes/no transfer-fee line would only repeat them.
+    const i = fields.findIndex((x) => x.key === 'transferFee')
+    if (i >= 0) fields.splice(i, 1)
+    const signer = fields.find((x) => x.key === 'signer')
+    if (signer) signer.hint = 'An officer or authorized agent of the association, who signs and dates it (§ 207.001(5)).'
+    fields.push(
+      { key: 'firstRefusal', label: 'Right of first refusal or other restraint on transfer in the restrictions', kind: 'yesno_detail', value: null, hint: '§ 207.003(b)(1). If yes, state it.' },
+      {
+        key: 'approvedSpecials',
+        label: 'Special assessments approved before, and due after, delivery: amount and purpose',
+        kind: 'textarea',
+        value: null,
+        hint: '§ 207.003(b)(3). The certificate lists special assessments already billed; add any approved but not billed yet. Write “None” if there are none.',
+      },
+      { key: 'capitalExpenditures', label: 'Capital expenditures approved for the current fiscal year', kind: 'textarea', value: null, hint: '§ 207.003(b)(5). Write “None” if there are none.' },
+      { key: 'reserves', label: 'Amount of reserves for capital expenditures', kind: 'text', value: null, hint: '§ 207.003(b)(6). Write “None” if there are none.' },
+      { key: 'judgments', label: 'Total of unsatisfied judgments against the association', kind: 'text', value: null, hint: '§ 207.003(b)(8). Write “None” if there are none.' },
+      {
+        key: 'lawsuits',
+        label: 'Pending lawsuits the association is a party to: style and cause number',
+        kind: 'textarea',
+        value: null,
+        hint: '§ 207.003(b)(9). Leave out suits over one member’s unpaid property taxes. Write “None” if there are none.',
+      },
+      {
+        key: 'knownViolations',
+        label: 'Other conditions on the property the board knows violate the restrictions, bylaws or rules',
+        kind: 'textarea',
+        value: null,
+        hint: '§ 207.003(b)(11). The open violations on record are listed on the certificate; add anything else the board actually knows of. Write “None” if there is nothing else.',
+      },
+      {
+        key: 'governmentNotices',
+        label: 'Notices from a government authority about health or housing code violations on the property or common areas',
+        kind: 'textarea',
+        value: null,
+        hint: '§ 207.003(b)(12). A summary, or attach copies. Write “None” if there are none.',
+      },
+      { key: 'adminTransferFee', label: 'Administrative transfer fee charged for a change of ownership', kind: 'text', value: null, hint: '§ 207.003(b)(13). Write “None” if there is none.' },
+      {
+        key: 'managingAgent',
+        label: 'Managing agent’s name, mailing address and telephone number',
+        kind: 'textarea',
+        value: null,
+        hint: '§ 207.003(b)(14). Write “None” if there is no managing agent.',
+      },
+      { key: 'foreclosure', label: 'Do the restrictions allow foreclosure of the association’s lien for failure to pay assessments?', kind: 'yesno', value: null, hint: '§ 207.003(b)(15).' },
+      {
+        key: 'transferFees',
+        label: 'All fees associated with the transfer of ownership: what each is for, who it is paid to, and the amount',
+        kind: 'textarea',
+        value: null,
+        hint: '§ 207.003(b)(16). Write “None” if there are none.',
+      },
+    )
+  }
+  if (j === 'GA') {
+    fields.push(
+      {
+        key: 'poaAct',
+        label: 'Is the association submitted to the Georgia Property Owners’ Association Act?',
+        kind: 'yesno',
+        value: null,
+        hint: 'Your declaration, or an amendment to it, submits the community to the Act (§ 44-3-235(a)). § 44-3-232(d) applies only then.',
+      },
+      {
+        key: 'instrumentFee',
+        label: 'Does the declaration provide for a fee for this statement?',
+        kind: 'yesno',
+        value: null,
+        hint: 'Georgia allows a fee of up to $10.00 only if the declaration provides for it (§ 44-3-232(d)).',
+      },
+    )
+  }
   if (j === 'CA') {
     fields.push({
       key: 'approvedChanges',
@@ -478,7 +577,52 @@ export interface FeeCheck {
   problem: string | null
 }
 
-export function checkFee(j: Jurisdiction, d: Deadlines, f: Figures, req: EstoppelRequest, feeCents: number | null): FeeCheck {
+/** The board's answers that decide whether a statute applies or a fee is allowed (GA only today). */
+export interface StatuteAnswers {
+  /** GA: the association is submitted to the POA Act. */
+  poaAct?: boolean | null
+  /** GA: the declaration provides for a statement fee. */
+  feeAuthorized?: boolean | null
+}
+
+const yesNo = (v: string | undefined): boolean | null => (v === 'Yes' ? true : v === 'No' ? false : null)
+
+/** The StatuteAnswers in the board's BLANK entries. */
+export function statuteAnswers(j: Jurisdiction, values: FieldValues): StatuteAnswers {
+  if (j !== 'GA') return {}
+  return { poaAct: yesNo(values.poaAct?.trim()), feeAuthorized: yesNo(values.instrumentFee?.trim()) }
+}
+
+/**
+ * A reason the statutory statement can't be issued as worded, or null.
+ * GA: § 44-3-232(d) is part of the POA Act, so a "No" to the Act stops
+ * the print rather than issue a statement citing a statute that doesn't
+ * apply. An unanswered question is a BLANK, handled by blanksLeft.
+ */
+export function statuteProblem(j: Jurisdiction, a: StatuteAnswers): string | null {
+  if (j === 'GA' && a.poaAct === false) {
+    return '§ 44-3-232(d) applies only to associations submitted to the Georgia Property Owners’ Association Act. Ask your association’s attorney what statement to give instead.'
+  }
+  return null
+}
+
+export function checkFee(j: Jurisdiction, d: Deadlines, f: Figures, req: EstoppelRequest, feeCents: number | null, answers: StatuteAnswers = {}): FeeCheck {
+  if (j === 'TX') {
+    const cap = txFeeCap()
+    if (feeCents === null) return { cap, problem: null }
+    if (d.late && feeCents > 0) return { cap, problem: 'This certificate is issued after the 10-business-day deadline, so no fee may be charged (§ 207.003(c-1)). Enter $0.' }
+    if (feeCents > cap.totalCents) return { cap, problem: `The fee is above the statutory cap of ${usdCents(cap.totalCents)}.` }
+    return { cap, problem: null }
+  }
+  if (j === 'GA') {
+    const cap = gaFeeCap()
+    if (feeCents === null) return { cap, problem: null }
+    if (feeCents > cap.totalCents) return { cap, problem: `The fee is above the statutory cap of ${usdCents(cap.totalCents)} (§ 44-3-232(d)).` }
+    if (feeCents > 0 && answers.feeAuthorized !== true) {
+      return { cap, problem: 'Georgia allows a fee only if the declaration provides for one (§ 44-3-232(d)). Enter $0, or answer Yes if it does.' }
+    }
+    return { cap, problem: null }
+  }
   if (j !== 'FL') return { cap: null, problem: null }
   const cap = flFeeCap({ delinquent: f.delinquent, expedited: req.expedited && !d.expeditedMissed })
   if (feeCents === null) return { cap, problem: null }
@@ -499,7 +643,9 @@ export interface Certificate {
 export function buildCertificate(input: EstoppelInput, req: EstoppelRequest): Certificate {
   const j = jurisdictionOf(input.state)
   const d = deadlines(j, req)
-  const figures = computeFigures(input, req.issueDate, d.effectiveThrough)
+  // GA § 44-3-232(d): the statement covers amounts due at the end of the
+  // five-business-day period, so charges falling due by then are marked.
+  const figures = computeFigures(input, req.issueDate, d.effectiveThrough ?? (j === 'GA' ? d.responseDue : null))
   return { jurisdiction: j, deadlines: d, figures, fields: fieldsFor(j, input, figures) }
 }
 

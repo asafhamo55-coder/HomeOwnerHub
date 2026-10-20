@@ -30,6 +30,14 @@ import {
   FL_CITATION,
   FL_DELIVERY_LABELS,
   FL_FEE_NOTES,
+  GA_CITATION,
+  GA_FEE_NOTES,
+  GA_NOTES,
+  TX_CITATION,
+  TX_DOCUMENTS_NOT_GENERATED,
+  TX_FEE_NOTES,
+  TX_NOTES,
+  TX_PARTIAL_LABEL,
   type FlDelivery,
 } from '@/lib/properties/estoppel/law'
 import {
@@ -40,13 +48,19 @@ import {
   parseMoneyCents,
   printSnapshot,
   requestProblem,
+  statuteAnswers,
+  statuteProblem,
   usdCents,
   valueOf,
   type CertificateField,
   type EstoppelInput,
   type FieldValues,
   type Certificate,
+  type Jurisdiction,
 } from '@/lib/properties/estoppel/model'
+
+const FEE_NOTES: Partial<Record<Jurisdiction, string[]>> = { FL: FL_FEE_NOTES, TX: TX_FEE_NOTES, GA: GA_FEE_NOTES }
+const BUSINESS_DAY_STATES: Jurisdiction[] = ['FL', 'TX', 'GA']
 
 /**
  * The estoppel / resale certificate (BL-087). The board enters the
@@ -73,17 +87,20 @@ export function EstoppelCertificate({ input, today }: { input: EstoppelInput; to
   const cert = useMemo(() => buildCertificate(input, req), [input, req.requestDate, req.issueDate, req.delivery, req.expedited])
   const j = cert.jurisdiction
   const feeCents = parseMoneyCents(values.fee ?? '')
-  const fee = checkFee(j, cert.deadlines, cert.figures, req, feeCents)
+  const answers = statuteAnswers(j, values)
+  const fee = checkFee(j, cert.deadlines, cert.figures, req, feeCents, answers)
+  const statute = statuteProblem(j, answers)
   const blanks = blanksLeft(cert.fields, values)
   const set = (key: string, v: string) => setValues((prev) => ({ ...prev, [key]: v }))
 
-  const blocked = reqProblem ?? (blanks.length > 0 ? 'Fill in every BLANK first.' : fee.problem ?? (!verified ? 'Tick “I’ve verified these figures” first.' : null))
+  const blocked =
+    reqProblem ?? statute ?? (blanks.length > 0 ? 'Fill in every BLANK first.' : fee.problem ?? (!verified ? 'Tick “I’ve verified these figures” first.' : null))
 
   function print() {
     if (blocked || feeCents === null) return
     startTransition(async () => {
       // The figures this page shows: the server refuses if the books moved.
-      const res = await recordEstoppelPrinted({ propertyId: input.propertyId, requestDate, delivery, expedited, feeCents, figures: printSnapshot(cert) })
+      const res = await recordEstoppelPrinted({ propertyId: input.propertyId, requestDate, delivery, expedited, feeCents, figures: printSnapshot(cert), statute: answers })
       if (!res.ok) {
         toast({ tone: 'error', message: res.error })
         return
@@ -106,7 +123,11 @@ export function EstoppelCertificate({ input, today }: { input: EstoppelInput; to
                 ? 'The deadline counts from the day the association received the request.'
                 : j === 'CA'
                   ? 'The deadline counts from the day the request was mailed or delivered.'
-                  : 'When the request came in. Check your governing documents for any deadline.'}
+                  : j === 'TX'
+                    ? 'The deadline counts from the day the written request, and any proof of the requestor’s authority you asked for, was received and verified.'
+                    : j === 'GA'
+                      ? 'The deadline counts from the day the written request reached the association’s registered office.'
+                      : 'When the request came in. Check your governing documents for any deadline.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -163,12 +184,13 @@ export function EstoppelCertificate({ input, today }: { input: EstoppelInput; to
                         {l.label}: {usdCents(l.cents)}
                       </li>
                     ))}
-                    {FL_FEE_NOTES.map((n) => (
+                    {(FEE_NOTES[j] ?? []).map((n) => (
                       <li key={n}>{n}</li>
                     ))}
                   </ul>
                 </div>
               ) : null}
+              {statute ? <Alert variant="error" title="This statement doesn’t apply">{statute}</Alert> : null}
               {fee.problem ? <Alert variant="error" title="Check the fee">{fee.problem}</Alert> : null}
             </CardContent>
           </Card>
@@ -211,7 +233,7 @@ function DeadlineSummary({ cert }: { cert: Certificate }) {
       </p>
       {d.holidaysSkipped.length > 0 ? (
         <p className="num">Skips weekends and {d.holidaysSkipped.map((h) => `${h.name} (${formatDay(h.day)})`).join(', ')}.</p>
-      ) : cert.jurisdiction === 'FL' ? (
+      ) : BUSINESS_DAY_STATES.includes(cert.jurisdiction) ? (
         <p>Skips weekends and federal holidays. Allow for any other day your office is closed.</p>
       ) : null}
       {d.expeditedDue ? <p className="num">Expedited delivery: by {formatDay(d.expeditedDue)} (3 business days).</p> : null}
@@ -224,7 +246,11 @@ function DeadlineSummary({ cert }: { cert: Certificate }) {
         <Alert variant="warning" title="Past the deadline">
           {cert.jurisdiction === 'FL'
             ? 'Today is after the 10-business-day deadline, so no fee may be charged for this certificate (§ 720.30851(4)).'
-            : 'Today is after the 10-day deadline in § 4530(a)(1).'}
+            : cert.jurisdiction === 'TX'
+              ? 'Today is after the 10-business-day deadline, so no fee may be charged for this certificate (§ 207.003(c-1)).'
+              : cert.jurisdiction === 'GA'
+                ? 'Today is after the 5-business-day deadline. Under § 44-3-232(d) the assessment lien is extinguished as to the buyer’s or lender’s interest in this transaction. Ask your association’s attorney.'
+                : 'Today is after the 10-day deadline in § 4530(a)(1).'}
         </Alert>
       ) : null}
       {d.expeditedMissed ? <p className="text-warning">It’s past 3 business days, so the expedited fee no longer applies.</p> : null}
@@ -342,8 +368,29 @@ function CertificateDocument({ cert, input, values, printClass }: { cert: Certif
   const f = cert.figures
   const d = cert.deadlines
   const field = (key: string) => cert.fields.find((x) => x.key === key)
-  const title = j === 'FL' ? 'Estoppel Certificate' : j === 'CA' ? 'Statement of Assessments and Unpaid Amounts' : 'Account Status Certificate'
-  const subtitle = j === 'FL' ? `Issued under ${FL_CITATION}` : j === 'CA' ? 'For the resale disclosure under Cal. Civ. Code § 4525(a)(4)–(5)' : 'Statement of the association’s records for this home'
+  const title =
+    j === 'FL'
+      ? 'Estoppel Certificate'
+      : j === 'CA'
+        ? 'Statement of Assessments and Unpaid Amounts'
+        : j === 'TX'
+          ? 'Resale Certificate'
+          : j === 'GA'
+            ? 'Statement of Amounts Due'
+            : 'Account Status Certificate'
+  const subtitle =
+    j === 'FL'
+      ? `Issued under ${FL_CITATION}`
+      : j === 'CA'
+        ? 'For the resale disclosure under Cal. Civ. Code § 4525(a)(4)–(5)'
+        : j === 'TX'
+          ? `Issued under ${TX_CITATION}`
+          : j === 'GA'
+            ? `Issued under ${GA_CITATION} (Georgia Property Owners’ Association Act)`
+            : 'Statement of the association’s records for this home'
+  // Charges marked in the not-yet-due list: FL, the effective period; GA,
+  // those due by the end of the five-business-day period (§ 44-3-232(d)).
+  const flag = d.effectiveThrough ? 'due within the effective period' : j === 'GA' && !d.late ? 'due by the end of the 5-business-day period' : undefined
   const address = [input.address, input.unitNumber ? `Unit ${input.unitNumber}` : null].filter(Boolean).join(', ')
 
   return (
@@ -354,14 +401,15 @@ function CertificateDocument({ cert, input, values, printClass }: { cert: Certif
           {title}
         </h2>
         <p className="text-foreground-secondary">{subtitle}</p>
-        {j === 'CA' ? (
-          <p className="rounded border border-warning bg-warning-subtle px-2 py-1 font-medium text-warning">{CA_PARTIAL_LABEL}</p>
+        {j === 'CA' || j === 'TX' ? (
+          <p className="rounded border border-warning bg-warning-subtle px-2 py-1 font-medium text-warning">{j === 'CA' ? CA_PARTIAL_LABEL : TX_PARTIAL_LABEL}</p>
         ) : null}
       </header>
 
       <dl className="divide-y divide-border/60">
         <Row label="Date of issuance">{formatDay(d.issueDate)}</Row>
         <Row label="Request received">{formatDay(d.requestDate)}</Row>
+        {j === 'TX' ? <Row label="Prepared on">{formatDay(d.issueDate)}</Row> : null}
         {d.effectiveThrough ? (
           <Row label="Effective period">
             {d.effectiveDays} days ({d.effectiveDays === 35 ? 'sent by regular mail' : 'hand delivered or sent by e-mail'}), through {formatDay(d.effectiveThrough)}
@@ -398,9 +446,9 @@ function CertificateDocument({ cert, input, values, printClass }: { cert: Certif
           </p>
         ) : null}
         <h4 className="pt-2 font-medium text-foreground">
-          Charges not yet due{d.effectiveThrough ? ' (those due within the effective period are marked)' : ''}
+          Charges not yet due{flag ? ` (those ${flag} are marked)` : ''}
         </h4>
-        <Items items={f.notYetDue} empty="No charges are billed for a later date." flag={d.effectiveThrough ? 'due within the effective period' : undefined} />
+        <Items items={f.notYetDue} empty="No charges are billed for a later date." flag={flag} />
         <p className="num text-foreground-secondary">Total not yet due: {usdCents(f.notYetDueCents)}.</p>
         {j === 'FL' && d.effectiveThrough ? (
           <p className="text-xs text-muted">
@@ -410,13 +458,20 @@ function CertificateDocument({ cert, input, values, printClass }: { cert: Certif
         <h4 className="pt-2 font-medium text-foreground">Special assessments</h4>
         <Items items={f.specials} empty="No special assessments are unpaid." />
         {j === 'CA' ? <Line field={field('approvedChanges')} values={values} /> : null}
+        {j === 'TX' ? (
+          <dl className="divide-y divide-border/60">
+            <Line field={field('approvedSpecials')} values={values} />
+            <Line field={field('capitalExpenditures')} values={values} />
+            <Line field={field('reserves')} values={values} />
+          </dl>
+        ) : null}
       </section>
 
       <section className="space-y-2">
         <h3 className="font-semibold text-foreground">Other information</h3>
         <dl className="divide-y divide-border/60">
           <Line field={field('transferFee')} values={values} />
-          <Row label={j === 'FL' ? 'Open violation noticed to the owner in the official records?' : 'Open violations'}>
+          <Row label={j === 'FL' ? 'Open violation noticed to the owner in the official records?' : j === 'TX' ? 'Open violations on record (§ 207.003(b)(11))' : 'Open violations'}>
             {f.openViolations.length === 0 ? (
               'No'
             ) : (
@@ -439,6 +494,25 @@ function CertificateDocument({ cert, input, values, printClass }: { cert: Certif
               <Line field={field('firstRefusal')} values={values} />
               <Line field={field('otherAssociations')} values={values} />
               <Line field={field('insurance')} values={values} />
+            </>
+          ) : null}
+          {j === 'TX' ? (
+            <>
+              <Line field={field('knownViolations')} values={values} />
+              <Line field={field('firstRefusal')} values={values} />
+              <Line field={field('judgments')} values={values} />
+              <Line field={field('lawsuits')} values={values} />
+              <Line field={field('governmentNotices')} values={values} />
+              <Line field={field('adminTransferFee')} values={values} />
+              <Line field={field('transferFees')} values={values} />
+              <Line field={field('managingAgent')} values={values} />
+              <Line field={field('foreclosure')} values={values} />
+            </>
+          ) : null}
+          {j === 'GA' ? (
+            <>
+              <Line field={field('poaAct')} values={values} />
+              <Line field={field('instrumentFee')} values={values} />
             </>
           ) : null}
           <Row label="Payment plan">
@@ -466,6 +540,35 @@ function CertificateDocument({ cert, input, values, printClass }: { cert: Certif
           </ul>
           <ul className="list-disc space-y-1 pl-5 text-xs text-muted">
             {CA_NOTES.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {j === 'TX' ? (
+        <section className="space-y-2">
+          <h3 className="font-semibold text-foreground">Not included: documents § 207.003 also requires</h3>
+          <ul className="list-disc space-y-1 pl-5 text-foreground-secondary">
+            {TX_DOCUMENTS_NOT_GENERATED.map((doc) => (
+              <li key={doc.cite}>
+                <span className="font-medium text-foreground">{doc.cite}</span> {doc.text}
+              </li>
+            ))}
+          </ul>
+          <ul className="list-disc space-y-1 pl-5 text-xs text-muted">
+            {TX_NOTES.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {j === 'GA' ? (
+        <section className="space-y-2">
+          <h3 className="font-semibold text-foreground">About this statement</h3>
+          <ul className="list-disc space-y-1 pl-5 text-xs text-muted">
+            {GA_NOTES.map((n) => (
               <li key={n}>{n}</li>
             ))}
           </ul>

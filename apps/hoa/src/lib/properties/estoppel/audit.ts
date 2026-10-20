@@ -13,7 +13,7 @@ export const ESTOPPEL_PRINTED = 'estoppel_printed'
 export interface EstoppelAuditMetadata {
   property_id: string
   unit_id: string | null
-  jurisdiction: 'FL' | 'CA' | 'generic'
+  jurisdiction: 'FL' | 'CA' | 'TX' | 'GA' | 'generic'
   balance_cents: number
   past_due_cents: number
   not_yet_due_cents: number
