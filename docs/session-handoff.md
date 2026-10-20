@@ -73,7 +73,7 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
   - BL-025 (bilingual) and BL-068 (module switches) both need migrations, so they wait.
   - Properties P5 parts with no migration: the statutory roster export.
   - The guide's first-week cards.
-  - An idempotency key for /inspect drafts.
+  - ~~An idempotency key for /inspect drafts~~: done (9830f49d). The key is kept in ai_runs.input, with a 7-day org-scoped window and no migration. 2026-10-20: tests now pin that a deduped retry never draws on the shared board_ai cap.
 - **Waiting on Asaf:**
   - Is support@homeownerledger.com a real inbox?
   - The FL refresh, the S-01 audit query and the 0063 Part 1a SQL.

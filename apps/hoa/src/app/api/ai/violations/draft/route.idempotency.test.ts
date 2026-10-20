@@ -86,6 +86,10 @@ const execute = vi.hoisted(() => vi.fn())
 vi.mock('@homeowner-portal/workflows/W3', () => ({ violationInspector: { execute } }))
 
 import { POST } from './route'
+import { requireAiQuota } from '@/lib/api/rate-limit'
+import { ApiRouteError } from '@/lib/api/errors'
+
+const quota = vi.mocked(requireAiQuota)
 
 const UNIT = '11111111-1111-4111-8111-111111111111'
 const GOOD = { unitId: UNIT, violationType: 'parking', description: 'Car parked on the lawn for a week.' }
@@ -108,6 +112,8 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(NOW)
   execute.mockReset()
+  quota.mockReset()
+  quota.mockResolvedValue({ usageId: null, userId: 'user-1' })
   // Stands in for defineWorkflow: one model call, one ai_runs row holding the parsed input.
   execute.mockImplementation(async (input: Record<string, unknown>, ctx: { organizationId: string }) => {
     const id = `run-${++seq}`
@@ -229,5 +235,50 @@ describe('POST /api/ai/violations/draft — Idempotency-Key', () => {
     expect(res.status).toBe(500)
     expect((await res.json()).error.code).toBe('internal')
     expect(execute).not.toHaveBeenCalled()
+  })
+
+  // BL-104: the shared board AI ceiling counts one audit_log ledger row per
+  // requireAiQuota call. The replay answers before that call, so a retried
+  // /inspect upload is one draw on the cap, not two.
+  describe('shared board AI cap (ai-limits)', () => {
+    it('a deduped retry is not counted twice', async () => {
+      await POST(req(GOOD, KEY))
+      expect(quota).toHaveBeenCalledTimes(1)
+      expect(quota).toHaveBeenCalledWith('board_ai', 'org-1')
+      await POST(req(GOOD, KEY))
+      await POST(req(GOOD, KEY))
+      expect(quota).toHaveBeenCalledTimes(1)
+      expect(execute).toHaveBeenCalledTimes(1)
+    })
+
+    it('a retry still gets its draft back when the cap is used up since', async () => {
+      const first = await (await POST(req(GOOD, KEY))).json()
+      quota.mockRejectedValue(new ApiRouteError('rate_limited'))
+      const retry = await POST(req(GOOD, KEY))
+      expect(retry.status).toBe(200)
+      expect((await retry.json()).runId).toBe(first.runId)
+      // A new item (new key) is refused by the cap as usual.
+      const fresh = await POST(req(GOOD, `${KEY}-new`))
+      expect(fresh.status).toBe(429)
+      expect(execute).toHaveBeenCalledTimes(1)
+    })
+
+    it('different keys and other orgs each count once', async () => {
+      await POST(req(GOOD, KEY))
+      await POST(req(GOOD, `${KEY}-b`))
+      h.org = 'org-2'
+      await POST(req(GOOD, KEY))
+      expect(quota.mock.calls).toEqual([
+        ['board_ai', 'org-1'],
+        ['board_ai', 'org-1'],
+        ['board_ai', 'org-2'],
+      ])
+    })
+
+    it('a 409 key reuse for another home draws nothing from the cap', async () => {
+      await POST(req(GOOD, KEY))
+      await POST(req({ ...GOOD, unitId: '33333333-3333-4333-8333-333333333333' }, KEY))
+      expect(quota).toHaveBeenCalledTimes(1)
+    })
   })
 })
