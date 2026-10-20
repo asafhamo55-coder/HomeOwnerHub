@@ -1,7 +1,13 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["node"],
+    // records.ts imports a type from @homeowner-portal/ui, whose index
+    // re-exports .tsx components.
+    "jsx": "react-jsx",
+    // Mirrors the '@' alias in vitest.integration.config.ts, so app modules
+    // that import '@/lib/…' (e.g. lib/search/records.ts) compile here too.
+    "paths": { "@/*": ["./apps/hoa/src/*"] }
   },
   "include": ["tests/integration/**/*.ts", "tests/stripe-sandbox/**/*.ts"]
 }

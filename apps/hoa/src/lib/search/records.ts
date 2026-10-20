@@ -11,10 +11,12 @@
 // every query is additionally pinned to the gate's org id, so a user who
 // belongs to several orgs only sees the one they are working in.
 //
-// Two rounds: properties first (owner name, address, unit), then everything
-// else in parallel — a violation or thread is found both by its own text and
-// by belonging to a matched property, which is how "Kaur" reaches the
-// violation on the Kaurs' lot. Each type fails independently: a type whose
+// Two rounds: properties first (owner name, address, unit), then the types
+// that hang off a lot — a violation or thread is found both by its own text
+// and by belonging to a matched property, which is how "Kaur" reaches the
+// violation on the Kaurs' lot. Types no property match can widen (vendors,
+// documents, meetings) start alongside round 1, so the request costs two
+// round-trips rather than two plus the slowest of those (BL-060 latency). Each type fails independently: a type whose
 // query errors is listed in `failed` (so the palette can say results are
 // incomplete) instead of reading as "no matches".
 //
@@ -146,6 +148,12 @@ export interface SearchOptions {
   timeZone?: string | PromiseLike<string>
   /** For tests. */
   now?: Date
+  /**
+   * Optional per-phase timer (the route passes `perfTimer().time`), so the
+   * rounds show up in Server-Timing and the [perf] log. Phase names only;
+   * nothing about the query.
+   */
+  time?: <T>(phase: string, fn: () => PromiseLike<T>) => PromiseLike<T>
 }
 
 type Row = Record<string, unknown>
@@ -195,17 +203,82 @@ export async function searchRecords(
     vendor: [],
   }
 
+  const time = options.time ?? (<T>(_phase: string, fn: () => PromiseLike<T>) => fn())
+
+  // ── Started first: the types no property match can widen ──────────
+  const unlinked = Promise.resolve(
+    time('search.unlinked', () =>
+      Promise.all([
+        run(
+          'vendor',
+          orgId,
+          supabase
+            .from('vendors')
+            .select('id, legal_name, dba, status')
+            .eq('organization_id', orgId)
+            .is('deleted_at', null)
+            .or(ilike(['legal_name', 'dba'], term).join(','))
+            .order('legal_name', { ascending: true })
+            .limit(SEARCH_LIMIT_PER_TYPE),
+        ),
+        // Documents: uploaded files and governing documents share one group.
+        // Neither table soft-deletes; a superseded governing document is the
+        // old version, so only the current one is searched.
+        run(
+          'document',
+          orgId,
+          supabase
+            .from('hoa_documents')
+            .select('id, name, type, created_at')
+            .eq('org_id', orgId)
+            .or(ilike(['name'], term).join(','))
+            .order('created_at', { ascending: false })
+            .limit(SEARCH_LIMIT_PER_TYPE),
+        ),
+        run(
+          'document',
+          orgId,
+          supabase
+            .from('governing_documents')
+            .select('id, title, type, effective_date, created_at')
+            .eq('organization_id', orgId)
+            .is('superseded_at', null)
+            .or(ilike(['title'], term).join(','))
+            .order('created_at', { ascending: false })
+            .limit(SEARCH_LIMIT_PER_TYPE),
+        ),
+        // Meetings have no title: matched on their type and AI summary.
+        run(
+          'meeting',
+          orgId,
+          supabase
+            .from('hoa_meeting_minutes')
+            .select('id, meeting_type, meeting_date, status')
+            .eq('org_id', orgId)
+            .is('deleted_at', null)
+            .or(ilike(['meeting_type', 'ai_summary'], term).join(','))
+            .order('meeting_date', { ascending: false })
+            .limit(SEARCH_LIMIT_PER_TYPE),
+        ),
+      ]),
+    ),
+  )
+  // Awaited in round 2; this only keeps a round-1 throw from leaving it unhandled.
+  unlinked.catch(() => {})
+
   // ── Round 1: properties / owners ───────────────────────────────────
-  const props = await run(
-    'properties',
-    orgId,
-    supabase
-      .from('hoa_property_list_v')
-      .select('id, address, unit_number, owner_name, unit_id')
-      .eq('org_id', orgId)
-      .or(ilike(['address', 'unit_number', 'owner_name'], term).join(','))
-      .order('address', { ascending: true })
-      .limit(PROPERTY_LINK_LIMIT),
+  const props = await time('search.properties', () =>
+    run(
+      'properties',
+      orgId,
+      supabase
+        .from('hoa_property_list_v')
+        .select('id, address, unit_number, owner_name, unit_id')
+        .eq('org_id', orgId)
+        .or(ilike(['address', 'unit_number', 'owner_name'], term).join(','))
+        .order('address', { ascending: true })
+        .limit(PROPERTY_LINK_LIMIT),
+    ),
   )
   if (props === null) {
     failed.add('owner')
@@ -248,106 +321,60 @@ export async function searchRecords(
     if (u && a) addressByUnit.set(u, a)
   }
 
-  // ── Round 2: everything else, in parallel ─────────────────────────
-  const [violations, arcs, tickets, threads, vendors, documents, governing, meetings, timeZone] = await Promise.all([
-    run(
-      'violation',
-      orgId,
-      supabase
-        .from('hoa_violations')
-        .select('id, violation_type, status, property_id, created_at')
-        .eq('org_id', orgId)
-        .is('deleted_at', null)
-        .or([...ilike(['violation_type', 'description'], term), ...inList('property_id', propertyIds)].join(','))
-        .order('created_at', { ascending: false })
-        .limit(SEARCH_LIMIT_PER_TYPE),
+  // ── Round 2: the types linked to a matched lot, in parallel ───────
+  const [[violations, arcs, tickets, threads], [vendors, documents, governing, meetings], timeZone] = await Promise.all([
+    time('search.linked', () =>
+      Promise.all([
+        run(
+          'violation',
+          orgId,
+          supabase
+            .from('hoa_violations')
+            .select('id, violation_type, status, property_id, created_at')
+            .eq('org_id', orgId)
+            .is('deleted_at', null)
+            .or([...ilike(['violation_type', 'description'], term), ...inList('property_id', propertyIds)].join(','))
+            .order('created_at', { ascending: false })
+            .limit(SEARCH_LIMIT_PER_TYPE),
+        ),
+        run(
+          'arc',
+          orgId,
+          supabase
+            .from('arc_requests')
+            .select('id, summary, status, unit_id, submitted_at')
+            .eq('organization_id', orgId)
+            .is('deleted_at', null)
+            .or([...ilike(['summary', 'contractor_name'], term), ...inList('unit_id', unitIds)].join(','))
+            .order('submitted_at', { ascending: false })
+            .limit(SEARCH_LIMIT_PER_TYPE),
+        ),
+        run(
+          'ticket',
+          orgId,
+          supabase
+            .from('tickets')
+            .select('id, subject, status, unit_id, created_at')
+            .eq('organization_id', orgId)
+            .is('deleted_at', null)
+            .or([...ilike(['subject'], term), ...inList('unit_id', unitIds)].join(','))
+            .order('created_at', { ascending: false })
+            .limit(SEARCH_LIMIT_PER_TYPE),
+        ),
+        run(
+          'thread',
+          orgId,
+          supabase
+            .from('inbox_threads')
+            .select('id, subject, status, unit_id, last_message_at')
+            .eq('organization_id', orgId)
+            .or([...ilike(['subject'], term), ...inList('unit_id', unitIds)].join(','))
+            .order('last_message_at', { ascending: false, nullsFirst: false })
+            .limit(SEARCH_LIMIT_PER_TYPE),
+        ),
+      ]),
     ),
-    run(
-      'arc',
-      orgId,
-      supabase
-        .from('arc_requests')
-        .select('id, summary, status, unit_id, submitted_at')
-        .eq('organization_id', orgId)
-        .is('deleted_at', null)
-        .or([...ilike(['summary', 'contractor_name'], term), ...inList('unit_id', unitIds)].join(','))
-        .order('submitted_at', { ascending: false })
-        .limit(SEARCH_LIMIT_PER_TYPE),
-    ),
-    run(
-      'ticket',
-      orgId,
-      supabase
-        .from('tickets')
-        .select('id, subject, status, unit_id, created_at')
-        .eq('organization_id', orgId)
-        .is('deleted_at', null)
-        .or([...ilike(['subject'], term), ...inList('unit_id', unitIds)].join(','))
-        .order('created_at', { ascending: false })
-        .limit(SEARCH_LIMIT_PER_TYPE),
-    ),
-    run(
-      'thread',
-      orgId,
-      supabase
-        .from('inbox_threads')
-        .select('id, subject, status, unit_id, last_message_at')
-        .eq('organization_id', orgId)
-        .or([...ilike(['subject'], term), ...inList('unit_id', unitIds)].join(','))
-        .order('last_message_at', { ascending: false, nullsFirst: false })
-        .limit(SEARCH_LIMIT_PER_TYPE),
-    ),
-    run(
-      'vendor',
-      orgId,
-      supabase
-        .from('vendors')
-        .select('id, legal_name, dba, status')
-        .eq('organization_id', orgId)
-        .is('deleted_at', null)
-        .or(ilike(['legal_name', 'dba'], term).join(','))
-        .order('legal_name', { ascending: true })
-        .limit(SEARCH_LIMIT_PER_TYPE),
-    ),
-    // Documents: uploaded files and governing documents share one group.
-    // Neither table soft-deletes; a superseded governing document is the
-    // old version, so only the current one is searched.
-    run(
-      'document',
-      orgId,
-      supabase
-        .from('hoa_documents')
-        .select('id, name, type, created_at')
-        .eq('org_id', orgId)
-        .or(ilike(['name'], term).join(','))
-        .order('created_at', { ascending: false })
-        .limit(SEARCH_LIMIT_PER_TYPE),
-    ),
-    run(
-      'document',
-      orgId,
-      supabase
-        .from('governing_documents')
-        .select('id, title, type, effective_date, created_at')
-        .eq('organization_id', orgId)
-        .is('superseded_at', null)
-        .or(ilike(['title'], term).join(','))
-        .order('created_at', { ascending: false })
-        .limit(SEARCH_LIMIT_PER_TYPE),
-    ),
-    // Meetings have no title: matched on their type and AI summary.
-    run(
-      'meeting',
-      orgId,
-      supabase
-        .from('hoa_meeting_minutes')
-        .select('id, meeting_type, meeting_date, status')
-        .eq('org_id', orgId)
-        .is('deleted_at', null)
-        .or(ilike(['meeting_type', 'ai_summary'], term).join(','))
-        .order('meeting_date', { ascending: false })
-        .limit(SEARCH_LIMIT_PER_TYPE),
-    ),
+    unlinked,
     zonePromise,
   ])
 

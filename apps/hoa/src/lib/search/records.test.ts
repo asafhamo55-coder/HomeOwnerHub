@@ -24,6 +24,8 @@ const OPTS = { timeZone: TZ, now: NOW }
 let calls: Call[]
 let rows: Record<string, unknown[]>
 let errors: Record<string, { code: string; message: string } | undefined>
+/** A table whose query does not resolve until this promise does. */
+let holds: Record<string, Promise<void>>
 
 function client(): SearchClient {
   return {
@@ -38,9 +40,9 @@ function client(): SearchClient {
         }
       }
       b.then = (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) =>
-        Promise.resolve(
-          errors[table] ? { data: null, error: errors[table] } : { data: rows[table] ?? [], error: null },
-        ).then(resolve, reject)
+        Promise.resolve(holds[table])
+          .then(() => (errors[table] ? { data: null, error: errors[table] } : { data: rows[table] ?? [], error: null }))
+          .then(resolve, reject)
       return b as never
     },
   }
@@ -64,6 +66,7 @@ beforeEach(() => {
   calls = []
   rows = {}
   errors = {}
+  holds = {}
 })
 
 afterEach(() => {
@@ -111,6 +114,48 @@ describe('searchRecords', () => {
     expect(new Set(calls.map((c) => c.table))).toEqual(new Set(Object.keys(expected)))
     for (const [table, col] of Object.entries(expected)) {
       expect(opsFor(table), table).toContainEqual(['eq', col, ORG])
+    }
+  })
+
+  it('starts the types no property match can widen without waiting on the property round', async () => {
+    let release!: () => void
+    holds.hoa_property_list_v = new Promise<void>((r) => (release = r))
+    const pending = searchRecords(client(), ORG, 'kaur', OPTS)
+    // Let microtasks settle while the property query is still in flight.
+    await new Promise((r) => setTimeout(r, 0))
+    const started = new Set(calls.map((c) => c.table))
+    for (const t of ['hoa_property_list_v', 'vendors', 'hoa_documents', 'governing_documents', 'hoa_meeting_minutes']) {
+      expect(started.has(t), t).toBe(true)
+    }
+    // The lot-linked types need round 1's ids, so they have not started.
+    for (const t of ['hoa_violations', 'arc_requests', 'tickets', 'inbox_threads']) {
+      expect(started.has(t), t).toBe(false)
+    }
+    release()
+    await pending
+    expect(new Set(calls.map((c) => c.table)).size).toBe(9)
+  })
+
+  it('times each phase through the optional timer, by phase name only', async () => {
+    const phases: string[] = []
+    const time = <T>(phase: string, fn: () => PromiseLike<T>) => {
+      phases.push(phase)
+      return fn()
+    }
+    rows.vendors = [{ id: 'v1', legal_name: 'Kaur Landscaping', dba: null, status: 'active' }]
+    const res = await searchRecords(client(), ORG, 'kaur', { ...OPTS, time })
+    expect(phases.sort()).toEqual(['search.linked', 'search.properties', 'search.unlinked'])
+    expect(res.groups.find((g) => g.type === 'vendor')?.items).toHaveLength(1)
+  })
+
+  it('every query selects explicit columns and is capped', async () => {
+    await searchRecords(client(), ORG, 'kaur')
+    for (const c of calls) {
+      const select = c.ops.find((o) => o[0] === 'select')
+      expect(select?.[1], c.table).not.toMatch(/\*/)
+      const limit = c.ops.find((o) => o[0] === 'limit')
+      expect(Number(limit?.[1]), c.table).toBeGreaterThan(0)
+      expect(Number(limit?.[1]), c.table).toBeLessThanOrEqual(20)
     }
   })
 
