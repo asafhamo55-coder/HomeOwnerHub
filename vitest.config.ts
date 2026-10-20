@@ -29,6 +29,11 @@ export default defineConfig({
       // Pure-ish tooling under scripts/ (release notes). Named *.test.ts,
       // so the Postgres-backed scripts/test-*.ts runners never match.
       'scripts/**/*.test.ts',
+      // BL-103: the Stripe sandbox suite's PURE helpers (guard, in-memory
+      // db, signing, cleanup, polling). The suite itself is
+      // tests/stripe-sandbox/*.sandbox.test.ts and runs only under its own
+      // config (it needs a Stripe test key and the network).
+      'tests/stripe-sandbox/lib/**/*.test.ts',
     ],
     environment: 'node',
     // Clear call history before every test.

@@ -35,10 +35,19 @@ export const PRICING = {
   COMMIT_MONTHS: 12,
 } as const
 
-/** Doors checkout bills (the Stripe quantity) — never below the minimum. */
+/** The door minimum: ceil($200 / $4.99) = 41. */
+const MIN_DOORS = Math.ceil((PRICING.MIN_MONTHLY_USD * 100) / MONTHLY_UNIT_CENTS)
+
+/**
+ * Doors checkout bills (the Stripe quantity) — a whole number, never below
+ * the minimum. Stripe rejects a non-integer quantity, so a fractional or
+ * non-numeric door count (checkout falls back to a form field when the org
+ * has no doors_count) is rounded up / treated as the minimum here instead
+ * of failing checkout with Stripe's raw error (BL-103).
+ */
 export function billableDoors(doors: number): number {
-  const minDoors = Math.ceil((PRICING.MIN_MONTHLY_USD * 100) / MONTHLY_UNIT_CENTS)
-  return Math.max(doors, minDoors)
+  if (!Number.isFinite(doors)) return MIN_DOORS
+  return Math.max(Math.ceil(doors), MIN_DOORS)
 }
 
 /** Monthly bill in cents: monthly unit_amount × quantity. */
@@ -95,7 +104,7 @@ export function billingSummary(doors: number): BillingSummary {
     monthlyUsd: monthlyCostUsd(doors),
     annualUsd: annualCostUsd(doors),
     annualSavingsUsd: annualSavingsUsd(doors),
-    minApplied: billable > doors,
+    minApplied: !Number.isFinite(doors) || doors < MIN_DOORS,
   }
 }
 

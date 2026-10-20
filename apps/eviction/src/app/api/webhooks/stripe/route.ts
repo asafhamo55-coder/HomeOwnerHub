@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { handleStripeWebhook } from '@homeowner-portal/billing'
+import { handleStripeWebhook, webhookHttpStatus } from '@homeowner-portal/billing'
 
 export async function POST(request: Request) {
   const result = await handleStripeWebhook({
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
 
   if (!result.ok) {
     console.error('[stripe webhook] error', result)
-    return NextResponse.json({ error: result.message ?? 'webhook_failed' }, { status: 400 })
+    return NextResponse.json({ error: result.message ?? 'webhook_failed' }, { status: webhookHttpStatus(result) })
   }
   return NextResponse.json({ received: true, outcome: result.outcome })
 }

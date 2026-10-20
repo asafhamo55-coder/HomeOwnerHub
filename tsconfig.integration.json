@@ -3,5 +3,5 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": ["tests/integration/**/*.ts"]
+  "include": ["tests/integration/**/*.ts", "tests/stripe-sandbox/**/*.ts"]
 }

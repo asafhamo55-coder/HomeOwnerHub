@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import type Stripe from 'stripe'
-import { applyStripeEvent, type WebhookDb } from './webhook'
+import Stripe from 'stripe'
+import { applyStripeEvent, handleStripeWebhook, webhookHttpStatus, type WebhookDb } from './webhook'
 
 const ORG = '9a1b2c3d-0000-4000-8000-000000000001'
 const CASE = '0b6f4a7e-6a43-4c1e-9f55-1d1e3c1c0a01'
 
-function fakeDb(rpcReply: { data: unknown; error: { code?: string } | null } = { data: 'subscription_started', error: null }) {
+function fakeDb(
+  rpcReply: { data: unknown; error: { code?: string } | null } = { data: 'subscription_started', error: null },
+  updateError: { code?: string } | null = null,
+) {
   const updates: Array<{ table: string; patch: Record<string, unknown>; filters: Array<[string, string]> }> = []
   const rpcs: Array<{ fn: string; args: Record<string, unknown> }> = []
   const db: WebhookDb = {
@@ -19,8 +22,8 @@ function fakeDb(rpcReply: { data: unknown; error: { code?: string } | null } = {
               rec.filters.push([col, v])
               return f
             },
-            then(ok: (r: { error: null }) => unknown) {
-              return Promise.resolve({ error: null }).then(ok)
+            then(ok: (r: { error: { code?: string } | null }) => unknown) {
+              return Promise.resolve({ error: updateError }).then(ok)
             },
           }
           return f as never
@@ -125,5 +128,89 @@ describe('applyStripeEvent, M1 on (0064 functions)', () => {
       m1: true,
     })
     expect(pay.rpcs[0]).toMatchObject({ fn: 'stripe_webhook_checkout_payment', args: { p_case_id: null, p_payment_intent_id: 'pi_1' } })
+  })
+})
+
+// BL-103 bug 1: the pre-M1 path awaited its writes and threw the result
+// away, so a rejected write (before 0064 the plan check refused 'monthly' /
+// 'annual' with 23514) was acknowledged and Stripe never redelivered.
+describe('applyStripeEvent, M1 off: a failed write is not acknowledged', () => {
+  const failing = () => fakeDb(undefined, { code: '23514' })
+  const persistFailed = { ok: false, outcome: 'error', message: 'persist_failed', dbCode: '23514' }
+
+  it('subscription checkout', async () => {
+    const r = await applyStripeEvent(
+      checkout({ mode: 'subscription', metadata: { org_id: ORG, plan: 'monthly' }, customer: 'cus_1', subscription: 'sub_1' }),
+      { db: failing().db, m1: false },
+    )
+    expect(r).toEqual(persistFailed)
+  })
+
+  it('one-time payment customer stamp and case stamp', async () => {
+    const r1 = await applyStripeEvent(checkout({ mode: 'payment', metadata: { org_id: ORG }, customer: 'cus_1' }), {
+      db: failing().db,
+      m1: false,
+    })
+    expect(r1).toEqual(persistFailed)
+    const r2 = await applyStripeEvent(
+      checkout({ mode: 'payment', metadata: { org_id: ORG, case_id: CASE }, customer: null, payment_intent: 'pi_1' }),
+      { db: failing().db, m1: false },
+    )
+    expect(r2).toEqual(persistFailed)
+  })
+
+  it('subscription deletion', async () => {
+    const r = await applyStripeEvent(deleted({ id: 'sub_1', customer: 'cus_1' }), { db: failing().db, m1: false })
+    expect(r).toEqual(persistFailed)
+  })
+})
+
+// BL-103 bug 2: every non-ok result was a 400, so "we failed to save it"
+// looked exactly like "the sender is not Stripe".
+describe('webhookHttpStatus', () => {
+  it('400 only for a missing or bad signature; 500 for our own failures', () => {
+    expect(webhookHttpStatus({ ok: true, outcome: 'ignored' })).toBe(200)
+    expect(webhookHttpStatus({ ok: true, outcome: 'duplicate' })).toBe(200)
+    expect(webhookHttpStatus({ ok: false, outcome: 'error', message: 'invalid_signature' })).toBe(400)
+    expect(webhookHttpStatus({ ok: false, outcome: 'error', message: 'signature_missing' })).toBe(400)
+    expect(webhookHttpStatus({ ok: false, outcome: 'error', message: 'persist_failed' })).toBe(500)
+    expect(webhookHttpStatus({ ok: false, outcome: 'error', message: 'webhook_secret_missing' })).toBe(500)
+    expect(webhookHttpStatus({ ok: false, outcome: 'error', message: 'stripe_not_configured' })).toBe(500)
+    expect(webhookHttpStatus({ ok: false, outcome: 'error', message: 'unexpected_rpc_result' })).toBe(500)
+  })
+})
+
+// Signature verification is local HMAC: no network, and the key is a dummy.
+describe('handleStripeWebhook with injected deps', () => {
+  const stripe = new Stripe('sk_test_unit_dummy_not_a_key')
+  const secret = 'whsec_unit_test_secret'
+  const body = JSON.stringify({ id: 'evt_u1', object: 'event', created: 1_760_000_000, type: 'customer.created', data: { object: { id: 'cus_1' } } })
+
+  it('verifies the signature, then routes with the injected db', async () => {
+    const f = fakeDb()
+    const header = stripe.webhooks.generateTestHeaderString({ payload: body, secret })
+    const r = await handleStripeWebhook({ rawBody: body, signatureHeader: header, webhookSecret: secret }, { db: f.db, stripe, m1: false })
+    expect(r).toEqual({ ok: true, outcome: 'ignored', message: 'customer.created' })
+    expect(f.updates).toEqual([])
+  })
+
+  it('a wrong secret or a tampered body is invalid_signature and never reaches the db', async () => {
+    const f = fakeDb()
+    const header = stripe.webhooks.generateTestHeaderString({ payload: body, secret: 'whsec_other' })
+    expect(await handleStripeWebhook({ rawBody: body, signatureHeader: header, webhookSecret: secret }, { db: f.db, stripe })).toEqual({
+      ok: false,
+      outcome: 'error',
+      message: 'invalid_signature',
+    })
+    const good = stripe.webhooks.generateTestHeaderString({ payload: body, secret })
+    const tampered = body.replace('cus_1', 'cus_2')
+    expect((await handleStripeWebhook({ rawBody: tampered, signatureHeader: good, webhookSecret: secret }, { db: f.db, stripe })).message).toBe(
+      'invalid_signature',
+    )
+    expect((await handleStripeWebhook({ rawBody: body, signatureHeader: null, webhookSecret: secret }, { db: f.db, stripe })).message).toBe(
+      'signature_missing',
+    )
+    expect(f.updates).toEqual([])
+    expect(f.rpcs).toEqual([])
   })
 })

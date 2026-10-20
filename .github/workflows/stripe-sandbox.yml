@@ -1,0 +1,85 @@
+name: Stripe sandbox
+
+# BL-103: every payment path against Stripe TEST mode.
+# docs/specs/2026-10-19-stripe-sandbox.md
+#
+# Uses ONLY the test-mode repo secrets STRIPE_TEST_SECRET_KEY and
+# STRIPE_TEST_WEBHOOK_SECRET. It never reads the production
+# STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET, and the suite hard-fails if a
+# live key (sk_live_ / rk_live_) ever reaches it.
+#
+# When the secrets are absent (not configured yet, or a fork PR, which gets
+# no secrets) the suite skips with a message and the job passes.
+#
+# Not a required check and not a deploy gate (yet).
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Nightly, 07:17 UTC.
+    - cron: '17 7 * * *'
+  pull_request:
+    paths:
+      - 'packages/billing/**'
+      - 'apps/*/src/app/api/webhooks/stripe/**'
+      - 'apps/hoa/src/app/api/admin/setup-stripe-pricing/**'
+      - 'apps/hoa/src/app/(dashboard)/settings/billing/**'
+      - 'apps/hoa/src/lib/billing.ts'
+      - 'tests/stripe-sandbox/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/stripe-sandbox.yml'
+  push:
+    branches:
+      - main
+      - 'claude/**'
+    paths:
+      - 'packages/billing/**'
+      - 'apps/*/src/app/api/webhooks/stripe/**'
+      - 'apps/hoa/src/app/api/admin/setup-stripe-pricing/**'
+      - 'apps/hoa/src/app/(dashboard)/settings/billing/**'
+      - 'apps/hoa/src/lib/billing.ts'
+      - 'tests/stripe-sandbox/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/stripe-sandbox.yml'
+
+# One run at a time against the shared test account; never cancel a run
+# mid-way (its afterAll is what cleans up the objects it created).
+concurrency:
+  group: stripe-sandbox
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sandbox:
+    name: Stripe test-mode suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      STRIPE_TEST_WEBHOOK_SECRET: ${{ secrets.STRIPE_TEST_WEBHOOK_SECRET }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      # Report presence only, never a value.
+      - name: Secrets present?
+        run: |
+          if [ -z "$STRIPE_TEST_SECRET_KEY" ]; then
+            echo "::notice title=Stripe sandbox skipped::STRIPE_TEST_SECRET_KEY is not set; the suite will skip. See docs/specs/2026-10-19-stripe-sandbox.md."
+            echo "Stripe sandbox: **skipped** (STRIPE_TEST_SECRET_KEY not set)." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -z "$STRIPE_TEST_WEBHOOK_SECRET" ]; then
+            echo "::notice title=Stripe webhook cases skipped::STRIPE_TEST_WEBHOOK_SECRET is not set."
+          fi
+
+      # The suite's own guard decides run / skip / refuse.
+      - name: Stripe sandbox suite
+        run: pnpm test:stripe-sandbox
