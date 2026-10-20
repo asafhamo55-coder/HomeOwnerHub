@@ -316,6 +316,19 @@ prices; review it before pitching.
 
 **Files:** `docs/decisions/2026-10-20-vendor-coi-reminders-board-only.md`
 
+### OA-20 · Check one Georgia law paragraph against the official code
+
+**Urgency:** Whenever
+
+**Why it matters:** the new Georgia "Statement of Amounts Due" follows O.C.G.A. § 44-3-232(d): 5 business days, and a $10 fee only if the declaration allows it. Claude couldn't open Georgia's official online code (LexisNexis public access) automatically, so it used two matching copies of that paragraph from bills on legis.ga.gov. A single look at the official text confirms it.
+
+**Steps:**
+
+1. Open the Georgia Code public-access site (via legis.ga.gov → "Georgia Code"), go to Title 44, Chapter 3, Article 6, § 44-3-232, subsection (d).
+2. Compare it with `scripts/fixtures/state-law/ga-ocga-44-3-232-2026.txt`, and tell Claude "matches" or paste any difference.
+
+**Files:** `scripts/fixtures/state-law/ga-ocga-44-3-232-2026.txt`
+
 ## Done
 
 _Nothing yet. Finished items move here with the date they were done._
