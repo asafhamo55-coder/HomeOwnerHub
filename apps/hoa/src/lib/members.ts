@@ -14,6 +14,7 @@ import { exactIlike } from '@/lib/impersonation-target'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@homeowner-portal/db'
+import { fetchOrgSandbox, guardRecipients } from '@homeowner-portal/observability/outbound-guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { todayIn } from '@/lib/association-time'
 import { orgTimeZone } from '@/lib/association-time-server'
@@ -227,6 +228,24 @@ export async function inviteMember(
   // user. We then INSERT into org_members via the user-bound client so
   // RLS still gates writes to that table.
   const admin = createAdminClient()
+
+  // 0. Outbound guard (BL-135), the same check the bulk invite and Resend
+  // use (owner-invites-actions.ts): outside production, or for a sandboxed
+  // org, only OUTBOUND_ALLOWLIST addresses get an email. inviteUserByEmail
+  // both creates the account and sends, so a held address gets neither,
+  // exactly like a held owner in the bulk invite. fetchOrgSandbox fails
+  // closed. The guard's log line carries counts and the org id only.
+  const orgSandbox = await fetchOrgSandbox(admin, org.id)
+  const guard = guardRecipients('email', [parsed.data.email], (e) => e, {
+    orgSandbox,
+    ref: `invite_single:${org.id}`,
+  })
+  if (guard.allowed.length === 0) {
+    return {
+      ok: false,
+      error: 'Sending is switched off for this address (test or sandbox mode), so no invitation was sent.',
+    }
+  }
 
   // 1. Find or create the auth user.
   // Supabase's admin SDK exposes `auth.admin.inviteUserByEmail` which
