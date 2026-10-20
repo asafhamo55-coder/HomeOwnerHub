@@ -140,7 +140,7 @@ export function kindsFor(j: LetterJurisdiction): LetterKind[] {
 
 export type LetterInput = Pick<
   EstoppelInput,
-  'state' | 'associationName' | 'propertyId' | 'address' | 'unitNumber' | 'unitId' | 'lotNumber' | 'owners' | 'charges' | 'payments' | 'plans' | 'timeZone'
+  'state' | 'associationName' | 'propertyId' | 'address' | 'unitNumber' | 'unitId' | 'lotNumber' | 'owners' | 'charges' | 'payments' | 'plans' | 'planInstallmentIds' | 'timeZone'
 >
 
 /** A recorded collections event (collection_events), as the waiting rule reads it. */
@@ -171,15 +171,20 @@ export interface LetterFigures {
   creditCents: number
   /** What the ledger says is owed on this letter: the lines plus the credit. */
   ledgerCents: number
+  /** CA: days after the due date an assessment is delinquent (§ 5650(b), the declaration's period). */
+  delinquentAfterDays: number
 }
 
 /**
  * The past-due charges a letter lists. Past due = due before the letter
  * date and not fully paid. A California pre-lien notice lists only
- * assessments already DELINQUENT under § 5650(b), 15 days after the due
- * date; late fees are listed once past due.
+ * assessments already DELINQUENT under § 5650(b): 15 days after the due
+ * date, or the longer period the declaration sets (`delinquentAfterDays`,
+ * a BLANK the board fills; never below 15). Late fees are listed once
+ * past due.
  */
-export function letterFigures(input: LetterInput, kind: LetterKind, letterDate: string): LetterFigures {
+export function letterFigures(input: LetterInput, kind: LetterKind, letterDate: string, delinquentAfterDays: number = CA_DELINQUENT_AFTER_DAYS): LetterFigures {
+  const days = Math.max(CA_DELINQUENT_AFTER_DAYS, Math.floor(delinquentAfterDays))
   const lines = chargeLines(input)
   const ledger = buildLedger(input.charges, input.payments, input.timeZone)
   const owedByToday = lines.filter((l) => l.dueDate <= letterDate && l.remainingCents > 0)
@@ -189,7 +194,7 @@ export function letterFigures(input: LetterInput, kind: LetterKind, letterDate: 
   const creditCents = Math.min(0, cents(ledger.totals.balance) - sum(future) - sum(owedByToday))
 
   const pastDue = owedByToday.filter((l) => l.dueDate < letterDate)
-  const delinquent = (l: ChargeLine) => kind !== 'ca_pre_lien' || addCalendarDays(l.dueDate, CA_DELINQUENT_AFTER_DAYS) <= letterDate
+  const delinquent = (l: ChargeLine) => kind !== 'ca_pre_lien' || addCalendarDays(l.dueDate, days) <= letterDate
   const assessmentLines = pastDue.filter((l) => ASSESSMENT_TYPES.has(l.type) && delinquent(l))
   const lateFeeLines = pastDue.filter((l) => l.type === 'late_fee')
   const rest = pastDue.filter((l) => !ASSESSMENT_TYPES.has(l.type) && l.type !== 'late_fee')
@@ -210,6 +215,7 @@ export function letterFigures(input: LetterInput, kind: LetterKind, letterDate: 
     otherCents,
     creditCents,
     ledgerCents: assessmentsCents + lateFeesCents + otherCents + creditCents,
+    delinquentAfterDays: days,
   }
 }
 
@@ -238,10 +244,10 @@ export function waitingCheck(kind: LetterKind, f: LetterFigures, events: LetterE
   if (kind === 'ca_pre_lien' && f.assessmentsCents === 0) {
     const pending = f.omittedLines.filter((l) => ASSESSMENT_TYPES.has(l.type)).sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0]
     if (pending) {
-      const on = addCalendarDays(pending.dueDate, CA_DELINQUENT_AFTER_DAYS)
+      const on = addCalendarDays(pending.dueDate, f.delinquentAfterDays)
       return {
         ok: false,
-        reason: `No assessment is delinquent yet. Under § 5650(b) an assessment becomes delinquent 15 days after it is due: the oldest unpaid one, due ${formatDay(pending.dueDate)}, is delinquent on ${formatDay(on)}.`,
+        reason: `No assessment is delinquent yet. Under § 5650(b) and your declaration an assessment becomes delinquent ${f.delinquentAfterDays} days after it is due: the oldest unpaid one, due ${formatDay(pending.dueDate)}, is delinquent on ${formatDay(on)}.`,
         earliest: on,
       }
     }
@@ -348,6 +354,13 @@ export function letterFields(kind: LetterKind, input: LetterInput): CertificateF
   if (kind === 'ca_pre_lien') {
     fields.push(
       {
+        key: 'delinquentDays',
+        label: CA_DELINQUENT_DAYS_LABEL,
+        kind: 'text',
+        value: null,
+        hint: `§ 5650(b): ${CA_DELINQUENT_AFTER_DAYS} days unless your declaration sets a longer period. Enter the number of days.`,
+      },
+      {
         key: 'procedures',
         label: 'Collection and lien enforcement procedures, and how the amount is calculated',
         kind: 'textarea',
@@ -376,6 +389,16 @@ export function letterFields(kind: LetterKind, input: LetterInput): CertificateF
   return fields
 }
 
+export const CA_DELINQUENT_DAYS_LABEL = `Days after due date an assessment is delinquent (per your declaration; at least ${CA_DELINQUENT_AFTER_DAYS})`
+
+/** The board's delinquency period: a whole number of days, at least 15 (and at most a year), else null. */
+export function parseDelinquentDays(s: string | undefined): number | null {
+  const t = (s ?? '').trim()
+  if (!/^\d{1,3}$/.test(t)) return null
+  const n = Number(t)
+  return n >= CA_DELINQUENT_AFTER_DAYS && n <= 365 ? n : null
+}
+
 /** "18", "18%", "12.5" → 18, 18, 12.5; anything else null. */
 export function parsePercent(s: string | undefined): number | null {
   const t = (s ?? '').replace(/\s|%/g, '')
@@ -392,6 +415,12 @@ export function letterProblems(kind: LetterKind, values: FieldValues): string[] 
     if (raw && rate === null) out.push('Enter the interest rate as a number, like 18 or 12.5.')
     if (kind === 'ca_pre_lien' && rate !== null && rate > CA_MAX_INTEREST_PERCENT) {
       out.push(`The interest rate can’t be above ${CA_MAX_INTEREST_PERCENT}% a year (§ 5650(b)(3)).`)
+    }
+  }
+  if (kind === 'ca_pre_lien') {
+    const raw = (values.delinquentDays ?? '').trim()
+    if (raw && parseDelinquentDays(raw) === null) {
+      out.push(`Enter the delinquency period as a whole number of days, ${CA_DELINQUENT_AFTER_DAYS} or more (§ 5650(b)), up to 365.`)
     }
   }
   return out
@@ -437,10 +466,16 @@ export interface Letter {
   notes: string[]
 }
 
-export function buildLetter(input: LetterInput, kind: LetterKind, letterDate: string, events: LetterEvent[]): Letter {
+/**
+ * `values` are the board's BLANK entries; the figures read one of them,
+ * the California delinquency period. Until it is filled (or while it is
+ * not a valid number) the figures use the statute's 15 days, and the
+ * empty BLANK or the entry problem blocks saving and printing.
+ */
+export function buildLetter(input: LetterInput, kind: LetterKind, letterDate: string, events: LetterEvent[], values: FieldValues = {}): Letter {
   const jurisdiction = letterJurisdiction(input.state)
   const meta = LETTER_META[kind]
-  const figures = letterFigures(input, kind, letterDate)
+  const figures = letterFigures(input, kind, letterDate, parseDelinquentDays(values.delinquentDays) ?? CA_DELINQUENT_AFTER_DAYS)
   const allowed = kindsFor(jurisdiction).includes(kind)
   const waiting: Waiting = allowed
     ? waitingCheck(kind, figures, events, letterDate)
@@ -450,7 +485,7 @@ export function buildLetter(input: LetterInput, kind: LetterKind, letterDate: st
     notes.push(kind === 'ca_pre_lien' ? CA_FINE_NOTE : FL_FINE_NOTE)
   }
   if (kind === 'ca_pre_lien' && figures.omittedLines.some((l) => ASSESSMENT_TYPES.has(l.type))) {
-    notes.push('Assessments less than 15 days past due are not delinquent yet (§ 5650(b)) and are left off.')
+    notes.push(`Assessments less than ${figures.delinquentAfterDays} days past due are not delinquent yet (§ 5650(b)) and are left off.`)
   }
   if (kind === 'past_due') notes.push(GENERIC_NOTE)
   return {

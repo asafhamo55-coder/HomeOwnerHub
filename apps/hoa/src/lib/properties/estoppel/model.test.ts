@@ -8,7 +8,9 @@ import {
   inferFrequency,
   chargeLines,
   parseMoneyCents,
+  printSnapshot,
   requestProblem,
+  snapshotMatches,
   valueOf,
   type EstoppelInput,
   type EstoppelRequest,
@@ -75,6 +77,7 @@ function fixture(over: Partial<EstoppelInput> = {}): EstoppelInput {
       { id: 'v-done', description: 'Old', status: 'resolved', noticeSentAt: '2026-01-01T12:00:00Z', resolvedAt: '2026-02-01T12:00:00Z' },
     ],
     plans: [],
+    planInstallmentIds: [],
     collectionCase: null,
     timeZone: 'America/New_York',
     ...over,
@@ -101,7 +104,8 @@ describe('figures', () => {
       ['a-oct', 30_000],
     ])
     expect(f.unappliedCents).toBe(-5_000)
-    expect(f.pastDueCents).toBe(50_000)
+    // Sep 200 + Oct 300 past due, less the $50 not applied to a charge.
+    expect(f.pastDueCents).toBe(45_000)
     expect(f.delinquent).toBe(true)
   })
 
@@ -159,7 +163,7 @@ describe('paid through', () => {
   })
 
   it('infers quarterly and refuses uneven gaps', () => {
-    const lines = (days: string[]) => chargeLines({ charges: days.map((d, i) => charge(`c${i}`, d, 900)), payments: [], plans: [] })
+    const lines = (days: string[]) => chargeLines({ charges: days.map((d, i) => charge(`c${i}`, d, 900)), payments: [], planInstallmentIds: [] })
     expect(inferFrequency(lines(['2026-01-01', '2026-04-01', '2026-07-01']))).toBe('quarterly')
     expect(inferFrequency(lines(['2026-01-01', '2026-02-01', '2026-05-01']))).toBeNull()
   })
@@ -171,11 +175,83 @@ describe('payment plan installments', () => {
       charges: [charge('i1', '2026-11-05', 100, 'special'), charge('i2', '2026-12-05', 100.01, 'special'), charge('s', '2026-12-15', 500, 'special')],
       payments: [],
       plans: [{ id: 'plan-1', status: 'active', installmentAmount: 100, installmentCount: 2, totalAmount: 200.01, startDate: '2026-11-05' }],
+      planInstallmentIds: ['i1', 'i2'],
     })
     const f = buildCertificate(input, req()).figures
     expect(f.specials.map((s) => s.id)).toEqual(['s'])
     expect(f.notYetDue.filter((l) => l.type === 'plan_installment').map((l) => l.id)).toEqual(['i1', 'i2'])
     expect(f.activePlan?.id).toBe('plan-1')
+  })
+
+  it('follow the plan → charge link, not a rebuilt schedule (a plan starting Jan 31)', () => {
+    // lib/payment-plans.ts builds due dates with an overflowing Date.UTC:
+    // Jan 31 + 1 month is Mar 3, not Feb 28. The link (the installment's
+    // journal entry memo) is what makes a charge the plan's.
+    const input = fixture({
+      charges: [
+        charge('i1', '2027-01-31', 100, 'special'),
+        charge('i2', '2027-03-03', 100, 'special'),
+        charge('i3', '2027-03-31', 100, 'special'),
+        charge('s', '2027-02-28', 100, 'special'),
+      ],
+      payments: [],
+      plans: [{ id: 'plan-1', status: 'active', installmentAmount: 100, installmentCount: 3, totalAmount: 300, startDate: '2027-01-31' }],
+      planInstallmentIds: ['i1', 'i2', 'i3'],
+    })
+    const f = buildCertificate(input, req()).figures
+    expect(f.notYetDue.filter((l) => l.type === 'plan_installment').map((l) => l.id)).toEqual(['i1', 'i2', 'i3'])
+    // Feb 28 for $100 is exactly where a rebuilt schedule would look, but
+    // no link ties it to the plan: it stays a special assessment.
+    expect(f.specials.map((s) => s.id)).toEqual(['s'])
+  })
+})
+
+describe('an unapplied credit and the delinquent add-on', () => {
+  it('a $300 past-due charge and a $300 unlinked payment: not delinquent, no $150 add-on', () => {
+    const input = fixture({
+      charges: [charge('a', '2026-09-01', 300)],
+      payments: [pay('p', null, 300, '2026-09-10T15:00:00Z')],
+    })
+    const r = req()
+    const c = buildCertificate(input, r)
+    expect(c.figures.currentBalanceCents).toBe(0)
+    expect(c.figures.pastDueCents).toBe(0)
+    expect(c.figures.delinquent).toBe(false)
+    expect(checkFee('FL', c.deadlines, c.figures, r, 25_000).cap?.totalCents).toBe(25_000)
+    expect(checkFee('FL', c.deadlines, c.figures, r, 40_000).problem).toMatch(/above the statutory cap/)
+  })
+
+  it('a partial credit only reduces the past-due amount', () => {
+    const input = fixture({
+      charges: [charge('a', '2026-09-01', 300)],
+      payments: [pay('p', null, 100, '2026-09-10T15:00:00Z')],
+    })
+    const f = buildCertificate(input, req()).figures
+    expect(f.pastDueCents).toBe(20_000)
+    expect(f.delinquent).toBe(true)
+  })
+})
+
+describe('print snapshot', () => {
+  it('matches the certificate it was taken from', () => {
+    const c = buildCertificate(fixture(), req())
+    const snap = printSnapshot(c)
+    expect(snap).toEqual({
+      issueDate: '2026-10-19',
+      balance_cents: 45_000,
+      not_yet_due_cents: 80_000,
+      charge_ids: ['a-nov', 'a-oct', 'a-sep', 'a-spec'],
+    })
+    expect(snapshotMatches(c, snap)).toBe(true)
+  })
+
+  it('does not match after a payment, a new charge, or a new day', () => {
+    const page = printSnapshot(buildCertificate(fixture(), req()))
+    const paid = fixture({ payments: [...fixture().payments, pay('p-oct', 'a-oct', 300, '2026-10-19T15:00:00Z')] })
+    expect(snapshotMatches(buildCertificate(paid, req()), page)).toBe(false)
+    const charged = fixture({ charges: [...fixture().charges, charge('a-new', '2026-12-01', 0.01)] })
+    expect(snapshotMatches(buildCertificate(charged, req()), page)).toBe(false)
+    expect(snapshotMatches(buildCertificate(fixture(), req({ issueDate: '2026-10-20' })), page)).toBe(false)
   })
 })
 
@@ -301,7 +377,7 @@ describe('request and audit', () => {
     expect(a).toEqual({
       jurisdiction: 'FL',
       balance_cents: 45_000,
-      past_due_cents: 50_000,
+      past_due_cents: 45_000, // net of the $50 unapplied payment
       not_yet_due_cents: 80_000,
       open_violation_ids: ['v-open'],
       payment_plan_id: null,

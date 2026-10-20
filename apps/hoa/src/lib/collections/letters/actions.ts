@@ -9,7 +9,7 @@ import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accountin
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { propertyHref } from '@/lib/properties/href'
 import { asPropertyId } from '@/lib/properties/resolve'
-import { recordLetterAudit } from './audit'
+import { letterEventNote, recordLetterAudit } from './audit'
 import { loadLetterContext, type LetterContext } from './load'
 import {
   LETTER_KINDS,
@@ -89,7 +89,7 @@ export async function saveLetterToApprovals(input: z.input<typeof SaveSchema>): 
     return { ok: false, error: 'A letter for this home is already waiting in Approvals. Approve or reject it first.' }
   }
 
-  const letter = buildLetter(ctx.input, v.kind, ctx.today, ctx.events)
+  const letter = buildLetter(ctx.input, v.kind, ctx.today, ctx.events, v.values)
   const blocked = letterBlocked(letter, v.values, v.verified)
   if (blocked) return { ok: false, error: blocked }
   const totals = letterTotals(letter, v.values)
@@ -161,7 +161,7 @@ export async function recordLetterPrinted(input: z.input<typeof PrintSchema>): P
     return { ok: false, error: 'The collections case for this letter is closed, so it can’t be printed.' }
   }
 
-  const letter = buildLetter(ctx.input, payload.kind, ctx.today, ctx.events)
+  const letter = buildLetter(ctx.input, payload.kind, ctx.today, ctx.events, payload.values)
   const blocked = letterBlocked(letter, payload.values, v.verified)
   if (blocked) return { ok: false, error: blocked }
   const totals = letterTotals(letter, payload.values)
@@ -173,31 +173,58 @@ export async function recordLetterPrinted(input: z.input<typeof PrintSchema>): P
     }
   }
 
+  // Idempotent per approval request. The first print's event carries the
+  // request id in its note; a retry (after a failed stage update or audit
+  // insert) finds it instead of recording a second one. A print counts as
+  // done only once its audit row exists (request.printedAt), so until then
+  // every attempt re-runs the steps that are still missing.
   const reprint = request.printedAt !== null
   let eventId: string | null = null
   if (!reprint) {
-    const { data, error } = await supabase
+    const note = letterEventNote(request.id)
+    const existing = (await supabase
       .from('collection_events')
-      .insert({
-        organization_id: gate.orgId,
-        collection_case_id: payload.caseId,
-        event_type: LETTER_META[payload.kind].eventType,
-        occurred_on: ctx.today,
-        amount: payload.totalCents / 100,
-        note: null,
-        recorded_by: user.id,
-      })
       .select('id')
-      .single()
-    if (error || !data) {
-      console.error('[collections.letters] event insert failed', { orgId: gate.orgId, code: error?.code ?? null })
-      return { ok: false, error: 'Couldn’t record the letter on the collections case, so it wasn’t printed. Try again.' }
+      .eq('organization_id', gate.orgId)
+      .eq('collection_case_id', payload.caseId)
+      .eq('note', note)
+      .limit(1)) as { data: Array<{ id: string }> | null; error: { code?: string } | null }
+    if (existing.error) {
+      console.error('[collections.letters] event lookup failed', { orgId: gate.orgId, code: existing.error.code ?? null })
+      return { ok: false, error: 'Couldn’t check the collections case, so the letter wasn’t printed. Try again.' }
     }
-    eventId = data.id
+    eventId = existing.data?.[0]?.id ?? null
+    if (!eventId) {
+      const { data, error } = await supabase
+        .from('collection_events')
+        .insert({
+          organization_id: gate.orgId,
+          collection_case_id: payload.caseId,
+          event_type: LETTER_META[payload.kind].eventType,
+          occurred_on: ctx.today,
+          amount: payload.totalCents / 100,
+          note,
+          recorded_by: user.id,
+        })
+        .select('id')
+        .single()
+      if (error || !data) {
+        console.error('[collections.letters] event insert failed', { orgId: gate.orgId, code: error?.code ?? null })
+        return { ok: false, error: 'Couldn’t record the letter on the collections case, so it wasn’t printed. Try again.' }
+      }
+      eventId = data.id
+    }
+    // Forward only, so re-running it on a retry is safe.
     const next = stageAfterPrint(payload.kind, ctx.collectionCase.status)
     if (next) {
       const { error: stageErr } = await supabase.from('collection_cases').update({ status: next }).eq('id', payload.caseId)
-      if (stageErr) console.error('[collections.letters] stage update failed', { orgId: gate.orgId, code: stageErr.code ?? null })
+      if (stageErr) {
+        console.error('[collections.letters] stage update failed', { orgId: gate.orgId, code: stageErr.code ?? null })
+        return {
+          ok: false,
+          error: 'The letter is recorded on the collections case, but the app couldn’t move the case to its next stage, so it wasn’t printed. Try again.',
+        }
+      }
     }
   }
 

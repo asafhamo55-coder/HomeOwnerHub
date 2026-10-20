@@ -19,6 +19,7 @@ import {
   useToast,
 } from '@homeowner-portal/ui'
 import { formatDay } from '@/lib/money/format'
+import { DraftPrintBanner, usePrintGate } from '@/components/print/PrintGate'
 import { valueOf, type CertificateField, type FieldValues } from '@/lib/properties/estoppel/model'
 import { recordLetterPrinted, saveLetterToApprovals } from '@/lib/collections/letters/actions'
 import {
@@ -62,8 +63,10 @@ export interface LetterRequestView {
  *              it in Approvals.
  *   approved — the approved letter with Print / Save as PDF. The print
  *              records the collections event and an audit row first
- *              (server action, figures re-checked), then opens the
- *              browser's print dialog. Only the letter prints.
+ *              (server action, figures re-checked), then arms the
+ *              letter and opens the browser's print dialog. Only the
+ *              letter prints; a browser print (Cmd+P) in any state
+ *              shows a DRAFT banner instead.
  * Nothing is emailed or texted at any point.
  */
 export function CollectionsLetter({
@@ -96,12 +99,16 @@ function Draft({ input, today, events }: { input: LetterInput; today: string; ev
   const [verified, setVerified] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  const letter = useMemo(() => buildLetter(input, kind, today, events), [input, kind, today, events])
+  const letter = useMemo(() => buildLetter(input, kind, today, events, values), [input, kind, today, events, values])
   const blanks = letterBlanks(letter, values)
   const problems = letterProblems(kind, values)
   const blocked = letterBlocked(letter, values, verified)
   const set = (key: string, v: string) => setValues((prev) => ({ ...prev, [key]: v }))
-  const blankFields = letter.fields.filter((f) => f.value === null)
+  // The CA delinquency period changes which assessments are delinquent,
+  // and so whether the letter can be drafted at all: it stays on screen
+  // even while the waiting check refuses.
+  const periodField = letter.fields.find((f) => f.key === 'delinquentDays' && f.value === null) ?? null
+  const blankFields = letter.fields.filter((f) => f.value === null && f !== periodField)
 
   function save() {
     if (blocked) return
@@ -149,6 +156,29 @@ function Draft({ input, today, events }: { input: LetterInput; today: string; ev
         </CardContent>
       </Card>
 
+      {periodField ? (
+        <Card className="print:hidden">
+          <CardHeader>
+            <CardTitle as="h2">Delinquency period</CardTitle>
+            <CardDescription>
+              Civil Code § 5650(b) makes an assessment delinquent 15 days after it is due, unless your declaration sets a longer period. The letter lists only delinquent assessments.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <BlankInput field={periodField} value={values[periodField.key] ?? ''} onChange={(v) => set(periodField.key, v)} />
+            {problems
+              .filter((p) => p.startsWith('Enter the delinquency period'))
+              .map((p) => (
+                <Alert key={p} variant="error" title="Check this entry">
+                  {p}
+                </Alert>
+              ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <DraftPrintBanner armed={false} />
+
       {!letter.waiting.ok ? (
         <Alert variant="error" title="This letter can’t be drafted yet" className="print:hidden">
           {letter.waiting.reason}
@@ -166,7 +196,7 @@ function Draft({ input, today, events }: { input: LetterInput; today: string; ev
                 {blankFields.map((f) => (
                   <BlankInput key={f.key} field={f} value={values[f.key] ?? ''} onChange={(v) => set(f.key, v)} />
                 ))}
-                {problems.map((p) => (
+                {problems.filter((p) => !p.startsWith('Enter the delinquency period')).map((p) => (
                   <Alert key={p} variant="error" title="Check this entry">
                     {p}
                   </Alert>
@@ -175,7 +205,7 @@ function Draft({ input, today, events }: { input: LetterInput; today: string; ev
             </Card>
           ) : null}
 
-          <LetterDocument letter={letter} input={input} values={values} />
+          <LetterDocument letter={letter} input={input} values={values} printClass="print:hidden" />
 
           <div className="space-y-3 print:hidden">
             {blanks.length > 0 ? (
@@ -235,7 +265,7 @@ function Facts({ letter }: { letter: Letter }) {
 // ─── pending / approved ──────────────────────────────────────────────
 
 function Pending({ input, today, events, request }: { input: LetterInput; today: string; events: LetterEvent[]; request: LetterRequestView }) {
-  const letter = useMemo(() => buildLetter(input, request.payload.kind, today, events), [input, request.payload.kind, today, events])
+  const letter = useMemo(() => buildLetter(input, request.payload.kind, today, events, request.payload.values), [input, request.payload, today, events])
   return (
     <div className="space-y-5">
       <Alert variant="info" title="Waiting for board approval" className="print:hidden">
@@ -244,7 +274,8 @@ function Pending({ input, today, events, request }: { input: LetterInput; today:
           Open Approvals
         </Link>
       </Alert>
-      <LetterDocument letter={letter} input={input} values={request.payload.values} />
+      <DraftPrintBanner armed={false} />
+      <LetterDocument letter={letter} input={input} values={request.payload.values} printClass="print:hidden" />
     </div>
   )
 }
@@ -266,7 +297,8 @@ function Approved({
   const toast = useToast()
   const [verified, setVerified] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const letter = useMemo(() => buildLetter(input, request.payload.kind, today, events), [input, request.payload.kind, today, events])
+  const gate = usePrintGate()
+  const letter = useMemo(() => buildLetter(input, request.payload.kind, today, events, request.payload.values), [input, request.payload, today, events])
   const values = request.payload.values
   const totals = letterTotals(letter, values)
   const stale = totals.totalCents !== request.payload.totalCents
@@ -283,7 +315,8 @@ function Approved({
         return
       }
       toast({ tone: 'success', message: res.message })
-      window.print()
+      // Armed only now: the collections event and audit row are recorded.
+      gate.print()
       router.refresh()
     })
   }
@@ -296,7 +329,8 @@ function Approved({
           : 'The board approved this letter. Print it or save it as a PDF, then send it as the statute requires. Nothing is emailed.'}
       </Alert>
       {!stale ? <Facts letter={letter} /> : null}
-      <LetterDocument letter={letter} input={input} values={values} />
+      <DraftPrintBanner armed={gate.printArmed} />
+      <LetterDocument letter={letter} input={input} values={values} printClass={gate.docClass} />
       <div className="space-y-3 print:hidden">
         {!stale ? (
           <Checkbox
@@ -349,7 +383,7 @@ function EnteredCell({ field, values }: { field: CertificateField | undefined; v
   return <td className="num py-1 text-right">{v ?? <Blank label={field.label} />}</td>
 }
 
-function LetterDocument({ letter, input, values }: { letter: Letter; input: LetterInput; values: FieldValues }) {
+function LetterDocument({ letter, input, values, printClass }: { letter: Letter; input: LetterInput; values: FieldValues; printClass: string }) {
   const f = letter.figures
   const k = letter.kind
   const field = (key: string) => letter.fields.find((x) => x.key === key)
@@ -369,7 +403,7 @@ function LetterDocument({ letter, input, values }: { letter: Letter; input: Lett
   const credit = f.creditCents !== 0 ? <AmountRow label="Less payments and credits not applied to a charge" cents={f.creditCents} /> : null
 
   return (
-    <article aria-labelledby="letter-title" className="space-y-4 rounded-lg border border-border bg-surface p-5 text-sm print:border-0 print:p-0">
+    <article aria-labelledby="letter-title" className={`space-y-4 rounded-lg border border-border bg-surface p-5 text-sm print:border-0 print:p-0 ${printClass}`}>
       <header className="space-y-3">
         <p className="font-medium text-foreground">{association}</p>
         <p className="num text-foreground-secondary">{formatDay(letter.letterDate)}</p>

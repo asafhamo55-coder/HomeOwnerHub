@@ -7,14 +7,24 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { asPropertyId } from '../resolve'
 import { ESTOPPEL_PRINTED, recordEstoppelAudit } from './audit'
 import { loadEstoppelInput } from './load'
-import { auditFigures, buildCertificate, checkFee, requestProblem } from './model'
+import { FIGURES_CHANGED, auditFigures, buildCertificate, checkFee, requestProblem, snapshotMatches } from './model'
+
+const Day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+const Cents = z.number().int().min(-1_000_000_000).max(1_000_000_000)
 
 const PrintSchema = z.object({
   propertyId: z.string().uuid(),
-  requestDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  requestDate: Day,
   delivery: z.enum(['electronic', 'hand', 'mail']),
   expedited: z.boolean(),
   feeCents: z.number().int().min(0).max(10_000_000),
+  /** What the page shows (model.printSnapshot): refused unless it still matches. */
+  figures: z.object({
+    issueDate: Day,
+    balance_cents: Cents,
+    not_yet_due_cents: Cents,
+    charge_ids: z.array(z.string().max(64)).max(10_000),
+  }),
 })
 
 export type PrintResult = { ok: true } | { ok: false; error: string }
@@ -23,7 +33,11 @@ export type PrintResult = { ok: true } | { ok: false; error: string }
  * Called by "Print / Save as PDF" before the print dialog opens. The
  * figures in the audit row are recomputed here from the database, not
  * taken from the browser, and the fee is checked against the cap again.
- * Nothing is sent anywhere: the board prints or saves the page itself.
+ * The browser sends the figures it shows (issue day, balance, not yet
+ * due, charge ids); any difference from the recomputed certificate is
+ * refused, because the browser prints its own page-load copy — the same
+ * check recordLetterPrinted makes. Nothing is sent anywhere: the board
+ * prints or saves the page itself.
  */
 export async function recordEstoppelPrinted(input: z.input<typeof PrintSchema>): Promise<PrintResult> {
   const parsed = PrintSchema.safeParse(input)
@@ -54,6 +68,7 @@ export async function recordEstoppelPrinted(input: z.input<typeof PrintSchema>):
 
   const req = { requestDate: v.requestDate, issueDate, delivery: v.delivery, expedited: v.expedited }
   const cert = buildCertificate(loaded.input, req)
+  if (!snapshotMatches(cert, v.figures)) return { ok: false, error: FIGURES_CHANGED }
   const fee = checkFee(cert.jurisdiction, cert.deadlines, cert.figures, req, v.feeCents)
   if (fee.problem) return { ok: false, error: fee.problem }
 

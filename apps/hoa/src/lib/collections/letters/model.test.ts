@@ -78,6 +78,7 @@ function fixture(over: Partial<LetterInput> = {}): LetterInput {
     ],
     payments: [pay('p-jul', 'a-jul', 300, '2026-07-02T15:00:00Z'), pay('p-sep', 'a-sep', 100, '2026-09-03T15:00:00Z'), pay('p-x', null, 50, '2026-09-10T15:00:00Z')],
     plans: [],
+    planInstallmentIds: [],
     timeZone: 'America/New_York',
     ...over,
   }
@@ -160,9 +161,50 @@ describe('figures from the ledger', () => {
       charges: [charge('inst-1', '2026-09-01', 150, 'special')],
       payments: [],
       plans: [{ id: 'plan', status: 'active', installmentAmount: 150, installmentCount: 2, totalAmount: 300, startDate: '2026-09-01' }],
+      planInstallmentIds: ['inst-1'],
     })
     const f = letterFigures(input, 'fl_late_notice', TODAY)
     expect(f.assessmentLines.map((l) => [l.id, l.type])).toEqual([['inst-1', 'plan_installment']])
+  })
+})
+
+describe('CA delinquency period (§ 5650(b): the declaration may set a longer one)', () => {
+  const ca = fixture({ state: 'CA' })
+  const LABEL = 'Days after due date an assessment is delinquent (per your declaration; at least 15)'
+
+  it('is a BLANK the board fills', () => {
+    const l = buildLetter(ca, 'ca_pre_lien', TODAY, [])
+    expect(letterBlanks(l, {})).toContain(LABEL)
+    expect(letterBlanks(l, { delinquentDays: '30' })).not.toContain(LABEL)
+    expect(letterBlocked(l, { collectionCosts: '0', attorneyFees: '0', interest: '0', interestRate: '0', mailingAddress: 'x', procedures: 'x', signer: 'x' }, true)).toBe(
+      'Fill in every BLANK first.',
+    )
+  })
+
+  it('a 30-day declaration leaves off an assessment only 18 days past due', () => {
+    // Oct 1 is 18 days before Oct 19: delinquent at 15 days, not at 30.
+    expect(buildLetter(ca, 'ca_pre_lien', TODAY, [], { delinquentDays: '15' }).figures.assessmentLines.map((l) => l.id)).toEqual(['a-aug', 'a-sep', 'a-oct'])
+    const l = buildLetter(ca, 'ca_pre_lien', TODAY, [], { delinquentDays: '30' })
+    expect(l.figures.assessmentLines.map((x) => x.id)).toEqual(['a-aug', 'a-sep'])
+    expect(l.figures.assessmentsCents).toBe(50_000)
+    expect(l.notes.join(' ')).toContain('less than 30 days past due')
+  })
+
+  it('the waiting check counts the declaration’s period', () => {
+    const input = fixture({ state: 'CA', charges: [charge('a', '2026-10-10', 300)], payments: [] })
+    const l = buildLetter(input, 'ca_pre_lien', '2026-10-30', [], { delinquentDays: '30' })
+    expect(l.waiting).toMatchObject({ ok: false, earliest: '2026-11-09' })
+    expect(!l.waiting.ok && l.waiting.reason).toContain('30 days after it is due')
+    expect(buildLetter(input, 'ca_pre_lien', '2026-11-09', [], { delinquentDays: '30' }).waiting.ok).toBe(true)
+  })
+
+  it('refuses fewer than 15 days, or anything but a whole number', () => {
+    expect(letterProblems('ca_pre_lien', { delinquentDays: '14' })[0]).toContain('15')
+    expect(letterProblems('ca_pre_lien', { delinquentDays: 'two weeks' })[0]).toContain('15')
+    expect(letterProblems('ca_pre_lien', { delinquentDays: '15.5' })[0]).toContain('15')
+    expect(letterProblems('ca_pre_lien', { delinquentDays: '45' })).toEqual([])
+    // The figures never use a period shorter than the statute's.
+    expect(buildLetter(ca, 'ca_pre_lien', '2026-10-15', [], { delinquentDays: '5' }).figures.assessmentLines.map((l) => l.id)).toEqual(['a-aug', 'a-sep'])
   })
 })
 

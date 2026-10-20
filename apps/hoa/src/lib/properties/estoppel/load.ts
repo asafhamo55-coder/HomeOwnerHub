@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
+import { installmentsByPlan, loadInstallments } from '@homeowner-portal/workflows/payment-plans'
 import { loadLedgerRows } from '@/lib/resident-ledger'
 import { readAll } from '@/lib/supabase/read-all'
 import { todayIn } from '@/lib/association-time'
@@ -32,7 +33,7 @@ function readList<T>(db: Loose, table: string, columns: string, build: (q: any) 
 interface PropRow { id: string; address: string | null; unit_number: string | null; owner_name: string | null }
 interface UnitRow { id: string; association_id: string | null; lot_number: string | null }
 interface ViolationRow { id: string; description: string | null; status: string; notice_sent_at: string | null; resolved_at: string | null }
-interface PlanRow { id: string; status: string; installment_amount: number; installment_count: number; total_amount: number; start_date: string }
+interface PlanRow { id: string; unit_id: string; status: string; installment_amount: number; installment_count: number; total_amount: number; start_date: string }
 interface CaseRow { id: string; status: string; attorney_firm: string | null; opened_on: string }
 interface OwnRow { id: string; owner_name: string | null; valid_from: string; valid_to: string | null }
 
@@ -73,7 +74,7 @@ export async function loadEstoppelInput(
       : Promise.resolve([] as UnitRow[]),
     loadLedgerRows(supabase as unknown as SupabaseClient<Database>, unitIds),
     has
-      ? readList<PlanRow>(db, 'payment_plans', 'id, status, installment_amount, installment_count, total_amount, start_date', (q) =>
+      ? readList<PlanRow>(db, 'payment_plans', 'id, unit_id, status, installment_amount, installment_count, total_amount, start_date', (q) =>
           q.eq('organization_id', orgId).in('unit_id', unitIds),
         )
       : Promise.resolve([] as PlanRow[]),
@@ -93,6 +94,20 @@ export async function loadEstoppelInput(
   const unitAssoc = unit?.association_id ? assoc.rows.find((a) => a.id === unit.association_id) : undefined
   const a = unitAssoc ?? assoc.primary
   const state = (a?.governing_law_state ?? a?.state ?? '').trim().toUpperCase() || null
+
+  // Which charges are plan installments: the stored link (each
+  // installment's journal entry memo names its plan, BL-080), never a
+  // schedule rebuilt from the start date. Throws on a failed read.
+  const installmentAssoc = unit?.association_id ?? a?.id ?? null
+  const planInstallmentIds =
+    plans.length > 0 && installmentAssoc
+      ? [
+          ...installmentsByPlan(
+            plans.map((p) => ({ id: p.id, unitId: p.unit_id, installmentCount: Number(p.installment_count), status: p.status })),
+            await loadInstallments(db, installmentAssoc, plans),
+          ).values(),
+        ].flatMap((list) => list.map((i) => i.assessmentId))
+      : []
 
   const currentOwners = ownerships
     .filter((o) => o.valid_from <= today && (o.valid_to === null || o.valid_to > today))
@@ -132,6 +147,7 @@ export async function loadEstoppelInput(
         totalAmount: Number(p.total_amount),
         startDate: p.start_date,
       })),
+      planInstallmentIds,
       collectionCase: live ? { id: live.id, status: live.status as CollectionStatus, attorneyFirm: live.attorney_firm } : null,
       timeZone: assoc.timeZone,
     },
