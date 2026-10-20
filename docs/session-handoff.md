@@ -1,5 +1,7 @@
 # Session handoff: HomeownerHub autonomous loop
 
+> **Start here:** `next.md` at the repo root is the full handoff (2026-10-20). This file is the detailed reference.
+
 _Updated every cycle. Last update: 2026-10-18 10:20 ET (loop paused until the weekly limit resets Oct 19 11:00 ET)._
 
 ## Start the next session with this prompt
