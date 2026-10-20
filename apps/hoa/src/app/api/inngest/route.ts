@@ -7,6 +7,8 @@ import {
   createVendorCoiRemindersJob,
   createScheduledCommunicationsJob,
   createAiSpendAlertJob,
+  createBillingBandSyncJob,
+  createBillingRenewalJob,
   hoaLateFeeJob,
   pmLateFeeJob,
   evictionReminderJob,
@@ -30,6 +32,7 @@ import { monthlyReportDeps } from '@/lib/monthly-report/deps'
 import { vendorCoiReminderDeps } from '@/lib/vendor-coi-reminders/deps'
 import { dispatchScheduledCommunication } from '@/lib/communications/scheduled-dispatch'
 import { AI_CALL_COST_ESTIMATE_USD, PLATFORM_AI_DAILY_ALERT_USD } from '@/lib/api/ai-limits'
+import { billingStripePort } from '@/lib/billing-stripe-port'
 
 // The morning mailbox check emails the board when sync is broken (BL-003).
 // It takes this app's sendEmail — guarded by BL-004 — because the email
@@ -68,7 +71,17 @@ const aiSpendAlertJob = createAiSpendAlertJob({
   thresholdUsd: PLATFORM_AI_DAILY_ALERT_USD,
 })
 
-// Twenty-two functions (crons and event listeners) mount in the HOA app. Inngest is a single
+// BL-104 billing jobs, both no-ops while PRICING_V2 is off. Stripe is
+// injected through the app's adapter (lib/billing-stripe-port.ts); every
+// change is proration_behavior 'none'.
+//  - Nightly band sync: new-plan orgs' quantity follows the homes on file
+//    when that changes the price; the new band bills from the next renewal.
+//  - Grandfathered renewal: the 30-day notice to the BOARD (guarded
+//    sendEmail, once per term) and the switch to Complete at renewal.
+const billingBandSyncJob = createBillingBandSyncJob({ stripe: billingStripePort })
+const billingRenewalJob = createBillingRenewalJob({ stripe: billingStripePort, sendEmail, appUrl })
+
+// Twenty-four functions (crons and event listeners) mount in the HOA app. Inngest is a single
 // app-id ("homeownerhub") so it doesn't matter where the handler lives —
 // scheduled invocations target the function id, not the host. Apps/eviction
 // and apps/pm could mount the same handler if they need their own
@@ -106,6 +119,8 @@ export const { GET, POST, PUT } = serve({
     vendorCoiRemindersJob,
     scheduledCommunicationsJob,
     aiSpendAlertJob,
+    billingBandSyncJob,
+    billingRenewalJob,
     hoaLateFeeJob,
     pmLateFeeJob,
     evictionReminderJob,

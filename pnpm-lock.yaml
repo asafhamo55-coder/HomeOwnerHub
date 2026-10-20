@@ -474,6 +474,9 @@ importers:
       '@homeowner-portal/ai':
         specifier: workspace:*
         version: link:../ai
+      '@homeowner-portal/billing':
+        specifier: workspace:*
+        version: link:../billing
       '@homeowner-portal/db':
         specifier: workspace:*
         version: link:../db

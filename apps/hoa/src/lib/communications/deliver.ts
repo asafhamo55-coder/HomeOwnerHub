@@ -21,6 +21,8 @@ import { OUTBOUND_BLOCKED_ERROR } from '@homeowner-portal/observability/send-sta
 import { sendEmailBatch, type BatchSendResult } from '@/lib/email'
 import { buildSenderName } from '@/lib/email/sender-name'
 import { sendSms } from '@/lib/sms'
+import { SMS_ALLOWANCE_REACHED_MESSAGE } from '@homeowner-portal/billing'
+import { smsAllowanceGate } from '@/lib/sms-allowance'
 import { appUrl } from '@/lib/app-origin'
 import { buildEmailPayloads } from './email-payloads'
 import { buildRecipientBag } from './merge-bag'
@@ -90,6 +92,11 @@ export async function deliverToRecipients(db: Db, input: DeliverInput): Promise<
     orgSandbox: await fetchOrgSandbox(db, input.organizationId),
     ref: commId,
   }
+  // BL-104 §4: the plan's monthly text allowance. null (no limit) before
+  // PRICING_V2, for orgs not on the new plans, and when the read fails.
+  const smsGate = input.recipients.some((r) => r.channel === 'sms')
+    ? await smsAllowanceGate(db, input.organizationId)
+    : null
 
   async function deliverOne(recipient: QueuedRecipientRow): Promise<Outcome> {
     const bag = buildRecipientBag({
@@ -147,6 +154,12 @@ export async function deliverToRecipients(db: Db, input: DeliverInput): Promise<
       const phone = recipient.phone
       if (!phone) {
         await markFailed(db, recipient.id, 'no phone number', subject)
+        return 'skipped'
+      }
+      // Allowance used up: no text; this recipient's email and portal rows
+      // still go. The row tells the board why (shown on the message page).
+      if (smsGate && !smsGate.take()) {
+        await markFailed(db, recipient.id, SMS_ALLOWANCE_REACHED_MESSAGE, subject)
         return 'skipped'
       }
       // SMS body — squash to plain text, then one message of at most 279

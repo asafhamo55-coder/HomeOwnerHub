@@ -68,3 +68,16 @@ export { planV2Checkout } from './checkout-v2'
 export type { V2CheckoutFacts, V2CheckoutPlan } from './checkout-v2'
 export { grandfathering, legacyRenewalDate, addMonthsUtc, RENEWAL_NOTICE_DAYS, RENEWAL_TARGET_PLAN } from './grandfathering'
 export type { LegacySubscriptionFacts, GrandfatheringDecision } from './grandfathering'
+export {
+  SMS_SEGMENTS_PER_DOOR,
+  SMS_MIN_SEGMENTS,
+  SMS_SEGMENTS_PER_TEXT,
+  SMS_WARN_FRACTION,
+  SMS_ALLOWANCE_REACHED_MESSAGE,
+  smsAllowanceSegments,
+  smsAllowanceApplies,
+  smsAllowanceLevel,
+  smsAllowanceStatus,
+  smsAllowanceNotice,
+} from './sms-allowance'
+export type { SmsAllowanceLevel, SmsAllowanceStatus } from './sms-allowance'
