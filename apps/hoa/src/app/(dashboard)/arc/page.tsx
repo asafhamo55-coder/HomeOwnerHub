@@ -26,6 +26,10 @@ import {
 import { ARC_CATEGORY, ARC_STATUS } from '@/lib/status/community'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
 import { guideHref } from '@/lib/guide'
+import { ArcClockChip } from '@/components/arc-review/ArcClockChip'
+import { getArcClockSettings } from '@/lib/arc-review/clock-actions'
+import { ARC_DEEMED_APPROVAL_NOTE, arcClock, pickArcClockSettings } from '@/lib/arc-review/clock'
+import { ArcClockSettingsForm } from './ArcClockSettingsForm'
 
 export const metadata = { title: 'ARC review' }
 export const dynamic = 'force-dynamic'
@@ -53,10 +57,25 @@ export default async function ArcReviewListPage({
   const { from, to } = pageRange(page, PAGE_SIZE)
   const statuses = FILTERS[filter].statuses
 
-  const [list, counts] = await Promise.all([
-    timed('/arc', 'arc.list', () => listArcRequestsForBoard({ status: statuses ?? undefined, from, to })),
+  const [list, counts, clockLoad] = await Promise.all([
+    timed('/arc', 'arc.list', () =>
+      // The work queue opens oldest first: the most urgent on the decision clock (BL-113).
+      listArcRequestsForBoard({ status: statuses ?? undefined, from, to, oldestFirst: filter === 'pending' }),
+    ),
     timed('/arc', 'arc.statusCounts', () => countArcRequestsByStatus()),
+    timed('/arc', 'arc.clockSettings', () => getArcClockSettings()),
   ])
+  const clockSettings = clockLoad.ok
+    ? clockLoad.associations.map((a) => ({ associationId: a.association.id, settings: a.settings }))
+    : []
+  const now = Date.now()
+  const clockFor = (r: ArcRequestBoardRow) =>
+    arcClock({
+      status: r.status,
+      submittedAt: r.submitted_at,
+      settings: pickArcClockSettings(clockSettings, r.association_id),
+      now,
+    })
 
   const countFor = (key: Filter): number | null => {
     if (!counts) return null
@@ -105,6 +124,14 @@ export default async function ArcReviewListPage({
       cell: (r) => <StatusBadge status={r.status} tones={ARC_STATUS.tones} labels={ARC_STATUS.labels} />,
     },
     {
+      key: 'clock',
+      header: 'Decide by',
+      cell: (r) => {
+        const clock = clockFor(r)
+        return clock ? <ArcClockChip clock={clock} /> : <span className="text-muted">—</span>
+      },
+    },
+    {
       key: 'submitted',
       header: 'Submitted',
       cell: (r) => (
@@ -151,6 +178,41 @@ export default async function ArcReviewListPage({
           }))}
         />
       </ListToolbar>
+
+      {clockLoad.ok && clockLoad.associations.length > 0 ? (
+        <details className="mb-4 rounded-xl border border-border bg-surface p-4 text-sm">
+          <summary className="cursor-pointer font-medium text-foreground">
+            Decision deadline:{' '}
+            {clockLoad.associations
+              .map(
+                (a) =>
+                  `${a.settings.days} ${a.settings.dayKind === 'business' ? 'business ' : ''}days` +
+                  (clockLoad.associations.length > 1 ? ` (${a.association.name})` : ''),
+              )
+              .join(', ')}
+          </summary>
+          <div className="mt-3 space-y-4">
+            <p className="text-muted">
+              Applications show the days left to decide, counted from the day the resident submitted. Only the board
+              sees this. {ARC_DEEMED_APPROVAL_NOTE}
+            </p>
+            {clockLoad.associations.some((a) => a.state === 'unverified') ? (
+              <p className="font-medium text-warning">
+                The saved deadline was changed outside this screen, so the default of 30 days is used. Save it again.
+              </p>
+            ) : null}
+            {clockLoad.associations.map((a) => (
+              <ArcClockSettingsForm
+                key={a.association.id}
+                associationId={a.association.id}
+                associationName={clockLoad.associations.length > 1 ? a.association.name : undefined}
+                initialDays={a.settings.days}
+                initialDayKind={a.settings.dayKind}
+              />
+            ))}
+          </div>
+        </details>
+      ) : null}
 
       {!list.ok ? (
         <LoadFailed what="ARC applications" />

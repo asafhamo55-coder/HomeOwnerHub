@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
+import { signArcClockSettings, withArcClockSettings } from '../../../apps/hoa/src/lib/arc-review/clock'
 import {
   BOARD_ROLES,
+  buildArcBlock,
   buildMailboxAlert,
+  loadArcDeadlines,
   runDailyDigest,
   type DailyDigestDeps,
 } from './daily-digest'
@@ -29,6 +32,7 @@ interface FakeOpts {
   profiles?: Row
   associations?: Row
   threads?: Row
+  arcRequests?: Row
 }
 
 /** Records every filter so tests can assert what was queried. */
@@ -54,6 +58,7 @@ function fakeDb(opts: FakeOpts) {
     },
     associations: opts.associations ?? { data: [{ compliance_settings: {} }], error: null },
     inbox_threads: opts.threads ?? { data: [], error: null },
+    arc_requests: opts.arcRequests ?? { data: [], error: null },
   }
   const from = vi.fn((table: string) => {
     const chain: Record<string, unknown> = {}
@@ -359,5 +364,111 @@ describe('runDailyDigest — residents waiting more than 48h', () => {
     const everything = JSON.stringify([log.info.mock.calls, log.warn.mock.calls, log.error.mock.calls])
     expect(everything).not.toContain('@')
     expect(everything).not.toContain('t-1')
+  })
+})
+
+/* BL-113 — the morning email lists ARC applications past the board's
+ * "decide within N days" deadline or due within 3 days. Board members
+ * only; counts only; nothing to residents. */
+describe('runDailyDigest — ARC decision deadlines', () => {
+  const DAY = 24 * 60 * 60 * 1000
+  const daysAgo = (n: number) => new Date(Date.now() - n * DAY).toISOString()
+  const ARC: Row = {
+    data: [
+      { id: 'arc-1', association_id: 'as-1', status: 'submitted', submitted_at: daysAgo(40) }, // overdue
+      { id: 'arc-2', association_id: 'as-1', status: 'in_review', submitted_at: daysAgo(28) }, // 2 days left
+      { id: 'arc-3', association_id: 'as-1', status: 'submitted', submitted_at: daysAgo(5) }, // not yet
+    ],
+    error: null,
+  }
+  const ASSOC: Row = { data: [{ id: 'as-1', compliance_settings: {} }], error: null }
+
+  it('emails board members the overdue and due-soon counts with a link to /arc', async () => {
+    const { db } = fakeDb({ arcRequests: ARC, associations: ASSOC })
+    const d = deps()
+    const result = await runDailyDigest(db, d, logger())
+    expect(result).toMatchObject({ arcOverdue: 1, arcDueSoon: 1, emailed: 2 })
+    const sent = d.sendEmail.mock.calls.map((c) => c[0])
+    expect(sent.map((m) => m.to).sort()).toEqual([ADMIN_EMAIL, BOARD_EMAIL].sort())
+    const mail = sent[0]!
+    expect(mail.text).toContain("1 ARC application past the board's decision deadline")
+    expect(mail.text).toContain('1 ARC application due for a decision within 3 days')
+    expect(mail.text).toContain('Check your declaration')
+    expect(mail.text).toContain('https://app.test/arc')
+    expect(mail.html).toContain('href="https://app.test/arc"')
+    expect(mail.subject).toContain('1 ARC application past the decision deadline')
+  })
+
+  it('queries only open, non-deleted applications for the org', async () => {
+    const { db, calls } = fakeDb({ arcRequests: ARC, associations: ASSOC })
+    await runDailyDigest(db, deps(), logger())
+    const q = calls.filter((c) => c.table === 'arc_requests')
+    expect(q).toContainEqual({ table: 'arc_requests', method: 'eq', args: ['organization_id', ORG] })
+    expect(q).toContainEqual({ table: 'arc_requests', method: 'in', args: ['status', ['submitted', 'in_review']] })
+    expect(q).toContainEqual({ table: 'arc_requests', method: 'is', args: ['deleted_at', null] })
+  })
+
+  it("uses the association's signed deadline", async () => {
+    const secret = 'digest-test-secret'
+    const stored = signArcClockSettings(
+      'as-1',
+      { days: 60, dayKind: 'calendar' },
+      { updatedAt: '2026-10-01T00:00:00.000Z', updatedBy: null },
+      secret,
+    )
+    const assoc: Row = { data: [{ id: 'as-1', compliance_settings: withArcClockSettings({}, stored) }], error: null }
+    const { db } = fakeDb({ arcRequests: ARC, associations: assoc })
+    // 60 days: 40 days in is no longer overdue, and nothing is within 3 days.
+    expect(await loadArcDeadlines(db as never, ORG, Date.now(), logger(), secret)).toEqual({ overdue: 0, dueSoon: 0 })
+    // A forged value (wrong secret) falls back to 30 days.
+    expect(await loadArcDeadlines(db as never, ORG, Date.now(), logger(), 'other')).toEqual({ overdue: 1, dueSoon: 1 })
+  })
+
+  it('sends nothing when no application is overdue or due soon', async () => {
+    const { db } = fakeDb({
+      arcRequests: { data: [{ id: 'a', association_id: 'as-1', status: 'submitted', submitted_at: daysAgo(2) }], error: null },
+      associations: ASSOC,
+    })
+    const d = deps()
+    const result = await runDailyDigest(db, d, logger())
+    expect(result).toMatchObject({ arcOverdue: 0, arcDueSoon: 0, emailed: 0 })
+    expect(d.sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('a failed ARC read is logged by code and does not read as "nothing due" for other blocks', async () => {
+    const log = logger()
+    const { db } = fakeDb({ arcRequests: { data: null, error: { code: '42P01' } }, mailboxes: BROKEN })
+    const d = deps()
+    await runDailyDigest(db, d, log)
+    expect(log.error).toHaveBeenCalledWith(`[daily-digest] ${ORG}: failed to load open ARC applications`, { code: '42P01' })
+    expect(d.sendEmail).toHaveBeenCalled()
+  })
+
+  it('puts the ARC block in the mailbox alert when both apply', async () => {
+    const { db } = fakeDb({ arcRequests: ARC, associations: ASSOC, mailboxes: BROKEN })
+    const d = deps()
+    await runDailyDigest(db, d, logger())
+    const mail = d.sendEmail.mock.calls[0]![0]
+    expect(mail.subject).toContain('mailbox is disconnected')
+    expect(mail.text).toContain("past the board's decision deadline")
+    expect(mail.html).toContain('Open ARC review')
+  })
+
+  it('logs counts only — no summaries, names or addresses', async () => {
+    const log = logger()
+    const { db } = fakeDb({ arcRequests: ARC, associations: ASSOC })
+    await runDailyDigest(db, deps(), log)
+    const logged = JSON.stringify([log.info.mock.calls, log.warn.mock.calls, log.error.mock.calls])
+    expect(logged).toContain('1 ARC overdue, 1 ARC due soon')
+    expect(logged).not.toContain('arc-1')
+    expect(logged).not.toContain(BOARD_EMAIL)
+  })
+})
+
+describe('buildArcBlock', () => {
+  it('due soon only: no deemed-approval note', () => {
+    const b = buildArcBlock({ overdue: 0, dueSoon: 2, arcUrl: 'https://app.test/arc' })
+    expect(b.lines).toEqual(['2 ARC applications due for a decision within 3 days'])
+    expect(b.text).not.toContain('declaration')
   })
 })
