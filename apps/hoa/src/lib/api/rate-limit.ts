@@ -122,6 +122,23 @@ export function rateLimitMessage(
   return cfg.suffix ? `${head} ${cfg.suffix}` : head
 }
 
+/** Seconds a client is told to wait when a bucket is not on the org's plan (limit 0). */
+export const NOT_ON_PLAN_RETRY_SECONDS = 24 * 60 * 60
+
+/**
+ * BL-106: the 429 for a bucket whose per-org ceiling is 0 on this org's plan
+ * (Copilot on Essentials). No ledger read: nothing can ever fit.
+ */
+export function notOnPlanError(cfg: AiRateLimit): ApiRouteError {
+  const head = `${cfg.noun.charAt(0).toUpperCase()}${cfg.noun.slice(1)} aren’t included in your community’s plan.`
+  return new ApiRouteError(
+    'rate_limited',
+    cfg.suffix ? `${head} ${cfg.suffix}` : head,
+    { reason: 'plan_limit', retryAfterSeconds: NOT_ON_PLAN_RETRY_SECONDS },
+    { 'Retry-After': String(NOT_ON_PLAN_RETRY_SECONDS) },
+  )
+}
+
 /** The 429 envelope: code rate_limited, reason, retryAfterSeconds, and a Retry-After header. */
 export function rateLimitedError(
   bucket: AiUsageBucket,
@@ -209,6 +226,7 @@ export async function checkAndRecordAiUsage(
       }
     }
     cfg = aiLimitFor(bucket, tier)
+    if (cfg.perOrg.limit <= 0) throw notOnPlanError(cfg)
     const orgActions = cfg.orgPool ? cfg.orgPool.map(aiUsageAction) : action
     const daily = cfg.perUserDaily
     const [userAt, orgAt, userDayAt] = await Promise.all([
