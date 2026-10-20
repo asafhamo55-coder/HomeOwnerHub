@@ -3,10 +3,10 @@
 // reference).
 import { BrandLogo } from '@homeowner-portal/ui/brand'
 
-// Production HOA app — the live host residents and boards sign in on.
-// Cross-origin: the marketing site has no /login of its own (it was a 404),
-// so every "Sign in" is a plain anchor to this URL.
-export const SIGN_IN_URL = 'https://www.homeownerledger.com/login'
+// The HOA app's sign-in page, on the app origin (NEXT_PUBLIC_APP_URL, see
+// lib/app-origin.ts). Cross-origin: the marketing site has no /login of its
+// own, so every "Sign in" is a plain anchor to this URL.
+export { SIGN_IN_URL } from '@/lib/app-origin'
 
 // HomeownerHub logo (BL-098): the H-roof monogram mark plus the monoline
 // "HomeownerHub" wordmark, shared with the HOA app via packages/ui. Static files

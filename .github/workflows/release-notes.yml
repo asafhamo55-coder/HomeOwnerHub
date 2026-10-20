@@ -56,7 +56,12 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
       HOA_ENVIRONMENT: 'Production – home-owner-hub-hoa'
-      HEALTH_URL: https://www.homeownerledger.com/api/health
+      # The app's public origin. Domain split (docs/specs/2026-10-19-domain-split.md):
+      # set the repo variable APP_ORIGIN=https://app.homeownerledger.com once the
+      # app serves there; until then this is the pre-split host. Also read by
+      # scripts/release-notes (the "Live at" link).
+      APP_ORIGIN: ${{ vars.APP_ORIGIN || 'https://www.homeownerledger.com' }}
+      HEALTH_URL: ${{ vars.APP_ORIGIN || 'https://www.homeownerledger.com' }}/api/health
       MARKER_CONTEXT: release-notes/email
 
     steps:
@@ -144,7 +149,7 @@ jobs:
         run: |
           set -uo pipefail
           for i in $(seq 1 90); do   # 90 x 10s = 15 min
-            v=$(curl -fsS --max-time 15 "$HEALTH_URL" | jq -r '.version // empty' 2>/dev/null || true)
+            v=$(curl -fsSL --max-time 15 "$HEALTH_URL" | jq -r '.version // empty' 2>/dev/null || true)
             if [ -n "$v" ] && [ "${#v}" -ge 7 ]; then
               case "$SHA" in "$v"*) echo "Live: $v"; echo "superseded=false" >> "$GITHUB_OUTPUT"; exit 0 ;; esac
               # A newer deploy already replaced this one. Its own run will

@@ -16,7 +16,9 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://ledger.ai'),
+  // Canonical marketing host after the domain split. Used to absolutise
+  // OG image and canonical URLs.
+  metadataBase: new URL('https://www.homeownerledger.com'),
   title: {
     default: 'HomeownerHub — AI for the people who run residential property',
     template: '%s · HomeownerHub',

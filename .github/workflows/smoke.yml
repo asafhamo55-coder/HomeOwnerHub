@@ -47,13 +47,17 @@ jobs:
           echo "Triggered for ${{ github.event.deployment.environment }} at ${{ github.event.deployment_status.target_url }}"
 
       - name: Probe HOA /api/health
+        env:
+          # Repo variable; set to https://app.homeownerledger.com at the
+          # domain split (docs/specs/2026-10-19-domain-split.md).
+          APP_ORIGIN: ${{ vars.APP_ORIGIN || 'https://www.homeownerledger.com' }}
         run: |
           set -e
           # www, not the apex: homeownerledger.com still points at an old
           # host with a certificate that expired 2026-07-03. The former
           # home-owner-hub-hoa.vercel.app no longer resolves, which made
           # this step fail on every production deploy.
-          URL="https://www.homeownerledger.com/api/health"
+          URL="$APP_ORIGIN/api/health"
           echo "::group::HOA"
           # -o, not `| tee`. The old form piped curl's -w status line into
           # the same file as the body, so /tmp/hoa.json ended up as JSON
