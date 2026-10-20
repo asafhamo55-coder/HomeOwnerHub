@@ -13,6 +13,7 @@ import { buildLedger, type LedgerAssessment, type LedgerPayment } from '@/lib/re
 import { chargeTypeLabel } from '@/lib/assessment-labels'
 import { formatDay } from '@/lib/money/format'
 import { collectionStatusLabel, isTerminal, type CollectionStatus } from '@/lib/collections/statuses'
+import { addMonthsClamped, legacyDueDate } from '@homeowner-portal/workflows/payment-plans/schedule'
 import { addBusinessDays, addCalendarDays, addMonths, holidaysBetween, isIsoDay, type Holiday } from './business-days'
 import {
   CA_RESPONSE_DAYS,
@@ -125,7 +126,9 @@ export function chargeLines(input: Pick<EstoppelInput, 'charges' | 'payments' | 
  * Payment plan installments are stored as 'special' charges
  * (lib/payment-plans.ts): monthly from the start date, the drift on the
  * last one. A special charge on one of those days for that amount is the
- * plan's, not a special assessment.
+ * plan's, not a special assessment. The days come from the one schedule
+ * helper createPaymentPlan uses (month ends clamped); plans made before
+ * the 2026-10-19 fix overflowed at month ends, so their old day matches too.
  */
 function planInstallmentKeys(plans: EstoppelPlan[]): Set<string> {
   const keys = new Set<string>()
@@ -134,7 +137,9 @@ function planInstallmentKeys(plans: EstoppelPlan[]): Set<string> {
     const each = cents(p.installmentAmount)
     const last = cents(p.totalAmount) - each * (p.installmentCount - 1)
     for (let i = 0; i < p.installmentCount; i++) {
-      keys.add(`${addMonths(p.startDate, i)}:${i === p.installmentCount - 1 ? last : each}`)
+      const amount = i === p.installmentCount - 1 ? last : each
+      keys.add(`${addMonthsClamped(p.startDate, i)}:${amount}`)
+      keys.add(`${legacyDueDate(p.startDate, i)}:${amount}`)
     }
   }
   return keys

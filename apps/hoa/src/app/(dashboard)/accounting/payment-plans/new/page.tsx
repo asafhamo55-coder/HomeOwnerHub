@@ -32,7 +32,7 @@ export default async function NewPlanPage() {
       linkAs={Link}
       breadcrumbs={crumbs}
       title="New payment plan"
-      description="Creates one charge per installment, due monthly from the start date. Each posts to the ledger when it is created."
+      description="Pick the open charges the plan replaces. They are closed, and the same balance is billed as monthly installments, so the owner doesn’t owe it twice."
     >
       {!units.ok ? (
         <LoadFailed what="properties" />

@@ -865,7 +865,8 @@ These go beyond the design-system v2 pass:
 - **Eval note:** the Ask-the-guide rules classifier sends some how-to questions to Ask the Docs ("how long can", "allowed", "declaration"). Tune it next time.
 
 - **BL-085 Columns wanted for M2** (from BL-080/081/083):
-  - `assessments.payment_plan_id`: the plan is linked today by parsing a memo.
+  - `assessments.payment_plan_id`: the plan is linked today by parsing a memo. Since the 2026-10-19 double-count fix there are two links: installments (memo `Payment plan installment i/n (plan xxxxxxxx)`) and the charges a plan replaced (memo `Payment plan replaces charge (plan xxxxxxxx)`, source_id = the replaced charge, which is set to `waived`). Both want this column (or `replaced_by_plan_id`), plus a real `replaced` status so a replaced charge stops reading "Waived" on the resident ledger.
+  - Plans made before 2026-10-19 count the balance twice. Diagnostic and a reviewed correction (not applied): `docs/specs/2026-10-19-payment-plan-double-count.sql`.
   - `payment_plans.completed_at`.
   - `recurring_journal_entries.status` (active / paused / stopped) and `end_date`.
   - Once these exist, replace the memo and audit-row stand-ins.

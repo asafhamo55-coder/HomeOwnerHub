@@ -8,8 +8,15 @@ import { MoneyStatus } from '../_components/shared'
 /**
  * Payment plans table. `standings` is null when the progress read failed:
  * the Progress column then says so instead of guessing (BL-080).
+ * `preFix` holds plans made before the 2026-10-19 double-count fix whose
+ * original charges are not linked as closed: the Total cell warns.
  */
-export function paymentPlanColumns(standings: Record<string, PlanStandingView> | null): DataTableColumn<PaymentPlanRow>[] {
+export const PRE_FIX_WARNING = 'This plan was created before 2026-10-19; check that the original charges were closed.'
+
+export function paymentPlanColumns(
+  standings: Record<string, PlanStandingView> | null,
+  preFix: ReadonlySet<string> = new Set(),
+): DataTableColumn<PaymentPlanRow>[] {
   return [
     {
       key: 'unit',
@@ -34,7 +41,20 @@ export function paymentPlanColumns(standings: Record<string, PlanStandingView> |
       ),
     },
     { key: 'start', header: 'Starts', className: 'whitespace-nowrap text-muted', cell: (p) => formatDay(p.start_date) },
-    { key: 'total', header: 'Total', numeric: true, cell: (p) => usd(Number(p.total_amount)) },
+    {
+      key: 'total',
+      header: 'Total',
+      numeric: true,
+      cell: (p) =>
+        preFix.has(p.id) ? (
+          <span className="block">
+            <span className="block">{usd(Number(p.total_amount))}</span>
+            <span className="block text-xs font-normal text-warning">Created before 2026-10-19: check the original charges</span>
+          </span>
+        ) : (
+          usd(Number(p.total_amount))
+        ),
+    },
     { key: 'status', header: 'Status', cell: (p) => <MoneyStatus registry={PLAN_STATUS} status={p.status} /> },
     {
       key: 'progress',

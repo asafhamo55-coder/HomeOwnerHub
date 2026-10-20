@@ -27,6 +27,8 @@ import {
   installmentMemoPattern,
   installmentsByPlan,
   planProgress,
+  replacedChargeFromMemo,
+  REPLACED_MEMO_PATTERN,
   type InstallmentRecord,
   type PlanProgress,
   type PlanRecord,
@@ -290,6 +292,34 @@ export async function loadCompletionDays(
           : r.created_at?.slice(0, 10)
       if (day) out.set(r.entity_id, day)
     }
+  }
+  return out
+}
+
+/**
+ * Plans whose replaced charges were closed through the memo link
+ * (replacedChargeMemo): plan key → number of charges closed. A plan with
+ * no entry here was made before the 2026-10-19 fix, when the charges it
+ * spread were left open (counted twice), unless the correction in
+ * docs/specs/2026-10-19-payment-plan-double-count.sql has been applied.
+ */
+export async function loadReplacedChargeCounts(db: PlanDb, associationId: string): Promise<Map<string, number>> {
+  const rows = await readAll<{ memo: string }>(
+    (from, to) =>
+      db
+        .from('journal_entries')
+        .select('memo')
+        .eq('association_id', associationId)
+        .eq('status', 'posted')
+        .like('memo', REPLACED_MEMO_PATTERN)
+        .order('id', { ascending: true })
+        .range(from, to),
+    'replaced-charge entries',
+  )
+  const out = new Map<string, number>()
+  for (const r of rows) {
+    const parsed = replacedChargeFromMemo(r.memo)
+    if (parsed) out.set(parsed.key, (out.get(parsed.key) ?? 0) + 1)
   }
   return out
 }
