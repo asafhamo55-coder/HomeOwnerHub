@@ -2,15 +2,16 @@
  * BL-088: a resident never reads draft minutes, raw transcripts or
  * attendees, and never another org's meetings.
  *
- * Today (0063) hoa_meeting_minutes is board-only, so a resident reads no
- * row of it at all; the resident page reads through the proposed
- * `resident_meeting_notices()` function instead, which is not applied
- * yet. These tests pin both halves:
+ * Since 0063 hoa_meeting_minutes is board-only, so a resident reads no
+ * row of it at all; the resident page reads through
+ * `resident_meeting_notices()` instead, which migration 0065 installs
+ * (same SQL as docs/specs/2026-10-19-resident-meeting-notices.sql,
+ * runbook C1). These tests pin both halves:
  *   - the table, read directly as a signed-in resident, returns no draft
  *     (and no transcript) whatever filters the resident sends;
- *   - the page's own read (fetchResidentMeetings) either reports "not
- *     available" (function absent) or, once the function exists, returns
- *     no draft minutes, no transcript and nothing from another org.
+ *   - the page's own read (fetchResidentMeetings) is available, returns
+ *     the approved minutes and the posted agenda, and never a draft's
+ *     minutes, a transcript or anything from another org.
  *
  * Fixture rule (fixtures/factory.ts): adminDb() seeds; every assertion
  * runs through a user's own client.
@@ -69,7 +70,9 @@ async function seed(): Promise<Seeded> {
         raw_transcript: SECRET,
         attendees: ['Board member A'],
       }),
-      scheduled: await insert(org.orgId, { meeting_date: '2027-01-10', status: 'draft', ai_summary: 'Agenda' }),
+      // Far future so the function's "draft and not yet past" window
+      // (meeting_date >= current_date - 1) holds whenever CI runs.
+      scheduled: await insert(org.orgId, { meeting_date: '2099-01-10', status: 'draft', ai_summary: 'Agenda' }),
       otherOrgApproved: await insert(other.orgId, {
         meeting_date: '2026-08-01',
         status: 'approved',
@@ -113,13 +116,14 @@ describe('resident meetings', () => {
       today: TODAY,
       timeZone: 'America/New_York',
     })
-    if (!r.available) {
-      // resident_meeting_notices() is not applied: the page says so
-      // instead of showing an empty list.
-      expect(r).toEqual({ available: false })
-      return
-    }
+    // 0065 installs resident_meeting_notices(): the page must not fall
+    // back to "not available yet".
+    expect(r.available).toBe(true)
+    if (!r.available) return
     const past = r.past.map((m) => m.id)
+    expect(past).toEqual([s.ids.approvedPast])
+    expect(r.past[0]?.minutes).toBe('Approved minutes')
+    expect(r.upcoming.map((m) => m.id)).toEqual([s.ids.scheduled])
     expect(past).not.toContain(s.ids.draftPast)
     expect(past).not.toContain(s.ids.otherOrgApproved)
     expect(r.upcoming.map((m) => m.id)).not.toContain(s.ids.draftPast)
@@ -139,6 +143,7 @@ describe('resident meetings', () => {
       today: TODAY,
       timeZone: 'America/New_York',
     })
+    expect(r.available).toBe(true)
     if (r.available) {
       expect(r.past).toEqual([])
       expect(r.upcoming).toEqual([])

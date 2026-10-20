@@ -50,8 +50,9 @@ database.
 | E | Inbox "Unverified sender" column | OA-17 | E1–E5 | Yes (E2, adds a column) | A, B |
 | F | Speed-up indexes (also covers the BL-108 AI-spend index) | OA-4 | F1–F14 | Yes (adds indexes) | none |
 | G | Payment-plan double count correction | OA-3 | G1–G5 | Yes (G4, money records) | none; do last |
+| H | Migration 0065: new plan names, plus anything from C, D, E not yet done | BL-123 | H1–H3 | Yes (H2) | A, B; ideally C, D, E |
 
-37 steps in total. Sections A and B are **Urgent**. If you only have ten
+40 steps in total. Sections A and B are **Urgent**. If you only have ten
 minutes today, do A and B.
 
 ---
@@ -318,6 +319,67 @@ and it needs a back-and-forth with Claude.
 
 ---
 
+## Section H · Migration 0065 (only the parts not already applied in C/D/E)
+
+File: `migrations/0065_m2_prep.sql`. *Needs:* A and B. Best done after C, D
+and E, but it does not matter if some of those were skipped: this file
+contains the same SQL as C1, D2 and E2, so it fills in whatever is missing.
+
+What it does, in four parts:
+
+1. **New plan names.** Lets the database store the new pricing plans
+   (`essentials`, `complete`, `pilot`, `legacy_per_door`). Without this, the
+   new pricing cannot be switched on: a paying HOA's plan would fail to
+   save, silently. All existing plan names stay allowed.
+2. The resident meetings function (same as **C1**).
+3. The text-message consent guard (same as **D2**).
+4. The inbox sender-check column (same as **E2**).
+
+Parts 2 to 4 do nothing if C, D and E were already done. Running the whole
+file is always safe, and running it twice changes nothing.
+
+### H1 · What is already there (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT to_regprocedure('public.resident_meeting_notices()') IS NOT NULL AS c_done,
+         EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgrelid = 'public.resident_communication_preferences'::regclass
+                    AND tgname = 'resident_sms_opt_in_self_only')       AS d_done,
+         EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public' AND table_name = 'inbox_messages'
+                    AND column_name = 'sender_auth')                     AS e_done,
+         pg_get_constraintdef(oid) LIKE '%essentials%'                   AS h_done
+    FROM pg_constraint
+   WHERE conname = 'orgs_plan_check' AND conrelid = 'public.orgs'::regclass;
+  ```
+
+- **Does:** shows which of the four parts the database already has.
+- **Read-only:** yes. **Time:** ~1 s.
+- **Expect:** one row. `h_done` = false. The other three are true for each of C, D, E you completed.
+- **Send:** the row.
+- **If every column is already true:** stop, H is done; tell Claude.
+
+### H2 · Apply 0065 (changes the database)
+
+- **Paste:** the **whole file** `migrations/0065_m2_prep.sql`. Ask Claude to copy it ("copy step H2").
+- **Does:** adds the new plan names, and any of C, D, E that H1 showed as false.
+- **Read-only:** no. All-or-nothing (one transaction): if anything fails, nothing changes. Safe to re-run.
+- **Time:** ~1–2 s.
+- **Expect:** "Success. No rows returned".
+- **Send:** "H2 done", or the error.
+- **If it errors:** nothing was changed. Send the error.
+
+### H3 · Verify (read-only)
+
+- **Paste:** the H1 query again.
+- **Expect:** one row, all four columns `true`.
+- **Send:** the row, and the words **"0065 is applied"**.
+- **Flags Claude flips after H3:** `SENDER_AUTH_COLUMN_LIVE` → `true` (same as after E5, if not already done). The pricing switch `PRICING_V2` is **not** flipped by this step; it has its own owner item (OA-16), and H3 only removes the database blocker for it.
+
+---
+
 ## App switches after each section
 
 | After | Switch | Where | Who / how |
@@ -329,6 +391,7 @@ and it needs a back-and-forth with Claude.
 | E5 | `SENDER_AUTH_COLUMN_LIVE = true`, plus the column in a numbered migration | `packages/mailbox/src/auth-results.ts`, `migrations/0065_*.sql` | Claude, then deploy hoa + jobs |
 | F14 | none | — | — |
 | G5 | none | — | — |
+| H3 | `SENDER_AUTH_COLUMN_LIVE = true` if not done after E5; `PRICING_V2` stays off until OA-16 | `packages/mailbox/src/auth-results.ts` | Claude, then deploy hoa + jobs |
 
 After everything is applied, Claude may regenerate the database types
 (`pnpm gen:types`) only once every file in `migrations/` is live, and diffs
@@ -351,8 +414,8 @@ Dependencies verified by reading each file and the schema:
 Conflicts found:
 
 1. **Duplicate index (benign).** `2026-10-20-audit-log-ai-index.sql` and perf item 9 create the same `idx_audit_log_org_action_created`. Same name and `IF NOT EXISTS`, so whichever runs second is a no-op. Runbook keeps only F9.
-2. **Not fixed, needs a migration before `PRICING_V2`:** M1's `orgs_plan_check` allows `free, starter, standard, pro, enterprise, per_case, unlimited, monthly, annual`. The BL-104 code writes `essentials` / `complete` (`packages/billing/src/billing-status.ts` `PLAN_FOR_LOOKUP_KEY`), and the rollout spec plans `pilot` and `legacy_per_door` (`packages/billing/src/pricing-v2.ts`). Those writes would fail with 23514, the same silent failure M1 fixes for `monthly` / `annual`. Not changed in 0064 (it is mirrored in `tests/stripe-sandbox/lib/memdb.ts` and the M1 integration test). Add the values to the check in the next batch, before OA-16 / the `PRICING_V2` flip.
-3. **CI drift after C, D and E.** C's function and D's trigger are not in `migrations/`, so the CI database will not have them. `tests/integration/security/resident-meetings.test.ts` asserts that the function is absent. Fold C, D and E into the next numbered migration and update that test when the flags flip.
+2. **Not fixed, needs a migration before `PRICING_V2`:** M1's `orgs_plan_check` allows `free, starter, standard, pro, enterprise, per_case, unlimited, monthly, annual`. The BL-104 code writes `essentials` / `complete` (`packages/billing/src/billing-status.ts` `PLAN_FOR_LOOKUP_KEY`), and the rollout spec plans `pilot` and `legacy_per_door` (`packages/billing/src/pricing-v2.ts`). Those writes would fail with 23514, the same silent failure M1 fixes for `monthly` / `annual`. Not changed in 0064 (it is mirrored in `tests/stripe-sandbox/lib/memdb.ts` and the M1 integration test). Add the values to the check in the next batch, before OA-16 / the `PRICING_V2` flip. **Addressed by `migrations/0065_m2_prep.sql` part 1 (Section H); the memdb copy and the integration tests now pin 0065's list.**
+3. **CI drift after C, D and E.** C's function and D's trigger are not in `migrations/`, so the CI database will not have them. `tests/integration/security/resident-meetings.test.ts` asserts that the function is absent. Fold C, D and E into the next numbered migration and update that test when the flags flip. **Done in `migrations/0065_m2_prep.sql` (parts 2–4, verbatim from the spec files); `resident-meetings.test.ts` now expects the function, and `tests/integration/security/m2-prep.test.ts` covers the consent guard, the plan list and the column.**
 
 Spec-file edits made with this runbook:
 
