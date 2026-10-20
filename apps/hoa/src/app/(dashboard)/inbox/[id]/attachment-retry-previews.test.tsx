@@ -14,6 +14,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 ;(globalThis as { React?: typeof React }).React = React
 
 vi.mock('@/lib/inbox/attachment-retry', () => ({ retryAttachment: vi.fn() }))
+vi.mock('@/lib/inbox/attachment-file', () => ({ saveAttachmentToDocuments: vi.fn() }))
 
 const { MessageThread, AttachmentChip } = await import('./MessageThread')
 type Message = Parameters<typeof MessageThread>[0]['messages'][number]

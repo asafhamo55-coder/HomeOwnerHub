@@ -27,6 +27,8 @@ import { loadInboxSlaHours } from '@/lib/inbox/waiting'
 import { listAssignees } from '@/lib/inbox/assignees'
 import { InboxKeyboard } from './InboxKeyboard'
 import { UndoSendBanner } from './[id]/UndoSendBanner'
+import { BatchBanner, type BatchGroupView } from './BatchBanner'
+import { groupSimilarThreads } from '@/lib/inbox/batch/group'
 
 export const metadata = { title: 'Inbox' }
 export const dynamic = 'force-dynamic'
@@ -107,6 +109,23 @@ export default async function InboxPage({
     ),
   ])
   const now = Date.now()
+
+  // BL-101 A9: look-alike open questions on this page, offered as one
+  // batch reply. Deterministic word overlap, no AI call, nothing stored.
+  // Not on Closed/Waiting/Awaiting-resident views: nothing there needs it.
+  const threadById = new Map(threads.map((t) => [t.id, t]))
+  const batchGroups: BatchGroupView[] =
+    filter === 'needs_review' || filter === 'open' || filter === 'all'
+      ? groupSimilarThreads(threads).map((g) => ({
+          label: g.label,
+          threads: g.threadIds.flatMap((id) => {
+            const t = threadById.get(id)
+            return t
+              ? [{ id, subject: t.subject, sender: t.fromName ?? t.fromEmail ?? 'Unknown', snippet: t.snippet }]
+              : []
+          }),
+        }))
+      : []
 
   // "Approve and send" on the last thread in the queue lands here; the
   // reply's 30-second Undo comes along (see UndoSendBanner).
@@ -192,6 +211,7 @@ export default async function InboxPage({
           aria-label="Conversations"
           className="flex w-full shrink-0 flex-col overflow-y-auto border-r border-border bg-surface lg:w-[26rem]"
         >
+          <BatchBanner groups={batchGroups} />
           {threads.length === 0 ? (
             counts.all > 0 ? (
               <EmptyState

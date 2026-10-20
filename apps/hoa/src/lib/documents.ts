@@ -7,13 +7,14 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { removeStorageObjects } from '@/lib/storage-remove'
+import { DOCUMENT_UPLOAD_TYPES, MAX_DOCUMENT_BYTES, sanitizeStorageName } from '@/lib/documents-rules'
 
 const STORAGE_BUCKET = 'hoa-documents'
-const MAX_FILE_BYTES = 50 * 1024 * 1024 // 50 MB
+const MAX_FILE_BYTES = MAX_DOCUMENT_BYTES // 50 MB
 
 const UploadSchema = z.object({
   name: z.string().trim().min(2, 'Give the document a name.'),
-  type: z.enum(['ccr', 'bylaws', 'rules', 'other'], {
+  type: z.enum(DOCUMENT_UPLOAD_TYPES, {
     message: 'Pick a document type.',
   }),
   parsed_text: z.string().optional(),
@@ -22,16 +23,6 @@ const UploadSchema = z.object({
 export interface UploadActionState {
   error?: string
   fieldErrors?: Record<string, string>
-}
-
-function sanitizeStorageName(filename: string): string {
-  // Supabase Storage paths must be ASCII-ish. Replace anything weird, keep
-  // the extension, and add a timestamp prefix to avoid collisions.
-  const dot = filename.lastIndexOf('.')
-  const base = dot > 0 ? filename.slice(0, dot) : filename
-  const ext = dot > 0 ? filename.slice(dot) : ''
-  const safeBase = base.replace(/[^a-z0-9-_]+/gi, '-').toLowerCase().slice(0, 80)
-  return `${Date.now()}-${safeBase}${ext}`
 }
 
 export async function uploadDocument(
