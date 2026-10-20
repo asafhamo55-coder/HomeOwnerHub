@@ -25,12 +25,11 @@
 // returns a Supabase client (non-serializable), so it can't be a server
 // action. The mutating server actions live in impersonation-actions.ts.
 
-import { cache } from 'react'
 import { cookies } from 'next/headers'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { createAdminClient, type Database } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentOrg } from '@/lib/orgs'
+import { getCurrentOrg, getSignedInUser } from '@/lib/orgs'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { paySettingsSecret } from '@/lib/pay-by-zelle'
 import { verifyImpersonationToken } from '@/lib/impersonation-token'
@@ -82,13 +81,15 @@ export interface ResidentActor {
 // The signed-in user, once per server render (BL-099). getResidentActor
 // runs from the resident layout AND from every resident loader on the
 // page, and each call (plus readTarget) used to make its own getUser round
-// trip to the auth server. Same call, same client; only memoized. Outside
-// a render (server actions) React's cache() does not memoize, so it is a
-// plain getUser call there, exactly as before.
-const signedInUser = cache(async () => {
-  const supabase = await getSupabaseServerClient()
-  return supabase.auth.getUser()
-})
+// trip to the auth server. It answers from lib/orgs' getSignedInUser, the
+// same memoized getUser the layouts and role checks use: this used to be a
+// second cache of its own, so a resident page paid for two auth round
+// trips, the second only after the layout's first (BL-099 static pass).
+// Outside a render (server actions) React's cache() does not memoize, so
+// it is a plain getUser call there, exactly as before.
+async function signedInUser(): Promise<{ data: { user: User | null } }> {
+  return { data: { user: await getSignedInUser() } }
+}
 
 // Verifies the impersonation cookie: authentic HMAC, unexpired, issued in
 // the CURRENT org, to the CURRENTLY signed-in user. Anything else is

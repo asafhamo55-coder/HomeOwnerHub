@@ -87,11 +87,17 @@ export async function loadDraftQuality(
     if (metrics) parsed.push({ orgId: row.org_id, metrics })
   }
 
+  // The id chunks are independent: sent together, not one after another
+  // (BL-099 static pass). Any failed chunk still fails the read.
   const cancelled = new Set<string>()
-  for (const ids of chunk([...new Set(parsed.map((p) => p.metrics.draft_id))])) {
-    let q = db.from('inbox_drafts').select('id').in('id', ids).eq('status', 'cancelled')
-    if (opts.orgId) q = q.eq('organization_id', opts.orgId)
-    const { data, error } = (await q) as { data: Array<{ id: string }> | null; error: { code?: string } | null }
+  const chunkResults = await Promise.all(
+    chunk([...new Set(parsed.map((p) => p.metrics.draft_id))]).map((ids) => {
+      let q = db.from('inbox_drafts').select('id').in('id', ids).eq('status', 'cancelled')
+      if (opts.orgId) q = q.eq('organization_id', opts.orgId)
+      return q as PromiseLike<{ data: Array<{ id: string }> | null; error: { code?: string } | null }>
+    }),
+  )
+  for (const { data, error } of chunkResults) {
     if (error) throw onError(error)
     for (const row of data ?? []) cancelled.add(row.id)
   }

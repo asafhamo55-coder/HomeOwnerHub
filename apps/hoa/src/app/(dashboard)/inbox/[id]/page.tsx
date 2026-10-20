@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { PageHeader, StatusBadge } from '@homeowner-portal/ui'
 import { requireBoardOrAdmin } from '@/lib/auth'
+import { getSignedInUser } from '@/lib/orgs'
+import { timed } from '@/lib/perf/timing'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
   countThreadsByStatus,
@@ -59,6 +61,19 @@ import { appUrl } from '@/lib/app-origin'
 
 export const dynamic = 'force-dynamic'
 
+const R = '/inbox/[id]'
+
+/**
+ * Start a read now and await it later (BL-099 static pass). The no-op
+ * catch only marks the promise handled so a rejection that lands while
+ * the page awaits something else is not reported as unhandled; awaiting
+ * the returned promise still rethrows, exactly as an inline await did.
+ */
+function early<T>(p: Promise<T>): Promise<T> {
+  p.catch(() => {})
+  return p
+}
+
 const FILTER_KEYS: InboxFilter[] = INBOX_FILTERS.map((f) => f.key)
 
 export default async function ThreadPage({
@@ -87,14 +102,15 @@ export default async function ThreadPage({
 
   const supabase = await getSupabaseServerClient()
 
-  const thread = await getThreadDetail(supabase, org.id, id)
-  if (!thread) notFound()
+  // The thread, the signed-in user and the chip counts do not depend on
+  // each other's results (the counts need only the user id), so they are
+  // read together rather than one after another (BL-099 static pass).
+  const threadP = early(timed(R, 'inbox.thread', () => getThreadDetail(supabase, org.id, id)))
 
   // Mine / Unassigned / All (BL-101 A6) needs the signed-in member's id;
-  // requireBoardOrAdmin returns only { role, org }.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // requireBoardOrAdmin returns only { role, org }. getSignedInUser is the
+  // request-memoized getUser the layout already made.
+  const user = await getSignedInUser()
   const currentUserId = user?.id ?? null
   const ownerScope = { owner, userId: currentUserId }
 
@@ -102,7 +118,65 @@ export default async function ThreadPage({
   // page/offset this list paginates over can never disagree with the
   // filter-chip counts, and deep-linking into a thread with `?page=N`
   // still resolves the same list page ThreadList's own links carry.
-  const counts = await countThreadsByStatus(supabase, org.id, ownerScope)
+  const countsP = early(timed(R, 'inbox.counts', () => countThreadsByStatus(supabase, org.id, ownerScope)))
+  const thread = await threadP
+  if (!thread) notFound()
+
+  // Reads that need only the thread or the org. Started here and awaited
+  // where they were before, so none of them waits for the reads above it.
+  const autoDraftP = early(timed(R, 'inbox.autoDraft', () => loadAutoDraftDecision(supabase, org.id, id)))
+  const assigneesP = listAssignees(org.id).catch((): Assignee[] => [])
+  const slaP = early(loadInboxSlaHours(supabase, org.id))
+  // The reply "Approve and send" just queued on the previous thread, so
+  // its Undo survives the move here. Org-scoped like every read.
+  const undoDraftP =
+    undoParam && /^[0-9a-f-]{36}$/i.test(undoParam)
+      ? getDraftById(supabase, org.id, undoParam).catch(() => null)
+      : Promise.resolve(null)
+  const libraryFilesP = timed(R, 'inbox.library', () => listAttachableDocuments(supabase, org.id)).catch(
+    (error: unknown) => {
+      // Enrichment, not page-defining: an empty picker is a smaller harm than
+      // a blank thread page, and every other attachment source still works.
+      console.error('ThreadPage: failed to load the document library', {
+        message: error instanceof Error ? error.message : 'unknown error',
+      })
+      return []
+    },
+  )
+  // Both link directions, resolved through inbox_drafts.source_thread_id and
+  // gmail_message_id. Each returns empty/null on a failed read rather than
+  // throwing — a missing cross-reference is cosmetic, an unrenderable thread
+  // is not.
+  const vendorLinksP = early(
+    Promise.all([
+      getOutgoingVendorRequests(supabase as never, org.id, thread.id),
+      getIncomingVendorRequest(supabase as never, org.id, thread.id),
+    ]),
+  )
+  // Vendor rail data. Org-scoped like every other read on this page — a
+  // thread's vendor_id is a real FK, but the join must still be scoped
+  // rather than trusted.
+  const vendorReadP = thread.vendorId
+    ? early(
+        Promise.resolve(
+          supabase
+            .from('vendors' as never)
+            .select('id, legal_name, trades, status, ein, primary_email')
+            .eq('id', thread.vendorId)
+            .eq('organization_id', org.id)
+            .maybeSingle<{
+              id: string
+              legal_name: string
+              trades: string[] | null
+              status: string
+              ein: string | null
+              primary_email: string | null
+            }>(),
+        ),
+      )
+    : null
+
+  const counts = await countsP
   const total = counts[filter] ?? 0
   const totalPages = Math.max(1, Math.ceil(total / INBOX_PAGE_SIZE))
   const requestedPage = Number.parseInt(pageParam ?? '1', 10)
@@ -112,10 +186,10 @@ export default async function ThreadPage({
 
   const suggestedUnitId = (thread.matchReason?.candidate_unit_ids as string[] | undefined)?.[0]
 
-  const [threads, contextOutcome, suggestedProperty, draft] = await Promise.all([
-    listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset, ownerScope),
-    thread.unitId
-      ? getPropertyContext(supabase, org.id, thread.unitId).catch((error: unknown) => {
+  const unitId = thread.unitId
+  const contextOutcomeP = unitId
+    ? timed(R, 'inbox.propertyContext', () => getPropertyContext(supabase, org.id, unitId)).catch(
+        (error: unknown) => {
           // getPropertyContext throws on a failed unit lookup (see its
           // docstring) precisely so this catch can distinguish "context
           // failed to load" from "thread has no unitId" — collapsing
@@ -128,8 +202,35 @@ export default async function ThreadPage({
             message: error instanceof Error ? error.message : 'unknown error',
           })
           return 'error' as const
-        })
-      : Promise.resolve(null),
+        },
+      )
+    : Promise.resolve(null)
+
+  // BL-101 A1: sender, ledger, linked records, earlier threads, matching
+  // docs. Enrichment only — each section degrades on its own inside, and a
+  // throw here falls back to the plain rail rather than failing the page.
+  // Its reads need only the thread; the residents (from the property
+  // context) only name the sender afterwards, so they are handed over as a
+  // promise and the rail no longer waits for the property context and the
+  // draft before it starts.
+  const railContextP = timed(R, 'inbox.rail', () =>
+    getThreadRailContext(
+      supabase,
+      org.id,
+      thread,
+      contextOutcomeP.then((c) => (c === 'error' ? null : (c?.residents ?? null))),
+    ),
+  ).catch((error: unknown) => {
+    console.error('ThreadPage: failed to load rail context', {
+      threadId: id,
+      message: error instanceof Error ? error.message : 'unknown error',
+    })
+    return null
+  })
+
+  const [threads, contextOutcome, suggestedProperty, draft] = await Promise.all([
+    timed(R, 'inbox.list', () => listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset, ownerScope)),
+    contextOutcomeP,
     !thread.unitId && suggestedUnitId
       ? getUnitLabel(supabase, org.id, suggestedUnitId)
       : Promise.resolve(null),
@@ -137,7 +238,7 @@ export default async function ThreadPage({
     // would show a "Draft a reply" button beside a reply already queued to
     // send (see getLatestDraft's docstring), so this is not wrapped in a
     // `.catch` the way the enrichment-only lookups above are.
-    getLatestDraft(supabase, org.id, id),
+    timed(R, 'inbox.draft', () => getLatestDraft(supabase, org.id, id)),
   ])
 
   // BL-101 A3/A6 — the queue around this thread. All enrichment: a failure
@@ -149,14 +250,10 @@ export default async function ThreadPage({
     filter === 'needs_review'
       ? Promise.resolve(threads)
       : listThreads(supabase, org.id, 'needs_review', INBOX_PAGE_SIZE, 0, ownerScope).catch(() => []),
-    loadAutoDraftDecision(supabase, org.id, id),
-    listAssignees(org.id).catch((): Assignee[] => []),
-    loadInboxSlaHours(supabase, org.id),
-    // The reply "Approve and send" just queued on the previous thread, so
-    // its Undo survives the move here. Org-scoped like every read.
-    undoParam && /^[0-9a-f-]{36}$/i.test(undoParam)
-      ? getDraftById(supabase, org.id, undoParam).catch(() => null)
-      : Promise.resolve(null),
+    autoDraftP,
+    assigneesP,
+    slaP,
+    undoDraftP,
   ])
   const now = Date.now()
   const assigneeNames = Object.fromEntries(assignees.map((a) => [a.userId, a.name]))
@@ -169,31 +266,13 @@ export default async function ThreadPage({
   const contextLoadFailed = contextOutcome === 'error'
   const context: PropertyContext | null = contextLoadFailed ? null : contextOutcome
 
-  // BL-101 A1: sender, ledger, linked records, earlier threads, matching
-  // docs. Enrichment only — each section degrades on its own inside, and a
-  // throw here falls back to the plain rail rather than failing the page.
-  const railContext = await getThreadRailContext(supabase, org.id, thread, context?.residents ?? null).catch(
-    (error: unknown) => {
-      console.error('ThreadPage: failed to load rail context', {
-        threadId: id,
-        message: error instanceof Error ? error.message : 'unknown error',
-      })
-      return null
-    },
-  )
+  const railContext = await railContextP
 
   // Page-defining, like the draft itself: an approver must never see a
   // message that appears to have no files beside one that will send three.
   const draftAttachments = draft ? await listDraftAttachments(supabase, org.id, draft.id) : []
 
-  const libraryFiles = await listAttachableDocuments(supabase, org.id).catch((error: unknown) => {
-    // Enrichment, not page-defining: an empty picker is a smaller harm than
-    // a blank thread page, and every other attachment source still works.
-    console.error('ThreadPage: failed to load the document library', {
-      message: error instanceof Error ? error.message : 'unknown error',
-    })
-    return []
-  })
+  const libraryFiles = await libraryFilesP
 
   const threadFiles = thread.messages.flatMap((message) =>
     message.attachments
@@ -201,9 +280,7 @@ export default async function ThreadPage({
       .map((file) => ({ id: file.id, fileName: file.fileName, sizeBytes: file.sizeBytes ?? 0 })),
   )
 
-  // Vendor rail data. Org-scoped like every other read on this page — a
-  // thread's vendor_id is a real FK, but the join must still be scoped
-  // rather than trusted.
+  // Vendor rail data (its read was started above).
   let railVendor: RailVendor | null = null
   // Kept beside railVendor rather than added to it: RailVendor is the shape
   // VendorRail renders, and the rail has no reason to know an address it
@@ -212,20 +289,8 @@ export default async function ThreadPage({
   // A failed vendor read must not render as "the vendor no longer exists"
   // (which invites a needless re-file): the rail says it couldn't load.
   let vendorLoadFailed = false
-  if (thread.vendorId) {
-    const { data: vendorRow, error: vendorError } = await supabase
-      .from('vendors' as never)
-      .select('id, legal_name, trades, status, ein, primary_email')
-      .eq('id', thread.vendorId)
-      .eq('organization_id', org.id)
-      .maybeSingle<{
-        id: string
-        legal_name: string
-        trades: string[] | null
-        status: string
-        ein: string | null
-        primary_email: string | null
-      }>()
+  if (vendorReadP) {
+    const { data: vendorRow, error: vendorError } = await vendorReadP
 
     if (vendorError) {
       console.error('ThreadPage: failed to load the filed vendor', {
@@ -245,14 +310,7 @@ export default async function ThreadPage({
     }
   }
 
-  // Both link directions, resolved through inbox_drafts.source_thread_id and
-  // gmail_message_id. Each returns empty/null on a failed read rather than
-  // throwing — a missing cross-reference is cosmetic, an unrenderable thread
-  // is not.
-  const [outgoingRequests, incomingRequest] = await Promise.all([
-    getOutgoingVendorRequests(supabase as never, org.id, thread.id),
-    getIncomingVendorRequest(supabase as never, org.id, thread.id),
-  ])
+  const [outgoingRequests, incomingRequest] = await vendorLinksP
 
   // The sender the quick-create modal seeds from: the newest INBOUND
   // message, matching what W33 reads server-side.

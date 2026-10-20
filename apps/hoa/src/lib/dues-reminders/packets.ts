@@ -141,21 +141,25 @@ export async function buildReminderPackets(
   // Same reasoning as the assessments read above: swallowing this error
   // would mail nobody and report it as "all caught up". The unit list is
   // chunked so a large association never builds one oversized `.in()` URL.
-  const ownerships: OwnershipRow[] = []
-  for (const ids of chunk(unitIds)) {
-    const rows = await readAll<OwnershipRow>(
-      (from, to) =>
-        supabase
-          .from('ownerships')
-          .select('id, unit_id, owner_name, owner_email, owner_user_id')
-          .in('unit_id', ids)
-          .is('valid_to', null)
-          .order('id', { ascending: true })
-          .range(from, to) as unknown as PromiseLike<{ data: OwnershipRow[] | null; error: { message?: string } | null }>,
-      (e) => new Error(`Failed to load ownerships: ${e.message ?? ''}`),
+  // The chunks are read together, not one after another (BL-099 static
+  // pass); chunk order is kept and any failed page still throws.
+  const ownerships: OwnershipRow[] = (
+    await Promise.all(
+      chunk(unitIds).map((ids) =>
+        readAll<OwnershipRow>(
+          (from, to) =>
+            supabase
+              .from('ownerships')
+              .select('id, unit_id, owner_name, owner_email, owner_user_id')
+              .in('unit_id', ids)
+              .is('valid_to', null)
+              .order('id', { ascending: true })
+              .range(from, to) as unknown as PromiseLike<{ data: OwnershipRow[] | null; error: { message?: string } | null }>,
+          (e) => new Error(`Failed to load ownerships: ${e.message ?? ''}`),
+        ),
+      ),
     )
-    ownerships.push(...rows)
-  }
+  ).flat()
 
   const byEmail = new Map<string, ReminderPacket>()
   const skipped: SkippedOwner[] = []
