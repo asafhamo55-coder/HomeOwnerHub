@@ -68,12 +68,8 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 
 - **Paused:** the loop is paused for the weekly usage limit. On resume, re-dispatch BL-082 resident notifications, the M1 UI behind the flag and the guide classifier tuning; partial diffs are in .claude/worktrees/agent-a1496b73cd811725c, agent-abd18994e3c673a61 and agent-a0c6a9e45dd9f07e0.
 - **UI shots CI** opens "Refresh guide screenshots" PRs automatically. Review two images, then squash-merge.
-- **Next, by priority:**
-  - BL-079: ARC photos and letter draft.
-  - BL-025 (bilingual) and BL-068 (module switches) both need migrations, so they wait.
-  - Properties P5 parts with no migration: the statutory roster export.
-  - The guide's first-week cards.
-  - ~~An idempotency key for /inspect drafts~~: done (9830f49d). The key is kept in ai_runs.input, with a 7-day org-scoped window and no migration. 2026-10-20: tests now pin that a deduped retry never draws on the shared board_ai cap.
+- **Next, by priority:** see **"Ranked open work (groomed 2026-10-20)"** at the bottom of `docs/backlog.md`, the single source for what to build next. Every backlog item now carries a "Groomed 2026-10-20" line saying Done (with commit), Partly, Open or which migration batch it waits for. Check that line before you start an item.
+  - Everything this list used to name has shipped: BL-079 (fe712f36, 12a3d395), BL-025 (2026-10-19), the P5 statutory roster (72f0b92d) and records copy (173f4727), the guide's first-week cards (`apps/hoa/src/lib/guide/first-week.ts`), and the /inspect idempotency key (9830f49d; shared-cap test c577ada9). BL-068 still waits for M2.
 - **Waiting on Asaf:**
   - Is support@homeownerledger.com a real inbox?
   - The FL refresh, the S-01 audit query and the 0063 Part 1a SQL.
