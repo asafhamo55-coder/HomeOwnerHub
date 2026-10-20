@@ -107,25 +107,26 @@ Crons live only for the session and auto-expire after 7 days, so schedule a one-
   - A single test file can time out under load; re-run it alone.
   - The Inngest wiring contract test pins the job count (21 now). Bump it when you add a job.
 
-## 4. State (updated 2026-10-20 13:55 ET)
+## 4. State (updated 2026-10-20 18:30 ET)
 
-- **Live in prod:** `e801921c`, deployed 13:44 ET; release email sent.
-- **Integration tip:** BL-117/119/120/121/122 plus the release note `docs/releases/2026-10-20-1450-tasks-handover-reserves-cpa-quorum.md`; deploy at 14:44 ET or later if CI is green.
-- **Owner start point:** OA-1 → `docs/specs/2026-10-20-sql-runbook.md` (40 ordered steps). Migration `0065_m2_prep.sql` is in the repo and CI-validated; the runbook's section H applies it.
+- **Live in prod:** `7f73e120` (deploying 18:31). Earlier today: 561211bf (17:30), eac8cd52 (16:05), a094c25d (14:56).
+- **Integration tip:** `3b3fe44f` with release note `docs/releases/2026-10-20-1935-law-check-opening-balances.md` (BL-130, BL-126, violation-status fix). Deploy at 19:31 or later if CI is green, using `scratchpad/deploy.sh <sha> <HHMM>` (recreate it if the scratchpad is gone: it waits for CI, checks fast-forward, pushes, polls health, checks the email).
+- **Owner start point:** OA-1 → `docs/specs/2026-10-20-sql-runbook.md`, sections A–I (0063, M1, notices, SMS consent, inbound auth, indexes, payment plans, 0065, 0066 with 5 parts). After section I, Claude flips RECORDS_REQUESTS_LIVE and VIOLATION_FINED_STATUS_LIVE; after E, SENDER_AUTH_COLUMN_LIVE; after B, M1_APPLIED.
+- **Security:** docs/backlog.md "Security review 2026-10-20". All High and Medium findings are fixed. Open: http.ts body-size caps; Stripe portal quantity setting (dashboard); platform-admin invites not guarded; the subscription.updated row lock.
 - **Traps:**
-  - The Inngest job count is pinned in TWO tests (24 now).
-  - Never `git commit -a` during an unresolved merge.
-  - After a lockfile change, run `pnpm install` in the main checkout.
-  - rtk's vitest summary can hide load failures: grep the raw output.
-- **Backlog:** round 2 in docs/backlog.md (BL-113..BL-122). BL-113/115/116/117/119/120/121/122 are done; BL-114 (payment receipts; needs a board opt-in, since it emails residents) and BL-118 (in flight) are open; BL-123 item 3 (records-request ticket category) needs the next migration.
+  - Never `git commit -a` after a conflicted merge (this happened twice today). Resolve, check `git diff --name-only --diff-filter=U` is empty, then commit.
+  - The Inngest job count is pinned in TWO tests.
+  - Run `pnpm install` after lockfile changes.
+  - rtk's vitest summary can hide load failures; a vitest worker timeout is a flake, so rerun.
+- **Backlog:** round 3 open: BL-131 full (0067), BL-132, BL-133, BL-134 (needs a migration), BL-114 receipts (needs a board opt-in), BL-136 late-fee marker, BL-124 GA snapshot refresh before 2027-01-01.
 - **Classifier limits hit this session:**
-  1. Writing a "nothing stays on Asaf" rule into next.md.
-  2. Probing local credentials.
-  3. Restoring automatic vendor COI emails (OA-19).
+  1. A "nothing stays on Asaf" rule in next.md.
+  2. Probing credentials.
+  3. Auto vendor COI emails (OA-19).
   4. An agent's `git stash drop`.
 
   None were worked around.
-- **Crons (this session):** hourly cycle `23 * * * *`; renewal one-shot on Oct 26 at 14:41; deploy one-shot at 14:43. Recreate them per §3 in a new session.
+- **Crons (this session):** hourly cycle `23 * * * *`; renewal one-shot on Oct 26 at 14:41. Recreate them per §3.
 
 ## 5. Manual steps for Asaf: `docs/owner-actions.md`
 
@@ -135,11 +136,10 @@ The single list is `docs/owner-actions.md` (OA-1, OA-2…). Asaf asked on 2026-1
 - Most urgent: OA-1, migrations 0063 then M1 (subscription webhook writes fail until then). Also OA-14: turn on the Stripe webhook events `customer.subscription.updated` and `invoice.payment_failed`.
 - **Asaf, 2026-10-20:** even with items pending on him, keep allocating backlog items to the team (3–4 agents always busy).
 
-## 6. Work in flight (2026-10-20 13:55 ET)
+## 6. Work in flight (2026-10-20 18:30 ET)
 
-- **BL-118:** meeting notice to owners (composer prefill, .ics, state notice-period warning, notice_posted_at only when M1_APPLIED).
-
-If the session closes, check `/usr/bin/git worktree list` for `worktree-agent-*` branches with commits not in claude/quality-oracle.
+- No agents running. Next candidates: round 3 BL-114 (board opt-in receipts), BL-132/133/134 (batch a 0067 migration), and the open security Low items.
+- If a session closes, check `/usr/bin/git worktree list` for `worktree-agent-*` branches with commits not in claude/quality-oracle.
 
 ## 7. Next up
 

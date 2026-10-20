@@ -564,3 +564,21 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - BL-122 annual-meeting quorum kit.
 - **Fix:** the dues single-home filter read a non-existent column (organization_id → org_id).
 - **Agents running:** BL-118 meeting notice to owners.
+
+## 2026-10-20 (14:56 → 18:3x) — deploys a094c25d, eac8cd52, 561211bf, 7f73e120
+
+- **14:56 a094c25d:** board tasks, meeting notices, handover kit, reserve snapshot, year-end CPA package, quorum kit, GA law loader. Release email sent. UI shots now also run on the prod branch: integration runs kept cancelling each other, so release emails had no screenshots.
+- **Overflow check (first real look at the new screens through CI shots):** found 3 layout bugs. The inbox thread subject rendered one letter wide at 1440 (live in prod until the fix), a results button was 10px too wide at 375, and "1 emails". Fixed.
+- **Security review of today's merges (docs/backlog.md "Security review 2026-10-20"):**
+  - **High:** H1 cross-org bid comparison, H2 forged vendor COI. Later found and fixed: billing actions open to any member, and event alerts able to reach another org's residents.
+  - **Medium:** M1 board AI without a role gate; M2 spoofed inbox email changes; M3 inbox PDFs as governing docs; audience scoping; webhook audit-row forgery; the orgs billing columns writable by admins. The last one has a guard in 0066 part 4.
+  - **Low:** L1–L7 fixed, including the move from pdf-parse to pdfjs-dist with caps.
+  - **New CI ratchet:** a 'use server' export can't reach the service role without a role gate.
+- **16:05 eac8cd52:** security fixes and layout fixes. Release email sent.
+- **17:30 561211bf:** BL-125 billing for homes added before the association, BL-127 a single setup checklist, BL-131 GA/TX deadline card. Release email pending (waiting on prod shots).
+- **18:3x 7f73e120:** second-round security fixes, BL-129 resident violation replies, BL-128 invite all owners, BL-135 single-invite guard.
+- **Integration (3b3fe44f):**
+  - BL-130 state-law check before fines and letters;
+  - BL-126 opening-balance wizard;
+  - the live bug where Fined/Dismissed statuses failed at the DB, now gated by VIOLATION_FINED_STATUS_LIVE until 0066 part 5.
+- **Repeated mistake:** `git commit -a` after a conflicted merge committed markers twice. Both were fixed before any push. The trap is in next.md; check `git diff --name-only --diff-filter=U` before every commit.

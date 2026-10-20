@@ -43,7 +43,7 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 - **Integration branch:** `claude/quality-oracle`. All merges land here.
 - **Deploy:** run `/usr/bin/git merge-base --is-ancestor <prod> <tip>`, then `/usr/bin/git push origin <sha>:claude/phase1-homeownerhub-setup-MILNu`. Prod pushes FAIL when their output is redirected to /dev/null; always run them as `... 2>&1 | tail -3`, and retry up to 3 times.
 - **Verify:** poll `https://www.homeownerledger.com/api/health` until `version` equals the SHA. The public body is `{ok, app, version}`.
-- **Live in prod:** e801921c (text consent per number, AI kill switch, analytics off, faster pages/search, ARC clock, activity/motion logs), deployed 2026-10-20 13:44 ET. Manual owner steps live in docs/owner-actions.md (OA-1 points to the SQL runbook docs/specs/2026-10-20-sql-runbook.md). Ranked open work: docs/backlog.md round 2 (BL-113..BL-122).
+- **Live in prod:** 7f73e120 (deploying 18:31; second-round security fixes, resident violation replies, owner invites), after 561211bf at 17:30 and eac8cd52 at 16:05. Owner start point: OA-1 runbook (sections A–I). Backlog rounds 2–3 in docs/backlog.md; security status under "Security review 2026-10-20".
 - **2026-10-19 22:05:** domain split in progress (runbook docs/specs/2026-10-19-domain-split.md). Step 1 done (app domain added). WAITING ON ASAF: CNAME app → afa3394a804e31cd.vercel-dns-017.com at Network Solutions; then step 2 dashboard changes (Supabase redirect URLs, Google OAuth URI, Stripe/Resend/Plaid webhooks, Inngest sync). Agents running: BL-099 perf, payment-plan double-count fix, BL-101 inbox research, BL-102 communications research. Deploy 4a535e9 (review fixes) at 22:46.
 
 ## Gates (the trusted forms)
