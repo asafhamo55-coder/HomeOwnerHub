@@ -248,6 +248,21 @@ past due" banner. Stripe only sends these events if the webhook asks for them.
 
 **Files:** `docs/specs/2026-10-19-stripe-sandbox.md`
 
+### OA-15 · Fill in the investor deck's traction numbers
+
+**Urgency:** Whenever
+
+**Why it matters:** the investor deck was refreshed on 2026-10-20 for the new
+brand, features and pricing. Its traction boxes still say "ASAF TO FILL",
+because only you know these numbers (pilot HOAs, doors, paying customers,
+conversations). Note too that the market-size slide is lower at the new
+prices; review it before pitching.
+
+**Steps:**
+
+1. Open `~/HomeownerHub-decks/HomeownerHub-Investor-Deck.pptx` on your Mac (it is not in the repo).
+2. Send Claude the real traction numbers, or tell Claude to remove the traction slide. Claude rebuilds the deck.
+
 ## Done
 
 _Nothing yet. Finished items move here with the date they were done._
