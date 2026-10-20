@@ -91,10 +91,16 @@ Set both constants back to `false` and redeploy. New subscriptions already on th
 
 `packages/billing/src/grandfathering.ts`. A legacy subscription (`plan` = `monthly`, `annual` or `legacy_per_door`) keeps its $4.99/door Price until renewal: the end of the 12-month commitment for monthly subscribers (or the next invoice once past it), or the end of the paid year for annual. At renewal it moves to Complete at its band with `proration_behavior: 'none'`; the board is told 30 days before. Checkout refuses a legacy subscriber (`reason: 'grandfathered'`), and Settings → Billing shows the kept price and the price they will move to. Until renewal, legacy subscribers get Complete entitlements and today's AI limits, with the board cap at 200/day.
 
+## Billing jobs and SMS allowance (BL-104, behind `PRICING_V2`)
+
+All three are no-ops while the flag is off (tested). Stripe is injected through `apps/hoa/src/lib/billing-stripe-port.ts`; every change is `proration_behavior: 'none'`.
+
+- **Nightly band sync** (`packages/jobs/src/billing-band-sync.ts`, Inngest `billing-band-sync`, 06:00 UTC): `essentials` / `complete` orgs with a subscription on a band Price. Quantity := `hoa_properties` count when that changes the monthly price (a band change, or any change at 401+). Bills from the next invoice. 0 homes is skipped. Idempotent (Stripe idempotency key per subscription, quantity and day). Audit row `billing.band_sync`.
+- **Grandfathered renewal** (`packages/jobs/src/billing-renewal.ts`, Inngest `billing-renewal`, 14:00 UTC): legacy orgs (`monthly`, `annual`, `legacy_per_door`). From `grandfathering().noticeAt` until renewal, emails board/admin members (never residents) through the guarded `sendEmail`, once per term (claim row `billing.renewal_notice`, `metadata.term = <sub id>:<renewal ISO>`). Within 2 days of a renewal that is the next invoice, and only if that term's notice was claimed, swaps the item to the Complete band Price (lookup key or `STRIPE_PRICE_COMPLETE_*`), quantity = homes; audit `billing.renewal_switch`. A monthly subscriber already past the commitment at the flip gets less than 30 days' notice (the rule in `grandfathering.ts`; the price only falls).
+- **SMS allowance** (`packages/billing/src/sms-allowance.ts`, `apps/hoa/src/lib/sms-allowance.ts`): new-plan orgs only. Used = this UTC month's `communication_recipients` rows with `channel = 'sms'` and a `sent_at`, × 2 segments (each text is capped at 279 characters; exact segment counts need a per-row column, deferred). Settings → Billing shows usage, a warning from 80%, the pause at 100%. The communications send path (`deliver.ts`, broadcasts and scheduled sends) holds texts back at 100% and records the reason on the recipient row; email and portal still go. A failed read never blocks a text. Event alerts and per-resident notices are counted but not gated.
+
 ## Not in this change (still BL-104)
 
-- Nightly band-sync job (recount units, update quantity with no proration) and the renewal-migration job (30-day email, swap at term end). The rule they apply is `grandfathering()`.
-- SMS allowance per plan (decision §4).
 - Module-off pages and nav hiding: `moduleEnabled()` exists, but the BL-068 per-tenant switches need migration batch M2, so nothing reads it yet.
 - A trial that ends without a card setting the org to `free`: the existing `customer.subscription.deleted` path already does this.
 - The "trial on Essentials limits" rule only covers orgs with no subscription. `orgs` has no status column, so an org trialing **Complete** gets Complete limits during the trial.

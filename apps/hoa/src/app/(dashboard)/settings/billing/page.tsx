@@ -9,6 +9,9 @@ import { humanize } from '@/lib/money/status'
 import { PlanPicker } from './PlanPicker'
 import { PlanPickerV2 } from './PlanPickerV2'
 import { PlanTotals, PlanTotalsV2, billingPriceCopy, billingPriceCopyV2 } from './price-display'
+import { SmsAllowanceCard } from './SmsAllowanceCard'
+import { readSmsAllowance } from '@/lib/sms-allowance'
+import { logRouteFailure } from '@/lib/api/log'
 
 export const metadata = { title: 'Billing' }
 
@@ -51,6 +54,15 @@ export default async function BillingPage() {
   const isFree = plan === 'free' || plan === ''
   const legacy = isLegacyPlan(plan)
   const planLabel = v2 && isHoaPlanId(plan) ? `${PLAN_LABEL[plan]} plan` : `${humanize(plan)} plan`
+  // BL-104 §4: this month's texts against the plan's allowance — null (and
+  // no read) before PRICING_V2 or for an org not on the new plans.
+  // Advisory: a failed read hides the card rather than failing the page.
+  const smsAllowance = v2
+    ? await readSmsAllowance(supabase, org.id).catch((err: unknown) => {
+        logRouteFailure('billing.sms_allowance', err, { orgId: org.id })
+        return null
+      })
+    : null
 
   return (
     <Page title="Billing" description={description}>
@@ -109,6 +121,8 @@ export default async function BillingPage() {
           </CardFooter>
         ) : null}
       </Card>
+
+      {smsAllowance ? <SmsAllowanceCard status={smsAllowance} /> : null}
 
       {isAdmin ? (
         <section aria-labelledby="choose-plan" className="space-y-3">
