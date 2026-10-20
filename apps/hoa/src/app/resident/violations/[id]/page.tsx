@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
-import { Badge, KeyValue, KeyValueList } from '@homeowner-portal/ui'
+import { Badge, KeyValue, KeyValueList, LoadFailed } from '@homeowner-portal/ui'
 import { getMyViolationReport } from '@/lib/resident-submissions'
 import { listSubmissionAttachments } from '@/lib/submission-attachments'
 import { SubmissionAttachments } from '@/components/attachments/SubmissionAttachments'
@@ -8,8 +8,10 @@ import { Panel, ScreenHeader, Section } from '@/components/resident/screen'
 import { REPORT_CATEGORY_LABEL, ResidentStatus, residentStatusLabel } from '@/components/resident/status'
 import { Conversation, ThreadClosed } from '@/components/resident/Conversation'
 import { ReplyComposer } from '@/components/resident/ReplyComposer'
+import { loadMyHomeViolation } from '@/lib/violation-response-load'
+import { HomeViolationView } from './HomeViolationView'
 
-export const metadata = { title: 'Reported concern' }
+export const metadata = { title: 'Violation' }
 export const dynamic = 'force-dynamic'
 
 // The board has finished with a concern once it's closed or dismissed —
@@ -22,8 +24,27 @@ export default async function ResidentViolationDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
+  // One route, two records: a concern this resident reported (keyed by
+  // report id), or — BL-129 — a violation on their own home (keyed by
+  // violation id). Ids are UUIDs, so they never collide.
   const report = await getMyViolationReport(id)
-  if (!report) notFound()
+  if (!report) {
+    const home = await loadMyHomeViolation(id)
+    if (!home.ok) {
+      if (home.reason === 'error') return <LoadFailed what="this notice" retryHref={`/resident/violations/${id}`} />
+      notFound()
+    }
+    const attachments = home.thread ? await listSubmissionAttachments('ticket', home.thread.ticketId) : []
+    return (
+      <HomeViolationView
+        violation={home.violation}
+        thread={home.thread}
+        threadFailed={home.threadFailed}
+        canRespond={home.canRespond}
+        attachments={attachments}
+      />
+    )
+  }
   const attachments = await listSubmissionAttachments('concern', id)
 
   const closed = CLOSED.has(report.status)

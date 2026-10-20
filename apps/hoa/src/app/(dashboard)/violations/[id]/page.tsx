@@ -30,6 +30,8 @@ import { CureCommitmentCard } from './CureCommitmentCard'
 import { FollowUpLetterDialog } from './FollowUpLetterDialog'
 import { FOLLOW_UP_AWAITING_SAVE_PATH, followUpLabel, followUpOfRunInput } from '@/lib/violation-follow-up'
 import { getCurrentOrg } from '@/lib/orgs'
+import { loadBoardResponseThreads, type BoardResponseThread, type Db } from '@/lib/violation-response'
+import { BoardConversation } from '@/components/board-review/BoardConversation'
 import {
   cureCommitmentApplies,
   cureCommitmentPenaltyBlock,
@@ -154,7 +156,7 @@ export default async function ViolationDetailPage({
   // other, so they run together — they used to run one after another
   // (rules, then commitment, then unit, then follow-ups).
   type CommitmentCard = { commitment: CureCommitment | null; blockReason: string | null; loadFailed: boolean }
-  const [commitmentCard, unit, followUpResult] = await Promise.all([
+  const [commitmentCard, unit, followUpResult, responses] = await Promise.all([
     org
       ? timed(R, 'violation.cureCommitment', async (): Promise<CommitmentCard | null> => {
           const rules = await loadOrgStateRules(supabase, org.id).catch(() => null)
@@ -192,6 +194,12 @@ export default async function ViolationDetailPage({
           ),
         )
       : Promise.resolve(null),
+    // BL-129: the homeowner's responses (tickets linked by audit_log).
+    org
+      ? timed(R, 'violation.responses', () =>
+          loadBoardResponseThreads(supabase as unknown as Db, { orgId: org.id, violationId: v.id }).catch(() => null),
+        )
+      : Promise.resolve([] as BoardResponseThread[]),
   ])
   const unitId: string | null = unit.unitId
   const unitLoadFailed = unit.failed
@@ -400,6 +408,32 @@ export default async function ViolationDetailPage({
                     )
                   })}
                 </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Homeowner responses</CardTitle>
+              <CardDescription>
+                What the owner or resident of this home wrote back from their portal. Reply from the thread; nothing is
+                sent to them automatically.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {responses === null ? (
+                <LoadFailed what="homeowner responses" retryHref={`/violations/${v.id}`} />
+              ) : responses.length === 0 ? (
+                <p className="text-sm text-muted">No response from the home yet.</p>
+              ) : (
+                responses.map((t) => (
+                  <div key={t.ticketId} className="space-y-3">
+                    <BoardConversation messages={t.messages} residentLabel="Homeowner" emptyHint="" />
+                    <Link href={`/tickets/${t.ticketId}`} className="inline-block text-sm font-medium text-primary hover:underline">
+                      Open the thread to reply or see photos
+                    </Link>
+                  </div>
+                ))
               )}
             </CardContent>
           </Card>

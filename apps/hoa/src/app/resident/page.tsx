@@ -351,10 +351,11 @@ function StatusHero({
 // ── Attention & request rows ────────────────────────────────────────────
 
 function ViolationRow({ violation }: { violation: OpenViolationRow }) {
-  // Not a link: /resident/violations/[id] is the resident's own *reports*,
-  // keyed by report id — a violation id there was a 404.
+  // BL-129: /resident/violations/[id] serves both the resident's own
+  // reports (by report id) and violations on their home (by violation id).
   return (
     <TappableRow
+      href={`/resident/violations/${violation.id}`}
       icon={<AlertTriangle />}
       tone="amber"
       title={humanize(violation.violation_type)}
