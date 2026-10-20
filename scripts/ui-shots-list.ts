@@ -112,6 +112,19 @@ export const SHOTS: Shot[] = [
   { name: 'books-not-open-income-statement', path: '/accounting/reports/income-statement', auth: true, org: 'noBooksAdminOrgId' },
   { name: 'books-not-open-board-periods', path: '/accounting/periods', auth: true, org: 'noBooksBoardOrgId' },
   { name: 'inbox', path: '/inbox', auth: true },
+  // An inbox thread filed under 128 Demo Court: the property/vendor context
+  // panel (its own column at xl, below the conversation on a phone), and
+  // the "Create from email" menu open (BL-101 A4). scripts/ui-shots-seed/screens.ts.
+  { name: 'inbox-thread', path: '/inbox/:inboxThreadId', auth: true },
+  {
+    name: 'inbox-thread-create-menu',
+    path: '/inbox/:inboxThreadId',
+    auth: true,
+    viewport: true,
+    click: 'button:has-text("Create from email") >> visible=true',
+    widths: [1440],
+    themes: LIGHT,
+  },
   { name: 'properties', path: '/properties', auth: true },
   // P1 quick wins. Query strings survive the dev auto-login now (the
   // middleware keeps them in `redirect`), so filtered and tabbed views shoot.
@@ -142,14 +155,38 @@ export const SHOTS: Shot[] = [
   { name: 'meeting-packet-print', path: '/meetings/:meetingId/packet', auth: true, print: true, widths: [816] },
   { name: 'tickets', path: '/tickets', auth: true },
   { name: 'communications', path: '/communications', auth: true },
+  // BL-102: the composer's first step with the one-box "What do you want to
+  // tell residents?" composer, the results page of a sent message, and its
+  // follow-up opened on the Review step's phone preview (Continue once from
+  // the pre-filled Message step; waits for the preview, or its error).
+  { name: 'communications-new', path: '/communications/new', auth: true },
+  { name: 'communications-results', path: '/communications/:commsResultsId', auth: true },
+  {
+    name: 'communications-phone-preview',
+    path: '/communications/new?followUp=:commsResultsId&via=email',
+    auth: true,
+    click: 'button[type="submit"]:has-text("Continue") >> visible=true',
+    clickWaitFor: 'section[aria-label="Phone preview"] :is(iframe, [role="alert"])',
+    themes: LIGHT,
+  },
   { name: 'accounting', path: '/accounting', auth: true },
   // Release-note example route (docs/releases/README.md "shots:").
   { name: 'accounting-payment-plans', path: '/accounting/payment-plans', auth: true, themes: LIGHT },
+  // BL-091: the owner budget notice from the seeded adopted 2026 budget.
+  { name: 'accounting-budget-notice', path: '/accounting/budget/:budgetNoticeId/notice', auth: true },
+  // BL-089 / BL-087: the collections letter (open case on 128 Demo Court)
+  // and the estoppel certificate prepared for the same home.
+  { name: 'properties-collections-letter', path: '/properties/:propertyId/collections-letter', auth: true },
+  { name: 'properties-estoppel', path: '/properties/:propertyId/estoppel', auth: true },
   { name: 'vendors', path: '/vendors', auth: true },
   { name: 'settings-members', path: '/settings/members', auth: true },
   { name: 'settings-payments', path: '/settings/payments', auth: true },
   { name: 'settings-data', path: '/settings/data', auth: true },
   { name: 'settings-reminders', path: '/settings/reminders', auth: true },
+  // BL-103: Settings → Billing on an org whose subscription is past due, so
+  // the payment banner shows. Its own org: the main demo org stays clean.
+  // The only /settings/billing shot, so release notes for that route get it.
+  { name: 'settings-billing-past-due', path: '/settings/billing', auth: true, org: 'pastDueHoaOrgId' },
   { name: 'legal-compliance', path: '/legal/compliance', auth: true },
   // BL-070 user guide: help centre, search (hit + no hit), topic, article,
   // and the "?" drawer on a covered page and on one with no article.
