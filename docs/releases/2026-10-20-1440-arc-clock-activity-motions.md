@@ -1,11 +1,12 @@
 ---
-title: ARC deadlines, a board activity log and a motion log
+title: ARC deadlines, board tasks, a handover kit, an activity log and a motion log
 shots:
   - route: /arc
     caption: ARC applications with the decide-by deadline
   - route: /settings/activity
     caption: The board activity log
   - route: /meetings/motions
+  - route: /tasks
     caption: Every motion from your minutes in one list
 ---
 
@@ -20,6 +21,13 @@ Boards can set a deadline for deciding ARC applications and see at a glance whic
 - **Deadline chips:** each application shows how long is left. The chip turns amber within 7 days and red once it's overdue. The "Needs decision" list shows the oldest first.
 - **Overdue warning:** an overdue application explains that some declarations treat it as approved if the board doesn't decide in time. Check your declaration.
 - **Daily email:** the board's morning email now counts applications that are overdue or due within 3 days.
+
+### Board tasks
+- **Tasks** (under Community) gathers every action item from your meetings and tickets: Overdue, This week, Later and Done. Assign each one to a board member, set a due date and mark it done.
+- **"My tasks"** on the dashboard, and each board member's morning email lists their own overdue and upcoming tasks.
+
+### Board handover
+- **Settings → Board handover** is a checklist for when board members change: who has access, connections set up by one person (the HOA mailbox, bank connections, Zelle, billing) with links to move them, each person's open work, and a printable summary with no passwords or secrets.
 
 ### Board activity log
 - **Settings → Activity log** shows who on the board did what, and when, with filters by person, area and date.
