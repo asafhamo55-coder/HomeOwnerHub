@@ -143,7 +143,7 @@ describe('GET /api/search', () => {
   it('500s with the generic envelope when every type failed', async () => {
     h.result = {
       groups: [],
-      failed: ['owner', 'property', 'violation', 'arc', 'ticket', 'thread', 'meeting', 'document', 'vendor'],
+      failed: ['owner', 'property', 'violation', 'arc', 'ticket', 'thread', 'meeting', 'motion', 'document', 'vendor'],
     }
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const res = await GET(get('kaur'))

@@ -23,6 +23,10 @@ import * as billScanActions from './bill-scan/actions'
 import * as coiRequest from './vendor-coi-request/actions'
 import * as attachmentBill from './inbox/attachment-bill'
 import * as rosterExport from '../app/(dashboard)/properties/roster/export/route'
+import * as activityExport from '../app/api/settings/activity/export/route'
+import * as motionsExport from '../app/api/meetings/motions/export/route'
+import ActivityLogPage from '../app/(dashboard)/settings/activity/page'
+import MotionLogPage from '../app/(dashboard)/meetings/motions/page'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { approveVendor, getPrimaryAssociation } from '@/lib/vendors'
 
@@ -284,6 +288,34 @@ describe('board-only owner-data exports hide from a resident', () => {
     vi.mocked(getSupabaseServerClient).mockClear()
     const res = await rosterExport.GET(new Request('http://x/properties/roster/export?kind=records') as never)
     expect(res.status).toBe(404)
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+  })
+})
+
+// Board-only reads that answer 403 to a resident (BL-115 activity log,
+// BL-116 motion log): the export routes refuse before any client is made,
+// and the pages bounce at requireBoardOrAdmin before any read.
+describe('board-only activity and motion logs refuse a resident', () => {
+  it('GET /api/settings/activity/export (BL-115: who did what is board-only)', async () => {
+    vi.mocked(getSupabaseServerClient).mockClear()
+    const res = await activityExport.GET(new Request('http://x/api/settings/activity/export'))
+    expect(res.status).toBe(403)
+    expect((await res.json()).error.code).toBe('forbidden')
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+  })
+
+  it('GET /api/meetings/motions/export (BL-116: minutes, drafts included, are board-only)', async () => {
+    vi.mocked(getSupabaseServerClient).mockClear()
+    const res = await motionsExport.GET(new Request('http://x/api/meetings/motions/export'))
+    expect(res.status).toBe(403)
+    expect((await res.json()).error.code).toBe('forbidden')
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+  })
+
+  it('/settings/activity and /meetings/motions gate on requireBoardOrAdmin before any read', async () => {
+    vi.mocked(getSupabaseServerClient).mockClear()
+    await expect(ActivityLogPage({ searchParams: Promise.resolve({}) })).rejects.toThrow('requireBoardOrAdmin redirect')
+    await expect(MotionLogPage({ searchParams: Promise.resolve({}) })).rejects.toThrow('requireBoardOrAdmin redirect')
     expect(getSupabaseServerClient).not.toHaveBeenCalled()
   })
 })

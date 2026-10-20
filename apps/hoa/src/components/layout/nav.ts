@@ -13,6 +13,7 @@ import {
   CreditCard,
   DatabaseBackup,
   FileText,
+  History,
   Home,
   KeyRound,
   ListChecks,
@@ -128,6 +129,7 @@ export const ADMIN_ACCOUNT: HoaNavLink[] = [
   { href: '/settings/vendors', icon: ShieldCheck, label: 'Vendor settings', keywords: ['insurance', 'coi', 'minimum', 'liability', 'workers comp'] },
   { href: '/settings/billing', icon: CreditCard, label: 'Billing', keywords: ['subscription', 'plan'] },
   { href: '/settings/data', icon: DatabaseBackup, label: 'Your data', keywords: ['export', 'download', 'backup', 'csv'] },
+  { href: '/settings/activity', icon: History, label: 'Activity log', keywords: ['audit', 'audit log', 'history', 'who did', 'activity'] },
   { href: '/help', icon: CircleHelp, label: 'Help', keywords: ['guide', 'how do i', 'how to', 'support', 'tutorial'] },
 ]
 
@@ -138,6 +140,7 @@ export const BOARD_ACCOUNT: HoaNavLink[] = [
   { href: '/settings/vendors', icon: ShieldCheck, label: 'Vendor settings', keywords: ['insurance', 'coi', 'minimum', 'liability', 'workers comp'] },
   { href: '/settings/billing', icon: CreditCard, label: 'Billing', keywords: ['subscription', 'plan'] },
   { href: '/settings/data', icon: DatabaseBackup, label: 'Your data', keywords: ['export', 'download', 'backup', 'csv'] },
+  { href: '/settings/activity', icon: History, label: 'Activity log', keywords: ['audit', 'audit log', 'history', 'who did', 'activity'] },
   { href: '/help', icon: CircleHelp, label: 'Help', keywords: ['guide', 'how do i', 'how to', 'support', 'tutorial'] },
 ]
 

@@ -1,7 +1,7 @@
 // BL-022 — record search behind the ⌘K palette.
 //
 // `ilike` across the org's owners, properties, violations, ARC requests,
-// tickets, inbox threads, meetings, documents and vendors. No migration: a trigram index can come
+// tickets, inbox threads, meetings, motions (BL-116), documents and vendors. No migration: a trigram index can come
 // later in a batch if p50 drifts.
 //
 // SECURITY. The caller passes the *user's* server client (never the service
@@ -39,6 +39,14 @@ import {
   VIOLATION_STATUS,
 } from '@/lib/status/community'
 import { DOCUMENT_TYPE_LABELS, GOVERNING_TYPE_LABELS } from '@/lib/status/knowledge'
+import {
+  MOTION_MINUTES_COLUMNS,
+  meetingTypeLabel,
+  motionMatches,
+  motionsForMeeting,
+  resultLabel,
+  type MinutesRow,
+} from '@/lib/meeting-motions'
 import {
   RECORD_GROUP_LABEL,
   RECORD_TYPES,
@@ -199,6 +207,7 @@ export async function searchRecords(
     ticket: [],
     thread: [],
     meeting: [],
+    motion: [],
     document: [],
     vendor: [],
   }
@@ -257,6 +266,22 @@ export async function searchRecords(
             .eq('org_id', orgId)
             .is('deleted_at', null)
             .or(ilike(['meeting_type', 'ai_summary'], term).join(','))
+            .order('meeting_date', { ascending: false })
+            .limit(SEARCH_LIMIT_PER_TYPE),
+        ),
+        // BL-116: motions, an independent query of its own (a failure here
+        // never hides meetings). Motions live in the minutes text (or the
+        // structured motions column); the newest minutes mentioning the
+        // term are read and their motions matched in memory.
+        run(
+          'motion',
+          orgId,
+          supabase
+            .from('hoa_meeting_minutes')
+            .select(MOTION_MINUTES_COLUMNS)
+            .eq('org_id', orgId)
+            .is('deleted_at', null)
+            .or(ilike(['ai_summary'], term).join(','))
             .order('meeting_date', { ascending: false })
             .limit(SEARCH_LIMIT_PER_TYPE),
         ),
@@ -322,7 +347,7 @@ export async function searchRecords(
   }
 
   // ── Round 2: the types linked to a matched lot, in parallel ───────
-  const [[violations, arcs, tickets, threads], [vendors, documents, governing, meetings], timeZone] = await Promise.all([
+  const [[violations, arcs, tickets, threads], [vendors, documents, governing, meetings, motionMinutes], timeZone] = await Promise.all([
     time('search.linked', () =>
       Promise.all([
         run(
@@ -466,6 +491,24 @@ export async function searchRecords(
       detail: joinHint(day(m.meeting_date), statusLabel(MEETING_STATUS.labels, m.status)),
       href: `/meetings/${id}`,
     })
+  }
+
+  if (motionMinutes === null) failed.add('motion')
+  const today = todayIn(timeZone, options.now ?? new Date())
+  for (const row of motionMinutes ?? []) {
+    // An upcoming meeting's text is its agenda: those motions haven't happened.
+    if (typeof row.meeting_date !== 'string' || row.meeting_date > today) continue
+    for (const m of motionsForMeeting(row as unknown as MinutesRow)) {
+      if (!motionMatches(m, needle)) continue
+      hits.motion.push({
+        id: m.id,
+        type: 'motion',
+        label: m.text.length > 120 ? `${m.text.slice(0, 117)}…` : m.text,
+        hint: joinHint(meetingTypeLabel(m.meetingType), day(m.meetingDate)),
+        detail: resultLabel(m.result),
+        href: `/meetings/${m.meetingId}`,
+      })
+    }
   }
 
   if (documents === null || governing === null) failed.add('document')
