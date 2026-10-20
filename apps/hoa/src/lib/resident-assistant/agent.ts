@@ -10,8 +10,8 @@
 import { extractDocsArtifacts } from '@/lib/community-qa/agent'
 import { isToolFailed, type DocsCitation } from '@/lib/community-qa/tools'
 import { runToolLoop, type LoopTurn, type RawToolCall } from '@/lib/community-qa/loop'
-import { RESIDENT_TOOLS, HANDOFF_TOOL_NAMES, type ResidentToolContext } from './tools'
-import { clampHandoffText, dedupeHandoffs, type Handoff, type HandoffAction } from './handoff'
+import { RESIDENT_TOOLS, RESIDENT_TOOL_BUDGET, HANDOFF_TOOL_NAMES, type ResidentToolContext } from './tools'
+import { buildHandoff, dedupeHandoffs, type Handoff, type HandoffAction } from './handoff'
 
 export const RESIDENT_SYSTEM_PROMPT = `You are the resident assistant in an HOA's resident portal. You help ONE signed-in homeowner or resident with their own home, account and requests, and with their community's rules.
 
@@ -21,7 +21,7 @@ Tools:
 - Their requests (tickets, ARC applications, violations on their home, concerns they reported) → my_requests.
 - News and meetings ("When is the next meeting?", announcements) → community_updates.
 - How to do something in this portal (pay, statement, ARC form, support request, contact details) → portal_how_to. Point to the article by its title.
-- Hand-offs: suggest_ask_board and suggest_arc_application put a button under your answer that opens a prefilled form. They create nothing. You never create, change, submit, pay or cancel anything yourself; never say you did.
+- Hand-offs: suggest_ask_board and suggest_arc_application put a button under your answer that opens a form prefilled with the resident's own question. Give only a short topic. They create nothing. You never create, change, submit, pay or cancel anything yourself; never say you did.
 
 Rules answers:
 - Paraphrase the rule and name the section briefly; the portal shows the full citations under your answer.
@@ -67,6 +67,7 @@ export async function askResident(turns: LoopTurn[], ctx: ResidentToolContext): 
     ctx,
     logTag: 'ai.resident-assistant.tool',
     logIds: { orgId: ctx.scope.orgId },
+    budget: RESIDENT_TOOL_BUDGET,
   })
 
   const docs = extractDocsArtifacts(log)
@@ -74,16 +75,13 @@ export async function askResident(turns: LoopTurn[], ctx: ResidentToolContext): 
   const citations = docs.citations ?? []
   const docsUnanswered = docsRan && (citations.length === 0 || docs.confidence === 'LOW')
 
-  const handoffs = handoffsFrom(log)
+  // The resident's own words: the only free text a hand-off form gets (SEC-004).
+  const question = [...recent].reverse().find((t) => t.role === 'user')?.content ?? ''
+  const handoffs = handoffsFrom(log, question)
   // A rules question the docs don't answer always gets "Ask the board",
   // whether or not the model remembered to offer it.
   if (docsUnanswered && !handoffs.some((h) => h.action === 'ask_board')) {
-    const question = [...recent].reverse().find((t) => t.role === 'user')?.content ?? ''
-    handoffs.push({
-      action: 'ask_board',
-      subject: clampHandoffText(question, 120) || 'Question about our rules',
-      description: clampHandoffText(question, 1500),
-    })
+    handoffs.push(buildHandoff('ask_board', '', question))
   }
 
   return {
@@ -99,12 +97,12 @@ export async function askResident(turns: LoopTurn[], ctx: ResidentToolContext): 
   }
 }
 
-function handoffsFrom(log: RawToolCall<ResidentToolContext>[]): Handoff[] {
+function handoffsFrom(log: RawToolCall<ResidentToolContext>[], question: string): Handoff[] {
   const out: Handoff[] = []
   for (const c of log) {
     if (!c.tool || !HANDOFF_TOOL_NAMES.has(c.tool.def.name) || isToolFailed(c.result)) continue
-    const r = c.result as { action: HandoffAction; subject: string; description: string }
-    out.push({ action: r.action, subject: r.subject, description: r.description })
+    const r = c.result as { action: HandoffAction; topic: string }
+    out.push(buildHandoff(r.action, r.topic, question))
   }
   return out
 }

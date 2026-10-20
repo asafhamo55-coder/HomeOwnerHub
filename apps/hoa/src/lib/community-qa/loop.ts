@@ -10,12 +10,37 @@
 // registry. That is what keeps the board's DB tools out of the resident
 // assistant — it never sees them, so a model that names one gets
 // `unknown_tool`.
+//
+// TOOL BUDGET (SEC-001). One counted request must not fan out into dozens
+// of tool runs (each docs search is a W1 model call, an embedding and an
+// ai_runs row, none of them metered by the route's quota). Per step only
+// the first `perStep` calls run; per run at most `perRun` run in total;
+// `perTool` caps single tools. A call over budget runs nothing and gets
+// `toolFailed('budget')` back (every tool_call_id still needs a reply, or
+// the provider rejects the next request). Once the run budget is spent the
+// model is asked for its answer with tool_choice 'none'.
 
 import { resolveModel } from '@homeowner-portal/ai'
 import { logRouteFailure } from '@/lib/api/log'
 import { ToolFailure, toolFailed, type ToolDefinition } from './tools'
 
 export const MAX_STEPS = 8
+
+export interface ToolBudget {
+  /** Calls that run per model step; the rest of that step's calls get `budget`. */
+  perStep: number
+  /** Calls that run in the whole loop. */
+  perRun: number
+  /** Optional per-tool caps for the whole loop, by tool name. */
+  perTool?: Readonly<Record<string, number>>
+}
+
+/**
+ * The board Copilot's budget (the default). Its widest legitimate step asks
+ * for every one of its 7 tools at once, so 8 per step and 16 per run keep
+ * that working while still bounding a runaway loop (8 steps × N calls).
+ */
+export const DEFAULT_TOOL_BUDGET: ToolBudget = { perStep: 8, perRun: 16 }
 
 /** A tool as the loop sees it, over any context type. */
 export interface LoopTool<C> {
@@ -55,7 +80,10 @@ export interface LoopResult<C> {
   /** The model's final text; null when the step budget ran out. */
   answer: string | null
   steps: number
+  /** The calls that ran (an unknown tool included). Over-budget calls are not here. */
   log: RawToolCall<C>[]
+  /** Calls refused with `budget`, ran nothing. */
+  refused: number
 }
 
 export async function runToolLoop<C>(opts: {
@@ -68,6 +96,7 @@ export async function runToolLoop<C>(opts: {
   /** Ids only: they go into the failure log line. */
   logIds: Record<string, string | number | boolean | null>
   maxSteps?: number
+  budget?: ToolBudget
 }): Promise<LoopResult<C>> {
   const apiKey = process.env.AI_API_KEY
   const baseUrl = process.env.AI_BASE_URL ?? 'https://api.groq.com/openai/v1'
@@ -76,6 +105,10 @@ export async function runToolLoop<C>(opts: {
     throw new Error('AI_API_KEY not set on the server.')
   }
   const maxSteps = opts.maxSteps ?? MAX_STEPS
+  const budget = opts.budget ?? DEFAULT_TOOL_BUDGET
+  let ran = 0
+  let refused = 0
+  const ranByTool = new Map<string, number>()
 
   const byName = new Map(opts.tools.map((t) => [t.def.name, t]))
   const tools = opts.tools.map((t) => ({
@@ -105,7 +138,7 @@ export async function runToolLoop<C>(opts: {
         model,
         messages,
         tools,
-        tool_choice: 'auto',
+        tool_choice: ran >= budget.perRun ? 'none' : 'auto',
         temperature: 0.1,
       }),
     })
@@ -140,11 +173,26 @@ export async function runToolLoop<C>(opts: {
 
     // No tool calls → final answer.
     if (!msg.tool_calls || msg.tool_calls.length === 0) {
-      return { answer: msg.content?.trim() || '(no answer)', steps: step, log }
+      return { answer: msg.content?.trim() || '(no answer)', steps: step, log, refused }
     }
 
-    for (const tc of msg.tool_calls) {
+    for (const [i, tc] of msg.tool_calls.entries()) {
       const tool = byName.get(tc.function.name)
+      const toolCap = tool ? budget.perTool?.[tool.def.name] : undefined
+      const toolRan = tool ? (ranByTool.get(tool.def.name) ?? 0) : 0
+      if (i >= budget.perStep || ran >= budget.perRun || (toolCap !== undefined && toolRan >= toolCap)) {
+        refused++
+        messages.push({
+          role: 'tool',
+          tool_call_id: tc.id,
+          name: tc.function.name,
+          content: JSON.stringify(toolFailed('budget')),
+        })
+        continue
+      }
+      ran++
+      if (tool) ranByTool.set(tool.def.name, toolRan + 1)
+
       let parsedArgs: Record<string, unknown> = {}
       try {
         parsedArgs = tc.function.arguments
@@ -185,7 +233,7 @@ export async function runToolLoop<C>(opts: {
     }
   }
 
-  return { answer: null, steps: maxSteps, log }
+  return { answer: null, steps: maxSteps, log, refused }
 }
 
 const MAX_ARG_TEXT = 200

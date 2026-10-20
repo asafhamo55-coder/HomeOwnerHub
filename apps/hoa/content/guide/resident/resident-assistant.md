@@ -11,7 +11,7 @@ related: [resident-portal-basics, resident-support-tickets, resident-arc-rules-c
 reviewed: 2026-10-19
 ---
 
-The **Ask** tab is a chat assistant. It can see your own account and requests, your community's rules and the announcements sent to you. It answers in a few sentences.
+The **Ask** tab is a chat assistant once your board turns it on. It can see your own account and requests, your community's rules and the announcements sent to you. It answers in a few sentences.
 
 ## Steps
 1. Tap **Ask** at the bottom of the screen.
@@ -22,7 +22,7 @@ The **Ask** tab is a chat assistant. It can see your own account and requests, y
 ## What happens next
 - A rules answer lists the sections of your community's documents it used, under the answer.
 - If the documents don't answer your question, the assistant says so and offers [[Ask the board]].
-- [[Ask the board]] opens a new support request with your question filled in. [[Start an ARC application]] opens the ARC form filled in. Check the form, change anything, then send it yourself.
+- [[Ask the board]] opens a new support request with your question filled in. [[Start an ARC application]] opens the ARC form with your question filled in. The form says **Suggested by the assistant — review before sending**. Check the form, change anything, then send it yourself.
 
 ## Good to know
 - The assistant never sends, pays, changes or cancels anything for you. Only you can send a request.
@@ -31,4 +31,4 @@ The **Ask** tab is a chat assistant. It can see your own account and requests, y
 - It can't see payment plan details. Ask the board about your plan.
 - The chat stays in this browser tab only. Closing the tab clears it.
 - You can send 20 messages an hour and 100 a day.
-- If your board turned the assistant off, the **Ask** tab shows Ask the Docs instead. It answers one rules question at a time.
+- The assistant is off until your board turns it on. Until then, or if your home isn't linked to your community yet, the **Ask** tab shows Ask the Docs instead. It answers one rules question at a time.

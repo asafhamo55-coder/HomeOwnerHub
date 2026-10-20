@@ -58,7 +58,7 @@ export async function askGuide(
   // the redacted text, and retrieval ignores the placeholders (an email or phone
   // is not a topic, and its words would only dilute the gate's score).
   const redacted = redactContactPII(question)
-  const sources = retrieve(redacted.replace(/\[(?:email|phone) removed\]/g, ' '), ctx.role, ctx.route)
+  const sources = retrieve(redacted.replace(/\[(?:email|phone|address|unit) removed\]/g, ' '), ctx.role, ctx.route)
   const score = topScore(sources)
   const suggestions = suggestionsFrom(sources, ctx.role)
   if (!passesGate(sources)) {
