@@ -39,6 +39,10 @@ import { NextMeeting } from '@/components/dashboard/NextMeeting'
 import { GreetingHeadline } from '@/components/dashboard/GreetingHeadline'
 import { SetupChecklistCard } from '@/components/dashboard/SetupChecklistCard'
 import { BoardFirstWeek } from '@/components/guide/FirstWeekGate'
+import { MyTasksCard } from '@/components/dashboard/MyTasksCard'
+import { loadMyTaskCounts } from '@/lib/tasks/queries'
+import { currentTimeZone } from '@/lib/association-time-current'
+import { todayIn } from '@/lib/association-time'
 
 export const metadata = { title: 'Dashboard' }
 
@@ -187,6 +191,9 @@ function DashboardSections({ orgId }: { orgId: string }) {
           </Suspense>
         </div>
         <div className="min-w-0 space-y-6">
+          <Suspense fallback={<CardSkeleton body="h-16" />}>
+            <MyTasksSection orgId={orgId} />
+          </Suspense>
           <Suspense fallback={<CardSkeleton body="h-16" />}>
             <NextMeetingSection orgId={orgId} />
           </Suspense>
@@ -373,6 +380,16 @@ async function ApprovalsSection({ orgId }: { orgId: string }) {
 async function AtRiskSection({ orgId }: { orgId: string }) {
   const atRisk = await load.atRiskThisWeek(orgId)
   return <AtRiskThisWeek items={atRisk.items} totalCount={atRisk.totalCount} failed={atRisk.failed} />
+}
+
+// BL-119: the signed-in member's own tasks, against the association's today.
+async function MyTasksSection({ orgId }: { orgId: string }) {
+  const [supabase, user, timeZone] = await Promise.all([getSupabaseServerClient(), getSignedInUser(), currentTimeZone()])
+  if (!user) return null
+  const counts = await timed('/', 'dashboard.myTasks', () =>
+    loadMyTaskCounts(supabase, orgId, user.id, todayIn(timeZone)),
+  )
+  return <MyTasksCard counts={counts} />
 }
 
 async function NextMeetingSection({ orgId }: { orgId: string }) {

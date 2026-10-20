@@ -33,6 +33,7 @@ interface FakeOpts {
   associations?: Row
   threads?: Row
   arcRequests?: Row
+  tasks?: Row
 }
 
 /** Records every filter so tests can assert what was queried. */
@@ -59,10 +60,11 @@ function fakeDb(opts: FakeOpts) {
     associations: opts.associations ?? { data: [{ compliance_settings: {} }], error: null },
     inbox_threads: opts.threads ?? { data: [], error: null },
     arc_requests: opts.arcRequests ?? { data: [], error: null },
+    meeting_action_items: opts.tasks ?? { data: [], error: null },
   }
   const from = vi.fn((table: string) => {
     const chain: Record<string, unknown> = {}
-    for (const method of ['select', 'eq', 'neq', 'is', 'in', 'not', 'lt', 'order', 'limit']) {
+    for (const method of ['select', 'eq', 'neq', 'is', 'in', 'not', 'lt', 'lte', 'order', 'limit']) {
       chain[method] = (...args: unknown[]) => {
         calls.push({ table, method, args })
         return chain
@@ -470,5 +472,88 @@ describe('buildArcBlock', () => {
     const b = buildArcBlock({ overdue: 0, dueSoon: 2, arcUrl: 'https://app.test/arc' })
     expect(b.lines).toEqual(['2 ARC applications due for a decision within 3 days'])
     expect(b.text).not.toContain('declaration')
+  })
+})
+
+/* BL-119 — each board member's own overdue / due-this-week tasks. The
+ * member sees only their own counts; a member with nothing due gets no
+ * email unless something org-wide is wrong. Counts only in logs. */
+describe('runDailyDigest — board tasks', () => {
+  const day = (offset: number) => {
+    const d = new Date()
+    d.setUTCDate(d.getUTCDate() + offset)
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(d)
+  }
+  const TASKS: Row = {
+    data: [
+      { assignee_user_id: 'u-board', status: 'open', due_date: day(-3) }, // overdue
+      { assignee_user_id: 'u-board', status: 'in_progress', due_date: day(2) }, // this week
+      { assignee_user_id: 'u-board', status: 'open', due_date: day(2) }, // this week
+    ],
+    error: null,
+  }
+
+  it('emails only the assignee, with their own counts and a link to /tasks', async () => {
+    const { db } = fakeDb({ tasks: TASKS })
+    const d = deps()
+    const log = logger()
+    const result = await runDailyDigest(db, d, log)
+    expect(result).toMatchObject({ tasksOverdue: 1, tasksDueSoon: 2, emailed: 1 })
+    expect(d.sendEmail.mock.calls.map((c) => c[0].to)).toEqual([BOARD_EMAIL])
+    const mail = d.sendEmail.mock.calls[0]![0]
+    expect(mail.text).toContain('1 of your tasks is overdue')
+    expect(mail.text).toContain('2 of your tasks are due within 7 days')
+    expect(mail.text).toContain('https://app.test/tasks?assignee=me')
+    expect(mail.html).toContain('Open your tasks')
+    expect(mail.subject).toContain('1 of your tasks overdue')
+    const everything = JSON.stringify([log.info.mock.calls, log.warn.mock.calls, log.error.mock.calls])
+    expect(everything).not.toContain('@')
+    expect(everything).not.toContain('u-board')
+  })
+
+  it('queries open, assigned tasks for the org up to the end of the week', async () => {
+    const { db, calls } = fakeDb({ tasks: TASKS })
+    await runDailyDigest(db, deps(), logger())
+    const q = calls.filter((c) => c.table === 'meeting_action_items')
+    expect(q).toContainEqual({ table: 'meeting_action_items', method: 'eq', args: ['org_id', ORG] })
+    expect(q).toContainEqual({ table: 'meeting_action_items', method: 'in', args: ['status', ['open', 'in_progress']] })
+    expect(q).toContainEqual({ table: 'meeting_action_items', method: 'not', args: ['assignee_user_id', 'is', null] })
+    expect(q).toContainEqual({ table: 'meeting_action_items', method: 'lte', args: ['due_date', day(6)] })
+  })
+
+  it('adds the tasks block to an org-wide email for the assignee only', async () => {
+    const { db } = fakeDb({ tasks: TASKS, mailboxes: BROKEN })
+    const d = deps()
+    await runDailyDigest(db, d, logger())
+    const byTo = new Map(d.sendEmail.mock.calls.map((c) => [c[0].to, c[0]]))
+    expect(byTo.get(BOARD_EMAIL)!.text).toContain('of your tasks')
+    expect(byTo.get(ADMIN_EMAIL)!.text).not.toContain('of your tasks')
+    expect(byTo.get(BOARD_EMAIL)!.subject).toMatch(/mailbox/i)
+  })
+
+  it('never emails a resident their tasks', async () => {
+    const { db } = fakeDb({
+      tasks: { data: [{ assignee_user_id: 'u-res', status: 'open', due_date: day(-1) }], error: null },
+      members: {
+        data: [
+          { user_id: 'u-board', role: 'board' },
+          { user_id: 'u-res', role: 'resident' },
+        ],
+        error: null,
+      },
+    })
+    const d = deps()
+    await runDailyDigest(db, d, logger())
+    expect(d.sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('a failed task read is logged by code and sends nothing on its own', async () => {
+    const { db } = fakeDb({ tasks: { data: null, error: { code: '42P01' } } })
+    const d = deps()
+    const log = logger()
+    const result = await runDailyDigest(db, d, log)
+    expect(d.sendEmail).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ tasksOverdue: 0, tasksDueSoon: 0 })
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining('failed to load task deadlines'), { code: '42P01' })
   })
 })

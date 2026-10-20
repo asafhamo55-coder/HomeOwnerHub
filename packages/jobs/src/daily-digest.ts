@@ -15,6 +15,14 @@ import {
   pickArcClockSettings,
   readArcClockSettings,
 } from '../../../apps/hoa/src/lib/arc-review/clock'
+// BL-119: the board task list's rules. Same dependency-free, relative-path rule.
+import {
+  TASK_OPEN_STATUSES,
+  TASK_WEEK_DAYS,
+  taskDigestCountsByAssignee,
+  weekEnd,
+} from '../../../apps/hoa/src/lib/tasks/model'
+import { DEFAULT_ASSOCIATION_TIME_ZONE, todayIn } from './association-time'
 
 /**
  * Morning health check across every active HOA org, 7am Eastern.
@@ -53,6 +61,11 @@ import {
  * BL-113: and how many ARC applications are past the board's "decide
  * within N days" deadline or due within 3 days, linking to /arc. Counts
  * only, board members only.
+ *
+ * BL-119: and the recipient's OWN tasks (meeting action items assigned to
+ * them) that are overdue or due within 7 days, linking to /tasks. Each
+ * member sees only their own counts; a board member with tasks due gets
+ * the email even when nothing else is wrong. Counts only.
  *
  * The Inngest function id stays 'daily-digest' deliberately. Changing an
  * id registers a NEW function and leaves the old one scheduled, so the
@@ -106,6 +119,10 @@ export interface DailyDigestResult {
   arcOverdue: number
   /** ARC applications due within ARC_DIGEST_DUE_DAYS, summed across orgs. */
   arcDueSoon: number
+  /** Assigned open tasks past their due date, summed across orgs (BL-119). */
+  tasksOverdue: number
+  /** Assigned open tasks due within TASK_WEEK_DAYS, summed across orgs. */
+  tasksDueSoon: number
   emailed: number
   failed: number
 }
@@ -323,6 +340,62 @@ export function buildArcBlock(args: { overdue: number; dueSoon: number; arcUrl: 
   return { lines, text, html }
 }
 
+// ─── Board tasks (BL-119) ──────────────────────────────────────────
+
+/** Per assignee (profiles id): their own overdue and due-this-week task counts. */
+export type TaskDigestSummary = Map<string, { overdue: number; dueSoon: number }>
+
+/**
+ * Open meeting action items for one org that have an in-app assignee and a
+ * due date no later than the end of this week. Returns null on a failed read
+ * (logged by code) so a failure never reads as "nothing is due".
+ */
+export async function loadTaskDeadlines(
+  db: Db,
+  orgId: string,
+  today: string,
+  logger: DigestLogger,
+): Promise<TaskDigestSummary | null> {
+  const { data, error } = await db
+    .from('meeting_action_items')
+    .select('assignee_user_id, status, due_date')
+    .eq('org_id', orgId)
+    .in('status', [...TASK_OPEN_STATUSES])
+    .not('assignee_user_id', 'is', null)
+    .lte('due_date', weekEnd(today))
+  if (error) {
+    logger.error(`[daily-digest] ${orgId}: failed to load task deadlines`, { code: error.code })
+    return null
+  }
+  return taskDigestCountsByAssignee(
+    (data ?? []) as Array<{ assignee_user_id: string | null; status: string; due_date: string | null }>,
+    today,
+  )
+}
+
+function taskCount(n: number): string {
+  return n === 1 ? '1 of your tasks' : `${n} of your tasks`
+}
+
+/** The tasks block: the recipient's own overdue and due-this-week lines, a link to /tasks. */
+export function buildTaskBlock(args: { overdue: number; dueSoon: number; tasksUrl: string }): {
+  lines: string[]
+  text: string
+  html: string
+} {
+  const lines: string[] = []
+  if (args.overdue > 0) lines.push(`${taskCount(args.overdue)} ${args.overdue === 1 ? 'is' : 'are'} overdue`)
+  if (args.dueSoon > 0) lines.push(`${taskCount(args.dueSoon)} ${args.dueSoon === 1 ? 'is' : 'are'} due within ${TASK_WEEK_DAYS} days`)
+  const text = [...lines, `Open your tasks: ${args.tasksUrl}`].join('\n')
+  const border = args.overdue > 0 ? '#b91c1c' : '#b45309'
+  const html = `
+  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+    ${lines.map((l) => `<p style="margin:0 0 8px;font-weight:600">${escapeHtml(l)}</p>`).join('')}
+    <a href="${escapeHtml(args.tasksUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Open your tasks</a>
+  </div>`
+  return { lines, text, html }
+}
+
 /**
  * One recipient's morning email: the mailbox alert when a mailbox is
  * broken, the waiting block when residents are waiting, or both.
@@ -334,12 +407,17 @@ export function buildDigestEmail(args: {
   waiting: { total: number; mine: number; hours: number; inboxUrl: string } | null
   /** BL-113: ARC deadlines. Omitted or all-zero adds nothing. */
   arc?: { overdue: number; dueSoon: number; arcUrl: string } | null
+  /** BL-119: the recipient's own task deadlines. Omitted or all-zero adds nothing. */
+  tasks?: { overdue: number; dueSoon: number; tasksUrl: string } | null
 }): { subject: string; html: string; text: string } {
   const block = args.waiting && args.waiting.total > 0 ? buildWaitingBlock(args.waiting) : null
   const arcBlock = args.arc && (args.arc.overdue > 0 || args.arc.dueSoon > 0) ? buildArcBlock(args.arc) : null
   const extras: Array<{ text: string; html: string }> = []
   if (block) extras.push(block)
   if (arcBlock) extras.push(arcBlock)
+  const taskBlock =
+    args.tasks && (args.tasks.overdue > 0 || args.tasks.dueSoon > 0) ? buildTaskBlock(args.tasks) : null
+  if (taskBlock) extras.push(taskBlock)
   if (args.mailboxes.length > 0) {
     const alert = buildMailboxAlert(args)
     if (extras.length === 0) return alert
@@ -360,9 +438,13 @@ export function buildDigestEmail(args: {
 </div>`
   const subject = block
     ? `${who} waiting for a reply — ${args.orgName}`
-    : args.arc && args.arc.overdue > 0
-      ? `${arcCount(args.arc.overdue)} past the decision deadline — ${args.orgName}`
-      : `${arcCount(args.arc?.dueSoon ?? 0)} due for a decision soon — ${args.orgName}`
+    : !arcBlock && taskBlock
+      ? args.tasks!.overdue > 0
+        ? `${taskCount(args.tasks!.overdue)} overdue — ${args.orgName}`
+        : `${taskCount(args.tasks!.dueSoon)} due this week — ${args.orgName}`
+      : args.arc && args.arc.overdue > 0
+        ? `${arcCount(args.arc.overdue)} past the decision deadline — ${args.orgName}`
+        : `${arcCount(args.arc?.dueSoon ?? 0)} due for a decision soon — ${args.orgName}`
   return { subject, html, text }
 }
 
@@ -464,6 +546,8 @@ export async function runDailyDigest(
   let waitingTotal = 0
   let arcOverdueTotal = 0
   let arcDueSoonTotal = 0
+  let tasksOverdueTotal = 0
+  let tasksDueSoonTotal = 0
   let emailed = 0
   let failed = 0
   const now = Date.now()
@@ -515,7 +599,31 @@ export async function runDailyDigest(
     arcOverdueTotal += arcOverdue
     arcDueSoonTotal += arcDueSoon
 
-    if (broken.length === 0 && waitingCount === 0 && arcOverdue === 0 && arcDueSoon === 0) continue
+    // BL-119: each recipient's own tasks. Day granularity in the job's zone
+    // (the cron runs 7am Eastern).
+    let tasks: TaskDigestSummary | null = null
+    try {
+      tasks = await loadTaskDeadlines(db, orgId, todayIn(DEFAULT_ASSOCIATION_TIME_ZONE, new Date(now)), logger)
+    } catch (err) {
+      logger.error(`[daily-digest] ${orgId}: task deadline check failed`, {
+        message: err instanceof Error ? err.name : 'unknown',
+      })
+    }
+    let orgTasksOverdue = 0
+    let orgTasksDueSoon = 0
+    for (const c of tasks?.values() ?? []) {
+      orgTasksOverdue += c.overdue
+      orgTasksDueSoon += c.dueSoon
+    }
+    tasksOverdueTotal += orgTasksOverdue
+    tasksDueSoonTotal += orgTasksDueSoon
+    const orgWide = broken.length > 0 || waitingCount > 0 || arcOverdue > 0 || arcDueSoon > 0
+
+    if (!orgWide && orgTasksOverdue === 0 && orgTasksDueSoon === 0) continue
+    if (orgTasksOverdue > 0 || orgTasksDueSoon > 0) {
+      // Counts only, never which task or whose.
+      logger.info(`[daily-digest] ${orgId}: ${orgTasksOverdue} task(s) overdue, ${orgTasksDueSoon} due this week`)
+    }
     if (waitingCount > 0) {
       // A count, never which residents.
       logger.info(`[daily-digest] ${orgId}: ${waitingCount} thread(s) waiting past the threshold`)
@@ -543,6 +651,11 @@ export async function runDailyDigest(
       let orgSent = 0
       let orgFailed = 0
       for (const { userId, email: to } of recipients) {
+        // BL-119: a member's tasks go to that member only. With nothing
+        // org-wide to report, a member with no tasks due gets no email.
+        const mine = tasks?.get(userId) ?? null
+        const mineDue = mine != null && (mine.overdue > 0 || mine.dueSoon > 0)
+        if (!orgWide && !mineDue) continue
         // Per recipient: "M assigned to you" differs by person.
         const alert = buildDigestEmail({
           orgName: org.name ?? 'your community',
@@ -558,6 +671,7 @@ export async function runDailyDigest(
                 }
               : null,
           arc: arcOverdue > 0 || arcDueSoon > 0 ? { overdue: arcOverdue, dueSoon: arcDueSoon, arcUrl: deps.appUrl('/arc') } : null,
+          tasks: mineDue ? { ...mine, tasksUrl: deps.appUrl('/tasks?assignee=me') } : null,
         })
         try {
           const res = await deps.sendEmail({ to, ...alert }, outbound)
@@ -586,6 +700,8 @@ export async function runDailyDigest(
     waitingThreads: waitingTotal,
     arcOverdue: arcOverdueTotal,
     arcDueSoon: arcDueSoonTotal,
+    tasksOverdue: tasksOverdueTotal,
+    tasksDueSoon: tasksDueSoonTotal,
     emailed,
     failed,
   }
