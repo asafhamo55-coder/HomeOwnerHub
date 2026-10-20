@@ -376,6 +376,18 @@ prices; review it before pitching.
 
 **Files:** `docs/specs/2026-10-20-sms-inbound.md`
 
+### OA-24 · Turn on privacy-safe usage analytics
+
+**Urgency:** Whenever
+
+**Why it matters:** we can't see which features boards and residents actually use. The app now has cookieless, privacy-safe analytics built in: page views with record ids scrubbed out, plus 8 named events (for example "approval decided" and "message sent") that carry no names, emails or text. It records nothing until you turn it on.
+
+**Steps:**
+
+1. In Vercel, open the `home-owner-hub-hoa` project → **Analytics** → **Web Analytics** → **Enable**.
+2. In Settings → Environment Variables, add `NEXT_PUBLIC_ANALYTICS_ENABLED` = `1` for **Production**.
+3. Tell Claude. It redeploys, since the setting takes effect only on a new build. The 8 named events need a Vercel Pro plan; page views work on any plan.
+
 ## Done
 
 _Nothing yet. Finished items move here with the date they were done._
