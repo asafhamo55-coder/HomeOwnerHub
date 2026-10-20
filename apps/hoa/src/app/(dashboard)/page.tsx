@@ -38,6 +38,7 @@ import { LeaseSummaryCard } from '@/components/dashboard/LeaseSummaryCard'
 import { NextMeeting } from '@/components/dashboard/NextMeeting'
 import { GreetingHeadline } from '@/components/dashboard/GreetingHeadline'
 import { SetupChecklistCard } from '@/components/dashboard/SetupChecklistCard'
+import { UnassignedHomesNotice } from '@/components/properties/UnassignedHomesNotice'
 import { BoardFirstWeek } from '@/components/guide/FirstWeekGate'
 import { MyTasksCard } from '@/components/dashboard/MyTasksCard'
 import { loadMyTaskCounts } from '@/lib/tasks/queries'
@@ -132,6 +133,10 @@ export default async function DashboardHome() {
     >
       <Suspense fallback={dismissed ? null : <CardSkeleton body="h-24" />}>
         <SetupChecklistSection orgId={org.id} dismissed={dismissed} />
+      </Suspense>
+      {/* BL-125: homes with no association are never billed. Hidden when there are none. */}
+      <Suspense fallback={null}>
+        <UnassignedHomesNotice orgId={org.id} />
       </Suspense>
       <BoardFirstWeek orgId={org.id} orgCreatedAt={orgRow.ok ? (orgRow.data?.created_at ?? null) : null} />
 

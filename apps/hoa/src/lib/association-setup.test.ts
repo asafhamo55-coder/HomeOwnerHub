@@ -92,7 +92,9 @@ describe('setUpAssociationCore', () => {
 
   it('creates the association, both funds, the chart of accounts and an open fiscal year', async () => {
     const { db, calls } = queuedSupabase({
-      associations: [ok(null), ok({ id: 'a1' })],
+      // read, insert, then BL-125's "is it the only one?" count and the
+      // org-scoped check before attaching unassigned homes.
+      associations: [ok(null), ok({ id: 'a1' }), { data: null, error: null, count: 1 }, ok({ id: 'a1' })],
       funds: [
         ok([]),
         ok([
@@ -102,9 +104,16 @@ describe('setUpAssociationCore', () => {
       ],
       chart_of_accounts: [ok([]), ok(null)],
       fiscal_periods: [ok(null), ok(null)],
+      units: [ok([{ id: 'u1' }, { id: 'u2' }])],
+      audit_log: [ok(null)],
     })
-    const res = await setUpAssociationCore(db as never, { orgId: 'o1', input, year })
-    expect(res).toEqual({ ok: true, associationId: 'a1', created: true })
+    const res = await setUpAssociationCore(db as never, { orgId: 'o1', userId: 'user-1', input, year })
+    expect(res).toEqual({ ok: true, associationId: 'a1', created: true, adoptedHomes: 2 })
+    // Only rows still without an association are attached (BL-125).
+    const unitsOps = calls.find((c) => c.table === 'units')!.ops
+    expect(unitsOps).toContainEqual(['update', [{ association_id: 'a1' }]])
+    expect(unitsOps).toContainEqual(['is', ['association_id', null]])
+    expect(unitsOps).toContainEqual(['eq', ['organization_id', 'o1']])
 
     expect(payloadOf(calls, 'associations', 'insert')).toEqual({
       organization_id: 'o1',
@@ -143,8 +152,8 @@ describe('setUpAssociationCore', () => {
       chart_of_accounts: [ok(DEFAULT_CHART_OF_ACCOUNTS.map((a) => ({ account_number: a.number })))],
       fiscal_periods: [ok({ id: 'p1' })],
     })
-    const res = await setUpAssociationCore(db as never, { orgId: 'o1', input, year })
-    expect(res).toEqual({ ok: true, associationId: 'a1', created: false })
+    const res = await setUpAssociationCore(db as never, { orgId: 'o1', userId: 'user-1', input, year })
+    expect(res).toMatchObject({ ok: true, associationId: 'a1', created: false })
     expect(payloadOf(calls, 'associations', 'insert')).toBeUndefined()
     expect((payloadOf(calls, 'funds', 'insert') as unknown as { code: string }[]).map((f) => f.code)).toEqual(['RESERVE'])
     expect(payloadOf(calls, 'chart_of_accounts', 'insert')).toBeUndefined()
@@ -153,13 +162,13 @@ describe('setUpAssociationCore', () => {
 
   it('says only an admin can create it when RLS refuses the insert', async () => {
     const { db } = queuedSupabase({ associations: [ok(null), fail('42501')] })
-    const res = await setUpAssociationCore(db as never, { orgId: 'o1', input, year })
+    const res = await setUpAssociationCore(db as never, { orgId: 'o1', userId: 'user-1', input, year })
     expect(res).toEqual({ ok: false, error: expect.stringMatching(/admin/i) })
   })
 
   it('fails rather than reporting success when the existence check fails', async () => {
     const { db, calls } = queuedSupabase({ associations: [fail('500')] })
-    const res = await setUpAssociationCore(db as never, { orgId: 'o1', input, year })
+    const res = await setUpAssociationCore(db as never, { orgId: 'o1', userId: 'user-1', input, year })
     expect(res.ok).toBe(false)
     expect(payloadOf(calls, 'associations', 'insert')).toBeUndefined()
   })
@@ -169,7 +178,7 @@ describe('setUpAssociationCore', () => {
       associations: [ok(null), ok({ id: 'a1' })],
       funds: [ok([]), fail('500')],
     })
-    const res = await setUpAssociationCore(db as never, { orgId: 'o1', input, year })
+    const res = await setUpAssociationCore(db as never, { orgId: 'o1', userId: 'user-1', input, year })
     expect(res).toEqual({ ok: false, error: expect.stringMatching(/books/i), associationId: 'a1' })
   })
 
@@ -189,8 +198,8 @@ describe('setUpAssociationCore', () => {
         chart_of_accounts: [ok([]), ok(null)],
         fiscal_periods: [ok(null), ok(null)],
       })
-      const res = await setUpAssociationCore(db as never, { orgId: 'o1', associationId: 'a1', year })
-      expect(res).toEqual({ ok: true, associationId: 'a1', created: false })
+      const res = await setUpAssociationCore(db as never, { orgId: 'o1', userId: 'user-1', associationId: 'a1', year })
+      expect(res).toMatchObject({ ok: true, associationId: 'a1', created: false })
       const eqs = calls[0]!.ops.filter(([op]) => op === 'eq').map(([, args]) => args)
       expect(eqs).toEqual([
         ['id', 'a1'],
@@ -204,21 +213,21 @@ describe('setUpAssociationCore', () => {
 
     it('refuses, writing nothing, when the association is not in the org', async () => {
       const { db, calls } = queuedSupabase({ associations: [ok(null)] })
-      const res = await setUpAssociationCore(db as never, { orgId: 'o1', associationId: 'other', year })
+      const res = await setUpAssociationCore(db as never, { orgId: 'o1', userId: 'user-1', associationId: 'other', year })
       expect(res.ok).toBe(false)
       expect(calls.map((c) => c.table)).toEqual(['associations'])
     })
 
     it('fails rather than creating one when the read fails', async () => {
       const { db, calls } = queuedSupabase({ associations: [fail('500')] })
-      const res = await setUpAssociationCore(db as never, { orgId: 'o1', associationId: 'a1', year })
+      const res = await setUpAssociationCore(db as never, { orgId: 'o1', userId: 'user-1', associationId: 'a1', year })
       expect(res.ok).toBe(false)
       expect(calls.map((c) => c.table)).toEqual(['associations'])
     })
 
     it('does not claim it just created the association when a books step fails', async () => {
       const { db } = queuedSupabase({ associations: [ok({ id: 'a1' })], funds: [fail('500')] })
-      const res = await setUpAssociationCore(db as never, { orgId: 'o1', associationId: 'a1', year })
+      const res = await setUpAssociationCore(db as never, { orgId: 'o1', userId: 'user-1', associationId: 'a1', year })
       expect(res).toEqual({ ok: false, error: expect.stringMatching(/books/i), associationId: 'a1' })
       if (!res.ok) expect(res.error).not.toMatch(/created/i)
     })

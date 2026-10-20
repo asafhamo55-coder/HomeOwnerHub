@@ -8,6 +8,7 @@ import { PropertyListFilters } from './PropertyListFilters'
 import { PropertyListPager } from './PropertyListPager'
 import { PropertiesHeader } from './PropertiesHeader'
 import { loadPropertyListPane } from './load-list-pane'
+import { UnassignedHomesNotice } from '@/components/properties/UnassignedHomesNotice'
 
 export const metadata = { title: 'Properties' }
 export const dynamic = 'force-dynamic'
@@ -46,6 +47,8 @@ export default async function PropertiesPage({
         />
       }
     >
+      {/* BL-125: homes with no association are never billed. Hidden when there are none. */}
+      <UnassignedHomesNotice orgId={org.id} />
       <PropertyListFilters params={params} counts={counts} />
       {/* Surfaced in place rather than crashing the route. Never the raw message. */}
       {!list.ok ? (

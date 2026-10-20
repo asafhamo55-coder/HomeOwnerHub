@@ -4,12 +4,8 @@ import { AuthShell } from '@/components/auth/AuthShell'
 import { ONBOARDING_STEPS } from '../steps'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import {
-  getConnectPreview,
-  getMailboxStatus,
-  getSetupProgress,
-  type ConnectPreview,
-} from '@/lib/inbox/queries'
+import { getConnectPreview, getMailboxStatus, type ConnectPreview } from '@/lib/inbox/queries'
+import { loadSetupChecklist } from '@/lib/dashboard/setup-checklist'
 import { loadScopeOptions } from '@/lib/inbox/connect'
 import { connectErrorMessage } from '@/lib/inbox/connect-errors'
 import { MailboxConnectCard } from '../../(dashboard)/settings/mailbox/MailboxConnectCard'
@@ -31,8 +27,10 @@ export default async function SetupPage({
   const { org } = await requireBoardOrAdmin()
 
   const supabase = await getSupabaseServerClient()
-  const [steps, status] = await Promise.all([
-    getSetupProgress(supabase, org.id),
+  // THE setup checklist (BL-127) — the same model as the dashboard card.
+  // Each step's read fails on its own ("Couldn't check"), never the page.
+  const [checklist, status] = await Promise.all([
+    loadSetupChecklist(supabase, org.id),
     getMailboxStatus(supabase, org.id),
   ])
 
@@ -98,9 +96,11 @@ export default async function SetupPage({
         </Alert>
       ) : null}
 
-      <SetupChecklist steps={steps} highlightKey="mailbox" />
+      <SetupChecklist checklist={checklist} highlightKey="mailbox" hrefOverride={{ mailbox: '#connect-mailbox' }} />
 
-      <MailboxConnectCard status={status} preview={preview} scopeOptions={scopeOptions} returnTo="/onboarding/setup" />
+      <div id="connect-mailbox" className="scroll-mt-4">
+        <MailboxConnectCard status={status} preview={preview} scopeOptions={scopeOptions} returnTo="/onboarding/setup" />
+      </div>
     </AuthShell>
   )
 }

@@ -13,14 +13,14 @@ shots:
   - name: guide-dues-no-association
     alt: The Set up your association form shown on the Dues page when no association exists
 related: [dues-record-payment, setup-properties-residents]
-reviewed: 2026-10-17
+reviewed: 2026-10-20
 ---
 
 A dues charge is money a home owes the association. Each charge posts to the ledger as money owed, so balances and reports stay right.
 
 ## Before you start
 - Your HOA needs an association. If it has none, the Dues page shows [[Set up your association]] instead. An admin fills in the **Association name**, **State** and **Type**, then selects [[Create association]].
-- Dues are billed to the homes in Properties. Every home you add there can be billed. See [Add your properties and residents](guide:setup-properties-residents).
+- Dues are billed to the homes in Properties. Every home assigned to the association can be billed, including homes added before the association existed (they are attached when it is set up). If the page says homes aren't assigned to an association, assign them first or they won't be billed. See [Add your properties and residents](guide:setup-properties-residents).
 
 ## Steps
 ### Every home, this month

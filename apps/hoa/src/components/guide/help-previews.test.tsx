@@ -53,7 +53,7 @@ const unavailable = strip(
 )
 
 const version = { sha: 'c56061f', shortSha: 'c56061f', label: 'v2026.10.17 · c56061f', title: 'Version c56061f' } as Parameters<typeof AppVersion>[0]['version']
-const NOTHING = { mailbox: [1], properties: [3, 0], residents: [0, 0], governingDocs: [null], dues: [0], board: [1] }
+const NOTHING = { mailbox: [1], properties: [3, 0], residents: [0, 0], governingDocs: [null], dues: [0], board: [1], association: [0], books: [0], payments: [0], bank: [0] }
 
 const PREVIEWS: Record<string, { title: string; body: React.ReactElement }> = {
   'ask-answer': { title: 'Ask the guide — answer', body: <AskGuide initialQuestion="How do I record a check payment?" initialState={{ status: 'done', result: answer as never }} /> },

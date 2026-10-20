@@ -1,13 +1,22 @@
 /**
- * First-run setup checklist for the board dashboard (BL-008).
+ * THE setup checklist (BL-008, BL-127): one model, shown on the dashboard
+ * ("Get your HOA set up") and on the sign-up page (/onboarding/setup).
+ * There used to be two — 6 steps here, 4 there — that disagreed with each
+ * other and with the guide.
  *
  * Every step's completion is DERIVED from data on each render — never a
  * stored flag, which drifts the moment someone deletes their last property.
+ * And "done" means the real thing: "Invite the board" needs another board
+ * member or admin (a resident invite doesn't count), "association and
+ * books" needs the books actually open, "resident payments" needs Zelle
+ * details residents can actually see.
  *
  * Three states, not two. A count whose read failed is UNKNOWN: the card
- * says "Couldn't check" for that step and never counts it as done. The old
- * dashboard nudge threw on a failed count, which took the whole dashboard
- * to the error page over a setup hint; here each read fails on its own.
+ * says "Couldn't check" for that step and never counts it as done.
+ *
+ * Optional steps (bank, mailbox) show progress but don't block hiding the
+ * card: a board can reconcile by hand, and a mailbox on Outlook can't be
+ * connected yet.
  *
  * Shape: `loadSetupChecklist` gathers counts (null = failed), and the pure
  * `buildSetupChecklist` turns them into steps. The split is what the unit
@@ -16,21 +25,29 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
+import { paySettingsSecret, readZelleSettings } from '@/lib/pay-by-zelle'
 
 type Db = SupabaseClient<Database>
 
 export type SetupStepState = 'done' | 'todo' | 'unknown'
 
+/** In the order a new board should do them. */
 export const SETUP_CHECKLIST_KEYS = [
-  'mailbox',
+  'association',
   'properties',
   'residents',
-  'governing_docs',
-  'dues',
   'board',
+  'dues',
+  'payments',
+  'governing_docs',
+  'bank',
+  'mailbox',
 ] as const
 
 export type SetupChecklistKey = (typeof SETUP_CHECKLIST_KEYS)[number]
+
+/** Steps that don't block hiding the card. */
+export const OPTIONAL_SETUP_KEYS: ReadonlySet<SetupChecklistKey> = new Set<SetupChecklistKey>(['bank', 'mailbox'])
 
 export interface SetupStepLink {
   href: string
@@ -47,6 +64,8 @@ export interface SetupChecklistStep {
   secondary?: SetupStepLink
   /** Guide article the step's "How?" link opens (BL-070). guide:check verifies the id. */
   guide: string
+  /** Doesn't block hiding the card. */
+  optional: boolean
   state: SetupStepState
 }
 
@@ -55,9 +74,12 @@ export interface SetupChecklist {
   doneCount: number
   unknownCount: number
   total: number
+  /** Required steps only. */
+  requiredDone: number
+  requiredTotal: number
   /** 0–100, from done steps only. */
   percent: number
-  /** Every step is done. A step we couldn't check is not done. */
+  /** Every REQUIRED step is done. A step we couldn't check is not done. */
   complete: boolean
 }
 
@@ -66,12 +88,20 @@ export interface SetupChecklist {
  * by either of two tables); `null` means that source's read failed.
  */
 export interface SetupFacts {
-  mailbox: Array<number | null>
+  /** The org's associations. */
+  association: Array<number | null>
+  /** Open fiscal periods: "Open the books" has run. */
+  books: Array<number | null>
   properties: Array<number | null>
   residents: Array<number | null>
-  governingDocs: Array<number | null>
-  dues: Array<number | null>
+  /** org_members with a BOARD role (admin or board) — residents don't count. */
   board: Array<number | null>
+  dues: Array<number | null>
+  /** 1 when residents can see verified Zelle details, else 0. */
+  payments: Array<number | null>
+  governingDocs: Array<number | null>
+  bank: Array<number | null>
+  mailbox: Array<number | null>
 }
 
 /**
@@ -85,11 +115,17 @@ export function stepStateFrom(counts: Array<number | null>, min = 1): SetupStepS
   return 'todo'
 }
 
+/** A step that needs several things: done only when all are; todo as soon as one is known missing. */
+export function allOf(...states: SetupStepState[]): SetupStepState {
+  if (states.every((s) => s === 'done')) return 'done'
+  if (states.some((s) => s === 'todo')) return 'todo'
+  return 'unknown'
+}
+
 /**
- * The properties step, shared word for word with the sign-up setup page
- * (lib/inbox/queries.ts getSetupProgress). Both used to differ, and that
- * one linked to the platform-admin CSV import, which a board admin cannot
- * open (BL-072). A spreadsheet now goes to the board's own import (P4).
+ * The properties step. Was shared word for word with the old sign-up
+ * checklist (BL-072); now there is only one checklist. A spreadsheet goes
+ * to the board's own import (P4), never to support.
  */
 export const PROPERTIES_STEP_COPY = {
   title: 'Add your properties',
@@ -99,16 +135,17 @@ export const PROPERTIES_STEP_COPY = {
   secondary: { href: '/properties/import', label: 'Import a spreadsheet' },
 } as const
 
-const STEP_COPY: Record<SetupChecklistKey, Omit<SetupChecklistStep, 'key' | 'state'>> = {
-  mailbox: {
-    title: 'Connect the HOA mailbox',
-    description: 'Resident email flows in, filed under the right home.',
-    // /inbox explains the next action for every role: admins get the
-    // connect button, board members are told an admin has to do it.
-    // /settings/mailbox is admin-only and would bounce a board member.
-    href: '/inbox',
-    cta: 'Connect',
-    guide: 'start-board-admin',
+type StepCopy = Omit<SetupChecklistStep, 'key' | 'state' | 'optional'>
+
+const STEP_COPY: Record<SetupChecklistKey, StepCopy> = {
+  association: {
+    title: 'Set up your association and books',
+    description: 'The association your homes and dues belong to, with its funds, chart of accounts and fiscal year.',
+    // Shows "Set up your association" (no association yet) or "Open the
+    // books" (association, no books) — whichever is missing.
+    href: '/accounting/periods',
+    cta: 'Set up',
+    guide: 'dues-generate-monthly',
   },
   properties: { ...PROPERTIES_STEP_COPY, guide: 'setup-properties-residents' },
   residents: {
@@ -118,12 +155,12 @@ const STEP_COPY: Record<SetupChecklistKey, Omit<SetupChecklistStep, 'key' | 'sta
     cta: 'Add residents',
     guide: 'setup-properties-residents',
   },
-  governing_docs: {
-    title: 'Upload governing documents',
-    description: 'CC&Rs and bylaws, so answers cite your own rules.',
-    href: '/documents/governing',
-    cta: 'Upload',
-    guide: 'documents-governing-and-ask',
+  board: {
+    title: 'Invite the board',
+    description: 'Give at least one other board member their own login. Inviting a resident doesn’t count.',
+    href: '/settings/members',
+    cta: 'Invite',
+    guide: 'members-invite-board',
   },
   dues: {
     title: 'Set up dues',
@@ -132,30 +169,64 @@ const STEP_COPY: Record<SetupChecklistKey, Omit<SetupChecklistStep, 'key' | 'sta
     cta: 'Set up dues',
     guide: 'dues-generate-monthly',
   },
-  board: {
-    title: 'Invite the board',
-    description: 'Give the rest of the board their own login.',
-    href: '/settings/members',
-    cta: 'Invite',
-    guide: 'members-invite-board',
+  payments: {
+    title: 'Set up resident payments',
+    description: 'Add the HOA’s Zelle details so owners can pay. Until then they see “Online payments aren’t set up yet.”',
+    href: '/settings/payments',
+    cta: 'Set up payments',
+    guide: 'settings-resident-payments',
+  },
+  governing_docs: {
+    title: 'Upload governing documents',
+    description: 'CC&Rs and bylaws, so answers cite your own rules.',
+    href: '/documents/governing',
+    cta: 'Upload',
+    guide: 'documents-governing-and-ask',
+  },
+  bank: {
+    title: 'Connect the bank',
+    description: 'Link the HOA’s bank so deposits match dues. Optional: you can reconcile by hand instead.',
+    href: '/accounting/bank',
+    cta: 'Connect',
+    guide: 'accounting-bank-reconcile',
+  },
+  mailbox: {
+    title: 'Connect the HOA mailbox',
+    description: 'Resident email flows in, filed under the right home. Optional; Google mailboxes only for now.',
+    // /inbox explains the next action for every role: admins get the
+    // connect button, board members are told an admin has to do it.
+    // /settings/mailbox is admin-only and would bounce a board member.
+    href: '/inbox',
+    cta: 'Connect',
+    guide: 'inbox-connect-mailbox',
   },
 }
 
 export function buildSetupChecklist(facts: SetupFacts): SetupChecklist {
   const states: Record<SetupChecklistKey, SetupStepState> = {
-    mailbox: stepStateFrom(facts.mailbox),
+    association: allOf(stepStateFrom(facts.association), stepStateFrom(facts.books)),
     properties: stepStateFrom(facts.properties),
     residents: stepStateFrom(facts.residents),
-    governing_docs: stepStateFrom(facts.governingDocs),
-    dues: stepStateFrom(facts.dues),
-    // The person who created the org is already a member; "invited the
-    // board" means at least one more.
+    // The person who created the org is already an admin; "invited the
+    // board" means at least one more board member or admin.
     board: stepStateFrom(facts.board, 2),
+    dues: stepStateFrom(facts.dues),
+    payments: stepStateFrom(facts.payments),
+    governing_docs: stepStateFrom(facts.governingDocs),
+    bank: stepStateFrom(facts.bank),
+    mailbox: stepStateFrom(facts.mailbox),
   }
 
-  const steps = SETUP_CHECKLIST_KEYS.map((key) => ({ key, ...STEP_COPY[key], state: states[key] }))
+  const steps: SetupChecklistStep[] = SETUP_CHECKLIST_KEYS.map((key) => ({
+    key,
+    ...STEP_COPY[key],
+    optional: OPTIONAL_SETUP_KEYS.has(key),
+    state: states[key],
+  }))
   const doneCount = steps.filter((s) => s.state === 'done').length
   const unknownCount = steps.filter((s) => s.state === 'unknown').length
+  const required = steps.filter((s) => !s.optional)
+  const requiredDone = required.filter((s) => s.state === 'done').length
   const total = steps.length
 
   return {
@@ -163,12 +234,14 @@ export function buildSetupChecklist(facts: SetupFacts): SetupChecklist {
     doneCount,
     unknownCount,
     total,
+    requiredDone,
+    requiredTotal: required.length,
     percent: Math.round((doneCount / total) * 100),
-    complete: doneCount === total,
+    complete: requiredDone === required.length,
   }
 }
 
-/** Only a fully complete checklist can be dismissed. */
+/** Only a checklist whose required steps are all done can be dismissed. */
 export function isChecklistDismissible(checklist: SetupChecklist): boolean {
   return checklist.complete
 }
@@ -185,23 +258,50 @@ interface CountResponse {
   error: { code?: string; message: string } | null
 }
 
-/**
- * Runs one head-count; returns null on a soft PostgREST error OR a thrown
- * one. Logs ids and codes only.
- */
+function logFailed(label: string, orgId: string, code: string | undefined): void {
+  // Ids and codes only.
+  console.error(`loadSetupChecklist: ${label} failed`, { orgId, code: code ?? 'unknown' })
+}
+
+/** Runs one head-count; returns null on a soft PostgREST error OR a thrown one. */
 async function countOrNull(label: string, orgId: string, query: PromiseLike<CountResponse>): Promise<number | null> {
   try {
     const { count, error } = await query
     if (error) {
-      console.error(`loadSetupChecklist: ${label} count failed`, { orgId, code: error.code, message: error.message })
+      logFailed(`${label} count`, orgId, error.code)
       return null
     }
     return count ?? 0
   } catch (err) {
-    console.error(`loadSetupChecklist: ${label} count threw`, {
-      orgId,
-      message: err instanceof Error ? err.message : String(err),
-    })
+    logFailed(`${label} count`, orgId, err instanceof Error ? err.name : undefined)
+    return null
+  }
+}
+
+/**
+ * 1 when the org's primary association (first by name — the one
+ * /settings/payments edits) has Zelle details residents can see (signed
+ * by the board's save), 0 when not or when there is no association, null
+ * when the read failed.
+ */
+async function paymentsConfigured(db: Db, orgId: string): Promise<number | null> {
+  try {
+    const { data, error } = await db
+      .from('associations')
+      .select('id, compliance_settings')
+      .eq('organization_id', orgId)
+      .order('name', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    if (error) {
+      logFailed('payments read', orgId, error.code)
+      return null
+    }
+    const row = data as { id: string; compliance_settings: unknown } | null
+    if (!row) return 0
+    return readZelleSettings(row.id, row.compliance_settings, paySettingsSecret()).state === 'configured' ? 1 : 0
+  } catch (err) {
+    logFailed('payments read', orgId, err instanceof Error ? err.name : undefined)
     return null
   }
 }
@@ -209,11 +309,25 @@ async function countOrNull(label: string, orgId: string, query: PromiseLike<Coun
 export async function loadSetupChecklist(db: Db, orgId: string): Promise<SetupChecklist> {
   const head = { count: 'exact', head: true } as const
 
-  const [mailbox, hoaProperties, units, residents, ownerships, governingDocs, dues, members] = await Promise.all([
+  const [
+    associations,
+    openPeriods,
+    hoaProperties,
+    units,
+    residents,
+    ownerships,
+    boardMembers,
+    dues,
+    payments,
+    governingDocs,
+    bank,
+    mailbox,
+  ] = await Promise.all([
+    countOrNull('associations', orgId, db.from('associations').select('id', head).eq('organization_id', orgId)),
     countOrNull(
-      'mailbox_accounts',
+      'fiscal_periods',
       orgId,
-      db.from('mailbox_accounts').select('id', head).eq('organization_id', orgId).is('disconnected_at', null),
+      db.from('fiscal_periods').select('id', head).eq('organization_id', orgId).eq('status', 'open'),
     ),
     // Two property models coexist (docs/SCHEMA_MAP.md): /properties writes
     // hoa_properties, the CSV import writes units. Either counts.
@@ -238,25 +352,45 @@ export async function loadSetupChecklist(db: Db, orgId: string): Promise<SetupCh
       orgId,
       db.from('ownerships').select('id', head).eq('organization_id', orgId).is('valid_to', null),
     ),
+    // Board roles only: inviting a resident is not "inviting the board".
     countOrNull(
-      'governing_documents',
+      'org_members',
       orgId,
-      db.from('governing_documents').select('id', head).eq('organization_id', orgId).is('superseded_at', null),
+      db.from('org_members').select('user_id', head).eq('org_id', orgId).in('role', ['admin', 'board']),
     ),
     countOrNull(
       'assessments',
       orgId,
       db.from('assessments').select('id', head).eq('organization_id', orgId).is('deleted_at', null),
     ),
-    countOrNull('org_members', orgId, db.from('org_members').select('user_id', head).eq('org_id', orgId)),
+    paymentsConfigured(db, orgId),
+    countOrNull(
+      'governing_documents',
+      orgId,
+      db.from('governing_documents').select('id', head).eq('organization_id', orgId).is('superseded_at', null),
+    ),
+    countOrNull(
+      'bank_accounts',
+      orgId,
+      db.from('bank_accounts').select('id', head).eq('organization_id', orgId).eq('is_active', true),
+    ),
+    countOrNull(
+      'mailbox_accounts',
+      orgId,
+      db.from('mailbox_accounts').select('id', head).eq('organization_id', orgId).is('disconnected_at', null),
+    ),
   ])
 
   return buildSetupChecklist({
-    mailbox: [mailbox],
+    association: [associations],
+    books: [openPeriods],
     properties: [hoaProperties, units],
     residents: [residents, ownerships],
-    governingDocs: [governingDocs],
+    board: [boardMembers],
     dues: [dues],
-    board: [members],
+    payments: [payments],
+    governingDocs: [governingDocs],
+    bank: [bank],
+    mailbox: [mailbox],
   })
 }

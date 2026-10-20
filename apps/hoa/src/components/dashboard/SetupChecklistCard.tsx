@@ -7,15 +7,17 @@ import { HowLink } from '@/components/guide/HowLink'
 import { DismissSetupButton } from './DismissSetupButton'
 
 /**
- * First-run checklist (BL-008). Six steps, each derived from data, each a
- * deep link. A step whose read failed says "Couldn't check" — it is never
- * shown as done. Only a complete checklist offers Dismiss.
+ * First-run checklist (BL-008, BL-127): the one shared setup model, each
+ * step derived from data, each a deep link. A step whose read failed says
+ * "Couldn't check" — it is never shown as done. Optional steps are marked
+ * and don't block Dismiss, which appears once every required step is done.
  *
  * Its own `.cq` container, so the step grid follows the card's real width
  * (a docked Copilot narrows it) rather than the viewport.
  */
 export function SetupChecklistCard({ checklist }: { checklist: SetupChecklist }) {
   const { steps, doneCount, total, percent, complete, unknownCount } = checklist
+  const optionalLeft = steps.filter((s) => s.optional && s.state !== 'done').length
 
   return (
     <section aria-labelledby="setup-heading" className="cq">
@@ -36,7 +38,9 @@ export function SetupChecklistCard({ checklist }: { checklist: SetupChecklist })
           </CardTitle>
           <CardDescription>
             {complete
-              ? 'Every step is done. You can hide this card.'
+              ? optionalLeft > 0
+                ? `Every required step is done. You can hide this card, or finish the optional ${optionalLeft === 1 ? 'step' : 'steps'} first.`
+                : 'Every step is done. You can hide this card.'
               : unknownCount > 0
                 ? `We couldn’t check ${unknownCount === 1 ? 'one step' : `${unknownCount} steps`} just now — open ${unknownCount === 1 ? 'it' : 'them'} to see where things stand.`
                 : 'A few steps and the board has everything in one place.'}
@@ -121,6 +125,7 @@ function StepLink({ step, index, roomBelow = false }: { step: SetupChecklistStep
       <span className="min-w-0 flex-1">
         <span className={cn('block text-sm font-medium', done ? 'text-muted' : 'text-foreground')}>
           {step.title}
+          {step.optional ? <span className="ml-1.5 text-xs font-normal text-muted">(optional)</span> : null}
           <span className="sr-only">{done ? ' — done' : unknown ? ' — couldn’t check' : ' — not done yet'}</span>
         </span>
         {done ? (

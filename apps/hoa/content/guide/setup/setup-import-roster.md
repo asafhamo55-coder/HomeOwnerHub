@@ -8,7 +8,7 @@ routes: ["/properties/import"]
 primary_route: /properties/import
 keywords: [import, spreadsheet, csv, xlsx, excel, roster, cinc, upload, bulk, homeowner list, template, duplicate, migrate]
 related: [setup-properties-residents, start-board-admin]
-reviewed: 2026-10-17
+reviewed: 2026-10-20
 ---
 
 Have every home in a spreadsheet already? Import it in one go instead of adding homes one at a time. Nothing is saved until you have checked every row.
@@ -28,7 +28,7 @@ Have every home in a spreadsheet already? Import it in one go instead of adding 
 7. If some rows have errors, select [[Download error rows (CSV)]], fix what each row says, and import that file.
 
 ## What happens next
-Each new home is ready to bill straight away, the same as one added by hand. Its owners are recorded as its current owners and appear on its Residents tab. Homes appear on the Properties list as the import goes.
+Each new home can be billed the same as one added by hand: as soon as your HOA has an association. Homes imported before then are attached to it automatically when an admin sets it up. Its owners are recorded as its current owners and appear on its Residents tab. Homes appear on the Properties list as the import goes.
 
 ## If something goes wrong
 - "Several homes share this address. Add the unit number to tell them apart.": the file has no unit number for a building with several homes. Add one and import the row again.
