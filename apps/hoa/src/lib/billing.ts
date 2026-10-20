@@ -14,7 +14,7 @@ import {
   PRICING_V2,
   planV2Checkout,
 } from '@homeowner-portal/billing'
-import { getCurrentOrg } from '@/lib/orgs'
+import { getCurrentUserRole } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { appOrigin } from '@/lib/app-origin'
 
@@ -104,14 +104,29 @@ async function resolveV2PriceId(lookupKey: string, priceEnv: string): Promise<st
   }
 }
 
+const BILLING_ADMIN_ONLY = 'Only an HOA admin can change billing.'
+
+/**
+ * Billing is admin-only (the settings page shows these controls to admins
+ * only), but a server action is a public POST endpoint: a resident or board
+ * member could otherwise open the HOA's Stripe portal (cancel, swap card,
+ * read invoices) or start a checkout. Org comes from the session role read,
+ * never the client.
+ */
+async function billingAdminOrg(): Promise<{ id: string } | null> {
+  const ctx = await getCurrentUserRole()
+  if (!ctx || ctx.role !== 'admin') return null
+  return { id: ctx.org.id }
+}
+
 const V2FormSchema = z.object({ plan: z.enum(HOA_PLAN_IDS), cadence: CadenceSchema })
 
 async function startV2Checkout(formData: FormData): Promise<BillingActionResult> {
   const parsed = V2FormSchema.safeParse({ plan: formData.get('plan'), cadence: formData.get('cadence') })
   if (!parsed.success) return { error: 'Pick a plan and a billing cadence first.' }
 
-  const org = await getCurrentOrg()
-  if (!org) return { error: 'No HOA selected.' }
+  const org = await billingAdminOrg()
+  if (!org) return { error: BILLING_ADMIN_ONLY }
 
   const supabase = await getSupabaseServerClient()
   const {
@@ -176,6 +191,8 @@ export async function startHoaCheckout(
   _prev: BillingActionResult,
   formData: FormData,
 ): Promise<BillingActionResult> {
+  // Gate first: nothing (not even the config check) for a non-admin.
+  if (!(await billingAdminOrg())) return { error: BILLING_ADMIN_ONLY }
   if (!isStripeConfigured()) {
     return { error: 'Stripe is not configured. Set STRIPE_SECRET_KEY in .env.local.' }
   }
@@ -193,8 +210,8 @@ export async function startHoaCheckout(
     return { error: checkoutErrorMessage(null) }
   }
 
-  const org = await getCurrentOrg()
-  if (!org) return { error: 'No HOA selected.' }
+  const org = await billingAdminOrg()
+  if (!org) return { error: BILLING_ADMIN_ONLY }
 
   const supabase = await getSupabaseServerClient()
   const {
@@ -211,8 +228,9 @@ export async function startHoaCheckout(
 
   // Doors → checkout quantity. billableDoors enforces the $200/mo
   // minimum at the unit level so an HOA with 10 doors still pays
-  // for ~41 (the implied minimum quantity).
-  const doors = Number(orgRow?.doors_count ?? formData.get('doors') ?? 0)
+  // for ~41 (the implied minimum quantity). Never a form field: the
+  // quantity is the price, so the count must be ours.
+  const doors = Number(orgRow?.doors_count ?? 0)
   const quantity = billableDoors(doors)
 
   const appUrl = appOrigin()
@@ -246,7 +264,7 @@ export async function startHoaCheckout(
 }
 
 export async function openHoaPortal(): Promise<void> {
-  const org = await getCurrentOrg()
+  const org = await billingAdminOrg()
   if (!org) return
 
   const supabase = await getSupabaseServerClient()

@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { checkOrgOwned } from '@/lib/org-owned'
 import { sendEventAlertEmail } from '@/lib/events-alerts'
 import { todayIn } from '@/lib/association-time'
 import { currentScopeZones } from '@/lib/association-time-current'
@@ -237,6 +238,40 @@ export interface UpdateEventInput {
 
 // ─── Mutations ───────────────────────────────────────────────────────
 
+/**
+ * Org-own the client-supplied ids an event stores (security review
+ * 2026-10-20). The alert send later resolves the audience with the
+ * service role, so an association or resident id from another org would
+ * message that org's residents and copy their contacts into ours. Returns
+ * an error string, or null when every id is this org's.
+ */
+async function checkEventIds(
+  data: { association_id?: string | null; notify_audience?: { residentIds?: string[] } },
+  orgId: string,
+): Promise<string | null> {
+  if (data.association_id) {
+    const owned = await checkOrgOwned('associations', data.association_id, orgId)
+    if (owned === 'error') return 'Could not save the event. Try again.'
+    if (owned === 'not_found') return 'That community was not found.'
+  }
+  const residentIds = Array.from(new Set(data.notify_audience?.residentIds ?? []))
+  if (residentIds.length > 500) return 'Pick 500 residents or fewer.'
+  if (residentIds.length > 0) {
+    const supabase = await getSupabaseServerClient()
+    const { data: rows, error } = await supabase
+      .from('property_residents' as never)
+      .select('id')
+      .in('id', residentIds)
+      .eq('organization_id', orgId)
+    if (error) {
+      console.error('[events] resident scope check failed', { orgId, code: error.code })
+      return 'Could not save the event. Try again.'
+    }
+    if ((rows ?? []).length !== residentIds.length) return 'One of the chosen residents was not found.'
+  }
+  return null
+}
+
 export async function createEvent(
   input: CreateEventInput,
 ): Promise<ActionResult<{ id: string }>> {
@@ -255,6 +290,9 @@ export async function createEvent(
   if (role !== 'admin' && role !== 'board') {
     return { ok: false, error: "You don't have permission to perform this action." }
   }
+
+  const scoped = await checkEventIds(parsed.data, org.id)
+  if (scoped) return { ok: false, error: scoped }
 
   const supabase = await getSupabaseServerClient()
   const {
@@ -309,6 +347,9 @@ export async function updateEvent(
   if (role !== 'admin' && role !== 'board') {
     return { ok: false, error: "You don't have permission to perform this action." }
   }
+
+  const scoped = await checkEventIds(parsed.data, org.id)
+  if (scoped) return { ok: false, error: scoped }
 
   const supabase = await getSupabaseServerClient()
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }

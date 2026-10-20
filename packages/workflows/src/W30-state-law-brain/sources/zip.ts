@@ -133,8 +133,15 @@ const LOCAL_SLACK = 1024
 
 /** The byte range that holds an entry's local header and data. */
 export function entryRange(e: ZipEntry): { start: number; end: number } {
+  if (e.compressedSize > MAX_ENTRY_BYTES) throw new SourceUnavailableError(`zip: ${e.name} is too large`)
   return { start: e.localHeaderOffset, end: e.localHeaderOffset + 30 + e.name.length * 4 + e.compressedSize + LOCAL_SLACK }
 }
+
+/** Largest single entry we will inflate (the real CA entries are far smaller). */
+export const MAX_ENTRY_BYTES = 512 * 1024 * 1024
+
+/** Largest central directory we will request (CA's is tens of MB). */
+export const MAX_CENTRAL_DIRECTORY_BYTES = 256 * 1024 * 1024
 
 /** Decompresses one entry from bytes that start at its local header. */
 export function extractEntry(bytes: Uint8Array, e: ZipEntry): Uint8Array {
@@ -145,9 +152,18 @@ export function extractEntry(bytes: Uint8Array, e: ZipEntry): Uint8Array {
   const dataStart = 30 + dv.getUint16(26, true) + dv.getUint16(28, true)
   const data = bytes.subarray(dataStart, dataStart + e.compressedSize)
   if (data.length !== e.compressedSize) throw new SourceUnavailableError(`zip: ${e.name} is truncated`)
+  if (e.uncompressedSize > MAX_ENTRY_BYTES) throw new SourceUnavailableError(`zip: ${e.name} is too large`)
   let out: Uint8Array
   if (e.method === 0) out = data
-  else if (e.method === 8) out = inflateRawSync(data)
+  // Inflate no further than the declared size: a zip bomb that lies about
+  // its size stops at the limit (zlib throws) instead of allocating first.
+  else if (e.method === 8) {
+    try {
+      out = inflateRawSync(data, { maxOutputLength: Math.max(1, e.uncompressedSize) })
+    } catch {
+      throw new SourceUnavailableError(`zip: ${e.name} did not inflate to its declared size`)
+    }
+  }
   else throw new SourceUnavailableError(`zip: ${e.name} uses unsupported method ${e.method}`)
   if (out.length !== e.uncompressedSize) throw new SourceUnavailableError(`zip: ${e.name} inflated to the wrong size`)
   return out

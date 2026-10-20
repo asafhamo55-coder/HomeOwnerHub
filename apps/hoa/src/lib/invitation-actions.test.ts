@@ -30,6 +30,11 @@ function chain(table: string) {
 vi.mock('@homeowner-portal/db', () => ({ createAdminClient: () => ({ from: chain }) }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/orgs', () => ({ getCurrentOrg: vi.fn(async () => ({ id: 'org-1', name: 'Maple HOA' })) }))
+// The actions are board-only (security review 2026-10-20); the board/org
+// refusals themselves are pinned in board-write-gates / action-org-ownership.
+vi.mock('@/lib/auth', () => ({
+  getCurrentUserRole: vi.fn(async () => ({ role: 'board', org: { id: 'org-1', name: 'Maple HOA' } })),
+}))
 vi.mock('@/lib/supabase/server', () => ({
   getSupabaseServerClient: vi.fn(async () => ({
     from: chain,
@@ -54,6 +59,7 @@ const LEAK = 'duplicate key value violates unique constraint "x" Key (email)=(ja
 const PROVIDER_LEAK = 'Resend: domain not verified for jane@example.com'
 const RFP = '11111111-1111-4111-8111-111111111111'
 const VENDOR = '22222222-2222-4222-8222-222222222222'
+const INV = '99999999-9999-4999-8999-999999999999'
 
 let errorSpy: ReturnType<typeof vi.spyOn>
 let warnSpy: ReturnType<typeof vi.spyOn>
@@ -67,6 +73,7 @@ beforeEach(() => {
     },
     'vendors.select': { data: [{ id: VENDOR, legal_name: 'Acme', primary_email: 'vendor@example.com' }], error: null },
     'rfp_invitations.select': { data: [], error: null },
+    'vendor_onboarding_invitations.select': { data: { id: INV }, error: null },
   }
   sendEmail.mockReset()
   sendEmail.mockResolvedValue({ ok: true, messageId: 'm-1' })
@@ -200,25 +207,25 @@ describe('inviteVendorsToRfp', () => {
 describe('revokeRfpInvitation', () => {
   it('a DB failure returns a generic message and logs code + id only', async () => {
     results['rfp_invitations.update'] = { data: null, error: { code: '42501', message: LEAK } }
-    const r = await revokeRfpInvitation('inv-9')
+    const r = await revokeRfpInvitation(INV)
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.error).not.toContain('jane@example.com')
     expect(r.error).not.toContain('duplicate key')
     expect(logged()).toContain('42501')
-    expect(logged()).toContain('inv-9')
+    expect(logged()).toContain(INV)
     expect(logged()).not.toContain('jane@example.com')
   })
 
   it('an unknown invitation (no row) says so', async () => {
     results['rfp_invitations.update'] = { data: null, error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' } }
-    const r = await revokeRfpInvitation('inv-9')
+    const r = await revokeRfpInvitation(INV)
     expect(r).toEqual({ ok: false, error: 'That invitation no longer exists.' })
   })
 
   it('revokes on the happy path', async () => {
     results['rfp_invitations.update'] = { data: { rfp_id: RFP }, error: null }
-    expect(await revokeRfpInvitation('inv-9')).toEqual({ ok: true })
+    expect(await revokeRfpInvitation(INV)).toEqual({ ok: true })
   })
 })
 
@@ -259,11 +266,11 @@ describe('createInvitation / revokeInvitation (vendor onboarding)', () => {
 
   it('a revoke failure returns a generic message', async () => {
     results['vendor_onboarding_invitations.update'] = { data: null, error: { code: '42501', message: LEAK } }
-    const r = await revokeInvitation('inv-3')
+    const r = await revokeInvitation(INV)
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.error).not.toContain('duplicate key')
-    expect(logged()).toContain('inv-3')
+    expect(logged()).toContain(INV)
     expect(logged()).not.toContain('jane@example.com')
   })
 })

@@ -115,10 +115,10 @@ vi.mock('@homeowner-portal/ai', () => ({
   toPgVector: (v: number[]) => `[${v.join(',')}]`,
 }))
 
-vi.mock('pdf-parse', () => ({
-  default: vi.fn(async () => {
+vi.mock('@/lib/pdf/extract-text', () => ({
+  extractPdfText: vi.fn(async () => {
     if (pdfThrows) throw new Error('bad xref')
-    return { text: 'Article 1. '.repeat(40), version: '1.1.1' }
+    return { text: 'Article 1. '.repeat(40), numPages: 1, truncated: false, parserVersion: 'pdfjs-dist-test' }
   }),
 }))
 

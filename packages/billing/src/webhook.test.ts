@@ -33,6 +33,7 @@ function fakeDb(
         select() {
           const q = {
             eq: () => q,
+            is: () => q,
             order: () => q,
             limit: () => q,
             then(ok: (r: { data: never[]; error: null }) => unknown) {

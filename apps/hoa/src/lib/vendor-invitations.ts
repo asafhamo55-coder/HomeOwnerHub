@@ -9,6 +9,8 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sendEmail, appUrl } from '@/lib/email'
 import { ApiRouteError } from '@/lib/api/errors'
 import { logRouteFailure } from '@/lib/api/log'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
+import { checkOrgOwned } from '@/lib/org-owned'
 
 export type InvitationStatus = 'pending' | 'submitted' | 'expired' | 'revoked'
 
@@ -89,6 +91,10 @@ export async function createInvitation(
     emailSent: boolean
   }>
 > {
+  // Board-only: this emails an onboarding link in the org's name.
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+
   const parsed = CreateSchema.safeParse({
     invitee_email: input.inviteeEmail,
     invitee_name: input.inviteeName ?? null,
@@ -170,11 +176,18 @@ export async function createInvitation(
 }
 
 export async function revokeInvitation(id: string): Promise<ActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  const owned = await checkOrgOwned('vendor_onboarding_invitations', id, gate.orgId)
+  if (owned === 'not_found') return { ok: false, error: 'That invitation no longer exists.' }
+  if (owned === 'error') return { ok: false, error: 'We couldn’t revoke this invitation. Try again.' }
+
   const supabase = await getSupabaseServerClient()
   const { error } = await supabase
     .from('vendor_onboarding_invitations' as never)
     .update({ status: 'revoked' } as never)
     .eq('id', id)
+    .eq('organization_id', gate.orgId)
     .eq('status', 'pending')
   if (error) {
     logRouteFailure('vendor-invitations.revoke', error, { invitationId: id })

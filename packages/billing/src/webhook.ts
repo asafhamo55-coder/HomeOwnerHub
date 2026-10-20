@@ -125,6 +125,7 @@ interface Filterable extends PromiseLike<{ error: DbError }> {
 /** A PostgREST select. `col` may be a JSON path such as `metadata->>sub_id`. */
 export interface Selectable extends PromiseLike<{ data: Array<Record<string, unknown>> | null; error: DbError }> {
   eq(col: string, value: string): Selectable
+  is(col: string, value: null): Selectable
   order(col: string, opts: { ascending: boolean }): Selectable
   limit(n: number): Selectable
 }
@@ -376,6 +377,10 @@ async function appliedUpdates(db: WebhookDb, orgId: string, subId: string): Prom
     .eq('org_id', orgId)
     .eq('action', AUDIT_SUBSCRIPTION_UPDATED)
     .eq('metadata->>sub_id', subId)
+    // Only rows this webhook wrote (service role, user_id null). RLS lets a
+    // board member insert audit rows as themselves; a forged far-future
+    // event_created would otherwise make every real update "stale".
+    .is('user_id', null)
     .order('metadata->>event_created', { ascending: false })
     .limit(ORDER_WINDOW)
   if (error) return { clocks: [], error }
@@ -525,6 +530,7 @@ async function recordInvoiceFailed(event: Stripe.Event, db: WebhookDb, eventCrea
     .eq('org_id', found.org.id)
     .eq('action', AUDIT_INVOICE_PAYMENT_FAILED)
     .eq('metadata->>event_id', event.id)
+    .is('user_id', null) // see appliedUpdates: never trust a user-written row
     .limit(1)
   if (error) return readFailed(error)
   if (data?.length) return { ok: true, outcome: 'duplicate' }

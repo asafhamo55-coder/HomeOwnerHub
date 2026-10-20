@@ -217,7 +217,22 @@ async function resolveAssociationId(
   event: RecurringEvent,
   organizationId: string,
 ): Promise<string | null> {
-  if (event.association_id) return event.association_id
+  if (event.association_id) {
+    // Service role: re-prove the stored association is this org's before
+    // resolving residents against it (an event row could carry another
+    // org's association id — security review 2026-10-20).
+    const { data: owned } = await admin
+      .from('associations')
+      .select('id')
+      .eq('id', event.association_id)
+      .eq('organization_id', organizationId)
+      .maybeSingle()
+    if (!owned) {
+      console.error('[events-alerts] event association not in org', { eventId: event.id, organizationId })
+      return null
+    }
+    return event.association_id
+  }
   const { data } = await admin
     .from('associations')
     .select('id')

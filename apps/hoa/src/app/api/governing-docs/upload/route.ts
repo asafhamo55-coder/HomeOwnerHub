@@ -14,6 +14,7 @@ import { zDateOnly, zText, zUuid } from '@/lib/api/schemas'
 import { MAX_DOCUMENT_TEXT, MAX_UPLOAD_BYTES } from '@/lib/api/limits'
 import { checkWrite } from '@/lib/api/db'
 import { logRouteFailure } from '@/lib/api/log'
+import { extractPdfText } from '@/lib/pdf/extract-text'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 // POST /api/governing-docs/upload — board-only (RC-4).
@@ -122,12 +123,11 @@ export const POST = withRoute('governing-docs.upload', async (request) => {
     if (kind === 'pdf') {
       contentType = 'application/pdf'
       try {
-        // Dynamic import — pdf-parse pulls a heavy native chain we don't
-        // want loaded on cold start of unrelated routes.
-        const pdfParse = (await import('pdf-parse')).default
-        const parsed = await pdfParse(buffer)
+        // Shared hardened extractor (SEC-L7). Governing documents run long
+        // (CC&Rs, bylaws), so a wider timeout than the 10 s default.
+        const parsed = await extractPdfText(buffer, { maxBytes: MAX_UPLOAD_BYTES, timeoutMs: 20_000 })
         extractedText = parsed.text
-        parserVersion = `pdf-parse-${parsed.version ?? 'unknown'}`
+        parserVersion = parsed.parserVersion
       } catch (err) {
         logRouteFailure('governing-docs.upload.pdf-parse', err, { orgId, bytes: file.size })
         throw new ApiRouteError(

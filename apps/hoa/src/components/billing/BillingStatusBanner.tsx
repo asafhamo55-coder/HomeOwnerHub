@@ -35,6 +35,7 @@ export async function BillingStatusBanner({ orgId, role, className }: { orgId: s
     .eq('org_id', orgId)
     .in('action', [...BILLING_AUDIT_ACTIONS])
     .eq('metadata->>sub_id', subId)
+    .is('user_id', null) // webhook-written rows only, never a member's insert
     .order('created_at', { ascending: false })
     .limit(50)
   if (error || !rows) return null

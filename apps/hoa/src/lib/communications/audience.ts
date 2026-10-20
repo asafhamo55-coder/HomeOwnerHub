@@ -132,7 +132,7 @@ export async function resolveAudience(
   // than the ownerships/tenancies tables. Short-circuit here so the
   // rest of the function can stay focused on unit-level audiences.
   if (def.kind === 'specific_residents') {
-    return resolveSpecificResidents(db, def.residentIds ?? [])
+    return resolveSpecificResidents(db, associationId, def.residentIds ?? [])
   }
 
   // Board members — org-level audience (org_members), not unit-level.
@@ -469,16 +469,32 @@ function normalizeUsPhone(raw: string): string | null {
  */
 async function resolveSpecificResidents(
   db: Db,
+  associationId: string,
   residentIds: string[],
 ): Promise<ResolvedAudience> {
   if (residentIds.length === 0) {
     return { recipients: [], summary: summaryFor({ kind: 'specific_residents', residentIds: [] }, 0) }
   }
 
+  // Org-scope the client-supplied resident ids (security review
+  // 2026-10-20): the event-alert path resolves with the service role, so
+  // RLS does not drop another org's residents. The org comes from the
+  // association the caller already scoped, never from the ids.
+  const { data: assoc } = await db
+    .from('associations')
+    .select('organization_id')
+    .eq('id', associationId)
+    .maybeSingle()
+  const orgId = (assoc as { organization_id: string } | null)?.organization_id
+  if (!orgId) {
+    return { recipients: [], summary: summaryFor({ kind: 'specific_residents', residentIds }, 0) }
+  }
+
   const { data: residents } = await db
     .from('property_residents' as never)
     .select('id, property_id, full_name, email, phone, role')
     .in('id', residentIds)
+    .eq('organization_id', orgId)
     .is('moved_out_at', null)
 
   type ResidentRow = {

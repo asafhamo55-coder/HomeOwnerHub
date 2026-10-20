@@ -85,7 +85,7 @@ vi.mock('@homeowner-portal/db', () => ({ createAdminClient }))
 const pdfParse = vi.fn(async (_buf: unknown) => {
   throw new Error('pdf secret text should not be logged')
 })
-vi.mock('pdf-parse', () => ({ default: pdfParse }))
+vi.mock('@/lib/pdf/extract-text', () => ({ extractPdfText: pdfParse }))
 
 vi.mock('@sentry/nextjs', () => ({ captureException: vi.fn() }))
 

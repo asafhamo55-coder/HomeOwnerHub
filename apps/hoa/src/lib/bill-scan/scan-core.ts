@@ -26,6 +26,7 @@ import { createAdminClient } from '@homeowner-portal/db'
 import { MAX_BILL_TEXT_CHARS, proposeApproval, scanBill, W36_AP_BILL } from '@homeowner-portal/workflows'
 import { ApiRouteError } from '@/lib/api/errors'
 import { errorCode, logRouteFailure } from '@/lib/api/log'
+import { extractPdfText } from '@/lib/pdf/extract-text'
 import { checkAndRecordAiUsage, linkAiUsageToRun } from '@/lib/api/rate-limit'
 import { readAllResult } from '@/lib/supabase/read-all'
 import type { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -74,10 +75,10 @@ export type ScanBillFileResult =
 
 async function pdfText(bytes: Uint8Array, orgId: string, logArea: string): Promise<string> {
   try {
-    // Dynamic import, as every pdf-parse call site here does (heavy chain).
-    const pdfParse = (await import('pdf-parse')).default as (b: Buffer) => Promise<{ text?: string }>
-    const parsed = await pdfParse(Buffer.from(bytes))
-    return (parsed.text ?? '').trim()
+    // Shared hardened extractor (SEC-L7). A bill is a page or two; the
+    // page cap keeps a hostile 10,000-page "bill" from eating the budget.
+    const parsed = await extractPdfText(bytes, { maxPages: 20 })
+    return parsed.text.trim()
   } catch (err) {
     logRouteFailure(`${logArea}.pdf-parse`, err, { orgId, bytes: bytes.byteLength })
     return ''

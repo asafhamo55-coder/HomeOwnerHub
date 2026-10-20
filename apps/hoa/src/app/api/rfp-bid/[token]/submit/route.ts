@@ -9,6 +9,7 @@ import { zDateOnly, zText } from '@/lib/api/schemas'
 import { MAX_ARRAY_ITEMS, MAX_JSON_BYTES, MAX_LONG_TEXT, MAX_SHORT_TEXT, MAX_UPLOAD_BYTES } from '@/lib/api/limits'
 import { checkWrite } from '@/lib/api/db'
 import { logRouteFailure } from '@/lib/api/log'
+import { extractPdfText } from '@/lib/pdf/extract-text'
 
 // POST /api/rfp-bid/[token]/submit
 //
@@ -198,10 +199,9 @@ export const POST = withRoute(
       // Phase 2.1 path anyway. Only attempts on PDFs; skips images.
       if (file.type === 'application/pdf') {
         try {
-          const buffer = Buffer.from(await file.arrayBuffer())
-          const pdfParse = (await import('pdf-parse')).default
-          const result = await pdfParse(buffer)
-          parsedPdfText = (result.text ?? '').trim().slice(0, 50_000) || null
+          // Shared hardened extractor (SEC-L7): an anonymous vendor's PDF.
+          const result = await extractPdfText(new Uint8Array(await file.arrayBuffer()), { maxPages: 100, maxChars: 50_000 })
+          parsedPdfText = result.text.trim().slice(0, 50_000) || null
         } catch (err) {
           logRouteFailure('rfp-bid.submit.pdf_parse', err, logCtx)
         }

@@ -53,10 +53,15 @@ function stateDb(opts: { rpc?: (fn: string, args: Row) => { data: unknown; error
         select() {
           const filters: Array<[string, string]> = []
           let order: { col: string; asc: boolean } | null = null
+          const isNull: Array<[string, null]> = []
           let limit = Infinity
           const q = {
             eq(c: string, v: string) {
               filters.push([c, v])
+              return q
+            },
+            is(c: string, v: null) {
+              isNull.push([c, v])
               return q
             },
             order(col: string, o: { ascending: boolean }) {
@@ -70,7 +75,9 @@ function stateDb(opts: { rpc?: (fn: string, args: Row) => { data: unknown; error
             then(ok: (r: { data: Row[] | null; error: { code: string } | null }) => unknown) {
               const error = takeFail('select', table)
               if (error) return Promise.resolve({ data: null, error }).then(ok)
-              let rows = tables[table]!.filter((r) => filters.every(([c, v]) => field(r, c) === v))
+              let rows = tables[table]!.filter(
+                (r) => filters.every(([c, v]) => field(r, c) === v) && isNull.every(([c]) => (field(r, c) ?? null) === null),
+              )
               if (order) {
                 const { col, asc } = order
                 rows = [...rows].sort((a, b) => {
@@ -204,6 +211,20 @@ describe('customer.subscription.updated, M1 off (today)', () => {
     expect(late).toEqual({ ok: true, outcome: 'ignored', message: 'stale_event' })
     expect(s.audit(AUDIT_SUBSCRIPTION_UPDATED)).toHaveLength(1)
     expect(billingAttention(s.audit() as never, 'sub_1')).toBeNull()
+  })
+
+  it('a member-forged audit row (user_id set, far-future clock) cannot make real updates stale', async () => {
+    const s = payingOrg()
+    // RLS audit_log_insert lets a board member insert rows as themselves.
+    await s.db.from('audit_log').insert({
+      org_id: ORG,
+      user_id: 'board-user',
+      action: AUDIT_SUBSCRIPTION_UPDATED,
+      entity_type: 'stripe_subscription',
+      metadata: { event_id: 'evt_forged', event_created: '9999-12-31T00:00:00.000Z', sub_id: 'sub_1', status: 'active' },
+    })
+    const r = await applyStripeEvent(updated('evt_real', T, { status: 'past_due' }), { db: s.db, m1: false })
+    expect(r).toEqual({ ok: true, outcome: 'subscription_updated' })
   })
 
   it('out of order: a late quantity change does not overwrite a newer one', async () => {
