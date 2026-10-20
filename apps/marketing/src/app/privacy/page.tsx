@@ -71,13 +71,13 @@ export default function PrivacyPage() {
             <p>
               You can access, correct and export your data at any time in the
               app (export is under Settings → Your data). To delete it, or for
-              anything else, email privacy@ledger.ai.
+              anything else, email support@homeownerledger.com.
               We respond within 30 days.
             </p>
 
             <h2>6. Contact</h2>
             <p>
-              Privacy questions: <a href="mailto:privacy@ledger.ai">privacy@ledger.ai</a>
+              Privacy questions: <a href="mailto:support@homeownerledger.com">support@homeownerledger.com</a>
             </p>
 
             <p className="mt-12 text-xs text-muted">

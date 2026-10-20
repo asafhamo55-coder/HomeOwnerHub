@@ -23,7 +23,7 @@ const ALL_PAGES: PaletteItem[] = [
   { label: 'Book a demo', href: '/demo', category: 'Page', Icon: ArrowRight },
   { label: 'Compare to alternatives', href: '/compare', category: 'Page', Icon: FileText, hint: 'vs management cos · Vantaca · DIY' },
   { label: 'Public roadmap', href: '/roadmap', category: 'Page', Icon: FileText },
-  { label: 'Case study · Madison Park', href: '/case-studies/madison-park', category: 'Page', Icon: FileText },
+  { label: 'Case studies', href: '/case-studies', category: 'Page', Icon: FileText },
   { label: 'About', href: '/about', category: 'Page', Icon: FileText },
   { label: 'Security & audit', href: '/security', category: 'Resource', Icon: ShieldCheck },
   { label: 'AI honesty bars', href: '/honesty-bars', category: 'Resource', Icon: AlertCircle },

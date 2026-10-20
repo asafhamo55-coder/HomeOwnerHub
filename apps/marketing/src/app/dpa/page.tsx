@@ -28,8 +28,8 @@ export default function DpaPage() {
             </h2>
             <p className="mt-3 text-sm text-foreground-secondary">
               Email{' '}
-              <a className="font-semibold text-foreground underline-offset-4 hover:underline" href="mailto:legal@ledger.ai">
-                legal@ledger.ai
+              <a className="font-semibold text-foreground underline-offset-4 hover:underline" href="mailto:support@homeownerledger.com">
+                support@homeownerledger.com
               </a>
               {' '}with your entity name and we'll send the DPA within one
               business day, along with our completed vendor security

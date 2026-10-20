@@ -19,7 +19,7 @@ const product = allProduct.filter((l) => isOfferedHref(l.href))
 
 const company = [
   { label: 'About', href: '/about' },
-  { label: 'Case study', href: '/case-studies/madison-park' },
+  { label: 'Case studies', href: '/case-studies' },
   { label: 'Roadmap', href: '/roadmap' },
   { label: 'AI honesty bars', href: '/honesty-bars' },
   { label: 'Security', href: '/security' },
@@ -55,7 +55,7 @@ export function Footer() {
 
         <div className="mt-16 flex flex-col items-start justify-between gap-4 border-t border-border/70 pt-6 md:flex-row md:items-center">
           <p className="text-xs text-muted">
-            © {new Date().getFullYear()} HomeownerHub, Inc.
+            © {new Date().getFullYear()} HomeownerHub
           </p>
           <ul className="flex flex-wrap gap-x-5 gap-y-2">
             {tail.map((l) => (

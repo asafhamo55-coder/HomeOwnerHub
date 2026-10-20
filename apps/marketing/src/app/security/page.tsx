@@ -114,8 +114,8 @@ export default function SecurityPage() {
             <p className="mt-8 text-xs text-muted">
               Have a security question, vendor risk assessment form, or DPA
               request? Email{' '}
-              <a className="font-semibold text-foreground underline-offset-4 hover:underline" href="mailto:security@ledger.ai">
-                security@ledger.ai
+              <a className="font-semibold text-foreground underline-offset-4 hover:underline" href="mailto:support@homeownerledger.com">
+                support@homeownerledger.com
               </a>
               . We reply within one business day.
             </p>

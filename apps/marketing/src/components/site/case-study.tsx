@@ -1,13 +1,12 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Quote } from 'lucide-react'
 
 // Truth rule (BL-042, BL-090): the earlier version showed "32+ hours saved",
 // "247 questions", "17 min" and a "$4,200 reserve error" with nothing in the
-// repo behind them, and the app has no reserve module. What's left: the
-// opening of Linda's reference quote (as in the testimonials marquee) and
-// facts about the product, not customer results.
+// repo behind them, and the app has no reserve module. The customer quote
+// went too (2026-10-19 owner-delegated defaults: no customer quote is
+// verified). What's left: facts about the product, not customer results.
 const facts = [
   { label: 'Every document answer', value: 'Cited', sub: 'Covenant Brain names the section, or says your documents don’t cover it' },
   { label: 'Every AI draft', value: 'Approvals', sub: 'Letters, bills and minutes wait for the board' },
@@ -32,22 +31,11 @@ export function CaseStudy() {
               Built with a real volunteer board, <span className="text-success">not a demo deck.</span>
             </h2>
 
-            <div className="mt-7 rounded-2xl border border-border/70 bg-surface p-7 ring-card">
-              <Quote className="h-6 w-6 text-accent-fg" />
-              <p className="mt-3 text-base leading-relaxed text-foreground-secondary">
-                I got my Tuesday nights back. Covenant Brain answers in seconds
-                with the section cited.
-              </p>
-              <div className="mt-6 flex items-center gap-3 border-t border-border/70 pt-5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-fg">
-                  L
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Linda</p>
-                  <p className="text-xs text-muted">Treasurer, Madison Park HOA</p>
-                </div>
-              </div>
-            </div>
+            <p className="mt-5 text-base leading-relaxed text-muted md:text-lg">
+              Every workflow is shaped by what a self-managed board actually does
+              after work: answer a rule question, send a violation letter, approve
+              the minutes, close the month. The AI drafts; the board decides.
+            </p>
           </motion.div>
 
           <motion.div

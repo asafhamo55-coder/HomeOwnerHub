@@ -70,19 +70,22 @@ export default function HoaPage() {
 
       <ViolationDrafterLive />
 
-      {/* BL-090: only the opening of Linda's reference quote (as on the
-          homepage), with no metrics. The bullets are product facts, not
-          customer results. */}
+      {/* 2026-10-19 owner-delegated defaults: no customer quote is
+          verified, so the persona card shows product facts instead. The
+          bullets are product facts too, not customer results. */}
       <HubPersona
         theme={theme}
         eyebrow="The volunteer treasurer"
         title="Built for the treasurer who runs the HOA after work."
         description={`Volunteer board members have day jobs. ${HOA_PRODUCT_NAME} drafts the paperwork; the board reviews, approves and governs.`}
-        persona={{
-          name: 'Linda',
-          role: 'Treasurer, Madison Park HOA',
-          quote: 'I got my Tuesday nights back. Covenant Brain answers in seconds with the section cited.',
-          initials: 'L',
+        facts={{
+          title: 'What the board gets today',
+          items: [
+            'Rule questions answered with the CC&R section cited',
+            'Violation letters drafted for the board to approve or reject',
+            'Meeting minutes drafted from the transcript',
+            'A month-end report from the books',
+          ],
         }}
         bullets={[
           { label: 'Every document answer', value: 'Cited' },

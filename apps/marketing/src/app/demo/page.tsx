@@ -91,26 +91,9 @@ export default function DemoPage() {
 
               <DemoForm />
 
-              {/* BL-090: the "Ten minutes is all it took. The board voted yes
-                  that night." quote was not Linda's reference quote and is
-                  gone. Only that quote may be attributed to her. */}
-              <div className="mt-8 rounded-xl border border-border/70 bg-subtle/40 p-4">
-                <div className="flex gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-fg">
-                    L
-                  </div>
-                  <div>
-                    <p className="text-xs leading-relaxed text-foreground-secondary">
-                      "I got my Tuesday nights back. Covenant Brain answers in seconds with the section cited."
-                    </p>
-                    <p className="mt-1 text-[11px] text-muted">
-                      Linda · Treasurer, Madison Park HOA · 180 doors
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] font-medium text-muted">
+              {/* 2026-10-19 owner-delegated defaults: no customer quote is
+                  verified, so none is shown here. */}
+              <div className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] font-medium text-muted">
                 <span className="inline-flex items-center gap-1">
                   <span className="h-1 w-1 rounded-full bg-success-solid" />
                   Citations on every legal answer

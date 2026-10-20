@@ -63,8 +63,8 @@ export default function StatusPage() {
 
             <p className="mt-10 text-center text-xs text-muted">
               To report a production incident, email{' '}
-              <a className="font-semibold text-foreground underline-offset-4 hover:underline" href="mailto:status@ledger.ai">
-                status@ledger.ai
+              <a className="font-semibold text-foreground underline-offset-4 hover:underline" href="mailto:support@homeownerledger.com">
+                support@homeownerledger.com
               </a>
               .
             </p>

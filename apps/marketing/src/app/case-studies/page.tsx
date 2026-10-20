@@ -1,33 +1,18 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowUpRight, Quote } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 
 export const metadata: Metadata = {
   title: 'Case studies',
-  description: 'The HOA boards HomeownerHub is built with. Real quotes; numbers only once a board has measured and signed off on them.',
+  description: 'HomeownerHub case studies will be published once a customer approves them.',
 }
 
-// Truth rule (BL-042, BL-090): no metric appears here until the board it
-// belongs to has measured it and signed off. The old "32+ hours", "247
-// questions", "15 min" and "$4,200" figures had nothing behind them, and the
-// quote was a longer, embellished version of Linda's reference quote.
-const studies = [
-  {
-    slug: 'madison-park',
-    name: 'Madison Park HOA',
-    location: 'Johns Creek, GA · 180 homes',
-    headline: '"I got my Tuesday nights back."',
-    quote: 'Covenant Brain answers in seconds with the section cited.',
-    persona: 'Linda, Treasurer',
-    stats: [
-      { label: 'Self-managed', value: '180 homes' },
-      { label: 'Design partner', value: 'Lead' },
-      { label: 'Location', value: 'GA' },
-    ],
-  },
-]
+// Truth rule (BL-042, BL-090, 2026-10-19 owner-delegated defaults): no
+// customer quote is verified and no customer has approved a published case
+// study, so this page lists none. The Madison Park page now redirects here.
+// Add a study only once the customer has approved its text and numbers.
 
 export default function CaseStudiesPage() {
   return (
@@ -41,11 +26,11 @@ export default function CaseStudiesPage() {
             Case studies
           </p>
           <h1 className="mx-auto mt-3 max-w-3xl text-balance text-5xl font-semibold tracking-tight text-foreground md:text-6xl">
-            Real boards. In their words.
+            Case studies, once a board signs off.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-muted">
-            We publish a board’s numbers only once it has measured them and
-            signed off. Until then: who they are, and what they said.
+            Case studies will be published once a customer approves them. We
+            don’t publish quotes or numbers a board hasn’t signed off on.
           </p>
         </div>
       </section>
@@ -53,42 +38,26 @@ export default function CaseStudiesPage() {
       <section className="pb-24">
         <div className="container-page">
           <div className="grid gap-6 md:grid-cols-2">
-            {studies.map((s) => (
+            <div className="flex flex-col justify-center rounded-2xl border border-border/70 bg-surface p-8 ring-card">
+              <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+                Coming once approved
+              </p>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
+                No case studies published yet
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed text-foreground-secondary">
+                Case studies will be published once a customer approves them.
+                Until then, the product pages describe what the software does,
+                with no customer results attached.
+              </p>
               <Link
-                key={s.slug}
-                href={`/case-studies/${s.slug}`}
-                className="group flex flex-col rounded-2xl border border-border/70 bg-surface p-8 transition-all ring-card"
+                href="/hoa"
+                className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-foreground hover:text-primary"
               >
-                <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-                  {s.location}
-                </p>
-                <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
-                  {s.name}
-                </h2>
-                <h3 className="mt-4 text-xl font-semibold text-foreground">
-                  {s.headline}
-                </h3>
-                <div className="mt-5 flex-1 rounded-xl bg-subtle/50 p-5">
-                  <Quote className="h-4 w-4 text-accent-fg" />
-                  <p className="mt-2 text-sm leading-relaxed text-foreground-secondary">{s.quote}</p>
-                  <p className="mt-4 text-xs font-medium text-foreground-secondary">{s.persona}</p>
-                </div>
-                <div className="mt-6 grid grid-cols-3 gap-3">
-                  {s.stats.map((stat) => (
-                    <div key={stat.label}>
-                      <p className="text-2xl font-semibold tracking-tight text-foreground">
-                        {stat.value}
-                      </p>
-                      <p className="mt-1 text-xs text-muted">{stat.label}</p>
-                    </div>
-                  ))}
-                </div>
-                <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
-                  Read more
-                  <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </span>
+                See the HOA workflows
+                <ArrowUpRight className="h-4 w-4" />
               </Link>
-            ))}
+            </div>
 
             <div className="flex flex-col items-start justify-center rounded-2xl border border-dashed border-border-strong bg-subtle/30 p-8">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted">
