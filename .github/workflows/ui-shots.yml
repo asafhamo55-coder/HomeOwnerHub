@@ -17,6 +17,10 @@ on:
   push:
     branches:
       - claude/quality-oracle
+      # Prod gets ~1 push an hour, so its runs finish; integration pushes come
+      # faster and keep cancelling each other (cancel-in-progress below), which
+      # left release-note emails without screenshots (2026-10-20).
+      - claude/phase1-homeownerhub-setup-MILNu
     paths:
       - 'apps/hoa/**'
       - 'packages/ui/**'
