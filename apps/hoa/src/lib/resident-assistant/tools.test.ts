@@ -93,7 +93,8 @@ beforeEach(() => W1.queryGoverningDocs.mockReset())
 describe('resident toolset', () => {
   it('registers none of the board Copilot DB tools', () => {
     const resident = new Set(RESIDENT_TOOLS.map((t) => t.def.name))
-    const boardDbTools = BOARD_TOOLS.map((t) => t.def.name).filter((n) => n !== 'search_governing_docs')
+    // search_governing_docs and state_law exist on both sides as separate instances (checked below).
+    const boardDbTools = BOARD_TOOLS.map((t) => t.def.name).filter((n) => n !== 'search_governing_docs' && n !== 'state_law')
     expect(boardDbTools.length).toBeGreaterThan(0)
     for (const name of boardDbTools) expect(resident.has(name)).toBe(false)
     for (const name of ['count_units_by_tenure', 'list_overdue_dues', 'get_unit_owner', 'count_open_violations', 'list_recent_meetings', 'count_properties']) {

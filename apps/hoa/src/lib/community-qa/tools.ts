@@ -11,6 +11,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import { queryGoverningDocs } from '@homeowner-portal/workflows/W1'
+import { askStateLaw, isStateLoaded, stateNotLoadedMessage, STATE_LAW_NAMES } from '@homeowner-portal/workflows/W30'
+import { redactContactPII } from '@homeowner-portal/ai/pii'
 import { readAll } from '@/lib/supabase/read-all'
 import { calendarDaysBetween, todayIn } from '@/lib/association-time'
 import { orgTimeZone } from '@/lib/association-time-server'
@@ -442,6 +444,123 @@ export async function runDocsSearch(
   }
 }
 
+// ─── state_law ───────────────────────────────────────────────────────
+//
+// The Copilot must never answer a state-law question from the model's
+// memory. This tool is its only source of state law: the W30 State Law
+// Brain, grounded in state_statutes, with statute citations. When the
+// association's state has no statute text on file, the tool says so in a
+// fixed shape and agent.ts replaces whatever the model wrote with the plain
+// "<State> state law isn't loaded yet" message. A failed lookup throws, so
+// the loop hands the model `{ failed: true }` and agent.ts answers with a
+// fixed "couldn't look it up" message instead of a guess.
+
+type LawState = keyof typeof STATE_LAW_NAMES
+const LAW_STATES = Object.keys(STATE_LAW_NAMES) as LawState[]
+
+export const STATE_LAW_TOOL_NAME = 'state_law'
+
+/** Each state_law call is a W30 model call and an ai_runs row; the agent
+ *  caps them per question on top of the loop's run budget. */
+export const COPILOT_STATE_LAW_CAP = 2
+
+export type BoardStateLawResult =
+  | {
+      available: true
+      state: LawState
+      answer: string
+      confidence: 'HIGH' | 'MEDIUM' | 'LOW'
+      citations: Array<{ codeCitation: string; title: string }>
+      disclaimer: string
+    }
+  | { available: false; reason: 'state_not_loaded'; state: LawState; message: string }
+  | { available: false; reason: 'state_not_covered' | 'state_ambiguous' }
+
+export function isBoardStateNotLoaded(
+  v: unknown,
+): v is Extract<BoardStateLawResult, { reason: 'state_not_loaded' }> {
+  return !!v && typeof v === 'object' && (v as { reason?: unknown }).reason === 'state_not_loaded'
+}
+
+/** The law that governs the association(s) in scope: governing_law_state,
+ *  else state. One state, none, or ambiguous across associations. */
+async function boardLawState(ctx: ToolContext): Promise<LawState | 'ambiguous' | null> {
+  let q = ctx.db.from('associations').select('id, state, governing_law_state').eq('organization_id', ctx.orgId)
+  if (ctx.associationId) q = q.eq('id', ctx.associationId)
+  const { data, error } = await q
+  if (error) throw new ToolFailure('lookup_failed', error)
+  const states = new Set(
+    ((data ?? []) as Array<{ state: string | null; governing_law_state: string | null }>)
+      .map((a) => (a.governing_law_state ?? a.state ?? '').trim().toUpperCase())
+      .filter(Boolean),
+  )
+  if (states.size > 1) return 'ambiguous'
+  const [only] = [...states]
+  return only && (LAW_STATES as string[]).includes(only) ? (only as LawState) : null
+}
+
+async function liveStatuteCount(db: Db, state: LawState): Promise<number> {
+  const { count, error } = await db
+    .from('state_statutes')
+    .select('id', { count: 'exact', head: true })
+    .eq('state', state)
+    .is('superseded_at', null)
+  if (error || count === null || count === undefined) throw new ToolFailure('lookup_failed', error ?? undefined)
+  return count
+}
+
+export const boardStateLaw: Tool = {
+  def: {
+    name: STATE_LAW_TOOL_NAME,
+    description:
+      "Answers a question about the association's STATE law (HOA statutes) from the official statute text, with statute citations: e.g. notice required before a fine hearing, owners' records-inspection rights, limits on fines or late fees, liens and foreclosure, open-meeting and election rules, flags or solar. Use this for ANY question about what state law says or whether something is legal; never answer state law from memory. If it returns available:false with reason state_not_loaded, the state's law is not in the portal yet.",
+    parameters: {
+      type: 'object',
+      properties: {
+        question: {
+          type: 'string',
+          description: 'The legal question only, with no names, addresses or contact details.',
+        },
+      },
+      required: ['question'],
+    },
+  },
+  async execute(args, ctx): Promise<BoardStateLawResult> {
+    // W30 records its question in ai_runs: a legal topic, not a person.
+    const question = redactContactPII(String(args.question ?? '')).trim().slice(0, 500)
+    if (question.length < 3) throw new ToolFailure('invalid_args')
+
+    const state = await boardLawState(ctx)
+    if (state === 'ambiguous') return { available: false, reason: 'state_ambiguous' }
+    if (!state) return { available: false, reason: 'state_not_covered' }
+
+    // Checked before any model call: with no statute text there is nothing
+    // to ground an answer in.
+    if (!isStateLoaded(await liveStatuteCount(ctx.db, state))) {
+      return { available: false, reason: 'state_not_loaded', state, message: stateNotLoadedMessage(state) }
+    }
+
+    let out: Awaited<ReturnType<typeof askStateLaw>>
+    try {
+      out = await askStateLaw(question, state, { organizationId: ctx.orgId })
+    } catch (err) {
+      // W30's message can carry the provider body or statute text.
+      throw new ToolFailure('lookup_failed', err)
+    }
+    if (out.stateLoaded === false) {
+      return { available: false, reason: 'state_not_loaded', state, message: stateNotLoadedMessage(state) }
+    }
+    return {
+      available: true,
+      state,
+      answer: out.answer,
+      confidence: out.confidence,
+      citations: out.citations.map((c) => ({ codeCitation: c.codeCitation, title: c.title })),
+      disclaimer: out.disclaimer,
+    }
+  },
+}
+
 // ─── registry ────────────────────────────────────────────────────────
 
 export const TOOLS: Tool[] = [
@@ -452,6 +571,7 @@ export const TOOLS: Tool[] = [
   listRecentMeetings,
   countProperties,
   searchGoverningDocs,
+  boardStateLaw,
 ]
 
 /** Citation/confidence shape exported so the agent can extract them
