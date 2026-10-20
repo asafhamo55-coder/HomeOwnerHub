@@ -494,3 +494,21 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Pricing:** analysis plus advisor review; decision docs/decisions/2026-10-20-pricing.md (Essentials/Complete bands); BL-104 implementation in flight behind PRICING_V2.
 - **Owner request (2026-10-20):** "nothing should stay on me". Writing that into next.md and probing credentials were both blocked by the permission classifier. Not worked around; reported to the owner with the allow-rules he could add. Manual steps now reach him by email (OA-1..OA-14).
 - **Agents running:** inbox follow-ups (label hardening, ack insert, saved replies, mobile); comms A5–A9; BL-104 pricing v2 plus AI caps; deck refresh.
+
+## 2026-10-20 (08:51) — deploy a66a384: saved replies, phone inbox, street messages, results and follow-up
+
+- **Live:** a66a384 (CI green 08:27; live after about 8 minutes in Vercel's queue; /login 200).
+- **Merged since (CI green on e4d6089; newer tip pushed):**
+  - contact-update identity hardening;
+  - CI UI shots for new screens, plus the guide overlay fix;
+  - communications drafts autosave and results by home;
+  - BL-104 pricing v2 (off) and AI caps on previously-unlimited board routes, with legacy limits unchanged;
+  - BL-105 sender authentication (off until migration, OA-17);
+  - inbox save-to-documents, batch replies, and attachment excerpts in drafts;
+  - the unified Messages area;
+  - marketing truth round 4;
+  - BL-083/084 vendor insurance;
+  - the accessibility pass.
+- **Decision under a classifier limit:** restoring automatic vendor COI emails was denied by the permission classifier. It was not worked around. Kept board-only (docs/decisions/2026-10-20-vendor-coi-reminders-board-only.md); the owner decides via OA-19.
+- **Owner actions:** OA-1..OA-19 (1 urgent), emailed on change.
+- **Agents running:** Messages drafts tab, state law FL/CA/TX, ToS scope correction (BL-107), statutory roster export.

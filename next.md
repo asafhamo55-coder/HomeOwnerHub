@@ -107,15 +107,18 @@ Crons live only for the session and auto-expire after 7 days, so schedule a one-
   - A single test file can time out under load; re-run it alone.
   - The Inngest wiring contract test pins the job count (21 now). Bump it when you add a job.
 
-## 4. State (updated 2026-10-20 08:20 ET)
+## 4. State (updated 2026-10-20 09:05 ET)
 
-- **Live in prod:** `d80fadf`, deployed 07:50 ET; the release-note email was sent. On top of 05adcce it adds:
-  - inbox sale window plus A4 "Create from email" (ticket, violation, ARC link, contact update, link existing);
-  - communications A2 one-box AI composer and A3 plain-text editor, with an SMS preview;
-  - Stripe `customer.subscription.updated`, `invoice.payment_failed`, a past-due banner, friendly checkout errors, and a fix for the portal redirect;
-  - the owner action items email (`docs/owner-actions.md`, `.github/workflows/owner-actions.yml`). The first email was sent 2026-10-20.
-- **Integration tip:** local merge of the pricing docs (analysis plus `docs/decisions/2026-10-20-pricing.md`, BL-104), pushed after the deploy.
-- **Crons (this session):** hourly cycle `23 * * * *` and a one-shot renewal on Oct 26 at 14:41. Both die with the session; recreate them per §3.
+- **Live in prod:** `a66a384`, deployed 08:51 ET; the release email was sent. Since 05adcce today: inbox convert and sale window, the AI composer, Stripe follow-ups, the owner-actions email, saved replies, the phone inbox, street audiences, phone preview, and results with follow-up.
+- **Integration tip:** the next deploy candidate, release note `docs/releases/2026-10-20-0952-messages-batch-replies.md`. Earliest deploy 09:51 ET (one per hour).
+  - It adds: contact-update hardening, drafts autosave, the Messages area, batch replies, save-to-documents, attachment excerpts, vendor COI board-only, an a11y pass, marketing truth round 4, CI shots for new screens, and pricing v2 plus sender-auth (both flagged off).
+- **Classifier limits hit this session:**
+  1. Writing a "nothing stays on Asaf / do SQL, keys, DNS yourself" rule into next.md.
+  2. Probing local credentials.
+  3. Restoring automatic vendor COI emails.
+
+  None were worked around. The owner was told, and OA-19 covers item 3.
+- **Crons (this session):** hourly cycle `23 * * * *`; one-shot renewal on Oct 26 at 14:41. Recreate them per §3 in a new session.
 
 ## 5. Manual steps for Asaf: `docs/owner-actions.md`
 
@@ -125,14 +128,13 @@ The single list is `docs/owner-actions.md` (OA-1, OA-2…). Asaf asked on 2026-1
 - Most urgent: OA-1, migrations 0063 then M1 (subscription webhook writes fail until then). Also OA-14: turn on the Stripe webhook events `customer.subscription.updated` and `invoice.payment_failed`.
 - **Asaf, 2026-10-20:** even with items pending on him, keep allocating backlog items to the team (3–4 agents always busy).
 
-## 6. Work in flight (2026-10-20 08:20 ET)
+## 6. Work in flight (2026-10-20 09:05 ET)
 
-Worktree agents dispatched this session. If the session closes, check `/usr/bin/git worktree list` for `worktree-agent-*` branches with commits not in claude/quality-oracle.
-- **Inbox follow-ups:** honour the approvals "Filed from an email" label only for board submitters; "Insert into reply" for ack lines; saved replies; mobile triage.
-- **Communications Phase A rest:** A6 channel auto-pick, A7 phone preview, A9 "More options", and A5 street audience / A8 results and resend only if no migration is needed.
-- **BL-104 pricing v2:** band pricing behind `PRICING_V2` (off) plus per-band AI caps (on). Add its Stripe steps to owner-actions when it lands.
-- **Decks:** refresh ~/HomeownerHub-decks/ for the brand, features and new pricing.
-- Old partial worktrees from the 0dcfc485 session are done (merged) and can be pruned.
+Worktree agents. If the session closes, check `/usr/bin/git worktree list` for `worktree-agent-*` branches with commits not in claude/quality-oracle.
+- **Messages Drafts tab:** add inbox reply drafts (design note step 4).
+- **State law:** FL ch. 720, CA Davis-Stirling and TX ch. 209 fetchers, plus a "state not loaded" guard.
+- **BL-107:** Terms of Service scope-only correction (HOA only).
+- **Properties P5:** statutory owner roster export (board-only, opt-outs, audit).
 
 ## 7. Next up
 
