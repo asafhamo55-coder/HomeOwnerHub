@@ -25,7 +25,7 @@ The owner delegated all prioritisation. This order overrides the score-based buc
 - **M1:** BL-020 consent, BL-050 notice_posted_at, BL-052 document visibility, BL-058 board-only bill storage, BL-063 alert attempts, and the Stripe 0064 fix.
 - **M-P1 / M-P2:** properties expand, then backfill: people, unit_people, mailing address, consents, custom fields.
 - **M2:**
-  - BL-068 module switches and per-module pricing. Prices decided: Core $0.60/door ($39 minimum), Accounting $0.40 ($20), AI $0.50 ($25), Mailbox, Vendors and Leases $0.10 each ($5). Existing subscriptions keep their price until renewal.
+  - BL-068 module switches (entitlements for the two plans). **Prices superseded 2026-10-20** by `docs/decisions/2026-10-20-pricing.md` (Essentials/Complete in flat size bands; implementation BL-104). Existing subscriptions keep their price until renewal.
   - BL-069 state-law run log. Also needs Open States/LegiScan keys.
   - BL-023 polls.
   - BL-030 FL violation procedure engine.
@@ -114,6 +114,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 ## Now (next 2 cycles)
 
 ### BL-001 — Pricing scenarios for the self-managed segment
+- **Status (2026-10-20):** refreshed and decided: `docs/research/2026-10-pricing-analysis.md` → `docs/decisions/2026-10-20-pricing.md`. Implementation is BL-104.
 - **User value:** a 50-unit volunteer board can afford us next to PayHOA without giving up our accounting and AI.
 - **Evidence:**
   - We charge $249.50/mo for 50 units; PayHOA charges $65, GnomeOwner $59, and HomeHerald is free up to 50 units (research §1.5, §3).
@@ -618,7 +619,7 @@ These go beyond the design-system v2 pass:
 
 ## Added 2026-10-15 (cycle 1)
 
-- **BL-041 Implement the recommended pricing** (docs/decisions/2026-10-pricing.md):
+- **BL-041 Implement the recommended pricing** — **superseded 2026-10-20 by BL-104 / `docs/decisions/2026-10-20-pricing.md`** (docs/decisions/2026-10-pricing.md):
   $1.00/door, $59/mo floor, optional AI add-on $0.50/door ($25 min), 10% off
   annual; grandfather Madison Park. Owner pre-approved recommendations
   2026-10-15. **Sequencing:** ship only after BL-006 (Pay-by-Zelle) is live, per
@@ -959,3 +960,44 @@ These go beyond the design-system v2 pass:
   - **Every webhook event the app handles:** signed payloads, idempotency and out-of-order delivery.
 
   It needs Stripe test-mode keys (`STRIPE_TEST_SECRET_KEY`, plus a test webhook secret) stored as GitHub secrets. Only Asaf can create these. The suite skips cleanly while they're missing.
+
+## Added 2026-10-20 (pricing decision)
+
+- **BL-104 Implement the 2026-10-20 pricing: Essentials / Complete in flat size bands** (decision `docs/decisions/2026-10-20-pricing.md`; evidence `docs/research/2026-10-pricing-analysis.md`; supersedes BL-041 and BL-068's price table; needs BL-068's module switches, migration batch M2)
+  - **Rule:** nothing below goes live piecemeal. Code, Stripe Prices and marketing ship in **one PR**; until then checkout and the site keep charging and showing $4.99/door. Existing paying subscriptions keep their price until renewal (decision §5).
+  - **0. Before starting (ids only, no PII):** list live Stripe subscriptions on `hoa_per_door_monthly` / `hoa_per_door_annual`, with org id, cadence and term end. Record them here. Confirm whether any exist beyond the Madison Park pilot.
+  - **1. `packages/billing/src/pricing.ts`:**
+    - replace the per-door constants with band tables per plan × cadence (cents): Essentials 4900/7900/11900/17900 and 401+ 45¢/door; Complete 9900/14900/22900/34900 and 401+ 900 + 85¢/door; annual = 10 × monthly;
+    - `planPriceCents(plan, cadence, doors)`, `bandFor(doors)`; remove `billableDoors()`'s `ceil` floor and `MIN_MONTHLY_USD`; `COMMIT_MONTHS` applies only to legacy subscriptions;
+    - tests: every band edge (50/51, 100/101, 200/201, 400/401) for both plans and cadences; **the price never falls as doors rise, 1–2,000 doors**; annual = 10 × monthly; legacy $4.99 math kept for grandfathered display.
+  - **2. Stripe (`apps/hoa/src/app/api/admin/setup-stripe-pricing/route.ts`):**
+    - create four recurring Prices on the existing product with `billing_scheme: 'tiered'`, `tiers_mode: 'volume'`: tiers `up_to` 50 / 100 / 200 / 400 with `flat_amount` and `unit_amount: 0`, then `inf` with `unit_amount` (plus `flat_amount` 900 on Complete monthly, 9000 on Complete annual);
+    - lookup keys `hoa_essentials_monthly`, `hoa_essentials_annual`, `hoa_complete_monthly`, `hoa_complete_annual`; idempotent like today;
+    - **leave `hoa_per_door_monthly` / `hoa_per_door_annual` active**: grandfathered subscriptions use them. Remove them from the checkout picker only;
+    - customer portal: quantity editing **off**; plan switch Essentials ↔ Complete allowed only if the portal supports tiered Prices (verify in test mode; otherwise switch through our own settings page). Asaf saves the portal settings (dashboard).
+    - Stripe sandbox suite (BL-103): checkout at each band, band crossing on renewal, a grandfathered subscription renewing onto the new Price, trial → paid.
+  - **3. Checkout (`apps/hoa/src/lib/billing.ts`, `packages/billing/src/checkout.ts`):**
+    - plan × cadence picks the lookup key; `quantity` = server-side unit count for the org, never the form field (drop the fallback for HOA plans; 0 units → block checkout with "add your homes first");
+    - `subscription_data.trial_period_days: 30` for orgs that never had a subscription; `payment_method_collection: 'if_required'`;
+    - `metadata.plan` = `essentials` | `complete`.
+  - **4. Webhook (`packages/billing/src/webhook.ts`):** write `orgs.plan` = `essentials` | `complete` | `legacy_per_door` from the Price lookup key; keep `subscription.updated` handling. A trial ending without a card sets the org to `free` (read-only, data kept).
+  - **5. Band sync job (Inngest, nightly):** recount units; if the band changes, update the subscription item quantity with `proration_behavior: 'none'` so it bills from the next invoice. Log org id, old band and new band only.
+  - **6. Renewal migration job:** for each grandfathered subscription, 30 days before its term end email the board (new plan, new price, lower than today). At term end, swap the item to `hoa_complete_*` with `proration_behavior: 'none'`. On request, an admin action does the same swap at the next invoice and clears the commitment.
+  - **7. Entitlements (BL-068 switches):** `moduleEnabled(org, module)` is derived from the plan. Essentials = core + dues + ai (Essentials limits); Complete adds accounting, mailbox, vendors, leases. Legacy subscriptions = Complete. A platform-admin override stays possible (e.g. pilots).
+  - **8. AI limits (`apps/hoa/src/lib/api/ai-limits.ts`):** `perOrg.limit = max(5, round(base × multiplier(plan, band)))` using the decision §3 table. Add a `board_ai` bucket (100/day Essentials, 200/day Complete) on the board-only routes that are unlimited today: violation draft, /inspect queue, digests, parse/suggest. Unit test: worst case ≤ 30% of band price at every band.
+  - **9. SMS allowance (`apps/hoa/src/lib/communications/send.ts`):** monthly segment counter per org (2/door Essentials, min 100; 4/door Complete, min 200). Over the allowance, skip SMS, still send email, show the board why. May need a column (M2) or can count existing send rows.
+  - **10. UI:**
+    - `/settings/billing` `PlanPicker`: two plans, band shown from the unit count, annual "2 months free", no commitment copy for new plans, legacy copy kept for grandfathered orgs;
+    - module-off pages ("This module isn't on your plan") link to the upgrade.
+  - **11. Marketing (same PR):** `apps/marketing/src/lib/hoa-pricing.ts` gets the band table, `hoa-pricing.test.ts` re-pins against `pricing.ts` and the setup route's cent amounts. Update /pricing, the teaser, /compare, the ROI calculator and the /demo FAQ through `HOA_PLANS`. Remove the "Coming soon" module table from `2026-10-18-marketing-pricing-truth.md`.
+  - **12. Outside the repo:** update the investor deck in `~/HomeownerHub-decks/`. Release note per the release-note rule.
+  - **Acceptance:**
+    - a 50-door org checks out at $49 / $99 (or $490 / $990 annual), and Stripe's invoice matches `planPriceCents` at every band edge;
+    - a 401-door Complete org pays $349.85;
+    - a grandfathered subscription is untouched until its term end, then lands on Complete with a 30-day notice sent;
+    - crossing a band never creates a prorated invoice;
+    - AI 429s fire at the band ceilings;
+    - marketing and checkout show the same numbers.
+  - **Revisit:** after 10 paying orgs or 90 days, with measured `ai_runs`, SMS segments and onboarding hours.
+  - **Scores:** impact 5, confidence 0.7, effort 4 agent-days, score 0.88. Needs BL-068 (M2), Stripe test keys (BL-103) and Asaf's portal settings.
+
