@@ -5,6 +5,7 @@ import {
   changedFields,
   checkContactForm,
   formatContactRequest,
+  formatInboxContactRequest,
   normalizePhone,
   parseContactRequest,
   planContactApply,
@@ -314,5 +315,61 @@ describe('selfUpdateDates', () => {
       { created_at: '2026-10-03T10:00:00Z', metadata: 'garbage' },
     ])
     expect(m).toEqual({ r1: '2026-10-05T10:00:00Z', o1: '2026-10-01T10:00:00Z' })
+  })
+})
+
+describe('Inbox-filed requests (BL-101 A4)', () => {
+  it('round-trips with the sender as the key and channel inbox; values only, never removals', () => {
+    const text = formatInboxContactRequest(
+      [
+        { field: 'phone', from: null, to: '(555) 222-3333' },
+        { field: 'mailing', from: 'PO Box 1', to: null },
+      ],
+      'Pat@Example.com',
+    )
+    expect(text).toContain('Emailed in by: pat@example.com')
+    expect(text).not.toContain('Mailing address')
+    expect(parseContactRequest(CONTACT_SUBJECT, text)).toEqual({
+      signInEmail: 'pat@example.com',
+      changes: { phone: '(555) 222-3333' },
+      channel: 'inbox',
+    })
+  })
+
+  it('an "Emailed in by" line wins over a "Signed in as" one (the narrower reading)', () => {
+    const text = 'Phone: (555) 222-3333\nSigned in as: board@example.com\nEmailed in by: pat@example.com'
+    expect(parseContactRequest(CONTACT_SUBJECT, text)).toMatchObject({ signInEmail: 'pat@example.com', channel: 'inbox' })
+  })
+
+  const ctx: ApplyContext = {
+    // The board member who filed it.
+    submitterId: 'board-1',
+    request: { signInEmail: 'pat@example.com', changes: { phone: '(555) 222-3333', email: 'new@example.com' }, channel: 'inbox' },
+    residents: [{ id: 'r1', email: 'pat@example.com', phone: null, notes: null, full_name: 'Pat Example', role: 'owner' }],
+    ownerships: [
+      // Linked to the board member's own account: must never be selected by it.
+      { id: 'o-board', owner_user_id: 'board-1', owner_email: 'board@example.com', owner_phone: null },
+      { id: 'o-pat', owner_user_id: null, owner_email: 'pat@example.com', owner_phone: null },
+    ],
+    tenancies: [],
+    property: null,
+  }
+
+  it('never uses the filing board member’s account as a key', () => {
+    const r = planContactApply(ctx)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.plan.ownerships.map((o) => o.id)).toEqual(['o-pat'])
+    expect(r.plan.residents.map((x) => x.id)).toEqual(['r1'])
+  })
+
+  it('always holds an email change (no linked access to keep sign-in safe)', () => {
+    const r = planContactApply(ctx)
+    expect(r.ok && r.plan.held).toEqual(['email'])
+    expect(r.ok && r.plan.applied).toEqual(['phone'])
+  })
+
+  it('refuses when the sender names nobody on the home', () => {
+    expect(planContactApply({ ...ctx, request: { ...ctx.request, signInEmail: 'board@example.com' }, residents: [] }).ok).toBe(false)
   })
 })

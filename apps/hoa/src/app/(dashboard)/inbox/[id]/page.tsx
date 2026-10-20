@@ -43,6 +43,15 @@ import { loadInboxSlaHours, waitingInfo } from '@/lib/inbox/waiting'
 import { InboxKeyboard } from '../InboxKeyboard'
 import { ThreadTriageControls } from './ThreadTriageControls'
 import { UndoSendBanner } from './UndoSendBanner'
+import { ConvertMenu } from './ConvertMenu'
+import {
+  arcPrefillFromEmail,
+  boardArcHref,
+  contactPrefillFromEmail,
+  ticketPrefillFromEmail,
+} from '@/lib/inbox/convert/model'
+import { arcAck } from '@/lib/inbox/convert/ack'
+import { appUrl } from '@/lib/app-origin'
 
 export const dynamic = 'force-dynamic'
 
@@ -244,6 +253,17 @@ export default async function ThreadPage({
   // message, matching what W33 reads server-side.
   const lastInbound = [...thread.messages].reverse().find((m) => m.direction === 'inbound')
 
+  // BL-101 A4 — "Create from email" prefills, from the newest inbound
+  // message only. Pure text rules (lib/inbox/convert/model.ts), no AI;
+  // the board checks each one before anything is written.
+  const inboundText = lastInbound?.strippedText || lastInbound?.bodyText || ''
+  const convert = {
+    ticket: ticketPrefillFromEmail(thread.subject, inboundText),
+    contact: contactPrefillFromEmail(inboundText, lastInbound?.fromEmail ?? null),
+    arcAck: arcAck(appUrl(boardArcHref(arcPrefillFromEmail(thread.subject, inboundText)))),
+    violationHref: `/violations/new?from_thread=${thread.id}`,
+  }
+
   const rail = (
     <>
       <PropertyRail
@@ -369,6 +389,15 @@ export default async function ThreadPage({
                     threadId={thread.id}
                     vendorEmail={vendorEmail}
                     draftStatus={draft?.status ?? null}
+                  />
+                  <ConvertMenu
+                    threadId={thread.id}
+                    filed={Boolean(thread.unitId)}
+                    senderVerified={railContext?.sender.check.verified === true}
+                    ticket={convert.ticket}
+                    contact={convert.contact}
+                    arcAck={convert.arcAck}
+                    violationHref={convert.violationHref}
                   />
                   <InboxKeyboard
                     prevHref={prevId ? threadHref(prevId) : null}

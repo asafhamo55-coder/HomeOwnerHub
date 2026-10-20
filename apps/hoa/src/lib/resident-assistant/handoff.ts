@@ -44,6 +44,9 @@ export const HANDOFF_DESCRIPTION_MAX = 1500
 export const FROM_ASSISTANT_PARAM = 'from'
 export const FROM_ASSISTANT_VALUE = 'assistant'
 export const SUGGESTED_BY_ASSISTANT = 'Suggested by the assistant — review before sending'
+/** BL-101 A4: a link the board sends from the Inbox (lib/inbox/convert/model.ts boardArcHref). */
+export const FROM_BOARD_VALUE = 'board'
+export const SUGGESTED_BY_BOARD = 'Filled in by your community’s board from your email — review before sending'
 
 const MD_LINK = /!?\[([^\]]*)\]\([^)]*\)/g
 const URL_LIKE = /\b(?:[a-z][a-z0-9+.-]*:\/\/|www\.)\S*/gi

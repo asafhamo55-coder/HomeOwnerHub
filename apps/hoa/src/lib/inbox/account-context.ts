@@ -29,6 +29,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import { escapeLikePattern, resolvePropertyByEmail } from '@/lib/properties/resolve'
 import { orgTimeZone } from '@/lib/association-time-server'
+import { chargesFromForOwnership } from '@/lib/resident-sale-window'
 import {
   readMyAccount,
   readMyPaymentPlan,
@@ -135,6 +136,83 @@ export async function checkSenderForUnit(
   }
 }
 
+// ─── The sale window ────────────────────────────────────────────────
+
+/**
+ * The first day of charges a reply may mention, for a home whose current
+ * ownership began with a recorded sale; null = the whole unit history.
+ *
+ * Same rule as the resident portal (lib/resident-sale-window.ts,
+ * `chargesFromForOwnership`): only an ownership with source 'sale' dates
+ * the boundary. An imported, invited or hand-entered ownership is dated by
+ * the day it was typed in, so it never narrows anything.
+ *
+ * Why the home's current ownership and not only the sender's own row: the
+ * sale moves the seller's household out (lib/properties/sale.ts), so every
+ * verified sender of a sold home is on the buyer's side — the buyer, a
+ * co-buyer, the buyer writing from a saved alias, or a household member on
+ * property_residents. None of them may be told the seller's charges, and
+ * matching only the buyer's own ownership row would let the alias or the
+ * spouse through. With several current sale rows the latest day wins. Pure.
+ */
+export function saleWindowStart(
+  currentOwnerships: ReadonlyArray<{ valid_from: string; source?: string | null }>,
+): string | null {
+  let from: string | null = null
+  for (const o of currentOwnerships) {
+    const day = chargesFromForOwnership(o)
+    if (day && (!from || day > from)) from = day
+  }
+  return from
+}
+
+/**
+ * The home's requests a reply may mention after a recorded sale: tickets
+ * and ARC applications filed on or after the sale day. Earlier ones were
+ * the seller's (a board reader keys requests on the unit, not on who
+ * filed them, so without this the buyer would be told about the seller's
+ * fence application). Open violations are kept whatever their date: they
+ * run with the lot and the buyer inherits the cure. Null `from` = no
+ * narrowing. Compared by calendar day (YYYY-MM-DD prefix). Pure.
+ */
+export function scopeRequestsToSaleWindow(requests: MyRequests, from: string | null): MyRequests {
+  if (!from) return requests
+  const onOrAfter = (iso: string | null | undefined) => typeof iso === 'string' && iso.slice(0, 10) >= from
+  return {
+    ...requests,
+    tickets: requests.tickets.filter((t) => onOrAfter(t.createdAt)),
+    arcApplications: requests.arcApplications.filter((a) => onOrAfter(a.submittedAt)),
+  }
+}
+
+/** The home's current ownerships. `ok: false` = unknown, so the ledger is withheld. */
+async function readSaleWindow(
+  db: Db,
+  orgId: string,
+  unitId: string,
+): Promise<{ ok: true; from: string | null } | { ok: false }> {
+  try {
+    const { data, error } = await db
+      .from('ownerships')
+      .select('valid_from, source')
+      .eq('organization_id', orgId)
+      .eq('unit_id', unitId)
+      .is('valid_to', null)
+    if (error) {
+      console.error('loadHomeAccount: ownership read failed', { orgId, unitId, code: error.code })
+      return { ok: false }
+    }
+    return { ok: true, from: saleWindowStart((data ?? []) as Array<{ valid_from: string; source: string | null }>) }
+  } catch (error) {
+    console.error('loadHomeAccount: ownership read failed', {
+      orgId,
+      unitId,
+      code: (error as { code?: unknown } | null)?.code ?? null,
+    })
+    return { ok: false }
+  }
+}
+
 // ─── The account ────────────────────────────────────────────────────
 
 export type PaymentPlanView = Awaited<ReturnType<typeof readMyPaymentPlan>>
@@ -146,18 +224,32 @@ export interface HomeAccount {
   /** Null when the requests read failed. */
   requests: MyRequests | null
   degraded: Array<'ledger' | 'requests'>
+  /**
+   * YYYY-MM-DD: `account` and `plan` cover only charges due on or after
+   * this day, because the home's current ownership began with a sale on
+   * it (saleWindowStart). Null/absent = the whole unit history. The
+   * property page's ledger still shows the board everything.
+   */
+  chargesFrom?: string | null
 }
 
 /**
- * Everything on file for one home, on the caller's RLS client. Each part
- * degrades on its own: a failed ledger read does not hide the violations.
+ * Everything on file for one home, on the caller's RLS client, scoped to
+ * what its current residents may be told: after a recorded sale the
+ * seller's charges, payments and payment plan are left out (the sale
+ * window above), and so are tickets and ARC applications filed before the
+ * sale (scopeRequestsToSaleWindow). Each part degrades on its own: a
+ * failed ledger read does not hide the violations. A failed ownership
+ * read withholds the ledger, the plan, the tickets and the ARC
+ * applications rather than risk the seller's history (fails closed).
  */
 export async function loadHomeAccount(db: Db, orgId: string, unitId: string, now: Date = new Date()): Promise<HomeAccount> {
-  const timeZone = await orgTimeZone(db, orgId)
-  const scope = unitScope({ db, orgId, unitIds: [unitId], timeZone })
+  const [timeZone, window] = await Promise.all([orgTimeZone(db, orgId), readSaleWindow(db, orgId, unitId)])
+  const chargesFrom = window.ok ? window.from : null
+  const scope = unitScope({ db, orgId, unitIds: [unitId], timeZone, chargesFrom })
   const [account, plan, requests] = await Promise.allSettled([
-    readMyAccount(scope, now),
-    readMyPaymentPlan(scope),
+    window.ok ? readMyAccount(scope, now) : Promise.reject(new Error('sale window unknown')),
+    window.ok ? readMyPaymentPlan(scope) : Promise.resolve<PaymentPlanView>({ visible: false }),
     readMyRequests(scope),
   ])
   const degraded: HomeAccount['degraded'] = []
@@ -169,11 +261,26 @@ export async function loadHomeAccount(db: Db, orgId: string, unitId: string, now
     console.error('loadHomeAccount: requests read failed', { orgId, unitId })
     degraded.push('requests')
   }
+  let planView: PaymentPlanView = plan.status === 'fulfilled' ? plan.value : { visible: false }
+  // A plan that started before the sale covers the seller's charges.
+  if (planView.visible && chargesFrom && planView.plan.startDate.slice(0, 10) < chargesFrom) {
+    planView = { visible: false }
+  }
   return {
     account: account.status === 'fulfilled' ? account.value : null,
-    plan: plan.status === 'fulfilled' ? plan.value : { visible: false },
-    requests: requests.status === 'fulfilled' ? requests.value : null,
+    plan: planView,
+    // Unknown window (ownership read failed): keep the lot's open
+    // violations, drop every ticket and ARC application rather than risk
+    // the seller's. The fragments only state what is present, so a
+    // dropped list never reads as "none on file".
+    requests:
+      requests.status !== 'fulfilled'
+        ? null
+        : window.ok
+          ? scopeRequestsToSaleWindow(requests.value, chargesFrom)
+          : { ...requests.value, tickets: [], arcApplications: [] },
     degraded,
+    chargesFrom,
   }
 }
 

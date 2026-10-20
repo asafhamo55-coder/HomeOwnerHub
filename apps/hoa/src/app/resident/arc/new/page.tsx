@@ -2,7 +2,7 @@ import { Home } from 'lucide-react'
 import { Alert } from '@homeowner-portal/ui'
 import { getResidentUnits } from '@/lib/resident'
 import { Panel, ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
-import { FROM_ASSISTANT_VALUE, SUGGESTED_BY_ASSISTANT } from '@/lib/resident-assistant/handoff'
+import { FROM_ASSISTANT_VALUE, FROM_BOARD_VALUE, SUGGESTED_BY_ASSISTANT, SUGGESTED_BY_BOARD } from '@/lib/resident-assistant/handoff'
 import { ArcRequestForm } from './ArcRequestForm'
 
 export const metadata = { title: 'New ARC application' }
@@ -14,7 +14,13 @@ export default async function NewArcRequestPage({
 }) {
   const units = await getResidentUnits()
   const { summary, scope, from } = await searchParams
-  const suggested = from === FROM_ASSISTANT_VALUE && Boolean(summary || scope)
+  const prefilled = Boolean(summary || scope)
+  const suggested =
+    prefilled && from === FROM_ASSISTANT_VALUE
+      ? SUGGESTED_BY_ASSISTANT
+      : prefilled && from === FROM_BOARD_VALUE
+        ? SUGGESTED_BY_BOARD
+        : null
 
   return (
     <div className="space-y-6">
@@ -37,7 +43,7 @@ export default async function NewArcRequestPage({
             to be removed at your expense.
           </Alert>
           <Panel className="space-y-4 p-5">
-            {suggested ? <Alert variant="info" title={SUGGESTED_BY_ASSISTANT} /> : null}
+            {suggested ? <Alert variant="info" title={suggested} /> : null}
             <ArcRequestForm units={units} defaultSummary={summary} defaultScope={scope} />
           </Panel>
         </>

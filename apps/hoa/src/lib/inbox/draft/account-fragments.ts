@@ -43,13 +43,17 @@ export function buildAccountFragments(home: HomeAccount): { fragments: Retrieved
   } else {
     const pastDue = a.pastDueCount > 0 ? `, ${a.pastDueCount} of them past due` : ''
     const next = a.nextDueDate ? ` Earliest due date: ${a.nextDueDate}.` : ''
+    // After a recorded sale the account was already narrowed to the
+    // current ownership (account-context.ts saleWindowStart); say so, so
+    // the draft never implies it is the lot's whole history.
+    const since = home.chargesFrom ? ` Covers charges due from ${home.chargesFrom}, when the current ownership began.` : ''
     fragments.push(
       fragment(
         'acct:balance',
         'Account — balance',
         a.openChargeCount === 0
-          ? `Balance owed: ${dollars(0)}. No open charges as of ${a.today}.`
-          : `Balance owed: ${dollars(a.balanceCents)} across ${a.openChargeCount} open charge${a.openChargeCount === 1 ? '' : 's'}${pastDue}, as of ${a.today}.${next}`,
+          ? `Balance owed: ${dollars(0)}. No open charges as of ${a.today}.${since}`
+          : `Balance owed: ${dollars(a.balanceCents)} across ${a.openChargeCount} open charge${a.openChargeCount === 1 ? '' : 's'}${pastDue}, as of ${a.today}.${next}${since}`,
       ),
     )
     a.openCharges.forEach((c, i) => {

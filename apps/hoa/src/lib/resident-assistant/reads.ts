@@ -76,6 +76,12 @@ export function unitScope(input: {
   orgId: string
   unitIds: string[]
   timeZone: string
+  /**
+   * The first day of charges the sender may be told about, when the
+   * home's current ownership began with a recorded sale
+   * (resident-sale-window.ts). Null/omitted = the whole unit history.
+   */
+  chargesFrom?: string | null
 }): ResidentScope {
   return {
     db: input.db,
@@ -86,7 +92,7 @@ export function unitScope(input: {
       unit_id,
       association_id: null,
       association_time_zone: input.timeZone,
-      charges_from: null,
+      charges_from: input.chargesFrom ?? null,
     })),
     requestsBy: 'unit',
   }

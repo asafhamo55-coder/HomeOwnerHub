@@ -39,6 +39,9 @@ import {
   discardDraft,
   type WizardDraft,
 } from '@/lib/drafts'
+import { linkViolationToThread } from '@/lib/inbox/convert/actions'
+import { VIOLATION_ACK } from '@/lib/inbox/convert/ack'
+import { CopyButton } from '@/components/resident/CopyButton'
 
 interface WizardProperty {
   id: string
@@ -72,6 +75,10 @@ interface WizardProps {
   /** From `?property=` (the property page's "New violation here"). Only
    *  ever a home in `properties`; otherwise nothing is preselected. */
   initialPropertyId?: string | null
+  /** BL-101 A4: opened from an Inbox thread. The notes start as the
+   *  email's (redacted) text, and the violation is linked to the thread
+   *  once recorded. */
+  fromThread?: { threadId: string; notes: string } | null
 }
 
 const STEPPER_STEPS: StepperStep[] = [
@@ -99,9 +106,11 @@ interface DraftPayload {
   photoStoragePaths?: string[]
   photoSignedUrls?: string[]
   analysis?: AnalysisResult | null
+  /** The Inbox thread this report started from (BL-101 A4). */
+  fromThreadId?: string | null
 }
 
-export function Wizard({ properties, hasParsedCCR, initialDraft, initialPropertyId = null }: WizardProps) {
+export function Wizard({ properties, hasParsedCCR, initialDraft, initialPropertyId = null, fromThread = null }: WizardProps) {
   const router = useRouter()
   const confirm = useConfirm()
   const toast = useToast()
@@ -117,7 +126,10 @@ export function Wizard({ properties, hasParsedCCR, initialDraft, initialProperty
   // No silent default. This was `properties[0]`, so a report could be filed
   // against whichever home sorted first by someone who never picked it.
   const [propertyId, setPropertyId] = useState(initialPayload.propertyId ?? initialPropertyId ?? '')
-  const [notes, setNotes] = useState(initialPayload.notes ?? '')
+  const [notes, setNotes] = useState(initialPayload.notes ?? fromThread?.notes ?? '')
+  // Survives a resume: saved in the draft payload below.
+  const [fromThreadId] = useState<string | null>(initialPayload.fromThreadId ?? fromThread?.threadId ?? null)
+  const [threadLink, setThreadLink] = useState<'linked' | 'failed' | null>(null)
   const [curePeriod, setCurePeriod] = useState(initialPayload.curePeriod ?? 14)
   const [fineAmount, setFineAmount] = useState(initialPayload.fineAmount ?? 25)
 
@@ -178,6 +190,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft, initialProperty
       photoStoragePath: photoStoragePaths[0] ?? null,
       photoSignedUrl: photoSignedUrls[0] ?? null,
       analysis,
+      fromThreadId,
     }
     const serialized = JSON.stringify({ payload, currentStep })
     if (serialized === lastSavedRef.current) return
@@ -368,6 +381,12 @@ export function Wizard({ properties, hasParsedCCR, initialDraft, initialProperty
         return
       }
       setCreatedId(result.violationId)
+      // The violation is recorded either way; a failed link only means the
+      // email doesn't list it yet, and the done step says so.
+      if (fromThreadId) {
+        const linked = await linkViolationToThread({ threadId: fromThreadId, violationId: result.violationId }).catch(() => null)
+        setThreadLink(linked?.ok ? 'linked' : 'failed')
+      }
       // Mark the draft completed so it falls off the dashboard's
       // "unfinished workflows" widget.
       if (draftId) await markDraftCompleted(draftId)
@@ -800,11 +819,32 @@ export function Wizard({ properties, hasParsedCCR, initialDraft, initialProperty
             <p className="text-sm text-muted">
               Notice marked as sent. The cure clock is now running.
             </p>
+            {threadLink === 'linked' ? (
+              <p className="text-sm text-muted">It&apos;s linked to the email it came from.</p>
+            ) : threadLink === 'failed' ? (
+              <p className="text-sm font-medium text-warning">
+                It couldn&apos;t be linked to the email. Open the email and use Create from email → Link an existing record.
+              </p>
+            ) : null}
+            {fromThreadId ? (
+              <div className="mx-auto mt-3 max-w-md space-y-2 rounded-lg border border-border bg-subtle p-3 text-left">
+                <p className="text-xs font-semibold uppercase tracking-[0.06em] text-muted">Line for your reply</p>
+                <p className="text-sm text-foreground">{VIOLATION_ACK}</p>
+                <div className="flex justify-end">
+                  <CopyButton value={VIOLATION_ACK} label="Copy the line for your reply" />
+                </div>
+              </div>
+            ) : null}
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
             <Button variant="secondary" onClick={() => router.push(`/violations/${createdId}`)}>
               View violation
             </Button>
+            {fromThreadId ? (
+              <Button variant="secondary" onClick={() => router.push(`/inbox/${fromThreadId}`)}>
+                Back to the email
+              </Button>
+            ) : null}
             <Button onClick={() => router.refresh()}>Create another</Button>
           </div>
         </div>

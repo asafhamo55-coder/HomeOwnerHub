@@ -159,7 +159,12 @@ export async function loadContactEntries(
       property: prop ? { owner_email: prop.owner_email, owner_phone: prop.owner_phone } : null,
     }
     const mineR = context.residents.find((r) => lower(r.email) === request.signInEmail)
-    const mineO = context.ownerships.find((o) => o.owner_user_id === ticket.submitted_by)
+    // An Inbox-filed request's submitter is a board member (model.ts
+    // planContactApply): their account names nobody's row.
+    const mineO =
+      request.channel === 'inbox'
+        ? context.ownerships.find((o) => o.owner_user_id === null && lower(o.owner_email) === request.signInEmail)
+        : context.ownerships.find((o) => o.owner_user_id === ticket.submitted_by)
     const current: ContactValues | null = mineR
       ? { phone: mineR.phone, email: mineR.email, mailing: readMailing(mineR.notes) }
       : mineO

@@ -118,10 +118,12 @@ async function readThreadResidentId(db: Db, orgId: string, threadId: string): Pr
 // ─── Linked records (inbox_thread_links) ────────────────────────────
 
 /**
- * `inbox_thread_links.resource_id` has no FK and its writer accepts any
- * UUID (actions.ts linkThreadToResource), so every id is re-checked here:
- * it must exist in the table for its type AND belong to this org. A link
- * that fails either check is dropped, never shown.
+ * `inbox_thread_links.resource_id` has no FK. The writer now checks type
+ * and org before writing (lib/inbox/links.ts writeThreadLink), but rows
+ * written before that check — or by hand — are not trusted, so every id
+ * is re-checked here too: it must exist, undeleted, in the table for its
+ * type AND belong to this org. A link that fails either check is dropped,
+ * never shown.
  */
 export async function readLinkedRecords(
   db: Db,
@@ -174,13 +176,13 @@ export async function readLinkedRecords(
     return res.data ?? []
   }
   for (const t of take<{ id: string; subject: string; status: string; organization_id: string }>(tickets, 'tickets')) {
-    if (t.organization_id === orgId) items.push({ type: 'ticket', id: t.id, label: t.subject, status: t.status, href: `/tickets/${t.id}` })
+    if (t.organization_id === orgId && ticketIds.includes(t.id)) items.push({ type: 'ticket', id: t.id, label: t.subject, status: t.status, href: `/tickets/${t.id}` })
   }
   for (const a of take<{ id: string; summary: string; status: string; organization_id: string }>(arcs, 'arc_requests')) {
-    if (a.organization_id === orgId) items.push({ type: 'arc_request', id: a.id, label: a.summary, status: a.status, href: `/arc/${a.id}` })
+    if (a.organization_id === orgId && arcIds.includes(a.id)) items.push({ type: 'arc_request', id: a.id, label: a.summary, status: a.status, href: `/arc/${a.id}` })
   }
   for (const v of take<{ id: string; violation_type: string; status: string; org_id: string }>(violations, 'hoa_violations')) {
-    if (v.org_id === orgId)
+    if (v.org_id === orgId && violationIds.includes(v.id))
       items.push({ type: 'violation', id: v.id, label: v.violation_type.replace(/_/g, ' '), status: v.status, href: `/violations/${v.id}` })
   }
   for (const c of take<{
@@ -191,7 +193,7 @@ export async function readLinkedRecords(
     root_communication_id: string | null
     organization_id: string
   }>(comms, 'communication_threads')) {
-    if (c.organization_id === orgId)
+    if (c.organization_id === orgId && commIds.includes(c.id))
       items.push({
         type: 'communication_thread',
         id: c.id,

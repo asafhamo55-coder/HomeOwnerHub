@@ -75,6 +75,7 @@ import type { Json } from '@homeowner-portal/db/types'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { escapeLikePattern, getPropertyRef, type PropertyRef } from '@/lib/properties/resolve'
+import { LINK_TYPES, writeThreadLink } from './links'
 
 export interface InboxActionState {
   error?: string
@@ -326,7 +327,7 @@ export async function setThreadStatus(
 
 const LinkSchema = z.object({
   threadId: z.string().uuid(),
-  resourceType: z.enum(['ticket', 'arc_request', 'violation', 'communication_thread']),
+  resourceType: z.enum(LINK_TYPES),
   resourceId: z.string().uuid(),
 })
 
@@ -351,50 +352,18 @@ export async function linkThreadToResource(
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Not signed in.' }
 
-  // Confirm the thread belongs to this org before creating a link row.
-  // Without this, a crafted/stale threadId from the form would create an
-  // inbox_thread_links row stamped with THIS org's organization_id but
-  // pointing at another tenant's thread_id — the FK only requires the
-  // thread to exist somewhere, not that it belongs to the caller's org.
-  const { data: thread, error: threadError } = await supabase
-    .from('inbox_threads')
-    .select('id')
-    .eq('id', threadId)
-    .eq('organization_id', org.id)
-    .maybeSingle()
-
-  if (threadError) {
-    logDbError('linkThreadToResource', 'inbox_threads', { orgId: org.id, threadId }, threadError)
-    return { error: 'Could not link this thread. Try again.' }
-  }
-  if (!thread) return { error: 'Thread not found.' }
-
-  // `resourceId` has NO validation against `resourceType` and no FK —
-  // `inbox_thread_links.resource_id` has no foreign key to any of the
-  // four tables it can point at (ticket/arc_request/violation/
-  // communication_thread), so any UUID, extant or fabricated, can be
-  // linked here (Task 21 finding 4 — see
-  // `.superpowers/sdd/task-21-report.md`, "Fix pass — org-scoping +
-  // silent failures"). Deliberately NOT fixed with per-type validation
-  // in this pass — no reader exists yet, so nothing dangles visibly
-  // today. Whoever builds the thread-view join that reads this table
-  // MUST org-scope that join itself (resourceId cannot be trusted to
-  // belong to this org, or even to be a real row, on its own).
-  const { error } = await supabase.from('inbox_thread_links').upsert(
-    {
-      organization_id: org.id,
-      thread_id: threadId,
-      resource_type: resourceType,
-      resource_id: resourceId,
-      created_by: user.id,
-    },
-    { onConflict: 'thread_id,resource_type,resource_id', ignoreDuplicates: true },
-  )
-
-  if (error) {
-    logDbError('linkThreadToResource', 'inbox_thread_links', { orgId: org.id, threadId }, error)
-    return { error: 'Could not link this thread. Try again.' }
-  }
+  // `inbox_thread_links.resource_id` has no foreign key (Task 21 finding
+  // 4), so writeThreadLink (lib/inbox/links.ts) checks, in code, that the
+  // thread is this org's AND that `resourceId` is a live record of
+  // `resourceType` in this org (BL-101 A4). The rail's reader re-checks.
+  const written = await writeThreadLink(supabase, {
+    orgId: org.id,
+    userId: user.id,
+    threadId,
+    type: resourceType,
+    resourceId,
+  })
+  if (!written.ok) return { error: written.error }
 
   revalidatePath(`/inbox/${threadId}`)
   return { ok: true }
