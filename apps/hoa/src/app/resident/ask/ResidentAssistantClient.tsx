@@ -256,7 +256,7 @@ function Handoffs({ handoffs }: { handoffs: Handoff[] }) {
           </Link>
         ))}
       </div>
-      <p className="text-xs text-muted">Opens the form with this filled in. You review it and send it yourself.</p>
+      <p className="text-xs text-muted">Opens the form filled in with your question. Review it and send it yourself.</p>
     </div>
   )
 }

@@ -1,12 +1,14 @@
 'use server'
 
 // Settings → Notifications → "Resident portal" → "Resident assistant"
-// (BL-096): the board's association-wide switch for the chat assistant on
-// the resident Ask tab. Storage, signing and the default: ./settings.ts.
+// (BL-096): the board's switch for the chat assistant on the resident Ask
+// tab, one per association in the org (SEC-003). Storage, signing and the
+// fail-closed default: ./settings.ts.
 //
 // Board/admin only: every action re-checks the role
 // (requireBoardOrAdminForAction) because a server action is a public
-// endpoint.
+// endpoint. A save names its association, and that association must be
+// one of the current org's.
 
 import { revalidatePath } from 'next/cache'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
@@ -16,11 +18,18 @@ import { paySettingsSecret } from '@/lib/pay-by-zelle'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { readResidentAssistantSettings, residentAssistantOn, signResidentAssistantSettings, withResidentAssistantSettings } from './settings'
 
-export interface BoardResidentAssistantSettings {
+export interface BoardResidentAssistantAssociation {
   association: { id: string; name: string }
   state: 'configured' | 'not_configured' | 'unverified'
-  /** What the resident portal acts on. */
+  /** What the resident portal acts on: a verified, saved ON. */
   on: boolean
+  /** Never saved: the screen shows "Recommended: turn on" (the default itself is OFF, SEC-002). */
+  recommendOn: boolean
+}
+
+export interface BoardResidentAssistantSettings {
+  /** Every association in the org, by name. */
+  associations: BoardResidentAssistantAssociation[]
   aiConfigured: boolean
 }
 
@@ -30,38 +39,37 @@ export type BoardResidentAssistantLoad =
 
 type AssocRow = { id: string; name: string; compliance_settings: unknown }
 
-async function loadPrimaryAssociation(): Promise<{ ok: true; row: AssocRow | null } | { ok: false }> {
+/** The current org's associations; with an id, only that one and only if it is the org's. */
+async function loadOrgAssociations(associationId?: string): Promise<{ ok: true; rows: AssocRow[] } | { ok: false }> {
   const org = await getCurrentOrg()
-  if (!org) return { ok: true, row: null }
+  if (!org) return { ok: true, rows: [] }
   const supabase = await getSupabaseServerClient()
-  const res = await loadOrFail(
-    'resident assistant settings association',
-    supabase
-      .from('associations')
-      .select('id, name, compliance_settings')
-      .eq('organization_id', org.id)
-      .order('name', { ascending: true })
-      .limit(1),
-  )
+  let q = supabase.from('associations').select('id, name, compliance_settings').eq('organization_id', org.id)
+  if (associationId !== undefined) q = q.eq('id', associationId)
+  const res = await loadOrFail('resident assistant settings association', q.order('name', { ascending: true }))
   if (!res.ok) return { ok: false }
-  return { ok: true, row: ((res.data ?? []) as AssocRow[])[0] ?? null }
+  return { ok: true, rows: (res.data ?? []) as AssocRow[] }
 }
 
 export async function getBoardResidentAssistantSettings(): Promise<BoardResidentAssistantLoad> {
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
   if (!gate.ok) return { ok: false, reason: 'forbidden' }
-  const assoc = await loadPrimaryAssociation()
+  const assoc = await loadOrgAssociations()
   if (!assoc.ok) return { ok: false, reason: 'failed' }
-  if (!assoc.row) return { ok: false, reason: 'no_association' }
-  const { row } = assoc
+  if (assoc.rows.length === 0) return { ok: false, reason: 'no_association' }
   const secret = paySettingsSecret()
-  const read = readResidentAssistantSettings(row.id, row.compliance_settings, secret)
   return {
     ok: true,
     data: {
-      association: { id: row.id, name: row.name },
-      state: read.state,
-      on: residentAssistantOn(row.id, row.compliance_settings, secret),
+      associations: assoc.rows.map((row) => {
+        const read = readResidentAssistantSettings(row.id, row.compliance_settings, secret)
+        return {
+          association: { id: row.id, name: row.name },
+          state: read.state,
+          on: residentAssistantOn(row.id, row.compliance_settings, secret),
+          recommendOn: read.state === 'not_configured',
+        }
+      }),
       aiConfigured: Boolean(process.env.AI_API_KEY),
     },
   }
@@ -69,18 +77,26 @@ export async function getBoardResidentAssistantSettings(): Promise<BoardResident
 
 export type SaveResidentAssistantResult = { ok: true } | { ok: false; error: string }
 
-export async function saveResidentAssistantSettings(input: { on: boolean }): Promise<SaveResidentAssistantResult> {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export async function saveResidentAssistantSettings(input: {
+  associationId: string
+  on: boolean
+}): Promise<SaveResidentAssistantResult> {
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
   if (!gate.ok) return { ok: false, error: gate.error }
-  if (typeof input?.on !== 'boolean') return { ok: false, error: 'Invalid input.' }
+  if (typeof input?.on !== 'boolean' || typeof input.associationId !== 'string' || !UUID.test(input.associationId)) {
+    return { ok: false, error: 'Invalid input.' }
+  }
 
   const secret = paySettingsSecret()
   if (!secret) return { ok: false, error: 'This setting can’t be saved on this server yet. Contact support.' }
 
-  const assoc = await loadPrimaryAssociation()
+  // An id from another org loads nothing here and is refused before any write.
+  const assoc = await loadOrgAssociations(input.associationId)
   if (!assoc.ok) return { ok: false, error: 'Couldn’t load your association. Try again.' }
-  if (!assoc.row) return { ok: false, error: 'No association is set up for this organization yet.' }
-  const row = assoc.row
+  const row = assoc.rows.find((r) => r.id === input.associationId)
+  if (!row) return { ok: false, error: 'That association isn’t part of your organization.' }
 
   const supabase = await getSupabaseServerClient()
   const {

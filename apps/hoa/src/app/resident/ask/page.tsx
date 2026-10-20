@@ -7,7 +7,8 @@ export const metadata = { title: 'Ask' }
 export const dynamic = 'force-dynamic'
 
 // BL-096: the resident assistant chat when the board's "Resident assistant"
-// switch is on (the default). Off, impersonating, or no model configured:
+// switch is on (off until the board turns it on). Off, impersonating, no
+// linked home, or no model configured:
 // today's single-question Ask the Docs.
 export default async function ResidentAskPage() {
   const gate = await resolveResidentAssistant()

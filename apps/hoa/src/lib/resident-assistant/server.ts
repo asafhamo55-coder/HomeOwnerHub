@@ -9,8 +9,11 @@ import 'server-only'
 //     service role, and the assistant's tools must only ever run on the
 //     resident's own RLS-bound client;
 //   - the viewer is not (effectively) a resident;
-//   - the board switched it off for the resident's association(s), or the
-//     setting can't be read or verified (settings.ts);
+//   - the resident has no home linked to an association: there is no switch
+//     of theirs to read (SEC-003 — never "the org's first association");
+//   - the board has not switched it on for EVERY one of the resident's own
+//     associations, or a setting can't be read or verified (settings.ts:
+//     missing reads OFF, SEC-002);
 //   - no model is configured on this server.
 
 import { getCurrentOrg } from '@/lib/orgs'
@@ -21,7 +24,13 @@ import { paySettingsSecret } from '@/lib/pay-by-zelle'
 import { residentAssistantOn } from './settings'
 import type { ResidentScope } from './reads'
 
-export type ResidentAssistantOff = 'no_org' | 'impersonating' | 'not_resident' | 'switched_off' | 'not_configured'
+export type ResidentAssistantOff =
+  | 'no_org'
+  | 'impersonating'
+  | 'not_resident'
+  | 'no_association'
+  | 'switched_off'
+  | 'not_configured'
 
 export type ResidentAssistantGate =
   | { on: true; scope: ResidentScope; associationIds: string[] }
@@ -38,21 +47,25 @@ export async function resolveResidentAssistant(): Promise<ResidentAssistantGate>
   const units = await getResidentUnits()
   const fromUnits = [...new Set(units.map((u) => u.association_id).filter((id): id is string => !!id))]
 
-  // The resident's own associations; with no linked home, the org's first
-  // (the one the board's Settings screen saves to).
-  let q = actor.client.from('associations').select('id, compliance_settings').eq('organization_id', org.id)
-  q = fromUnits.length > 0 ? q.in('id', fromUnits) : q.order('name', { ascending: true }).limit(1)
-  const { data, error } = await q
+  // The resident's OWN associations only.
+  if (fromUnits.length === 0) return { on: false, reason: 'no_association' }
+  const { data, error } = await actor.client
+    .from('associations')
+    .select('id, compliance_settings')
+    .eq('organization_id', org.id)
+    .in('id', fromUnits)
   if (error) return { on: false, reason: 'switched_off' }
   const rows = (data ?? []) as Array<{ id: string; compliance_settings: unknown }>
   const secret = paySettingsSecret()
-  if (!rows.every((r) => residentAssistantOn(r.id, r.compliance_settings, secret))) {
+  // Every one must be read AND switched on: a row RLS hides is not ON.
+  const onById = new Map(rows.map((r) => [r.id, residentAssistantOn(r.id, r.compliance_settings, secret)]))
+  if (!fromUnits.every((id) => onById.get(id) === true)) {
     return { on: false, reason: 'switched_off' }
   }
 
   return {
     on: true,
-    associationIds: rows.map((r) => r.id),
+    associationIds: fromUnits,
     scope: {
       db: actor.client,
       orgId: org.id,

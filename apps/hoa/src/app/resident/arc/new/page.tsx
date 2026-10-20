@@ -2,6 +2,7 @@ import { Home } from 'lucide-react'
 import { Alert } from '@homeowner-portal/ui'
 import { getResidentUnits } from '@/lib/resident'
 import { Panel, ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
+import { FROM_ASSISTANT_VALUE, SUGGESTED_BY_ASSISTANT } from '@/lib/resident-assistant/handoff'
 import { ArcRequestForm } from './ArcRequestForm'
 
 export const metadata = { title: 'New ARC application' }
@@ -9,10 +10,11 @@ export const metadata = { title: 'New ARC application' }
 export default async function NewArcRequestPage({
   searchParams,
 }: {
-  searchParams: Promise<{ summary?: string; scope?: string }>
+  searchParams: Promise<{ summary?: string; scope?: string; from?: string }>
 }) {
   const units = await getResidentUnits()
-  const { summary, scope } = await searchParams
+  const { summary, scope, from } = await searchParams
+  const suggested = from === FROM_ASSISTANT_VALUE && Boolean(summary || scope)
 
   return (
     <div className="space-y-6">
@@ -34,7 +36,8 @@ export default async function NewArcRequestPage({
             Don&apos;t start work before the board approves it. Work started without approval may need
             to be removed at your expense.
           </Alert>
-          <Panel className="p-5">
+          <Panel className="space-y-4 p-5">
+            {suggested ? <Alert variant="info" title={SUGGESTED_BY_ASSISTANT} /> : null}
             <ArcRequestForm units={units} defaultSummary={summary} defaultScope={scope} />
           </Panel>
         </>

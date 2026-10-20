@@ -66,7 +66,7 @@ export interface Tool<C = ToolContext> {
  * reaches either, because it names tables and columns and can embed row
  * values. The DB code is kept for the log line only.
  */
-export type ToolErrorCode = 'lookup_failed' | 'docs_unavailable' | 'invalid_args' | 'unknown_tool'
+export type ToolErrorCode = 'lookup_failed' | 'docs_unavailable' | 'invalid_args' | 'unknown_tool' | 'budget'
 
 export class ToolFailure extends Error {
   readonly dbCode: string | undefined

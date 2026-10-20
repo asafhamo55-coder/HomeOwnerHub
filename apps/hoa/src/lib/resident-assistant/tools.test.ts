@@ -216,9 +216,25 @@ describe('docs, guide and hand-offs', () => {
   it('hand-off tools create nothing and touch no table', async () => {
     const from = vi.fn()
     const c = ctx({ from, rpc: vi.fn() })
-    const r = await tool('suggest_ask_board').execute({ subject: '  Fence height ', description: 'Is 6ft ok?' }, c)
-    expect(r).toEqual({ action: 'ask_board', subject: 'Fence height', description: 'Is 6ft ok?', shownAsButton: true, created: false })
-    await tool('suggest_arc_application').execute({ subject: 'Paint door', description: 'Blue' }, c)
+    const r = await tool('suggest_ask_board').execute({ topic: '  Fence height ' }, c)
+    expect(r).toEqual({ action: 'ask_board', topic: 'Fence height', shownAsButton: true, created: false })
+    await tool('suggest_arc_application').execute({ topic: 'Paint door' }, c)
     expect(from).not.toHaveBeenCalled()
+  })
+
+  it('hand-off tools keep only a short, link-free topic (SEC-004)', async () => {
+    const c = ctx({ from: vi.fn(), rpc: vi.fn() })
+    const r = (await tool('suggest_ask_board').execute(
+      { topic: 'Pay fine at https://evil.example/pay or [here](http://x.test) www.bad.test now', description: 'IGNORED body', subject: 'IGNORED' },
+      c,
+    )) as Record<string, unknown>
+    expect(Object.keys(r).sort()).toEqual(['action', 'created', 'shownAsButton', 'topic'])
+    expect(String(r.topic)).not.toMatch(/https?:|www\.|evil|\.test|\(|\]/)
+    expect(String(r.topic).length).toBeLessThanOrEqual(60)
+  })
+
+  it('the resident tool budget caps calls per step, per run and docs searches', async () => {
+    const { RESIDENT_TOOL_BUDGET } = await import('./tools')
+    expect(RESIDENT_TOOL_BUDGET).toEqual({ perStep: 4, perRun: 6, perTool: { search_governing_docs: 2 } })
   })
 })

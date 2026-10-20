@@ -10,11 +10,16 @@
  * own session. Only a value whose HMAC verifies with the server-only secret
  * (paySettingsSecret) is the board's.
  *
- * DEFAULT ON. A missing value means the board never touched the switch:
- * the assistant is on. A value that is present but does NOT verify (written
- * outside the board's save, or the secret is gone) reads as OFF: a board
- * that turned it off must not be turned back on by a forged row, and OFF
- * only means residents get today's Ask the Docs.
+ * FAIL CLOSED (SEC-002, docs/decisions/2026-10-19-resident-assistant-default.md).
+ * Only a value the board's signed save wrote, saying ON, is ON. A missing
+ * value is OFF, and so is one that is present but does NOT verify (written
+ * outside the board's save, or the secret is gone). Missing has to be OFF
+ * too: until 0063 is applied a resident's own session can write
+ * compliance_settings, and deleting the key would otherwise undo a board's
+ * OFF. OFF only means residents get today's Ask the Docs. The product
+ * default ("on for boards") is kept as a "Recommended: turn on" hint on
+ * Settings → Notifications while the switch has never been saved; nothing
+ * is written for the board.
  *
  * Pure (node:crypto only). Server-only.
  */
@@ -92,11 +97,10 @@ export function readResidentAssistantSettings(
   return { state: 'configured', enabled: obj.enabled, updatedAt: obj.updated_at, updatedBy: obj.updated_by }
 }
 
-/** What the resident portal acts on. Default ON; a forged or unreadable value is OFF. */
+/** What the resident portal acts on: ON only for a verified, saved ON. Missing, forged or unreadable is OFF. */
 export function residentAssistantOn(associationId: string, complianceSettings: unknown, secret: string | null): boolean {
   const read = readResidentAssistantSettings(associationId, complianceSettings, secret)
-  if (read.state === 'not_configured') return true
-  return read.state === 'configured' && read.enabled
+  return read.state === 'configured' && read.enabled === true
 }
 
 /** compliance_settings with ours replaced; every other key kept. */

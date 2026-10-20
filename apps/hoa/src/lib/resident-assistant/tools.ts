@@ -17,7 +17,7 @@ import { articleHelpHref } from '@/lib/guide/ask-core'
 import { paySettingsSecret, readZelleSettings } from '@/lib/pay-by-zelle'
 import { redactContactPII } from '@homeowner-portal/ai/pii'
 import { ToolFailure, runDocsSearch, type ToolDefinition } from '@/lib/community-qa/tools'
-import type { LoopTool } from '@/lib/community-qa/loop'
+import type { LoopTool, ToolBudget } from '@/lib/community-qa/loop'
 import {
   ScopeReadFailed,
   readCommunityUpdates,
@@ -26,7 +26,7 @@ import {
   readMyRequests,
   type ResidentScope,
 } from './reads'
-import { clampHandoffText, type HandoffAction } from './handoff'
+import { handoffTopic, type HandoffAction } from './handoff'
 
 export interface ResidentToolContext {
   scope: ResidentScope
@@ -195,21 +195,20 @@ function handoffTool(name: string, action: HandoffAction, description: string): 
       parameters: {
         type: 'object',
         properties: {
-          subject: { type: 'string', description: 'A short subject line, 5-120 characters, in the resident’s words.' },
-          description: {
+          topic: {
             type: 'string',
-            description: 'What the resident wants, 1-4 sentences, drawn from this chat. No other people’s names or details.',
+            description: `A short topic, 2-8 words, e.g. "hot tub in back yard". No names, links or contact details. The form is filled from the resident's own message; this only labels it.`,
           },
         },
-        required: ['subject', 'description'],
+        required: ['topic'],
       },
     },
     async execute(args) {
-      const subject = clampHandoffText(args.subject, 120)
-      const body = clampHandoffText(args.description, 1500)
-      if (!subject) throw new ToolFailure('invalid_args')
+      // SEC-004: only a sanitised short topic survives; agent.ts builds the
+      // form's subject and description from the resident's own message.
+      const topic = handoffTopic(args.topic)
       // Nothing is created: this is shown as a button the resident may tap.
-      return { action, subject, description: body, shownAsButton: true, created: false }
+      return { action, topic, shownAsButton: true, created: false }
     },
   }
 }
@@ -217,14 +216,27 @@ function handoffTool(name: string, action: HandoffAction, description: string): 
 const suggestAskBoard = handoffTool(
   'suggest_ask_board',
   'ask_board',
-  'Offer the resident an "Ask the board" button that opens a new support request with this subject and description prefilled. Use when the docs do not answer a rules question, when only the board can decide, or for a billing, maintenance or account problem. It creates nothing; the resident reviews and sends it.',
+  'Offer the resident an "Ask the board" button that opens a new support request prefilled with their question. Use when the docs do not answer a rules question, when only the board can decide, or for a billing, maintenance or account problem. It creates nothing; the resident reviews and sends it.',
 )
 
 const suggestArcApplication = handoffTool(
   'suggest_arc_application',
   'start_arc',
-  'Offer the resident a "Start an ARC application" button that opens the architectural application form prefilled. Use when they want to change the outside of their home (paint, fence, deck, roof, landscaping, solar, addition). It creates nothing; the resident reviews and submits it.',
+  'Offer the resident a "Start an ARC application" button that opens the architectural application form prefilled with their question. Use when they want to change the outside of their home (paint, fence, deck, roof, landscaping, solar, addition). It creates nothing; the resident reviews and submits it.',
 )
+
+// ─── budget ──────────────────────────────────────────────────────────
+
+/**
+ * SEC-001: the resident loop's tool budget. One rate-limited message runs
+ * at most 4 tools per step and 6 in all, and at most 2 docs searches (each
+ * is a W1 model call, an embedding and an ai_runs row).
+ */
+export const RESIDENT_TOOL_BUDGET: ToolBudget = {
+  perStep: 4,
+  perRun: 6,
+  perTool: { search_governing_docs: 2 },
+}
 
 // ─── registry ────────────────────────────────────────────────────────
 

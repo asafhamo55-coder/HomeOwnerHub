@@ -22,7 +22,8 @@ export const dynamic = 'force-dynamic'
  * association, stored on the association, off until a board turns it on.
  *
  * "Resident portal" → "Resident assistant" (BL-096): one switch per
- * association, ON until a board turns it off.
+ * association, OFF until a board turns it on (SEC-002; a never-saved switch
+ * shows "Recommended: turn on").
  */
 export default async function NotificationSettingsPage() {
   const { role } = await requireBoardOrAdmin()
@@ -92,7 +93,7 @@ export default async function NotificationSettingsPage() {
         <CardHeader className="pb-4">
           <CardTitle as="h2">Resident portal</CardTitle>
           <CardDescription>
-            One setting for the whole association, shared by every board member. On until you turn it off.
+            One setting per association, shared by every board member. Off until you turn it on.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -104,18 +105,34 @@ export default async function NotificationSettingsPage() {
             )
           ) : (
             <>
-              {assistant.data.state === 'unverified' ? (
-                <Alert variant="warning" title="Resident assistant is off">
-                  The saved setting was changed outside this screen, so residents see Ask the Docs. Turn it on again
-                  to restore the assistant.
-                </Alert>
-              ) : null}
               {!assistant.data.aiConfigured ? (
                 <Alert variant="warning" title="AI isn’t set up on this server">
                   Residents see Ask the Docs until the AI service is configured.
                 </Alert>
               ) : null}
-              <ResidentAssistantToggle initial={assistant.data.on} />
+              {assistant.data.associations.map((a) => (
+                <div key={a.association.id} className="space-y-3">
+                  {a.state === 'unverified' ? (
+                    <Alert
+                      variant="warning"
+                      title={
+                        assistant.data.associations.length > 1
+                          ? `Resident assistant is off for ${a.association.name}`
+                          : 'Resident assistant is off'
+                      }
+                    >
+                      The saved setting was changed outside this screen, so residents see Ask the Docs. Turn it on
+                      again to restore the assistant.
+                    </Alert>
+                  ) : null}
+                  <ResidentAssistantToggle
+                    associationId={a.association.id}
+                    associationName={assistant.data.associations.length > 1 ? a.association.name : undefined}
+                    initial={a.on}
+                    recommendOn={a.recommendOn}
+                  />
+                </div>
+              ))}
             </>
           )}
         </CardContent>
