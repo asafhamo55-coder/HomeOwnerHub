@@ -13,7 +13,13 @@ describe('W21 requirementsFor (BL-084: read path)', () => {
         ASSOC,
         {
           coiRemindersEnabled: true,
-          minimums: { glPerOccurrenceMin: 1_000_000, glAggregateMin: 2_000_000, workersCompRequired: true, autoLiabilityMin: 500_000 },
+          minimums: {
+            glPerOccurrenceMin: 1_000_000,
+            glAggregateMin: 2_000_000,
+            workersCompRequired: true,
+            autoLiabilityMin: 500_000,
+            umbrellaMin: 5_000_000,
+          },
         },
         { updatedAt: '2026-10-18T00:00:00Z', updatedBy: null },
         SECRET,
@@ -25,7 +31,7 @@ describe('W21 requirementsFor (BL-084: read path)', () => {
       workersCompRequired: true,
       autoLiabilityMin: 500_000,
       additionalInsuredRequired: true,
-      umbrellaMin: null,
+      umbrellaMin: 5_000_000,
       licenseRequiredFor: ['roofing'],
     })
   })
@@ -50,7 +56,7 @@ describe('W21 requirementsFor (BL-084: read path)', () => {
 })
 
 describe('W21 applyMinimums', () => {
-  const min = { glPerOccurrenceMin: 1_000_000, glAggregateMin: null, workersCompRequired: true, autoLiabilityMin: null }
+  const min = { glPerOccurrenceMin: 1_000_000, glAggregateMin: null, workersCompRequired: true, autoLiabilityMin: null, umbrellaMin: null }
   const coi = { generalLiabilityPerOccurrence: 500_000, generalLiabilityAggregate: null, workersComp: true, autoLiability: null }
 
   it('turns a green grade red when the certificate is under a minimum, whatever the model said', () => {

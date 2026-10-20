@@ -106,7 +106,13 @@ describe('inviteVendorsToRfp', () => {
             ASSOC,
             {
               coiRemindersEnabled: true,
-              minimums: { glPerOccurrenceMin: 1_000_000, glAggregateMin: null, workersCompRequired: true, autoLiabilityMin: null },
+              minimums: {
+                glPerOccurrenceMin: 1_000_000,
+                glAggregateMin: null,
+                workersCompRequired: true,
+                autoLiabilityMin: null,
+                umbrellaMin: 2_000_000,
+              },
             },
             { updatedAt: '2026-10-18T00:00:00Z', updatedBy: null },
             'test-secret',
@@ -121,6 +127,7 @@ describe('inviteVendorsToRfp', () => {
       expect(email.html).toContain('General liability: $1,000,000 per occurrence')
       expect(email.html).toContain('Workers’ compensation: required')
       expect(email.text).toContain('- General liability: $1,000,000 per occurrence')
+      expect(email.text).toContain('- Umbrella / excess liability: $2,000,000')
     } finally {
       vi.unstubAllEnvs()
     }

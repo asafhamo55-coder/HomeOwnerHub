@@ -6,9 +6,9 @@ topic: vendors
 roles: [admin, board]
 routes: ["/vendors", "/vendors/new", "/vendors/[id]", "/vendors/[id]/edit", "/vendors/[id]/compliance", "/vendors/invitations", "/vendors/approval-queue"]
 primary_route: /vendors
-keywords: [vendor, contractor, add vendor, new vendor, invite vendor, onboarding, onboard, coi, certificate of insurance, insurance, expired insurance, insurance expiring, w-9, w9, ein, tax id, "1099", license, contractor license, compliance, compliant, non-compliant, general liability, workers comp, additional insured, approve vendor, approval queue, prospect, landscaper, plumber, send a link, own info, fill in their own details]
-related: [vendors-rfps-collect-bids, settings-vendors, approvals-queue, accounting-enter-pay-bills]
-reviewed: 2026-10-18
+keywords: [insurance expired badge, vendor, contractor, add vendor, new vendor, invite vendor, onboarding, onboard, coi, certificate of insurance, insurance, expired insurance, insurance expiring, w-9, w9, ein, tax id, "1099", license, contractor license, compliance, compliant, non-compliant, general liability, workers comp, additional insured, approve vendor, approval queue, prospect, landscaper, plumber, send a link, own info, fill in their own details]
+related: [vendors-request-certificate, vendors-rfps-collect-bids, settings-vendors, approvals-queue, accounting-enter-pay-bills]
+reviewed: 2026-10-20
 ---
 
 Use this before you hire a new contractor. You set up the vendor, record their insurance (COI), W-9 and license, and the app grades them so the board knows they're safe to use.
@@ -26,7 +26,9 @@ Use this before you hire a new contractor. You set up the vendor, record their i
 6. Open the vendor's page. If they're **Compliant** and still a **Prospect**, select [[Approve vendor]], then confirm.
 
 ## What happens next
-An approved vendor's status changes to **Active**. The **Vendors** list shows each vendor's compliance and when their COI expires. A COI that expires within 30 days shows how many days are left, and an expired one shows **Expired**. COIs expiring within 30 days also appear under **At risk this week** on your dashboard.
+An approved vendor's status changes to **Active**. The **Vendors** list shows each vendor's compliance and when their COI expires. A COI that expires within 30 days shows how many days are left, and an expired one shows **Expired**. On the dashboard, expiring and expired COIs appear in the Daily Digest and under **At risk this week**, and the vendor's page shows an **Insurance expiring** or **Insurance expired** badge.
+
+To ask a vendor for a renewed certificate, see [Request an updated insurance certificate](guide:vendors-request-certificate).
 
 The **Approval queue** tab lists every vendor that needs the board: compliant prospects ready to approve, vendors with gaps, and vendors whose documents aren't entered yet. Select [[Review]] to open one.
 
@@ -43,7 +45,8 @@ The **Approval queue** tab lists every vendor that needs the board: compliant pr
 - When a vendor fills in the invitation form, their details and files arrive as a **Prospect**. The check doesn't run by itself. Enter the values and select [[Run compliance check]].
 - An invitation link works once and expires after 7 days. You can revoke one that hasn't been used from the **Invitations** tab.
 - A board admin or board member can set the grade by hand under **Manual override**, for example after confirming a policy by phone with the carrier. Add a reason so the board can see why.
-- The app emails each active or prospect vendor 30 days and 7 days before their COI expires, and on the day it does, asking for a renewed certificate. The board gets a notification each time. You can turn the vendor emails off in **Settings → Vendors**.
-- When a vendor replies with a renewed certificate, upload it and enter the new dates and amounts, then select [[Run compliance check]]. Reminders start again for the new expiry date.
+- The app never emails a vendor about insurance on its own. Board members and admins get a notification 30 days and 7 days before an active or prospect vendor's COI expires, and on the day it does. You can turn these off in **Settings → Vendors**.
+- When a vendor replies with a renewed certificate, upload it and enter the new dates and amounts, then select [[Run compliance check]]. Notifications start again for the new expiry date.
+- **No email on file**: open the **More vendor actions** menu, choose **Edit details**, add a **Primary email**, then request the certificate again.
 - To remove a vendor, open the **More vendor actions** menu on their page and choose **Delete vendor**. Their past invoices and bids keep their history.
 - Vendor details and ratings are private to your association.

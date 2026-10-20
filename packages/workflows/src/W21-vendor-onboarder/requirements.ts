@@ -1,11 +1,11 @@
 // W21 — what the association requires, and the deterministic floor under
 // the model's grade (BL-084).
 //
-// The insurance minimums come from the board's signed setting
-// (../vendor-insurance/settings.ts, edited at Settings → Vendors). The
-// remaining requirements — additional insured, umbrella, licensed trades —
-// have no screen yet and are still read from their top-level
-// compliance_settings keys, exactly as before.
+// The insurance minimums — umbrella included since 2026-10-20 — come from
+// the board's signed setting (../vendor-insurance/settings.ts, edited at
+// Settings → Vendors). The remaining requirements — additional insured and
+// licensed trades — have no screen yet and are still read from their
+// top-level compliance_settings keys, exactly as before.
 
 import {
   minimumsDeficiencies,
@@ -27,7 +27,6 @@ export function requirementsFor(
   return {
     ...minimums,
     additionalInsuredRequired: obj.additional_insured_required === true,
-    umbrellaMin: typeof obj.umbrella_min === 'number' ? obj.umbrella_min : null,
     licenseRequiredFor: Array.isArray(obj.license_required_for)
       ? (obj.license_required_for as unknown[]).filter((t): t is string => typeof t === 'string')
       : [],

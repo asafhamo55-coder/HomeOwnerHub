@@ -25,6 +25,7 @@ function quiet(): BoardSignalsInput {
         cureDeadlinesElapsed: 0,
         cureDeadlinesUpcoming: 0,
         coiExpiring: 0,
+        coiExpired: 0,
       },
       failed: false,
     },
@@ -65,6 +66,7 @@ function everythingFiring(): BoardSignalsInput {
     cureDeadlinesElapsed: 4,
     cureDeadlinesUpcoming: 1,
     coiExpiring: 2,
+    coiExpired: 0,
   }
   input.staleApprovals.count = 6
   input.lease.headroom = 0
@@ -205,6 +207,23 @@ describe('buildBoardSignals', () => {
     expect(kinds(input)).toContain('coi_expiring')
   })
 
+  it('expiring vendor COIs are amber; any expired certificate makes it red and leads (BL-083)', () => {
+    const expiring = quiet()
+    expiring.atRisk.counts.coiExpiring = 2
+    expect(find(expiring, 'coi_expiring')).toMatchObject({
+      severity: 'amber',
+      headline: '2 vendor certificates of insurance expire within 30 days',
+    })
+    const expired = quiet()
+    expired.atRisk.counts.coiExpired = 1
+    expired.atRisk.counts.coiExpiring = 2
+    expect(find(expired, 'coi_expiring')).toMatchObject({
+      severity: 'red',
+      headline: '1 vendor certificate of insurance has expired, and 2 more expire within 30 days',
+    })
+    expect(kinds(expired).filter((k) => k === 'coi_expiring')).toHaveLength(1)
+  })
+
   it('stays silent on every at-risk signal when the at-risk queries failed', () => {
     // Zero from a failed query means UNKNOWN. Rendering it as "nothing is
     // overdue" is the exact false reassurance this card must never give.
@@ -215,6 +234,7 @@ describe('buildBoardSignals', () => {
         cureDeadlinesElapsed: 4,
         cureDeadlinesUpcoming: 1,
         coiExpiring: 2,
+        coiExpired: 0,
       },
       failed: true,
     }

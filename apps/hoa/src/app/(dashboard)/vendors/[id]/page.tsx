@@ -27,7 +27,10 @@ import {
   complianceKey,
 } from '@/lib/status/vendors'
 import { dateOnly, daysUntil, shortDate, tradesLabel, usd } from '@/components/vendors/format'
+import { coiExpiryLabel } from '@homeowner-portal/workflows/vendor-coi'
+import { loadCoiRequestDraft } from '@/lib/vendor-coi-request/actions'
 import { ApproveVendorButton } from './ApproveVendorButton'
+import { RequestCertificateButton } from './RequestCertificateButton'
 import { VendorActions } from './VendorActions'
 
 const DOC_TYPE_LABEL: Record<string, string> = {
@@ -51,6 +54,12 @@ export default async function VendorDetailPage({
   const status = compliance?.coi_status ?? null
   const canApprove = status === 'green' && vendor.status === 'prospect'
   const coiDays = daysUntil(compliance?.coi_expiration_date)
+  // BL-083: expiring (≤30 days) / expired, on the association's own day.
+  // Board/admin only — anyone else gets no draft and no button.
+  const coiDraft = await loadCoiRequestDraft(vendor.id)
+  const draft = coiDraft.ok ? coiDraft.data : null
+  const coiAlert = draft && (draft.state === 'expired' || draft.state === 'expiring') && draft.expiresOn ? draft : null
+  const coiAlertLabel = coiAlert?.daysLeft != null ? coiExpiryLabel(coiAlert.daysLeft) : null
   const missing = [
     !vendor.ein ? 'EIN' : null,
     !vendor.trades || vendor.trades.length === 0 ? 'trade' : null,
@@ -65,6 +74,12 @@ export default async function VendorDetailPage({
         <>
           <StatusBadge status={vendor.status} tones={VENDOR_STATUS_TONES} labels={VENDOR_STATUS_LABELS} />
           <StatusBadge status={complianceKey(status)} tones={COMPLIANCE_TONES} labels={COMPLIANCE_LABELS} />
+          {coiAlert ? (
+            <StatusPill
+              tone={coiAlert.state === 'expired' ? 'danger' : 'warning'}
+              label={coiAlert.state === 'expired' ? 'Insurance expired' : 'Insurance expiring'}
+            />
+          ) : null}
         </>
       }
       description={
@@ -94,6 +109,25 @@ export default async function VendorDetailPage({
           used for 1099 reporting, RFP invitations, or compliance until
           both are set. Completeness is derived, never stored, so this
           clears itself the moment the fields are filled in. */}
+      {coiAlert && coiAlertLabel ? (
+        <Alert
+          variant={coiAlert.state === 'expired' ? 'error' : 'warning'}
+          title={`Certificate of insurance: ${coiAlertLabel.toLowerCase()}`}
+          actions={
+            <RequestCertificateButton
+              vendorId={vendor.id}
+              to={coiAlert.to}
+              initialSubject={coiAlert.subject}
+              initialBody={coiAlert.body}
+              size="sm"
+            />
+          }
+        >
+          Nothing is sent to the vendor automatically. Request an updated certificate to review the email and send it
+          yourself, then enter the new certificate under Run compliance check.
+        </Alert>
+      ) : null}
+
       {isVendorIncomplete({ ein: vendor.ein, trades: vendor.trades ?? null }) ? (
         <Alert
           variant="warning"
@@ -146,9 +180,20 @@ export default async function VendorDetailPage({
         <Card>
           <CardHeader
             actions={
-              compliance?.last_reviewed_at ? (
-                <span className="text-xs text-muted">Reviewed {shortDate(compliance.last_reviewed_at)}</span>
-              ) : null
+              <span className="flex flex-wrap items-center gap-2">
+                {compliance?.last_reviewed_at ? (
+                  <span className="text-xs text-muted">Reviewed {shortDate(compliance.last_reviewed_at)}</span>
+                ) : null}
+                {draft && !coiAlert ? (
+                  <RequestCertificateButton
+                    vendorId={vendor.id}
+                    to={draft.to}
+                    initialSubject={draft.subject}
+                    initialBody={draft.body}
+                    size="sm"
+                  />
+                ) : null}
+              </span>
             }
           >
             <CardTitle as="h2">Compliance</CardTitle>

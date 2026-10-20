@@ -861,8 +861,8 @@ These go beyond the design-system v2 pass:
 - **BL-080 Payment plans never complete:** a plan never moves to Completed on its own, and a home on an active plan skips automatic dues reminders for good. Close a plan when it is paid off, and resume reminders.
 - **BL-081 Stop or edit a recurring journal entry:** there is no UI for it, and the guide currently tells boards to contact support.
 - **BL-082 Notify residents of decisions (Done 2026-10-19, 084692b):** no email or text goes out when the board replies to a ticket or decides an ARC application. Add an opt-in notification through the outbound guard, using the residents' preferences.
-- **BL-083 Vendor insurance expiry reminders:** vendors get no automatic email before a certificate expires. Add a reminder job, sent to vendors only and never to residents.
-- **BL-084 RFP insurance minimums settings:** add a settings screen for the minimum coverage per RFP.
+- **BL-083 Vendor insurance expiry reminders (Done 2026-10-20, board-facing per the owner safety rule):** no automatic email to anyone outside the board. The daily `vendor-coi-reminders` job now writes only in-app board notices (30 / 7 / 0 days; same function id, no sender). Expiring and expired COIs show in the dashboard Daily Digest and At risk list and as a badge on the vendor page. "Request updated certificate" on the vendor page drafts the vendor email; the board reviews and sends it through the guarded sendEmail, to the vendor's address on file only.
+- **BL-084 RFP insurance minimums settings (Done 2026-10-20):** Settings → Vendors holds general liability, workers' comp, auto and umbrella minimums (signed compliance_settings.vendor_insurance, no migration). Umbrella replaced W21's unsigned `umbrella_min` read; RFP drafts, invitations and the compliance check all use the signed values. Per-RFP overrides were not built: minimums are per association.
 - **Eval note:** the Ask-the-guide rules classifier sends some how-to questions to Ask the Docs ("how long can", "allowed", "declaration"). Tune it next time.
 
 - **BL-085 Columns wanted for M2** (from BL-080/081/083):
@@ -871,7 +871,7 @@ These go beyond the design-system v2 pass:
   - `payment_plans.completed_at`.
   - `recurring_journal_entries.status` (active / paused / stopped) and `end_date`.
   - Once these exist, replace the memo and audit-row stand-ins.
-- **BL-086 Check vendor COI reply routing in prod:** vendor reminder emails ask vendors to reply. Confirm one real reply reaches the board's inbox.
+- **BL-086 Check vendor COI reply routing in prod:** the board-sent "Request updated certificate" email asks the vendor to reply. Confirm one real reply reaches the board's inbox.
 
 ## Research pass 2026-10-19: next no-migration wins (ranked)
 

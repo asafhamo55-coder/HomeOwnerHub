@@ -64,6 +64,7 @@ const INPUT = {
   glAggregateMin: '2000000',
   workersCompRequired: true,
   autoLiabilityMin: '',
+  umbrellaMin: '3,000,000',
 }
 
 beforeEach(() => {
@@ -95,7 +96,7 @@ describe('getBoardVendorInsuranceSettings', () => {
     expect(r.ok && r.data.state).toBe('not_configured')
     expect(r.ok && r.data.settings).toEqual({
       coiRemindersEnabled: true,
-      minimums: { glPerOccurrenceMin: 500_000, glAggregateMin: null, workersCompRequired: false, autoLiabilityMin: null },
+      minimums: { glPerOccurrenceMin: 500_000, glAggregateMin: null, workersCompRequired: false, autoLiabilityMin: null, umbrellaMin: null },
     })
   })
 
@@ -117,7 +118,13 @@ describe('saveVendorInsuranceSettings', () => {
     expect(read.state === 'configured' && read.updatedBy).toBe('u-board')
     expect(resolveVendorInsuranceSettings(ASSOC, cs, SECRET)).toEqual({
       coiRemindersEnabled: false,
-      minimums: { glPerOccurrenceMin: 1_000_000, glAggregateMin: 2_000_000, workersCompRequired: true, autoLiabilityMin: null },
+      minimums: {
+        glPerOccurrenceMin: 1_000_000,
+        glAggregateMin: 2_000_000,
+        workersCompRequired: true,
+        autoLiabilityMin: null,
+        umbrellaMin: 3_000_000,
+      },
     })
   })
 

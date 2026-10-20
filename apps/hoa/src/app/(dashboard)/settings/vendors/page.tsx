@@ -20,7 +20,7 @@ export default async function VendorSettingsPage() {
     <Page
       width="narrow"
       title="Vendors"
-      description="Set the insurance every vendor must carry, and whether vendors are reminded before their certificate expires."
+      description="Set the insurance every vendor must carry, and whether the board is notified before a certificate expires."
       tabs={<SettingsTabs current="/settings/vendors" role={role} />}
       linkAs={Link}
     >
@@ -45,7 +45,7 @@ export default async function VendorSettingsPage() {
     <>
       {data.state === 'unverified' ? (
         <Alert variant="warning" title="Your saved vendor settings aren’t in use">
-          They were changed outside this screen, so the defaults below apply and vendor reminders stay on. Check them
+          They were changed outside this screen, so the defaults below apply and board reminders stay on. Check them
           and save again.
         </Alert>
       ) : null}

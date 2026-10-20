@@ -42,22 +42,12 @@ export function coiMilestone(expiresOn: string, today: string): MilestoneHit | n
 }
 
 /**
- * The communications primary key for one vendor email. The expiration
- * date is part of the key, so a renewed certificate (new date) starts its
- * own three milestones, while re-running the same day — or the same
- * milestone on a later catch-up day — collides and sends nothing.
+ * notifications.entity_id for the board's notice of one milestone (the
+ * dedupe index is user_id + kind + entity_id). The expiration date is part
+ * of the key, so a renewed certificate (new date) starts its own three
+ * milestones, while re-running the same day — or the same milestone on a
+ * later catch-up day — collides and notifies nobody twice.
  */
-export function coiReminderCommunicationId(
-  associationId: string,
-  vendorId: string,
-  expiresOn: string,
-  milestone: CoiMilestone,
-): string {
-  return deterministicUuid(`vendor-coi-reminder:v1:${associationId}:${vendorId}:${expiresOn.slice(0, 10)}:${milestone}`)
-}
-
-/** notifications.entity_id for the board's notice of the same milestone
- *  (the dedupe index is user_id + kind + entity_id). */
 export function coiNoticeEntityId(
   associationId: string,
   vendorId: string,

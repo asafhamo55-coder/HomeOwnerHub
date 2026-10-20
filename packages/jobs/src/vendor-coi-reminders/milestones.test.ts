@@ -4,7 +4,6 @@ import {
   EXPIRED_GRACE_DAYS,
   coiMilestone,
   coiNoticeEntityId,
-  coiReminderCommunicationId,
   whenPhrase,
 } from './milestones'
 
@@ -40,13 +39,12 @@ describe('coiMilestone (BL-083)', () => {
 
 describe('deterministic ids', () => {
   it('one id per (association, vendor, expiry, milestone) — a renewal starts fresh', () => {
-    const a = coiReminderCommunicationId('as', 'v', '2026-10-25', 'd7')
-    expect(coiReminderCommunicationId('as', 'v', '2026-10-25', 'd7')).toBe(a)
-    expect(coiReminderCommunicationId('as', 'v', '2026-10-25T00:00:00Z', 'd7')).toBe(a)
-    expect(coiReminderCommunicationId('as', 'v', '2026-10-25', 'd30')).not.toBe(a)
-    expect(coiReminderCommunicationId('as', 'v', '2027-10-25', 'd7')).not.toBe(a)
-    expect(coiReminderCommunicationId('as2', 'v', '2026-10-25', 'd7')).not.toBe(a)
-    expect(coiNoticeEntityId('as', 'v', '2026-10-25', 'd7')).not.toBe(a)
+    const a = coiNoticeEntityId('as', 'v', '2026-10-25', 'd7')
+    expect(coiNoticeEntityId('as', 'v', '2026-10-25', 'd7')).toBe(a)
+    expect(coiNoticeEntityId('as', 'v', '2026-10-25T00:00:00Z', 'd7')).toBe(a)
+    expect(coiNoticeEntityId('as', 'v', '2026-10-25', 'd30')).not.toBe(a)
+    expect(coiNoticeEntityId('as', 'v', '2027-10-25', 'd7')).not.toBe(a)
+    expect(coiNoticeEntityId('as2', 'v', '2026-10-25', 'd7')).not.toBe(a)
     expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   })
 })

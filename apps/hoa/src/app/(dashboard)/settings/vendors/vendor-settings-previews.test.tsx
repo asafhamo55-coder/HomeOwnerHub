@@ -5,8 +5,7 @@ import * as React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 // Settings → Vendors (BL-083 / BL-084): component tests for every state,
-// plus static HTML previews at 375 and 1440, light and dark, and the
-// vendor's reminder email. Rendered from fixtures; no browser, no
+// plus static HTML previews at 375 and 1440, light and dark. Rendered from fixtures; no browser, no
 // database. Writes files only when VENDOR_SETTINGS_PREVIEW_DIR is set:
 //
 //   rtk pnpm build    # for the compiled CSS
@@ -29,8 +28,8 @@ const Link = (await import('next/link')).default
 const { ToastProvider, ConfirmProvider, Page, Alert } = await import('@homeowner-portal/ui')
 const { VendorInsuranceForm, toValues } = await import('./VendorInsuranceForm')
 const { SettingsTabs } = await import('@/components/settings/SettingsTabs')
-const { renderVendorReminder, renderBoardNotice } = await import('@homeowner-portal/jobs/vendor-coi-reminders')
-const { DEFAULT_VENDOR_INSURANCE_SETTINGS, insuranceRequirementLines } = await import('@homeowner-portal/workflows/vendor-insurance')
+const { renderBoardNotice } = await import('@homeowner-portal/jobs/vendor-coi-reminders')
+const { DEFAULT_VENDOR_INSURANCE_SETTINGS } = await import('@homeowner-portal/workflows/vendor-insurance')
 type Settings = import('@homeowner-portal/workflows/vendor-insurance').VendorInsuranceSettings
 
 const html = (el: React.ReactElement) =>
@@ -43,7 +42,13 @@ const strip = (s: string) => s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
 
 const SAVED: Settings = {
   coiRemindersEnabled: true,
-  minimums: { glPerOccurrenceMin: 1_000_000, glAggregateMin: 2_000_000, workersCompRequired: true, autoLiabilityMin: 1_000_000 },
+  minimums: {
+    glPerOccurrenceMin: 1_000_000,
+    glAggregateMin: 2_000_000,
+    workersCompRequired: true,
+    autoLiabilityMin: 1_000_000,
+    umbrellaMin: 2_000_000,
+  },
 }
 const OFF: Settings = { ...SAVED, coiRemindersEnabled: false }
 
@@ -52,7 +57,7 @@ function Screen({ children, role = 'board' as const }: { children: React.ReactNo
     <Page
       width="narrow"
       title="Vendors"
-      description="Set the insurance every vendor must carry, and whether vendors are reminded before their certificate expires."
+      description="Set the insurance every vendor must carry, and whether the board is notified before a certificate expires."
       tabs={<SettingsTabs current="/settings/vendors" role={role} />}
       linkAs={Link}
     >
@@ -67,7 +72,9 @@ describe('VendorInsuranceForm (rendered)', () => {
     const text = strip(out)
     expect(text).toContain('Insurance minimums')
     expect(text).toContain('Leave an amount blank for no minimum')
-    expect(text).toContain('On — vendors are reminded')
+    expect(text).toContain('On — the board is notified')
+    expect(text).toContain('Nothing is emailed to the vendor automatically')
+    expect(text).toContain('Umbrella')
     expect(text).not.toContain('Last saved')
     expect(out).toMatch(/type="checkbox"[^>]*checked/)
   })
@@ -75,13 +82,18 @@ describe('VendorInsuranceForm (rendered)', () => {
   it('saved values show as dollars, with when they were saved', () => {
     const text = strip(html(<VendorInsuranceForm initial={SAVED} configured updatedAt="2026-10-18T14:00:00Z" />))
     expect(text).toContain('Last saved')
-    expect(toValues(SAVED)).toMatchObject({ glPerOccurrenceMin: '1,000,000', glAggregateMin: '2,000,000', autoLiabilityMin: '1,000,000' })
+    expect(toValues(SAVED)).toMatchObject({
+      glPerOccurrenceMin: '1,000,000',
+      glAggregateMin: '2,000,000',
+      autoLiabilityMin: '1,000,000',
+      umbrellaMin: '2,000,000',
+    })
   })
 
-  it('reminders off: says the board is still notified', () => {
+  it('reminders off: says the dashboard still shows expiring certificates', () => {
     const text = strip(html(<VendorInsuranceForm initial={OFF} configured updatedAt="2026-10-18T14:00:00Z" />))
-    expect(text).toContain('Off — only the board is notified')
-    expect(text).toContain('Board notifications continue either way')
+    expect(text).toContain('Off — no notifications')
+    expect(text).toContain('The dashboard and vendor pages still show expiring certificates')
   })
 
   it('field errors show under their field', () => {
@@ -105,41 +117,11 @@ describe('VendorInsuranceForm (rendered)', () => {
   })
 })
 
-describe('reminder copy', () => {
-  const lines = insuranceRequirementLines(SAVED.minimums)
-  it('the vendor email asks for a renewed certificate and lists the minimums', () => {
-    const e = renderVendorReminder({
-      associationName: 'Maple Court HOA',
-      vendorName: 'Acme Roofing LLC',
-      expiresOn: '2026-11-17',
-      milestone: 'd30',
-      daysLeft: 30,
-      requirementLines: lines,
-    })
-    expect(e.subject).toBe('Your certificate of insurance with Maple Court HOA expires in 30 days')
-    expect(e.text).toContain('expires on November 17, 2026')
-    expect(e.text).toContain('- Auto liability: $1,000,000')
-  })
-
-  it('an expired certificate says it expired, on the right calendar date', () => {
-    const e = renderVendorReminder({
-      associationName: 'Maple Court HOA',
-      vendorName: 'Acme <Roofing>',
-      expiresOn: '2026-10-15',
-      milestone: 'expired',
-      daysLeft: -3,
-      requirementLines: [],
-    })
-    expect(e.subject).toBe('Your certificate of insurance with Maple Court HOA has expired')
-    expect(e.text).toContain('expired on October 15, 2026')
-    expect(e.html).toContain('Acme &lt;Roofing&gt;')
-    expect(e.html).not.toContain('must show at least')
-  })
-
-  it('the board notice says what happened with the vendor', () => {
-    expect(renderBoardNotice({ vendorName: 'Acme', expiresOn: '2026-10-25', milestone: 'd7', daysLeft: 7, outcome: 'emailed' })).toEqual({
+describe('board notice copy (BL-083: board only)', () => {
+  it('tells the board nothing went to the vendor, and where to request a certificate', () => {
+    expect(renderBoardNotice({ vendorName: 'Acme', expiresOn: '2026-10-25', milestone: 'd7', daysLeft: 7 })).toEqual({
       title: 'Acme: insurance expires in 7 days',
-      body: 'Certificate of insurance expires October 25, 2026. We emailed the vendor for a renewed certificate.',
+      body: 'Certificate of insurance expires October 25, 2026. Nothing has been sent to the vendor. Open the vendor to request an updated certificate.',
     })
   })
 })
@@ -181,7 +163,7 @@ const PREVIEWS: Record<string, { title: string; body: () => React.ReactElement }
     body: () => (
       <Screen>
         <Alert variant="warning" title="Your saved vendor settings aren’t in use">
-          They were changed outside this screen, so the defaults below apply and vendor reminders stay on. Check them and
+          They were changed outside this screen, so the defaults below apply and board reminders stay on. Check them and
           save again.
         </Alert>
         <VendorInsuranceForm initial={DEFAULT_VENDOR_INSURANCE_SETTINGS} configured={false} updatedAt={null} />
@@ -227,18 +209,6 @@ describe('vendor settings previews', () => {
       writeFileSync(join(dir, `${name}.html`), indexDoc(p.title, name))
       index.push(`<li><a href="${name}.html">${p.title}</a></li>`)
     }
-    // The vendor's email is its own document (inline styles, light only).
-    const email = renderVendorReminder({
-      associationName: 'Maple Court HOA',
-      vendorName: 'Acme Roofing LLC',
-      expiresOn: '2026-10-25',
-      milestone: 'd7',
-      daysLeft: 7,
-      requirementLines: insuranceRequirementLines(SAVED.minimums),
-    })
-    writeFileSync(join(dir, 'vendor-coi-email.light.html'), email.html)
-    writeFileSync(join(dir, 'vendor-coi-email.html'), indexDoc('Vendor COI reminder email — 7 days out', 'vendor-coi-email', ['light']))
-    index.push('<li><a href="vendor-coi-email.html">Vendor COI reminder email — 7 days out</a></li>')
     writeFileSync(join(dir, 'index.html'), `<!doctype html><meta charset="utf-8"><title>Vendor settings previews</title><ul>${index.join('')}</ul>`)
   })
 })

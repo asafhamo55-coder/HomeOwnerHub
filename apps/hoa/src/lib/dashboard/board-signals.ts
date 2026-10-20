@@ -172,7 +172,16 @@ export function buildBoardSignals(input: BoardSignalsInput): BoardSignal[] {
     })
   }
 
-  if (atRisk !== null && atRisk.coiExpiring > 0) {
+  if (atRisk !== null && atRisk.coiExpired > 0) {
+    signals.push({
+      kind: 'coi_expiring',
+      headline: `${atRisk.coiExpired} vendor ${plural(atRisk.coiExpired, 'certificate of insurance has', 'certificates of insurance have')} expired${
+        atRisk.coiExpiring > 0 ? `, and ${atRisk.coiExpiring} more ${plural(atRisk.coiExpiring, 'expires', 'expire')} within 30 days` : ''
+      }`,
+      href: '/vendors',
+      severity: 'red',
+    })
+  } else if (atRisk !== null && atRisk.coiExpiring > 0) {
     signals.push({
       kind: 'coi_expiring',
       headline: `${atRisk.coiExpiring} vendor ${plural(atRisk.coiExpiring, 'certificate of insurance expires', 'certificates of insurance expire')} within 30 days`,
