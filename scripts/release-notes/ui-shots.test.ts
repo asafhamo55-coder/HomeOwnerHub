@@ -189,7 +189,9 @@ describe('ancestor fallback', () => {
     expect(isDocsOnly(['docs/releases/x.md', 'docs/backlog.md', 'README.md', 'CLAUDE.md'])).toBe(true)
     expect(isDocsOnly([])).toBe(true)
     expect(isDocsOnly(['docs/x.md', 'apps/hoa/content/guide/dues.md'])).toBe(false)
-    expect(isDocsOnly(['.github/workflows/release-notes.yml'])).toBe(false)
+    expect(isDocsOnly(['.github/workflows/release-notes.yml'])).toBe(true)
+    expect(isDocsOnly(['tests/integration/contracts/inngest-wiring.test.ts', 'apps/hoa/src/lib/x.test.ts'])).toBe(true)
+    expect(isDocsOnly(['apps/hoa/src/lib/x.ts'])).toBe(false)
   })
 
   it('keeps the deployed SHA and ancestors with only docs changed since, nearest first', () => {

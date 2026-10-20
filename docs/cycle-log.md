@@ -473,3 +473,11 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - Connect the marketing project to git.
   - Stripe test keys as GitHub secrets.
   - SQL: 0063, M1, perf indexes, and the payment-plan correction (review first).
+
+## 2026-10-20 (01:46) — deploy 05adcce: inbox A1–A3/A6, communications fixes and templates, Stripe sandbox and webhook fixes
+
+- **Live:** 05adcce is 065c160 plus the inngest contract count bumped to 21. CI on 065c160 had failed only on that pinned count.
+- **Release email:** sent, but "screenshots unavailable". 05adcce changed only a test file, so UI shots didn't run, and the ancestor rule accepted docs-only changes only.
+  - **Fix:** the screen-neutral rule now also covers tests/, *.test.* and .github/ files. It takes effect from the next deploy, because the workflow runs scripts from the prod branch.
+- **Inngest:** communications-scheduled-dispatch is new. Confirm it appears in the Inngest dashboard after sync.
+- **Agents running:** Stripe follow-ups (subscription.updated, friendly errors); inbox sale window plus A4 convert.

@@ -197,12 +197,21 @@ export function resolveCiShots(
 export const MAX_ANCESTORS = 20
 
 /**
- * True when every changed path is documentation: under `docs/` or a
- * top-level Markdown file. Anything else (including the in-app guide under
- * apps/hoa/content, which renders as pages) can change what a screen shows.
+ * True when no changed path can alter what a screen shows: documentation
+ * (`docs/`, top-level Markdown), tests (`tests/`, `*.test.*`, `*.spec.*`) and
+ * CI config (`.github/`). The name is historical. Anything else (including
+ * the in-app guide under apps/hoa/content, which renders as pages) can
+ * change a screen, so that ancestor's shots are not reused.
  */
 export function isDocsOnly(changedFiles: readonly string[]): boolean {
-  return changedFiles.every((f) => f.startsWith('docs/') || /^[^/]+\.mdx?$/.test(f))
+  return changedFiles.every(
+    (f) =>
+      f.startsWith('docs/') ||
+      /^[^/]+\.mdx?$/.test(f) ||
+      f.startsWith('tests/') ||
+      /\.(test|spec)\.[cm]?[jt]sx?$/.test(f) ||
+      f.startsWith('.github/'),
+  )
 }
 
 export interface Ancestor {
