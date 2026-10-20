@@ -7,6 +7,8 @@ import type { PropertyContext, ThreadDetail } from '@/lib/inbox/queries'
 import { AssignPropertyForm } from './AssignPropertyForm'
 import { ResidentRailRow } from './ResidentRailRow'
 import { formatShortDate } from '@/lib/format-datetime'
+import type { ThreadRailContext } from '@/lib/inbox/thread-context'
+import { MoneyCard, SenderLine, ViolationList } from './ContextSections'
 
 interface Props {
   thread: ThreadDetail
@@ -20,6 +22,11 @@ interface Props {
    */
   contextLoadFailed: boolean
   suggestedProperty: { unitId: string; address: string } | null
+  /**
+   * BL-101 A1: sender, ledger, violations (getThreadRailContext). Null when
+   * it failed to load — the rail then falls back to the counts below.
+   */
+  rail?: ThreadRailContext | null
 }
 
 /** Section label shared by the property and vendor rails. */
@@ -27,7 +34,7 @@ export function RailLabel({ children }: { children: React.ReactNode }) {
   return <h2 className="text-xs font-semibold uppercase tracking-[0.06em] text-muted">{children}</h2>
 }
 
-export function PropertyRail({ thread, context, contextLoadFailed, suggestedProperty }: Props) {
+export function PropertyRail({ thread, context, contextLoadFailed, suggestedProperty, rail = null }: Props) {
   // Branch on unitId (ground truth) first, before anything derived from
   // the context fetch — the exact ordering ThreadList.tsx's attribution
   // fix established, so a rail load failure can't get relabeled as "not
@@ -64,6 +71,10 @@ export function PropertyRail({ thread, context, contextLoadFailed, suggestedProp
     }
 
     const failed = (k: PropertyContext['degraded'][number]) => context.degraded.includes(k)
+    const addressLabel = `${context.address}${context.unitNumber ? ` #${context.unitNumber}` : ''}`
+    const ledgerHref = context.propertyId
+      ? propertyHref(asPropertyId(context.propertyId), { query: { tab: 'money' } })
+      : null
 
     return (
       <div className="space-y-4 p-4">
@@ -97,7 +108,11 @@ export function PropertyRail({ thread, context, contextLoadFailed, suggestedProp
             Matched via {String(thread.matchReason?.rule ?? 'unknown')}
             {thread.matchSource === 'manual' ? ' (manual)' : ''}
           </p>
+          {rail ? <SenderLine rail={rail} address={addressLabel} /> : null}
         </div>
+
+        {rail?.home ? <MoneyCard home={rail.home} ledgerHref={ledgerHref} /> : null}
+        {rail?.home ? <ViolationList home={rail.home} /> : null}
 
         <div className="space-y-2">
           <RailLabel>Residents</RailLabel>
@@ -120,40 +135,53 @@ export function PropertyRail({ thread, context, contextLoadFailed, suggestedProp
         </div>
 
         <dl className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-          <RailFact
-            label="Dues"
-            failed={failed('dues')}
-            value={
-              context.duesBalance > 0 ? (
-                <StatusPill
-                  tone="danger"
-                  label={`$${context.duesBalance.toFixed(2)}${
-                    context.duesOverdueCount > 0 ? ` · ${context.duesOverdueCount} overdue` : ''
-                  }`}
-                />
-              ) : (
-                <StatusPill tone="success" label="Current" />
-              )
-            }
-          />
-          <RailFact
-            label="Open violations"
-            failed={failed('violations')}
-            value={
-              context.openViolations > 0 ? (
-                <StatusPill tone="warning" label={String(context.openViolations)} />
-              ) : (
-                <span className="text-muted">None</span>
-              )
-            }
-          />
+          {rail?.home ? null : (
+            <RailFact
+              label="Dues"
+              failed={failed('dues')}
+              value={
+                context.duesBalance > 0 ? (
+                  <StatusPill
+                    tone="danger"
+                    label={`$${context.duesBalance.toFixed(2)}${
+                      context.duesOverdueCount > 0 ? ` · ${context.duesOverdueCount} overdue` : ''
+                    }`}
+                  />
+                ) : (
+                  <StatusPill tone="success" label="Current" />
+                )
+              }
+            />
+          )}
+          {rail?.home ? null : (
+            <RailFact
+              label="Open violations"
+              failed={failed('violations')}
+              value={
+                context.openViolations > 0 ? (
+                  <StatusPill tone="warning" label={String(context.openViolations)} />
+                ) : (
+                  <span className="text-muted">None</span>
+                )
+              }
+            />
+          )}
           <RailFact
             label="Open ARC"
             failed={failed('arc')}
             stacked={context.openArcRequests.length > 0}
             value={
               context.openArcRequests.length > 0 ? (
-                context.openArcRequests.map((a) => `${a.summary} (${a.status.replace(/_/g, ' ')})`).join(', ')
+                <ul className="space-y-1">
+                  {context.openArcRequests.map((a) => (
+                    <li key={a.id}>
+                      <Link href={`/arc/${a.id}`} className="font-medium text-primary">
+                        {a.summary}
+                      </Link>
+                      <span className="text-muted">{` (${a.status.replace(/_/g, ' ')})`}</span>
+                    </li>
+                  ))}
+                </ul>
               ) : (
                 <span className="text-muted">None</span>
               )
@@ -165,7 +193,16 @@ export function PropertyRail({ thread, context, contextLoadFailed, suggestedProp
             stacked={context.openTickets.length > 0}
             value={
               context.openTickets.length > 0 ? (
-                context.openTickets.map((t) => t.subject).join(', ')
+                <ul className="space-y-1">
+                  {context.openTickets.map((t) => (
+                    <li key={t.id}>
+                      <Link href={`/tickets/${t.id}`} className="font-medium text-primary">
+                        {t.subject}
+                      </Link>
+                      <span className="text-muted">{` (${t.status.replace(/_/g, ' ')})`}</span>
+                    </li>
+                  ))}
+                </ul>
               ) : (
                 <span className="text-muted">None</span>
               )

@@ -17,6 +17,15 @@ vi.mock('@homeowner-portal/workflows', () => ({
 vi.mock('./past-replies', () => ({
   findSimilarReplies: vi.fn(async () => ({ replies: [], degraded: [] })),
 }))
+// BL-101 A2: the disclosure gate and the account read are mocked so the
+// gating decision in retrieveForThread runs for real without a database.
+vi.mock('@/lib/inbox/account-context', async (importActual) => ({
+  ...(await importActual<typeof import('@/lib/inbox/account-context')>()),
+  checkSenderForUnit: vi.fn(async (_db: unknown, _org: string, unitId: string | null) =>
+    unitId ? { verified: false, reason: 'not_a_resident' } : { verified: false, reason: 'not_filed' },
+  ),
+  loadHomeAccount: vi.fn(),
+}))
 
 import {
   collectFragments,
@@ -29,6 +38,7 @@ import { getThreadDetail, getPropertyContext } from '@/lib/inbox/queries'
 import { queryGoverningDocs, askStateLaw } from '@homeowner-portal/workflows'
 import { findSimilarReplies } from './past-replies'
 import { findContactPII } from '@homeowner-portal/ai/pii'
+import { WITHHELD_REASON, checkSenderForUnit, loadHomeAccount } from '@/lib/inbox/account-context'
 
 /**
  * Minimal chainable `.from().select().eq().in()` stand-in. Both fetch
@@ -514,5 +524,126 @@ describe('retrieveForThread — contact PII stays out of AI inputs (BL-062)', ()
     await retrieveForThread(buildCallerDb({ state: 'GA' }) as never, 'org-1', 'thread-1')
     expect(vi.mocked(queryGoverningDocs).mock.calls.at(-1)![0].length).toBeLessThanOrEqual(2000)
     expect(vi.mocked(askStateLaw).mock.calls.at(-1)![0].length).toBeLessThanOrEqual(2000)
+  })
+})
+
+// ─── BL-101 A2: account-grounded drafts and the disclosure gate ─────────
+
+describe('retrieveForThread — account facts only for a verified resident of the home', () => {
+  function filedThread(fromEmail: string) {
+    const t = threadWithInboundMessage()
+    return {
+      ...t,
+      unitId: 'unit-12',
+      matchConfidence: 'high',
+      messages: [
+        {
+          ...t.messages[0]!,
+          fromEmail,
+          bodyText: 'What do I owe for 12 Example Ct?',
+          strippedText: 'What do I owe for 12 Example Ct?',
+        },
+      ],
+    }
+  }
+  const propertyContext = {
+    propertyId: 'prop-12',
+    address: '12 Example Ct',
+    unitNumber: null,
+    residents: [{ id: 'res-1', name: 'Synthetic Owner', role: 'owner', email: 'owner@example.test', phone: null }],
+    duesBalance: 412.5,
+    duesOverdueCount: 1,
+    openViolations: 1,
+    openArcRequests: [],
+    openTickets: [],
+    lastCommunication: { subject: 'Q4 dues — $375.00', sentAt: '2026-10-01' },
+    degraded: [],
+  }
+  const account = {
+    account: {
+      homes: 1,
+      balanceCents: 41250,
+      openChargeCount: 1,
+      pastDueCount: 1,
+      nextDueDate: '2026-10-01',
+      openCharges: [{ type: 'Regular assessment', dueDate: '2026-10-01', amountCents: 41250, pastDue: true, home: null }],
+      lastPayment: null,
+      today: '2026-10-19',
+      truncated: false,
+    },
+    plan: { visible: false as const },
+    requests: { tickets: [], arcApplications: [], violationsOnMyHome: [], reportedConcerns: [] },
+    degraded: [],
+  }
+  function mockSources() {
+    vi.mocked(getPropertyContext).mockResolvedValue(propertyContext as never)
+    vi.mocked(queryGoverningDocs).mockResolvedValue({
+      answer: '',
+      confidence: 'LOW',
+      citations: [],
+      clarification: null,
+      recommendation: null,
+      runId: 'r1',
+    })
+    vi.mocked(askStateLaw).mockResolvedValue({ answer: '', confidence: 'LOW', citations: [], disclaimer: '', runId: 'r2' })
+    vi.mocked(loadHomeAccount).mockResolvedValue(account as never)
+  }
+
+  it('a verified resident gets the real figure as a citable acct: fragment, checked on the reply address', async () => {
+    vi.mocked(getThreadDetail).mockResolvedValue(filedThread('Owner@Example.test') as never)
+    mockSources()
+    vi.mocked(checkSenderForUnit).mockResolvedValueOnce({ verified: true, residentId: 'res-1', via: 'resident_email' })
+
+    const result = await retrieveForThread(buildCallerDb({}) as never, 'org-1', 'thread-1')
+
+    expect(vi.mocked(checkSenderForUnit).mock.calls.at(-1)!.slice(2)).toEqual(['unit-12', 'owner@example.test'])
+    expect(result.accountDisclosure).toBe('included')
+    expect(result.accountNote).toBeNull()
+    const balance = result.fragments.find((f) => f.refId === 'acct:balance')
+    expect(balance?.text).toContain('$412.50')
+    // No contact details reach the model, even for a verified resident.
+    expect(findContactPII(JSON.stringify(result.fragments))).toEqual([])
+  })
+
+  it('a neighbour asking about the same home gets counts only, no figure, and a withheld reason', async () => {
+    vi.mocked(getThreadDetail).mockResolvedValue(filedThread('neighbour@example.test') as never)
+    mockSources()
+
+    const result = await retrieveForThread(buildCallerDb({}) as never, 'org-1', 'thread-1')
+
+    expect(result.accountDisclosure).toBe('withheld')
+    expect(result.accountNote).toBe(WITHHELD_REASON.not_a_resident)
+    expect(loadHomeAccount).not.toHaveBeenCalled()
+    expect(result.fragments.some((f) => f.refId.startsWith('acct:'))).toBe(false)
+    const everything = JSON.stringify(result.fragments)
+    expect(everything).not.toMatch(/\$\d/)
+    expect(everything).not.toContain('Synthetic Owner')
+    expect(everything).not.toContain('Q4 dues')
+    // Counts still help the reply.
+    expect(result.fragments.find((f) => f.refId === 'prop:context')!.text).toContain('Open violations: 1')
+  })
+
+  it('a failed gate withholds exactly like "not a resident"', async () => {
+    vi.mocked(getThreadDetail).mockResolvedValue(filedThread('owner@example.test') as never)
+    mockSources()
+    vi.mocked(checkSenderForUnit).mockRejectedValueOnce(new Error('boom'))
+
+    const result = await retrieveForThread(buildCallerDb({}) as never, 'org-1', 'thread-1')
+
+    expect(result.accountDisclosure).toBe('withheld')
+    expect(result.accountNote).toBe(WITHHELD_REASON.check_failed)
+    expect(result.fragments.some((f) => f.refId.startsWith('acct:'))).toBe(false)
+  })
+
+  it('an unfiled thread carries the not-filed reason and no account read', async () => {
+    vi.mocked(getThreadDetail).mockResolvedValue(threadWithInboundMessage())
+    mockSources()
+    vi.mocked(getPropertyContext).mockResolvedValue(null)
+
+    const result = await retrieveForThread(buildCallerDb({}) as never, 'org-1', 'thread-1')
+
+    expect(result.accountDisclosure).toBe('none')
+    expect(result.accountNote).toBe(WITHHELD_REASON.not_filed)
+    expect(loadHomeAccount).not.toHaveBeenCalled()
   })
 })

@@ -4,6 +4,15 @@ import { queryGoverningDocs, askStateLaw } from '@homeowner-portal/workflows'
 import { getThreadDetail, getPropertyContext, type PropertyContext } from '@/lib/inbox/queries'
 import { findSimilarReplies } from './past-replies'
 import { redactContactPII } from '@homeowner-portal/ai/pii'
+import {
+  WITHHELD_REASON,
+  checkSenderForUnit,
+  latestInboundSender,
+  loadHomeAccount,
+  type HomeAccount,
+  type SenderCheck,
+} from '@/lib/inbox/account-context'
+import { buildAccountFragments } from './account-fragments'
 
 /** W1 and W30 cap their question at 2000 characters (their input schemas). */
 const MAX_POLICY_QUESTION = 2000
@@ -48,6 +57,11 @@ export interface SourceResults {
   docs: { citations: Array<{ chunkId: string; label: string; text: string }> }
   statutes: { citations: Array<{ chunkId: string; label: string; text: string }> }
   property: { summary: string } | null
+  /**
+   * BL-101 A2: this home's account facts, one fragment each. Present only
+   * when the disclosure gate verified the sender is a resident of the home.
+   */
+  account?: RetrievedFragment[]
   pastReplies: Array<{ messageId: string; subject: string | null; body: string }>
   degraded: string[]
 }
@@ -83,6 +97,18 @@ export interface ThreadRetrieval {
     governingDocs: string | null
     stateLaw: string | null
   }
+  /**
+   * BL-101 A2. 'included': the sender is a verified resident of this home
+   * and its account facts are fragments. 'withheld': the thread is filed
+   * but the sender is not verified, so W32 got counts only. 'none': the
+   * thread is not filed under a home.
+   */
+  accountDisclosure: 'included' | 'withheld' | 'none'
+  /**
+   * Why account facts were left out, for W32 to put on the blank it writes
+   * instead. Null when they were included. Fixed text, no PII.
+   */
+  accountNote: string | null
 }
 
 /**
@@ -134,6 +160,8 @@ export function collectFragments(sources: SourceResults): {
       text: sources.property.summary,
     })
   }
+  // Already gated by the caller: present only for a verified resident.
+  for (const f of sources.account ?? []) fragments.push(f)
   // NOT pushed into `fragments`, and no refId is minted for them. The
   // `messageId` is dropped here on purpose: nothing downstream should have
   // a handle it could turn back into a citable reference. These are other
@@ -354,18 +382,18 @@ async function fetchStatuteCitations(
  *   - `residents` and `lastCommunication` exist and are included below;
  *     `unitNumber` is folded into the address line.
  */
-function summarisePropertyContext(ctx: PropertyContext): string {
+export function summarisePropertyContext(ctx: PropertyContext, opts: { senderVerified: boolean }): string {
   const missing = new Set(ctx.degraded)
   const lines: string[] = []
 
   lines.push(`Address: ${ctx.unitNumber ? `${ctx.address} #${ctx.unitNumber}` : ctx.address}`)
 
-  if (!missing.has('residents') && ctx.residents.length > 0) {
+  // BL-101 A2 disclosure gate: an unverified sender gets counts only — no
+  // names, no balance, no subject lines (a dues notice's subject carries
+  // the amount). A verified sender gets the account as separate citable
+  // `acct:*` fragments, so the balance line is no longer written here.
+  if (opts.senderVerified && !missing.has('residents') && ctx.residents.length > 0) {
     lines.push(`Residents: ${ctx.residents.map((r) => `${r.name} (${r.role})`).join(', ')}`)
-  }
-  if (!missing.has('dues')) {
-    const overdue = ctx.duesOverdueCount > 0 ? ` (${ctx.duesOverdueCount} overdue)` : ''
-    lines.push(`Outstanding balance: $${ctx.duesBalance.toFixed(2)}${overdue}`)
   }
   if (!missing.has('violations')) {
     lines.push(`Open violations: ${ctx.openViolations}`)
@@ -376,7 +404,7 @@ function summarisePropertyContext(ctx: PropertyContext): string {
   if (!missing.has('tickets')) {
     lines.push(`Open tickets: ${ctx.openTickets.length}`)
   }
-  if (!missing.has('lastCommunication') && ctx.lastCommunication) {
+  if (opts.senderVerified && !missing.has('lastCommunication') && ctx.lastCommunication) {
     const when = ctx.lastCommunication.sentAt ? ` on ${ctx.lastCommunication.sentAt}` : ''
     lines.push(`Last communication: "${ctx.lastCommunication.subject}"${when}`)
   }
@@ -435,6 +463,8 @@ export async function retrieveForThread(
       degraded: ['no_inbound_text'],
       hasProperty: Boolean(thread.unitId),
       aiContext: { governingDocs: null, stateLaw: null },
+      accountDisclosure: thread.unitId ? 'withheld' : 'none',
+      accountNote: null,
     }
   }
 
@@ -445,11 +475,17 @@ export async function retrieveForThread(
   // sources degraded on any long email; send the head of it instead.
   const policyQuestion = latestInbound.slice(0, MAX_POLICY_QUESTION)
 
-  const [docsResult, statutesResult, propertyResult, repliesResult] = await Promise.allSettled([
+  // The reply goes back to the newest inbound sender (createDraft's
+  // default To), so that is the address the disclosure gate checks. Raw
+  // address, used for the lookup only — never sent to the model or logged.
+  const senderEmail = latestInboundSender(thread.messages)
+
+  const [docsResult, statutesResult, propertyResult, repliesResult, accountResult] = await Promise.allSettled([
     queryGoverningDocs(policyQuestion, { organizationId: orgId }),
     fetchStatuteCitations(db, orgId, policyQuestion),
     thread.unitId ? getPropertyContext(db, orgId, thread.unitId) : Promise.resolve(null),
     findSimilarReplies(db, orgId, latestInbound, threadId),
+    fetchAccountForSender(db, orgId, thread.unitId, senderEmail),
   ])
 
   let docs: SourceResults['docs'] = { citations: [] }
@@ -507,6 +543,25 @@ export async function retrieveForThread(
     stateLawContext = statutesResult.value.answer
   }
 
+  // A rejected gate is a failed check: withhold, never include.
+  const account: AccountForSender =
+    accountResult.status === 'fulfilled'
+      ? accountResult.value
+      : { check: { verified: false, reason: 'check_failed' }, home: null }
+  const senderVerified = account.check.verified
+  let accountFragments: RetrievedFragment[] = []
+  if (account.home) {
+    const built = buildAccountFragments(account.home)
+    accountFragments = built.fragments
+    degraded.push(...built.degraded)
+  }
+  const accountDisclosure: ThreadRetrieval['accountDisclosure'] = !thread.unitId
+    ? 'none'
+    : senderVerified
+      ? 'included'
+      : 'withheld'
+  const accountNote = account.check.verified ? null : WITHHELD_REASON[account.check.reason]
+
   let property: SourceResults['property'] = null
   if (propertyResult.status === 'rejected') {
     console.error(`retrieveForThread: property context failed: ${String(propertyResult.reason)}`)
@@ -516,7 +571,7 @@ export async function retrieveForThread(
     // getPropertyContext reports its own partial failures. Those names go
     // straight through: the reviewer must be told which facts are missing.
     degraded.push(...ctx.degraded)
-    property = { summary: summarisePropertyContext(ctx) }
+    property = { summary: summarisePropertyContext(ctx, { senderVerified }) }
   } else if (thread.unitId) {
     // A unitId was on the thread but getPropertyContext resolved nothing
     // for it (e.g. the unit row is gone) — property data was expected and
@@ -537,7 +592,14 @@ export async function retrieveForThread(
     degraded.push('past_replies')
   }
 
-  const collected = collectFragments({ docs, statutes, property, pastReplies, degraded })
+  const collected = collectFragments({
+    docs,
+    statutes,
+    property,
+    account: accountFragments,
+    pastReplies,
+    degraded,
+  })
 
   return {
     threadSubject: thread.subject,
@@ -548,5 +610,28 @@ export async function retrieveForThread(
     degraded: collected.degraded,
     hasProperty: Boolean(thread.unitId),
     aiContext: { governingDocs: governingDocsContext, stateLaw: stateLawContext },
+    accountDisclosure,
+    accountNote,
   }
+}
+
+interface AccountForSender {
+  check: SenderCheck
+  /** Loaded only when `check.verified`. */
+  home: HomeAccount | null
+}
+
+/**
+ * The disclosure gate, then the account — in that order, so an unverified
+ * sender's home is never even read for the draft. Board RLS client only.
+ */
+async function fetchAccountForSender(
+  db: SupabaseClient<Database>,
+  orgId: string,
+  unitId: string | null,
+  senderEmail: string | null,
+): Promise<AccountForSender> {
+  const check = await checkSenderForUnit(db, orgId, unitId, senderEmail)
+  if (!check.verified || !unitId) return { check, home: null }
+  return { check, home: await loadHomeAccount(db, orgId, unitId) }
 }

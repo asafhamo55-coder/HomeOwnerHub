@@ -22,6 +22,7 @@ import {
   readCommunityUpdates,
   readMyAccount,
   readMyRequests,
+  unitScope,
   type ResidentScope,
 } from '../../../apps/hoa/src/lib/resident-assistant/reads'
 import { adminDb, makeAccounting, makeOrg, makeUnit, mintUser, type OrgFixture, type TestUser } from '../fixtures/factory'
@@ -298,5 +299,35 @@ describe('resident assistant reads (RLS-bound, forged scope)', () => {
     expect(req.reportedConcerns.map((r) => r.id)).toEqual([w.reportB])
     const updates = await readCommunityUpdates(scopeFor(w.residentB, [w.unitB]))
     expect(updates.announcements.map((a) => a.subject)).toEqual([NEIGHBOUR_COMM])
+  })
+})
+
+// BL-101 A2 — the inbox drafter reads one home's record on the BOARD's own
+// RLS client through unitScope (tickets and ARC keyed on unit_id, not on
+// who submitted them). Same seed as above.
+describe('board-side unitScope (inbox drafter)', () => {
+  const tz = 'America/New_York'
+
+  it('the board reads unit A’s whole record, and none of unit B’s', async () => {
+    const scope = unitScope({ db: w.board.client, orgId: w.org.orgId, unitIds: [w.unitA], timeZone: tz })
+    const acct = await readMyAccount(scope)
+    expect(acct.balanceCents).toBe(32500)
+    const req = await readMyRequests(scope)
+    expect(req.tickets.map((t) => t.id)).toEqual([w.ticketA])
+    expect(req.arcApplications.map((a) => a.id)).toEqual([w.arcA])
+    expect(req.violationsOnMyHome.map((v) => v.id)).toEqual([w.violationA])
+    expect(req.reportedConcerns).toEqual([])
+    expect(JSON.stringify(req)).not.toContain('Neighbour private')
+    expect(JSON.stringify(req)).not.toContain(NEIGHBOUR_ARC)
+  })
+
+  it('a unit scope does not widen a RESIDENT client: A’s JWT pointed at unit B sees nothing of B', async () => {
+    const scope = unitScope({ db: w.residentA.client, orgId: w.org.orgId, unitIds: [w.unitB], timeZone: tz })
+    const acct = await readMyAccount(scope)
+    expect(acct.balanceCents).toBe(0)
+    const req = await readMyRequests(scope)
+    expect(req.tickets.map((t) => t.id)).not.toContain(w.ticketB)
+    expect(req.arcApplications.map((a) => a.id)).not.toContain(w.arcB)
+    expect(req.violationsOnMyHome).toEqual([])
   })
 })

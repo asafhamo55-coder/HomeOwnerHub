@@ -25,6 +25,8 @@ import { DraftPanel } from './DraftPanel'
 import { ForwardButton } from './ForwardButton'
 import { MessageThread } from './MessageThread'
 import { PropertyRail } from './PropertyRail'
+import { ThreadConnections } from './ContextSections'
+import { getThreadRailContext } from '@/lib/inbox/thread-context'
 import { VendorRail, type RailVendor } from './VendorRail'
 import { VendorRequestButton } from './VendorRequestButton'
 import { VendorRequestLinks } from './VendorRequestLinks'
@@ -103,6 +105,19 @@ export default async function ThreadPage({
 
   const contextLoadFailed = contextOutcome === 'error'
   const context: PropertyContext | null = contextLoadFailed ? null : contextOutcome
+
+  // BL-101 A1: sender, ledger, linked records, earlier threads, matching
+  // docs. Enrichment only — each section degrades on its own inside, and a
+  // throw here falls back to the plain rail rather than failing the page.
+  const railContext = await getThreadRailContext(supabase, org.id, thread, context?.residents ?? null).catch(
+    (error: unknown) => {
+      console.error('ThreadPage: failed to load rail context', {
+        threadId: id,
+        message: error instanceof Error ? error.message : 'unknown error',
+      })
+      return null
+    },
+  )
 
   // Page-defining, like the draft itself: an approver must never see a
   // message that appears to have no files beside one that will send three.
@@ -187,7 +202,13 @@ export default async function ThreadPage({
         context={context}
         contextLoadFailed={contextLoadFailed}
         suggestedProperty={suggestedProperty}
+        rail={railContext}
       />
+      {railContext ? (
+        <div className="border-t border-border p-4">
+          <ThreadConnections rail={railContext} />
+        </div>
+      ) : null}
       {/* Sibling of PropertyRail, never nested: property and vendor filings
           are independent, and PropertyRail early-returns on unitId. */}
       <VendorRail
