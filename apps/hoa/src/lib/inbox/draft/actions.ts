@@ -75,6 +75,9 @@ export async function createDraft(
         aiContext: retrieval.aiContext,
         // BL-101 A2: why account facts were withheld, if they were.
         accountNote: retrieval.accountNote,
+        // BL-101 A8: the verified sender's attachment excerpts — untrusted,
+        // uncitable, fenced by W32's prompt (rule 7). Empty when withheld.
+        attachmentContext: retrieval.attachmentContext,
       },
       { organizationId: org.id },
     )

@@ -27,6 +27,16 @@ vi.mock('@/lib/inbox/account-context', async (importActual) => ({
   loadHomeAccount: vi.fn(),
 }))
 
+// BL-101 A8: the attachment reader is mocked so the gate around it runs for
+// real; its own extraction is covered by attachment-context.test.ts.
+vi.mock('./attachment-context', () => ({
+  loadAttachmentContext: vi.fn(async () => ({
+    excerpts: [{ label: 'Attachment 1 (PDF)', excerpt: 'Invoice total for fence repair.' }],
+    failed: false,
+  })),
+}))
+
+import { loadAttachmentContext } from './attachment-context'
 import {
   collectFragments,
   fetchGoverningDocChunkTexts,
@@ -645,5 +655,134 @@ describe('retrieveForThread — account facts only for a verified resident of th
     expect(result.accountDisclosure).toBe('none')
     expect(result.accountNote).toBe(WITHHELD_REASON.not_filed)
     expect(loadHomeAccount).not.toHaveBeenCalled()
+  })
+})
+
+describe('retrieveForThread — resident attachment excerpts (BL-101 A8)', () => {
+  function threadWithFile(fromEmail: string, opts: { withFile?: boolean; unitId?: string | null } = {}) {
+    const t = threadWithInboundMessage()
+    return {
+      ...t,
+      unitId: opts.unitId === undefined ? 'unit-12' : opts.unitId,
+      messages: [
+        {
+          ...t.messages[0]!,
+          id: 'm-file',
+          fromEmail,
+          attachments:
+            opts.withFile === false
+              ? []
+              : [{ id: 'att-1', fileName: 'invoice.pdf', sizeBytes: 1000, fetchStatus: 'stored' }],
+        },
+      ],
+    }
+  }
+  function mockQuietSources() {
+    vi.mocked(getPropertyContext).mockResolvedValue(null)
+    vi.mocked(queryGoverningDocs).mockResolvedValue({
+      answer: '',
+      confidence: 'LOW',
+      citations: [],
+      clarification: null,
+      recommendation: null,
+      runId: 'r1',
+    })
+    vi.mocked(askStateLaw).mockResolvedValue({ answer: '', confidence: 'LOW', citations: [], disclaimer: '', runId: 'r2' })
+    vi.mocked(loadHomeAccount).mockResolvedValue({
+      account: null,
+      plan: { visible: false },
+      requests: { tickets: [], arcApplications: [], violationsOnMyHome: [], reportedConcerns: [] },
+      degraded: [],
+    } as never)
+  }
+
+  it('a verified sender: excerpts are included as uncitable context, never as fragments', async () => {
+    vi.mocked(loadAttachmentContext).mockClear()
+    vi.mocked(getThreadDetail).mockResolvedValue(threadWithFile('Owner@Example.test') as never)
+    mockQuietSources()
+    vi.mocked(checkSenderForUnit).mockResolvedValueOnce({ verified: true, residentId: 'res-1', via: 'resident_email' })
+
+    const result = await retrieveForThread(buildCallerDb({}) as never, 'org-1', 'thread-1')
+
+    expect(result.attachmentDisclosure).toBe('included')
+    expect(result.attachmentContext).toEqual([{ label: 'Attachment 1 (PDF)', excerpt: 'Invoice total for fence repair.' }])
+    // Only the sender's own message ids are read.
+    expect(vi.mocked(loadAttachmentContext).mock.calls[0]!.slice(1, 4)).toEqual(['org-1', 'thread-1', ['m-file']])
+    expect(JSON.stringify(result.fragments)).not.toContain('Invoice total')
+  })
+
+  it('a sender who is not a resident: nothing is read and nothing is included', async () => {
+    vi.mocked(loadAttachmentContext).mockClear()
+    vi.mocked(getThreadDetail).mockResolvedValue(threadWithFile('neighbour@example.test') as never)
+    mockQuietSources()
+
+    const result = await retrieveForThread(buildCallerDb({}) as never, 'org-1', 'thread-1')
+
+    expect(loadAttachmentContext).not.toHaveBeenCalled()
+    expect(result.attachmentContext).toEqual([])
+    expect(result.attachmentDisclosure).toBe('withheld')
+  })
+
+  it('a sender_unauthenticated sender (BL-105): withheld, never downloaded', async () => {
+    vi.mocked(loadAttachmentContext).mockClear()
+    vi.mocked(getThreadDetail).mockResolvedValue(threadWithFile('owner@example.test') as never)
+    mockQuietSources()
+    vi.mocked(checkSenderForUnit).mockResolvedValueOnce({ verified: false, reason: 'sender_unauthenticated' })
+
+    const result = await retrieveForThread(buildCallerDb({}) as never, 'org-1', 'thread-1')
+
+    expect(loadAttachmentContext).not.toHaveBeenCalled()
+    expect(result.attachmentContext).toEqual([])
+    expect(result.attachmentDisclosure).toBe('withheld')
+  })
+
+  it('a failed gate withholds the attachments too', async () => {
+    vi.mocked(loadAttachmentContext).mockClear()
+    vi.mocked(getThreadDetail).mockResolvedValue(threadWithFile('owner@example.test') as never)
+    mockQuietSources()
+    vi.mocked(checkSenderForUnit).mockRejectedValueOnce(new Error('boom'))
+
+    const result = await retrieveForThread(buildCallerDb({}) as never, 'org-1', 'thread-1')
+
+    expect(loadAttachmentContext).not.toHaveBeenCalled()
+    expect(result.attachmentContext).toEqual([])
+    expect(result.attachmentDisclosure).toBe('withheld')
+  })
+
+  it('an unfiled thread (not_filed) gets no attachment text', async () => {
+    vi.mocked(loadAttachmentContext).mockClear()
+    vi.mocked(getThreadDetail).mockResolvedValue(threadWithFile('owner@example.test', { unitId: null }) as never)
+    mockQuietSources()
+
+    const result = await retrieveForThread(buildCallerDb({}) as never, 'org-1', 'thread-1')
+
+    expect(loadAttachmentContext).not.toHaveBeenCalled()
+    expect(result.attachmentContext).toEqual([])
+  })
+
+  it('no attachment: no read, empty context, nothing marked degraded', async () => {
+    vi.mocked(loadAttachmentContext).mockClear()
+    vi.mocked(getThreadDetail).mockResolvedValue(threadWithFile('owner@example.test', { withFile: false }) as never)
+    mockQuietSources()
+    vi.mocked(checkSenderForUnit).mockResolvedValueOnce({ verified: true, residentId: 'res-1', via: 'resident_email' })
+
+    const result = await retrieveForThread(buildCallerDb({}) as never, 'org-1', 'thread-1')
+
+    expect(loadAttachmentContext).not.toHaveBeenCalled()
+    expect(result.attachmentContext).toEqual([])
+    expect(result.attachmentDisclosure).toBe('none')
+    expect(result.degraded).not.toContain('resident_attachments')
+  })
+
+  it('a verified sender whose files yield no text is marked degraded, not silently empty', async () => {
+    vi.mocked(loadAttachmentContext).mockResolvedValueOnce({ excerpts: [], failed: true })
+    vi.mocked(getThreadDetail).mockResolvedValue(threadWithFile('owner@example.test') as never)
+    mockQuietSources()
+    vi.mocked(checkSenderForUnit).mockResolvedValueOnce({ verified: true, residentId: 'res-1', via: 'resident_email' })
+
+    const result = await retrieveForThread(buildCallerDb({}) as never, 'org-1', 'thread-1')
+
+    expect(result.attachmentContext).toEqual([])
+    expect(result.degraded).toContain('resident_attachments')
   })
 })

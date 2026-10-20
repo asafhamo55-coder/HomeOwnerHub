@@ -31,6 +31,7 @@ const { subject, body, citations, blanks, grounded, groundingNote, runId } = awa
 | Input.fragments | `{ refId, sourceType: 'document'\|'statute'\|'property', label, text }[]` — the ONLY citable material |
 | Input.voiceExamples | `{ subject: string \| null, body: string }[]` — past replies, tone only. No `refId`, never citable |
 | Input.degraded | `string[]` — names of sources that failed to load; the model is told not to assume a value for them |
+| Input.attachmentContext | optional `{ label, excerpt }[]` — BL-101 A8: short excerpts of the verified sender's own attachments (PDF/text/docx). Untrusted data: fenced and sanitized in a RESIDENT ATTACHMENTS section (rule 7), no refId, never citable, never instructions |
 | Input.aiContext | `{ governingDocs: string \| null, stateLaw: string \| null }` — W1's/W30's own synthesized answers, background orientation only |
 | Output.subject / body | `string` — `body` contains `[[BLANK: <kind>]]` markers where the model withheld content |
 | Output.citations | `{ refId, quote, label }[]` — `label` is always the retrieved fragment's own, never the model's (see below) |

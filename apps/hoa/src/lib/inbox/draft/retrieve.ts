@@ -13,6 +13,7 @@ import {
   type SenderCheck,
 } from '@/lib/inbox/account-context'
 import { buildAccountFragments } from './account-fragments'
+import { loadAttachmentContext, type AttachmentContextExcerpt } from './attachment-context'
 
 /** W1 and W30 cap their question at 2000 characters (their input schemas). */
 const MAX_POLICY_QUESTION = 2000
@@ -109,6 +110,16 @@ export interface ThreadRetrieval {
    * instead. Null when they were included. Fixed text, no PII.
    */
   accountNote: string | null
+  /**
+   * BL-101 A8: short excerpts of the verified sender's own attachments
+   * (PDF / text / docx). UNTRUSTED, uncitable context — never a fragment,
+   * no refId. Empty when the sender is not verified (any reason, including
+   * `sender_unauthenticated`), when there are no readable attachments, or
+   * when reading them failed.
+   */
+  attachmentContext: AttachmentContextExcerpt[]
+  /** 'included' / 'withheld' (sender not verified) / 'none' (nothing to read). */
+  attachmentDisclosure: 'included' | 'withheld' | 'none'
 }
 
 /**
@@ -465,6 +476,8 @@ export async function retrieveForThread(
       aiContext: { governingDocs: null, stateLaw: null },
       accountDisclosure: thread.unitId ? 'withheld' : 'none',
       accountNote: null,
+      attachmentContext: [],
+      attachmentDisclosure: 'none',
     }
   }
 
@@ -480,13 +493,39 @@ export async function retrieveForThread(
   // address, used for the lookup only — never sent to the model or logged.
   const senderEmail = latestInboundSender(thread.messages)
 
-  const [docsResult, statutesResult, propertyResult, repliesResult, accountResult] = await Promise.allSettled([
-    queryGoverningDocs(policyQuestion, { organizationId: orgId }),
-    fetchStatuteCitations(db, orgId, policyQuestion),
-    thread.unitId ? getPropertyContext(db, orgId, thread.unitId) : Promise.resolve(null),
-    findSimilarReplies(db, orgId, latestInbound, threadId),
-    fetchAccountForSender(db, orgId, thread.unitId, senderEmail, threadId),
-  ])
+  // BL-101 A8: the sender's own inbound messages that carry a stored file,
+  // newest first. Attachments from anyone else on the thread are never
+  // read, and nothing is read at all unless the gate below verifies the
+  // sender — chained on the gate, so an unverified sender's files are
+  // never even downloaded.
+  const attachmentMessageIds = senderEmail
+    ? [...thread.messages]
+        .reverse()
+        .filter(
+          (m) =>
+            m.direction === 'inbound' &&
+            m.fromEmail?.trim().toLowerCase() === senderEmail &&
+            (m.attachments ?? []).some((a) => a.fetchStatus === 'stored'),
+        )
+        .map((m) => m.id)
+    : []
+
+  const accountPromise = fetchAccountForSender(db, orgId, thread.unitId, senderEmail, threadId)
+  const attachmentsPromise = accountPromise.then((a) =>
+    a.check.verified && attachmentMessageIds.length > 0
+      ? loadAttachmentContext(db as unknown as SupabaseClient, orgId, threadId, attachmentMessageIds, policyQuestion)
+      : null,
+  )
+
+  const [docsResult, statutesResult, propertyResult, repliesResult, accountResult, attachmentsResult] =
+    await Promise.allSettled([
+      queryGoverningDocs(policyQuestion, { organizationId: orgId }),
+      fetchStatuteCitations(db, orgId, policyQuestion),
+      thread.unitId ? getPropertyContext(db, orgId, thread.unitId) : Promise.resolve(null),
+      findSimilarReplies(db, orgId, latestInbound, threadId),
+      accountPromise,
+      attachmentsPromise,
+    ])
 
   let docs: SourceResults['docs'] = { citations: [] }
   let governingDocsContext: string | null = null
@@ -562,6 +601,20 @@ export async function retrieveForThread(
       : 'withheld'
   const accountNote = account.check.verified ? null : WITHHELD_REASON[account.check.reason]
 
+  // A8: included only for a verified sender (a rejected gate rejects this
+  // promise too, and reads as withheld). Counts only in logs.
+  let attachmentContext: AttachmentContextExcerpt[] = []
+  let attachmentDisclosure: ThreadRetrieval['attachmentDisclosure'] = 'none'
+  if (attachmentMessageIds.length > 0) {
+    if (!senderVerified || attachmentsResult.status === 'rejected') {
+      attachmentDisclosure = 'withheld'
+    } else if (attachmentsResult.value) {
+      attachmentContext = attachmentsResult.value.excerpts
+      if (attachmentsResult.value.failed) degraded.push('resident_attachments')
+      attachmentDisclosure = attachmentContext.length > 0 ? 'included' : 'none'
+    }
+  }
+
   let property: SourceResults['property'] = null
   if (propertyResult.status === 'rejected') {
     console.error(`retrieveForThread: property context failed: ${String(propertyResult.reason)}`)
@@ -612,6 +665,8 @@ export async function retrieveForThread(
     aiContext: { governingDocs: governingDocsContext, stateLaw: stateLawContext },
     accountDisclosure,
     accountNote,
+    attachmentContext,
+    attachmentDisclosure,
   }
 }
 
