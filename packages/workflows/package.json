@@ -14,6 +14,7 @@
     "./W22": "./src/W22-rfp-composer/index.ts",
     "./W23": "./src/W23-bid-comparator/index.ts",
     "./W31-translate": "./src/W31-comm-composer/translate.ts",
+    "./W31-propose": "./src/W31-comm-composer/propose.ts",
     "./W37": "./src/W37-arc-review/index.ts",
     "./payment-plans": "./src/payment-plans/index.ts",
     "./payment-plans/schedule": "./src/payment-plans/schedule.ts",

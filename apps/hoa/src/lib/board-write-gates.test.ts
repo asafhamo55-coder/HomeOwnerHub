@@ -15,6 +15,7 @@ import * as violationDraft from '../app/api/ai/violations/draft/route'
 import * as meetingSummary from '../app/api/ai/meeting-summary/route'
 import * as violationPhoto from '../app/api/violations/photo/route'
 import * as askCommunity from '../app/api/ai/ask-community/route'
+import * as composeCommunication from '../app/api/ai/compose-communication/route'
 import * as plaidExchange from '../app/api/plaid/exchange/route'
 import * as recordSearch from '../app/api/search/route'
 import * as billScan from '../app/api/accounting/bill-scan/route'
@@ -145,6 +146,16 @@ describe('board-only routes return 403 to a resident', () => {
         method: 'POST',
         body: JSON.stringify({ documentId: ID, rawText: 'x'.repeat(300) }),
       }),
+    )
+    expect(res.status).toBe(403)
+    expect((await res.json()).error.code).toBe('forbidden')
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+  })
+
+  it('POST /api/ai/compose-communication (BL-102 A2: the one-box composer)', async () => {
+    vi.mocked(getSupabaseServerClient).mockClear()
+    const res = await composeCommunication.POST(
+      new Request('http://x/api/ai/compose-communication', { method: 'POST', body: '{not json' }),
     )
     expect(res.status).toBe(403)
     expect((await res.json()).error.code).toBe('forbidden')

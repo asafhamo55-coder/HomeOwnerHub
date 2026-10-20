@@ -6,7 +6,7 @@ topic: communications
 roles: [admin, board]
 routes: ["/communications", "/communications/new", "/communications/[id]"]
 primary_route: /communications
-keywords: [announcement, message, email, text, sms, newsletter, notice, broadcast, residents, send, schedule, send later, cancel, scheduled, delivery, template, templates, dues reminder, meeting notice, water shutoff, pool closing, holiday, welcome, severe weather, opted out, opt out, spanish, español, translate, translation, bilingual, second language]
+keywords: [announcement, draft it for me, ai draft, compose, what do you want to tell residents, plain editor, bold, bullet, edit as html, message, email, text, sms, newsletter, notice, broadcast, residents, send, schedule, send later, cancel, scheduled, delivery, template, templates, dues reminder, meeting notice, water shutoff, pool closing, holiday, welcome, severe weather, opted out, opt out, spanish, español, translate, translation, bilingual, second language]
 shots:
   - name: guide-communications-list
     alt: The Communications page with the New message button highlighted
@@ -20,12 +20,12 @@ Use Communications for anything the whole community, or a group of homes, should
 
 ## Steps
 1. Open **Communications** from the sidebar and select [[New message]].
-2. Under **Start from a template**, pick one, such as **Dues reminder**, **Meeting notice**, **Water shutoff**, **Pool closing**, **Holiday office closure**, **Welcome new owner** or **Severe weather**. Or pick **Write my own**. Your HOA's own templates are under **More templates**.
-3. Pick an **Audience**, such as Everyone, Owners only or Late on dues. Each choice shows how many people it reaches. Select [[Continue]].
-4. If you picked a template, fill in the few details it asks for. Check the **Subject** and **Body**, or write your own.
-5. To send it in Spanish too, select [[Add Spanish version]]. AI drafts a Spanish subject and body. Read them, fix anything, then tick **I've read the Spanish version**. Select [[Continue]].
-6. Under **Channels**, choose Email, Text or Portal.
-7. Leave **Send at** blank and select [[Send now]], or pick a date and time and select [[Schedule]].
+2. Fastest way: in **What do you want to tell residents?**, say it in your own words, like "Water will be off Thursday 9 to 2 on Elm St", and select [[Draft it for me]]. AI fills in the audience, subject, message and channels, and takes you to the message to check. It leaves out anything you didn't say and lists it for you to add. Nothing is sent until you select Send. Or carry on below and write it yourself.
+3. Under **Start from a template**, pick one, such as **Dues reminder**, **Meeting notice**, **Water shutoff**, **Pool closing**, **Holiday office closure**, **Welcome new owner** or **Severe weather**. Or pick **Write my own**. Your HOA's own templates are under **More templates**.
+4. Pick an **Audience**, such as Everyone, Owners only or Late on dues. Each choice shows how many people it reaches. Select [[Continue]].
+5. If you picked a template, fill in the few details it asks for. Check the **Subject** and **Body**, or write your own. Write the body as plain text: leave a blank line between paragraphs, use [[Bold]] and [[Bullet]], and add [[Resident's name]] or [[HOA name]] to fill them in for each person.
+6. To send it in Spanish too, select [[Add Spanish version]]. AI drafts a Spanish subject and body. Read them, fix anything, then tick **I've read the Spanish version**. Select [[Continue]].
+7. Under **Channels**, choose Email, Text or Portal. Then leave **Send at** blank and select [[Send now]], or pick a date and time and select [[Schedule]].
 
 ![[guide-communications-new]]
 
@@ -42,11 +42,17 @@ You land on the message's own page. It shows how many people it was delivered to
 - Some recipients failed: open the message to see who. If emails failed, the page offers to resend to them.
 - "Read the Spanish version and tick the box before sending.": you added a Spanish version but haven't confirmed it yet. If you change the English afterwards, the tick clears and you confirm again.
 - "The Spanish version uses merge fields the English one doesn't": a `{{ field }}` in the Spanish text isn't in the English. Copy it exactly from the English, or remove it.
+- "The AI couldn't draft this right now" or "The AI returned a draft we could not use": write the message yourself below, or try [[Draft it for me]] again in a moment.
+- "You’ve reached the limit of 20 message drafts an hour": write the message yourself, or draft again after the wait it names.
 - "Translation failed. Try again.": the translation didn't come back. Try the button again, or write the Spanish yourself.
 - "Write the subject and body first.": the Spanish is translated from the English, so write the English subject and body first.
 - "The English changed after this was translated.": select [[Translate again]], or update the Spanish yourself, then tick the box again.
 
 ## Good to know
+- An AI draft flags any time, date or amount that is not in what you typed under **Check these**. Fix or remove it before sending.
+- AI can't send to one street yet. If you name a street, check the audience and say in the message who it is for.
+- A designed template (with a layout the simple editor can't keep) opens as HTML. You can still change the words. [[Edit as HTML]] is there for anyone who prefers it.
+- When you pick Text, the **Review** step shows the text message as it will go out and how many of the 279 characters it uses.
 - A text holds up to 279 characters. Longer messages are shortened and end with a link to read the rest in the portal. Board members are never texted.
 - With a Spanish version, everyone gets both languages: the English first, then a section headed **Español**. Residents can't pick one language yet.
 - A text carries both languages only if both fit in 279 characters. If they don't, the text goes out in English only, and the **Review** step tells you. The email and the portal still carry both.

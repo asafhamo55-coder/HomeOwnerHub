@@ -92,6 +92,24 @@ export type {
   TranslateResult,
 } from './W31-comm-composer/translate'
 
+// BL-102 A2 — W31's one-box proposal step (what the board typed → a draft to review).
+export {
+  proposeCommunication,
+  parseProposalReply,
+  numbersNotInSource,
+  CommProposeInputSchema,
+  PROPOSAL_AUDIENCES,
+  PROPOSE_PROMPT_VERSION,
+} from './W31-comm-composer/propose'
+export type {
+  CommProposal,
+  CommProposeInput,
+  ProposalAudience,
+  ProposalTemplateOption,
+  ProposeComplete,
+  ProposeResult,
+} from './W31-comm-composer/propose'
+
 // Phase B — Module 9 continued: shared-inbox reply drafting
 // Both citation failures are exported: a consumer needs to tell "cited a source
 // that was never retrieved" (InvalidCitationError) apart from "cited a real

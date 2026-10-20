@@ -13,7 +13,6 @@ import {
   KeyValue,
   KeyValueList,
   Select,
-  Textarea,
   WizardStepper,
   cn,
 } from '@homeowner-portal/ui'
@@ -24,7 +23,11 @@ import { previewPreferenceSkips, type PreferencePreview } from '@/lib/communicat
 import { BUILT_IN_TEMPLATES, isBuiltInTemplateId } from '@/lib/communications/built-in-templates'
 import { SCHEDULING_COMING_SOON, SCHEDULING_ENABLED } from '@/lib/communications/scheduling'
 import { paperNoticeLabel } from '@/lib/communications/official-notice'
-import { SMS_CHANNEL_HINT } from '@/lib/communications/sms-body'
+import { SMS_CHANNEL_HINT, SMS_MAX_CHARS, composeSmsBody } from '@/lib/communications/sms-body'
+import { htmlToMessageText } from '@/lib/communications/plain-text'
+import { proposalToWizardFields, type WizardFieldsFromProposal } from '@/lib/communications/proposal-to-wizard'
+import type { CommProposal } from '@homeowner-portal/workflows/W31-propose'
+import { PlainEditor } from '@/components/ui/PlainEditor'
 import { SMS_ENGLISH_ONLY_NOTE, composeBilingualSms, htmlToPlainText } from '@/lib/communications/bilingual'
 import {
   listPropertyResidents,
@@ -43,6 +46,7 @@ import {
   type PropertyOption,
 } from './AudienceStep'
 import { BUDGET_NOTICE_FROM, readBudgetNoticeDraft, sessionStore } from '@/lib/budget-notice/draft-handoff'
+import { ComposeBox } from './ComposeBox'
 import { QuestionStep } from './QuestionStep'
 import { SectionToggles } from './SectionToggles'
 import { SpanishVersion, type SpanishDraft } from './SpanishVersion'
@@ -339,6 +343,30 @@ export function NewCommunicationWizard({
     setCheckedBoardIds(new Set())
   }
 
+  // BL-102 A2: what the one-box draft wants the board to check, shown on
+  // the Message step until the board dismisses it or picks a template.
+  const [draftReview, setDraftReview] = useState<WizardFieldsFromProposal['review'] | null>(null)
+
+  /** Fill the wizard from the AI proposal. Fills only; the board reviews
+   *  every step and nothing is sent until they press Send. */
+  function applyProposal(proposal: CommProposal) {
+    const f = proposalToWizardFields(proposal, { smsConfigured, schedulingEnabled: SCHEDULING_ENABLED })
+    setTemplateId('')
+    setBaseCategory(f.category)
+    setAudience(f.audience)
+    setSubject(f.subject)
+    setBodyHtml(f.bodyHtml)
+    setChannels(f.channels)
+    setScheduledFor(f.scheduledFor)
+    // A Spanish version of an earlier body would no longer match it.
+    setSpanish(null)
+    setDraftReview(f.review)
+    setFieldErrors({})
+    setError(null)
+    setStep(1)
+    requestAnimationFrame(() => document.getElementById('wizard-top')?.scrollIntoView({ block: 'nearest' }))
+  }
+
   // BL-102 A4: every template is listed, never filtered by a topic — the
   // built-ins first (every HOA has them), then the HOA's own templates and
   // the shared community library. Selecting one pre-fills subject + body so
@@ -370,6 +398,7 @@ export function NewCommunicationWizard({
 
   function pickTemplate(id: string) {
     setTemplateId(id)
+    setDraftReview(null)
     const t = allTemplates.find((x) => x.id === id)
     if (t) {
       setSubject(t.subject)
@@ -669,7 +698,8 @@ export function NewCommunicationWizard({
         category,
         subject: finalSubject,
         bodyHtml: finalBodyHtml,
-        bodyText: stripHtml(finalBodyHtml),
+        // BL-102 A3: keeps bullets and link addresses, SMS-safe punctuation.
+        bodyText: htmlToMessageText(finalBodyHtml),
         // Never send a text channel the server can't deliver (BL-102).
         channels: channels.filter((c) => c !== 'sms' || smsConfigured) as ('email' | 'portal' | 'sms' | 'mail')[],
         audience: audienceDef,
@@ -745,6 +775,8 @@ export function NewCommunicationWizard({
         ) : null}
         {/* Step 1 — topic + audience */}
         <div hidden={step !== 0} className="space-y-6">
+          <ComposeBox onProposal={applyProposal} disabled={pending} />
+
           <TemplatePicker
             builtIns={BUILT_IN_OPTIONS}
             others={templates}
@@ -798,6 +830,23 @@ export function NewCommunicationWizard({
 
         {/* Step 2 — template, declared questions, subject + body */}
         <div hidden={step !== 1} className="space-y-6">
+          {draftReview ? (
+            <DraftReview
+              review={draftReview}
+              audienceLabel={AUDIENCE_LABELS[audience]}
+              suggestedTemplateName={
+                draftReview.suggestedTemplateId
+                  ? (BUILT_IN_OPTIONS.find((t) => t.id === draftReview.suggestedTemplateId)?.name ?? null)
+                  : null
+              }
+              onUseTemplate={() => {
+                if (draftReview.suggestedTemplateId) pickTemplate(draftReview.suggestedTemplateId)
+              }}
+              onDismiss={() => setDraftReview(null)}
+              disabled={pending}
+            />
+          ) : null}
+
           {/* Declared questions, only when the chosen template has any.
               Answers become the merge bag for its {{ fields }}. */}
           {effectiveQuestions.length > 0 ? (
@@ -843,23 +892,21 @@ export function NewCommunicationWizard({
             label="Body"
             required
             error={fieldErrors.body}
-            hint="Words in {{ double braces }} are filled in for each person."
-            labelAside={
-              <AiRewriteButton
-                value={bodyHtml}
-                onChange={setBodyHtml}
-                context={`HOA communication, category: ${CATEGORY_LABEL[category]}`}
-                disabled={pending}
-              />
-            }
+            hint="[Resident's name] and [HOA name] are filled in for each person."
           >
-            <Textarea
-              value={bodyHtml}
-              onChange={(e) => setBodyHtml(e.target.value)}
-              placeholder="<p>Hi {{ recipient_name }}, ...</p>"
+            <PlainEditor
+              html={bodyHtml}
+              onChange={setBodyHtml}
               disabled={pending}
-              rows={12}
-              className="font-mono text-xs sm:text-xs"
+              invalid={Boolean(fieldErrors.body)}
+              aside={(text, setText) => (
+                <AiRewriteButton
+                  value={text}
+                  onChange={setText}
+                  context={`HOA communication, category: ${CATEGORY_LABEL[category]}`}
+                  disabled={pending}
+                />
+              )}
             />
           </Field>
 
@@ -951,6 +998,10 @@ export function NewCommunicationWizard({
               />
             </KeyValueList>
           </section>
+
+          {channels.includes('sms') && smsConfigured ? (
+            <SmsPreview subject={subject.trim()} bodyHtml={bodyHtml} />
+          ) : null}
 
           <PreferenceSkips preview={prefPreview} channels={channels} />
 
@@ -1122,14 +1173,82 @@ function PaperNoticeList({ preview }: { preview: OfficialNoticePreview | null })
   )
 }
 
-/** Strip HTML tags for the plain-text fallback we hand to Resend. Not
- *  a full sanitizer — just removes angle brackets so emails without
- *  HTML support stay legible. */
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+/** BL-102 A2: what the AI draft could not know, shown above the message. */
+function DraftReview({
+  review,
+  audienceLabel,
+  suggestedTemplateName,
+  onUseTemplate,
+  onDismiss,
+  disabled,
+}: {
+  review: WizardFieldsFromProposal['review']
+  audienceLabel: string
+  suggestedTemplateName: string | null
+  onUseTemplate: () => void
+  onDismiss: () => void
+  disabled: boolean
+}) {
+  return (
+    <Alert variant="info" title="Drafted for you. Check it before sending.">
+      <p>
+        Going to: <strong>{audienceLabel}</strong>. {review.why}
+      </p>
+      {review.street ? (
+        <p className="mt-1">
+          You mentioned {review.street}. Messages can’t go to one street yet, so check the audience on the first step
+          and say in the message who it is for.
+        </p>
+      ) : null}
+      {review.missingFacts.length > 0 ? (
+        <div className="mt-2">
+          <p className="font-medium">Add these if you know them (left out rather than guessed):</p>
+          <ul className="list-disc pl-5">
+            {review.missingFacts.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {review.unverifiedNumbers.length > 0 ? (
+        <p className="mt-2">
+          <strong>Check these:</strong> {review.unverifiedNumbers.join(', ')}. They are in the draft but not in what
+          you wrote.
+        </p>
+      ) : null}
+      {review.droppedSendAt ? (
+        <p className="mt-2">You asked to send it later. {SCHEDULING_COMING_SOON} It goes when you press Send.</p>
+      ) : null}
+      <div className="mt-2 flex flex-wrap gap-2">
+        {suggestedTemplateName ? (
+          <Button type="button" variant="secondary" size="xs" onClick={onUseTemplate} disabled={disabled}>
+            Use the “{suggestedTemplateName}” template instead
+          </Button>
+        ) : null}
+        <Button type="button" variant="ghost" size="xs" onClick={onDismiss} disabled={disabled}>
+          Got it
+        </Button>
+      </div>
+    </Alert>
+  )
+}
+
+/** BL-102 A3: the text message as the send builds it: one SMS of at most
+ *  SMS_MAX_CHARS characters; a longer one ends with a link to the full message. */
+function SmsPreview({ subject, bodyHtml }: { subject: string; bodyHtml: string }) {
+  const text = composeSmsBody({
+    subject,
+    body: htmlToMessageText(bodyHtml).replace(/\s+/g, ' '),
+    portalLink: 'https://www.homeownerledger.com/communications/00000000-0000-0000-0000-000000000000',
+  })
+  return (
+    <section className="rounded-lg border border-border p-4">
+      <h3 className="text-sm font-semibold text-foreground">As a text message</h3>
+      <p className="mt-1 whitespace-pre-wrap break-words text-sm text-foreground-secondary">{text}</p>
+      <p className="mt-1 text-xs text-muted">
+        {text.length} of {SMS_MAX_CHARS} characters. Names are filled in for each person, so the length varies a
+        little. Email and the portal get the full message.
+      </p>
+    </section>
+  )
 }
