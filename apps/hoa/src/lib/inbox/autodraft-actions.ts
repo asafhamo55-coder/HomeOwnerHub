@@ -48,6 +48,11 @@ export async function autoDraftOnOpen(threadId: string): Promise<AutoDraftResult
     if (error instanceof ApiRouteError && error.code === 'rate_limited') {
       return { error: error.publicMessage, rateLimited: true }
     }
+    // BL-108: the platform kill switch pauses all AI; the panel shows the
+    // friendly message and keeps the manual "Draft a reply" button.
+    if (error instanceof ApiRouteError && error.extra?.reason === 'ai_paused') {
+      return { error: error.publicMessage, rateLimited: true }
+    }
     throw error
   }
 

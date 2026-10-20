@@ -66,15 +66,16 @@ describe('/api/inngest', () => {
       const ids = (opts.functions as Array<{ id: (prefix?: string) => string }>).map((f) => f.id())
       expect(new Set(ids).size).toBe(ids.length)
 
-      // Every directly exported job object is mounted (the five factory-built
+      // Every directly exported job object is mounted (the six factory-built
       // jobs — daily digest, dues reminders, the month-end board report,
-      // vendor COI reminders and the scheduled-messages dispatcher — are
-      // built in the route).
+      // vendor COI reminders, the scheduled-messages dispatcher and the
+      // BL-108 platform AI spend alert — are built in the route).
       const exported = Object.entries(jobs)
         .filter(([name]) => name.endsWith('Job') && !name.startsWith('create'))
         .map(([, fn]) => fn)
       for (const fn of exported) expect(opts.functions).toContain(fn)
-      expect(opts.functions.length).toBe(exported.length + 5)
+      expect(opts.functions.length).toBe(exported.length + 6)
+      expect(ids).toContain('ai-spend-alert')
       expect(ids).toContain('monthly-board-report')
       expect(ids).toContain('vendor-coi-reminders')
       expect(ids).toContain('communications-scheduled-dispatch')

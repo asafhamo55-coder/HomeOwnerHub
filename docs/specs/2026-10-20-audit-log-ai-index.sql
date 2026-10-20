@@ -1,0 +1,36 @@
+-- ════════════════════════════════════════════════════════════════════
+-- BL-108 AI spend meter: CANDIDATE index (not a migration, not applied)
+-- 2026-10-20
+--
+-- For the owner. Nothing runs this automatically, and it is not needed
+-- while PRICING_V2 is off (the meter does not run). Apply it if the
+-- meter's reads show up slow once new-plan orgs exist.
+--
+-- It is the SAME index as item 9 of docs/specs/2026-10-19-perf-indexes.sql
+-- (same name, IF NOT EXISTS): if that file's item 9 was applied, this is a
+-- no-op and there is nothing to do.
+--
+-- Serves (all filter org_id = ? AND action = ? AND created_at >= ?):
+--   apps/hoa/src/lib/api/ai-spend.ts readMonthlyAiSpend — 12 count-only
+--     reads per metered org per minute at most (one per ai.usage.<bucket>,
+--     this calendar month, cached 60 s per instance)
+--   apps/hoa/src/lib/api/rate-limit.ts limitThNewest — the per-org and
+--     per-user window reads on every AI call (today, every org)
+--   apps/hoa/src/lib/api/ai-spend-notice.ts — the once-a-month notice check
+-- The existing idx_audit_log_org (org_id, created_at DESC) walks every
+-- audit row in the org for the month; with action second, each count reads
+-- only that bucket's rows.
+--
+-- The daily platform alert (packages/jobs/src/ai-spend-alert.ts) filters
+-- action + created_at across all orgs, once a day; it does not need its
+-- own index.
+--
+-- How to apply: run it on its own, OUTSIDE a transaction (CREATE INDEX
+-- CONCURRENTLY cannot run inside BEGIN/COMMIT, and the Supabase SQL editor
+-- wraps a multi-statement run in one). If a build fails it leaves an
+-- INVALID index: DROP INDEX CONCURRENTLY idx_audit_log_org_action_created;
+-- then run it again. Afterwards: ANALYZE public.audit_log;
+-- ════════════════════════════════════════════════════════════════════
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_log_org_action_created
+  ON public.audit_log (org_id, action, created_at DESC);

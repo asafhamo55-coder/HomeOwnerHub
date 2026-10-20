@@ -35,7 +35,7 @@ export { draftViolationLetter } from './tasks/draft-letter'
 export { parseCCRDocument } from './tasks/parse-document'
 export type { ParsedCCRDocument } from './tasks/parse-document'
 
-export { summarizeMeeting } from './tasks/meeting-summary'
+export { summarizeMeeting, MEETING_TRANSCRIPT_MAX_CHARS, MEETING_SUMMARY_MAX_TOKENS } from './tasks/meeting-summary'
 export {
   generateDigestSuggestion,
   acceptSuggestion,

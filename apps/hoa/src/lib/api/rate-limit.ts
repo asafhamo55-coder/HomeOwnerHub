@@ -31,17 +31,29 @@ import { createAdminClient, type Database } from '@homeowner-portal/db'
 import { ApiRouteError } from './errors'
 import { requireRouteUser } from './auth'
 import { logRouteFailure } from './log'
-import { PRICING_V2 } from '@homeowner-portal/billing'
+import { PRICING_V2, onTrialFooting } from '@homeowner-portal/billing'
 import {
   AI_RATE_LIMITS,
   aiLimitFor,
+  aiSpendLevel,
+  aiSpendThresholdsUsd,
   aiTierFor,
   aiUsageAction,
+  spendLevelBlocks,
+  type AiBudget,
   type AiRateLimit,
+  type AiSpendLevel,
   type AiTier,
   type AiUsageBucket,
   type RateWindow,
 } from './ai-limits'
+import {
+  aiKillSwitchOn,
+  aiPausedError,
+  readMonthlyAiSpend,
+  resumeDateLabel,
+  secondsUntilNextMonth,
+} from './ai-spend'
 
 type Db = SupabaseClient<Database>
 
@@ -96,6 +108,8 @@ export function combineUserWindows(
 export function describeWait(seconds: number): string {
   if (seconds <= 90) return 'a minute'
   if (seconds < 90 * 60) return `about ${Math.ceil(seconds / 60)} minutes`
+  // BL-108: a spend-ceiling wait runs to the 1st of the month.
+  if (seconds >= 48 * 3600) return `about ${Math.ceil(seconds / 86400)} days`
   const hours = Math.ceil(seconds / 3600)
   return hours === 1 ? 'about an hour' : `about ${hours} hours`
 }
@@ -154,6 +168,32 @@ export function rateLimitedError(
   )
 }
 
+/**
+ * BL-108: the 429 for a call the monthly spend ceiling refuses.
+ *   - Tier 1 (a resident-facing or automatic bucket): the bucket's existing
+ *     org-limit message, with the wait running to the 1st (UTC).
+ *   - Tier 2 (every bucket): "this month's AI budget", paused until the 1st.
+ * reason `spend_ceiling` either way, so a client can tell it from a daily cap.
+ */
+export function spendCeilingError(cfg: AiRateLimit, level: AiSpendLevel, now: number): ApiRouteError {
+  const retryAfterSeconds = secondsUntilNextMonth(now)
+  const message =
+    level === 'board_stop'
+      ? [
+          `Your community has used this month’s AI budget, so AI features are paused until ${resumeDateLabel(now)}.`,
+          cfg.suffix,
+        ]
+          .filter(Boolean)
+          .join(' ')
+      : rateLimitMessage(cfg, 'org', retryAfterSeconds)
+  return new ApiRouteError(
+    'rate_limited',
+    message,
+    { reason: 'spend_ceiling', retryAfterSeconds },
+    { 'Retry-After': String(retryAfterSeconds) },
+  )
+}
+
 async function limitThNewest(
   db: Db,
   action: string | readonly string[],
@@ -181,6 +221,16 @@ async function limitThNewest(
  * orgs after it (aiTierFor), or an orgs row that can't be read (fail open).
  */
 export async function loadAiTier(db: Db, orgId: string, pricingV2: boolean = PRICING_V2): Promise<AiTier | null> {
+  return (await loadAiBudget(db, orgId, pricingV2))?.tier ?? null
+}
+
+/**
+ * BL-108: loadAiTier plus what the spend meter needs (the doors the price
+ * comes from, and whether the org is on the trial footing). null exactly
+ * when loadAiTier is null: no meter for legacy / pre-flip orgs, and no read
+ * at all before PRICING_V2.
+ */
+export async function loadAiBudget(db: Db, orgId: string, pricingV2: boolean = PRICING_V2): Promise<AiBudget | null> {
   if (!pricingV2) return null
   const [orgRes, countRes] = await Promise.all([
     db.from('orgs').select('plan, doors_count').eq('id', orgId).maybeSingle(),
@@ -189,7 +239,56 @@ export async function loadAiTier(db: Db, orgId: string, pricingV2: boolean = PRI
   if (orgRes.error || !orgRes.data) return null
   const declared = orgRes.data.doors_count ?? 0
   const onFile = countRes.error ? 0 : (countRes.count ?? 0)
-  return aiTierFor({ plan: orgRes.data.plan, doors: Math.max(declared, onFile) }, pricingV2)
+  const doors = Math.max(declared, onFile)
+  const tier = aiTierFor({ plan: orgRes.data.plan, doors }, pricingV2)
+  if (!tier) return null
+  return { tier, doors, trial: onTrialFooting(orgRes.data.plan, pricingV2) }
+}
+
+/** BL-108: tells the board a spend level was reached (once a month per level). Never throws. */
+export type AiSpendNotifier = (orgId: string, level: Exclude<AiSpendLevel, 'normal'>, now: number) => Promise<void>
+
+const defaultSpendNotifier: AiSpendNotifier = async (orgId, level, now) => {
+  // Lazy: the email transport and audience helpers load only when a metered
+  // org actually crosses a level (never before PRICING_V2).
+  const { notifyAiSpendLevel } = await import('./ai-spend-notice')
+  await notifyAiSpendLevel(orgId, level, now)
+}
+
+/**
+ * BL-108: the monthly spend check for a metered org. Throws the spend 429
+ * when this month's level refuses the bucket.
+ *
+ * A meter that cannot be read does NOT block AI: the per-bucket caps still
+ * apply on this call (they run next, from the ledger), and the failure is
+ * logged with ids only. Blocking every AI call on a meter error would turn a
+ * database hiccup into an outage, and the caps alone bound a day's cost.
+ */
+async function checkSpend(
+  bucket: AiUsageBucket,
+  cfg: AiRateLimit,
+  budget: AiBudget,
+  orgId: string,
+  db: Db,
+  now: number,
+  notify: AiSpendNotifier,
+): Promise<void> {
+  let level: AiSpendLevel
+  try {
+    const reading = await readMonthlyAiSpend(db, orgId, now)
+    level = aiSpendLevel(reading.spendUsd, aiSpendThresholdsUsd(budget))
+  } catch (err) {
+    logRouteFailure(`ai.spend.read.${bucket}`, err, { orgId })
+    return
+  }
+  if (level !== 'normal') {
+    try {
+      await notify(orgId, level, now)
+    } catch (err) {
+      logRouteFailure('ai.spend.notify', err, { orgId, level })
+    }
+  }
+  if (spendLevelBlocks(bucket, level)) throw spendCeilingError(cfg, level, now)
 }
 
 export interface UsageGrant {
@@ -205,11 +304,24 @@ export async function checkAndRecordAiUsage(
   bucket: AiUsageBucket,
   who: { orgId: string; userId: string },
   /**
-   * `tier`: the org's plan and band (BL-104). Omitted = read from orgs;
-   * null = the base ceilings.
+   * `tier`: the org's plan and band (BL-104); null = the base ceilings.
+   * `budget` (BL-108): tier + doors + trial, which also turns the monthly
+   * spend meter on; null = no meter. Both omitted = read from orgs
+   * (loadAiBudget). A `tier` alone means "no meter".
+   * `notify`: the board notice at a spend level; `env`: for the kill switch.
    */
-  deps: { db?: Db; now?: () => number; tier?: AiTier | null } = {},
+  deps: {
+    db?: Db
+    now?: () => number
+    tier?: AiTier | null
+    budget?: AiBudget | null
+    notify?: AiSpendNotifier
+    env?: Readonly<Record<string, string | undefined>>
+  } = {},
 ): Promise<UsageGrant> {
+  // BL-108 platform kill switch: refuse before any read or ledger write.
+  if (aiKillSwitchOn(deps.env)) throw aiPausedError()
+
   const db = deps.db ?? createAdminClient()
   const now = (deps.now ?? Date.now)()
   const action = aiUsageAction(bucket)
@@ -217,16 +329,22 @@ export async function checkAndRecordAiUsage(
 
   try {
     let tier: AiTier | null = null
-    if (deps.tier !== undefined) tier = deps.tier
+    let budget: AiBudget | null = null
+    if (deps.budget !== undefined) {
+      budget = deps.budget
+      tier = budget?.tier ?? null
+    } else if (deps.tier !== undefined) tier = deps.tier
     else {
       try {
-        tier = await loadAiTier(db, who.orgId)
+        budget = await loadAiBudget(db, who.orgId)
+        tier = budget?.tier ?? null
       } catch (err) {
         logRouteFailure(`ai.rate-limit.tier.${bucket}`, err, { orgId: who.orgId })
       }
     }
     cfg = aiLimitFor(bucket, tier)
     if (cfg.perOrg.limit <= 0) throw notOnPlanError(cfg)
+    if (budget) await checkSpend(bucket, cfg, budget, who.orgId, db, now, deps.notify ?? defaultSpendNotifier)
     const orgActions = cfg.orgPool ? cfg.orgPool.map(aiUsageAction) : action
     const daily = cfg.perUserDaily
     const [userAt, orgAt, userDayAt] = await Promise.all([

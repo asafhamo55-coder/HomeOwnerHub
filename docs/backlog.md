@@ -1116,5 +1116,19 @@ Not counted above: BL-104's module-off pages (M2) and BL-102 Phase B (migrations
 15. **CINC aging report → opening balances** (BL-031 remainder). Map a CINC aging export to per-unit opening balances, with the JE proposed through approvals and a dry run of counts and ids. **Blocked until Asaf supplies a real CINC export**; skip it until then. Files: `apps/hoa/src/lib/properties/import.ts`, `apps/hoa/src/app/(dashboard)/properties/import/`, `packages/workflows/src/approvals/`.
 
 Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a vendor COI reply reaches the inbox), the BL-051 Safari print check, and a browser pass on the new convert menu, composer and billing banner.
-- **BL-108 Rebalance the per-plan AI budget before PRICING_V2 goes on:** under the "every cap saturated" 30% rule, Essentials is left with 0 Copilot questions a day and Complete exceeds 30%. An Opus advisor is reviewing (realistic-use model plus an org monthly AI spend ceiling). The Essentials/Complete numbers for meeting_summary and ask_community are PROVISIONAL until then.
+- **BL-108 Rebalance the per-plan AI budget before PRICING_V2 goes on (Done 2026-10-20: implemented behind PRICING_V2, off, so nothing changes today; decision docs/decisions/2026-10-20-ai-spend-ceiling.md):** under the "every cap saturated" 30% rule, Essentials is left with 0 Copilot questions a day and Complete exceeds 30%. An Opus advisor is reviewing (realistic-use model plus an org monthly AI spend ceiling). The Essentials/Complete numbers for meeting_summary and ask_community are PROVISIONAL until then.
+  - **Built:**
+    - **Caps.** Per-band Copilot and meeting-summary caps for new-plan orgs (`perOrgByPlanBand` in `ai-limits.ts`; own buckets, never `board_ai`). Copilot is 10/15/20/30 a day on Essentials and 25/40/60/100 on Complete. Summaries are 2 a day on Essentials and 3 on Complete.
+    - **Sizing test.** "Heavy-use month ≤ 20% of price" is tested at every door count from 1 to 2,000. It replaces the "≤ 30% saturated" test. A simulated all-caps-hit month with the meter on stops at 30% (trials at $5).
+    - **Monthly spend meter.** `ai-spend.ts` meters this calendar month (UTC), with a 60-second cache. It is wired into `checkAndRecordAiUsage` / `requireAiQuota` through `loadAiBudget`. At 20% the board gets an FYI email. At 25% resident-facing and automatic AI is refused (429 `spend_ceiling`), and the board gets a banner and an email. At 30% board AI is refused too, until the 1st. The board emails go through the guarded `sendEmail` to board-role members, once per level per month. If the meter can't be read, the per-bucket caps still apply and AI is not blocked.
+    - **Kill switch.** `AI_PLATFORM_KILL_SWITCH` makes every metered AI call return a friendly 503 `ai_paused`.
+    - **Platform alert.** The daily Inngest job `ai-spend-alert` emails `AI_SPEND_ALERT_TO` when spend passes $50/day. There are now 22 functions.
+    - **Meeting-summary cost check.** The model sees 30k characters, not the route's 500k cap, so the estimate stays $0.0024.
+  - **Owner:**
+    - **Index.** Apply `docs/specs/2026-10-20-audit-log-ai-index.sql` only if the meter is slow after the flip. It is the same index as perf-indexes item 9.
+    - **Env.** Set `AI_SPEND_ALERT_TO` in Vercel production.
+  - **Follow-ups:**
+    - **Kill switch coverage.** It does not cover unmetered model calls: the manual inbox "Draft a reply", background jobs and embeddings.
+    - **Re-derive estimates.** Re-derive the per-call estimates from `ai_runs` within 30 days of launch.
+    - **Marketing.** Publish the real caps.
 - **BL-109 Guard-held sends everywhere:** apply `finalSendStatus` (packages/observability/src/send-status.ts) to the resident-notify and vendor-COI flows and the resend path in communications send.ts, so a send the outbound guard holds for every recipient reads "held by safety guard", not "failed".
