@@ -431,3 +431,9 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 
   All are being fixed now. Open question: does payment-plan creation leave the original arrears open alongside the new installments?
 - **Infra:** the Mac slept mid-response and one review agent died; its report had already been delivered.
+
+## 2026-10-19 (21:42) â€” deploy eb4f522: marketing labels, guide screenshots
+
+- **Live (app):** eb4f522, i.e. adda959 plus a release note. /login 200; the release-note email went out.
+- **Found:** the marketing Vercel project (homeownerhub.vercel.app) has not deployed in 148 days, so today's marketing changes are not public. Logged as BL-100 for an owner decision.
+- **Agents running:** BL-099 performance; resident-assistant security fixes; estoppel/collections/budget correctness fixes.

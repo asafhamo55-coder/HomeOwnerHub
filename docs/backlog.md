@@ -925,3 +925,8 @@ These go beyond the design-system v2 pass:
     3. Fix the top waterfalls and over-fetching, such as `select *` and N+1 queries.
     4. Propose missing indexes as SQL for Asaf to apply.
     5. Tune router prefetch on the sidebar links.
+- **BL-100 The marketing site isn't being deployed (found 2026-10-19):** the Vercel project `homeownerhub-marketing` (https://homeownerhub.vercel.app) last deployed 148 days ago. It still serves the old "Ledger" site, so none of the marketing truth passes (BL-042/090), the hub hiding (BL-097) or the HomeownerHub rename is live there. www.homeownerledger.com serves the app and opens on /login.
+  - **Owner decisions:**
+    - connect the marketing project to the prod branch;
+    - give it a domain (e.g. homeownerledger.com root for marketing and app.homeownerledger.com for the app, or keep the current split);
+    - `metadataBase` in apps/marketing points at https://ledger.ai, which isn't ours; it must change to the real domain.

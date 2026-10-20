@@ -41,7 +41,7 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 - **Integration branch:** `claude/quality-oracle`. All merges land here.
 - **Deploy:** run `/usr/bin/git merge-base --is-ancestor <prod> <tip>`, then `/usr/bin/git push origin <sha>:claude/phase1-homeownerhub-setup-MILNu`. Prod pushes FAIL when their output is redirected to /dev/null; always run them as `... 2>&1 | tail -3`, and retry up to 3 times.
 - **Verify:** poll `https://www.homeownerledger.com/api/health` until `version` equals the SHA. The public body is `{ok, app, version}`.
-- **Live in prod:** 37cca17 (HomeownerHub brand + blue palette, resident assistant, PM/Eviction hidden), deployed 2026-10-19 20:22 ET.
+- **Live in prod:** eb4f522 (marketing labels in repo, guide screenshots), deployed 2026-10-19 21:42 ET. NOTE: the marketing site project is NOT deploying (BL-100).
 - **2026-10-19 20:25:** 64f16a3 (marketing labels → HomeownerHub) awaiting CI; next deploy ≥21:22. Owner decisions open: Stripe product rename (dashboard + code together), legal entity name, pricing vs PayHOA, the Linda quote, key rotation before diligence. Decks in ~/HomeownerHub-decks/ need a rebrand refresh. Pending owner SQL: docs/specs/2026-10-19-resident-meeting-notices.sql.
 
 ## Gates (the trusted forms)
