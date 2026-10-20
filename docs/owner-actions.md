@@ -58,7 +58,7 @@ single place to start.
 
 1. Open `docs/specs/2026-10-20-sql-runbook.md`. It lists 43 small steps in sections A to I, each with the exact file part to paste, what it does, whether it only reads, what you should see, and what to send Claude.
 2. Do **Section A** (0063) and **Section B** (M1) today; they are the urgent part. After step B5, tell Claude "M1 is applied". Claude switches the new features on (`M1_APPLIED` in `packages/db/src/m1.ts`) and deploys.
-3. Continue with Sections C to G when you have time. Each section also closes one item below (C = OA-2, D = OA-21, E = OA-17, F = OA-4, G = OA-3). Section H (0065) and Section I (0066, owner records requests) have no separate item; after I3, tell Claude "0066 is applied" and Claude switches records requests on (`RECORDS_REQUESTS_LIVE`).
+3. Continue with Sections C to G when you have time. Each section also closes one item below (C = OA-2, D = OA-21, E = OA-17, F = OA-4, G = OA-3). Section H (0065) and Section I (0066, owner records requests and the Fined / Dismissed violation statuses) have no separate item; after I3, tell Claude "0066 is applied" and Claude switches records requests on (`RECORDS_REQUESTS_LIVE`) and the Fined / Dismissed statuses on (`VIOLATION_FINED_STATUS_LIVE`).
 4. Ask Claude to copy any step to your clipboard ("copy step B4"). If any step errors, stop and send Claude the error and the step number.
 
 **Files:** `docs/specs/2026-10-20-sql-runbook.md`, `docs/specs/2026-10-16-rls-sweep-apply.sql`, `docs/specs/2026-10-18-m1-apply.sql`

@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./types": "./src/database.types.ts",
     "./m1": "./src/m1.ts",
-    "./records-requests": "./src/records-requests.ts"
+    "./records-requests": "./src/records-requests.ts",
+    "./violation-statuses": "./src/violation-statuses.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
