@@ -93,8 +93,9 @@ export async function loadMyContacts(): Promise<{ ok: true; data: MyContacts } |
   const pendingByUnit = new Map<string, PendingRequest>()
   for (const t of (tickRows.data ?? []) as Array<{ id: string; unit_id: string | null; subject: string; description: string; created_at: string }>) {
     // These are the viewer's OWN tickets (submitted_by = them), never a
-    // board member's, so an "Emailed in by" claim is never honoured here.
-    const request = parseTrustedContactRequest(t.subject, t.description, false)
+    // board member's, so an "Emailed in by" claim is never honoured here,
+    // and the submitter's sign-in email is the viewer's own.
+    const request = parseTrustedContactRequest(t.subject, t.description, { isBoard: false, email: signInEmail })
     if (!request || !t.unit_id || pendingByUnit.has(t.unit_id)) continue
     pendingByUnit.set(t.unit_id, { ticketId: t.id, createdAt: t.created_at, request })
   }

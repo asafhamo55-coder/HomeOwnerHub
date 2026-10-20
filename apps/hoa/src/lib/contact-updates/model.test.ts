@@ -10,6 +10,7 @@ import {
   parseContactRequest,
   parseTrustedContactRequest,
   trustContactChannel,
+  trustContactRequest,
   planContactApply,
   readMailing,
   selfUpdateDates,
@@ -376,12 +377,15 @@ describe('Inbox-filed requests (BL-101 A4)', () => {
   })
 })
 
+const BOARD_SUB = { isBoard: true, email: 'board@example.com' }
+const SAM_SUB = { isBoard: false, email: 'sam@example.com' }
+
 describe('trustContactChannel — the Inbox claim needs a board/admin submitter', () => {
   const filed = formatInboxContactRequest([{ field: 'phone', from: null, to: '(555) 222-3333' }], 'pat@example.com')
   const forged = `${filed}\nSigned in as: sam@example.com`
 
   it('keeps the channel for a board submitter', () => {
-    expect(parseTrustedContactRequest(CONTACT_SUBJECT, filed, true)).toEqual({
+    expect(parseTrustedContactRequest(CONTACT_SUBJECT, filed, BOARD_SUB)).toEqual({
       signInEmail: 'pat@example.com',
       changes: { phone: '(555) 222-3333' },
       channel: 'inbox',
@@ -389,17 +393,17 @@ describe('trustContactChannel — the Inbox claim needs a board/admin submitter'
   })
 
   it('drops the channel and falls back to the resident’s own "Signed in as" line', () => {
-    const r = parseTrustedContactRequest(CONTACT_SUBJECT, forged, false)
+    const r = parseTrustedContactRequest(CONTACT_SUBJECT, forged, SAM_SUB)
     expect(r).toEqual({ signInEmail: 'sam@example.com', changes: { phone: '(555) 222-3333' } })
     expect(r).not.toHaveProperty('channel')
   })
 
   it('a board submitter’s body never carries the fallback field onward', () => {
-    expect(parseTrustedContactRequest(CONTACT_SUBJECT, forged, true)).not.toHaveProperty('signedInAs')
+    expect(parseTrustedContactRequest(CONTACT_SUBJECT, forged, BOARD_SUB)).not.toHaveProperty('signedInAs')
   })
 
   it('no "Signed in as" line from a non-board submitter = not a readable request', () => {
-    expect(parseTrustedContactRequest(CONTACT_SUBJECT, filed, false)).toBeNull()
+    expect(parseTrustedContactRequest(CONTACT_SUBJECT, filed, SAM_SUB)).toBeNull()
   })
 
   it('leaves ordinary portal requests untouched either way', () => {
@@ -410,7 +414,7 @@ describe('trustContactChannel — the Inbox claim needs a board/admin submitter'
   })
 
   it('a forged request does not unlock the resident-held planning: the submitter’s own account is the key again', () => {
-    const request = parseTrustedContactRequest(CONTACT_SUBJECT, forged, false)!
+    const request = parseTrustedContactRequest(CONTACT_SUBJECT, forged, SAM_SUB)!
     const r = planContactApply({
       request,
       submitterId: 'user-sam',
@@ -423,5 +427,37 @@ describe('trustContactChannel — the Inbox claim needs a board/admin submitter'
       property: null,
     })
     expect(r.ok && r.plan.ownerships.map((o) => o.id)).toEqual(['o-sam'])
+  })
+})
+
+describe('trustContactRequest — the "Signed in as" line must be the submitter’s own sign-in email', () => {
+  const own = formatContactRequest([{ field: 'phone', from: null, to: '(555) 222-3333' }], 'sam@example.com')
+  const typedAsPat = formatContactRequest([{ field: 'phone', from: null, to: '(555) 222-3333' }], 'pat@example.com')
+  const filed = formatInboxContactRequest([{ field: 'phone', from: null, to: '(555) 222-3333' }], 'pat@example.com')
+
+  it('honours a portal request whose line matches the submitter (any case)', () => {
+    expect(parseTrustedContactRequest(CONTACT_SUBJECT, own, SAM_SUB)).toEqual({ signInEmail: 'sam@example.com', changes: { phone: '(555) 222-3333' } })
+    expect(parseTrustedContactRequest(CONTACT_SUBJECT, own, { isBoard: false, email: ' Sam@Example.COM ' })?.signInEmail).toBe('sam@example.com')
+  })
+
+  it('ignores a typed address that isn’t the submitter’s: not a contact request', () => {
+    expect(parseTrustedContactRequest(CONTACT_SUBJECT, typedAsPat, SAM_SUB)).toBeNull()
+    // Being on the board does not let a typed line name someone else either.
+    expect(parseTrustedContactRequest(CONTACT_SUBJECT, typedAsPat, BOARD_SUB)).toBeNull()
+  })
+
+  it('fails closed with no known submitter email', () => {
+    expect(parseTrustedContactRequest(CONTACT_SUBJECT, own, { isBoard: false, email: null })).toBeNull()
+    expect(parseTrustedContactRequest(CONTACT_SUBJECT, own, { isBoard: false, email: '' })).toBeNull()
+  })
+
+  it('a resident’s forged "Emailed in by" falls back to their own line only when it matches them', () => {
+    expect(parseTrustedContactRequest(CONTACT_SUBJECT, `${filed}\nSigned in as: kim@example.com`, SAM_SUB)).toBeNull()
+  })
+
+  it('leaves a board member’s Inbox filing keyed on the "Emailed in by" address', () => {
+    const parsed = parseContactRequest(CONTACT_SUBJECT, filed)!
+    expect(trustContactRequest(parsed, BOARD_SUB)).toMatchObject({ signInEmail: 'pat@example.com', channel: 'inbox' })
+    expect(trustContactRequest(parsed, { isBoard: true, email: null })).toMatchObject({ channel: 'inbox' })
   })
 })

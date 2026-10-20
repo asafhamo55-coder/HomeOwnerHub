@@ -205,7 +205,9 @@ const LABEL_FIELD = new Map(CONTACT_FIELDS.map((f) => [FIELD_LABEL[f].toLowerCas
  * Read a request back from its ticket. Null when this is not one (an
  * ordinary ticket, or one missing its sign-in line or any change). Every
  * value is re-checked: a resident can write a ticket by hand, so the body
- * is input, never trusted.
+ * is input, never trusted — and so is the identity it names: callers pass
+ * the parse through trustContactRequest with the ticket's real submitter
+ * before it keys anything.
  */
 export function parseContactRequest(subject: string, description: string): ContactRequest | null {
   if (subject.trim() !== CONTACT_SUBJECT) return null
@@ -272,10 +274,49 @@ export function trustContactChannel(request: ContactRequest, submitterIsBoard: b
   return request.signedInAs ? { signInEmail: request.signedInAs, changes: request.changes } : null
 }
 
-/** parseContactRequest + trustContactChannel in one step. */
-export function parseTrustedContactRequest(subject: string, description: string, submitterIsBoard: boolean): ContactRequest | null {
+/**
+ * Who really filed a request ticket, as the server knows it — never as
+ * the body says. `email` is the submitter's auth sign-in email (null =
+ * none / no such user); `isBoard` = board or admin of the org.
+ */
+export interface ContactSubmitter {
+  isBoard: boolean
+  email: string | null
+}
+
+/**
+ * Honour a request only as far as its real submitter backs it (PR-10
+ * hardening, after BL-101 A4).
+ *
+ * WHY. The "Signed in as" line is free text: a resident can open a ticket
+ * with the contact subject and type ANY address there, which would key
+ * the request — and so the rows a board approval changes — to someone
+ * else's records. So the portal identity comes from the ticket's
+ * authenticated submitter (submitted_by → their auth email): a typed line
+ * that matches it is honoured (every portal-generated request writes
+ * exactly that address, so existing requests keep working); a mismatch,
+ * or a submitter with no known email, is not a contact request at all —
+ * the board sees it as an ordinary ticket. The Inbox channel is unchanged:
+ * honoured only from a board/admin submitter (trustContactChannel), and
+ * keyed on the "Emailed in by" address, never the submitter's account.
+ */
+export function trustContactRequest(request: ContactRequest, submitter: ContactSubmitter): ContactRequest | null {
+  const r = trustContactChannel(request, submitter.isBoard)
+  if (!r) return null
+  if (r.channel === 'inbox') return r
+  const own = lower(submitter.email)
+  return own && r.signInEmail === own ? r : null
+}
+
+/** Does a request's honouring depend on the submitter's email (i.e. not a board Inbox filing)? */
+export function needsSubmitterEmail(request: ContactRequest, submitterIsBoard: boolean): boolean {
+  return !(request.channel === 'inbox' && submitterIsBoard)
+}
+
+/** parseContactRequest + trustContactRequest in one step. */
+export function parseTrustedContactRequest(subject: string, description: string, submitter: ContactSubmitter): ContactRequest | null {
   const r = parseContactRequest(subject, description)
-  return r ? trustContactChannel(r, submitterIsBoard) : null
+  return r ? trustContactRequest(r, submitter) : null
 }
 
 // ─── the mailing-address note ───────────────────────────────────────

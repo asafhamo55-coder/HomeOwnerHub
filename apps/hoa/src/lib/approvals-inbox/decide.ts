@@ -44,7 +44,7 @@ import { approveRequest, rejectRequest, type ApprovalExecutor, type DecisionResu
 import { BILL_ACTION } from '../bill-scan/proposal'
 import { LETTER_ACTION } from '../collections/letters/proposal'
 import { letterExecutor } from '../collections/letters/executor'
-import { approveContactUpdate, rejectContactUpdate } from '../contact-updates/apply'
+import { approveContactUpdate, rejectContactUpdate, type ContactDeps } from '../contact-updates/apply'
 import { canUseApprovals } from './model'
 import type { InboxDb } from './load'
 
@@ -133,10 +133,11 @@ export function letterHandlers(userDb: InboxDb, adminDb: InboxDb): Pick<InboxDec
 export function contactHandlers(
   userDb: InboxDb,
   ctx: { orgId: string; deciderId: string; deciderRole: 'board' | 'admin' },
+  deps: ContactDeps,
 ): Pick<InboxDecisionHandlers, 'approveContact' | 'rejectContact'> {
   return {
     approveContact: async (ticketId) => {
-      const r = await approveContactUpdate(userDb, { ...ctx, ticketId })
+      const r = await approveContactUpdate(userDb, { ...ctx, ticketId }, deps)
       return r.ok ? { ok: true, message: r.message } : r
     },
     rejectContact: async (ticketId, reason) => {

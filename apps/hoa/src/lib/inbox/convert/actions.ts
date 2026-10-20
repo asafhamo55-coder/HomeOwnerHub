@@ -34,8 +34,9 @@ import { requireBoardOrAdminForAction, BOARD_ONLY_DENIED } from '@/lib/accountin
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { checkSenderForUnit, latestInboundSender } from '@/lib/inbox/account-context'
 import { resolvePropertyForUnit, resolveUnitForProperty, asUnitId } from '@/lib/properties/resolve'
-import { CONTACT_CATEGORY, CONTACT_SUBJECT, checkContactForm, formatInboxContactRequest, parseContactRequest, parseTrustedContactRequest, type ContactChange, type ContactField } from '@/lib/contact-updates/model'
-import { OPEN_STATUSES, boardMembersAmong } from '@/lib/contact-updates/apply'
+import { CONTACT_CATEGORY, CONTACT_SUBJECT, checkContactForm, formatInboxContactRequest, type ContactChange, type ContactField } from '@/lib/contact-updates/model'
+import { OPEN_STATUSES, trustContactTickets } from '@/lib/contact-updates/apply'
+import { authSubmitterEmails } from '@/lib/contact-updates/submitter-email'
 import { verifyLinkTarget, writeThreadLink } from '@/lib/inbox/links'
 import {
   TICKET_DESCRIPTION_MAX,
@@ -305,14 +306,13 @@ export async function fileContactUpdateFromThread(input: ContactFromThreadInput)
     console.error('[inbox.convert] contact tickets read failed', { orgId, threadId, code: waitError.code })
     return { ok: false, error: 'Couldn’t check for a waiting request. Try again.' }
   }
-  // A waiting body's "Emailed in by" line counts only from a board/admin
-  // submitter (trustContactChannel): a resident can't block this filing by
-  // typing the line themselves.
-  const waitingRows = waiting ?? []
-  const claimsInbox = waitingRows.filter((t) => parseContactRequest(t.subject, t.description)?.channel === 'inbox')
-  const board = claimsInbox.length === 0 ? new Set<string>() : await boardMembersAmong(db, orgId, [...new Set(claimsInbox.map((t) => t.submitted_by))])
-  if (board === null) return { ok: false, error: 'Couldn’t check for a waiting request. Try again.' }
-  const dup = waitingRows.find((t) => parseTrustedContactRequest(t.subject, t.description, board.has(t.submitted_by))?.signInEmail === sender)
+  // A waiting request counts only as far as its real submitter backs it
+  // (trustContactTickets): an "Emailed in by" line only from a board/admin
+  // submitter, a "Signed in as" line only when it is the submitter's own
+  // sign-in email. A resident can't block this filing by typing either.
+  const trusted = await trustContactTickets(db, orgId, waiting ?? [], { submitterEmails: authSubmitterEmails })
+  if (trusted === null) return { ok: false, error: 'Couldn’t check for a waiting request. Try again.' }
+  const dup = trusted.find((t) => t.request.signInEmail === sender)
   if (dup) {
     return { ok: false, error: 'A contact update for this resident is already waiting in Approvals. Decide that one first.' }
   }

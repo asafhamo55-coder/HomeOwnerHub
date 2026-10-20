@@ -17,10 +17,11 @@ import {
   CONTACT_SUBJECT,
   FIELD_LABEL,
   HELD_REASON,
+  needsSubmitterEmail,
   parseContactRequest,
   planContactApply,
   readMailing,
-  trustContactChannel,
+  trustContactRequest,
   type ApplyContext,
   type ApplyOwnershipRow,
   type ApplyResidentRow,
@@ -88,6 +89,57 @@ export async function boardMembersAmong(db: Db, orgId: string, userIds: readonly
 }
 
 /**
+ * The auth sign-in email of each user id, lowercase (null = no such user
+ * or no email). null overall = the read failed: callers fail closed.
+ * Injected so this module keeps to the board's own RLS client; the app's
+ * implementation is submitter-email.ts.
+ */
+export type SubmitterEmails = (userIds: readonly string[]) => Promise<Map<string, string | null> | null>
+
+export interface ContactDeps {
+  submitterEmails: SubmitterEmails
+}
+
+/**
+ * The contact requests among `tickets` that their real submitter backs
+ * (model.ts trustContactRequest): the Inbox channel only from a board or
+ * admin submitter, a "Signed in as" line only when it is the submitter's
+ * own auth email. Everything else is dropped — an ordinary ticket to the
+ * board. null = a role or email read failed (fail closed, never guess).
+ */
+export async function trustContactTickets<T extends { subject: string; description: string; submitted_by: string }>(
+  db: Db,
+  orgId: string,
+  tickets: readonly T[],
+  deps: ContactDeps,
+): Promise<Array<{ ticket: T; request: ContactRequest }> | null> {
+  const claimed = tickets.flatMap((t) => {
+    const request = parseContactRequest(t.subject, t.description)
+    return request ? [{ ticket: t, request }] : []
+  })
+  if (claimed.length === 0) return []
+  // One org_members read, and only when a body claims the Inbox channel.
+  const inboxSubmitters = [...new Set(claimed.filter((p) => p.request.channel === 'inbox').map((p) => p.ticket.submitted_by))]
+  const board = inboxSubmitters.length === 0 ? new Set<string>() : await boardMembersAmong(db, orgId, inboxSubmitters)
+  if (board === null) return null
+  // One auth read per distinct submitter whose request rests on their own
+  // identity (everything but a board member's Inbox filing).
+  const emailIds = [...new Set(claimed.filter((p) => needsSubmitterEmail(p.request, board.has(p.ticket.submitted_by))).map((p) => p.ticket.submitted_by))]
+  const emails = emailIds.length === 0 ? new Map<string, string | null>() : await deps.submitterEmails(emailIds)
+  if (emails === null) {
+    logFailure('submitter.email', null, { orgId })
+    return null
+  }
+  return claimed.flatMap(({ ticket, request }) => {
+    const trusted = trustContactRequest(request, {
+      isBoard: board.has(ticket.submitted_by),
+      email: emails.get(ticket.submitted_by) ?? null,
+    })
+    return trusted ? [{ ticket, request: trusted }] : []
+  })
+}
+
+/**
  * The home and the records behind each request, in a fixed number of
  * queries whatever the count (units, residents, ownerships, tenancies,
  * properties). `ok: false` = a read failed; the caller says so.
@@ -96,21 +148,10 @@ export async function loadContactEntries(
   db: Db,
   orgId: string,
   tickets: readonly ContactTicketRow[],
+  deps: ContactDeps,
 ): Promise<{ ok: true; entries: ContactEntry[] } | { ok: false }> {
-  const claimed = tickets.flatMap((t) => {
-    const request = parseContactRequest(t.subject, t.description)
-    return request ? [{ ticket: t, request }] : []
-  })
-  // An "Emailed in by" body is honoured only from a board/admin submitter
-  // (model.ts trustContactChannel): one org_members read, and only when a
-  // body claims the Inbox channel at all.
-  const inboxSubmitters = [...new Set(claimed.filter((p) => p.request.channel === 'inbox').map((p) => p.ticket.submitted_by))]
-  const board = inboxSubmitters.length === 0 ? new Set<string>() : await boardMembersAmong(db, orgId, inboxSubmitters)
-  if (board === null) return { ok: false }
-  const parsed = claimed.flatMap(({ ticket, request }) => {
-    const trusted = trustContactChannel(request, board.has(ticket.submitted_by))
-    return trusted ? [{ ticket, request: trusted }] : []
-  })
+  const parsed = await trustContactTickets(db, orgId, tickets, deps)
+  if (parsed === null) return { ok: false }
   const unitIds = [...new Set(parsed.map((p) => p.ticket.unit_id).filter((u): u is string => !!u))]
   if (unitIds.length === 0) {
     return { ok: true, entries: parsed.map((p) => ({ ...p, home: null, propertyId: null, context: null, current: null })) }
@@ -301,14 +342,14 @@ const fieldList = (fs: readonly ContactField[]) => {
  * and write the audit row (ids and field names only). A write failure
  * re-opens the ticket so it stays in /approvals.
  */
-export async function approveContactUpdate(db: Db, input: DecideInput): Promise<DecideResult> {
+export async function approveContactUpdate(db: Db, input: DecideInput, deps: ContactDeps): Promise<DecideResult> {
   const t = await readTicket(db, input.orgId, input.ticketId)
   if (!t.ok) return t
-  const loaded = await loadContactEntries(db, input.orgId, [t.ticket])
+  const loaded = await loadContactEntries(db, input.orgId, [t.ticket], deps)
   if (!loaded.ok) return { ok: false, error: 'Couldn’t load the home’s records. Try again.' }
   const entry = loaded.entries[0]
-  // Dropped by trustContactChannel: a resident's "Emailed in by" body with
-  // no "Signed in as" line of their own.
+  // Dropped by trustContactRequest: a "Signed in as" line that isn't the
+  // submitter's own sign-in email, or a resident's "Emailed in by" body.
   if (!entry) return { ok: false, error: 'That request isn’t a contact update.' }
   if (!entry.context || !entry.propertyId) {
     return { ok: false, error: 'The home this request is for couldn’t be found. Reply on the ticket instead.' }

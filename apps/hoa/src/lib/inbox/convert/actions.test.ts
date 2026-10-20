@@ -22,7 +22,7 @@ function fakeDb() {
   return {
     auth: { getUser: async () => ({ data: { user: { id: 'board-user' } } }) },
     from(table: string) {
-      const t = tables[table] ?? {}
+      const t = tables[table] ?? (table === 'org_members' ? membersTable() : {})
       const chain: Record<string, unknown> = {}
       for (const m of ['select', 'eq', 'is', 'in', 'order', 'limit']) chain[m] = () => chain
       chain.maybeSingle = async () => t.one ?? { data: null, error: null }
@@ -60,11 +60,17 @@ vi.mock('@/lib/properties/resolve', () => ({
   resolvePropertyForUnit: vi.fn(async () => 'prop-1'),
   resolveUnitForProperty: vi.fn(async () => ({ unitIds: ['unit-1', 'unit-1b'] })),
 }))
+// The real trustContactTickets runs; its two reads are the fake's
+// org_members table (roles) and this auth-email lookup (submitters).
 let boardIds: Set<string> | null = new Set(['board-user', 'board-2'])
-vi.mock('@/lib/contact-updates/apply', () => ({
-  OPEN_STATUSES: ['open', 'in_progress'],
-  boardMembersAmong: vi.fn(async (_db: unknown, _org: string, ids: string[]) => (boardIds === null ? null : new Set(ids.filter((i) => boardIds!.has(i))))),
+let authEmails: Map<string, string | null> | null = new Map()
+vi.mock('@/lib/contact-updates/submitter-email', () => ({
+  authSubmitterEmails: vi.fn(async (ids: string[]) => (authEmails === null ? null : new Map(ids.map((i) => [i, authEmails!.get(i) ?? null])))),
 }))
+const membersTable = (): TableFake =>
+  boardIds === null
+    ? { list: { data: null, error: { code: '57014' } } }
+    : { list: { data: [...boardIds].map((user_id) => ({ user_id, role: 'board' })), error: null } }
 
 import { createTicketFromThread, fileContactUpdateFromThread, linkExistingRecord, linkViolationToThread } from './actions'
 import { CONTACT_SUBJECT, parseContactRequest } from '@/lib/contact-updates/model'
@@ -86,6 +92,7 @@ beforeEach(() => {
   gate = { ok: true, role: 'board', orgId: 'org-1' }
   senderVerified = true
   boardIds = new Set(['board-user', 'board-2'])
+  authEmails = new Map([['resident-9', 'kim@example.com']])
   errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 afterEach(() => errorSpy.mockRestore())
@@ -270,6 +277,33 @@ describe('fileContactUpdateFromThread', () => {
     const r = await fileContactUpdateFromThread({ threadId: THREAD, phone: '555-201-3344', email: '', mailing: '' })
     expect(r).toMatchObject({ ok: true })
     expect(inserts.filter((i) => i.table === 'tickets')).toHaveLength(1)
+  })
+
+  it('a resident’s own portal request for the sender blocks it; one with a typed sender address does not', async () => {
+    const own = 'Phone: (555) 201-0000\nSigned in as: pat@example.com'
+    tables.tickets = { list: { data: [{ id: 'own', subject: CONTACT_SUBJECT, description: own, submitted_by: 'resident-pat' }], error: null } }
+    authEmails = new Map([['resident-pat', 'pat@example.com']])
+    const blocked = await fileContactUpdateFromThread({ threadId: THREAD, phone: '555-201-3344', email: '', mailing: '' })
+    expect(!blocked.ok && blocked.error).toMatch(/already waiting/)
+
+    // Kim types Pat's address: not Kim's sign-in, so not a request at all.
+    tables.tickets = {
+      list: { data: [{ id: 'typed', subject: CONTACT_SUBJECT, description: own, submitted_by: 'resident-9' }], error: null },
+      insert: { data: { id: TICKET }, error: null },
+      one: { data: { id: TICKET, organization_id: 'org-1', unit_id: 'unit-1' }, error: null },
+    }
+    const r = await fileContactUpdateFromThread({ threadId: THREAD, phone: '555-201-3344', email: '', mailing: '' })
+    expect(r).toMatchObject({ ok: true })
+  })
+
+  it('fails closed when a waiting request’s submitter email can’t be read', async () => {
+    authEmails = null
+    tables.tickets = {
+      list: { data: [{ id: 'own', subject: CONTACT_SUBJECT, description: 'Phone: (555) 201-0000\nSigned in as: pat@example.com', submitted_by: 'resident-pat' }], error: null },
+    }
+    const r = await fileContactUpdateFromThread({ threadId: THREAD, phone: '555-201-3344', email: '', mailing: '' })
+    expect(r.ok).toBe(false)
+    expect(inserts).toEqual([])
   })
 
   it('fails closed when the submitters’ roles can’t be read', async () => {

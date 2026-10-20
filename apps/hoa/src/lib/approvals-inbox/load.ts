@@ -12,7 +12,7 @@ import { loadOrFail } from '../load-or-fail'
 import { BILL_ACTION } from '../bill-scan/proposal'
 import { LETTER_ACTION } from '../collections/letters/proposal'
 import { FOLLOW_UP_AWAITING_SAVE_PATH } from '../violation-follow-up'
-import { contactTicketsQuery, loadContactEntries, type ContactTicketRow } from '../contact-updates/apply'
+import { contactTicketsQuery, loadContactEntries, type ContactDeps, type ContactTicketRow } from '../contact-updates/apply'
 import {
   SECTION_LIMIT,
   arcItems,
@@ -152,7 +152,7 @@ export async function loadArcSection(db: InboxDb, orgId: string, opts: { associa
  * board-readable by RLS (0063). A failed read of the records fails the
  * section: approving needs them, so the rows are not shown half-known.
  */
-export async function loadContactSection(db: InboxDb, orgId: string): Promise<InboxSection> {
+export async function loadContactSection(db: InboxDb, orgId: string, deps: ContactDeps): Promise<InboxSection> {
   const res = await loadOrFail(
     'approvals: contact updates',
     contactTicketsQuery(db, orgId)
@@ -163,7 +163,7 @@ export async function loadContactSection(db: InboxDb, orgId: string): Promise<In
   const tickets = (res.data ?? []) as unknown as ContactTicketRow[]
   const total = res.count ?? tickets.length
   if (tickets.length === 0) return { source: 'contact', ok: true, items: [], total }
-  const loaded = await loadContactEntries(db, orgId, tickets)
+  const loaded = await loadContactEntries(db, orgId, tickets, deps)
   if (!loaded.ok) return { source: 'contact', ok: false }
   return { source: 'contact', ok: true, items: contactItems(tickets, loaded.entries), total }
 }

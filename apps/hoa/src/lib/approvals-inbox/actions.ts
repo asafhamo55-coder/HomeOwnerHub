@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@homeowner-portal/db'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { authSubmitterEmails } from '@/lib/contact-updates/submitter-email'
 import { approveVendor, rejectVendor } from '@/lib/vendors'
 import { approveViolationDraft, rejectViolationDraft } from '@/lib/violations'
 import { enterBill } from '@/lib/invoices'
@@ -48,8 +49,10 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
     rejectVendor,
     approveViolationDraft,
     rejectViolationDraft,
-    // PR-10: the board's own RLS client; adminDb is never passed here.
-    ...contactHandlers(supabase, { orgId: gate.orgId, deciderId: user.id, deciderRole: gate.role }),
+    // PR-10: the board's own RLS client; adminDb is never passed here. The
+    // one service-role call is a read of submitters' auth emails, so a
+    // typed "Signed in as" line never picks whose rows change.
+    ...contactHandlers(supabase, { orgId: gate.orgId, deciderId: user.id, deciderRole: gate.role }, { submitterEmails: authSubmitterEmails }),
   })
 
   revalidatePath('/approvals')
