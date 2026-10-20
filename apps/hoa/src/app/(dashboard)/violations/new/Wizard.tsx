@@ -830,7 +830,10 @@ export function Wizard({ properties, hasParsedCCR, initialDraft, initialProperty
               <div className="mx-auto mt-3 max-w-md space-y-2 rounded-lg border border-border bg-subtle p-3 text-left">
                 <p className="text-xs font-semibold uppercase tracking-[0.06em] text-muted">Line for your reply</p>
                 <p className="text-sm text-foreground">{VIOLATION_ACK}</p>
-                <div className="flex justify-end">
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => router.push(`/inbox/${fromThreadId}?insert=violation`)}>
+                    Insert into the reply
+                  </Button>
                   <CopyButton value={VIOLATION_ACK} label="Copy the line for your reply" />
                 </div>
               </div>

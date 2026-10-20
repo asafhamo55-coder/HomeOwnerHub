@@ -143,3 +143,67 @@ describe('loadContactEntries', () => {
     expect(await loadContactEntries(db(m), ORG, seed().tickets as never)).toEqual({ ok: false })
   })
 })
+
+describe('the Inbox channel is honoured only from a board/admin submitter (BL-101 A4 hardening)', () => {
+  // What a board member files from the Inbox (formatInboxContactRequest):
+  // no "Signed in as" line, an "Emailed in by" one.
+  const inboxBody = 'Please update the contact details on file, as asked by email.\n\nPhone: (555) 999-0000\n\nEmailed in by: sam@example.test'
+  // A resident hand-typing the same lines under their own "Signed in as".
+  const forgedWithOwn = `${inboxBody}\nSigned in as: pat@example.test`
+  const ticket = (submitted_by: string, description: string) => ({ ...seed().tickets[0]!, submitted_by, description })
+  const members = [
+    { org_id: ORG, user_id: BOARD, role: 'board' },
+    { org_id: ORG, user_id: PAT, role: 'resident' },
+  ]
+
+  it('a board member’s Inbox filing keeps the channel (and so the label)', async () => {
+    const m = memorySupabase(seed({ tickets: [ticket(BOARD, inboxBody)], org_members: members }))
+    const r = await loadContactEntries(db(m), ORG, m.rows('tickets') as never)
+    expect(r.ok && r.entries[0]!.request).toMatchObject({ signInEmail: 'sam@example.test', channel: 'inbox' })
+  })
+
+  it('a resident’s hand-typed "Emailed in by" is read as their own request: no channel, their own key', async () => {
+    const m = memorySupabase(seed({ tickets: [ticket(PAT, forgedWithOwn)], org_members: members }))
+    const r = await loadContactEntries(db(m), ORG, m.rows('tickets') as never)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.entries[0]!.request.channel).toBeUndefined()
+    expect(r.entries[0]!.request.signInEmail).toBe('pat@example.test')
+
+    // Approving changes Pat's rows, never those on the address Pat typed.
+    const res = await approveContactUpdate(db(m), input)
+    expect(res.ok).toBe(true)
+    const [pat, sam] = m.rows('property_residents')
+    expect(pat).toMatchObject({ phone: '(555) 999-0000' })
+    expect(sam).toMatchObject({ phone: '(555) 444-5555' })
+  })
+
+  it('a resident’s "Emailed in by" with no "Signed in as" of their own is not a readable request', async () => {
+    const m = memorySupabase(seed({ tickets: [ticket(PAT, inboxBody)], org_members: members }))
+    const r = await loadContactEntries(db(m), ORG, m.rows('tickets') as never)
+    expect(r).toEqual({ ok: true, entries: [] })
+    const res = await approveContactUpdate(db(m), input)
+    expect(res).toEqual({ ok: false, error: 'That request isn’t a contact update.' })
+    expect(m.rows('property_residents')[1]).toMatchObject({ phone: '(555) 444-5555' })
+    expect(m.rows('tickets')[0]).toMatchObject({ status: 'open' })
+  })
+
+  it('a board member of another org does not count', async () => {
+    const m = memorySupabase(
+      seed({ tickets: [ticket('board-elsewhere', inboxBody)], org_members: [{ org_id: 'org-2', user_id: 'board-elsewhere', role: 'board' }] }),
+    )
+    const r = await loadContactEntries(db(m), ORG, m.rows('tickets') as never)
+    expect(r).toEqual({ ok: true, entries: [] })
+  })
+
+  it('reads roles only when a body claims the Inbox channel, and fails closed if that read fails', async () => {
+    const plain = memorySupabase(seed())
+    await loadContactEntries(db(plain), ORG, seed().tickets as never)
+    expect(plain.calls.some((c) => c.table === 'org_members')).toBe(false)
+
+    const m = memorySupabase(seed({ tickets: [ticket(BOARD, inboxBody)], org_members: members }), {
+      failOn: (c: MemCall) => (c.table === 'org_members' ? { code: '57014', message: 'timeout' } : null),
+    })
+    expect(await loadContactEntries(db(m), ORG, m.rows('tickets') as never)).toEqual({ ok: false })
+  })
+})

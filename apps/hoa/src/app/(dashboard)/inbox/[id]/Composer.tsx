@@ -5,9 +5,11 @@ import { AlertTriangle, BookOpen, Send } from 'lucide-react'
 import { Alert, Button, Field, Input, Textarea } from '@homeowner-portal/ui'
 import { hasUnfilledBlanks, UNDO_WINDOW_SECONDS } from '@/lib/inbox/draft/blanks'
 import { INBOX_APPROVE_CLOSE_EVENT, INBOX_EDIT_EVENT } from '@/lib/inbox/keys'
+import { INBOX_INSERT_EVENT, insertIntoBody, type InsertDetail } from '@/lib/inbox/reply-insert'
 import type { DraftAttachment, ThreadDraft } from '@/lib/inbox/queries'
 import { AttachmentPicker } from './AttachmentPicker'
 import { RecipientFields } from './RecipientFields'
+import { SavedReplyPicker } from './SavedReplyPicker'
 import { AMBER_BOX, BLANK_KIND_LABELS } from './draft-ui'
 
 export interface ApproveInput {
@@ -36,6 +38,15 @@ interface Props {
   attachments: DraftAttachment[]
   threadFiles: Array<{ id: string; fileName: string; sizeBytes: number }>
   libraryFiles: Array<{ id: string; name: string; type: string; sizeBytes: number }>
+  /**
+   * A fixed acknowledgement line to put into the body once this draft
+   * opens (`/inbox/[id]?insert=violation`, lib/inbox/reply-insert.ts).
+   * Client-side only: it is an edit like any other and sends only on
+   * Approve.
+   */
+  insertOnOpen?: string | null
+  /** The thread a reply answers: turns on "Saved replies" (BL-101 A5). */
+  threadId?: string | null
 }
 
 const HEADING: Record<ThreadDraft['kind'], string> = {
@@ -53,6 +64,8 @@ export function Composer({
   attachments,
   threadFiles,
   libraryFiles,
+  insertOnOpen = null,
+  threadId = null,
 }: Props) {
   const [subject, setSubject] = useState(draft.subject)
   const [body, setBody] = useState(draft.bodyText)
@@ -76,6 +89,26 @@ export function Composer({
     setTo(draft.toEmails)
     setCc(draft.ccEmails)
   }, [draft.id, draft.subject, draft.bodyText, draft.toEmails.join(','), draft.ccEmails.join(',')])
+
+  // Where the board member last put the cursor in the message, so an
+  // inserted line lands there. Recorded only on their own clicks and
+  // keystrokes, and forgotten when the draft changes.
+  const caret = useRef<number | null>(null)
+  useEffect(() => {
+    caret.current = null
+  }, [draft.id])
+  const rememberCaret = (event: { currentTarget: HTMLTextAreaElement }) => {
+    caret.current = event.currentTarget.selectionStart
+  }
+
+  // A line asked for on open: once per draft. Runs after the reset above,
+  // so it composes onto the fresh body instead of being overwritten.
+  const insertedOnOpen = useRef<string | null>(null)
+  useEffect(() => {
+    if (!insertOnOpen || insertedOnOpen.current === draft.id) return
+    insertedOnOpen.current = draft.id
+    setBody((current) => insertIntoBody(current, insertOnOpen).body)
+  }, [draft.id, insertOnOpen])
 
   // Computed from the LIVE edits, not the stored arrays — this is what makes
   // filling a blank or adding a recipient enable Approve immediately, and
@@ -108,11 +141,31 @@ export function Composer({
       field.focus()
       field.setSelectionRange(field.value.length, field.value.length)
     }
+    // "Insert into reply" from the convert menu (lib/inbox/reply-insert.ts).
+    // Synchronous: the result is written onto the event for the sender.
+    function insert(event: Event) {
+      const detail = (event as CustomEvent<InsertDetail>).detail
+      if (!detail || typeof detail.text !== 'string') return
+      const now = latest.current
+      if (now.pending) {
+        detail.result = 'busy'
+        return
+      }
+      const next = insertIntoBody(now.body, detail.text, caret.current)
+      detail.result = next.result
+      if (next.result === 'inserted') {
+        latest.current = { ...now, body: next.body }
+        setBody(next.body)
+        caret.current = null
+      }
+    }
     window.addEventListener(INBOX_APPROVE_CLOSE_EVENT, approveClose)
     window.addEventListener(INBOX_EDIT_EVENT, edit)
+    window.addEventListener(INBOX_INSERT_EVENT, insert)
     return () => {
       window.removeEventListener(INBOX_APPROVE_CLOSE_EVENT, approveClose)
       window.removeEventListener(INBOX_EDIT_EVENT, edit)
+      window.removeEventListener(INBOX_INSERT_EVENT, insert)
     }
   }, [])
 
@@ -147,11 +200,15 @@ export function Composer({
             ref={bodyRef}
             value={body}
             onChange={(event) => setBody(event.target.value)}
+            onClick={rememberCaret}
+            onKeyUp={rememberCaret}
             rows={12}
             disabled={pending}
             className="leading-relaxed"
           />
         </Field>
+
+        {threadId && draft.kind === 'reply' ? <SavedReplyPicker threadId={threadId} disabled={pending} /> : null}
 
         {draft.blanks.length > 0 ? (
           <div className="space-y-2">

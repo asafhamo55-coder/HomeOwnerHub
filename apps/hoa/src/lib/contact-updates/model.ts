@@ -184,8 +184,19 @@ export interface ContactRequest {
   signInEmail: string
   /** Only the fields asked for; null = remove / same as the home. */
   changes: Partial<Record<ContactField, string | null>>
-  /** 'inbox' = filed by a board member from an email (BL-101 A4). */
+  /**
+   * 'inbox' = the body carries an "Emailed in by" line, i.e. it CLAIMS to
+   * be filed by a board member from an email (BL-101 A4). A claim only:
+   * the body is free text a resident can type, so callers pass the parse
+   * through trustContactChannel with the submitter's real role first.
+   */
   channel?: 'inbox'
+  /**
+   * The "Signed in as" line on a body that also carried "Emailed in by"
+   * (inbox channel only): the fallback identity when the channel claim is
+   * not honoured.
+   */
+  signedInAs?: string
 }
 
 const LABEL_FIELD = new Map(CONTACT_FIELDS.map((f) => [FIELD_LABEL[f].toLowerCase(), f]))
@@ -237,9 +248,34 @@ export function parseContactRequest(subject: string, description: string): Conta
   // An "Emailed in by" line wins over a "Signed in as" one: it switches the
   // submitter's own account off as a key (planContactApply), the narrower
   // reading of a body that is input, never trusted.
-  if (emailedBy) return { signInEmail: emailedBy, changes, channel: 'inbox' }
+  if (emailedBy) return { signInEmail: emailedBy, changes, channel: 'inbox', ...(signInEmail ? { signedInAs: signInEmail } : {}) }
   if (!signInEmail) return null
   return { signInEmail, changes }
+}
+
+/**
+ * Honour a request's Inbox channel only when the ticket's submitter really
+ * is a board member or admin of the org (BL-101 A4 hardening).
+ *
+ * WHY. Residents can open a ticket with any subject and body
+ * (tickets_insert, 0063), so a resident can hand-type the contact subject
+ * plus an "Emailed in by:" line. Honoured, that would (a) show the board
+ * "Filed from an email in the Inbox" on what is a resident's own ticket,
+ * and (b) switch the key from the resident's own account to whatever
+ * address they typed. So for a non-board submitter the claim is dropped
+ * and the body is read as an ordinary portal request: their "Signed in
+ * as" line if there is one, else not a readable request at all (null).
+ */
+export function trustContactChannel(request: ContactRequest, submitterIsBoard: boolean): ContactRequest | null {
+  if (request.channel !== 'inbox') return request
+  if (submitterIsBoard) return { signInEmail: request.signInEmail, changes: request.changes, channel: 'inbox' }
+  return request.signedInAs ? { signInEmail: request.signedInAs, changes: request.changes } : null
+}
+
+/** parseContactRequest + trustContactChannel in one step. */
+export function parseTrustedContactRequest(subject: string, description: string, submitterIsBoard: boolean): ContactRequest | null {
+  const r = parseContactRequest(subject, description)
+  return r ? trustContactChannel(r, submitterIsBoard) : null
 }
 
 // ─── the mailing-address note ───────────────────────────────────────
