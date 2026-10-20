@@ -37,6 +37,7 @@ Once the board adopts next year's budget, owners need a copy. HomeownerHub write
 
 ## If something goes wrong
 - [[Print / Save as PDF]] and [[Create announcement draft]] are greyed out: a BLANK is still empty, or [[I’ve checked these figures]] isn't ticked. The message under the buttons says which.
+- The printout says "DRAFT — NOT VALID — print from the Print button": you printed from the browser (for example with Cmd+P or File > Print). Only [[Print / Save as PDF]] on the page prints the notice.
 - "This budget isn’t adopted yet": approve the budget first, then come back.
 - The per-home assessment is a BLANK: homes are billed different amounts, only some homes are billed so far, or the billed amount doesn't match the budget. The hint under the field says which. Enter the amount from the board's assessment resolution.
 - "The budget notice didn’t come through" in **New message**: the browser didn't keep the draft, usually in a private window or a new tab. Go back to the notice and select [[Create announcement draft]] again in the same tab.

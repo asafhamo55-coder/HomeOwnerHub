@@ -18,6 +18,7 @@ import {
   useToast,
 } from '@homeowner-portal/ui'
 import { formatDay } from '@/lib/money/format'
+import { DraftPrintBanner, usePrintGate } from '@/components/print/PrintGate'
 import { CA_NOTES, CA_PARTIAL_LABEL, FL_NOTES } from '@/lib/budget-notice/law'
 import {
   blanksLeft,
@@ -43,6 +44,7 @@ export function BudgetNotice({ input, today }: { input: BudgetNoticeInput; today
   const toast = useToast()
   const [values, setValues] = useState<FieldValues>({})
   const [checked, setChecked] = useState(false)
+  const gate = usePrintGate()
 
   const notice = useMemo(() => buildNotice(input, today), [input, today])
   const j = notice.jurisdiction
@@ -104,9 +106,10 @@ export function BudgetNotice({ input, today }: { input: BudgetNoticeInput; today
         ) : null}
       </div>
 
+      <DraftPrintBanner armed={gate.printArmed} />
       <article
         aria-label="Budget notice preview"
-        className="space-y-3 rounded-lg border border-border bg-surface p-5 text-sm text-foreground print:border-0 print:p-0 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:pt-2 [&_h3]:font-semibold [&_li]:ml-5 [&_li]:list-disc [&_small]:text-xs [&_small]:text-foreground-secondary [&_td]:border-b [&_td]:border-border/60 [&_td]:py-1 [&_td]:pr-3 [&_th]:border-b [&_th]:border-border [&_th]:py-1 [&_th]:font-medium [&_th]:text-foreground-secondary [&_.budget-notice-blank]:rounded [&_.budget-notice-blank]:bg-warning-subtle [&_.budget-notice-blank]:px-1 [&_.budget-notice-blank]:font-mono [&_.budget-notice-blank]:text-warning"
+        className={`${gate.docClass} space-y-3 rounded-lg border border-border bg-surface p-5 text-sm text-foreground print:border-0 print:p-0 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:pt-2 [&_h3]:font-semibold [&_li]:ml-5 [&_li]:list-disc [&_small]:text-xs [&_small]:text-foreground-secondary [&_td]:border-b [&_td]:border-border/60 [&_td]:py-1 [&_td]:pr-3 [&_th]:border-b [&_th]:border-border [&_th]:py-1 [&_th]:font-medium [&_th]:text-foreground-secondary [&_.budget-notice-blank]:rounded [&_.budget-notice-blank]:bg-warning-subtle [&_.budget-notice-blank]:px-1 [&_.budget-notice-blank]:font-mono [&_.budget-notice-blank]:text-warning`}
         dangerouslySetInnerHTML={{ __html: html }}
       />
 
@@ -128,7 +131,7 @@ export function BudgetNotice({ input, today }: { input: BudgetNoticeInput; today
           description="The categories, totals, per-home assessment and every line I filled in match the budget the board adopted and our governing documents."
         />
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="button" icon={<Printer aria-hidden />} onClick={() => window.print()} disabled={blocked !== null}>
+          <Button type="button" icon={<Printer aria-hidden />} onClick={() => !blocked && gate.print()} disabled={blocked !== null}>
             Print / Save as PDF
           </Button>
           <Button type="button" variant="secondary" icon={<Megaphone aria-hidden />} onClick={createDraft} disabled={blocked !== null}>

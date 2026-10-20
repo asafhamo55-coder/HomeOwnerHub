@@ -70,6 +70,14 @@ export interface EstoppelInput {
   payments: LedgerPayment[]
   violations: EstoppelViolation[]
   plans: EstoppelPlan[]
+  /**
+   * The charges that are a payment plan's installments, by the stored
+   * plan → charge link (the installment's journal entry memo, BL-080;
+   * load.ts reads it with loadInstallments). Never rebuilt from the
+   * plan's start date: lib/payment-plans.ts overflows month ends
+   * (Jan 31 + 1 month = Mar 3), so a rebuilt schedule mislabels them.
+   */
+  planInstallmentIds: string[]
   collectionCase: EstoppelCase | null
   timeZone: string
 }
@@ -98,17 +106,17 @@ export interface ChargeLine {
 }
 
 /** What is left on each charge: closed charges owe nothing, as in the ledger. */
-export function chargeLines(input: Pick<EstoppelInput, 'charges' | 'payments' | 'plans'>): ChargeLine[] {
+export function chargeLines(input: Pick<EstoppelInput, 'charges' | 'payments' | 'planInstallmentIds'>): ChargeLine[] {
   const paid = new Map<string, number>()
   for (const p of input.payments) {
     if (p.assessment_id) paid.set(p.assessment_id, (paid.get(p.assessment_id) ?? 0) + cents(p.amount))
   }
-  const installments = planInstallmentKeys(input.plans)
+  const installments = new Set(input.planInstallmentIds)
   return input.charges
     .map((c) => {
       const amountCents = cents(c.amount)
       const remainingCents = CLOSED.has(c.status) ? 0 : Math.max(0, amountCents - (paid.get(c.id) ?? 0))
-      const isInstallment = c.assessment_type === 'special' && installments.has(`${c.due_date}:${amountCents}`)
+      const isInstallment = installments.has(c.id)
       return {
         id: c.id,
         dueDate: c.due_date,
@@ -119,25 +127,6 @@ export function chargeLines(input: Pick<EstoppelInput, 'charges' | 'payments' | 
       }
     })
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.id.localeCompare(b.id))
-}
-
-/**
- * Payment plan installments are stored as 'special' charges
- * (lib/payment-plans.ts): monthly from the start date, the drift on the
- * last one. A special charge on one of those days for that amount is the
- * plan's, not a special assessment.
- */
-function planInstallmentKeys(plans: EstoppelPlan[]): Set<string> {
-  const keys = new Set<string>()
-  for (const p of plans) {
-    if (!isIsoDay(p.startDate) || p.installmentCount < 1) continue
-    const each = cents(p.installmentAmount)
-    const last = cents(p.totalAmount) - each * (p.installmentCount - 1)
-    for (let i = 0; i < p.installmentCount; i++) {
-      keys.add(`${addMonths(p.startDate, i)}:${i === p.installmentCount - 1 ? last : each}`)
-    }
-  }
-  return keys
 }
 
 // ─── regular assessment ──────────────────────────────────────────────
@@ -271,8 +260,13 @@ const OPEN_VIOLATION_EXCLUDED = new Set(['resolved', 'dismissed', 'cured', 'clos
 export interface Figures {
   /** Everything owed on the issue day (charges due by then, less payments and credits). */
   currentBalanceCents: number
-  /** Charges due before the issue day that are still unpaid. */
+  /**
+   * Charges due before the issue day that are still unpaid, less any
+   * payment or credit not applied to a charge (never below 0): money the
+   * owner has paid is not owed, linked to a charge or not.
+   */
   pastDueCents: number
+  /** A past-due amount is actually owed (FL: the $150 fee add-on applies). */
   delinquent: boolean
   /** Unpaid charges due on or before the issue day, oldest first. */
   owedItems: ChargeLine[]
@@ -303,7 +297,9 @@ export function computeFigures(input: EstoppelInput, issueDate: string, effectiv
   // charge stays a credit today rather than vanishing.
   const currentBalanceCents = totalCents - notYetDueCents
   const owedCents = owedItems.reduce((t, l) => t + l.remainingCents, 0)
-  const pastDueCents = lines.filter((l) => l.dueDate < issueDate && l.remainingCents > 0).reduce((t, l) => t + l.remainingCents, 0)
+  const rawPastDueCents = lines.filter((l) => l.dueDate < issueDate && l.remainingCents > 0).reduce((t, l) => t + l.remainingCents, 0)
+  const unappliedCents = currentBalanceCents - owedCents
+  const pastDueCents = Math.max(0, rawPastDueCents + Math.min(0, unappliedCents))
 
   const regularLines = lines.filter((l) => l.type === 'regular')
   const frequency = inferFrequency(regularLines)
@@ -327,7 +323,7 @@ export function computeFigures(input: EstoppelInput, issueDate: string, effectiv
     pastDueCents,
     delinquent: pastDueCents > 0,
     owedItems,
-    unappliedCents: currentBalanceCents - owedCents,
+    unappliedCents,
     notYetDue: future.map((l) => ({ ...l, withinEffectivePeriod: effectiveThrough !== null && l.dueDate <= effectiveThrough })),
     notYetDueCents,
     regular: { amountCents: lastRegular?.amountCents ?? null, frequency },
@@ -512,6 +508,47 @@ export function requestProblem(req: { requestDate: string; issueDate: string }):
   if (!isIsoDay(req.requestDate)) return 'Enter the day the request was received.'
   if (req.requestDate > req.issueDate) return 'The request date can’t be after today.'
   return null
+}
+
+// ─── print snapshot ──────────────────────────────────────────────────
+
+/**
+ * The figures the browser shows, sent with "Print / Save as PDF". The
+ * server rebuilds the certificate from the database and refuses unless
+ * they match, so the page that prints is the certificate that was
+ * recorded — never a snapshot from before a payment or a new charge.
+ */
+export interface PrintSnapshot {
+  issueDate: string
+  balance_cents: number
+  not_yet_due_cents: number
+  /** Every charge on the certificate (owed today and not yet due), sorted. */
+  charge_ids: string[]
+}
+
+export const FIGURES_CHANGED = 'Figures changed since this page loaded — reload'
+
+export function certificateChargeIds(c: Certificate): string[] {
+  return [...c.figures.owedItems, ...c.figures.notYetDue].map((l) => l.id).sort()
+}
+
+export function printSnapshot(c: Certificate): PrintSnapshot {
+  return {
+    issueDate: c.deadlines.issueDate,
+    balance_cents: c.figures.currentBalanceCents,
+    not_yet_due_cents: c.figures.notYetDueCents,
+    charge_ids: certificateChargeIds(c),
+  }
+}
+
+export function snapshotMatches(c: Certificate, s: PrintSnapshot): boolean {
+  const now = printSnapshot(c)
+  return (
+    now.issueDate === s.issueDate &&
+    now.balance_cents === s.balance_cents &&
+    now.not_yet_due_cents === s.not_yet_due_cents &&
+    now.charge_ids.join(',') === [...s.charge_ids].sort().join(',')
+  )
 }
 
 // ─── audit (ids and amounts only) ────────────────────────────────────

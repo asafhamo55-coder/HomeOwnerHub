@@ -30,7 +30,7 @@ When a home is being sold or refinanced, the title company or lender asks the as
 ## What happens next
 - The certificate shows the balance owed on the date of issuance, each unpaid charge, charges not yet due, the regular assessment and how often it's billed, the date it's paid through, special assessments, open violations, any active payment plan and the collections stage.
 - In Florida (§ 720.30851), the page counts the deadline: 10 business days after the request, skipping weekends and federal holidays. The certificate is effective for 30 days if delivered by hand or e-mail, or 35 days by regular mail. Charges that come due in that period are marked.
-- In Florida, the fee is capped at $250, plus up to $150 if the account is delinquent and $100 if it was expedited and delivered within 3 business days. The state adjusts these caps for inflation every 5 years, so check the Department of Business and Professional Regulation's current amounts. After the 10-business-day deadline, no fee may be charged.
+- In Florida, the fee is capped at $250, plus up to $150 if the account is delinquent and $100 if it was expedited and delivered within 3 business days. The state adjusts these caps for inflation every 5 years, so check the Department of Business and Professional Regulation's current amounts. After the 10-business-day deadline, no fee may be charged. A payment not yet applied to a charge counts against the past-due amount, so an account whose payments cover what's past due isn't delinquent.
 - In California, the page makes the § 4525(a)(4) statement of assessments and unpaid amounts and a summary of open violation notices. It's labelled **Partial**: the resale packet also needs governing documents, the annual budget disclosures and other documents, which the page lists. The deadline is 10 days (§ 4530).
 - In other states, you get a plain account status certificate with no statutory claims.
 - Each certificate you open, and each one you print, is logged with ids and amounts only.
@@ -39,6 +39,8 @@ When a home is being sold or refinanced, the title company or lender asks the as
 ## If something goes wrong
 - [[Print / Save as PDF]] is greyed out: a BLANK is still empty, the fee is above the cap, or [[I’ve verified these figures]] isn't ticked. The message beside the button says which.
 - "Couldn’t record this certificate": the log couldn't be written, so nothing was printed. Try again.
+- "Figures changed since this page loaded — reload": a payment or charge was recorded, or the day changed, after you opened the page. Reload the page, check the figures and print again. Your BLANK entries need to be filled in again.
+- The printout says "DRAFT — NOT VALID — print from the Print button": you printed from the browser (for example with Cmd+P or File > Print). Only [[Print / Save as PDF]] on the page prints the certificate.
 - "Paid through" is a BLANK: the app can't tell how often dues are billed from one charge. Enter the date yourself.
 
 ## Good to know

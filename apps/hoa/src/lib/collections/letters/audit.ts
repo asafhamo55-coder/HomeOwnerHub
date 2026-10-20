@@ -7,6 +7,17 @@
  */
 
 export const LETTER_PRINTED = 'collections_letter_printed'
+
+/**
+ * The note on the collections event a letter's first print records. It
+ * ties the event to its approval request (collection_events has no
+ * metadata column, and no migration here), so a retry after a failed
+ * stage update or audit insert finds the event instead of adding another.
+ * An id only — no name, address or BLANK entry.
+ */
+export function letterEventNote(approvalRequestId: string): string {
+  return `Printed from approved letter ${approvalRequestId}`
+}
 export const LETTER_AUDIT_ENTITY = 'collections_letter'
 
 export interface LetterAuditMetadata {

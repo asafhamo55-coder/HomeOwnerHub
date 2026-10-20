@@ -21,6 +21,7 @@ import {
   useToast,
 } from '@homeowner-portal/ui'
 import { formatDay } from '@/lib/money/format'
+import { DraftPrintBanner, usePrintGate } from '@/components/print/PrintGate'
 import { recordEstoppelPrinted } from '@/lib/properties/estoppel/actions'
 import {
   CA_DOCUMENTS_NOT_GENERATED,
@@ -37,6 +38,7 @@ import {
   buildCertificate,
   checkFee,
   parseMoneyCents,
+  printSnapshot,
   requestProblem,
   usdCents,
   valueOf,
@@ -51,8 +53,10 @@ import {
  * request, fills each BLANK the app doesn't know, ticks "I've verified
  * these figures", then prints or saves it as a PDF from the browser's
  * print dialog. The print button records an audit row first (server
- * action, figures re-checked there) and is disabled while any BLANK is
- * left. Nothing is emailed. Only the certificate itself prints.
+ * action, figures re-checked there against the ones on this page) and
+ * is disabled while any BLANK is left. Only that button arms the
+ * certificate for print: a browser print (Cmd+P) shows a DRAFT banner
+ * instead. Nothing is emailed. Only the certificate itself prints.
  */
 export function EstoppelCertificate({ input, today }: { input: EstoppelInput; today: string }) {
   const toast = useToast()
@@ -62,6 +66,7 @@ export function EstoppelCertificate({ input, today }: { input: EstoppelInput; to
   const [values, setValues] = useState<FieldValues>({})
   const [verified, setVerified] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const gate = usePrintGate()
 
   const reqProblem = requestProblem({ requestDate, issueDate: today })
   const req = { requestDate: reqProblem ? today : requestDate, issueDate: today, delivery, expedited }
@@ -77,12 +82,14 @@ export function EstoppelCertificate({ input, today }: { input: EstoppelInput; to
   function print() {
     if (blocked || feeCents === null) return
     startTransition(async () => {
-      const res = await recordEstoppelPrinted({ propertyId: input.propertyId, requestDate, delivery, expedited, feeCents })
+      // The figures this page shows: the server refuses if the books moved.
+      const res = await recordEstoppelPrinted({ propertyId: input.propertyId, requestDate, delivery, expedited, feeCents, figures: printSnapshot(cert) })
       if (!res.ok) {
         toast({ tone: 'error', message: res.error })
         return
       }
-      window.print()
+      // Armed only now, after the audit row is written.
+      gate.print()
     })
   }
 
@@ -168,7 +175,8 @@ export function EstoppelCertificate({ input, today }: { input: EstoppelInput; to
         ) : null}
       </div>
 
-      <CertificateDocument cert={cert} input={input} values={values} />
+      <DraftPrintBanner armed={gate.printArmed} />
+      <CertificateDocument cert={cert} input={input} values={values} printClass={gate.docClass} />
 
       <div className="space-y-3 print:hidden">
         {blanks.length > 0 ? (
@@ -329,7 +337,7 @@ function Items({ items, empty, flag }: { items: { id: string; dueDate: string; l
   )
 }
 
-function CertificateDocument({ cert, input, values }: { cert: Certificate; input: EstoppelInput; values: FieldValues }) {
+function CertificateDocument({ cert, input, values, printClass }: { cert: Certificate; input: EstoppelInput; values: FieldValues; printClass: string }) {
   const j = cert.jurisdiction
   const f = cert.figures
   const d = cert.deadlines
@@ -339,7 +347,7 @@ function CertificateDocument({ cert, input, values }: { cert: Certificate; input
   const address = [input.address, input.unitNumber ? `Unit ${input.unitNumber}` : null].filter(Boolean).join(', ')
 
   return (
-    <article aria-labelledby="estoppel-title" className="space-y-5 rounded-lg border border-border bg-surface p-5 text-sm print:border-0 print:p-0">
+    <article aria-labelledby="estoppel-title" className={`space-y-5 rounded-lg border border-border bg-surface p-5 text-sm print:border-0 print:p-0 ${printClass}`}>
       <header className="space-y-1">
         {input.associationName ? <p className="text-foreground-secondary">{input.associationName}</p> : null}
         <h2 id="estoppel-title" className="text-xl font-semibold text-foreground">

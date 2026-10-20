@@ -31,7 +31,7 @@ When a home's dues are past due, the board can draft a collections letter from t
 - Printing records the letter on the collections case, dated the day it prints, with the total. The case moves to the matching stage. For example, a notice of late assessment moves it to "30-day lien warning".
 - Each print is logged with ids and amounts only. Nothing is emailed or texted to the owner.
 - In Florida, the notice of late assessment (§ 720.3085(3)(d)) gives the owner 30 days and goes by first-class mail. The notice of intent to lien (§ 720.3085(4)) gives 45 days and goes by certified mail, return receipt requested, and first-class mail.
-- In California, the pre-lien notice (§ 5660) goes by certified mail at least 30 days before a lien is recorded. It lists only assessments that are delinquent, which is 15 days after they were due.
+- In California, the pre-lien notice (§ 5660) goes by certified mail at least 30 days before a lien is recorded. It lists only assessments that are delinquent: 15 days after they were due, or the longer period your declaration sets. Enter that period under **Delinquency period**.
 - In Texas, the delinquency notice (§ 209.0064) goes by certified mail and gives the owner 45 days to cure.
 
 ## If something goes wrong
@@ -40,6 +40,9 @@ When a home's dues are past due, the board can draft a collections letter from t
 - [[Save to approvals]] is greyed out: a BLANK is empty, an amount isn't a number, or [[I’ve verified these figures]] isn't ticked. The message beside the button says which.
 - "The account has changed since this letter was approved": a payment or charge was recorded after approval. Select [[Draft a new letter instead]] and send the new one for approval.
 - "A letter for this home is already waiting in Approvals": approve or reject that one first.
+- "The letter is recorded on the collections case, but the app couldn’t move the case to its next stage": nothing was printed. Select [[Print / Save as PDF]] again. The letter isn't recorded twice.
+- The printout says "DRAFT — NOT VALID — print from the Print button": you printed from the browser (for example with Cmd+P or File > Print). Only [[Print / Save as PDF]] on an approved letter prints it.
+- A California letter approved before the delinquency period was added can't be printed. Select [[Draft a new letter instead]].
 
 ## Good to know
 - Florida and California notices leave fines off. The letter says so on screen.
