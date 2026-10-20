@@ -485,7 +485,7 @@ export async function retrieveForThread(
     fetchStatuteCitations(db, orgId, policyQuestion),
     thread.unitId ? getPropertyContext(db, orgId, thread.unitId) : Promise.resolve(null),
     findSimilarReplies(db, orgId, latestInbound, threadId),
-    fetchAccountForSender(db, orgId, thread.unitId, senderEmail),
+    fetchAccountForSender(db, orgId, thread.unitId, senderEmail, threadId),
   ])
 
   let docs: SourceResults['docs'] = { citations: [] }
@@ -630,8 +630,9 @@ async function fetchAccountForSender(
   orgId: string,
   unitId: string | null,
   senderEmail: string | null,
+  threadId: string,
 ): Promise<AccountForSender> {
-  const check = await checkSenderForUnit(db, orgId, unitId, senderEmail)
+  const check = await checkSenderForUnit(db, orgId, unitId, senderEmail, { threadId })
   if (!check.verified || !unitId) return { check, home: null }
   return { check, home: await loadHomeAccount(db, orgId, unitId) }
 }

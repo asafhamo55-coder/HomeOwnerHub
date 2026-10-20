@@ -272,7 +272,14 @@ export async function fileContactUpdateFromThread(input: ContactFromThreadInput)
   const sender = latestInboundSender(
     (msgs ?? []).map((m) => ({ direction: m.direction as 'inbound' | 'outbound', fromEmail: m.from_email })),
   )
-  const check = await checkSenderForUnit(db, orgId, home.unitId, sender)
+  const check = await checkSenderForUnit(db, orgId, home.unitId, sender, { threadId })
+  if (!check.verified && check.reason === 'sender_unauthenticated') {
+    // BL-105: a forged From would match a resident's address by design.
+    return {
+      ok: false,
+      error: 'This email failed the sender authentication check, so it may not be from the address it shows. A contact update can’t be filed from it. Confirm with the resident directly.',
+    }
+  }
   if (!check.verified || !sender) {
     return {
       ok: false,

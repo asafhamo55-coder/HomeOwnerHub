@@ -70,7 +70,9 @@ export async function resolveSavedReply(input: { threadId: string; replyId: stri
   // The disclosure gate, then the account — never the account first.
   let balance: string | null = null
   if (used.has('balance') && thread.unit_id && sender?.from_email) {
-    const check = await checkSenderForUnit(db, orgId, thread.unit_id, sender.from_email.trim().toLowerCase())
+    const check = await checkSenderForUnit(db, orgId, thread.unit_id, sender.from_email.trim().toLowerCase(), {
+      threadId,
+    })
     if (check.verified) {
       const home = await loadHomeAccount(db, orgId, thread.unit_id)
       const a = home.account

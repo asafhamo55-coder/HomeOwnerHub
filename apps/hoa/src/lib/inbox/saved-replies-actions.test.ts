@@ -57,7 +57,7 @@ describe('resolveSavedReply', () => {
     expect(r).toMatchObject({ ok: true, balanceWithheld: false })
     expect(r.ok && r.text).toContain('$412.50 (as of 2026-10-20)')
     expect(r.ok && r.text).toContain('https://app.example.test/resident')
-    expect(checkSenderForUnit).toHaveBeenCalledWith(expect.anything(), 'org-1', 'unit-1', 'pat@example.test')
+    expect(checkSenderForUnit).toHaveBeenCalledWith(expect.anything(), 'org-1', 'unit-1', 'pat@example.test', { threadId: THREAD })
   })
 
   it('an unverified sender gets a money blank, and the account is never read', async () => {

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { AlertTriangle, BookOpen, Link2, MessagesSquare, UserCheck } from 'lucide-react'
+import { AlertTriangle, BookOpen, Link2, MessagesSquare, ShieldAlert, UserCheck } from 'lucide-react'
 import { StatusPill } from '@homeowner-portal/ui'
 import { cureDate } from '@/lib/inbox/account-context'
 import type { HomeAccount } from '@/lib/inbox/account-context'
@@ -29,19 +29,44 @@ export function SenderLine({ rail, address }: { rail: ThreadRailContext; address
   const { check, resident } = rail.sender
   if (check.verified) {
     return (
-      <p className="flex items-start gap-1.5 text-xs text-foreground-secondary">
-        <UserCheck className="mt-0.5 size-3.5 shrink-0 text-success" aria-hidden />
+      <div className="space-y-1">
+        <p className="flex items-start gap-1.5 text-xs text-foreground-secondary">
+          <UserCheck className="mt-0.5 size-3.5 shrink-0 text-success" aria-hidden />
+          <span>
+            From:{' '}
+            <strong className="font-semibold text-foreground">
+              {resident ? `${resident.name} (${words(resident.role)})` : 'a resident'}
+            </strong>{' '}
+            at {address}
+          </span>
+        </p>
+        {/* BL-105: no SPF/DKIM/DMARC result either way. Today's behaviour,
+            plus a nudge to be careful with change requests. */}
+        {check.auth === 'none' ? (
+          <p className="pl-5 text-xs text-muted">
+            The address matches, but this email had no sender authentication result, so it can&apos;t be
+            confirmed. Check before changing contact details.
+          </p>
+        ) : null}
+      </div>
+    )
+  }
+  if (check.reason === 'not_filed') return null
+  if (check.reason === 'sender_unauthenticated') {
+    return (
+      <p
+        role="status"
+        className="flex items-start gap-1.5 rounded-md bg-danger-subtle px-2 py-1.5 text-xs font-medium text-danger"
+      >
+        <ShieldAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
         <span>
-          From:{' '}
-          <strong className="font-semibold text-foreground">
-            {resident ? `${resident.name} (${words(resident.role)})` : 'a resident'}
-          </strong>{' '}
-          at {address}
+          Unverified sender: this email failed its authentication check (SPF/DKIM/DMARC), so it may not be
+          from the address it shows. Account details are left out of drafts and saved replies, and no
+          contact update can be filed from it.
         </span>
       </p>
     )
   }
-  if (check.reason === 'not_filed') return null
   return (
     <p className="flex items-start gap-1.5 rounded-md bg-warning-subtle px-2 py-1.5 text-xs font-medium text-warning">
       <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />

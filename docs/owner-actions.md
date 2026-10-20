@@ -278,6 +278,20 @@ prices; review it before pitching.
 
 **Files:** `docs/specs/2026-10-20-pricing-v2-rollout.md`
 
+### OA-17 · Turn on the inbox's "Unverified sender" check
+
+**Urgency:** Whenever
+
+**Why it matters:** anyone can fake the "From" address on an email. The inbox can now spot emails that fail Gmail's sender checks (SPF, DKIM, DMARC) and flag them as "Unverified sender", so the board never updates contact details or shares a balance in reply to an impostor. It needs one new database column first.
+
+**Steps:**
+
+1. Do OA-1 first (0063 and M1).
+2. Open `docs/specs/2026-10-20-inbound-auth.sql`. Run the pre-check, then the apply step, then the verify step, each on its own. Send Claude the verify counts.
+3. Tell Claude it's done. Claude switches the check on (`SENDER_AUTH_COLUMN_LIVE`) and deploys.
+
+**Files:** `docs/specs/2026-10-20-inbound-auth.sql`
+
 ## Done
 
 _Nothing yet. Finished items move here with the date they were done._

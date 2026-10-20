@@ -9,6 +9,7 @@ vi.mock('@/lib/association-time-server', () => ({ orgTimeZone: vi.fn(async () =>
 import { resolvePropertyByEmail } from '@/lib/properties/resolve'
 import {
   WITHHELD_REASON,
+  applySenderAuth,
   checkSenderForUnit,
   cureDate,
   decideSenderCheck,
@@ -126,6 +127,124 @@ describe('checkSenderForUnit — fails closed', () => {
     vi.mocked(resolvePropertyByEmail).mockImplementation(async () => { throw new Error('boom') })
     await checkSenderForUnit(aliasDb({ data: [], error: null }) as never, 'org-1', 'unit-12', 'secret@example.test')
     expect(JSON.stringify(spy.mock.calls)).not.toContain('secret@example.test')
+    spy.mockRestore()
+  })
+})
+
+// BL-105 — the receiving server's SPF/DKIM/DMARC verdict.
+
+describe('applySenderAuth', () => {
+  const verified = { verified: true as const, residentId: 'res-1', via: 'resident_email' as const }
+
+  it('leaves the check untouched when the verdict was not read', () => {
+    expect(applySenderAuth(verified, null)).toEqual(verified)
+  })
+
+  it('turns a forged-but-matching sender into sender_unauthenticated', () => {
+    expect(applySenderAuth(verified, 'fail')).toEqual({ verified: false, reason: 'sender_unauthenticated' })
+  })
+
+  it('a failed verdict also outranks not_a_resident and check_failed', () => {
+    expect(applySenderAuth({ verified: false, reason: 'not_a_resident' }, 'fail')).toEqual({
+      verified: false,
+      reason: 'sender_unauthenticated',
+    })
+    expect(applySenderAuth({ verified: false, reason: 'check_failed' }, 'fail')).toEqual({
+      verified: false,
+      reason: 'sender_unauthenticated',
+    })
+  })
+
+  it('keeps not_filed and no_sender, which say something more basic', () => {
+    expect(applySenderAuth({ verified: false, reason: 'not_filed' }, 'fail')).toEqual({ verified: false, reason: 'not_filed' })
+    expect(applySenderAuth({ verified: false, reason: 'no_sender' }, 'fail')).toEqual({ verified: false, reason: 'no_sender' })
+  })
+
+  it('pass and none keep today’s answer and carry the verdict', () => {
+    expect(applySenderAuth(verified, 'pass')).toEqual({ ...verified, auth: 'pass' })
+    expect(applySenderAuth(verified, 'none')).toEqual({ ...verified, auth: 'none' })
+    expect(applySenderAuth({ verified: false, reason: 'not_a_resident' }, 'pass')).toEqual({
+      verified: false,
+      reason: 'not_a_resident',
+    })
+  })
+})
+
+/** inbox_messages → the verdict row; inbox_sender_aliases → aliases. */
+function authDb(auth: { data: unknown; error: unknown }, aliases: { data: unknown; error: unknown } = { data: [], error: null }) {
+  const msgChain = {
+    select: vi.fn(() => msgChain),
+    eq: vi.fn(() => msgChain),
+    order: vi.fn(() => msgChain),
+    limit: vi.fn(() => msgChain),
+    maybeSingle: vi.fn(async () => auth),
+  }
+  const aliasChain = {
+    select: vi.fn(() => aliasChain),
+    eq: vi.fn(() => aliasChain),
+    ilike: vi.fn(() => aliasChain),
+    limit: vi.fn(async () => aliases),
+  }
+  return {
+    from: vi.fn((t: string) => (t === 'inbox_messages' ? msgChain : aliasChain)),
+    msgChain,
+  }
+}
+
+describe('checkSenderForUnit — sender authentication (BL-105)', () => {
+  const live = { threadId: 'thread-1', authColumnLive: true }
+  beforeEach(() => {
+    vi.mocked(resolvePropertyByEmail).mockReset()
+    vi.mocked(resolvePropertyByEmail).mockResolvedValue([
+      { ref: { unitId: 'unit-12' }, residentId: 'res-1', residentName: 'x', source: 'property_resident' },
+    ] as never)
+  })
+
+  it('flag off: never reads the column, answer unchanged', async () => {
+    const db = authDb({ data: { sender_auth: 'fail' }, error: null })
+    const out = await checkSenderForUnit(db as never, 'org-1', 'unit-12', 'w@example.test', {
+      threadId: 'thread-1',
+      authColumnLive: false,
+    })
+    expect(out).toEqual({ verified: true, residentId: 'res-1', via: 'resident_email' })
+    expect(db.from).not.toHaveBeenCalledWith('inbox_messages')
+  })
+
+  it('no thread given: never reads the column', async () => {
+    const db = authDb({ data: { sender_auth: 'fail' }, error: null })
+    const out = await checkSenderForUnit(db as never, 'org-1', 'unit-12', 'w@example.test', { authColumnLive: true })
+    expect(out.verified).toBe(true)
+    expect(db.from).not.toHaveBeenCalledWith('inbox_messages')
+  })
+
+  it('a failed verdict withholds even though the address matches, without the resident lookup', async () => {
+    const db = authDb({ data: { sender_auth: 'fail' }, error: null })
+    const out = await checkSenderForUnit(db as never, 'org-1', 'unit-12', 'w@example.test', live)
+    expect(out).toEqual({ verified: false, reason: 'sender_unauthenticated' })
+    expect(resolvePropertyByEmail).not.toHaveBeenCalled()
+    // Scoped to the org and the thread's newest inbound message.
+    expect(db.msgChain.eq).toHaveBeenCalledWith('organization_id', 'org-1')
+    expect(db.msgChain.eq).toHaveBeenCalledWith('thread_id', 'thread-1')
+    expect(db.msgChain.eq).toHaveBeenCalledWith('direction', 'inbound')
+  })
+
+  it('pass verifies and carries the verdict', async () => {
+    const out = await checkSenderForUnit(authDb({ data: { sender_auth: 'pass' }, error: null }) as never, 'org-1', 'unit-12', 'w@example.test', live)
+    expect(out).toEqual({ verified: true, residentId: 'res-1', via: 'resident_email', auth: 'pass' })
+  })
+
+  it('a row stored before the column was filled (null) reads as none', async () => {
+    const out = await checkSenderForUnit(authDb({ data: { sender_auth: null }, error: null }) as never, 'org-1', 'unit-12', 'w@example.test', live)
+    expect(out).toEqual({ verified: true, residentId: 'res-1', via: 'resident_email', auth: 'none' })
+  })
+
+  it('a failed verdict read fails closed, logging ids and the code only', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const db = authDb({ data: null, error: { code: '42703', message: 'column does not exist' } })
+    const out = await checkSenderForUnit(db as never, 'org-1', 'unit-12', 'secret@example.test', live)
+    expect(out).toEqual({ verified: false, reason: 'check_failed' })
+    expect(JSON.stringify(spy.mock.calls)).not.toContain('secret@example.test')
+    expect(JSON.stringify(spy.mock.calls)).toContain('42703')
     spy.mockRestore()
   })
 })

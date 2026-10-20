@@ -3,6 +3,14 @@ export { encryptToken, decryptToken, currentKeyVersion } from './crypto'
 export { parseGmailMessage, parseAddress, decodeBase64Url } from './parse'
 export type { GmailApiMessage, GmailPart, GmailHeader } from './parse'
 export { stripQuotedReply } from './quote'
+export {
+  senderAuthVerdict,
+  toSenderAuthVerdict,
+  SENDER_AUTH_COLUMN_LIVE,
+  SENDER_AUTH_VERDICTS,
+  DEFAULT_TRUSTED_AUTHSERV_IDS,
+} from './auth-results'
+export type { SenderAuthVerdict } from './auth-results'
 export { htmlToText } from './html'
 export {
   buildConsentUrl,

@@ -190,6 +190,37 @@ describe('parseGmailMessage', () => {
   })
 })
 
+describe('parseGmailMessage — sender authentication (BL-105)', () => {
+  const withAuth = (values: string[], from = 'Pat <pat@example.test>'): GmailApiMessage => ({
+    id: 'm1',
+    threadId: 't1',
+    payload: {
+      mimeType: 'text/plain',
+      headers: [
+        ...values.map((value) => ({ name: 'Authentication-Results', value })),
+        { name: 'From', value: from },
+      ],
+      body: { data: '' },
+    },
+  })
+
+  it('is none without an Authentication-Results header (the existing fixtures)', () => {
+    expect(parseGmailMessage(as(simple)).senderAuth).toBe('none')
+  })
+
+  it('reads Gmail’s verdict for the From address', () => {
+    expect(parseGmailMessage(withAuth(['mx.google.com; dmarc=pass header.from=example.test'])).senderAuth).toBe('pass')
+    expect(parseGmailMessage(withAuth(['mx.google.com; dmarc=fail header.from=example.test'])).senderAuth).toBe('fail')
+  })
+
+  it('uses only the topmost header, so a sender-planted one lower down is ignored', () => {
+    const m = parseGmailMessage(
+      withAuth(['mx.google.com; spf=fail smtp.mailfrom=x@attacker.test', 'mx.google.com; dmarc=pass header.from=example.test']),
+    )
+    expect(m.senderAuth).toBe('fail')
+  })
+})
+
 describe('parseAddress', () => {
   it('parses a bare address', () => {
     expect(parseAddress('a@b.com')).toEqual({ email: 'a@b.com', name: null })
