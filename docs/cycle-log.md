@@ -449,3 +449,27 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Found:** the marketing Vercel project has no git connection, which is why it hasn't deployed in 148 days.
   - Marketing also uses ledger.ai email addresses (demo@, privacy@, security@ and others), which need replacing.
 - **Gates:** unit 5898/5898, build 4/4.
+
+## 2026-10-19 (23:08) — deploy 6aec5e9: review fixes, payment-plan double count, speed, marketing cleanup
+
+- **Live:**
+  - Estoppel and collections print gates (stale figures, Cmd+P, delinquent add-on, CA delinquency days, duplicate events).
+  - Resident-assistant security fixes: caps, fail-closed switch, per-association toggle, hand-off text, address redaction.
+  - Payment plans close the charges they replace, and month ends are clamped.
+  - BL-099 streaming plus 123 loading skeletons, and `[perf]` timing logs.
+  - Settings member count is now scoped to the org.
+  - Marketing: the Linda quote, "Inc." and ledger.ai addresses are removed.
+- **Smoke:** /properties, /accounting/payment-plans and /resident/ask return 307; /login returns 200. The release-note email was sent, with 3 CI screenshots attached by hand.
+- **Merged and pushed for CI (065c160):**
+  - Inbox A1–A3/A6.
+  - Communications fixes: scheduled sends now dispatch, SMS reports honestly, opt-outs are respected, 7 built-in templates.
+  - BL-103 Stripe sandbox suite and webhook fixes: errors return 500 instead of a silent 200; checkout quantities are whole numbers.
+  - Automatic release-note screenshots.
+  - Unit 6177/6177. Deploy at 00:05.
+- **Critical finding:** before 0064, every HOA subscription webhook write failed silently, so paying orgs stayed on the free plan. They now 500 and Stripe retries. The real fix is applying 0063 and then M1.
+- **Owner steps waiting:**
+  - DNS CNAME for app.
+  - Supabase, Google and webhook changes for the domain split.
+  - Connect the marketing project to git.
+  - Stripe test keys as GitHub secrets.
+  - SQL: 0063, M1, perf indexes, and the payment-plan correction (review first).
