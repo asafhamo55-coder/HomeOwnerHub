@@ -32,7 +32,7 @@ Use **Messages** for anything the whole community, or a group of homes, should h
 ## What happens next
 You land on the message's own page. **Did people get it?** says, per home, how many were reached by email or text and how many opened the email. To follow up, select **Email again to the … who haven't opened** (or **Text them**). That opens a new message, already filled in, for you to check and send. The **Homes** list has one row per home, with a chip for each way it went, like "Email: Opened", "Texted" or "In portal". Select **Delivery details** on a home to see each person and channel. Every message you send stays under **Sent to residents** in Messages.
 
-Not ready to send? You don't need to do anything. The message saves as a draft a moment after you stop typing, and the bottom of the page says **Draft saved**. Later, open **Messages**, select the [[Drafts]] tab, and select [[Resume]] to pick up where you left off. To throw one away, select [[Delete draft]].
+Not ready to send? You don't need to do anything. The message saves as a draft a moment after you stop typing, and the bottom of the page says **Draft saved**. Later, open **Messages** and select the [[Drafts]] tab. Your draft is marked **Message to many homes**. Select [[Resume]] to pick up where you left off. To throw one away, select [[Delete draft]].
 
 ![[guide-communications-list]]
 
@@ -55,6 +55,7 @@ Not ready to send? You don't need to do anything. The message saves as a draft a
 
 ## Good to know
 - A draft is never sent and nobody receives it. Drafts aren't in the main list or the delivery figures. When you send one, it leaves Drafts and becomes a sent message.
+- The [[Drafts]] tab also lists email replies that are waiting for you in the Inbox, marked **Reply to** and the home or the email's subject. Select one to open the conversation and review the reply there. The number on the tab counts both kinds.
 - An AI draft flags any time, date or amount that is not in what you typed under **Check these**. Fix or remove it before sending.
 - If you name a street ("water off on Elm St"), AI picks **A street** with that street, when it's one of your homes' streets. If it isn't, AI says so and you pick the audience.
 - A designed template (with a layout the simple editor can't keep) opens as HTML. You can still change the words. [[Edit as HTML]] is there for anyone who prefers it.

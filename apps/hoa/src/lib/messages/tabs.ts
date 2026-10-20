@@ -8,6 +8,8 @@
  *   Inbox                     /inbox                         resident email (BL-101)
  *   Sent to residents         /communications                broadcasts, sent and scheduled
  *   Drafts                    /communications?status=draft   autosaved broadcast drafts (A9)
+ *                                                            + inbox reply drafts waiting
+ *                                                              for the board (step 4, ./drafts.ts)
  *
  * "Replies to announcements" is a read-only filter inside the Inbox tab
  * (`/inbox?view=replies`), not a tab of its own.
