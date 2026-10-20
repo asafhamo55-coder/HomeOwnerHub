@@ -22,10 +22,12 @@ import { z } from 'zod'
 import { SUPPORTED_MERGE_FIELDS } from './prompt'
 import { mergeFieldNames } from './translate'
 
-export const PROPOSE_PROMPT_VERSION = '1.0.0'
+export const PROPOSE_PROMPT_VERSION = '1.1.0'
 
 /** The audiences the proposal may pick. Each maps 1:1 onto an existing
- *  composer audience; there is no street-level audience yet. */
+ *  composer audience. A street is not an audience kind: it travels in
+ *  `street`, and the HOA app matches it against the HOA's real streets
+ *  (BL-102 A5), never trusting the model's spelling as a recipient list. */
 export const PROPOSAL_AUDIENCES = [
   'everyone',
   'owners_only',
@@ -83,7 +85,8 @@ export interface CommProposal {
   /** Plain text in the HOA editor's format. */
   body: string
   audience: ProposalAudience
-  /** A street the board named, which no audience can target yet. */
+  /** A street the board named. The HOA app matches it to a real street
+   *  of the HOA (combined with everyone / owners_only), or flags it. */
   street: string | null
   urgency: 'routine' | 'urgent'
   category: (typeof PROPOSAL_CATEGORIES)[number]
@@ -115,7 +118,7 @@ Rules you MUST follow:
 2. The only merge fields you may use are ${FIELDS}. Never use any other {{ }} field, not even a home address or unit. Start the body with "Hi {{ recipient_name }}," and end it with a sign-off line "{{ association_name }} Board".
 3. The body is PLAIN TEXT, not HTML. Separate paragraphs with a blank line. Use "- " at the start of a line for a bullet. Use **two stars** around a few words for bold. No other formatting.
 4. Plain, friendly, short sentences. 40 to 180 words. Subject under 70 characters, no all caps.
-5. "audience" is exactly one of: everyone (every home), owners_only, tenants_only, late_on_dues (homes behind on dues), open_violations (homes with an open violation), board (the board only). Default to everyone. If the board names a street or a few homes, still pick the closest of these and put the street name in "street"; the app cannot target a street yet.
+5. "audience" is exactly one of: everyone (every home), owners_only, tenants_only, late_on_dues (homes behind on dues), open_violations (homes with an open violation), board (the board only). Default to everyone. If the board names one street, put just the street name in "street" (for example "Elm St") and pick everyone, or owners_only if they said owners; the app sends to the homes on that street. Otherwise "street" is null.
 6. "urgency" is "urgent" for safety, water, power, gas, road, gate or weather problems happening soon, otherwise "routine".
 7. "category" is one of: welcome, dues, meeting, violation, arc, financial, emergency, announcement, community, custom. Urgent service problems are "emergency".
 8. "templateId" is the id of the one template below that fits this message, or null if none fits well.

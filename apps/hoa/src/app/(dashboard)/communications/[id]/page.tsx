@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { CheckCircle2, Eye, MailX, Reply, Sparkles, Users } from 'lucide-react'
+import { CheckCircle2, Eye, Mail, MailX, MessageSquareText, Reply, Sparkles, Users } from 'lucide-react'
 import {
   Alert,
   Badge,
+  Button,
   Card,
   CardContent,
   CardDescription,
@@ -25,6 +26,8 @@ import { getPrimaryAssociation } from '@/lib/vendors'
 import { getCommunication, type CommunicationDetail } from '@/lib/communications/queries'
 import { pickDisplaySubject, resolveHtmlForDisplay } from '@/lib/communications/display'
 import { COMMUNICATION_CATEGORY, COMMUNICATION_STATUS, DELIVERY_STATUS } from '@/lib/status/community'
+import { followUpAudience, resultsHeadline, rollupByHome } from '@/lib/communications/results'
+import { smsConfigured } from '@/lib/sms'
 import { CommunicationActions } from './CommunicationActions'
 
 export const metadata = { title: 'Message' }
@@ -33,7 +36,7 @@ type Recipient = CommunicationDetail['recipients'][number]
 
 const CHANNEL_LABEL: Record<string, string> = {
   email: 'Email',
-  sms: 'SMS',
+  sms: 'Text',
   portal: 'Portal',
   mail: 'Mail',
 }
@@ -49,9 +52,11 @@ const VIEWS = {
     label: 'Opened',
     match: (r: Recipient) => ['opened', 'clicked', 'replied'].includes(r.delivery_status),
   },
+  // BL-102 A8: email rows only. A text or portal row can never be
+  // "opened", so counting them made every texted home look ignored.
   pending: {
-    label: 'Not opened',
-    match: (r: Recipient) => ['queued', 'sent', 'delivered'].includes(r.delivery_status),
+    label: 'Email not opened',
+    match: (r: Recipient) => r.channel === 'email' && ['sent', 'delivered'].includes(r.delivery_status),
   },
 } as const
 type View = keyof typeof VIEWS
@@ -120,6 +125,20 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
   }
 
   const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)}%` : '—')
+
+  // BL-102 A8: per home, not per row; email and text only count as
+  // "delivered" (a portal row just sits in the portal).
+  const rollup = rollupByHome(comm.recipients)
+  const externalRows = comm.recipients.filter((r) => r.channel === 'email' || r.channel === 'sms')
+  const externalReached = externalRows.filter((r) =>
+    ['sent', 'delivered', 'opened', 'clicked', 'replied'].includes(r.delivery_status),
+  ).length
+  const emailRows = comm.recipients.filter((r) =>
+    r.channel === 'email' && ['sent', 'delivered', 'opened', 'clicked', 'replied'].includes(r.delivery_status),
+  )
+  const emailOpened = emailRows.filter((r) => ['opened', 'clicked', 'replied'].includes(r.delivery_status)).length
+  const followUp = comm.status === 'sent' ? followUpAudience(comm.audience_definition, rollup) : null
+  const textingReady = smsConfigured()
 
   const columns: DataTableColumn<Recipient>[] = [
     {
@@ -222,14 +241,14 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
         <Kpi
           label="Delivered"
           icon={<CheckCircle2 />}
-          value={comm.totalRecipients > 0 ? pct(comm.sentCount, comm.totalRecipients) : '—'}
-          hint={`${comm.sentCount} of ${comm.totalRecipients} recipients`}
+          value={externalRows.length > 0 ? pct(externalReached, externalRows.length) : '—'}
+          hint={`${externalReached} of ${externalRows.length} emails and texts`}
         />
         <Kpi
           label="Opened"
           icon={<Eye />}
-          value={comm.sentCount > 0 ? pct(comm.openedCount, comm.sentCount) : '—'}
-          hint={`${comm.openedCount} opened`}
+          value={emailRows.length > 0 ? pct(emailOpened, emailRows.length) : '—'}
+          hint={`${emailOpened} emails opened (approximate)`}
         />
         <Kpi
           label="Replied"
@@ -246,6 +265,42 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
           linkAs={Link}
         />
       </section>
+
+      {comm.status === 'sent' && rollup.homes > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">Did people get it?</CardTitle>
+            <CardDescription>{resultsHeadline(rollup)}</CardDescription>
+          </CardHeader>
+          {followUp ? (
+            <CardContent className="space-y-2">
+              <p className="text-sm text-foreground-secondary">
+                {followUp.unitIds.length} {followUp.unitIds.length === 1 ? 'home hasn’t' : 'homes haven’t'} opened the
+                email. Opens are approximate: some mail apps open every email automatically, and some block the count.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="secondary">
+                  <Link href={`/communications/new?followUp=${comm.id}&via=email`}>
+                    <Mail aria-hidden />
+                    Email again to the {followUp.unitIds.length} who haven’t opened
+                  </Link>
+                </Button>
+                {textingReady ? (
+                  <Button asChild variant="secondary">
+                    <Link href={`/communications/new?followUp=${comm.id}&via=text`}>
+                      <MessageSquareText aria-hidden />
+                      Text them
+                    </Link>
+                  </Button>
+                ) : null}
+              </div>
+              <p className="text-xs text-muted">
+                Opens a new message for you to check. Nothing is sent until you press Send.
+              </p>
+            </CardContent>
+          ) : null}
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

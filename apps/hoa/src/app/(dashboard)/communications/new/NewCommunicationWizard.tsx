@@ -23,11 +23,20 @@ import { previewPreferenceSkips, type PreferencePreview } from '@/lib/communicat
 import { BUILT_IN_TEMPLATES, isBuiltInTemplateId } from '@/lib/communications/built-in-templates'
 import { SCHEDULING_COMING_SOON, SCHEDULING_ENABLED } from '@/lib/communications/scheduling'
 import { paperNoticeLabel } from '@/lib/communications/official-notice'
-import { SMS_CHANNEL_HINT, SMS_MAX_CHARS, composeSmsBody } from '@/lib/communications/sms-body'
+import { SMS_CHANNEL_HINT } from '@/lib/communications/sms-body'
 import { htmlToMessageText } from '@/lib/communications/plain-text'
 import { proposalToWizardFields, type WizardFieldsFromProposal } from '@/lib/communications/proposal-to-wizard'
 import type { CommProposal } from '@homeowner-portal/workflows/W31-propose'
 import { PlainEditor } from '@/components/ui/PlainEditor'
+import {
+  categoryForUrgency,
+  channelsSentence,
+  pickChannels,
+  urgencyForCategory,
+  type Urgency,
+} from '@/lib/communications/channel-defaults'
+import { streetAudienceLabel, type StreetOption } from '@/lib/communications/streets'
+import type { FollowUpDraft } from '@/lib/communications/follow-up'
 import { SMS_ENGLISH_ONLY_NOTE, composeBilingualSms, htmlToPlainText } from '@/lib/communications/bilingual'
 import {
   listPropertyResidents,
@@ -50,6 +59,7 @@ import { ComposeBox } from './ComposeBox'
 import { QuestionStep } from './QuestionStep'
 import { SectionToggles } from './SectionToggles'
 import { SpanishVersion, type SpanishDraft } from './SpanishVersion'
+import { PhonePreview } from './PhonePreview'
 
 interface TemplateOption {
   id: string
@@ -144,6 +154,8 @@ export function NewCommunicationWizard({
   officialNoticeOffered = false,
   prefillFrom = null,
   smsConfigured = false,
+  streets = [],
+  followUp = null,
 }: {
   templates: TemplateOption[]
   audienceCounts: AudienceCounts
@@ -173,6 +185,14 @@ export function NewCommunicationWizard({
    * set up yet", instead of offering a send that can't go out.
    */
   smsConfigured?: boolean
+  /** BL-102 A5: the HOA's streets, parsed from its addresses. */
+  streets?: StreetOption[]
+  /**
+   * BL-102 A8: `?followUp=<id>&via=email|text` from a results page. Fills
+   * the composer for the homes that haven't opened; the board still
+   * reviews, previews and presses Send.
+   */
+  followUp?: FollowUpDraft | null
 }) {
   const preselect = initialPropertyId && properties.some((p) => p.id === initialPropertyId) ? initialPropertyId : null
   const router = useRouter()
@@ -180,17 +200,31 @@ export function NewCommunicationWizard({
   // message written from scratch is filed as an announcement (or, from the
   // budget notice, as financial).
   const [baseCategory, setBaseCategory] = useState<(typeof CATEGORIES)[number]>('announcement')
-  const [audience, setAudience] = useState<AudienceKind>(preselect ? 'specific_property' : 'everyone')
+  const [audience, setAudience] = useState<AudienceKind>(
+    followUp ? 'follow_up' : preselect ? 'specific_property' : 'everyone',
+  )
   const [templateId, setTemplateId] = useState<string>('')
   const [answers, setAnswers] = useState<AnswerMap>({})
-  const [subject, setSubject] = useState('')
-  const [bodyHtml, setBodyHtml] = useState('')
-  const [channels, setChannels] = useState<string[]>(['email', 'portal'])
+  const [subject, setSubject] = useState(followUp?.subject ?? '')
+  const [bodyHtml, setBodyHtml] = useState(followUp?.bodyHtml ?? '')
+  // A follow-up goes only on the channel the board asked for: the original
+  // is already in everyone's portal.
+  const [channels, setChannels] = useState<string[]>(
+    followUp ? [followUp.via === 'text' ? 'sms' : 'email'] : ['email', 'portal'],
+  )
+  // BL-102 A6: urgency drives the channels until the board picks channels
+  // by hand; after that nothing overwrites their choice.
+  const [urgency, setUrgency] = useState<Urgency>('routine')
+  const [channelsTouched, setChannelsTouched] = useState(followUp !== null)
+  // BL-102 A5: the street audience.
+  const [selectedStreetKey, setSelectedStreetKey] = useState('')
+  const [streetOwnersOnly, setStreetOwnersOnly] = useState(false)
+  const selectedStreet = streets.find((st) => st.key === selectedStreetKey) ?? null
   const [scheduledFor, setScheduledFor] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(followUp ? 1 : 0)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   // BL-025: the optional, board-reviewed Spanish version.
   const [spanish, setSpanish] = useState<SpanishDraft | null>(null)
@@ -350,13 +384,19 @@ export function NewCommunicationWizard({
   /** Fill the wizard from the AI proposal. Fills only; the board reviews
    *  every step and nothing is sent until they press Send. */
   function applyProposal(proposal: CommProposal) {
-    const f = proposalToWizardFields(proposal, { smsConfigured, schedulingEnabled: SCHEDULING_ENABLED })
+    const f = proposalToWizardFields(proposal, { smsConfigured, schedulingEnabled: SCHEDULING_ENABLED, streets })
     setTemplateId('')
     setBaseCategory(f.category)
     setAudience(f.audience)
+    if (f.street) {
+      setSelectedStreetKey(f.street.key)
+      setStreetOwnersOnly(f.street.ownersOnly)
+    }
     setSubject(f.subject)
     setBodyHtml(f.bodyHtml)
+    setUrgency(f.urgency)
     setChannels(f.channels)
+    setChannelsTouched(false)
     setScheduledFor(f.scheduledFor)
     // A Spanish version of an earlier body would no longer match it.
     setSpanish(null)
@@ -403,12 +443,20 @@ export function NewCommunicationWizard({
     if (t) {
       setSubject(t.subject)
       setBodyHtml(t.bodyHtml)
-      // Default to the template's channels but intersect with what we
-      // support (email, portal, and text only once texting is set up).
-      const next = t.channels.filter(
-        (c) => CHANNELS.includes(c as (typeof CHANNELS)[number]) && (c !== 'sms' || smsConfigured),
+      // BL-102 A6: the template's category sets urgency, and urgency the
+      // channels — unless the board already chose channels by hand, which
+      // a template pick never silently overwrites.
+      const nextUrgency = urgencyForCategory(t.category)
+      setUrgency(nextUrgency)
+      setChannels(
+        pickChannels({
+          urgency: nextUrgency,
+          smsConfigured,
+          current: channels,
+          touched: channelsTouched,
+          templateChannels: t.channels,
+        }).channels,
       )
-      setChannels(next.length > 0 ? next : ['email', 'portal'])
     }
   }
 
@@ -435,7 +483,15 @@ export function NewCommunicationWizard({
     [],
   )
 
+  /** BL-102 A6: "Is this urgent?" — re-picks the channels unless the
+   *  board already chose them by hand. */
+  function changeUrgency(next: Urgency) {
+    setUrgency(next)
+    setChannels(pickChannels({ urgency: next, smsConfigured, current: channels, touched: channelsTouched }).channels)
+  }
+
   function toggleChannel(c: string) {
+    setChannelsTouched(true)
     setChannels((prev) =>
       prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c],
     )
@@ -445,7 +501,9 @@ export function NewCommunicationWizard({
   function errorsForStep(i: number): FieldErrors {
     const errs: FieldErrors = {}
     if (i === 0) {
-      if (audience === 'specific_property') {
+      if (audience === 'street') {
+        if (!selectedStreet) errs.audience = 'Pick a street first.'
+      } else if (audience === 'specific_property') {
         if (!selectedPropertyId) errs.audience = 'Pick a property first.'
         else if (checkedResidentIds.size === 0) errs.audience = 'Pick at least one resident at that property.'
       } else if (audience === 'board' && checkedBoardIds.size === 0) {
@@ -507,7 +565,25 @@ export function NewCommunicationWizard({
     // Translate the wizard-local 'specific_property' kind into the
     // resolver's 'specific_residents' shape with the checked ids.
     let audienceDef: AudienceDef
-    if (audience === 'specific_property') {
+    if (audience === 'follow_up') {
+      if (!followUp) return { ok: false, error: 'This follow-up is no longer available. Pick an audience.' }
+      audienceDef = {
+        kind: 'specific_units',
+        unitIds: followUp.unitIds,
+        ...(followUp.ownersOnly ? { ownersOnly: true } : {}),
+        extra: { summary: 'Follow-up to homes that hadn’t opened' },
+      }
+    } else if (audience === 'street') {
+      if (!selectedStreet) return { ok: false, error: 'Pick a street first.' }
+      // BL-102 A5: the street's homes, through the existing unit-list
+      // audience. The street name is only for the summary.
+      audienceDef = {
+        kind: 'specific_units',
+        unitIds: selectedStreet.unitIds,
+        street: selectedStreet.label,
+        ...(streetOwnersOnly ? { ownersOnly: true } : {}),
+      }
+    } else if (audience === 'specific_property') {
       if (!selectedPropertyId) {
         return { ok: false, error: 'Pick a property first.' }
       }
@@ -565,6 +641,22 @@ export function NewCommunicationWizard({
     return { ok: true, def: audienceDef }
   }
 
+  // BL-102 A6: an urgent message is filed as an emergency (there is no
+  // urgency column until Phase B); turning urgency off files an emergency
+  // template as a plain announcement.
+  const sendCategory = categoryForUrgency(category, urgency) as (typeof CATEGORIES)[number]
+
+  /** The template answers as the send's extraFields, or undefined when a
+   *  required one is blank (the preview then shows it as a blank). */
+  function previewExtraFields(): Record<string, string | number | null> | undefined {
+    if (!effectiveQuestions.length) return undefined
+    try {
+      return buildMergeBag(effectiveQuestions, answers, {}) as Record<string, string | number | null>
+    } catch {
+      return undefined
+    }
+  }
+
   // BL-020: on the Review step, list who this official notice won't reach
   // by email. Re-run whenever the audience or channels change; the send
   // recomputes the same plan server-side, so this is a preview, not a promise.
@@ -593,7 +685,7 @@ export function NewCommunicationWizard({
     }
     // buildAudienceDef reads exactly these picks.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [officialActive, audience, selectedPropertyId, checkedResidentIds, checkedBoardIds, boardMembers, manualContacts, channels])
+  }, [officialActive, audience, selectedPropertyId, selectedStreetKey, streetOwnersOnly, checkedResidentIds, checkedBoardIds, boardMembers, manualContacts, channels])
 
   // BL-102: on the Review step, how many recipients each channel skips
   // because of their own preferences. The send applies the same policy, so
@@ -624,7 +716,7 @@ export function NewCommunicationWizard({
     }
     // buildAudienceDef reads exactly these picks.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reviewing, audience, selectedPropertyId, checkedResidentIds, checkedBoardIds, boardMembers, manualContacts, channels, officialNotice])
+  }, [reviewing, audience, selectedPropertyId, selectedStreetKey, streetOwnersOnly, checkedResidentIds, checkedBoardIds, boardMembers, manualContacts, channels, officialNotice])
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -695,7 +787,7 @@ export function NewCommunicationWizard({
 
     startTransition(async () => {
       const result = await sendCommunication({
-        category,
+        category: sendCategory,
         subject: finalSubject,
         bodyHtml: finalBodyHtml,
         // BL-102 A3: keeps bullets and link addresses, SMS-safe punctuation.
@@ -712,6 +804,10 @@ export function NewCommunicationWizard({
           : undefined,
         // Spread, not `officialNotice: false`: an unmarked send's payload stays exactly as before.
         ...(officialNotice ? { officialNotice: true } : {}),
+        // BL-102 A8: a follow-up is a new message linked to the original.
+        ...(followUp && audience === 'follow_up'
+          ? { relatedResource: { type: 'follow_up', id: followUp.originalId } }
+          : {}),
       })
       if (!result.ok) {
         setError(result.error)
@@ -748,8 +844,21 @@ export function NewCommunicationWizard({
       portalLink: 'https://www.homeownerledger.com/communications/00000000-0000-0000-0000-000000000000',
     }).spanishIncluded
 
+  const audienceLabel =
+    audience === 'street' && selectedStreet
+      ? streetAudienceLabel(selectedStreet.label, streetOwnersOnly)
+      : AUDIENCE_LABELS[audience]
+
   const audienceCount =
-    audience === 'specific_property'
+    audience === 'follow_up'
+      ? (followUp?.unitIds.length ?? 0)
+      : audience === 'street'
+      ? selectedStreet
+        ? streetOwnersOnly
+          ? selectedStreet.ownerCount
+          : selectedStreet.unitIds.length
+        : 0
+      : audience === 'specific_property'
       ? checkedResidentIds.size
       : audience === 'board'
         ? checkedBoardIds.size
@@ -764,6 +873,23 @@ export function NewCommunicationWizard({
       </div>
 
       <div className="space-y-6 p-5 sm:p-6">
+        {followUp ? (
+          <Alert variant="info" title="Follow-up: nothing has been sent">
+            <p>
+              This goes to the {followUp.unitIds.length} {followUp.unitIds.length === 1 ? 'home' : 'homes'} that haven’t
+              opened the earlier email, by {followUp.via === 'text' ? 'text' : 'email'}. Check the message and the
+              preview, then press Send.
+            </p>
+            {followUp.missing.length > 0 ? (
+              <p className="mt-1">
+                Fill in {followUp.missing.join(', ')}: the answers to the original’s questions aren’t stored.
+              </p>
+            ) : null}
+            {followUp.spanishDropped ? (
+              <p className="mt-1">The Spanish version isn’t copied. Add it again below if you want it.</p>
+            ) : null}
+          </Alert>
+        ) : null}
         {prefill === 'loaded' ? (
           <Alert variant="info" title="Pre-filled from the owner budget notice">
             The subject and message are the notice you prepared, addressed to owners. Check the audience, read the message, then send it as usual. Nothing has been sent.
@@ -795,6 +921,15 @@ export function NewCommunicationWizard({
               }}
               audienceCounts={audienceCounts}
               properties={properties}
+              followUpCount={followUp?.unitIds.length ?? 0}
+              streets={streets}
+              selectedStreetKey={selectedStreetKey}
+              setSelectedStreetKey={(k) => {
+                setSelectedStreetKey(k)
+                setFieldErrors((e) => ({ ...e, audience: '' }))
+              }}
+              streetOwnersOnly={streetOwnersOnly}
+              setStreetOwnersOnly={setStreetOwnersOnly}
               manualContacts={manualContacts}
               draftName={draftName}
               setDraftName={setDraftName}
@@ -833,7 +968,7 @@ export function NewCommunicationWizard({
           {draftReview ? (
             <DraftReview
               review={draftReview}
-              audienceLabel={AUDIENCE_LABELS[audience]}
+              audienceLabel={audienceLabel}
               suggestedTemplateName={
                 draftReview.suggestedTemplateId
                   ? (BUILT_IN_OPTIONS.find((t) => t.id === draftReview.suggestedTemplateId)?.name ?? null)
@@ -880,12 +1015,22 @@ export function NewCommunicationWizard({
           </Field>
 
           {selectedTemplate?.topicSlug ? (
-            <SectionToggles
-              topicSlug={selectedTemplate.topicSlug}
-              answeredKey={answeredKey}
-              disabled={pending}
-              onRendered={handleSectionsRendered}
-            />
+            // BL-102 A9: section choices are an advanced option. The
+            // toggles stay mounted while closed, so the body still follows
+            // the template's default sections.
+            <details className="rounded-lg border border-border px-4 py-3">
+              <summary className="cursor-pointer text-sm font-medium text-primary">
+                More options: choose this template’s sections
+              </summary>
+              <div className="mt-3">
+                <SectionToggles
+                  topicSlug={selectedTemplate.topicSlug}
+                  answeredKey={answeredKey}
+                  disabled={pending}
+                  onRendered={handleSectionsRendered}
+                />
+              </div>
+            </details>
           ) : null}
 
           <Field
@@ -925,36 +1070,73 @@ export function NewCommunicationWizard({
 
         {/* Step 3 — channels, schedule, review */}
         <div hidden={step !== 2} className="space-y-6">
-          <Fieldset legend="Channels" error={fieldErrors.channels}>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {CHANNELS.map((c) => {
-                const unavailable = c === 'sms' && !smsConfigured
-                return (
-                  <Checkbox
+          {/* BL-102 A6: one question drives the channels. */}
+          <Fieldset legend="How should it go out?" error={fieldErrors.channels}>
+            <div className="space-y-3">
+              <Checkbox
+                checked={urgency === 'urgent'}
+                onChange={() => changeUrgency(urgency === 'urgent' ? 'routine' : 'urgent')}
+                disabled={pending}
+                label="This is urgent"
+                description={
+                  smsConfigured
+                    ? 'Urgent messages also go by text, to residents who agreed to get texts.'
+                    : 'Urgent messages would also go by text, but texting isn’t set up yet, so this goes by email and the portal.'
+                }
+              />
+              <p className="text-sm text-foreground-secondary">
+                Going by: <strong>{channelsSentence(channels.filter((c) => c !== 'sms' || smsConfigured))}</strong>
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {MAIN_CHANNELS.map((c) => (
+                  <ChannelBox
                     key={c}
-                    checked={!unavailable && channels.includes(c)}
-                    onChange={() => {
+                    channel={c}
+                    channels={channels}
+                    smsConfigured={smsConfigured}
+                    disabled={pending}
+                    onToggle={() => {
                       toggleChannel(c)
                       setFieldErrors((e) => ({ ...e, channels: '' }))
                     }}
-                    disabled={pending || unavailable}
-                    label={CHANNEL_COPY[c].label}
-                    description={unavailable ? SMS_NOT_SET_UP : CHANNEL_COPY[c].hint}
                   />
-                )
-              })}
+                ))}
+              </div>
+              {channels.includes('sms') && smsConfigured && prefPreview?.ok ? (
+                <p className="text-xs text-muted">
+                  {prefPreview.smsReach} of {prefPreview.recipients}{' '}
+                  {prefPreview.recipients === 1 ? 'recipient gets' : 'recipients get'} a text (a mobile number on file
+                  and agreed to texts). Everyone else still gets email and the portal.
+                </p>
+              ) : null}
             </div>
           </Fieldset>
 
-          {officialNoticeOffered ? (
-            <Checkbox
-              checked={officialNotice}
-              onChange={() => setOfficialNotice((v) => !v)}
-              disabled={pending}
-              label="This is an official notice"
-              description="Civ. Code §4040: emailed only to members who agreed to electronic notices. Everyone else needs a paper notice by mail."
-            />
-          ) : null}
+          {/* BL-102 A9: the rarely needed settings, out of the way. */}
+          <details className="rounded-lg border border-border px-4 py-3" open={officialNotice || !channels.includes('portal') || undefined}>
+            <summary className="cursor-pointer text-sm font-medium text-primary">More options</summary>
+            <div className="mt-3 space-y-3">
+              <ChannelBox
+                channel="portal"
+                channels={channels}
+                smsConfigured={smsConfigured}
+                disabled={pending}
+                onToggle={() => {
+                  toggleChannel('portal')
+                  setFieldErrors((e) => ({ ...e, channels: '' }))
+                }}
+              />
+              {officialNoticeOffered ? (
+                <Checkbox
+                  checked={officialNotice}
+                  onChange={() => setOfficialNotice((v) => !v)}
+                  disabled={pending}
+                  label="This is an official notice"
+                  description="Civ. Code §4040: emailed only to members who agreed to electronic notices. Everyone else needs a paper notice by mail."
+                />
+              ) : null}
+            </div>
+          </details>
 
           {SCHEDULING_ENABLED ? (
             <Field
@@ -981,7 +1163,7 @@ export function NewCommunicationWizard({
                 label="Audience"
                 value={
                   <span>
-                    {AUDIENCE_LABELS[audience]} <span className="num text-muted">({audienceCount})</span>
+                    {audienceLabel} <span className="num text-muted">({audienceCount})</span>
                   </span>
                 }
               />
@@ -989,8 +1171,8 @@ export function NewCommunicationWizard({
               <KeyValue label="Template" value={selectedTemplate?.name ?? 'Custom message'} />
               <KeyValue label="Languages" value={spanish ? 'English, then Español' : 'English'} />
               <KeyValue
-                label="Channels"
-                value={channels.map((c) => CHANNEL_COPY[c as (typeof CHANNELS)[number]]?.label ?? c).join(', ') || null}
+                label="Going by"
+                value={channelsSentence(channels.filter((c) => c !== 'sms' || smsConfigured))}
               />
               <KeyValue
                 label="When"
@@ -999,8 +1181,20 @@ export function NewCommunicationWizard({
             </KeyValueList>
           </section>
 
-          {channels.includes('sms') && smsConfigured ? (
-            <SmsPreview subject={subject.trim()} bodyHtml={bodyHtml} />
+          {reviewing ? (
+            <PhonePreview
+              audience={(() => {
+                const built = buildAudienceDef()
+                return built.ok ? built.def : null
+              })()}
+              subject={subject.trim()}
+              bodyHtml={bodyHtml}
+              extraFields={previewExtraFields()}
+              spanish={spanish ? { subject: spanish.subject.trim(), bodyHtml: spanish.bodyHtml } : null}
+              showText={channels.includes('sms') && smsConfigured}
+              showPortal={channels.includes('portal')}
+              disabled={pending}
+            />
           ) : null}
 
           <PreferenceSkips preview={prefPreview} channels={channels} />
@@ -1121,6 +1315,34 @@ function TemplatePicker({
   )
 }
 
+const MAIN_CHANNELS = ['email', 'sms'] as const
+
+/** One channel's tick box; the Text box explains when texting isn't set up. */
+function ChannelBox({
+  channel,
+  channels,
+  smsConfigured,
+  disabled,
+  onToggle,
+}: {
+  channel: (typeof CHANNELS)[number]
+  channels: string[]
+  smsConfigured: boolean
+  disabled: boolean
+  onToggle: () => void
+}) {
+  const unavailable = channel === 'sms' && !smsConfigured
+  return (
+    <Checkbox
+      checked={!unavailable && channels.includes(channel)}
+      onChange={onToggle}
+      disabled={disabled || unavailable}
+      label={CHANNEL_COPY[channel].label}
+      description={unavailable ? SMS_NOT_SET_UP : CHANNEL_COPY[channel].hint}
+    />
+  )
+}
+
 /** BL-102 Review step: "N will be skipped (opted out)", per channel. */
 function PreferenceSkips({ preview, channels }: { preview: PreferencePreview | null; channels: string[] }) {
   if (!preview) return null
@@ -1196,8 +1418,8 @@ function DraftReview({
       </p>
       {review.street ? (
         <p className="mt-1">
-          You mentioned {review.street}. Messages can’t go to one street yet, so check the audience on the first step
-          and say in the message who it is for.
+          You mentioned {review.street}, but it isn’t one of the streets in your homes’ addresses (or can’t be combined
+          with this audience). Check the audience on the first step: pick “A street” to send to one street.
         </p>
       ) : null}
       {review.missingFacts.length > 0 ? (
@@ -1230,25 +1452,5 @@ function DraftReview({
         </Button>
       </div>
     </Alert>
-  )
-}
-
-/** BL-102 A3: the text message as the send builds it: one SMS of at most
- *  SMS_MAX_CHARS characters; a longer one ends with a link to the full message. */
-function SmsPreview({ subject, bodyHtml }: { subject: string; bodyHtml: string }) {
-  const text = composeSmsBody({
-    subject,
-    body: htmlToMessageText(bodyHtml).replace(/\s+/g, ' '),
-    portalLink: 'https://www.homeownerledger.com/communications/00000000-0000-0000-0000-000000000000',
-  })
-  return (
-    <section className="rounded-lg border border-border p-4">
-      <h3 className="text-sm font-semibold text-foreground">As a text message</h3>
-      <p className="mt-1 whitespace-pre-wrap break-words text-sm text-foreground-secondary">{text}</p>
-      <p className="mt-1 text-xs text-muted">
-        {text.length} of {SMS_MAX_CHARS} characters. Names are filled in for each person, so the length varies a
-        little. Email and the portal get the full message.
-      </p>
-    </section>
   )
 }

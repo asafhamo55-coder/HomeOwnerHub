@@ -19,12 +19,11 @@ import type { Database } from '@homeowner-portal/db/types'
 import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
 import { sendEmailBatch, type BatchSendResult } from '@/lib/email'
 import { buildSenderName } from '@/lib/email/sender-name'
-import { sendSms, htmlToSmsBody } from '@/lib/sms'
+import { sendSms } from '@/lib/sms'
 import { appUrl } from '@/lib/app-origin'
 import { buildEmailPayloads } from './email-payloads'
 import { buildRecipientBag } from './merge-bag'
-import { composeSmsBody } from './sms-body'
-import { composeBilingualSms, htmlToPlainText, splitBilingualHtml } from './bilingual'
+import { renderSmsText } from './sms-render'
 import { renderTemplateStrict, type MergeBag } from './templates'
 
 type Db = SupabaseClient<Database>
@@ -150,15 +149,8 @@ export async function deliverToRecipients(db: Db, input: DeliverInput): Promise<
       // BL-025: a bilingual body sends both languages only when both fit
       // whole in one text; otherwise English only (the portal link carries
       // the Spanish). The wizard warns the board when that will happen.
-      const parts = splitBilingualHtml(html)
-      const smsBody = parts.spanish
-        ? composeBilingualSms({
-            subject,
-            englishText: htmlToPlainText(parts.englishHtml),
-            spanish: { subject: parts.spanish.subject, text: htmlToPlainText(parts.spanish.html) },
-            portalLink,
-          }).body
-        : composeSmsBody({ subject, body: text ?? htmlToSmsBody(html, 200), portalLink })
+      // Shared with the phone preview (BL-102 A7), so the two cannot drift.
+      const smsBody = renderSmsText({ subject, html, text, portalLink }).body
       const result = await sendSms({ to: phone, body: smsBody }, outbound)
       if (result.ok) {
         await db

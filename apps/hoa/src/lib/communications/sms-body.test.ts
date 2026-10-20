@@ -53,7 +53,9 @@ describe('SMS hint says what the server does', () => {
     expect(wizard).toMatch(/hint: SMS_CHANNEL_HINT/)
     expect(wizard).not.toMatch(/split at 279/i)
     // The delivery (send-now and scheduled) lives in deliver.ts.
+    // Its SMS text comes from sms-render.ts, shared with the phone preview.
     const deliver = readFileSync(path.join(here, 'deliver.ts'), 'utf8')
-    expect(deliver).toMatch(/composeSmsBody\(/)
+    expect(deliver).toMatch(/renderSmsText\(/)
+    expect(readFileSync(path.join(here, 'sms-render.ts'), 'utf8')).toMatch(/composeSmsBody\(/)
   })
 })

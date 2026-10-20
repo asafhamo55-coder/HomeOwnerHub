@@ -7,6 +7,7 @@ import { composeSmsBody, SMS_MAX_CHARS } from './sms-body'
 import { extractMergeFields } from './templates'
 import { htmlToMessageText, htmlToPlainEditorText } from './plain-text'
 import { localNowString, proposalToWizardFields } from './proposal-to-wizard'
+import { groupUnitsByStreet } from './streets'
 
 // BL-102 A2: the AI proposal → the announcement wizard's fields.
 
@@ -94,6 +95,53 @@ describe('proposalToWizardFields', () => {
       portalLink: 'https://www.homeownerledger.com/communications/00000000-0000-0000-0000-000000000000',
     })
     expect(sms.length).toBeLessThanOrEqual(SMS_MAX_CHARS)
+  })
+})
+
+// BL-102 A5: a named street becomes the street audience when it is one of
+// the HOA's streets, and is flagged for the board otherwise.
+describe('proposalToWizardFields — streets', () => {
+  const streets = groupUnitsByStreet(
+    [
+      { id: 'u1', address_line1: '1 Elm Street' },
+      { id: 'u2', address_line1: '2 Elm St' },
+      { id: 'u3', address_line1: '3 Maple Ct' },
+    ],
+    new Set(['u1']),
+  )
+
+  it('matches a real street: the audience is that street', () => {
+    const f = proposalToWizardFields(PROPOSAL, { ...ON, streets })
+    expect(f.audience).toBe('street')
+    expect(f.street).toEqual({ key: 'elm st', ownersOnly: false })
+    expect(f.review.street).toBeNull()
+    expect(AUDIENCE_LABELS[f.audience]).toBeTruthy()
+  })
+
+  it('"owners on Elm St" keeps owners only', () => {
+    expect(proposalToWizardFields({ ...PROPOSAL, audience: 'owners_only' }, { ...ON, streets }).street).toEqual({
+      key: 'elm st',
+      ownersOnly: true,
+    })
+  })
+
+  it('an unknown street keeps the audience and flags it', () => {
+    const f = proposalToWizardFields({ ...PROPOSAL, street: 'Oak Ave' }, { ...ON, streets })
+    expect(f.audience).toBe('everyone')
+    expect(f.street).toBeNull()
+    expect(f.review.street).toBe('Oak Ave')
+  })
+
+  it('a street never narrows dues, violations, renters or the board', () => {
+    for (const audience of ['late_on_dues', 'open_violations', 'tenants_only', 'board'] as const) {
+      const f = proposalToWizardFields({ ...PROPOSAL, audience }, { ...ON, streets })
+      expect(f.audience, audience).toBe(audience)
+      expect(f.review.street, audience).toBe('Elm St')
+    }
+  })
+
+  it('carries the urgency for the channel question', () => {
+    expect(proposalToWizardFields(PROPOSAL, ON).urgency).toBe('urgent')
   })
 })
 

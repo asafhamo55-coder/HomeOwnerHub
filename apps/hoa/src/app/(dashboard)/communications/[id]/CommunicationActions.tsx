@@ -171,11 +171,11 @@ export function CommunicationActions({
       >
         {fields ? (
           <DialogContent
-            title={fields.length === 1 ? 'One value is missing' : `${fields.length} values are missing`}
+            title={fields.length === 1 ? 'We need one detail again' : `We need ${fields.length} details again`}
             description={
               <>
-                This message was written with values typed into the send wizard, and those are not
-                stored on the message itself. Retype them so the {failedEmailCount} retries read
+                To resend, fill in{' '}
+                {fields.map((f) => humanizeField(f.name)).join(', ')}, so the {failedEmailCount} retries read
                 exactly like the copies that already went out.
               </>
             }

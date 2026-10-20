@@ -118,3 +118,36 @@ describe('the specific mistakes that were being made', () => {
     expect(counts.open_violations).toBe(2)
   })
 })
+
+// BL-102 A5: the street option's counts must agree with the send too.
+describe('street audience agrees with resolveAudience', () => {
+  it('each street lists its homes, and the send reaches exactly those homes', async () => {
+    const { loadStreetOptions } = await import('./streets')
+    const streets = await loadStreetOptions(fakeDb(), ASSOC)
+    const elm = streets.find((st) => st.label === 'Allee Elm')
+    expect([...(elm?.unitIds ?? [])].sort()).toEqual(['u1', 'u3'])
+    for (const st of streets) {
+      const all = await resolveAudience(fakeDb(), ASSOC, { kind: 'specific_units', unitIds: st.unitIds, street: st.label })
+      expect(all.recipients.length).toBe(st.unitIds.length)
+      expect(all.summary).toBe(
+        `Homes on ${st.label} (${st.unitIds.length} recipient${st.unitIds.length === 1 ? '' : 's'})`,
+      )
+      const owners = await resolveAudience(fakeDb(), ASSOC, {
+        kind: 'specific_units',
+        unitIds: st.unitIds,
+        ownersOnly: true,
+        street: st.label,
+      })
+      expect(owners.recipients.length).toBe(st.ownerCount)
+    }
+  })
+
+  it('owners only on a leased home addresses the owner, never the renter', async () => {
+    const { recipients } = await resolveAudience(fakeDb(), ASSOC, {
+      kind: 'specific_units',
+      unitIds: ['u5'],
+      ownersOnly: true,
+    })
+    expect(recipients.map((r) => r.recipientName)).toEqual(['Tanneru'])
+  })
+})

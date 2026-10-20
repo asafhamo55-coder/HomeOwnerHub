@@ -136,7 +136,9 @@ describe('wiring', () => {
     // Delivery lives in deliver.ts, shared by send-now and the scheduled
     // dispatcher; every send still goes through the outbound guard.
     const deliver = readFileSync(path.join(here, 'deliver.ts'), 'utf8')
-    expect(deliver).toMatch(/composeBilingualSms\(/)
+    // The SMS text is built in sms-render.ts, shared with the phone preview.
+    expect(deliver).toMatch(/renderSmsText\(/)
+    expect(readFileSync(path.join(here, 'sms-render.ts'), 'utf8')).toMatch(/composeBilingualSms\(/)
     expect(deliver).toMatch(/sendSms\(\{ to: phone, body: smsBody \}, outbound\)/)
     expect(deliver).toMatch(/sendEmailBatch\(payloads, outbound\)/)
     expect(send).toMatch(/deliverToRecipients\(/)

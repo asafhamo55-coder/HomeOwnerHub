@@ -36,6 +36,12 @@ export type AudienceKind =
 export interface AudienceDefinition {
   kind: AudienceKind
   unitIds?: string[]          // populated when kind = 'specific_units'
+  /** BL-102 A5: with kind = 'specific_units', address only the current
+   *  owner of each unit ("Owners on Elm St"), like 'owners_only'. */
+  ownersOnly?: boolean
+  /** BL-102 A5: the street these unit ids came from, for the summary
+   *  ("Homes on Elm St"). Display only; the unit ids decide who gets it. */
+  street?: string
   /** Populated when kind = 'specific_residents'. Each id refers to a
    *  row in property_residents (the canonical "who lives here" table
    *  from migration 0017). Lets the sender pick a specific named
@@ -298,7 +304,7 @@ export async function resolveAudience(
       })
       continue
     }
-    if (def.kind === 'owners_only') {
+    if (def.kind === 'owners_only' || (def.kind === 'specific_units' && def.ownersOnly)) {
       if (!owner) continue
       recipients.push({
         unitId,
@@ -366,6 +372,16 @@ function summaryFor(def: AudienceDefinition, count: number): string {
     case 'open_violations':
       return `Units with open violations (${count} ${noun})`
     case 'specific_units':
+      // BL-102 A8: a follow-up names itself ("Homes that hadn't opened …").
+      if (typeof def.extra?.summary === 'string' && def.extra.summary) {
+        return `${def.extra.summary.slice(0, 120)} (${count} ${noun})`
+      }
+      if (def.street) {
+        return `${def.ownersOnly ? 'Owners' : 'Homes'} on ${def.street} (${count} ${noun})`
+      }
+      if (def.ownersOnly) {
+        return `Owners of ${(def.unitIds ?? []).length} hand-picked home${(def.unitIds ?? []).length === 1 ? '' : 's'} (${count} ${noun})`
+      }
       return `${(def.unitIds ?? []).length} hand-picked unit${(def.unitIds ?? []).length === 1 ? '' : 's'} (${count} ${noun})`
     case 'specific_residents': {
       const n = (def.residentIds ?? []).length

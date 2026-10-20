@@ -89,6 +89,8 @@ const SendSchema = z.object({
       'precomputed',
     ]),
     unitIds: z.array(z.string().uuid()).optional(),
+    ownersOnly: z.boolean().optional(),
+    street: z.string().trim().max(120).optional(),
     residentIds: z.array(z.string().uuid()).optional(),
     boardUserIds: z.array(z.string().uuid()).optional(),
     emails: z.array(z.string()).optional(),

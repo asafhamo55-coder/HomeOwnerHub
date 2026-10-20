@@ -6,6 +6,7 @@ import type {
   ResidentOption,
   BoardMemberOption,
 } from '@/lib/communications/actions'
+import type { StreetOption } from '@/lib/communications/streets'
 
 export interface AudienceCounts {
   everyone: number
@@ -23,34 +24,45 @@ export interface PropertyOption {
 
 // 'specific_property' drives the property + resident-picker UI; on
 // submit it converts to the resolver's 'specific_residents' shape.
-// 'manual_emails' drives a free-form email entry list — also passes
-// through to the resolver as-is.
+// 'street' (BL-102 A5) converts to 'specific_units' with that street's
+// unit ids. 'manual_emails' drives a free-form email entry list — also
+// passes through to the resolver as-is.
 export type AudienceKind =
   | keyof AudienceCounts
   | 'specific_property'
+  | 'street'
+  | 'follow_up'
   | 'manual_emails'
 
+/** BL-102 A5: plain-language names. Order is the order shown. */
 export const AUDIENCE_LABELS: Record<AudienceKind, string> = {
-  everyone: 'Everyone',
-  owners_only: 'Owners only',
-  tenants_only: 'Tenants only',
-  late_on_dues: 'Late on dues',
-  open_violations: 'Units with open violations',
-  specific_property: 'Specific property',
+  follow_up: 'Homes that haven’t opened it',
+  everyone: 'All homes',
+  owners_only: 'All owners',
+  tenants_only: 'Renters',
+  late_on_dues: 'Homes behind on dues',
+  open_violations: 'Homes with an open violation',
+  street: 'A street',
+  specific_property: 'One home',
   board: 'Board',
-  manual_emails: 'Custom contacts',
+  manual_emails: 'Someone outside the HOA',
 }
 
 const AUDIENCE_HINTS: Record<AudienceKind, string> = {
-  everyone: 'Every unit with contact info',
-  owners_only: 'One recipient per owned unit',
-  tenants_only: 'Units with a current tenant',
-  late_on_dues: 'Units with an overdue charge',
-  open_violations: 'Units with an open violation',
-  specific_property: 'Pick residents at one address',
+  follow_up: 'The homes that didn’t open the earlier email',
+  everyone: 'Every home, owner or renter',
+  owners_only: 'The owner of each home',
+  tenants_only: 'Homes with a current renter',
+  late_on_dues: 'Homes with an overdue charge',
+  open_violations: 'Homes with an open violation',
+  street: 'Every home on one street',
+  specific_property: 'Pick people at one address',
   board: 'Board members (email + portal)',
   manual_emails: 'Vendors, attorneys, anyone else',
 }
+
+/** BL-102 A9: shown only under "More options". */
+const ADVANCED_AUDIENCES: ReadonlySet<AudienceKind> = new Set(['board', 'manual_emails'])
 
 export interface ManualContact {
   email: string
@@ -65,6 +77,16 @@ interface Props {
   setAudience: (kind: AudienceKind) => void
   audienceCounts: AudienceCounts
   properties: PropertyOption[]
+
+  /** BL-102 A8: homes in a follow-up; the option shows only when set. */
+  followUpCount?: number
+
+  // Street audience state (BL-102 A5).
+  streets: StreetOption[]
+  selectedStreetKey: string
+  setSelectedStreetKey: (key: string) => void
+  streetOwnersOnly: boolean
+  setStreetOwnersOnly: (v: boolean) => void
 
   // Manual contacts audience state.
   manualContacts: ManualContact[]
@@ -109,6 +131,12 @@ export function AudienceStep({
   setAudience,
   audienceCounts,
   properties,
+  followUpCount = 0,
+  streets,
+  selectedStreetKey,
+  setSelectedStreetKey,
+  streetOwnersOnly,
+  setStreetOwnersOnly,
   manualContacts,
   draftName,
   setDraftName,
@@ -140,58 +168,102 @@ export function AudienceStep({
     if (!result.ok) setError(result.error)
   }
 
+  function renderOption(kind: AudienceKind) {
+    const selected = audience === kind
+    const count =
+      kind === 'follow_up'
+        ? followUpCount
+        : kind === 'specific_property'
+        ? properties.length
+        : kind === 'street'
+          ? streets.length
+          : kind === 'manual_emails'
+            ? manualContacts.length
+            : audienceCounts[kind as keyof AudienceCounts]
+    const disabled = pending || (kind !== 'specific_property' && kind !== 'manual_emails' && count === 0)
+    const id = `audience-${kind}`
+    const hint =
+      disabled && !pending
+        ? kind === 'street'
+          ? 'No street names found in your addresses'
+          : 'Nobody matches right now'
+        : AUDIENCE_HINTS[kind]
+    return (
+      <label
+        key={kind}
+        htmlFor={id}
+        className={cn(
+          'flex items-start gap-3 rounded-lg border px-3 py-2.5 transition-colors duration-fast',
+          'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
+          selected ? 'border-primary bg-primary-subtle' : 'border-border bg-surface hover:bg-subtle',
+          disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+        )}
+      >
+        <input
+          id={id}
+          type="radio"
+          name="audience"
+          value={kind}
+          checked={selected}
+          onChange={() => setAudience(kind)}
+          disabled={disabled}
+          className="mt-1 size-4 shrink-0 accent-primary"
+        />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-foreground">{AUDIENCE_LABELS[kind]}</span>
+          <span className="block text-xs text-muted">{hint}</span>
+        </span>
+        {/* A street's number is how many streets, so it isn't shown as a head count. */}
+        {kind === 'street' ? null : <span className="num shrink-0 text-sm text-foreground-secondary">{count}</span>}
+      </label>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <fieldset>
         <legend className="sr-only">Audience</legend>
         <div className="grid gap-2 sm:grid-cols-2">
-          {(Object.keys(AUDIENCE_LABELS) as AudienceKind[]).map((kind) => {
-            const selected = audience === kind
-            const count =
-              kind === 'specific_property'
-                ? properties.length
-                : kind === 'manual_emails'
-                  ? manualContacts.length
-                  : audienceCounts[kind as keyof AudienceCounts]
-            const disabled =
-              pending ||
-              (kind !== 'specific_property' &&
-                kind !== 'manual_emails' &&
-                count === 0)
-            const id = `audience-${kind}`
-            return (
-              <label
-                key={kind}
-                htmlFor={id}
-                className={cn(
-                  'flex items-start gap-3 rounded-lg border px-3 py-2.5 transition-colors duration-fast',
-                  'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
-                  selected ? 'border-primary bg-primary-subtle' : 'border-border bg-surface hover:bg-subtle',
-                  disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
-                )}
-              >
-                <input
-                  id={id}
-                  type="radio"
-                  name="audience"
-                  value={kind}
-                  checked={selected}
-                  onChange={() => setAudience(kind)}
-                  disabled={disabled}
-                  className="mt-1 size-4 shrink-0 accent-primary"
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium text-foreground">{AUDIENCE_LABELS[kind]}</span>
-                  <span className="block text-xs text-muted">
-                    {disabled && !pending ? 'Nobody matches right now' : AUDIENCE_HINTS[kind]}
-                  </span>
-                </span>
-                <span className="num shrink-0 text-sm text-foreground-secondary">{count}</span>
-              </label>
-            )
-          })}
+          {(Object.keys(AUDIENCE_LABELS) as AudienceKind[])
+            .filter((k) => !ADVANCED_AUDIENCES.has(k) && (k !== 'follow_up' || followUpCount > 0))
+            .map((kind) => renderOption(kind))}
         </div>
+        {/* BL-102 A9: the rare audiences, out of the way. */}
+        <details className="group mt-3" open={ADVANCED_AUDIENCES.has(audience) || undefined}>
+          <summary className="cursor-pointer text-sm font-medium text-primary">More options</summary>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {(Object.keys(AUDIENCE_LABELS) as AudienceKind[])
+              .filter((k) => ADVANCED_AUDIENCES.has(k))
+              .map((kind) => renderOption(kind))}
+          </div>
+        </details>
       </fieldset>
+
+      {audience === 'street' ? (
+        <div className="space-y-3 rounded-lg border border-border bg-subtle/50 p-4">
+          <Field label="Street" hint="Streets are read from your homes’ addresses.">
+            <Select
+              value={selectedStreetKey}
+              onValueChange={setSelectedStreetKey}
+              disabled={pending}
+              placeholder="Choose a street"
+            >
+              {streets.map((st) => (
+                <option key={st.key} value={st.key}>
+                  {st.label} ({st.unitIds.length} {st.unitIds.length === 1 ? 'home' : 'homes'})
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Checkbox
+            checked={streetOwnersOnly}
+            onChange={() => setStreetOwnersOnly(!streetOwnersOnly)}
+            disabled={pending}
+            label="Owners only"
+            description="Only the owner of each home on this street, not renters."
+          />
+        </div>
+      ) : null}
 
       {/* Manual email entry — typed-in addresses for one-off recipients. */}
       {audience === 'manual_emails' ? (
