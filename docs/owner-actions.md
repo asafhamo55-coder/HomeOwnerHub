@@ -210,6 +210,7 @@ require a 10DLC registration before business texts are delivered.
 
 1. Tell Claude whether texting is wanted.
 2. If yes: create the Vonage account, start the 10DLC brand and campaign registration, and add the Vonage keys as Vercel production environment variables.
+3. In Vonage, set a HELP auto-reply on the number or campaign (for example "HomeownerHub alerts for your HOA. Reply STOP to stop. Help: support@homeownerledger.com"). Residents' consent wording promises HELP works.
 
 ### OA-12 · Confirm the support inbox
 
@@ -332,6 +333,19 @@ prices; review it before pitching.
 2. Compare it with `scripts/fixtures/state-law/ga-ocga-44-3-232-2026.txt`, and tell Claude "matches" or paste any difference.
 
 **Files:** `scripts/fixtures/state-law/ga-ocga-44-3-232-2026.txt`
+
+### OA-21 · Lock text-message consent to the resident themself
+
+**Urgency:** Soon
+
+**Why it matters:** residents now agree to texts themselves (Account → Text messages), and the app never lets a board member do it for them. One gap remains at the database level: a board member with technical skills could still flip a resident's "texts on" setting directly. This SQL adds a guard so only the resident can turn their own texts on. Texting consent rules are strict, so close the gap before texting goes live (OA-11).
+
+**Steps:**
+
+1. Open `docs/specs/2026-10-20-sms-consent.sql`.
+2. Run the pre-check, then the apply section, then the verify section, each on its own. Send Claude the verify output.
+
+**Files:** `docs/specs/2026-10-20-sms-consent.sql`
 
 ## Done
 
