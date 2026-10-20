@@ -88,6 +88,8 @@ export function AnnouncementReplies({
                     >
                       <span className="flex items-baseline justify-between gap-2">
                         <span className={cn('truncate text-sm text-foreground', r.unread && 'font-semibold')}>
+                          {/* Bold alone doesn't reach a screen reader. */}
+                          {r.unread ? <span className="sr-only">Unread: </span> : null}
                           {r.from}
                         </span>
                         <span className="shrink-0 text-xs text-muted">
@@ -239,7 +241,7 @@ function HomePanel({ unitId, home, failed }: { unitId: string | null; home: Prop
           {home.duesBalance > 0 ? (
             <StatusPill
               tone="danger"
-              label={`$${home.duesBalance.toFixed(2)}${home.duesOverdueCount > 0 ? ` · ${home.duesOverdueCount} overdue` : ''}`}
+              label={`$${home.duesBalance.toFixed(2)} owed${home.duesOverdueCount > 0 ? ` · ${home.duesOverdueCount} overdue` : ''}`}
             />
           ) : (
             <StatusPill tone="success" label="Current" />

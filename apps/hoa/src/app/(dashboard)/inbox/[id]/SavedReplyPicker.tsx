@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useId, useRef, useState, useTransition } from 'react'
 import { MessageSquareText } from 'lucide-react'
 import { Alert, Button, cn } from '@homeowner-portal/ui'
 import { SAVED_REPLIES } from '@/lib/inbox/saved-replies'
@@ -18,6 +18,14 @@ export function SavedReplyPicker({ threadId, disabled }: { threadId: string; dis
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
   const [note, setNote] = useState<{ tone: 'ok' | 'warn' | 'error'; text: string } | null>(null)
+  const listId = useId()
+  const toggleRef = useRef<HTMLButtonElement>(null)
+
+  // The list unmounts on pick or Escape; without this, focus falls to <body>.
+  function closeList() {
+    setOpen(false)
+    toggleRef.current?.focus()
+  }
 
   function pick(replyId: string) {
     setNote(null)
@@ -28,7 +36,7 @@ export function SavedReplyPicker({ threadId, disabled }: { threadId: string; dis
         return
       }
       const result = dispatchInsertIntoReply(r.text)
-      setOpen(false)
+      closeList()
       if (result !== 'inserted') {
         setNote({ tone: 'warn', text: INSERT_MESSAGE[result] })
         return
@@ -44,11 +52,13 @@ export function SavedReplyPicker({ threadId, disabled }: { threadId: string; dis
   return (
     <div className="space-y-2">
       <Button
+        ref={toggleRef}
         type="button"
         size="sm"
         variant="secondary"
         icon={<MessageSquareText aria-hidden />}
         aria-expanded={open}
+        aria-controls={open ? listId : undefined}
         disabled={disabled}
         loading={pending}
         onClick={() => setOpen((v) => !v)}
@@ -56,7 +66,17 @@ export function SavedReplyPicker({ threadId, disabled }: { threadId: string; dis
         Saved replies
       </Button>
       {open ? (
-        <ul className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-border bg-surface p-1.5" aria-label="Saved replies">
+        <ul
+          id={listId}
+          className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-border bg-surface p-1.5"
+          aria-label="Saved replies"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.stopPropagation()
+              closeList()
+            }
+          }}
+        >
           {SAVED_REPLIES.map((r) => (
             <li key={r.id}>
               <button
@@ -72,15 +92,12 @@ export function SavedReplyPicker({ threadId, disabled }: { threadId: string; dis
           ))}
         </ul>
       ) : null}
-      {note ? (
-        note.tone === 'error' ? (
-          <Alert variant="error">{note.text}</Alert>
-        ) : (
-          <p className={cn('text-xs', note.tone === 'ok' ? 'text-success' : 'text-warning')} aria-live="polite">
-            {note.text}
-          </p>
-        )
-      ) : null}
+      {note?.tone === 'error' ? <Alert variant="error">{note.text}</Alert> : null}
+      {/* Always mounted: a live region inserted together with its text is
+          often not announced, so "Added…" would go unheard. */}
+      <p className={cn('text-xs', note?.tone === 'ok' ? 'text-success' : 'text-warning')} aria-live="polite">
+        {note && note.tone !== 'error' ? note.text : null}
+      </p>
     </div>
   )
 }

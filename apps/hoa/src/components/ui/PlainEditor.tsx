@@ -146,7 +146,23 @@ export function PlainEditor({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-1.5" role="toolbar" aria-label="Formatting">
+      <div
+        className="flex flex-wrap items-center gap-1.5"
+        role="toolbar"
+        aria-label="Formatting"
+        // role="toolbar" promises arrow-key movement between its buttons.
+        // Tab still visits each one too.
+        onKeyDown={(e) => {
+          if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
+          const buttons = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not([disabled])')]
+          const i = buttons.indexOf(document.activeElement as HTMLButtonElement)
+          if (i < 0 || buttons.length === 0) return
+          e.preventDefault()
+          const n = buttons.length
+          const next = e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : e.key === 'ArrowRight' ? (i + 1) % n : (i - 1 + n) % n
+          buttons[next]?.focus()
+        }}
+      >
         <Button type="button" variant="secondary" size="xs" icon={<Bold aria-hidden />} onClick={bold} disabled={disabled}>
           Bold
         </Button>

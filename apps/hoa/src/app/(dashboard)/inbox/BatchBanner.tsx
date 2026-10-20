@@ -6,6 +6,7 @@ import { Alert, Button, Checkbox, Dialog, DialogContent, Field, Select, Textarea
 import { SAVED_REPLIES, fieldsUsed } from '@/lib/inbox/saved-replies'
 import { batchBodyProblem } from '@/lib/inbox/batch/body'
 import { sendBatchReply, undoBatchReply, type BatchSkipReason } from '@/lib/inbox/batch/actions'
+import { useFocusFirstOnChange } from '@/components/ui/useFocusFirstOnChange'
 
 export interface BatchGroupView {
   label: string
@@ -69,6 +70,7 @@ function BatchDialog({ group, onClose }: { group: BatchGroupView; onClose: () =>
   const [undoNote, setUndoNote] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const [now, setNow] = useState(() => Date.now())
+  const stepRef = useFocusFirstOnChange(step)
 
   useEffect(() => {
     if (step !== 'done') return
@@ -138,6 +140,7 @@ function BatchDialog({ group, onClose }: { group: BatchGroupView; onClose: () =>
             : 'One reply, sent separately to each resident you tick. Each email is addressed only to that resident.'
         }
       >
+        <div ref={stepRef}>
         {step === 'compose' ? (
           <div className="space-y-4">
             <fieldset className="space-y-2">
@@ -213,9 +216,22 @@ function BatchDialog({ group, onClose }: { group: BatchGroupView; onClose: () =>
         {step === 'done' && result ? (
           <div className="space-y-3">
             <Alert variant="success">
-              {result.queued.length > 0
-                ? `${result.queued.length} ${result.queued.length === 1 ? 'reply' : 'replies'} queued.${secondsLeft > 0 ? ` Sending in ${secondsLeft}s.` : ''}`
-                : undoNote ?? 'No replies were queued.'}
+              {result.queued.length > 0 ? (
+                <>
+                  {`${result.queued.length} ${result.queued.length === 1 ? 'reply' : 'replies'} queued.`}
+                  {/* This Alert is a live region: a per-second countdown inside
+                      it would be re-announced every second. The ticking number
+                      is visual only; screen readers hear the undo window once. */}
+                  {secondsLeft > 0 ? (
+                    <>
+                      <span aria-hidden> Sending in {secondsLeft}s.</span>
+                      <span className="sr-only"> You can undo them for 30 seconds.</span>
+                    </>
+                  ) : null}
+                </>
+              ) : (
+                undoNote ?? 'No replies were queued.'
+              )}
             </Alert>
             {result.skipped.length > 0 ? (
               <div className="space-y-1 text-sm">
@@ -242,6 +258,7 @@ function BatchDialog({ group, onClose }: { group: BatchGroupView; onClose: () =>
             </div>
           </div>
         ) : null}
+        </div>
       </DialogContent>
     </Dialog>
   )

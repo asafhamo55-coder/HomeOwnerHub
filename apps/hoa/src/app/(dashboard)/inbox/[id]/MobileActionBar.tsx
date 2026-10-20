@@ -11,6 +11,9 @@ import { INBOX_APPROVE_CLOSE_EVENT, INBOX_EDIT_EVENT } from '@/lib/inbox/keys'
 export const THREAD_TOP_ANCHOR = 'thread-top'
 export const REPLY_ANCHOR = 'thread-reply'
 
+/** A thumb bar's targets are 44px tall (WCAG 2.5.5), not the 32px of `sm`. */
+const TOUCH = 'h-11'
+
 /**
  * BL-101 A7 — the thread's actions within thumb reach on a phone: a bar
  * at the foot of the inbox frame below `lg` (it is the frame's last row,
@@ -38,7 +41,21 @@ export function MobileActionBar({
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  const reveal = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const reveal = (id: string, { focus = false }: { focus?: boolean } = {}) => {
+    const target = document.getElementById(id)
+    if (!target) return
+    // An explicit 'smooth' overrides the global CSS reduced-motion rule,
+    // so the preference is checked here.
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+    if (!focus) return
+    // Move keyboard / screen-reader focus with the scroll: the first control
+    // after the anchor (the anchor itself is an empty, aria-hidden marker).
+    const next = document.querySelector<HTMLElement>(
+      `#${id} ~ * a[href], #${id} ~ * button:not([disabled]), #${id} ~ a[href], #${id} ~ button:not([disabled])`,
+    )
+    next?.focus({ preventScroll: true })
+  }
 
   function approve() {
     // Show the reply first: if a blank or a missing recipient blocks the
@@ -70,12 +87,13 @@ export function MobileActionBar({
         </p>
       ) : null}
       <div className="grid grid-cols-4 gap-2">
-        <Button type="button" size="sm" disabled={!hasDraft || pending} onClick={approve} icon={<Send aria-hidden />}>
+        <Button type="button" size="sm" className={TOUCH} disabled={!hasDraft || pending} onClick={approve} icon={<Send aria-hidden />}>
           Approve
         </Button>
         <Button
           type="button"
           size="sm"
+          className={TOUCH}
           variant="secondary"
           disabled={!hasDraft}
           onClick={() => window.dispatchEvent(new Event(INBOX_EDIT_EVENT))}
@@ -86,6 +104,7 @@ export function MobileActionBar({
         <Button
           type="button"
           size="sm"
+          className={TOUCH}
           variant="secondary"
           disabled={status === 'closed'}
           loading={pending}
@@ -94,7 +113,7 @@ export function MobileActionBar({
         >
           Close
         </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => reveal(THREAD_TOP_ANCHOR)} icon={<MoreHorizontal aria-hidden />}>
+        <Button type="button" size="sm" className={TOUCH} variant="ghost" onClick={() => reveal(THREAD_TOP_ANCHOR, { focus: true })} icon={<MoreHorizontal aria-hidden />}>
           More
         </Button>
       </div>

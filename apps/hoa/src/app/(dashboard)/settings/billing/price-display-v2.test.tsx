@@ -67,6 +67,14 @@ describe('copy', () => {
     expect((out.match(/disabled=""/g) ?? []).length).toBe(2)
   })
 
+  it('each plan card is headed by its name, so the identical trial buttons have context', () => {
+    const out = html(<PlanPickerV2 currentPlan="free" homes={20} firstSubscription initialCadence="monthly" />)
+    expect(out).toMatch(/<h3[^>]*>Essentials<\/h3>/)
+    expect(out).toMatch(/<h3[^>]*>Complete<\/h3>/)
+    expect(out).toContain('role="radiogroup"')
+    expect((out.match(/role="radio"[^>]*tabindex="0"|tabindex="0"[^>]*role="radio"/g) ?? []).length).toBeLessThanOrEqual(1)
+  })
+
   it('the page description and totals', () => {
     expect(billingPriceCopyV2().description).toContain('Essentials from $49/month, Complete from $99/month')
     const totals = html(<PlanTotalsV2 homes={401} plan="complete" />)

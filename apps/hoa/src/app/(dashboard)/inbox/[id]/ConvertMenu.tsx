@@ -16,6 +16,7 @@ import { TICKET_CATEGORIES, TICKET_CATEGORY_LABEL, type TicketCategory } from '@
 import type { ContactPrefill, LinkCandidate, TicketPrefill } from '@/lib/inbox/convert/model'
 import type { ContactField } from '@/lib/contact-updates/model'
 import { INSERT_MESSAGE, dispatchInsertIntoReply, type InsertResult } from '@/lib/inbox/reply-insert'
+import { useFocusFirstOnChange } from '@/components/ui/useFocusFirstOnChange'
 
 /**
  * BL-101 A4 — "Create from this email". In the thread header, beside
@@ -76,6 +77,7 @@ function ConvertDialog({ onClose, ...p }: ConvertMenuProps & { onClose: () => vo
   const [view, setView] = useState<View>('menu')
   const [done, setDone] = useState<Done | null>(null)
   const [pending, startTransition] = useTransition()
+  const bodyRef = useFocusFirstOnChange(view)
 
   const finish = (d: Done) => {
     setDone(d)
@@ -103,6 +105,7 @@ function ConvertDialog({ onClose, ...p }: ConvertMenuProps & { onClose: () => vo
         title={titles[view]}
         description={view === 'menu' ? 'Turn this email into a record. You check everything before it is saved.' : undefined}
       >
+        <div ref={bodyRef}>
         {view === 'menu' ? (
           <MenuView {...p} onPick={setView} />
         ) : view === 'ticket' ? (
@@ -116,6 +119,7 @@ function ConvertDialog({ onClose, ...p }: ConvertMenuProps & { onClose: () => vo
         ) : done ? (
           <DoneView done={done} onClose={onClose} />
         ) : null}
+        </div>
       </DialogContent>
     </Dialog>
   )
