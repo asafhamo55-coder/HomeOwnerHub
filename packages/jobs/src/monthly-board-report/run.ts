@@ -28,6 +28,7 @@
  */
 
 import { OUTBOUND_BLOCKED_ERROR, fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
+import { finalSendStatus } from '@homeowner-portal/observability/send-status'
 import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone } from '../association-time'
 import { loadBoardRecipients, type BoardRecipient } from '../daily-digest'
 import { deterministicUuid } from '../deterministic-id'
@@ -122,7 +123,8 @@ export interface MonthlyReportStore {
   claim(input: ClaimInput): Promise<{ ok: true } | { ok: false; reason: 'exists' }>
   insertRecipients(communicationId: string, orgId: string, recipients: BoardRecipient[]): Promise<{ id: string; email: string }[]>
   markRecipient(id: string, outcome: RecipientOutcome): Promise<void>
-  finish(communicationId: string, status: 'sent' | 'failed'): Promise<void>
+  /** `cancelled` = the outbound guard held back every recipient (finalSendStatus). */
+  finish(communicationId: string, status: 'sent' | 'failed' | 'cancelled'): Promise<void>
 }
 
 // ─── one org ────────────────────────────────────────────────────────
@@ -239,7 +241,9 @@ export async function runMonthlyReportForOrg(
       await store.markRecipient(row.id, outcome)
     }
   } finally {
-    await store.finish(communicationId, sent > 0 ? 'sent' : 'failed')
+    // `suppressed` here is only ever the guard's hold. All held → `cancelled`
+    // ("Held by safety guard (N)"), not `failed` (BL-109).
+    await store.finish(communicationId, finalSendStatus({ sent, failed, held: suppressed }))
   }
   logger.info(
     `${tag}: ${month.month} report ${communicationId}: ${sent} sent, ${suppressed} suppressed, ${failed} failed, ${optedOut} opted out`,

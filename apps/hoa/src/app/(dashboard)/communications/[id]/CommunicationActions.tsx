@@ -19,6 +19,7 @@ import {
   resendFailedRecipients,
   type ResendPreflightField,
 } from '@/lib/communications/send'
+import { resendSummary } from '@/lib/communications/resend-summary'
 
 export function CommunicationActions({
   commId,
@@ -62,11 +63,8 @@ export function CommunicationActions({
     }
     close()
     toast({
-      tone: result.failedCount > 0 ? 'info' : 'success',
-      message:
-        result.failedCount > 0
-          ? `Resent to ${result.sentCount}; ${result.failedCount} still failing.`
-          : `Resent to ${result.sentCount} recipient${result.sentCount === 1 ? '' : 's'}.`,
+      tone: result.failedCount > 0 || result.heldCount > 0 ? 'info' : 'success',
+      message: resendSummary(result),
     })
     router.refresh()
   }

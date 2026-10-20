@@ -3,6 +3,7 @@ import {
   fetchOrgSandbox,
   OUTBOUND_BLOCKED_ERROR,
 } from '@homeowner-portal/observability/outbound-guard'
+import { finalSendStatus } from '@homeowner-portal/observability/send-status'
 import { logRouteFailure } from '@/lib/api/log'
 import type { OutboundSendOptions } from '@/lib/email'
 import { sendEmail, appUrl } from '@/lib/email'
@@ -49,6 +50,9 @@ export interface SendEventAlertInput {
 export interface SendEventAlertResult {
   sent: number
   failed: Array<{ email: string; reason: string }>
+  /** Held back by the outbound safety guard (BL-004) — not a failure, and
+   *  not in `failed`. The row is `suppressed` (BL-109). */
+  held: number
 }
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -118,11 +122,12 @@ export async function sendEventAlertEmail(
             'This event has no association, so a community/resident audience can’t be resolved. Pin it to an association or target the board.',
         },
       ],
+      held: 0,
     }
   }
 
   if (recipients.length === 0) {
-    return { sent: 0, failed: [] }
+    return { sent: 0, failed: [], held: 0 }
   }
 
   // 3. Build the message body.
@@ -313,6 +318,7 @@ async function deliverViaCommunications(
           reason: 'No recipient had a deliverable address on the selected channels.',
         },
       ],
+      held: 0,
     }
   }
 
@@ -339,6 +345,7 @@ async function deliverViaCommunications(
 
   const portalLink = appUrl(`/communications/${comm.id}`)
   let sent = 0
+  let held = 0
   const failed: SendEventAlertResult['failed'] = []
 
   await Promise.all(
@@ -350,6 +357,9 @@ async function deliverViaCommunications(
         if (res.ok) {
           sent += 1
           await markRecipient(admin, row.id, 'sent', res.messageId)
+        } else if (res.error === OUTBOUND_BLOCKED_ERROR) {
+          held += 1
+          await markRecipientHeld(admin, row.id)
         } else {
           const code = deliveryErrorCode('email', res.error)
           failed.push({ email: row.email, reason: code })
@@ -364,6 +374,9 @@ async function deliverViaCommunications(
         if (res.ok) {
           sent += 1
           await markRecipient(admin, row.id, 'sent', res.messageSid)
+        } else if (res.error === OUTBOUND_BLOCKED_ERROR) {
+          held += 1
+          await markRecipientHeld(admin, row.id)
         } else {
           const code = deliveryErrorCode('sms', res.error)
           failed.push({ email: row.phone, reason: code })
@@ -379,14 +392,18 @@ async function deliverViaCommunications(
     }),
   )
 
+  // All held by the guard → `cancelled` ("Held by safety guard (N)") with
+  // no sent_at; any delivery → `sent`; a real failure with nothing
+  // delivered stays `failed` (finalSendStatus, BL-109).
+  const status = finalSendStatus({ sent, failed: failed.length, held })
   await setCommunicationStatus(
     admin,
     comm.id,
-    { status: sent > 0 ? 'sent' : 'failed', sent_at: new Date().toISOString() },
+    status === 'cancelled' ? { status } : { status, sent_at: new Date().toISOString() },
     eventId,
   )
 
-  return { sent, failed }
+  return { sent, failed, held }
 }
 
 // ─── Delivery: direct (no association → no portal/audit surface) ─────
@@ -404,24 +421,27 @@ interface DeliverDirectArgs {
 async function deliverDirect(args: DeliverDirectArgs): Promise<SendEventAlertResult> {
   const { channels, recipients, subject, html, text, senderName, outbound } = args
   let sent = 0
+  let held = 0
   const failed: SendEventAlertResult['failed'] = []
 
   for (const r of recipients) {
     if (channels.includes('email') && r.email) {
       const res = await sendEmail({ to: r.email, subject, html, text, senderName }, outbound)
       if (res.ok) sent += 1
+      else if (res.error === OUTBOUND_BLOCKED_ERROR) held += 1
       else failed.push({ email: r.email, reason: deliveryErrorCode('email', res.error) })
     }
     if (channels.includes('sms') && r.phone) {
       const res = await sendSms({ to: r.phone, body: buildSmsBody(subject, text, html, null) }, outbound)
       if (res.ok) sent += 1
+      else if (res.error === OUTBOUND_BLOCKED_ERROR) held += 1
       else failed.push({ email: r.phone, reason: deliveryErrorCode('sms', res.error) })
     }
     // 'portal' has no surface without a communications row — silently
     // unsupported on the direct path (org-wide board-only events).
   }
 
-  return { sent, failed }
+  return { sent, failed, held }
 }
 
 // ─── Recipient status writers ────────────────────────────────────────
@@ -466,10 +486,21 @@ async function markRecipientFailed(
   if (error) logRouteFailure('events-alerts.mark_recipient_failed', error, { recipientId })
 }
 
+/** The guard held this recipient back: `suppressed` with the guard's own
+ *  message (no address in it), which the communications screens read as
+ *  "Held by safety guard" (isHeldRecipient). Not a failure (BL-109). */
+async function markRecipientHeld(admin: Admin, recipientId: string): Promise<void> {
+  const { error } = await admin
+    .from('communication_recipients')
+    .update({ delivery_status: 'suppressed', error_message: OUTBOUND_BLOCKED_ERROR } as never)
+    .eq('id', recipientId)
+  if (error) logRouteFailure('events-alerts.mark_recipient_held', error, { recipientId })
+}
+
 async function setCommunicationStatus(
   admin: Admin,
   communicationId: string,
-  patch: { status: 'sent' | 'failed'; sent_at?: string },
+  patch: { status: 'sent' | 'failed' | 'cancelled'; sent_at?: string },
   eventId: string,
 ): Promise<void> {
   const { error } = await admin.from('communications').update(patch).eq('id', communicationId)
@@ -494,7 +525,10 @@ export const ALERT_FAILED_NOTIFICATION_KIND = 'event_alert.failed'
 /**
  * How many alert attempts for this event's current occurrence ended with
  * nothing delivered: its `communications` rows (related_resource marks the
- * event) with status 'failed', created on or after the day the occurrence's
+ * event) with status 'failed' — or 'cancelled', a day the outbound guard
+ * held every recipient (BL-109: not a failure on screen, but still a day
+ * nothing went out, so the cap is unchanged; these rows are never
+ * board-cancelled, since alerts are never scheduled) — created on or after the day the occurrence's
  * alert window opened. Each daily retry that reaches the communications
  * pipeline writes exactly one such row, and a delivered attempt stamps the
  * occurrence and ends the retries, so this is the count of failed days.
@@ -512,7 +546,7 @@ export async function countFailedAlertAttempts(
     .eq('organization_id', args.organizationId)
     .eq('related_resource->>type', 'recurring_event')
     .eq('related_resource->>id', args.eventId)
-    .eq('status', 'failed')
+    .in('status', ['failed', 'cancelled'])
     .gte('created_at', args.sinceAt)
   if (error) return { ok: false, error }
   return { ok: true, count: count ?? 0 }

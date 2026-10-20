@@ -121,7 +121,7 @@ type EventRow = RecurringEvent & { organization_id: string } & Partial<AlertAtte
 
 interface SummaryError {
   eventId: string
-  code: 'delivery_failed' | 'nothing_delivered' | 'send_failed' | 'write_failed' | 'retry_cap_reached'
+  code: 'delivery_failed' | 'delivery_held' | 'nothing_delivered' | 'send_failed' | 'write_failed' | 'retry_cap_reached'
   count?: number
 }
 
@@ -276,6 +276,11 @@ export const GET = withRoute('cron.recurring-events', async (request) => {
         alertsSent += result.sent
         if (result.failed.length > 0) {
           errors.push({ eventId: event.id, code: 'delivery_failed', count: result.failed.length })
+        } else if (result.sent === 0 && result.held > 0) {
+          // Every recipient held by the outbound safety guard (BL-109): not
+          // a delivery failure, but nothing went out, so the occurrence is
+          // released and retried like any other nothing-delivered day.
+          errors.push({ eventId: event.id, code: 'delivery_held', count: result.held })
         } else if (result.sent === 0) {
           // No recipient, or none reachable on the chosen channels.
           errors.push({ eventId: event.id, code: 'nothing_delivered' })

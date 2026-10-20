@@ -152,12 +152,29 @@ describe('sendCoiRequestCore', () => {
     }
   })
 
-  it('the outbound guard blocking it is reported as suppressed, not sent', async () => {
+  it('BL-109: the outbound guard holding it is suppressed on the row and cancelled (held) on the parent — never failed', async () => {
     const m = memoryStore()
     const send = vi.fn<CoiSender>(async () => ({ ok: false as const, error: OUTBOUND_BLOCKED_ERROR }))
     const r = await sendCoiRequestCore(m.store, send, input(), log())
     expect(r).toEqual({ ok: false, error: COI_REQUEST_ERRORS.blocked })
     expect(m.marks[0].status).toBe('suppressed')
+    expect(m.finished).toEqual(['cancelled'])
+  })
+
+  it('BL-109: a real provider failure still finishes failed', async () => {
+    const m = memoryStore()
+    const send = vi.fn<CoiSender>(async () => ({ ok: false as const, error: 'Resend 500' }))
+    await sendCoiRequestCore(m.store, send, input(), log())
+    expect(m.finished).toEqual(['failed'])
+  })
+
+  it('BL-109: a send that throws finishes failed', async () => {
+    const m = memoryStore()
+    const send = vi.fn<CoiSender>(async () => {
+      throw new Error('network')
+    })
+    await sendCoiRequestCore(m.store, send, input(), log())
+    expect(m.marks[0].status).toBe('failed')
     expect(m.finished).toEqual(['failed'])
   })
 

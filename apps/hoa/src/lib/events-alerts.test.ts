@@ -180,10 +180,37 @@ describe('sendEventAlertEmail — recipient error codes', () => {
     expect(logged()).not.toContain('jane@example.com')
   })
 
-  it('a guard-blocked send is stored as outbound_blocked', async () => {
+  it('BL-109: every recipient held by the guard — suppressed rows, cancelled (held) parent, not in failed', async () => {
     sendEmail.mockResolvedValue({ ok: false, error: OUTBOUND_BLOCKED_ERROR })
-    await sendEventAlertEmail({ event, organizationId: 'org-1', today: TODAY })
-    expect(updatesOf('communication_recipients')[0]!.payload).toMatchObject({ error_message: 'outbound_blocked' })
+    const r = await sendEventAlertEmail({ event, organizationId: 'org-1', today: TODAY })
+    expect(r).toEqual({ sent: 0, failed: [], held: 1 })
+    expect(updatesOf('communication_recipients')[0]!.payload).toEqual({
+      delivery_status: 'suppressed',
+      error_message: OUTBOUND_BLOCKED_ERROR,
+    })
+    // No sent_at: nothing went out.
+    expect(updatesOf('communications').map((c) => c.payload)).toEqual([{ status: 'cancelled' }])
+  })
+
+  it('BL-109: one held, one delivered — sent', async () => {
+    results['communication_recipients.insert'] = {
+      data: [
+        { id: 'rec-1', channel: 'email', email: 'jane@example.com', phone: null },
+        { id: 'rec-2', channel: 'email', email: 'ray@example.com', phone: null },
+      ],
+      error: null,
+    }
+    sendEmail.mockResolvedValueOnce({ ok: false, error: OUTBOUND_BLOCKED_ERROR }).mockResolvedValueOnce({ ok: true, messageId: 'm-2' })
+    const r = await sendEventAlertEmail({ event, organizationId: 'org-1', today: TODAY })
+    expect(r).toEqual({ sent: 1, failed: [], held: 1 })
+    expect(updatesOf('communications').map((c) => c.payload)).toEqual([expect.objectContaining({ status: 'sent' })])
+  })
+
+  it('BL-109: a real provider failure, nothing delivered — still failed', async () => {
+    sendEmail.mockResolvedValue({ ok: false, error: PROVIDER_LEAK })
+    const r = await sendEventAlertEmail({ event, organizationId: 'org-1', today: TODAY })
+    expect(r.held).toBe(0)
+    expect(updatesOf('communications').map((c) => c.payload)).toEqual([expect.objectContaining({ status: 'failed' })])
   })
 })
 
@@ -260,7 +287,8 @@ describe('countFailedAlertAttempts', () => {
         ['eq', 'organization_id', 'org-1'],
         ['eq', 'related_resource->>type', 'recurring_event'],
         ['eq', 'related_resource->>id', 'evt-1'],
-        ['eq', 'status', 'failed'],
+        // BL-109: a guard-held day (cancelled) still counts toward the cap.
+        ['in', 'status', ['failed', 'cancelled']],
         ['gte', 'created_at', SINCE_AT],
       ]),
     )

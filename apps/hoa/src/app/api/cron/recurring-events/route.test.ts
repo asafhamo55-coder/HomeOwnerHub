@@ -297,6 +297,20 @@ describe('GET /api/cron/recurring-events', () => {
     expect(db.rows[0]!.last_alert_sent_for).toBe('2026-10-20')
   })
 
+  it('BL-109: every recipient held by the guard — reported as delivery_held, released for retry, not stamped', async () => {
+    db.rows = [event()]
+    sendEventAlertEmail.mockResolvedValue({ sent: 0, failed: [], held: 2 })
+    const res = await GET(req(BEARER))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      processed: 1,
+      alertsSent: 0,
+      errors: [{ eventId: db.rows[0]!.id, code: 'delivery_held', count: 2 }],
+    })
+    expect(db.updates.map((u) => u.kind)).toEqual(['claim', 'release'])
+    expect(db.rows[0]!.last_alert_sent_for).toBeNull()
+  })
+
   it('the claim alone never marks the occurrence as sent', async () => {
     db.rows = [event()]
     let stateDuringSend: string | undefined

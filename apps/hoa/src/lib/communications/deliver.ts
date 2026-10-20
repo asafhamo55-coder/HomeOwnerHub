@@ -235,16 +235,28 @@ export async function deliverToRecipients(db: Db, input: DeliverInput): Promise<
 
 /** The guard held this recipient back (sandboxed org, or off the allowlist
  *  outside production). Recorded as `suppressed`, not `failed`: nothing is
- *  broken, and resend must not offer to retry it (BL-044). */
-async function markHeld(db: Db, recipientId: string, renderedSubject: string): Promise<void> {
-  await db
+ *  broken, and resend must not offer to retry it (BL-044).
+ *
+ *  `organizationId` as for markFailed: resendFailedRecipients passes it.
+ *  `failed_at` is cleared because a resent row arrives here still carrying
+ *  its earlier failure time (BL-109); a fresh row has none to clear. */
+export async function markHeld(
+  db: Db,
+  recipientId: string,
+  renderedSubject: string,
+  organizationId?: string,
+): Promise<void> {
+  let q = db
     .from('communication_recipients')
     .update({
       delivery_status: 'suppressed',
       error_message: OUTBOUND_BLOCKED_ERROR,
       rendered_subject: renderedSubject,
+      failed_at: null,
     })
     .eq('id', recipientId)
+  if (organizationId) q = q.eq('organization_id', organizationId)
+  await q
 }
 
 /**

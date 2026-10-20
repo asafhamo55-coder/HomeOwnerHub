@@ -7,7 +7,7 @@ import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { sendEmailBatch } from '@/lib/email'
 import { buildSenderName } from '@/lib/email/sender-name'
 import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
-import { finalSendStatus } from '@homeowner-portal/observability/send-status'
+import { OUTBOUND_BLOCKED_ERROR, finalSendStatus } from '@homeowner-portal/observability/send-status'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -24,7 +24,7 @@ import { recoverFromRenderedSubject, unresolvedFields } from './merge-recovery'
 import { normalizeSuppliedFields } from './supplied-fields'
 import { composeBilingualHtml, htmlToPlainText } from './bilingual'
 import { extractMergeFields, type MergeBag } from './templates'
-import { deliverToRecipients, markFailed, type QueuedRecipientRow } from './deliver'
+import { deliverToRecipients, markFailed, markHeld, type QueuedRecipientRow } from './deliver'
 import {
   PREFERENCES_READ_FAILED,
   applyPreferences,
@@ -661,7 +661,10 @@ export async function getResendPreflight(
 }
 
 export type ResendFailedResult =
-  | { ok: true; sentCount: number; failedCount: number }
+  /** heldCount: rows the outbound guard held back this time. They are now
+   *  `suppressed`, not `failed`, so a later resend never offers them again
+   *  (BL-109). */
+  | { ok: true; sentCount: number; failedCount: number; heldCount: number }
   | { ok: false; error: string }
 
 /**
@@ -795,12 +798,21 @@ export async function resendFailedRecipients(
 
   let sentCount = 0
   let failedCount = 0
+  let heldCount = 0
 
   await Promise.all([
     ...owners.map(async (recipientId, i) => {
       const result = results[i] ?? {
         ok: false as const,
         error: 'no batch result returned for this recipient',
+      }
+      if (!result.ok && result.error === OUTBOUND_BLOCKED_ERROR) {
+        // Held by the outbound safety guard, not a failure (BL-109): the row
+        // leaves 'failed' for 'suppressed', so it is never offered for
+        // retry again, and screens count it as "Held by safety guard".
+        heldCount += 1
+        await markHeld(supabase, recipientId, payloads[i].subject, org.id)
+        return
       }
       if (!result.ok) {
         failedCount += 1
@@ -839,10 +851,28 @@ export async function resendFailedRecipients(
   // the current status so a partial resend on an already-'sent' parent
   // doesn't rewrite it; sent_at is left alone so the page keeps showing
   // when the message originally went out.
-  if (sentCount > 0) {
+  //
+  // Nothing delivered but some rows were held (BL-109): the parent may now
+  // be a send the guard held back entirely, which finalSendStatus writes as
+  // `cancelled` ("Held by safety guard (N)"). That is decided over every
+  // recipient row, not just this retry's — a real failure left anywhere
+  // (an SMS, a row with no address) keeps the parent `failed`.
+  let nextStatus: 'sent' | 'cancelled' | null = sentCount > 0 ? 'sent' : null
+  if (!nextStatus && heldCount > 0) {
+    const { data: allRows, error: allErr } = await supabase
+      .from('communication_recipients')
+      .select('delivery_status, error_message')
+      .eq('communication_id', comm.id)
+      .eq('organization_id', org.id)
+    if (!allErr && allRows) {
+      const status = finalSendStatus(countOutcomes(allRows))
+      if (status === 'cancelled') nextStatus = status
+    }
+  }
+  if (nextStatus) {
     await supabase
       .from('communications')
-      .update({ status: 'sent' })
+      .update({ status: nextStatus })
       .eq('id', comm.id)
       .eq('organization_id', org.id)
       .eq('status', 'failed')
@@ -850,5 +880,22 @@ export async function resendFailedRecipients(
 
   revalidatePath('/communications')
   revalidatePath(`/communications/${comm.id}`)
-  return { ok: true, sentCount, failedCount }
+  return { ok: true, sentCount, failedCount, heldCount }
+}
+
+/** Delivered / really failed / guard-held counts over a communication's
+ *  recipient rows, in finalSendStatus's terms. Opted-out and portal-skipped
+ *  rows count as none of them. */
+function countOutcomes(rows: Array<{ delivery_status: string; error_message: string | null }>) {
+  let sent = 0
+  let failed = 0
+  let held = 0
+  for (const r of rows) {
+    if (RENDERED_DELIVERY_STATUSES.includes(r.delivery_status)) sent += 1
+    else if (r.delivery_status === 'failed' || r.delivery_status === 'bounced') failed += 1
+    // isHeldRecipient's rule (queries.ts), inlined to keep this server
+    // action off the read module.
+    else if (r.delivery_status === 'suppressed' && r.error_message === OUTBOUND_BLOCKED_ERROR) held += 1
+  }
+  return { sent, failed, held }
 }

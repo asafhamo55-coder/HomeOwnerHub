@@ -71,7 +71,7 @@ function fakeStore(opts: FakeOpts = {}) {
       row.status = outcome.status
       if (outcome.status !== 'sent') row.error = outcome.error
     }),
-    finish: vi.fn(async (id: string, status: 'sent' | 'failed') => {
+    finish: vi.fn(async (id: string, status: 'sent' | 'failed' | 'cancelled') => {
       communications.get(id)!.status = status
     }),
   }
@@ -201,6 +201,28 @@ describe('runMonthlyReportForOrg', () => {
     expect(res).toMatchObject({ status: 'sent', sent: 0, suppressed: 1, failed: 1 })
     expect(recipientRows.map((r) => r.status)).toEqual(['suppressed', 'failed'])
     expect(communications.get(monthlyReportCommunicationId('org-1', '2026-09'))?.status).toBe('failed')
+  })
+
+  it('BL-109: every recipient held by the outbound guard — cancelled (held), never failed', async () => {
+    const { store, communications, recipientRows } = fakeStore()
+    const deps = fakeDeps({ sendEmail: vi.fn(async () => ({ ok: false as const, error: OUTBOUND_BLOCKED_ERROR })) })
+    const res = await runMonthlyReportForOrg(store, deps, { org: ORG, month: null, now: CRON_NOW, source: 'cron' }, logger())
+    expect(res).toMatchObject({ sent: 0, suppressed: 2, failed: 0 })
+    expect(recipientRows.map((r) => r.status)).toEqual(['suppressed', 'suppressed'])
+    expect(communications.get(monthlyReportCommunicationId('org-1', '2026-09'))?.status).toBe('cancelled')
+  })
+
+  it('BL-109: one held, one delivered — sent', async () => {
+    const { store, communications } = fakeStore()
+    const deps = fakeDeps({
+      sendEmail: vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, error: OUTBOUND_BLOCKED_ERROR })
+        .mockResolvedValueOnce({ ok: true, messageId: 'm-2' }),
+    })
+    const res = await runMonthlyReportForOrg(store, deps, { org: ORG, month: null, now: CRON_NOW, source: 'cron' }, logger())
+    expect(res).toMatchObject({ sent: 1, suppressed: 1, failed: 0 })
+    expect(communications.get(monthlyReportCommunicationId('org-1', '2026-09'))?.status).toBe('sent')
   })
 
   it("uses the association's zone to decide which month just ended", async () => {
