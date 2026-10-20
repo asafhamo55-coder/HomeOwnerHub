@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { CheckCircle2, Eye, Mail, MailX, MessageSquareText, Reply, Sparkles, Users } from 'lucide-react'
 import {
   Alert,
@@ -26,13 +26,25 @@ import { getPrimaryAssociation } from '@/lib/vendors'
 import { getCommunication, type CommunicationDetail } from '@/lib/communications/queries'
 import { pickDisplaySubject, resolveHtmlForDisplay } from '@/lib/communications/display'
 import { COMMUNICATION_CATEGORY, COMMUNICATION_STATUS, DELIVERY_STATUS } from '@/lib/status/community'
-import { followUpAudience, resultsHeadline, rollupByHome } from '@/lib/communications/results'
+import {
+  followUpAudience,
+  groupRecipientsByHome,
+  homeLabel,
+  resultsHeadline,
+  rollupByHome,
+  type HomeChannelChip,
+  type HomeGroup,
+} from '@/lib/communications/results'
+import { draftHref } from '@/lib/communications/drafts'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadOrFail } from '@/lib/load-or-fail'
 import { smsConfigured } from '@/lib/sms'
 import { CommunicationActions } from './CommunicationActions'
 
 export const metadata = { title: 'Message' }
 
 type Recipient = CommunicationDetail['recipients'][number]
+type Home = HomeGroup<Recipient> & { label: string | null }
 
 const CHANNEL_LABEL: Record<string, string> = {
   email: 'Email',
@@ -41,7 +53,8 @@ const CHANNEL_LABEL: Record<string, string> = {
   mail: 'Mail',
 }
 
-/** Recipient views. "Problems" is what a board opens this page to find. */
+/** Recipient views, applied per home: a home shows when any of its rows
+ *  match. "Problems" is what a board opens this page to find. */
 const VIEWS = {
   all: { label: 'All', match: () => true },
   problems: {
@@ -61,7 +74,10 @@ const VIEWS = {
 } as const
 type View = keyof typeof VIEWS
 
-const RECIPIENTS_PER_PAGE = 50
+const HOMES_PER_PAGE = 50
+
+/** Units are read in chunks so the id list stays well inside a URL. */
+const UNIT_CHUNK = 150
 
 /** Point the typography plugin's colours at the theme tokens, so the body
  *  preview reads correctly in both themes with no per-theme class. */
@@ -91,6 +107,8 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
   if (!assoc) notFound()
   const comm = await getCommunication(assoc.id, id)
   if (!comm) notFound()
+  // BL-102 A9: a draft has no results; it opens in the composer.
+  if (comm.status === 'draft') redirect(draftHref(comm.id))
 
   // Subject/body are stored as templates ({{amount_summary}}, ...); resolve them
   // to what recipients actually saw before rendering, per communications/display.ts.
@@ -109,12 +127,19 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
     (r) => r.channel === 'email' && r.delivery_status === 'failed',
   ).length
 
-  // Recipients: every row is loaded (counts above are over all of them);
-  // the table filters and pages that list in memory via the URL.
+  // BL-102 A8: recipients grouped by home, one table row each, with the
+  // per-channel rows on expand. Every row is loaded (counts above are over
+  // all of them); the table filters and pages the homes in memory via the URL.
+  const unitAddress = await loadUnitAddresses(comm.recipients)
+  const homes: Home[] = groupRecipientsByHome(comm.recipients).map((g) => ({
+    ...g,
+    label: g.unitId ? homeLabel(unitAddress.get(g.unitId)) : null,
+  }))
   const view: View = sp.view && sp.view in VIEWS ? (sp.view as View) : 'all'
-  const viewRows = comm.recipients.filter(VIEWS[view].match)
+  const homesIn = (v: View) => homes.filter((h) => h.rows.some(VIEWS[v].match))
+  const viewHomes = homesIn(view)
   const page = parsePageParam(sp.page)
-  const pageRows = viewRows.slice((page - 1) * RECIPIENTS_PER_PAGE, page * RECIPIENTS_PER_PAGE)
+  const pageHomes = viewHomes.slice((page - 1) * HOMES_PER_PAGE, page * HOMES_PER_PAGE)
   const base = `/communications/${comm.id}`
   const hrefFor = (v: View, p = 1) => {
     const q = new URLSearchParams()
@@ -140,48 +165,53 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
   const followUp = comm.status === 'sent' ? followUpAudience(comm.audience_definition, rollup) : null
   const textingReady = smsConfigured()
 
-  const columns: DataTableColumn<Recipient>[] = [
+  const columns: DataTableColumn<Home>[] = [
     {
-      key: 'recipient',
-      header: 'Recipient',
+      key: 'home',
+      header: 'Home',
       mobilePrimary: true,
-      cell: (r) => (
+      cell: (h) => (
         <div className="min-w-0">
-          <p className="font-medium text-foreground">{r.recipient_name ?? 'Resident'}</p>
-          <p className="truncate text-xs text-muted">
-            {r.channel === 'email' ? r.email ?? '—' : r.channel === 'sms' ? r.phone ?? '—' : 'Portal'}
+          <p className="font-medium text-foreground">
+            {h.label ?? h.names[0] ?? (h.unitId ? 'Home' : 'Recipient')}
           </p>
-          {/* Null means unknown (pre-dates rendered_subject, or the render
-              threw) — not empty, so it stays silent rather than showing "—". */}
-          {r.rendered_subject && r.rendered_subject !== displaySubject.text ? (
-            <p className="mt-0.5 max-w-xs truncate text-xs text-muted" title={r.rendered_subject}>
-              Subject: {r.rendered_subject}
-            </p>
+          {h.label && h.names.length > 0 ? (
+            <p className="truncate text-xs text-muted">{h.names.join(', ')}</p>
+          ) : h.names.length > 1 ? (
+            <p className="truncate text-xs text-muted">{h.names.slice(1).join(', ')}</p>
           ) : null}
+          {h.unitId ? null : <p className="text-xs text-muted">Not linked to a home</p>}
+          <details className="mt-1 text-xs">
+            <summary className="cursor-pointer text-primary">
+              {h.rows.length === 1 ? 'Delivery details' : `Delivery details (${h.rows.length})`}
+            </summary>
+            <ul className="mt-2 space-y-2 border-l border-border pl-3">
+              {h.rows.map((r) => (
+                <RecipientDetail key={r.id} r={r} displaySubject={displaySubject.text} />
+              ))}
+            </ul>
+          </details>
         </div>
       ),
     },
     {
-      key: 'channel',
-      header: 'Channel',
-      hideBelowLg: true,
-      cell: (r) => <span className="text-foreground-secondary">{CHANNEL_LABEL[r.channel] ?? r.channel}</span>,
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      cell: (r) => (
-        <div className="space-y-1">
-          <StatusBadge status={r.delivery_status} tones={DELIVERY_STATUS.tones} labels={DELIVERY_STATUS.labels} />
-          {r.error_message ? <p className="max-w-[16rem] text-xs text-danger">{r.error_message}</p> : null}
-        </div>
+      key: 'channels',
+      header: 'Channels',
+      cell: (h) => (
+        <ul className="flex flex-wrap gap-1.5" aria-label="Channels">
+          {h.channels.map((c) => (
+            <li key={c.channel}>
+              <ChannelChip chip={c} />
+            </li>
+          ))}
+        </ul>
       ),
     },
     {
       key: 'last',
       header: 'Last activity',
       className: 'whitespace-nowrap text-foreground-secondary',
-      cell: (r) => <LastActivity r={r} />,
+      cell: (h) => <LastActivity rows={h.rows} />,
     },
   ]
 
@@ -317,7 +347,7 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
       <section id="recipients" className="scroll-mt-20 space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold text-foreground">
-            Recipients <span className="num font-normal text-muted">({comm.recipients.length})</span>
+            Homes <span className="num font-normal text-muted">({homes.length})</span>
           </h2>
           {comm.recipients.length > 0 ? (
             <FilterChips
@@ -327,7 +357,7 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
                 label: VIEWS[v].label,
                 href: hrefFor(v),
                 active: view === v,
-                count: comm.recipients.filter(VIEWS[v].match).length,
+                count: homesIn(v).length,
               }))}
             />
           ) : null}
@@ -344,28 +374,28 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
           />
         ) : (
           <DataTable
-            caption="Recipients and delivery status"
+            caption="Homes and delivery status, one row per home"
             columns={columns}
-            rows={pageRows}
-            rowKey={(r) => r.id}
+            rows={pageHomes}
+            rowKey={(h) => h.key}
             mobile="cards"
             empty={
               <EmptyState
                 variant="compact"
-                title={`No ${VIEWS[view].label.toLowerCase()} recipients`}
+                title={`No homes: ${VIEWS[view].label.toLowerCase()}`}
                 description="Nothing in this view."
               />
             }
             footer={
-              viewRows.length > RECIPIENTS_PER_PAGE ? (
+              viewHomes.length > HOMES_PER_PAGE ? (
                 <Pager
                   page={page}
-                  pageSize={RECIPIENTS_PER_PAGE}
-                  total={viewRows.length}
-                  rowCount={pageRows.length}
+                  pageSize={HOMES_PER_PAGE}
+                  total={viewHomes.length}
+                  rowCount={pageHomes.length}
                   hrefFor={(p) => hrefFor(view, p)}
                   linkAs={Link}
-                  noun="recipients"
+                  noun="homes"
                 />
               ) : undefined
             }
@@ -412,18 +442,99 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
   )
 }
 
-/** The most recent thing that happened to this recipient, with its time. */
-function LastActivity({ r }: { r: Recipient }) {
-  const events: [string, string | null][] = [
-    ['Failed', r.failed_at],
-    ['Replied', r.replied_at],
-    ['Opened', r.opened_at],
-    ['Delivered', r.delivered_at],
-    ['Sent', r.sent_at],
-  ]
-  const latest = events
-    .filter((e): e is [string, string] => Boolean(e[1]))
-    .sort((a, b) => b[1].localeCompare(a[1]))[0]
+/** The most recent thing that happened to these rows, with its time. */
+function LastActivity({ rows }: { rows: readonly Recipient[] }) {
+  const events: [string, string][] = []
+  for (const r of rows) {
+    const candidates: [string, string | null][] = [
+      ['Failed', r.failed_at],
+      ['Replied', r.replied_at],
+      ['Opened', r.opened_at],
+      ['Delivered', r.delivered_at],
+      ['Sent', r.sent_at],
+    ]
+    for (const [label, at] of candidates) if (at) events.push([label, at])
+  }
+  const latest = events.sort((a, b) => b[1].localeCompare(a[1]))[0]
   if (!latest) return <span className="text-muted">—</span>
   return <LocalDateTime iso={latest[1]} variant="short" prefix={latest[0]} />
+}
+
+const REACHED = new Set(['sent', 'delivered', 'opened', 'clicked', 'replied'])
+
+/**
+ * One channel of one home: "Email: Opened", "Texted", "In portal". A text
+ * or portal row is never "not opened" (BL-102 A8).
+ */
+function chipLabel(c: HomeChannelChip): string {
+  const status = DELIVERY_STATUS.labels[c.status] ?? c.status
+  const base =
+    c.channel === 'sms' && REACHED.has(c.status)
+      ? 'Texted'
+      : c.channel === 'portal' && REACHED.has(c.status)
+        ? 'In portal'
+        : `${CHANNEL_LABEL[c.channel] ?? c.channel}: ${status}`
+  return c.count > 1 ? `${base} ×${c.count}` : base
+}
+
+function ChannelChip({ chip }: { chip: HomeChannelChip }) {
+  return (
+    <StatusBadge
+      status={chip.status}
+      tones={DELIVERY_STATUS.tones}
+      labels={{ [chip.status]: chipLabel(chip) }}
+    />
+  )
+}
+
+/** The per-channel row, as the table showed it before homes were grouped. */
+function RecipientDetail({ r, displaySubject }: { r: Recipient; displaySubject: string }) {
+  return (
+    <li className="space-y-0.5">
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="font-medium text-foreground">{CHANNEL_LABEL[r.channel] ?? r.channel}</span>
+        <StatusBadge status={r.delivery_status} tones={DELIVERY_STATUS.tones} labels={DELIVERY_STATUS.labels} />
+      </p>
+      <p className="truncate text-muted">
+        {r.recipient_name ?? 'Resident'}
+        {' · '}
+        {r.channel === 'email' ? (r.email ?? '—') : r.channel === 'sms' ? (r.phone ?? '—') : 'Portal'}
+      </p>
+      {/* Null means unknown (pre-dates rendered_subject, or the render
+          threw) — not empty, so it stays silent rather than showing "—". */}
+      {r.rendered_subject && r.rendered_subject !== displaySubject ? (
+        <p className="max-w-xs truncate text-muted" title={r.rendered_subject}>
+          Subject: {r.rendered_subject}
+        </p>
+      ) : null}
+      {r.error_message ? <p className="max-w-[20rem] text-danger">{r.error_message}</p> : null}
+      <p className="text-foreground-secondary">
+        <LastActivity rows={[r]} />
+      </p>
+    </li>
+  )
+}
+
+/**
+ * Each home's address for the grouped table. A failed read only costs the
+ * address (homes then show the resident's name), never the results.
+ */
+async function loadUnitAddresses(
+  recipients: readonly Recipient[],
+): Promise<Map<string, { address_line1: string | null; unit_number: string | null }>> {
+  const ids = [...new Set(recipients.map((r) => r.unit_id).filter((x): x is string => Boolean(x)))]
+  const out = new Map<string, { address_line1: string | null; unit_number: string | null }>()
+  if (ids.length === 0) return out
+  const supabase = await getSupabaseServerClient()
+  for (let i = 0; i < ids.length; i += UNIT_CHUNK) {
+    const res = await loadOrFail(
+      'home addresses',
+      supabase.from('units').select('id, address_line1, unit_number').in('id', ids.slice(i, i + UNIT_CHUNK)),
+    )
+    if (!res.ok) return out
+    for (const u of (res.data ?? []) as { id: string; address_line1: string | null; unit_number: string | null }[]) {
+      out.set(u.id, { address_line1: u.address_line1, unit_number: u.unit_number })
+    }
+  }
+  return out
 }

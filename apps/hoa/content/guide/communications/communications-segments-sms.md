@@ -6,7 +6,7 @@ topic: communications
 roles: [admin, board]
 routes: ["/communications/new", "/communications/[id]"]
 primary_route: /communications/new
-keywords: [a street, street, homes on, owners on, all homes, all owners, renters, homes behind on dues, someone outside the HOA, more options, urgent, follow up, email again, text them, haven't opened, opted out, opt in, texting not set up, audience, segment, group, recipients, who gets it, owners only, tenants only, late on dues, delinquent, open violations, specific property, one home, board only, custom contacts, vendor, attorney, sms, text message, texting, character limit, "279 characters", long text, delivery, delivered, opened, bounced, failed, resend, not opened, notice, who opened, outside people, non-residents]
+keywords: [homes list, per home, one row per home, delivery details, channel chips, texted, in portal, a street, street, homes on, owners on, all homes, all owners, renters, homes behind on dues, someone outside the HOA, more options, urgent, follow up, email again, text them, haven't opened, opted out, opt in, texting not set up, audience, segment, group, recipients, who gets it, owners only, tenants only, late on dues, delinquent, open violations, specific property, one home, board only, custom contacts, vendor, attorney, sms, text message, texting, character limit, "279 characters", long text, delivery, delivered, opened, bounced, failed, resend, not opened, notice, who opened, outside people, non-residents]
 related: [communications-send-announcement, inbox-reply-to-resident]
 reviewed: 2026-10-20
 ---
@@ -27,7 +27,7 @@ The message's own page starts with **Did people get it?**: how many homes were r
 
 To follow up with the homes that haven't opened, select **Email again to the … who haven't opened**, or **Text them**. A new message opens, already filled in with "Reminder:" and those homes. Check it and select Send. Nothing goes out until you do.
 
-**Delivered**, **Opened**, **Replied** and **Failed** sit below. Filter the recipient list by [[Failed]], [[Opened]] or [[Email not opened]] to see each person's status. If some emails failed, select **Resend to … failed** to try those people again.
+**Delivered**, **Opened**, **Replied** and **Failed** sit below. The **Homes** list has one row per home, with a chip for each channel: "Email: Opened", "Texted", "In portal" or "Email: Failed". Select **Delivery details** under a home to see each person, their email or phone, and what happened. Filter by [[Failed]], [[Opened]] or [[Email not opened]] to see only the homes with that status. If some emails failed, select **Resend to … failed** to try those people again.
 
 ## If something goes wrong
 - "Nobody matches right now": that group has nobody with contact details on file, so you can't pick it.
@@ -47,5 +47,6 @@ To follow up with the homes that haven't opened, select **Email again to the …
 - Residents who turned off email don't get the email.
 - People with no phone number on file get no text. Board members are never texted.
 - **Resend** only retries failed emails, not texts.
+- Two people at one home show as one row. A chip like "Email: Opened ×2" means two emails went to that home, and at least one was opened. People with no home, like the board or someone outside the HOA, get a row each.
 - Picking a template sets the channels from how urgent it is. If you already ticked channels yourself, a template doesn't change them.
 - Portal on or off is under **More options** on the last step.

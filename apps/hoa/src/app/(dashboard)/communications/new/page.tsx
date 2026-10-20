@@ -6,6 +6,7 @@ import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getCommunication, listTemplates } from '@/lib/communications/queries'
+import { loadDraft } from '@/lib/communications/draft-actions'
 import { buildFollowUpDraft, parseFollowUpVia, type FollowUpDraft } from '@/lib/communications/follow-up'
 import { countAudiences } from '@/lib/communications/audience'
 import { loadStreetOptions } from '@/lib/communications/streets'
@@ -39,12 +40,16 @@ export default async function NewCommunicationPage({
    * `?property=<id>`: opened from a property page's "Message owner".
    * `?from=budget-notice`: opened from the owner budget notice (BL-091).
    * `?followUp=<id>&via=email|text`: from a results page (BL-102 A8).
+   * `?draft=<id>`: resume an autosaved draft (BL-102 A9). Wins over the
+   * others, since the draft already holds what they pre-filled.
    */
-  searchParams: Promise<{ property?: string; from?: string; followUp?: string; via?: string }>
+  searchParams: Promise<{ property?: string; from?: string; followUp?: string; via?: string; draft?: string }>
 }) {
   const sp = await searchParams
-  const initialPropertyId = parsePropertyParam(sp.property)
-  const prefillFrom = sp.from === BUDGET_NOTICE_FROM ? BUDGET_NOTICE_FROM : null
+  const resumeDraft = sp.draft ? await loadDraft(sp.draft) : null
+  const draftMissing = Boolean(sp.draft) && resumeDraft === null
+  const initialPropertyId = resumeDraft ? null : parsePropertyParam(sp.property)
+  const prefillFrom = !resumeDraft && sp.from === BUDGET_NOTICE_FROM ? BUDGET_NOTICE_FROM : null
   const assoc = await getPrimaryAssociation()
   if (!assoc) {
     return (
@@ -155,7 +160,7 @@ export default async function NewCommunicationPage({
   const via = parseFollowUpVia(sp.via)
   let followUp: FollowUpDraft | null = null
   let followUpUnavailable = false
-  if (sp.followUp && UUID_RE.test(sp.followUp) && via) {
+  if (!resumeDraft && sp.followUp && UUID_RE.test(sp.followUp) && via) {
     const original = await getCommunication(assoc.id, sp.followUp)
     followUp =
       original && (via === 'email' || smsConfigured())
@@ -177,6 +182,11 @@ export default async function NewCommunicationPage({
       title="New message"
       description="Pick a template or write your own, choose who gets it, review, send. Every message and its delivery history are kept under Communications."
     >
+      {draftMissing ? (
+        <Alert variant="warning" title="That draft isn’t here any more">
+          It was sent or deleted. You can start a new message below.
+        </Alert>
+      ) : null}
       {followUpUnavailable ? (
         <Alert variant="warning" title="No follow-up to send">
           That message has no homes left to follow up, or its audience can’t be followed up this way. You can
@@ -191,6 +201,9 @@ export default async function NewCommunicationPage({
       ) : null}
       <Card className="overflow-hidden">
         <NewCommunicationWizard
+          // A fresh composer per visit: client state must not carry over
+          // from a draft (or another message) the board just left.
+          key={resumeDraft?.id ?? `new-${Date.now()}`}
           templates={templates.map((t) => ({
             id: t.id,
             category: t.category,
@@ -214,6 +227,7 @@ export default async function NewCommunicationPage({
           smsConfigured={smsConfigured()}
           streets={streets}
           followUp={followUp}
+          resumeDraft={resumeDraft}
         />
       </Card>
     </Page>

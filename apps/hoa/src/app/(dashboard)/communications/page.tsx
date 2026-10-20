@@ -18,7 +18,9 @@ import {
 } from '@homeowner-portal/ui'
 import { LocalDateTime } from '@/components/ui/LocalDateTime'
 import { getPrimaryAssociation } from '@/lib/vendors'
-import { listCommunications, type CommunicationSummary } from '@/lib/communications/queries'
+import { countDrafts, listCommunications, type CommunicationSummary } from '@/lib/communications/queries'
+import { draftHref, draftTitle } from '@/lib/communications/drafts'
+import { DeleteDraftButton } from './DeleteDraftButton'
 import { pickDisplaySubject } from '@/lib/communications/display'
 import { COMMUNICATION_CATEGORY, COMMUNICATION_STATUS } from '@/lib/status/community'
 import { CategoryFilter } from './CategoryFilter'
@@ -43,6 +45,14 @@ const CHANNEL_LABEL: Record<string, string> = {
 
 /** Status chips, in the order a board thinks about them. */
 const STATUS_FILTERS = ['draft', 'scheduled', 'sent', 'failed'] as const
+
+/** BL-102 A9: autosaved drafts get their own chip and stay out of "All". */
+const STATUS_CHIP_LABEL: Record<(typeof STATUS_FILTERS)[number], string> = {
+  draft: 'Drafts',
+  scheduled: COMMUNICATION_STATUS.labels.scheduled,
+  sent: COMMUNICATION_STATUS.labels.sent,
+  failed: COMMUNICATION_STATUS.labels.failed,
+}
 
 interface PageProps {
   searchParams: Promise<{ category?: string; status?: string; page?: string }>
@@ -76,14 +86,20 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
   const category = sp.category && sp.category in COMMUNICATION_CATEGORY ? sp.category : undefined
   const status = sp.status && sp.status in COMMUNICATION_STATUS.labels ? sp.status : undefined
   const page = parsePageParam(sp.page)
-  const result = await timed('/communications', 'communications.list', () =>
-    listCommunications(assoc.id, {
-      category,
-      status,
-      page,
-      pageSize: PAGE_SIZE,
-    }),
-  )
+  const showingDrafts = status === 'draft'
+  const [result, draftCount] = await Promise.all([
+    timed('/communications', 'communications.list', () =>
+      listCommunications(assoc.id, {
+        category,
+        status,
+        // Drafts never count in the list's delivery figures (BL-102 A9).
+        excludeDrafts: true,
+        page,
+        pageSize: PAGE_SIZE,
+      }),
+    ),
+    countDrafts(assoc.id),
+  ])
   const comms = result.ok ? result.rows : []
   const total = result.ok ? result.total : 0
   const filtered = Boolean(category || status)
@@ -113,12 +129,16 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
     ...c,
     // What a resident actually received, not the template. Exact when
     // every recipient got the same rendered subject; otherwise the row is
-    // marked personalized rather than implying one value.
-    displaySubject: pickDisplaySubject({
-      subject: c.subject,
-      associationName: assoc.name,
-      renderedSubjects: c.renderedSubjects,
-    }),
+    // marked personalized rather than implying one value. A draft shows
+    // what the board typed, or "Untitled draft".
+    displaySubject:
+      c.status === 'draft'
+        ? { text: draftTitle(c.subject), exact: true, personalizedFields: [] }
+        : pickDisplaySubject({
+            subject: c.subject,
+            associationName: assoc.name,
+            renderedSubjects: c.renderedSubjects,
+          }),
   }))
 
   const columns: DataTableColumn<Row>[] = [
@@ -143,7 +163,7 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <Link
-                  href={`/communications/${c.id}`}
+                  href={c.status === 'draft' ? draftHref(c.id) : `/communications/${c.id}`}
                   className="font-medium text-foreground no-underline hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {c.displaySubject.text}
@@ -182,7 +202,14 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
       header: 'Delivery',
       className: 'min-w-[12rem]',
       cell: (c) =>
-        c.totalRecipients > 0 ? (
+        c.status === 'draft' ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="secondary" size="xs">
+              <Link href={draftHref(c.id)}>Resume</Link>
+            </Button>
+            <DeleteDraftButton draftId={c.id} title={c.displaySubject.text} size="xs" />
+          </div>
+        ) : c.totalRecipients > 0 ? (
           <DeliveryBar
             sent={c.sentCount}
             failed={c.failedCount}
@@ -204,7 +231,7 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
         ) : c.scheduled_for ? (
           <LocalDateTime iso={c.scheduled_for} variant="short" prefix="Scheduled" />
         ) : (
-          <LocalDateTime iso={c.created_at} variant="date-only" prefix="Created" />
+          <LocalDateTime iso={c.created_at} variant="date-only" prefix={c.status === 'draft' ? 'Started' : 'Created'} />
         ),
     },
   ]
@@ -225,7 +252,7 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
     >
       {!result.ok ? (
         <LoadFailed what="communications" />
-      ) : total === 0 && !filtered ? (
+      ) : total === 0 && !filtered && !draftCount ? (
         <EmptyState
           icon={<Mail aria-hidden />}
           title="No messages yet"
@@ -242,6 +269,12 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
         />
       ) : (
         <>
+          {showingDrafts ? (
+            <p className="text-sm text-foreground-secondary">
+              Messages you started and haven’t sent. They save as you type, nobody receives them, and they aren’t
+              counted in delivery results. Open one to finish it, or delete it.
+            </p>
+          ) : (
           <section aria-label="Delivery summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Kpi
               label="Messages"
@@ -272,6 +305,7 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
               }
             />
           </section>
+          )}
 
           <ListToolbar>
             <FilterChips
@@ -280,9 +314,10 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
               items={[
                 { label: 'All', href: hrefFor({}), active: !status },
                 ...STATUS_FILTERS.map((s) => ({
-                  label: COMMUNICATION_STATUS.labels[s],
+                  label: STATUS_CHIP_LABEL[s],
                   href: hrefFor({ status: s }),
                   active: status === s,
+                  ...(s === 'draft' && draftCount ? { count: draftCount } : {}),
                 })),
               ]}
             />
@@ -299,8 +334,12 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
               <EmptyState
                 variant="compact"
                 icon={<SearchX aria-hidden />}
-                title="No messages match these filters"
-                description="Try another status or category."
+                title={showingDrafts ? 'No drafts' : 'No messages match these filters'}
+                description={
+                  showingDrafts
+                    ? 'A message you start saves here as a draft until you send it.'
+                    : 'Try another status or category.'
+                }
                 action={
                   <Button asChild variant="secondary" size="sm">
                     <Link href="/communications">Clear filters</Link>
