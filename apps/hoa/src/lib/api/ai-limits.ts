@@ -24,6 +24,7 @@ export type AiUsageBucket =
   | 'translate'
   | 'follow_up_letter'
   | 'resident_assistant'
+  | 'inbox_autodraft'
 
 export interface RateWindow {
   /** Max calls inside the window. */
@@ -99,6 +100,18 @@ export const AI_RATE_LIMITS: Record<AiUsageBucket, AiRateLimit> = {
     perOrg: { limit: 600, windowMs: DAY_MS },
     noun: 'assistant messages',
     suffix: 'You can still use Requests to ask the board.',
+  },
+  // Inbox draft-on-open (BL-101 A3). Board-only, but it fires without a
+  // click every time a board member opens a thread that needs a reply, so
+  // it draws on a bucket. A busy board answers a few dozen threads a day;
+  // the per-org ceiling stops a runaway loop or a spam wave from running
+  // the bill up. Over the limit the panel falls back to the manual
+  // "Draft a reply" button, which is not limited.
+  inbox_autodraft: {
+    perUser: { limit: 60, windowMs: HOUR_MS },
+    perOrg: { limit: 300, windowMs: DAY_MS },
+    noun: 'automatic drafts',
+    suffix: 'You can still select Draft a reply.',
   },
 }
 

@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { Alert, FilterChips } from '@homeowner-portal/ui'
-import type { InboxFilter, MailboxStatus } from '@/lib/inbox/queries'
+import type { InboxFilter, InboxOwnerFilter, MailboxStatus } from '@/lib/inbox/queries'
+import { INBOX_OWNER_FILTERS, inboxQuery } from '@/lib/inbox/navigation'
 import { backfillBanner, type MailboxStatusRead } from '@/lib/inbox/backfill-banner'
 
 export const INBOX_FILTERS: Array<{ key: InboxFilter; label: string }> = [
@@ -26,9 +27,11 @@ export const INBOX_FILTER_LABEL = Object.fromEntries(
 /** Status chips. Counts come from `countThreadsByStatus`, which throws on failure — never a fake 0. */
 export function InboxFilterChips({
   filter,
+  owner = 'all',
   counts,
 }: {
   filter: InboxFilter
+  owner?: InboxOwnerFilter
   counts: Partial<Record<InboxFilter, number>>
 }) {
   return (
@@ -38,9 +41,29 @@ export function InboxFilterChips({
       className="w-fit max-w-full"
       items={INBOX_FILTERS.map((option) => ({
         label: option.label,
-        href: `/inbox?filter=${option.key}`,
+        href: `/inbox${inboxQuery({ filter: option.key, owner })}`,
         active: option.key === filter,
         count: counts[option.key] ?? 0,
+      }))}
+    />
+  )
+}
+
+/**
+ * Mine / Unassigned / All (BL-101 A6). Narrows whichever status chip is
+ * active; the status counts above follow it. No counts of its own: they
+ * would be three more queries for a number the status chips already show.
+ */
+export function InboxOwnerChips({ filter, owner }: { filter: InboxFilter; owner: InboxOwnerFilter }) {
+  return (
+    <FilterChips
+      label="Whose conversations"
+      linkAs={Link}
+      className="w-fit max-w-full"
+      items={INBOX_OWNER_FILTERS.map((option) => ({
+        label: option.label,
+        href: `/inbox${inboxQuery({ filter, owner: option.key })}`,
+        active: option.key === owner,
       }))}
     />
   )

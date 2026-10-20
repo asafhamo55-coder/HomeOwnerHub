@@ -30,6 +30,9 @@ vi.mock('@/lib/supabase/server', () => ({
           return chain
         }),
         eq: vi.fn(() => chain),
+        // BL-101: the auto-assign after queueing is conditional on
+        // assigned_to IS NULL.
+        is: vi.fn(async () => ({ error: null })),
         select: vi.fn(() => chain),
         maybeSingle: vi.fn(async () => ({
           data: { id: 'draft-1', thread_id: 'thread-1' },

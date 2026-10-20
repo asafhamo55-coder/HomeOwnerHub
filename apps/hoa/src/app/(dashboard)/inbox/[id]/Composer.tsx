@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, BookOpen, Send } from 'lucide-react'
 import { Alert, Button, Field, Input, Textarea } from '@homeowner-portal/ui'
 import { hasUnfilledBlanks, UNDO_WINDOW_SECONDS } from '@/lib/inbox/draft/blanks'
+import { INBOX_APPROVE_CLOSE_EVENT, INBOX_EDIT_EVENT } from '@/lib/inbox/keys'
 import type { DraftAttachment, ThreadDraft } from '@/lib/inbox/queries'
 import { AttachmentPicker } from './AttachmentPicker'
 import { RecipientFields } from './RecipientFields'
@@ -16,11 +17,22 @@ export interface ApproveInput {
   cc: string[]
 }
 
+export interface ApproveOptions {
+  /** BL-101 A3: close the thread once the reply is queued. */
+  closeThread: boolean
+}
+
 interface Props {
   draft: ThreadDraft
   pending: boolean
   actionError: string | null
-  onApprove: (input: ApproveInput) => void
+  onApprove: (input: ApproveInput, options: ApproveOptions) => void
+  /**
+   * A reply on a thread: offer "Approve and send" (closes the thread, the
+   * default) beside "Approve, keep open". Off for compose and forwards,
+   * which send exactly as before.
+   */
+  canClose?: boolean
   attachments: DraftAttachment[]
   threadFiles: Array<{ id: string; fileName: string; sizeBytes: number }>
   libraryFiles: Array<{ id: string; name: string; type: string; sizeBytes: number }>
@@ -37,6 +49,7 @@ export function Composer({
   pending,
   actionError,
   onApprove,
+  canClose = false,
   attachments,
   threadFiles,
   libraryFiles,
@@ -72,6 +85,37 @@ export function Composer({
   const blanksLeft = hasUnfilledBlanks(subject) || hasUnfilledBlanks(body)
   const blocked = blanksLeft || noRecipients
 
+  // Keyboard (BL-101 A3): "a" approves and closes, "e" puts the cursor in
+  // the message. Both arrive as window events from InboxKeyboard. "a" goes
+  // through the same `blocked` gate as the button, so a draft with a blank
+  // or no recipient cannot be sent by keyboard either; approveDraft
+  // re-checks everything server-side regardless.
+  const bodyRef = useRef<HTMLTextAreaElement | null>(null)
+  const latest = useRef({ blocked, pending, subject, body, to, cc, canClose, onApprove })
+  latest.current = { blocked, pending, subject, body, to, cc, canClose, onApprove }
+  useEffect(() => {
+    function approveClose() {
+      const now = latest.current
+      if (now.blocked || now.pending) return
+      now.onApprove(
+        { subject: now.subject, body: now.body, to: now.to, cc: now.cc },
+        { closeThread: now.canClose },
+      )
+    }
+    function edit() {
+      const field = bodyRef.current
+      if (!field) return
+      field.focus()
+      field.setSelectionRange(field.value.length, field.value.length)
+    }
+    window.addEventListener(INBOX_APPROVE_CLOSE_EVENT, approveClose)
+    window.addEventListener(INBOX_EDIT_EVENT, edit)
+    return () => {
+      window.removeEventListener(INBOX_APPROVE_CLOSE_EVENT, approveClose)
+      window.removeEventListener(INBOX_EDIT_EVENT, edit)
+    }
+  }, [])
+
   return (
     <section aria-label={HEADING[draft.kind]} className="rounded-xl border border-border bg-surface">
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
@@ -100,6 +144,7 @@ export function Composer({
 
         <Field label="Message">
           <Textarea
+            ref={bodyRef}
             value={body}
             onChange={(event) => setBody(event.target.value)}
             rows={12}
@@ -163,15 +208,28 @@ export function Composer({
               ? 'Fill in or remove every highlighted blank before sending.'
               : `You can undo for ${UNDO_WINDOW_SECONDS} seconds after approving.`}
         </p>
-        <Button
-          type="button"
-          disabled={blocked}
-          loading={pending}
-          icon={<Send aria-hidden />}
-          onClick={() => onApprove({ subject, body, to, cc })}
-        >
-          Approve and send
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {canClose ? (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={blocked || pending}
+              onClick={() => onApprove({ subject, body, to, cc }, { closeThread: false })}
+            >
+              Approve, keep open
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            disabled={blocked}
+            loading={pending}
+            icon={<Send aria-hidden />}
+            onClick={() => onApprove({ subject, body, to, cc }, { closeThread: canClose })}
+            title={canClose ? 'Sends the reply, closes this conversation and opens the next one (shortcut: a)' : undefined}
+          >
+            Approve and send
+          </Button>
+        </div>
       </div>
     </section>
   )

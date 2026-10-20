@@ -1,7 +1,9 @@
 import Link from 'next/link'
-import { AlertCircle, Home, HelpCircle, Paperclip } from 'lucide-react'
+import { AlertCircle, Clock, Home, HelpCircle, Paperclip, UserRound } from 'lucide-react'
 import { Avatar, cn } from '@homeowner-portal/ui'
-import type { ThreadListItem } from '@/lib/inbox/queries'
+import type { InboxFilter, InboxOwnerFilter, ThreadListItem } from '@/lib/inbox/queries'
+import { inboxQuery } from '@/lib/inbox/navigation'
+import { DEFAULT_INBOX_SLA_HOURS, waitingInfo, type InboxSlaHours, type WaitingTone } from '@/lib/inbox/waiting'
 import { formatShortDate } from '@/lib/format-datetime'
 
 // `unitId` is ground truth for "did this thread actually get matched" —
@@ -35,19 +37,40 @@ const ATTRIBUTION_STYLE: Record<Attribution['tone'], { className: string; Icon: 
   none: { className: 'text-muted', Icon: HelpCircle },
 }
 
+// Waiting badge (BL-101 A6): neutral under the org's warn threshold, amber
+// past it (48h by default), red past overdue (5 days). Text, not colour
+// alone, carries the meaning.
+const WAITING_STYLE: Record<WaitingTone, string> = {
+  normal: 'bg-subtle text-foreground-secondary',
+  warn: 'bg-warning-subtle text-warning',
+  overdue: 'bg-danger-subtle text-danger',
+}
+
 export function ThreadList({
   threads,
   selectedId,
   filter,
+  owner = 'all',
   page = 1,
+  now,
+  sla = DEFAULT_INBOX_SLA_HOURS,
+  assigneeNames = {},
+  currentUserId = null,
 }: {
   threads: ThreadListItem[]
   selectedId?: string
-  filter: string
+  filter: InboxFilter
+  owner?: InboxOwnerFilter
   /** List page these threads came from, carried so the list pane stays put when one is opened. */
   page?: number
+  /** Render time, passed in so every row is measured against the same instant. */
+  now: number
+  sla?: InboxSlaHours
+  /** profiles id → display name, for the assignee line. */
+  assigneeNames?: Record<string, string>
+  currentUserId?: string | null
 }) {
-  const qs = `?filter=${filter}${page > 1 ? `&page=${page}` : ''}`
+  const qs = inboxQuery({ filter, owner, page })
   return (
     <ul className="divide-y divide-border">
       {threads.map((thread) => {
@@ -75,6 +98,13 @@ export function ThreadList({
                     {thread.lastMessageAt ? formatShortDate(thread.lastMessageAt) : ''}
                   </span>
                 </div>
+                <WaitingAndOwner
+                  thread={thread}
+                  now={now}
+                  sla={sla}
+                  assigneeNames={assigneeNames}
+                  currentUserId={currentUserId}
+                />
                 <p className="flex items-center gap-1.5 text-sm text-foreground">
                   <span className="truncate">{thread.subject ?? '(no subject)'}</span>
                   {thread.hasAttachments ? (
@@ -103,5 +133,46 @@ export function ThreadList({
         )
       })}
     </ul>
+  )
+}
+
+function WaitingAndOwner({
+  thread,
+  now,
+  sla,
+  assigneeNames,
+  currentUserId,
+}: {
+  thread: ThreadListItem
+  now: number
+  sla: InboxSlaHours
+  assigneeNames: Record<string, string>
+  currentUserId: string | null
+}) {
+  const waiting = waitingInfo(thread, now, sla)
+  const assignee = thread.assignedTo
+    ? thread.assignedTo === currentUserId
+      ? 'You'
+      : (assigneeNames[thread.assignedTo] ?? 'Assigned')
+    : null
+  if (!waiting && !assignee) return null
+  return (
+    <p className="flex flex-wrap items-center gap-1.5 text-xs">
+      {waiting ? (
+        <span
+          className={cn('num inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium', WAITING_STYLE[waiting.tone])}
+          title="Time since the resident's last message with no reply"
+        >
+          <Clock className="size-3" aria-hidden />
+          {waiting.label}
+        </span>
+      ) : null}
+      {assignee ? (
+        <span className="inline-flex min-w-0 items-center gap-1 text-muted">
+          <UserRound className="size-3 shrink-0" aria-hidden />
+          <span className="truncate">{assignee}</span>
+        </span>
+      ) : null}
+    </p>
   )
 }

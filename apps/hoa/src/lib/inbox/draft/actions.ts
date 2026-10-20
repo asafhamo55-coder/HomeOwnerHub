@@ -43,6 +43,7 @@ import { normalizeRecipients } from './recipients'
 import { attachmentNameProblem, MAX_ATTACHMENT_BYTES } from './attachments'
 import { buildForwardSubject, buildForwardBody } from './forward'
 import { addDraftAttachment } from './attachment-actions'
+import { setThreadStatus } from '@/lib/inbox/actions'
 
 export async function createDraft(
   threadId: string,
@@ -351,7 +352,14 @@ export async function draftVendorRequest(input: {
 export async function approveDraft(
   draftId: string,
   input: { subject: string; body: string; to: string[]; cc: string[] },
-): Promise<{ ok: true; sendAfter: string } | { error: string }> {
+  /**
+   * BL-101 A3. `closeThread`: "Approve and send" closes the thread once the
+   * reply is queued (the default in the composer); "Approve, keep open"
+   * passes false. Omitted means false, so every other caller (compose,
+   * forward, vendor request) behaves exactly as before.
+   */
+  options: { closeThread?: boolean } = {},
+): Promise<{ ok: true; sendAfter: string; threadClosed: boolean } | { error: string }> {
   const { org } = await requireBoardOrAdmin()
   const { subject, body } = input
 
@@ -470,8 +478,62 @@ export async function approveDraft(
     return { error: 'Could not schedule the send. The draft is still here — try again.' }
   }
 
+  const threadClosed = data.thread_id
+    ? await afterApproveThreadEffects(supabase, org.id, data.thread_id, user.id, options.closeThread === true)
+    : false
+
   revalidatePath(`/inbox/${data.thread_id}`)
-  return { ok: true, sendAfter }
+  return { ok: true, sendAfter, threadClosed }
+}
+
+/**
+ * What an approved reply does to its THREAD (BL-101 A3 + A6). Runs after
+ * the reply is queued and never un-queues it: both effects are
+ * conveniences on top of a reply that is already on its way, so a failure
+ * is logged by code and the approve still succeeds.
+ *
+ *   1. Replying to an unassigned thread assigns it to the replier (the
+ *      Front pattern). Conditional on `assigned_to IS NULL`, so it never
+ *      takes a thread from someone it was given to.
+ *   2. `closeThread` closes it through the existing `setThreadStatus`. If
+ *      the resident writes back, ingest reopens it (reopensClosedThread).
+ *
+ * Returns whether the thread is now closed, so the composer knows to move
+ * on to the next thread.
+ */
+async function afterApproveThreadEffects(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  orgId: string,
+  threadId: string,
+  userId: string,
+  closeThread: boolean,
+): Promise<boolean> {
+  try {
+    const { error: assignError } = await supabase
+      .from('inbox_threads')
+      .update({ assigned_to: userId })
+      .eq('id', threadId)
+      .eq('organization_id', orgId)
+      .is('assigned_to', null)
+    if (assignError) {
+      console.error(`approveDraft: auto-assign failed for thread ${threadId}: ${assignError.code}`)
+    }
+  } catch (error) {
+    console.error(
+      `approveDraft: auto-assign threw for thread ${threadId}: ${error instanceof Error ? error.name : 'UnknownError'}`,
+    )
+  }
+
+  if (!closeThread) return false
+  const form = new FormData()
+  form.set('threadId', threadId)
+  form.set('status', 'closed')
+  const closed = await setThreadStatus({}, form)
+  if (closed.error) {
+    console.error(`approveDraft: closing thread ${threadId} failed after queueing`)
+    return false
+  }
+  return true
 }
 
 export async function cancelDraft(draftId: string): Promise<{ ok: true } | { error: string }> {
@@ -496,6 +558,23 @@ export async function cancelDraft(draftId: string): Promise<{ ok: true } | { err
   }
   if (!data) {
     return { error: 'Too late — this reply has already been sent.' }
+  }
+
+  // An undone reply means the resident is still unanswered, so a thread
+  // that "Approve and send" just closed goes back into the queue (BL-101
+  // A3). Conditional on 'closed'; any other status is left alone. Not
+  // fatal: the cancel itself already happened.
+  if (data.thread_id) {
+    const { error: reopenError } = await supabase
+      .from('inbox_threads')
+      .update({ status: 'needs_review' })
+      .eq('id', data.thread_id)
+      .eq('organization_id', org.id)
+      .eq('status', 'closed')
+    if (reopenError) {
+      console.error(`cancelDraft: reopen failed for thread ${data.thread_id}: ${reopenError.code}`)
+    }
+    revalidatePath('/inbox')
   }
 
   revalidatePath(`/inbox/${data.thread_id}`)

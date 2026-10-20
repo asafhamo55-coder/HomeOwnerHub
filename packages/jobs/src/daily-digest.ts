@@ -1,6 +1,10 @@
 import { createAdminClient } from '@homeowner-portal/db'
 import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
 import { inngest } from './client'
+// Dependency-free (no imports of its own), shared with the inbox list so the
+// digest's "waiting" means exactly what the badge means. Same relative-path
+// pattern as mailbox-attachments.ts -> attachment-state.ts.
+import { loadInboxSlaHours, waitingCutoffIso } from '../../../apps/hoa/src/lib/inbox/waiting'
 
 /**
  * Morning health check across every active HOA org, 7am Eastern.
@@ -29,6 +33,12 @@ import { inngest } from './client'
  * way round. The HOA app passes its `sendEmail`, which runs every recipient
  * through the outbound safety guard (BL-004); this job also hands it the
  * org's sandbox flag. Logs carry org/mailbox ids and counts only.
+ *
+ * BL-101 A6: the same morning email also says how many residents have been
+ * waiting longer than the org's warn threshold (48h by default) for a
+ * reply, and how many of those are assigned to the recipient. Counts only,
+ * no subjects or names, and board members only; residents get nothing. A
+ * board with nothing waiting and a healthy mailbox gets no email at all.
  *
  * The Inngest function id stays 'daily-digest' deliberately. Changing an
  * id registers a NEW function and leaves the old one scheduled, so the
@@ -76,6 +86,8 @@ type Db = { from: (table: string) => any }
 export interface DailyDigestResult {
   processed: number
   brokenMailboxes: number
+  /** Threads waiting past the warn threshold, summed across orgs. */
+  waitingThreads: number
   emailed: number
   failed: number
 }
@@ -155,6 +167,95 @@ export function buildMailboxAlert(args: {
   return { subject, html, text }
 }
 
+// ─── Waiting residents (BL-101 A6) ─────────────────────────────────
+
+export interface WaitingSummary {
+  /** The org's warn threshold, in hours. */
+  hours: number
+  /** Thread ids and assignees only, never subjects or senders. */
+  threads: Array<{ id: string; assigned_to: string | null }>
+}
+
+/**
+ * Threads waiting on the board for longer than the warn threshold: newest
+ * message inbound, not closed, still in the Gmail inbox, last message
+ * older than the cutoff. The same rule as the inbox's waiting badge
+ * (apps/hoa/src/lib/inbox/waiting.ts). Returns null on a failed read
+ * (logged by code) so a failure never reads as "nobody is waiting".
+ */
+export async function loadWaitingThreads(
+  db: Db,
+  orgId: string,
+  now: number,
+  logger: DigestLogger,
+): Promise<WaitingSummary | null> {
+  const { warn } = await loadInboxSlaHours(db, orgId)
+  const { data, error } = await db
+    .from('inbox_threads')
+    .select('id, assigned_to')
+    .eq('organization_id', orgId)
+    .eq('last_direction', 'inbound')
+    .neq('status', 'closed')
+    .not('gmail_state', 'in', '("archived","trashed")')
+    .lt('last_message_at', waitingCutoffIso(now, warn))
+  if (error) {
+    logger.error(`[daily-digest] ${orgId}: failed to count waiting threads`, { code: error.code })
+    return null
+  }
+  return { hours: warn, threads: (data ?? []) as WaitingSummary['threads'] }
+}
+
+/** The waiting block for one recipient. `mine` is how many of them are assigned to that person. */
+export function buildWaitingBlock(args: {
+  total: number
+  mine: number
+  hours: number
+  inboxUrl: string
+}): { line: string; text: string; html: string } {
+  const { total, mine, hours, inboxUrl } = args
+  const who = total === 1 ? '1 resident' : `${total} residents`
+  const line = `${who} waiting more than ${Math.round(hours)}h (${mine} assigned to you)`
+  const text = [line, `Open the Inbox: ${inboxUrl}`].join('\n')
+  const html = `
+  <div style="border:1px solid #e5e7eb;border-left:4px solid #b45309;border-radius:6px;padding:16px;margin:16px 0">
+    <p style="margin:0 0 12px;font-weight:600">${escapeHtml(line)}</p>
+    <a href="${escapeHtml(inboxUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Open the Inbox</a>
+  </div>`
+  return { line, text, html }
+}
+
+/**
+ * One recipient's morning email: the mailbox alert when a mailbox is
+ * broken, the waiting block when residents are waiting, or both.
+ */
+export function buildDigestEmail(args: {
+  orgName: string
+  mailboxes: BrokenMailbox[]
+  reconnectUrl: string
+  waiting: { total: number; mine: number; hours: number; inboxUrl: string } | null
+}): { subject: string; html: string; text: string } {
+  const block = args.waiting && args.waiting.total > 0 ? buildWaitingBlock(args.waiting) : null
+  if (args.mailboxes.length > 0) {
+    const alert = buildMailboxAlert(args)
+    if (!block) return alert
+    return {
+      subject: alert.subject,
+      text: `${alert.text}\n\n${block.text}`,
+      html: alert.html.replace(/<\/div>\s*$/, `${block.html}\n</div>`),
+    }
+  }
+  const who = args.waiting && args.waiting.total === 1 ? '1 resident' : `${args.waiting?.total ?? 0} residents`
+  const text = [
+    `Good morning. This is your daily check from HomeownerHub for ${args.orgName}.`,
+    '',
+    block ? block.text : '',
+  ].join('\n')
+  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:14px;line-height:1.5;color:#111827">
+  <p>Good morning. This is your daily check from HomeownerHub for ${escapeHtml(args.orgName)}.</p>${block ? block.html : ''}
+</div>`
+  return { subject: `${who} waiting for a reply — ${args.orgName}`, html, text }
+}
+
 // ─── Recipients ─────────────────────────────────────────────────────
 
 /** One board/admin member who can be emailed. */
@@ -219,10 +320,10 @@ export async function loadBoardRecipients(db: Db, orgId: string): Promise<BoardR
   return out
 }
 
-/** Board/admin email addresses for one org. Never residents. [] (logged) on a failed read. */
-async function boardEmails(db: Db, orgId: string, logger: DigestLogger): Promise<string[]> {
+/** Board/admin recipients for one org. Never residents. [] (logged) on a failed read. */
+async function boardRecipients(db: Db, orgId: string, logger: DigestLogger): Promise<BoardRecipient[]> {
   try {
-    return (await loadBoardRecipients(db, orgId)).map((r) => r.email)
+    return await loadBoardRecipients(db, orgId)
   } catch (err) {
     if (!(err instanceof BoardRecipientsError)) throw err
     const what = err.stage === 'members' ? 'board members' : 'board profiles'
@@ -250,8 +351,10 @@ export async function runDailyDigest(
   }
 
   let brokenTotal = 0
+  let waitingTotal = 0
   let emailed = 0
   let failed = 0
+  const now = Date.now()
 
   for (const org of (orgs ?? []) as { id: string; name: string | null }[]) {
     const orgId = org.id
@@ -266,16 +369,31 @@ export async function runDailyDigest(
     if (brokenMailboxesError) {
       // A failed check here must not read as "nothing is broken" — log
       // it (message/code only; PostgrestError.details can carry row
-      // values) and keep going to the next org.
+      // values). The waiting reminder below still runs: it does not
+      // depend on this read.
       logger.error(`[daily-digest] ${orgId}: failed to check mailbox sync status`, {
         code: brokenMailboxesError.code,
         message: brokenMailboxesError.message,
       })
-      continue
     }
 
-    const broken = (brokenMailboxes ?? []) as BrokenMailbox[]
-    if (broken.length === 0) continue
+    const broken = (brokenMailboxesError ? [] : (brokenMailboxes ?? [])) as BrokenMailbox[]
+
+    let waiting: WaitingSummary | null = null
+    try {
+      waiting = await loadWaitingThreads(db, orgId, now, logger)
+    } catch (err) {
+      logger.error(`[daily-digest] ${orgId}: waiting-thread check failed`, {
+        message: err instanceof Error ? err.name : 'unknown',
+      })
+    }
+    const waitingCount = waiting?.threads.length ?? 0
+    waitingTotal += waitingCount
+    if (broken.length === 0 && waitingCount === 0) continue
+    if (waitingCount > 0) {
+      // A count, never which residents.
+      logger.info(`[daily-digest] ${orgId}: ${waitingCount} thread(s) waiting past the threshold`)
+    }
 
     for (const mailbox of broken) {
       brokenTotal += 1
@@ -284,22 +402,32 @@ export async function runDailyDigest(
     }
 
     try {
-      const recipients = await boardEmails(db, orgId, logger)
+      const recipients = await boardRecipients(db, orgId, logger)
       if (recipients.length === 0) {
         logger.warn(`[daily-digest] ${orgId}: no board member with an email to alert`)
         continue
       }
 
-      const alert = buildMailboxAlert({
-        orgName: org.name ?? 'your community',
-        mailboxes: broken,
-        reconnectUrl: deps.appUrl('/settings/mailbox'),
-      })
       const outbound = { orgSandbox: await fetchOrgSandbox(db, orgId), ref: orgId }
 
       let orgSent = 0
       let orgFailed = 0
-      for (const to of recipients) {
+      for (const { userId, email: to } of recipients) {
+        // Per recipient: "M assigned to you" differs by person.
+        const alert = buildDigestEmail({
+          orgName: org.name ?? 'your community',
+          mailboxes: broken,
+          reconnectUrl: deps.appUrl('/settings/mailbox'),
+          waiting:
+            waiting && waitingCount > 0
+              ? {
+                  total: waitingCount,
+                  mine: waiting.threads.filter((t) => t.assigned_to === userId).length,
+                  hours: waiting.hours,
+                  inboxUrl: deps.appUrl('/inbox?filter=all'),
+                }
+              : null,
+        })
         try {
           const res = await deps.sendEmail({ to, ...alert }, outbound)
           if (res.ok) orgSent += 1
@@ -311,17 +439,23 @@ export async function runDailyDigest(
       emailed += orgSent
       failed += orgFailed
       logger.info(
-        `[daily-digest] ${orgId}: mailbox alert sent to ${orgSent} board member(s), ${orgFailed} not delivered`,
+        `[daily-digest] ${orgId}: digest sent to ${orgSent} board member(s), ${orgFailed} not delivered`,
       )
     } catch (err) {
       // One org's failure must not stop the others being told.
-      logger.error(`[daily-digest] ${orgId}: mailbox alert failed`, {
+      logger.error(`[daily-digest] ${orgId}: digest failed`, {
         message: err instanceof Error ? err.name : 'unknown',
       })
     }
   }
 
-  return { processed: (orgs ?? []).length, brokenMailboxes: brokenTotal, emailed, failed }
+  return {
+    processed: (orgs ?? []).length,
+    brokenMailboxes: brokenTotal,
+    waitingThreads: waitingTotal,
+    emailed,
+    failed,
+  }
 }
 
 export function createDailyDigestJob(deps: DailyDigestDeps) {

@@ -1,12 +1,14 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { CheckCircle2, Sparkles, Undo2, XCircle } from 'lucide-react'
 import { Alert, Button } from '@homeowner-portal/ui'
 import { createDraft, approveDraft, cancelDraft } from '@/lib/inbox/draft/actions'
+import { autoDraftOnOpen } from '@/lib/inbox/autodraft-actions'
 import { UNDO_WINDOW_SECONDS } from '@/lib/inbox/draft/blanks'
 import type { DraftAttachment, ThreadDraft } from '@/lib/inbox/queries'
-import { Composer, type ApproveInput } from './Composer'
+import { Composer, type ApproveInput, type ApproveOptions } from './Composer'
 import { AMBER_BOX } from './draft-ui'
 
 /**
@@ -28,11 +30,76 @@ interface Props {
   attachments: DraftAttachment[]
   threadFiles: Array<{ id: string; fileName: string; sizeBytes: number }>
   libraryFiles: Array<{ id: string; name: string; type: string; sizeBytes: number }>
+  /**
+   * BL-101 A3. Set when the page decided this thread should draft itself on
+   * open (lib/inbox/autodraft.ts): the newest inbound message id, i.e. the
+   * thread version being answered. Null on the compose page and whenever a
+   * draft for this version already exists.
+   */
+  autoDraftVersion?: string | null
+  /**
+   * Where "Approve and send" goes once the thread is closed: the next
+   * thread that needs a reply, else the list. The page appends the undo
+   * parameters so the 30-second Undo stays reachable there.
+   */
+  nextHref?: string | null
 }
 
-export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryFiles }: Props) {
+/**
+ * Per-version guard for draft-on-open. sessionStorage survives a reopen in
+ * the same tab; the in-memory set covers a browser that refuses storage
+ * and React's double-mounted effects in development.
+ */
+const autoDraftStarted = new Set<string>()
+function claimAutoDraft(key: string): boolean {
+  if (autoDraftStarted.has(key)) return false
+  autoDraftStarted.add(key)
+  try {
+    if (window.sessionStorage.getItem(key)) return false
+    window.sessionStorage.setItem(key, '1')
+  } catch {
+    // Storage blocked (private mode): the in-memory set still guards.
+  }
+  return true
+}
+
+export function DraftPanel({
+  threadId,
+  draft,
+  attachments,
+  threadFiles,
+  libraryFiles,
+  autoDraftVersion = null,
+  nextHref = null,
+}: Props) {
+  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [actionError, setActionError] = useState<string | null>(null)
+  const [autoDrafting, setAutoDrafting] = useState(false)
+
+  // Draft-on-open. The server re-checks eligibility and the AI rate limit
+  // (autoDraftOnOpen), then calls the same createDraft as the button. Its
+  // revalidatePath re-renders the page with the new draft in place.
+  useEffect(() => {
+    if (!threadId || !autoDraftVersion) return
+    if (!claimAutoDraft(`inbox-autodraft:${threadId}:${autoDraftVersion}`)) return
+    let live = true
+    setAutoDrafting(true)
+    setActionError(null)
+    autoDraftOnOpen(threadId)
+      .then((result) => {
+        if (live && 'error' in result) setActionError(result.error)
+      })
+      .catch(() => {
+        if (live) setActionError('Could not draft a reply right now.')
+      })
+      .finally(() => {
+        if (live) setAutoDrafting(false)
+      })
+    return () => {
+      live = false
+    }
+  }, [threadId, autoDraftVersion])
 
   function handleCreate() {
     if (!threadId) return
@@ -48,12 +115,21 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
   // this panel returns early on 'sent', 'queued'/'sending' and 'failed', so a
   // button in here could never be reached on a thread that had already been
   // replied to, which is the commonest reason to forward one.
-  function handleApprove(input: ApproveInput) {
+  function handleApprove(input: ApproveInput, options: ApproveOptions) {
     if (!draft) return
     setActionError(null)
     startTransition(async () => {
-      const result = await approveDraft(draft.id, input)
-      if ('error' in result) setActionError(result.error)
+      const result = await approveDraft(draft.id, input, { closeThread: options.closeThread })
+      if ('error' in result) {
+        setActionError(result.error)
+        return
+      }
+      // "Next": the reply is queued and the thread closed, so move on.
+      // The undo parameters keep this reply's Undo on the next page.
+      if (result.threadClosed && nextHref && threadId) {
+        const separator = nextHref.includes('?') ? '&' : '?'
+        router.push(`${nextHref}${separator}undo=${draft.id}&from=${threadId}`)
+      }
     })
   }
 
@@ -64,6 +140,31 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
       const result = await cancelDraft(draft.id)
       if ('error' in result) setActionError(result.error)
     })
+  }
+
+  // ── 0. Drafting on open — a skeleton where the draft will appear ──
+  if (autoDrafting && (!draft || draft.status === 'sent' || draft.status === 'cancelled')) {
+    return (
+      <section
+        aria-label="Reply"
+        aria-busy="true"
+        className="space-y-3 rounded-xl border border-border bg-surface p-4"
+      >
+        <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <Sparkles className="size-4 animate-pulse text-primary" aria-hidden />
+          Drafting…
+        </p>
+        <div className="space-y-2" aria-hidden>
+          <div className="h-3 w-3/4 animate-pulse rounded bg-subtle" />
+          <div className="h-3 w-full animate-pulse rounded bg-subtle" />
+          <div className="h-3 w-5/6 animate-pulse rounded bg-subtle" />
+          <div className="h-3 w-2/3 animate-pulse rounded bg-subtle" />
+        </div>
+        <p className="text-xs text-muted">
+          AI is drafting a reply from your documents and this home&apos;s record. Nothing sends until you approve it.
+        </p>
+      </section>
+    )
   }
 
   // ── 1. No draft yet ──
@@ -100,9 +201,22 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
         className="flex items-start gap-3 rounded-xl border border-success/25 bg-success-subtle p-4 text-sm"
       >
         <CheckCircle2 className="mt-0.5 size-[18px] shrink-0 text-success" aria-hidden />
-        <div className="min-w-0">
-          <p className="font-semibold text-foreground">{SENT_HEADLINE[draft.kind]}</p>
-          <p className="mt-0.5 truncate text-xs text-foreground-secondary">{draft.subject}</p>
+        <div className="min-w-0 flex-1 space-y-2">
+          <div>
+            <p className="font-semibold text-foreground">{SENT_HEADLINE[draft.kind]}</p>
+            <p className="mt-0.5 truncate text-xs text-foreground-secondary">{draft.subject}</p>
+          </div>
+          {/* The resident wrote again after this was sent (a new thread
+              version). Normally that drafts itself; if it could not, the
+              board still needs a way to answer. */}
+          {threadId && autoDraftVersion ? (
+            <>
+              {actionError ? <Alert variant="error">{actionError}</Alert> : null}
+              <Button size="sm" loading={pending} onClick={handleCreate} icon={<Sparkles aria-hidden />}>
+                Draft a reply
+              </Button>
+            </>
+          ) : null}
         </div>
       </section>
     )
@@ -227,6 +341,7 @@ export function DraftPanel({ threadId, draft, attachments, threadFiles, libraryF
       pending={pending}
       actionError={actionError}
       onApprove={handleApprove}
+      canClose={threadId !== null && draft.kind === 'reply'}
       attachments={attachments}
       threadFiles={threadFiles}
       libraryFiles={libraryFiles}

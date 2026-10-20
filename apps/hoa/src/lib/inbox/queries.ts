@@ -436,10 +436,35 @@ function applyInboxFilter<
     or: (...args: any[]) => Q
     in: (...args: any[]) => Q
     not: (...args: any[]) => Q
+    is: (...args: any[]) => Q
   },
->(query: Q, filter: InboxFilter): Q {
-  const visible = applyGmailVisibility(query, true)
+>(query: Q, filter: InboxFilter, owner?: InboxOwnerScope): Q {
+  const visible = applyOwnerScope(applyGmailVisibility(query, true), owner)
   return filter === 'all' ? visible : applyStatusFilter(visible, filter)
+}
+
+/**
+ * The Mine / Unassigned / All split (BL-101 A6), over the existing
+ * `inbox_threads.assigned_to`. Orthogonal to the status filter: "Mine"
+ * narrows whichever status chip is active, and the chip counts follow it,
+ * because both go through `applyInboxFilter`.
+ */
+export type InboxOwnerFilter = 'all' | 'mine' | 'unassigned'
+
+export interface InboxOwnerScope {
+  owner: InboxOwnerFilter
+  /** The signed-in board member. Required for 'mine'. */
+  userId: string | null
+}
+
+function applyOwnerScope<Q extends { eq: (...args: any[]) => Q; is: (...args: any[]) => Q }>(
+  query: Q,
+  scope: InboxOwnerScope | undefined,
+): Q {
+  if (!scope || scope.owner === 'all') return query
+  if (scope.owner === 'unassigned') return query.is('assigned_to', null)
+  // 'mine' with no user id must match nothing rather than everything.
+  return query.eq('assigned_to', scope.userId ?? '00000000-0000-0000-0000-000000000000')
 }
 
 /**
@@ -469,6 +494,10 @@ export interface ThreadListItem {
    * a single "not in your inbox" label would leave a manager guessing.
    */
   gmailState: GmailThreadState
+  /** 'inbound' | 'outbound' | null — drives the waiting badge (lib/inbox/waiting.ts). */
+  lastDirection: string | null
+  /** Board member the thread is assigned to (profiles id), if any. */
+  assignedTo: string | null
 }
 
 /**
@@ -488,6 +517,7 @@ export interface ThreadListItem {
 export async function countThreadsByStatus(
   db: Db,
   orgId: string,
+  owner?: InboxOwnerScope,
 ): Promise<Record<InboxFilter, number>> {
   const statusFilters: StatusFilter[] = [
     'needs_review',
@@ -507,6 +537,7 @@ export async function countThreadsByStatus(
           .select('id', { count: 'exact', head: true })
           .eq('organization_id', orgId),
         filter,
+        owner,
       ),
     ),
   )
@@ -549,15 +580,19 @@ export async function listThreads(
   filter: InboxFilter,
   limit = INBOX_PAGE_SIZE,
   offset = 0,
+  owner?: InboxOwnerScope,
 ): Promise<ThreadListItem[]> {
   const query = applyInboxFilter(
     db
       .from('inbox_threads')
-      .select('id, subject, unit_id, match_confidence, status, last_message_at, gmail_state')
+      .select(
+        'id, subject, unit_id, match_confidence, status, last_message_at, gmail_state, last_direction, assigned_to',
+      )
       .eq('organization_id', orgId)
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .range(offset, offset + limit - 1),
     filter,
+    owner,
   )
 
   const { data: threads, error: threadsError } = await query
@@ -637,6 +672,8 @@ export async function listThreads(
       status: thread.status,
       hasAttachments: threadsWithFiles.has(thread.id),
       gmailState: (thread.gmail_state ?? 'unknown') as GmailThreadState,
+      lastDirection: thread.last_direction ?? null,
+      assignedTo: thread.assigned_to ?? null,
     }
   })
 }
@@ -679,6 +716,13 @@ export interface ThreadDetail {
   matchConfidence: string
   matchReason: Record<string, unknown> | null
   matchSource: string
+  // BL-101 A3/A6. Optional only so hand-built ThreadDetail fixtures in
+  // other suites keep compiling; getThreadDetail always sets all four.
+  /** Board member the thread is assigned to (profiles id), if any. */
+  assignedTo?: string | null
+  gmailState?: string
+  lastDirection?: string | null
+  lastMessageAt?: string | null
   messages: ThreadMessage[]
 }
 
@@ -742,7 +786,7 @@ export async function getThreadDetail(
   const { data: thread, error: threadError } = await db
     .from('inbox_threads')
     .select(
-      'id, subject, status, unit_id, vendor_id, match_confidence, match_reason, match_source',
+      'id, subject, status, unit_id, vendor_id, match_confidence, match_reason, match_source, assigned_to, gmail_state, last_direction, last_message_at',
     )
     .eq('organization_id', orgId)
     .eq('id', threadId)
@@ -831,6 +875,10 @@ export async function getThreadDetail(
     matchConfidence: thread.match_confidence,
     matchReason: thread.match_reason as Record<string, unknown> | null,
     matchSource: thread.match_source,
+    assignedTo: thread.assigned_to ?? null,
+    gmailState: thread.gmail_state ?? 'unknown',
+    lastDirection: thread.last_direction ?? null,
+    lastMessageAt: thread.last_message_at ?? null,
     messages: messageRows.map((message) => ({
       id: message.id,
       direction: message.direction as 'inbound' | 'outbound',
