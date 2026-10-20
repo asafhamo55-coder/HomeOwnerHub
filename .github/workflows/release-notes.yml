@@ -31,12 +31,15 @@ permissions:
   deployments: read
   # The "already sent" marker is a commit status on the deployed SHA.
   statuses: write
+  # Read the UI shots runs and download their screenshot artifacts.
+  actions: read
 
 jobs:
   notify:
     name: Email release note
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 15 min /api/health wait + up to 25 min for the UI shots run + the rest.
+    timeout-minutes: 55
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event.deployment_status.state == 'success' &&
@@ -209,6 +212,21 @@ jobs:
         if: steps.prev.outcome == 'success'
         run: pnpm install --frozen-lockfile
 
+      # Screenshots from .github/workflows/ui-shots.yml (seeded demo data on a
+      # throwaway CI Supabase — never production). The run for this SHA, or
+      # for the nearest of 20 ancestors with only docs changed since; waits
+      # up to 25 min for one in progress. Never blocks the email: on any
+      # problem it reports found=false and the email says screenshots are
+      # unavailable. docs/releases/README.md "Screenshots".
+      - name: Fetch UI shots
+        id: shots
+        if: steps.prev.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 30
+        env:
+          SHA: ${{ steps.sha.outputs.full }}
+        run: pnpm exec tsx scripts/release-notes/fetch-shots.ts --sha "$SHA" --out release-email/ui-shots --wait-minutes 25
+
       - name: Render
         if: steps.prev.outcome == 'success'
         env:
@@ -219,7 +237,13 @@ jobs:
           set -euo pipefail
           args=(--sha "$SHA" --deployed-at "$AT" --out release-email/preview.html --json release-email/payload.json)
           if [ -n "$PREV" ]; then args+=(--prev "$PREV"); fi
-          pnpm exec tsx scripts/release-notes/render.ts "${args[@]}"
+          # A missing or empty shots dir is fine: render adds "Screenshots
+          # unavailable for this deploy." If the shots themselves break the
+          # render, retry without them rather than lose the email.
+          if ! pnpm exec tsx scripts/release-notes/render.ts "${args[@]}" --ui-shots-dir release-email/ui-shots; then
+            echo "::warning::Render with UI shots failed; rendering without them."
+            pnpm exec tsx scripts/release-notes/render.ts "${args[@]}" --ui-shots-dir release-email/no-ui-shots
+          fi
 
       - name: Keep the preview
         if: steps.prev.outcome == 'success'

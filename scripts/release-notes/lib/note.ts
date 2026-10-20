@@ -12,6 +12,8 @@
 
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
+import YAML from 'yaml'
+import type { ShotRequest } from './ui-shots'
 
 export const RELEASE_TIME_ZONE = 'America/New_York'
 
@@ -30,6 +32,11 @@ export interface Screenshot {
   alt: string
   /** Absolute path on disk. */
   file: string
+  /**
+   * A full-page CI capture (ui-shots): cropped to MAX_HEIGHT from the top
+   * so a long page doesn't turn into a 5000px email image.
+   */
+  fromCi?: boolean
 }
 
 /** One docs/releases/*.md file. */
@@ -42,6 +49,8 @@ export interface NoteFile {
   deployedAt: string | null
   sections: Partial<Record<SectionName, string>>
   screenshots: Screenshot[]
+  /** The `shots:` front matter: routes to attach CI screenshots of. */
+  shots: ShotRequest[]
 }
 
 /** What the email is rendered from: one deploy, one or more notes. */
@@ -54,6 +63,10 @@ export interface ReleaseNote {
   sections: Partial<Record<SectionName, string>>
   screenshots: Screenshot[]
   source: 'file' | 'commits'
+  /** Routes whose CI screenshots to attach (the notes' `shots:` lists). Empty or absent: auto-select. */
+  shotRequests?: ShotRequest[]
+  /** Shown under Screenshots, e.g. when CI shots were wanted but none could be fetched. */
+  screenshotNotice?: string
   /** Note files used, when source is 'file'. */
   files: string[]
 }
@@ -134,6 +147,41 @@ export function parseScreenshots(markdown: string | undefined, baseDir: string):
   return shots
 }
 
+/**
+ * The optional `shots:` list from the front matter:
+ *
+ *   shots:
+ *     - route: /accounting/payment-plans
+ *       caption: Choosing the charges a plan replaces
+ *     - /approvals            # a bare route is fine too
+ *
+ * Read with a real YAML parser (the block is nested, which parseFrontmatter
+ * skips). Never throws: a malformed block or entry is dropped, because a
+ * screenshot must never stop the email. Routes must start with `/`.
+ */
+export function parseShotsFrontmatter(raw: string): ShotRequest[] {
+  const text = raw.replace(/^﻿/, '').replace(/\r\n/g, '\n')
+  const m = /^---\n([\s\S]*?)\n---/.exec(text)
+  if (!m) return []
+  let data: unknown
+  try {
+    data = YAML.parse(m[1]!)
+  } catch {
+    return []
+  }
+  const list = (data as { shots?: unknown } | null)?.shots
+  if (!Array.isArray(list)) return []
+  const out: ShotRequest[] = []
+  for (const item of list) {
+    const entry = typeof item === 'string' ? { route: item } : (item as { route?: unknown; caption?: unknown } | null)
+    const route = typeof entry?.route === 'string' ? entry.route.trim() : ''
+    if (!route.startsWith('/') || route.startsWith('//')) continue
+    const caption = typeof entry?.caption === 'string' && entry.caption.trim() ? entry.caption.trim() : undefined
+    out.push(caption ? { route, caption } : { route })
+  }
+  return out
+}
+
 const ISO_WITH_OFFSET = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?([+-]\d{2}:\d{2}|Z)$/
 
 export function parseNote(raw: string, file: string): NoteFile {
@@ -151,6 +199,7 @@ export function parseNote(raw: string, file: string): NoteFile {
     deployedAt,
     sections,
     screenshots: parseScreenshots(sections.Screenshots, path.dirname(file)),
+    shots: parseShotsFrontmatter(raw),
   }
 }
 
@@ -223,6 +272,7 @@ export function combineNotes(
     title,
     sections,
     screenshots: notes.flatMap((n) => n.screenshots),
+    shotRequests: notes.flatMap((n) => n.shots),
     source: 'file',
     files: notes.map((n) => n.file),
   }

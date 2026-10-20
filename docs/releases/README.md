@@ -23,6 +23,7 @@ the email is built from its commit subjects instead.
 | `title`       | yes      | Plain-language headline. It becomes the email subject. |
 | `deployed_at` | no       | ISO 8601 with offset, e.g. `2026-10-17T15:55:00-04:00`. CI passes the real deploy time, which takes precedence. |
 | `sha`         | no       | For your information only. It is used for one thing: finding a note written *after* its deploy (see "Late notes"). |
+| `shots`       | no       | Screens to attach from CI's UI shots. See "Screenshots from CI" below. |
 
 The email footer always shows the SHA that was actually deployed, taken from
 the workflow, never from the note.
@@ -78,9 +79,65 @@ Use `## ` headings, spelled exactly as below. Any other heading is ignored.
 - **Needs your action** (optional): shown as a highlighted callout near the top.
 - **Screenshots** (optional): `![caption](assets/<note-file-stem>/<name>.jpg)`,
   relative to this folder. Use demo or seed data only, never a real
-  customer's. At most 6 are attached. `render.ts` resizes each to at most
-  1200px wide and re-encodes it as JPEG, but commit images that are already
-  compressed to keep the repo small.
+  customer's. Usually you don't need this: CI attaches screenshots for you
+  (next section). At most 6 images are attached in total, committed ones
+  first. `render.ts` resizes each to at most 1200px wide and re-encodes it
+  as JPEG under 250 KB, but commit images that are already compressed to
+  keep the repo small.
+
+### Screenshots from CI (`shots:`)
+
+Screenshots can't be taken locally (there is no local database), so the
+email takes them from `.github/workflows/ui-shots.yml`, which captures every
+route in `scripts/ui-shots-list.ts` on each push to `claude/quality-oracle`,
+from seeded demo data on a throwaway CI Supabase. Its `ui-shots-<sha>`
+artifact holds `<shot name>--<width>-<theme>.png` for 375 and 1440 wide,
+light and dark.
+
+To choose the screens, list routes in the front matter. `caption` is
+optional; without it the caption is made from the route
+("Accounting › Payment plans").
+
+```yaml
+---
+title: Payment plans fixed
+shots:
+  - route: /accounting/payment-plans
+    caption: Choosing the charges a plan replaces
+  - route: /approvals?type=bill     # the query string is part of the match
+  - /dues                           # a bare route works too
+---
+```
+
+- A route matches a shot in `scripts/ui-shots-list.ts` with the same path
+  and query string, in the HOA app. When several match, the plain one wins
+  (no dialog, other org, viewport crop and so on). A dynamic route matches
+  a fixture: `/properties/[id]/edit` or `/properties/:propertyId/edit` both
+  find `properties-edit`. A route with no shot is skipped; to make one
+  available, add it to `scripts/ui-shots-list.ts`.
+- The email uses the **1440 light** file, or **375 light** if the shot has
+  no 1440 light variant. Full-page captures are cropped to the top 2400px.
+- **No `shots:` list** (or no note at all): up to 3 HOA pages changed in
+  the deploy are attached automatically. Each changed
+  `apps/hoa/src/app/**/page.tsx` maps to its route (route groups dropped),
+  and a dynamic route is used only if ui-shots has a fixture for it.
+  The `(dev)` gallery is never picked.
+- If screenshots were wanted but none could be found, the email says
+  "Screenshots unavailable for this deploy." It is never held back for them.
+
+**Which run.** `scripts/release-notes/fetch-shots.ts` looks for the UI
+shots run of the deployed SHA. Failing that, it uses the nearest of up to
+20 ancestors (`git rev-list` order) from which **only docs changed** up to
+the deployed SHA: every path is under `docs/` or is a top-level `.md` file.
+So a docs-only deploy commit on top of the tested one still gets that
+commit's shots, and a commit whose screens may differ from production is
+never used. A run still in progress is waited for, up to 25 minutes; after
+that it falls back to the next eligible commit with a finished run. A run
+that failed (for example on overflow) still uploads its shots and is used;
+one whose artifact expired (14 days) or never uploaded is skipped.
+
+Shots only ever come from CI's synthetic demo data, and the email still
+goes only to `RELEASE_NOTES_TO`.
 
 Supported Markdown: `### ` sub-headings, `-` bullets, paragraphs,
 `**bold**`, `*italic*`, `` `code` `` and `[links](https://...)`. Everything
@@ -105,7 +162,9 @@ The pm and eviction events are skipped. Then it:
    note either, it builds one from commit subjects: `feat` goes to What's
    new (grouped by scope), `fix` to Fixes, and everything else is counted
    under Under the hood.
-4. renders, uploads the preview HTML as a run artifact, sends through
+4. downloads the CI screenshots for the deploy (see "Screenshots from CI";
+   needs `actions: read`, which the workflow's `GITHUB_TOKEN` has).
+5. renders, uploads the preview HTML as a run artifact, sends through
    Resend, and marks the SHA with a `release-notes/email` commit status.
 
 **Dedupe:** a SHA that already has a successful `release-notes/email`
