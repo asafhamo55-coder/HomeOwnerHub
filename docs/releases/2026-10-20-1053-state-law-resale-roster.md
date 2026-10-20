@@ -29,7 +29,22 @@ Texas and Georgia boards can now prepare the paperwork a home sale needs, with t
 ### Messages
 - **Drafts tab:** now also lists inbox replies that are waiting for you, next to unsent announcements.
 
+### Bills from email
+- **Scan as a bill:** an invoice a vendor emails to the HOA (PDF or photo) can become a bill proposal in Approvals with one click: vendor, amount, due date and suggested account filled in. Nothing is entered or paid until a board member approves it. An invoice that's both uploaded and emailed is caught as a duplicate.
+
+### AI
+- **Board Copilot and state law:** the Copilot now looks up your state's HOA law with citations, and never answers law questions from memory.
+- **Fair-use limits** on two board AI features that had none: meeting summaries (10 a day) and Copilot questions (25 a day). These are well above normal use.
+
+### Dues reminders
+- **Held vs failed:** when the safety guard holds a reminder back, it now says "Held by safety guard" instead of "Failed".
+- **On phones:** the reminder email now fits the screen.
+
+### Help
+- **New help articles:** urgent notices by text, following up with residents who didn't open, and drafts. All help now refers to **Messages**.
+
 ### Other
+- **Dropdowns** are no longer greyed out as if read-only.
 - **Terms of Service** (marketing site): the description now says HOA management only. Nothing else in the terms changed.
 - **Tests** confirm that a retried violation draft from the walk-the-community queue is counted only once.
 
