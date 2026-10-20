@@ -107,16 +107,17 @@ Crons live only for the session and auto-expire after 7 days, so schedule a one-
   - A single test file can time out under load; re-run it alone.
   - The Inngest wiring contract test pins the job count (21 now). Bump it when you add a job.
 
-## 4. State (updated 2026-10-20 12:45 ET)
+## 4. State (updated 2026-10-20 13:55 ET)
 
-- **Live in prod:** `7b1c601b`, deployed 12:31 ET; release email sent. OA-9 (load FL/CA/TX law in prod) is runnable now.
-- **Integration tip:** pushed with release note `docs/releases/2026-10-20-1335-text-consent-ai-safety.md`; deploy at 13:35 ET or later if CI is green. It contains:
-  - BL-111 SMS consent per number, plus inbound STOP/START (flagged);
-  - BL-112 AI kill switch in every client;
-  - BL-104 pricing jobs and SMS allowance (behind PRICING_V2).
-- **Trap:** the Inngest job count is pinned in TWO tests: `tests/integration/contracts/inngest-wiring.test.ts` (24 now) and the unit route test. Bump both.
-- **Trap:** never `git commit -a` while a merge has unresolved conflicts; check `git diff --name-only --diff-filter=U` first.
-- **Backlog:** groomed. Pick from docs/backlog.md "Ranked open work (groomed 2026-10-20)". Open, no migration: #4 slow pages (needs Vercel logs), #8 analytics (in flight), #14 ⌘K latency (in flight), #15 CINC import (needs a sample file).
+- **Live in prod:** `e801921c`, deployed 13:44 ET; release email sent.
+- **Integration tip:** BL-117/119/120/121/122 plus the release note `docs/releases/2026-10-20-1450-tasks-handover-reserves-cpa-quorum.md`; deploy at 14:44 ET or later if CI is green.
+- **Owner start point:** OA-1 → `docs/specs/2026-10-20-sql-runbook.md` (40 ordered steps). Migration `0065_m2_prep.sql` is in the repo and CI-validated; the runbook's section H applies it.
+- **Traps:**
+  - The Inngest job count is pinned in TWO tests (24 now).
+  - Never `git commit -a` during an unresolved merge.
+  - After a lockfile change, run `pnpm install` in the main checkout.
+  - rtk's vitest summary can hide load failures: grep the raw output.
+- **Backlog:** round 2 in docs/backlog.md (BL-113..BL-122). BL-113/115/116/117/119/120/121/122 are done; BL-114 (payment receipts; needs a board opt-in, since it emails residents) and BL-118 (in flight) are open; BL-123 item 3 (records-request ticket category) needs the next migration.
 - **Classifier limits hit this session:**
   1. Writing a "nothing stays on Asaf" rule into next.md.
   2. Probing local credentials.
@@ -124,7 +125,7 @@ Crons live only for the session and auto-expire after 7 days, so schedule a one-
   4. An agent's `git stash drop`.
 
   None were worked around.
-- **Crons (this session):** hourly cycle `23 * * * *`; renewal one-shot on Oct 26 at 14:41. Recreate them per §3 in a new session.
+- **Crons (this session):** hourly cycle `23 * * * *`; renewal one-shot on Oct 26 at 14:41; deploy one-shot at 14:43. Recreate them per §3 in a new session.
 
 ## 5. Manual steps for Asaf: `docs/owner-actions.md`
 
@@ -134,11 +135,11 @@ The single list is `docs/owner-actions.md` (OA-1, OA-2…). Asaf asked on 2026-1
 - Most urgent: OA-1, migrations 0063 then M1 (subscription webhook writes fail until then). Also OA-14: turn on the Stripe webhook events `customer.subscription.updated` and `invoice.payment_failed`.
 - **Asaf, 2026-10-20:** even with items pending on him, keep allocating backlog items to the team (3–4 agents always busy).
 
-## 6. Work in flight (2026-10-20 12:45 ET)
+## 6. Work in flight (2026-10-20 13:55 ET)
 
-Worktree agents. If the session closes, check `/usr/bin/git worktree list` for `worktree-agent-*` branches with commits not in claude/quality-oracle.
-- **BL-009:** privacy-safe analytics (Vercel Web Analytics with scrubbed paths, 8 allowlisted events, behind NEXT_PUBLIC_ANALYTICS_ENABLED).
-- **BL-060:** ⌘K search latency (perfTimer and a CI p50/p95 measurement) plus slow-path fixes.
+- **BL-118:** meeting notice to owners (composer prefill, .ics, state notice-period warning, notice_posted_at only when M1_APPLIED).
+
+If the session closes, check `/usr/bin/git worktree list` for `worktree-agent-*` branches with commits not in claude/quality-oracle.
 
 ## 7. Next up
 
