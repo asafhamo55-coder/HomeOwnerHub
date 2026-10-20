@@ -19,6 +19,7 @@ import { sendEmail, appUrl } from '@/lib/email'
 import { isUsStateCode } from '@/lib/us-states'
 import { associationSlug } from '@/lib/association-setup'
 import { chunk, readAll } from '@/lib/supabase/read-all'
+import { loadDraftQuality, type DraftQuality } from '@/lib/inbox/draft/metrics-store'
 
 type AdminDb = ReturnType<typeof createAdminClient>
 
@@ -521,6 +522,16 @@ export interface PlatformAnalytics {
   feature_adoption: Array<{ feature: string; tenants_using: number; total_tenants: number }>
   workflows_30d: Array<{ workflow_id: string; runs: number }>
   tenant_health: TenantHealthRow[]
+}
+
+/**
+ * BL-101 A10, platform-wide: AI reply draft quality over the last 30 days
+ * across every tenant (numbers only — the rows hold no text). Service-role
+ * read, so it is gated here like every other cross-tenant read.
+ */
+export async function getPlatformDraftQuality(): Promise<DraftQuality> {
+  await requirePlatformAdmin()
+  return loadDraftQuality(createAdminClient())
 }
 
 export async function getAnalyticsData(): Promise<PlatformAnalytics> {
