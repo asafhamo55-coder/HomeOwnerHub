@@ -1,12 +1,12 @@
 ---
 id: resident-portal-basics
 title: "Your resident portal: pay dues, ask for approval, report a problem, update your details"
-summary: Pay your dues, ask the board to approve a change to your home, report a problem and keep your phone, email and mailing address up to date, from your phone.
+summary: Pay dues, ask the board to approve a change, report a problem, update your contact details and choose whether to get texts, from your phone.
 topic: resident
 roles: [resident]
 routes: ["/resident", "/resident/dues", "/resident/dues/pay", "/resident/arc", "/resident/arc/new", "/resident/tickets/new", "/resident/report-violation", "/resident/account"]
 primary_route: /resident
-keywords: [phone, email, mailing, address, contact, details, update, pay, dues, balance, zelle, statement, arc, approval, paint, fence, request, problem, repair, report, concern, announcements, documents, rules, check, guidelines]
+keywords: [text messages, texts, sms, opt in, agree to texts, stop texts, STOP, phone, email, mailing, address, contact, details, update, pay, dues, balance, zelle, statement, arc, approval, paint, fence, request, problem, repair, report, concern, announcements, documents, rules, check, guidelines]
 shots:
   - name: guide-resident-home
     alt: The resident home screen with the Pay button highlighted
@@ -15,7 +15,7 @@ shots:
   - name: guide-resident-arc-new
     alt: The New ARC application form with the Submit application button highlighted
 related: [resident-assistant]
-reviewed: 2026-10-19
+reviewed: 2026-10-20
 ---
 
 Everything you need is in the tabs at the bottom of the screen: Home, Dues, Requests, Ask and Account.
@@ -50,6 +50,13 @@ Everything you need is in the tabs at the bottom of the screen: Home, Dues, Requ
 3. Change what's wrong. Leave **Mailing address** empty if your mail goes to the home.
 4. Tap [[Send to the board]].
 
+### Get urgent notices by text
+1. Tap **Account** and scroll to **Text messages**. It shows the mobile number texts would go to. If it's wrong or missing, fix it under **My contact details** first.
+2. Read the terms and tick **I agree to receive text messages**. The box is never ticked for you.
+3. Tap [[Turn on text messages]].
+
+To stop, tap [[Stop text messages]] on the same screen, or reply STOP to any text. It takes effect right away. Your board can't turn texts on for you; only you can.
+
 ## What happens next
 - Your payment is matched to your home by the memo. Your balance updates when it arrives.
 - The board answers your requests in the portal. Check **Requests** to see the status.
@@ -63,3 +70,4 @@ Everything you need is in the tabs at the bottom of the screen: Home, Dues, Requ
 - Wait for the board's written approval before you start work on your home.
 - The email you sign in with doesn't change here. Only the email for notices does.
 - If you sign in with the email on file, you can't change that email here. Ask the board.
+- Texts are off until you agree. Without them you still get every message by email and in the portal. Message frequency varies, and your carrier's message and data rates may apply. Reply HELP to a text for help.

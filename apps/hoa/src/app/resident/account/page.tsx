@@ -12,6 +12,8 @@ import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { getCurrentOrg } from '@/lib/orgs'
 import { loadEmailConsent, type ConsentState } from '@/lib/email-consent'
 import { ElectronicNotices } from './ElectronicNotices'
+import { TextMessages } from './TextMessages'
+import { loadTextMessagesState, type TextMessagesState } from '@/lib/sms-consent'
 
 export const metadata = { title: 'Account' }
 export const dynamic = 'force-dynamic'
@@ -62,6 +64,17 @@ export default async function ResidentAccountPage() {
     if (orgId && memberId) {
       const res = await loadEmailConsent(actor.client, orgId)
       consent = !res.ok ? 'failed' : res.available ? (res.consent.get(memberId) ?? null) : undefined
+    }
+  }
+
+  // BL-110: the resident's own agreement to text messages. Needs an
+  // account (preferences are per user); viewing as an account-less owner
+  // shows nothing.
+  let texts: TextMessagesState | 'failed' | null = null
+  if (actor.id) {
+    const textOrg = await getCurrentOrg()
+    if (textOrg && (!actor.impersonating || actor.orgId === textOrg.id)) {
+      texts = await loadTextMessagesState(actor.client, textOrg, actor.id)
     }
   }
 
@@ -116,6 +129,8 @@ export default async function ResidentAccountPage() {
         signInEmail={contacts.ok ? contacts.data.signInEmail : null}
         readOnly={actor.impersonating}
       />
+
+      {texts !== null ? <TextMessages state={texts} readOnly={actor.impersonating} /> : null}
 
       {consent !== undefined ? <ElectronicNotices consent={consent} readOnly={actor.impersonating} /> : null}
 

@@ -6,8 +6,8 @@ topic: communications
 roles: [admin, board]
 routes: ["/communications/new", "/communications/[id]"]
 primary_route: /communications/new
-keywords: [homes list, per home, one row per home, delivery details, channel chips, texted, in portal, a street, street, homes on, owners on, all homes, all owners, renters, homes behind on dues, someone outside the HOA, more options, urgent, follow up, email again, text them, haven't opened, opted out, opt in, texting not set up, audience, segment, group, recipients, who gets it, owners only, tenants only, late on dues, delinquent, open violations, specific property, one home, board only, custom contacts, vendor, attorney, sms, text message, texting, character limit, "279 characters", long text, delivery, delivered, opened, bounced, failed, resend, not opened, notice, who opened, outside people, non-residents]
-related: [communications-send-announcement, communications-urgent-notice, communications-follow-up]
+keywords: [homes list, per home, one row per home, delivery details, channel chips, texted, in portal, a street, street, homes on, owners on, all homes, all owners, renters, homes behind on dues, someone outside the HOA, more options, urgent, follow up, email again, text them, haven't opened, opted out, opt in, agree to texts, text messages consent, reply stop, texting not set up, audience, segment, group, recipients, who gets it, owners only, tenants only, late on dues, delinquent, open violations, specific property, one home, board only, custom contacts, vendor, attorney, sms, text message, texting, character limit, "279 characters", long text, delivery, delivered, opened, bounced, failed, resend, not opened, notice, who opened, outside people, non-residents]
+related: [communications-send-announcement, communications-urgent-notice, communications-follow-up, inbox-reply-to-resident]
 reviewed: 2026-10-20
 ---
 
@@ -43,7 +43,7 @@ To follow up with the homes that haven't opened, select **Email again to the …
 - A follow-up only works for audiences of homes. It isn't offered for renters only, one home, the board or people outside the HOA. A text never opens, so a home that only got a text never counts as "not opened".
 - **Homes behind on dues** means a charge was due before today and isn't fully paid.
 - A text holds up to 279 characters, subject included. Longer ones are cut short and end with a link to the full message in the portal. Each person gets one text, never a chain of texts.
-- Texts only go to residents who said yes to texts. Everyone else gets the email and portal copy instead. The **Review** step shows how many will be skipped (opted out).
+- Texts only go to residents who said yes to texts themselves, in their portal under **Account** → **Text messages**. Nobody on the board can say yes for them. Everyone else gets the email and portal copy instead. The **Review** step shows how many will be skipped (opted out).
 - Residents who turned off email don't get the email.
 - People with no phone number on file get no text. Board members are never texted.
 - **Resend** only retries failed emails, not texts.

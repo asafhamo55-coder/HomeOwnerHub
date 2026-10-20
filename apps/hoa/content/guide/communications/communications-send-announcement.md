@@ -24,7 +24,7 @@ Use **Messages** for anything the whole community, or a group of homes, should h
 3. Pick an **Audience**, such as All homes, All owners, Homes behind on dues or **A street**. Each choice shows how many people it reaches. Board and Someone outside the HOA are under **More options**. Select [[Continue]].
 4. If you picked a template, fill in the few details it asks for. Check the **Subject** and **Body**, or write your own. Write the body as plain text: leave a blank line between paragraphs, use [[Bold]] and [[Bullet]], and add [[Resident's name]] or [[HOA name]] to fill them in for each person.
 5. To send it in Spanish too, select [[Add Spanish version]]. AI drafts a Spanish subject and body. Read them, fix anything, then tick **I've read the Spanish version**. Select [[Continue]].
-6. Under **How should it go out?**, tick **This is urgent** for anything happening soon, like a water shutoff (see [send an urgent notice](guide:communications-urgent-notice)). Routine messages go by email and the portal. Urgent ones also go by text, if texting is set up. You can still tick Email or Text yourself; once you do, the app keeps your choice.
+6. Under **How should it go out?**, tick **This is urgent** for anything happening soon, like a water shutoff (see [send an urgent notice](guide:communications-urgent-notice)). Routine messages go by email and the portal. Urgent ones also go by text, if texting is set up, to the residents who agreed to texts in their portal (**Account** → **Text messages**). You can still tick Email or Text yourself; once you do, the app keeps your choice.
 7. Check **What residents get**: a phone showing the email, the text and the portal copy one home will get. Select [[Send a test to me]] to email it to yourself first. Then leave **Send at** blank and select [[Send now]], or pick a date and time and select [[Schedule]].
 
 ![[guide-communications-new]]
@@ -70,4 +70,4 @@ Not ready to send? You don't need to do anything. The message saves as a draft a
 - **Send at** uses the time on your own computer. A scheduled message goes out within 5 minutes of that time.
 - To stop a scheduled message, open it and select [[Cancel scheduled message]]. Once it has started going out, it can't be cancelled.
 - The people who get a scheduled message are worked out when you schedule it, not when it goes out.
-- Residents who turned off email don't get it by email. Texts only go to residents who said yes to texts. The **Review** step shows how many will be skipped (opted out). They still get the message on any other channel you picked.
+- Residents who turned off email don't get it by email. Texts only go to residents who said yes to texts in their portal, under **Account** → **Text messages**; you can't say yes for them. Ask residents to turn texts on there before an emergency. The **Review** step shows how many will be skipped (opted out). They still get the message on any other channel you picked.

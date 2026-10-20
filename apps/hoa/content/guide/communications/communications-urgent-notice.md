@@ -35,7 +35,7 @@ Residents who agreed to get texts get a text. Everyone gets the email and the po
 - A text shows **Failed** with "SMS not configured": texting wasn't set up when it was sent, so no text went out.
 
 ## Good to know
-- Only residents who agreed to get texts are texted. Everyone else gets the email and portal copy. Board members are never texted.
+- Only residents who agreed to get texts are texted. Residents turn texts on themselves in their portal, under **Account** → **Text messages**; the board can't do it for them. Everyone else gets the email and portal copy. Board members are never texted.
 - A text holds up to 279 characters, subject included. Each person gets one text, never a chain of texts. Email has no length limit.
 - The **Water shutoff** and **Severe weather** templates tick **This is urgent** for you. [[Draft it for me]] may tick it too. Untick it for a routine message.
 - If you tick **Email** or **Text** yourself, the app keeps your choice when you change **This is urgent** afterwards.

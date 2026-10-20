@@ -107,8 +107,8 @@ export function preferencesApply(audienceKind: string, channels: readonly string
 const PAGE = 1000
 
 /**
- * Every preference row for the org, paged. Rows are rare (residents have
- * no settings screen yet), so reading the org's whole set is cheaper than
+ * Every preference row for the org, paged. Rows are few (one per resident
+ * who changed a setting, BL-110), so reading the org’s whole set is cheaper than
  * an `in (...)` over hundreds of user ids, which would also overflow the
  * request URL. A failed read returns ok:false — the caller refuses the
  * send rather than defaulting to "send to everyone".
