@@ -14,7 +14,7 @@
  *
  * --from-source fetches the official verbatim text through the state's
  * source adapter (packages/workflows/src/W30-state-law-brain/sources/;
- * FL, CA and TX), diffs it against state_statutes by content_hash exactly
+ * FL, CA and TX from their official sites, GA from its vetted snapshot), diffs it against state_statutes by content_hash exactly
  * as the weekly refresh job does, and writes the changes. Each change is
  * logged to state_statute_changes; the next refresh-job run emits the
  * unsent rows as law/statute.changed / law/statute.removed. It also writes
@@ -83,7 +83,7 @@ interface StatuteRecord {
 async function ingestFromSource(state: string): Promise<void> {
   const adapter = adapterFor(state)
   if (!adapter) {
-    console.error(`[ingest] ${state} has no official-source adapter (FL, CA and TX have one; GA has no fetchable official text).`)
+    console.error(`[ingest] ${state} has no source adapter (GA, FL, CA and TX have one).`)
     process.exit(1)
   }
   const db = createClient<Database>(SUPABASE_URL!, SERVICE_ROLE_KEY!, {

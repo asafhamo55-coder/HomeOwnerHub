@@ -171,21 +171,22 @@ and checkout instead of HomeownerHub.
 1. In the Stripe dashboard, open **Products** and rename "HOA Hub" to "HomeownerHub".
 2. Tell Claude in the same sitting, so it changes `PRODUCT_NAME` in `apps/hoa/src/app/api/admin/setup-stripe-pricing/route.ts` to match.
 
-### OA-9 · Load Florida, California and Texas law into the app
+### OA-9 · Load Florida, California and Texas law into the app (and Georgia's verbatim text)
 
 **Urgency:** Soon
 
-**Why it matters:** production only has Georgia's HOA law loaded. Until Florida, California and Texas are loaded, the app says "<State> state law isn't loaded yet" instead of answering law questions for those states. It never answers from memory.
+**Why it matters:** production only has Georgia's HOA law loaded. Until Florida, California and Texas are loaded, the app says "<State> state law isn't loaded yet" instead of answering law questions for those states. It never answers from memory. Georgia's loaded rows are paraphrased summaries; running GA once replaces them with the statute's exact words (Property Owners' Association Act, 17 sections, plus the 2026 attorney's-fee rule).
 
 **Ready now:** the CA/TX loaders went live on 2026-10-20 at 12:31 ET (deploy 7b1c601b).
 
 **Steps:**
 
 1. Sign in to the production app as the platform admin.
-2. Open the browser's developer console on any app page and paste this line once each for `'FL'`, `'CA'` and `'TX'` (change the two letters):
+2. Open the browser's developer console on any app page and paste this line once each for `'FL'`, `'CA'`, `'TX'` and `'GA'` (change the two letters):
    `fetch('/api/admin/refresh-state-law',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({state:'FL'})}).then(r=>r.json()).then(console.log)`
    Each should print `queued`.
-3. A few minutes later, tell Claude. It checks the counts (expected: FL 36, CA 234, TX 61 sections). After the Inngest sync (OA-7), a weekly job keeps them current on its own.
+3. A few minutes later, tell Claude. It checks the counts (expected: FL 36, CA 234, TX 61 sections; GA 18 written, 2 retired — the seed's "44-3-225(b)" and "44-3-236" rows, which are not sections of the Act). After the Inngest sync (OA-7), a weekly job keeps them current on its own.
+4. Georgia only: its text is a snapshot committed to the repo (Georgia's official code can't be fetched automatically), good until 2027-01-01, when the 2026 HOA law (SB 406) changes four sections. Before then, ask Claude to refresh it (data/statutes/README.md, "Georgia snapshot"). If it is not refreshed, the weekly job reports Georgia as failed and keeps the current text; it never deletes it.
 
 **Files:** `docs/specs/2026-10-15-sub-project-F-law-to-bylaw.md` §11
 

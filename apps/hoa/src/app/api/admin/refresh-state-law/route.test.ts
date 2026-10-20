@@ -292,14 +292,6 @@ describe('POST /api/admin/refresh-state-law', () => {
     expect(send).not.toHaveBeenCalled()
   })
 
-  it('422 unprocessable with reason no_official_source for a supported but non-refreshable state', async () => {
-    const res = await post(JSON.stringify({ state: 'GA' }))
-    expect(res.status).toBe(422)
-    const b = await json(res)
-    expect(b.error).toMatchObject({ code: 'unprocessable', reason: 'no_official_source', refreshable: ['FL', 'CA', 'TX'] })
-    expect(send).not.toHaveBeenCalled()
-  })
-
   it('queues the refresh job for FL with a 202 and no ok/error keys', async () => {
     const res = await post(JSON.stringify({ state: 'fl' }))
     expect(res.status).toBe(202)
@@ -307,8 +299,8 @@ describe('POST /api/admin/refresh-state-law', () => {
     expect(send).toHaveBeenCalledWith({ name: 'law/refresh.requested', data: { state: 'FL' } })
   })
 
-  it('CA and TX are refreshable too (official-source adapters)', async () => {
-    for (const state of ['CA', 'TX']) {
+  it('CA, TX and GA are refreshable too (CA/TX official sources; GA its vetted snapshot)', async () => {
+    for (const state of ['CA', 'TX', 'GA']) {
       const res = await post(JSON.stringify({ state }))
       expect(res.status).toBe(202)
       expect(send).toHaveBeenCalledWith({ name: 'law/refresh.requested', data: { state } })

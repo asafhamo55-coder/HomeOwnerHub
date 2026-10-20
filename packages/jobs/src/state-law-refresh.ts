@@ -28,7 +28,9 @@ import { inngest } from './client'
  * Design: docs/superpowers/specs/2026-08-18-state-law-ingestion-design.md §3,
  * built as sub-project F phase 0 (docs/specs/2026-10-15-sub-project-F-law-to-bylaw.md §3).
  *
- * Per state with an official-source adapter (FL, CA, TX; GA has none):
+ * Per state with a source adapter (FL, CA, TX from their official sites; GA
+ * from a vetted snapshot committed to the repo, as Georgia has no fetchable
+ * official text — see sources/georgia.ts):
  *   fetch → normalise → SHA-256 per section → diff against state_statutes
  *   - hash unchanged            → last_checked_at only
  *   - hash changed / new        → verbatim body + content_hash, re-chunk,
@@ -39,9 +41,9 @@ import { inngest } from './client'
  *                        (old_hash null for a new or reinstated citation)
  *   law/statute.removed  {state, statute_id, code_citation, old_hash}
  *
- * No browser and no LLM: a plain HTTP GET per chapter (FL, TX) or a few
+ * No browser and no LLM: a plain HTTP GET per chapter (FL, TX), a few
  * byte-range reads of the bulk archive (CA, ~27 MB, ~26 s measured
- * 2026-10-20), so this runs on Vercel. The fetch is one step and must fit
+ * 2026-10-20), or no request at all (GA), so this runs on Vercel. The fetch is one step and must fit
  * the 60 s function limit; each section write is its own step, so that
  * limit applies to one section's chunk+embed, not to the whole chapter.
  *
