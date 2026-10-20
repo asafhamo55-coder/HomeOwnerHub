@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { isAssignableMember, listAssignees } from '@/lib/inbox/assignees'
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -189,6 +190,7 @@ export async function setActionItemStatus(
 
   const meetingId = (row as { meeting_id?: string } | null)?.meeting_id
   if (meetingId) revalidatePath(`/meetings/${meetingId}`)
+  revalidatePath('/tasks')
   return { ok: true }
 }
 
@@ -228,8 +230,12 @@ export async function updateActionItem(
   const updates: Record<string, unknown> = {}
   if (parsed.data.title !== undefined) updates.title = parsed.data.title
   if (parsed.data.description !== undefined) updates.description = parsed.data.description
-  if (parsed.data.assignee_name !== undefined)
+  if (parsed.data.assignee_name !== undefined) {
     updates.assignee_name = parsed.data.assignee_name
+    // A typed name is not a board member's account (BL-119): drop the
+    // link so the digest stops emailing the previous assignee.
+    updates.assignee_user_id = null
+  }
   if (parsed.data.due_date !== undefined) updates.due_date = parsed.data.due_date
   if (parsed.data.priority !== undefined) updates.priority = parsed.data.priority
 
@@ -246,6 +252,7 @@ export async function updateActionItem(
 
   const meetingId = (row as { meeting_id?: string } | null)?.meeting_id
   if (meetingId) revalidatePath(`/meetings/${meetingId}`)
+  revalidatePath('/tasks')
   return { ok: true }
 }
 
@@ -269,5 +276,59 @@ export async function deleteActionItem(id: string): Promise<ActionResult> {
 
   const meetingId = (row as { meeting_id?: string } | null)?.meeting_id
   if (meetingId) revalidatePath(`/meetings/${meetingId}`)
+  revalidatePath('/tasks')
+  return { ok: true }
+}
+
+// ─── Assign to a board member (BL-119) ───────────────────────────────
+
+const AssignSchema = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid().nullable(),
+})
+
+/**
+ * Assign a task to one of the org's board members or admins, or clear the
+ * assignee (`userId` null). Sets `assignee_user_id`, which drives "My
+ * tasks" and the morning digest, and `assignee_name` to the member's name,
+ * which the meeting page shows. A resident, or a user from another HOA, is
+ * refused before anything is written.
+ */
+export async function assignActionItem(id: string, userId: string | null): Promise<ActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  const parsed = AssignSchema.safeParse({ id, userId })
+  if (!parsed.success) return { ok: false, error: 'Invalid input.' }
+
+  let update: Record<string, unknown> = { assignee_user_id: null, assignee_name: null }
+  if (parsed.data.userId) {
+    try {
+      if (!(await isAssignableMember(gate.orgId, parsed.data.userId))) {
+        return { ok: false, error: 'Tasks can only be assigned to board members and admins.' }
+      }
+      const member = (await listAssignees(gate.orgId)).find((a) => a.userId === parsed.data.userId)
+      update = { assignee_user_id: parsed.data.userId, assignee_name: member?.name ?? null }
+    } catch {
+      return { ok: false, error: 'Could not check the board member list. Try again.' }
+    }
+  }
+
+  const supabase = await getSupabaseServerClient()
+  const { data: row, error } = await supabase
+    .from('meeting_action_items' as never)
+    .update(update as never)
+    .eq('id' as never, parsed.data.id)
+    .eq('org_id' as never, gate.orgId)
+    .select('meeting_id')
+    .single()
+  if (error) {
+    console.error('[meeting-action-items] assign failed', error.code)
+    return { ok: false, error: 'Could not assign the task.' }
+  }
+
+  const meetingId = (row as { meeting_id?: string | null } | null)?.meeting_id
+  if (meetingId) revalidatePath(`/meetings/${meetingId}`)
+  revalidatePath('/tasks')
+  revalidatePath('/')
   return { ok: true }
 }

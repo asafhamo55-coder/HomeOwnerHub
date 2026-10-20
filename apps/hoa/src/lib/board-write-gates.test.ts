@@ -96,6 +96,7 @@ describe('board-only server actions refuse a resident before touching the databa
     ['setActionItemStatus', () => actionItems.setActionItemStatus(ID, 'done'), DENIED],
     ['updateActionItem', () => actionItems.updateActionItem(ID, { title: 'x' }), DENIED],
     ['deleteActionItem', () => actionItems.deleteActionItem(ID), DENIED],
+    ['assignActionItem (BL-119)', () => actionItems.assignActionItem(ID, ID), DENIED],
     ['approveMeetingMinutes', () => meetings.approveMeetingMinutes({} as never), DENIED],
     ['scheduleMeeting', () => meetings.scheduleMeeting({ meetingDate: '2026-01-01', meetingType: 'regular' }), DENIED],
     ['uploadDocument', () => documents.uploadDocument({}, form({ name: 'x' })), { error: BOARD_ONLY_DENIED }],

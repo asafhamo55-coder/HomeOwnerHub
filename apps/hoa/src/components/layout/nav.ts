@@ -16,6 +16,7 @@ import {
   Home,
   KeyRound,
   ListChecks,
+  ListTodo,
   Mail,
   Megaphone,
   MessageSquare,
@@ -89,6 +90,13 @@ export const HOA_NAV: HoaNavGroup[] = [
       { href: '/violations', icon: AlertTriangle, label: 'Violations', keywords: ['notices', 'compliance'] },
       { href: '/arc', icon: ClipboardCheck, label: 'ARC review', keywords: ['architectural', 'applications'] },
       { href: '/meetings', icon: CalendarDays, label: 'Meetings', keywords: ['minutes', 'agenda'] },
+      // BL-119: meeting action items and ticket follow-ups, board-wide.
+      {
+        href: '/tasks',
+        icon: ListTodo,
+        label: 'Tasks',
+        keywords: ['action items', 'to do', 'todo', 'follow ups', 'assigned', 'my tasks', 'due'],
+      },
       { href: '/events', icon: CalendarHeart, label: 'Events' },
       { href: '/tickets', icon: MessageSquare, label: 'Tickets', keywords: ['requests', 'maintenance'] },
     ],

@@ -37,6 +37,7 @@ export const APP_PATH_SEGMENTS = [
   'properties',
   'rfps',
   'settings',
+  'tasks',
   'tickets',
   'vendors',
   'violations',
