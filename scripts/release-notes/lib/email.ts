@@ -74,17 +74,12 @@ function screenshotsBlock(images: readonly InlineImage[], notice?: string): stri
 </td></tr>`
 }
 
-export function renderHtml(note: ReleaseNote, images: readonly InlineImage[]): string {
-  const short = note.sha.slice(0, 7)
-  const when = formatDeployedAt(note.deployedAt)
-  const summary = note.sections.Summary ?? ''
-  const preheader = inlineText(summary.split(/(?<=[.!?])\s/)[0] ?? '').slice(0, 140)
-  const body = BODY_SECTIONS.filter((s) => note.sections[s])
-    .map((s) => sectionBlock(s, note.sections[s]!))
-    .join('')
-  const action = note.sections['Needs your action'] ? actionBlock(note.sections['Needs your action']) : ''
-  const prodHost = BRAND.prodUrl.replace(/^https?:\/\//, '')
-
+/**
+ * Doctype through </head>: the meta tags and the dark-mode / mobile CSS
+ * every HomeownerHub owner email shares (release notes, owner actions).
+ * Extra CSS rules go in `extraCss`.
+ */
+export function emailHead(title: string, extraCss = ''): string {
   return `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -93,7 +88,7 @@ export function renderHtml(note: ReleaseNote, images: readonly InlineImage[]): s
 <meta name="x-apple-disable-message-reformatting" />
 <meta name="color-scheme" content="light dark" />
 <meta name="supported-color-schemes" content="light dark" />
-<title>${escapeHtml(subjectFor(note))}</title>
+<title>${escapeHtml(title)}</title>
 <style>
   :root { color-scheme: light dark; supported-color-schemes: light dark; }
   @media (prefers-color-scheme: dark) {
@@ -111,15 +106,14 @@ export function renderHtml(note: ReleaseNote, images: readonly InlineImage[]): s
     .rn-container { width:100% !important; }
     .rn-card { padding-left:20px !important; padding-right:20px !important; }
   }
-</style>
+${extraCss}</style>
 </head>
-<body class="rn-bg" style="margin:0;padding:0;background-color:${BRAND.background};font-family:${BRAND.font};">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${escapeHtml(preheader)}</div>
-<table role="presentation" class="rn-bg" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${BRAND.background}" style="background-color:${BRAND.background};">
-<tr><td align="center" style="padding:28px 12px 36px 12px;">
-<table role="presentation" class="rn-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;font-family:${BRAND.font};">
+`
+}
 
-<!-- Header: wordmark -->
+/** The wordmark row at the top of the 600px column, with a right-aligned label. */
+export function wordmarkHeader(label: string): string {
+  return `<!-- Header: wordmark -->
 <tr><td style="padding:0 4px 18px 4px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
     <td valign="middle" style="width:36px;">
@@ -128,9 +122,29 @@ export function renderHtml(note: ReleaseNote, images: readonly InlineImage[]): s
       </tr></table>
     </td>
     <td valign="middle" class="rn-fg" style="padding-left:10px;font-size:17px;line-height:24px;font-weight:600;letter-spacing:-0.01em;color:${BRAND.foreground};">${BRAND.wordmark.lead}<span class="rn-link" style="color:${BRAND.primary};">${BRAND.wordmark.accent}</span></td>
-    <td valign="middle" align="right" class="rn-muted" style="font-size:12px;line-height:16px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:${BRAND.muted};">Release notes</td>
+    <td valign="middle" align="right" class="rn-muted" style="font-size:12px;line-height:16px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:${BRAND.muted};">${escapeHtml(label)}</td>
   </tr></table>
-</td></tr>
+</td></tr>`
+}
+
+export function renderHtml(note: ReleaseNote, images: readonly InlineImage[]): string {
+  const short = note.sha.slice(0, 7)
+  const when = formatDeployedAt(note.deployedAt)
+  const summary = note.sections.Summary ?? ''
+  const preheader = inlineText(summary.split(/(?<=[.!?])\s/)[0] ?? '').slice(0, 140)
+  const body = BODY_SECTIONS.filter((s) => note.sections[s])
+    .map((s) => sectionBlock(s, note.sections[s]!))
+    .join('')
+  const action = note.sections['Needs your action'] ? actionBlock(note.sections['Needs your action']) : ''
+  const prodHost = BRAND.prodUrl.replace(/^https?:\/\//, '')
+
+  return `${emailHead(subjectFor(note))}<body class="rn-bg" style="margin:0;padding:0;background-color:${BRAND.background};font-family:${BRAND.font};">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${escapeHtml(preheader)}</div>
+<table role="presentation" class="rn-bg" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${BRAND.background}" style="background-color:${BRAND.background};">
+<tr><td align="center" style="padding:28px 12px 36px 12px;">
+<table role="presentation" class="rn-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;font-family:${BRAND.font};">
+
+${wordmarkHeader('Release notes')}
 
 <!-- Title card -->
 <tr><td class="rn-card" bgcolor="${BRAND.surface}" style="background-color:${BRAND.surface};border-top:4px solid ${BRAND.primary};border-radius:12px 12px 0 0;padding:28px 32px 8px 32px;">

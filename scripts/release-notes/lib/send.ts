@@ -60,7 +60,12 @@ export interface SendResult {
 export async function sendViaResend(
   payload: EmailPayload,
   env: SendEnv,
-  opts: { fetch?: typeof fetch; idempotencyKey?: string } = {},
+  opts: {
+    fetch?: typeof fetch
+    idempotencyKey?: string
+    /** Resend `category` tag; also names the email in errors. */
+    category?: string
+  } = {},
 ): Promise<SendResult> {
   const doFetch = opts.fetch ?? fetch
   const body = {
@@ -75,7 +80,7 @@ export async function sendViaResend(
       content_type: a.content_type,
       content_id: a.content_id,
     })),
-    tags: [{ name: 'category', value: 'release_notes' }],
+    tags: [{ name: 'category', value: opts.category ?? 'release_notes' }],
   }
   const headers: Record<string, string> = {
     Authorization: `Bearer ${env.apiKey}`,
@@ -92,7 +97,8 @@ export async function sendViaResend(
     } catch {
       /* non-JSON error body */
     }
-    throw new Error(`Resend rejected the release-note email: HTTP ${res.status} (${name})`)
+    const what = opts.category && opts.category !== 'release_notes' ? opts.category.replace(/_/g, '-') : 'release-note'
+    throw new Error(`Resend rejected the ${what} email: HTTP ${res.status} (${name})`)
   }
   let id: string | null = null
   try {

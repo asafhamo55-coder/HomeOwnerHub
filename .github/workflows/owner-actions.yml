@@ -1,0 +1,138 @@
+name: Owner actions
+
+# Emails the owner the open manual steps in docs/owner-actions.md (things
+# only he can do: prod SQL, dashboards, DNS, keys). Convention:
+# docs/owner-actions.md "For Claude: keeping this file current".
+#
+#   push      when the checklist changes on the prod or quality branch, and
+#             only if the OPEN items changed (prose / Done edits are quiet).
+#   schedule  every Monday ~09:07 New York time while anything is open.
+#             Two crons cover EDT and EST; a gate keeps the one that matches.
+#             Scheduled runs only fire from the default branch.
+#   dispatch  on demand.
+#
+# Recipient: OWNER_ACTIONS_TO, falling back to the owner's own address. Never
+# the release-notes list. Sender: RELEASE_NOTES_FROM (or EMAIL_FROM).
+
+on:
+  push:
+    branches:
+      - claude/phase1-homeownerhub-setup-MILNu
+      - claude/quality-oracle
+    paths:
+      - docs/owner-actions.md
+  schedule:
+    - cron: '7 13 * * 1' # 09:07 EDT
+    - cron: '7 14 * * 1' # 09:07 EST
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: owner-actions
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    name: Email owner actions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Weekly time gate
+        id: gate
+        env:
+          EVENT: ${{ github.event_name }}
+          CRON: ${{ github.event.schedule }}
+        run: |
+          set -euo pipefail
+          skip=false
+          if [ "$EVENT" = "schedule" ]; then
+            offset=$(TZ=America/New_York date +%z)
+            case "$CRON:$offset" in
+              '7 13 * * 1:-0400'|'7 14 * * 1:-0500') ;;
+              *) echo "::notice::Not 09:07 in New York for this cron ($CRON, offset $offset); the other one sends."; skip=true ;;
+            esac
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        if: steps.gate.outputs.skip != 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node 22
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.gate.outputs.skip != 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Decide
+        id: decide
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          pnpm exec tsx scripts/owner-actions/send.ts --summary > now.txt
+          cat now.txt
+          open=$(sed -n 's/^open=//p' now.txt)
+          hash=$(sed -n 's/^hash=//p' now.txt)
+          send=true; key=""
+          if [ "$open" = "0" ]; then
+            echo "::notice::Nothing open; no email."
+            send=false
+          elif [ "$EVENT" = "push" ]; then
+            prev_hash=none
+            if [ -n "$BEFORE" ] && ! printf '%s' "$BEFORE" | grep -Eq '^0+$' \
+               && git cat-file -e "$BEFORE:docs/owner-actions.md" 2>/dev/null; then
+              git show "$BEFORE:docs/owner-actions.md" > prev-owner-actions.md
+              prev_hash=$(pnpm exec tsx scripts/owner-actions/send.ts --summary --file prev-owner-actions.md | sed -n 's/^hash=//p')
+            fi
+            echo "Open items hash: before $prev_hash, now $hash"
+            if [ "$prev_hash" = "$hash" ]; then
+              echo "::notice::Open items unchanged; no email."
+              send=false
+            fi
+            key="owner-actions-$hash"
+          elif [ "$EVENT" = "schedule" ]; then
+            key="owner-actions-weekly-$(TZ=America/New_York date +%F)-$hash"
+          else
+            key="owner-actions-manual-$RUN_ID"
+          fi
+          { echo "send=$send"; echo "key=$key"; } >> "$GITHUB_OUTPUT"
+
+      - name: Render preview
+        if: steps.decide.outputs.send == 'true'
+        run: pnpm exec tsx scripts/owner-actions/send.ts --dry-run --branch "$GITHUB_REF_NAME" --out owner-actions-email/preview.html
+
+      - name: Keep the preview
+        if: steps.decide.outputs.send == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: owner-actions-${{ github.run_id }}
+          path: owner-actions-email/preview.html
+          retention-days: 30
+
+      - name: Send
+        if: steps.decide.outputs.send == 'true'
+        env:
+          KEY: ${{ steps.decide.outputs.key }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          OWNER_ACTIONS_TO: ${{ secrets.OWNER_ACTIONS_TO || 'asafhamo55@gmail.com' }}
+          RELEASE_NOTES_FROM: ${{ secrets.RELEASE_NOTES_FROM }}
+        run: pnpm exec tsx scripts/owner-actions/send.ts --branch "$GITHUB_REF_NAME" --idempotency-key "$KEY"
