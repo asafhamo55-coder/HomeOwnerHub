@@ -360,9 +360,9 @@ prices; review it before pitching.
 
 ### OA-23 · Let residents text STOP and START (Vonage setup)
 
-**Urgency:** Whenever (do it together with OA-11 if you turn texting on)
+**Urgency:** Whenever
 
-**Why it matters:** residents can already stop texts in their portal. With this, replying STOP to a text also records the opt-out in HomeownerHub, and START turns texts back on, as US texting rules expect. The code is built but off until Vonage is set up.
+**Why it matters:** do this together with OA-11 if you turn texting on. Residents can already stop texts in their portal. With this, replying STOP to a text also records the opt-out in HomeownerHub, and START turns texts back on, as US texting rules expect. The code is built but off until Vonage is set up.
 
 **Steps:**
 
