@@ -35,12 +35,8 @@
 
 import { billMissing, billNeedsCheck, readBillPayload, type BillProposalPayload } from '../bill-scan/proposal'
 import { followUpLabel, followUpOfRunInput } from '../violation-follow-up'
-<<<<<<< HEAD
 import { LETTER_KIND_CITATIONS, letterHref, letterLawNote, readLetterPayload } from '../collections/letters/proposal'
-=======
-import { LETTER_KIND_CITATIONS, letterHref, readLetterPayload } from '../collections/letters/proposal'
 import { OPENING_HREF, openingDetail, readOpeningPayload } from '../accounting/opening-balances/proposal'
->>>>>>> 6ca4bd79
 import {
   SUGGESTION_LABEL,
   citationLabel,
