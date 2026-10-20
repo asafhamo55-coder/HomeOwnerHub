@@ -1,4 +1,5 @@
-import { ClipboardList, MessageSquarePlus, ShieldAlert } from 'lucide-react'
+import { ClipboardList, FileText, MessageSquarePlus, ShieldAlert } from 'lucide-react'
+import { RECORDS_REQUESTS_LIVE } from '@homeowner-portal/db/records-requests'
 import { Badge, LoadFailed } from '@homeowner-portal/ui'
 import { loadMyTickets } from '@/lib/resident-tickets'
 import { timed } from '@/lib/perf/timing'
@@ -84,6 +85,14 @@ export default async function ResidentRequestsPage() {
             title="Report a concern"
             subtitle="Flag something in the community to the board"
           />
+          {RECORDS_REQUESTS_LIVE ? (
+            <TappableRow
+              href="/resident/records/new"
+              icon={<FileText />}
+              title="Request association records"
+              subtitle="Budgets, minutes, contracts, the owner list…"
+            />
+          ) : null}
         </RowGroup>
       </Section>
     </div>

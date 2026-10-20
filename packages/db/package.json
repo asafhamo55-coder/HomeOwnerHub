@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./types": "./src/database.types.ts",
-    "./m1": "./src/m1.ts"
+    "./m1": "./src/m1.ts",
+    "./records-requests": "./src/records-requests.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

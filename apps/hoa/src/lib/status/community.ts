@@ -98,6 +98,7 @@ export const TICKET_CATEGORY: Record<string, string> = {
   safety: 'Safety',
   general: 'General',
   other: 'Other',
+  records_request: 'Records request',
 }
 
 export const ARC_STATUS = vocab({

@@ -62,6 +62,7 @@ export const TICKET_CATEGORY_LABEL: Record<string, string> = {
   safety: 'Safety',
   general: 'General',
   other: 'Other',
+  records_request: 'Records request',
 }
 
 export const ARC_CATEGORY_LABEL: Record<string, string> = {
