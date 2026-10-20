@@ -8,6 +8,7 @@ import {
   type ResidentNotifyEvent,
   type ResidentNotifyStore,
 } from './run'
+import { sha256Hex } from '@/lib/sms-consent'
 import { RESIDENT_NOTIFY_KEY, signResidentNotifySettings } from './settings'
 
 const ASSOC = 'aaaaaaaa-0000-4000-8000-000000000001'
@@ -37,7 +38,16 @@ function context(over: Partial<NotifyContext['resident']> = {}, on = true): Noti
   }
 }
 
-function fakeStore(ctx: NotifyContext | null, prefs = { email: true, sms: false }, phone: string | null = null) {
+/** BL-111: the test number's consent hash — a text needs it in smsPhones. */
+const CONSENTED = new Set([sha256Hex('+14045551234')])
+
+function fakeStore(
+  ctx: NotifyContext | null,
+  given: { email: boolean; sms: boolean; smsPhones?: ReadonlySet<string> } = { email: true, sms: false },
+  phone: string | null = null,
+) {
+  // Texts on with no explicit consent set: consent covers the test number.
+  const prefs = given.sms && !('smsPhones' in given) ? { ...given, smsPhones: CONSENTED } : given
   const claimed = new Set<string>()
   const recipients: Array<{ id: string; channel: string; status?: string }> = []
   const finished: Array<[string, string]> = []
@@ -205,6 +215,17 @@ describe('runResidentNotification', () => {
     await runResidentNotification(on.store, d, decision, logger)
     expect(on.store.loadPhone).toHaveBeenCalledWith(USER, null)
     expect(d.sendSms).toHaveBeenCalledTimes(1)
+  })
+
+  it('BL-111: a number the consent does not cover is not texted (number changed / pre-consent opt-in)', async () => {
+    for (const smsPhones of [new Set([sha256Hex('+14045550000')]), undefined]) {
+      const { store } = fakeStore(context({ phone: '+14045551234' }), { email: true, sms: true, smsPhones })
+      const d = deps()
+      const r = await runResidentNotification(store, d, decision, logger)
+      expect(d.sendSms).not.toHaveBeenCalled()
+      expect(d.sendEmail).toHaveBeenCalledTimes(1)
+      expect(r).toMatchObject({ status: 'sent', sent: 1 })
+    }
   })
 
   it('SMS opt-in alone (email opted out) still texts', async () => {

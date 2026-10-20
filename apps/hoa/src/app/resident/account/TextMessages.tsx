@@ -37,6 +37,53 @@ export function TextMessages({ state, readOnly = false }: { state: TextMessagesS
     })
   }
 
+  function agreeForm(lead: string, submitLabel: string) {
+    if (state === 'failed') return null
+    const s = state
+    return (
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!agreed) return
+          run(
+            () =>
+              optInToTexts({
+                agreed,
+                disclosureVersion: s.disclosureVersion,
+                disclosureSha256: s.disclosureSha256,
+                phonesFingerprint: s.phonesFingerprint,
+              }),
+            'Texts are on',
+          )
+        }}
+      >
+        <p className="text-sm text-foreground">
+          {lead}{' '}
+          <span className="font-semibold">{s.phones.join(' and ')}</span>.
+        </p>
+        <p className="text-xs text-muted">Not your mobile number? Change it under My contact details above first.</p>
+        <Checkbox
+          checked={agreed}
+          onChange={(e) => setAgreed(e.target.checked)}
+          disabled={pending || readOnly}
+          label="I agree to receive text messages"
+          description={
+            <>
+              {s.disclosure.replace(/\s*Privacy policy: \S+$/, '')}{' '}
+              <a href={s.privacyUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline">
+                Privacy policy
+              </a>
+            </>
+          }
+        />
+        <Button type="submit" disabled={!agreed || pending || readOnly}>
+          {submitLabel}
+        </Button>
+      </form>
+    )
+  }
+
   return (
     <section id="text-messages" className="scroll-mt-20 space-y-2.5" aria-labelledby="texts-heading">
       <SectionLabel>
@@ -47,6 +94,28 @@ export function TextMessages({ state, readOnly = false }: { state: TextMessagesS
           <Alert variant="error" title="Couldn’t load your text preference">
             Reload the page to try again. Until then you won’t get texts from your association.
           </Alert>
+        ) : state.optIn && (state.consentGap === 'number_changed' || state.consentGap === 'no_record') ? (
+          <>
+            {/* BL-111: consent covers the numbers the resident agreed for.
+                A number on file that isn't covered gets no texts until
+                they agree again. */}
+            <Alert
+              variant="warning"
+              title={state.consentGap === 'number_changed' ? 'Your number changed — agree again to get texts' : 'Agree again to keep getting texts'}
+            >
+              {state.consentGap === 'number_changed'
+                ? 'Your agreement covers the number you had when you agreed. We won’t text your new number until you agree for it below.'
+                : 'We need your agreement on file for this number. Until you agree below, we won’t text you.'}
+            </Alert>
+            {agreeForm('Agree to get texts at', 'Agree and keep texts on')}
+            <Button
+              variant="secondary"
+              onClick={() => run(optOutOfTexts, 'Texts are off')}
+              disabled={pending || readOnly}
+            >
+              Stop text messages
+            </Button>
+          </>
         ) : state.optIn ? (
           <>
             <p className="flex items-start gap-2 text-sm text-foreground">
@@ -76,46 +145,7 @@ export function TextMessages({ state, readOnly = false }: { state: TextMessagesS
             once your board has it on file, you can turn texts on here.
           </p>
         ) : (
-          <form
-            className="space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (!agreed) return
-              run(
-                () =>
-                  optInToTexts({
-                    agreed,
-                    disclosureVersion: state.disclosureVersion,
-                    disclosureSha256: state.disclosureSha256,
-                    phonesFingerprint: state.phonesFingerprint,
-                  }),
-                'Texts are on',
-              )
-            }}
-          >
-            <p className="text-sm text-foreground">
-              Texts are off. Get urgent notices and reminders by text at{' '}
-              <span className="font-semibold">{state.phones.join(' and ')}</span>.
-            </p>
-            <p className="text-xs text-muted">Not your mobile number? Change it under My contact details above first.</p>
-            <Checkbox
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
-              disabled={pending || readOnly}
-              label="I agree to receive text messages"
-              description={
-                <>
-                  {state.disclosure.replace(/\s*Privacy policy: \S+$/, '')}{' '}
-                  <a href={state.privacyUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline">
-                    Privacy policy
-                  </a>
-                </>
-              }
-            />
-            <Button type="submit" disabled={!agreed || pending || readOnly}>
-              Turn on text messages
-            </Button>
-          </form>
+          agreeForm(`Texts are off. Get urgent notices and reminders by text at`, 'Turn on text messages')
         )}
         {readOnly ? <p className="text-xs text-muted">You’re viewing as this resident — only they can change this.</p> : null}
         {error ? (

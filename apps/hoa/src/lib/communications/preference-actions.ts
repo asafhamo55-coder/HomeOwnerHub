@@ -77,7 +77,7 @@ export async function previewPreferenceSkips(
   let sms = 0
   let smsReach = 0
   for (const r of resolved.recipients) {
-    const { keep, optedOut } = applyPreferences(r.userId, deliverableChannels(r, channels, null), policy)
+    const { keep, optedOut } = applyPreferences(r.userId, deliverableChannels(r, channels, null), policy, r.phone)
     if (optedOut.includes('email')) email += 1
     if (optedOut.includes('sms')) sms += 1
     if (keep.includes('sms')) smsReach += 1

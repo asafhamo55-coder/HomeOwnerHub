@@ -18,6 +18,7 @@ import {
 } from '@/lib/communications/audience'
 import type { NotifyChannel, RecurringEvent } from '@/lib/events'
 import { calendarDaysBetween } from '@/lib/association-time'
+import { applyPreferences, loadPreferenceMap } from '@/lib/communications/preferences'
 
 // Fires a recurring-event alert to the event's configured audience on its
 // configured channels (email / SMS / portal — migration 0021). Called from:
@@ -125,6 +126,14 @@ export async function sendEventAlertEmail(
     return { sent: 0, failed: [] }
   }
 
+  // 2b. BL-111: texts only to residents who agreed, at a number their
+  //     latest consent covers — the same rule as a broadcast. Until now an
+  //     alert texted any phone on file. A phone that doesn't qualify is
+  //     dropped from the recipient (their email and portal are untouched).
+  if (channels.includes('sms')) {
+    recipients = await withConsentedPhones(admin, organizationId, recipients, event.id)
+  }
+
   // 3. Build the message body.
   const { subject, html, text } = buildEventMessage(event, today)
 
@@ -174,6 +183,29 @@ export async function sendEventAlertEmail(
 }
 
 // ─── Recipient resolution helpers ────────────────────────────────────
+
+/**
+ * Keep a recipient's phone only when they opted in to texts and their
+ * latest consent covers that number (../communications/preferences.ts).
+ * A failed read drops every phone: no text without a consent check.
+ */
+async function withConsentedPhones(
+  admin: Admin,
+  organizationId: string,
+  recipients: ResolvedRecipient[],
+  eventId: string,
+): Promise<ResolvedRecipient[]> {
+  if (!recipients.some((r) => r.phone)) return recipients
+  const prefs = await loadPreferenceMap(admin, organizationId)
+  if (!prefs.ok) {
+    logRouteFailure('events-alerts.sms_consent_read', null, { eventId, organizationId })
+    return recipients.map((r) => ({ ...r, phone: null }))
+  }
+  const policy = { map: prefs.map, officialNoticeEmail: false }
+  return recipients.map((r) =>
+    r.phone && applyPreferences(r.userId, ['sms'], policy, r.phone).keep.length === 0 ? { ...r, phone: null } : r,
+  )
+}
 
 async function resolveAssociationId(
   admin: Admin,

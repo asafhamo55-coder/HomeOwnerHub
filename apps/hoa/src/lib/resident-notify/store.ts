@@ -9,6 +9,7 @@
  */
 
 import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
+import { loadUserSmsConsent } from '@/lib/sms-consent-ledger'
 import type { NotifyContext, ResidentNotifyEvent, ResidentNotifyStore } from './run'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -89,7 +90,13 @@ export function supabaseResidentNotifyStore(db: Db): ResidentNotifyStore {
       if (error) throw fail('preferences read', error)
       const row = data as { email_opt_in: boolean; sms_opt_in: boolean } | null
       // The table's own defaults (0018): email on, SMS off.
-      return { email: row ? row.email_opt_in !== false : true, sms: row ? row.sms_opt_in === true : false }
+      const prefs = { email: row ? row.email_opt_in !== false : true, sms: row ? row.sms_opt_in === true : false }
+      if (!prefs.sms) return prefs
+      // BL-111: the numbers the resident's latest consent covers.
+      // The board's RLS client reads audit_log (0063 audit_log_select).
+      const consent = await loadUserSmsConsent(db as never, organizationId, userId)
+      if (!consent.ok) throw fail('sms consent read', { code: 'consent_read' })
+      return { ...prefs, smsPhones: consent.phones }
     },
 
     async loadPhone(userId, unitId) {

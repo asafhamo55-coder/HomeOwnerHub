@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fakeSupabase, hasEq } from '@/lib/test-utils/fake-supabase'
+import { sha256Hex } from '@/lib/sms-consent'
 import { supabaseResidentNotifyStore } from './store'
 
 const ORG = 'org-1'
@@ -57,8 +58,31 @@ describe('supabaseResidentNotifyStore', () => {
     expect(hasEq(none.queries[0], 'user_id', 'u-1')).toBe(true)
     expect(hasEq(none.queries[0], 'organization_id', ORG)).toBe(true)
 
-    const row = fakeSupabase(() => ({ data: { email_opt_in: false, sms_opt_in: true }, error: null }))
-    expect(await supabaseResidentNotifyStore(row.client).loadPreferences(ORG, 'u-1')).toEqual({ email: false, sms: true })
+    // BL-111: texts on → the resident's consented numbers come along, read
+    // from their latest unrevoked consent row.
+    const hash = sha256Hex('+14045551234')
+    const row = fakeSupabase((q) =>
+      q.table === 'audit_log'
+        ? {
+            data: [
+              { id: 'a1', user_id: 'u-1', action: 'sms_consent_granted', metadata: { phone_sha256: [hash] }, created_at: '2026-10-20T00:00:00Z' },
+            ],
+            error: null,
+          }
+        : { data: { email_opt_in: false, sms_opt_in: true }, error: null },
+    )
+    const prefs = await supabaseResidentNotifyStore(row.client).loadPreferences(ORG, 'u-1')
+    expect(prefs).toMatchObject({ email: false, sms: true })
+    expect([...(prefs.smsPhones ?? [])]).toEqual([hash])
+    const audit = row.queries.find((q) => q.table === 'audit_log')!
+    expect(hasEq(audit, 'org_id', ORG) && hasEq(audit, 'user_id', 'u-1')).toBe(true)
+  })
+
+  it('preferences: a failed consent read throws rather than texting', async () => {
+    const { client } = fakeSupabase((q) =>
+      q.table === 'audit_log' ? { data: null, error: { code: 'XX' } } : { data: { email_opt_in: true, sms_opt_in: true }, error: null },
+    )
+    await expect(supabaseResidentNotifyStore(client).loadPreferences(ORG, 'u')).rejects.toThrow(/consent/)
   })
 
   it('preferences: a failed read throws rather than defaulting to "send"', async () => {

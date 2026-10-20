@@ -21,6 +21,8 @@ const h = vi.hoisted(() => ({
   recipients: [] as unknown[],
   prefsRows: [] as Array<{ user_id: string; email_opt_in: boolean; sms_opt_in: boolean }>,
   prefsError: null as { code: string } | null,
+  // BL-111: sms_consent_granted / _revoked audit rows.
+  smsConsentRows: [] as Array<Record<string, unknown>>,
 }))
 
 vi.mock('@homeowner-portal/db/m1', () => ({
@@ -91,6 +93,10 @@ function fakeClient() {
           const range = calls.find((c) => (c as [string])[0] === 'range') as [string, [number]]
           return { data: range[1][0] === 0 ? h.prefsRows : [], error: null }
         }
+        if (table === 'audit_log') {
+          const range = calls.find((c) => (c as [string])[0] === 'range') as [string, [number]]
+          return { data: range[1][0] === 0 ? h.smsConsentRows : [], error: null }
+        }
         if (table === 'member_email_consent_events') {
           if (h.consentError) return { data: null, error: h.consentError }
           const range = calls.find((c) => (c as [string])[0] === 'range') as [string, [number]]
@@ -134,6 +140,7 @@ const INPUT = {
 }
 
 const { sendCommunication } = await import('./send')
+const { sha256Hex } = await import('@/lib/sms-consent')
 
 async function run(input: Record<string, unknown>) {
   h.trace = []
@@ -152,6 +159,16 @@ beforeEach(() => {
   // they get the defaults: email on, texts off.
   h.prefsRows = [{ user_id: 'user-a', email_opt_in: true, sms_opt_in: true }]
   h.prefsError = null
+  // BL-111: Ana agreed to texts at the number on file.
+  h.smsConsentRows = [
+    {
+      id: 'audit-1',
+      user_id: 'user-a',
+      action: 'sms_consent_granted',
+      metadata: { phone_sha256: [sha256Hex('+15550100001')] },
+      created_at: '2026-10-01T00:00:00Z',
+    },
+  ]
   h.consentRows = [
     { user_id: 'user-a', granted: true, method: 'portal', created_at: '2026-10-01T00:00:00Z' },
     { user_id: 'user-b', granted: true, method: 'portal', created_at: '2026-10-01T00:00:00Z' },
@@ -325,6 +342,43 @@ describe('resident preferences (BL-102)', () => {
     // the default is no texts.
     expect(textedTo(trace)).toEqual(['+15550100001'])
     expect(recipientInsert(trace).filter((r) => r.channel === 'sms').map((r) => r.user_id)).toEqual(['user-a'])
+  })
+
+  it('BL-111: a number changed since consent is not texted and counts as an opt-out, never a failure', async () => {
+    h.smsConsentRows = [
+      {
+        id: 'audit-1',
+        user_id: 'user-a',
+        action: 'sms_consent_granted',
+        metadata: { phone_sha256: [sha256Hex('+15550109999')] },
+        created_at: '2026-10-01T00:00:00Z',
+      },
+    ]
+    const { result, trace } = await run(INPUT)
+    expect(textedTo(trace)).toEqual([])
+    expect(recipientInsert(trace).some((r) => r.channel === 'sms')).toBe(false)
+    expect(emailedTo(trace)).toContain('ana@example.test')
+    expect(result).toMatchObject({ ok: true, failedCount: 0, optedOutCount: 2 })
+  })
+
+  it('BL-111: a legacy opt-in with no consent record is not texted', async () => {
+    h.smsConsentRows = []
+    const { trace } = await run(INPUT)
+    expect(textedTo(trace)).toEqual([])
+  })
+
+  it('BL-111: a revoked consent is not texted even if sms_opt_in were still on', async () => {
+    h.smsConsentRows = [
+      ...h.smsConsentRows,
+      { id: 'audit-2', user_id: 'user-a', action: 'sms_consent_revoked', metadata: {}, created_at: '2026-10-02T00:00:00Z' },
+    ]
+    const { trace } = await run(INPUT)
+    expect(textedTo(trace)).toEqual([])
+  })
+
+  it('BL-111: the consent rows are read once per send, not per recipient', async () => {
+    const { trace } = await run(INPUT)
+    expect(tablesTouched(trace).filter((t) => t === 'audit_log')).toHaveLength(1)
   })
 
   it('with no preference rows at all, nobody is texted', async () => {

@@ -420,7 +420,8 @@ export async function sendCommunication(
     // Only channels the recipient can receive on — and, for an official
     // notice, email only with consent (emailKeep is null otherwise) — then
     // only the ones their preferences allow.
-    const { keep, optedOut } = applyPreferences(r.userId, deliverableChannels(r, value.channels, emailKeep), policy)
+    // BL-111: r.phone so a text goes only to a number the resident consented for.
+    const { keep, optedOut } = applyPreferences(r.userId, deliverableChannels(r, value.channels, emailKeep), policy, r.phone)
     if (optedOut.length > 0) optedOutCount += 1
     for (const channel of keep) {
       recipientInserts.push({
