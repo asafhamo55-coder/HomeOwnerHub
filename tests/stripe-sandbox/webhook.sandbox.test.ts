@@ -4,13 +4,15 @@
 // in-memory db. No database, no network for the deliveries themselves.
 //
 // Handled today (packages/billing/src/webhook.ts):
-//   checkout.session.completed   (mode subscription | payment, + case_id)
+//   checkout.session.completed    (mode subscription | payment, + case_id)
 //   customer.subscription.deleted
-//   invoice.payment_failed       (acknowledged only)
+//   customer.subscription.updated (status / plan / quantity, recorded in audit_log)
+//   invoice.payment_failed        (recorded in audit_log for the banner)
 // Everything else is ignored.
 import type Stripe from 'stripe'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { handleStripeWebhook, webhookHttpStatus } from '../../packages/billing/src/webhook'
+import { AUDIT_INVOICE_PAYMENT_FAILED, AUDIT_SUBSCRIPTION_UPDATED, billingAttention } from '../../packages/billing/src/billing-status'
 import { RUN, WEBHOOKS, announceSkip, decision, newOrgId, sandboxStripe } from './lib/context'
 import { makeEvent, signEvent, webhookRequest } from './lib/events'
 import { createMemDb, type MemDb } from './lib/memdb'
@@ -61,6 +63,28 @@ describe.skipIf(!RUN || !WEBHOOKS)('webhook handler with signed test payloads', 
     )
   const subDeleted = (subId: string, created?: number) =>
     makeEvent('customer.subscription.deleted', { id: subId, object: 'subscription', status: 'canceled', customer: 'cus_bl103' }, { created })
+  const subUpdated = (subId: string, status: string, o: { created?: number; lookupKey?: string | null; quantity?: number } = {}) =>
+    makeEvent(
+      'customer.subscription.updated',
+      {
+        id: subId,
+        object: 'subscription',
+        status,
+        customer: 'cus_bl103',
+        items: {
+          object: 'list',
+          data: [{ id: 'si_bl103', quantity: o.quantity ?? 41, price: { id: 'price_bl103', lookup_key: o.lookupKey === undefined ? 'hoa_per_door_monthly' : o.lookupKey } }],
+        },
+      },
+      { created: o.created },
+    )
+  const invoiceFailed = (subId: string | null, created?: number) =>
+    makeEvent(
+      'invoice.payment_failed',
+      { id: 'in_bl103', object: 'invoice', status: 'open', customer: 'cus_bl103', attempt_count: 1, parent: { subscription_details: { subscription: subId } } },
+      { created },
+    )
+  const banner = (mem: MemDb, org: string) => billingAttention(mem.audit(), mem.org(org)?.stripe_sub_id)
 
   for (const m1 of [false, true]) {
     describe(m1 ? 'M1 on (0064 functions)' : 'M1 off (today)', () => {
@@ -103,16 +127,75 @@ describe.skipIf(!RUN || !WEBHOOKS)('webhook handler with signed test payloads', 
         expect(mem.billing(org)).toEqual({ plan: 'free', stripe_sub_id: null })
       })
 
-      it('invoice.payment_failed is acknowledged and writes nothing', async () => {
+      it('invoice.payment_failed is recorded for the banner and leaves the plan alone', async () => {
         const mem = createMemDb()
-        const r = await deliver(makeEvent('invoice.payment_failed', { id: 'in_bl103', object: 'invoice', status: 'open' }), mem, m1)
-        expect(r).toEqual({ ok: true, outcome: 'invoice_failed' })
+        const org = newOrgId()
+        mem.addOrg(org)
+        await deliver(checkoutSub(org, 'sub_f', 'monthly'), mem, m1)
+        expect(await deliver(invoiceFailed('sub_f'), mem, m1)).toEqual({ ok: true, outcome: 'invoice_failed' })
+        expect(mem.audit(AUDIT_INVOICE_PAYMENT_FAILED)).toHaveLength(1)
+        expect(mem.billing(org)).toEqual({ plan: 'monthly', stripe_sub_id: 'sub_f' })
+        expect(banner(mem, org)).toMatchObject({ reason: 'payment_failed' })
+      })
+
+      it('invoice.payment_failed for no known subscription is acknowledged and writes nothing', async () => {
+        const mem = createMemDb()
+        expect(await deliver(invoiceFailed(null), mem, m1)).toMatchObject({ ok: true, outcome: 'ignored' })
+        expect(await deliver(invoiceFailed('sub_nobody'), mem, m1)).toMatchObject({ ok: true, outcome: 'ignored' })
         expect(mem.writes()).toBe(0)
+      })
+
+      it('customer.subscription.updated past_due → banner; active → cleared', async () => {
+        const mem = createMemDb()
+        const org = newOrgId()
+        mem.addOrg(org)
+        const T = 1_790_000_000
+        await deliver(checkoutSub(org, 'sub_u', 'monthly', T), mem, m1)
+        expect(await deliver(subUpdated('sub_u', 'past_due', { created: T + 10 }), mem, m1)).toEqual({ ok: true, outcome: 'subscription_updated' })
+        expect(banner(mem, org)).toMatchObject({ reason: 'past_due' })
+        expect(mem.billing(org)).toEqual({ plan: 'monthly', stripe_sub_id: 'sub_u' })
+        await deliver(subUpdated('sub_u', 'active', { created: T + 20 }), mem, m1)
+        expect(banner(mem, org)).toBeNull()
+      })
+
+      it(`customer.subscription.updated plan switch ${m1 ? 'reaches orgs.plan' : 'is recorded only (needs 0064)'}; quantity syncs doors`, async () => {
+        const mem = createMemDb()
+        const org = newOrgId()
+        mem.addOrg(org, { doors_count: 41 })
+        const T = 1_790_000_000
+        await deliver(checkoutSub(org, 'sub_p', 'monthly', T), mem, m1)
+        await deliver(subUpdated('sub_p', 'active', { created: T + 10, lookupKey: 'hoa_per_door_annual', quantity: 180 }), mem, m1)
+        expect(mem.billing(org)).toEqual({ plan: m1 ? 'annual' : 'monthly', stripe_sub_id: 'sub_p' })
+        expect(mem.org(org)!.doors_count).toBe(180)
+        expect(mem.audit(AUDIT_SUBSCRIPTION_UPDATED)[0]!.metadata).toMatchObject({ plan: 'annual', quantity: 180, status: 'active' })
+      })
+
+      it('customer.subscription.updated canceled downgrades, like the deletion', async () => {
+        const mem = createMemDb()
+        const org = newOrgId()
+        mem.addOrg(org)
+        await deliver(checkoutSub(org, 'sub_c', 'monthly', 1_790_000_000), mem, m1)
+        expect(await deliver(subUpdated('sub_c', 'canceled', { created: 1_790_000_010 }), mem, m1)).toEqual({ ok: true, outcome: 'subscription_deleted' })
+        expect(mem.billing(org)).toEqual({ plan: 'free', stripe_sub_id: null })
+      })
+
+      it('customer.subscription.updated twice, or out of order, changes nothing more', async () => {
+        const mem = createMemDb()
+        const org = newOrgId()
+        mem.addOrg(org)
+        const T = 1_790_000_000
+        await deliver(checkoutSub(org, 'sub_o', 'monthly', T), mem, m1)
+        const recovered = subUpdated('sub_o', 'active', { created: T + 60 })
+        await deliver(recovered, mem, m1)
+        expect(await deliver(recovered, mem, m1)).toEqual({ ok: true, outcome: 'duplicate' })
+        expect(await deliver(subUpdated('sub_o', 'past_due', { created: T + 30 }), mem, m1)).toEqual({ ok: true, outcome: 'ignored', message: 'stale_event' })
+        expect(mem.audit(AUDIT_SUBSCRIPTION_UPDATED)).toHaveLength(1)
+        expect(banner(mem, org)).toBeNull()
       })
 
       it('unknown and unhandled events are ignored and write nothing', async () => {
         const mem = createMemDb()
-        for (const type of ['customer.created', 'invoice.paid', 'customer.subscription.updated', 'payment_intent.succeeded', 'made.up.event']) {
+        for (const type of ['customer.created', 'invoice.paid', 'payment_intent.succeeded', 'made.up.event']) {
           expect(await deliver(makeEvent(type, { id: 'obj_1' }), mem, m1)).toEqual({ ok: true, outcome: 'ignored', message: type })
         }
         expect(mem.writes()).toBe(0)
@@ -235,6 +318,20 @@ describe.skipIf(!RUN || !WEBHOOKS)('webhook handler with signed test payloads', 
       const r = await post(signEvent(stripe, checkoutSub(org, 'sub_p', 'monthly'), SECRET))
       expect(r).toEqual({ status: 500, body: { error: 'persist_failed' } })
       expect(mem.billing(org)).toEqual({ plan: 'free', stripe_sub_id: null })
+    })
+
+    it('a subscription update whose db call fails → 500 (not a silent 200), and the redelivery → 200', async () => {
+      const mem = createMemDb()
+      holder.db = mem.db
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const org = newOrgId()
+      mem.addOrg(org, { plan: 'monthly', stripe_sub_id: 'sub_w', stripe_customer_id: 'cus_bl103' })
+      const event = subUpdated('sub_w', 'past_due')
+      mem.failNextWrite('53300')
+      // The next db call is the org read: a failed read must be retried too.
+      expect((await post(signEvent(stripe, event, SECRET))).status).toBe(500)
+      expect(await post(signEvent(stripe, event, SECRET))).toEqual({ status: 200, body: { received: true, outcome: 'subscription_updated' } })
+      expect(mem.audit(AUDIT_SUBSCRIPTION_UPDATED)).toHaveLength(1)
     })
   })
 })
