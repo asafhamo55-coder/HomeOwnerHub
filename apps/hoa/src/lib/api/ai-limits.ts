@@ -26,9 +26,13 @@
 //     and the BL-102 compose box shares that bucket's org ceiling
 //     (BOARD_AI_POOL): 100/day on Essentials, 200/day on Complete;
 //   - per-user windows are unchanged.
-// Before PRICING_V2 every org is Complete at the band of its door count, so
-// no current customer drops to Essentials limits. A tier that can't be read
-// falls back to the base ceilings (fail open, like the ledger).
+// The multipliers apply only to orgs on the new Essentials / Complete plans
+// (and trials once PRICING_V2 is on). Every other org — all of them before
+// the flip, grandfathered $4.99/door subscriptions until renewal after it —
+// keeps today's per-feature limits exactly (aiTierFor returns null), plus the
+// new board_ai cap at the Complete level (200/day): added safety on routes
+// that had no limit, not a reduction. A tier that can't be read falls back
+// to the same base ceilings (fail open, like the ledger).
 
 import {
   bandFor,
@@ -202,15 +206,25 @@ export interface AiTier {
 }
 
 /**
- * The tier for an org. `plan` is orgs.plan as stored; `doors` its home
- * count. Before PRICING_V2: Complete at the door-count band. After: the
- * org's plan, and an org with no subscription is on the trial footing
- * (Essentials, 1–50).
+ * The tier for an org, or null for "today's limits". `plan` is orgs.plan
+ * as stored; `doors` its home count.
+ *
+ * No current customer loses capacity they pay for, so the band multipliers
+ * apply only to orgs on the new plans:
+ *   - before PRICING_V2: null for every org (today's per-feature limits; the
+ *     new board_ai cap applies at its base, the Complete level, 200/day);
+ *   - after: 'essentials' / 'complete' get their band; an org with no
+ *     subscription is on the trial footing (Essentials, 1–50); a
+ *     grandfathered $4.99/door subscription (isLegacyPlan) and any other
+ *     pre-flip value (pilot overrides) stay null until the renewal job moves
+ *     them to Complete (packages/billing/src/grandfathering.ts), which
+ *     rewrites orgs.plan through the webhook.
  */
-export function aiTierFor(org: { plan: string | null | undefined; doors: number }, pricingV2: boolean): AiTier {
-  const plan = effectivePlan(org.plan, pricingV2)
-  const band = onTrialFooting(org.plan, pricingV2) ? '1-50' : bandFor(org.doors).id
-  return { plan, band }
+export function aiTierFor(org: { plan: string | null | undefined; doors: number }, pricingV2: boolean): AiTier | null {
+  if (!pricingV2) return null
+  if (onTrialFooting(org.plan, pricingV2)) return { plan: 'essentials', band: '1-50' }
+  if (org.plan !== 'essentials' && org.plan !== 'complete') return null
+  return { plan: effectivePlan(org.plan, pricingV2), band: bandFor(org.doors).id }
 }
 
 /** The limits one org gets for one bucket. null tier = the base ceilings (fail open). */

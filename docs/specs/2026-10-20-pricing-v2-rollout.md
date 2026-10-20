@@ -6,9 +6,9 @@
 
 | Part | State | Where |
 |---|---|---|
-| Per-band AI ceilings (worst-case AI ≤ 30% of the band price) | **Live** | `apps/hoa/src/lib/api/ai-limits.ts` (`aiLimitFor`, `AI_BAND_MULTIPLIER`), tier read in `lib/api/rate-limit.ts` (`loadAiTier`) |
-| Shared board AI cap (100/day Essentials, 200/day Complete) on violation drafting (wizard, /inspect, analyze-violation), the daily digest, parse-document and suggest-fields, shared with the compose box | **Live** | `board_ai` bucket + `BOARD_AI_POOL` |
-| Existing orgs | **Live:** every org is Complete at the band of its door count (the larger of declared `doors_count` and homes on file) | `effectivePlan(…, false)` |
+| Shared board AI cap on the board-only routes that had no limit: violation drafting (wizard, /inspect, analyze-violation), the daily digest, parse-document and suggest-fields, shared with the compose box. 200/day for every org today (the Complete level) | **Live** | `board_ai` bucket + `BOARD_AI_POOL` in `apps/hoa/src/lib/api/ai-limits.ts` |
+| Existing orgs | **Live:** today's per-feature limits, unchanged. No current customer loses capacity | `aiTierFor` returns `null` = the base ceilings |
+| Per-band AI ceilings (worst-case AI ≤ 30% of the band price) for orgs on the new plans; board cap 100/day on Essentials | **Code ready, applies only after `PRICING_V2`**, and only to `essentials` / `complete` orgs and trials | `aiLimitFor`, `AI_BAND_MULTIPLIER`, tier read in `lib/api/rate-limit.ts` (`loadAiTier`) |
 | Essentials / Complete band prices, Stripe tier params, checkout, entitlements, grandfathering, Settings → Billing copy, marketing copy | **Behind `PRICING_V2` (off)** | `packages/billing/src/{pricing-v2,checkout-v2,entitlements,grandfathering}.ts`, `apps/hoa/src/lib/billing.ts`, `settings/billing/*`, `apps/marketing/src/lib/hoa-pricing.ts` |
 
 With the flag off, checkout, Settings → Billing and the marketing site charge and show $4.99/door exactly as before.
@@ -19,7 +19,14 @@ With the flag off, checkout, Settings → Billing and the marketing site charge 
 
 ### AI ceilings in numbers
 
-`perOrg.limit = max(5, round(base × multiplier))`. Base = today's ceilings. Per-user windows are unchanged.
+**Who gets which limits:**
+- **Before the flip, every org:** today's per-feature limits exactly, plus the new `board_ai` cap at 200/day. The tier isn't even read.
+- **After the flip, grandfathered $4.99/door orgs** (`monthly`, `annual`, `legacy_per_door`) **and any other pre-flip plan value** (such as `pilot`): the same, until renewal moves them to `complete` (`grandfathering.ts`; the webhook rewrites `orgs.plan`).
+- **After the flip, `essentials` / `complete` orgs:** the band multipliers below. Orgs with no subscription are on the trial footing: Essentials, 1–50.
+
+`ai-limits.test.ts` pins every bucket's legacy limits to today's literal values.
+
+For new-plan orgs, `perOrg.limit = max(5, round(base × multiplier))`. Base = today's ceilings. Per-user windows are unchanged.
 
 | Band | Essentials | Complete |
 |---|---:|---:|
@@ -30,9 +37,9 @@ With the flag off, checkout, Settings → Billing and the marketing site charge 
 
 Complete 101–200 is 0.54, not the record's 0.55: at 0.55 the worst case is $68.76, six cents over 30% of $229. `ai-limits.test.ts` checks the ≤30% rule at every door count from 1 to 2,000 for both plans.
 
-What changes for current orgs today (Complete): a 40-door org's `ask_docs` ceiling goes from 500 to 100 a day, `resident_assistant` from 600 to 120. Realistic use is ~150 document questions a **month** (research §3.1), so no board should meet these.
+Example for a new-plan org: Complete at 40 doors gets 100 doc questions and 120 assistant messages a day. Realistic use is ~150 document questions a **month** (research §3.1). Legacy orgs keep 500 and 600 until renewal.
 
-**Not capped, flagged for a decision amendment:** `meeting-summary` and `ask-community` (the board Copilot) are board-only AI routes the decision record does not list. Their per-call cost is higher than the $0.0009 the board cap is priced at (long transcripts; a multi-step tool loop), so putting them in the 100/200 pool would break the 30% check at the 1–50 band. They stay unlimited until the record says how to price them.
+**Not capped, pending a decision amendment (coordinator to log it):** `meeting-summary` and `ask-community` (the board Copilot) are board-only AI routes the decision record does not list. Their per-call cost is higher than the $0.0009 the board cap is priced at (long transcripts; a multi-step tool loop), so putting them in the 100/200 pool would break the 30% check at the 1–50 band. They stay unlimited until the record says how to price them.
 
 ## Stripe objects to create (at the cut-over, not before)
 
@@ -72,7 +79,7 @@ Set both constants back to `false` and redeploy. New subscriptions already on th
 
 ## Grandfathering (decision §5)
 
-`packages/billing/src/grandfathering.ts`. A legacy subscription (`plan` = `monthly`, `annual` or `legacy_per_door`) keeps its $4.99/door Price until renewal: the end of the 12-month commitment for monthly subscribers (or the next invoice once past it), or the end of the paid year for annual. At renewal it moves to Complete at its band with `proration_behavior: 'none'`; the board is told 30 days before. Checkout refuses a legacy subscriber (`reason: 'grandfathered'`), and Settings → Billing shows the kept price and the price they will move to. Legacy subscribers get Complete entitlements and limits throughout.
+`packages/billing/src/grandfathering.ts`. A legacy subscription (`plan` = `monthly`, `annual` or `legacy_per_door`) keeps its $4.99/door Price until renewal: the end of the 12-month commitment for monthly subscribers (or the next invoice once past it), or the end of the paid year for annual. At renewal it moves to Complete at its band with `proration_behavior: 'none'`; the board is told 30 days before. Checkout refuses a legacy subscriber (`reason: 'grandfathered'`), and Settings → Billing shows the kept price and the price they will move to. Until renewal, legacy subscribers get Complete entitlements and today's AI limits, with the board cap at 200/day.
 
 ## Not in this change (still BL-104)
 

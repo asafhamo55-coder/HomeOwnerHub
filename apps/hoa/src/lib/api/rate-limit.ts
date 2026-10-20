@@ -159,10 +159,12 @@ async function limitThNewest(
 /**
  * BL-104: the plan and band an org's AI ceilings come from. Doors = the
  * larger of the declared doors_count and the homes on file, so an org is
- * never put in a smaller band than either says. null when orgs can't be
- * read (the caller then uses the base ceilings: fail open).
+ * never put in a smaller band than either says. null = today's limits:
+ * every org before PRICING_V2 (no read at all), grandfathered and pre-flip
+ * orgs after it (aiTierFor), or an orgs row that can't be read (fail open).
  */
 export async function loadAiTier(db: Db, orgId: string, pricingV2: boolean = PRICING_V2): Promise<AiTier | null> {
+  if (!pricingV2) return null
   const [orgRes, countRes] = await Promise.all([
     db.from('orgs').select('plan, doors_count').eq('id', orgId).maybeSingle(),
     db.from('hoa_properties').select('id', { count: 'exact', head: true }).eq('org_id', orgId),

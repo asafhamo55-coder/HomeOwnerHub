@@ -81,18 +81,52 @@ describe('aiLimitFor', () => {
 })
 
 describe('aiTierFor', () => {
-  it('before PRICING_V2: every org is Complete at its door band, whatever orgs.plan says', () => {
-    expect(aiTierFor({ plan: 'free', doors: 40 }, false)).toEqual({ plan: 'complete', band: '1-50' })
-    expect(aiTierFor({ plan: 'monthly', doors: 180 }, false)).toEqual({ plan: 'complete', band: '101-200' })
-    expect(aiTierFor({ plan: 'essentials', doors: 450 }, false)).toEqual({ plan: 'complete', band: '401+' })
-    expect(aiTierFor({ plan: 'free', doors: 0 }, false)).toEqual({ plan: 'complete', band: '1-50' })
+  it('before PRICING_V2: null for every org (today’s limits), whatever orgs.plan says', () => {
+    for (const plan of ['free', 'monthly', 'annual', 'essentials', 'complete', 'pilot', null]) {
+      for (const doors of [0, 40, 180, 450]) expect(aiTierFor({ plan, doors }, false)).toBeNull()
+    }
   })
 
-  it('after PRICING_V2: the plan decides; no subscription = trial footing (Essentials 1–50)', () => {
+  it('after PRICING_V2: new plans get their band; no subscription = trial footing (Essentials 1–50)', () => {
     expect(aiTierFor({ plan: 'essentials', doors: 180 }, true)).toEqual({ plan: 'essentials', band: '101-200' })
     expect(aiTierFor({ plan: 'complete', doors: 60 }, true)).toEqual({ plan: 'complete', band: '51-100' })
-    expect(aiTierFor({ plan: 'annual', doors: 300 }, true)).toEqual({ plan: 'complete', band: '201-400' })
     expect(aiTierFor({ plan: 'free', doors: 300 }, true)).toEqual({ plan: 'essentials', band: '1-50' })
-    expect(aiTierFor({ plan: 'pilot', doors: 300 }, true)).toEqual({ plan: 'complete', band: '201-400' })
+  })
+
+  it('after PRICING_V2: grandfathered $4.99/door and other pre-flip orgs keep today’s limits until renewal', () => {
+    for (const plan of ['monthly', 'annual', 'legacy_per_door', 'pilot', 'pro']) {
+      expect(aiTierFor({ plan, doors: 300 }, true)).toBeNull()
+    }
+  })
+})
+
+describe('legacy and pre-flip orgs: limits equal today’s values exactly', () => {
+  // Pinned literally: the BL-078 / BL-096 / BL-101 / BL-102 numbers as they
+  // stood before BL-104. A null tier must return every one unchanged.
+  const TODAY: Record<Exclude<AiUsageBucket, 'board_ai'>, { perUser: number; perOrg: number; perUserDaily?: number }> = {
+    arc_precheck: { perUser: 10, perOrg: 200 },
+    ask_docs: { perUser: 30, perOrg: 500 },
+    help_ask: { perUser: 30, perOrg: 500 },
+    rewrite: { perUser: 30, perOrg: 500 },
+    translate: { perUser: 20, perOrg: 200 },
+    compose: { perUser: 20, perOrg: 200 },
+    follow_up_letter: { perUser: 30, perOrg: 300 },
+    resident_assistant: { perUser: 20, perOrg: 600, perUserDaily: 100 },
+    inbox_autodraft: { perUser: 60, perOrg: 300 },
+  }
+
+  it.each(Object.entries(TODAY))('%s', (bucket, want) => {
+    const pre = aiLimitFor(bucket as AiUsageBucket, aiTierFor({ plan: 'monthly', doors: 40 }, false))
+    const post = aiLimitFor(bucket as AiUsageBucket, aiTierFor({ plan: 'monthly', doors: 40 }, true))
+    for (const cfg of [pre, post]) {
+      expect(cfg.perUser.limit).toBe(want.perUser)
+      expect(cfg.perOrg.limit).toBe(want.perOrg)
+      expect(cfg.perUserDaily?.limit).toBe(want.perUserDaily)
+    }
+  })
+
+  it('the new board_ai cap (previously unlimited routes) is at the Complete level, 200/day', () => {
+    expect(aiLimitFor('board_ai', aiTierFor({ plan: 'annual', doors: 40 }, true)).perOrg.limit).toBe(BOARD_AI_DAILY.complete)
+    expect(aiLimitFor('board_ai', aiTierFor({ plan: 'free', doors: 40 }, false)).perOrg.limit).toBe(200)
   })
 })
