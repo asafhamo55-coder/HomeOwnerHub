@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { signArcClockSettings, withArcClockSettings } from '../../../apps/hoa/src/lib/arc-review/clock'
+import { signComplianceAck, withComplianceAck } from '../../../apps/hoa/src/lib/compliance/deadlines'
 const recordsFlag = vi.hoisted(() => ({ live: false }))
 vi.mock('@homeowner-portal/db/records-requests', () => ({
   get RECORDS_REQUESTS_LIVE() {
@@ -10,8 +11,10 @@ vi.mock('@homeowner-portal/db/records-requests', () => ({
 import {
   BOARD_ROLES,
   buildArcBlock,
+  buildComplianceBlock,
   buildMailboxAlert,
   loadArcDeadlines,
+  loadComplianceDeadlines,
   runDailyDigest,
   type DailyDigestDeps,
 } from './daily-digest'
@@ -643,5 +646,125 @@ describe('runDailyDigest — owner records requests (BL-123)', () => {
     await runDailyDigest(db, d, log)
     expect(d.sendEmail).not.toHaveBeenCalled()
     expect(log.error).toHaveBeenCalledWith(expect.stringContaining('failed to load records-request deadlines'), { code: '42703' })
+  })
+})
+
+describe('runDailyDigest — statutory deadlines (BL-131)', () => {
+  const GA = '11111111-1111-4111-8111-111111111111'
+  const SECRET = 'digest-test-secret'
+  const gaRow = (compliance_settings: unknown = {}) => ({
+    id: GA,
+    name: 'Peachtree Commons',
+    state: 'GA',
+    governing_law_state: null,
+    compliance_settings,
+  })
+
+  it('loads a countdown line for a GA association inside the window', async () => {
+    const { db, calls } = fakeDb({ associations: { data: [gaRow()], error: null } })
+    const items = await loadComplianceDeadlines(db as never, ORG, '2026-10-20', logger(), SECRET)
+    expect(items!.map((i) => [i.deadline.code, i.daysLeft])).toEqual([['ga-sos-registration-2027', 73]])
+    expect(calls).toContainEqual({ table: 'associations', method: 'eq', args: ['organization_id', ORG] })
+  })
+
+  it('nothing for a non-GA association, outside the window, or once marked done with a valid signature', async () => {
+    const run = async (row: unknown, today = '2026-10-20') =>
+      loadComplianceDeadlines(fakeDb({ associations: { data: [row], error: null } }).db as never, ORG, today, logger(), SECRET)
+    expect(await run({ ...gaRow(), state: 'FL' })).toEqual([])
+    expect(await run({ ...gaRow(), state: 'TX' })).toEqual([]) // TX's standing obligation stays on the dashboard only
+    expect(await run(gaRow(), '2026-09-01')).toEqual([])
+    const done = withComplianceAck(
+      {},
+      'ga-sos-registration-2027',
+      signComplianceAck(GA, 'ga-sos-registration-2027', { doneAt: '2026-10-20T12:00:00Z', doneBy: 'u-board' }, SECRET),
+    )
+    expect(await run(gaRow(done))).toEqual([])
+    // Same value checked with another secret: not verified, so the line stays.
+    const other = await loadComplianceDeadlines(
+      fakeDb({ associations: { data: [gaRow(done)], error: null } }).db as never,
+      ORG,
+      '2026-10-20',
+      logger(),
+      'other-secret',
+    )
+    expect(other).toHaveLength(1)
+  })
+
+  it('a failed read is logged by code and returns null, not "nothing due"', async () => {
+    const log = logger()
+    const res = await loadComplianceDeadlines(
+      fakeDb({ associations: { data: null, error: { code: '42501' } } }).db as never,
+      ORG,
+      '2026-10-20',
+      log,
+      SECRET,
+    )
+    expect(res).toBeNull()
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining('failed to load compliance deadlines'), { code: '42501' })
+  })
+
+  it('the block carries the countdown, the consequence, the official link and the dashboard link', async () => {
+    const items = await loadComplianceDeadlines(
+      fakeDb({ associations: { data: [gaRow()], error: null } }).db as never,
+      ORG,
+      '2026-10-20',
+      logger(),
+      SECRET,
+    )
+    const block = buildComplianceBlock({ items: items!, dashboardUrl: 'https://app.test/#compliance-deadlines' })
+    expect(block.lines).toEqual([
+      'Peachtree Commons: Register with the Georgia Secretary of State — takes effect in 73 days (Jan 1, 2027). O.C.G.A. § 43-17A-2 (Ga. L. 2026, SB 406 (Act 715) § 2; effective Jan 1, 2027, § 9(a)).',
+    ])
+    expect(block.text).toContain('may not collect fines or fees, file or record liens, or start foreclosure')
+    expect(block.text).toContain('https://sos.ga.gov/georgia-property-owners-associations-division')
+    expect(block.text).toContain('https://app.test/#compliance-deadlines')
+    expect(block.html).toContain('What to do, and mark it done')
+    expect(block.html).toContain('href="https://sos.ga.gov/georgia-property-owners-associations-division"')
+  })
+
+  it('emails board members only, with the line, and logs codes and counts, never the association name', async () => {
+    vi.stubEnv('PAY_SETTINGS_SECRET', SECRET)
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-20T11:00:00Z'))
+    try {
+      const { db } = fakeDb({ associations: { data: [gaRow()], error: null } })
+      const d = deps()
+      const log = logger()
+      const result = await runDailyDigest(db, d, log)
+      expect(result).toMatchObject({ complianceDeadlines: 1, emailed: 2 })
+      const recipients = d.sendEmail.mock.calls.map((c) => c[0].to).sort()
+      expect(recipients).toEqual([ADMIN_EMAIL, BOARD_EMAIL].sort())
+      const mail = d.sendEmail.mock.calls[0]![0]
+      expect(mail.subject).toBe(
+        'Register with the Georgia Secretary of State: Takes effect in 73 days (Jan 1, 2027) — Maple Creek HOA',
+      )
+      expect(mail.text).toContain('takes effect in 73 days (Jan 1, 2027)')
+      expect(mail.html).toContain('What to do, and mark it done')
+      const everything = JSON.stringify([log.info.mock.calls, log.warn.mock.calls, log.error.mock.calls])
+      expect(everything).toContain('ga-sos-registration-2027')
+      expect(everything).not.toContain('Peachtree')
+      expect(everything).not.toContain('@')
+    } finally {
+      vi.useRealTimers()
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('a GA association marked done gets no email from this alone', async () => {
+    vi.stubEnv('PAY_SETTINGS_SECRET', SECRET)
+    try {
+      const done = withComplianceAck(
+        {},
+        'ga-sos-registration-2027',
+        signComplianceAck(GA, 'ga-sos-registration-2027', { doneAt: '2026-10-20T12:00:00Z', doneBy: null }, SECRET),
+      )
+      const { db } = fakeDb({ associations: { data: [gaRow(done)], error: null } })
+      const d = deps()
+      const result = await runDailyDigest(db, d, logger())
+      expect(d.sendEmail).not.toHaveBeenCalled()
+      expect(result).toMatchObject({ complianceDeadlines: 0 })
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 })

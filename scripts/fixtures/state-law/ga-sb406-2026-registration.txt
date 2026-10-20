@@ -1,0 +1,47 @@
+# Ga. L. 2026, SB 406 (Act 715), "Georgia Property Owners' Bill of Rights Act" — the owners' association
+# registration provisions (new O.C.G.A. Title 43, Chapter 17A) and the Act's effective-date section.
+#
+# Source (official, General Assembly of Georgia): SB 406 as passed, LC 49 2879S —
+#   https://www.legis.ga.gov/api/legislation/document/20252026/248665
+#   sha256 of the PDF retrieved: d78c9f19ddf03b2e707846ff7bb637e8d9a890c76f7711e3c520fcc3e0e81869
+#   (the same document scripts/fixtures/state-law/ga-ocga-44-3-art6-2026.txt cites for § 7)
+# Retrieved 2026-10-20. PDF reduced to text: line numbers, page headers and footers removed; underlining (new
+# matter) dropped. Wording is verbatim. Signed 2026-05-12 as Act 715 (legis.ga.gov status page).
+#
+# Where to register: the Georgia Secretary of State's Property Owners' Associations Division,
+#   https://sos.ga.gov/georgia-property-owners-associations-division
+#   That page (and its FAQ, https://sos.ga.gov/page/georgia-property-owners-associations-division-faq) is behind a
+#   browser challenge and could not be fetched programmatically on 2026-10-20. Its search-indexed text says owners'
+#   associations "can register on or after January 1, 2027", via an online portal, with more information "closer to the
+#   effective date". That statement is NOT statute and is not relied on below except to tell the board where to look.
+#
+# Chapter 17A is not yet placed in the published Code; it is cited as "O.C.G.A. § 43-17A-2 (Ga. L. 2026, SB 406 § 2)".
+# A board should confirm the current requirement with the Secretary of State and its attorney.
+# Public domain (state legislative document). Used by apps/hoa/src/lib/compliance/deadlines.ts and its test.
+
+=== SB 406 (as passed), title (opening)
+To amend Title 43 of the Official Code of Georgia Annotated, relating to professions and businesses, so as to require the registration of owners' associations; to provide for an exception; to provide for renewals and amendments; to provide for fees;
+
+=== SECTION 1.
+This Act shall be known and may be cited as the "Georgia Property Owners' Bill of Rights Act."
+
+=== SECTION 2. (new O.C.G.A. § 43-17A-1, paragraphs (4) and (6))
+(4) 'Nonregistered owners' association' means an owners' association that elects not to register with the Secretary of State pursuant to subparagraph (a)(2)(B) of Code Section 43-17A-2.
+(6) 'Owners' association' means a nongovernmental association of participating owners of residential property in a delineated geographic area in which recorded covenants apply to such delineated geographic area, comprising a neighborhood, condominium development, common interest community, as such term is defined in Code Section 44-16-2, or group of homeowners or property owners, including, but not limited to, associations formed pursuant to Articles 3 and 6 of Chapter 3 of Title 44 and; provided, however, that such term shall not include nonregistered owners' associations.
+
+=== SECTION 2. (new O.C.G.A. § 43-17A-2, subsections (a) through (e))
+(a)(1) No person shall operate an owners' association in this state unless such person is registered under this chapter as an owners' association.
+(2)(A) Subject to subparagraph (B) of this paragraph, no owners' association or its agent shall collect fines or fees against any owner, or file or record liens or initiate foreclosure proceedings against any lot unless such owners' association is registered pursuant to this Code section.
+(B)(i) An entity that would otherwise constitute an owners' association may by written notice to the Secretary of State elect not to register under this chapter as an owners' association or otherwise to comply with this chapter and thereby shall be deemed a nonregistered owners' association.
+(ii) No nonregistered owners' association or its agent shall assess or collect fines or fees or accelerated assessments against any owner.
+(3) Each owners' association shall file with the Secretary of State a copy of the governing documents of the owners' association with a registration statement on a form as prescribed by the Secretary of State that shall be signed by the applicant, who shall be an authorized officer or representative of the owners' association. Such form shall, at a minimum, require:
+(A) The name, address, and officers of the owners' association; and
+(B) That each registration statement include a financial statement of the owners' association dated no more than one year prior to filing.
+(b) Upon the Secretary of State's determination of an owners' association's compliance with subsection (a) of this Code section and unless the Secretary of State finds grounds for denial pursuant to Code Section 43-17A-3, the Secretary of State shall register such owners' association. The owners' association shall be authorized to operate immediately upon the filing of the registration statement under paragraph (3) of subsection (a) of this Code section, unless and until the Secretary of State finds grounds for denial pursuant to Code Section 43-17A-3. The date of such filing shall constitute the effective date of the registration statement. The Secretary of State shall immediately notify the owners' association of such registration.
+(c) Each registration statement issued pursuant to this Code section shall expire on December 31 of each year and each owners' association shall annually submit to the Secretary of State by such date a renewal application containing the information required for a registration statement in subsection (a) of this Code section.
+(d) In the event of a change in name, address, officers, or other change which materially affects the business and control of an owners' association, the owners' association shall within 30 days file an amended registration statement with the Secretary of State.
+(e) The fee for filing of an owners' association's initial registration statement and each annual renewal shall be $100.00.
+
+=== SECTION 9.
+(a) Except as provided in subsection (b) of this section, this Act shall become effective on January 1, 2027.
+(b) Section 7 of this Act shall become effective on July 1, 2026, and shall apply to all actions filed on or after such date.

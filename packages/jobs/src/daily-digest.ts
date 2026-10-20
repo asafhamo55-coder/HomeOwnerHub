@@ -31,6 +31,15 @@ import {
   RECORDS_DUE_SOON_DAYS,
   recordsDigestCounts,
 } from '../../../apps/hoa/src/lib/records-requests/law'
+// BL-131 stopgap: statutory deadlines (GA registration). Same dependency-free,
+// relative-path rule.
+import {
+  complianceAckSecret,
+  complianceDigestItems,
+  complianceDigestLine,
+  pendingComplianceItems,
+  type PendingComplianceItem,
+} from '../../../apps/hoa/src/lib/compliance/deadlines'
 
 /**
  * Morning health check across every active HOA org, 7am Eastern.
@@ -79,6 +88,12 @@ import {
  * due day or due within 3 days, linking to /tickets/records. Counts only,
  * board members only, and only once RECORDS_REQUESTS_LIVE is on (before
  * that the tickets table is not even queried for them).
+ *
+ * BL-131 (stopgap): and, for an association in a state with a fixed
+ * statutory deadline (today: Georgia's Secretary of State registration,
+ * in force 2027-01-01), a countdown line within 90 days of the date or once
+ * it has passed, until a board member marks it done on the dashboard.
+ * Board members only; logs carry counts only.
  *
  * The Inngest function id stays 'daily-digest' deliberately. Changing an
  * id registers a NEW function and leaves the old one scheduled, so the
@@ -140,6 +155,8 @@ export interface DailyDigestResult {
   recordsOverdue: number
   /** Open records requests due within RECORDS_DUE_SOON_DAYS, summed across orgs. */
   recordsDueSoon: number
+  /** Statutory deadline lines included, summed across orgs (BL-131). */
+  complianceDeadlines: number
   emailed: number
   failed: number
 }
@@ -471,6 +488,83 @@ export function buildRecordsBlock(args: { overdue: number; dueSoon: number; reco
   return { lines, text, html }
 }
 
+// ─── Statutory deadlines (BL-131 stopgap) ──────────────────────────
+
+/**
+ * The digest's statutory-deadline items for one org: each association's
+ * applicable deadlines (by state) not marked done with a verified
+ * acknowledgment, dated, and within the digest window. null on a failed
+ * read (logged by code) so a failure never reads as "nothing is due".
+ */
+export async function loadComplianceDeadlines(
+  db: Db,
+  orgId: string,
+  today: string,
+  logger: DigestLogger,
+  secret: string | null = complianceAckSecret(),
+): Promise<PendingComplianceItem[] | null> {
+  const { data, error } = await db
+    .from('associations')
+    .select('id, name, state, governing_law_state, compliance_settings')
+    .eq('organization_id', orgId)
+  if (error) {
+    logger.error(`[daily-digest] ${orgId}: failed to load compliance deadlines`, { code: error.code })
+    return null
+  }
+  const rows = (data ?? []) as Array<{
+    id?: string
+    name?: string | null
+    state?: string | null
+    governing_law_state?: string | null
+    compliance_settings?: unknown
+  }>
+  return complianceDigestItems(
+    pendingComplianceItems(
+      rows
+        .filter((r): r is typeof r & { id: string } => typeof r.id === 'string')
+        .map((r) => ({
+          id: r.id,
+          name: r.name?.trim() || 'Your association',
+          state: r.state ?? null,
+          governingLawState: r.governing_law_state ?? null,
+          complianceSettings: r.compliance_settings,
+        })),
+      today,
+      secret,
+    ),
+  )
+}
+
+/** The deadlines block: one line per item, what's at stake, the official link, and the dashboard link to mark it done. */
+export function buildComplianceBlock(args: { items: PendingComplianceItem[]; dashboardUrl: string }): {
+  lines: string[]
+  text: string
+  html: string
+} {
+  const lines = args.items.map(complianceDigestLine)
+  const text = args.items
+    .flatMap((item, i) => [
+      lines[i]!,
+      item.deadline.consequence,
+      `Official information: ${item.deadline.officialUrl}`,
+    ])
+    .concat([`What to do, and mark it done: ${args.dashboardUrl}`])
+    .join('\n')
+  const border = args.items.some((i) => i.tone === 'overdue') ? '#b91c1c' : '#b45309'
+  const html = `
+  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+    ${args.items
+      .map(
+        (item, i) => `<p style="margin:0 0 4px;font-weight:600">${escapeHtml(lines[i]!)}</p>
+    <p style="margin:0 0 4px">${escapeHtml(item.deadline.consequence)}</p>
+    <p style="margin:0 0 12px"><a href="${escapeHtml(item.deadline.officialUrl)}">${escapeHtml(item.deadline.officialLabel)}</a></p>`,
+      )
+      .join('')}
+    <a href="${escapeHtml(args.dashboardUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">What to do, and mark it done</a>
+  </div>`
+  return { lines, text, html }
+}
+
 /**
  * One recipient's morning email: the mailbox alert when a mailbox is
  * broken, the waiting block when residents are waiting, or both.
@@ -486,6 +580,8 @@ export function buildDigestEmail(args: {
   tasks?: { overdue: number; dueSoon: number; tasksUrl: string } | null
   /** BL-123 (3): records-request deadlines. Omitted or all-zero adds nothing. */
   records?: { overdue: number; dueSoon: number; recordsUrl: string } | null
+  /** BL-131: statutory deadlines. Omitted or empty adds nothing. */
+  compliance?: { items: PendingComplianceItem[]; dashboardUrl: string } | null
 }): { subject: string; html: string; text: string } {
   const block = args.waiting && args.waiting.total > 0 ? buildWaitingBlock(args.waiting) : null
   const arcBlock = args.arc && (args.arc.overdue > 0 || args.arc.dueSoon > 0) ? buildArcBlock(args.arc) : null
@@ -498,6 +594,9 @@ export function buildDigestEmail(args: {
   const recordsBlock =
     args.records && (args.records.overdue > 0 || args.records.dueSoon > 0) ? buildRecordsBlock(args.records) : null
   if (recordsBlock) extras.push(recordsBlock)
+  const complianceBlock =
+    args.compliance && args.compliance.items.length > 0 ? buildComplianceBlock(args.compliance) : null
+  if (complianceBlock) extras.push(complianceBlock)
   if (args.mailboxes.length > 0) {
     const alert = buildMailboxAlert(args)
     if (extras.length === 0) return alert
@@ -516,8 +615,11 @@ export function buildDigestEmail(args: {
   const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:14px;line-height:1.5;color:#111827">
   <p>Good morning. This is your daily check from HomeownerHub for ${escapeHtml(args.orgName)}.</p>${extras.map((b) => b.html).join('')}
 </div>`
+  const firstDeadline = args.compliance?.items[0]
   const subject = block
     ? `${who} waiting for a reply — ${args.orgName}`
+    : !arcBlock && !taskBlock && !recordsBlock && complianceBlock && firstDeadline
+      ? `${firstDeadline.deadline.title}: ${firstDeadline.label} — ${args.orgName}`
     : !arcBlock && !taskBlock && recordsBlock
       ? args.records!.overdue > 0
         ? `${recordsCount(args.records!.overdue)} past the statutory deadline — ${args.orgName}`
@@ -634,6 +736,7 @@ export async function runDailyDigest(
   let tasksDueSoonTotal = 0
   let recordsOverdueTotal = 0
   let recordsDueSoonTotal = 0
+  let complianceTotal = 0
   let emailed = 0
   let failed = 0
   const now = Date.now()
@@ -718,8 +821,26 @@ export async function runDailyDigest(
     recordsOverdueTotal += recordsOverdue
     recordsDueSoonTotal += recordsDueSoon
 
+    // BL-131: statutory deadlines, against the job's own day (7am Eastern).
+    let compliance: PendingComplianceItem[] | null = null
+    try {
+      compliance = await loadComplianceDeadlines(db, orgId, todayIn(DEFAULT_ASSOCIATION_TIME_ZONE, new Date(now)), logger)
+    } catch (err) {
+      logger.error(`[daily-digest] ${orgId}: compliance deadline check failed`, {
+        message: err instanceof Error ? err.name : 'unknown',
+      })
+    }
+    const complianceCount = compliance?.length ?? 0
+    complianceTotal += complianceCount
+
     const orgWide =
-      broken.length > 0 || waitingCount > 0 || arcOverdue > 0 || arcDueSoon > 0 || recordsOverdue > 0 || recordsDueSoon > 0
+      broken.length > 0 ||
+      waitingCount > 0 ||
+      arcOverdue > 0 ||
+      arcDueSoon > 0 ||
+      recordsOverdue > 0 ||
+      recordsDueSoon > 0 ||
+      complianceCount > 0
 
     if (!orgWide && orgTasksOverdue === 0 && orgTasksDueSoon === 0) continue
     if (orgTasksOverdue > 0 || orgTasksDueSoon > 0) {
@@ -737,6 +858,13 @@ export async function runDailyDigest(
     if (recordsOverdue > 0 || recordsDueSoon > 0) {
       // Counts only, never which request or who asked.
       logger.info(`[daily-digest] ${orgId}: ${recordsOverdue} records request(s) overdue, ${recordsDueSoon} due soon`)
+    }
+
+    if (complianceCount > 0) {
+      // Codes and a count only, never association names.
+      logger.info(
+        `[daily-digest] ${orgId}: ${complianceCount} statutory deadline(s) pending (${[...new Set(compliance!.map((c) => c.deadline.code))].join(', ')})`,
+      )
     }
 
     for (const mailbox of broken) {
@@ -782,6 +910,7 @@ export async function runDailyDigest(
             recordsOverdue > 0 || recordsDueSoon > 0
               ? { overdue: recordsOverdue, dueSoon: recordsDueSoon, recordsUrl: deps.appUrl('/tickets/records') }
               : null,
+          compliance: complianceCount > 0 ? { items: compliance!, dashboardUrl: deps.appUrl('/#compliance-deadlines') } : null,
         })
         try {
           const res = await deps.sendEmail({ to, ...alert }, outbound)
@@ -814,6 +943,7 @@ export async function runDailyDigest(
     tasksDueSoon: tasksDueSoonTotal,
     recordsOverdue: recordsOverdueTotal,
     recordsDueSoon: recordsDueSoonTotal,
+    complianceDeadlines: complianceTotal,
     emailed,
     failed,
   }
